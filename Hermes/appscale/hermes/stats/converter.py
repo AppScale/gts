@@ -1,21 +1,29 @@
+"""
+This module holds functionality related to conversion of stats entities
+to dictionaries (JSON serializable) and lists (CSV rows).
+It also provides function for building stats entities from dictionaries.
+"""
 import attr
 import collections
-
-import itertools
 
 from appscale.hermes.stats.constants import MISSED
 
 
 class WrongIncludeLists(ValueError):
+  """ Is raised when unknown fields are passed to IncludeLists.__init__ """
   pass
 
 
 class ConflictingIncludeListName(ValueError):
+  """ Is raised is a name is used twice with @include_list_name decorator """
   pass
 
 
 def include_list_name(name):
-  """ # TODO """
+  """ Class decorator. It is used for stats model classes.
+  Decorated class will be registered to IncludeLists, so when you
+  convert your stats model to dict and list you'll be able to specify
+  list of fields to include."""
   def decorator(cls):
     if not attr.has(cls):
       raise attr.exceptions.NotAnAttrsClassError(
@@ -28,13 +36,32 @@ def include_list_name(name):
 
 
 class Meta(object):
+  """
+  Constants used as metadata keys for attr.ib().
+  E.g.: processes_stats = attr.ib(metadata={Meta.NESTED_LIST: ProcessStats})
+  """
   ENTITY = 'entity'
   ENTITY_DICT = 'dict'
   ENTITY_LIST = 'list'
 
 
 class IncludeLists(object):
-  """ # TODO """
+  """
+  An instance of this class can list attributes which should be included
+  when rendering stats entity.
+  It knows all available attributes for each class decorated by
+  @include_list_name(name).
+  An instance of IncludeLists can be created from dictionary like:
+  {
+    'process': ['monit_name', 'unified_service_name', 'application_id',
+                'port', 'cpu', 'memory', 'children_stats_sum'],
+    'process.cpu': ['user', 'system', 'percent'],
+    'process.memory': ['resident', 'virtual', 'unique'],
+    'process.children_stats_sum': ['cpu', 'memory'],
+  }
+  Here keys are names specified in @include_list_name(name) decorator,
+  and values are lists of field names.
+  """
 
   # Dictionary with known include lists
   # Key is name specified in decorator @include_list_name(name)
@@ -44,16 +71,26 @@ class IncludeLists(object):
 
   @classmethod
   def register(cls, list_name, entity_class):
+    """ Class method which is used by include_list_name decorator when
+    new class is decorated with this. It saves all available attributes
+    for the entity_class to all_attributes dict.
+
+    Args:
+      list_name: a string representing name of include list
+      entity_class: @attr.s decorated class
+    """
     cls.all_attributes[list_name] = collections.OrderedDict(
       (att, None) for att in attr.fields(entity_class)
     )
 
   def __init__(self, include_lists):
-    """ Validates include lists and copies it to own data structures
+    """ Validates include lists and copies it to own data structures.
 
     Args:
       include_lists: a dict where key is a name of include list,
                      value is a list of fields to include
+    Raises:
+      WrongIncludeLists if unknown field or unknown include list was found
     """
     self._lists = {}
     self._original_dict = include_lists
@@ -82,6 +119,15 @@ class IncludeLists(object):
           )
 
   def get_included_attrs(self, stats_entity_class):
+    """ Checks if there is any include list specified for stats_entity_class
+    and if none was found - returns all available attributes for the class,
+    otherwise returns only specified in include list.
+
+    Args:
+      stats_entity_class: @attr.s decorated class, stats model
+    Returns:
+      a list of attr.Attribute instances which should be included
+    """
     try:
       return self._lists[stats_entity_class._include_list_name]
     except KeyError:
@@ -91,9 +137,8 @@ class IncludeLists(object):
       # This stats entity class wasn't decorated with @include_list_name
       return attr.fields(stats_entity_class)
 
-  def to_dict(self):
+  def asdict(self):
     return self._original_dict
-
 
 
 def stats_to_dict(stats, include_lists=None):

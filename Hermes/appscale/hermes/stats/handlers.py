@@ -40,7 +40,7 @@ class CachedStatsHandler(RequestHandler):
       try:
         include_lists = IncludeLists(include_lists)
       except WrongIncludeLists as err:
-        self.set_status(400, 'Wrong include_lists')
+        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
         json.dump({'error': str(err)}, self)
         return
 
@@ -69,7 +69,7 @@ class CurrentStatsHandler(RequestHandler):
       try:
         include_lists = IncludeLists(include_lists)
       except WrongIncludeLists as err:
-        self.set_status(400, 'Wrong include_lists')
+        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
         json.dump({'error': str(err)}, self)
         return
 
@@ -98,7 +98,7 @@ class ClusterStatsHandler(RequestHandler):
       try:
         include_lists = IncludeLists(include_lists)
       except WrongIncludeLists as err:
-        self.set_status(400, 'Wrong include_lists')
+        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
         json.dump({'error': str(err)}, self)
         return
 

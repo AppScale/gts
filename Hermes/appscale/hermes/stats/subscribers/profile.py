@@ -10,6 +10,14 @@ from appscale.hermes.stats.constants import PROFILE_LOG_DIR
 class ClusterNodesProfileLog(StatsSubscriber):
 
   def __init__(self, include_lists=None):
+    """ Initializes profile log for cluster node stats.
+    Renders header according to include_lists in advance and
+    creates base directory for node stats profile log.
+
+    Args:
+      include_lists: an instance of IncludeLists describing which fields
+          of node stats should be written to CSV log.
+    """
     self._header = converter.get_stats_header(
       node_stats.NodeStatsSnapshot, include_lists)
     self._include_lists = include_lists
@@ -18,6 +26,13 @@ class ClusterNodesProfileLog(StatsSubscriber):
       makedirs(self._directory)
 
   def receive(self, nodes_stats_dict):
+    """ Implements receive method of base class. Saves newly produced
+    cluster node stats to a list of CSV files (file per node).
+
+    Args:
+      nodes_stats_dict: a dict with node IP as key and list of
+          NodeStatsSnapshot as value
+    """
     for node_ip, snapshots in nodes_stats_dict.iteritems():
       with self._prepare_file(node_ip) as csv_file:
         writer = csv.writer(csv_file)
@@ -36,16 +51,20 @@ class ClusterNodesProfileLog(StatsSubscriber):
 class ClusterProcessesProfileLog(StatsSubscriber):
 
   def __init__(self, include_lists=None):
+    # TODO
     pass
 
   def receive(self, processes_stats_dict):
+    # TODO
     pass
 
 
 class ClusterProxiesProfileLog(StatsSubscriber):
 
   def __init__(self, include_lists=None):
+    # TODO
     pass
 
   def receive(self, proxies_stats_dict):
+    # TODO
     pass

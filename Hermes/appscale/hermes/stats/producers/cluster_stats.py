@@ -262,7 +262,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, stats_class,
   if limit is not None:
     arguments['limit'] = limit
   if include_lists is not None:
-    arguments['include_lists'] = include_lists.to_dict()
+    arguments['include_lists'] = include_lists.asdict()
   if fetch_latest_only:
     arguments['fetch_latest_only'] = True
 
