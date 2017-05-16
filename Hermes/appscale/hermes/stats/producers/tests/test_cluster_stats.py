@@ -1,6 +1,7 @@
 import json
 import os
 
+from appscale.hermes.stats.converter import IncludeLists
 from mock import patch, MagicMock
 from tornado import testing, gen
 
@@ -144,11 +145,12 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     # Initialize stats source
     local_cache = cache.StatsCache(10)
-    include_lists = {
+    raw_include_lists = {
       'node': ['cpu', 'memory'],
       'node.cpu': ['percent', 'count'],
       'node.memory': ['available']
     }
+    include_lists = IncludeLists(raw_include_lists)
     cluster_stats_source = cluster_stats.ClusterNodesStatsSource(
       local_cache, include_lists=include_lists, limit=1, fetch_latest_only=True
     )
@@ -172,7 +174,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
       json.loads(request_to_slave.body),
       {
         'limit': 1,
-        'include_lists': include_lists,
+        'include_lists': raw_include_lists,
         'fetch_latest_only': True
       })
     self.assertEqual(
@@ -270,13 +272,14 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
     # Initialize stats source
     local_cache = cache.StatsCache(10)
-    include_lists = {
+    raw_include_lists = {
       'process': ['monit_name', 'unified_service_name', 'application_id',
                   'port', 'cpu', 'memory', 'children_stats_sum'],
       'process.cpu': ['user', 'system', 'percent'],
       'process.memory': ['resident', 'virtual', 'unique'],
       'process.children_stats_sum': ['cpu', 'memory'],
     }
+    include_lists = IncludeLists(raw_include_lists)
     cluster_stats_source = cluster_stats.ClusterProcessesStatsSource(
       local_cache, include_lists=include_lists, limit=1, fetch_latest_only=True
     )
@@ -300,7 +303,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
       json.loads(request_to_slave.body),
       {
         'limit': 1,
-        'include_lists': include_lists,
+        'include_lists': raw_include_lists,
         'fetch_latest_only': True
       })
     self.assertEqual(
@@ -388,12 +391,13 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     )[0]
 
     # Initialize stats source
-    include_lists = {
+    raw_include_lists = {
       'proxy': ['name', 'unified_service_name', 'application_id',
                 'frontend', 'backend'],
       'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
       'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
     }
+    include_lists = IncludeLists(raw_include_lists)
     cluster_stats_source = cluster_stats.ClusterProxiesStatsSource(
       include_lists=include_lists, limit=1, fetch_latest_only=True
     )
@@ -414,7 +418,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
       json.loads(request_to_lb.body),
       {
         'limit': 1,
-        'include_lists': include_lists,
+        'include_lists': raw_include_lists,
         'fetch_latest_only': True
       })
     self.assertEqual(
