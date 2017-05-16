@@ -32,10 +32,10 @@ class Service(object):
 
   def recognize_monit_process(self, monit_name):
     """ Checks whether monit process corresponds to this service.
-    
+
     Args:
       monit_name: a string, name of process as it's shown in monit status
-      
+
     Returns:
       True if monit_name corresponds to this service, False otherwise
     """
@@ -43,10 +43,10 @@ class Service(object):
 
   def recognize_haproxy_proxy(self, proxy_name):
     """ Checks whether haproxy proxy corresponds to this service.
-    
+
     Args:
       proxy_name: a string, name of proxy as it's shown in haproxy stats
-      
+
     Returns:
       True if proxy_name corresponds to this service, False otherwise
     """
@@ -54,12 +54,12 @@ class Service(object):
 
   def get_application_id_by_monit_name(self, monit_name):
     """ Parses monit_name and returns application ID if it was found.
-    
+
     Args:
       monit_name: a string, name of process as it's shown in monit status
-      
+
     Returns:
-      a string representing App ID, or None if it wasn't found 
+      a string representing App ID, or None if it wasn't found
     """
     match = self.monit_matcher.match(monit_name)
     if not match:
@@ -71,12 +71,12 @@ class Service(object):
 
   def get_port_by_monit_name(self, monit_name):
     """ Parses monit_name and returns port if it was found.
-    
+
     Args:
       monit_name: a string, name of process as it's shown in monit status
-      
+
     Returns:
-      an integer representing port, or None if it wasn't found 
+      an integer representing port, or None if it wasn't found
     """
     match = self.monit_matcher.match(monit_name)
     try:
@@ -87,12 +87,12 @@ class Service(object):
 
   def get_application_id_by_pxname(self, pxname):
     """ Parses haproxy proxy and returns application ID if it was found.
-    
+
     Args:
       pxname: a string, name of proxy as it's shown in haproxy stats
-      
+
     Returns:
-      a string representing App ID, or None if it wasn't found 
+      a string representing App ID, or None if it wasn't found
     """
     match = self.haproxy_proxy_matcher.match(pxname)
     if not match:
@@ -104,10 +104,10 @@ class Service(object):
 
   def get_ip_port_by_svname(self, svname):
     """ Parses haproxy proxy and returns private IP and port if it was found.
-    
+
     Args:
       svname: a string, name of server as it's shown in haproxy stats
-      
+
     Returns:
       a tuple (str:ip, int:port), None is used if IP or port wasn't found
     """
