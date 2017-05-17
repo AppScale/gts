@@ -9,7 +9,7 @@ from .constants import Types
 
 
 class Operation(object):
-  """ A container that keeps track of deployment operations. """
+  """ A parent class for keeping track of particular operations. """
 
   def __init__(self, project_id, service_id, version):
     """ Creates a new CreateVersionOperation.
