@@ -451,15 +451,9 @@ class VersionHandler(BaseHandler):
                             message='Unable to fetch version info')
 
     try:
-      project_info = app_info_map[project_id]
+      http_port = app_info_map[project_id]['nginx']
     except KeyError:
       raise CustomHTTPError(HTTPCodes.NOT_FOUND,
-                            message='Specified version does not exist')
-
-    try:
-      http_port = project_info['nginx']
-    except KeyError:
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
                             message='Version serving port not found')
 
     try:
