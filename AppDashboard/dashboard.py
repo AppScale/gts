@@ -437,8 +437,11 @@ class LoginPage(AppDashboard):
     show_create_account = True
     if AppDashboardHelper.USE_SHIBBOLETH:
       show_create_account = False
+
+    continue_url = self.request.get('continue')
+    url_match = re.findall(self.CONTINUE_URL_REGEX, continue_url)[-1]
     self.render_page(page='users', template_file=self.TEMPLATE, values={
-      'continue': self.request.get('continue'),
+      'continue': url_match,
       'show_create_account': show_create_account
     })
 
