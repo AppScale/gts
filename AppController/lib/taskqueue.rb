@@ -54,9 +54,6 @@ module TaskQueue
   # The longest we'll wait for RabbitMQ to come up in seconds.
   MAX_WAIT_FOR_RABBITMQ = 30
 
-  # How many times to retry starting rabbitmq on a slave.
-  RABBIT_START_RETRY = 1000
-
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
 
@@ -107,6 +104,12 @@ module TaskQueue
 
     # First, start up RabbitMQ.
     start_rabbitmq
+
+    # The master rabbitmq will set the policy for replicating the messages
+    # on the queues.
+    cmd = "#{RABBITMQCTL} set_policy ha-all "
+    cmd += "\"\" '{\"ha-mode\":\"all\", \"ha-sync-mode\": \"automatic\"}'"
+    Djinn.log_run(cmd)
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
@@ -159,17 +162,16 @@ module TaskQueue
       end
     end
 
-    tries_left = RABBIT_START_RETRY
-    loop {
+    HelperFunctions::RETRIES.downto(0) { |tries_left|
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
         Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
           HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
           Djinn.log_debug("Done starting rabbitmq_slave on this node")
 
-          `#{RABBITMQCTL} stop_app`
-          `#{RABBITMQCTL} join_cluster rabbit@#{master_tq_host}`
-          `#{RABBITMQCTL} start_app`
+          Djinn.log_run("#{RABBITMQCTL} stop_app")
+          Djinn.log_run("#{RABBITMQCTL} join_cluster rabbit@#{master_tq_host}")
+          Djinn.log_run("#{RABBITMQCTL} start_app")
 
           Djinn.log_debug("Starting TaskQueue servers on slave node")
           start_taskqueue_server(verbose)
