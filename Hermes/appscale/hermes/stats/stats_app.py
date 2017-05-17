@@ -322,7 +322,8 @@ class StatsApp(object):
     stats_source = ClusterNodesStatsSource(
       local_cache=self._local_node_stats.cache,
       include_lists=stats.included_field_lists,
-      limit=stats.cache_size
+      limit=stats.cache_size,
+      fetch_latest_only=True
     )
     # Configure stats publishing
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
@@ -350,7 +351,8 @@ class StatsApp(object):
     stats_source = ClusterProcessesStatsSource(
       local_cache=self._local_processes_stats.cache,
       include_lists=stats.included_field_lists,
-      limit=stats.cache_size
+      limit=stats.cache_size,
+      fetch_latest_only=True
     )
     # Configure stats publishing
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
@@ -378,7 +380,8 @@ class StatsApp(object):
     stats_source = ClusterProxiesStatsSource(
       local_cache=self._local_proxies_stats.cache,
       include_lists=stats.included_field_lists,
-      limit=stats.cache_size
+      limit=stats.cache_size,
+      fetch_latest_only=True
     )
     # Configure stats publishing
     stats.publisher = StatsPublisher(stats_source, stats.update_interval)
