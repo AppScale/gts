@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import socket
 import sys
 import time
 
@@ -27,12 +26,12 @@ from . import utils
 from . import constants
 from .constants import (
   CustomHTTPError,
-  MAX_DEPLOY_TIME,
   OperationTimeout,
   REDEPLOY_WAIT,
   VALID_RUNTIMES
 )
 from .operation import CreateVersionOperation
+from .operation import DeleteVersionOperation
 from .operations_cache import OperationsCache
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -104,9 +103,7 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
       operation.set_error(message)
       raise OperationTimeout(message)
 
-    sock = socket.socket()
-    result = sock.connect_ex((options.login_ip, http_port))
-    if result == 0:
+    if utils.port_is_open(options.login_ip, http_port):
       break
 
     yield gen.sleep(1)
@@ -128,7 +125,7 @@ def wait_for_deploy(operation_id, acc):
     raise OperationTimeout('Operation no longer in cache')
 
   start_time = time.time()
-  deadline = start_time + MAX_DEPLOY_TIME
+  deadline = start_time + constants.MAX_OPERATION_TIME
 
   http_port = yield wait_for_port_assignment(operation_id, deadline, acc)
   yield wait_for_port_to_open(http_port, operation_id, deadline)
@@ -137,6 +134,38 @@ def wait_for_deploy(operation_id, acc):
   operation.finish(url)
 
   logging.info('Finished operation {}'.format(operation_id))
+
+
+@gen.coroutine
+def wait_for_delete(operation_id, http_port):
+  """ Tracks the progress of removing a version.
+
+  Args:
+    operation_id: A string specifying the operation ID.
+    http_port: An integer specifying the version's port.
+  Raises:
+    OperationTimeout if the deadline is exceeded.
+  """
+  try:
+    operation = operations[operation_id]
+  except KeyError:
+    raise OperationTimeout('Operation no longer in cache')
+
+  start_time = time.time()
+  deadline = start_time + constants.MAX_OPERATION_TIME
+
+  while True:
+    if time.time() > deadline:
+      message = 'Delete operation took too long.'
+      operation.set_error(message)
+      raise OperationTimeout(message)
+
+    if not utils.port_is_open(options.login_ip, http_port):
+      break
+
+    yield gen.sleep(1)
+
+  operation.finish()
 
 
 class BaseHandler(web.RequestHandler):
@@ -388,6 +417,60 @@ class VersionsHandler(BaseHandler):
     self.write(json_encode(operation.rest_repr()))
 
 
+class VersionHandler(BaseHandler):
+  """ Manages particular service versions. """
+
+  def initialize(self, acc):
+    """ Defines an AppControllerClient.
+
+    Args:
+      acc: An AppControllerClient.
+    """
+    self.acc = acc
+
+  def delete(self, project_id, service_id, version_id):
+    """ Deletes a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    """
+    self.authenticate()
+
+    if service_id != constants.DEFAULT_SERVICE:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
+
+    if version_id != constants.DEFAULT_VERSION:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid version')
+
+    try:
+      app_info_map = self.acc.get_app_info_map()
+    except AppControllerException:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Unable to fetch version info')
+
+    try:
+      http_port = app_info_map[project_id]['nginx']
+    except KeyError:
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Version serving port not found')
+
+    try:
+      self.acc.stop_app(project_id)
+    except AppControllerException as error:
+      message = 'Error while stopping application: {}'.format(error)
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+
+    version = {'id': version_id}
+    operation = DeleteVersionOperation(project_id, service_id, version)
+    operations[operation.id] = operation
+
+    IOLoop.current().spawn_callback(wait_for_delete, operation.id, http_port)
+
+    self.write(json_encode(operation.rest_repr()))
+
+
 class OperationsHandler(BaseHandler):
   """ Retrieves operations. """
   def get(self, project_id, operation_id):
@@ -435,6 +518,8 @@ def main():
   app = web.Application([
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
      {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client}),
+    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
+     VersionHandler, {'acc': acc}),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
   ])
   logging.info('Starting AdminServer')

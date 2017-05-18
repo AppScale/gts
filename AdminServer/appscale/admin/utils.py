@@ -4,6 +4,7 @@ import errno
 import logging
 import os
 import shutil
+import socket
 import tarfile
 
 from appscale.common.constants import HTTPCodes
@@ -174,3 +175,17 @@ def extract_source(version, project_id):
       shutil.move(os.path.join(app_path, 'gopath'), project_base)
     except IOError:
       logging.debug('{} does not have a gopath directory'.format(project_id))
+
+
+def port_is_open(host, port):
+  """ Checks if the given port is open.
+
+  Args:
+    host: A string specifying the location of the host.
+    port: An integer specifying the port to check.
+  Returns:
+    A boolean indicating whether or not the port is open.
+  """
+  sock = socket.socket()
+  result = sock.connect_ex((host, port))
+  return result == 0
