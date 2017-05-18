@@ -16,7 +16,7 @@
                   <form action="/users/login" method="post">
                   <div style="margin:0;padding:0;display:inline">
                   {% if continue %}
-                  <input type="hidden" name="continue" value="{{ continue }}">
+                  <input type="hidden" name="continue" value="{{ continue|safe }}">
                   {% endif %}
                   </div>
                   <p class="form-label span12">
@@ -35,7 +35,7 @@
                   <div style="margin: 15px 0 20px 9px">
                     {% if show_create_account %}
                         {% if continue %}
-                            <div>Don't have an account? <a href="/users/new?continue={{ continue }}">Create one.</a></div>
+                            <div>Don't have an account? <a href="/users/new?continue={{ continue|safe }}">Create one.</a></div>
                         {% else %}
                             <div>Don't have an account? <a href="/users/new">Create one.</a></div>
                         {% endif %}
