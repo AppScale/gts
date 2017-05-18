@@ -1,4 +1,5 @@
 import csv
+import errno
 from os import path, makedirs
 
 from appscale.hermes.stats import converter
@@ -22,8 +23,13 @@ class ClusterNodesProfileLog(StatsSubscriber):
       node_stats.NodeStatsSnapshot, include_lists)
     self._include_lists = include_lists
     self._directory = path.join(PROFILE_LOG_DIR, 'node')
-    if not path.exists(self._directory):
+    try:
       makedirs(self._directory)
+    except OSError as os_error:
+      if os_error.errno == errno.EEXIST and path.isdir(self._directory):
+        pass
+      else:
+        raise
 
   def receive(self, nodes_stats_dict):
     """ Implements receive method of base class. Saves newly produced
@@ -42,7 +48,7 @@ class ClusterNodesProfileLog(StatsSubscriber):
 
   def _prepare_file(self, node_ip):
     file_name = path.join(self._directory, '{}.csv'.format(node_ip))
-    if not path.exists(file_name):
+    if not path.isfile(file_name):
       with open(file_name, 'w') as csv_file:
         csv.writer(csv_file).writerow(self._header)
     return open(file_name, 'a')

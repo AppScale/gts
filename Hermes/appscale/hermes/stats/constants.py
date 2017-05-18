@@ -1,12 +1,12 @@
-# The intervals for updating local stats
-UPDATE_NODE_STATS_INTERVAL = 15*1000    # 10 seconds
-UPDATE_PROCESSES_STATS_INTERVAL = 65*1000    # 20 seconds
-UPDATE_PROXIES_STATS_INTERVAL = 35*1000    # 10 seconds
+# The intervals for updating local stats (in milliseconds)
+UPDATE_NODE_STATS_INTERVAL = 15*1000
+UPDATE_PROCESSES_STATS_INTERVAL = 65*1000
+UPDATE_PROXIES_STATS_INTERVAL = 35*1000
 
-# The intervals for updating cluster stats
-UPDATE_CLUSTER_NODES_STATS_INTERVAL = 15*1000    # 10 seconds
-UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL = 65*1000    # 20 seconds
-UPDATE_CLUSTER_PROXIES_STATS_INTERVAL = 35*1000    # 10 seconds
+# The intervals for updating cluster stats (in milliseconds)
+UPDATE_CLUSTER_NODES_STATS_INTERVAL = 15*1000
+UPDATE_CLUSTER_PROCESSES_STATS_INTERVAL = 65*1000
+UPDATE_CLUSTER_PROXIES_STATS_INTERVAL = 35*1000
 
 # The intervals for updating local stats
 NODE_STATS_CACHE_SIZE = 5
