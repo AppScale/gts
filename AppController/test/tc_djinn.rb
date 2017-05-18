@@ -238,6 +238,7 @@ class TestDjinn < Test::Unit::TestCase
     # the block actually contains
     helperfunctions = flexmock(HelperFunctions)
     helperfunctions.should_receive(:get_secret).and_return(@secret)
+    flexmock(MonitInterface).should_receive(:start_daemon).and_return()
     flexmock(MonitInterface).should_receive(:start).and_return()
 
     file = flexmock(File)
@@ -294,7 +295,7 @@ class TestDjinn < Test::Unit::TestCase
     # mock out and commands
     flexmock(Djinn).should_receive(:log_run).and_return()
     flexmock(HAProxy).should_receive(:create_tq_server_config).and_return()
-    flexmock(MonitInterface).should_receive(:start_custom).and_return()
+    flexmock(MonitInterface).should_receive(:start_daemon).and_return()
     flexmock(MonitInterface).should_receive(:start).and_return()
     flexmock(Resolv).should_receive("getname").with("private_ip1").and_return("")
 
