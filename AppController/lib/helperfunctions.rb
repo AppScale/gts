@@ -950,7 +950,7 @@ module HelperFunctions
     return filename[get_untar_dir(app_name).length..filename.length]
   end
 
-  def self.parse_static_data app_name, copy_files
+  def self.parse_static_data app_name
     untar_dir = get_untar_dir(app_name)
 
     begin
@@ -994,11 +994,6 @@ module HelperFunctions
           Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
           handler["url"] = "/temp_fix"
         end
-
-        handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
-
-        next if copy_files
-
         cache_static_dir_path = File.join(cache_path,handler["static_dir"])
         FileUtils.mkdir_p cache_static_dir_path
 
@@ -1008,6 +1003,8 @@ module HelperFunctions
         filenames.delete_if { |f| File.expand_path(f).match(skip_files_regex) }
 
         FileUtils.cp_r filenames, cache_static_dir_path
+
+        handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
       elsif handler["static_files"]
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
@@ -1017,10 +1014,6 @@ module HelperFunctions
         end
         # Need to convert all \1 into $1 so that nginx understands it
         handler["static_files"] = handler["static_files"].gsub(/\\/,"$")
-
-        handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
-
-        next if copy_files
 
         upload_regex = Regexp.new(handler["upload"])
 
@@ -1040,6 +1033,8 @@ module HelperFunctions
 
           FileUtils.cp_r filename, File.join(file_cache_path,File.basename(filename))
         end
+
+        handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
       end
       handler
     end
