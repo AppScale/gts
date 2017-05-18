@@ -107,9 +107,8 @@ module TaskQueue
 
     # The master rabbitmq will set the policy for replicating the messages
     # on the queues.
-    cmd = "#{RABBITMQCTL} set_policy ha-all "
-    cmd += "\"\" '{\"ha-mode\":\"all\", \"ha-sync-mode\": \"automatic\"}'"
-    Djinn.log_run(cmd)
+    policy = '{\"ha-mode\":\"all\", \"ha-sync-mode\": \"automatic\"}'
+    Djinn.log_run("#{RABBITMQCTL} set_policy ha-all \"\" \"#{policy}\"")
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
