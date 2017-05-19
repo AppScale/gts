@@ -3,10 +3,9 @@ This module holds functionality related to conversion of stats entities
 to dictionaries (JSON serializable) and lists (CSV rows).
 It also provides function for building stats entities from dictionaries.
 """
-import attr
 import collections
 
-from appscale.hermes.stats.constants import MISSED
+import attr
 
 
 class WrongIncludeLists(ValueError):
@@ -140,6 +139,29 @@ class IncludeLists(object):
   def asdict(self):
     return self._original_dict
 
+  def is_subset_of(self, include_lists):
+    """ Determines if include_lists (argument) contains all attributes
+    specified for this instance (self).
+
+    Args:
+      include_lists: an instance of IncludeLists to compare with
+    Returns:
+      a boolean indicating if self if subset of include_lists
+    """
+    if self is include_lists:
+      return True
+    for list_name, include_list in self._lists.iteritems():
+      corresponding_list = include_lists._lists.get(list_name)
+      if corresponding_list is None:
+        return False
+      for attribute in include_list:
+        if attribute not in corresponding_list:
+          return False
+    return True
+
+
+from appscale.hermes.stats import constants
+
 
 def stats_to_dict(stats, include_lists=None):
   """ Renders stats entity to dictionary. If include_lists is specified
@@ -160,7 +182,7 @@ def stats_to_dict(stats, include_lists=None):
     if att not in included:
       continue
     value = getattr(stats, att.name)
-    if value is MISSED:
+    if value is constants.MISSED:
       continue
     if isinstance(value, dict):
       value = {k: stats_to_dict(v, include_lists) for k, v in value.iteritems()}
@@ -190,7 +212,7 @@ def stats_from_dict(stats_class, dictionary, strict=False):
   changed_kwargs = {}
   for att in attr.fields(stats_class):
     if att.name not in dictionary and not strict:
-      changed_kwargs[att.name] = MISSED
+      changed_kwargs[att.name] = constants.MISSED
       continue
     if att.metadata:
       # Try to unpack nested entity

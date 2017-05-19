@@ -9,7 +9,6 @@ from appscale.common import appscale_info
 
 from appscale.hermes.stats.constants import LOCAL_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.converter import include_list_name, Meta
-from appscale.hermes.stats.pubsub_base import StatsSource
 
 
 @include_list_name('node.cpu')
@@ -101,7 +100,7 @@ class NodeStatsSnapshot(object):
   loadavg = attr.ib(metadata={Meta.ENTITY: NodeLoadAvg})
 
 
-class NodeStatsSource(StatsSource):
+class NodeStatsSource(object):
 
   last_debug = 0
 

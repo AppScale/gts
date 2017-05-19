@@ -12,10 +12,9 @@ from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import PROFILE_LOG_DIR
 from appscale.hermes.stats.producers import node_stats, process_stats, \
   proxy_stats
-from appscale.hermes.stats.pubsub_base import StatsSubscriber
 
 
-class ClusterNodesProfileLog(StatsSubscriber):
+class NodesProfileLog(object):
 
   def __init__(self, include_lists=None):
     """ Initializes profile log for cluster node stats.
@@ -26,10 +25,11 @@ class ClusterNodesProfileLog(StatsSubscriber):
       include_lists: an instance of IncludeLists describing which fields
           of node stats should be written to CSV log.
     """
-    self._header = (
-      converter.get_stats_header(node_stats.NodeStatsSnapshot, include_lists)
-    )
     self._include_lists = include_lists
+    self._header = (
+      converter.get_stats_header(node_stats.NodeStatsSnapshot,
+                                 self._include_lists)
+    )
     self._directory = path.join(PROFILE_LOG_DIR, 'node')
     try:
       makedirs(self._directory)
@@ -39,20 +39,18 @@ class ClusterNodesProfileLog(StatsSubscriber):
       else:
         raise
 
-  def receive(self, nodes_stats_dict):
-    """ Implements receive method of base class. Saves newly produced
-    cluster node stats to a list of CSV files (file per node).
+  def write(self, nodes_stats_dict):
+    """ Saves newly produced cluster node stats
+    to a list of CSV files (file per node).
 
     Args:
       nodes_stats_dict: a dict with node IP as key and list of
           NodeStatsSnapshot as value
     """
-    for node_ip, snapshots in nodes_stats_dict.iteritems():
+    for node_ip, snapshot in nodes_stats_dict.iteritems():
       with self._prepare_file(node_ip) as csv_file:
-        writer = csv.writer(csv_file)
-        for snapshot in snapshots:
-          row = converter.stats_to_list(snapshot, self._include_lists)
-          writer.writerow(row)
+        row = converter.stats_to_list(snapshot, self._include_lists)
+        csv.writer(csv_file).writerow(row)
 
   def _prepare_file(self, node_ip):
     """ Prepares CSV file with name node/<node-IP>.csv
@@ -72,7 +70,7 @@ class ClusterNodesProfileLog(StatsSubscriber):
     return open(file_name, 'a')
 
 
-class ClusterProcessesProfileLog(StatsSubscriber):
+class ProcessesProfileLog(object):
 
   @attr.s(cmp=False, hash=False, slots=True)
   class ServiceProcessesSummary(object):
@@ -88,7 +86,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
     resident_mem = attr.ib(default=0)
     unique_mem = attr.ib(default=0)
 
-  def __init__(self, include_lists=None):
+  def __init__(self, include_lists=None, write_detailed_stats=False):
     """ Initializes profile log for cluster processes stats.
     Renders header according to include_lists in advance and
     creates base directory for processes stats profile log.
@@ -98,12 +96,16 @@ class ClusterProcessesProfileLog(StatsSubscriber):
     Args:
       include_lists: an instance of IncludeLists describing which fields
           of processes stats should be written to CSV log.
+      write_detailed_stats: a boolean determines if detailed stats about
+          each process should be written
     """
+    self._include_lists = include_lists
     self._header = (
       ['utc_timestamp']
-      + converter.get_stats_header(process_stats.ProcessStats, include_lists)
+      + converter.get_stats_header(process_stats.ProcessStats,
+                                   self._include_lists)
     )
-    self._include_lists = include_lists
+    self._write_detailed_stats = write_detailed_stats
     self._directory = path.join(PROFILE_LOG_DIR, 'processes')
     self._summary_file_name_template = 'summary-{resource}.csv'
     try:
@@ -115,9 +117,8 @@ class ClusterProcessesProfileLog(StatsSubscriber):
         raise
     self._summary_columns = self._get_summary_columns()
 
-  def receive(self, processes_stats_dict):
-    """ Implements receive method of base class. Saves newly produced
-    cluster processes stats to a list of CSV files.
+  def write(self, processes_stats_dict):
+    """ Saves newly produced cluster processes stats to a list of CSV files.
     One detailed file for each process on every node and 3 summary files.
 
     Args:
@@ -126,31 +127,31 @@ class ClusterProcessesProfileLog(StatsSubscriber):
     """
     services_summary = collections.defaultdict(self.ServiceProcessesSummary)
 
-    for node_ip, snapshots in processes_stats_dict.iteritems():
+    for node_ip, snapshot in processes_stats_dict.iteritems():
 
-      if snapshots:
-        # Add summary using only the latest snapshot from the node
-        for proc in snapshots[-1].processes_stats:
-          # Add this process stats to service summary
-          service_name = proc.unified_service_name
-          if proc.application_id:
-            service_name = '{}-{}'.format(service_name, proc.application_id)
-          summary = services_summary[service_name]
-          summary.cpu_time += proc.cpu.system + proc.cpu.user
-          summary.resident_mem += proc.memory.resident
-          summary.unique_mem += proc.memory.unique
+      # Add info to the summary
+      for proc in snapshot.processes_stats:
+        # Add this process stats to service summary
+        service_name = proc.unified_service_name
+        if proc.application_id:
+          service_name = '{}-{}'.format(service_name, proc.application_id)
+        summary = services_summary[service_name]
+        summary.cpu_time += proc.cpu.system + proc.cpu.user
+        summary.resident_mem += proc.memory.resident
+        summary.unique_mem += proc.memory.unique
 
-      # Write detailed process stats using all snapshots received from the node
-      for snapshot in snapshots:
-        for proc in snapshot.processes_stats:
-          # Write stats of the specific process to its CSV file
-          with self._prepare_file(node_ip, proc.monit_name) as csv_file:
-            writer = csv.writer(csv_file)
-            row = (
-              [snapshot.utc_timestamp]
-               + converter.stats_to_list(proc, self._include_lists)
-            )
-            writer.writerow(row)
+      if not self._write_detailed_stats:
+        continue
+
+      # Write detailed process stats
+      for proc in snapshot.processes_stats:
+        # Write stats of the specific process to its CSV file
+        with self._prepare_file(node_ip, proc.monit_name) as csv_file:
+          row = (
+            [snapshot.utc_timestamp]
+             + converter.stats_to_list(proc, self._include_lists)
+          )
+          csv.writer(csv_file).writerow(row)
 
     # Update self._summary_columns ordered dict (set)
     for service_name in services_summary:
@@ -254,7 +255,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
     return path.join(self._directory, name)
 
 
-class ClusterProxiesProfileLog(StatsSubscriber):
+class ProxiesProfileLog(object):
 
   @attr.s(cmp=False, hash=False, slots=True)
   class ServiceProxySummary(object):
@@ -267,7 +268,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
     bytes_in_out = attr.ib(default=0)
     errors = attr.ib(default=0)
 
-  def __init__(self, include_lists=None):
+  def __init__(self, include_lists=None, write_detailed_stats=False):
     """ Initializes profile log for cluster processes stats.
     Renders header according to include_lists in advance and
     creates base directory for processes stats profile log.
@@ -277,12 +278,15 @@ class ClusterProxiesProfileLog(StatsSubscriber):
     Args:
       include_lists: an instance of IncludeLists describing which fields
           of processes stats should be written to CSV log.
+      write_detailed_stats: a boolean determines if detailed stats about
+          each proxy should be written
     """
+    self._include_lists = include_lists
     self._header = (
       ['utc_timestamp']
-       + converter.get_stats_header(proxy_stats.ProxyStats, include_lists)
+       + converter.get_stats_header(proxy_stats.ProxyStats, self._include_lists)
     )
-    self._include_lists = include_lists
+    self._write_detailed_stats = write_detailed_stats
     self._directory = path.join(PROFILE_LOG_DIR, 'proxies')
     self._summary_file_name_template = 'summary-{property}.csv'
     try:
@@ -294,9 +298,8 @@ class ClusterProxiesProfileLog(StatsSubscriber):
         raise
     self._summary_columns = self._get_summary_columns()
 
-  def receive(self, proxies_stats_dict):
-    """ Implements receive method of base class. Saves newly produced
-    cluster proxies stats to a list of CSV files.
+  def write(self, proxies_stats_dict):
+    """ Saves newly produced cluster proxies stats to a list of CSV files.
     One detailed file for each proxy on every node (normally one LB node)
     and 3 summary files.
 
@@ -306,31 +309,31 @@ class ClusterProxiesProfileLog(StatsSubscriber):
     """
     services_summary = collections.defaultdict(self.ServiceProxySummary)
 
-    for node_ip, snapshots in proxies_stats_dict.iteritems():
+    for node_ip, snapshot in proxies_stats_dict.iteritems():
 
-      if snapshots:
-        # Add summary using only the latest snapshot from the node
-        for proxy in snapshots[-1].proxies_stats:
-          # Add this proxy stats to service summary
-          service_name = proxy.unified_service_name
-          if proxy.application_id:
-            service_name = '{}-{}'.format(service_name, proxy.application_id)
-          summary = services_summary[service_name]
-          summary.requests_rate += proxy.frontend.req_rate
-          summary.bytes_in_out += proxy.frontend.bin + proxy.frontend.bout
-          summary.errors += proxy.frontend.hrsp_4xx + proxy.frontend.hrsp_5xx
+      # Add info to the summary
+      for proxy in snapshot.proxies_stats:
+        # Add this proxy stats to service summary
+        service_name = proxy.unified_service_name
+        if proxy.application_id:
+          service_name = '{}-{}'.format(service_name, proxy.application_id)
+        summary = services_summary[service_name]
+        summary.requests_rate += proxy.frontend.req_rate
+        summary.bytes_in_out += proxy.frontend.bin + proxy.frontend.bout
+        summary.errors += proxy.frontend.hrsp_4xx + proxy.frontend.hrsp_5xx
 
-      # Write detailed proxy stats using all snapshots received from the node
-      for snapshot in snapshots:
-        for proxy in snapshot.proxies_stats:
-          # Write stats of the specific proxy to its CSV file
-          with self._prepare_file(node_ip, proxy.name) as csv_file:
-            writer = csv.writer(csv_file)
-            row = (
-              [snapshot.utc_timestamp]
-              + converter.stats_to_list(proxy, self._include_lists)
-            )
-            writer.writerow(row)
+      if not self._write_detailed_stats:
+        continue
+
+      # Write detailed proxy stats
+      for proxy in snapshot.proxies_stats:
+        # Write stats of the specific proxy to its CSV file
+        with self._prepare_file(node_ip, proxy.name) as csv_file:
+          row = (
+            [snapshot.utc_timestamp]
+            + converter.stats_to_list(proxy, self._include_lists)
+          )
+          csv.writer(csv_file).writerow(row)
 
     # Update self._summary_columns ordered dict (set)
     for service_name in services_summary:

@@ -10,7 +10,6 @@ from appscale.common import appscale_info
 
 from appscale.hermes.stats.constants import LOCAL_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.converter import Meta, include_list_name
-from appscale.hermes.stats.pubsub_base import StatsSource
 from appscale.hermes.stats.unified_service_names import \
   find_service_by_monit_name
 
@@ -105,7 +104,7 @@ PROCESS_ATTRS = (
 )
 
 
-class ProcessesStatsSource(StatsSource):
+class ProcessesStatsSource(object):
 
   last_debug = 0
 
