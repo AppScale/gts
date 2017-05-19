@@ -4,6 +4,7 @@ import urllib
 
 from appscale.hermes import helper, constants
 from appscale.hermes.helper import JSONTags
+from appscale.hermes.stats.converter import stats_to_dict
 from appscale.hermes.stats.pubsub_base import StatsSubscriber
 
 
@@ -23,7 +24,7 @@ class NodeStatsPortalSender(StatsSubscriber):
     data = {
       'deployment_id': deployment_id,
       'nodes_stats': json.dumps({
-        node_ip: [snapshot.todict() for snapshot in snapshots]
+        node_ip: [stats_to_dict(snapshot) for snapshot in snapshots]
         for node_ip, snapshots in nodes_stats.iteritems()
       })
     }

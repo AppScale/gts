@@ -15,18 +15,14 @@ import urllib
 import tornado.escape
 import tornado.httpclient
 import tornado.web
-from appscale.common import appscale_info
-from appscale.common import appscale_utils
+from appscale.common import appscale_info, appscale_utils
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.ua_client import UAClient
-from appscale.common.ua_client import UAException
+from appscale.common.ua_client import UAClient, UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from tornado.ioloop import IOLoop
-from tornado.ioloop import PeriodicCallback
+from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.options import options
 
-from appscale.hermes import constants
-from appscale.hermes import helper
+from appscale.hermes import constants, helper
 from appscale.hermes.handlers import MainHandler, TaskHandler, Respond404Handler
 from appscale.hermes.helper import JSONTags
 from appscale.hermes.stats.stats_app import StatsApp
