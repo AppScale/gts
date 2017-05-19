@@ -102,13 +102,15 @@ module TaskQueue
       Djinn.log_debug("Not erasing RabbitMQ state")
     end
 
-    # First, start up RabbitMQ.
+    # First, start up RabbitMQ and make sure the service is up.
     start_rabbitmq
+    HelperFunctions.sleep_until_port_is_open("localhost",
+                                             SERVER_PORT)
 
-    # The master rabbitmq will set the policy for replicating the messages
-    # on the queues.
-    policy = '{\"ha-mode\":\"all\", \"ha-sync-mode\": \"automatic\"}'
-    Djinn.log_run("#{RABBITMQCTL} set_policy ha-all \"\" \"#{policy}\"")
+    # The master rabbitmq will set the policy for replication of messages
+    # and queues.
+    policy = '{"ha-mode":"all", "ha-sync-mode": "automatic"}'
+    Djinn.log_run("#{RABBITMQCTL} set_policy ha-all '' '#{policy}'")
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
