@@ -11,6 +11,7 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common',
+    'kazoo',
     'SOAPpy',
     'tornado'
   ],

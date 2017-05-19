@@ -135,6 +135,24 @@ class UAClient(object):
 
     return response.lower() == 'true'
 
+  def enable_app(self, app_id):
+    """ Enables a project.
+
+    Args:
+      app_id: A string specifying an application ID.
+    Raises:
+      UAException when unable to enable project.
+    """
+    response = self.server.enable_app(app_id, self.secret)
+
+    # This operation should be idempotent.
+    already_enabled = 'Error: Trying to enable an application that is '\
+                      'already enabled'
+    if response.lower() == 'true' or response == already_enabled:
+      return
+
+    raise UAException(response)
+
   def get_all_users(self):
     """ Retrieves a list of all users.
 

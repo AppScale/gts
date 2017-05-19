@@ -1,32 +1,29 @@
 #!/usr/bin/env python
 
 import json
-import os
 import socket
 import sys
-import tornado.httpclient
-import unittest
 import tarfile
+import unittest
 
+import tornado.httpclient
 from appscale.common import appscale_info
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import helper
-import hermes
-
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
+from tornado.ioloop import IOLoop
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
+from appscale import hermes
+from appscale.hermes import deploy_sensor_app
+from appscale.hermes import helper
+from appscale.hermes import poll
+from appscale.hermes import shutdown
+from appscale.hermes import signal_handler
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerClient
 
-from hermes import deploy_sensor_app
-from hermes import poll
-from hermes import send_cluster_stats
-from hermes import shutdown
-from hermes import signal_handler
-from tornado.ioloop import IOLoop
 
 class TestHelper(unittest.TestCase):
   """ A set of test cases for Hermes top level functions. """
@@ -72,21 +69,6 @@ class TestHelper(unittest.TestCase):
       and_return({"success": False, "reason": "error"})
     poll()
 
-  def test_send_all_stats(self):
-    # Assume deployment is not registered.
-    flexmock(helper).should_receive('get_deployment_id').and_return(None)
-    send_cluster_stats()
-
-    flexmock(helper).should_receive('get_deployment_id').\
-      and_return('deployment_id')
-
-    fake_stats = {}
-    flexmock(helper).should_receive('get_cluster_stats').and_return(fake_stats)
-    flexmock(helper).should_receive('create_request').and_return()
-    flexmock(helper).should_receive('urlfetch').\
-      and_return({"success": True, "body": {}})
-    send_cluster_stats()
-
   def test_signal_handler(self):
     flexmock(IOLoop.instance()).should_receive('add_callback').and_return()\
       .times(1)
@@ -110,8 +92,8 @@ class TestHelper(unittest.TestCase):
     # Test sensor app is not deployed when it is already running.
     flexmock(helper).should_receive('get_deployment_id').and_return(
       self.DEPLOYMENT_ID)
-    flexmock(appscale_info).should_receive('get_secret').and_return(
-      "fake_secret")
+    fake_options = flexmock(secret="fake_secret")
+    hermes.options = fake_options
     flexmock(appscale_info).should_receive('get_db_master_ip').and_return()
     # Assume appscalesensor app already running.
     flexmock(UAClient).should_receive('is_app_enabled').and_return(True)

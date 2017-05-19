@@ -2,21 +2,19 @@
 
 import json
 import logging
-import os
 import sys
 import threading
-import tornado.httpclient
 import urllib
 
-import hermes_constants
-
+import tornado.httpclient
+from appscale.common import appscale_info
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.backup import backup_recovery_helper as BR
 from appscale.datastore.backup.br_constants import StorageTypes
-from custom_hermes_exceptions import MissingRequestArgs
 
-from appscale.common import appscale_info
+from appscale.hermes import constants
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../AppServer'))
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
 
 # The number of retries we should do to report the status of a completed task
@@ -31,6 +29,11 @@ TASK_STATUS_LOCK = threading.Lock()
 
 # A list of tasks that we report status for.
 REPORT_TASKS = ['backup', 'restore']
+
+
+class MissingRequestArgs(Exception):
+  """ An exception when HTTP Request parameters are missing. """
+  pass
 
 
 class JSONTags(object):
@@ -75,8 +78,10 @@ def create_request(url=None, method=None, body=None):
   """
   if not url or not method:
     raise MissingRequestArgs
-  return tornado.httpclient.HTTPRequest(url=url, method=method, body=body,
-    validate_cert=False, request_timeout=hermes_constants.REQUEST_TIMEOUT)
+  return tornado.httpclient.HTTPRequest(
+    url=url, method=method, body=body, validate_cert=False,
+    request_timeout=constants.REQUEST_TIMEOUT
+  )
 
 
 def urlfetch(request):
@@ -96,7 +101,7 @@ def urlfetch(request):
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
     result = {JSONTags.SUCCESS: False,
-      JSONTags.REASON: hermes_constants.HTTPError}
+              JSONTags.REASON: constants.HTTPError}
   except Exception as exception:
     logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
@@ -124,13 +129,12 @@ def urlfetch_async(request, callback=None):
     logging.error("Error while trying to fetch '{0}': {1}".format(request.url,
       str(http_error)))
     result = {JSONTags.SUCCESS: False,
-      JSONTags.REASON: hermes_constants.HTTPError}
+              JSONTags.REASON: constants.HTTPError}
   except Exception as exception:
     logging.exception("Exception while trying to fetch '{0}': {1}".format(
       request.url, str(exception)))
     result = {JSONTags.SUCCESS: False, JSONTags.REASON: exception.message}
 
-  http_client.close()
   return result
 
 
@@ -142,8 +146,8 @@ def get_br_service_url(node):
   Returns:
     A str, the complete URL of a br_service instance.
   """
-  return "http://{0}:{1}{2}".format(node, hermes_constants.BR_SERVICE_PORT,
-    hermes_constants.BR_SERVICE_PATH)
+  return "http://{0}:{1}{2}".format(node, constants.BR_SERVICE_PORT,
+                                    constants.BR_SERVICE_PATH)
 
 
 def get_deployment_id():
@@ -221,12 +225,14 @@ def create_br_json_data(role, type, bucket_name, index, storage):
   data = {}
   if role == 'db_master':
     data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
-    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
-      hermes_constants.DB_MASTER_OBJECT_NAME)
+    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(
+      bucket_name, constants.DB_MASTER_OBJECT_NAME
+    )
   elif role == 'db_slave':
     data[JSONTags.TYPE] = 'cassandra_{0}'.format(type)
-    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(bucket_name,
-      hermes_constants.DB_SLAVE_OBJECT_NAME.format(index))
+    data[JSONTags.OBJECT_NAME] = "gs://{0}{1}".format(
+      bucket_name, constants.DB_SLAVE_OBJECT_NAME.format(index)
+    )
   else:
     return None
 
@@ -247,18 +253,6 @@ def delete_task_from_mem(task_id):
   TASK_STATUS_LOCK.release()
 
 
-def get_cluster_stats():
-  """ Collects platform stats from all deployment nodes.
-
-  Returns:
-    A dictionary containing all the monitoring stats, if all nodes are
-    accessible. {"success": False, "error": message} otherwise.
-  """
-  acc = appscale_info.get_appcontroller_client()
-  nodes_stats = acc.get_cluster_stats()
-  return {node["public_ip"]: node for node in nodes_stats}
-
-
 def report_status(task, task_id, status):
   """ Sends a status report for the given task to the AppScale Portal.
   Upon success, it calls a function to delete the task from memory.
@@ -271,8 +265,8 @@ def report_status(task, task_id, status):
   if task in REPORT_TASKS:
     logging.debug("Sending task status to the AppScale Portal. Task: {0}, "
       "Status: {1}".format(task, status))
-    url = '{0}{1}'.format(hermes_constants.PORTAL_URL,
-      hermes_constants.PORTAL_STATUS_PATH)
+    url = '{0}{1}'.format(constants.PORTAL_URL,
+                          constants.PORTAL_STATUS_PATH)
     data = urllib.urlencode({
       JSONTags.TASK_ID: task_id,
       JSONTags.DEPLOYMENT_ID: get_deployment_id(),
