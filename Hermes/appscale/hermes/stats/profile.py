@@ -85,6 +85,8 @@ class ProcessesProfileLog(object):
     cpu_time = attr.ib(default=0)
     resident_mem = attr.ib(default=0)
     unique_mem = attr.ib(default=0)
+    children_resident_mem = attr.ib(default=0)
+    children_unique_mem = attr.ib(default=0)
 
   def __init__(self, include_lists=None, write_detailed_stats=False):
     """ Initializes profile log for cluster processes stats.
@@ -136,9 +138,15 @@ class ProcessesProfileLog(object):
         if proc.application_id:
           service_name = '{}-{}'.format(service_name, proc.application_id)
         summary = services_summary[service_name]
-        summary.cpu_time += proc.cpu.system + proc.cpu.user
+        summary.cpu_time += (
+          proc.cpu.system + proc.cpu.user
+          + proc.children_stats_sum.cpu.system
+          + proc.children_stats_sum.cpu.user
+        )
         summary.resident_mem += proc.memory.resident
         summary.unique_mem += proc.memory.unique
+        summary.children_resident_mem += proc.children_stats_sum.memory.resident
+        summary.children_unique_mem += proc.children_stats_sum.memory.unique
 
       if not self._write_detailed_stats:
         continue
