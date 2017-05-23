@@ -1,72 +1,24 @@
 {
-  "192.168.33.10": [
-    {
-      "swap": {"total": 0, "free": 0, "used": 0},
-      "disk_io": {"write_bytes": 17506095104, "read_count": 31756, "write_count": 795643, "read_time": 13968, "read_bytes": 500769792, "write_time": 546996},
-      "utc_timestamp": 1494248091.0,
-      "loadavg": {"last_1min": 0.07, "last_5min": 0.17, "last_15min": 0.26},
-      "private_ip": "192.168.33.10",
-      "memory": {"available": 1157386240, "total": 4145442816, "used": 2727698432},
-      "partitions_dict": {"/": {"total": 42241163264, "free": 36059422720, "used": 4404166656}},
-      "cpu": {"count": 1, "idle": 10944.83, "percent": 0.0, "user": 715.66, "system": 320.41},
-      "network": {"dropin": 0, "packets_recv": 1634903, "bytes_recv": 971029315, "connections_num": 376, "dropout": 0, "bytes_sent": 118666295, "errout": 0, "errin": 0, "packets_sent": 1059854}
-    },
-    {
-      "swap": {"total": 0, "free": 0, "used": 0},
-      "disk_io": {"write_bytes": 17506095104, "read_count": 31756, "write_count": 795643, "read_time": 13968, "read_bytes": 500769792, "write_time": 546996},
-      "utc_timestamp": 1494248150.0,
-      "loadavg": {"last_1min": 0.07, "last_5min": 0.17, "last_15min": 0.26},
-      "private_ip": "192.168.33.10",
-      "memory": {"available": 1157386240, "total": 4145442816, "used": 2727698432},
-      "partitions_dict": {"/": {"total": 42241163264, "free": 36059422720, "used": 4404166656}},
-      "cpu": {"count": 1, "idle": 10944.83, "percent": 0.0, "user": 715.66, "system": 320.41},
-      "network": {"dropin": 0, "packets_recv": 1634903, "bytes_recv": 971029315, "connections_num": 376, "dropout": 0, "bytes_sent": 118666295, "errout": 0, "errin": 0, "packets_sent": 1059854}
-    },
-    {
-      "swap": {"total": 0, "free": 0, "used": 0},
-      "disk_io": {"write_bytes": 17506095104, "read_count": 31756, "write_count": 795643, "read_time": 13968, "read_bytes": 500769792, "write_time": 546996},
-      "utc_timestamp": 1494248198.0,
-      "loadavg": {"last_1min": 0.07, "last_5min": 0.17, "last_15min": 0.26},
-      "private_ip": "192.168.33.10",
-      "memory": {"available": 1157386240, "total": 4145442816, "used": 2727698432},
-      "partitions_dict": {"/": {"total": 42241163264, "free": 36059422720, "used": 4404166656}},
-      "cpu": {"count": 1, "idle": 10944.83, "percent": 0.0, "user": 715.66, "system": 320.41},
-      "network": {"dropin": 0, "packets_recv": 1634903, "bytes_recv": 971029315, "connections_num": 376, "dropout": 0, "bytes_sent": 118666295, "errout": 0, "errin": 0, "packets_sent": 1059854}
-    }
-  ],
-  "192.168.33.11": [
-    {
-      "swap": {"total": 0, "free": 0, "used": 0},
-      "disk_io": {"write_bytes": 17506095104, "read_count": 31756, "write_count": 795643, "read_time": 13968, "read_bytes": 500769792, "write_time": 546996},
-      "utc_timestamp": 1494248082.0,
-      "loadavg": {"last_1min": 0.07, "last_5min": 0.17, "last_15min": 0.26},
-      "private_ip": "192.168.33.11",
-      "memory": {"available": 1157386240, "total": 4145442816, "used": 2727698432},
-      "partitions_dict": {"/": {"total": 42241163264, "free": 36059422720, "used": 4404166656}},
-      "cpu": {"count": 1, "idle": 10944.83, "percent": 0.0, "user": 715.66, "system": 320.41},
-      "network": {"dropin": 0, "packets_recv": 1634903, "bytes_recv": 971029315, "connections_num": 376, "dropout": 0, "bytes_sent": 118666295, "errout": 0, "errin": 0, "packets_sent": 1059854}
-    },
-    {
-      "swap": {"total": 0, "free": 0, "used": 0},
-      "disk_io": {"write_bytes": 17506095104, "read_count": 31756, "write_count": 795643, "read_time": 13968, "read_bytes": 500769792, "write_time": 546996},
-      "utc_timestamp": 1494248136.0,
-      "loadavg": {"last_1min": 0.07, "last_5min": 0.17, "last_15min": 0.26},
-      "private_ip": "192.168.33.11",
-      "memory": {"available": 1157386240, "total": 4145442816, "used": 2727698432},
-      "partitions_dict": {"/": {"total": 42241163264, "free": 36059422720, "used": 4404166656}},
-      "cpu": {"count": 1, "idle": 10944.83, "percent": 0.0, "user": 715.66, "system": 320.41},
-      "network": {"dropin": 0, "packets_recv": 1634903, "bytes_recv": 971029315, "connections_num": 376, "dropout": 0, "bytes_sent": 118666295, "errout": 0, "errin": 0, "packets_sent": 1059854}
-    },
-    {
-      "swap": {"total": 0, "free": 0, "used": 0},
-      "disk_io": {"write_bytes": 17506095104, "read_count": 31756, "write_count": 795643, "read_time": 13968, "read_bytes": 500769792, "write_time": 546996},
-      "utc_timestamp": 1494248187.0,
-      "loadavg": {"last_1min": 0.07, "last_5min": 0.17, "last_15min": 0.26},
-      "private_ip": "192.168.33.11",
-      "memory": {"available": 1157386240, "total": 4145442816, "used": 2727698432},
-      "partitions_dict": {"/": {"total": 42241163264, "free": 36059422720, "used": 4404166656}},
-      "cpu": {"count": 1, "idle": 10944.83, "percent": 0.0, "user": 715.66, "system": 320.41},
-      "network": {"dropin": 0, "packets_recv": 1634903, "bytes_recv": 971029315, "connections_num": 376, "dropout": 0, "bytes_sent": 118666295, "errout": 0, "errin": 0, "packets_sent": 1059854}
-    }
-  ]
+  "192.168.33.10": {
+    "swap": {"total": 0, "free": 0, "used": 0},
+    "disk_io": {"write_bytes": 17506095104, "read_count": 31756, "write_count": 795643, "read_time": 13968, "read_bytes": 500769792, "write_time": 546996},
+    "utc_timestamp": 1494248091.0,
+    "loadavg": {"last_1min": 0.07, "last_5min": 0.17, "last_15min": 0.26},
+    "private_ip": "192.168.33.10",
+    "memory": {"available": 1157386240, "total": 4145442816, "used": 2727698432},
+    "partitions_dict": {"/": {"total": 42241163264, "free": 36059422720, "used": 4404166656}},
+    "cpu": {"count": 1, "idle": 10944.83, "percent": 0.0, "user": 715.66, "system": 320.41},
+    "network": {"dropin": 0, "packets_recv": 1634903, "bytes_recv": 971029315, "connections_num": 376, "dropout": 0, "bytes_sent": 118666295, "errout": 0, "errin": 0, "packets_sent": 1059854}
+  },
+  "192.168.33.11": {
+    "swap": {"total": 0, "free": 0, "used": 0},
+    "disk_io": {"write_bytes": 17506095104, "read_count": 31756, "write_count": 795643, "read_time": 13968, "read_bytes": 500769792, "write_time": 546996},
+    "utc_timestamp": 1494248082.0,
+    "loadavg": {"last_1min": 0.07, "last_5min": 0.17, "last_15min": 0.26},
+    "private_ip": "192.168.33.11",
+    "memory": {"available": 1157386240, "total": 4145442816, "used": 2727698432},
+    "partitions_dict": {"/": {"total": 42241163264, "free": 36059422720, "used": 4404166656}},
+    "cpu": {"count": 1, "idle": 10944.83, "percent": 0.0, "user": 715.66, "system": 320.41},
+    "network": {"dropin": 0, "packets_recv": 1634903, "bytes_recv": 971029315, "connections_num": 376, "dropout": 0, "bytes_sent": 118666295, "errout": 0, "errin": 0, "packets_sent": 1059854}
+  }
 }
