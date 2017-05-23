@@ -521,11 +521,19 @@ class Server(object):
     Returns:
       An iterable over strings containing the body of the HTTP response.
     """
-    environ['SERVER_PORT'] = os.environ['NGINX_PORT']
+    try:
+      environ['SERVER_PORT'] = environ['HTTP_HOST'].split(':')[1]
+    except IndexError:
+      scheme = environ['HTTP_X_FORWARDED_PROTO']
+      if scheme == 'http':
+        environ['SERVER_PORT'] = 80
+      else:
+        environ['SERVER_PORT'] = 443
+
     if 'HTTP_HOST' in environ:
       environ['SERVER_NAME'] = environ['HTTP_HOST'].split(':', 1)[0]
     environ['DEFAULT_VERSION_HOSTNAME'] = '%s:%s' % (
-        environ['SERVER_NAME'], os.environ['NGINX_PORT'])
+        environ['SERVER_NAME'], environ['SERVER_PORT'])
     with self._request_data.request(
         environ,
         self._server_configuration) as request_id:
