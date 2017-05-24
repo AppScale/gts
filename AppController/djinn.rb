@@ -775,9 +775,6 @@ class Djinn
       return
     end
 
-    # Notify nodes, and remove any running AppServer of the application.
-    notify_restart_app_to_nodes([appid])
-
     return "OK"
   end
 
