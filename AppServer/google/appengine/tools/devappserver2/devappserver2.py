@@ -510,14 +510,6 @@ def _setup_environ(app_id):
   """
   os.environ['APPLICATION_ID'] = app_id
 
-  # In AppScale, we need to know what port nginx binds to when sending traffic
-  # to this app. Since we need to know the appid to know what port we're on,
-  # this is a good place to set that value.
-  filename = "/etc/appscale/port-{0}.txt".format(app_id)
-  with open(filename) as file_handle:
-    port = file_handle.read()
-    os.environ['NGINX_PORT'] = port
-
 
 class DevelopmentServer(object):
   """Encapsulates the logic for the development server.

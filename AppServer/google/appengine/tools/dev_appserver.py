@@ -182,7 +182,6 @@ DEFAULT_ENV = {
     'COOKIE_SECRET': 'secret',
     'LOGIN_SERVER': '0.0.0.0',
     'NGINX_HOST': '0.0.0.0',
-    'NGINX_PORT': '0',
 }
 
 
