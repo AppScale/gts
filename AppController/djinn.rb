@@ -778,10 +778,6 @@ class Djinn
     # Notify nodes, and remove any running AppServer of the application.
     notify_restart_app_to_nodes([appid])
 
-    # Once we've relocated the app, we need to tell the XMPPReceiver about the
-    # app's new location.
-    MonitInterface.restart("xmpp-#{appid}")
-
     return "OK"
   end
 
