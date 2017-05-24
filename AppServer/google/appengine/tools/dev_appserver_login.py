@@ -153,7 +153,12 @@ def LoginRedirect(login_url,
     outfile: File-like object to which the response should be written.
   """
   hostname = os.environ['NGINX_HOST']
-  port = os.environ['NGINX_PORT']
+
+  port_file_location = os.path.join(
+    '/', 'etc', 'appscale', 'port-{}.txt'.format(os.environ['APPLICATION_ID']))
+  with open(port_file_location) as port_file:
+    port = port_file.read().strip()
+
   dest_url = "http://%s:%s%s" % (hostname, port, relative_url)
   redirect_url = 'http://%s:%s%s?%s=%s' % (hostname,
                                            port,
@@ -197,12 +202,13 @@ def main():
   LOGIN_SERVER = os.environ['LOGIN_SERVER']
 
   nginx_url = os.environ['NGINX_HOST']
-  nginx_port = os.environ['NGINX_PORT']
-  ah_login_url = 'http://' + nginx_url + ":" + nginx_port + ah_path
 
-  host = 'https://'+os.environ['SERVER_NAME']
-  if os.environ['SERVER_PORT'] != '80':
-    host = host + ":" + os.environ['SERVER_PORT']
+  port_file_location = os.path.join(
+    '/', 'etc', 'appscale', 'port-{}.txt'.format(os.environ['APPLICATION_ID']))
+  with open(port_file_location) as port_file:
+    nginx_port = port_file.read().strip()
+
+  ah_login_url = 'http://' + nginx_url + ":" + nginx_port + ah_path
 
   action = form.getfirst(ACTION_PARAM)
 
