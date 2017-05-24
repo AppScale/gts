@@ -45,6 +45,8 @@ module HAProxy
   # HAProxy Configuration to use for a thread safe gae app.
   THREADED_SERVER_OPTIONS = "maxconn 7 check"
 
+  # Maximum AppServer threaded connections
+  MAX_APPSERVER_CONN = 7
 
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
@@ -375,6 +377,7 @@ CONFIG
     total_requests_seen = 0
     total_req_in_queue = 0
     time_requests_were_seen = 0
+    current_sessions = 0
 
     # Retrieve total and enqueued requests for the given app.
     monitoring_info = Djinn.log_run("echo \"show stat\" | " +
@@ -383,7 +386,7 @@ CONFIG
     if monitoring_info.empty?
       Djinn.log_warn("Didn't see any monitoring info - #{full_app_name} may not " +
         "be running.")
-      return :no_change, :no_change, :no_backend
+      return :no_change, :no_change, :no_change, :no_backend
     end
 
     monitoring_info.each_line { |line|
@@ -407,12 +410,15 @@ CONFIG
 
       if service_name == "BACKEND"
         total_req_in_queue = parsed_info[REQ_IN_QUEUE_INDEX].to_i
+        current_sessions = parsed_info[CURRENT_SESSIONS_INDEX].to_i
         Djinn.log_debug("#{full_app_name} #{service_name} Queued Currently " +
           "#{total_req_in_queue}")
+        Djinn.log_debug("Current sessions for #{full_app_name} per AppServer " +
+          "is #{current_sessions}.")
       end
     }
 
-    return total_requests_seen, total_req_in_queue, time_requests_were_seen
+    return total_requests_seen, total_req_in_queue, current_sessions, time_requests_were_seen
   end
 
 
