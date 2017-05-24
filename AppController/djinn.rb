@@ -775,6 +775,10 @@ class Djinn
       return
     end
 
+    CronHelper.update_cron(
+      get_load_balancer.public_ip, http_port, @app_info_map[appid]['language'],
+      appid)
+
     return "OK"
   end
 
