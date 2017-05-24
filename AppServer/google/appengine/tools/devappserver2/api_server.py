@@ -328,7 +328,6 @@ def setup_stubs(
       file_service_stub.FileServiceStub(blob_storage))
 
   serve_address = os.environ['NGINX_HOST']
-  serve_port = int(os.environ['NGINX_PORT'])
   try:
     from google.appengine.api.images import images_stub
   except ImportError:
@@ -382,8 +381,7 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'taskqueue',
-      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address,
-      serve_port))
+      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address))
 
   urlmatchers_to_fetch_functions = []
   urlmatchers_to_fetch_functions.extend(
