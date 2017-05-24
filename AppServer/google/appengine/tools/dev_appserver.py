@@ -3636,7 +3636,7 @@ def SetupStubs(app_id, **config):
 
   try:
     from google.appengine.api.images import images_stub
-    host_prefix = 'http://%s:%d' % (serve_address, serve_port)
+    host_prefix = 'http://{}'.format(serve_address)
     apiproxy_stub_map.apiproxy.RegisterStub(
         'images',
         images_stub.ImagesServiceStub(host_prefix=host_prefix))

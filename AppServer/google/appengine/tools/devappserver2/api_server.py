@@ -342,7 +342,7 @@ def setup_stubs(
         images_not_implemented_stub.ImagesNotImplementedServiceStub(
             host_prefix=images_host_prefix))
   else:
-    host_prefix = 'http://{0}:{1}'.format(serve_address, serve_port)
+    host_prefix = 'http://{}'.format(serve_address)
     apiproxy_stub_map.apiproxy.RegisterStub(
         'images',
         images_stub.ImagesServiceStub(host_prefix=host_prefix))
