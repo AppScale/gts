@@ -54,24 +54,15 @@ class HandlerInfo(object):
 
 
 def get_local_stats_api_routes(is_lb_node):
+  """ Creates stats sources and API handlers for providing local
+  node, processes and proxies (only on LB nodes) stats.
+
+  Args:
+    is_lb_node: a boolean indicating whether this node is load balancer
+  Returns:
+    a list of route-handler tuples
   """
-  This class holds logic related to start of stats profiling and API endpoints.
 
-  There are 6 possible kinds of stats:
-   - local node stats (cpu, memory, disk, ...);
-   - local processes stats (cpu, memory, ... per monitored process);
-   - local proxies stats (haproxy stats collected from local haproxy socket);
-   - cluster node stats (dict[node_ip, local_node_stats]);
-   - cluster processes stats (dict[node_ip, local_processes_stats]);
-   - cluster proxies stats (dict[node_ip, local_proxies_stats]);
-
-  Statistics works differently on master node, load balancer node and other
-  regular nodes.
-
-  Additionally to that stats supports different levels of severity:
-   - csv profile log can be written optionally;
-   - default set of stats fields can be configured;
-  """
   # Any node provides its node and processes stats
   local_node_stats_handler =  HandlerInfo(
     handler_class=CurrentStatsHandler,
@@ -108,6 +99,15 @@ def get_local_stats_api_routes(is_lb_node):
 
 
 def get_cluster_stats_api_routes(is_master):
+  """ Creates stats sources and API handlers for providing cluster
+  node, processes and proxies stats (on master node only).
+  If this node is slave, it creates stub handlers for cluster stats routes.
+
+  Args:
+    is_master: a boolean indicating whether this node is master
+  Returns:
+    a list of route-handler tuples
+  """
   if is_master:
     # Only master node provides cluster stats
     cluster_node_stats_handler = HandlerInfo(
@@ -178,6 +178,10 @@ def configure_node_stats_profiling():
 def configure_processes_stats_profiling(write_detailed_stats):
   """ Configure and start periodical callback for collecting and than
   writing cluster stats to profile log.
+
+  Args:
+    write_detailed_stats: a boolean indicating whether detailed stats
+        should be written.
   """
   _configure_profiling(
     stats_source=ClusterProcessesStatsSource(),
@@ -190,6 +194,10 @@ def configure_processes_stats_profiling(write_detailed_stats):
 def configure_proxies_stats_profiling(write_detailed_stats):
   """ Configure and start periodical callback for collecting and than
   writing cluster stats to profile log.
+
+  Args:
+    write_detailed_stats: a boolean indicating whether detailed stats
+        should be written.
   """
   _configure_profiling(
     stats_source=ClusterProxiesStatsSource(),

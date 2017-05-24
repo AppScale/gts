@@ -37,12 +37,11 @@ class ClusterStatsSource(object):
   @gen.coroutine
   def get_current_async(self, newer_than=None, include_lists=None,
                         exclude_nodes=None):
-    """ Implements AsyncStatsSource.get_current_async() method.
-    Makes concurrent asynchronous http calls to cluster nodes
-    and collects current stats.
+    """ Makes concurrent asynchronous http calls to cluster nodes
+    and collects current stats. Local stats is got from local stats source.
 
     Args:
-      newer_than: utc timestamp, allow to use cached snapshot if it's newer
+      newer_than: UTC timestamp, allow to use cached snapshot if it's newer
       include_lists: an instance of IncludeLists
       exclude_nodes: a list of node IPs to ignore when fetching stats
     Returns:

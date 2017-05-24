@@ -7,6 +7,8 @@ import collections
 
 import attr
 
+from appscale.hermes.stats import constants
+
 
 class WrongIncludeLists(ValueError):
   """ Is raised when unknown fields are passed to IncludeLists.__init__ """
@@ -158,9 +160,6 @@ class IncludeLists(object):
         if attribute not in corresponding_list:
           return False
     return True
-
-
-from appscale.hermes.stats import constants
 
 
 def stats_to_dict(stats, include_lists=None):

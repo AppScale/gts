@@ -1,4 +1,4 @@
-# The intervals for updating cluster stats profile (in milliseconds)
+# The intervals for writing to cluster stats profile (in milliseconds)
 PROFILE_NODES_STATS_INTERVAL = 15*1000
 PROFILE_PROCESSES_STATS_INTERVAL = 65*1000
 PROFILE_PROXIES_STATS_INTERVAL = 35*1000
