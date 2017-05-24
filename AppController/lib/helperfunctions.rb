@@ -997,7 +997,7 @@ module HelperFunctions
 
         handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
 
-        next if not copy_files
+        next unless copy_files
 
         cache_static_dir_path = File.join(cache_path,handler["static_dir"])
         FileUtils.mkdir_p cache_static_dir_path
@@ -1020,7 +1020,7 @@ module HelperFunctions
 
         handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
 
-        next if not copy_files
+        next unless copy_files
 
         upload_regex = Regexp.new(handler["upload"])
 
