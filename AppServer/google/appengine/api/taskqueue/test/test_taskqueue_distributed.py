@@ -114,6 +114,8 @@ class TestTaskqueueDistributed(unittest.TestCase):
     self.assertEquals(None, tqd._Dynamic_Add(FakeAddRequest(), FakeAddResponse()))
 
   def test_dynamic_bulkadd(self):
+    app_id = 'app_id'
+
     tqd = flexmock(taskqueue_distributed.TaskQueueServiceStub)
     flexmock(taskqueue_service_pb) 
     taskqueue_service_pb.should_receive("TaskQueueBulkAddRequest").\
@@ -122,8 +124,13 @@ class TestTaskqueueDistributed(unittest.TestCase):
       and_return(FakeBulkAddResponse())
     tqd.should_receive("_GetTQLocations").and_return(["some_location"])
     tqd.should_receive("_RemoteSend").and_return()
-    tqd = taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname")
-     
+    tqd = taskqueue_distributed.TaskQueueServiceStub(app_id, "hostname")
+
+    port_file = os.path.join(
+      '/', 'etc', 'appscale', 'port-{}.txt'.format(app_id))
+    flexmock(sys.modules['__builtin__']).should_receive('open').\
+      with_args(port_file).and_return(flexmock(read=lambda: '80'))
+
     self.assertEquals(None, tqd._Dynamic_BulkAdd(FakeBulkAddRequest(), None))
 
   def test_add_transactional_bulk_task(self):

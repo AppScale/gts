@@ -220,8 +220,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       return response
 
     port_file_location = os.path.join(
-      '/', 'etc', 'appscale',
-      'port-{}.txt'.format(os.environ['APPLICATION_ID']))
+      '/', 'etc', 'appscale', 'port-{}.txt'.format(self.__app_id))
     with open(port_file_location) as port_file:
       port = port_file.read().strip()
 
