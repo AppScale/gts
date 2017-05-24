@@ -45,7 +45,7 @@ class ClusterNodesProfileLog(StatsSubscriber):
 
     Args:
       nodes_stats_dict: a dict with node IP as key and list of
-          NodeStatsSnapshot as value
+          NodeStatsSnapshot as value.
     """
     for node_ip, snapshots in nodes_stats_dict.iteritems():
       with self._prepare_file(node_ip) as csv_file:
@@ -61,7 +61,7 @@ class ClusterNodesProfileLog(StatsSubscriber):
     Args:
       node_ip: a string representation of node IP
     Returns:
-      file object opened for appending new data
+      a file object opened for appending new data
     """
     file_name = path.join(self._directory, '{}.csv'.format(node_ip))
     if not path.isfile(file_name):
@@ -78,7 +78,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
   class ServiceProcessesSummary(object):
     """
     This data structure is kind of service summary accumulator.
-    When new stats is received, ServiceProcessesSummary is created
+    When new stats are received, ServiceProcessesSummary is created
     for each service and then cpu time and memory usage of each process
     running this service is added to the summary.
     Separate CSV summary file is created for each attribute of this model,
@@ -122,7 +122,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
 
     Args:
       processes_stats_dict: a dict with node IP as key and list of
-          ProcessesStatsSnapshot as value
+          ProcessesStatsSnapshot as value.
     """
     services_summary = collections.defaultdict(self.ServiceProcessesSummary)
 
@@ -168,7 +168,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
       node_ip: a string representation of node IP
       monit_name: a string name of process as it's shown in monit status
     Returns:
-      file object opened for appending new data
+      a file object opened for appending new data
     """
     node_dir = path.join(self._directory, node_ip)
     file_name = path.join(node_dir, '{}.csv'.format(monit_name))
@@ -189,7 +189,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
 
   def _get_summary_columns(self):
     """ Opens summary-cpu-time.csv file (other summary file would be fine)
-    and reads it's header. It's needed to know order of columns previously
+    and reads it's header. Profiler needs to know order of columns previously
     written to the summary.
 
     Returns:
@@ -209,7 +209,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
 
     Args:
       services_summary: a dict where key is name of service and value is
-          an instance of ServiceProcessesSummary
+          an instance of ServiceProcessesSummary.
     """
     old_summary_columns = self._get_summary_columns()
 
