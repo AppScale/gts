@@ -276,7 +276,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
 
     Args:
       include_lists: an instance of IncludeLists describing which fields
-          of processes stats should be written to CSV log.
+        of processes stats should be written to CSV log.
     """
     self._header = (
       ['utc_timestamp']
@@ -302,7 +302,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
 
     Args:
       proxies_stats_dict: a dict with node IP as key and list of
-          ProxyStatsSnapshot as value
+        ProxyStatsSnapshot as value.
     """
     services_summary = collections.defaultdict(self.ServiceProxySummary)
 
@@ -389,7 +389,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
 
     Args:
       services_summary: a dict where key is name of service and value is
-          an instance of ServiceProxySummary
+        an instance of ServiceProxySummary.
     """
     old_summary_columns = self._get_summary_columns()
 
