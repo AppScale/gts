@@ -5564,7 +5564,7 @@ HOSTS
       return appservers_to_scale
     else
       Djinn.log_debug("The deployment is within the desired range of capacity for " +
-        "app #{app_name} - Advising that we don't scale either way within this machine.")
+        "app #{app_name} - Advising that there is no need to scale currently.")
       return 0
     end  
   end
