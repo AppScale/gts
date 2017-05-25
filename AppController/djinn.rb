@@ -1856,14 +1856,12 @@ class Djinn
       apps_to_restart = @apps_loaded & apps
     }
     # Notify nodes, and remove any running AppServer of the application.
-    Djinn.log_info("notifying: #{apps_to_restart}")
     notify_restart_app_to_nodes(apps_to_restart)
-    Djinn.log_info("done notifying")
 
     APPS_LOCK.synchronize {
       @app_names |= apps
     }
-    Djinn.log_info("Done updating apps: #{apps}")
+    Djinn.log_info("Done updating apps: #{apps}.")
     return 'OK'
   end
 
@@ -2078,6 +2076,7 @@ class Djinn
           # Starts apps that are not running yet but they should.
           apps_to_load = @app_names - @apps_loaded
           apps_to_load.each { |app|
+            setup_app_dir(app, true)
             setup_appengine_application(app)
           }
           scale_deployment
@@ -4957,8 +4956,8 @@ HOSTS
     to_end = []
     APPS_LOCK.synchronize {
       @app_info_map.each { |app, info|
-        # Machines with a taskqueue role need to ensure that the latest
-        # queue configuration files are loaded and that we have the
+        # Machines with a taskqueue role need to ensure that the queue
+        # configuration files is available loaded and that we have the
         # queue.yaml from the application.
         setup_app_dir(app)
         maybe_reload_taskqueue_worker(app)
@@ -5850,11 +5849,6 @@ HOSTS
   #   A Boolean to indicate if the AppServer was successfully started.
   def add_appserver_process(app, nginx_port, app_language)
     Djinn.log_info("Received request to add an AppServer for #{app}.")
-
-    # Make sure we have the application setup properly.
-    APPS_LOCK.synchronize {
-      setup_app_dir(app)
-    }
 
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
