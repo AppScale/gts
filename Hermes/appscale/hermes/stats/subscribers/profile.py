@@ -369,7 +369,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
 
   def _get_summary_columns(self):
     """ Opens summary-requests-rate.csv file (other summary file would be fine)
-    and reads it's header. It's needed to know order of columns previously
+    and reads it's header. It needs to know order of columns previously
     written to the summary.
 
     Returns:
