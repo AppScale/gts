@@ -4956,9 +4956,8 @@ HOSTS
     to_end = []
     APPS_LOCK.synchronize {
       @app_info_map.each { |app, info|
-        # Machines with a taskqueue role need to ensure that the queue
-        # configuration files is available loaded and that we have the
-        # queue.yaml from the application.
+        # Machines with a taskqueue role need to ensure that the files are
+        # available and that we have the queue.yaml from the application.
         setup_app_dir(app)
         maybe_reload_taskqueue_worker(app)
 
