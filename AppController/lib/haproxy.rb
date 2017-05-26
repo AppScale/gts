@@ -413,7 +413,7 @@ CONFIG
         current_sessions = parsed_info[CURRENT_SESSIONS_INDEX].to_i
         Djinn.log_debug("#{full_app_name} #{service_name} Queued Currently " +
           "#{total_req_in_queue}")
-        Djinn.log_debug("Current sessions for #{full_app_name} per AppServer " +
+        Djinn.log_debug("Current sessions for #{full_app_name} " +
           "is #{current_sessions}.")
       end
     }
