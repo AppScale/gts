@@ -207,8 +207,8 @@ def main():
   signal.signal(signal.SIGINT, signal_handler)
 
   my_ip = appscale_info.get_private_ip()
-  is_master = my_ip == appscale_info.get_headnode_ip()
-  is_lb = my_ip in appscale_info.get_load_balancer_ips()
+  is_master = (my_ip == appscale_info.get_headnode_ip())
+  is_lb = (my_ip in appscale_info.get_load_balancer_ips())
 
   if is_master:
     # Periodically checks if the deployment is registered and uploads the

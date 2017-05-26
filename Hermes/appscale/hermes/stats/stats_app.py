@@ -149,13 +149,18 @@ def get_cluster_stats_api_routes(is_master):
 def _configure_profiling(stats_source, profiler, interval):
 
   def write_stats_callback(future_stats):
-    """ Is called when cluster stats were collected and are ready to be written
+    """ Gets stats from already finished future wrapper
+    and calls profiler to write the stats.
+
+    Args:
+      future_stats: a Future wrapper for the cluster stats
     """
     stats = future_stats.result()
     profiler.write(stats)
 
   def profiling_periodical_callback():
-    """ Is called periodically to trigger stats collection from cluster
+    """ Triggers asynchronous stats collection and schedules writing
+    of the cluster stats (when it's collected) to the stats profile.
     """
     newer_than = time.mktime(datetime.utcnow().timetuple())
     future_stats = stats_source.get_current_async(newer_than=newer_than)
@@ -165,7 +170,7 @@ def _configure_profiling(stats_source, profiler, interval):
 
 
 def configure_node_stats_profiling():
-  """ Configure and start periodical callback for collecting and than
+  """ Configures and starts periodical callback for collecting and than
   writing cluster stats to profile log.
   """
   _configure_profiling(
@@ -176,12 +181,12 @@ def configure_node_stats_profiling():
 
 
 def configure_processes_stats_profiling(write_detailed_stats):
-  """ Configure and start periodical callback for collecting and than
+  """ Configures and starts periodical callback for collecting and than
   writing cluster stats to profile log.
 
   Args:
     write_detailed_stats: a boolean indicating whether detailed stats
-        should be written.
+      should be written.
   """
   _configure_profiling(
     stats_source=ClusterProcessesStatsSource(),
@@ -192,12 +197,12 @@ def configure_processes_stats_profiling(write_detailed_stats):
 
 
 def configure_proxies_stats_profiling(write_detailed_stats):
-  """ Configure and start periodical callback for collecting and than
+  """ Configures and starts periodical callback for collecting and than
   writing cluster stats to profile log.
 
   Args:
     write_detailed_stats: a boolean indicating whether detailed stats
-        should be written.
+      should be written.
   """
   _configure_profiling(
     stats_source=ClusterProxiesStatsSource(),
