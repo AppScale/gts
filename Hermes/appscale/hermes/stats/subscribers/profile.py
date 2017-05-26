@@ -24,7 +24,7 @@ class ClusterNodesProfileLog(StatsSubscriber):
 
     Args:
       include_lists: an instance of IncludeLists describing which fields
-          of node stats should be written to CSV log.
+        of node stats should be written to CSV log.
     """
     self._header = (
       converter.get_stats_header(node_stats.NodeStatsSnapshot, include_lists)
@@ -45,7 +45,7 @@ class ClusterNodesProfileLog(StatsSubscriber):
 
     Args:
       nodes_stats_dict: a dict with node IP as key and list of
-          NodeStatsSnapshot as value.
+        NodeStatsSnapshot as value.
     """
     for node_ip, snapshots in nodes_stats_dict.iteritems():
       with self._prepare_file(node_ip) as csv_file:
@@ -77,7 +77,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
   @attr.s(cmp=False, hash=False, slots=True)
   class ServiceProcessesSummary(object):
     """
-    This data structure is kind of service summary accumulator.
+    This data structure is a service summary accumulator.
     When new stats are received, ServiceProcessesSummary is created
     for each service and then cpu time and memory usage of each process
     running this service is added to the summary.
@@ -97,7 +97,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
 
     Args:
       include_lists: an instance of IncludeLists describing which fields
-          of processes stats should be written to CSV log.
+        of processes stats should be written to CSV log.
     """
     self._header = (
       ['utc_timestamp']
@@ -122,7 +122,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
 
     Args:
       processes_stats_dict: a dict with node IP as key and list of
-          ProcessesStatsSnapshot as value.
+        ProcessesStatsSnapshot as value.
     """
     services_summary = collections.defaultdict(self.ServiceProcessesSummary)
 
@@ -209,7 +209,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
 
     Args:
       services_summary: a dict where key is name of service and value is
-          an instance of ServiceProcessesSummary.
+        an instance of ServiceProcessesSummary.
     """
     old_summary_columns = self._get_summary_columns()
 
