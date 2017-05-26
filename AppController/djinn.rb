@@ -3057,12 +3057,14 @@ class Djinn
       Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
-    if @appcontroller_state == json_state
+    if @appcontroller_state == json_state.to_s
       Djinn.log_debug("Reload state: no changes.")
       return true
     end
 
     Djinn.log_debug("Reload state : #{json_state}.")
+    @appcontroller_state = json_state.to_s
+
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
       keyname = json_state['@options']['keyname']
