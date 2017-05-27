@@ -1,6 +1,11 @@
 package com.google.appengine.tools.resources;
 
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+
 public class ResourceLoader
 {
 
@@ -58,5 +63,28 @@ public class ResourceLoader
     public String getMrTmpLocation()
     {
         return TMP_LOCATION;
+    }
+
+    public static String getNginxPort()
+    {
+        String portFileLocation = "/etc/appscale/port-" + System.getProperty("APP_NAME") + ".txt";
+        BufferedReader br;
+        try {
+            br = new BufferedReader(new FileReader(portFileLocation));
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(portFileLocation + " does not exist");
+        }
+
+        try {
+            return br.readLine();
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading from " + portFileLocation);
+        } finally {
+            try {
+                br.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

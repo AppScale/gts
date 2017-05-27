@@ -17,7 +17,6 @@ public final class LocalLoginServlet extends HttpServlet
     private static final String LOGIN_SERVER        = System.getProperty("LOGIN_SERVER");
     private static final String CONTINUE_PARAM      = "continue";
     private static final String NGINX_ADDR_PROPERTY = "NGINX_ADDR";
-    private static final String NGINX_PORT_PROPERTY = "NGINX_PORT";
     private static final String PATH_INFO_PROPERTY  = "PATH_INFO";
     private final String DASHBOARD_HTTPS_PORT = "1443";
 
