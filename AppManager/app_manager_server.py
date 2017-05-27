@@ -728,7 +728,6 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     "--appscale_version=1",
     "--APP_NAME=" + app_name,
     "--NGINX_ADDRESS=" + load_balancer_host,
-    "--NGINX_PORT=anything",
     "--TQ_PROXY=" + tq_proxy,
     "--pidfile={}".format(pidfile),
     os.path.dirname(locate_dir("/var/apps/" + app_name + "/app/", "WEB-INF"))
