@@ -2,7 +2,7 @@
 import attr
 from appscale.common import appscale_info
 
-from appscale.hermes import Respond404Handler
+from appscale.hermes.handlers import Respond404Handler
 from appscale.hermes.stats.constants import (
   UPDATE_NODE_STATS_INTERVAL, UPDATE_PROCESSES_STATS_INTERVAL,
   UPDATE_PROXIES_STATS_INTERVAL, UPDATE_CLUSTER_NODES_STATS_INTERVAL,
