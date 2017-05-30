@@ -3768,11 +3768,12 @@ class Djinn
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
     HermesService.start(
-      @options['verbose'], @options["write_nodes_stats_log"],
-      @options["write_processes_stats_log"],
-      @options["write_proxies_stats_log"],
-      @options["write_detailed_processes_stats_log"],
-      @options["write_detailed_proxies_stats_log"]
+      @options['verbose'].downcase == 'true',
+      @options["write_nodes_stats_log"].downcase == 'true',
+      @options["write_processes_stats_log"].downcase == 'true',
+      @options["write_proxies_stats_log"].downcase == 'true',
+      @options["write_detailed_processes_stats_log"].downcase == 'true',
+      @options["write_detailed_proxies_stats_log"].downcase == 'true'
     )
     Djinn.log_info("Done starting Hermes service.")
   end
