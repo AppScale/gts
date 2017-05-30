@@ -302,5 +302,15 @@ def stats_to_list(stats, include_lists=None):
       result.append(value)
     elif Meta.ENTITY in att.metadata:
       value = getattr(stats, att.name)
-      result += stats_to_list(value, include_lists)
+      if value is not constants.MISSED:
+        # Render nested stats entity
+        result += stats_to_list(value, include_lists)
+      else:
+        # Render needed number of MISSED values
+        stats_class = att.metadata[Meta.ENTITY]
+        if include_lists:
+          values_number = len(include_lists.get_included_attrs(stats_class))
+        else:
+          values_number = len(attr.fields(stats_class))
+        result += [constants.MISSED] * values_number
   return result
