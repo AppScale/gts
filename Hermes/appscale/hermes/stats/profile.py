@@ -198,7 +198,7 @@ class ProcessesProfileLog(object):
 
   def _get_summary_columns(self):
     """ Opens summary-cpu-time.csv file (other summary file would be fine)
-    and reads it's header. Profiler needs to know order of columns previously
+    and reads its header. Profiler needs to know order of columns previously
     written to the summary.
 
     Returns:
@@ -230,7 +230,7 @@ class ProcessesProfileLog(object):
       if len(old_summary_columns) == 1:
         # Summary wasn't written yet - write header line to summary file
         with open(summary_file_name, 'w') as new_summary:
-            csv.writer(new_summary).writerow(self._summary_columns)
+          csv.writer(new_summary).writerow(self._summary_columns)
 
       if len(old_summary_columns) < len(self._summary_columns):
         # Header need to be updated - add new services columns
@@ -268,7 +268,7 @@ class ProxiesProfileLog(object):
   @attr.s(cmp=False, hash=False, slots=True)
   class ServiceProxySummary(object):
     """
-    This data structure holds list of most valuable proxy stats attributes.
+    This data structure holds a list of useful proxy stats attributes.
     Separate CSV summary file is created for each attribute of this model,
     so we can easily compare services regarding important properties.
     """
@@ -308,8 +308,9 @@ class ProxiesProfileLog(object):
 
   def write(self, proxies_stats_dict):
     """ Saves newly produced cluster proxies stats to a list of CSV files.
-    One detailed file for each proxy on every node (normally one LB node)
-    and 3 summary files.
+    One detailed file for each proxy on every load balancer node
+    (if detailed stats is enabled) and three additional files
+    which summarize info about all cluster proxies.
 
     Args:
       proxies_stats_dict: a dict with node IP as key and list of
@@ -343,7 +344,7 @@ class ProxiesProfileLog(object):
           )
           csv.writer(csv_file).writerow(row)
 
-    # Update self._summary_columns ordered dict (set)
+    # Update self._summary_columns list
     for service_name in services_summary:
       if service_name not in self._summary_columns:
         self._summary_columns.append(service_name)
@@ -379,9 +380,8 @@ class ProxiesProfileLog(object):
     return open(file_name, 'a')
 
   def _get_summary_columns(self):
-    """ Opens summary-requests-rate.csv file (other summary file would be fine)
-    and reads it's header. It's needed to know order of columns previously
-    written to the summary.
+    """ Opens summary file and reads its header.
+    Profiler needs to know order of columns previously written to the summary.
 
     Returns:
       a list of column names: ['utc_timestamp', <service1>, <service2>, ..]
@@ -395,7 +395,7 @@ class ProxiesProfileLog(object):
 
   def _save_summary(self, services_summary):
     """ Saves services summary for each property (requests rate, errors and
-    bytes in+out). Output is 3 files (one for each property) which
+    sum of bytes in & out). Output is 3 files (one for each property) which
     have a column for each service + utc_timestamp column.
 
     Args:
@@ -412,7 +412,7 @@ class ProxiesProfileLog(object):
       if len(old_summary_columns) == 1:
         # Summary wasn't written yet - write header line to summary file
         with open(summary_file_name, 'w') as new_summary:
-            csv.writer(new_summary).writerow(self._summary_columns)
+          csv.writer(new_summary).writerow(self._summary_columns)
 
       if len(old_summary_columns) < len(self._summary_columns):
         # Header need to be updated - add new services columns
