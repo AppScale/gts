@@ -7,7 +7,7 @@ import collections
 
 import attr
 
-from appscale.hermes.stats import constants
+from appscale.hermes.stats.constants import MISSED
 
 
 class WrongIncludeLists(ValueError):
@@ -181,7 +181,7 @@ def stats_to_dict(stats, include_lists=None):
     if att not in included:
       continue
     value = getattr(stats, att.name)
-    if value is constants.MISSED:
+    if value is MISSED:
       continue
     if isinstance(value, dict):
       value = {k: stats_to_dict(v, include_lists) for k, v in value.iteritems()}
@@ -211,7 +211,7 @@ def stats_from_dict(stats_class, dictionary, strict=False):
   changed_kwargs = {}
   for att in attr.fields(stats_class):
     if att.name not in dictionary and not strict:
-      changed_kwargs[att.name] = constants.MISSED
+      changed_kwargs[att.name] = MISSED
       continue
     if att.metadata:
       # Try to unpack nested entity
@@ -302,7 +302,7 @@ def stats_to_list(stats, include_lists=None):
       result.append(value)
     elif Meta.ENTITY in att.metadata:
       value = getattr(stats, att.name)
-      if value is not constants.MISSED:
+      if value is not MISSED:
         # Render nested stats entity
         result += stats_to_list(value, include_lists)
       else:
@@ -312,5 +312,5 @@ def stats_to_list(stats, include_lists=None):
           values_number = len(include_lists.get_included_attrs(stats_class))
         else:
           values_number = len(attr.fields(stats_class))
-        result += [constants.MISSED] * values_number
+        result += [MISSED] * values_number
   return result

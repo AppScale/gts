@@ -22,8 +22,6 @@ from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
 from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
 
 
-# This constant can be defined when all stat models and
-# converter.IncludeLists are imported. So it can't be in constants module
 DEFAULT_INCLUDE_LISTS = IncludeLists({
   # Node stats
   'node': ['utc_timestamp', 'cpu', 'memory',
