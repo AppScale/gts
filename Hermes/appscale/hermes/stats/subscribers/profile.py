@@ -128,17 +128,19 @@ class ClusterProcessesProfileLog(StatsSubscriber):
 
     for node_ip, snapshots in processes_stats_dict.iteritems():
 
-      if snapshots:
-        # Add summary using only the latest snapshot from the node
-        for proc in snapshots[-1].processes_stats:
-          # Add this process stats to service summary
-          service_name = proc.unified_service_name
-          if proc.application_id:
-            service_name = '{}-{}'.format(service_name, proc.application_id)
-          summary = services_summary[service_name]
-          summary.cpu_time += proc.cpu.system + proc.cpu.user
-          summary.resident_mem += proc.memory.resident
-          summary.unique_mem += proc.memory.unique
+      if not snapshots:
+        continue
+
+      # Add summary using only the latest snapshot from the node
+      for proc in snapshots[-1].processes_stats:
+        # Add this process stats to service summary
+        service_name = proc.unified_service_name
+        if proc.application_id:
+          service_name = '{}-{}'.format(service_name, proc.application_id)
+        summary = services_summary[service_name]
+        summary.cpu_time += proc.cpu.system + proc.cpu.user
+        summary.resident_mem += proc.memory.resident
+        summary.unique_mem += proc.memory.unique
 
       # Write detailed process stats using all snapshots received from the node
       for snapshot in snapshots:
@@ -189,7 +191,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
 
   def _get_summary_columns(self):
     """ Opens summary-cpu-time.csv file (other summary file would be fine)
-    and reads it's header. Profiler needs to know order of columns previously
+    and reads its header. Profiler needs to know order of columns previously
     written to the summary.
 
     Returns:
@@ -221,7 +223,7 @@ class ClusterProcessesProfileLog(StatsSubscriber):
       if len(old_summary_columns) == 1:
         # Summary wasn't written yet - write header line to summary file
         with open(summary_file_name, 'w') as new_summary:
-            csv.writer(new_summary).writerow(self._summary_columns)
+          csv.writer(new_summary).writerow(self._summary_columns)
 
       if len(old_summary_columns) < len(self._summary_columns):
         # Header need to be updated - add new services columns
@@ -259,7 +261,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
   @attr.s(cmp=False, hash=False, slots=True)
   class ServiceProxySummary(object):
     """
-    This data structure holds list of most valuable proxy stats attributes.
+    This data structure holds a list of useful proxy stats attributes.
     Separate CSV summary file is created for each attribute of this model,
     so we can easily compare services regarding important properties.
     """
@@ -297,8 +299,9 @@ class ClusterProxiesProfileLog(StatsSubscriber):
   def receive(self, proxies_stats_dict):
     """ Implements receive method of base class. Saves newly produced
     cluster proxies stats to a list of CSV files.
-    One detailed file for each proxy on every node (normally one LB node)
-    and 3 summary files.
+    One detailed file for each proxy on every load balancer node
+    (if detailed stats is enabled) and three additional files
+    which summarize info about all cluster proxies.
 
     Args:
       proxies_stats_dict: a dict with node IP as key and list of
@@ -308,17 +311,19 @@ class ClusterProxiesProfileLog(StatsSubscriber):
 
     for node_ip, snapshots in proxies_stats_dict.iteritems():
 
-      if snapshots:
-        # Add summary using only the latest snapshot from the node
-        for proxy in snapshots[-1].proxies_stats:
-          # Add this proxy stats to service summary
-          service_name = proxy.unified_service_name
-          if proxy.application_id:
-            service_name = '{}-{}'.format(service_name, proxy.application_id)
-          summary = services_summary[service_name]
-          summary.requests_rate += proxy.frontend.req_rate
-          summary.bytes_in_out += proxy.frontend.bin + proxy.frontend.bout
-          summary.errors += proxy.frontend.hrsp_4xx + proxy.frontend.hrsp_5xx
+      if not snapshots:
+        continue
+
+      # Add summary using only the latest snapshot from the node
+      for proxy in snapshots[-1].proxies_stats:
+        # Add this proxy stats to service summary
+        service_name = proxy.unified_service_name
+        if proxy.application_id:
+          service_name = '{}-{}'.format(service_name, proxy.application_id)
+        summary = services_summary[service_name]
+        summary.requests_rate += proxy.frontend.req_rate
+        summary.bytes_in_out += proxy.frontend.bin + proxy.frontend.bout
+        summary.errors += proxy.frontend.hrsp_4xx + proxy.frontend.hrsp_5xx
 
       # Write detailed proxy stats using all snapshots received from the node
       for snapshot in snapshots:
@@ -332,7 +337,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
             )
             writer.writerow(row)
 
-    # Update self._summary_columns ordered dict (set)
+    # Update self._summary_columns list
     for service_name in services_summary:
       if service_name not in self._summary_columns:
         self._summary_columns.append(service_name)
@@ -368,9 +373,8 @@ class ClusterProxiesProfileLog(StatsSubscriber):
     return open(file_name, 'a')
 
   def _get_summary_columns(self):
-    """ Opens summary-requests-rate.csv file (other summary file would be fine)
-    and reads it's header. It needs to know order of columns previously
-    written to the summary.
+    """ Opens summary file and reads its header.
+    Profiler needs to know order of columns previously written to the summary.
 
     Returns:
       a list of column names: ['utc_timestamp', <service1>, <service2>, ..]
@@ -384,7 +388,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
 
   def _save_summary(self, services_summary):
     """ Saves services summary for each property (requests rate, errors and
-    bytes in+out). Output is 3 files (one for each property) which
+    sum of bytes in & out). Output is 3 files (one for each property) which
     have a column for each service + utc_timestamp column.
 
     Args:
@@ -401,7 +405,7 @@ class ClusterProxiesProfileLog(StatsSubscriber):
       if len(old_summary_columns) == 1:
         # Summary wasn't written yet - write header line to summary file
         with open(summary_file_name, 'w') as new_summary:
-            csv.writer(new_summary).writerow(self._summary_columns)
+          csv.writer(new_summary).writerow(self._summary_columns)
 
       if len(old_summary_columns) < len(self._summary_columns):
         # Header need to be updated - add new services columns
