@@ -175,7 +175,7 @@ def configure_node_stats_profiling():
   """
   _configure_profiling(
     stats_source=ClusterNodesStatsSource(),
-    profiler=profile.NodesProfileLog(),
+    profiler=profile.NodesProfileLog(DEFAULT_INCLUDE_LISTS),
     interval=PROFILE_NODES_STATS_INTERVAL
   )
 
@@ -191,6 +191,7 @@ def configure_processes_stats_profiling(write_detailed_stats):
   _configure_profiling(
     stats_source=ClusterProcessesStatsSource(),
     profiler= profile.ProcessesProfileLog(
+      include_lists=DEFAULT_INCLUDE_LISTS,
       write_detailed_stats=write_detailed_stats),
     interval=PROFILE_PROCESSES_STATS_INTERVAL
   )
@@ -207,6 +208,7 @@ def configure_proxies_stats_profiling(write_detailed_stats):
   _configure_profiling(
     stats_source=ClusterProxiesStatsSource(),
     profiler= profile.ProxiesProfileLog(
+      include_lists=DEFAULT_INCLUDE_LISTS,
       write_detailed_stats=write_detailed_stats),
     interval=PROFILE_PROXIES_STATS_INTERVAL
   )
