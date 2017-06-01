@@ -1,13 +1,13 @@
 """ This module is responsible for writing cluster statistics to CSV files """
 import collections
 import csv
-import errno
 import time
 from datetime import datetime
-from os import path, makedirs, rename
+from os import path, rename
 
 import attr
 
+from appscale.hermes import helper
 from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import PROFILE_LOG_DIR
 from appscale.hermes.stats.producers import node_stats, process_stats, \
@@ -30,14 +30,7 @@ class NodesProfileLog(object):
       converter.get_stats_header(node_stats.NodeStatsSnapshot,
                                  self._include_lists)
     )
-    self._directory = path.join(PROFILE_LOG_DIR, 'node')
-    try:
-      makedirs(self._directory)
-    except OSError as os_error:
-      if os_error.errno == errno.EEXIST and path.isdir(self._directory):
-        pass
-      else:
-        raise
+    helper.ensure_directory(PROFILE_LOG_DIR)
 
   def write(self, nodes_stats_dict):
     """ Saves newly produced cluster node stats
@@ -61,8 +54,10 @@ class NodesProfileLog(object):
     Returns:
       a file object opened for appending new data
     """
-    file_name = path.join(self._directory, '{}.csv'.format(node_ip))
+    node_dir = path.join(PROFILE_LOG_DIR, node_ip)
+    file_name = path.join(node_dir, 'node.csv')
     if not path.isfile(file_name):
+      helper.ensure_directory(node_dir)
       # Create file and write header
       with open(file_name, 'w') as csv_file:
         csv.writer(csv_file).writerow(self._header)
@@ -108,15 +103,8 @@ class ProcessesProfileLog(object):
                                    self._include_lists)
     )
     self._write_detailed_stats = write_detailed_stats
-    self._directory = path.join(PROFILE_LOG_DIR, 'processes')
+    helper.ensure_directory(PROFILE_LOG_DIR)
     self._summary_file_name_template = 'summary-{resource}.csv'
-    try:
-      makedirs(self._directory)
-    except OSError as os_error:
-      if os_error.errno == errno.EEXIST and path.isdir(self._directory):
-        pass
-      else:
-        raise
     self._summary_columns = self._get_summary_columns()
 
   def write(self, processes_stats_dict):
@@ -179,17 +167,10 @@ class ProcessesProfileLog(object):
     Returns:
       a file object opened for appending new data
     """
-    node_dir = path.join(self._directory, node_ip)
-    file_name = path.join(node_dir, '{}.csv'.format(monit_name))
+    processes_dir = path.join(PROFILE_LOG_DIR, node_ip, 'processes')
+    file_name = path.join(processes_dir, '{}.csv'.format(monit_name))
     if not path.isfile(file_name):
-      try:
-        # Ensure directory for processes stats from the node exists
-        makedirs(node_dir)
-      except OSError as os_error:
-        if os_error.errno == errno.EEXIST and path.isdir(node_dir):
-          pass
-        else:
-          raise
+      helper.ensure_directory(processes_dir)
       # Create file and write header
       with open(file_name, 'w') as csv_file:
         csv.writer(csv_file).writerow(self._header)
@@ -260,7 +241,7 @@ class ProcessesProfileLog(object):
   def _get_summary_file_name(self, resource_name):
     name = self._summary_file_name_template.format(resource=resource_name)
     name = name.replace('_', '-')
-    return path.join(self._directory, name)
+    return path.join(PROFILE_LOG_DIR, name)
 
 
 class ProxiesProfileLog(object):
@@ -295,15 +276,8 @@ class ProxiesProfileLog(object):
        + converter.get_stats_header(proxy_stats.ProxyStats, self._include_lists)
     )
     self._write_detailed_stats = write_detailed_stats
-    self._directory = path.join(PROFILE_LOG_DIR, 'proxies')
+    helper.ensure_directory(PROFILE_LOG_DIR)
     self._summary_file_name_template = 'summary-{property}.csv'
-    try:
-      makedirs(self._directory)
-    except OSError as os_error:
-      if os_error.errno == errno.EEXIST and path.isdir(self._directory):
-        pass
-      else:
-        raise
     self._summary_columns = self._get_summary_columns()
 
   def write(self, proxies_stats_dict):
@@ -362,17 +336,10 @@ class ProxiesProfileLog(object):
     Returns:
       file object opened for appending new data
     """
-    node_dir = path.join(self._directory, node_ip)
-    file_name = path.join(node_dir, '{}.csv'.format(pxname))
+    proxies_dir = path.join(PROFILE_LOG_DIR, node_ip, 'proxies')
+    file_name = path.join(proxies_dir, '{}.csv'.format(pxname))
     if not path.isfile(file_name):
-      try:
-        # Ensure directory for proxies stats from the node exists
-        makedirs(node_dir)
-      except OSError as os_error:
-        if os_error.errno == errno.EEXIST and path.isdir(node_dir):
-          pass
-        else:
-          raise
+      helper.ensure_directory(proxies_dir)
       # Create file and write header
       with open(file_name, 'w') as csv_file:
         csv.writer(csv_file).writerow(self._header)
@@ -442,4 +409,4 @@ class ProxiesProfileLog(object):
   def _get_summary_file_name(self, property_name):
     name = self._summary_file_name_template.format(property=property_name)
     name = name.replace('_', '-')
-    return path.join(self._directory, name)
+    return path.join(PROFILE_LOG_DIR, name)

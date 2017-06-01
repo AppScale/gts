@@ -28,7 +28,10 @@ class CurrentStatsHandler(RequestHandler):
                    .format(client=self.request.remote_ip))
       self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
-    payload = json.loads(self.request.body)
+    if self.request.body:
+      payload = json.loads(self.request.body)
+    else:
+      payload = {}
     include_lists = payload.get('include_lists')
     newer_than = payload.get('newer_than')
 
@@ -68,7 +71,10 @@ class CurrentClusterStatsHandler(RequestHandler):
                    .format(client=self.request.remote_ip))
       self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
-    payload = json.loads(self.request.body)
+    if self.request.body:
+      payload = json.loads(self.request.body)
+    else:
+      payload = {}
     include_lists = payload.get('include_lists')
     newer_than = payload.get('newer_than')
 
@@ -104,5 +110,9 @@ class CurrentClusterStatsHandler(RequestHandler):
       )
     )
     snapshots.update(fresh_local_snapshots)
+    rendered_snapshots = {
+      node_ip: stats_to_dict(snapshot, include_lists)
+      for node_ip, snapshot in snapshots.iteritems()
+    }
 
-    json.dump(stats_to_dict(snapshots, include_lists), self)
+    json.dump(rendered_snapshots, self)

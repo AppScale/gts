@@ -84,8 +84,7 @@ class ClusterStatsSource(object):
       ip=node_ip, port=constants.HERMES_PORT, path=self.method_path)
     request = httpclient.HTTPRequest(
       url=url, method='GET', body=json.dumps(arguments), headers=headers,
-      validate_cert=False, request_timeout=REQUEST_TIMEOUT,
-      allow_nonstandard_methods=True
+      request_timeout=REQUEST_TIMEOUT, allow_nonstandard_methods=True
     )
     async_client = httpclient.AsyncHTTPClient()
 
