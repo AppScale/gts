@@ -108,7 +108,7 @@ if [ -z "${GIT_TAG}" ]; then
     GIT_TAG="last"
 else
     # We don't use Tag and Branch at the same time.
-    if [ "${APPSCALE_BRANCH}" != "master" ]; then
+    if [ FORCE_UPGRADE = "N"  ] && [  "${APPSCALE_BRANCH}" != "master" ]; then
         echo "--branch cannot be specified with --tag"
         exit 1
     fi
@@ -142,7 +142,7 @@ if [ ! -d appscale ]; then
     (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
 
     # Use tags if we specified it.
-    if [ -n "$GIT_TAG" -a "${APPSCALE_BRANCH}" = "master" ]; then
+    if [ -n "$GIT_TAG"  ] && [  "${APPSCALE_BRANCH}" = "master" ]; then
         if [ "$GIT_TAG" = "last" ]; then
             GIT_TAG="$(cd appscale; git tag | tail -n 1)"
         fi
@@ -157,15 +157,15 @@ if [ -d /etc/appscale/certs ]; then
     UPDATE_REPO="Y"
 
     # For upgrade, we don't switch across branches.
-    if [ "${APPSCALE_BRANCH}" != "master" ]; then
+    if [ FORCE_UPGRADE = "N" ] && [ "${APPSCALE_BRANCH}" != "master" ]; then
         echo "Cannot use --branch when upgrading"
         exit 1
     fi
-    if [ "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
+    if [ FORCE_UPGRADE = "N"  ] && [  "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
         echo "Cannot use --tools-branch when upgrading"
         exit 1
     fi
-    if [ -z "$GIT_TAG" ]; then
+    if [ FORCE_UPGRADE = "N"  ] && [  -z "$GIT_TAG" ]; then
         echo "Cannot use --tag dev when upgrading"
         exit 1
     fi
@@ -205,7 +205,7 @@ if [ -d /etc/appscale/certs ]; then
 
     # If CURRENT_BRANCH is empty, then we are not on master, and we
     # are not on a released version: we don't upgrade then.
-    if [ -z "${CURRENT_BRANCH}" ]; then
+    if [ FORCE_UPGRADE = "N"  ] && [  -z "${CURRENT_BRANCH}" ]; then
         echo "Error: git repository is not 'master' or a released version."
         exit 1
     fi
@@ -270,9 +270,29 @@ if [ -d /etc/appscale/certs ]; then
                 echo "e.g.: git stash; git checkout <appscale-tools-version>"
                 exit 1
             fi
-        else
+        elif [ FORCE_UPGRADE = "N" ]; then
             (cd appscale; git pull)
             (cd appscale-tools; git pull)
+        else
+            RANDOM_KEY="$(echo $(date), $$|md5sum|head -c 6)-$(date +%s)"
+            if ! (cd appscale;
+                    git remote add -f appscale-bootstrap-"${RANDOM_KEY}" "${APPSCALE_REPO}";
+                    git checkout appscale-bootstrap-"${RANDOM_KEY}"/"${APPSCALE_BRANCH}"); then
+                echo "Please stash your local unsaved changes and checkout"\
+                     "the version of AppScale you are currently using to fix"\
+                     "this error."
+                echo "e.g.: git stash; git checkout <AppScale-version>"
+                exit 1
+            fi
+            if ! (cd appscale-tools;
+                    git remote add -f appscale-bootstrap-"${RANDOM_KEY}" "${APPSCALE_TOOLS_REPO}";
+                    git checkout appscale-bootstrap-"${RANDOM_KEY}"/"${APPSCALE_TOOLS_BRANCH}"); then
+                echo "Please stash your local unsaved changes and checkout"\
+                     "the version of AppScale you are currently using to fix"\
+                     "this error."
+                echo "e.g.: git stash; git checkout <AppScale-version>"
+                exit 1
+            fi
         fi
     fi
 fi
