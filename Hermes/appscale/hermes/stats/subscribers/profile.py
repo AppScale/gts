@@ -1,11 +1,17 @@
+""" This module is responsible for writing cluster statistics to CSV files """
+import collections
 import csv
 import errno
-from os import path, makedirs
+import time
+from datetime import datetime
+from os import path, makedirs, rename
+
+import attr
 
 from appscale.hermes.stats import converter
-from appscale.hermes.stats.producers import node_stats
-from appscale.hermes.stats.pubsub_base import StatsSubscriber
 from appscale.hermes.stats.constants import PROFILE_LOG_DIR
+from appscale.hermes.stats.producers import node_stats, process_stats
+from appscale.hermes.stats.pubsub_base import StatsSubscriber
 
 
 class ClusterNodesProfileLog(StatsSubscriber):
@@ -17,7 +23,7 @@ class ClusterNodesProfileLog(StatsSubscriber):
 
     Args:
       include_lists: an instance of IncludeLists describing which fields
-          of node stats should be written to CSV log.
+        of node stats should be written to CSV log.
     """
     self._header = converter.get_stats_header(
       node_stats.NodeStatsSnapshot, include_lists)
@@ -37,7 +43,7 @@ class ClusterNodesProfileLog(StatsSubscriber):
 
     Args:
       nodes_stats_dict: a dict with node IP as key and list of
-          NodeStatsSnapshot as value
+        NodeStatsSnapshot as value.
     """
     for node_ip, snapshots in nodes_stats_dict.iteritems():
       with self._prepare_file(node_ip) as csv_file:
@@ -47,22 +53,196 @@ class ClusterNodesProfileLog(StatsSubscriber):
           writer.writerow(row)
 
   def _prepare_file(self, node_ip):
+    """ Prepares CSV file with name <node-IP>.csv for appending new lines.
+
+    Args:
+      node_ip: a string representation of node IP
+    Returns:
+      a file object opened for appending new data
+    """
     file_name = path.join(self._directory, '{}.csv'.format(node_ip))
     if not path.isfile(file_name):
+      # Create file and write header
       with open(file_name, 'w') as csv_file:
         csv.writer(csv_file).writerow(self._header)
+    # Open table for appending data
     return open(file_name, 'a')
 
 
 class ClusterProcessesProfileLog(StatsSubscriber):
 
+  @attr.s(cmp=False, hash=False, slots=True)
+  class ServiceSummary(object):
+    """
+    This data structure is a service summary accumulator.
+    When new stats are received, ServiceSummary is created for each service
+    and then cpu time and memory usage of each process running this service
+    is added to the summary.
+    """
+    cpu_time = attr.ib(default=0)
+    resident_mem = attr.ib(default=0)
+    unique_mem = attr.ib(default=0)
+
   def __init__(self, include_lists=None):
-    # TODO
-    pass
+    """ Initializes profile log for cluster processes stats.
+    Renders header according to include_lists in advance and
+    creates base directory for processes stats profile log.
+    It also reads header of summary file (if it exists) to identify
+    order of columns.
+
+    Args:
+      include_lists: an instance of IncludeLists describing which fields
+        of processes stats should be written to CSV log.
+    """
+    self._header = ['utc_timestamp'] + converter.get_stats_header(
+      process_stats.ProcessStats, include_lists)
+    self._include_lists = include_lists
+    self._directory = path.join(PROFILE_LOG_DIR, 'processes')
+    self._summary_file_name_template = 'summary-{resource}.csv'
+    try:
+      makedirs(self._directory)
+    except OSError as os_error:
+      if os_error.errno == errno.EEXIST and path.isdir(self._directory):
+        pass
+      else:
+        raise
+    self._summary_columns = self._get_summary_columns()
 
   def receive(self, processes_stats_dict):
-    # TODO
-    pass
+    """ Implements receive method of base class. Saves newly produced
+    cluster processes stats to a list of CSV files.
+    One detailed file for each process on every node and 3 summary files.
+
+    Args:
+      processes_stats_dict: a dict with node IP as key and list of
+        ProcessesStatsSnapshot as value.
+    """
+    services_summary = collections.defaultdict(self.ServiceSummary)
+
+    for node_ip, snapshots in processes_stats_dict.iteritems():
+
+      if snapshots:
+        # Add summary using only the latest snapshot from the node
+        for proc in snapshots[-1].processes_stats:
+          # Add this process stats to service summary
+          service_name = proc.unified_service_name
+          if proc.application_id:
+            service_name = '{}-{}'.format(service_name, proc.application_id)
+          summary = services_summary[service_name]
+          summary.cpu_time += proc.cpu.system + proc.cpu.user
+          summary.resident_mem += proc.memory.resident
+          summary.unique_mem += proc.memory.unique
+
+      # Write detailed process stats using all snapshots received from the node
+      for snapshot in snapshots:
+        for proc in snapshot.processes_stats:
+          # Write stats of the specific process to its CSV file
+          with self._prepare_file(node_ip, proc.monit_name) as csv_file:
+            writer = csv.writer(csv_file)
+            row = [snapshot.utc_timestamp] + converter.stats_to_list(
+              proc, self._include_lists)
+            writer.writerow(row)
+
+    # Update self._summary_columns ordered dict (set)
+    for service_name in services_summary:
+      if service_name not in self._summary_columns:
+        self._summary_columns.append(service_name)
+
+    # Write summary
+    self._save_summary(services_summary)
+
+  def _prepare_file(self, node_ip, monit_name):
+    """ Prepares CSV file with name <node-IP>/<monit-name>.csv
+    for appending new lines.
+
+    Args:
+      node_ip: a string representation of node IP
+      monit_name: a string name of process as it's shown in monit status
+    Returns:
+      a file object opened for appending new data
+    """
+    node_dir = path.join(self._directory, node_ip)
+    file_name = path.join(node_dir, '{}.csv'.format(monit_name))
+    if not path.isfile(file_name):
+      try:
+        # Ensure directory for processes stats from the node exists
+        makedirs(node_dir)
+      except OSError as os_error:
+        if os_error.errno == errno.EEXIST and path.isdir(node_dir):
+          pass
+        else:
+          raise
+      # Create file and write header
+      with open(file_name, 'w') as csv_file:
+        csv.writer(csv_file).writerow(self._header)
+    # Open file for appending new data
+    return open(file_name, 'a')
+
+  def _get_summary_columns(self):
+    """ Opens summary-cpu-time.csv file (other summary file would be fine)
+    and reads it's header. Profiler needs to know order of columns previously
+    written to the summary.
+
+    Returns:
+      a list of column names: ['utc_timestamp', <service1>, <service2>, ..]
+    """
+    cpu_summary_file_name = self._get_summary_file_name('cpu_time')
+    if not path.isfile(cpu_summary_file_name):
+      return []
+    with open(cpu_summary_file_name, 'r') as summary_file:
+      reader = csv.reader(summary_file)
+      return reader.next()  # First line is a header
+
+  def _save_summary(self, services_summary):
+    """ Saves services summary for each resource (cpu, resident memory and
+    unique memory). Output is 3 files (one for each resource) which
+    have a column for each resource + utc_timestamp column.
+
+    Args:
+      services_summary: a dict where key is name of service and value is
+        an instance of ServiceSummary.
+    """
+    old_summary_columns = self._get_summary_columns()
+
+    for attribute in attr.fields(self.ServiceSummary):
+      # For each kind of resource (cpu, resident_mem, unique_mem)
+
+      summary_file_name = self._get_summary_file_name(attribute.name)
+
+      if not old_summary_columns:
+        # Summary wasn't written yet - write header line to summary file
+        with open(summary_file_name, 'w') as new_summary:
+            csv.writer(new_summary).writerow(self._summary_columns)
+
+      if len(old_summary_columns) < len(self._summary_columns):
+        # Header need to be updated - add new services columns
+        with open(summary_file_name, 'r') as old_summary:
+          old_summary.readline()  # Skip header
+          new_summary_file_name = '{}.new'.format(summary_file_name)
+          with open(new_summary_file_name, 'w') as new_summary:
+            # Write new header
+            csv.writer(new_summary).writerow(self._summary_columns)
+            # Recover old data
+            new_summary.writelines(old_summary)
+        rename(new_summary_file_name, summary_file_name)
+
+      with open(summary_file_name, 'a') as summary_file:
+        # Append line with the newest summary
+        row = [time.mktime(datetime.utcnow().timetuple())]
+        columns_iterator = self._summary_columns.__iter__()
+        columns_iterator.next()  # Skip timestamp column
+        for service_name in columns_iterator:
+          service_summary = services_summary.get(service_name)
+          if service_summary:
+            row.append(getattr(service_summary, attribute.name))
+          else:
+            row.append('')
+        csv.writer(summary_file).writerow(row)
+
+  def _get_summary_file_name(self, resource_name):
+    name = self._summary_file_name_template.format(resource=resource_name)
+    name = name.replace('_', '-')
+    return path.join(self._directory, name)
 
 
 class ClusterProxiesProfileLog(StatsSubscriber):
