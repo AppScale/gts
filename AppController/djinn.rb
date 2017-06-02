@@ -133,17 +133,16 @@ PACKAGE_MIRROR_DOMAIN = 's3.amazonaws.com'
 PACKAGE_MIRROR_PATH = '/appscale-build'
 
 
-# The highest load of the deployment (in %) we handle before trying to scale up.
-MAX_LOAD_THRESHOLD = 90
+# The highest load of the deployment we handle before trying to scale up.
+MAX_LOAD_THRESHOLD = 0.9
 
 
-# The desired load of the deployment (in %) to achieve after scaling up or down.
-DESIRED_LOAD = 80.0
+# The desired load of the deployment to achieve after scaling up or down.
+DESIRED_LOAD = 0.8
 
 
-# The lowest load of the deployment (in %) till which we wait for before 
-# trying to scale down.
-MIN_LOAD_THRESHOLD = 70
+# The lowest load of the deployment to tolerate before trying to scale down.
+MIN_LOAD_THRESHOLD = 0.7
 
 
 # Djinn (interchangeably known as 'the AppController') automatically
@@ -5572,22 +5571,21 @@ HOSTS
   # Calculates the current load of the deployment based on the number of
   # running AppServers, its max allowed threaded connections and current 
   # handled sessions.
-  # Formula: Load = Current Sessions / (No of AppServers * Max conn) * 100
+  # Formula: Load = Current Sessions / (No of AppServers * Max conn)
   # 
   # Args:
   #   num_appengines: The total number of AppServers running for the app.  
   #   curr_sessions: The number of current sessions from HAProxy stats.
   # Returns:
-  #   A number indicating the current load in percentage. 
+  #   A decimal indicating the current load.
   def calculate_current_load(num_appengines, curr_sessions)
     max_sessions = num_appengines * HAProxy::MAX_APPSERVER_CONN
-    curr_load = (curr_sessions.round(1) / max_sessions.round(1)) * 100
-    return curr_load.round
+    return curr_sessions.to_f / max_sessions
   end
 
   # Calculates the additional number of AppServers needed to be scaled up in 
   # order achieve the desired load.
-  # Formula: No of AppServers = Current sessions / (Load * Max conn) * 100
+  # Formula: No of AppServers = Current sessions / (Load * Max conn)
   #
   # Args:
   #   num_appengines: The total number of AppServers running for the app.
@@ -5596,7 +5594,7 @@ HOSTS
   #   A number indicating the number of additional AppServers to be scaled up.
   def calculate_appservers_needed(num_appengines, curr_sessions)
     max_conn = HAProxy::MAX_APPSERVER_CONN
-    desired_appservers = (curr_sessions.round(1)/(DESIRED_LOAD * max_conn.round(1))) * 100
+    desired_appservers = curr_sessions.to_f / (DESIRED_LOAD * max_conn)
     appservers_to_scale = desired_appservers.round - num_appengines
     return appservers_to_scale
   end
