@@ -5550,8 +5550,7 @@ HOSTS
       appservers_to_scale = calculate_appservers_needed(
         num_appengines, current_sessions, allow_concurrency)
       Djinn.log_debug("The deployment has reached its maximum load threshold for " +
-        "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers " +
-        "within this machine.")
+        "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers.")
       return appservers_to_scale
     
     elsif current_load <= MIN_LOAD_THRESHOLD
@@ -5562,8 +5561,7 @@ HOSTS
       appservers_to_scale = calculate_appservers_needed(
         num_appengines, current_sessions, allow_concurrency)
       Djinn.log_debug("The deployment is below its minimum load threshold for " +
-        "app #{app_name} - Advising that we scale down #{appservers_to_scale.abs} AppServers " +
-        "within this machine.")
+        "app #{app_name} - Advising that we scale down #{appservers_to_scale.abs} AppServers.")
       return appservers_to_scale
     else
       Djinn.log_debug("The deployment is within the desired range of load for " +
