@@ -183,10 +183,17 @@ def stats_to_dict(stats, include_lists=None):
     value = getattr(stats, att.name)
     if value is MISSED:
       continue
-    if isinstance(value, dict):
-      value = {k: stats_to_dict(v, include_lists) for k, v in value.iteritems()}
-    elif isinstance(value, list):
-      value = [stats_to_dict(v, include_lists) for v in value]
+    if value and isinstance(value, dict):
+      if attr.has(value.itervalues().next()):
+        # Only collections of attr types (stats models) should be converted
+        value = {
+          k: stats_to_dict(v, include_lists)
+          for k, v in value.iteritems()
+        }
+    elif value and isinstance(value, list):
+      if attr.has(value[0]):
+        # Only collections of attr types (stats models) should be converted
+        value = [stats_to_dict(v, include_lists) for v in value]
     elif attr.has(value):
       value = stats_to_dict(value, include_lists)
     result[att.name] = value
