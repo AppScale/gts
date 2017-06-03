@@ -67,6 +67,9 @@
                         </div>
                     </div> 
                 </div>
+                {% if continue %}
+                    <input type="hidden" name="continue" value="{{ continue|e }}">
+                {% endif %}
                 </form>
             </span>
         </div>

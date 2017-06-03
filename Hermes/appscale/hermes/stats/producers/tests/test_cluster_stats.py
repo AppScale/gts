@@ -1,23 +1,27 @@
 import json
 import os
 
+from appscale.hermes.stats.converter import IncludeLists
 from mock import patch, MagicMock
 from tornado import testing, gen
 
+from appscale.hermes.stats import converter
 from appscale.hermes.stats.producers import (
-  cluster_stats, node_stats, process_stats, proxy_stats
-)
+  cluster_stats, node_stats, process_stats, proxy_stats)
 from appscale.hermes.stats.subscribers import cache
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')
 
 
-def get_stats_from_file(json_file_name, from_dict_converter):
+def get_stats_from_file(json_file_name, stats_class):
   with open(os.path.join(TEST_DATA_DIR, json_file_name)) as json_file:
     raw_dict = json.load(json_file)
     stats_dict = {
-      ip: [from_dict_converter(snapshot) for snapshot in snapshots]
+      ip: [
+        converter.stats_from_dict(stats_class, snapshot)
+        for snapshot in snapshots
+      ]
       for ip, snapshots in raw_dict.iteritems()
     }
     return raw_dict, stats_dict
@@ -40,7 +44,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'node-stats.json', node_stats.node_stats_snapshot_from_dict
+      'node-stats.json', node_stats.NodeStatsSnapshot
     )
 
     # Initialize stats source
@@ -136,16 +140,17 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'node-stats.json', node_stats.node_stats_snapshot_from_dict
+      'node-stats.json', node_stats.NodeStatsSnapshot
     )
 
     # Initialize stats source
     local_cache = cache.StatsCache(10)
-    include_lists = {
+    raw_include_lists = {
       'node': ['cpu', 'memory'],
       'node.cpu': ['percent', 'count'],
       'node.memory': ['available']
     }
+    include_lists = IncludeLists(raw_include_lists)
     cluster_stats_source = cluster_stats.ClusterNodesStatsSource(
       local_cache, include_lists=include_lists, limit=1, fetch_latest_only=True
     )
@@ -169,7 +174,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
       json.loads(request_to_slave.body),
       {
         'limit': 1,
-        'include_lists': include_lists,
+        'include_lists': raw_include_lists,
         'fetch_latest_only': True
       })
     self.assertEqual(
@@ -203,7 +208,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'processes-stats.json', process_stats.processes_stats_snapshot_from_dict
+      'processes-stats.json', process_stats.ProcessesStatsSnapshot
     )
 
     # Initialize stats source
@@ -262,18 +267,19 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'processes-stats.json', process_stats.processes_stats_snapshot_from_dict
+      'processes-stats.json', process_stats.ProcessesStatsSnapshot
     )
 
     # Initialize stats source
     local_cache = cache.StatsCache(10)
-    include_lists = {
+    raw_include_lists = {
       'process': ['monit_name', 'unified_service_name', 'application_id',
                   'port', 'cpu', 'memory', 'children_stats_sum'],
       'process.cpu': ['user', 'system', 'percent'],
       'process.memory': ['resident', 'virtual', 'unique'],
       'process.children_stats_sum': ['cpu', 'memory'],
     }
+    include_lists = IncludeLists(raw_include_lists)
     cluster_stats_source = cluster_stats.ClusterProcessesStatsSource(
       local_cache, include_lists=include_lists, limit=1, fetch_latest_only=True
     )
@@ -297,7 +303,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
       json.loads(request_to_slave.body),
       {
         'limit': 1,
-        'include_lists': include_lists,
+        'include_lists': raw_include_lists,
         'fetch_latest_only': True
       })
     self.assertEqual(
@@ -332,7 +338,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data = get_stats_from_file(
-      'proxies-stats.json', proxy_stats.proxies_stats_snapshot_from_dict
+      'proxies-stats.json', proxy_stats.ProxiesStatsSnapshot
     )[0]
 
     # Initialize stats source
@@ -381,16 +387,17 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
 
     # Read test data from json file
     raw_test_data = get_stats_from_file(
-      'proxies-stats.json', proxy_stats.proxies_stats_snapshot_from_dict
+      'proxies-stats.json', proxy_stats.ProxiesStatsSnapshot
     )[0]
 
     # Initialize stats source
-    include_lists = {
+    raw_include_lists = {
       'proxy': ['name', 'unified_service_name', 'application_id',
                 'frontend', 'backend'],
       'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
       'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
     }
+    include_lists = IncludeLists(raw_include_lists)
     cluster_stats_source = cluster_stats.ClusterProxiesStatsSource(
       include_lists=include_lists, limit=1, fetch_latest_only=True
     )
@@ -411,7 +418,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
       json.loads(request_to_lb.body),
       {
         'limit': 1,
-        'include_lists': include_lists,
+        'include_lists': raw_include_lists,
         'fetch_latest_only': True
       })
     self.assertEqual(

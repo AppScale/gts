@@ -314,7 +314,12 @@ class NewUserPage(AppDashboard):
     """ Handler for POST requests. """
     err_msgs = self.parse_new_user_post()
     try:
-      if self.process_new_user_post(err_msgs):
+      user_created = self.process_new_user_post(err_msgs)
+      continue_url = self.request.get('continue')
+      if user_created and continue_url:
+        self.redirect(str(continue_url), self.response)
+        return
+      elif user_created:
         self.redirect(DashPage.PATH, self.response)
         return
     except AppHelperException as err:
@@ -327,6 +332,7 @@ class NewUserPage(AppDashboard):
       self.request.get('user_password_confirmation'))
 
     self.render_page(page='users', template_file=self.TEMPLATE, values={
+      'continue': self.request.get('continue'),
       'user': users,
       'error_message_content': err_msgs,
     })
@@ -334,6 +340,7 @@ class NewUserPage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='users', template_file=self.TEMPLATE, values={
+      'continue': self.request.get('continue'),
       'user': {},
       'error_message_content': {}
     })

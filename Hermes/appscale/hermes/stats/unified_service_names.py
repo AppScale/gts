@@ -181,6 +181,9 @@ KNOWN_SERVICES = [
   value for value in ServicesEnum.__dict__.itervalues()
   if isinstance(value, Service)
 ]
+KNOWN_SERVICES_DICT = {
+  service.name: service for service in KNOWN_SERVICES
+}
 
 
 def find_service_by_pxname(proxy_name):

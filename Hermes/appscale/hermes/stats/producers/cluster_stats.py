@@ -11,6 +11,7 @@ from tornado.web import HTTPError
 
 from appscale.hermes import constants
 from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
+from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import CLUSTER_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats
@@ -37,14 +38,7 @@ class ClusterNodesStatsSource(AsyncStatsSource):
     Args:
       local_cache: an instance of LocalStatsCache where node stats of this node
           are cached. It's used to avoid HTTP calls to local API.
-      include_lists: a dict containing include lists for node stats fields
-          and nested entities. It allows to reduce verbosity of
-          cluster stats collected e.g:
-          {
-            'node': ['utc_timestamp', 'private_ip', 'memory', 'loadavg'],
-            'node.memory': ['available'],
-            'node.loadavg': ['last_5min'],
-          }
+      include_lists: an instance of IncludeLists
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
           Be careful with this number, if you plan to scroll all stats
@@ -95,7 +89,7 @@ class ClusterNodesStatsSource(AsyncStatsSource):
     else:
       new_snapshots = yield _fetch_remote_stats_cache_async(
         node_ip=node_ip, method_path='stats/local/node/cache',
-        fromdict_convertor=node_stats.node_stats_snapshot_from_dict,
+        stats_class=node_stats.NodeStatsSnapshot,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
         fetch_latest_only=self._fetch_latest_only
@@ -119,15 +113,7 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
     Args:
       local_cache: an instance of LocalStatsCache where processes stats of this
           node is cached. It's used to avoid HTTP calls to local API
-      include_lists: a dict containing include lists for processes stats fields
-          and nested entities. It allows to reduce verbosity of
-          cluster stats collected e.g:
-          {
-            'process': ['pid', 'monit_name', 'unified_service_name',
-                        'application_id', 'private_ip', 'port', 'cpu', 'memory'],
-            'process.cpu': ['user', 'system'],
-            'process.memory': ['unique'],
-          }
+      include_lists: an instance of IncludeLists
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
           Be careful with this number, if you plan to scroll all stats
@@ -178,7 +164,7 @@ class ClusterProcessesStatsSource(AsyncStatsSource):
     else:
       new_snapshots = yield _fetch_remote_stats_cache_async(
         node_ip=node_ip, method_path='stats/local/processes/cache',
-        fromdict_convertor=process_stats.processes_stats_snapshot_from_dict,
+        stats_class=process_stats.ProcessesStatsSnapshot,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
         fetch_latest_only=self._fetch_latest_only
@@ -202,15 +188,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
     Args:
       local_cache: an instance of LocalStatsCache where proxies stats of this
           node is cached. It's used to avoid HTTP calls to local API
-      include_lists: a dict containing include lists for processes stats fields
-          and nested entities. It allows to reduce verbosity of
-          cluster stats collected e.g:
-          {
-            'proxy': ['name', 'unified_service_name', 'application_id',
-                      'frontend', 'backend'],
-            'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
-            'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
-          }
+      include_lists: an instance of IncludeLists
       limit: an integer representing a max number of stats snapshots to fetch
           from slave node per one call.
           Be careful with this number, if you plan to scroll all stats
@@ -261,7 +239,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
     else:
       new_snapshots = yield _fetch_remote_stats_cache_async(
         node_ip=node_ip, method_path='stats/local/proxies/cache',
-        fromdict_convertor=proxy_stats.proxies_stats_snapshot_from_dict,
+        stats_class=proxy_stats.ProxiesStatsSnapshot,
         last_utc_timestamp=last_utc_timestamp,
         include_lists=self._include_lists, limit=self._limit,
         fetch_latest_only=self._fetch_latest_only
@@ -272,7 +250,7 @@ class ClusterProxiesStatsSource(AsyncStatsSource):
 
 
 @gen.coroutine
-def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
+def _fetch_remote_stats_cache_async(node_ip, method_path, stats_class,
                                     last_utc_timestamp, limit, include_lists,
                                     fetch_latest_only):
   # Security header
@@ -284,7 +262,7 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
   if limit is not None:
     arguments['limit'] = limit
   if include_lists is not None:
-    arguments['include_lists'] = include_lists
+    arguments['include_lists'] = include_lists.asdict()
   if fetch_latest_only:
     arguments['fetch_latest_only'] = True
 
@@ -307,10 +285,10 @@ def _fetch_remote_stats_cache_async(node_ip, method_path, fromdict_convertor,
   try:
     stats_dictionaries = json.loads(response.body)
     snapshots = [
-      fromdict_convertor(stats_dict)
+      converter.stats_from_dict(stats_class, stats_dict)
       for stats_dict in stats_dictionaries
     ]
-  except (ValueError, TypeError, KeyError) as err:
+  except TypeError as err:
     msg = u"Can't parse stats snapshot ({})".format(err)
     raise BadStatsListFormat(msg), None, sys.exc_info()[2]
 
