@@ -40,6 +40,7 @@ import httplib
 import logging
 import os
 import socket
+import ssl
 import StringIO
 import sys
 import urllib
@@ -365,6 +366,8 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
       logging.debug('Making HTTP request: host = %r, '
                     'url = %r, payload = %.1000r, headers = %r',
                     host, url, escaped_payload, adjusted_headers)
+
+      use_unverified_context = False
       try:
         if protocol == 'http':
           connection_class = httplib.HTTPConnection
@@ -376,6 +379,9 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
                 ca_certs=CERT_PATH)
           else:
             connection_class = httplib.HTTPSConnection
+            # Disable native certificate verification.
+            if hasattr(ssl, '_create_unverified_context'):
+              use_unverified_context = True
         else:
 
           error_msg = 'Redirect specified invalid protocol: "%s"' % protocol
@@ -387,11 +393,14 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
 
 
 
-
+        connection_args = {}
         if _CONNECTION_SUPPORTS_TIMEOUT:
-          connection = connection_class(host, timeout=deadline)
-        else:
-          connection = connection_class(host)
+          connection_args['timeout'] = deadline
+
+        if use_unverified_context:
+          connection_args['context'] = ssl._create_unverified_context()
+
+        connection = connection_class(host, **connection_args)
 
 
 

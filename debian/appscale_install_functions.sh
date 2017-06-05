@@ -15,12 +15,17 @@ if [ -z "${APPSCALE_PACKAGE_MIRROR-}" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
+JAVA_VERSION="java-8-openjdk"
+case "${DIST}" in
+    precise|trusty|wheezy) JAVA_VERSION="java-7-openjdk" ;;
+esac
+
 export UNAME_MACHINE=$(uname -m)
 if [ -z "${JAVA_HOME_DIRECTORY-}" ]; then
     if [ "$UNAME_MACHINE" = "x86_64" ]; then
-        export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-amd64
+        export JAVA_HOME_DIRECTORY=/usr/lib/jvm/${JAVA_VERSION}-amd64
     elif [ "$UNAME_MACHINE" = "armv7l" ] || [ "$UNAME_MACHINE" = "armv6l" ]; then
-        export JAVA_HOME_DIRECTORY=/usr/lib/jvm/java-7-openjdk-armhf
+        export JAVA_HOME_DIRECTORY=/usr/lib/jvm/${JAVA_VERSION}-armhf
     fi
 fi
 
@@ -226,7 +231,7 @@ EOF
 
 installjavajdk()
 {
-    # This makes jdk-7 the default JVM.
+    # This sets the default JVM.
     update-alternatives --set java ${JAVA_HOME_DIRECTORY}/jre/bin/java
 }
 
@@ -289,7 +294,7 @@ installgems()
     sleep 1
     gem install json ${GEMOPT} -v 1.8.3
     sleep 1
-    gem install soap4r-ruby1.9 ${GEMOPT}
+    gem install soap4r-ng ${GEMOPT}
     gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
     # This is for the unit testing framework.
@@ -443,6 +448,12 @@ postinstallzookeeper()
 
 postinstallrabbitmq()
 {
+    # Allow guest users to connect from other machines.
+    if [ "${DIST}" = "xenial" ]; then
+        RMQ_CONFIG="[{rabbit, [{loopback_users, []}]}]."
+        echo ${RMQ_CONFIG} > /etc/rabbitmq/rabbitmq.config
+    fi
+
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
     disableservice rabbitmq-server
@@ -525,6 +536,13 @@ postinstallejabberd()
     cp ${APPSCALE_HOME}/AppController/scripts/ejabberd_auth.py /etc/ejabberd
     chown ejabberd:ejabberd /etc/ejabberd/ejabberd_auth.py
     chmod +x /etc/ejabberd/ejabberd_auth.py
+
+    # Disable ejabberd's apparmor profile.
+    EJABBERD_PROFILE="/etc/apparmor.d/usr.sbin.ejabberdctl"
+    if apparmor_status 2> /dev/null | grep "ejabberdctl" > /dev/null; then
+        ln -s ${EJABBERD_PROFILE} /etc/apparmor.d/disable/
+        apparmor_parser -R ${EJABBERD_PROFILE}
+    fi
 }
 
 installpsutil()

@@ -14,7 +14,7 @@ setup(
     'appscale-common',
     'tornado',
     'psutil==5.1.3',
-    'attrs',
+    'attrs>=16',
     'flexmock',
     'mock',
   ],
