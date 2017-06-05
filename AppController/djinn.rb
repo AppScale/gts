@@ -133,6 +133,19 @@ PACKAGE_MIRROR_DOMAIN = 's3.amazonaws.com'
 PACKAGE_MIRROR_PATH = '/appscale-build'
 
 
+# The highest load of the deployment (in %) we handle before trying to scale up.
+MAX_LOAD_THRESHOLD = 90
+
+
+# The desired load of the deployment (in %) to achieve after scaling up or down.
+DESIRED_LOAD = 80.0
+
+
+# The lowest load of the deployment (in %) till which we wait for before 
+# trying to scale down.
+MIN_LOAD_THRESHOLD = 70
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -5520,8 +5533,8 @@ HOSTS
     return 0 if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
-    total_requests_seen, total_req_in_queue, time_requests_were_seen =
-      HAProxy.get_haproxy_stats(app_name)
+    total_requests_seen, total_req_in_queue, current_sessions, 
+      time_requests_were_seen = HAProxy.get_haproxy_stats(app_name)
 
     if time_requests_were_seen == :no_backend
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -5530,32 +5543,67 @@ HOSTS
 
     update_request_info(app_name, total_requests_seen, time_requests_were_seen,
       total_req_in_queue)
-
-    if total_req_in_queue.zero?
-      if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
-        Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
-        return 0
-      end
-      Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
-        "advising that we scale down within this machine.")
-      return -1
-    end
-
-    if total_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
+    
+    current_load = calculate_current_load(num_appengines, current_sessions)
+    if current_load >= MAX_LOAD_THRESHOLD
       if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
         Djinn.log_debug("Not enough time has passed to scale up app #{app_name}")
         return 0
       end
-      Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
-        "#{app_name} - advising that we scale up within this machine.")
-      return Integer(total_req_in_queue / SCALEUP_QUEUE_SIZE_THRESHOLD)
-    end
-
-    Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
-      "#{app_name} - advising that don't scale either way on this machine.")
-    return 0
+      appservers_to_scale = calculate_appservers_needed(num_appengines, current_sessions)
+      Djinn.log_debug("The deployment has reached its maximum load threshold for " +
+        "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers " +
+        "within this machine.")
+      return appservers_to_scale
+    
+    elsif current_load <= MIN_LOAD_THRESHOLD
+      if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
+        Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
+        return 0
+      end
+      appservers_to_scale = calculate_appservers_needed(num_appengines, current_sessions)
+      Djinn.log_debug("The deployment is below its minimum load threshold for " +
+        "app #{app_name} - Advising that we scale down #{appservers_to_scale.abs} AppServers " +
+        "within this machine.")
+      return appservers_to_scale
+    else
+      Djinn.log_debug("The deployment is within the desired range of load for " +
+        "app #{app_name} - Advising that there is no need to scale currently.")
+      return 0
+    end  
+  end
+  
+  # Calculates the current load of the deployment based on the number of
+  # running AppServers, its max allowed threaded connections and current 
+  # handled sessions.
+  # Formula: Load = Current Sessions / (No of AppServers * Max conn) * 100
+  # 
+  # Args:
+  #   num_appengines: The total number of AppServers running for the app.  
+  #   curr_sessions: The number of current sessions from HAProxy stats.
+  # Returns:
+  #   A number indicating the current load in percentage. 
+  def calculate_current_load(num_appengines, curr_sessions)
+    max_sessions = num_appengines * HAProxy::MAX_APPSERVER_CONN
+    curr_load = (curr_sessions.round(1) / max_sessions.round(1)) * 100
+    return curr_load.round
   end
 
+  # Calculates the additional number of AppServers needed to be scaled up in 
+  # order achieve the desired load.
+  # Formula: No of AppServers = Current sessions / (Load * Max conn) * 100
+  #
+  # Args:
+  #   num_appengines: The total number of AppServers running for the app.
+  #   curr_sessions: The number of current sessions from HAProxy stats.
+  # Returns:
+  #   A number indicating the number of additional AppServers to be scaled up.
+  def calculate_appservers_needed(num_appengines, curr_sessions)
+    max_conn = HAProxy::MAX_APPSERVER_CONN
+    desired_appservers = (curr_sessions.round(1)/(DESIRED_LOAD * max_conn.round(1))) * 100
+    appservers_to_scale = desired_appservers.round - num_appengines
+    return appservers_to_scale
+  end
 
   # Updates internal state about the number of requests seen for the given App
   # Engine app, as well as how many requests are currently enqueued for it.
@@ -6109,7 +6157,7 @@ HOSTS
 
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
-          total_reqs, reqs_enqueued, collection_time = HAProxy.get_haproxy_stats(app_name)
+          total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(app_name)
           # Create the apps hash with useful information containing HAProxy stats.
           begin
             appservers = 0
