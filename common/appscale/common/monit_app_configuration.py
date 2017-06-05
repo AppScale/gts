@@ -74,7 +74,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
   with open(TEMPLATE_LOCATION) as template:
     output = template.read()
     output = output.format(
-      process_name=process_name, match_clause='PIDFILE {}'.format(pidfile),
+      process_name=process_name, match_clause='PIDFILE "{}"'.format(pidfile),
       group=watch, start_line=start_line, stop_line=stop_line)
 
   if max_memory is not None:
@@ -107,7 +107,7 @@ def create_daemon_config(watch, start_cmd, stop_cmd, pidfile, max_memory=None):
   with open(TEMPLATE_LOCATION) as template:
     output = template.read()
     output = output.format(
-      process_name=watch, match_clause='PIDFILE {}'.format(pidfile),
+      process_name=watch, match_clause='PIDFILE "{}"'.format(pidfile),
       group=watch, start_line=start_cmd, stop_line=stop_cmd)
 
   if max_memory is not None:
