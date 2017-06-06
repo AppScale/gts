@@ -14,7 +14,7 @@ from appscale.hermes.stats.converter import stats_to_dict, \
 
 
 class CurrentStatsHandler(RequestHandler):
-  """ Handler for getting current node/processes/proxies stats
+  """ Handler for getting current node/processes/proxies stats.
   """
 
   def initialize(self, source, default_include_lists):
@@ -57,7 +57,7 @@ class CurrentStatsHandler(RequestHandler):
 
 
 class CurrentClusterStatsHandler(RequestHandler):
-  """ Handler for getting current node/processes/proxies stats
+  """ Handler for getting current node/processes/proxies stats.
   """
   def initialize(self, source, default_include_lists):
     self._current_cluster_stats_source = source

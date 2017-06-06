@@ -1,4 +1,4 @@
-""" This module is responsible for writing cluster statistics to CSV files """
+""" This module is responsible for writing cluster statistics to CSV files. """
 import collections
 import csv
 import time
@@ -22,7 +22,7 @@ class NodesProfileLog(object):
     creates base directory for node stats profile log.
 
     Args:
-      include_lists: an instance of IncludeLists describing which fields
+      include_lists: An instance of IncludeLists describing which fields
         of node stats should be written to CSV log.
     """
     self._include_lists = include_lists
@@ -37,7 +37,7 @@ class NodesProfileLog(object):
     to a list of CSV files (file per node).
 
     Args:
-      nodes_stats_dict: a dict with node IP as key and list of
+      nodes_stats_dict: A dict with node IP as key and list of
         NodeStatsSnapshot as value.
     """
     for node_ip, snapshot in nodes_stats_dict.iteritems():
@@ -50,9 +50,9 @@ class NodesProfileLog(object):
     for appending new lines.
 
     Args:
-      node_ip: a string representation of node IP
+      node_ip: A string representation of node IP.
     Returns:
-      a file object opened for appending new data
+      A file object opened for appending new data.
     """
     node_dir = path.join(PROFILE_LOG_DIR, node_ip)
     file_name = path.join(node_dir, 'node.csv')
@@ -91,9 +91,9 @@ class ProcessesProfileLog(object):
     order of columns.
 
     Args:
-      include_lists: an instance of IncludeLists describing which fields
+      include_lists: An instance of IncludeLists describing which fields
         of processes stats should be written to CSV log.
-      write_detailed_stats: a boolean determines if detailed stats about
+      write_detailed_stats: A boolean determines if detailed stats about
         each process should be written.
     """
     self._include_lists = include_lists
@@ -112,7 +112,7 @@ class ProcessesProfileLog(object):
     One detailed file for each process on every node and 3 summary files.
 
     Args:
-      processes_stats_dict: a dict with node IP as key and list of
+      processes_stats_dict: A dict with node IP as key and list of
         ProcessesStatsSnapshot as value.
     """
     services_summary = collections.defaultdict(self.ServiceProcessesSummary)
@@ -162,10 +162,10 @@ class ProcessesProfileLog(object):
     for appending new lines.
 
     Args:
-      node_ip: a string representation of node IP
-      monit_name: a string name of process as it's shown in monit status
+      node_ip: A string representation of node IP.
+      monit_name: A string name of process as it's shown in monit status.
     Returns:
-      a file object opened for appending new data
+      A file object opened for appending new data.
     """
     processes_dir = path.join(PROFILE_LOG_DIR, node_ip, 'processes')
     file_name = path.join(processes_dir, '{}.csv'.format(monit_name))
@@ -183,7 +183,7 @@ class ProcessesProfileLog(object):
     written to the summary.
 
     Returns:
-      a list of column names: ['utc_timestamp', <service1>, <service2>, ..]
+      A list of column names: ['utc_timestamp', <service1>, <service2>, ..].
     """
     cpu_summary_file_name = self._get_summary_file_name('cpu_time')
     if not path.isfile(cpu_summary_file_name):
@@ -198,7 +198,7 @@ class ProcessesProfileLog(object):
     have a column for each service + utc_timestamp column.
 
     Args:
-      services_summary: a dict where key is name of service and value is
+      services_summary: A dict where key is name of service and value is
         an instance of ServiceProcessesSummary.
     """
     old_summary_columns = self._get_summary_columns()
@@ -265,9 +265,9 @@ class ProxiesProfileLog(object):
     order of columns.
 
     Args:
-      include_lists: an instance of IncludeLists describing which fields
+      include_lists: An instance of IncludeLists describing which fields
         of processes stats should be written to CSV log.
-      write_detailed_stats: a boolean determines if detailed stats about
+      write_detailed_stats: A boolean determines if detailed stats about
         each proxy should be written.
     """
     self._include_lists = include_lists
@@ -287,7 +287,7 @@ class ProxiesProfileLog(object):
     which summarize info about all cluster proxies.
 
     Args:
-      proxies_stats_dict: a dict with node IP as key and list of
+      proxies_stats_dict: A dict with node IP as key and list of
         ProxyStatsSnapshot as value.
     """
     services_summary = collections.defaultdict(self.ServiceProxySummary)
@@ -331,10 +331,10 @@ class ProxiesProfileLog(object):
     for appending new lines.
 
     Args:
-      node_ip: a string representation of load balancer node IP
-      pxname: a string name of proxy as it's shown haproxy stats
+      node_ip: A string representation of load balancer node IP.
+      pxname: A string name of proxy as it's shown haproxy stats.
     Returns:
-      file object opened for appending new data
+      A file object opened for appending new data.
     """
     proxies_dir = path.join(PROFILE_LOG_DIR, node_ip, 'proxies')
     file_name = path.join(proxies_dir, '{}.csv'.format(pxname))
@@ -351,7 +351,7 @@ class ProxiesProfileLog(object):
     Profiler needs to know order of columns previously written to the summary.
 
     Returns:
-      a list of column names: ['utc_timestamp', <service1>, <service2>, ..]
+      A list of column names: ['utc_timestamp', <service1>, <service2>, ..].
     """
     reqs_summary_file_name = self._get_summary_file_name('requests_rate')
     if not path.isfile(reqs_summary_file_name):
@@ -366,7 +366,7 @@ class ProxiesProfileLog(object):
     have a column for each service + utc_timestamp column.
 
     Args:
-      services_summary: a dict where key is name of service and value is
+      services_summary: A dict where key is name of service and value is
         an instance of ServiceProxySummary.
     """
     old_summary_columns = self._get_summary_columns()

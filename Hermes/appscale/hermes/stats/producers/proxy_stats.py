@@ -218,7 +218,7 @@ class InvalidHAProxyStats(ValueError):
 class ProxyStats(object):
   """
   Object of ProxyStats is kind of structured container for all haproxy stats
-  provided for the specific proxy (e.g.: TaskQueue, UserAppServer, ...)
+  provided for the specific proxy (e.g.: TaskQueue, UserAppServer, ...).
 
   Only those Hermes nodes which are collocated with HAProxy collects this stats.
   """
@@ -238,7 +238,7 @@ class ProxiesStatsSnapshot(object):
 
 
 def _get_field_value(row, field_name):
-  """ Private method for getting value from csv cell """
+  """ Private method for getting value from csv cell. """
   if field_name not in row:
     return MISSED
   value = row[field_name]
@@ -275,7 +275,7 @@ class ProxiesStatsSource(object):
     proxy statistics for all proxies.
 
     Returns:
-      ProxiesStatsSnapshot
+      An instance of ProxiesStatsSnapshot.
     """
     # Get CSV table with haproxy stats
     csv_buf = get_stats()

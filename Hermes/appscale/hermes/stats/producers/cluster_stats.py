@@ -1,4 +1,5 @@
-""" Implementation of stats sources for cluster stats (node, processes, proxies) """
+""" Implementation of stats sources for cluster stats 
+(node, processes, proxies). """
 import json
 import logging
 import sys
@@ -19,7 +20,7 @@ from appscale.hermes.stats.producers import (
 
 
 class BadStatsListFormat(ValueError):
-  """ Is used when Hermes slave responds with improperly formatted stats """
+  """ Is used when Hermes slave responds with improperly formatted stats. """
   pass
 
 
@@ -41,12 +42,12 @@ class ClusterStatsSource(object):
     and collects current stats. Local stats is got from local stats source.
 
     Args:
-      newer_than: UTC timestamp, allow to use cached snapshot if it's newer
-      include_lists: an instance of IncludeLists
-      exclude_nodes: a list of node IPs to ignore when fetching stats
+      newer_than: UTC timestamp, allow to use cached snapshot if it's newer.
+      include_lists: An instance of IncludeLists.
+      exclude_nodes: A list of node IPs to ignore when fetching stats.
     Returns:
       A Future object which wraps a dict with node IP as key and
-      an instance of stats snapshot as value
+      an instance of stats snapshot as value.
     """
     exclude_nodes = exclude_nodes or []
 

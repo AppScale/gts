@@ -46,7 +46,7 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
 
 @attr.s
 class HandlerInfo(object):
-  """ Container for handler information """
+  """ Container for handler information. """
   handler_class = attr.ib()
   init_kwargs = attr.ib()
 
@@ -56,9 +56,9 @@ def get_local_stats_api_routes(is_lb_node):
   node, processes and proxies (only on LB nodes) stats.
 
   Args:
-    is_lb_node: a boolean indicating whether this node is load balancer
+    is_lb_node: A boolean indicating whether this node is load balancer.
   Returns:
-    a list of route-handler tuples
+    A list of route-handler tuples.
   """
 
   # Any node provides its node and processes stats
@@ -102,9 +102,9 @@ def get_cluster_stats_api_routes(is_master):
   If this node is slave, it creates stub handlers for cluster stats routes.
 
   Args:
-    is_master: a boolean indicating whether this node is master
+    is_master: A boolean indicating whether this node is master.
   Returns:
-    a list of route-handler tuples
+    A list of route-handler tuples.
   """
   if is_master:
     # Only master node provides cluster stats
@@ -151,7 +151,7 @@ def _configure_profiling(stats_source, profiler, interval):
     and calls profiler to write the stats.
 
     Args:
-      future_stats: a Future wrapper for the cluster stats
+      future_stats: A Future wrapper for the cluster stats.
     """
     stats = future_stats.result()
     profiler.write(stats)
@@ -183,7 +183,7 @@ def configure_processes_stats_profiling(write_detailed_stats):
   writing cluster stats to profile log.
 
   Args:
-    write_detailed_stats: a boolean indicating whether detailed stats
+    write_detailed_stats: A boolean indicating whether detailed stats.
       should be written.
   """
   _configure_profiling(
@@ -200,7 +200,7 @@ def configure_proxies_stats_profiling(write_detailed_stats):
   writing cluster stats to profile log.
 
   Args:
-    write_detailed_stats: a boolean indicating whether detailed stats
+    write_detailed_stats: A boolean indicating whether detailed stats
       should be written.
   """
   _configure_profiling(

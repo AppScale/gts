@@ -334,7 +334,7 @@ def ensure_directory(dir_path):
   """ Ensures that the directory exists.
 
   Args:
-    dir_path: A str representing the directory path
+    dir_path: A str representing the directory path.
   """
   try:
     os.makedirs(dir_path)
