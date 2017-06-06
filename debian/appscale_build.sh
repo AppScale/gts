@@ -57,7 +57,7 @@ if grep docker /proc/1/cgroup > /dev/null ; then
     echo "Detected docker container."
     IN_DOCKER="yes"
     # Make sure we have default locale.
-    ${PKG_CMD} install -y --force-yes locales
+    ${PKG_CMD} install --force-yes locales
     locale-gen en_US en_US.UTF-8
     # Docker images miss the following.
     mkdir -p /var/run/sshd
