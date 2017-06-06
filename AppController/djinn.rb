@@ -5539,7 +5539,8 @@ HOSTS
     update_request_info(app_name, total_requests_seen, time_requests_were_seen,
       total_req_in_queue)
 
-    allow_concurrency = HelperFunctions.get_app_thread_safe(app_name)
+    prepended_app_name = [HelperFunctions::GAE_PREFIX, app_name].join
+    allow_concurrency = HelperFunctions.get_app_thread_safe(prepended_app_name)
     current_load = calculate_current_load(num_appengines, current_sessions,
                                           allow_concurrency)
     if current_load >= MAX_LOAD_THRESHOLD
