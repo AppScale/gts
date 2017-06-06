@@ -108,7 +108,7 @@ if [ -z "${GIT_TAG}" ]; then
     GIT_TAG="last"
 else
     # We don't use Tag and Branch at the same time.
-    if [ FORCE_UPGRADE = "N"  ] && [  "${APPSCALE_BRANCH}" != "master" ]; then
+    if [ "${FORCE_UPGRADE}" = "N"  ] && [  "${APPSCALE_BRANCH}" != "master" ]; then
         echo "--branch cannot be specified with --tag"
         exit 1
     fi
@@ -275,22 +275,27 @@ if [ -d /etc/appscale/certs ]; then
             (cd appscale-tools; git pull)
         else
             RANDOM_KEY="$(echo $(date), $$|md5sum|head -c 6)-$(date +%s)"
+            REMOTE_REPO_NAME="appscale-bootstrap-${RANDOM_KEY}"
             if ! (cd appscale;
-                    git remote add -f appscale-bootstrap-"${RANDOM_KEY}" "${APPSCALE_REPO}";
-                    git checkout appscale-bootstrap-"${RANDOM_KEY}"/"${APPSCALE_BRANCH}"); then
-                echo "Please stash your local unsaved changes and checkout"\
-                     "the version of AppScale you are currently using to fix"\
-                     "this error."
-                echo "e.g.: git stash; git checkout <AppScale-version>"
+                    git remote add -t "${APPSCALE_BRANCH}" -f "${REMOTE_REPO_NAME}" "${APPSCALE_REPO}";
+                    git checkout "${REMOTE_REPO_NAME}"/"${APPSCALE_BRANCH}"); then
+                echo "Please make sure the repository url is correct, the"\
+                     "branch exists, and that you have stashed your local"\
+                     "changes."
+                echo "e.g.: git stash, git remote add -t {remote_branch} -f"\
+                     "{repo_name} {repository_url}; git checkout"\
+                     "{repo_name}/{remote_branch}"
                 exit 1
             fi
             if ! (cd appscale-tools;
-                    git remote add -f appscale-bootstrap-"${RANDOM_KEY}" "${APPSCALE_TOOLS_REPO}";
-                    git checkout appscale-bootstrap-"${RANDOM_KEY}"/"${APPSCALE_TOOLS_BRANCH}"); then
-                echo "Please stash your local unsaved changes and checkout"\
-                     "the version of AppScale you are currently using to fix"\
-                     "this error."
-                echo "e.g.: git stash; git checkout <AppScale-version>"
+                    git remote add -t "${APPSCALE_TOOLS_BRANCH}" -f "${REMOTE_REPO_NAME}" "${APPSCALE_TOOLS_REPO}";
+                    git checkout "${REMOTE_REPO_NAME}"/"${APPSCALE_TOOLS_BRANCH}"); then
+                echo "Please make sure the repository url is correct, the"\
+                     "branch exists, and that you have stashed your local"\
+                     "changes."
+                echo "e.g.: git stash, git remote add -t {remote_branch} -f"\
+                     "{repo_name} {repository_url}; git checkout"\
+                     "{repo_name}/{remote_branch}"
                 exit 1
             fi
         fi
