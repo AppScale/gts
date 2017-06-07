@@ -1,4 +1,4 @@
-""" Implementation of stats sources for cluster stats 
+""" Implementation of stats sources for cluster stats
 (node, processes, proxies). """
 import json
 import logging
