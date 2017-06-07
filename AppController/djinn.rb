@@ -4774,6 +4774,9 @@ HOSTS
       setup_app_dir(AppDashboard::APP_NAME, true)
     }
 
+    # Allow fewer dashboard instances for small deployments.
+    min_dashboards = [3, get_all_appengine_nodes.length].min
+
     # Assign the specific ports to it.
     APPS_LOCK.synchronize {
       if @app_info_map[AppDashboard::APP_NAME].nil?
@@ -4784,7 +4787,7 @@ HOSTS
           'appengine' => [],
           'language' => AppDashboard::APP_LANGUAGE,
           'max_memory' => DEFAULT_MEMORY,
-          'min_appengines' => 3
+          'min_appengines' => min_dashboards
         }
       end
       @app_names << AppDashboard::APP_NAME
