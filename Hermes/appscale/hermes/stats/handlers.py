@@ -1,60 +1,26 @@
 import json
 import logging
+import time
+from datetime import datetime
 
+from tornado import gen
 from tornado.options import options
 from tornado.web import RequestHandler
 
-from appscale.hermes.constants import SECRET_HEADER
+from appscale.hermes.constants import SECRET_HEADER, HTTP_Codes
+from appscale.hermes.stats.constants import ACCEPTABLE_STATS_AGE
 from appscale.hermes.stats.converter import stats_to_dict, \
   IncludeLists, WrongIncludeLists
-from appscale.hermes.constants import SECRET_HEADER, HTTP_Codes
-
-
-class CachedStatsHandler(RequestHandler):
-  """ Handler for reading node/processes/proxies stats history
-  """
-
-  def initialize(self, stats_cache):
-    self._stats_cache = stats_cache
-
-  def get(self):
-    if self.request.headers.get(SECRET_HEADER) != options.secret:
-      logging.warn("Received bad secret from {client}"
-                   .format(client=self.request.remote_ip))
-      self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
-      return
-    payload = json.loads(self.request.body)
-    last_utc_timestamp = payload.get('last_utc_timestamp')
-    limit = payload.get('limit')
-    include_lists = payload.get('include_lists')
-    fetch_latest_only = payload.get('fetch_latest_only')
-
-    snapshots = self._stats_cache.get_stats_after(last_utc_timestamp)
-    if limit:
-      if fetch_latest_only and len(snapshots) > limit:
-        snapshots = snapshots[len(snapshots)-limit:]
-      else:
-        snapshots = snapshots[:limit]
-
-    if include_lists is not None:
-      try:
-        include_lists = IncludeLists(include_lists)
-      except WrongIncludeLists as err:
-        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
-        json.dump({'error': str(err)}, self)
-        return
-
-    rendered_dictionaries = [
-      stats_to_dict(snapshot, include_lists) for snapshot in snapshots
-    ]
-    json.dump(rendered_dictionaries, self)
 
 
 class CurrentStatsHandler(RequestHandler):
-  """ Handler for getting node/processes/proxies current stats
+  """ Handler for getting current node/processes/proxies stats.
   """
-  def initialize(self, stats_source):
-    self._stats_source = stats_source
+
+  def initialize(self, source, default_include_lists):
+    self._stats_source = source
+    self._default_include_lists = default_include_lists
+    self._snapshot = None
 
   def get(self):
     if self.request.headers.get(SECRET_HEADER) != options.secret:
@@ -62,8 +28,12 @@ class CurrentStatsHandler(RequestHandler):
                    .format(client=self.request.remote_ip))
       self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
-    payload = json.loads(self.request.body)
+    if self.request.body:
+      payload = json.loads(self.request.body)
+    else:
+      payload = {}
     include_lists = payload.get('include_lists')
+    newer_than = payload.get('newer_than')
 
     if include_lists is not None:
       try:
@@ -72,27 +42,41 @@ class CurrentStatsHandler(RequestHandler):
         self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
         json.dump({'error': str(err)}, self)
         return
+    else:
+      include_lists = self._default_include_lists
 
-    snapshot = self._stats_source.get_current()
+    if not newer_than:
+      newer_than = (
+        time.mktime(datetime.utcnow().timetuple()) - ACCEPTABLE_STATS_AGE
+      )
 
-    json.dump(stats_to_dict(snapshot, include_lists), self)
+    if not self._snapshot or self._snapshot.utc_timestamp <= newer_than:
+      self._snapshot = self._stats_source.get_current()
+
+    json.dump(stats_to_dict(self._snapshot, include_lists), self)
 
 
-class ClusterStatsHandler(RequestHandler):
-  """ Handler for getting cluster stats:
-      Node stats, Processes stats and Proxies stats for all nodes
+class CurrentClusterStatsHandler(RequestHandler):
+  """ Handler for getting current node/processes/proxies stats.
   """
-  def initialize(self, cluster_stats_cache):
-    self._cluster_stats_cache = cluster_stats_cache
+  def initialize(self, source, default_include_lists):
+    self._current_cluster_stats_source = source
+    self._default_include_lists = default_include_lists
+    self._snapshots = {}
 
+  @gen.coroutine
   def get(self):
     if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
                    .format(client=self.request.remote_ip))
       self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
-    payload = json.loads(self.request.body)
+    if self.request.body:
+      payload = json.loads(self.request.body)
+    else:
+      payload = {}
     include_lists = payload.get('include_lists')
+    newer_than = payload.get('newer_than')
 
     if include_lists is not None:
       try:
@@ -101,11 +85,34 @@ class ClusterStatsHandler(RequestHandler):
         self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
         json.dump({'error': str(err)}, self)
         return
+    else:
+      include_lists = self._default_include_lists
 
-    nodes_stats = self._cluster_stats_cache.get_latest()
+    if not newer_than:
+      newer_than = (
+        time.mktime(datetime.utcnow().timetuple()) - ACCEPTABLE_STATS_AGE
+      )
 
-    rendered_dictionaries = {
+    if (not self._default_include_lists or
+        include_lists.is_subset_of(self._default_include_lists)):
+      # If user didn't specify any non-default fields we can use local cache
+      fresh_local_snapshots = {
+        node_ip: snapshot for node_ip, snapshot in self._snapshots.iteritems()
+        if snapshot.utc_timestamp > newer_than
+      }
+    else:
+      fresh_local_snapshots = {}
+
+    snapshots = (
+      yield self._current_cluster_stats_source.get_current_async(
+        newer_than=newer_than, include_lists=include_lists,
+        exclude_nodes=fresh_local_snapshots.keys()
+      )
+    )
+    snapshots.update(fresh_local_snapshots)
+    rendered_snapshots = {
       node_ip: stats_to_dict(snapshot, include_lists)
-      for node_ip, snapshot in nodes_stats.iteritems()
+      for node_ip, snapshot in snapshots.iteritems()
     }
-    json.dump(rendered_dictionaries, self)
+
+    json.dump(rendered_snapshots, self)

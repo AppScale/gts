@@ -3,19 +3,20 @@ This module holds functionality related to conversion of stats entities
 to dictionaries (JSON serializable) and lists (CSV rows).
 It also provides function for building stats entities from dictionaries.
 """
-import attr
 import collections
+
+import attr
 
 from appscale.hermes.stats.constants import MISSED
 
 
 class WrongIncludeLists(ValueError):
-  """ Is raised when unknown fields are passed to IncludeLists.__init__ """
+  """ Is raised when unknown fields are passed to IncludeLists.__init__. """
   pass
 
 
 class ConflictingIncludeListName(ValueError):
-  """ Is raised when a name is used twice with @include_list_name decorator """
+  """ Is raised when a name is used twice with @include_list_name decorator. """
   pass
 
 
@@ -76,8 +77,8 @@ class IncludeLists(object):
     for the entity_class to all_attributes dict.
 
     Args:
-      list_name: a string representing name of include list
-      entity_class: @attr.s decorated class
+      list_name: A string representing name of include list.
+      entity_class: An @attr.s decorated class.
     """
     cls.all_attributes[list_name] = collections.OrderedDict(
       (att, None) for att in attr.fields(entity_class)
@@ -87,10 +88,10 @@ class IncludeLists(object):
     """ Validates include lists and copies it to own data structures.
 
     Args:
-      include_lists: a dict where key is a name of include list,
-                     value is a list of fields to include
+      include_lists: A dict where key is a name of include list,
+        value is a list of fields to include.
     Raises:
-      WrongIncludeLists if unknown field or unknown include list was found
+      WrongIncludeLists if unknown field or unknown include list was found.
     """
     self._lists = {}
     self._original_dict = include_lists
@@ -124,9 +125,9 @@ class IncludeLists(object):
     otherwise returns only specified in include list.
 
     Args:
-      stats_entity_class: @attr.s decorated class, stats model
+      stats_entity_class: An @attr.s decorated class, stats model.
     Returns:
-      a list of attr.Attribute instances which should be included
+      A list of attr.Attribute instances which should be included.
     """
     try:
       return self._lists[stats_entity_class._include_list_name]
@@ -140,17 +141,37 @@ class IncludeLists(object):
   def asdict(self):
     return self._original_dict
 
+  def is_subset_of(self, include_lists):
+    """ Determines if include_lists (argument) contains all attributes
+    specified for this instance (self).
+
+    Args:
+      include_lists: An instance of IncludeLists to compare with.
+    Returns:
+      A boolean indicating if self if subset of include_lists.
+    """
+    if self is include_lists:
+      return True
+    for list_name, include_list in self._lists.iteritems():
+      corresponding_list = include_lists._lists.get(list_name)
+      if corresponding_list is None:
+        return False
+      for attribute in include_list:
+        if attribute not in corresponding_list:
+          return False
+    return True
+
 
 def stats_to_dict(stats, include_lists=None):
   """ Renders stats entity to dictionary. If include_lists is specified
   it will skip not included fields.
 
   Args:
-    stats: an instance of stats entity
-    include_lists: an instance of IncludeLists
+    stats: An instance of stats entity.
+    include_lists: An instance of IncludeLists.
 
   Returns:
-    a dictionary representation of stats
+    A dictionary representation of stats.
   """
   if not include_lists:
     return attr.asdict(stats)
@@ -162,10 +183,17 @@ def stats_to_dict(stats, include_lists=None):
     value = getattr(stats, att.name)
     if value is MISSED:
       continue
-    if isinstance(value, dict):
-      value = {k: stats_to_dict(v, include_lists) for k, v in value.iteritems()}
-    elif isinstance(value, list):
-      value = [stats_to_dict(v, include_lists) for v in value]
+    if value and isinstance(value, dict):
+      if attr.has(value.itervalues().next()):
+        # Only collections of attr types (stats models) should be converted
+        value = {
+          k: stats_to_dict(v, include_lists)
+          for k, v in value.iteritems()
+        }
+    elif value and isinstance(value, list):
+      if attr.has(value[0]):
+        # Only collections of attr types (stats models) should be converted
+        value = [stats_to_dict(v, include_lists) for v in value]
     elif attr.has(value):
       value = stats_to_dict(value, include_lists)
     result[att.name] = value
@@ -173,19 +201,17 @@ def stats_to_dict(stats, include_lists=None):
 
 
 def stats_from_dict(stats_class, dictionary, strict=False):
-  """ Parses source dictionary and builds an entity of stats_class
+  """ Parses source dictionary and builds an entity of stats_class.
 
   Args:
-    stats_class: @attr.s decorated class representing stats entity
-    dictionary: a dict - source dictionary with stats fields
-    strict: a boolean determines whether missed fields should be replaced with
-            MISSED constant
-
+    stats_class: An @attr.s decorated class representing stats entity.
+    dictionary: A dict - source dictionary with stats fields.
+    strict: A boolean determines whether missed fields should be replaced with
+      MISSED constant.
   Returns:
-    An instance of stats_class
-
+    An instance of stats_class.
   Raises:
-    TypeError if strict is True and any field is missed in dictionary
+    TypeError if strict is True and any field is missed in dictionary.
   """
   changed_kwargs = {}
   for att in attr.fields(stats_class):
@@ -235,12 +261,11 @@ def get_stats_header(stats_class, include_lists=None, prefix=''):
   a list generated by stats_to_list.
 
   Args:
-    stats_class: @attr.s decorated class representing stats model
-    include_lists: an instance of IncludeLists
-    prefix: a string prefix to be prepended to column names
-
+    stats_class: An @attr.s decorated class representing stats model.
+    include_lists: An instance of IncludeLists.
+    prefix: A string prefix to be prepended to column names.
   Returns:
-    a list representing names of stats fields
+    A list representing names of stats fields.
   """
   if include_lists:
     included = include_lists.get_included_attrs(stats_class)
@@ -264,11 +289,10 @@ def stats_to_list(stats, include_lists=None):
   dictionaries because they brings dynamically changing columns list **.
 
   Args:
-    stats: an instance of stats entity
-    include_lists: an instance of IncludeLists
-
+    stats: An instance of stats entity.
+    include_lists: An instance of IncludeLists.
   Returns:
-    a list representing stats
+    A list representing stats.
   """
   if include_lists:
     included = include_lists.get_included_attrs(stats.__class__)
@@ -281,5 +305,15 @@ def stats_to_list(stats, include_lists=None):
       result.append(value)
     elif Meta.ENTITY in att.metadata:
       value = getattr(stats, att.name)
-      result += stats_to_list(value, include_lists)
+      if value is not MISSED:
+        # Render nested stats entity
+        result += stats_to_list(value, include_lists)
+      else:
+        # Render needed number of MISSED values
+        stats_class = att.metadata[Meta.ENTITY]
+        if include_lists:
+          values_number = len(include_lists.get_included_attrs(stats_class))
+        else:
+          values_number = len(attr.fields(stats_class))
+        result += [MISSED] * values_number
   return result

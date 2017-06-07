@@ -1,4 +1,5 @@
-""" Implementation of stats sources for cluster stats (node, processes, proxies) """
+""" Implementation of stats sources for cluster stats
+(node, processes, proxies). """
 import json
 import logging
 import sys
@@ -16,280 +17,109 @@ from appscale.hermes.stats.constants import CLUSTER_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats
 )
-from appscale.hermes.stats.pubsub_base import AsyncStatsSource
 
 
 class BadStatsListFormat(ValueError):
-  """ Is used when Hermes slave responds with improperly formatted stats """
+  """ Is used when Hermes slave responds with improperly formatted stats. """
   pass
 
 
-class ClusterNodesStatsSource(AsyncStatsSource):
+class ClusterStatsSource(object):
   """
-  Gets node stats from all nodes in the cluster.
-  In verbose mode of Hermes it will 'scroll' cached stats from all nodes
-  using timestamp as a cursor.
+  Base class for current cluster stats sources.
+  Gets new node/processes/proxies stats from all nodes in the cluster.
   """
+  ips_getter = None
+  method_path = None
+  stats_model = None
+  local_stats_source = None
+  last_debug = 0
 
-  def __init__(self, local_cache, include_lists=None, limit=None,
-               fetch_latest_only=False):
-    """ Initialises an instance of ClusterNodeStatsSource.
+  @gen.coroutine
+  def get_current_async(self, newer_than=None, include_lists=None,
+                        exclude_nodes=None):
+    """ Makes concurrent asynchronous http calls to cluster nodes
+    and collects current stats. Local stats is got from local stats source.
 
     Args:
-      local_cache: an instance of LocalStatsCache where node stats of this node
-          are cached. It's used to avoid HTTP calls to local API.
-      include_lists: an instance of IncludeLists
-      limit: an integer representing a max number of stats snapshots to fetch
-          from slave node per one call.
-          Be careful with this number, if you plan to scroll all stats
-          history (instead of tracking latest only) master node should collect
-          stats a bit faster than it's produced on slaves.
-      fetch_latest_only: a boolean determines whether old stats can be ignored.
-          If it's True, master will request latest stats always,
-          otherwise it will request stats snapshots newer than latest read,
-          so if limit is specified, it can get the latest stats with delay.
-    """
-    self._utc_timestamp_cursors = {}
-    self._local_cache = local_cache
-    self._include_lists = include_lists
-    self._limit = limit
-    self._fetch_latest_only = fetch_latest_only
-    self._last_debug = 0
-
-  @gen.coroutine
-  def get_current_async(self):
-    """ Implements StatsSource.get_current_async() method. Makes concurrent
-    asynchronous http calls to cluster nodes and collects new node stats.
-
+      newer_than: UTC timestamp, allow to use cached snapshot if it's newer.
+      include_lists: An instance of IncludeLists.
+      exclude_nodes: A list of node IPs to ignore when fetching stats.
     Returns:
-      A Future object which wraps a dict with node IP as key and list of
-      new NodeStatsSnapshot as value
+      A Future object which wraps a dict with node IP as key and
+      an instance of stats snapshot as value.
     """
-    all_ips = appscale_info.get_all_ips()
+    exclude_nodes = exclude_nodes or []
+
     # Do multiple requests asynchronously and wait for all results
-    per_node_node_stats_dict = yield {
-      node_ip: self._new_node_stats_from_node_async(node_ip)
-      for node_ip in all_ips
+    stats_per_node = yield {
+      node_ip: self._stats_from_node_async(node_ip, newer_than, include_lists)
+      for node_ip in self.ips_getter() if node_ip not in exclude_nodes
     }
-    if time.time() - self._last_debug > CLUSTER_STATS_DEBUG_INTERVAL:
-      self._last_debug = time.time()
-      logging.debug(per_node_node_stats_dict)
-    raise gen.Return(per_node_node_stats_dict)
+    if time.time() - self.__class__.last_debug > CLUSTER_STATS_DEBUG_INTERVAL:
+      self.__class__.last_debug = time.time()
+      logging.debug(stats_per_node)
+    raise gen.Return(stats_per_node)
 
   @gen.coroutine
-  def _new_node_stats_from_node_async(self, node_ip):
-    last_utc_timestamp = self._utc_timestamp_cursors.get(node_ip)
+  def _stats_from_node_async(self, node_ip, newer_than, include_lists):
     if node_ip == appscale_info.get_private_ip():
-      new_snapshots = self._local_cache.get_stats_after(last_utc_timestamp)
-      if self._limit is not None:
-        if self._fetch_latest_only and len(new_snapshots) > self._limit:
-          new_snapshots = new_snapshots[len(new_snapshots)-self._limit:]
-        else:
-          new_snapshots = new_snapshots[:self._limit]
+      snapshot = self.local_stats_source.get_current()
     else:
-      new_snapshots = yield _fetch_remote_stats_cache_async(
-        node_ip=node_ip, method_path='stats/local/node/cache',
-        stats_class=node_stats.NodeStatsSnapshot,
-        last_utc_timestamp=last_utc_timestamp,
-        include_lists=self._include_lists, limit=self._limit,
-        fetch_latest_only=self._fetch_latest_only
-      )
-    if new_snapshots:
-      self._utc_timestamp_cursors[node_ip] = new_snapshots[-1].utc_timestamp
-    raise gen.Return(new_snapshots)
-
-
-class ClusterProcessesStatsSource(AsyncStatsSource):
-  """
-  Gets processes stats from all nodes in the cluster.
-  In verbose mode of Hermes it will 'scroll' cached stats from all nodes
-  using timestamp as a cursor.
-  """
-
-  def __init__(self, local_cache, include_lists=None, limit=None,
-               fetch_latest_only=False):
-    """ Initialises an instance of ClusterProcessesStatsSource.
-
-    Args:
-      local_cache: an instance of LocalStatsCache where processes stats of this
-          node is cached. It's used to avoid HTTP calls to local API
-      include_lists: an instance of IncludeLists
-      limit: an integer representing a max number of stats snapshots to fetch
-          from slave node per one call.
-          Be careful with this number, if you plan to scroll all stats
-          history (instead of tracking latest only) master node should collect
-          stats a bit faster than it's produced on slaves.
-      fetch_latest_only: a boolean determines whether old stats can be ignored.
-          If it's True, master will request latest stats always,
-          otherwise it will request stats snapshots newer than latest read,
-          so if limit is specified, it can get the latest stats with delay.
-    """
-    self._utc_timestamp_cursors = {}
-    self._local_cache = local_cache
-    self._include_lists = include_lists
-    self._limit = limit
-    self._fetch_latest_only = fetch_latest_only
-    self._last_debug = 0
+      snapshot = yield self._fetch_remote_stats_async(
+        node_ip, newer_than, include_lists)
+    raise gen.Return(snapshot)
 
   @gen.coroutine
-  def get_current_async(self):
-    """ Implements StatsSource.get_current_async() method. Makes concurrent
-    asynchronous http calls to cluster nodes and collects new processes stats.
+  def _fetch_remote_stats_async(self, node_ip, newer_than, include_lists):
+    # Security header
+    headers = {SECRET_HEADER: options.secret}
+    # Build query arguments
+    arguments = {}
+    if include_lists is not None:
+      arguments['include_lists'] = include_lists.asdict()
+    if newer_than:
+      arguments['newer_than'] = newer_than
 
-    Returns:
-      A Future object which wraps a dict with node IP as key and list of
-      new ProcessesStatsSnapshot as value
-    """
-    all_ips = appscale_info.get_all_ips()
-    # Do multiple requests asynchronously and wait for all results
-    per_node_processes_stats_dict = yield {
-      node_ip: self._new_processes_stats_from_node_async(node_ip)
-      for node_ip in all_ips
-    }
-    if time.time() - self._last_debug > CLUSTER_STATS_DEBUG_INTERVAL:
-      self._last_debug = time.time()
-      logging.debug(per_node_processes_stats_dict)
-    raise gen.Return(per_node_processes_stats_dict)
+    url = "http://{ip}:{port}/{path}".format(
+      ip=node_ip, port=constants.HERMES_PORT, path=self.method_path)
+    request = httpclient.HTTPRequest(
+      url=url, method='GET', body=json.dumps(arguments), headers=headers,
+      request_timeout=REQUEST_TIMEOUT, allow_nonstandard_methods=True
+    )
+    async_client = httpclient.AsyncHTTPClient()
 
-  @gen.coroutine
-  def _new_processes_stats_from_node_async(self, node_ip):
-    last_utc_timestamp = self._utc_timestamp_cursors.get(node_ip)
-    if node_ip == appscale_info.get_private_ip():
-      new_snapshots = self._local_cache.get_stats_after(last_utc_timestamp)
-      if self._limit is not None:
-        if self._fetch_latest_only and len(new_snapshots) > self._limit:
-          new_snapshots = new_snapshots[len(new_snapshots)-self._limit:]
-        else:
-          new_snapshots = new_snapshots[:self._limit]
-    else:
-      new_snapshots = yield _fetch_remote_stats_cache_async(
-        node_ip=node_ip, method_path='stats/local/processes/cache',
-        stats_class=process_stats.ProcessesStatsSnapshot,
-        last_utc_timestamp=last_utc_timestamp,
-        include_lists=self._include_lists, limit=self._limit,
-        fetch_latest_only=self._fetch_latest_only
-      )
-    if new_snapshots:
-      self._utc_timestamp_cursors[node_ip] = new_snapshots[-1].utc_timestamp
-    raise gen.Return(new_snapshots)
+    try:
+      # Send Future object to coroutine and suspend till result is ready
+      response = yield async_client.fetch(request)
+    except HTTPError as e:
+      logging.error("Failed to get stats from {} ({})".format(url, e))
+      raise gen.Return(None)
+
+    try:
+      snapshot = json.loads(response.body)
+      raise gen.Return(converter.stats_from_dict(self.stats_model, snapshot))
+    except TypeError as err:
+      msg = u"Can't parse stats snapshot ({})".format(err)
+      raise BadStatsListFormat(msg), None, sys.exc_info()[2]
 
 
-class ClusterProxiesStatsSource(AsyncStatsSource):
-  """
-  Gets proxies stats from all nodes in the cluster.
-  In verbose mode of Hermes it will 'scroll' cached stats from all nodes
-  using timestamp as a cursor.
-  """
-
-  def __init__(self, local_cache=None, include_lists=None, limit=None,
-               fetch_latest_only=False):
-    """ Initialises an instance of ClusterProxiesStatsSource.
-
-    Args:
-      local_cache: an instance of LocalStatsCache where proxies stats of this
-          node is cached. It's used to avoid HTTP calls to local API
-      include_lists: an instance of IncludeLists
-      limit: an integer representing a max number of stats snapshots to fetch
-          from slave node per one call.
-          Be careful with this number, if you plan to scroll all stats
-          history (instead of tracking latest only) master node should collect
-          stats a bit faster than it's produced on slaves.
-      fetch_latest_only: a boolean determines whether old stats can be ignored.
-          If it's True, master will request latest stats always,
-          otherwise it will request stats snapshots newer than latest read,
-          so if limit is specified, it can get the latest stats with delay.
-    """
-    self._utc_timestamp_cursors = {}
-    self._local_cache = local_cache
-    self._include_lists = include_lists
-    self._limit = limit
-    self._fetch_latest_only = fetch_latest_only
-    self._last_debug = 0
-
-  @gen.coroutine
-  def get_current_async(self):
-    """ Implements StatsSource.get_current_async() method. Makes concurrent
-    asynchronous http calls to cluster nodes and collects new proxies stats.
-
-    Returns:
-      A Future object which wraps a dict with node IP as key and list of
-      new ProxiesStatsSnapshot as value
-    """
-    lb_ips = appscale_info.get_load_balancer_ips()
-    # Do multiple requests asynchronously and wait for all results
-    per_node_proxies_stats_dict = yield {
-      node_ip: self._new_proxies_stats_from_node_async(node_ip)
-      for node_ip in lb_ips
-    }
-    if time.time() - self._last_debug > CLUSTER_STATS_DEBUG_INTERVAL:
-      self._last_debug = time.time()
-      logging.debug(per_node_proxies_stats_dict)
-    raise gen.Return(per_node_proxies_stats_dict)
-
-  @gen.coroutine
-  def _new_proxies_stats_from_node_async(self, node_ip):
-    last_utc_timestamp = self._utc_timestamp_cursors.get(node_ip)
-    if node_ip == appscale_info.get_private_ip():
-      new_snapshots = self._local_cache.get_stats_after(last_utc_timestamp)
-      if self._limit is not None:
-        if self._fetch_latest_only and len(new_snapshots) > self._limit:
-          new_snapshots = new_snapshots[len(new_snapshots)-self._limit:]
-        else:
-          new_snapshots = new_snapshots[:self._limit]
-    else:
-      new_snapshots = yield _fetch_remote_stats_cache_async(
-        node_ip=node_ip, method_path='stats/local/proxies/cache',
-        stats_class=proxy_stats.ProxiesStatsSnapshot,
-        last_utc_timestamp=last_utc_timestamp,
-        include_lists=self._include_lists, limit=self._limit,
-        fetch_latest_only=self._fetch_latest_only
-      )
-    if new_snapshots:
-      self._utc_timestamp_cursors[node_ip] = new_snapshots[-1].utc_timestamp
-    raise gen.Return(new_snapshots)
+class ClusterNodesStatsSource(ClusterStatsSource):
+  ips_getter = staticmethod(appscale_info.get_all_ips)
+  method_path = 'stats/local/node'
+  stats_model = node_stats.NodeStatsSnapshot
+  local_stats_source = node_stats.NodeStatsSource()
 
 
-@gen.coroutine
-def _fetch_remote_stats_cache_async(node_ip, method_path, stats_class,
-                                    last_utc_timestamp, limit, include_lists,
-                                    fetch_latest_only):
-  # Security header
-  headers = {SECRET_HEADER: options.secret}
-  # Build query arguments
-  arguments = {}
-  if last_utc_timestamp is not None:
-    arguments['last_utc_timestamp'] = last_utc_timestamp
-  if limit is not None:
-    arguments['limit'] = limit
-  if include_lists is not None:
-    arguments['include_lists'] = include_lists.asdict()
-  if fetch_latest_only:
-    arguments['fetch_latest_only'] = True
+class ClusterProcessesStatsSource(ClusterStatsSource):
+  ips_getter = staticmethod(appscale_info.get_all_ips)
+  method_path = 'stats/local/processes'
+  stats_model = process_stats.ProcessesStatsSnapshot
+  local_stats_source = process_stats.ProcessesStatsSource()
 
-  url = "http://{ip}:{port}/{path}".format(
-    ip=node_ip, port=constants.HERMES_PORT, path=method_path)
-  request = httpclient.HTTPRequest(
-    url=url, method='GET', body=json.dumps(arguments), headers=headers,
-    validate_cert=False, request_timeout=REQUEST_TIMEOUT,
-    allow_nonstandard_methods=True
-  )
-  async_client = httpclient.AsyncHTTPClient()
 
-  try:
-    # Send Future object to coroutine and suspend till result is ready
-    response = yield async_client.fetch(request)
-  except HTTPError as e:
-    logging.error("Failed to get stats from {} ({})".format(url, e))
-    raise gen.Return([])
-
-  try:
-    stats_dictionaries = json.loads(response.body)
-    snapshots = [
-      converter.stats_from_dict(stats_class, stats_dict)
-      for stats_dict in stats_dictionaries
-    ]
-  except TypeError as err:
-    msg = u"Can't parse stats snapshot ({})".format(err)
-    raise BadStatsListFormat(msg), None, sys.exc_info()[2]
-
-  raise gen.Return(snapshots)
+class ClusterProxiesStatsSource(ClusterStatsSource):
+  ips_getter = staticmethod(appscale_info.get_load_balancer_ips)
+  method_path = 'stats/local/proxies'
+  stats_model = proxy_stats.ProxiesStatsSnapshot
+  local_stats_source = proxy_stats.ProxiesStatsSource()

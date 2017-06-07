@@ -10,7 +10,6 @@ from appscale.common import appscale_info
 
 from appscale.hermes.stats.constants import LOCAL_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.converter import Meta, include_list_name
-from appscale.hermes.stats.pubsub_base import StatsSource
 from appscale.hermes.stats.unified_service_names import \
   find_service_by_monit_name
 
@@ -105,7 +104,7 @@ PROCESS_ATTRS = (
 )
 
 
-class ProcessesStatsSource(StatsSource):
+class ProcessesStatsSource(object):
 
   last_debug = 0
 
@@ -115,7 +114,7 @@ class ProcessesStatsSource(StatsSource):
     for each monitored service.
 
     Returns:
-      ProcessesStatsSnapshot
+      An instance ofProcessesStatsSnapshot.
     """
     monit_status = subprocess.check_output('monit status', shell=True)
     processes_stats = []
@@ -145,13 +144,13 @@ def _process_stats(pid, service, monit_name, private_ip):
   It summarize stats of the specified process and its children.
 
   Args:
-    pid: Process ID to describe
-    service: an instance of unified_service_names.Service which crresponds to
-             this process
-    monit_name: name of corresponding monit process
+    pid: A string representing Process ID to describe.
+    service: An instance of unified_service_names.Service which corresponds to
+      this process.
+    monit_name: A string, name of corresponding monit process.
   Returns:
     An object of ProcessStats with detailed explanation of resources used by
-    the specified process and its children
+    the specified process and its children.
   """
   # Get information about processes hierarchy (the process and its children)
   process = psutil.Process(pid)

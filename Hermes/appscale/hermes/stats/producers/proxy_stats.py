@@ -11,7 +11,6 @@ import attr
 from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, \
   LOCAL_STATS_DEBUG_INTERVAL, MISSED
 from appscale.hermes.stats.converter import include_list_name, Meta
-from appscale.hermes.stats.pubsub_base import StatsSource
 from appscale.hermes.stats.unified_service_names import find_service_by_pxname
 
 
@@ -219,7 +218,7 @@ class InvalidHAProxyStats(ValueError):
 class ProxyStats(object):
   """
   Object of ProxyStats is kind of structured container for all haproxy stats
-  provided for the specific proxy (e.g.: TaskQueue, UserAppServer, ...)
+  provided for the specific proxy (e.g.: TaskQueue, UserAppServer, ...).
 
   Only those Hermes nodes which are collocated with HAProxy collects this stats.
   """
@@ -239,7 +238,7 @@ class ProxiesStatsSnapshot(object):
 
 
 def _get_field_value(row, field_name):
-  """ Private method for getting value from csv cell """
+  """ Private method for getting value from csv cell. """
   if field_name not in row:
     return MISSED
   value = row[field_name]
@@ -266,7 +265,7 @@ def get_stats():
     client.close()
 
 
-class ProxiesStatsSource(StatsSource):
+class ProxiesStatsSource(object):
 
   first_run = True
   last_debug = 0
@@ -276,7 +275,7 @@ class ProxiesStatsSource(StatsSource):
     proxy statistics for all proxies.
 
     Returns:
-      ProxiesStatsSnapshot
+      An instance of ProxiesStatsSnapshot.
     """
     # Get CSV table with haproxy stats
     csv_buf = get_stats()

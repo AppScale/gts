@@ -2,9 +2,9 @@ from setuptools import setup
 
 setup(
   name='appscale-hermes',
-  version='0.0.2',
+  version='0.0.3',
   description='AppScale module which takes care of periodical backup and '
-              'restore tasks and collects statistics.',
+              'restore tasks and provides statistics API.',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
   license='Apache License 2.0',
@@ -29,7 +29,6 @@ setup(
   packages=['appscale',
             'appscale.hermes',
             'appscale.hermes.stats',
-            'appscale.hermes.stats.producers',
-            'appscale.hermes.stats.subscribers'],
+            'appscale.hermes.stats.producers'],
   entry_points={'console_scripts': ['appscale-hermes=appscale.hermes:main']}
 )
