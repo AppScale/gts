@@ -3,6 +3,7 @@
 
 # First-party Ruby libraries
 require 'resolv'
+require 'socket'
 require 'timeout'
 
 
@@ -18,6 +19,9 @@ require 'monit_interface'
 # tasks, whose data are stored as items in rabbitmq. This module provides
 # methods that automatically configure and deploy rabbitmq and celery as needed.
 module TaskQueue
+
+  # Indicates an error when determining the version of rabbitmq.
+  class UnknownVersion < StandardError; end
 
   # The default name of the service.
   NAME = "TaskQueue"
@@ -76,11 +80,22 @@ module TaskQueue
        raise AppScaleException.new(msg)
     end
 
+    pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
+                        "rabbit@#{Socket.gethostname}.pid")
+    begin
+      installed_version = Gem::Version.new(self.get_rabbitmq_version)
+      new_location_version = Gem::Version.new('3.4')
+      if installed_version < new_location_version
+        pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+      end
+    rescue TaskQueue::UnknownVersion => error
+      Djinn.log_warn("Error while getting rabbitmq version: #{error.message}")
+    end
+
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     service_bin = `which service`.chomp
     start_cmd = "#{service_bin} rabbitmq-server start"
     stop_cmd = "#{service_bin} rabbitmq-server stop"
-    pidfile = '/var/run/rabbitmq/pid'
     MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile)
   end
 
@@ -294,4 +309,17 @@ module TaskQueue
     return server_ports
   end
 
+  def self.get_rabbitmq_version()
+    version_re = /Version: (.*)-/
+
+    begin
+      rabbitmq_info = `dpkg -s rabbitmq-server`
+    rescue Errno::ENOENT
+      raise TaskQueue::UnknownVersion.new('The dpkg command was not found')
+    end
+
+    match = version_re.match(rabbitmq_info)
+    raise TaskQueue::UnknownVersion.new('Unable to find version') if match.nil?
+    return match[1]
+  end
 end
