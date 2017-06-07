@@ -582,6 +582,14 @@ installpycapnp()
     pipwrapper pycapnp
 }
 
+installpyyaml()
+{
+    # The python-yaml package on Xenial uses over 30M of memory.
+    if [ "${DIST}" = "xenial" ]; then
+        pipwrapper PyYAML
+    fi
+}
+
 preplogserver()
 {
     LOGSERVER_DIR="/opt/appscale/logserver"
