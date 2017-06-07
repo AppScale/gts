@@ -157,15 +157,15 @@ if [ -d /etc/appscale/certs ]; then
     UPDATE_REPO="Y"
 
     # For upgrade, we don't switch across branches.
-    if [ FORCE_UPGRADE = "N" ] && [ "${APPSCALE_BRANCH}" != "master" ]; then
+    if [ "${FORCE_UPGRADE}" = "N" ] && [ "${APPSCALE_BRANCH}" != "master" ]; then
         echo "Cannot use --branch when upgrading"
         exit 1
     fi
-    if [ FORCE_UPGRADE = "N"  ] && [  "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
+    if [ "${FORCE_UPGRADE}" = "N"  ] && [  "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
         echo "Cannot use --tools-branch when upgrading"
         exit 1
     fi
-    if [ FORCE_UPGRADE = "N"  ] && [  -z "$GIT_TAG" ]; then
+    if [ "${FORCE_UPGRADE}" = "N"  ] && [  -z "$GIT_TAG" ]; then
         echo "Cannot use --tag dev when upgrading"
         exit 1
     fi
@@ -205,7 +205,7 @@ if [ -d /etc/appscale/certs ]; then
 
     # If CURRENT_BRANCH is empty, then we are not on master, and we
     # are not on a released version: we don't upgrade then.
-    if [ FORCE_UPGRADE = "N"  ] && [  -z "${CURRENT_BRANCH}" ]; then
+    if [ "${FORCE_UPGRADE}" = "N"  ] && [  -z "${CURRENT_BRANCH}" ]; then
         echo "Error: git repository is not 'master' or a released version."
         exit 1
     fi
@@ -214,7 +214,7 @@ if [ -d /etc/appscale/certs ]; then
     MONIT=$(which monit)
     if $MONIT summary | grep controller > /dev/null ; then
         echo "AppScale is still running: please stop it"
-        [ "$FORCE_UPGRADE" = "Y" ] || exit 1
+        [ "${FORCE_UPGRADE}" = "Y" ] || exit 1
     elif echo $MONIT | grep local > /dev/null ; then
         # AppScale is not running but there is a monit
         # leftover from the custom install.
@@ -270,7 +270,7 @@ if [ -d /etc/appscale/certs ]; then
                 echo "e.g.: git stash; git checkout <appscale-tools-version>"
                 exit 1
             fi
-        elif [ FORCE_UPGRADE = "N" ]; then
+        elif [ "${FORCE_UPGRADE}" = "N" ]; then
             (cd appscale; git pull)
             (cd appscale-tools; git pull)
         else
