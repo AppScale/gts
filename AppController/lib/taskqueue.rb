@@ -83,9 +83,10 @@ module TaskQueue
     pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
                         "rabbit@#{Socket.gethostname}.pid")
     begin
-      rabbitmq_version = self.get_rabbitmq_version
-      if rabbitmq_version[0] <= 3 && rabbitmq_version[1] < 4
-        pidfile = '/var/run/rabbitmq/pid'
+      installed_version = Gem::Version.new(self.get_rabbitmq_version)
+      new_location_version = Gem::Version.new('3.4')
+      if installed_version < new_location_version
+        pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
       end
     rescue TaskQueue::UnknownVersion => error
       Djinn.log_warn("Error while getting rabbitmq version: #{error.message}")
@@ -309,7 +310,7 @@ module TaskQueue
   end
 
   def self.get_rabbitmq_version()
-    version_re = /Version: (\d+)\.(\d+)./
+    version_re = /Version: (.*)-/
 
     begin
       rabbitmq_info = `dpkg -s rabbitmq-server`
@@ -319,14 +320,6 @@ module TaskQueue
 
     match = version_re.match(rabbitmq_info)
     raise TaskQueue::UnknownVersion.new('Unable to find version') if match.nil?
-
-    begin
-      major_version = Integer(match[1])
-      minor_version = Integer(match[2])
-    rescue ArgumentError, TypeError
-      raise TaskQueue::UnknownVersion.new('Invalid rabbitmq version')
-    end
-
-    return [major_version, minor_version]
+    return match[1]
   end
 end
