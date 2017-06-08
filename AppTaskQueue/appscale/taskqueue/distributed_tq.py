@@ -249,7 +249,7 @@ class DistributedTaskQueue():
   CELERY_MAX_MEMORY = 1000
 
   # The safe memory per Celery worker.
-  CELERY_SAFE_MEMORY = 200
+  CELERY_SAFE_MEMORY = 1000
 
   def __init__(self, db_access):
     """ DistributedTaskQueue Constructor.
@@ -465,8 +465,6 @@ class DistributedTaskQueue():
                            'celery-{}.pid'.format(app_id))
     state_db = os.path.join(TaskQueueConfig.CELERY_STATE_DIR,
                             'worker___{}.db'.format(app_id))
-    max_memory = self.CELERY_SAFE_MEMORY * \
-                 TaskQueueConfig.MAX_CELERY_CONCURRENCY
 
     env_vars = {'APP_ID': app_id, 'HOST': appscale_info.get_login_ip()}
     env_vars.update(self.CELERY_ENV_VARS)
@@ -474,14 +472,13 @@ class DistributedTaskQueue():
     start_cmd = ' '.join([
       'celery', 'worker',
       '--app', TaskQueueConfig.WORKER_MODULE,
+      '--pool=eventlet',
+      '--concurrency={}'.format(TaskQueueConfig.CELERY_CONCURRENCY),
       '--hostname', app_id,
       '--workdir', CELERY_WORKER_DIR,
       '--logfile', log_file,
       '--pidfile', pidfile,
       '--time-limit', str(self.HARD_TIME_LIMIT),
-      '--autoscale', '{max},{min}'.format(
-        max=TaskQueueConfig.MAX_CELERY_CONCURRENCY,
-        min=TaskQueueConfig.MIN_CELERY_CONCURRENCY),
       '--soft-time-limit', str(self.TASK_SOFT_TIME_LIMIT),
       '--statedb', state_db,
       '-Ofair'
@@ -493,7 +490,7 @@ class DistributedTaskQueue():
       start_cmd,
       pidfile,
       env_vars=env_vars,
-      max_memory=max_memory)
+      max_memory=self.CELERY_SAFE_MEMORY)
 
     if monit_interface.start(watch):
       json_response = {'error': False}

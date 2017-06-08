@@ -1,6 +1,5 @@
 """ A Celery worker script that executes push tasks with HTTP requests. """
 import datetime
-import httplib
 import json
 import logging
 import os
@@ -10,6 +9,7 @@ from appscale.common import appscale_info
 from appscale.common import constants
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from celery.utils.log import get_task_logger
+from eventlet.green import httplib
 from httplib import BadStatusLine
 from socket import error as SocketError
 from urlparse import urlparse

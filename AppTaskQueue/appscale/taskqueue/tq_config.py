@@ -30,11 +30,8 @@ from google.appengine.runtime import apiproxy_errors
 class TaskQueueConfig():
   """ Contains configuration of the TaskQueue system. """
 
-  # Min concurrency per worker.
-  MIN_CELERY_CONCURRENCY = 2
-
-  # Max concurrency per worker.
-  MAX_CELERY_CONCURRENCY = 20
+  # The number of tasks the Celery worker can handle at a time.
+  CELERY_CONCURRENCY = 1000
 
   # The default YAML used if a queue.yaml or queue.xml is not supplied.
   DEFAULT_QUEUE_YAML = """
