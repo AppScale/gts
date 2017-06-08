@@ -70,7 +70,7 @@ module MonitInterface
   # background process, and it should create its own pidfile.
   def self.start_daemon(watch, start_cmd, stop_cmd, pidfile)
     config = <<CONFIG
-CHECK PROCESS #{watch} PIDFILE #{pidfile}
+CHECK PROCESS #{watch} PIDFILE "#{pidfile}"
   group #{watch}
   start program = "#{start_cmd}"
   stop program = "#{stop_cmd}"
@@ -179,7 +179,7 @@ CONFIG
                "#{rm} #{pidfile}"
 
     contents = <<BOO
-CHECK PROCESS #{process_name} PIDFILE #{pidfile}
+CHECK PROCESS #{process_name} PIDFILE "#{pidfile}"
   group #{group}
   start program = "#{start_stop_daemon} #{start_args.join(' ')}"
   stop program = "#{bash} -c '#{stop_cmd}'"

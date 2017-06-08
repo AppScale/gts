@@ -143,7 +143,9 @@ class TestDjinn < Test::Unit::TestCase
     better_credentials = JSON.dump({'keyname' => '0123', 'login' =>
       '1.1.1.1', 'table' => 'cassandra'})
     result_2 = djinn.set_parameters("", better_credentials,  @secret)
-    assert_equal(true, result_2.include?("Error: got exception parsing JSON"))
+    # Depending on the JSON library used, "" can either throw an exception
+    # or be interpreted as nil.
+    assert_equal(true, result_2.include?("Error"))
 
     # Now try credentials with an even number of items, but not all the
     # required parameters

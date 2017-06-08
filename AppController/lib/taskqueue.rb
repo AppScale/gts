@@ -3,6 +3,7 @@
 
 # First-party Ruby libraries
 require 'resolv'
+require 'socket'
 require 'timeout'
 
 
@@ -18,6 +19,9 @@ require 'monit_interface'
 # tasks, whose data are stored as items in rabbitmq. This module provides
 # methods that automatically configure and deploy rabbitmq and celery as needed.
 module TaskQueue
+
+  # Indicates an error when determining the version of rabbitmq.
+  class UnknownVersion < StandardError; end
 
   # The default name of the service.
   NAME = "TaskQueue"
@@ -54,9 +58,6 @@ module TaskQueue
   # The longest we'll wait for RabbitMQ to come up in seconds.
   MAX_WAIT_FOR_RABBITMQ = 30
 
-  # How many times to retry starting rabbitmq on a slave.
-  RABBIT_START_RETRY = 1000
-
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
 
@@ -79,11 +80,22 @@ module TaskQueue
        raise AppScaleException.new(msg)
     end
 
+    pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
+                        "rabbit@#{Socket.gethostname}.pid")
+    begin
+      installed_version = Gem::Version.new(self.get_rabbitmq_version)
+      new_location_version = Gem::Version.new('3.4')
+      if installed_version < new_location_version
+        pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+      end
+    rescue TaskQueue::UnknownVersion => error
+      Djinn.log_warn("Error while getting rabbitmq version: #{error.message}")
+    end
+
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
     service_bin = `which service`.chomp
     start_cmd = "#{service_bin} rabbitmq-server start"
     stop_cmd = "#{service_bin} rabbitmq-server stop"
-    pidfile = '/var/run/rabbitmq/pid'
     MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile)
   end
 
@@ -105,8 +117,15 @@ module TaskQueue
       Djinn.log_debug("Not erasing RabbitMQ state")
     end
 
-    # First, start up RabbitMQ.
+    # First, start up RabbitMQ and make sure the service is up.
     start_rabbitmq
+    HelperFunctions.sleep_until_port_is_open("localhost",
+                                             SERVER_PORT)
+
+    # The master rabbitmq will set the policy for replication of messages
+    # and queues.
+    policy = '{"ha-mode":"all", "ha-sync-mode": "automatic"}'
+    Djinn.log_run("#{RABBITMQCTL} set_policy ha-all '' '#{policy}'")
 
     # Next, start up the TaskQueue Server.
     start_taskqueue_server(verbose)
@@ -159,17 +178,16 @@ module TaskQueue
       end
     end
 
-    tries_left = RABBIT_START_RETRY
-    loop {
+    HelperFunctions::RETRIES.downto(0) { |tries_left|
       Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
       begin
         Timeout.timeout(MAX_WAIT_FOR_RABBITMQ) do
           HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
           Djinn.log_debug("Done starting rabbitmq_slave on this node")
 
-          `#{RABBITMQCTL} stop_app`
-          `#{RABBITMQCTL} join_cluster rabbit@#{master_tq_host}`
-          `#{RABBITMQCTL} start_app`
+          Djinn.log_run("#{RABBITMQCTL} stop_app")
+          Djinn.log_run("#{RABBITMQCTL} join_cluster rabbit@#{master_tq_host}")
+          Djinn.log_run("#{RABBITMQCTL} start_app")
 
           Djinn.log_debug("Starting TaskQueue servers on slave node")
           start_taskqueue_server(verbose)
@@ -291,4 +309,17 @@ module TaskQueue
     return server_ports
   end
 
+  def self.get_rabbitmq_version()
+    version_re = /Version: (.*)-/
+
+    begin
+      rabbitmq_info = `dpkg -s rabbitmq-server`
+    rescue Errno::ENOENT
+      raise TaskQueue::UnknownVersion.new('The dpkg command was not found')
+    end
+
+    match = version_re.match(rabbitmq_info)
+    raise TaskQueue::UnknownVersion.new('Unable to find version') if match.nil?
+    return match[1]
+  end
 end

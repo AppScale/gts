@@ -133,6 +133,18 @@ PACKAGE_MIRROR_DOMAIN = 's3.amazonaws.com'
 PACKAGE_MIRROR_PATH = '/appscale-build'
 
 
+# The highest load of the deployment we handle before trying to scale up.
+MAX_LOAD_THRESHOLD = 0.9
+
+
+# The desired load of the deployment to achieve after scaling up or down.
+DESIRED_LOAD = 0.8
+
+
+# The lowest load of the deployment to tolerate before trying to scale down.
+MIN_LOAD_THRESHOLD = 0.7
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -539,6 +551,11 @@ class Djinn
     'use_spot_instances' => [ TrueClass, nil, false ],
     'user_commands' => [ String, nil, true ],
     'verbose' => [ TrueClass, 'False', true ],
+    'write_nodes_stats_log' => [ TrueClass, 'False', true ],
+    'write_processes_stats_log' => [ TrueClass, 'False', true ],
+    'write_proxies_stats_log' => [ TrueClass, 'False', true ],
+    'write_detailed_processes_stats_log' => [ TrueClass, 'False', true ],
+    'write_detailed_proxies_stats_log' => [ TrueClass, 'False', true ],
     'zone' => [ String, nil, true ]
   }
 
@@ -1461,7 +1478,20 @@ class Djinn
         Djinn.log_info("Restarting applications since public IP changed.")
         notify_restart_app_to_nodes(@apps_loaded)
       end
+
       @options[key] = val
+
+      hermes_profiling_flags = [
+        "write_nodes_stats_log", "write_processes_stats_log",
+        "write_proxies_stats_log", "write_detailed_processes_stats_log",
+        "write_detailed_proxies_stats_log"
+      ]
+      if hermes_profiling_flags.include?(key)
+        Thread.new {
+          stop_hermes()
+          start_hermes()
+        }
+      end
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
@@ -1856,14 +1886,12 @@ class Djinn
       apps_to_restart = @apps_loaded & apps
     }
     # Notify nodes, and remove any running AppServer of the application.
-    Djinn.log_info("notifying: #{apps_to_restart}")
     notify_restart_app_to_nodes(apps_to_restart)
-    Djinn.log_info("done notifying")
 
     APPS_LOCK.synchronize {
       @app_names |= apps
     }
-    Djinn.log_info("Done updating apps: #{apps}")
+    Djinn.log_info("Done updating apps: #{apps}.")
     return 'OK'
   end
 
@@ -2078,6 +2106,7 @@ class Djinn
           # Starts apps that are not running yet but they should.
           apps_to_load = @app_names - @apps_loaded
           apps_to_load.each { |app|
+            setup_app_dir(app, true)
             setup_appengine_application(app)
           }
           scale_deployment
@@ -2744,7 +2773,7 @@ class Djinn
   end
 
   # Gets a list of autoscaled nodes by going through the nodes array
-  # and splitting the array from index greater than the 
+  # and splitting the array from index greater than the
   # minimum images specified.
   def get_autoscaled_nodes()
     autoscaled_nodes = []
@@ -3057,12 +3086,14 @@ class Djinn
       Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
-    if @appcontroller_state == json_state
+    if @appcontroller_state == json_state.to_s
       Djinn.log_debug("Reload state: no changes.")
       return true
     end
 
     Djinn.log_debug("Reload state : #{json_state}.")
+    @appcontroller_state = json_state.to_s
+
     APPS_LOCK.synchronize {
       @@secret = json_state['@@secret']
       keyname = json_state['@options']['keyname']
@@ -3749,7 +3780,14 @@ class Djinn
   def start_hermes()
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    HermesService.start(@options['verbose'])
+    HermesService.start(
+      @options['verbose'].downcase == 'true',
+      @options["write_nodes_stats_log"].downcase == 'true',
+      @options["write_processes_stats_log"].downcase == 'true',
+      @options["write_proxies_stats_log"].downcase == 'true',
+      @options["write_detailed_processes_stats_log"].downcase == 'true',
+      @options["write_detailed_proxies_stats_log"].downcase == 'true'
+    )
     Djinn.log_info("Done starting Hermes service.")
   end
 
@@ -4686,9 +4724,13 @@ HOSTS
   def start_ejabberd()
     @state = "Starting up XMPP server"
     my_public = my_node.public_ip
-    Ejabberd.stop()
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
     Ejabberd.write_config_file(my_public)
+
+    # Monit does not have an entry for ejabberd yet. This allows a restart
+    # with the new configuration if it is already running.
+    `service ejabberd stop`
+
     Ejabberd.start()
   end
 
@@ -4957,9 +4999,8 @@ HOSTS
     to_end = []
     APPS_LOCK.synchronize {
       @app_info_map.each { |app, info|
-        # Machines with a taskqueue role need to ensure that the latest
-        # queue configuration files are loaded and that we have the
-        # queue.yaml from the application.
+        # Machines with a taskqueue role need to ensure that the files are
+        # available and that we have the queue.yaml from the application.
         setup_app_dir(app)
         maybe_reload_taskqueue_worker(app)
 
@@ -5294,7 +5335,7 @@ HOSTS
     scale_down_instances
   end
 
-  # Adds additional nodes to the deployment, depending on the load of the 
+  # Adds additional nodes to the deployment, depending on the load of the
   # application and the additional AppServers we need to accomodate.
   #
   # Args:
@@ -5306,14 +5347,14 @@ HOSTS
     roles_needed = {}
     vm_scaleup_capacity = Integer(@options['max_images']) - @nodes.length
     if needed_appservers > 0
-      # TODO: Here we use 3 as an arbitrary number to calculate the number of machines 
-      # needed to run those number of appservers. That will change in the next step 
+      # TODO: Here we use 3 as an arbitrary number to calculate the number of machines
+      # needed to run those number of appservers. That will change in the next step
       # to improve autoscaling/downscaling by using the capacity as a measure.
 
       Integer(needed_appservers/3).downto(0) {
         vms_to_spawn += 1
         if vm_scaleup_capacity < vms_to_spawn
-          Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" + 
+          Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" +
             " vms, so spawning only maximum allowable nodes.")
           break
         end
@@ -5359,7 +5400,7 @@ HOSTS
   def scale_down_instances
     num_scaled_down = 0
     # If we are already at the minimum number of machines that the user specified,
-    # then we do not have the capacity to scale down. 
+    # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_images'])
     if max_scale_down_capacity <= 0
       Djinn.log_warn("We are already at the minimum number of user specified machines," +
@@ -5368,13 +5409,13 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * 
+    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
         SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
       Djinn.log_info("Not scaling down right now, as we recently scaled " +
         "up or down.")
       return
     end
-    
+
     if SCALE_LOCK.locked?
       Djinn.log_debug("Another thread is already working with the InfrastructureManager.")
       return
@@ -5382,7 +5423,7 @@ HOSTS
 
     Thread.new {
       SCALE_LOCK.synchronize {
-        # Look through an array of autoscaled nodes and check if any of the 
+        # Look through an array of autoscaled nodes and check if any of the
         # machines are not running any AppServers and need to be downscaled.
         get_autoscaled_nodes.reverse_each { |node|
           break if num_scaled_down == max_scale_down_capacity
@@ -5396,14 +5437,14 @@ HOSTS
               end
             }
           }
-      
+
           unless hosted_apps.empty?
             Djinn.log_debug("The node #{node.private_ip} has these AppServers " +
               "running: #{hosted_apps}")
             next
           end
 
-          # Right now, only the autoscaled machines are started with just the 
+          # Right now, only the autoscaled machines are started with just the
           # appengine role, so we check specifically for that during downscaling
           # to make sure we only downscale the new machines added.
           node_to_remove = nil
@@ -5411,7 +5452,7 @@ HOSTS
             Djinn.log_info("Removing node #{node}")
             node_to_remove = node
           end
-      
+
           num_terminated = terminate_node_from_deployment(node_to_remove)
           num_scaled_down += num_terminated
         }
@@ -5423,7 +5464,7 @@ HOSTS
   # the instance from the cloud.
   #
   # Args:
-  #   node_to_remove: A node instance, to be terminated and removed 
+  #   node_to_remove: A node instance, to be terminated and removed
   #     from this deployment.
   def terminate_node_from_deployment(node_to_remove)
     if node_to_remove.nil?
@@ -5516,8 +5557,8 @@ HOSTS
     return 0 if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
-    total_requests_seen, total_req_in_queue, time_requests_were_seen =
-      HAProxy.get_haproxy_stats(app_name)
+    total_requests_seen, total_req_in_queue, current_sessions, 
+      time_requests_were_seen = HAProxy.get_haproxy_stats(app_name)
 
     if time_requests_were_seen == :no_backend
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -5527,31 +5568,74 @@ HOSTS
     update_request_info(app_name, total_requests_seen, time_requests_were_seen,
       total_req_in_queue)
 
-    if total_req_in_queue.zero?
-      if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
-        Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
-        return 0
-      end
-      Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
-        "advising that we scale down within this machine.")
-      return -1
-    end
-
-    if total_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
+    prepended_app_name = [HelperFunctions::GAE_PREFIX, app_name].join
+    allow_concurrency = HelperFunctions.get_app_thread_safe(prepended_app_name)
+    current_load = calculate_current_load(num_appengines, current_sessions,
+                                          allow_concurrency)
+    if current_load >= MAX_LOAD_THRESHOLD
       if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
         Djinn.log_debug("Not enough time has passed to scale up app #{app_name}")
         return 0
       end
-      Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
-        "#{app_name} - advising that we scale up within this machine.")
-      return Integer(total_req_in_queue / SCALEUP_QUEUE_SIZE_THRESHOLD)
-    end
-
-    Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
-      "#{app_name} - advising that don't scale either way on this machine.")
-    return 0
+      appservers_to_scale = calculate_appservers_needed(
+        num_appengines, current_sessions, allow_concurrency)
+      Djinn.log_debug("The deployment has reached its maximum load threshold for " +
+        "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers.")
+      return appservers_to_scale
+    
+    elsif current_load <= MIN_LOAD_THRESHOLD
+      if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
+        Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
+        return 0
+      end
+      appservers_to_scale = calculate_appservers_needed(
+        num_appengines, current_sessions, allow_concurrency)
+      Djinn.log_debug("The deployment is below its minimum load threshold for " +
+        "app #{app_name} - Advising that we scale down #{appservers_to_scale.abs} AppServers.")
+      return appservers_to_scale
+    else
+      Djinn.log_debug("The deployment is within the desired range of load for " +
+        "app #{app_name} - Advising that there is no need to scale currently.")
+      return 0
+    end  
+  end
+  
+  # Calculates the current load of the deployment based on the number of
+  # running AppServers, its max allowed threaded connections and current 
+  # handled sessions.
+  # Formula: Load = Current Sessions / (No of AppServers * Max conn)
+  # 
+  # Args:
+  #   num_appengines: The total number of AppServers running for the app.  
+  #   curr_sessions: The number of current sessions from HAProxy stats.
+  #   allow_concurrency: A boolean indicating that AppServers can handle
+  #     concurrent connections.
+  # Returns:
+  #   A decimal indicating the current load.
+  def calculate_current_load(num_appengines, curr_sessions, allow_concurrency)
+    max_connections = allow_concurrency ? HAProxy::MAX_APPSERVER_CONN : 1
+    max_sessions = num_appengines * max_connections
+    return curr_sessions.to_f / max_sessions
   end
 
+  # Calculates the additional number of AppServers needed to be scaled up in 
+  # order achieve the desired load.
+  # Formula: No of AppServers = Current sessions / (Load * Max conn)
+  #
+  # Args:
+  #   num_appengines: The total number of AppServers running for the app.
+  #   curr_sessions: The number of current sessions from HAProxy stats.
+  #   allow_concurrency: A boolean indicating that AppServers can handle
+  #     concurrent connections.
+  # Returns:
+  #   A number indicating the number of additional AppServers to be scaled up.
+  def calculate_appservers_needed(num_appengines, curr_sessions,
+                                  allow_concurrency)
+    max_conn = allow_concurrency ? HAProxy::MAX_APPSERVER_CONN : 1
+    desired_appservers = curr_sessions.to_f / (DESIRED_LOAD * max_conn)
+    appservers_to_scale = desired_appservers.round - num_appengines
+    return appservers_to_scale
+  end
 
   # Updates internal state about the number of requests seen for the given App
   # Engine app, as well as how many requests are currently enqueued for it.
@@ -5859,11 +5943,6 @@ HOSTS
   def add_appserver_process(app, nginx_port, app_language)
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
-    # Make sure we have the application setup properly.
-    APPS_LOCK.synchronize {
-      setup_app_dir(app)
-    }
-
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
     HelperFunctions.write_file(port_file, "#{nginx_port}")
@@ -6118,7 +6197,7 @@ HOSTS
 
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
-          total_reqs, reqs_enqueued, collection_time = HAProxy.get_haproxy_stats(app_name)
+          total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(app_name)
           # Create the apps hash with useful information containing HAProxy stats.
           begin
             appservers = 0

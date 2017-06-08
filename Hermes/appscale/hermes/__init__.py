@@ -15,21 +15,17 @@ import urllib
 import tornado.escape
 import tornado.httpclient
 import tornado.web
-from appscale.common import appscale_info
-from appscale.common import appscale_utils
+from appscale.common import appscale_info, appscale_utils
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.ua_client import UAClient
-from appscale.common.ua_client import UAException
+from appscale.common.ua_client import UAClient, UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from tornado.ioloop import IOLoop
-from tornado.ioloop import PeriodicCallback
+from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.options import options
 
-from appscale.hermes import constants
-from appscale.hermes import helper
+from appscale.hermes import constants, helper
 from appscale.hermes.handlers import MainHandler, TaskHandler, Respond404Handler
 from appscale.hermes.helper import JSONTags
-from appscale.hermes.stats.stats_app import StatsApp
+from appscale.hermes.stats import stats_app
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -189,14 +185,16 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('-v', '--verbose', action='store_true',
                       help='Output debug-level logging')
-  parser.add_argument('--write-profile-log', action='store_true',
-                      help='Write CSV tables with stats on master node')
-  parser.add_argument('--track-processes-stats', action='store_true',
-                      help='Track resources used by monit processes')
-  parser.add_argument('--verbose-cluster-stats', action='store_true',
-                      help='Collect all available stats on master. By default '
-                           'master node requests only the most important stats '
-                           'fields.')
+  parser.add_argument('--write-nodes-log', action='store_true',
+                      help='Write nodes stats CSV log (on master)')
+  parser.add_argument('--write-processes-log', action='store_true',
+                      help='Write short processes stats CSV log (on master)')
+  parser.add_argument('--write-detailed-processes-log', action='store_true',
+                      help='Write detailed processes stats CSV log (on master)')
+  parser.add_argument('--write-proxies-log', action='store_true',
+                      help='Write short proxies stats CSV log (on master)')
+  parser.add_argument('--write-detailed-proxies-log', action='store_true',
+                      help='Write detailed proxies stats CSV log (on master)')
   args = parser.parse_args()
 
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
@@ -208,7 +206,9 @@ def main():
   signal.signal(signal.SIGTERM, signal_handler)
   signal.signal(signal.SIGINT, signal_handler)
 
-  is_master = appscale_info.get_private_ip() == appscale_info.get_headnode_ip()
+  my_ip = appscale_info.get_private_ip()
+  is_master = (my_ip == appscale_info.get_headnode_ip())
+  is_lb = (my_ip in appscale_info.get_load_balancer_ips())
 
   if is_master:
     # Periodically checks if the deployment is registered and uploads the
@@ -223,22 +223,27 @@ def main():
 
     # Only master Hermes node handles /do_task route
     task_route = ('/do_task', TaskHandler)
+
+    if args.write_nodes_log:
+      stats_app.configure_node_stats_profiling()
+    if args.write_processes_log or args.write_detailed_processes_log:
+      stats_app.configure_processes_stats_profiling(
+        write_detailed_stats=args.write_detailed_processes_log)
+    if args.write_proxies_log or args.write_detailed_proxies_log:
+      stats_app.configure_proxies_stats_profiling(
+        write_detailed_stats=args.write_detailed_proxies_log)
   else:
     task_route = ('/do_task', Respond404Handler,
                   dict(reason='Hermes slaves do not manage tasks from Portal'))
 
-  # Configure stats app
-  stats_app = StatsApp(is_master, track_processes=args.track_processes_stats,
-                       write_profile=args.write_profile_log,
-                       verbose_cluster_stats=args.verbose_cluster_stats)
-  stats_app.configure()
-  stats_app.start_publishers()
-
   app = tornado.web.Application([
-    ("/", MainHandler),
-    task_route,
-  ] + stats_app.get_routes(), debug=False)
-
+      ("/", MainHandler),
+      task_route,
+    ]
+    + stats_app.get_local_stats_api_routes(is_lb)
+    + stats_app.get_cluster_stats_api_routes(is_master),
+    debug=False
+  )
   app.listen(constants.HERMES_PORT)
 
   # Start loop for accepting http requests.

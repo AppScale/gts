@@ -4,14 +4,14 @@ import urllib
 
 from appscale.hermes import helper, constants
 from appscale.hermes.helper import JSONTags
-from appscale.hermes.stats.pubsub_base import StatsSubscriber
+from appscale.hermes.stats.converter import stats_to_dict
 
 
-class NodeStatsPortalSender(StatsSubscriber):
+class NodeStatsPortalSender(object):
   def __init__(self):
     self._portal_method = '/{deployment_id}/stats/cluster/nodes'
 
-  def receive(self, nodes_stats):
+  def send(self, nodes_stats):
     deployment_id = helper.get_deployment_id()
     # If the deployment is not registered, skip.
     if not deployment_id:
@@ -23,7 +23,7 @@ class NodeStatsPortalSender(StatsSubscriber):
     data = {
       'deployment_id': deployment_id,
       'nodes_stats': json.dumps({
-        node_ip: [snapshot.todict() for snapshot in snapshots]
+        node_ip: [stats_to_dict(snapshot) for snapshot in snapshots]
         for node_ip, snapshots in nodes_stats.iteritems()
       })
     }
@@ -42,19 +42,19 @@ class NodeStatsPortalSender(StatsSubscriber):
       return
 
 
-class ProcessesStatsPortalSender(StatsSubscriber):
+class ProcessesStatsPortalSender(object):
   def __init__(self):
     self._portal_method = '/{deployment_id}/stats/cluster/processes'
 
-  def receive(self, processes_stats):
+  def send(self, processes_stats):
     # TODO
     pass
 
 
-class ProxiesStatsPortalSender(StatsSubscriber):
+class ProxiesStatsPortalSender(object):
   def __init__(self):
     self._portal_method = '/{deployment_id}/stats/cluster/proxies'
 
-  def receive(self, proxies_stats):
+  def send(self, proxies_stats):
     # TODO
     pass

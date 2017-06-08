@@ -1,7 +1,8 @@
 """ Helper functions for Hermes operations. """
-
+import errno
 import json
 import logging
+import os
 import sys
 import threading
 import urllib
@@ -9,7 +10,6 @@ import urllib
 import tornado.httpclient
 from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.backup import backup_recovery_helper as BR
 from appscale.datastore.backup.br_constants import StorageTypes
 
 from appscale.hermes import constants
@@ -309,6 +309,7 @@ def backup_apps(storage, bucket):
   Returns:
     True on success, False otherwise.
   """
+  from appscale.datastore.backup import backup_recovery_helper as BR
   full_bucket_name = ''
   if storage == StorageTypes.GCS:
     full_bucket_name = 'gs://{0}'.format(bucket)
@@ -325,4 +326,20 @@ def restore_apps(storage, bucket):
   Returns:
     True on success, False otherwise.
   """
+  from appscale.datastore.backup import backup_recovery_helper as BR
   return BR.app_restore(storage, bucket_name=bucket)
+
+
+def ensure_directory(dir_path):
+  """ Ensures that the directory exists.
+
+  Args:
+    dir_path: A str representing the directory path.
+  """
+  try:
+    os.makedirs(dir_path)
+  except OSError as os_error:
+    if os_error.errno == errno.EEXIST and os.path.isdir(dir_path):
+      pass
+    else:
+      raise
