@@ -1843,6 +1843,19 @@ class Djinn
     return if apps_to_restart.empty?
 
     Djinn.log_info("Notify nodes to restart #{apps_to_restart}.")
+    # Self needs to update source code/cache.
+    if my_node.is_load_balancer?
+      apps_to_restart.each{ |app|
+        begin
+          HelperFunctions.parse_static_data(app, true)
+        rescue => except
+          # This specific exception may be a JSON parse error.
+          error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
+                    "Exception of #{except.class} with message #{except.message}"
+          place_error_app(app, error_msg, get_app_language(app))
+        end
+      }
+    end
     threads = []
     @nodes.each_index { |index|
       result = ""
@@ -4412,7 +4425,7 @@ HOSTS
         HAProxy.remove_app(app)
       else
         begin
-          static_handlers = HelperFunctions.parse_static_data(app)
+          static_handlers = HelperFunctions.parse_static_data(app, false)
         rescue => except
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
@@ -5913,8 +5926,15 @@ HOSTS
         error_msg = "ERROR: Failed to copy app: #{app}."
       end
     end
-
-
+    if remove_old and my_node.is_load_balancer?
+      begin
+        HelperFunctions.parse_static_data(app, true)
+      rescue => except
+        # This specific exception may be a JSON parse error.
+        error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
+                  "Exception of #{except.class} with message #{except.message}"
+      end
+    end
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
       place_error_app(app, error_msg, get_app_language(app))
