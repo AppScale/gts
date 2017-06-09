@@ -45,7 +45,7 @@ class ImagesBlobStub(object):
     """Stub implementation of blob-related parts of the images API.
 
     Args:
-      host_prefix: the URL prefix (protocol://host) to preprend to image urls
+      host_prefix: the URL prefix (protocol://host) to prepend to image urls
         on a call to GetUrlBase.
     """
     self._host_prefix = host_prefix
