@@ -47,6 +47,7 @@ case "$1" in
         installpycrypto 
         installflexmock
         installpycapnp
+        installpyyaml
         installzookeeper
         postinstallzookeeper
         installcassandra
