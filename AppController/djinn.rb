@@ -1852,10 +1852,6 @@ class Djinn
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
                     "Exception of #{except.class} with message #{except.message}"
-
-        end
-        unless error_msg.empty?
-          # Something went wrong: place the error applcation instead.
           place_error_app(app, error_msg, get_app_language(app))
         end
       }
