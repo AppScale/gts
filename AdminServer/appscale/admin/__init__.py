@@ -392,8 +392,7 @@ class VersionsHandler(BaseHandler):
 
     self.ensure_user_is_owner(project_id, user)
 
-    source_path = utils.resolve_source_path(
-      version['deployment']['zip']['sourceUrl'])
+    source_path = version['deployment']['zip']['sourceUrl']
 
     try:
       utils.extract_source(version, project_id)

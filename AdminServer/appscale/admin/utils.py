@@ -104,22 +104,6 @@ def ensure_path(path):
       raise
 
 
-def resolve_source_path(source_url):
-  """ Extracts file system path from source URL.
-
-  Args:
-    source_url: A string containing the version's source URL.
-  Returns:
-    A string specifying a file system path.
-  """
-  proto_prefix = 'file://'
-  source_path = source_url
-  # Strip protocol prefix.
-  if source_path.startswith(proto_prefix):
-    source_path = source_path[len(proto_prefix):]
-  return source_path
-
-
 def extract_source(version, project_id):
   """ Unpacks an archive to a given location.
 
@@ -138,7 +122,7 @@ def extract_source(version, project_id):
   # The working directory must be the target in order to validate paths.
   os.chdir(app_path)
 
-  source_path = resolve_source_path(version['deployment']['zip']['sourceUrl'])
+  source_path = version['deployment']['zip']['sourceUrl']
   with tarfile.open(source_path, 'r:gz') as archive:
     # Check if the archive is valid before extracting it.
     has_config = False
