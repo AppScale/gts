@@ -8,14 +8,14 @@ AppScale version 3.3.0, released June, 2017
 Highlights of features/bugs in this release:
 - Added support for Ubuntu Xenial
 - Improved autoscaling mechanism to rely on resources capacity
-- Removed unnecessary db request while adding task
+- Removed unnecessary DB request while adding task
 - Fixed a bug that caused a DB request to hang indefinitely
 - Improved log collection command on appscale-tools
-- Improved script for enabling datastore-viewer
-- Fixed a bug with installation on Azure (eJabberd certificate)
+- Simplified the process for enabling the datastore-viewer
+- Fixed ejabberd configuration and installation on Azure
 - Manual scaling with add-instances in cloud
-- Added retry for queue operations to increase reliability
-- Fail loudly if AppScale is not configured
+- Added retry for queue operations to improve reliability
+- Clearer error messages if AppScale is not configured correctly
 - Fixed a bug that could cause inconsistent state of task when it’s deleted
 - Starting only one process per BRServer for easier monitoring
 - Improved task queue leases performance
