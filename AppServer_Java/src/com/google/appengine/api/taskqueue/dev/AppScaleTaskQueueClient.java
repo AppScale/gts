@@ -63,7 +63,16 @@ public class AppScaleTaskQueueClient {
     public TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest addRequest) {
         addRequest.setAppId(getAppId());
         String taskPath = addRequest.getUrl();
-        String appScaleTaskPath = "http://" + getNginxHost() + ":" + getNginxPort() + taskPath;
+        String hostHeaderTaskPath = null;
+        for (TaskQueuePb.TaskQueueAddRequest.Header header: addRequest.headers()){
+            if ("Host".equals(header.getKey())){
+                hostHeaderTaskPath=header.getValue();
+            }
+        }
+        if (hostHeaderTaskPath == null){
+            hostHeaderTaskPath = getNginxHost() + ":" + getNginxPort();
+        }
+        String appScaleTaskPath = "http://" + hostHeaderTaskPath + taskPath;
         addRequest.setUrl(appScaleTaskPath);
         Request request = new Request();
         request.setMethod("Add");
