@@ -351,7 +351,8 @@ class VersionsHandler(BaseHandler):
 
     Args:
       project_id: A string specifying a project ID.
-      source_path: A string specifying the location of the version's source.
+      source_location: A string specifying the location of the version's
+        source archive.
     """
     private_ip = appscale_info.get_private_ip()
     hoster_node = '/apps/{}/{}'.format(project_id, private_ip)
