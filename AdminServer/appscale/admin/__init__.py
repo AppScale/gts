@@ -1,6 +1,7 @@
 """ A server that handles application deployments. """
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -14,8 +15,10 @@ from appscale.common.constants import (
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from concurrent.futures import ThreadPoolExecutor
 from kazoo.client import KazooClient
 from kazoo.exceptions import NodeExistsError
+from kazoo.exceptions import NoNodeError
 from tornado import gen
 from tornado.options import options
 from tornado import web
@@ -202,17 +205,22 @@ class BaseHandler(web.RequestHandler):
 
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
-  def initialize(self, acc, ua_client, zk_client):
-    """ Defines an AppControllerClient, UAClient, and KazooClient.
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
+    """ Defines required resources to handle requests.
 
     Args:
       acc: An AppControllerClient.
       ua_client: A UAClient.
       zk_client: A KazooClient.
+      version_update_lock: A kazoo lock.
+      thread_pool: A ThreadPoolExecutor.
     """
     self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
+    self.version_update_lock = version_update_lock
+    self.thread_pool = thread_pool
 
   def get_current_user(self):
     """ Retrieves the current user.
@@ -265,6 +273,25 @@ class VersionsHandler(BaseHandler):
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid version ID')
+
+    if 'basicScaling' in version or 'manualScaling' in version:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Only automaticScaling is supported')
+
+    # Create a revision ID to differentiate between deployments of the same
+    # version.
+    version['revision'] = int(time.time() * 1000)
+
+    extensions = version.get('appscaleExtensions', {})
+    http_port = extensions.get('httpPort', None)
+    https_port = extensions.get('httpsPort', None)
+    if http_port is not None and http_port not in constants.ALLOWED_HTTP_PORTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid HTTP port')
+
+    if (https_port is not None and
+        https_port not in constants.ALLOWED_HTTPS_PORTS):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid HTTPS port')
 
     return version
 
@@ -325,6 +352,43 @@ class VersionsHandler(BaseHandler):
       message = 'User is not project owner: {}'.format(user)
       raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=message)
 
+  def put_version(self, project_id, service_id, new_version):
+    """ Create or update version node.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      new_version: A dictionary containing version details.
+    Returns:
+      A dictionary containing updated version details.
+    """
+    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
+      project_id, service_id, new_version['id'])
+
+    try:
+      old_version_json, _ = self.zk_client.get(version_node)
+      old_version = json.loads(old_version_json)
+    except NoNodeError:
+      old_version = {}
+
+    if 'appscaleExtensions' not in new_version:
+      new_version['appscaleExtensions'] = {}
+
+    new_version['appscaleExtensions'].update(
+      utils.assign_ports(old_version, new_version, self.zk_client))
+
+    try:
+      self.zk_client.create(version_node, json.dumps(new_version),
+                            makepath=True)
+    except NodeExistsError:
+      if project_id in constants.IMMUTABLE_PROJECTS:
+        message = '{} cannot be modified'.format(project_id)
+        raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=message)
+
+      self.zk_client.set(version_node, json.dumps(new_version))
+
+    return new_version
+
   def begin_deploy(self, project_id):
     """ Triggers the deployment process.
     
@@ -369,6 +433,7 @@ class VersionsHandler(BaseHandler):
     for hoster in old_hosters:
       self.zk_client.delete('/apps/{}/{}'.format(project_id, hoster))
 
+  @gen.coroutine
   def post(self, project_id, service_id):
     """ Creates or updates a version.
     
@@ -379,10 +444,6 @@ class VersionsHandler(BaseHandler):
     self.authenticate()
     user = self.get_current_user()
     version = self.version_from_payload()
-
-    if project_id in constants.RESERVED_PROJECTS:
-      raise CustomHTTPError(HTTPCodes.FORBIDDEN,
-                            message='{} cannot be modified'.format(project_id))
 
     project_exists = self.project_exists(project_id)
     if not project_exists:
@@ -402,6 +463,12 @@ class VersionsHandler(BaseHandler):
                             message='{} does not exist'.format(source_path))
 
     self.identify_as_hoster(project_id, source_path)
+
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      version = self.put_version(project_id, service_id, version)
+    finally:
+      self.version_update_lock.release()
 
     self.begin_deploy(project_id)
 
@@ -514,10 +581,19 @@ def main():
     hosts=','.join(appscale_info.get_zk_node_ips()),
     connection_retry=ZK_PERSISTENT_RECONNECTS)
   zk_client.start()
+  version_update_lock = zk_client.Lock(constants.VERSION_UPDATE_LOCK_NODE)
+  thread_pool = ThreadPoolExecutor(4)
+  all_resources = {
+    'acc': acc,
+    'ua_client': ua_client,
+    'zk_client': zk_client,
+    'version_update_lock': version_update_lock,
+    'thread_pool': thread_pool
+  }
 
   app = web.Application([
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
-     {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client}),
+     all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
      VersionHandler, {'acc': acc}),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),

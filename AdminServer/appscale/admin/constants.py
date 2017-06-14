@@ -69,5 +69,19 @@ VALID_RUNTIMES = {PYTHON27, JAVA, GO, PHP}
 # The seconds to wait for redeploys.
 REDEPLOY_WAIT = 20
 
-# A list of projects that cannot be used or modified by users.
-RESERVED_PROJECTS = [DASHBOARD_APP_ID]
+# A list of projects that cannot be modified by users.
+IMMUTABLE_PROJECTS = [DASHBOARD_APP_ID]
+
+# The ZooKeeper node that prevents concurrent location assignments.
+VERSION_UPDATE_LOCK_NODE = '/appscale/version_update_lock'
+
+# The ranges to use for automatically assigned ports.
+AUTO_HTTP_PORTS = range(8080, 8100)
+AUTO_HTTPS_PORTS = range(4380, 4400)
+
+# The ports that can be assigned to versions.
+ALLOWED_HTTP_PORTS = [80, 1080] + list(AUTO_HTTP_PORTS)
+ALLOWED_HTTPS_PORTS = [443, 1443] + list(AUTO_HTTPS_PORTS)
+
+# The range of HAProxy ports to assign to versions.
+HAPROXY_PORTS = range(10000, 10020)
