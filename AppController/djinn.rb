@@ -94,10 +94,6 @@ NOT_READY = "false: not ready yet"
 INVALID_REQUEST = 'false: invalid request'
 
 
-# Regular expression to determine if a file is a .tar.gz file.
-TAR_GZ_REGEX = /\.tar\.gz$/
-
-
 # The maximum number of seconds that we should wait when deploying Google App
 # Engine applications via the AppController.
 APP_UPLOAD_TIMEOUT = 180
