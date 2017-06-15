@@ -97,7 +97,7 @@ class TestTaskqueueDistributed(unittest.TestCase):
     """ Test the constructor. """
     tqd = flexmock(taskqueue_distributed.TaskQueueServiceStub)
     tqd.should_receive("_GetTQLocations").and_return(["some_location"])
-    taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname", 12345)
+    taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname")
 
   def test_dynamic_add(self):
     flexmock(taskqueue_service_pb)
@@ -110,10 +110,12 @@ class TestTaskqueueDistributed(unittest.TestCase):
     tqd.should_receive("_RemoteSend").and_return()
     tqd.should_receive("_Dynamic_BulkAdd").and_return()
 
-    tqd = taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname", 12345)
+    tqd = taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname")
     self.assertEquals(None, tqd._Dynamic_Add(FakeAddRequest(), FakeAddResponse()))
 
   def test_dynamic_bulkadd(self):
+    app_id = 'app_id'
+
     tqd = flexmock(taskqueue_distributed.TaskQueueServiceStub)
     flexmock(taskqueue_service_pb) 
     taskqueue_service_pb.should_receive("TaskQueueBulkAddRequest").\
@@ -122,8 +124,13 @@ class TestTaskqueueDistributed(unittest.TestCase):
       and_return(FakeBulkAddResponse())
     tqd.should_receive("_GetTQLocations").and_return(["some_location"])
     tqd.should_receive("_RemoteSend").and_return()
-    tqd = taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname", 12345)
-     
+    tqd = taskqueue_distributed.TaskQueueServiceStub(app_id, "hostname")
+
+    port_file = os.path.join(
+      '/', 'etc', 'appscale', 'port-{}.txt'.format(app_id))
+    flexmock(sys.modules['__builtin__']).should_receive('open').\
+      with_args(port_file).and_return(flexmock(read=lambda: '80'))
+
     self.assertEquals(None, tqd._Dynamic_BulkAdd(FakeBulkAddRequest(), None))
 
   def test_add_transactional_bulk_task(self):
@@ -132,7 +139,7 @@ class TestTaskqueueDistributed(unittest.TestCase):
     tqd.should_receive("_RemoteSend").and_return()
     flexmock(apiproxy_stub_map)
     apiproxy_stub_map.should_receive("MakeSyncCall")
-    tqd = taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname", 12345)
+    tqd = taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname")
     response = FakeBulkAddResponse() 
     self.assertEquals(response, tqd._AddTransactionalBulkTask(FakeBulkAddRequest(),
       response))

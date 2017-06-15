@@ -25,6 +25,7 @@ import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.appengine.tools.development.ServiceProvider;
+import com.google.appengine.tools.resources.ResourceLoader;
 import com.google.apphosting.api.ApiBasePb;
 import com.google.apphosting.api.ApiProxy;
 import com.google.appengine.repackaged.com.google.common.io.BaseEncoding;
@@ -103,7 +104,8 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
          * AppScale - changed upload URL to NGINX address and port
          */
         BlobstoreServicePb.CreateUploadURLResponse response = new BlobstoreServicePb.CreateUploadURLResponse();
-        String url = "http://" + System.getProperty("NGINX_ADDR") + ":" + System.getProperty("NGINX_PORT") + "/" + "_ah/upload/" + System.getProperty("APPLICATION_ID") + "/" + sessionId;
+        String nginxPort = ResourceLoader.getNginxPort();
+        String url = "http://" + System.getProperty("NGINX_ADDR") + ":" + nginxPort + "/" + "_ah/upload/" + System.getProperty("APPLICATION_ID") + "/" + sessionId;
         logger.fine("UploadURL set to [" + url + "]");
         response.setUrl(url);
 

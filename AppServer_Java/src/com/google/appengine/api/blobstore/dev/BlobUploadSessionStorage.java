@@ -12,6 +12,7 @@ import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.users.User;
 import com.google.appengine.api.users.UserServiceFactory;
+import com.google.appengine.tools.resources.ResourceLoader;
 
 
 public final class BlobUploadSessionStorage
@@ -51,7 +52,8 @@ public final class BlobUploadSessionStorage
          * AppScale - added NGINX success path to entity
          */
 
-        String path = "http://" + System.getProperty("NGINX_ADDR") + ":" + System.getProperty("NGINX_PORT") + session.getSuccessPath();
+        String nginxPort = ResourceLoader.getNginxPort();
+        String path = "http://" + System.getProperty("NGINX_ADDR") + ":" + nginxPort + session.getSuccessPath();
         logger.fine("success path has been set as [" + path + "]");
         entity.setProperty(SUCCESS_PATH, path);
         entity.setProperty("creation", time);

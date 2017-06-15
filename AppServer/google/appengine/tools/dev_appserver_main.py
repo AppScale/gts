@@ -569,21 +569,6 @@ def ParseArguments(argv):
                          option_dict[ARG_ADDRESS] == DEFAULT_ARGS[ARG_ADDRESS])
   return args, option_dict
 
-def get_nginx_port(appid):
-  """ An AppScale-specific method that callers can use to find out what port
-  Task Queue API calls should be routed through.
-
-  Args:
-    appid: A str that names this application.
-  Returns:
-    A str that names the port that is used by nginx as a reverse proxy to this
-    app.
-  """
-  filename = "/etc/appscale/port-" + appid + ".txt"
-  file_handle = open(filename)
-  port = file_handle.read()
-  file_handle.close()
-  return port
 
 def _ParsePort(port, description):
   """Parses a port number from a string.
@@ -718,12 +703,6 @@ def main(argv):
   static_caching = option_dict[ARG_STATIC_CACHING]
   skip_sdk_update_check = option_dict[ARG_SKIP_SDK_UPDATE_CHECK]
   interactive_console = option_dict[ARG_CONSOLE]
-
-  nginx_port = get_nginx_port(appinfo.application)
-  os.environ['NGINX_PORT'] = nginx_port
-  option_dict['NGINX_PORT'] = nginx_port
-  dev_appserver.DEFAULT_ENV["NGINX_PORT"] = nginx_port
-  logging.info("Setting nginx port to " + str(nginx_port))
 
   if (option_dict[ARG_ADMIN_CONSOLE_SERVER] != '' and
       not dev_process.IsSubprocess()):

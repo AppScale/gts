@@ -726,6 +726,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             return;
         }
 
+        String nginxPort = ResourceLoader.getNginxPort();
+
         String app = request.addRequests().get(0).getTransaction().getApp();
         TaskQueuePb.TaskQueueBulkAddRequest bulkAddRequest = request.clone();
         TaskQueuePb.TaskQueueBulkAddResponse bulkAddResponse = new TaskQueuePb.TaskQueueBulkAddResponse();
@@ -734,7 +736,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         for (TaskQueuePb.TaskQueueAddRequest addRequest : bulkAddRequest.addRequests())
         {
             String nginxHost = System.getProperty("NGINX_ADDR");
-            String nginxPort = System.getProperty("NGINX_PORT");
             String fullTaskPath = "http://" + nginxHost + ":" + nginxPort + addRequest.getUrl();
             addRequest.setUrl(fullTaskPath);
             addRequest.setAppId(app);

@@ -10,6 +10,7 @@ import java.io.FileReader;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
+import com.google.appengine.tools.resources.ResourceLoader;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -61,9 +62,11 @@ public class AppScaleTaskQueueClient {
     }
 
     public TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest addRequest) {
+        String nginxPort = ResourceLoader.getNginxPort();
+
         addRequest.setAppId(getAppId());
         String taskPath = addRequest.getUrl();
-        String appScaleTaskPath = "http://" + getNginxHost() + ":" + getNginxPort() + taskPath;
+        String appScaleTaskPath = "http://" + getNginxHost() + ":" + nginxPort + taskPath;
         addRequest.setUrl(appScaleTaskPath);
         Request request = new Request();
         request.setMethod("Add");
@@ -185,11 +188,6 @@ public class AppScaleTaskQueueClient {
     private String getNginxHost() {
         String nginxHost = System.getProperty("NGINX_ADDR");
         return nginxHost;
-    }
-
-    private String getNginxPort() {
-        String nginxPort = System.getProperty("NGINX_PORT");
-        return nginxPort;
     }
 
     private String getAppId() {
