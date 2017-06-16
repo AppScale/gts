@@ -487,14 +487,24 @@ class VersionsHandler(BaseHandler):
 class VersionHandler(BaseHandler):
   """ Manages particular service versions. """
 
-  def initialize(self, acc):
-    """ Defines an AppControllerClient.
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
+    """ Defines required resources to handle requests.
 
     Args:
       acc: An AppControllerClient.
+      ua_client: A UAClient.
+      zk_client: A KazooClient.
+      version_update_lock: A kazoo lock.
+      thread_pool: A ThreadPoolExecutor.
     """
     self.acc = acc
+    self.ua_client = ua_client
+    self.zk_client = zk_client
+    self.version_update_lock = version_update_lock
+    self.thread_pool = thread_pool
 
+  @gen.coroutine
   def delete(self, project_id, service_id, version_id):
     """ Deletes a version.
 
@@ -522,6 +532,18 @@ class VersionHandler(BaseHandler):
     except KeyError:
       raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                             message='Version serving port not found')
+
+    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
+      project_id, service_id, version_id)
+
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      try:
+        self.zk_client.delete(version_node)
+      except NoNodeError:
+        pass
+    finally:
+      self.version_update_lock.release()
 
     try:
       self.acc.stop_app(project_id)
@@ -595,7 +617,7 @@ def main():
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
-     VersionHandler, {'acc': acc}),
+     VersionHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
   ])
   logging.info('Starting AdminServer')
