@@ -51,44 +51,6 @@ operations = OperationsCache()
 
 
 @gen.coroutine
-def wait_for_port_assignment(operation_id, deadline, acc):
-  """ Waits until port is assigned for version.
-
-  Args:
-    operation_id: A string specifying an operation ID.
-    deadline: A float containing a unix timestamp.
-    acc: An AppControllerClient.
-  Raises:
-    OperationTimeout if the deadline is exceeded.
-  """
-  try:
-    operation = operations[operation_id]
-  except KeyError:
-    raise OperationTimeout('Operation no longer in cache')
-
-  project_id = operation.project_id
-
-  while True:
-    if time.time() > deadline:
-      message = 'Deploy operation took too long.'
-      operation.set_error(message)
-      raise OperationTimeout(message)
-
-    try:
-      info_map = acc.get_app_info_map()
-    except AppControllerException as error:
-      logging.warning('Unable to fetch info map: {}'.format(error))
-      yield gen.sleep(1)
-      continue
-
-    try:
-      raise gen.Return(info_map[project_id]['nginx'])
-    except KeyError:
-      yield gen.sleep(1)
-      continue
-
-
-@gen.coroutine
 def wait_for_port_to_open(http_port, operation_id, deadline):
   """ Waits until port is open.
 
@@ -135,7 +97,7 @@ def wait_for_deploy(operation_id, acc):
   start_time = time.time()
   deadline = start_time + constants.MAX_OPERATION_TIME
 
-  http_port = yield wait_for_port_assignment(operation_id, deadline, acc)
+  http_port = operation.version['appscaleExtensions']['httpPort']
   yield wait_for_port_to_open(http_port, operation_id, deadline)
 
   url = 'http://{}:{}'.format(options.login_ip, http_port)
@@ -513,6 +475,26 @@ class VersionHandler(BaseHandler):
     self.version_update_lock = version_update_lock
     self.thread_pool = thread_pool
 
+  def get_version(self, project_id, service_id, version_id):
+    """ Fetches a version node.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    Returns:
+      A dictionary containing version details.
+    """
+    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
+      project_id, service_id, version_id)
+
+    try:
+      version_json, _ = self.zk_client.get(version_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Version not found')
+
+    return json.loads(version_json)
+
   def version_from_payload(self):
     """ Constructs version from payload.
 
@@ -616,14 +598,9 @@ class VersionHandler(BaseHandler):
     if version_id != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid version')
 
+    version = self.get_version(project_id, service_id, version_id)
     try:
-      app_info_map = self.acc.get_app_info_map()
-    except AppControllerException:
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
-                            message='Unable to fetch version info')
-
-    try:
-      http_port = app_info_map[project_id]['nginx']
+      http_port = version['appscaleExtensions']['httpPort']
     except KeyError:
       raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                             message='Version serving port not found')
