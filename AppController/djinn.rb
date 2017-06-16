@@ -737,71 +737,33 @@ class Djinn
       end
     end
 
-    # Sanity checks on app ID and settings.
-    return "Error: Can't relocate the #{appid} app." if RESERVED_APPS.include?(appid)
     begin
-      http_port = Integer(http_port)
-      https_port = Integer(https_port)
-    rescue ArgumentError
-      Djinn.log_warn("relocate_app received invalid port values.")
-      return INVALID_REQUEST
+      version_details = ZKInterface.get_version_details(
+        appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound => error
+      return "false: #{error.message}"
     end
-    APPS_LOCK.synchronize {
-      if @app_info_map[appid].nil? or @app_info_map[appid]['nginx'].nil? or
-          @app_info_map[appid]['nginx_https'].nil? or
-          @app_info_map[appid]['haproxy'].nil?
-        Djinn.log_warn("Unable to relocate due to missing app settings for: #{appid}.")
-        return INVALID_REQUEST
-      end
 
-      # First, only let users relocate apps to ports that the firewall has open
-      # for App Engine apps.
-      if http_port != 80 and
-         (http_port < Nginx::START_PORT or http_port > Nginx::END_PORT)
-        return "Error: HTTP port must be 80, or in the range" +
-          " #{Nginx::START_PORT}-#{Nginx::END_PORT}."
-      end
-
-      if (https_port < Nginx::START_PORT - Nginx::SSL_PORT_OFFSET or https_port >
-          Nginx::END_PORT - Nginx::SSL_PORT_OFFSET) and https_port != 443
-        return "Error: HTTPS port must be 443, or in the range " +
-           "#{Nginx::START_PORT - Nginx::SSL_PORT_OFFSET}-" +
-           "#{Nginx::END_PORT - Nginx::SSL_PORT_OFFSET}."
-      end
-
-      # We need to check if http_port and https_port are already in use by
-      # another application, so we do that with find_lowest_free_port and we
-      # fix the range to the single port.
-      if find_lowest_free_port(http_port, http_port, appid) < 0
-        return "Error: requested http port is already in use."
-      end
-      if find_lowest_free_port(https_port, https_port, appid) < 0
-        return "Error: requested https port is already in use."
-      end
-
-      # Next, rewrite the nginx config file with the new ports
-      @app_info_map[appid]['nginx'] = http_port
-      @app_info_map[appid]['nginx_https'] = https_port
-    }
-    Djinn.log_info("Assigned ports for relocated app #{appid}.")
-    my_public = my_node.public_ip
-
-    # Finally, the AppServer takes in the port to send Task Queue tasks to
-    # from a file. Update the file and restart the AppServers so they see
-    # the new port. Do this in a separate thread to avoid blocking the caller.
-    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{appid}.txt"
-    HelperFunctions.write_file(port_file, http_port)
-
-    # Notify the UAServer about the new ports.
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    success = uac.add_instance(appid, my_public, http_port, https_port)
-    unless success
-      Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
-      return
+    # Forward relocate as a patch request to the AdminServer.
+    version = {:appscaleExtensions => {:httpPort => http_port,
+                                       :httpsPort => https_port}}
+    endpoint = ['v1', 'apps', appid, 'services', DEFAULT_SERVICE,
+                'versions', DEFAULT_VERSION].join('/')
+    fields_updated = %w(appscaleExtensions.httpPort
+                        appscaleExtensions.httpsPort)
+    uri = URI("http://#{my_node.private_ip}:#{ADMIN_SERVER_PORT}/#{endpoint}")
+    uri.query = URI.encode_www_form({:updateMask => fields_updated.join(',')})
+    headers = {'Content-Type' => 'application/json',
+               'AppScale-Secret' => @@secret}
+    request = Net::HTTP::Patch.new([uri.path, uri.query].join('?'), headers)
+    request.body = JSON.dump(version)
+    response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+      http.request(request)
     end
+    return "false: #{response.body}" if response.code != '200'
 
     CronHelper.update_cron(
-      get_load_balancer.public_ip, http_port, @app_info_map[appid]['language'],
+      get_load_balancer.public_ip, http_port, version_details['runtime'],
       appid)
 
     return "OK"
