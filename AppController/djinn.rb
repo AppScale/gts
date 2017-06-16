@@ -500,6 +500,18 @@ class Djinn
   DEFAULT_MEMORY = 400
 
 
+  # The default service for a project.
+  DEFAULT_SERVICE = 'default'
+
+
+  # The default version for a service.
+  DEFAULT_VERSION = 'default'
+
+
+  # The port that the AdminServer listens on.
+  ADMIN_SERVER_PORT = 17442
+
+
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
   # parameter is unspecified. The last value (a boolean) indicates if the
@@ -4773,31 +4785,55 @@ HOSTS
       AppDashboard::APP_LANGUAGE, @@secret)
     Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
 
-    # Create, upload, and unpack the application.
-    AppDashboard.start(my_public, my_private,
-        PERSISTENT_MOUNT_POINT, @@secret)
-    APPS_LOCK.synchronize {
-      setup_app_dir(AppDashboard::APP_NAME, true)
-    }
+    source_archive = AppDashboard.prep(
+      my_public, my_private, PERSISTENT_MOUNT_POINT, @@secret)
+
+    begin
+      ZKInterface.get_version_details(
+        AppDashboard::APP_NAME, DEFAULT_SERVICE, DEFAULT_VERSION)
+      # If the version node exists, skip the AdminServer call.
+      return
+    rescue VersionNotFound
+      # This is expected the first time this function is called.
+    end
 
     # Allow fewer dashboard instances for small deployments.
     min_dashboards = [3, get_all_appengine_nodes.length].min
 
-    # Assign the specific ports to it.
-    APPS_LOCK.synchronize {
-      if @app_info_map[AppDashboard::APP_NAME].nil?
-        @app_info_map[AppDashboard::APP_NAME] = {
-          'nginx' => AppDashboard::LISTEN_PORT,
-          'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
-          'haproxy' => AppDashboard::PROXY_PORT,
-          'appengine' => [],
-          'language' => AppDashboard::APP_LANGUAGE,
-          'max_memory' => DEFAULT_MEMORY,
-          'min_appengines' => min_dashboards
-        }
+    # Deploy the dashboard with the AdminServer.
+    version = {:deployment => {:zip => {:sourceUrl => source_archive}},
+               :id => DEFAULT_VERSION,
+               :runtime => AppDashboard::APP_LANGUAGE,
+               :threadsafe => true,
+               :automaticScaling => {:minTotalInstances => min_dashboards},
+               :appscaleExtensions => {
+                 :httpPort => AppDashboard::LISTEN_PORT,
+                 :httpsPort => AppDashboard::LISTEN_SSL_PORT
+               }}
+    endpoint = ['v1', 'apps', AppDashboard::APP_NAME,
+                'services', DEFAULT_SERVICE, 'versions'].join('/')
+    uri = URI("http://#{my_private}:#{ADMIN_SERVER_PORT}/#{endpoint}")
+    headers = {'Content-Type' => 'application/json',
+               'AppScale-Secret' => @@secret,
+               'AppScale-User' => APPSCALE_USER}
+    request = Net::HTTP::Post.new(uri.path, headers)
+    request.body = JSON.dump(version)
+    while true
+      begin
+        response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+          http.request(request)
+        end
+        if response.code != '200'
+          HelperFunctions.log_and_crash(
+            "AdminServer was unable to deploy dashboard: #{response.body}")
+        end
+        break
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
+        Djinn.log_warn(
+          "Error when deploying dashboard: #{error.message}. Trying again.")
+        sleep(SMALL_WAIT)
       end
-      @app_names << AppDashboard::APP_NAME
-    }
+    end
   end
 
   # Stop the AppDashboard web service.

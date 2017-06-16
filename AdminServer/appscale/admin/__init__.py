@@ -342,6 +342,10 @@ class VersionsHandler(BaseHandler):
     Raises:
       CustomHTTPError if the user is not the owner.
     """
+    # Immutable projects do not have owners.
+    if project_id in constants.IMMUTABLE_PROJECTS:
+      return
+
     try:
       project_metadata = self.ua_client.get_app_data(project_id)
     except UAException:
@@ -601,6 +605,10 @@ class VersionHandler(BaseHandler):
       version_id: A string specifying a version ID.
     """
     self.authenticate()
+
+    if project_id in constants.IMMUTABLE_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} cannot be deleted'.format(project_id))
 
     if service_id != constants.DEFAULT_SERVICE:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')

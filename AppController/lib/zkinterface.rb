@@ -20,6 +20,11 @@ class FailedZooKeeperOperationException < StandardError
 end
 
 
+# Indicates that the requested version node was not found.
+class VersionNotFound < StandardError
+end
+
+
 # The AppController employs the open source software ZooKeeper as a highly
 # available naming service, to store and retrieve information about the status
 # of applications hosted within AppScale. This class provides methods to
@@ -466,6 +471,19 @@ class ZKInterface
   def self.set_job_data_for_ip(ip, job_data)
     return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data", 
       JSON.dump(job_data), NOT_EPHEMERAL)
+  end
+
+
+  def self.get_version_details(project_id, service_id, version_id)
+    version_node = "/appscale/projects/#{project_id}/services/#{service_id}" +
+      "/versions/#{version_id}"
+    begin
+      version_details_json = self.get(version_node)
+    rescue FailedZooKeeperOperationException
+      raise VersionNotFound,
+            "#{project_id}/#{service_id}/#{version_id} does not exist"
+    end
+    return JSON.load(version_details_json)
   end
 
 
