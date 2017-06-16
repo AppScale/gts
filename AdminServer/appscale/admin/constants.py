@@ -27,6 +27,7 @@ class Methods(object):
   """ The methods handled by the Admin API. """
   CREATE_VERSION = 'google.appengine.v1.Versions.CreateVersion'
   DELETE_VERSION = 'google.appengine.v1.Versions.DeleteVersion'
+  UPDATE_VERSION = 'google.appengine.v1.Versions.UpdateVersion'
 
 
 class OperationTimeout(Exception):

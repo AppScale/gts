@@ -66,6 +66,57 @@ def assert_fields_in_resource(required_fields, resource_name, resource):
     details=[{'@type': Types.BAD_REQUEST, 'fieldViolations': violations}])
 
 
+def version_contains_field(version, field):
+  """ Checks if the given dictionary contains the given field.
+
+  Args:
+    version: A dictionary containing version details.
+    field: A string representing a key path.
+  Returns:
+    A boolean indicating whether or not the version contains the field.
+  """
+  version_fragment = version
+  for field_part in field.split('.'):
+    try:
+      version_fragment = version_fragment[field_part]
+    except KeyError:
+      return False
+
+  return True
+
+
+def apply_mask_to_version(given_version, desired_fields):
+  """ Reduces a version to the desired fields.
+
+  Args:
+    given_version: A dictionary containing version details.
+    desired_fields: A list of strings representing key paths.
+  Returns:
+    A dictionary containing some version details.
+  """
+  masked_version = {}
+  for field in desired_fields:
+    if not version_contains_field(given_version, field):
+      continue
+
+    given_version_part = given_version
+    masked_version_part = masked_version
+    field_parts = field.split('.')
+    for index, field_part in enumerate(field_parts):
+      if field_part not in masked_version_part:
+        if index == (len(field_parts) - 1):
+          masked_version_part[field_part] = given_version_part[field_part]
+        elif isinstance(given_version_part[field_part], dict):
+          masked_version_part[field_part] = {}
+        elif isinstance(given_version_part[field_part], list):
+          masked_version_part[field_part] = []
+
+      given_version_part = given_version_part[field_part]
+      masked_version_part = masked_version_part[field_part]
+
+  return masked_version
+
+
 def canonical_path(path):
   """ Resolves a path, following symlinks.
 

@@ -3,11 +3,13 @@
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 
 from appscale.common import appscale_info
 from appscale.common.constants import (
+  CONFIG_DIR,
   HTTPCodes,
   LOG_FORMAT,
   ZK_PERSISTENT_RECONNECTS
@@ -33,8 +35,11 @@ from .constants import (
   REDEPLOY_WAIT,
   VALID_RUNTIMES
 )
-from .operation import CreateVersionOperation
-from .operation import DeleteVersionOperation
+from .operation import (
+  CreateVersionOperation,
+  DeleteVersionOperation,
+  UpdateVersionOperation
+)
 from .operations_cache import OperationsCache
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -504,6 +509,88 @@ class VersionHandler(BaseHandler):
     self.version_update_lock = version_update_lock
     self.thread_pool = thread_pool
 
+  def version_from_payload(self):
+    """ Constructs version from payload.
+
+    Returns:
+      A dictionary containing version details.
+    """
+    update_mask = self.get_argument('updateMask', None)
+    if update_mask is None:
+      message = 'At least one field must be specified for this operation.'
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    desired_fields = update_mask.split(',')
+    supported_fields = {'appscaleExtensions.httpPort',
+                        'appscaleExtensions.httpsPort'}
+    for field in desired_fields:
+      if field not in supported_fields:
+        message = ('This operation is only supported on the following '
+                   'field(s): [{}]'.format(', '.join(supported_fields)))
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    given_version = json_decode(self.request.body)
+    return utils.apply_mask_to_version(given_version, desired_fields)
+
+  def update_version(self, project_id, service_id, version_id, new_fields):
+    """ Updates a version node.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+      new_fields: A dictionary containing version details.
+    Returns:
+      A dictionary containing completed version details.
+    """
+    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
+      project_id, service_id, version_id)
+
+    try:
+      version_json, _ = self.zk_client.get(version_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Version not found')
+
+    version = json.loads(version_json)
+    new_ports = utils.assign_ports(version, new_fields, self.zk_client)
+    version['appscaleExtensions'].update(new_ports)
+    self.zk_client.set(version_node, json.dumps(version))
+    return version
+
+  @gen.coroutine
+  def relocate_version(self, project_id, service_id, version_id, new_fields):
+    """ Assigns new ports to a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+      new_fields: A dictionary containing version details.
+    Returns:
+      A dictionary containing completed version details.
+    """
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      version = self.update_version(project_id, service_id, version_id,
+                                    new_fields)
+    finally:
+      self.version_update_lock.release()
+
+    http_port = version['appscaleExtensions']['httpPort']
+    https_port = version['appscaleExtensions']['httpsPort']
+    port_file_location = os.path.join(
+      CONFIG_DIR, 'port-{}.txt'.format(project_id))
+    with open(port_file_location, 'w') as port_file:
+      port_file.write(str(http_port))
+
+    try:
+      self.ua_client.add_instance(project_id, options.login_ip, http_port,
+                                  https_port)
+    except UAException:
+      logging.warning('Failed to notify UAServer about updated ports')
+
+    raise gen.Return(version)
+
   @gen.coroutine
   def delete(self, project_id, service_id, version_id):
     """ Deletes a version.
@@ -557,6 +644,31 @@ class VersionHandler(BaseHandler):
 
     IOLoop.current().spawn_callback(wait_for_delete, operation.id, http_port)
 
+    self.write(json_encode(operation.rest_repr()))
+
+  @gen.coroutine
+  def patch(self, project_id, service_id, version_id):
+    """ Updates a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    """
+    self.authenticate()
+
+    if project_id in constants.IMMUTABLE_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} cannot be updated'.format(project_id))
+
+    version = self.version_from_payload()
+
+    extensions = version.get('appscaleExtensions', {})
+    if 'httpPort' in extensions or 'httpsPort' in extensions:
+      version = yield self.relocate_version(
+        project_id, service_id, version_id, version)
+
+    operation = UpdateVersionOperation(project_id, service_id, version)
     self.write(json_encode(operation.rest_repr()))
 
 

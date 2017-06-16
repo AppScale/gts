@@ -45,6 +45,20 @@ class UAClient(object):
     if response.lower() != 'true':
       raise UAException(response)
 
+  def add_instance(self, app_id, host, port, https_port):
+    """ Associates an application with a hostname and ports.
+
+    Args:
+      app_id: A string specifying an application ID.
+      host: A string specifying a hostname.
+      port: An integer specifying a port.
+      https_port: An integer specifying a port.
+    """
+    response = self.server.add_instance(app_id, host, port, https_port,
+                                        self.secret)
+    if response.lower() != 'true':
+      raise UAException(response)
+
   def commit_new_app(self, app_id, email, language):
     """ Creates new project.
 
