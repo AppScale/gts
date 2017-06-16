@@ -519,8 +519,8 @@ class TestDjinn < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
     role = {
-      "public_ip" => "public_ip",
-      "private_ip" => "private_ip",
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
       "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
@@ -532,24 +532,21 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'nginx' => 8081,
-        'nginx_https' => 4381,
-        'haproxy' => 10001,
         'appengine' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'nginx' => 80,
-        'nginx_https' => 443,
-        'haproxy' => 10000,
         'appengine' => ["1.2.3.4:20000"]
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:80 -sTCP:LISTEN").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380 -sTCP:LISTEN").and_return("")
+    admin_server_error = 'httpPort not available'
+    flexmock(ZKInterface).should_receive(:get_version_details).
+      and_return(djinn.app_info_map['myapp'])
+    flexmock(Net::HTTP).should_receive(:start).and_return(
+      flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    expected = "Error: requested http port is already in use."
-    assert_equal(expected, djinn.relocate_app('myapp', 80, 4380, @secret))
+    assert_equal("false: #{admin_server_error}",
+                 djinn.relocate_app('myapp', 80, 4380, @secret))
   end
 
 
@@ -558,8 +555,8 @@ class TestDjinn < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
     role = {
-      "public_ip" => "public_ip",
-      "private_ip" => "private_ip",
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
       "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
@@ -571,24 +568,21 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'nginx' => 8081,
-        'nginx_https' => 4381,
-        'haproxy' => 10001,
         'appengine' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'nginx' => 80,
-        'nginx_https' => 443,
-        'haproxy' => 10000,
         'appengine' => ["1.2.3.4:20000"]
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080 -sTCP:LISTEN").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:443 -sTCP:LISTEN").and_return("")
+    admin_server_error = 'httpPort not available'
+    flexmock(ZKInterface).should_receive(:get_version_details).
+      and_return(djinn.app_info_map['myapp'])
+    flexmock(Net::HTTP).should_receive(:start).and_return(
+      flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    expected = "Error: requested https port is already in use."
-    assert_equal(expected, djinn.relocate_app('myapp', 8080, 443, @secret))
+    assert_equal("false: #{admin_server_error}",
+                 djinn.relocate_app('myapp', 8080, 443, @secret))
   end
 
 
@@ -597,8 +591,8 @@ class TestDjinn < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
     role = {
-      "public_ip" => "public_ip",
-      "private_ip" => "private_ip",
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
       "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
@@ -610,24 +604,21 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'nginx' => 8081,
-        'nginx_https' => 4381,
-        'haproxy' => 10001,
         'appengine' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'nginx' => 80,
-        'nginx_https' => 443,
-        'haproxy' => 4380,
         'appengine' => ["1.2.3.4:20000"]
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080 -sTCP:LISTEN").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380 -sTCP:LISTEN").and_return("")
+    admin_server_error = 'httpPort not available'
+    flexmock(ZKInterface).should_receive(:get_version_details).
+      and_return(djinn.app_info_map['myapp'])
+    flexmock(Net::HTTP).should_receive(:start).and_return(
+      flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    expected = "Error: requested https port is already in use."
-    assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
+    assert_equal("false: #{admin_server_error}",
+                 djinn.relocate_app('myapp', 8080, 4380, @secret))
   end
 
 
@@ -636,8 +627,8 @@ class TestDjinn < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
     role = {
-      "public_ip" => "public_ip",
-      "private_ip" => "private_ip",
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
       "jobs" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
@@ -649,24 +640,21 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'nginx' => 8081,
-        'nginx_https' => 4381,
-        'haproxy' => 10001,
         'appengine' => ["1.2.3.4:20000"]
       },
       'another-app' => {
-        'nginx' => 80,
-        'nginx_https' => 443,
-        'haproxy' => 10000,
         'appengine' => ["1.2.3.4:8080"]
       }
     }
 
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:8080 -sTCP:LISTEN").and_return("")
-    flexmock(Djinn).should_receive(:log_run).with("lsof -i:4380 -sTCP:LISTEN").and_return("")
+    admin_server_error = 'httpPort not available'
+    flexmock(ZKInterface).should_receive(:get_version_details).
+      and_return(djinn.app_info_map['myapp'])
+    flexmock(Net::HTTP).should_receive(:start).and_return(
+      flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    expected = "Error: requested http port is already in use."
-    assert_equal(expected, djinn.relocate_app('myapp', 8080, 4380, @secret))
+    assert_equal("false: #{admin_server_error}",
+                 djinn.relocate_app('myapp', 8080, 4380, @secret))
   end
 
 
