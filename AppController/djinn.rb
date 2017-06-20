@@ -4776,7 +4776,7 @@ HOSTS
                'AppScale-User' => APPSCALE_USER}
     request = Net::HTTP::Post.new(uri.path, headers)
     request.body = JSON.dump(version)
-    while true
+    loop do
       begin
         response = Net::HTTP.start(uri.hostname, uri.port) do |http|
           http.request(request)
