@@ -583,6 +583,13 @@ class Djinn
   ]
 
 
+  # The amount of memory in MB for each instance class.
+  INSTANCE_CLASSES = {:F1 => 128,
+                      :F2 => 256,
+                      :F4 => 512,
+                      :F4_1G => 1024}
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -4780,6 +4787,7 @@ HOSTS
     # Deploy the dashboard with the AdminServer.
     version = {:deployment => {:zip => {:sourceUrl => source_archive}},
                :id => DEFAULT_VERSION,
+               :instanceClass => 'F4',
                :runtime => AppDashboard::APP_LANGUAGE,
                :threadsafe => true,
                :automaticScaling => {:minTotalInstances => min_dashboards},
@@ -5638,8 +5646,13 @@ HOSTS
 
       # We need to keep track of the theoretical max memory used by all
       # the AppServervers.
-      max_app_mem = @app_info_map[appid]['max_memory']
-      max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
+      version_details = ZKInterface.get_version_details(
+        appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+      max_app_mem = Integer(@options['max_memory'])
+      if version_details.key?('instanceClass')
+        instance_class = version_details['instanceClass'].to_sym
+        max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
+      end
 
       app_info['appengine'].each { |location|
         host, _ = location.split(":")
@@ -5659,8 +5672,13 @@ HOSTS
     }
 
     # Get the memory limit for this application.
-    max_app_mem = @app_info_map[app_name]['max_memory']
-    max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
+    version_details = ZKInterface.get_version_details(
+      app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+    max_app_mem = Integer(@options['max_memory'])
+    if version_details.key?('instanceClass')
+      instance_class = version_details['instanceClass'].to_sym
+      max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
+    end
 
     # Let's consider the last system load readings we have, to see if the
     # node can run another AppServer.
@@ -5900,8 +5918,14 @@ HOSTS
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
-      max_app_mem = @app_info_map[app]['max_memory']
-      max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
+      version_details = ZKInterface.get_version_details(
+        app, DEFAULT_SERVICE, DEFAULT_VERSION)
+      max_app_mem = Integer(@options['max_memory'])
+      if version_details.key?('instanceClass')
+        instance_class = version_details['instanceClass'].to_sym
+        max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
+      end
+
       pid = app_manager.start_app(app, appengine_port, login_ip,
         app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
         get_shadow.private_ip)
