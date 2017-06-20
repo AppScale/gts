@@ -4753,6 +4753,47 @@ HOSTS
     end
   end
 
+  # Deploy the dashboard by making a request to the AdminServer.
+  def deploy_dashboard(source_archive)
+    # Allow fewer dashboard instances for small deployments.
+    min_dashboards = [3, get_all_appengine_nodes.length].min
+
+    version = {:deployment => {:zip => {:sourceUrl => source_archive}},
+               :id => DEFAULT_VERSION,
+               :instanceClass => 'F4',
+               :runtime => AppDashboard::APP_LANGUAGE,
+               :threadsafe => true,
+               :automaticScaling => {:minTotalInstances => min_dashboards},
+               :appscaleExtensions => {
+                 :httpPort => AppDashboard::LISTEN_PORT,
+                 :httpsPort => AppDashboard::LISTEN_SSL_PORT
+               }}
+    endpoint = ['v1', 'apps', AppDashboard::APP_NAME,
+                'services', DEFAULT_SERVICE, 'versions'].join('/')
+    uri = URI("http://#{my_node.private_ip}:#{ADMIN_SERVER_PORT}/#{endpoint}")
+    headers = {'Content-Type' => 'application/json',
+               'AppScale-Secret' => @@secret,
+               'AppScale-User' => APPSCALE_USER}
+    request = Net::HTTP::Post.new(uri.path, headers)
+    request.body = JSON.dump(version)
+    while true
+      begin
+        response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+          http.request(request)
+        end
+        if response.code != '200'
+          HelperFunctions.log_and_crash(
+            "AdminServer was unable to deploy dashboard: #{response.body}")
+        end
+        break
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
+        Djinn.log_warn(
+          "Error when deploying dashboard: #{error.message}. Trying again.")
+        sleep(SMALL_WAIT)
+      end
+    end
+  end
+
   # Start the AppDashboard web service which allows users to login, upload
   # and remove apps, and view the status of the AppScale deployment. Other
   # nodes will need to delete the old source since we regenerate each
@@ -4778,46 +4819,7 @@ HOSTS
       # If the version node exists, skip the AdminServer call.
       return
     rescue VersionNotFound
-      # This is expected the first time this function is called.
-    end
-
-    # Allow fewer dashboard instances for small deployments.
-    min_dashboards = [3, get_all_appengine_nodes.length].min
-
-    # Deploy the dashboard with the AdminServer.
-    version = {:deployment => {:zip => {:sourceUrl => source_archive}},
-               :id => DEFAULT_VERSION,
-               :instanceClass => 'F4',
-               :runtime => AppDashboard::APP_LANGUAGE,
-               :threadsafe => true,
-               :automaticScaling => {:minTotalInstances => min_dashboards},
-               :appscaleExtensions => {
-                 :httpPort => AppDashboard::LISTEN_PORT,
-                 :httpsPort => AppDashboard::LISTEN_SSL_PORT
-               }}
-    endpoint = ['v1', 'apps', AppDashboard::APP_NAME,
-                'services', DEFAULT_SERVICE, 'versions'].join('/')
-    uri = URI("http://#{my_private}:#{ADMIN_SERVER_PORT}/#{endpoint}")
-    headers = {'Content-Type' => 'application/json',
-               'AppScale-Secret' => @@secret,
-               'AppScale-User' => APPSCALE_USER}
-    request = Net::HTTP::Post.new(uri.path, headers)
-    request.body = JSON.dump(version)
-    while true
-      begin
-        response = Net::HTTP.start(uri.hostname, uri.port) do |http|
-          http.request(request)
-        end
-        if response.code != '200'
-          HelperFunctions.log_and_crash(
-            "AdminServer was unable to deploy dashboard: #{response.body}")
-        end
-        break
-      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
-        Djinn.log_warn(
-          "Error when deploying dashboard: #{error.message}. Trying again.")
-        sleep(SMALL_WAIT)
-      end
+      self.deploy_dashboard(source_archive)
     end
   end
 
