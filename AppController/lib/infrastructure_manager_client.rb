@@ -133,6 +133,7 @@ class InfrastructureManagerClient
       "azure_resource_group" => options['azure_resource_group'],
       "azure_group_tag" => options['azure_group_tag'],
       "azure_storage_account" => options['azure_storage_account'],
+      "autoscale_agent" => true
     }
   end
 
@@ -169,7 +170,6 @@ class InfrastructureManagerClient
     parameters['region'] = options['region']
     parameters['IS_VERBOSE'] = options['verbose']
     parameters['zone'] = options['zone']
-    parameters['autoscale_agent'] = true
 
     terminate_result = make_call(NO_TIMEOUT, RETRY_ON_FAIL,
       "terminate_instances") {
@@ -198,7 +198,6 @@ class InfrastructureManagerClient
     parameters['cloud'] = 'cloud1'
     parameters['zone'] = options['zone']
     parameters['region'] = options['region']
-    parameters['autoscale_agent'] = true
     parameters['IS_VERBOSE'] = options['verbose']
 
     run_result = run_instances(parameters)
