@@ -743,8 +743,8 @@ class Djinn
     end
 
     # Forward relocate as a patch request to the AdminServer.
-    version = {:appscaleExtensions => {:httpPort => http_port,
-                                       :httpsPort => https_port}}
+    version = {:appscaleExtensions => {:httpPort => http_port.to_i,
+                                       :httpsPort => https_port.to_i}}
     endpoint = ['v1', 'apps', appid, 'services', DEFAULT_SERVICE,
                 'versions', DEFAULT_VERSION].join('/')
     fields_updated = %w(appscaleExtensions.httpPort
@@ -5478,8 +5478,8 @@ HOSTS
       num_appengines = @app_info_map[app_name]['appengine'].length
     end
 
-    scaling_params = version_details.fetch(:automaticScaling, {})
-    min = scaling_params.fetch(:minTotalInstances,
+    scaling_params = version_details.fetch('automaticScaling', {})
+    min = scaling_params.fetch('minTotalInstances',
                                Integer(@options['appengine']))
     if num_appengines < min
       Djinn.log_info("#{app_name} needs #{min - num_appengines} more AppServers.")
@@ -5762,8 +5762,8 @@ HOSTS
     # if we already are at the requested minimum.
     version_details = ZKInterface.get_version_details(
       app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
-    scaling_params = version_details.fetch(:automaticScaling, {})
-    min = scaling_params.fetch(:minTotalInstances,
+    scaling_params = version_details.fetch('automaticScaling', {})
+    min = scaling_params.fetch('minTotalInstances',
                                Integer(@options['appengine']))
     if @app_info_map[app_name]['appengine'].length <= min
       Djinn.log_debug("We are already at the minimum number of AppServers for #{app_name}.")

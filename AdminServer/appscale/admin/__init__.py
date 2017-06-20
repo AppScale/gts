@@ -515,8 +515,26 @@ class VersionHandler(BaseHandler):
                    'field(s): [{}]'.format(', '.join(supported_fields)))
         raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
-    given_version = json_decode(self.request.body)
-    return utils.apply_mask_to_version(given_version, desired_fields)
+    try:
+      given_version = json_decode(self.request.body)
+    except ValueError:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Payload must be valid JSON')
+
+    masked_version = utils.apply_mask_to_version(given_version, desired_fields)
+
+    extensions = masked_version.get('appscaleExtensions', {})
+    http_port = extensions.get('httpPort', None)
+    https_port = extensions.get('httpsPort', None)
+    if http_port is not None and http_port not in constants.ALLOWED_HTTP_PORTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid HTTP port')
+
+    if (https_port is not None and
+        https_port not in constants.ALLOWED_HTTPS_PORTS):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid HTTPS port')
+
+    return masked_version
 
   def update_version(self, project_id, service_id, version_id, new_fields):
     """ Updates a version node.
