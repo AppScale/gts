@@ -2,7 +2,6 @@ import json
 import logging
 import time
 
-from kazoo.client import KazooClient
 from kazoo.client import KazooException
 from kazoo.client import KazooState
 from kazoo.client import NoNodeError
@@ -34,19 +33,18 @@ class DeploymentConfig(object):
   # The ZooKeeper node where configuration is stored.
   CONFIG_ROOT = '/appscale/config'
 
-  def __init__(self, hosts):
+  def __init__(self, zk_client):
     """ Creates new DeploymentConfig object.
 
     Args:
-      hosts: A list of ZooKeeper hosts.
+      zk_client: A KazooClient.
     """
     self.logger = logging.getLogger(self.__class__.__name__)
     self.update_lock = Lock()
     self.state = ConfigStates.LOADING
     self.config = {}
-    self.conn = KazooClient(hosts=hosts, read_only=True)
+    self.conn = zk_client
     self.conn.add_listener(self._conn_listener)
-    self.conn.start()
     self.conn.ensure_path(self.CONFIG_ROOT)
     self.conn.ChildrenWatch(self.CONFIG_ROOT, func=self._update_config)
 
