@@ -88,6 +88,12 @@ def version_contains_field(version, field):
 def apply_mask_to_version(given_version, desired_fields):
   """ Reduces a version to the desired fields.
 
+  Example:
+    given_version: {'runtime': 'python27',
+                    'appscaleExtensions': {'httpPort': 80}}
+    desired_fields: ['appscaleExtensions.httpPort']
+    output: {'appscaleExtensions': {'httpPort': 80}}
+
   Args:
     given_version: A dictionary containing version details.
     desired_fields: A list of strings representing key paths.
