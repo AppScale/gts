@@ -503,7 +503,7 @@ class VersionHandler(BaseHandler):
       A dictionary containing version details.
     """
     update_mask = self.get_argument('updateMask', None)
-    if update_mask is None:
+    if not update_mask:
       message = 'At least one field must be specified for this operation.'
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
