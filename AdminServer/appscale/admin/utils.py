@@ -272,8 +272,8 @@ def assigned_locations(zk_client):
     except NoNodeError:
       continue
     version_nodes.extend([
-      '/appscale/projects/{}/services/{}/versions/{}'.format(
-        project_id, service_id, version_id)
+      constants.VERSION_NODE_TEMPLATE.format(
+        project_id=project_id, service_id=service_id, version_id=version_id)
       for version_id in new_version_ids])
 
   locations = set()

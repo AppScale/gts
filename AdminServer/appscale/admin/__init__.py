@@ -333,8 +333,9 @@ class VersionsHandler(BaseHandler):
     Returns:
       A dictionary containing updated version details.
     """
-    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
-      project_id, service_id, new_version['id'])
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id,
+      version_id=new_version['id'])
 
     try:
       old_version_json, _ = self.zk_client.get(version_node)
@@ -485,8 +486,8 @@ class VersionHandler(BaseHandler):
     Returns:
       A dictionary containing version details.
     """
-    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
-      project_id, service_id, version_id)
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id, version_id=version_id)
 
     try:
       version_json, _ = self.zk_client.get(version_node)
@@ -547,8 +548,8 @@ class VersionHandler(BaseHandler):
     Returns:
       A dictionary containing completed version details.
     """
-    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
-      project_id, service_id, version_id)
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id, version_id=version_id)
 
     try:
       version_json, _ = self.zk_client.get(version_node)
@@ -623,8 +624,8 @@ class VersionHandler(BaseHandler):
       raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                             message='Version serving port not found')
 
-    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
-      project_id, service_id, version_id)
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id, version_id=version_id)
 
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:

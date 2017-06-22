@@ -73,6 +73,10 @@ REDEPLOY_WAIT = 20
 # A list of projects that cannot be modified by users.
 IMMUTABLE_PROJECTS = [DASHBOARD_APP_ID]
 
+# The ZooKeeper location for storing version details.
+VERSION_NODE_TEMPLATE = ('/appscale/projects/{project_id}'
+                         '/services/{service_id}/versions/{version_id}')
+
 # The ZooKeeper node that prevents concurrent location assignments.
 VERSION_UPDATE_LOCK_NODE = '/appscale/version_update_lock'
 
