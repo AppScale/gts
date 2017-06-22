@@ -563,17 +563,26 @@ class VersionHandler(BaseHandler):
     return version
 
   @gen.coroutine
-  def relocate_version(self, project_id, service_id, version_id, new_fields):
+  def relocate_version(self, project_id, service_id, version_id, http_port,
+                       https_port):
     """ Assigns new ports to a version.
 
     Args:
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
       version_id: A string specifying a version ID.
-      new_fields: A dictionary containing version details.
+      http_port: An integer specifying a port.
+      https_port: An integer specifying a port.
     Returns:
       A dictionary containing completed version details.
     """
+    new_fields = {'appscaleExtensions': {}}
+    if http_port is not None:
+      new_fields['appscaleExtensions']['httpPort'] = http_port
+
+    if https_port is not None:
+      new_fields['appscaleExtensions']['httpsPort'] = https_port
+
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
       version = self.update_version(project_id, service_id, version_id,
@@ -669,8 +678,10 @@ class VersionHandler(BaseHandler):
 
     extensions = version.get('appscaleExtensions', {})
     if 'httpPort' in extensions or 'httpsPort' in extensions:
+      new_http_port = extensions.get('httpPort')
+      new_https_port = extensions.get('httpsPort')
       version = yield self.relocate_version(
-        project_id, service_id, version_id, version)
+        project_id, service_id, version_id, new_http_port, new_https_port)
 
     operation = UpdateVersionOperation(project_id, service_id, version)
     self.write(json_encode(operation.rest_repr()))
