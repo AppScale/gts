@@ -38,7 +38,7 @@ module AppDashboard
   #   secret: A String that is used to authenticate this application with
   #     other AppScale services.
   # Returns:
-  #   true if the AppDashboard was started successfully, and false otherwise.
+  #   A string specifying the location of the prepared archive.
   def self.prep(public_ip, private_ip, persistent_storage, secret)
 
     # Pass the secret key and our public IP address (needed to connect to the
