@@ -129,7 +129,7 @@ class UpdateVersionOperation(Operation):
   """ A container that keeps track of UpdateVersion operations. """
 
   def __init__(self, project_id, service_id, version):
-    """ Creates a new CreateVersionOperation.
+    """ Creates a new UpdateVersionOperation.
 
     Args:
       project_id: A string specifying a project ID.
