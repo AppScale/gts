@@ -3792,6 +3792,8 @@ class Djinn
 
   # Starts the Hermes service on this node.
   def start_hermes()
+    Djinn.log_info("Updating Hermes.")
+    `pip install --upgrade --no-deps /root/appscale/Hermes`
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
     HermesService.start(
