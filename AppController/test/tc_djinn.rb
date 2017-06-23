@@ -911,23 +911,4 @@ class TestDjinn < Test::Unit::TestCase
     djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
     assert_equal(get_app_data_success, djinn.get_app_data(app_id, good_secret))
   end
-
-
-  def test_reserve_app_id
-    good_secret = 'good_secret'
-    bad_secret = 'bad_secret'
-    username = 'user'
-    app_id = 'app1'
-    app_language = 'python'
-    reserve_app_id_success = true
-
-    flexmock(UserAppClient).new_instances.should_receive(:commit_new_app_name => true)
-
-    djinn = get_djinn_mock
-    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
-    assert_equal(BAD_SECRET_MSG, djinn.reserve_app_id(username, app_id, app_language, bad_secret))
-
-    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
-    assert_equal(reserve_app_id_success, djinn.reserve_app_id(username, app_id, app_language, good_secret))
-  end
 end
