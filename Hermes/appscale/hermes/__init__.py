@@ -206,6 +206,9 @@ def main():
     '--write-detailed-processes-log', action='store_true',
     help='Write detailed processes stats CSV log (on master)')
   parser.add_argument(
+    '--write-proxies-log', action='store_true',
+    help='Write short proxies stats CSV log (on master)')
+  parser.add_argument(
     '--proxies-log-interval', type=int,
     default=stats_constants.PROFILE_PROXIES_STATS_INTERVAL,
     help='Writing proxies stats interval in seconds (on master)')

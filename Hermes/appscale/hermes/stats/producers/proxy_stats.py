@@ -8,8 +8,7 @@ from datetime import datetime
 
 import attr
 
-from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, \
-  LOCAL_STATS_DEBUG_INTERVAL, MISSED
+from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, MISSED
 from appscale.hermes.stats.converter import include_list_name, Meta
 from appscale.hermes.stats.unified_service_names import find_service_by_pxname
 
@@ -277,6 +276,7 @@ class ProxiesStatsSource(object):
     Returns:
       An instance of ProxiesStatsSnapshot.
     """
+    start = time.time()
     # Get CSV table with haproxy stats
     csv_buf = get_stats()
     csv_buf.seek(2)  # Seek to the beginning but skip "# " in the first row
@@ -350,7 +350,6 @@ class ProxiesStatsSource(object):
       utc_timestamp=time.mktime(datetime.now().timetuple()),
       proxies_stats=proxy_stats_list
     )
-    if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:
-      ProxiesStatsSource.last_debug = time.time()
-      logging.debug(stats)
+    logging.info("Prepared stats about {prox} proxies in {elapsed:.1f}s."
+                 .format(prox=len(proxy_stats_list), elapsed=time.time()-start))
     return stats

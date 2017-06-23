@@ -7,7 +7,6 @@ import attr
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.stats.constants import LOCAL_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.converter import include_list_name, Meta
 
 
@@ -102,8 +101,6 @@ class NodeStatsSnapshot(object):
 
 class NodeStatsSource(object):
 
-  last_debug = 0
-
   def get_current(self):
     """ Method for building an instance of NodeStatsSnapshot.
     It collects information about usage of main resource on the machine.
@@ -113,6 +110,7 @@ class NodeStatsSource(object):
       on the machine
     """
     utc_timestamp = time.mktime(datetime.now().timetuple())
+    start = time.time()
     private_ip = appscale_info.get_private_ip()
 
     # CPU usage
@@ -167,7 +165,6 @@ class NodeStatsSource(object):
       memory=memory, swap=swap, disk_io=disk_io,
       partitions_dict=partitions_dict, network=network, loadavg=loadavg
     )
-    if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:
-      NodeStatsSource.last_debug = time.time()
-      logging.debug(stats)
+    logging.info("Prepared local node stats in {elapsed:.1f}s."
+                 .format(elapsed=time.time()-start))
     return stats
