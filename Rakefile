@@ -138,6 +138,14 @@ namespace :xmppreceiver do
 
 end
 
+namespace :adminserver do
+
+  task :test do
+    sh 'python -m unittest discover -b -v -s AdminServer/tests'
+  end
+
+end
+
 python_tests = [
   'appdashboard:test',
   'appdb:test',
@@ -149,7 +157,8 @@ python_tests = [
   'infrastructuremanager:test',
   'searchservice:test',
   'xmppreceiver:test',
-  'apps:test'
+  'apps:test',
+  'adminserver:test'
 ]
 ruby_tests = ['appcontroller:test']
 

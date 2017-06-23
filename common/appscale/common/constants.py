@@ -16,8 +16,8 @@ class HTTPCodes(object):
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
-# Location of PID files for processes and applications.
-APP_PID_DIR = '/etc/appscale/'
+# Directory where configuration files are stored.
+CONFIG_DIR = os.path.join('/', 'etc', 'appscale')
 
 # Location of where data is persisted on disk.
 APPSCALE_DATA_DIR = '/opt/appscale'
