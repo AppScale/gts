@@ -112,7 +112,7 @@ class NodeStatsSource(object):
       An object of NodeStatsSnapshot with detailed explanation of resources used
       on the machine
     """
-    utc_timestamp = time.mktime(datetime.utcnow().timetuple())
+    utc_timestamp = time.mktime(datetime.now().timetuple())
     private_ip = appscale_info.get_private_ip()
 
     # CPU usage

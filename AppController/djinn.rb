@@ -552,8 +552,11 @@ class Djinn
     'user_commands' => [ String, nil, true ],
     'verbose' => [ TrueClass, 'False', true ],
     'write_nodes_stats_log' => [ TrueClass, 'False', true ],
+    'nodes_stats_log_interval' => [ Fixnum, nil, true ],
     'write_processes_stats_log' => [ TrueClass, 'False', true ],
+    'processes_stats_log_interval' => [ Fixnum, nil, true ],
     'write_proxies_stats_log' => [ TrueClass, 'False', true ],
+    'proxies_stats_log_interval' => [ Fixnum, nil, true ],
     'write_detailed_processes_stats_log' => [ TrueClass, 'False', true ],
     'write_detailed_proxies_stats_log' => [ TrueClass, 'False', true ],
     'zone' => [ String, nil, true ]
@@ -1479,9 +1482,10 @@ class Djinn
       @options[key] = val
 
       hermes_profiling_flags = [
-        "write_nodes_stats_log", "write_processes_stats_log",
-        "write_proxies_stats_log", "write_detailed_processes_stats_log",
-        "write_detailed_proxies_stats_log"
+        "write_nodes_stats_log", "nodes_stats_log_interval",
+        "write_processes_stats_log", "processes_stats_log_interval",
+        "write_proxies_stats_log", "proxies_stats_log_interval",
+        "write_detailed_processes_stats_log", "write_detailed_proxies_stats_log"
       ]
       if hermes_profiling_flags.include?(key)
         Thread.new {
@@ -3793,8 +3797,11 @@ class Djinn
     HermesService.start(
       @options['verbose'].downcase == 'true',
       @options["write_nodes_stats_log"].downcase == 'true',
+      @options["nodes_stats_log_interval"],
       @options["write_processes_stats_log"].downcase == 'true',
+      @options["processes_stats_log_interval"],
       @options["write_proxies_stats_log"].downcase == 'true',
+      @options["proxies_stats_log_interval"],
       @options["write_detailed_processes_stats_log"].downcase == 'true',
       @options["write_detailed_proxies_stats_log"].downcase == 'true'
     )
@@ -5570,7 +5577,7 @@ HOSTS
     return 0 if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
-    total_requests_seen, total_req_in_queue, current_sessions, 
+    total_requests_seen, total_req_in_queue, current_sessions,
       time_requests_were_seen = HAProxy.get_haproxy_stats(app_name)
 
     if time_requests_were_seen == :no_backend
@@ -5595,7 +5602,7 @@ HOSTS
       Djinn.log_debug("The deployment has reached its maximum load threshold for " +
         "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers.")
       return appservers_to_scale
-    
+
     elsif current_load <= MIN_LOAD_THRESHOLD
       if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
         Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
@@ -5610,16 +5617,16 @@ HOSTS
       Djinn.log_debug("The deployment is within the desired range of load for " +
         "app #{app_name} - Advising that there is no need to scale currently.")
       return 0
-    end  
+    end
   end
-  
+
   # Calculates the current load of the deployment based on the number of
-  # running AppServers, its max allowed threaded connections and current 
+  # running AppServers, its max allowed threaded connections and current
   # handled sessions.
   # Formula: Load = Current Sessions / (No of AppServers * Max conn)
-  # 
+  #
   # Args:
-  #   num_appengines: The total number of AppServers running for the app.  
+  #   num_appengines: The total number of AppServers running for the app.
   #   curr_sessions: The number of current sessions from HAProxy stats.
   #   allow_concurrency: A boolean indicating that AppServers can handle
   #     concurrent connections.
@@ -5631,7 +5638,7 @@ HOSTS
     return curr_sessions.to_f / max_sessions
   end
 
-  # Calculates the additional number of AppServers needed to be scaled up in 
+  # Calculates the additional number of AppServers needed to be scaled up in
   # order achieve the desired load.
   # Formula: No of AppServers = Current sessions / (Load * Max conn)
   #

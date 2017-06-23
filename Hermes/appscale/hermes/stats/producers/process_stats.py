@@ -130,7 +130,7 @@ class ProcessesStatsSource(object):
         logging.warn(u"Unable to get process stats for {monit_name} ({err})"
                      .format(monit_name=monit_name, err=err))
     stats = ProcessesStatsSnapshot(
-      utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
+      utc_timestamp=time.mktime(datetime.now().timetuple()),
       processes_stats=processes_stats
     )
     if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:

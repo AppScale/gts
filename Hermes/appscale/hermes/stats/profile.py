@@ -233,7 +233,7 @@ class ProcessesProfileLog(object):
 
       with open(summary_file_name, 'a') as summary_file:
         # Append line with the newest summary
-        row = [time.mktime(datetime.utcnow().timetuple())]
+        row = [time.mktime(datetime.now().timetuple())]
         columns_iterator = self._summary_columns.__iter__()
         columns_iterator.next()  # Skip timestamp column
         for service_name in columns_iterator:
@@ -401,7 +401,7 @@ class ProxiesProfileLog(object):
 
       with open(summary_file_name, 'a') as summary_file:
         # Append line with the newest summary
-        row = [time.mktime(datetime.utcnow().timetuple())]
+        row = [time.mktime(datetime.now().timetuple())]
         columns_iterator = self._summary_columns.__iter__()
         columns_iterator.next()  # Skip timestamp column
         for service_name in columns_iterator:

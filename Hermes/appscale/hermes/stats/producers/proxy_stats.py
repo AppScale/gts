@@ -347,7 +347,7 @@ class ProxiesStatsSource(object):
       proxy_stats_list.append(proxy_stats)
 
     stats = ProxiesStatsSnapshot(
-      utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
+      utc_timestamp=time.mktime(datetime.now().timetuple()),
       proxies_stats=proxy_stats_list
     )
     if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:

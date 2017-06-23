@@ -26,6 +26,8 @@ from appscale.hermes import constants, helper
 from appscale.hermes.handlers import MainHandler, TaskHandler, Respond404Handler
 from appscale.hermes.helper import JSONTags
 from appscale.hermes.stats import stats_app
+from appscale.hermes.stats import constants as stats_constants
+
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -183,18 +185,33 @@ def shutdown():
 def main():
   """ Main. """
   parser = argparse.ArgumentParser()
-  parser.add_argument('-v', '--verbose', action='store_true',
-                      help='Output debug-level logging')
-  parser.add_argument('--write-nodes-log', action='store_true',
-                      help='Write nodes stats CSV log (on master)')
-  parser.add_argument('--write-processes-log', action='store_true',
-                      help='Write short processes stats CSV log (on master)')
-  parser.add_argument('--write-detailed-processes-log', action='store_true',
-                      help='Write detailed processes stats CSV log (on master)')
-  parser.add_argument('--write-proxies-log', action='store_true',
-                      help='Write short proxies stats CSV log (on master)')
-  parser.add_argument('--write-detailed-proxies-log', action='store_true',
-                      help='Write detailed proxies stats CSV log (on master)')
+  parser.add_argument(
+    '-v', '--verbose', action='store_true',
+    help='Output debug-level logging')
+  parser.add_argument(
+    '--write-nodes-log', action='store_true',
+    help='Write nodes stats CSV log (on master)')
+  parser.add_argument(
+    '--nodes-log-interval', type=int,
+    default=stats_constants.PROFILE_NODES_STATS_INTERVAL,
+    help='Writing nodes stats interval in seconds (on master)')
+  parser.add_argument(
+    '--write-processes-log', action='store_true',
+    help='Write short processes stats CSV log (on master)')
+  parser.add_argument(
+    '--processes-log-interval', type=int,
+    default=stats_constants.PROFILE_PROCESSES_STATS_INTERVAL,
+    help='Writing processes stats interval in seconds (on master)')
+  parser.add_argument(
+    '--write-detailed-processes-log', action='store_true',
+    help='Write detailed processes stats CSV log (on master)')
+  parser.add_argument(
+    '--proxies-log-interval', type=int,
+    default=stats_constants.PROFILE_PROXIES_STATS_INTERVAL,
+    help='Writing proxies stats interval in seconds (on master)')
+  parser.add_argument(
+    '--write-detailed-proxies-log', action='store_true',
+    help='Write detailed proxies stats CSV log (on master)')
   args = parser.parse_args()
 
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
@@ -225,13 +242,19 @@ def main():
     task_route = ('/do_task', TaskHandler)
 
     if args.write_nodes_log:
-      stats_app.configure_node_stats_profiling()
+      stats_app.configure_node_stats_profiling(
+        interval=int(args.nodes_log_interval)
+      )
     if args.write_processes_log or args.write_detailed_processes_log:
       stats_app.configure_processes_stats_profiling(
-        write_detailed_stats=args.write_detailed_processes_log)
+        interval=args.processes_log_interval,
+        write_detailed_stats=args.write_detailed_processes_log
+      )
     if args.write_proxies_log or args.write_detailed_proxies_log:
       stats_app.configure_proxies_stats_profiling(
-        write_detailed_stats=args.write_detailed_proxies_log)
+        interval=args.proxies_log_interval,
+        write_detailed_stats=args.write_detailed_proxies_log
+      )
   else:
     task_route = ('/do_task', Respond404Handler,
                   dict(reason='Hermes slaves do not manage tasks from Portal'))
