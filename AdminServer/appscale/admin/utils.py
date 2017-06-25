@@ -7,6 +7,7 @@ import os
 import shutil
 import socket
 import tarfile
+import time
 
 from appscale.common.constants import HTTPCodes
 from kazoo.exceptions import NoNodeError
@@ -15,8 +16,10 @@ from .constants import (
   CustomHTTPError,
   GO,
   JAVA,
+  SOURCES_DIRECTORY,
   Types,
-  UNPACK_ROOT
+  UNPACK_ROOT,
+  VERSION_PATH_SEPARATOR
 )
 
 
@@ -233,6 +236,40 @@ def port_is_open(host, port):
   sock = socket.socket()
   result = sock.connect_ex((host, port))
   return result == 0
+
+
+def claim_ownership_of_source(project_id, service_id, version):
+  """ Renames the given source archive to keep track of it.
+
+  Args:
+    project_id: A string specifying a project ID.
+    service_id: A string specifying a service ID.
+    version: A dictionary containing version details.
+  """
+  new_filename = VERSION_PATH_SEPARATOR.join(
+    [project_id, service_id, version['id'],
+     '{}.tar.gz'.format(int(time.time() * 1000))])
+  new_location = os.path.join(SOURCES_DIRECTORY, new_filename)
+  os.rename(version['deployment']['zip']['sourceUrl'], new_location)
+  return new_location
+
+
+def remove_old_archives(project_id, service_id, version):
+  """ Cleans up old revision archives.
+
+  Args:
+    project_id: A string specifying a project ID.
+    service_id: A string specifying a service ID.
+    version: A dictionary containing version details.
+  """
+  prefix = constants.VERSION_PATH_SEPARATOR.join(
+    [project_id, service_id, version['id']])
+  current_name = os.path.basename(version['deployment']['zip']['sourceUrl'])
+  old_sources = [os.path.join(SOURCES_DIRECTORY, archive) for archive
+                 in os.listdir(SOURCES_DIRECTORY)
+                 if archive.startswith(prefix) and archive < current_name]
+  for archive in old_sources:
+    os.remove(archive)
 
 
 def assigned_locations(zk_client):

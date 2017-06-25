@@ -426,15 +426,17 @@ class VersionsHandler(BaseHandler):
 
     self.ensure_user_is_owner(project_id, user)
 
-    source_path = version['deployment']['zip']['sourceUrl']
-
     try:
       utils.extract_source(version, project_id)
     except IOError:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='{} does not exist'.format(source_path))
+      message = '{} does not exist'.format(
+        version['deployment']['zip']['sourceUrl'])
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
-    self.identify_as_hoster(project_id, source_path)
+    new_path = utils.claim_ownership_of_source(project_id, service_id, version)
+    version['deployment']['zip']['sourceUrl'] = new_path
+    self.identify_as_hoster(project_id, new_path)
+    utils.remove_old_archives(project_id, service_id, version)
 
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
