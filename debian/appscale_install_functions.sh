@@ -334,10 +334,10 @@ installsolr()
 
 installcassandra()
 {
-    CASSANDRA_VER=3.7
+    CASSANDRA_VER=3.11.0
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    CASSANDRA_PACKAGE_MD5="39968c48cbb2a333e525f852db59fb48"
+    CASSANDRA_PACKAGE_MD5="96c72922df1170b4b5dec81b27d451fa"
     cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
     # Remove old Cassandra environment directory.
