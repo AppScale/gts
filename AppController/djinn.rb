@@ -94,10 +94,6 @@ NOT_READY = "false: not ready yet"
 INVALID_REQUEST = 'false: invalid request'
 
 
-# Regular expression to determine if a file is a .tar.gz file.
-TAR_GZ_REGEX = /\.tar\.gz$/
-
-
 # The maximum number of seconds that we should wait when deploying Google App
 # Engine applications via the AppController.
 APP_UPLOAD_TIMEOUT = 180
@@ -504,6 +500,18 @@ class Djinn
   DEFAULT_MEMORY = 400
 
 
+  # The default service for a project.
+  DEFAULT_SERVICE = 'default'
+
+
+  # The default version for a service.
+  DEFAULT_VERSION = 'default'
+
+
+  # The port that the AdminServer listens on.
+  ADMIN_SERVER_PORT = 17442
+
+
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
   # parameter is unspecified. The last value (a boolean) indicates if the
@@ -571,12 +579,18 @@ class Djinn
   # Instance variables that we need to restore from the head node.
   DEPLOYMENT_STATE = [
     "@app_info_map",
-    "@app_names",
     "@apps_loaded",
     "@nodes",
     "@options",
     "@last_decision"
   ]
+
+
+  # The amount of memory in MB for each instance class.
+  INSTANCE_CLASSES = {:F1 => 128,
+                      :F2 => 256,
+                      :F4 => 512,
+                      :F4_1G => 1024}
 
 
   # Creates a new Djinn, which holds all the information needed to configure
@@ -637,7 +651,6 @@ class Djinn
     # The following variables are restored from the headnode ie they are
     # part of the common state of the running deployment.
     @app_info_map = {}
-    @app_names = []
     @apps_loaded = []
     @nodes = []
     @options = {}
@@ -732,71 +745,33 @@ class Djinn
       end
     end
 
-    # Sanity checks on app ID and settings.
-    return "Error: Can't relocate the #{appid} app." if RESERVED_APPS.include?(appid)
     begin
-      http_port = Integer(http_port)
-      https_port = Integer(https_port)
-    rescue ArgumentError
-      Djinn.log_warn("relocate_app received invalid port values.")
-      return INVALID_REQUEST
+      version_details = ZKInterface.get_version_details(
+        appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound => error
+      return "false: #{error.message}"
     end
-    APPS_LOCK.synchronize {
-      if @app_info_map[appid].nil? or @app_info_map[appid]['nginx'].nil? or
-          @app_info_map[appid]['nginx_https'].nil? or
-          @app_info_map[appid]['haproxy'].nil?
-        Djinn.log_warn("Unable to relocate due to missing app settings for: #{appid}.")
-        return INVALID_REQUEST
-      end
 
-      # First, only let users relocate apps to ports that the firewall has open
-      # for App Engine apps.
-      if http_port != 80 and
-         (http_port < Nginx::START_PORT or http_port > Nginx::END_PORT)
-        return "Error: HTTP port must be 80, or in the range" +
-          " #{Nginx::START_PORT}-#{Nginx::END_PORT}."
-      end
-
-      if (https_port < Nginx::START_PORT - Nginx::SSL_PORT_OFFSET or https_port >
-          Nginx::END_PORT - Nginx::SSL_PORT_OFFSET) and https_port != 443
-        return "Error: HTTPS port must be 443, or in the range " +
-           "#{Nginx::START_PORT - Nginx::SSL_PORT_OFFSET}-" +
-           "#{Nginx::END_PORT - Nginx::SSL_PORT_OFFSET}."
-      end
-
-      # We need to check if http_port and https_port are already in use by
-      # another application, so we do that with find_lowest_free_port and we
-      # fix the range to the single port.
-      if find_lowest_free_port(http_port, http_port, appid) < 0
-        return "Error: requested http port is already in use."
-      end
-      if find_lowest_free_port(https_port, https_port, appid) < 0
-        return "Error: requested https port is already in use."
-      end
-
-      # Next, rewrite the nginx config file with the new ports
-      @app_info_map[appid]['nginx'] = http_port
-      @app_info_map[appid]['nginx_https'] = https_port
-    }
-    Djinn.log_info("Assigned ports for relocated app #{appid}.")
-    my_public = my_node.public_ip
-
-    # Finally, the AppServer takes in the port to send Task Queue tasks to
-    # from a file. Update the file and restart the AppServers so they see
-    # the new port. Do this in a separate thread to avoid blocking the caller.
-    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{appid}.txt"
-    HelperFunctions.write_file(port_file, http_port)
-
-    # Notify the UAServer about the new ports.
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    success = uac.add_instance(appid, my_public, http_port, https_port)
-    unless success
-      Djinn.log_warn("Failed to store relocation ports for #{appid} via the uaserver.")
-      return
+    # Forward relocate as a patch request to the AdminServer.
+    version = {:appscaleExtensions => {:httpPort => http_port.to_i,
+                                       :httpsPort => https_port.to_i}}
+    endpoint = ['v1', 'apps', appid, 'services', DEFAULT_SERVICE,
+                'versions', DEFAULT_VERSION].join('/')
+    fields_updated = %w(appscaleExtensions.httpPort
+                        appscaleExtensions.httpsPort)
+    uri = URI("http://#{my_node.private_ip}:#{ADMIN_SERVER_PORT}/#{endpoint}")
+    uri.query = URI.encode_www_form({:updateMask => fields_updated.join(',')})
+    headers = {'Content-Type' => 'application/json',
+               'AppScale-Secret' => @@secret}
+    request = Net::HTTP::Patch.new([uri.path, uri.query].join('?'), headers)
+    request.body = JSON.dump(version)
+    response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+      http.request(request)
     end
+    return "false: #{response.body}" if response.code != '200'
 
     CronHelper.update_cron(
-      get_load_balancer.public_ip, http_port, @app_info_map[appid]['language'],
+      get_load_balancer.public_ip, http_port, version_details['runtime'],
       appid)
 
     return "OK"
@@ -1784,7 +1759,6 @@ class Djinn
       APPS_LOCK.synchronize {
         @app_info_map.delete(app_name) unless @app_info_map[app_name].nil?
         @apps_loaded = @apps_loaded - [app_name]
-        @app_names = @app_names - [app_name]
       }
 
       # To prevent future deploys from using the old application code, we
@@ -1902,9 +1876,6 @@ class Djinn
     # Notify nodes, and remove any running AppServer of the application.
     notify_restart_app_to_nodes(apps_to_restart)
 
-    APPS_LOCK.synchronize {
-      @app_names |= apps
-    }
     Djinn.log_info("Done updating apps: #{apps}.")
     return 'OK'
   end
@@ -2114,11 +2085,8 @@ class Djinn
         backup_appcontroller_state
 
         APPS_LOCK.synchronize {
-          # Check all apps that should be running are ready to run.
-          check_running_apps
-
           # Starts apps that are not running yet but they should.
-          apps_to_load = @app_names - @apps_loaded
+          apps_to_load = ZKInterface.get_app_names - @apps_loaded
           apps_to_load.each { |app|
             setup_app_dir(app, true)
             setup_appengine_application(app)
@@ -2894,6 +2862,13 @@ class Djinn
        end
     end
 
+    begin
+      version_details = ZKInterface.get_version_details(
+        app_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound => error
+      return "false: #{error.message}"
+    end
+
     APPS_LOCK.synchronize {
       if @app_info_map[app_id].nil? or @app_info_map[app_id]['appengine'].nil?
         return NOT_READY
@@ -2917,7 +2892,8 @@ class Djinn
       # Now that we have at least one AppServer running, we can start the
       # cron job of the application.
       CronHelper.update_cron(get_load_balancer.public_ip,
-        @app_info_map[app_id]['nginx'], @app_info_map[app_id]['language'], app_id)
+        version_details['appscaleExtensions']['httpPort'],
+        version_details['runtime'], app_id)
     }
 
     return "OK"
@@ -3345,6 +3321,13 @@ class Djinn
       instance_info = []
       @app_info_map.each_pair { |appid, app_info|
         next if app_info['appengine'].nil?
+        begin
+          version_details = ZKInterface.get_version_details(
+            appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+        rescue VersionNotFound
+          next
+        end
+
         app_info['appengine'].each { |location|
           host, port = location.split(":")
           next if Integer(port) < 0
@@ -3352,7 +3335,7 @@ class Djinn
             'appid' => appid,
             'host' => host,
             'port' => Integer(port),
-            'language' => app_info['language']
+            'language' => version_details['runtime']
           }
         }
       }
@@ -4381,18 +4364,28 @@ HOSTS
     login_ip = @options['login']
 
     @apps_loaded.each { |app|
+
+      begin
+        version_details = ZKInterface.get_version_details(
+          app, DEFAULT_SERVICE, DEFAULT_VERSION)
+      rescue VersionNotFound
+        Djinn.log_debug(
+          "Removing routing for #{app} since it should not be running.")
+        Nginx.remove_app(app)
+        CronHelper.clear_app_crontab(app)
+        HAProxy.remove_app(app)
+        next
+      end
+
+      http_port = version_details['appscaleExtensions']['httpPort']
+      https_port = version_details['appscaleExtensions']['httpsPort']
+      proxy_port = version_details['appscaleExtensions']['haproxyPort']
+      app_language = version_details['runtime']
+
       # Check that we have the application information needed to
       # regenerate the routing configuration.
       appservers = []
-      unless (@app_info_map[app].nil? or @app_info_map[app]['nginx'].nil? or
-              @app_info_map[app]['nginx_https'].nil? or
-              @app_info_map[app]['haproxy'].nil? or
-              @app_info_map[app]['appengine'].nil? or
-              @app_info_map[app]['language'].nil?)
-        http_port = @app_info_map[app]['nginx']
-        https_port = @app_info_map[app]['nginx_https']
-        proxy_port = @app_info_map[app]['haproxy']
-        app_language = @app_info_map[app]['language']
+      unless @app_info_map[app].nil? || @app_info_map[app]['appengine'].nil?
         Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
           "port #{http_port}, https port #{https_port}, and haproxy port " +
           "#{proxy_port}.")
@@ -4456,8 +4449,7 @@ HOSTS
           end
         end
 
-        HAProxy.update_app_config(my_private, app,
-          @app_info_map[app]['haproxy'], appservers)
+        HAProxy.update_app_config(my_private, app, proxy_port, appservers)
       end
 
       # We need to set the drain on haproxy on the terminated AppServers,
@@ -4770,6 +4762,47 @@ HOSTS
     end
   end
 
+  # Deploy the dashboard by making a request to the AdminServer.
+  def deploy_dashboard(source_archive)
+    # Allow fewer dashboard instances for small deployments.
+    min_dashboards = [3, get_all_appengine_nodes.length].min
+
+    version = {:deployment => {:zip => {:sourceUrl => source_archive}},
+               :id => DEFAULT_VERSION,
+               :instanceClass => 'F4',
+               :runtime => AppDashboard::APP_LANGUAGE,
+               :threadsafe => true,
+               :automaticScaling => {:minTotalInstances => min_dashboards},
+               :appscaleExtensions => {
+                 :httpPort => AppDashboard::LISTEN_PORT,
+                 :httpsPort => AppDashboard::LISTEN_SSL_PORT
+               }}
+    endpoint = ['v1', 'apps', AppDashboard::APP_NAME,
+                'services', DEFAULT_SERVICE, 'versions'].join('/')
+    uri = URI("http://#{my_node.private_ip}:#{ADMIN_SERVER_PORT}/#{endpoint}")
+    headers = {'Content-Type' => 'application/json',
+               'AppScale-Secret' => @@secret,
+               'AppScale-User' => APPSCALE_USER}
+    request = Net::HTTP::Post.new(uri.path, headers)
+    request.body = JSON.dump(version)
+    loop do
+      begin
+        response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+          http.request(request)
+        end
+        if response.code != '200'
+          HelperFunctions.log_and_crash(
+            "AdminServer was unable to deploy dashboard: #{response.body}")
+        end
+        break
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
+        Djinn.log_warn(
+          "Error when deploying dashboard: #{error.message}. Trying again.")
+        sleep(SMALL_WAIT)
+      end
+    end
+  end
+
   # Start the AppDashboard web service which allows users to login, upload
   # and remove apps, and view the status of the AppScale deployment. Other
   # nodes will need to delete the old source since we regenerate each
@@ -4786,31 +4819,17 @@ HOSTS
       AppDashboard::APP_LANGUAGE, @@secret)
     Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
 
-    # Create, upload, and unpack the application.
-    AppDashboard.start(my_public, my_private,
-        PERSISTENT_MOUNT_POINT, @@secret)
-    APPS_LOCK.synchronize {
-      setup_app_dir(AppDashboard::APP_NAME, true)
-    }
+    source_archive = AppDashboard.prep(
+      my_public, my_private, PERSISTENT_MOUNT_POINT, @@secret)
 
-    # Allow fewer dashboard instances for small deployments.
-    min_dashboards = [3, get_all_appengine_nodes.length].min
-
-    # Assign the specific ports to it.
-    APPS_LOCK.synchronize {
-      if @app_info_map[AppDashboard::APP_NAME].nil?
-        @app_info_map[AppDashboard::APP_NAME] = {
-          'nginx' => AppDashboard::LISTEN_PORT,
-          'nginx_https' => AppDashboard::LISTEN_SSL_PORT,
-          'haproxy' => AppDashboard::PROXY_PORT,
-          'appengine' => [],
-          'language' => AppDashboard::APP_LANGUAGE,
-          'max_memory' => DEFAULT_MEMORY,
-          'min_appengines' => min_dashboards
-        }
-      end
-      @app_names << AppDashboard::APP_NAME
-    }
+    begin
+      ZKInterface.get_version_details(
+        AppDashboard::APP_NAME, DEFAULT_SERVICE, DEFAULT_VERSION)
+      # If the version node exists, skip the AdminServer call.
+      return
+    rescue VersionNotFound
+      self.deploy_dashboard(source_archive)
+    end
   end
 
   # Stop the AppDashboard web service.
@@ -4845,68 +4864,6 @@ HOSTS
   end
 
 
-  # Login nodes will compares the list of applications that should be
-  # running according to the UserAppServer with the list we have on the
-  # load balancer, and marks the missing apps for start during the next
-  # cycle.
-  def check_running_apps
-    Djinn.log_debug("Checking applications that should be running.")
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    begin
-      app_list = uac.get_all_apps()
-    rescue FailedNodeException => except
-      Djinn.log_warn("check_running_apps: failed to get apps (#{except}).")
-      app_list = []
-    end
-    return if app_list.empty?
-
-    loaded_apps = HelperFunctions.get_loaded_apps
-    app_list.each { |app|
-      begin
-        # We already know about this application?
-        next if @app_names.include?(app)
-
-        # Do we have the application code already?
-        next unless loaded_apps.include?(app)
-
-        # Is the application enabled?
-        begin
-          next unless uac.is_app_enabled?(app)
-        rescue FailedNodeException
-          Djinn.log_warn("Failed to talk to the UserAppServer about " +
-            "application #{app}.")
-          next
-        end
-        Djinn.log_info("Adding #{app} to running apps.")
-
-        # We query the UserAppServer looking for application data, in
-        # particular ports and language.
-        result = uac.get_app_data(app)
-        app_data = JSON.load(result)
-        Djinn.log_debug("#{app} metadata: #{app_data}")
-
-        app_language = app_data['language']
-        Djinn.log_info("Restoring app #{app} (language #{app_language})" +
-          " with ports #{app_data['hosts']}.")
-
-        @app_info_map[app] = {} if @app_info_map[app].nil?
-        @app_info_map[app]['language'] = app_language if app_language
-        if app_data['hosts'].values[0]
-          if app_data['hosts'].values[0]['http']
-            @app_info_map[app]['nginx'] = app_data['hosts'].values[0]['http']
-          end
-          if app_data['hosts'].values[0]['https']
-            @app_info_map[app]['nginx_https'] = app_data['hosts'].values[0]['https']
-          end
-        end
-        @app_names |= [app]
-      rescue FailedNodeException
-        Djinn.log_warn("Couldn't get app data for #{app}.")
-      end
-    }
-  end
-
-
   # This function ensures that applications we are not aware of (that is
   # they are not accounted for) will be terminated and, potentially old
   # sources, will be removed.
@@ -4922,7 +4879,7 @@ HOSTS
     Djinn.log_debug("Checking applications that have been stopped.")
     app_list = HelperFunctions.get_loaded_apps()
     app_list.each { |app|
-      next if @app_names.include?(app)
+      next if ZKInterface.get_app_names.include?(app)
       next if RESERVED_APPS.include?(app)
       begin
         next if uac.is_app_enabled?(app)
@@ -5103,15 +5060,21 @@ HOSTS
         # decision each time.
         if !no_appservers[0].nil?
           app = no_appservers[0]
+          version_details = ZKInterface.get_version_details(
+            app, DEFAULT_SERVICE, DEFAULT_VERSION)
           Djinn.log_info("Starting first AppServer for app: #{app}.")
-          ret = add_appserver_process(app, @app_info_map[app]['nginx'],
-            @app_info_map[app]['language'])
+          ret = add_appserver_process(
+            app, version_details['appscaleExtensions']['httpPort'],
+            version_details['runtime'])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
         elsif !to_start[0].nil?
           app = to_start[0]
+          version_details = ZKInterface.get_version_details(
+            app, DEFAULT_SERVICE, DEFAULT_VERSION)
           Djinn.log_info("Starting AppServer for app: #{app}.")
-          ret = add_appserver_process(app, @app_info_map[app]['nginx'],
-            @app_info_map[app]['language'])
+          ret = add_appserver_process(
+            app, version_details['appscaleExtensions']['httpPort'],
+            version_details['runtime'])
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
         elsif !to_end[0].nil?
           Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
@@ -5177,45 +5140,20 @@ HOSTS
 
     # Let's create an entry for the application if we don't already have it.
     @app_info_map[app] = {} if @app_info_map[app].nil?
-    @app_info_map[app]['language'] = get_app_language(app)
 
-    # Use already assigned ports, or otherwise assign new ports to the
-    # application.
-    if @app_info_map[app]['nginx'].nil?
-      @app_info_map[app]['nginx'] = find_lowest_free_port(
-        Nginx::START_PORT, Nginx::END_PORT)
-    end
-    if @app_info_map[app]['nginx_https'].nil?
-      @app_info_map[app]['nginx_https'] = find_lowest_free_port(
-        Nginx.get_ssl_port_for_app(Nginx::START_PORT),
-        Nginx.get_ssl_port_for_app(Nginx::END_PORT))
-    end
-    if @app_info_map[app]['haproxy'].nil?
-      @app_info_map[app]['haproxy'] = find_lowest_free_port(
-        HAProxy::START_PORT)
-    end
     if @app_info_map[app]['appengine'].nil?
       @app_info_map[app]['appengine'] = []
     end
-    if !@app_info_map[app]['nginx'] or
-        !@app_info_map[app]['nginx_https'] or
-        !@app_info_map[app]['haproxy']
-      # Free possibly allocated ports and return an error if we couldn't
-      # get all ports.
-      @app_info_map[app]['nginx'] = nil
-      @app_info_map[app]['nginx_https'] = nil
-      @app_info_map[app]['haproxy'] = nil
-      Djinn.log_error("Cannot find an available port for application #{app}")
-      return
-    end
     Djinn.log_debug("setup_appengine_application: info for #{app}: #{@app_info_map[app]}.")
 
-    nginx_port = @app_info_map[app]['nginx']
-    https_port = @app_info_map[app]['nginx_https']
-    proxy_port = @app_info_map[app]['haproxy']
+    version_details = ZKInterface.get_version_details(
+      app, DEFAULT_SERVICE, DEFAULT_VERSION)
+    nginx_port = version_details['appscaleExtensions']['httpPort']
+    https_port = version_details['appscaleExtensions']['httpsPort']
+    proxy_port = version_details['appscaleExtensions']['haproxyPort']
 
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
-    HelperFunctions.write_file(port_file, "#{@app_info_map[app]['nginx']}")
+    HelperFunctions.write_file(port_file, nginx_port.to_s)
     Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
       "https port #{https_port}, and haproxy port #{proxy_port}")
 
@@ -5234,7 +5172,7 @@ HOSTS
       HelperFunctions.shell("service rsyslog restart")
     end
     begin
-      start_xmpp_for_app(app, @app_info_map[app]['language'])
+      start_xmpp_for_app(app, version_details['runtime'])
     rescue FailedNodeException
       Djinn.log_warn("Failed to start xmpp for application #{app}")
     end
@@ -5272,17 +5210,6 @@ HOSTS
         # If appid is defined, let's ignore its ports.
         next if app == appid
 
-        # Make sure we have the variables to look into: if we catch an app
-        # early on, it may not have them.
-        %w(nginx nginx_https haproxy).each { |key|
-          next unless info[key]
-          begin
-            in_use = true if possibly_free_port == Integer(info[key])
-          rescue ArgumentError
-            next
-          end
-        }
-
         # These ports are allocated on the AppServers nodes.
         if info['appengine']
           info['appengine'].each { |location|
@@ -5319,7 +5246,7 @@ HOSTS
   #   start for lack of resources.
   def scale_appservers
     needed_appservers = 0
-    @apps_loaded.each { |app_name|
+    ZKInterface.get_app_names.each { |app_name|
       initialize_scaling_info_for_app(app_name)
 
       # Get the desired changes in the number of AppServers.
@@ -5553,9 +5480,12 @@ HOSTS
   #     means we want more, a negative that we want to remove some, and 0
   #     for no changes).
   def get_scaling_info_for_app(app_name)
-    if @app_info_map[app_name].nil? || !@app_names.include?(app_name)
-      Djinn.log_info("Not scaling app #{app_name}, since we aren't " +
-        "hosting it anymore.")
+    begin
+      version_details = ZKInterface.get_version_details(
+        app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound
+      Djinn.log_info("Not scaling app #{app_name} since we aren't " +
+                     'hosting it anymore.')
       return 0
     end
 
@@ -5566,8 +5496,10 @@ HOSTS
     else
       num_appengines = @app_info_map[app_name]['appengine'].length
     end
-    min = @app_info_map[app_name]['min_appengines']
-    min = Integer(@options['appengine']) if min.nil?
+
+    scaling_params = version_details.fetch('automaticScaling', {})
+    min = scaling_params.fetch('minTotalInstances',
+                               Integer(@options['appengine']))
     if num_appengines < min
       Djinn.log_info("#{app_name} needs #{min - num_appengines} more AppServers.")
       @last_decision[app_name] = 0
@@ -5725,8 +5657,13 @@ HOSTS
 
       # We need to keep track of the theoretical max memory used by all
       # the AppServervers.
-      max_app_mem = @app_info_map[appid]['max_memory']
-      max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
+      version_details = ZKInterface.get_version_details(
+        appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+      max_app_mem = Integer(@options['max_memory'])
+      if version_details.key?('instanceClass')
+        instance_class = version_details['instanceClass'].to_sym
+        max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
+      end
 
       app_info['appengine'].each { |location|
         host, _ = location.split(":")
@@ -5746,8 +5683,13 @@ HOSTS
     }
 
     # Get the memory limit for this application.
-    max_app_mem = @app_info_map[app_name]['max_memory']
-    max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
+    version_details = ZKInterface.get_version_details(
+      app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+    max_app_mem = Integer(@options['max_memory'])
+    if version_details.key?('instanceClass')
+      instance_class = version_details['instanceClass'].to_sym
+      max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
+    end
 
     # Let's consider the last system load readings we have, to see if the
     # node can run another AppServer.
@@ -5847,8 +5789,11 @@ HOSTS
   def try_to_scale_down(app_name, delta_appservers)
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum.
-    min = @app_info_map[app_name]['min_appengines']
-    min = Integer(@options['appengine']) if min.nil?
+    version_details = ZKInterface.get_version_details(
+      app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+    scaling_params = version_details.fetch('automaticScaling', {})
+    min = scaling_params.fetch('minTotalInstances',
+                               Integer(@options['appengine']))
     if @app_info_map[app_name]['appengine'].length <= min
       Djinn.log_debug("We are already at the minimum number of AppServers for #{app_name}.")
       return false
@@ -5984,8 +5929,14 @@ HOSTS
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
-      max_app_mem = @app_info_map[app]['max_memory']
-      max_app_mem = Integer(@options['max_memory']) if max_app_mem.nil?
+      version_details = ZKInterface.get_version_details(
+        app, DEFAULT_SERVICE, DEFAULT_VERSION)
+      max_app_mem = Integer(@options['max_memory'])
+      if version_details.key?('instanceClass')
+        instance_class = version_details['instanceClass'].to_sym
+        max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
+      end
+
       pid = app_manager.start_app(app, appengine_port, login_ip,
         app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
         get_shadow.private_ip)
@@ -6080,7 +6031,6 @@ HOSTS
     Nginx.reload()
 
     APPS_LOCK.synchronize {
-      @app_names = []
       @apps_loaded = []
     }
   end
@@ -6216,6 +6166,13 @@ HOSTS
             next
           end
 
+          begin
+            version_details = ZKInterface.get_version_details(
+              app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+          rescue VersionNotFound
+            next
+          end
+
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
           total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(app_name)
@@ -6238,11 +6195,11 @@ HOSTS
               }
             end
             node_stats["apps"][app_name] = {
-              "language" => @app_info_map[app_name]["language"].tr('^A-Za-z', ''),
+              "language" => version_details['runtime'].tr('^A-Za-z', ''),
               "appservers" => appservers,
               "pending_appservers" => pending,
-              "http" => @app_info_map[app_name]["nginx"],
-              "https" => @app_info_map[app_name]["nginx_https"],
+              "http" => version_details['appscaleExtensions']['httpPort'],
+              "https" => version_details['appscaleExtensions']['httpsPort'],
               "total_reqs" => total_reqs,
               "reqs_enqueued" => reqs_enqueued
             }

@@ -29,9 +29,7 @@ module AppDashboard
   APP_LANGUAGE = "python27"
 
 
-  # Starts the AppDashboard on this machine. Does not configure or start nginx
-  # or haproxy, which are needed to load balance traffic to the AppDashboard
-  # instances we start here.
+  # Prepares the dashboard's source archive.
   #
   # Args:
   #   public_ip: This machine's public IP address or FQDN.
@@ -40,8 +38,8 @@ module AppDashboard
   #   secret: A String that is used to authenticate this application with
   #     other AppScale services.
   # Returns:
-  #   true if the AppDashboard was started successfully, and false otherwise.
-  def self.start(public_ip, private_ip, persistent_storage, secret)
+  #   A string specifying the location of the prepared archive.
+  def self.prep(public_ip, private_ip, persistent_storage, secret)
 
     # Pass the secret key and our public IP address (needed to connect to the
     # AppController) to the app.
@@ -65,7 +63,7 @@ module AppDashboard
 
     Djinn.log_debug("Done setting dashboard.")
 
-    return true
+    return app_location
   end
 
 

@@ -123,3 +123,19 @@ class DeleteVersionOperation(Operation):
     """ Marks the operation as completed. """
     self.response = {'@type': Types.EMPTY}
     self.done = True
+
+
+class UpdateVersionOperation(Operation):
+  """ A container that keeps track of UpdateVersion operations. """
+
+  def __init__(self, project_id, service_id, version):
+    """ Creates a new UpdateVersionOperation.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version: A dictionary containing verision details.
+    """
+    super(UpdateVersionOperation, self).__init__(
+      project_id, service_id, version)
+    self.method = Methods.UPDATE_VERSION
