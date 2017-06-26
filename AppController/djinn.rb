@@ -3656,8 +3656,6 @@ class Djinn
     Djinn.log_info("API services have started on this node")
 
     # Start Hermes with integrated stats service
-    Djinn.log_info("Updating Hermes.")
-    `pip install --upgrade --no-deps /root/appscale/Hermes`
     start_hermes()
 
     # Leader node starts additional services.
