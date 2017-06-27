@@ -108,18 +108,18 @@ class ClusterNodesStatsSource(ClusterStatsSource):
   ips_getter = staticmethod(appscale_info.get_all_ips)
   method_path = 'stats/local/node'
   stats_model = node_stats.NodeStatsSnapshot
-  local_stats_source = node_stats.NodeStatsSource()
+  local_stats_source = node_stats.NodeStatsSource
 
 
 class ClusterProcessesStatsSource(ClusterStatsSource):
   ips_getter = staticmethod(appscale_info.get_all_ips)
   method_path = 'stats/local/processes'
   stats_model = process_stats.ProcessesStatsSnapshot
-  local_stats_source = process_stats.ProcessesStatsSource()
+  local_stats_source = process_stats.ProcessesStatsSource
 
 
 class ClusterProxiesStatsSource(ClusterStatsSource):
   ips_getter = staticmethod(appscale_info.get_load_balancer_ips)
   method_path = 'stats/local/proxies'
   stats_model = proxy_stats.ProxiesStatsSnapshot
-  local_stats_source = proxy_stats.ProxiesStatsSource()
+  local_stats_source = proxy_stats.ProxiesStatsSource

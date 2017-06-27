@@ -62,18 +62,18 @@ def get_local_stats_api_routes(is_lb_node):
   # Any node provides its node and processes stats
   local_node_stats_handler =  HandlerInfo(
     handler_class=CurrentStatsHandler,
-    init_kwargs={'source': NodeStatsSource(),
+    init_kwargs={'source': NodeStatsSource,
                  'default_include_lists': DEFAULT_INCLUDE_LISTS})
   local_processes_stats_handler = HandlerInfo(
     handler_class=CurrentStatsHandler,
-    init_kwargs={'source': ProcessesStatsSource(),
+    init_kwargs={'source': ProcessesStatsSource,
                  'default_include_lists': DEFAULT_INCLUDE_LISTS})
 
   if is_lb_node:
     # Only LB nodes provide proxies stats
     local_proxies_stats_handler = HandlerInfo(
       handler_class=CurrentStatsHandler,
-      init_kwargs={'source': ProxiesStatsSource(),
+      init_kwargs={'source': ProxiesStatsSource,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
   else:

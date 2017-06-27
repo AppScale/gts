@@ -269,9 +269,9 @@ def get_stats():
 class ProxiesStatsSource(object):
 
   first_run = True
-  last_debug = 0
 
-  def get_current(self):
+  @staticmethod
+  def get_current():
     """ Method which parses haproxy stats and returns detailed
     proxy statistics for all proxies.
 

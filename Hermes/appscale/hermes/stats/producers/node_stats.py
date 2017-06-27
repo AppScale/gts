@@ -101,7 +101,8 @@ class NodeStatsSnapshot(object):
 
 class NodeStatsSource(object):
 
-  def get_current(self):
+  @staticmethod
+  def get_current():
     """ Method for building an instance of NodeStatsSnapshot.
     It collects information about usage of main resource on the machine.
 

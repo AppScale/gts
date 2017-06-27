@@ -105,7 +105,8 @@ PROCESS_ATTRS = (
 
 class ProcessesStatsSource(object):
 
-  def get_current(self):
+  @staticmethod
+  def get_current():
     """ Method for building a list of ProcessStats.
     It parses output of `monit status` and generates ProcessStats object
     for each monitored service.
