@@ -25,7 +25,7 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'node': ['utc_timestamp', 'cpu', 'memory',
            'partitions_dict', 'loadavg'],
   'node.cpu': ['percent', 'count'],
-  'node.memory': ['available'],
+  'node.memory': ['available', 'total'],
   'node.partition': ['free', 'used'],
   'node.loadavg': ['last_5min'],
   # Processes stats
@@ -36,7 +36,7 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'process.children_stats_sum': ['cpu', 'memory'],
   # Proxies stats
   'proxy': ['name', 'unified_service_name', 'application_id',
-            'frontend', 'backend'],
+            'frontend', 'backend', 'servers_count'],
   'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
   'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
 })

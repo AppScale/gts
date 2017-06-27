@@ -228,6 +228,8 @@ class ProxyStats(object):
   backend = attr.ib(metadata={Meta.ENTITY: HAProxyBackendStats})
   servers = attr.ib(metadata={Meta.ENTITY_LIST: HAProxyServerStats})
   listeners = attr.ib(metadata={Meta.ENTITY_LIST: HAProxyListenerStats})
+  servers_count = attr.ib()  # number of servers serving this proxy
+  listeners_count = attr.ib()  # number of listeners serving this proxy
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -342,7 +344,8 @@ class ProxiesStatsSource(object):
       proxy_stats = ProxyStats(
         name=proxy_name, unified_service_name=service_name,
         application_id=application_id, frontend=frontends[0],
-        backend=backends[0], servers=servers, listeners=listeners
+        backend=backends[0], servers=servers, listeners=listeners,
+        servers_count=len(servers), listeners_count=len(listeners)
       )
       proxy_stats_list.append(proxy_stats)
 
