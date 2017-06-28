@@ -592,10 +592,6 @@ class VersionHandler(BaseHandler):
 
     http_port = version['appscaleExtensions']['httpPort']
     https_port = version['appscaleExtensions']['httpsPort']
-    port_file_location = os.path.join(
-      CONFIG_DIR, 'port-{}.txt'.format(project_id))
-    with open(port_file_location, 'w') as port_file:
-      port_file.write(str(http_port))
 
     try:
       self.ua_client.add_instance(project_id, options.login_ip, http_port,
