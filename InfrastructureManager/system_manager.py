@@ -141,9 +141,6 @@ class SystemManager():
       tokens = line.split()
       if 'Process' in tokens:
         process_name = tokens[1][1:-1] # Remove quotes.
-        # Only keep the service port to identify distinct app servers.
-        if not process_name.startswith("app___"):
-          process_name = process_name[:process_name.rfind("-")]
         process_status = ' '.join(tokens[2:]).lower()
         monit_stats_dict[process_name] = process_status
     logging.debug("Monit stats: {}".format(monit_stats_dict))
