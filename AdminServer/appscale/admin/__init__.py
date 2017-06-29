@@ -433,7 +433,7 @@ class VersionsHandler(BaseHandler):
         version['deployment']['zip']['sourceUrl'])
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
-    new_path = utils.claim_ownership_of_source(project_id, service_id, version)
+    new_path = utils.rename_source_archive(project_id, service_id, version)
     version['deployment']['zip']['sourceUrl'] = new_path
     self.identify_as_hoster(project_id, new_path)
     utils.remove_old_archives(project_id, service_id, version)

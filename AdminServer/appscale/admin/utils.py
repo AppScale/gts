@@ -238,13 +238,15 @@ def port_is_open(host, port):
   return result == 0
 
 
-def claim_ownership_of_source(project_id, service_id, version):
+def rename_source_archive(project_id, service_id, version):
   """ Renames the given source archive to keep track of it.
 
   Args:
     project_id: A string specifying a project ID.
     service_id: A string specifying a service ID.
     version: A dictionary containing version details.
+  Returns:
+    A string specifying the new location of the archive.
   """
   new_filename = VERSION_PATH_SEPARATOR.join(
     [project_id, service_id, version['id'],
