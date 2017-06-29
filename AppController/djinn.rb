@@ -5525,7 +5525,7 @@ HOSTS
         return 0
       end
       appservers_to_scale = calculate_appservers_needed(
-        num_appengines, current_sessions, allow_concurrency)
+        num_appengines, current_sessions + total_req_in_queue, allow_concurrency)
       Djinn.log_debug("The deployment has reached its maximum load threshold for " +
         "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers.")
       return appservers_to_scale
@@ -5536,7 +5536,7 @@ HOSTS
         return 0
       end
       appservers_to_scale = calculate_appservers_needed(
-        num_appengines, current_sessions, allow_concurrency)
+        num_appengines, current_sessions + total_req_in_queue, allow_concurrency)
       Djinn.log_debug("The deployment is below its minimum load threshold for " +
         "app #{app_name} - Advising that we scale down #{appservers_to_scale.abs} AppServers.")
       return appservers_to_scale
@@ -5571,15 +5571,16 @@ HOSTS
   #
   # Args:
   #   num_appengines: The total number of AppServers running for the app.
-  #   curr_sessions: The number of current sessions from HAProxy stats.
+  #   total_requests: The total number of requests (running and queued)
+  #     from HAProxy stats.
   #   allow_concurrency: A boolean indicating that AppServers can handle
   #     concurrent connections.
   # Returns:
   #   A number indicating the number of additional AppServers to be scaled up.
-  def calculate_appservers_needed(num_appengines, curr_sessions,
+  def calculate_appservers_needed(num_appengines, total_requests,
                                   allow_concurrency)
     max_conn = allow_concurrency ? HAProxy::MAX_APPSERVER_CONN : 1
-    desired_appservers = curr_sessions.to_f / (DESIRED_LOAD * max_conn)
+    desired_appservers = total_requests.to_f / (DESIRED_LOAD * max_conn)
     appservers_to_scale = desired_appservers.round - num_appengines
     return appservers_to_scale
   end
