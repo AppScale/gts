@@ -5520,10 +5520,6 @@ HOSTS
     current_load = calculate_current_load(num_appengines, current_sessions,
                                           allow_concurrency)
     if current_load >= MAX_LOAD_THRESHOLD
-      if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
-        Djinn.log_debug("Not enough time has passed to scale up app #{app_name}")
-        return 0
-      end
       appservers_to_scale = calculate_appservers_needed(
         num_appengines, current_sessions, allow_concurrency)
       Djinn.log_debug("The deployment has reached its maximum load threshold for " +
