@@ -5789,8 +5789,11 @@ HOSTS
 
     # Make sure we leave at least the minimum number of AppServers
     # running.
-    max_delta = @app_info_map[app_name]['appengine'].length  - min
-    num_to_remove = min(max_delta, delta_appservers)
+    if delta_appservers > @app_info_map[app_name]['appengine'].length + min
+      num_to_remove = @app_info_map[app_name]['appengine'].length - min
+    else
+      num_to_remove = delta_appservers
+    end
 
     # Let's pick the latest appengine node hosting the application and
     # remove the AppServer there, so we can try to reclaim it once it's
