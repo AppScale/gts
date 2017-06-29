@@ -16,6 +16,11 @@ from ..dbconstants import KEY_DELIMITER
 from ..dbconstants import KIND_SEPARATOR
 
 
+class NoSampleKeys(Exception):
+  """ Indicates that nodetool did not provide any key samples. """
+  pass
+
+
 def is_entity(key):
   """ Determines whether a given string is an entity key.
 
@@ -127,6 +132,9 @@ def main():
   args = parser.parse_args()
 
   keys = get_sample()
+  if not keys:
+    raise NoSampleKeys('There are no key samples available on this machine.')
+
   kind_averages = get_kind_averages(keys)
 
   for key_dict in keys:

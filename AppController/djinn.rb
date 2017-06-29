@@ -5245,6 +5245,8 @@ HOSTS
   def scale_appservers
     needed_appservers = 0
     ZKInterface.get_app_names.each { |app_name|
+      next unless @apps_loaded.include?(app_name)
+
       initialize_scaling_info_for_app(app_name)
 
       # Get the desired changes in the number of AppServers.
