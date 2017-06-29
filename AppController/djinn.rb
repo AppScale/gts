@@ -1462,11 +1462,12 @@ class Djinn
         "write_proxies_stats_log", "proxies_stats_log_interval",
         "write_detailed_processes_stats_log", "write_detailed_proxies_stats_log"
       ]
-      if hermes_profiling_flags.include?(key)
-        Thread.new {
-          stop_hermes()
-          start_hermes()
-        }
+      if hermes_profiling_flags.include? key
+        if key.include? nodes
+
+        elsif key.include? processes
+        elsif key.include? proxies
+        endif
       end
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
@@ -3777,17 +3778,7 @@ class Djinn
   def start_hermes()
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    HermesService.start(
-      @options['verbose'].downcase == 'true',
-      @options["write_nodes_stats_log"].downcase == 'true',
-      @options["nodes_stats_log_interval"],
-      @options["write_processes_stats_log"].downcase == 'true',
-      @options["processes_stats_log_interval"],
-      @options["write_proxies_stats_log"].downcase == 'true',
-      @options["proxies_stats_log_interval"],
-      @options["write_detailed_processes_stats_log"].downcase == 'true',
-      @options["write_detailed_proxies_stats_log"].downcase == 'true'
-    )
+    HermesService.start(@options['verbose'].downcase == 'true')
     Djinn.log_info("Done starting Hermes service.")
   end
 

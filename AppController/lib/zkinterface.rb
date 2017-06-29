@@ -218,7 +218,7 @@ class ZKInterface
       @@zk.create(:path => APPCONTROLLER_LOCK_PATH,  :ephemeral => EPHEMERAL,
                   :data => @@client_ip)
     }
-    if info[:rc].zero? 
+    if info[:rc].zero?
       return true
     else # we couldn't get the lock for some reason
       Djinn.log_warn("Couldn't get the AppController lock, saw info " +
@@ -234,7 +234,7 @@ class ZKInterface
     self.delete(APPCONTROLLER_LOCK_PATH)
   end
 
-  
+
   # This method provides callers with an easier way to read and write to
   # AppController data in ZooKeeper. This is useful for methods that aren't
   # sure if they already have the ZooKeeper lock or not, but definitely need
@@ -260,7 +260,7 @@ class ZKInterface
         owner = JSON.load(info[:data])
         if @@client_ip == owner
           got_lock = false
-        else 
+        else
           raise "Tried to get the lock, but it's currently owned by #{owner}."
         end
       end
@@ -292,7 +292,7 @@ class ZKInterface
     return JSON.load(self.get(IP_LIST))
   end
 
-  
+
   # Add the given IP to the list of IPs that we store in ZooKeeper. If the IPs
   # file doesn't exist in ZooKeeper, create it and add in the given IP address.
   # We also update the timestamp associated with this list so that others know
@@ -383,7 +383,7 @@ class ZKInterface
     # Create the folder for all nodes if it doesn't exist.
     unless self.exists?(APPCONTROLLER_NODE_PATH)
       self.run_zookeeper_operation {
-        @@zk.create(:path => APPCONTROLLER_NODE_PATH, 
+        @@zk.create(:path => APPCONTROLLER_NODE_PATH,
           :ephemeral => NOT_EPHEMERAL, :data => DUMMY_DATA)
       }
     end
@@ -391,7 +391,7 @@ class ZKInterface
     # Create the folder for this node.
     my_ip_path = "#{APPCONTROLLER_NODE_PATH}/#{node.private_ip}"
     self.run_zookeeper_operation {
-      @@zk.create(:path => my_ip_path, :ephemeral => NOT_EPHEMERAL, 
+      @@zk.create(:path => my_ip_path, :ephemeral => NOT_EPHEMERAL,
         :data => DUMMY_DATA)
     }
 
@@ -434,18 +434,18 @@ class ZKInterface
     end
   end
 
-  
+
   # Writes the ephemeral link in ZooKeeper that represents a given node
   # being alive. Callers should only use this method to indicate that their
   # own node is alive, and not do it on behalf of other nodes.
   def self.set_live_node_ephemeral_link(ip)
     self.run_zookeeper_operation {
-      @@zk.create(:path => "#{APPCONTROLLER_NODE_PATH}/#{ip}/live", 
+      @@zk.create(:path => "#{APPCONTROLLER_NODE_PATH}/#{ip}/live",
         :ephemeral => EPHEMERAL, :data => DUMMY_DATA)
     }
   end
 
-  
+
   # Provides a convenience function that callers can use to indicate that their
   # node is done loading (if they have finished starting/stopping roles), or is
   # not done loading (if they have roles they need to start or stop).
@@ -469,7 +469,7 @@ class ZKInterface
 
 
   def self.set_job_data_for_ip(ip, job_data)
-    return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data", 
+    return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data",
       JSON.dump(job_data), NOT_EPHEMERAL)
   end
 
@@ -500,6 +500,18 @@ class ZKInterface
     return JSON.load(version_details_json)
   end
 
+
+  def self.update_hermes_nodes_profiling_conf(is_enabled, interval)
+    configs_node = "/appscale/hermes/stats-profiling/nodes"
+    begin
+      configs = JSON.dump({
+        "enabled" => is_enabled,
+        "interval" => interval
+      })
+      self.set(configs_node, configs)
+    rescue FailedZooKeeperOperationException
+      ???
+    end
 
   def self.run_zookeeper_operation(&block)
     begin
