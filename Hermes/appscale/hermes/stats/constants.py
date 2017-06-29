@@ -12,6 +12,11 @@ PROFILE_LOG_DIR = '/var/log/appscale/profile'
 # Stats which were produce less than X seconds ago is considered as current
 ACCEPTABLE_STATS_AGE = 10
 
+# The ZooKeeper location for storing Hermes configurations
+NODES_STATS_CONFIGS_NODE = '/appscale/hermes/stats-profiling/nodes'
+PROCESSES_STATS_CONFIGS_NODE = '/appscale/hermes/stats-profiling/processes'
+PROXIES_STATS_CONFIGS_NODE = '/appscale/hermes/stats-profiling/proxies'
+
 
 class _MissedValue(object):
   """

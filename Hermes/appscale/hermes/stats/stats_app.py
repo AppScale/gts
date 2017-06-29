@@ -1,4 +1,5 @@
 """ Module responsible for configuring Stats API and stats profiling. """
+import json
 import time
 from datetime import datetime
 
@@ -6,7 +7,17 @@ import attr
 from tornado.ioloop import PeriodicCallback, IOLoop
 
 from appscale.hermes.handlers import Respond404Handler
-from appscale.hermes.stats import profile
+from appscale.hermes.stats.constants import (
+  NODES_STATS_CONFIGS_NODE,
+  PROCESSES_STATS_CONFIGS_NODE,
+  PROXIES_STATS_CONFIGS_NODE,
+  PROFILE_NODES_STATS_INTERVAL,
+  PROFILE_PROCESSES_STATS_INTERVAL,
+  PROFILE_PROXIES_STATS_INTERVAL
+)
+from appscale.hermes.stats.profile import (
+  NodesProfileLog, ProcessesProfileLog, ProxiesProfileLog
+)
 from appscale.hermes.stats.converter import IncludeLists
 from appscale.hermes.stats.handlers import (
   CurrentStatsHandler, CurrentClusterStatsHandler
@@ -142,6 +153,86 @@ def get_cluster_stats_api_routes(is_master):
   ]
 
 
+class ProfilingManager(object):
+  def __init__(self, zk_client):
+    self.nodes_profile_log = None
+    self.processes_profile_log = None
+    self.proxies_profile_log = None
+    self.nodes_profile_task = None
+    self.processes_profile_task = None
+    self.proxies_profile_task = None
+    zk_client.DataWatch(
+      NODES_STATS_CONFIGS_NODE, self.update_nodes_profiling_conf
+    )
+    zk_client.DataWatch(
+      PROCESSES_STATS_CONFIGS_NODE, self.update_processes_profiling_conf
+    )
+    zk_client.DataWatch(
+      PROXIES_STATS_CONFIGS_NODE, self.update_proxies_profiling_conf
+    )
+
+  def update_nodes_profiling_conf(self, new_conf, znode_stat):
+    conf = json.loads(new_conf)
+    enabled = conf.get("enabled")
+    interval = conf.get("interval") or PROFILE_NODES_STATS_INTERVAL
+    if enabled:
+      if not self.nodes_profile_log:
+        self.nodes_profile_log = NodesProfileLog(DEFAULT_INCLUDE_LISTS)
+      if self.nodes_profile_task:
+        self.nodes_profile_task.stop()
+      self.nodes_profile_task = _configure_profiling(
+        stats_source=ClusterNodesStatsSource(),
+        profiler=self.nodes_profile_log,
+        interval=interval
+      )
+      self.nodes_profile_task.start()
+    elif self.nodes_profile_task:
+      self.nodes_profile_task.stop()
+      self.nodes_profile_task = None
+
+  def update_processes_profiling_conf(self, new_conf, znode_stat):
+    conf = json.loads(new_conf)
+    enabled = conf.get("enabled")
+    interval = conf.get("interval") or PROFILE_PROCESSES_STATS_INTERVAL
+    detailed = conf.get("detailed")
+    if enabled:
+      if not self.processes_profile_log:
+        self.processes_profile_log = ProcessesProfileLog(DEFAULT_INCLUDE_LISTS)
+      self.processes_profile_log.write_detailed_stats = detailed
+      if self.processes_profile_task:
+        self.processes_profile_task.stop()
+      self.processes_profile_task = _configure_profiling(
+        stats_source=ClusterProcessesStatsSource(),
+        profiler=self.processes_profile_log,
+        interval=interval
+      )
+      self.processes_profile_task.start()
+    elif self.processes_profile_task:
+      self.processes_profile_task.stop()
+      self.processes_profile_task = None
+
+  def update_proxies_profiling_conf(self, new_conf, znode_stat):
+    conf = json.loads(new_conf)
+    enabled = conf.get("enabled")
+    interval = conf.get("interval") or PROFILE_PROXIES_STATS_INTERVAL
+    detailed = conf.get("detailed")
+    if enabled:
+      if not self.proxies_profile_log:
+        self.proxies_profile_log = ProxiesProfileLog(DEFAULT_INCLUDE_LISTS)
+      self.proxies_profile_log.write_detailed_stats = detailed
+      if self.proxies_profile_task:
+        self.proxies_profile_task.stop()
+      self.proxies_profile_task = _configure_profiling(
+        stats_source=ClusterProxiesStatsSource(),
+        profiler=self.proxies_profile_log,
+        interval=interval
+      )
+      self.proxies_profile_task.start()
+    elif self.proxies_profile_task:
+      self.proxies_profile_task.stop()
+      self.proxies_profile_task = None
+
+
 def _configure_profiling(stats_source, profiler, interval):
 
   def write_stats_callback(future_stats):
@@ -162,54 +253,4 @@ def _configure_profiling(stats_source, profiler, interval):
     future_stats = stats_source.get_current_async(newer_than=newer_than)
     IOLoop.current().add_future(future_stats, write_stats_callback)
 
-  PeriodicCallback(profiling_periodical_callback, interval).start()
-
-
-def configure_node_stats_profiling(interval):
-  """ Configures and starts periodical callback for collecting and than
-  writing cluster stats to profile log.
-
-  Args:
-    interval: An integer indicating interval between writes (in seconds).
-  """
-  _configure_profiling(
-    stats_source=ClusterNodesStatsSource(),
-    profiler=profile.NodesProfileLog(DEFAULT_INCLUDE_LISTS),
-    interval=interval
-  )
-
-
-def configure_processes_stats_profiling(interval, write_detailed_stats):
-  """ Configures and starts periodical callback for collecting and than
-  writing cluster stats to profile log.
-
-  Args:
-    interval: An integer indicating interval between writes (in seconds).
-    write_detailed_stats: A boolean indicating whether detailed stats.
-      should be written.
-  """
-  _configure_profiling(
-    stats_source=ClusterProcessesStatsSource(),
-    profiler= profile.ProcessesProfileLog(
-      include_lists=DEFAULT_INCLUDE_LISTS,
-      write_detailed_stats=write_detailed_stats),
-    interval=interval
-  )
-
-
-def configure_proxies_stats_profiling(interval, write_detailed_stats):
-  """ Configures and starts periodical callback for collecting and than
-  writing cluster stats to profile log.
-
-  Args:
-    interval: An integer indicating interval between writes (in seconds).
-    write_detailed_stats: A boolean indicating whether detailed stats
-      should be written.
-  """
-  _configure_profiling(
-    stats_source=ClusterProxiesStatsSource(),
-    profiler= profile.ProxiesProfileLog(
-      include_lists=DEFAULT_INCLUDE_LISTS,
-      write_detailed_stats=write_detailed_stats),
-    interval=interval
-  )
+  return PeriodicCallback(profiling_periodical_callback, interval)

@@ -85,7 +85,7 @@ class ProcessesProfileLog(object):
     children_unique_mem = attr.ib(default=0)
     instances = attr.ib(default=0)
 
-  def __init__(self, include_lists=None, write_detailed_stats=False):
+  def __init__(self, include_lists=None):
     """ Initializes profile log for cluster processes stats.
     Renders header according to include_lists in advance and
     creates base directory for processes stats profile log.
@@ -95,8 +95,6 @@ class ProcessesProfileLog(object):
     Args:
       include_lists: An instance of IncludeLists describing which fields
         of processes stats should be written to CSV log.
-      write_detailed_stats: A boolean determines if detailed stats about
-        each process should be written.
     """
     self._include_lists = include_lists
     self._header = (
@@ -104,7 +102,7 @@ class ProcessesProfileLog(object):
       + converter.get_stats_header(process_stats.ProcessStats,
                                    self._include_lists)
     )
-    self._write_detailed_stats = write_detailed_stats
+    self.write_detailed_stats = False
     helper.ensure_directory(PROFILE_LOG_DIR)
     self._summary_file_name_template = 'summary-{resource}.csv'
     self._summary_columns = self._get_summary_columns()
@@ -142,7 +140,7 @@ class ProcessesProfileLog(object):
         summary.children_unique_mem += proc.children_stats_sum.memory.unique
         summary.instances += 1
 
-      if not self._write_detailed_stats:
+      if not self.write_detailed_stats:
         continue
 
       # Write detailed process stats
@@ -263,7 +261,7 @@ class ProxiesProfileLog(object):
     bytes_in_out = attr.ib(default=0)
     errors = attr.ib(default=0)
 
-  def __init__(self, include_lists=None, write_detailed_stats=False):
+  def __init__(self, include_lists=None):
     """ Initializes profile log for cluster processes stats.
     Renders header according to include_lists in advance and
     creates base directory for processes stats profile log.
@@ -273,15 +271,13 @@ class ProxiesProfileLog(object):
     Args:
       include_lists: An instance of IncludeLists describing which fields
         of processes stats should be written to CSV log.
-      write_detailed_stats: A boolean determines if detailed stats about
-        each proxy should be written.
     """
     self._include_lists = include_lists
     self._header = (
       ['utc_timestamp']
        + converter.get_stats_header(proxy_stats.ProxyStats, self._include_lists)
     )
-    self._write_detailed_stats = write_detailed_stats
+    self.write_detailed_stats = False
     helper.ensure_directory(PROFILE_LOG_DIR)
     self._summary_file_name_template = 'summary-{property}.csv'
     self._summary_columns = self._get_summary_columns()
@@ -311,7 +307,7 @@ class ProxiesProfileLog(object):
         summary.bytes_in_out += proxy.frontend.bin + proxy.frontend.bout
         summary.errors += proxy.frontend.hrsp_4xx + proxy.frontend.hrsp_5xx
 
-      if not self._write_detailed_stats:
+      if not self.write_detailed_stats:
         continue
 
       # Write detailed proxy stats

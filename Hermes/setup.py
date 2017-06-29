@@ -12,6 +12,7 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common',
+    'kazoo',
     'tornado',
     'psutil==5.1.3',
     'attrs>=16',
