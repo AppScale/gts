@@ -246,7 +246,7 @@ def main():
 
     if args.write_nodes_log:
       stats_app.configure_node_stats_profiling(
-        interval=int(args.nodes_log_interval)
+        interval=args.nodes_log_interval
       )
     if args.write_processes_log or args.write_detailed_processes_log:
       stats_app.configure_processes_stats_profiling(
