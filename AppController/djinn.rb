@@ -5041,38 +5041,39 @@ HOSTS
     Djinn.log_debug("AppServers to terminate: #{to_end}.") unless to_end.empty?
 
     # Now we do the talking with the appmanagerserver. Since it may take
-    # some time to start/stop apps, we do this in a thread. We do one
-    # operation at a time since it is expensive and we want to
-    # re-evaluate.
+    # some time to start/stop apps, we do this in a thread. We take care
+    # of not letting this thread go past the duty cycle, to ensure we can
+    # re-evalute the priorities of what to start/stop.
     Thread.new {
       AMS_LOCK.synchronize {
-        # We then start or terminate AppServers as needed. We do it one a
-        # time since it's lengthy proposition and we want to revisit the
-        # decision each time.
-        if !no_appservers[0].nil?
-          app = no_appservers[0]
-          version_details = ZKInterface.get_version_details(
-            app, DEFAULT_SERVICE, DEFAULT_VERSION)
-          Djinn.log_info("Starting first AppServer for app: #{app}.")
-          ret = add_appserver_process(
-            app, version_details['appscaleExtensions']['httpPort'],
-            version_details['runtime'])
-          Djinn.log_debug("add_appserver_process returned: #{ret}.")
-        elsif !to_start[0].nil?
-          app = to_start[0]
-          version_details = ZKInterface.get_version_details(
-            app, DEFAULT_SERVICE, DEFAULT_VERSION)
-          Djinn.log_info("Starting AppServer for app: #{app}.")
-          ret = add_appserver_process(
-            app, version_details['appscaleExtensions']['httpPort'],
-            version_details['runtime'])
-          Djinn.log_debug("add_appserver_process returned: #{ret}.")
-        elsif !to_end[0].nil?
-          Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
-          app, port = to_end[0].split(":")
-          ret = remove_appserver_process(app, port)
-          @unaccounted.delete(to_end[0])
-          Djinn.log_debug("remove_appserver_process returned: #{ret}.")
+        # Work untill the next DUTY_CYCLE is up.
+        end_work = Time.now.to_i + DUTY_CYCLE - 1
+        while Time.now.to_i < end_work
+          if !no_appservers[0].nil?
+            app = no_appservers.shift
+            version_details = ZKInterface.get_version_details(
+              app, DEFAULT_SERVICE, DEFAULT_VERSION)
+            Djinn.log_info("Starting first AppServer for app: #{app}.")
+            ret = add_appserver_process(
+              app, version_details['appscaleExtensions']['httpPort'],
+              version_details['runtime'])
+            Djinn.log_debug("add_appserver_process returned: #{ret}.")
+          elsif !to_start[0].nil?
+            app = to_start.shift
+            version_details = ZKInterface.get_version_details(
+              app, DEFAULT_SERVICE, DEFAULT_VERSION)
+            Djinn.log_info("Starting AppServer for app: #{app}.")
+            ret = add_appserver_process(
+              app, version_details['appscaleExtensions']['httpPort'],
+              version_details['runtime'])
+            Djinn.log_debug("add_appserver_process returned: #{ret}.")
+          elsif !to_end[0].nil?
+            Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
+            app, port = to_end.shift.split(":")
+            ret = remove_appserver_process(app, port)
+            @unaccounted.delete(to_end[0])
+            Djinn.log_debug("remove_appserver_process returned: #{ret}.")
+          end
         end
       }
     }
