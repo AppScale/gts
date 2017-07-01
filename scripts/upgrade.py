@@ -85,6 +85,7 @@ if __name__ == "__main__":
                           total_entities)
     status = {'status': 'complete', 'message': 'Data layout upgrade complete'}
   except Exception as error:
+    logging.exception('Failed to upgrade AppScale')
     status = {'status': 'error', 'message': error.message}
     sys.exit()
   finally:
