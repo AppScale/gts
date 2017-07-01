@@ -84,9 +84,10 @@ class SystemManager():
 
     inner_disk_stats_dict = []
     for partition in psutil.disk_partitions(all=True):
-      disk_stats = psutil.disk_usage(partition.mountpoint)
       if partition.mountpoint not in MOUNTPOINT_WHITELIST:
         continue
+
+      disk_stats = psutil.disk_usage(partition.mountpoint)
       inner_disk_stats_dict.append({ partition.mountpoint : {
         JSONTags.TOTAL : disk_stats.total,
         JSONTags.FREE : disk_stats.free,
