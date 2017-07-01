@@ -18,6 +18,7 @@ from appscale.datastore.dbconstants import AppScaleDBError
 
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.constants import ZK_CASSANDRA_CONFIG
+from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 
 sys.path.append\
   (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))
@@ -67,8 +68,8 @@ if __name__ == "__main__":
                   makepath=True)
     start_cassandra(args.database, args.db_master, args.keyname, args.zookeeper)
     datastore_upgrade.wait_for_quorum(
-      args.keyname, len(args.database), args.replication)
-    db_access = datastore_upgrade.get_datastore()
+      args.keyname, args.db_master, len(args.database), args.replication)
+    db_access = DatastoreProxy(hosts=args.database)
 
     # Exit early if a data layout upgrade is not needed.
     if db_access.valid_data_version():
