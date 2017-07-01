@@ -3582,13 +3582,7 @@ class Djinn
       stop_backup_service
     end
 
-    if my_node.is_shadow?
-      threads << Thread.new {
-        start_admin_server
-      }
-    else
-      stop_admin_server
-    end
+    start_admin_server
 
     if my_node.is_memcache?
       threads << Thread.new {
@@ -4713,10 +4707,6 @@ HOSTS
     MonitInterface.start(:admin_server, start_cmd)
     Nginx.create_service_config('appscale-admin', my_node.private_ip,
                                 service_port, nginx_port)
-  end
-
-  def stop_admin_server
-    MonitInterface.stop(:admin_server)
   end
 
   def start_memcache()
