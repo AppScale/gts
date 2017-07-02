@@ -427,6 +427,11 @@ class DistributedTaskQueue():
     else:
       logger.info('Not reloading queues')
 
+    # Clean up connections from old celery objects.
+    for old_queue in cached_queues.values():
+      if isinstance(old_queue, PushQueue) and old_queue.celery is not None:
+        old_queue.celery.close()
+
     self.__queue_info_cache[app_id] = new_queues
 
     json_response = {'error': False}
