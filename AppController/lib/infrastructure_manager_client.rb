@@ -28,6 +28,10 @@ class InfrastructureManagerClient
   NO_TIMEOUT = 100000
 
 
+  # A constant that indicates the number of second to wait.
+  SMALL_WAIT = 3
+
+
   # A constant that callers can use to indicate that SOAP calls should be
   # retried if they fail (e.g., if the connection was refused).
   RETRY_ON_FAIL = true
@@ -208,7 +212,7 @@ class InfrastructureManagerClient
     loop {
       describe_result = describe_instances("reservation_id" => reservation_id)
       Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']} " +
-        "and vm_info is #{describe_result['vm_info']}.")
+        "and vm_info is #{describe_result['vm_info'].inspect}.")
 
       if describe_result["state"] == "running"
         vm_info = describe_result["vm_info"]
@@ -216,7 +220,7 @@ class InfrastructureManagerClient
       elsif describe_result["state"] == "failed"
         raise AppScaleException.new(describe_result["reason"])
       end
-      Kernel.sleep(10)
+      Kernel.sleep(SMALL_WAIT)
     }
 
     # ip:job:instance-id
