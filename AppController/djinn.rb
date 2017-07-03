@@ -2117,6 +2117,7 @@ class Djinn
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
         stats = JSON.parse(get_node_stats_json(secret))
+        Djinn.log_debug("Node stats: #{stats}")
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
@@ -6217,7 +6218,6 @@ HOSTS
     node_stats["public_ip"] = my_node.public_ip
     node_stats["private_ip"] = my_node.private_ip
     node_stats["roles"] = my_node.jobs or ["none"]
-    Djinn.log_debug("Node stats: #{node_stats}")
 
     return JSON.dump(node_stats)
   end
