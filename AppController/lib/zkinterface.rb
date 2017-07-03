@@ -503,15 +503,35 @@ class ZKInterface
 
   def self.update_hermes_nodes_profiling_conf(is_enabled, interval)
     configs_node = "/appscale/hermes/stats-profiling/nodes"
-    begin
-      configs = JSON.dump({
-        "enabled" => is_enabled,
-        "interval" => interval
-      })
-      self.set(configs_node, configs)
-    rescue FailedZooKeeperOperationException
-      ???
-    end
+    self.ensure_path(configs_node)
+    configs = JSON.dump({
+      "enabled" => is_enabled,
+      "interval" => interval
+    })
+    self.set(configs_node, configs)
+
+
+  def self.update_hermes_processes_profiling_conf(is_enabled, interval, is_detailed)
+    configs_node = "/appscale/hermes/stats-profiling/processes"
+    self.ensure_path(configs_node)
+    configs = JSON.dump({
+      "enabled" => is_enabled,
+      "interval" => interval,
+      "detailed" => is_detailed
+    })
+    self.set(configs_node, configs)
+
+
+  def self.update_hermes_proxies_profiling_conf(is_enabled, interval, is_detailed)
+    configs_node = "/appscale/hermes/stats-profiling/proxies"
+    self.ensure_path(configs_node)
+    configs = JSON.dump({
+      "enabled" => is_enabled,
+      "interval" => interval,
+      "detailed" => is_detailed
+    })
+    self.set(configs_node, configs)
+
 
   def self.run_zookeeper_operation(&block)
     begin
