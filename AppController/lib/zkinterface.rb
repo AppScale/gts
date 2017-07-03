@@ -508,7 +508,8 @@ class ZKInterface
       "enabled" => is_enabled,
       "interval" => interval
     })
-    self.set(configs_node, configs)
+    self.set(configs_node, configs, NOT_EPHEMERAL)
+  end
 
 
   def self.update_hermes_processes_profiling_conf(is_enabled, interval, is_detailed)
@@ -519,7 +520,8 @@ class ZKInterface
       "interval" => interval,
       "detailed" => is_detailed
     })
-    self.set(configs_node, configs)
+    self.set(configs_node, configs, NOT_EPHEMERAL)
+  end
 
 
   def self.update_hermes_proxies_profiling_conf(is_enabled, interval, is_detailed)
@@ -530,7 +532,8 @@ class ZKInterface
       "interval" => interval,
       "detailed" => is_detailed
     })
-    self.set(configs_node, configs)
+    self.set(configs_node, configs, NOT_EPHEMERAL)
+  end
 
 
   def self.run_zookeeper_operation(&block)

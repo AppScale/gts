@@ -1456,25 +1456,25 @@ class Djinn
 
       @options[key] = val
 
-      if if key.include? "stats_log"
-        if key.include? nodes
+      if key.include? "stats_log"
+        if key.include? "nodes"
           ZKInterface.update_hermes_nodes_profiling_conf(
             @options["write_nodes_stats_log"],
             @options["nodes_stats_log_interval"]
           )
-        elsif key.include? processes
+        elsif key.include? "processes"
           ZKInterface.update_hermes_processes_profiling_conf(
             @options["write_processes_stats_log"],
             @options["processes_stats_log_interval"],
             @options["write_detailed_processes_stats_log"]
           )
-        elsif key.include? proxies
+        elsif key.include? "proxies"
           ZKInterface.update_hermes_proxies_profiling_conf(
             @options["write_proxies_stats_log"],
             @options["proxies_stats_log_interval"],
             @options["write_detailed_proxies_stats_log"]
           )
-        endif
+        end
       end
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
