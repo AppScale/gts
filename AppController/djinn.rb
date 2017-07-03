@@ -4100,6 +4100,7 @@ class Djinn
     app_manager = "#{APPSCALE_HOME}/AppManager"
     app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
     controller = "#{APPSCALE_HOME}/AppController"
+    common = "#{APPSCALE_HOME}/common"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
     app_dashboard = "#{APPSCALE_HOME}/AppDashboard"
     scripts = "#{APPSCALE_HOME}/scripts"
@@ -4121,6 +4122,7 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
     HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
+    HelperFunctions.shell("rsync #{options} #{common}/* root@#{ip}:#{common}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
     if dest_node.is_appengine?
