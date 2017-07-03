@@ -2057,6 +2057,7 @@ class Djinn
       end
 
       write_database_info
+      update_port_files
       update_firewall
       write_zookeeper_locations
 
@@ -2982,6 +2983,32 @@ class Djinn
     tree = { :table => table, :replication => replication, :keyname => keyname }
     db_info_path = "#{APPSCALE_CONFIG_DIR}/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
+  end
+
+
+  def update_port_files()
+    ZKInterface.get_app_names.each { |project_id|
+      begin
+        version_details = ZKInterface.get_version_details(
+          project_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+      rescue VersionNotFound
+        next
+      end
+
+      http_port = version_details['appscaleExtensions']['httpPort']
+      port_file = "#{APPSCALE_CONFIG_DIR}/port-#{project_id}.txt"
+
+      begin
+        current_port = File.read(port_file).to_i
+        update_port = current_port != http_port
+      rescue Errno::ENOENT
+        update_port = true
+      end
+
+      if update_port
+        File.open(port_file, 'w') { |file| file.write("#{http_port}") }
+      end
+    }
   end
 
 
