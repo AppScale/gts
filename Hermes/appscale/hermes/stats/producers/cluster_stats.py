@@ -51,15 +51,25 @@ class ClusterStatsSource(object):
     start = time.time()
 
     # Do multiple requests asynchronously and wait for all results
-    stats_per_node = yield {
+    stats_or_error_per_node = yield {
       node_ip: self._stats_from_node_async(node_ip, newer_than, include_lists)
       for node_ip in self.ips_getter() if node_ip not in exclude_nodes
+    }
+    stats_per_node = {
+      ip: snapshot_or_err
+      for ip, snapshot_or_err in stats_or_error_per_node.iteritems()
+      if not isinstance(snapshot_or_err, str)
+    }
+    failures = {
+      ip: snapshot_or_err
+      for ip, snapshot_or_err in stats_or_error_per_node.iteritems()
+      if isinstance(snapshot_or_err, str)
     }
     logging.info("Fetched {stats} from {nodes} nodes in {elapsed:.1f}s."
                  .format(stats=self.stats_model.__name__,
                          nodes=len(stats_per_node),
                          elapsed=time.time() - start))
-    raise gen.Return(stats_per_node)
+    raise gen.Return((stats_per_node, failures))
 
   @gen.coroutine
   def _stats_from_node_async(self, node_ip, newer_than, include_lists):
@@ -103,7 +113,7 @@ class ClusterStatsSource(object):
           .format(url=url, code=response.code, reason=response.reason,
                   body=response.body)
         )
-      raise gen.Return(None)
+      raise gen.Return("{} {}".format(response.code, response.reason))
 
     try:
       snapshot = json.loads(response.body)

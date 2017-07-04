@@ -39,8 +39,10 @@ class CurrentStatsHandler(RequestHandler):
       try:
         include_lists = IncludeLists(include_lists)
       except WrongIncludeLists as err:
-        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
+        logging.warn("Bad request from {client} ({error})"
+                     .format(client=self.request.remote_ip, error=err))
         json.dump({'error': str(err)}, self)
+        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
         return
     else:
       include_lists = self._default_include_lists
@@ -82,8 +84,10 @@ class CurrentClusterStatsHandler(RequestHandler):
       try:
         include_lists = IncludeLists(include_lists)
       except WrongIncludeLists as err:
-        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
+        logging.warn("Bad request from {client} ({error})"
+                     .format(client=self.request.remote_ip, error=err))
         json.dump({'error': str(err)}, self)
+        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
         return
     else:
       include_lists = self._default_include_lists
@@ -103,16 +107,25 @@ class CurrentClusterStatsHandler(RequestHandler):
     else:
       fresh_local_snapshots = {}
 
-    snapshots = (
+    new_snapshots_dict, failures = (
       yield self._current_cluster_stats_source.get_current_async(
         newer_than=newer_than, include_lists=include_lists,
         exclude_nodes=fresh_local_snapshots.keys()
       )
     )
-    snapshots.update(fresh_local_snapshots)
+
+    # Put new snapshots to local cache
+    self._snapshots.update(new_snapshots_dict)
+
+    # Extend fetched snapshots dict with fresh local snapshots
+    new_snapshots_dict.update(fresh_local_snapshots)
+
     rendered_snapshots = {
       node_ip: stats_to_dict(snapshot, include_lists)
-      for node_ip, snapshot in snapshots.iteritems()
+      for node_ip, snapshot in new_snapshots_dict.iteritems()
     }
 
-    json.dump(rendered_snapshots, self)
+    json.dump({
+      "stats": rendered_snapshots,
+      "failures": failures
+    }, self)
