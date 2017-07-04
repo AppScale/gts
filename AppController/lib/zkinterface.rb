@@ -506,7 +506,7 @@ class ZKInterface
     self.ensure_path(configs_node)
     configs = JSON.dump({
       "enabled" => is_enabled,
-      "interval" => interval
+      "interval" => (interval.to_i unless interval.nil?)
     })
     self.set(configs_node, configs, NOT_EPHEMERAL)
   end
@@ -517,7 +517,7 @@ class ZKInterface
     self.ensure_path(configs_node)
     configs = JSON.dump({
       "enabled" => is_enabled,
-      "interval" => interval,
+      "interval" => (interval.to_i unless interval.nil?),
       "detailed" => is_detailed
     })
     self.set(configs_node, configs, NOT_EPHEMERAL)
@@ -529,7 +529,7 @@ class ZKInterface
     self.ensure_path(configs_node)
     configs = JSON.dump({
       "enabled" => is_enabled,
-      "interval" => interval,
+      "interval" => (interval.to_i unless interval.nil?),
       "detailed" => is_detailed
     })
     self.set(configs_node, configs, NOT_EPHEMERAL)

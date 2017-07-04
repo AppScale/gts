@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 
 import attr
+import logging
 from tornado.ioloop import PeriodicCallback, IOLoop
 
 from appscale.hermes.handlers import Respond404Handler
@@ -172,6 +173,10 @@ class ProfilingManager(object):
     )
 
   def update_nodes_profiling_conf(self, new_conf, znode_stat):
+    if not new_conf:
+      logging.debug("No node stats profiling configs are specified yet")
+      return
+    logging.info("New nodes stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
     enabled = conf.get("enabled")
     interval = conf.get("interval") or PROFILE_NODES_STATS_INTERVAL
@@ -191,6 +196,10 @@ class ProfilingManager(object):
       self.nodes_profile_task = None
 
   def update_processes_profiling_conf(self, new_conf, znode_stat):
+    if not new_conf:
+      logging.debug("No processes stats profiling configs are specified yet")
+      return
+    logging.info("New processes stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
     enabled = conf.get("enabled")
     interval = conf.get("interval") or PROFILE_PROCESSES_STATS_INTERVAL
@@ -212,6 +221,10 @@ class ProfilingManager(object):
       self.processes_profile_task = None
 
   def update_proxies_profiling_conf(self, new_conf, znode_stat):
+    if not new_conf:
+      logging.debug("No proxies stats profiling configs are specified yet")
+      return
+    logging.info("New proxies stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
     enabled = conf.get("enabled")
     interval = conf.get("interval") or PROFILE_PROXIES_STATS_INTERVAL
