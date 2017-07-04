@@ -8,7 +8,6 @@ import time
 from appscale.common import appscale_info
 from tornado import gen, httpclient
 from tornado.options import options
-from tornado.web import HTTPError
 
 from appscale.hermes import constants
 from appscale.hermes.constants import SECRET_HEADER
@@ -90,11 +89,20 @@ class ClusterStatsSource(object):
     )
     async_client = httpclient.AsyncHTTPClient()
 
-    try:
-      # Send Future object to coroutine and suspend till result is ready
-      response = yield async_client.fetch(request)
-    except HTTPError as e:
-      logging.error("Failed to get stats from {} ({})".format(url, e))
+    # Send Future object to coroutine and suspend till result is ready
+    response = yield async_client.fetch(request, raise_error=False)
+    if response.code >= 400:
+      if response.body:
+        logging.error(
+          "Failed to get stats from {url} ({code} {reason})"
+          .format(url=url, code=response.code, reason=response.reason)
+        )
+      else:
+        logging.error(
+          "Failed to get stats from {url} ({code} {reason}, BODY: {body})"
+          .format(url=url, code=response.code, reason=response.reason,
+                  body=response.body)
+        )
       raise gen.Return(None)
 
     try:
