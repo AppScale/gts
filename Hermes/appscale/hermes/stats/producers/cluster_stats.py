@@ -11,8 +11,9 @@ from tornado.options import options
 from tornado.web import HTTPError
 
 from appscale.hermes import constants
-from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
+from appscale.hermes.constants import SECRET_HEADER
 from appscale.hermes.stats import converter
+from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats
 )
@@ -85,7 +86,7 @@ class ClusterStatsSource(object):
       ip=node_ip, port=constants.HERMES_PORT, path=self.method_path)
     request = httpclient.HTTPRequest(
       url=url, method='GET', body=json.dumps(arguments), headers=headers,
-      request_timeout=REQUEST_TIMEOUT, allow_nonstandard_methods=True
+      request_timeout=STATS_REQUEST_TIMEOUT, allow_nonstandard_methods=True
     )
     async_client = httpclient.AsyncHTTPClient()
 
