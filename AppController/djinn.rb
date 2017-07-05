@@ -2932,7 +2932,7 @@ class Djinn
     }
     HAProxy.create_ua_server_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
-    Nginx.create_service_config(
+    Nginx.add_location(
       'appscale-uaserver', my_node.private_ip,
       UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
   end
@@ -2966,7 +2966,7 @@ class Djinn
     # TaskQueue REST API routing.
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
     rest_prefix = '~ /taskqueue/v1beta2/projects/.*'
-    Nginx.create_service_config(
+    Nginx.add_location(
       'appscale-taskqueue', my_node.private_ip, TaskQueue::HAPROXY_PORT,
       TaskQueue::TASKQUEUE_SERVER_SSL_PORT, rest_prefix)
   end
@@ -3808,6 +3808,8 @@ class Djinn
       @options["write_detailed_processes_stats_log"].downcase == 'true',
       @options["write_detailed_proxies_stats_log"].downcase == 'true'
     )
+    Nginx.add_location('appscale-administration', my_node.private_ip,
+                       service_port, nginx_port, '/stats/cluster/')
     Djinn.log_info("Done starting Hermes service.")
   end
 
@@ -4730,8 +4732,8 @@ HOSTS
     start_cmd = "#{script} -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
-    Nginx.create_service_config('appscale-admin', my_node.private_ip,
-                                service_port, nginx_port)
+    Nginx.add_location('appscale-administration', my_node.private_ip,
+                       service_port, nginx_port, '/v1/apps')
   end
 
   def stop_admin_server
@@ -5531,7 +5533,7 @@ HOSTS
     return 0 if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
-    total_requests_seen, total_req_in_queue, current_sessions, 
+    total_requests_seen, total_req_in_queue, current_sessions,
       time_requests_were_seen = HAProxy.get_haproxy_stats(app_name)
 
     if time_requests_were_seen == :no_backend
@@ -5556,7 +5558,7 @@ HOSTS
       Djinn.log_debug("The deployment has reached its maximum load threshold for " +
         "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers.")
       return appservers_to_scale
-    
+
     elsif current_load <= MIN_LOAD_THRESHOLD
       if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
         Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
@@ -5571,16 +5573,16 @@ HOSTS
       Djinn.log_debug("The deployment is within the desired range of load for " +
         "app #{app_name} - Advising that there is no need to scale currently.")
       return 0
-    end  
+    end
   end
-  
+
   # Calculates the current load of the deployment based on the number of
-  # running AppServers, its max allowed threaded connections and current 
+  # running AppServers, its max allowed threaded connections and current
   # handled sessions.
   # Formula: Load = Current Sessions / (No of AppServers * Max conn)
-  # 
+  #
   # Args:
-  #   num_appengines: The total number of AppServers running for the app.  
+  #   num_appengines: The total number of AppServers running for the app.
   #   curr_sessions: The number of current sessions from HAProxy stats.
   #   allow_concurrency: A boolean indicating that AppServers can handle
   #     concurrent connections.
@@ -5592,7 +5594,7 @@ HOSTS
     return curr_sessions.to_f / max_sessions
   end
 
-  # Calculates the additional number of AppServers needed to be scaled up in 
+  # Calculates the additional number of AppServers needed to be scaled up in
   # order achieve the desired load.
   # Formula: No of AppServers = Current sessions / (Load * Max conn)
   #
