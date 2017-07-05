@@ -83,7 +83,7 @@ class SystemManager():
         InfrastructureManager.REASON_BAD_SECRET)
 
     inner_disk_stats_dict = []
-    for partition in psutil.disk_partitions(all=True):
+    for partition in psutil.disk_partitions():
       if partition.mountpoint not in MOUNTPOINT_WHITELIST:
         continue
 
