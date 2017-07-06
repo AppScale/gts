@@ -377,7 +377,7 @@ CONFIG
         # Add location
         locations << [location, proxy_pass]
       end
-    else:
+    else
       locations = [[location, proxy_pass]]
     end
 
