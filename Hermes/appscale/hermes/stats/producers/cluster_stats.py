@@ -104,14 +104,14 @@ class ClusterStatsSource(object):
     if response.code >= 400:
       if response.body:
         logging.error(
-          "Failed to get stats from {url} ({code} {reason})"
-          .format(url=url, code=response.code, reason=response.reason)
-        )
-      else:
-        logging.error(
           "Failed to get stats from {url} ({code} {reason}, BODY: {body})"
           .format(url=url, code=response.code, reason=response.reason,
                   body=response.body)
+        )
+      else:
+        logging.error(
+          "Failed to get stats from {url} ({code} {reason})"
+          .format(url=url, code=response.code, reason=response.reason)
         )
       raise gen.Return("{} {}".format(response.code, response.reason))
 

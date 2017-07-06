@@ -162,15 +162,18 @@ class ProfilingManager(object):
     self.nodes_profile_task = None
     self.processes_profile_task = None
     self.proxies_profile_task = None
-    zk_client.DataWatch(
-      NODES_STATS_CONFIGS_NODE, self.update_nodes_profiling_conf
-    )
-    zk_client.DataWatch(
-      PROCESSES_STATS_CONFIGS_NODE, self.update_processes_profiling_conf
-    )
-    zk_client.DataWatch(
-      PROXIES_STATS_CONFIGS_NODE, self.update_proxies_profiling_conf
-    )
+
+    def bridge_to_ioloop(update_function):
+      def do_in_ioloop():
+        IOLoop.current().add_callback(update_function)
+      return do_in_ioloop
+
+    zk_client.DataWatch(NODES_STATS_CONFIGS_NODE,
+                        bridge_to_ioloop(self.update_nodes_profiling_conf))
+    zk_client.DataWatch(PROCESSES_STATS_CONFIGS_NODE,
+                        bridge_to_ioloop(self.update_processes_profiling_conf))
+    zk_client.DataWatch(PROXIES_STATS_CONFIGS_NODE,
+                        bridge_to_ioloop(self.update_proxies_profiling_conf))
 
   def update_nodes_profiling_conf(self, new_conf, znode_stat):
     if not new_conf:
@@ -178,8 +181,8 @@ class ProfilingManager(object):
       return
     logging.info("New nodes stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
-    enabled = conf.get("enabled")
-    interval = conf.get("interval") or PROFILE_NODES_STATS_INTERVAL
+    enabled = conf.get("enabled", False)
+    interval = conf.get("interval", PROFILE_NODES_STATS_INTERVAL)
     if enabled:
       if not self.nodes_profile_log:
         self.nodes_profile_log = NodesProfileLog(DEFAULT_INCLUDE_LISTS)
@@ -201,9 +204,9 @@ class ProfilingManager(object):
       return
     logging.info("New processes stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
-    enabled = conf.get("enabled")
-    interval = conf.get("interval") or PROFILE_PROCESSES_STATS_INTERVAL
-    detailed = conf.get("detailed")
+    enabled = conf.get("enabled", False)
+    interval = conf.get("interval", PROFILE_PROCESSES_STATS_INTERVAL)
+    detailed = conf.get("detailed", False)
     if enabled:
       if not self.processes_profile_log:
         self.processes_profile_log = ProcessesProfileLog(DEFAULT_INCLUDE_LISTS)
@@ -226,9 +229,9 @@ class ProfilingManager(object):
       return
     logging.info("New proxies stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
-    enabled = conf.get("enabled")
-    interval = conf.get("interval") or PROFILE_PROXIES_STATS_INTERVAL
-    detailed = conf.get("detailed")
+    enabled = conf.get("enabled", False)
+    interval = conf.get("interval", PROFILE_PROXIES_STATS_INTERVAL)
+    detailed = conf.get("detailed", False)
     if enabled:
       if not self.proxies_profile_log:
         self.proxies_profile_log = ProxiesProfileLog(DEFAULT_INCLUDE_LISTS)

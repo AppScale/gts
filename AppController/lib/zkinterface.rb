@@ -504,35 +504,41 @@ class ZKInterface
   def self.update_hermes_nodes_profiling_conf(is_enabled, interval)
     configs_node = "/appscale/hermes/stats-profiling/nodes"
     self.ensure_path(configs_node)
-    configs = JSON.dump({
-      "enabled" => is_enabled,
-      "interval" => (interval.to_i unless interval.nil?)
-    })
-    self.set(configs_node, configs, NOT_EPHEMERAL)
+    configs = {
+      "enabled" => is_enabled
+    }
+    unless interval.nil?
+      configs["interval"] = interval.to_i
+    end
+    self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
 
   def self.update_hermes_processes_profiling_conf(is_enabled, interval, is_detailed)
     configs_node = "/appscale/hermes/stats-profiling/processes"
     self.ensure_path(configs_node)
-    configs = JSON.dump({
+    configs = {
       "enabled" => is_enabled,
-      "interval" => (interval.to_i unless interval.nil?),
       "detailed" => is_detailed
-    })
-    self.set(configs_node, configs, NOT_EPHEMERAL)
+    }
+    unless interval.nil?
+      configs["interval"] = interval.to_i
+    end
+    self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
 
   def self.update_hermes_proxies_profiling_conf(is_enabled, interval, is_detailed)
     configs_node = "/appscale/hermes/stats-profiling/proxies"
     self.ensure_path(configs_node)
-    configs = JSON.dump({
+    configs = {
       "enabled" => is_enabled,
-      "interval" => (interval.to_i unless interval.nil?),
       "detailed" => is_detailed
-    })
-    self.set(configs_node, configs, NOT_EPHEMERAL)
+    }
+    unless interval.nil?
+      configs["interval"] = interval.to_i
+    end
+    self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
 
