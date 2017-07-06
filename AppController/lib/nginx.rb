@@ -417,7 +417,7 @@ CONFIG
     }
 LOCATION
     end
-    configs << "\n}"
+    config << "\n}"
 
     config_path = File.join(SITES_ENABLED_PATH,
                             "#{service_name}.#{CONFIG_EXTENSION}")
