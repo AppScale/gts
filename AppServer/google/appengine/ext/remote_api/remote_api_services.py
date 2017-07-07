@@ -37,10 +37,10 @@ from google.appengine.api.files import file_service_pb
 from google.appengine.api.images import images_service_pb
 from google.appengine.api.logservice import log_service_pb
 from google.appengine.api.memcache import memcache_service_pb
+from google.appengine.api.modules import modules_service_pb
 from google.appengine.api.prospective_search import prospective_search_pb
 from google.appengine.api.remote_socket import remote_socket_service_pb
 from google.appengine.api.search import search_service_pb
-from google.appengine.api.servers import servers_service_pb
 from google.appengine.api.system import system_service_pb
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api.xmpp import xmpp_service_pb
@@ -234,23 +234,23 @@ SERVICE_PB_MAP = {
         'Search': (search_service_pb.SearchRequest,
                    search_service_pb.SearchResponse),
     },
-    'servers': {
-        'GetServers': (servers_service_pb.GetServersRequest,
-                       servers_service_pb.GetServersResponse),
-        'GetVersions': (servers_service_pb.GetVersionsRequest,
-                        servers_service_pb.GetVersionsResponse),
-        'GetDefaultVersion': (servers_service_pb.GetDefaultVersionRequest,
-                              servers_service_pb.GetDefaultVersionResponse),
-        'GetNumInstances': (servers_service_pb.GetNumInstancesRequest,
-                            servers_service_pb.GetNumInstancesResponse),
-        'SetNumInstances': (servers_service_pb.SetNumInstancesRequest,
-                            servers_service_pb.SetNumInstancesResponse),
-        'StartServer': (servers_service_pb.StartServerRequest,
-                        servers_service_pb.StartServerResponse),
-        'StopServer': (servers_service_pb.StopServerRequest,
-                       servers_service_pb.StopServerResponse),
-        'GetHostname': (servers_service_pb.GetHostnameRequest,
-                        servers_service_pb.GetHostnameResponse),
+    'modules': {
+        'GetModules': (modules_service_pb.GetModulesRequest,
+                       modules_service_pb.GetModulesResponse),
+        'GetVersions': (modules_service_pb.GetVersionsRequest,
+                        modules_service_pb.GetVersionsResponse),
+        'GetDefaultVersion': (modules_service_pb.GetDefaultVersionRequest,
+                              modules_service_pb.GetDefaultVersionResponse),
+        'GetNumInstances': (modules_service_pb.GetNumInstancesRequest,
+                            modules_service_pb.GetNumInstancesResponse),
+        'SetNumInstances': (modules_service_pb.SetNumInstancesRequest,
+                            modules_service_pb.SetNumInstancesResponse),
+        'StartModule': (modules_service_pb.StartModuleRequest,
+                        modules_service_pb.StartModuleResponse),
+        'StopModule': (modules_service_pb.StopModuleRequest,
+                       modules_service_pb.StopModuleResponse),
+        'GetHostname': (modules_service_pb.GetHostnameRequest,
+                        modules_service_pb.GetHostnameResponse),
     },
     'system': {
         'GetSystemStats': (system_service_pb.GetSystemStatsRequest,

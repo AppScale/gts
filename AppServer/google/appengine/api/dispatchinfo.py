@@ -67,7 +67,7 @@ _URL_HOST_SUFFIX_PATTERN_RE = re.compile(r"""
 APPLICATION = 'application'
 DISPATCH = 'dispatch'
 URL = 'url'
-SERVER = 'server'
+MODULE = 'module'
 
 
 class Error(Exception):
@@ -164,10 +164,10 @@ def _ValidateNotIpV4Address(host):
 
 
 class DispatchEntry(validation.Validated):
-  """A Dispatch entry describes a mapping from a URL pattern to a server."""
+  """A Dispatch entry describes a mapping from a URL pattern to a module."""
   ATTRIBUTES = {
       URL: DispatchEntryURLValidator(),
-      SERVER: validation.Regex(appinfo.SERVER_ID_RE_STRING),
+      MODULE: validation.Regex(appinfo.MODULE_ID_RE_STRING),
   }
 
 
