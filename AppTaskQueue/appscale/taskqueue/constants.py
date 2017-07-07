@@ -6,6 +6,11 @@ class InvalidQueueConfiguration(Exception):
   pass
 
 
+def non_negative_int(value):
+  """ Checks if a value is greater than 0. """
+  return isinstance(value, int) and value >= 0
+
+
 # A regex rule for validating push queue age limit.
 AGE_LIMIT_REGEX = re.compile(r'^([0-9]+(\.[0-9]*(e-?[0-9]+))?[smhd])')
 
@@ -23,7 +28,7 @@ SUPPORTED_PULL_QUEUE_FIELDS = {
   'mode': lambda mode: mode == 'pull',
   'name': QUEUE_NAME_RE.match,
   'retry_parameters': {
-    'task_retry_limit': lambda limit: limit >= 0
+    'task_retry_limit': non_negative_int
   }
 }
 
@@ -33,10 +38,10 @@ SUPPORTED_PUSH_QUEUE_FIELDS = {
   'name': QUEUE_NAME_RE.match,
   'rate': RATE_REGEX.match,
   'retry_parameters': {
-    'task_retry_limit': lambda limit: limit >= 0,
+    'task_retry_limit': non_negative_int,
     'task_age_limit': AGE_LIMIT_REGEX.match,
-    'min_backoff_seconds': lambda seconds: seconds >= 0,
-    'max_backoff_seconds': lambda seconds: seconds >= 0,
-    'max_doublings': lambda doublings: doublings >= 0
+    'min_backoff_seconds': non_negative_int,
+    'max_backoff_seconds': non_negative_int,
+    'max_doublings': non_negative_int
   }
 }

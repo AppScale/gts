@@ -92,7 +92,6 @@ class AppControllerClient
   # used in few other clients (it should be made in a library):
   #   lib/infrastructure_manager_client.rb
   #   lib/user_app_client.rb
-  #   lib/taskqueue_client.rb
   #   lib/app_manager_client.rb
   #   lib/app_controller_client.rb
   # Modification in this function should be reflected on the others too.
