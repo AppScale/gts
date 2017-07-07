@@ -3942,7 +3942,7 @@ class Djinn
       Djinn.log_error('Unable to build taskqueue (install dependencies failed).')
       return
     end
-        Djinn.log_info('Finished building taskqueue.')
+    Djinn.log_info('Finished building taskqueue.')
   end
 
 
@@ -3952,6 +3952,7 @@ class Djinn
                   "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
       Djinn.log_error('Unable to build datastore (install failed).')
       return
+    end
     unless system("pip install #{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
       Djinn.log_error('Unable to build datastore (install dependencies failed).')
       return
