@@ -13,6 +13,15 @@ class HTTPCodes(object):
   INTERNAL_ERROR = 500
   NOT_IMPLEMENTED = 501
 
+
+class MonitStates(object):
+  MISSING = 'missing'
+  PENDING = 'pending'  # Monit is trying to either start or stop the process.
+  RUNNING = 'running'
+  STOPPED = 'stopped'  # Monit will likely try to start the process soon.
+  UNMONITORED = 'unmonitored'
+
+
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
