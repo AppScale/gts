@@ -3932,41 +3932,46 @@ class Djinn
   def build_taskqueue()
     Djinn.log_info('Building uncommitted taskqueue changes')
     extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-    if system('pip install --upgrade --no-deps ' +
-              "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
-      if system('pip install ' +
-              "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
-        Djinn.log_info('Finished building taskqueue')
-        return
-      end
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
+      Djinn.log_error('Unable to build taskqueue (install failed).')
+      return
     end
-    Djinn.log_error('Unable to build taskqueue')
+    unless system('pip install ' +
+                  "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
+      Djinn.log_error('Unable to build taskqueue (install dependencies failed).')
+      return
+    end
+        Djinn.log_info('Finished building taskqueue.')
   end
 
 
   def build_datastore()
     Djinn.log_info('Building uncommitted datastore changes')
-    if system('pip install --upgrade --no-deps ' +
-              "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
-      if system("pip install #{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
-        Djinn.log_info('Finished building datastore')
-        return
-      end
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
+      Djinn.log_error('Unable to build datastore (install failed).')
+      return
+    unless system("pip install #{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
+      Djinn.log_error('Unable to build datastore (install dependencies failed).')
+      return
     end
-    Djinn.log_error('Unable to build datastore')
+    Djinn.log_info('Finished building datastore.')
   end
 
 
   def build_common
     Djinn.log_info('Building uncommitted common changes')
-    if system('pip install --upgrade --no-deps ' +
-              "#{APPSCALE_HOME}/common > /dev/null 2>&1")
-      if system("pip install #{APPSCALE_HOME}/common > /dev/null 2>&1")
-        Djinn.log_info('Finished building common')
-        return
-      end
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/common > /dev/null 2>&1")
+      Djinn.log_error('Unable to build common (install failed).')
+      return
     end
-    Djinn.log_error('Unable to build common')
+    unless system("pip install #{APPSCALE_HOME}/common > /dev/null 2>&1")
+      Djinn.log_error('Unable to build common (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building common.')
   end
 
 
