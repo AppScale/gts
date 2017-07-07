@@ -3,17 +3,16 @@
 import argparse
 import json
 import logging
-import os
 import sys
 import time
 
 from appscale.common import appscale_info
 from appscale.common.constants import (
-  CONFIG_DIR,
   HTTPCodes,
   LOG_FORMAT,
   ZK_PERSISTENT_RECONNECTS
 )
+from appscale.common.monit_interface import MonitOperator
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -29,6 +28,7 @@ from tornado.escape import json_encode
 from tornado.ioloop import IOLoop
 from . import utils
 from . import constants
+from .appengine_api import UpdateQueuesHandler
 from .base_handler import BaseHandler
 from .constants import (
   CustomHTTPError,
@@ -42,6 +42,7 @@ from .operation import (
   UpdateVersionOperation
 )
 from .operations_cache import OperationsCache
+from .push_worker_manager import GlobalPushWorkerManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -690,6 +691,7 @@ def main():
 
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
+  options.define('private_ip', appscale_info.get_private_ip())
 
   acc = appscale_info.get_appcontroller_client()
   ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
@@ -699,6 +701,7 @@ def main():
   zk_client.start()
   version_update_lock = zk_client.Lock(constants.VERSION_UPDATE_LOCK_NODE)
   thread_pool = ThreadPoolExecutor(4)
+  monit_operator = MonitOperator()
   all_resources = {
     'acc': acc,
     'ua_client': ua_client,
@@ -707,12 +710,17 @@ def main():
     'thread_pool': thread_pool
   }
 
+  if options.private_ip in appscale_info.get_taskqueue_nodes():
+    logging.info('Starting push worker manager')
+    GlobalPushWorkerManager(zk_client, monit_operator)
+
   app = web.Application([
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
      VersionHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
+    ('/api/queue/update', UpdateQueuesHandler, {'zk_client': zk_client})
   ])
   logging.info('Starting AdminServer')
   app.listen(args.port)
