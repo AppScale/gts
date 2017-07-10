@@ -3976,6 +3976,21 @@ class Djinn
   end
 
 
+  def build_admin_server
+    Djinn.log_info('Building uncommitted AdminServer changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
+      Djinn.log_error('Unable to build AdminServer (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
+      Djinn.log_error('Unable to build AdminServer (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building AdminServer.')
+  end
+
+
   def build_java_appserver()
     Djinn.log_info('Building uncommitted Java AppServer changes')
 
@@ -4005,6 +4020,7 @@ class Djinn
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes()
     status = `git -C #{APPSCALE_HOME} status`
+    build_admin_server if status.include?('AdminServer')
     build_taskqueue if status.include?('AppTaskQueue')
     build_datastore if status.include?('AppDB')
     build_common if status.include?('common')
@@ -4127,6 +4143,7 @@ class Djinn
   end
 
   def rsync_files(dest_node)
+    admin_server = "#{APPSCALE_HOME}/AdminServer"
     appdb = "#{APPSCALE_HOME}/AppDB"
     app_manager = "#{APPSCALE_HOME}/AppManager"
     app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
@@ -4144,6 +4161,7 @@ class Djinn
     ip = dest_node.private_ip
     options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
 
+    HelperFunctions.shell("rsync #{options} #{admin_server}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
     HelperFunctions.shell("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
