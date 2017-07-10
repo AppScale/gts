@@ -3808,6 +3808,8 @@ class Djinn
       @options["write_detailed_processes_stats_log"].downcase == 'true',
       @options["write_detailed_proxies_stats_log"].downcase == 'true'
     )
+    nginx_port = 17441
+    service_port = 4378
     Nginx.add_location('appscale-administration', my_node.private_ip,
                        service_port, nginx_port, '/stats/cluster/')
     Djinn.log_info("Done starting Hermes service.")
@@ -4733,7 +4735,7 @@ HOSTS
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
     Nginx.add_location('appscale-administration', my_node.private_ip,
-                       service_port, nginx_port, '/v1/apps')
+                       service_port, nginx_port, '/')
   end
 
   def stop_admin_server

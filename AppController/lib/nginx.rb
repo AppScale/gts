@@ -365,7 +365,8 @@ CONFIG
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       end
-      locations = old_config.scan(/location ([\/\w]+) \{.+?proxy_pass +([\w\/\:.]+)/m)
+      regex = /location ([\/\w]+) \{.+?proxy_pass +http?\:\/\/([\d.]+\:\d+)/m
+      locations = old_config.scan(regex)
       same_location = locations.detect {|l| l[0] == location}
       if same_location and same_location[1] == proxy_pass
         # No changes
@@ -411,7 +412,7 @@ CONFIG
     for location_proxy_pass in locations
       config << <<LOCATION
     location #{location_proxy_pass[0]} {
-      proxy_pass            #{location_proxy_pass[1]};
+      proxy_pass            http://#{location_proxy_pass[1]};
       proxy_read_timeout    600;
       client_max_body_size  2G;
     }
