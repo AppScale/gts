@@ -63,7 +63,12 @@ class MainHandler(tornado.web.RequestHandler):
     app_data = request.headers['appdata']
     app_data  = app_data.split(':')
     app_id = app_data[0]
- 
+    try:
+      task_queue.set_module_version_source(request.headers['Version'],
+                                           request.headers['Module'])
+    # Python sdk will not have Version and Module in the Protobuf headers dict.
+    except KeyError:
+      logger.debug("Couldn't find Version and Module in Protobuf headers.")
     if pb_type == "Request":
       self.remote_request(app_id, http_request_data)
     else:
