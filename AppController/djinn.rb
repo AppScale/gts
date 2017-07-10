@@ -5348,7 +5348,7 @@ HOSTS
     # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_images'])
     if max_scale_down_capacity <= 0
-      Djinn.log_warn("We are already at the minimum number of user specified machines," +
+      Djinn.log_debug("We are already at the minimum number of user specified machines," +
         "so will not be scaling down")
       return
     end
