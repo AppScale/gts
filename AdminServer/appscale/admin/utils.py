@@ -10,6 +10,8 @@ import tarfile
 import time
 
 from appscale.common.constants import HTTPCodes
+from appscale.taskqueue import constants as tq_constants
+from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
 from . import constants
 from .constants import (
@@ -401,3 +403,82 @@ def assign_ports(old_version, new_version, zk_client):
 
   return {'httpPort': new_http_port, 'httpsPort': new_https_port,
           'haproxyPort': haproxy_port}
+
+
+def validate_queue(queue):
+  """ Checks if a queue configuration is valid.
+
+  Args:
+    queue: A dictionary containing queue configuration details.
+  Raises:
+    InvalidQueueConfiguration if configuration is invalid.
+  """
+  mode = queue.get('mode', 'push')
+
+  if mode not in ['push', 'pull']:
+    raise InvalidQueueConfiguration('Invalid queue mode: {}'.format(mode))
+
+  if mode == 'push':
+    required_fields = tq_constants.REQUIRED_PUSH_QUEUE_FIELDS
+    supported_fields = tq_constants.SUPPORTED_PUSH_QUEUE_FIELDS
+  else:
+    required_fields = tq_constants.REQUIRED_PULL_QUEUE_FIELDS
+    supported_fields = tq_constants.SUPPORTED_PULL_QUEUE_FIELDS
+
+  for field in required_fields:
+    if field not in queue:
+      raise InvalidQueueConfiguration(
+        'Queue is missing {}: {}'.format(field, queue))
+
+  for field in queue:
+    value = queue[field]
+    try:
+      rule = supported_fields[field]
+    except KeyError:
+      raise InvalidQueueConfiguration('{} is not supported'.format(field))
+
+    if isinstance(rule, dict):
+      required_sub_fields = rule
+      for sub_field in value:
+        sub_value = value[sub_field]
+        try:
+          sub_rule = required_sub_fields[sub_field]
+        except KeyError:
+          raise InvalidQueueConfiguration(
+            '{}.{} is not supported'.format(field, sub_field))
+
+        if not sub_rule(sub_value):
+          raise InvalidQueueConfiguration(
+            'Invalid {}.{} value: {}'.format(field, sub_field, sub_value))
+    elif not rule(value):
+      raise InvalidQueueConfiguration(
+        'Invalid {} value: {}'.format(field, value))
+
+
+def queues_from_dict(payload):
+  """ Validates and prepares a project's queue configuration.
+
+  Args:
+    payload: A dictionary containing queue configuration.
+  Returns:
+    A dictionary containing queue information.
+  Raises:
+    InvalidQueueConfiguration if configuration is invalid.
+  """
+  try:
+    given_queues = payload['queue']
+  except KeyError:
+    raise InvalidQueueConfiguration('Payload must contain queue directive')
+
+  for directive in payload:
+    # total_storage_limit is not yet supported.
+    if directive != 'queue':
+      raise InvalidQueueConfiguration('{} is not supported'.format(directive))
+
+  queues = {'default': {'mode': 'push', 'rate': '5/s'}}
+  for queue in given_queues:
+    validate_queue(queue)
+    name = queue.pop('name')
+    queues[name] = queue
+
+  return {'queue': queues}

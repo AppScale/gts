@@ -43,7 +43,6 @@ require 'monit_interface'
 require 'nginx'
 require 'search'
 require 'taskqueue'
-require 'taskqueue_client'
 require 'terminate'
 require 'user_app_client'
 require 'zkinterface'
@@ -1744,45 +1743,6 @@ class Djinn
     }
 
     return "true"
-  end
-
-  # Stop taskqueue worker on this local machine.
-  #
-  # Args:
-  #   app: The application ID.
-  def maybe_stop_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      Djinn.log_info("Stopping TaskQueue workers for app #{app}")
-      tqc = TaskQueueClient.new(my_node.private_ip)
-      begin
-        result = tqc.stop_worker(app)
-        Djinn.log_info("Stopped TaskQueue workers for app #{app}: #{result}")
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to stop TaskQueue workers for app #{app}")
-      end
-    end
-  end
-
-
-  # Reload the queue information of an app and reload the queues if needed.
-  #
-  # Args:
-  #   app: The application ID.
-  def maybe_reload_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new(my_node.private_ip)
-      begin
-        result = tqc.reload_worker(app)
-        message = "Checking TaskQueue worker for app #{app}: #{result}"
-        if result.key?('error') && result['error'] == false
-          Djinn.log_debug(message)
-        else
-          Djinn.log_warn(message)
-        end
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to reload TaskQueue workers for app #{app}")
-      end
-    end
   end
 
 
@@ -3585,13 +3545,7 @@ class Djinn
       stop_backup_service
     end
 
-    if my_node.is_shadow?
-      threads << Thread.new {
-        start_admin_server
-      }
-    else
-      stop_admin_server
-    end
+    start_admin_server
 
     if my_node.is_memcache?
       threads << Thread.new {
@@ -4709,12 +4663,10 @@ HOSTS
     start_cmd = "#{script} -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
-    Nginx.create_service_config('appscale-admin', my_node.private_ip,
-                                service_port, nginx_port)
-  end
-
-  def stop_admin_server
-    MonitInterface.stop(:admin_server)
+    if my_node.is_shadow?
+      Nginx.create_service_config('appscale-admin', my_node.private_ip,
+                                  service_port, nginx_port)
+    end
   end
 
   def start_memcache()
@@ -4923,7 +4875,6 @@ HOSTS
 
       Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
       CronHelper.clear_app_crontab(app)
-      maybe_stop_taskqueue_worker(app)
       Djinn.log_debug("Done cleaning up after stopped application #{app}.")
     }
   end
@@ -4973,7 +4924,6 @@ HOSTS
         # Machines with a taskqueue role need to ensure that the files are
         # available and that we have the queue.yaml from the application.
         setup_app_dir(app)
-        maybe_reload_taskqueue_worker(app)
 
         # The remainer of this loop is for AppEngine nodes only, so we
         # need to do work only if we have AppServers.
