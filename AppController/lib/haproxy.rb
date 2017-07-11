@@ -7,7 +7,10 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
+require 'blobstore'
+require 'datastore_server'
 require 'monit_interface'
+require 'taskqueue'
 require 'user_app_client'
 
 
@@ -95,6 +98,13 @@ module HAProxy
   HAPROXY_SERVER_TIMEOUT = 600
 
 
+  # Ports to block when haproxy needs to be reloaded (as per
+  # https://www.haproxy.com/blog/truly-seamless-reloads-with-haproxy-no-more-hacks)
+  PORTS = [TaskQueue::HAPROXY_PORT,
+           UserAppClient::HAPROXY_SERVER_PORT,
+           DatastoreServer::PROXY_PORT,
+           BlobServer::HAPROXY_PORT]
+
   def self.start()
     service = `which service`.chomp
     start_cmd = "#{service} haproxy start"
@@ -112,7 +122,13 @@ module HAProxy
   end
 
   def self.reload()
+    (PORTS + (10000..10020).to_a).each { |port|
+      Djinn.log_run("iptables -I INPUT -p tcp --dport #{port} --tcp-flags SYN,PSH,ACK,FIN,RST ACK -m u32 \! --u32 '0>>22&0x3C@12>>26&0x3C@0&0x0=0:0' -j DROP")
+    }
     Djinn.log_run("service haproxy reload")
+    (PORTS + (10000..10020).to_a).each { |port|
+      Djinn.log_run("iptables -D INPUT -p tcp --dport #{port} --tcp-flags SYN,PSH,ACK,FIN,RST ACK -m u32 \! --u32 '0>>22&0x3C@12>>26&0x3C@0&0x0=0:0' -j DROP")
+    }
   end
 
   def self.is_running?
