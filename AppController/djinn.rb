@@ -2932,7 +2932,7 @@ class Djinn
     }
     HAProxy.create_ua_server_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
-    Nginx.add_location(
+    Nginx.add_service_location(
       'appscale-uaserver', my_node.private_ip,
       UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
   end
@@ -2966,7 +2966,7 @@ class Djinn
     # TaskQueue REST API routing.
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
     rest_prefix = '~ /taskqueue/v1beta2/projects/.*'
-    Nginx.add_location(
+    Nginx.add_service_location(
       'appscale-taskqueue', my_node.private_ip, TaskQueue::HAPROXY_PORT,
       TaskQueue::TASKQUEUE_SERVER_SSL_PORT, rest_prefix)
   end
@@ -3808,10 +3808,13 @@ class Djinn
       @options["write_detailed_processes_stats_log"].downcase == 'true',
       @options["write_detailed_proxies_stats_log"].downcase == 'true'
     )
-    nginx_port = 17441
-    service_port = 4378
-    Nginx.add_location('appscale-administration', my_node.private_ip,
-                       service_port, nginx_port, '/stats/cluster/')
+    if my_node.is_shadow?
+      nginx_port = 17441
+      service_port = 4378
+      Nginx.add_service_location(
+        'appscale-administration', my_node.private_ip,
+        service_port, nginx_port, '/stats/cluster/')
+    end
     Djinn.log_info("Done starting Hermes service.")
   end
 
@@ -4734,8 +4737,9 @@ HOSTS
     start_cmd = "#{script} -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
-    Nginx.add_location('appscale-administration', my_node.private_ip,
-                       service_port, nginx_port, '/')
+    Nginx.add_service_location(
+      'appscale-administration', my_node.private_ip,
+      service_port, nginx_port, '/')
   end
 
   def stop_admin_server
