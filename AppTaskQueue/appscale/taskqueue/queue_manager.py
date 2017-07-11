@@ -36,21 +36,21 @@ class ProjectQueueManager(dict):
     """
     logger.info('Updating queues for {}'.format(self.project_id))
     if not queue_config:
-      new_queues = {'default': {'rate': '5/s'}}
+      new_queue_config = {'default': {'rate': '5/s'}}
     else:
-      new_queues = json.loads(queue_config)['queue']
+      new_queue_config = json.loads(queue_config)['queue']
 
     # Clean up obsolete queues.
-    to_stop = [queue for queue in self if queue not in new_queues]
+    to_stop = [queue for queue in self if queue not in new_queue_config]
     for queue_name in to_stop:
       del self[queue_name]
 
     # Add new queues.
-    for queue_name in new_queues:
+    for queue_name in new_queue_config:
       if queue_name in self:
         continue
 
-      queue_info = new_queues[queue_name]
+      queue_info = new_queue_config[queue_name]
       queue_info['name'] = queue_name
       if 'mode' not in queue_info or queue_info['mode'] == 'push':
         self[queue_name] = PushQueue(queue_info, self.project_id)
@@ -107,18 +107,19 @@ class GlobalQueueManager(dict):
     zk_client.ensure_path('/appscale/projects')
     zk_client.ChildrenWatch('/appscale/projects', self._update_projects_watch)
 
-  def update_projects(self, new_projects):
+  def update_projects(self, new_project_list):
     """ Establishes watches for all existing projects.
 
     Args:
-      new_projects: A list of strings specifying project IDs.
+      new_project_list: A fresh list of strings specifying existing
+        project IDs.
     """
-    to_stop = [project for project in self if project not in new_projects]
+    to_stop = [project for project in self if project not in new_project_list]
     for project_id in to_stop:
       self[project_id].stop()
       del self[project_id]
 
-    for project_id in new_projects:
+    for project_id in new_project_list:
       if project_id not in self:
         self[project_id] = ProjectQueueManager(self.zk_client, self.db_access,
                                                project_id)

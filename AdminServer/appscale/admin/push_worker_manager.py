@@ -178,19 +178,20 @@ class GlobalPushWorkerManager(object):
     zk_client.ensure_path('/appscale/projects')
     zk_client.ChildrenWatch('/appscale/projects', self._update_projects)
 
-  def update_projects(self, new_projects):
+  def update_projects(self, new_project_list):
     """ Establishes watches for each project's queue configuration.
 
     Args:
-      new_projects: A list of strings specifying all existing project IDs.
+      new_project_list: A fresh list of strings specifying existing
+        project IDs.
     """
     to_stop = [project for project in self.projects
-               if project not in new_projects]
+               if project not in new_project_list]
     for project_id in to_stop:
       self.projects[project_id].stop()
       del self.projects[project_id]
 
-    for new_project_id in new_projects:
+    for new_project_id in new_project_list:
       if new_project_id not in self.projects:
         self.projects[new_project_id] = ProjectPushWorkerManager(
           self.zk_client, self.monit_operator, new_project_id)
