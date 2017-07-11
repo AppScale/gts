@@ -356,32 +356,27 @@ CONFIG
     proxy_pass = "#{service_host}:#{service_port}"
     config_path = File.join(SITES_ENABLED_PATH,
                             "#{service_name}.#{CONFIG_EXTENSION}")
-    old_config = File.open(config_path, 'rb').read if File.file?(config_path)
-    if old_config
-      old_nginx_port = old_config.match(/listen (\d+)/m)[1]
-      if old_nginx_port != nginx_port.to_s
-        msg = "Can't update nginx configs for #{service_name} "\
-              "(old nginx port: #{old_nginx_port}, new: #{nginx_port})"
-        Djinn.log_error(msg)
-        raise AppScaleException.new(msg)
-      end
-      regex = /location ([\/\w]+) \{.+?proxy_pass +http?\:\/\/([\d.]+\:\d+)/m
-      locations = old_config.scan(regex)
-      same_location = locations.detect {|l| l[0] == location}
-      if same_location and same_location[1] == proxy_pass
-        # No changes
-        return
-      elsif same_location
-        # Update proxy_pass for the location
-        same_location[1] = proxy_pass
-      else
-        # Add location
-        locations << [location, proxy_pass]
-      end
-    else
-      locations = [[location, proxy_pass]]
+    old_config = if File.file?(config_path) then File.read(config_path) else "" end
+    old_nginx_port = old_config.match(/listen (\d+)/m)[1]
+    if old_nginx_port != nginx_port.to_s
+      msg = "Can't update nginx configs for #{service_name} "\
+            "(old nginx port: #{old_nginx_port}, new: #{nginx_port})"
+      Djinn.log_error(msg)
+      raise AppScaleException.new(msg)
     end
-
+    regex = /location ([\/\w]+) \{.+?proxy_pass +http?\:\/\/([\d.]+\:\d+)/m
+    locations = old_config.scan(regex)
+    same_location = locations.detect {|l| l[0] == location}
+    if same_location and same_location[1] == proxy_pass
+      # No changes
+      return
+    elsif same_location
+      # Update proxy_pass for the location
+      same_location[1] = proxy_pass
+    else
+      # Add location
+      locations << [location, proxy_pass]
+    end
 
     config = <<CONFIG
 server {
