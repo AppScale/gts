@@ -258,7 +258,7 @@ def _configure_profiling(stats_source, profiler, interval):
     Args:
       future_stats: A Future wrapper for the cluster stats.
     """
-    stats = future_stats.result()
+    stats = future_stats.result()[0]  # result is a tuple (stats, failures)
     profiler.write(stats)
 
   def profiling_periodical_callback():
