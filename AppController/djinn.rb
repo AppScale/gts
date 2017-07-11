@@ -4665,8 +4665,10 @@ HOSTS
     start_cmd = "#{script} -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
-    Nginx.create_service_config('appscale-admin', my_node.private_ip,
-                                service_port, nginx_port)
+    if my_node.is_shadow?
+      Nginx.create_service_config('appscale-admin', my_node.private_ip,
+                                  service_port, nginx_port)
+    end
   end
 
   def start_memcache()
