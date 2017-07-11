@@ -450,10 +450,9 @@ def validate_queue(queue):
         if not sub_rule(sub_value):
           raise InvalidQueueConfiguration(
             'Invalid {}.{} value: {}'.format(field, sub_field, sub_value))
-    else:
-      if not rule(value):
-        raise InvalidQueueConfiguration(
-          'Invalid {} value: {}'.format(field, value))
+    elif not rule(value):
+      raise InvalidQueueConfiguration(
+        'Invalid {} value: {}'.format(field, value))
 
 
 def queues_from_dict(payload):
