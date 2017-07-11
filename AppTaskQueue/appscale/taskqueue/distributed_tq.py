@@ -219,6 +219,7 @@ class DistributedTaskQueue():
 
     Args:
       db_access: A DatastoreProxy object.
+      zk_client: A KazooClient.
     """
     setup_env()
   
