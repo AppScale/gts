@@ -241,7 +241,7 @@ module HAProxy
     if regenerate_config_file(SERVICES_SITES_PATH,
                               SERVICES_BASE_FILE,
                               SERVICES_MAIN_FILE)
-      Djinn.log_run("HAPROXY_BIN -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
+      Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
                     " -D -sf `cat #{SERVICES_PIDFILE}`")
     end
   end
