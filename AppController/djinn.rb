@@ -4673,9 +4673,7 @@ HOSTS
     if my_node.is_shadow?
       Nginx.add_service_location('appscale-administration', my_node.private_ip,
                                  service_port, nginx_port, '/')
-  end
-
-
+    end
   end
 
   def start_memcache()
