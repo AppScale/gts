@@ -25,7 +25,7 @@ module HAProxy
   # them separate to be able to control when reload is necessary.
   HAPROXY_PATH = File.join("/", "etc", "haproxy")
   CONFIG_EXTENSION = "cfg"
-  HAPROXY_BIN = "/usr/sbin/haproxy"
+  HAPROXY_BIN = `which haproxy`.chomp
 
   # These are for the AppScale internal services haproxy.
   SERVICES_SITES_PATH = File.join(HAPROXY_PATH, "services-sites-enabled")
@@ -33,10 +33,10 @@ module HAProxy
   SERVICES_BASE_FILE = File.join(HAPROXY_PATH, "services-base.#{CONFIG_EXTENSION}")
   SERVICES_PIDFILE = '/var/run/appscale-haproxy.pid'
   # These are for the AppServer haproxy.
-  SITES_ENABLED_PATH = File.join(HAPROXY_PATH, "sites-enabled")
-  MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "haproxy.#{CONFIG_EXTENSION}")
-  BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "base.#{CONFIG_EXTENSION}")
-  PIDFILE = '/var/run/haproxy.pid'
+  SITES_ENABLED_PATH = File.join(HAPROXY_PATH, "apps-sites-enabled")
+  MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "apps-haproxy.#{CONFIG_EXTENSION}")
+  BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "apps-base.#{CONFIG_EXTENSION}")
+  PIDFILE = '/var/run/apps-haproxy.pid'
 
 
   # Options to used to configure servers.
@@ -98,9 +98,8 @@ module HAProxy
 
 
   def self.start()
-    service = `which service`.chomp
-    start_cmd = "#{service} haproxy start"
-    stop_cmd = "#{service} haproxy stop"
+    start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
+    stop_cmd = "kill `cat #{PIDFILE}`"
     MonitInterface.start_daemon(:haproxy, start_cmd, stop_cmd, PIDFILE)
 
     start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D -p #{SERVICES_PIDFILE}"
@@ -119,7 +118,8 @@ module HAProxy
   end
 
   def self.reload()
-    Djinn.log_run("service haproxy reload")
+    Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
+                  " -D -sf `cat #{SERVICES_PIDFILE}`")
   end
 
   def self.is_running?
