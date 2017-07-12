@@ -69,7 +69,7 @@ from google.appengine.api.app_identity import app_identity
 from google.appengine.datastore import datastore_pb
 from google.appengine.runtime import apiproxy_errors
 
-from google.net.proto import ProtocolBuffer # AS: to reinterpret exception.
+
 
 
 
@@ -1222,10 +1222,10 @@ class BaseConnection(object):
       rpc.check_success()
     except apiproxy_errors.ApplicationError, err:
       raise _ToDatastoreError(err)
-    # AppScale: We will be interpreting ProtocolBufferReturnError as an
-    # InternalError.
-    except ProtocolBuffer.ProtocolBufferReturnError, err:
-      raise datastore_errors.InternalError(err)
+
+
+
+
 
   MAX_RPC_BYTES = 1024 * 1024
   MAX_GET_KEYS = 1000
