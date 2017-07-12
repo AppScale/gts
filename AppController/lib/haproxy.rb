@@ -32,7 +32,7 @@ module HAProxy
   SERVICES_SITES_PATH = File.join(HAPROXY_PATH, "services-sites-enabled")
   SERVICES_MAIN_FILE = File.join(HAPROXY_PATH, "services-haproxy.#{CONFIG_EXTENSION}")
   SERVICES_BASE_FILE = File.join(HAPROXY_PATH, "services-base.#{CONFIG_EXTENSION}")
-  SERVICES_PIDFILE = '/var/run/appscale-haproxy.pid'
+  SERVICES_PIDFILE = '/var/run/services-haproxy.pid'
   # These are for the AppServer haproxy.
   SITES_ENABLED_PATH = File.join(HAPROXY_PATH, "apps-sites-enabled")
   MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "apps-haproxy.#{CONFIG_EXTENSION}")
@@ -120,7 +120,7 @@ module HAProxy
 
   def self.reload()
     Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
-                  " -D -sf `cat #{SERVICES_PIDFILE}`")
+                  " -D -sf `cat #{PIDFILE}`")
   end
 
   def self.is_running?
