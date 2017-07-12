@@ -35,6 +35,9 @@ public class Modules implements ModulesController, ModulesFilterHelper {
    private final Lock dynamicConfigurationLock = new ReentrantLock();
    private static final int DYNAMIC_CONFIGURATION_TIMEOUT_SECONDS = 2;
 
+   // The number of seconds an instance is allowed to finish serving requests after it receives a shutdown signal.
+   private static final int MAX_INSTANCE_RESPONSE_TIME = 600;
+
    static Modules createModules(ApplicationConfigurationManager applicationConfigurationManager, String serverInfo, File externalResourceDir, String address, DevAppServerImpl devAppServer) {
       ImmutableList.Builder builder = ImmutableList.builder();
 
@@ -59,13 +62,39 @@ public class Modules implements ModulesController, ModulesFilterHelper {
    }
 
    void shutdown() throws Exception {
-      Iterator i$ = this.modules.iterator();
-
-      while(i$.hasNext()) {
-         Module module = (Module)i$.next();
-         module.shutdown();
+      // Prevent instances from serving new requests.
+      for (Object uncastModule : this.modules) {
+         Module module = (Module) uncastModule;
+         JettyContainerService container = (JettyContainerService) module.getMainContainer();
+         container.requestShutdown();
       }
 
+      LOGGER.info("Waiting for instances to finish serving requests");
+      long deadline = System.currentTimeMillis() + (MAX_INSTANCE_RESPONSE_TIME * 1000);
+      while (true) {
+         if (System.currentTimeMillis() > deadline) {
+            LOGGER.log(Level.SEVERE, "Request timeout while shutting down");
+            break;
+         }
+
+         boolean requestsInProgress = false;
+         for (Object uncastModule : this.modules) {
+            Module module = (Module) uncastModule;
+            JettyContainerService container = (JettyContainerService) module.getMainContainer();
+            if (container.getRequestCount() > 0)
+               requestsInProgress = true;
+         }
+
+         if (!requestsInProgress)
+            break;
+
+         Thread.sleep(500);
+      }
+
+      for (Object uncastModule : this.modules) {
+         Module module = (Module) uncastModule;
+         module.shutdown();
+      }
    }
 
    void configure(Map containerConfigProperties) throws Exception {

@@ -163,6 +163,18 @@ class DevAppServerImpl
       ApiProxy.clearEnvironmentForCurrentThread();
       restoreLocalTimeZone(currentTimeZone);
     }
+
+    ShutdownThread shutdownThread = new ShutdownThread(this) {
+      public void run() {
+        try {
+          this.server.shutdown();
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }
+    };
+    Runtime.getRuntime().addShutdownHook(shutdownThread);
+
     this.shutdownLatch = new CountDownLatch(1);
     this.serverState = ServerState.RUNNING;
 
@@ -273,6 +285,7 @@ class DevAppServerImpl
 
   public void shutdown() throws Exception
   {
+    logger.info("Shutting down.");
     if (this.serverState != ServerState.RUNNING) {
       throw new IllegalStateException("Cannot shutdown a server that is not currently running.");
     }
@@ -352,5 +365,15 @@ class DevAppServerImpl
   static enum ServerState
   {
     INITIALIZING, RUNNING, STOPPING, SHUTDOWN;
+  }
+
+  private class ShutdownThread extends Thread
+  {
+    public DevAppServerImpl server;
+
+    public ShutdownThread(DevAppServerImpl server) {
+      super();
+      this.server = server;
+    }
   }
 }

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.servlet.RequestDispatcher;
@@ -230,6 +231,16 @@ public class JettyContainerService extends AbstractContainerService {
       return this.appContext;
    }
 
+   public void requestShutdown() {
+      ApiProxyHandler handler = (ApiProxyHandler) this.server.getHandler();
+      handler.requestShutdown();
+   }
+
+   public int getRequestCount() {
+      ApiProxyHandler handler = (ApiProxyHandler) this.server.getHandler();
+      return handler.getRequestCount();
+   }
+
    public void forwardToServer(HttpServletRequest hrequest, HttpServletResponse hresponse) throws IOException, ServletException {
       log.finest("forwarding request to module: " + this.appEngineWebXml.getModule() + "." + this.instance);
       RequestDispatcher requestDispatcher = this.context.getServletContext().getRequestDispatcher(hrequest.getRequestURI());
@@ -297,12 +308,52 @@ public class JettyContainerService extends AbstractContainerService {
 
    private class ApiProxyHandler extends HandlerWrapper {
       private final AppEngineWebXml appEngineWebXml;
+      private int requestCount;
+      private boolean sigtermSent;
+      private ReentrantLock gracefulShutdownLock;
 
       public ApiProxyHandler(AppEngineWebXml appEngineWebXml) {
          this.appEngineWebXml = appEngineWebXml;
+         this.requestCount = 0;
+         this.gracefulShutdownLock = new ReentrantLock();
       }
 
       public void handle(String target, HttpServletRequest request, HttpServletResponse response, int dispatch) throws IOException, ServletException {
+         this.gracefulShutdownLock.lock();
+         try {
+            if (this.sigtermSent) {
+               response.sendError(503, "This instance is shutting down");
+               return;
+            }
+            this.requestCount++;
+         } finally {
+            this.gracefulShutdownLock.unlock();
+         }
+
+         handleImpl(target, request, response, dispatch);
+
+         this.gracefulShutdownLock.lock();
+         try {
+            this.requestCount--;
+         } finally {
+            this.gracefulShutdownLock.unlock();
+         }
+      }
+
+      public void requestShutdown() {
+         this.gracefulShutdownLock.lock();
+         try {
+            this.sigtermSent = true;
+         } finally {
+            this.gracefulShutdownLock.unlock();
+         }
+      }
+
+      public int getRequestCount() {
+         return this.requestCount;
+      }
+
+      private void handleImpl(String target, HttpServletRequest request, HttpServletResponse response, int dispatch) throws IOException, ServletException {
          if(dispatch == 1) {
             long startTimeUsec = System.currentTimeMillis() * 1000L;
             Semaphore semaphore = new Semaphore(100);
