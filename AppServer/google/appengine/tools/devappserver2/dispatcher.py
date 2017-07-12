@@ -20,6 +20,7 @@ import collections
 import logging
 import os
 import threading
+import time
 import urlparse
 import wsgiref.headers
 
@@ -199,6 +200,30 @@ class Dispatcher(request_info.Dispatcher):
     self._quit_event.set()
     if self._dispatch_server:
       self._dispatch_server.quit()
+
+    # Prevent instances from serving new requests.
+    for server in self._server_name_to_server.values():
+      with server.graceful_shutdown_lock:
+        server.sigterm_sent = True
+
+    logging.info('Waiting for instances to finish serving requests')
+    deadline = time.time() + constants.MAX_INSTANCE_RESPONSE_TIME
+    while True:
+      if time.time() > deadline:
+        logging.error('Request timeout while shutting down')
+        break
+
+      requests_in_progress = False
+      for server in self._server_name_to_server.values():
+        with server.graceful_shutdown_lock:
+          if server.request_count > 0:
+            requests_in_progress = True
+
+      if not requests_in_progress:
+        break
+
+      time.sleep(.5)
+
     for servr in self._server_name_to_server.values():
       servr.quit()
 

@@ -425,6 +425,15 @@ class Server(object):
         (self._host, self._balanced_port), self)
     self._quit_event = threading.Event()  # Set when quit() has been called.
 
+    # Indicates that the instance should refuse future requests.
+    self.sigterm_sent = False
+
+    # Handles request count and sigterm flag mutations.
+    self.graceful_shutdown_lock = threading.Lock()
+
+    # Keeps track of how many requests the instance is serving.
+    self.request_count = 0
+
   @property
   def name(self):
     """The name of the server, as defined in app.yaml.
@@ -505,8 +514,31 @@ class Server(object):
     start_response('%d %s' % (status, httplib.responses[status]), [])
     return []
 
-  def _handle_request(self, environ, start_response, inst=None,
-                      request_type=instance.NORMAL_REQUEST):
+  def _handle_request(self, environ, start_response, **kwargs):
+    """ A _handle_request wrapper that keeps track of active requests.
+
+    Args:
+      environ: An environ dict for the request as defined in PEP-333.
+      start_response: A function with semantics defined in PEP-333.
+    Returns:
+      An iterable over strings containing the body of the HTTP response.
+    """
+    with self.graceful_shutdown_lock:
+      if self.sigterm_sent:
+        start_response('503 Service Unavailable',
+                       [('Content-Type', 'text/plain')])
+        return ['This instance is shutting down']
+
+      self.request_count += 1
+
+    try:
+      return self._handle_request_impl(environ, start_response, **kwargs)
+    finally:
+      with self.graceful_shutdown_lock:
+        self.request_count -= 1
+
+  def _handle_request_impl(self, environ, start_response, inst=None,
+                           request_type=instance.NORMAL_REQUEST):
     """Handles a HTTP request.
 
     Args:
