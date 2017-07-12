@@ -396,7 +396,7 @@ CONFIG
     # parameters for both haproxies.
     File.open(BASE_CONFIG_FILE, "w+") { |dest_file| dest_file.write(base_config) }
     File.open(SERVICES_BASE_FILE, "w+") { |dest_file|
-      dest_file.write(base_config.sub("/stats", "/service-stats")
+      dest_file.write(base_config.sub("/stats", "/service-stats"))
     }
   end
 
