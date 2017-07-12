@@ -16,6 +16,9 @@ from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from collections import deque
 from threading import Lock
+from .constants import AGE_LIMIT_REGEX
+from .constants import InvalidQueueConfiguration
+from .constants import RATE_REGEX
 from .task import InvalidTaskInfo
 from .task import Task
 from .utils import logger
@@ -28,17 +31,11 @@ from google.appengine.api.taskqueue.taskqueue import MAX_QUEUE_NAME_LENGTH
 LONG_QUEUE_FORM = 'projects/{app}/taskqueues/{queue}'
 
 # A regex rule for validating queue names.
-QUEUE_NAME_PATTERN = r'^(projects/[a-zA-Z0-9-]+/taskqueues/)?' \
+FULL_QUEUE_NAME_PATTERN = r'^(projects/[a-zA-Z0-9-]+/taskqueues/)?' \
                      r'[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
 
 # A compiled regex rule for validating queue names.
-QUEUE_NAME_RE = re.compile(QUEUE_NAME_PATTERN)
-
-# A regex rule for validating push queue rate.
-RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
-
-# A regex rule for validating push queue age limit.
-AGE_LIMIT_REGEX = re.compile(r'^([0-9]+(\.[0-9]*(e-?[0-9]+))?[smhd])')
+FULL_QUEUE_NAME_RE = re.compile(FULL_QUEUE_NAME_PATTERN)
 
 # All possible fields to include in a queue's JSON representation.
 QUEUE_FIELDS = (
@@ -48,7 +45,6 @@ QUEUE_FIELDS = (
 
 # Validation rules for queue parameters.
 QUEUE_ATTRIBUTE_RULES = {
-  'name': lambda name: QUEUE_NAME_RE.match(name),
   'rate': lambda rate: RATE_REGEX.match(rate),
   'task_retry_limit': lambda limit: limit >= 0,
   'task_age_limit': lambda limit: (limit is None or
@@ -83,10 +79,6 @@ def next_key(key):
   mutable_key = list(key)
   mutable_key[-1] = chr(ord(key[-1]) + 1)
   return ''.join(mutable_key)
-
-
-class InvalidQueueConfiguration(Exception):
-  pass
 
 
 class InvalidLeaseRequest(Exception):

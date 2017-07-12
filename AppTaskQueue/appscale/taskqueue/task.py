@@ -22,7 +22,7 @@ TASK_NAME_RE = re.compile(TASK_NAME_PATTERN)
 # Validation rules for queue parameters.
 QUEUE_ATTRIBUTE_RULES = {
   'id': lambda name: TASK_NAME_RE.match(name),
-  'queueName': lambda name: queue.QUEUE_NAME_RE.match(name),
+  'queueName': lambda name: queue.FULL_QUEUE_NAME_RE.match(name),
   'tag': lambda tag: tag is None or len(tag) <= MAX_TAG_LENGTH
 }
 
