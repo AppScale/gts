@@ -20,21 +20,23 @@ require 'user_app_client'
 module HAProxy
 
 
+  # We do have 2 haproxy, one that is used for AppServers, and the other
+  # for internal AppScale services (Datastore, TaskQueue etc...). We keep
+  # them separate to be able to control when reload is necessary.
   HAPROXY_PATH = File.join("/", "etc", "haproxy")
-
-
-  SITES_ENABLED_PATH = File.join(HAPROXY_PATH, "sites-enabled")
-
-
   CONFIG_EXTENSION = "cfg"
+  HAPROXY_BIN = "/usr/sbin/haproxy"
 
-
-  # The configuration file that haproxy reads from.
+  # These are for the AppScale internal services haproxy.
+  SERVICES_SITES_PATH = File.join(HAPROXY_PATH, "services-sites-enabled")
+  SERVICES_MAIN_FILE = File.join(HAPROXY_PATH, "services-haproxy.#{CONFIG_EXTENSION}")
+  SERVICES_BASE_FILE = File.join(HAPROXY_PATH, "services-base.#{CONFIG_EXTENSION}")
+  SERVICES_PIDFILE = '/var/run/appscale-haproxy.pid'
+  # These are for the AppServer haproxy.
+  SITES_ENABLED_PATH = File.join(HAPROXY_PATH, "sites-enabled")
   MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "haproxy.#{CONFIG_EXTENSION}")
-
-
-  # Provides a set of default configurations.
   BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "base.#{CONFIG_EXTENSION}")
+  PIDFILE = '/var/run/haproxy.pid'
 
 
   # Options to used to configure servers.
@@ -99,16 +101,21 @@ module HAProxy
     service = `which service`.chomp
     start_cmd = "#{service} haproxy start"
     stop_cmd = "#{service} haproxy stop"
-    pidfile = '/var/run/haproxy.pid'
-    MonitInterface.start_daemon(:haproxy, start_cmd, stop_cmd, pidfile)
+    MonitInterface.start_daemon(:haproxy, start_cmd, stop_cmd, PIDFILE)
+
+    start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D -p #{SERVICES_PIDFILE}"
+    stop_cmd = "kill `cat #{SERVICES_PIDFILE}`"
+    MonitInterface.start_daemon(:service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
   end
 
   def self.stop()
     MonitInterface.stop(:haproxy, false)
+    MonitInterface.stop(:service_haproxy, false)
   end
 
   def self.restart()
     MonitInterface.restart(:haproxy)
+    MonitInterface.restart(:service_haproxy)
   end
 
   def self.reload()
@@ -134,7 +141,7 @@ module HAProxy
 
   # Remove the configuration for TaskQueue REST API endpoints.
   def self.remove_tq_endpoints
-    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, TaskQueue::NAME))
+    FileUtils.rm_f(File.join(SERVICES_SITES_PATH, TaskQueue::NAME))
     HAProxy.regenerate_config
   end
 
@@ -183,7 +190,13 @@ module HAProxy
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
 
-    config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    # Internal services uses a different haproxy.
+    if name == TaskQueue::NAME || name == DatastoreServer::NAME ||
+        name == UserAppClient::NAME
+      config_path = File.join(SERVICES_SITES_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    else
+      config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    end
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
@@ -191,30 +204,46 @@ module HAProxy
 
   # Generates a load balancer configuration file. Since HAProxy doesn't provide
   # a `file include` option we emulate that functionality here.
-  def self.regenerate_config()
+  def self.regenerate_config_path(config_dir, base_config_file, config_file)
     # Remove any files that are not configs
-    sites = Dir.entries(SITES_ENABLED_PATH)
+    sites = Dir.entries(config_dir)
     sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
     sites.sort!
 
     # Build the configuration in memory first.
-    config = File.read(BASE_CONFIG_FILE)
+    config = File.read(base_config_file)
     sites.each do |site|
-      config << File.read(File.join(SITES_ENABLED_PATH, site))
+      config << File.read(File.join(config_dir, site))
       config << "\n"
     end
 
     # We overwrite only if something changed.
     current = ""
-    current = File.read(MAIN_CONFIG_FILE)  if File.exists?(MAIN_CONFIG_FILE)
+    current = File.read(config_dir)  if File.exists?(config_dir)
     if current == config
-      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
-      return
+      Djinn.log_debug("No need to restart haproxy for #{config_file}:" +
+                      " configuration didn't change.")
+      return false
     end
 
-    # Update config file and restart haproxy.
-    File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
-    HAProxy.reload
+    # Update config file.
+    File.open(config_file, "w+") { |dest_file| dest_file.write(config) }
+    return true
+  end
+
+  def self.regenerate_config()
+    # Regenerate configuration for the AppServers haproxy.
+    HAProxy.reload if regenerate_config_file(SITES_ENABLED_PATH,
+                                             BASE_CONFIG_PATH,
+                                             MAIN_CONFIG_FILE)
+
+    # Regenerate configuration for the AppScale serices haproxy.
+    if regenerate_config_file(SERVICES_SITES_PATH,
+                              SERVICES_BASE_FILE,
+                              SERVICES_MAIN_FILE)
+      Djinn.log_run("HAPROXY_BIN -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
+                    " -D -sf `cat #{SERVICES_PIDFILE}`")
+    end
   end
 
 
@@ -278,14 +307,16 @@ module HAProxy
 
   # Removes all the enabled sites
   def self.clear_sites_enabled()
-    if File.directory?(SITES_ENABLED_PATH)
-      sites = Dir.entries(SITES_ENABLED_PATH)
-      # Remove any files that are not configs
-      sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
-      full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
-      FileUtils.rm_f full_path_sites
-      HAProxy.regenerate_config
-    end
+    [SITES_ENABLED_PATH, SERVICES_SITES_PATH].each { |path|
+      if File.directory?(path)
+        sites = Dir.entries(path)
+        # Remove any files that are not configs
+        sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
+        full_path_sites = sites.map { |site| File.join(path, site) }
+        FileUtils.rm_f full_path_sites
+        HAProxy.regenerate_config
+      end
+    }
   end
 
   # Set up the folder structure and creates the configuration files necessary for haproxy
@@ -357,9 +388,16 @@ CONFIG
     unless File.exists? SITES_ENABLED_PATH
       FileUtils.mkdir_p SITES_ENABLED_PATH
     end
+    unless File.exists? SERVICES_SITES_PATH
+      FileUtils.mkdir_p SERVICES_SITES_PATH
+    end
 
-    # Write the base configuration file which sets default configuration parameters
+    # Write the base configuration file which sets default configuration
+    # parameters for both haproxies.
     File.open(BASE_CONFIG_FILE, "w+") { |dest_file| dest_file.write(base_config) }
+    File.open(SERVICES_BASE_FILE, "w+") { |dest_file|
+      dest_file.write(base_config.sub("/stats", "/service-stats")
+    }
   end
 
 
