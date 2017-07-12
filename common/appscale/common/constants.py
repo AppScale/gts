@@ -13,6 +13,15 @@ class HTTPCodes(object):
   INTERNAL_ERROR = 500
   NOT_IMPLEMENTED = 501
 
+
+class MonitStates(object):
+  MISSING = 'missing'
+  PENDING = 'pending'  # Monit is trying to either start or stop the process.
+  RUNNING = 'running'
+  STOPPED = 'stopped'  # Monit will likely try to start the process soon.
+  UNMONITORED = 'unmonitored'
+
+
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
@@ -123,6 +132,9 @@ CONTROLLER_SERVICE = 'appscale-controller'
 
 # The default log directory for AppScale services.
 LOG_DIR = os.path.join('/var', 'log', 'appscale')
+
+# The default directory for pidfiles.
+PID_DIR = os.path.join('/', 'var', 'run', 'appscale')
 
 # The number of seconds to wait before retrying some operations.
 SMALL_WAIT = 5

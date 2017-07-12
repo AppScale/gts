@@ -9,11 +9,13 @@ import time
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
+from kazoo.client import KazooClient
 
-import distributed_tq
-
+from appscale.common import appscale_info
+from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
+from . import distributed_tq
 from .rest_api import RESTLease
 from .rest_api import RESTQueue
 from .rest_api import RESTTask
@@ -30,47 +32,6 @@ task_queue = None
 
 # Global stats.
 STATS = {}
-
-class StopWorkerHandler(tornado.web.RequestHandler):
-  """ Stops taskqueue workers for an app if they are running. """
-  @tornado.web.asynchronous
-  def post(self):
-    """ Function which handles POST requests. Data of the request is the
-    request from the AppController in a JSON string. """
-    global task_queue    
-    request = self.request
-    http_request_data = request.body
-    json_response = task_queue.stop_worker(http_request_data)
-    self.write(json_response)
-    self.finish()
-
-
-class ReloadWorkerHandler(tornado.web.RequestHandler):
-  """ Reloads taskqueue workers for an app. """
-  @tornado.web.asynchronous
-  def post(self):
-    """ Function which handles POST requests. Data of the request is the
-    request from the AppController in a JSON string. """
-    global task_queue    
-    request = self.request
-    http_request_data = request.body
-    json_response = task_queue.reload_worker(http_request_data)
-    self.write(json_response)
-    self.finish()
-
-
-class StartWorkerHandler(tornado.web.RequestHandler):
-  """ Starts taskqueue workers for an app if they are not running. """
-  @tornado.web.asynchronous
-  def post(self):
-    """ Function which handles POST requests. Data of the request is the
-    request from the AppController in a JSON string. """
-    global task_queue
-    request = self.request
-    http_request_data = request.body
-    json_response = task_queue.start_worker(http_request_data)
-    self.write(json_response)
-    self.finish()
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -247,13 +208,14 @@ def main():
 
   global task_queue
 
+  zk_client = KazooClient(
+    hosts=','.join(appscale_info.get_zk_node_ips()),
+    connection_retry=ZK_PERSISTENT_RECONNECTS)
+  zk_client.start()
+
   db_access = DatastoreProxy()
-  task_queue = distributed_tq.DistributedTaskQueue(db_access)
+  task_queue = distributed_tq.DistributedTaskQueue(db_access, zk_client)
   handlers = [
-    # Takes JSON requests from AppController.
-    (r"/startworker", StartWorkerHandler),
-    (r"/stopworker", StopWorkerHandler),
-    (r"/reloadworker", ReloadWorkerHandler),
     # Takes protocol buffers from the AppServers.
     (r"/*", MainHandler)
   ]

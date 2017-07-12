@@ -43,7 +43,6 @@ require 'monit_interface'
 require 'nginx'
 require 'search'
 require 'taskqueue'
-require 'taskqueue_client'
 require 'terminate'
 require 'user_app_client'
 require 'zkinterface'
@@ -1746,45 +1745,6 @@ class Djinn
     return "true"
   end
 
-  # Stop taskqueue worker on this local machine.
-  #
-  # Args:
-  #   app: The application ID.
-  def maybe_stop_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      Djinn.log_info("Stopping TaskQueue workers for app #{app}")
-      tqc = TaskQueueClient.new(my_node.private_ip)
-      begin
-        result = tqc.stop_worker(app)
-        Djinn.log_info("Stopped TaskQueue workers for app #{app}: #{result}")
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to stop TaskQueue workers for app #{app}")
-      end
-    end
-  end
-
-
-  # Reload the queue information of an app and reload the queues if needed.
-  #
-  # Args:
-  #   app: The application ID.
-  def maybe_reload_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new(my_node.private_ip)
-      begin
-        result = tqc.reload_worker(app)
-        message = "Checking TaskQueue worker for app #{app}: #{result}"
-        if result.key?('error') && result['error'] == false
-          Djinn.log_debug(message)
-        else
-          Djinn.log_warn(message)
-        end
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to reload TaskQueue workers for app #{app}")
-      end
-    end
-  end
-
 
   # Tell all nodes to restart some applications.
   #
@@ -1999,11 +1959,14 @@ class Djinn
     write_database_info
     update_firewall
 
+    # If we have uncommitted changes, we rebuild/reinstall the
+    # corresponding packages to ensure we are using the latest code.
+    build_uncommitted_changes
+
     # If we are the headnode, we may need to start/setup all other nodes.
     # Better do it early on, since it may take some time for the other
     # nodes to start up.
     if my_node.is_shadow?
-      build_uncommitted_changes
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
       initialize_nodes_in_parallel(@nodes)
@@ -3582,13 +3545,7 @@ class Djinn
       stop_backup_service
     end
 
-    if my_node.is_shadow?
-      threads << Thread.new {
-        start_admin_server
-      }
-    else
-      stop_admin_server
-    end
+    start_admin_server
 
     if my_node.is_memcache?
       threads << Thread.new {
@@ -3933,26 +3890,68 @@ class Djinn
     @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
+
   def build_taskqueue()
     Djinn.log_info('Building uncommitted taskqueue changes')
     extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-    if system('pip install --upgrade --no-deps ' +
-              "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
-      Djinn.log_info('Finished building taskqueue')
-    else
-      Djinn.log_error('Unable to build taskqueue')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
+      Djinn.log_error('Unable to build taskqueue (install failed).')
+      return
     end
+    unless system('pip install ' +
+                  "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
+      Djinn.log_error('Unable to build taskqueue (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building taskqueue.')
   end
+
 
   def build_datastore()
     Djinn.log_info('Building uncommitted datastore changes')
-    if system('pip install --upgrade --no-deps ' +
-              "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
-      Djinn.log_info('Finished building datastore')
-    else
-      Djinn.log_error('Unable to build datastore')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
+      Djinn.log_error('Unable to build datastore (install failed).')
+      return
     end
+    unless system("pip install #{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
+      Djinn.log_error('Unable to build datastore (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building datastore.')
   end
+
+
+  def build_common
+    Djinn.log_info('Building uncommitted common changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/common > /dev/null 2>&1")
+      Djinn.log_error('Unable to build common (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/common > /dev/null 2>&1")
+      Djinn.log_error('Unable to build common (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building common.')
+  end
+
+
+  def build_admin_server
+    Djinn.log_info('Building uncommitted AdminServer changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
+      Djinn.log_error('Unable to build AdminServer (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
+      Djinn.log_error('Unable to build AdminServer (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building AdminServer.')
+  end
+
 
   def build_java_appserver()
     Djinn.log_info('Building uncommitted Java AppServer changes')
@@ -3983,8 +3982,10 @@ class Djinn
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes()
     status = `git -C #{APPSCALE_HOME} status`
+    build_admin_server if status.include?('AdminServer')
     build_taskqueue if status.include?('AppTaskQueue')
     build_datastore if status.include?('AppDB')
+    build_common if status.include?('common')
     build_java_appserver if status.include?('AppServer_Java')
   end
 
@@ -4104,12 +4105,13 @@ class Djinn
   end
 
   def rsync_files(dest_node)
+    admin_server = "#{APPSCALE_HOME}/AdminServer"
     appdb = "#{APPSCALE_HOME}/AppDB"
     app_manager = "#{APPSCALE_HOME}/AppManager"
     app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
     controller = "#{APPSCALE_HOME}/AppController"
+    common = "#{APPSCALE_HOME}/common"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
-    lib = "#{APPSCALE_HOME}/lib"
     app_dashboard = "#{APPSCALE_HOME}/AppDashboard"
     scripts = "#{APPSCALE_HOME}/scripts"
     server = "#{APPSCALE_HOME}/AppServer"
@@ -4121,6 +4123,7 @@ class Djinn
     ip = dest_node.private_ip
     options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
 
+    HelperFunctions.shell("rsync #{options} #{admin_server}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
     HelperFunctions.shell("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
@@ -4129,8 +4132,8 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
     HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
-    HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
+    HelperFunctions.shell("rsync #{options} #{common}/* root@#{ip}:#{common}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
     if dest_node.is_appengine?
@@ -4142,57 +4145,6 @@ class Djinn
       }
       Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
       HelperFunctions.shell("rsync #{options} #{locations_json} root@#{ip}:#{locations_json}")
-    end
-
-    # Run a build on modified directories so that changes will take effect.
-    get_status = 'git -C appscale status'
-    ssh_opts = "-i #{ssh_key} -o StrictHostkeyChecking=no " +
-      '-o NumberOfPasswordPrompts=0'
-    status = `ssh #{ssh_opts} root@#{ip} #{get_status}`
-
-    if status.include?('AppTaskQueue')
-      Djinn.log_info("Building uncommitted taskqueue changes on #{ip}")
-      extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-      build_tq = 'pip install --upgrade --no-deps ' +
-        "#{APPSCALE_HOME}/AppTaskQueue[#{extras}]"
-      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build_tq}" > /dev/null 2>&1])
-        Djinn.log_info("Finished building taskqueue on #{ip}")
-      else
-        Djinn.log_error("Unable to build taskqueue on #{ip}")
-      end
-    end
-
-    if status.include?('AppDB')
-      Djinn.log_info("Building uncommitted datastore changes on #{ip}")
-      build_ds = "pip install --upgrade --no-deps #{APPSCALE_HOME}/AppDB"
-      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build_ds}" > /dev/null 2>&1])
-        Djinn.log_info("Finished building datastore on #{ip}")
-      else
-        Djinn.log_error("Unable to build datastore on #{ip}")
-      end
-    end
-
-    if status.include?('AppServer_Java')
-      Djinn.log_info("Building uncommitted Java AppServer changes on #{ip}")
-
-      java_sdk_archive = 'appengine-java-sdk-1.8.4.zip'
-      remote_archive = "#{APPSCALE_CACHE_DIR}/#{java_sdk_archive}"
-      mirrored_package = "http://#{PACKAGE_MIRROR_DOMAIN}" +
-        "#{PACKAGE_MIRROR_PATH}/#{java_sdk_archive}"
-      get_package = "if [ ! -f #{remote_archive} ]; " +
-        "then curl -o #{remote_archive} #{mirrored_package} ; fi"
-      system(%Q[ssh #{ssh_opts} root@#{ip} "#{get_package}" > /dev/null 2>&1])
-
-      build = [
-        "unzip -o #{remote_archive} -d #{server_java}",
-        "ant -f #{server_java}/build.xml install",
-        "ant -f #{server_java}/build.xml clean-build"
-      ].join(' && ')
-      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build}" > /dev/null 2>&1])
-        Djinn.log_info("Finished building Java AppServer on #{ip}")
-      else
-        Djinn.log_error("Unable to build Java AppServer on #{ip}")
-      end
     end
   end
 
@@ -4711,12 +4663,10 @@ HOSTS
     start_cmd = "#{script} -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
-    Nginx.create_service_config('appscale-admin', my_node.private_ip,
-                                service_port, nginx_port)
-  end
-
-  def stop_admin_server
-    MonitInterface.stop(:admin_server)
+    if my_node.is_shadow?
+      Nginx.create_service_config('appscale-admin', my_node.private_ip,
+                                  service_port, nginx_port)
+    end
   end
 
   def start_memcache()
@@ -4925,7 +4875,6 @@ HOSTS
 
       Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
       CronHelper.clear_app_crontab(app)
-      maybe_stop_taskqueue_worker(app)
       Djinn.log_debug("Done cleaning up after stopped application #{app}.")
     }
   end
@@ -4975,7 +4924,6 @@ HOSTS
         # Machines with a taskqueue role need to ensure that the files are
         # available and that we have the queue.yaml from the application.
         setup_app_dir(app)
-        maybe_reload_taskqueue_worker(app)
 
         # The remainer of this loop is for AppEngine nodes only, so we
         # need to do work only if we have AppServers.
@@ -5348,7 +5296,7 @@ HOSTS
     # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_images'])
     if max_scale_down_capacity <= 0
-      Djinn.log_warn("We are already at the minimum number of user specified machines," +
+      Djinn.log_debug("We are already at the minimum number of user specified machines," +
         "so will not be scaling down")
       return
     end
