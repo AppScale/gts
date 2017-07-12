@@ -26,6 +26,7 @@ module HAProxy
   HAPROXY_PATH = File.join("/", "etc", "haproxy")
   CONFIG_EXTENSION = "cfg"
   HAPROXY_BIN = `which haproxy`.chomp
+  KILL_BIN = `which kill`.chomp
 
   # These are for the AppScale internal services haproxy.
   SERVICES_SITES_PATH = File.join(HAPROXY_PATH, "services-sites-enabled")
@@ -99,11 +100,11 @@ module HAProxy
 
   def self.start()
     start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
-    stop_cmd = "kill `cat #{PIDFILE}`"
+    stop_cmd = "#{KILL_BIN} `cat #{PIDFILE}`"
     MonitInterface.start_daemon(:haproxy, start_cmd, stop_cmd, PIDFILE)
 
     start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D -p #{SERVICES_PIDFILE}"
-    stop_cmd = "kill `cat #{SERVICES_PIDFILE}`"
+    stop_cmd = "#{KILL_BIN} `cat #{SERVICES_PIDFILE}`"
     MonitInterface.start_daemon(:service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
   end
 
@@ -204,7 +205,7 @@ module HAProxy
 
   # Generates a load balancer configuration file. Since HAProxy doesn't provide
   # a `file include` option we emulate that functionality here.
-  def self.regenerate_config_path(config_dir, base_config_file, config_file)
+  def self.regenerate_config_file(config_dir, base_config_file, config_file)
     # Remove any files that are not configs
     sites = Dir.entries(config_dir)
     sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
@@ -219,7 +220,7 @@ module HAProxy
 
     # We overwrite only if something changed.
     current = ""
-    current = File.read(config_dir)  if File.exists?(config_dir)
+    current = File.read(config_file)  if File.exists?(config_file)
     if current == config
       Djinn.log_debug("No need to restart haproxy for #{config_file}:" +
                       " configuration didn't change.")
@@ -228,13 +229,14 @@ module HAProxy
 
     # Update config file.
     File.open(config_file, "w+") { |dest_file| dest_file.write(config) }
+    Djinn.log_info("Updated haproxy configuration at #{config_file}.")
     return true
   end
 
   def self.regenerate_config()
     # Regenerate configuration for the AppServers haproxy.
     HAProxy.reload if regenerate_config_file(SITES_ENABLED_PATH,
-                                             BASE_CONFIG_PATH,
+                                             BASE_CONFIG_FILE,
                                              MAIN_CONFIG_FILE)
 
     # Regenerate configuration for the AppScale serices haproxy.
