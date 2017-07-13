@@ -400,7 +400,7 @@ def stop_app_instance(app_name, port):
   except OSError as os_error:
     logging.error("Error deleting {0}".format(monit_config_file))
 
-  IOLoop.current().run_sync(lambda: monit_operator.reload())
+  IOLoop.current().run_sync(monit_operator.reload)
   threading.Thread(target=kill_instance, args=(watch, instance_pid)).start()
   return True
 
