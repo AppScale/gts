@@ -11,6 +11,8 @@ import unittest
 import urllib2
 from xml.etree import ElementTree
 
+from tornado.ioloop import IOLoop
+
 from appscale.common import (
   file_io,
   appscale_info,
@@ -272,7 +274,17 @@ class TestAppManager(unittest.TestCase):
     self.assertFalse(app_manager_server.stop_app_instance(app_id, port))
 
     flexmock(monit_interface).should_receive('stop').and_return(True)
+    flexmock(monit_interface)
     flexmock(os).should_receive('remove')
+    builtins = flexmock(sys.modules['__builtin__'])
+    builtins.should_call('open')
+    builtins.should_receive('open').\
+      with_args('/var/run/appscale/app___test-20000.pid').\
+      and_return(flexmock(read=lambda: '20000'))
+    flexmock(threading.Thread).should_receive('__new__').and_return(
+      flexmock(start=lambda: None))
+    flexmock(IOLoop).should_receive('current').and_return(
+      flexmock(run_sync=lambda func: None))
     self.assertTrue(app_manager_server.stop_app_instance(app_id, port))
 
   def test_stop_app(self):
