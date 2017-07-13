@@ -463,44 +463,4 @@ CONFIG
     end
     return running, failed
   end
-
-  # This method sets the weight of the specified server (which needs to be
-  # in haproxy) to 0 (that is no more new requests will be sent to the
-  # server) and returns the number of current sessions handled by such
-  # server.
-  #
-  # Args:
-  #   app: A String containing the application ID.
-  #   location: A String with the host:port of the running appserver.
-  # Returns:
-  #   An Integer containing the number of current sessions, or -1 if the
-  #     server is not known by haproxy.
-  def self.ensure_no_pending_request(app, location)
-    full_app_name = "gae_#{app}"
-    appserver = "#{full_app_name}-#{location}"
-    Djinn.log_debug("We will put 0% weight to #{appserver}.")
-
-    # Let's set the weight to 0, and check if the server is actually known by haproxy.
-    result = Djinn.log_run("echo \"set weight #{full_app_name}/#{appserver} 0%\" |" +
-      " socat stdio unix-connect:#{HAPROXY_PATH}/stats")
-    if result.include?(HAPROXY_ERROR_PREFIX)
-      Djinn.log_warn("Server #{full_app_name}/#{appserver} does not exists.")
-      return -1
-    end
-
-    # Retrieve the current sessions for this server.
-    server_stat = Djinn.log_run("echo \"show stat\" | socat stdio " +
-      "unix-connect:#{HAPROXY_PATH}/stats | grep \"#{full_app_name},#{appserver}\"")
-    if server_stat.empty? or server_stat.length > 1
-      # We shouldn't be here, since we set the weight before.
-      Djinn.log_warn("Something wrong retrieving stat for #{full_app_name}/#{appserver}!")
-      return -1
-    end
-
-    parsed_info = server_stat.split(',')
-    current_sessions = parsed_info[CURRENT_SESSIONS_INDEX]
-    Djinn.log_debug("Current sessions for #{full_app_name}/#{appserver} " +
-      "is #{current_sessions}.")
-    return current_sessions
-  end
 end
