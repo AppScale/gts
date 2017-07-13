@@ -98,37 +98,6 @@ module HAProxy
   HAPROXY_SERVER_TIMEOUT = 600
 
 
-  def self.start()
-    start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
-    stop_cmd = "#{KILL_BIN} `cat #{PIDFILE}`"
-    MonitInterface.start_daemon(:haproxy, start_cmd, stop_cmd, PIDFILE)
-
-    start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D -p #{SERVICES_PIDFILE}"
-    stop_cmd = "#{KILL_BIN} `cat #{SERVICES_PIDFILE}`"
-    MonitInterface.start_daemon(:service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
-  end
-
-  def self.stop()
-    MonitInterface.stop(:haproxy, false)
-    MonitInterface.stop(:service_haproxy, false)
-  end
-
-  def self.restart()
-    MonitInterface.restart(:haproxy)
-    MonitInterface.restart(:service_haproxy)
-  end
-
-  def self.reload()
-    Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
-                  " -D -sf `cat #{PIDFILE}`")
-  end
-
-  def self.is_running?
-   output = MonitInterface.is_running?(:haproxy)
-   Djinn.log_debug("Checking if haproxy is already monitored: #{output}")
-   return output
-  end
-
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(server_ips, my_ip, listen_port)
     # We reach out to UserAppServers on the DB nodes.
@@ -229,22 +198,44 @@ module HAProxy
 
     # Update config file.
     File.open(config_file, "w+") { |dest_file| dest_file.write(config) }
+    if system("#{HAPROXY_BIN} -c -f #{config_file}") != true
+      Djinn.log_warn("Invalid haproxy configuration at #{config_file}.")
+      return false
+    end
+
     Djinn.log_info("Updated haproxy configuration at #{config_file}.")
     return true
   end
 
-  def self.regenerate_config()
+  # Regenerate the configuration file for HAProxy (if anything changed)
+  # then starts or reload haproxy as needed.
+  def self.regenerate_config
     # Regenerate configuration for the AppServers haproxy.
-    HAProxy.reload if regenerate_config_file(SITES_ENABLED_PATH,
-                                             BASE_CONFIG_FILE,
-                                             MAIN_CONFIG_FILE)
+    if regenerate_config_file(SITES_ENABLED_PATH,
+                              BASE_CONFIG_FILE,
+                              MAIN_CONFIG_FILE)
+      if MonitInterface.is_running?(:apps_haproxy)
+        Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
+                      " -D -sf `cat #{PIDFILE}`")
+      else
+        start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
+        stop_cmd = "#{KILL_BIN} `cat #{PIDFILE}`"
+        MonitInterface.start_daemon(:apps_haproxy, start_cmd, stop_cmd, PIDFILE)
+      end
+    end
 
     # Regenerate configuration for the AppScale serices haproxy.
     if regenerate_config_file(SERVICES_SITES_PATH,
                               SERVICES_BASE_FILE,
                               SERVICES_MAIN_FILE)
-      Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
-                    " -D -sf `cat #{SERVICES_PIDFILE}`")
+      if MonitInterface.is_running?(:service_haproxy)
+        Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
+                      " -D -sf `cat #{SERVICES_PIDFILE}`")
+      else
+        start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D -p #{SERVICES_PIDFILE}"
+        stop_cmd = "#{KILL_BIN} `cat #{SERVICES_PIDFILE}`"
+        MonitInterface.start_daemon(:service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
+      end
     end
   end
 
