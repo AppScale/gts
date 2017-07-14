@@ -145,8 +145,8 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
 
     Args:
       service_name: Service name expected for all calls.
-      host_prefix: the URL prefix (protocol://host:port) to prepend to
-        image urls on a call to GetUrlBase.
+      host_prefix: the URL prefix (protocol://host) to prepend to image urls
+        on a call to GetUrlBase.
     """
     super(ImagesServiceStub, self).__init__(service_name,
                                             max_request_size=MAX_REQUEST_SIZE)

@@ -500,7 +500,7 @@ def _clear_search_indexes_storage(search_index_path):
                       e)
 
 
-def _setup_environ(app_id, version_id): # AS: set
+def _setup_environ(app_id, version_id):
   """Sets up the os.environ dictionary for the front-end server and API server.
 
   This function should only be called once.
@@ -509,6 +509,7 @@ def _setup_environ(app_id, version_id): # AS: set
     app_id: The id of the application.
   """
   os.environ['APPLICATION_ID'] = app_id
+  # AS: set CURRENT_VERSION_ID so taskqueue can get running version.module.
   os.environ['CURRENT_VERSION_ID'] = version_id
 
 
