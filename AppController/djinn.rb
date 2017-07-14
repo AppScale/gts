@@ -6156,7 +6156,7 @@ HOSTS
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
     system_stats = JSON.load(imc.get_system_stats())
-    Djinn.log_debug("get_node_stats_jason: got system stats.")
+    Djinn.log_debug("get_node_stats_json: got system stats.")
 
     # Combine all useful stats and return.
     node_stats = system_stats
