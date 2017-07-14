@@ -297,6 +297,7 @@ installgems()
     gem install soap4r-ng ${GEMOPT}
     gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
+    gem install posixpsutil ${GEMOPT}
     # This is for the unit testing framework.
     gem install simplecov ${GEMOPT}
 }

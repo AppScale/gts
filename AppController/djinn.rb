@@ -5454,9 +5454,11 @@ HOSTS
     # austoscale is disabled.
     return 0 if @options['autoscale'].downcase != "true"
 
+    haproxy_port = version_details['appscaleExtensions']['haproxyPort']
     # We need the haproxy stats to decide upon what to do.
     total_requests_seen, total_req_in_queue, current_sessions, 
-      time_requests_were_seen = HAProxy.get_haproxy_stats(app_name)
+      time_requests_were_seen = HAProxy.get_haproxy_stats(
+        app_name, my_node.private_ip, haproxy_port)
 
     if time_requests_were_seen == :no_backend
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -6128,7 +6130,9 @@ HOSTS
 
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
-          total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(app_name)
+          haproxy_port = version_details['appscaleExtensions']['haproxyPort']
+          total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(
+            app_name, my_node.private_ip, haproxy_port)
           # Create the apps hash with useful information containing HAProxy stats.
           begin
             appservers = 0
