@@ -5531,7 +5531,7 @@ HOSTS
                                   allow_concurrency)
     max_conn = allow_concurrency ? HAProxy::MAX_APPSERVER_CONN : 1
     desired_appservers = curr_sessions.to_f / (DESIRED_LOAD * max_conn)
-    appservers_to_scale = desired_appservers.round - num_appengines
+    appservers_to_scale = desired_appservers.ceil - num_appengines
     return appservers_to_scale
   end
 
