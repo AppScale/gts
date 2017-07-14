@@ -28,6 +28,9 @@ from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext.remote_api import remote_api_pb
 
 
+# The TaskQueue server's Tornado HTTPServer.
+server = None
+
 # Global for Distributed TaskQueue.
 task_queue = None
 
@@ -202,7 +205,6 @@ def graceful_shutdown(*_):
   of requests as soon as the server has asynchronous handlers.
   """
   logger.info('Stopping server')
-  global server
   server.stop()
   io_loop = IOLoop.instance()
   io_loop.add_callback_from_signal(io_loop.stop)
