@@ -117,6 +117,22 @@ class DjinnJobData
     super
   end
 
+  # In the process of removing roles, db_slave is no longer added to non
+  # db_master nodes. A node that is a database and is not the db_master is
+  # now considered a db_slave.
+  def is_db_slave?
+    return @jobs.include?('db_slave') ||
+        (@jobs.include?('database') && !@jobs.include?('db_master'))
+  end
+
+  # In the process of removing roles, taskqueue_slave is no longer added to non
+  # taskqueue_master nodes. A node that is a taskqueue and is not the
+  # taskqueue_master is now considered a taskqueue_slave.
+  def is_taskqueue_slave?
+    return @jobs.include?('taskqueue_slave') ||
+        (@jobs.include?('taskqueue') && !@jobs.include?('taskqueue_master'))
+  end
+
   def eql?(other_node)
     self.hash.eql?(other_node.hash)
   end
