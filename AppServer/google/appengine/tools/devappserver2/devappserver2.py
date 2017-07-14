@@ -500,7 +500,7 @@ def _clear_search_indexes_storage(search_index_path):
                       e)
 
 
-def _setup_environ(app_id):
+def _setup_environ(app_id, version_id): # AS: set
   """Sets up the os.environ dictionary for the front-end server and API server.
 
   This function should only be called once.
@@ -509,6 +509,7 @@ def _setup_environ(app_id):
     app_id: The id of the application.
   """
   os.environ['APPLICATION_ID'] = app_id
+  os.environ['CURRENT_VERSION_ID'] = version_id
 
 
 class DevelopmentServer(object):
@@ -553,7 +554,7 @@ class DevelopmentServer(object):
       logging.warn('DEFAULT_VERSION_HOSTNAME will not be set correctly with '
                    '--port=0')
 
-    _setup_environ(configuration.app_id)
+    _setup_environ(configuration.app_id, configuration.modules[0].version_id)
 
     python_config = runtime_config_pb2.PythonConfig()
     if options.python_startup_script:
@@ -593,7 +594,6 @@ class DevelopmentServer(object):
         options.use_mtime_file_watcher,
         options.automatic_restart,
         options.allow_skipped_files)
-
     request_data = wsgi_request_info.WSGIRequestInfo(self._dispatcher)
 
     storage_path = _get_storage_path(options.storage_path, configuration.app_id)
