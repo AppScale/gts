@@ -13,7 +13,6 @@ from tornado.web import HTTPError
 from appscale.hermes import constants
 from appscale.hermes.constants import REQUEST_TIMEOUT, SECRET_HEADER
 from appscale.hermes.stats import converter
-from appscale.hermes.stats.constants import CLUSTER_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats
 )
@@ -33,7 +32,6 @@ class ClusterStatsSource(object):
   method_path = None
   stats_model = None
   local_stats_source = None
-  last_debug = 0
 
   @gen.coroutine
   def get_current_async(self, newer_than=None, include_lists=None,
@@ -50,15 +48,17 @@ class ClusterStatsSource(object):
       an instance of stats snapshot as value.
     """
     exclude_nodes = exclude_nodes or []
+    start = time.time()
 
     # Do multiple requests asynchronously and wait for all results
     stats_per_node = yield {
       node_ip: self._stats_from_node_async(node_ip, newer_than, include_lists)
       for node_ip in self.ips_getter() if node_ip not in exclude_nodes
     }
-    if time.time() - self.__class__.last_debug > CLUSTER_STATS_DEBUG_INTERVAL:
-      self.__class__.last_debug = time.time()
-      logging.debug(stats_per_node)
+    logging.info("Fetched {stats} from {nodes} nodes in {elapsed:.1f}s."
+                 .format(stats=self.stats_model.__name__,
+                         nodes=len(stats_per_node),
+                         elapsed=time.time() - start))
     raise gen.Return(stats_per_node)
 
   @gen.coroutine
@@ -108,18 +108,18 @@ class ClusterNodesStatsSource(ClusterStatsSource):
   ips_getter = staticmethod(appscale_info.get_all_ips)
   method_path = 'stats/local/node'
   stats_model = node_stats.NodeStatsSnapshot
-  local_stats_source = node_stats.NodeStatsSource()
+  local_stats_source = node_stats.NodeStatsSource
 
 
 class ClusterProcessesStatsSource(ClusterStatsSource):
   ips_getter = staticmethod(appscale_info.get_all_ips)
   method_path = 'stats/local/processes'
   stats_model = process_stats.ProcessesStatsSnapshot
-  local_stats_source = process_stats.ProcessesStatsSource()
+  local_stats_source = process_stats.ProcessesStatsSource
 
 
 class ClusterProxiesStatsSource(ClusterStatsSource):
   ips_getter = staticmethod(appscale_info.get_load_balancer_ips)
   method_path = 'stats/local/proxies'
   stats_model = proxy_stats.ProxiesStatsSnapshot
-  local_stats_source = proxy_stats.ProxiesStatsSource()
+  local_stats_source = proxy_stats.ProxiesStatsSource

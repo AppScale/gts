@@ -47,7 +47,7 @@ class CurrentStatsHandler(RequestHandler):
 
     if not newer_than:
       newer_than = (
-        time.mktime(datetime.utcnow().timetuple()) - ACCEPTABLE_STATS_AGE
+        time.mktime(datetime.now().timetuple()) - ACCEPTABLE_STATS_AGE
       )
 
     if not self._snapshot or self._snapshot.utc_timestamp <= newer_than:
@@ -90,7 +90,7 @@ class CurrentClusterStatsHandler(RequestHandler):
 
     if not newer_than:
       newer_than = (
-        time.mktime(datetime.utcnow().timetuple()) - ACCEPTABLE_STATS_AGE
+        time.mktime(datetime.now().timetuple()) - ACCEPTABLE_STATS_AGE
       )
 
     if (not self._default_include_lists or

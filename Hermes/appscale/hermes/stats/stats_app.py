@@ -7,8 +7,6 @@ from tornado.ioloop import PeriodicCallback, IOLoop
 
 from appscale.hermes.handlers import Respond404Handler
 from appscale.hermes.stats import profile
-from appscale.hermes.stats.constants import PROFILE_NODES_STATS_INTERVAL, \
-  PROFILE_PROCESSES_STATS_INTERVAL, PROFILE_PROXIES_STATS_INTERVAL
 from appscale.hermes.stats.converter import IncludeLists
 from appscale.hermes.stats.handlers import (
   CurrentStatsHandler, CurrentClusterStatsHandler
@@ -27,7 +25,7 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'node': ['utc_timestamp', 'cpu', 'memory',
            'partitions_dict', 'loadavg'],
   'node.cpu': ['percent', 'count'],
-  'node.memory': ['available'],
+  'node.memory': ['available', 'total'],
   'node.partition': ['free', 'used'],
   'node.loadavg': ['last_5min'],
   # Processes stats
@@ -38,7 +36,7 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'process.children_stats_sum': ['cpu', 'memory'],
   # Proxies stats
   'proxy': ['name', 'unified_service_name', 'application_id',
-            'frontend', 'backend'],
+            'frontend', 'backend', 'servers_count'],
   'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
   'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
 })
@@ -64,18 +62,18 @@ def get_local_stats_api_routes(is_lb_node):
   # Any node provides its node and processes stats
   local_node_stats_handler =  HandlerInfo(
     handler_class=CurrentStatsHandler,
-    init_kwargs={'source': NodeStatsSource(),
+    init_kwargs={'source': NodeStatsSource,
                  'default_include_lists': DEFAULT_INCLUDE_LISTS})
   local_processes_stats_handler = HandlerInfo(
     handler_class=CurrentStatsHandler,
-    init_kwargs={'source': ProcessesStatsSource(),
+    init_kwargs={'source': ProcessesStatsSource,
                  'default_include_lists': DEFAULT_INCLUDE_LISTS})
 
   if is_lb_node:
     # Only LB nodes provide proxies stats
     local_proxies_stats_handler = HandlerInfo(
       handler_class=CurrentStatsHandler,
-      init_kwargs={'source': ProxiesStatsSource(),
+      init_kwargs={'source': ProxiesStatsSource,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
   else:
@@ -160,29 +158,33 @@ def _configure_profiling(stats_source, profiler, interval):
     """ Triggers asynchronous stats collection and schedules writing
     of the cluster stats (when it's collected) to the stats profile.
     """
-    newer_than = time.mktime(datetime.utcnow().timetuple())
+    newer_than = time.mktime(datetime.now().timetuple())
     future_stats = stats_source.get_current_async(newer_than=newer_than)
     IOLoop.current().add_future(future_stats, write_stats_callback)
 
   PeriodicCallback(profiling_periodical_callback, interval).start()
 
 
-def configure_node_stats_profiling():
-  """ Configures and starts periodical callback for collecting and than
-  writing cluster stats to profile log.
-  """
-  _configure_profiling(
-    stats_source=ClusterNodesStatsSource(),
-    profiler=profile.NodesProfileLog(DEFAULT_INCLUDE_LISTS),
-    interval=PROFILE_NODES_STATS_INTERVAL
-  )
-
-
-def configure_processes_stats_profiling(write_detailed_stats):
+def configure_node_stats_profiling(interval):
   """ Configures and starts periodical callback for collecting and than
   writing cluster stats to profile log.
 
   Args:
+    interval: An integer indicating interval between writes (in seconds).
+  """
+  _configure_profiling(
+    stats_source=ClusterNodesStatsSource(),
+    profiler=profile.NodesProfileLog(DEFAULT_INCLUDE_LISTS),
+    interval=interval
+  )
+
+
+def configure_processes_stats_profiling(interval, write_detailed_stats):
+  """ Configures and starts periodical callback for collecting and than
+  writing cluster stats to profile log.
+
+  Args:
+    interval: An integer indicating interval between writes (in seconds).
     write_detailed_stats: A boolean indicating whether detailed stats.
       should be written.
   """
@@ -191,15 +193,16 @@ def configure_processes_stats_profiling(write_detailed_stats):
     profiler= profile.ProcessesProfileLog(
       include_lists=DEFAULT_INCLUDE_LISTS,
       write_detailed_stats=write_detailed_stats),
-    interval=PROFILE_PROCESSES_STATS_INTERVAL
+    interval=interval
   )
 
 
-def configure_proxies_stats_profiling(write_detailed_stats):
+def configure_proxies_stats_profiling(interval, write_detailed_stats):
   """ Configures and starts periodical callback for collecting and than
   writing cluster stats to profile log.
 
   Args:
+    interval: An integer indicating interval between writes (in seconds).
     write_detailed_stats: A boolean indicating whether detailed stats
       should be written.
   """
@@ -208,5 +211,5 @@ def configure_proxies_stats_profiling(write_detailed_stats):
     profiler= profile.ProxiesProfileLog(
       include_lists=DEFAULT_INCLUDE_LISTS,
       write_detailed_stats=write_detailed_stats),
-    interval=PROFILE_PROXIES_STATS_INTERVAL
+    interval=interval
   )

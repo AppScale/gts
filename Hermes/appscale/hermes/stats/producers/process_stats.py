@@ -8,7 +8,6 @@ import attr
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.stats.constants import LOCAL_STATS_DEBUG_INTERVAL
 from appscale.hermes.stats.converter import Meta, include_list_name
 from appscale.hermes.stats.unified_service_names import \
   find_service_by_monit_name
@@ -106,9 +105,8 @@ PROCESS_ATTRS = (
 
 class ProcessesStatsSource(object):
 
-  last_debug = 0
-
-  def get_current(self):
+  @staticmethod
+  def get_current():
     """ Method for building a list of ProcessStats.
     It parses output of `monit status` and generates ProcessStats object
     for each monitored service.
@@ -116,6 +114,7 @@ class ProcessesStatsSource(object):
     Returns:
       An instance ofProcessesStatsSnapshot.
     """
+    start = time.time()
     monit_status = subprocess.check_output('monit status', shell=True)
     processes_stats = []
     for match in MONIT_PROCESS_PATTERN.finditer(monit_status):
@@ -130,12 +129,11 @@ class ProcessesStatsSource(object):
         logging.warn(u"Unable to get process stats for {monit_name} ({err})"
                      .format(monit_name=monit_name, err=err))
     stats = ProcessesStatsSnapshot(
-      utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
+      utc_timestamp=time.mktime(datetime.now().timetuple()),
       processes_stats=processes_stats
     )
-    if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:
-      ProcessesStatsSource.last_debug = time.time()
-      logging.debug(stats)
+    logging.info("Prepared stats about {proc} processes in {elapsed:.1f}s."
+                 .format(proc=len(processes_stats), elapsed=time.time()-start))
     return stats
 
 
