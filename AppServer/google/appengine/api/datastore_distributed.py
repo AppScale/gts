@@ -361,6 +361,10 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
           datastore_pb.Error.TIMEOUT,
           'Connection timed out when making datastore request')
       raise
+    # AppScale: Interpret ProtocolBuffer.ProtocolBufferReturnError as
+    # datastore_errors.InternalError
+    except ProtocolBuffer.ProtocolBufferReturnError as e:
+      raise datastore_errors.InternalError(e)
 
     if not api_response or not api_response.has_response():
       raise datastore_errors.InternalError(
@@ -374,7 +378,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     if api_response.has_exception():
       raise api_response.exception()
-   
+
     response.ParseFromString(api_response.response())
 
   def _Dynamic_Put(self, put_request, put_response, request_id=None):
