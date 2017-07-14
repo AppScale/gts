@@ -175,7 +175,8 @@ CONFIG
                   '--pidfile', pidfile,
                   '--startas', "#{bash} -- -c '#{bash_exec}'"]
 
-    stop_cmd = "#{start_stop_daemon} --stop --pidfile #{pidfile} && " +
+    stop_cmd = "#{start_stop_daemon} --stop --pidfile #{pidfile} " +
+               "--retry=TERM/20/KILL/5 && " +
                "#{rm} #{pidfile}"
 
     contents = <<BOO
