@@ -4,12 +4,13 @@ servers. """
 import argparse
 import json
 import logging
+import signal
 import sys
 import time
 import tornado.httpserver
-import tornado.ioloop
 import tornado.web
 from kazoo.client import KazooClient
+from tornado.ioloop import IOLoop
 
 from appscale.common import appscale_info
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
@@ -194,6 +195,19 @@ class MainHandler(tornado.web.RequestHandler):
     self.write(apiresponse.Encode())
 
 
+def graceful_shutdown(*_):
+  """ Stop accepting new requests and exit on the next I/O loop iteration.
+
+  This is safe as long as the server is synchronous. It will stop in the middle
+  of requests as soon as the server has asynchronous handlers.
+  """
+  logger.info('Stopping server')
+  global server
+  server.stop()
+  io_loop = IOLoop.instance()
+  io_loop.add_callback_from_signal(io_loop.stop)
+
+
 def main():
   """ Main function which initializes and starts the tornado server. """
   parser = argparse.ArgumentParser(description='A taskqueue API server')
@@ -230,15 +244,14 @@ def main():
 
   tq_application = tornado.web.Application(handlers)
 
+  global server
   server = tornado.httpserver.HTTPServer(
     tq_application,
     decompress_request=True)   # Automatically decompress incoming requests.
   server.listen(args.port)
 
-  while 1:
-    try:
-      logger.info('Starting TaskQueue server on port {}'.format(args.port))
-      tornado.ioloop.IOLoop.instance().start()
-    except KeyboardInterrupt:
-      logger.warning('Server interrupted by user, terminating...')
-      sys.exit(1)
+  signal.signal(signal.SIGTERM, graceful_shutdown)
+  signal.signal(signal.SIGINT, graceful_shutdown)
+
+  logger.info('Starting TaskQueue server on port {}'.format(args.port))
+  IOLoop.current().start()
