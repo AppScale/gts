@@ -273,22 +273,11 @@ class InfrastructureManagerClient
     Djinn.log_debug("Calling SystemManager")
 
     cpu_usage = JSON.parse(@conn.get_cpu_usage(@secret))
-    Djinn.log_debug("CPU usage: #{cpu_usage}")
-
     disk_usage = JSON.parse(@conn.get_disk_usage(@secret))
-    Djinn.log_debug("Disk usage: #{disk_usage}")
-
     memory_usage = JSON.parse(@conn.get_memory_usage(@secret))
-    Djinn.log_debug("Memory usage: #{memory_usage}")
-
     service_summary = JSON.parse(@conn.get_service_summary(@secret))
-    Djinn.log_debug("Service summary: #{service_summary}")
-
     swap_usage = JSON.parse(@conn.get_swap_usage(@secret))
-    Djinn.log_debug("Swap usage: #{swap_usage}")
-
     loadavg = JSON.parse(@conn.get_loadavg(@secret))
-    Djinn.log_debug("Loadavg: #{loadavg}")
 
     all_stats = cpu_usage
     all_stats = all_stats.merge(disk_usage)

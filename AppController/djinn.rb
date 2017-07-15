@@ -2061,10 +2061,10 @@ class Djinn
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
         stats = JSON.parse(get_node_stats_json(secret))
-        Djinn.log_debug("Node stats: #{stats}")
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
+        Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
         last_print = Time.now.to_i
       end
 
@@ -6108,7 +6108,7 @@ HOSTS
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
     system_stats = JSON.load(imc.get_system_stats())
-    Djinn.log_debug("System stats: #{system_stats}")
+    Djinn.log_debug("get_node_stats_json: got system stats.")
 
     # Combine all useful stats and return.
     node_stats = system_stats
