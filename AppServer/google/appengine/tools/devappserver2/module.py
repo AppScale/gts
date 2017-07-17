@@ -17,7 +17,6 @@
 """Manage the lifecycle of runtime processes and dispatch requests to them."""
 
 
-import capnp
 import collections
 import cStringIO
 import functools
@@ -35,17 +34,17 @@ import urllib
 import urlparse
 import wsgiref.headers
 
-
 from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import appinfo
 from google.appengine.api import request_info
-from google.appengine.api.logservice import logging_capnp
+from google.appengine.api.logservice import log_service_pb
 from google.appengine.tools.devappserver2 import application_configuration
 from google.appengine.tools.devappserver2 import blob_image
 from google.appengine.tools.devappserver2 import blob_upload
 from google.appengine.tools.devappserver2 import channel
 from google.appengine.tools.devappserver2 import constants
+
 from google.appengine.tools.devappserver2 import endpoints
 from google.appengine.tools.devappserver2 import errors
 from google.appengine.tools.devappserver2 import file_watcher
@@ -64,7 +63,6 @@ from google.appengine.tools.devappserver2 import url_handler
 from google.appengine.tools.devappserver2 import util
 from google.appengine.tools.devappserver2 import wsgi_handler
 from google.appengine.tools.devappserver2 import wsgi_server
-from google.appengine.api.logservice import log_service_pb
 
 
 _LOWER_HEX_DIGITS = string.hexdigits.lower()
@@ -114,7 +112,7 @@ class _ScriptHandler(url_handler.UserConfiguredURLHandler):
   """A URL handler that will cause the request to be dispatched to an instance.
 
   This handler is special in that it does not have a working handle() method
-  since the Server's dispatch logic is used to select the appropriate Instance.
+  since the Module's dispatch logic is used to select the appropriate Instance.
   """
 
   def __init__(self, url_map):
@@ -138,41 +136,48 @@ class _ScriptHandler(url_handler.UserConfiguredURLHandler):
     raise NotImplementedError()
 
 
-class Server(object):
+class Module(object):
   """The abstract base for all instance pool implementations."""
 
+  _RUNTIME_INSTANCE_FACTORIES = {
+
+      'go': go_runtime.GoRuntimeInstanceFactory,
+      'php': php_runtime.PHPRuntimeInstanceFactory,
+      'python': python_runtime.PythonRuntimeInstanceFactory,
+      'python27': python_runtime.PythonRuntimeInstanceFactory,
+  }
+
   def _create_instance_factory(self,
-                               server_configuration):
+                               module_configuration):
     """Create an instance.InstanceFactory.
 
     Args:
-      server_configuration: An application_configuration.ServerConfiguration
-          instance storing the configuration data for a server.
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance storing the configuration data for a module.
 
     Returns:
       A instance.InstanceFactory subclass that can be used to create instances
       with the provided configuration.
+
+    Raises:
+      RuntimeError: if the configuration specifies an unknown runtime.
     """
-    if server_configuration.runtime == 'go':
-      return go_runtime.GoRuntimeInstanceFactory(
-          request_data=self._request_data,
-          runtime_config_getter=self._get_runtime_config,
-          module_configuration=server_configuration)
-    elif server_configuration.runtime in ('python', 'python27'):
-      return python_runtime.PythonRuntimeInstanceFactory(
-          request_data=self._request_data,
-          runtime_config_getter=self._get_runtime_config,
-          server_configuration=server_configuration)
-    elif server_configuration.runtime == 'php':
-      return php_runtime.PHPRuntimeInstanceFactory(
-          request_data=self._request_data,
-          runtime_config_getter=self._get_runtime_config,
-          server_configuration=server_configuration)
-    else:
-      assert 0, 'unknown runtime %r' % server_configuration.runtime
+    # TODO: a bad runtime should be caught before we get here.
+    if module_configuration.runtime not in self._RUNTIME_INSTANCE_FACTORIES:
+      raise RuntimeError(
+          'Unknown runtime %r; supported runtimes are %s.' %
+          (module_configuration.runtime,
+           ', '.join(
+               sorted(repr(k) for k in self._RUNTIME_INSTANCE_FACTORIES))))
+    instance_factory = self._RUNTIME_INSTANCE_FACTORIES[
+        module_configuration.runtime]
+    return instance_factory(
+        request_data=self._request_data,
+        runtime_config_getter=self._get_runtime_config,
+        module_configuration=module_configuration)
 
   def _create_url_handlers(self):
-    """Constructs URLHandlers based on the server configuration.
+    """Constructs URLHandlers based on the module configuration.
 
     Returns:
       A list of url_handler.URLHandlers corresponding that can react as
@@ -204,7 +209,7 @@ class Server(object):
     found_start_handler = False
     found_warmup_handler = False
     # Add user-defined URL handlers
-    for url_map in self._server_configuration.handlers:
+    for url_map in self._module_configuration.handlers:
       handler_type = url_map.GetHandlerType()
       if handler_type == appinfo.HANDLER_SCRIPT:
         handlers.append(_ScriptHandler(url_map))
@@ -217,12 +222,12 @@ class Server(object):
       elif handler_type == appinfo.STATIC_FILES:
         handlers.append(
             static_files_handler.StaticFilesHandler(
-                self._server_configuration.application_root,
+                self._module_configuration.application_root,
                 url_map))
       elif handler_type == appinfo.STATIC_DIR:
         handlers.append(
             static_files_handler.StaticDirHandler(
-                self._server_configuration.application_root,
+                self._module_configuration.application_root,
                 url_map))
       else:
         assert 0, 'unexpected handler %r for %r' % (handler_type, url_map)
@@ -232,7 +237,7 @@ class Server(object):
     # Add a handler for /_ah/warmup if no script handler matches and warmup is
     # enabled.
     if (not found_warmup_handler and
-        'warmup' in (self._server_configuration.inbound_services or [])):
+        'warmup' in (self._module_configuration.inbound_services or [])):
       handlers.insert(0, _ScriptHandler(self._instance_factory.WARMUP_URL_MAP))
     return handlers
 
@@ -245,35 +250,37 @@ class Server(object):
       field, which must be populated elsewhere.
     """
     runtime_config = runtime_config_pb2.Config()
-    runtime_config.app_id = self._server_configuration.application
-    runtime_config.version_id = self._server_configuration.version_id
-    runtime_config.threadsafe = self._server_configuration.threadsafe or False
+    runtime_config.app_id = self._module_configuration.application
+    runtime_config.version_id = self._module_configuration.version_id
+    runtime_config.threadsafe = self._module_configuration.threadsafe or False
     runtime_config.application_root = (
-        self._server_configuration.application_root)
+        self._module_configuration.application_root)
     if not self._allow_skipped_files:
-      runtime_config.skip_files = str(self._server_configuration.skip_files)
+      runtime_config.skip_files = str(self._module_configuration.skip_files)
       runtime_config.static_files = _static_files_regex_from_handlers(
-          self._server_configuration.handlers)
+          self._module_configuration.handlers)
     runtime_config.api_port = self._api_port
     runtime_config.stderr_log_level = self._runtime_stderr_loglevel
     runtime_config.datacenter = 'us1'
     runtime_config.auth_domain = self._auth_domain
 
-    for library in self._server_configuration.normalized_libraries:
+    for library in self._module_configuration.normalized_libraries:
       runtime_config.libraries.add(name=library.name, version=library.version)
 
-    for key, value in (self._server_configuration.env_variables or {}).items():
+    for key, value in (self._module_configuration.env_variables or {}).items():
       runtime_config.environ.add(key=str(key), value=str(value))
 
     if self._cloud_sql_config:
       runtime_config.cloud_sql_config.CopyFrom(self._cloud_sql_config)
 
-    if self._server_configuration.runtime == 'php':
-      runtime_config.php_config.php_executable_path = self._php_executable_path
+    if self._module_configuration.runtime == 'php':
+      if self._php_executable_path:
+        runtime_config.php_config.php_executable_path = (
+            self._php_executable_path)
       runtime_config.php_config.enable_debugger = (
           self._enable_php_remote_debugging)
     if (self._python_config and
-        self._server_configuration.runtime.startswith('python')):
+        self._module_configuration.runtime.startswith('python')):
       runtime_config.python_config.CopyFrom(self._python_config)
     return runtime_config
 
@@ -309,7 +316,7 @@ class Server(object):
     """Handle file or configuration changes."""
     # Always check for config and file changes because checking also clears
     # pending changes.
-    config_changes = self._server_configuration.check_for_updates()
+    config_changes = self._module_configuration.check_for_updates()
     has_file_changes = self._watcher.has_changes()
 
     if application_configuration.HANDLERS_CHANGED in config_changes:
@@ -328,7 +335,7 @@ class Server(object):
         file_changed=has_file_changes)
 
   def __init__(self,
-               server_configuration,
+               module_configuration,
                host,
                balanced_port,
                api_port,
@@ -346,16 +353,16 @@ class Server(object):
                use_mtime_file_watcher,
                automatic_restarts,
                allow_skipped_files):
-    """Initializer for Server.
+    """Initializer for Module.
 
     Args:
-      server_configuration: An application_configuration.ServerConfiguration
-          instance storing the configuration data for a server.
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance storing the configuration data for a module.
       host: A string containing the host that any HTTP servers should bind to
           e.g. "localhost".
-      balanced_port: An int specifying the port where the balanced server for
+      balanced_port: An int specifying the port where the balanced module for
           the pool should listen.
-      api_port: The port that APIServer listens for RPC requests on.
+      api_port: The port that APIModule listens for RPC requests on.
       auth_domain: A string containing the auth domain to set in the environment
           variables.
       runtime_stderr_loglevel: An int reprenting the minimum logging level at
@@ -373,11 +380,11 @@ class Server(object):
           then Cloud SQL will not be available.
       default_version_port: An int containing the port of the default version.
       port_registry: A dispatcher.PortRegistry used to provide the Dispatcher
-          with a mapping of port to Server and Instance.
+          with a mapping of port to Module and Instance.
       request_data: A wsgi_request_info.WSGIRequestInfo that will be provided
           with request information for use by API stubs.
       dispatcher: A Dispatcher instance that can be used to make HTTP requests.
-      max_instances: The maximum number of instances to create for this server.
+      max_instances: The maximum number of instances to create for this module.
           If None then there is no limit on the number of created instances.
       use_mtime_file_watcher: A bool containing whether to use mtime polling to
           monitor file changes even if other options are available on the
@@ -388,8 +395,8 @@ class Server(object):
           are readable, even if they appear in a static handler or "skip_files"
           directive.
     """
-    self._server_configuration = server_configuration
-    self._name = server_configuration.server_name
+    self._module_configuration = module_configuration
+    self._name = module_configuration.module_name
     self._host = host
     self._api_port = api_port
     self._auth_domain = auth_domain
@@ -404,14 +411,14 @@ class Server(object):
     # uses self._allow_skipped_files.
     self._allow_skipped_files = allow_skipped_files
     self._instance_factory = self._create_instance_factory(
-        self._server_configuration)
+        self._module_configuration)
     self._dispatcher = dispatcher
     self._max_instances = max_instances
     self._automatic_restarts = automatic_restarts
     self._use_mtime_file_watcher = use_mtime_file_watcher
     if self._automatic_restarts:
       self._watcher = file_watcher.get_file_watcher(
-          [self._server_configuration.application_root] +
+          [self._module_configuration.application_root] +
           self._instance_factory.get_restart_directories(),
           self._use_mtime_file_watcher)
     else:
@@ -421,7 +428,7 @@ class Server(object):
     self._default_version_port = default_version_port
     self._port_registry = port_registry
 
-    self._balanced_server = wsgi_server.WsgiServer(
+    self._balanced_module = wsgi_server.WsgiServer(
         (self._host, self._balanced_port), self)
     self._quit_event = threading.Event()  # Set when quit() has been called.
 
@@ -436,27 +443,27 @@ class Server(object):
 
   @property
   def name(self):
-    """The name of the server, as defined in app.yaml.
+    """The name of the module, as defined in app.yaml.
 
-    This value will be constant for the lifetime of the server even in the
-    server configuration changes.
+    This value will be constant for the lifetime of the module even in the
+    module configuration changes.
     """
     return self._name
 
   @property
   def ready(self):
-    """The server is ready to handle HTTP requests."""
-    return self._balanced_server.ready
+    """The module is ready to handle HTTP requests."""
+    return self._balanced_module.ready
 
   @property
   def balanced_port(self):
-    """The port that the balanced HTTP server for the Server is listening on."""
-    assert self._balanced_server.ready, 'balanced server not running'
-    return self._balanced_server.port
+    """The port that the balanced HTTP server for the Module is listening on."""
+    assert self._balanced_module.ready, 'balanced module not running'
+    return self._balanced_module.port
 
   @property
   def host(self):
-    """The host that the HTTP server(s) for this Server is listening on."""
+    """The host that the HTTP server(s) for this Module is listening on."""
     return self._host
 
   @property
@@ -473,13 +480,13 @@ class Server(object):
     return self._instance_factory.max_concurrent_requests
 
   @property
-  def server_configuration(self):
-    """The application_configuration.ServerConfiguration for this server."""
-    return self._server_configuration
+  def module_configuration(self):
+    """The application_configuration.ModuleConfiguration for this module."""
+    return self._module_configuration
 
   @property
   def supports_interactive_commands(self):
-    """True if the server can evaluate arbitrary code and return the result."""
+    """True if the module can evaluate arbitrary code and return the result."""
     return self._instance_factory.SUPPORTS_INTERACTIVE_REQUESTS
 
   def _handle_script_request(self,
@@ -565,10 +572,10 @@ class Server(object):
     if 'HTTP_HOST' in environ:
       environ['SERVER_NAME'] = environ['HTTP_HOST'].split(':', 1)[0]
     environ['DEFAULT_VERSION_HOSTNAME'] = '%s:%s' % (
-        environ['SERVER_NAME'], environ['SERVER_PORT'])
+      environ['SERVER_NAME'], environ['SERVER_PORT'])
     with self._request_data.request(
         environ,
-        self._server_configuration) as request_id:
+        self._module_configuration) as request_id:
       should_log_request = not _REQUEST_LOGGING_BLACKLIST_RE.match(
           environ['PATH_INFO'])
       environ['REQUEST_ID_HASH'] = self.generate_request_id_hash()
@@ -595,8 +602,8 @@ class Server(object):
             request_id=request_id,
             user_request_id=environ['REQUEST_LOG_ID'],
             ip=environ.get('REMOTE_ADDR', ''),
-            app_id=self._server_configuration.application,
-            version_id=self._server_configuration.version_id,
+            app_id=self._module_configuration.application,
+            version_id=self._module_configuration.version_id,
             nickname=email.split('@', 1)[0],
             user_agent=environ.get('HTTP_USER_AGENT', ''),
             host=hostname,
@@ -612,10 +619,10 @@ class Server(object):
           status_code = int(status.split(' ', 1)[0])
           content_length = int(headers.get('Content-Length', 0))
           logservice.end_request(request_id, status_code, content_length)
-          logging.info('%(server_name)s: '
+          logging.info('%(module_name)s: '
                        '"%(method)s %(resource)s %(http_version)s" '
                        '%(status)d %(content_length)s',
-                       {'server_name': self.name,
+                       {'module_name': self.name,
                         'method': method,
                         'resource': resource,
                         'http_version': http_version,
@@ -723,7 +730,7 @@ class Server(object):
                    for _ in range(_REQUEST_ID_HASH_LENGTH))
 
   def set_num_instances(self, instances):
-    """Sets the number of instances for this server to run.
+    """Sets the number of instances for this module to run.
 
     Args:
       instances: An int containing the number of instances to run.
@@ -731,15 +738,15 @@ class Server(object):
     raise request_info.NotSupportedWithAutoScalingError()
 
   def get_num_instances(self):
-    """Returns the number of instances for this server to run."""
+    """Returns the number of instances for this module to run."""
     raise request_info.NotSupportedWithAutoScalingError()
 
   def suspend(self):
-    """Stops the server from serving requests."""
+    """Stops the module from serving requests."""
     raise request_info.NotSupportedWithAutoScalingError()
 
   def resume(self):
-    """Restarts the server."""
+    """Restarts the module."""
     raise request_info.NotSupportedWithAutoScalingError()
 
   def get_instance_address(self, instance_id):
@@ -758,10 +765,10 @@ class Server(object):
   def supports_individually_addressable_instances(self):
     return False
 
-  def create_interactive_command_server(self):
-    """Returns a InteractiveCommandServer that can be sent user commands."""
+  def create_interactive_command_module(self):
+    """Returns a InteractiveCommandModule that can be sent user commands."""
     if self._instance_factory.SUPPORTS_INTERACTIVE_REQUESTS:
-      return InteractiveCommandServer(self._server_configuration,
+      return InteractiveCommandModule(self._module_configuration,
                                       self._host,
                                       self._balanced_port,
                                       self._api_port,
@@ -812,7 +819,7 @@ class Server(object):
     return environ
 
 
-class AutoScalingServer(Server):
+class AutoScalingModule(Module):
   """A pool of instances that is autoscaled based on traffic."""
 
   # The minimum number of seconds to wait, after quitting an idle instance,
@@ -863,7 +870,7 @@ class AutoScalingServer(Server):
     self._max_idle_instances = int(automatic_scaling.max_idle_instances)
 
   def __init__(self,
-               server_configuration,
+               module_configuration,
                host,
                balanced_port,
                api_port,
@@ -881,14 +888,14 @@ class AutoScalingServer(Server):
                use_mtime_file_watcher,
                automatic_restarts,
                allow_skipped_files):
-    """Initializer for AutoScalingServer.
+    """Initializer for AutoScalingModule.
 
     Args:
-      server_configuration: An application_configuration.ServerConfiguration
-          instance storing the configuration data for a server.
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance storing the configuration data for a module.
       host: A string containing the host that any HTTP servers should bind to
           e.g. "localhost".
-      balanced_port: An int specifying the port where the balanced server for
+      balanced_port: An int specifying the port where the balanced module for
           the pool should listen.
       api_port: The port that APIServer listens for RPC requests on.
       auth_domain: A string containing the auth domain to set in the environment
@@ -908,11 +915,11 @@ class AutoScalingServer(Server):
           then Cloud SQL will not be available.
       default_version_port: An int containing the port of the default version.
       port_registry: A dispatcher.PortRegistry used to provide the Dispatcher
-          with a mapping of port to Server and Instance.
+          with a mapping of port to Module and Instance.
       request_data: A wsgi_request_info.WSGIRequestInfo that will be provided
           with request information for use by API stubs.
       dispatcher: A Dispatcher instance that can be used to make HTTP requests.
-      max_instances: The maximum number of instances to create for this server.
+      max_instances: The maximum number of instances to create for this module.
           If None then there is no limit on the number of created instances.
       use_mtime_file_watcher: A bool containing whether to use mtime polling to
           monitor file changes even if other options are available on the
@@ -923,7 +930,7 @@ class AutoScalingServer(Server):
           are readable, even if they appear in a static handler or "skip_files"
           directive.
     """
-    super(AutoScalingServer, self).__init__(server_configuration,
+    super(AutoScalingModule, self).__init__(module_configuration,
                                             host,
                                             balanced_port,
                                             api_port,
@@ -943,7 +950,7 @@ class AutoScalingServer(Server):
                                             allow_skipped_files)
 
     self._process_automatic_scaling(
-        self._server_configuration.automatic_scaling)
+        self._module_configuration.automatic_scaling)
 
     self._instances = set()  # Protected by self._condition.
     # A deque containg (time, num_outstanding_instance_requests) 2-tuples.
@@ -959,22 +966,22 @@ class AutoScalingServer(Server):
         target=self._loop_adjusting_instances)
 
   def start(self):
-    """Start background management of the Server."""
-    self._balanced_server.start()
+    """Start background management of the Module."""
+    self._balanced_module.start()
     self._port_registry.add(self.balanced_port, self, None)
     if self._watcher:
       self._watcher.start()
     self._instance_adjustment_thread.start()
 
   def quit(self):
-    """Stops the Server."""
+    """Stops the Module."""
     self._quit_event.set()
     self._instance_adjustment_thread.join()
-    # The instance adjustment thread depends on the balanced server and the
+    # The instance adjustment thread depends on the balanced module and the
     # watcher so wait for it exit before quitting them.
     if self._watcher:
       self._watcher.quit()
-    self._balanced_server.quit()
+    self._balanced_module.quit()
     with self._condition:
       instances = self._instances
       self._instances = set()
@@ -984,7 +991,7 @@ class AutoScalingServer(Server):
 
   @property
   def instances(self):
-    """A set of all the instances currently in the Server."""
+    """A set of all the instances currently in the Module."""
     with self._condition:
       return set(self._instances)
 
@@ -1101,7 +1108,7 @@ class AutoScalingServer(Server):
         self._condition.notify()
 
   def _add_instance(self, permit_warmup):
-    """Creates and adds a new instance.Instance to the Server.
+    """Creates and adds a new instance.Instance to the Module.
 
     Args:
       permit_warmup: If True then the new instance.Instance will be sent a new
@@ -1118,7 +1125,7 @@ class AutoScalingServer(Server):
           return None
 
     perform_warmup = permit_warmup and (
-        'warmup' in (self._server_configuration.inbound_services or []))
+        'warmup' in (self._module_configuration.inbound_services or []))
 
     inst = self._instance_factory.new_instance(
         self.generate_instance_id(),
@@ -1198,7 +1205,7 @@ class AutoScalingServer(Server):
                             can handle requests, required to handle the current
                             request load.
         not_required_instances: The set of the Instances contained in this
-                                Server that not are not required.
+                                Module that not are not required.
     """
     with self._condition:
       num_required_instances = self._get_num_required_instances()
@@ -1262,7 +1269,7 @@ class AutoScalingServer(Server):
               break
 
   def _loop_adjusting_instances(self):
-    """Loops until the Server exits, reloading, adding or removing Instances."""
+    """Loops until the Module exits, reloading, adding or removing Instances."""
     while not self._quit_event.is_set():
       if self.ready:
         if self._automatic_restarts:
@@ -1274,7 +1281,7 @@ class AutoScalingServer(Server):
     return self._handle_request(environ, start_response)
 
 
-class ManualScalingServer(Server):
+class ManualScalingModule(Module):
   """A pool of instances that is manually-scaled."""
 
   _DEFAULT_MANUAL_SCALING = appinfo.ManualScaling(instances='1')
@@ -1295,7 +1302,7 @@ class ManualScalingServer(Server):
     self._initial_num_instances = int(manual_scaling.instances)
 
   def __init__(self,
-               server_configuration,
+               module_configuration,
                host,
                balanced_port,
                api_port,
@@ -1313,14 +1320,14 @@ class ManualScalingServer(Server):
                use_mtime_file_watcher,
                automatic_restarts,
                allow_skipped_files):
-    """Initializer for ManualScalingServer.
+    """Initializer for ManualScalingModule.
 
     Args:
-      server_configuration: An application_configuration.ServerConfiguration
-          instance storing the configuration data for a server.
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance storing the configuration data for a module.
       host: A string containing the host that any HTTP servers should bind to
           e.g. "localhost".
-      balanced_port: An int specifying the port where the balanced server for
+      balanced_port: An int specifying the port where the balanced module for
           the pool should listen.
       api_port: The port that APIServer listens for RPC requests on.
       auth_domain: A string containing the auth domain to set in the environment
@@ -1340,11 +1347,11 @@ class ManualScalingServer(Server):
           then Cloud SQL will not be available.
       default_version_port: An int containing the port of the default version.
       port_registry: A dispatcher.PortRegistry used to provide the Dispatcher
-          with a mapping of port to Server and Instance.
+          with a mapping of port to Module and Instance.
       request_data: A wsgi_request_info.WSGIRequestInfo that will be provided
           with request information for use by API stubs.
       dispatcher: A Dispatcher instance that can be used to make HTTP requests.
-      max_instances: The maximum number of instances to create for this server.
+      max_instances: The maximum number of instances to create for this module.
           If None then there is no limit on the number of created instances.
       use_mtime_file_watcher: A bool containing whether to use mtime polling to
           monitor file changes even if other options are available on the
@@ -1355,7 +1362,7 @@ class ManualScalingServer(Server):
           are readable, even if they appear in a static handler or "skip_files"
           directive.
     """
-    super(ManualScalingServer, self).__init__(server_configuration,
+    super(ManualScalingModule, self).__init__(module_configuration,
                                               host,
                                               balanced_port,
                                               api_port,
@@ -1374,11 +1381,11 @@ class ManualScalingServer(Server):
                                               automatic_restarts,
                                               allow_skipped_files)
 
-    self._process_manual_scaling(server_configuration.manual_scaling)
+    self._process_manual_scaling(module_configuration.manual_scaling)
 
     self._instances = []  # Protected by self._condition.
     self._wsgi_servers = []  # Protected by self._condition.
-    # Whether the server has been stopped. Protected by self._condition.
+    # Whether the module has been stopped. Protected by self._condition.
     self._suspended = False
 
     self._condition = threading.Condition()  # Protects instance state.
@@ -1391,8 +1398,8 @@ class ManualScalingServer(Server):
         target=self._loop_watching_for_changes)
 
   def start(self):
-    """Start background management of the Server."""
-    self._balanced_server.start()
+    """Start background management of the Module."""
+    self._balanced_module.start()
     self._port_registry.add(self.balanced_port, self, None)
     if self._watcher:
       self._watcher.start()
@@ -1407,14 +1414,14 @@ class ManualScalingServer(Server):
         self._add_instance()
 
   def quit(self):
-    """Stops the Server."""
+    """Stops the Module."""
     self._quit_event.set()
     self._change_watcher_thread.join()
-    # The instance adjustment thread depends on the balanced server and the
+    # The instance adjustment thread depends on the balanced module and the
     # watcher so wait for it exit before quitting them.
     if self._watcher:
       self._watcher.quit()
-    self._balanced_server.quit()
+    self._balanced_module.quit()
     for wsgi_servr in self._wsgi_servers:
       wsgi_servr.quit()
     with self._condition:
@@ -1439,7 +1446,7 @@ class ManualScalingServer(Server):
 
   @property
   def instances(self):
-    """A set of all the instances currently in the Server."""
+    """A set of all the instances currently in the Module."""
     with self._condition:
       return set(self._instances)
 
@@ -1515,11 +1522,11 @@ class ManualScalingServer(Server):
     if ((request_type in (instance.NORMAL_REQUEST, instance.READY_REQUEST) and
          self._suspended) or self._quit_event.is_set()):
       return self._error_response(environ, start_response, 404)
-    if self._server_configuration.is_backend:
-      environ['BACKEND_ID'] = self._server_configuration.server_name
+    if self._module_configuration.is_backend:
+      environ['BACKEND_ID'] = self._module_configuration.module_name
     else:
       environ['BACKEND_ID'] = (
-          self._server_configuration.version_id.split('.', 1)[0])
+          self._module_configuration.version_id.split('.', 1)[0])
     if inst is not None:
       return self._handle_instance_request(
           environ, start_response, url_map, match, request_id, inst,
@@ -1547,7 +1554,7 @@ class ManualScalingServer(Server):
       return self._error_response(environ, start_response, 503)
 
   def _add_instance(self):
-    """Creates and adds a new instance.Instance to the Server.
+    """Creates and adds a new instance.Instance to the Module.
 
     This must be called with _instances_change_lock held.
     """
@@ -1603,7 +1610,7 @@ class ManualScalingServer(Server):
     """Handle file or configuration changes."""
     # Always check for config and file changes because checking also clears
     # pending changes.
-    config_changes = self._server_configuration.check_for_updates()
+    config_changes = self._module_configuration.check_for_updates()
     has_file_changes = self._watcher.has_changes()
 
     if application_configuration.HANDLERS_CHANGED in config_changes:
@@ -1664,10 +1671,10 @@ class ManualScalingServer(Server):
     self._shutdown_instance(inst, port)
 
   def suspend(self):
-    """Suspends serving for this server, quitting all running instances."""
+    """Suspends serving for this module, quitting all running instances."""
     with self._instances_change_lock:
       if self._suspended:
-        raise request_info.ServerAlreadyStoppedError()
+        raise request_info.ModuleAlreadyStoppedError()
       self._suspended = True
       with self._condition:
         instances_to_stop = zip(self._instances, self._wsgi_servers)
@@ -1684,10 +1691,10 @@ class ManualScalingServer(Server):
     self._shutdown_instance(inst, port)
 
   def resume(self):
-    """Resumes serving for this server."""
+    """Resumes serving for this module."""
     with self._instances_change_lock:
       if not self._suspended:
-        raise request_info.ServerAlreadyStartedError()
+        raise request_info.ModuleAlreadyStartedError()
       self._suspended = False
       with self._condition:
         if self._quit_event.is_set():
@@ -1709,7 +1716,7 @@ class ManualScalingServer(Server):
       self._async_start_instance(wsgi_servr, inst)
 
   def restart(self):
-    """Restarts the the server, replacing all running instances."""
+    """Restarts the the module, replacing all running instances."""
     with self._instances_change_lock:
       with self._condition:
         if self._quit_event.is_set():
@@ -1748,7 +1755,7 @@ class ManualScalingServer(Server):
     return True
 
 
-class BasicScalingServer(Server):
+class BasicScalingModule(Module):
   """A pool of instances that is basic-scaled."""
 
   _DEFAULT_BASIC_SCALING = appinfo.BasicScaling(max_instances='1',
@@ -1791,7 +1798,7 @@ class BasicScalingServer(Server):
         basic_scaling.idle_timeout)
 
   def __init__(self,
-               server_configuration,
+               module_configuration,
                host,
                balanced_port,
                api_port,
@@ -1809,14 +1816,14 @@ class BasicScalingServer(Server):
                use_mtime_file_watcher,
                automatic_restarts,
                allow_skipped_files):
-    """Initializer for BasicScalingServer.
+    """Initializer for BasicScalingModule.
 
     Args:
-      server_configuration: An application_configuration.ServerConfiguration
-          instance storing the configuration data for a server.
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance storing the configuration data for a module.
       host: A string containing the host that any HTTP servers should bind to
           e.g. "localhost".
-      balanced_port: An int specifying the port where the balanced server for
+      balanced_port: An int specifying the port where the balanced module for
           the pool should listen.
       api_port: The port that APIServer listens for RPC requests on.
       auth_domain: A string containing the auth domain to set in the environment
@@ -1836,11 +1843,11 @@ class BasicScalingServer(Server):
           then Cloud SQL will not be available.
       default_version_port: An int containing the port of the default version.
       port_registry: A dispatcher.PortRegistry used to provide the Dispatcher
-          with a mapping of port to Server and Instance.
+          with a mapping of port to Module and Instance.
       request_data: A wsgi_request_info.WSGIRequestInfo that will be provided
           with request information for use by API stubs.
       dispatcher: A Dispatcher instance that can be used to make HTTP requests.
-      max_instances: The maximum number of instances to create for this server.
+      max_instances: The maximum number of instances to create for this module.
           If None then there is no limit on the number of created instances.
       use_mtime_file_watcher: A bool containing whether to use mtime polling to
           monitor file changes even if other options are available on the
@@ -1851,7 +1858,7 @@ class BasicScalingServer(Server):
           are readable, even if they appear in a static handler or "skip_files"
           directive.
     """
-    super(BasicScalingServer, self).__init__(server_configuration,
+    super(BasicScalingModule, self).__init__(module_configuration,
                                              host,
                                              balanced_port,
                                              api_port,
@@ -1869,7 +1876,7 @@ class BasicScalingServer(Server):
                                              use_mtime_file_watcher,
                                              automatic_restarts,
                                              allow_skipped_files)
-    self._process_basic_scaling(server_configuration.basic_scaling)
+    self._process_basic_scaling(module_configuration.basic_scaling)
 
     self._instances = []  # Protected by self._condition.
     self._wsgi_servers = []  # Protected by self._condition.
@@ -1891,8 +1898,8 @@ class BasicScalingServer(Server):
         target=self._loop_watching_for_changes_and_idle_instances)
 
   def start(self):
-    """Start background management of the Server."""
-    self._balanced_server.start()
+    """Start background management of the Module."""
+    self._balanced_module.start()
     self._port_registry.add(self.balanced_port, self, None)
     if self._watcher:
       self._watcher.start()
@@ -1902,14 +1909,14 @@ class BasicScalingServer(Server):
       self._port_registry.add(wsgi_servr.port, self, inst)
 
   def quit(self):
-    """Stops the Server."""
+    """Stops the Module."""
     self._quit_event.set()
     self._change_watcher_thread.join()
-    # The instance adjustment thread depends on the balanced server and the
+    # The instance adjustment thread depends on the balanced module and the
     # watcher so wait for it exit before quitting them.
     if self._watcher:
       self._watcher.quit()
-    self._balanced_server.quit()
+    self._balanced_module.quit()
     for wsgi_servr in self._wsgi_servers:
       wsgi_servr.quit()
     with self._condition:
@@ -1934,7 +1941,7 @@ class BasicScalingServer(Server):
 
   @property
   def instances(self):
-    """A set of all the instances currently in the Server."""
+    """A set of all the instances currently in the Module."""
     with self._condition:
       return set(self._instances)
 
@@ -2019,11 +2026,11 @@ class BasicScalingServer(Server):
     """
     if self._quit_event.is_set():
       return self._error_response(environ, start_response, 404)
-    if self._server_configuration.is_backend:
-      environ['BACKEND_ID'] = self._server_configuration.server_name
+    if self._module_configuration.is_backend:
+      environ['BACKEND_ID'] = self._module_configuration.module_name
     else:
       environ['BACKEND_ID'] = (
-          self._server_configuration.version_id.split('.', 1)[0])
+          self._module_configuration.version_id.split('.', 1)[0])
     if inst is not None:
       return self._handle_instance_request(
           environ, start_response, url_map, match, request_id, inst,
@@ -2115,7 +2122,7 @@ class BasicScalingServer(Server):
     """Handle file or configuration changes."""
     # Always check for config and file changes because checking also clears
     # pending changes.
-    config_changes = self._server_configuration.check_for_updates()
+    config_changes = self._module_configuration.check_for_updates()
     has_file_changes = self._watcher.has_changes()
 
     if application_configuration.HANDLERS_CHANGED in config_changes:
@@ -2166,7 +2173,7 @@ class BasicScalingServer(Server):
     self._async_shutdown_instance(inst, wsgi_servr.port)
 
   def restart(self):
-    """Restarts the the server, replacing all running instances."""
+    """Restarts the the module, replacing all running instances."""
     instances_to_stop = []
     instances_to_start = []
     with self._condition:
@@ -2204,16 +2211,16 @@ class BasicScalingServer(Server):
     return True
 
 
-class InteractiveCommandServer(Server):
-  """A Server that can evaluate user commands.
+class InteractiveCommandModule(Module):
+  """A Module that can evaluate user commands.
 
-  This server manages a single Instance which is started lazily.
+  This module manages a single Instance which is started lazily.
   """
 
   _MAX_REQUEST_WAIT_TIME = 15
 
   def __init__(self,
-               server_configuration,
+               module_configuration,
                host,
                balanced_port,
                api_port,
@@ -2229,11 +2236,11 @@ class InteractiveCommandServer(Server):
                dispatcher,
                use_mtime_file_watcher,
                allow_skipped_files):
-    """Initializer for InteractiveCommandServer.
+    """Initializer for InteractiveCommandModule.
 
     Args:
-      server_configuration: An application_configuration.ServerConfiguration
-          instance storing the configuration data for this server.
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance storing the configuration data for this module.
       host: A string containing the host that will be used when constructing
           HTTP headers sent to the Instance executing the interactive command
           e.g. "localhost".
@@ -2258,7 +2265,7 @@ class InteractiveCommandServer(Server):
           then Cloud SQL will not be available.
       default_version_port: An int containing the port of the default version.
       port_registry: A dispatcher.PortRegistry used to provide the Dispatcher
-          with a mapping of port to Server and Instance.
+          with a mapping of port to Module and Instance.
       request_data: A wsgi_request_info.WSGIRequestInfo that will be provided
           with request information for use by API stubs.
       dispatcher: A Dispatcher instance that can be used to make HTTP requests.
@@ -2269,8 +2276,8 @@ class InteractiveCommandServer(Server):
           are readable, even if they appear in a static handler or "skip_files"
           directive.
     """
-    super(InteractiveCommandServer, self).__init__(
-        server_configuration,
+    super(InteractiveCommandModule, self).__init__(
+        module_configuration,
         host,
         balanced_port,
         api_port,
@@ -2294,15 +2301,15 @@ class InteractiveCommandServer(Server):
 
   @property
   def balanced_port(self):
-    """The port that the balanced HTTP server for the Server is listening on.
+    """The port that the balanced HTTP server for the Module is listening on.
 
-    The InteractiveCommandServer does not actually listen on this port but it is
+    The InteractiveCommandModule does not actually listen on this port but it is
     used when constructing the "SERVER_PORT" in the WSGI-environment.
     """
     return self._balanced_port
 
   def quit(self):
-    """Stops the InteractiveCommandServer."""
+    """Stops the InteractiveCommandModule."""
     if self._inst:
       self._inst.quit(force=True)
       self._inst = None
@@ -2342,7 +2349,7 @@ class InteractiveCommandServer(Server):
       with self._inst_lock:
         if not self._inst:
           self._inst = self._instance_factory.new_instance(
-              AutoScalingServer.generate_instance_id(),
+              AutoScalingModule.generate_instance_id(),
               expect_ready_request=False)
           new_instance = True
         inst = self._inst
@@ -2368,14 +2375,14 @@ class InteractiveCommandServer(Server):
       return ['The command timed-out while waiting for another one to complete']
 
   def restart(self):
-    """Restarts the the server."""
+    """Restarts the the module."""
     with self._inst_lock:
       if self._inst:
         self._inst.quit(force=True)
         self._inst = None
 
   def send_interactive_command(self, command):
-    """Sends an interactive command to the server.
+    """Sends an interactive command to the module.
 
     Args:
       command: The command to send e.g. "print 5+5".

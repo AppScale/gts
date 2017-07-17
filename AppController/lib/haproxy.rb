@@ -2,6 +2,7 @@
 
 
 require 'fileutils'
+require 'posixpsutil'
 
 
 $:.unshift File.join(File.dirname(__FILE__))
@@ -362,15 +363,42 @@ CONFIG
     File.open(BASE_CONFIG_FILE, "w+") { |dest_file| dest_file.write(base_config) }
   end
 
+  # Counts the current established HAProxy connections for a version's port.
+  #
+  # Args:
+  #   ip_address: The current machine's IP address.
+  #   port: The HAProxy port that the version listens to.
+  # Returns:
+  #   The total number of active connections for a version.
+  def self.count_connections(ip_address, port)
+    current_sessions = 0
+    PosixPsutil::Process.process_iter.each { |process|
+      begin
+        next unless process.name == 'haproxy'
+        process.connections.each{ |connection|
+          if connection.status == 'ESTABLISHED' &&
+              connection.laddr == [ip_address, port]
+            current_sessions += 1
+          end
+        }
+      rescue PosixPsutil::NoSuchProcess
+        next
+      end
+    }
+    return current_sessions
+  end
+
 
   # Retrieves HAProxy stats for the given app.
   #
   # Args:
   #   app_name: The name of the app to get HAProxy stats for.
+  #   ip_address: The current machine's IP address.
+  #   port: The HAProxy port that the version listens to.
   # Returns:
   #   The total requests for the app, the requests enqueued and the
   #   timestamp of stat collection.
-  def self.get_haproxy_stats(app_name)
+  def self.get_haproxy_stats(app_name, ip_address, port)
     full_app_name = "gae_#{app_name}"
     Djinn.log_debug("Getting scaling info for application #{full_app_name}")
 
@@ -413,10 +441,18 @@ CONFIG
         current_sessions = parsed_info[CURRENT_SESSIONS_INDEX].to_i
         Djinn.log_debug("#{full_app_name} #{service_name} Queued Currently " +
           "#{total_req_in_queue}")
-        Djinn.log_debug("Current sessions for #{full_app_name} " +
-          "is #{current_sessions}.")
       end
     }
+
+    # Every time HAProxy loads a new configuration file, the statistics
+    # from the old process are lost. Asking the system can give us a more
+    # accurate count.
+    active_connections = self.count_connections(ip_address, port)
+
+    # If for some reason there is a problem finding the HAProxy processes,
+    # use the stats.
+    current_sessions = [active_connections, current_sessions].max
+    Djinn.log_debug("#{app_name} current sessions: #{current_sessions}")
 
     return total_requests_seen, total_req_in_queue, current_sessions, time_requests_were_seen
   end

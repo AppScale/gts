@@ -17,27 +17,25 @@
 """Exposes methods to control modules and versions of an app."""
 
 __all__ = [
-    'Error',
-    'InvalidModuleError',
-    'InvalidVersionError',
-    'InvalidInstancesError',
-    'UnexpectedStateError',
-    'TransientError',
+            'Error',
+            'InvalidModuleError',
+            'InvalidVersionError',
+            'InvalidInstancesError',
+            'UnexpectedStateError',
+            'TransientError',
 
-    'get_current_module_name',
-    'get_current_version_name',
-    'get_current_instance_id',
-    'get_modules',
-    'get_versions',
-    'get_default_version',
-    'get_num_instances',
-    'set_num_instances',
-    'set_num_instances_async',
-    'start_version',
-    'start_version_async',
-    'stop_version',
-    'stop_version_async',
-    'get_hostname']
+            'get_current_module_name',
+            'get_current_version_name',
+            'get_current_instance_id',
+            'get_modules',
+            'get_versions',
+            'get_default_version',
+            'get_num_instances',
+            'set_num_instances',
+            'start_module',
+            'stop_module',
+            'get_hostname',
+           ]
 
 
 import logging
@@ -72,13 +70,39 @@ class TransientError(Error):
   """A transient error was encountered, please retry the operation."""
 
 
+def _split_version_id(full_version_id):
+  """Return module and version.
+
+  Args:
+    full_version_id: Value in the format that is set in the 'CURRENT_VERSION_ID'
+      environment var.  I.e. 'module:module_version.minor_version'.
+
+  Returns:
+    (module, module_version) tuple, or (None, module_version) if this is the
+    default module.
+  """
+
+
+  module_and_version = full_version_id.split('.')[0]
+  result = module_and_version.split(':')
+  if len(result) == 2:
+    return (result[0], result[1])
+  else:
+    return (None, result[0])
+
+
 def get_current_module_name():
   """Returns the module name of the current instance.
 
   If this is version "v1" of module "module5" for app "my-app", this function
   will return "module5".
   """
-  return os.environ['CURRENT_MODULE_ID']
+  module = _split_version_id(os.environ['CURRENT_VERSION_ID'])[0]
+  if not module:
+
+
+    return 'default'
+  return module
 
 
 def get_current_version_name():
@@ -88,7 +112,7 @@ def get_current_version_name():
   will return "v1".
   """
 
-  return os.environ['CURRENT_VERSION_ID'].split('.')[0]
+  return _split_version_id(os.environ['CURRENT_VERSION_ID'])[1]
 
 
 def get_current_instance_id():
@@ -156,18 +180,12 @@ def get_modules():
       the name of the module that is associated with the instance that calls
       this function.
   """
-  def _ResultHook(rpc):
-    _CheckAsyncResult(rpc, [], {})
+  req = modules_service_pb.GetModulesRequest()
+  resp = modules_service_pb.GetModulesResponse()
+  apiproxy_stub_map.MakeSyncCall('modules', 'GetModules', req, resp)
 
 
-    return list(rpc.response.module_list())
-
-  request = modules_service_pb.GetModulesRequest()
-  response = modules_service_pb.GetModulesResponse()
-  return _MakeAsyncCall('GetModules',
-                        request,
-                        response,
-                        _ResultHook).get_result()
+  return list(resp.module_list())
 
 
 def get_versions(module=None):
@@ -185,22 +203,25 @@ def get_versions(module=None):
     InvalidModuleError if the given module isn't valid, TransientError if there
     is an issue fetching the information.
   """
-  def _ResultHook(rpc):
-    mapped_errors = [modules_service_pb.ModulesServiceError.INVALID_MODULE,
-                     modules_service_pb.ModulesServiceError.TRANSIENT_ERROR]
-    _CheckAsyncResult(rpc, mapped_errors, {})
-
-
-    return list(rpc.response.version_list())
-
-  request = modules_service_pb.GetVersionsRequest()
+  req = modules_service_pb.GetVersionsRequest()
   if module:
-    request.set_module(module)
-  response = modules_service_pb.GetVersionsResponse()
-  return _MakeAsyncCall('GetVersions',
-                        request,
-                        response,
-                        _ResultHook).get_result()
+    req.set_module(module)
+  resp = modules_service_pb.GetVersionsResponse()
+  try:
+    apiproxy_stub_map.MakeSyncCall('modules', 'GetVersions', req, resp)
+  except apiproxy_errors.ApplicationError, e:
+    if (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_MODULE):
+      raise InvalidModuleError()
+    elif (e.application_error ==
+          modules_service_pb.ModulesServiceError.TRANSIENT_ERROR):
+      raise TransientError()
+    else:
+      raise Error()
+
+
+
+  return list(resp.version_list())
 
 
 def get_default_version(module=None):
@@ -217,24 +238,26 @@ def get_default_version(module=None):
     InvalidModuleError if the given module is not valid, InvalidVersionError if
     no default version could be found.
   """
-  def _ResultHook(rpc):
-    mapped_errors = [modules_service_pb.ModulesServiceError.INVALID_MODULE,
-                     modules_service_pb.ModulesServiceError.INVALID_VERSION]
-    _CheckAsyncResult(rpc, mapped_errors, {})
-    return rpc.response.version()
-
-  request = modules_service_pb.GetDefaultVersionRequest()
+  req = modules_service_pb.GetDefaultVersionRequest()
   if module:
-    request.set_module(module)
-  response = modules_service_pb.GetDefaultVersionResponse()
-  return _MakeAsyncCall('GetDefaultVersion',
-                        request,
-                        response,
-                        _ResultHook).get_result()
+    req.set_module(module)
+  resp = modules_service_pb.GetDefaultVersionResponse()
+  try:
+    apiproxy_stub_map.MakeSyncCall('modules', 'GetDefaultVersion', req, resp)
+  except apiproxy_errors.ApplicationError, e:
+    if (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_MODULE):
+      raise InvalidModuleError()
+    if (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_VERSION):
+      raise InvalidVersionError()
+    else:
+      raise Error()
+
+  return resp.version()
 
 
-def get_num_instances(module=None,
-                      version=None):
+def get_num_instances(module=None, version=None):
   """Return the number of instances that are set for the given module version.
 
   This is only valid for fixed modules, an error will be raised for
@@ -248,31 +271,28 @@ def get_num_instances(module=None,
       if None the version of the current instance will be used.  If that version
       does not exist in the other module, then an InvalidVersionError is raised.
 
-  Returns:
-    The number of instances that are set for the given module version.
-
   Raises:
     InvalidVersionError on invalid input.
   """
-  def _ResultHook(rpc):
-    mapped_errors = [modules_service_pb.ModulesServiceError.INVALID_VERSION]
-    _CheckAsyncResult(rpc, mapped_errors, {})
-    return rpc.response.instances()
-
-  request = modules_service_pb.GetNumInstancesRequest()
+  req = modules_service_pb.GetNumInstancesRequest()
   if module:
-    request.set_module(module)
+    req.set_module(module)
   if version:
-    request.set_version(version)
-  response = modules_service_pb.GetNumInstancesResponse()
-  return _MakeAsyncCall('GetNumInstances',
-                        request,
-                        response,
-                        _ResultHook).get_result()
+    req.set_version(version)
+  resp = modules_service_pb.GetNumInstancesResponse()
+  try:
+    apiproxy_stub_map.MakeSyncCall('modules', 'GetNumInstances', req, resp)
+  except apiproxy_errors.ApplicationError, e:
+    if (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_VERSION):
+      raise InvalidVersionError()
+    else:
+      raise Error()
+
+  return resp.instances()
 
 
-def set_num_instances(instances,
-                      module=None, version=None):
+def set_num_instances(instances, module=None, version=None):
   """Sets the number of instances on the module and version.
 
   Args:
@@ -287,42 +307,29 @@ def set_num_instances(instances,
     if there is an issue persisting the change.
     TypeError if the given instances type is invalid.
   """
-  rpc = set_num_instances_async(instances, module, version)
-  rpc.get_result()
-
-
-def set_num_instances_async(
-    instances, module=None, version=None):
-  """Returns a UserRPC to set the number of instances on the module version.
-
-  Args:
-    instances: The number of instances to set.
-    module: The module to set the number of instances for, if None the current
-      module will be used.
-    version: The version set the number of instances for, if None the current
-      version will be used.
-
-  Returns:
-    A UserRPC to set the number of instances on the module version.
-  """
-  def _ResultHook(rpc):
-    mapped_errors = [modules_service_pb.ModulesServiceError.INVALID_VERSION,
-                     modules_service_pb.ModulesServiceError.TRANSIENT_ERROR]
-    _CheckAsyncResult(rpc, mapped_errors, {})
-
   if not isinstance(instances, (long, int)):
     raise TypeError("'instances' arg must be of type long or int.")
-  request = modules_service_pb.SetNumInstancesRequest()
-  request.set_instances(instances)
+  req = modules_service_pb.SetNumInstancesRequest()
+  req.set_instances(instances)
   if module:
-    request.set_module(module)
+    req.set_module(module)
   if version:
-    request.set_version(version)
-  response = modules_service_pb.SetNumInstancesResponse()
-  return _MakeAsyncCall('SetNumInstances', request, response, _ResultHook)
+    req.set_version(version)
+  resp = modules_service_pb.SetNumInstancesResponse()
+  try:
+    apiproxy_stub_map.MakeSyncCall('modules', 'SetNumInstances', req, resp)
+  except apiproxy_errors.ApplicationError, e:
+    if (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_VERSION):
+      raise InvalidVersionError()
+    elif (e.application_error ==
+          modules_service_pb.ModulesServiceError.TRANSIENT_ERROR):
+      raise TransientError()
+    else:
+      raise Error()
 
 
-def start_version(module, version):
+def start_module(module, version):
   """Start all instances for the given version of the module.
 
   Args:
@@ -331,42 +338,30 @@ def start_version(module, version):
 
   Raises:
     InvalidVersionError if the given module version is invalid.
+    UnexpectedStateError if the module is already started, or cannot be started.
     TransientError if there is a problem persisting the change.
   """
-  rpc = start_version_async(module, version)
-  rpc.get_result()
+  req = modules_service_pb.StartModuleRequest()
+  req.set_module(module)
+  req.set_version(version)
+  resp = modules_service_pb.StartModuleResponse()
+  try:
+    apiproxy_stub_map.MakeSyncCall('modules', 'StartModule', req, resp)
+  except apiproxy_errors.ApplicationError, e:
+    if (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_VERSION):
+      raise InvalidVersionError()
+    elif (e.application_error ==
+        modules_service_pb.ModulesServiceError.UNEXPECTED_STATE):
+      raise UnexpectedStateError()
+    elif (e.application_error ==
+          modules_service_pb.ModulesServiceError.TRANSIENT_ERROR):
+      raise TransientError()
+    else:
+      raise Error()
 
 
-def start_version_async(module,
-                        version):
-  """Returns a UserRPC  to start all instances for the given module version.
-
-  Args:
-    module: String containing the name of the module to affect.
-    version: String containing the name of the version of the module to start.
-
-  Returns:
-    A UserRPC  to start all instances for the given module version.
-  """
-  def _ResultHook(rpc):
-    mapped_errors = [modules_service_pb.ModulesServiceError.INVALID_VERSION,
-                     modules_service_pb.ModulesServiceError.TRANSIENT_ERROR]
-    expected_errors = {
-        modules_service_pb.ModulesServiceError.UNEXPECTED_STATE:
-        'The specified module: %s, version: %s is already started.' % (module,
-                                                                       version)
-    }
-    _CheckAsyncResult(rpc, mapped_errors, expected_errors)
-
-  request = modules_service_pb.StartModuleRequest()
-  request.set_module(module)
-  request.set_version(version)
-  response = modules_service_pb.StartModuleResponse()
-  return _MakeAsyncCall('StartModule', request, response, _ResultHook)
-
-
-def stop_version(module=None,
-                 version=None):
+def stop_module(module=None, version=None):
   """Stops all instances for the given version of the module.
 
   Args:
@@ -376,45 +371,32 @@ def stop_version(module=None,
 
   Raises:
     InvalidVersionError if the given module version is invalid.
+    UnexpectedStateError if the module is already stopped, or cannot be stopped.
     TransientError if there is a problem persisting the change.
   """
-  rpc = stop_version_async(module, version)
-  rpc.get_result()
-
-
-def stop_version_async(module=None,
-                       version=None):
-  """Returns a UserRPC  to stop all instances for the given module version.
-
-  Args:
-    module: The module to affect, if None the current module is used.
-    version: The version of the given module to affect, if None the current
-      version is used.
-
-  Returns:
-    A UserRPC  to stop all instances for the given module version.
-  """
-  def _ResultHook(rpc):
-    mapped_errors = [modules_service_pb.ModulesServiceError.INVALID_VERSION,
-                     modules_service_pb.ModulesServiceError.TRANSIENT_ERROR]
-    expected_errors = {
-        modules_service_pb.ModulesServiceError.UNEXPECTED_STATE:
-        'The specified module: %s, version: %s is already stopped.' % (module,
-                                                                       version)
-    }
-    _CheckAsyncResult(rpc, mapped_errors, expected_errors)
-
-  request = modules_service_pb.StopModuleRequest()
+  req = modules_service_pb.StopModuleRequest()
   if module:
-    request.set_module(module)
+    req.set_module(module)
   if version:
-    request.set_version(version)
-  response = modules_service_pb.StopModuleResponse()
-  return _MakeAsyncCall('StopModule', request, response, _ResultHook)
+    req.set_version(version)
+  resp = modules_service_pb.StopModuleResponse()
+  try:
+    apiproxy_stub_map.MakeSyncCall('modules', 'StopModule', req, resp)
+  except apiproxy_errors.ApplicationError, e:
+    if (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_VERSION):
+      raise InvalidVersionError()
+    elif (e.application_error ==
+        modules_service_pb.ModulesServiceError.UNEXPECTED_STATE):
+      raise UnexpectedStateError()
+    elif (e.application_error ==
+          modules_service_pb.ModulesServiceError.TRANSIENT_ERROR):
+      raise TransientError()
+    else:
+      raise Error()
 
 
-def get_hostname(module=None,
-                 version=None, instance=None):
+def get_hostname(module=None, version=None, instance=None):
   """Returns a hostname to use to contact the module.
 
   Args:
@@ -435,25 +417,27 @@ def get_hostname(module=None,
     InvalidInstancesError if the given instance value is invalid.
     TypeError if the given instance type is invalid.
   """
-  def _ResultHook(rpc):
-    mapped_errors = [modules_service_pb.ModulesServiceError.INVALID_MODULE,
-                     modules_service_pb.ModulesServiceError.INVALID_INSTANCES]
-    _CheckAsyncResult(rpc, mapped_errors, [])
-    return rpc.response.hostname()
-
-  request = modules_service_pb.GetHostnameRequest()
+  req = modules_service_pb.GetHostnameRequest()
   if module:
-    request.set_module(module)
+    req.set_module(module)
   if version:
-    request.set_version(version)
+    req.set_version(version)
   if instance:
     if not isinstance(instance, (basestring, long, int)):
       raise TypeError(
           "'instance' arg must be of type basestring, long or int.")
-    request.set_instance(str(instance))
-  response = modules_service_pb.GetHostnameResponse()
-  return _MakeAsyncCall('GetHostname',
-                        request,
-                        response,
-                        _ResultHook).get_result()
+    req.set_instance('%s' % instance)
+  resp = modules_service_pb.GetHostnameResponse()
+  try:
+    apiproxy_stub_map.MakeSyncCall('modules', 'GetHostname', req, resp)
+  except apiproxy_errors.ApplicationError, e:
+    if (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_MODULE):
+      raise InvalidModuleError()
+    elif (e.application_error ==
+        modules_service_pb.ModulesServiceError.INVALID_INSTANCES):
+      raise InvalidInstancesError()
+    else:
+      raise Error()
 
+  return resp.hostname()

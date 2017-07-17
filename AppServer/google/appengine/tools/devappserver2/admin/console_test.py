@@ -25,7 +25,7 @@ import mox
 import webapp2
 
 from google.appengine.tools.devappserver2 import dispatcher
-from google.appengine.tools.devappserver2 import server
+from google.appengine.tools.devappserver2 import module
 from google.appengine.tools.devappserver2.admin import console
 
 
@@ -35,26 +35,26 @@ class ConsoleRequestHandlerTest(unittest.TestCase):
   def setUp(self):
     self.mox = mox.Mox()
     self.mox.StubOutWithMock(console.ConsoleRequestHandler, 'dispatcher')
-    console.ConsoleRequestHandler._servername_to_shell_server = {}
+    console.ConsoleRequestHandler._modulename_to_shell_module = {}
     self.dispatcher = self.mox.CreateMock(dispatcher.Dispatcher)
-    self.server = self.mox.CreateMock(server.Server)
-    self.interactive_command_server = self.mox.CreateMock(
-        server.InteractiveCommandServer)
+    self.module = self.mox.CreateMock(module.Module)
+    self.interactive_command_module = self.mox.CreateMock(
+        module.InteractiveCommandModule)
 
   def tearDown(self):
     self.mox.UnsetStubs()
 
-  def test_post_new_server(self):
+  def test_post_new_module(self):
     request = webapp2.Request.blank('', POST={'code': 'print 5+5',
-                                              'server_name': 'default'})
+                                              'module_name': 'default'})
     response = webapp2.Response()
 
     handler = console.ConsoleRequestHandler(request, response)
     handler.dispatcher = self.dispatcher
-    handler.dispatcher.get_server_by_name('default').AndReturn(self.server)
-    self.server.create_interactive_command_server().AndReturn(
-        self.interactive_command_server)
-    self.interactive_command_server.send_interactive_command(
+    handler.dispatcher.get_module_by_name('default').AndReturn(self.module)
+    self.module.create_interactive_command_module().AndReturn(
+        self.interactive_command_module)
+    self.interactive_command_module.send_interactive_command(
         'print 5+5').AndReturn('10\n')
 
     self.mox.ReplayAll()
@@ -63,17 +63,17 @@ class ConsoleRequestHandlerTest(unittest.TestCase):
     self.assertEqual(200, response.status_int)
     self.assertEqual('10\n', response.body)
 
-  def test_post_cached_server(self):
-    console.ConsoleRequestHandler._servername_to_shell_server = {
-        'default': self.interactive_command_server}
+  def test_post_cached_module(self):
+    console.ConsoleRequestHandler._modulename_to_shell_module = {
+        'default': self.interactive_command_module}
 
     request = webapp2.Request.blank('', POST={'code': 'print 5+5',
-                                              'server_name': 'default'})
+                                              'module_name': 'default'})
     response = webapp2.Response()
 
     handler = console.ConsoleRequestHandler(request, response)
     handler.dispatcher = self.dispatcher
-    self.interactive_command_server.send_interactive_command(
+    self.interactive_command_module.send_interactive_command(
         'print 5+5').AndReturn('10\n')
 
     self.mox.ReplayAll()
@@ -83,17 +83,17 @@ class ConsoleRequestHandlerTest(unittest.TestCase):
     self.assertEqual('10\n', response.body)
 
   def test_post_exception(self):
-    console.ConsoleRequestHandler._servername_to_shell_server = {
-        'default': self.interactive_command_server}
+    console.ConsoleRequestHandler._modulename_to_shell_module = {
+        'default': self.interactive_command_module}
 
     request = webapp2.Request.blank('', POST={'code': 'print 5+5',
-                                              'server_name': 'default'})
+                                              'module_name': 'default'})
     response = webapp2.Response()
 
     handler = console.ConsoleRequestHandler(request, response)
     handler.dispatcher = self.dispatcher
-    self.interactive_command_server.send_interactive_command(
-        'print 5+5').AndRaise(server.InteractiveCommandError('restart'))
+    self.interactive_command_module.send_interactive_command(
+        'print 5+5').AndRaise(module.InteractiveCommandError('restart'))
 
     self.mox.ReplayAll()
     handler.post()
@@ -102,25 +102,25 @@ class ConsoleRequestHandlerTest(unittest.TestCase):
     self.assertEqual('restart', response.body)
 
   def test_restart(self):
-    console.ConsoleRequestHandler._servername_to_shell_server = {
-        'default': self.interactive_command_server}
+    console.ConsoleRequestHandler._modulename_to_shell_module = {
+        'default': self.interactive_command_module}
 
-    self.interactive_command_server.restart()
+    self.interactive_command_module.restart()
 
     self.mox.ReplayAll()
     console.ConsoleRequestHandler.restart(webapp2.Request.blank('/'), 'default')
     self.mox.VerifyAll()
 
-  def test_restart_uncached_server(self):
+  def test_restart_uncached_module(self):
     self.mox.ReplayAll()
     console.ConsoleRequestHandler.restart(webapp2.Request.blank('/'), 'default')
     self.mox.VerifyAll()
 
   def test_quit(self):
-    console.ConsoleRequestHandler._servername_to_shell_server = {
-        'default': self.interactive_command_server}
+    console.ConsoleRequestHandler._modulename_to_shell_module = {
+        'default': self.interactive_command_module}
 
-    self.interactive_command_server.quit()
+    self.interactive_command_module.quit()
 
     self.mox.ReplayAll()
     console.ConsoleRequestHandler.quit()

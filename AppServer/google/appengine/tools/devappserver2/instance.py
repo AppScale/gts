@@ -30,8 +30,8 @@ from google.appengine.tools.devappserver2 import errors
 NORMAL_REQUEST = 0
 READY_REQUEST = 1  # A warmup request i.e. /_ah/warmup.
 BACKGROUND_REQUEST = 2  # A request to create a background thread.
-SHUTDOWN_REQUEST = 3  # A request to stop the server i.e. /_ah/stop.
-# A request to send a command to the server for evaluation e.g. for use by
+SHUTDOWN_REQUEST = 3  # A request to stop the module i.e. /_ah/stop.
+# A request to send a command to the module for evaluation e.g. for use by
 # interactive shells.
 INTERACTIVE_REQUEST = 4
 
@@ -102,7 +102,7 @@ class Instance(object):
     Args:
       request_data: A wsgi_request_info.WSGIRequestInfo that will be provided
           with request information for use by API stubs.
-      instance_id: A string or integer representing the unique (per server) id
+      instance_id: A string or integer representing the unique (per module) id
           of the instance.
       runtime_proxy: A RuntimeProxy instance that will be used to handle
           requests.
@@ -478,7 +478,7 @@ class InstanceFactory(object):
     """Called when a file relevant to the factory *might* have changed."""
 
   def configuration_changed(self, config_changes):
-    """Called when the configuration of the server has changed.
+    """Called when the configuration of the module has changed.
 
     Args:
       config_changes: A set containing the changes that occured. See the
@@ -489,7 +489,7 @@ class InstanceFactory(object):
     """Create and return a new Instance.
 
     Args:
-      instance_id: A string or integer representing the unique (per server) id
+      instance_id: A string or integer representing the unique (per module) id
           of the instance.
       expect_ready_request: If True then the instance will be sent a special
           request (i.e. /_ah/warmup or /_ah/start) before it can handle external

@@ -34,7 +34,7 @@ import os
 import re
 
 from google.appengine.api import app_identity
-from google.appengine.api import servers
+from google.appengine.api import modules
 
 class Error(Exception):
   """Base class for exceptions in this module."""
@@ -187,10 +187,10 @@ def _get_dev2_hostname(backend, instance=None):
     The hostname of the backend.
   """
   try:
-    return servers.get_hostname(server=backend, instance=instance)
-  except servers.InvalidServerError:
+    return modules.get_hostname(module=backend, instance=instance)
+  except modules.InvalidModuleError:
     raise InvalidBackendError()
-  except servers.InvalidInstancesError:
+  except modules.InvalidInstancesError:
     raise InvalidInstanceError()
 
 
