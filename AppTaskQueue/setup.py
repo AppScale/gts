@@ -15,6 +15,7 @@ setup(
     'cassandra-driver',
     'celery>=3.1,<4.0.0',
     'eventlet',
+    'kazoo',
     'PyYaml',
     'tornado==4.2.0'
   ],
