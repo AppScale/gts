@@ -119,7 +119,7 @@ class ModuleConfiguration(object):
 
   @property
   def major_version(self):
-    return self._version or 'default' # AS: set default if not set.
+    return self._version or 'default'  # AS: set default if not set.
 
   @property
   def version_id(self):
