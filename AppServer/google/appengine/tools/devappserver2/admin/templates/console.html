@@ -9,17 +9,17 @@
 {% block body %}
 <div id="console">
   <h3>Interactive Console</h3>
-  {% if servers %}
+  {% if modules %}
   <form id="console-form" action="{{ request.uri }}" method="post">
     <div>
-      {% if servers|length > 1 %}
-        <select id="server_name" class="ae-button" name="server_name">
-          {% for server in servers|sort(attribute='name') %}
-          <option value="{{ server.name }}">{{ server.name }}</option>
+      {% if modules|length > 1 %}
+        <select id="module_name" class="ae-button" name="module_name">
+          {% for module in modules|sort(attribute='name') %}
+          <option value="{{ module.name }}">{{ module.name }}</option>
           {% endfor %}
         </select>
       {% else %}
-        <input  name="server_name" type="hidden" value="{{ servers[0].name }}" id="server_name">
+        <input  name="module_name" type="hidden" value="{{ modules[0].name }}" id="module_name">
       {% endif %}
       <input id="restart_button" type="button" class="ae-button" value="Restart Instance">
     </div>
@@ -33,7 +33,7 @@
   <hr>
   {% else %}
     <p>
-    None of the running servers support an interactive console.
+    None of the running modules support an interactive console.
     </p>
   {% endif %}
 </div>

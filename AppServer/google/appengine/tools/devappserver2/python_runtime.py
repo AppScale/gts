@@ -45,7 +45,7 @@ class PythonRuntimeInstanceFactory(instance.InstanceFactory):
   SUPPORTS_INTERACTIVE_REQUESTS = True
   FILE_CHANGE_INSTANCE_RESTART_POLICY = instance.AFTER_FIRST_REQUEST
 
-  def __init__(self, request_data, runtime_config_getter, server_configuration):
+  def __init__(self, request_data, runtime_config_getter, module_configuration):
     """Initializer for PythonRuntimeInstanceFactory.
 
     Args:
@@ -54,21 +54,21 @@ class PythonRuntimeInstanceFactory(instance.InstanceFactory):
       runtime_config_getter: A function that can be called without arguments
           and returns the runtime_config_pb2.Config containing the configuration
           for the runtime.
-      server_configuration: An application_configuration.ServerConfiguration
-          instance respresenting the configuration of the server that owns the
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance respresenting the configuration of the module that owns the
           runtime.
     """
     super(PythonRuntimeInstanceFactory, self).__init__(
         request_data,
         8 if runtime_config_getter().threadsafe else 1, 10)
     self._runtime_config_getter = runtime_config_getter
-    self._server_configuration = server_configuration
+    self._module_configuration = module_configuration
 
   def new_instance(self, instance_id, expect_ready_request=False):
     """Create and return a new Instance.
 
     Args:
-      instance_id: A string or integer representing the unique (per server) id
+      instance_id: A string or integer representing the unique (per module) id
           of the instance.
       expect_ready_request: If True then the instance will be sent a special
           request (i.e. /_ah/warmup or /_ah/start) before it can handle external
@@ -86,7 +86,7 @@ class PythonRuntimeInstanceFactory(instance.InstanceFactory):
     proxy = http_runtime.HttpRuntimeProxy(
         _RUNTIME_ARGS,
         instance_config_getter,
-        self._server_configuration,
+        self._module_configuration,
         env=dict(os.environ, PYTHONHASHSEED='random'))
     return instance.Instance(self.request_data,
                              instance_id,

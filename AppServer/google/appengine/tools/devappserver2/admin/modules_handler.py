@@ -14,6 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Servers API module."""
+"""A handler that displays servers and their instances."""
 
-from servers import *
+from google.appengine.tools.devappserver2.admin import admin_request_handler
+
+
+class ModulesHandler(admin_request_handler.AdminRequestHandler):
+
+  def get(self):
+    values = {'modules': self.dispatcher.modules}
+    self.response.write(self.render('modules.html', values))

@@ -260,11 +260,15 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
   @apiproxy_stub.Synchronized
   def _Dynamic_Read(self, request, response, request_id):
     try:
-      if (request.version_id_size() < 1 and
-          request.request_id_size() < 1):
+      if (request.module_version_size() < 1 and
+              request.version_id_size() < 1 and
+              request.request_id_size() < 1):
+        raise apiproxy_errors.ApplicationError(
+          log_service_pb.LogServiceError.INVALID_REQUEST)
+
+      if request.module_version_size() > 0 and request.version_id_size() > 0:
         raise apiproxy_errors.ApplicationError(
             log_service_pb.LogServiceError.INVALID_REQUEST)
-
       if (request.request_id_size() and
           (request.has_start_time() or request.has_end_time() or
            request.has_offset())):
@@ -277,6 +281,12 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
             log_service_pb.LogServiceError.INVALID_REQUEST)
 
       query = logging_capnp.Query.new_message()
+      if request.module_version(0).has_module_id():
+        module_version = ':'.join([request.module_version(0).module_id(),
+                                   request.module_version(0).version_id()])
+      else:
+        module_version = request.module_version(0).version_id()
+      query.versionIds = [module_version]
       if request.has_start_time():
         query.startTime = request.start_time()
       if request.has_end_time():
@@ -286,7 +296,6 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
       if request.has_minimum_log_level():
         query.minimumLogLevel = request.minimum_log_level()
       query.includeAppLogs = bool(request.include_app_logs())
-      query.versionIds = request.version_id_list()
       if request.request_id_size():
         query.requestIds = request.request_id_list()
       if request.has_count() and request.count() < self._DEFAULT_READ_COUNT:
