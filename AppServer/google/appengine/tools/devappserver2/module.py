@@ -432,6 +432,8 @@ class Module(object):
         (self._host, self._balanced_port), self)
     self._quit_event = threading.Event()  # Set when quit() has been called.
 
+    # AppScale: Keeps track of active requests in case of shutdown.
+
     # Indicates that the instance should refuse future requests.
     self.sigterm_sent = False
 
@@ -440,6 +442,8 @@ class Module(object):
 
     # Keeps track of how many requests the instance is serving.
     self.request_count = 0
+
+    # End AppScale.
 
   @property
   def name(self):
@@ -521,6 +525,7 @@ class Module(object):
     start_response('%d %s' % (status, httplib.responses[status]), [])
     return []
 
+  # AppScale.
   def _handle_request(self, environ, start_response, **kwargs):
     """ A _handle_request wrapper that keeps track of active requests.
 
@@ -543,6 +548,8 @@ class Module(object):
     finally:
       with self.graceful_shutdown_lock:
         self.request_count -= 1
+
+  # End AppScale.
 
   def _handle_request_impl(self, environ, start_response, inst=None,
                            request_type=instance.NORMAL_REQUEST):

@@ -201,7 +201,7 @@ class Dispatcher(request_info.Dispatcher):
     if self._dispatch_server:
       self._dispatch_server.quit()
 
-    # Prevent instances from serving new requests.
+    # AppScale: Prevent instances from serving new requests.
     for _module in self._module_name_to_module.values():
       with _module.graceful_shutdown_lock:
         _module.sigterm_sent = True
@@ -223,6 +223,8 @@ class Dispatcher(request_info.Dispatcher):
         break
 
       time.sleep(.5)
+
+    # End AppScale
 
     for _module in self._module_name_to_module.values():
       _module.quit()

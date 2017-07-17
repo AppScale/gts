@@ -35,7 +35,8 @@ public class Modules implements ModulesController, ModulesFilterHelper {
    private final Lock dynamicConfigurationLock = new ReentrantLock();
    private static final int DYNAMIC_CONFIGURATION_TIMEOUT_SECONDS = 2;
 
-   // The number of seconds an instance is allowed to finish serving requests after it receives a shutdown signal.
+   // AppScale: The number of seconds an instance is allowed to finish serving requests after it receives a shutdown
+   // signal.
    private static final int MAX_INSTANCE_RESPONSE_TIME = 600;
 
    static Modules createModules(ApplicationConfigurationManager applicationConfigurationManager, String serverInfo, File externalResourceDir, String address, DevAppServerImpl devAppServer) {
@@ -62,7 +63,7 @@ public class Modules implements ModulesController, ModulesFilterHelper {
    }
 
    void shutdown() throws Exception {
-      // Prevent instances from serving new requests.
+      // AppScale: Prevent instances from serving new requests.
       for (Object uncastModule : this.modules) {
          Module module = (Module) uncastModule;
          JettyContainerService container = (JettyContainerService) module.getMainContainer();
@@ -90,6 +91,7 @@ public class Modules implements ModulesController, ModulesFilterHelper {
 
          Thread.sleep(500);
       }
+      // End AppScale.
 
       for (Object uncastModule : this.modules) {
          Module module = (Module) uncastModule;

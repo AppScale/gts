@@ -164,6 +164,7 @@ class DevAppServerImpl
       restoreLocalTimeZone(currentTimeZone);
     }
 
+    // AppScale: Capture sigterm in order to finish requests before exiting.
     ShutdownThread shutdownThread = new ShutdownThread(this) {
       public void run() {
         try {
@@ -174,6 +175,7 @@ class DevAppServerImpl
       }
     };
     Runtime.getRuntime().addShutdownHook(shutdownThread);
+    // End AppScale.
 
     this.shutdownLatch = new CountDownLatch(1);
     this.serverState = ServerState.RUNNING;
@@ -367,6 +369,7 @@ class DevAppServerImpl
     INITIALIZING, RUNNING, STOPPING, SHUTDOWN;
   }
 
+  // AppScale: Needed for passing server instance to shutdown thread.
   private class ShutdownThread extends Thread
   {
     public DevAppServerImpl server;
@@ -376,4 +379,5 @@ class DevAppServerImpl
       this.server = server;
     }
   }
+  // End AppScale.
 }

@@ -231,6 +231,7 @@ public class JettyContainerService extends AbstractContainerService {
       return this.appContext;
    }
 
+   // AppScale: Allows dispatcher to access request handler.
    public void requestShutdown() {
       ApiProxyHandler handler = (ApiProxyHandler) this.server.getHandler();
       handler.requestShutdown();
@@ -240,6 +241,7 @@ public class JettyContainerService extends AbstractContainerService {
       ApiProxyHandler handler = (ApiProxyHandler) this.server.getHandler();
       return handler.getRequestCount();
    }
+   // End AppScale.
 
    public void forwardToServer(HttpServletRequest hrequest, HttpServletResponse hresponse) throws IOException, ServletException {
       log.finest("forwarding request to module: " + this.appEngineWebXml.getModule() + "." + this.instance);
@@ -308,9 +310,12 @@ public class JettyContainerService extends AbstractContainerService {
 
    private class ApiProxyHandler extends HandlerWrapper {
       private final AppEngineWebXml appEngineWebXml;
+
+      // AppScale: Keeps track of active requests in case of shutdown.
       private int requestCount;
       private boolean sigtermSent;
       private ReentrantLock gracefulShutdownLock;
+      // End AppScale.
 
       public ApiProxyHandler(AppEngineWebXml appEngineWebXml) {
          this.appEngineWebXml = appEngineWebXml;
@@ -318,6 +323,7 @@ public class JettyContainerService extends AbstractContainerService {
          this.gracefulShutdownLock = new ReentrantLock();
       }
 
+      // AppScale: A wrapper for handling requests that keeps track of active requests.
       public void handle(String target, HttpServletRequest request, HttpServletResponse response, int dispatch) throws IOException, ServletException {
          this.gracefulShutdownLock.lock();
          try {
@@ -339,7 +345,9 @@ public class JettyContainerService extends AbstractContainerService {
             this.gracefulShutdownLock.unlock();
          }
       }
+      // End AppScale.
 
+      // AppScale: Allows container to manipulate handler state.
       public void requestShutdown() {
          this.gracefulShutdownLock.lock();
          try {
@@ -352,6 +360,7 @@ public class JettyContainerService extends AbstractContainerService {
       public int getRequestCount() {
          return this.requestCount;
       }
+      // End AppScale.
 
       private void handleImpl(String target, HttpServletRequest request, HttpServletResponse response, int dispatch) throws IOException, ServletException {
          if(dispatch == 1) {

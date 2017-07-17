@@ -62,8 +62,8 @@ FRONTEND_IGNORED_RESPONSE_HEADERS = frozenset([
     ]) | _COMMON_IGNORED_RESPONSE_HEADERS
 RUNTIME_IGNORED_RESPONSE_HEADERS = _COMMON_IGNORED_RESPONSE_HEADERS
 
-# The number of seconds an instance is allowed to finish serving requests after
-# it receives a shutdown signal.
+# AppScale: The number of seconds an instance is allowed to finish serving
+# requests after it receives a shutdown signal.
 MAX_INSTANCE_RESPONSE_TIME = 600
 
 # Maximum size of the response from the runtime. An error will be returned if
