@@ -618,8 +618,9 @@ class Djinn
     @last_updated = 0
     @state_change_lock = Monitor.new()
 
-    # Keeps track of unaccounted AppServers. We need to terminate or remove
-    # them after some time.
+    # Keeps track of unaccounted AppServers. To prevent terminating instances
+    # that are in the process of starting, we wait three duty cycles before
+    # stopping them.
     @unaccounted = {}
 
     @initialized_apps = {}
