@@ -139,8 +139,9 @@ class ProjectPushWorkerManager(object):
       rates = {'default': '5/s'}
     else:
       queues = json.loads(queue_config)['queue']
-      rates = {queue: queues[queue]['rate'] for queue in queues
-               if 'mode' not in queue or queue['mode'] == 'push'}
+      rates = {
+        queue_name: queue['rate'] for queue_name, queue in queues.items()
+        if 'mode' not in queue or queue['mode'] == 'push'}
 
     config_location = os.path.join(CELERY_CONFIG_DIR,
                                    '{}.json'.format(self.project_id))
