@@ -51,12 +51,12 @@ class CheckForUpdatesTest(unittest.TestCase):
     self.mox.UnsetStubs()
 
   def test_update_check_allowed(self):
-    server1 = object()
-    server2 = object()
-    self.config.servers = [server1, server2]
+    module1 = object()
+    module2 = object()
+    self.config.modules = [module1, module2]
 
     sdk_update_checker.SDKUpdateChecker(
-        mox.IgnoreArg(), self.config.servers).AndReturn(self.update_check)
+        mox.IgnoreArg(), self.config.modules).AndReturn(self.update_check)
     self.update_check.CheckSupportedVersion()
     self.update_check.AllowedToCheckForUpdates().AndReturn(True)
     self.update_check.CheckForUpdates()
@@ -66,12 +66,12 @@ class CheckForUpdatesTest(unittest.TestCase):
     self.mox.VerifyAll()
 
   def test_update_check_forbidden(self):
-    server1 = object()
-    server2 = object()
-    self.config.servers = [server1, server2]
+    module1 = object()
+    module2 = object()
+    self.config.modules = [module1, module2]
 
     sdk_update_checker.SDKUpdateChecker(
-        mox.IgnoreArg(), self.config.servers).AndReturn(self.update_check)
+        mox.IgnoreArg(), self.config.modules).AndReturn(self.update_check)
     self.update_check.CheckSupportedVersion()
     self.update_check.AllowedToCheckForUpdates().AndReturn(False)
 
@@ -79,8 +79,8 @@ class CheckForUpdatesTest(unittest.TestCase):
     update_checker.check_for_updates(self.config)
     self.mox.VerifyAll()
 
-  def test_update_check_no_servers(self):
-    self.config.servers = []
+  def test_update_check_no_modules(self):
+    self.config.modules = []
 
     self.mox.ReplayAll()
     update_checker.check_for_updates(self.config)

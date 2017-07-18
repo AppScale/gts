@@ -24,7 +24,6 @@ from google.appengine.runtime import apiproxy_errors
 
 class ModulesServiceStub(apiproxy_stub.APIProxyStub):
 
-
   _ACCEPTS_REQUEST_ID = True
   THREADSAFE = True
 
@@ -99,13 +98,13 @@ class ModulesServiceStub(apiproxy_stub.APIProxyStub):
     version = request.version()
     dispatcher = self.request_data.get_dispatcher()
     try:
-      dispatcher.start_version(module, version)
+      dispatcher.start_module(module, version)
     except (request_info.ModuleDoesNotExistError,
             request_info.VersionDoesNotExistError,
             request_info.NotSupportedWithAutoScalingError):
       raise apiproxy_errors.ApplicationError(
           modules_service_pb.ModulesServiceError.INVALID_VERSION)
-    except request_info.VersionAlreadyStartedError:
+    except request_info.ModuleAlreadyStartedError:
       raise apiproxy_errors.ApplicationError(
           modules_service_pb.ModulesServiceError.UNEXPECTED_STATE)
 
@@ -113,13 +112,13 @@ class ModulesServiceStub(apiproxy_stub.APIProxyStub):
     try:
       module, version, dispatcher = self._GetModuleAndVersionFromRequest(
           request, request_id)
-      dispatcher.stop_version(module, version)
+      dispatcher.stop_module(module, version)
     except (request_info.ModuleDoesNotExistError,
             request_info.VersionDoesNotExistError,
             request_info.NotSupportedWithAutoScalingError):
       raise apiproxy_errors.ApplicationError(
           modules_service_pb.ModulesServiceError.INVALID_VERSION)
-    except request_info.VersionAlreadyStoppedError:
+    except request_info.ModuleAlreadyStoppedError:
       raise apiproxy_errors.ApplicationError(
           modules_service_pb.ModulesServiceError.UNEXPECTED_STATE)
 
