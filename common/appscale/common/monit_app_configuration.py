@@ -49,15 +49,12 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
   logfile = os.path.join(
     '/', 'var', 'log', 'appscale', '{}.log'.format(process_name))
 
+  stop = ('start-stop-daemon --stop --pidfile {0} --retry=TERM/20/KILL/5 && '
+          'rm {0}'.format(pidfile))
   if syslog_server is None:
-    stop = ('start-stop-daemon --stop --pidfile {0} --retry=TERM/20/KILL/5 && '
-            'rm {0}'.format(pidfile))
     bash_exec = 'exec env {vars} {start_cmd} >> {log} 2>&1'.format(
       vars=env_vars_str, start_cmd=start_cmd, log=logfile)
   else:
-    # Kill entire process group.
-    get_pgid = 'ps -o pgid= $(cat {}) | grep -o "[0-9]*"'.format(pidfile)
-    stop = 'kill -- -$({}) && rm {}'.format(get_pgid, pidfile)
     bash_exec = 'exec env {vars} {start_cmd} 2>&1 | tee -a {log} | '\
                 'logger -t {watch} -u /tmp/ignored -n {syslog_server} -P 514'.\
       format(vars=env_vars_str, start_cmd=start_cmd, log=logfile, watch=watch,
