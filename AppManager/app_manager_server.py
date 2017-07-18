@@ -20,7 +20,6 @@ from xml.etree import ElementTree
 from M2Crypto import SSL
 from tornado.httpclient import HTTPClient
 from tornado.httpclient import HTTPError
-from tornado.ioloop import IOLoop
 
 from appscale.common import (
   appscale_info,

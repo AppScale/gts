@@ -11,8 +11,6 @@ import unittest
 import urllib2
 from xml.etree import ElementTree
 
-from tornado.ioloop import IOLoop
-
 from appscale.common import (
   file_io,
   appscale_info,
