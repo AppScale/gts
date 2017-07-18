@@ -39,7 +39,7 @@ from google.appengine.tools.devappserver2 import util
 class HttpRuntimeProxy(instance.RuntimeProxy):
   """Manages a runtime subprocess used to handle dynamic content."""
 
-  def __init__(self, args, runtime_config_getter, server_configuration,
+  def __init__(self, args, runtime_config_getter, module_configuration,
                env=None):
     """Initializer for HttpRuntimeProxy.
 
@@ -48,8 +48,8 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
       runtime_config_getter: A function that can be called without arguments
           and returns the runtime_config_pb2.Config containing the configuration
           for the runtime.
-      server_configuration: An application_configuration.ServerConfiguration
-          instance respresenting the configuration of the server that owns the
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance respresenting the configuration of the module that owns the
           runtime.
       env: A dict of environment variables to pass to the runtime subprocess.
     """
@@ -60,13 +60,13 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
     self._process_lock = threading.Lock()  # Lock to guard self._process.
     self._runtime_config_getter = runtime_config_getter
     self._args = args
-    self._server_configuration = server_configuration
+    self._module_configuration = module_configuration
     self._env = env
 
   def _get_error_file(self):
-    for error_handler in self._server_configuration.error_handlers or []:
+    for error_handler in self._module_configuration.error_handlers or []:
       if not error_handler.error_code or error_handler.error_code == 'default':
-        return os.path.join(self._server_configuration.application_root,
+        return os.path.join(self._module_configuration.application_root,
                             error_handler.file)
     else:
       return None
@@ -126,7 +126,7 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
     prefix = http_runtime_constants.INTERNAL_HEADER_PREFIX
 
     # The Go runtime from the 1.9.48 SDK looks for different headers.
-    if self._server_configuration.runtime == 'go':
+    if self._module_configuration.runtime == 'go':
       headers['X-Appengine-Dev-Request-Id'] = request_id
       prefix = 'X-Appengine-'
 
@@ -210,7 +210,7 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
           serialized_config,
           stdout=subprocess.PIPE,
           env=self._env,
-          cwd=self._server_configuration.application_root)
+          cwd=self._module_configuration.application_root)
     line = self._process.stdout.readline()
     try:
       # Older runtimes output just the port, while newer ones prepend the host.
@@ -248,7 +248,7 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
   def quit(self):
     """Causes the runtime process to exit."""
     with self._process_lock:
-      assert self._process, 'server was not running'
+      assert self._process, 'module was not running'
       try:
         self._process.kill()
       except OSError:

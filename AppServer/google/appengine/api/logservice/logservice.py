@@ -32,6 +32,7 @@ programmatically access their request and application logs.
 
 import base64
 import cStringIO
+import logging
 import os
 import re
 import sys
@@ -70,14 +71,17 @@ LOG_LEVEL_ERROR = 3
 LOG_LEVEL_CRITICAL = 4
 
 
-SERVER_ID_RE_STRING = r'(?!-)[a-z\d\-]{1,63}'
+MODULE_ID_RE_STRING = r'(?!-)[a-z\d\-]{1,63}'
 
 
-SERVER_VERSION_RE_STRING = r'(?!-)[a-z\d\-]{1,100}'
-_MAJOR_VERSION_ID_PATTERN = r'^(?:(?:(%s):)?)(%s)$' % (SERVER_ID_RE_STRING,
-                                                       SERVER_VERSION_RE_STRING)
+MODULE_VERSION_RE_STRING = r'(?!-)[a-z\d\-]{1,100}'
+_MAJOR_VERSION_ID_PATTERN = r'^(?:(?:(%s):)?)(%s)$' % (MODULE_ID_RE_STRING,
+                                                       MODULE_VERSION_RE_STRING)
 
 _MAJOR_VERSION_ID_RE = re.compile(_MAJOR_VERSION_ID_PATTERN)
+
+_REQUEST_ID_PATTERN = r'^[\da-fA-F]+$'
+_REQUEST_ID_RE = re.compile(_REQUEST_ID_PATTERN)
 
 
 class Error(Exception):
@@ -471,8 +475,14 @@ class RequestLog(object):
     return 'RequestLog(\'%s\')' % base64.b64encode(self.__pb.Encode())
 
   def __str__(self):
-    return ('<RequestLog(app_id=%s, version_id=%s, request_id=%s)>' %
-            (self.app_id, self.version_id, base64.b64encode(self.request_id)))
+    if self.module_id == 'default':
+      return ('<RequestLog(app_id=%s, version_id=%s, request_id=%s)>' %
+              (self.app_id, self.version_id, base64.b64encode(self.request_id)))
+    else:
+      return ('<RequestLog(app_id=%s, module_id=%s, version_id=%s, '
+              'request_id=%s)>' %
+              (self.app_id, self.module_id, self.version_id,
+               base64.b64encode(self.request_id)))
 
   @property
   def _pb(self):
@@ -482,6 +492,18 @@ class RequestLog(object):
   def app_id(self):
     """Application id that handled this request, as a string."""
     return self.__pb.app_id()
+
+  @property
+  def server_id(self):
+    """Module id that handled this request, as a string."""
+    logging.warning('The server_id property is deprecated, please use '
+                    'the module_id property instead.')
+    return self.__pb.module_id()
+
+  @property
+  def module_id(self):
+    """Module id that handled this request, as a string."""
+    return self.__pb.module_id()
 
   @property
   def version_id(self):
@@ -710,7 +732,7 @@ class RequestLog(object):
 
   @property
   def replica_index(self):
-    """The server replica that handled the request as an integer, or None."""
+    """The module replica that handled the request as an integer, or None."""
     if self.__pb.has_replica_index():
       return self.__pb.replica_index()
     return None
@@ -778,7 +800,9 @@ class AppLog(object):
     return self._message
 
 
-_FETCH_KWARGS = frozenset(['prototype_request', 'timeout', 'batch_size'])
+
+_FETCH_KWARGS = frozenset(['prototype_request', 'timeout', 'batch_size',
+                           'server_versions'])
 
 
 @datastore_rpc._positional(0)
@@ -788,15 +812,16 @@ def fetch(start_time=None,
           minimum_log_level=None,
           include_incomplete=False,
           include_app_logs=False,
+          module_versions=None,
           version_ids=None,
+          request_ids=None,
           **kwargs):
   """Returns an iterator yielding an application's request and application logs.
 
   Logs will be returned by the iterator in reverse chronological order by
   request end time, or by last flush time for requests still in progress (if
-  requested).  The items yielded are
-  google.appengine.api.logservice.log_service_pb.RequestLog protocol buffer
-  objects, the contents of which are accessible via method calls.
+  requested).  The items yielded are RequestLog objects, the contents of which
+  are accessible via method calls.
 
   All parameters are optional.
 
@@ -819,8 +844,21 @@ def fetch(start_time=None,
       not yet finished, as a boolean.  Defaults to False.
     include_app_logs: Whether or not to include application level logs in the
       results, as a boolean.  Defaults to False.
+    module_versions: A list of tuples of the form (module, version), that
+      indicate that the logs for the given module/version combination should be
+      fetched.  Duplicate tuples will be ignored.  This kwarg may not be used
+      in conjunction with the 'version_ids' kwarg.
     version_ids: A list of version ids whose logs should be queried against.
-      Defaults to the application's current version id only.
+      Defaults to the application's current version id only.  This kwarg may not
+      be used in conjunction with the 'module_versions' kwarg.
+    request_ids: If not None, indicates that instead of a time-based scan, logs
+      for the specified requests should be returned.  Malformed request IDs will
+      cause the entire request to be rejected, while any requests that are
+      unknown will be ignored. This option may not be combined with any
+      filtering options such as start_time, end_time, offset, or
+      minimum_log_level.  version_ids is ignored.  IDs that do not correspond to
+      a request log will be ignored.  Logs will be returned in the order
+      requested.
 
   Returns:
     An iterable object containing the logs that the user has queried for.
@@ -871,18 +909,64 @@ def fetch(start_time=None,
     raise InvalidArgumentError('include_app_logs must be a boolean')
   request.set_include_app_logs(include_app_logs)
 
-  if version_ids is None:
+  if 'server_versions' in kwargs:
+    logging.warning('The server_versions kwarg to the fetch() method is '
+                    'deprecated.  Please use the module_versions kwarg '
+                    'instead.')
+    module_versions = kwargs.pop('server_versions')
+  if version_ids and module_versions:
+    raise InvalidArgumentError('version_ids and module_versions may not be '
+                               'used at the same time.')
+
+  if version_ids is None and module_versions is None:
+
+
     version_id = os.environ['CURRENT_VERSION_ID']
-    version_ids = [version_id.split('.')[0]]
-  else:
+    request.add_module_version().set_version_id(version_id.split('.')[0])
+
+  if module_versions:
+    if not isinstance(module_versions, list):
+      raise InvalidArgumentError('module_versions must be a list')
+
+    req_module_versions = set()
+    for entry in module_versions:
+      if not isinstance(entry, (list, tuple)):
+        raise InvalidArgumentError('module_versions list entries must all be '
+                                   'tuples or lists.')
+      if len(entry) != 2:
+        raise InvalidArgumentError('module_versions list entries must all be '
+                                   'of length 2.')
+      req_module_versions.add((entry[0], entry[1]))
+
+    for module, version in sorted(req_module_versions):
+      req_module_version = request.add_module_version()
+
+
+      if module != 'default':
+        req_module_version.set_module_id(module)
+      req_module_version.set_version_id(version)
+
+  if version_ids:
     if not isinstance(version_ids, list):
       raise InvalidArgumentError('version_ids must be a list')
     for version_id in version_ids:
       if not _MAJOR_VERSION_ID_RE.match(version_id):
         raise InvalidArgumentError(
             'version_ids must only contain valid major version identifiers')
+      request.add_module_version().set_version_id(version_id)
 
-  request.version_id_list()[:] = version_ids
+  if request_ids is not None:
+    if not isinstance(request_ids, list):
+      raise InvalidArgumentError('request_ids must be a list')
+    if not request_ids:
+      raise InvalidArgumentError('request_ids must not be empty')
+    if len(request_ids) != len(set(request_ids)):
+      raise InvalidArgumentError('request_ids must not contain duplicates')
+    for request_id in request_ids:
+      if not _REQUEST_ID_RE.match(request_id):
+        raise InvalidArgumentError(
+            '%s is not a valid request log id' % request_id)
+    request.request_id_list()[:] = request_ids
 
   prototype_request = kwargs.get('prototype_request')
   if prototype_request:

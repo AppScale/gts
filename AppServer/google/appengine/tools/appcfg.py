@@ -591,32 +591,32 @@ class PagespeedEntryUpload(object):
 class DefaultVersionSet(object):
   """Provides facilities to set the default (serving) version."""
 
-  def __init__(self, rpcserver, app_id, server, version):
+  def __init__(self, rpcserver, app_id, module, version):
     """Creates a new DefaultVersionSet.
 
     Args:
       rpcserver: The RPC server to use. Should be an instance of a subclass of
         AbstractRpcServer.
       app_id: The application to make the change to.
-      server: The server to set the default version of (if any).
+      module: The module to set the default version of (if any).
       version: The version to set as the default.
     """
     self.rpcserver = rpcserver
     self.app_id = app_id
-    self.server = server
+    self.module = module
     self.version = version
 
   def SetVersion(self):
     """Sets the default version."""
-    if self.server:
-      StatusUpdate('Setting default version of server %s of application %s '
-                   'to %s.' % (self.app_id, self.server, self.version))
+    if self.module:
+      StatusUpdate('Setting default version of module %s of application %s '
+                   'to %s.' % (self.app_id, self.module, self.version))
     else:
       StatusUpdate('Setting default version of application %s to %s.'
                    % (self.app_id, self.version))
     self.rpcserver.Send('/api/appversion/setdefault',
                         app_id=self.app_id,
-                        server=self.server,
+                        module=self.module,
                         version=self.version)
 
 
@@ -788,7 +788,7 @@ class LogsRequester(object):
   def __init__(self,
                rpcserver,
                app_id,
-               server,
+               module,
                version_id,
                output_file,
                num_days,
@@ -805,7 +805,7 @@ class LogsRequester(object):
       rpcserver: The RPC server to use.  Should be an instance of HttpRpcServer
         or TestRpcServer.
       app_id: The application to fetch logs from.
-      server: The server of the app to fetch logs from, optional.
+      module: The module of the app to fetch logs from, optional.
       version_id: The version of the app to fetch logs for.
       output_file: Output file name.
       num_days: Number of days worth of logs to export; 0 for all available.
@@ -829,7 +829,7 @@ class LogsRequester(object):
     self.include_vhost = include_vhost
     self.include_all = include_all
 
-    self.server = server
+    self.module = module
     self.version_id = version_id
     self.sentinel = None
     self.write_mode = 'w'
@@ -858,9 +858,9 @@ class LogsRequester(object):
     self.output_file, or to stdout if the filename is '-'.
     Multiple roundtrips to the server may be made.
     """
-    if self.server:
-      StatusUpdate('Downloading request logs for app %s server %s version %s.' %
-                   (self.app_id, self.server, self.version_id))
+    if self.module:
+      StatusUpdate('Downloading request logs for app %s module %s version %s.' %
+                   (self.app_id, self.module, self.version_id))
     else:
       StatusUpdate('Downloading request logs for app %s version %s.' %
                    (self.app_id, self.version_id))
@@ -918,8 +918,8 @@ class LogsRequester(object):
             'version': self.version_id,
             'limit': 1000,
            }
-    if self.server:
-      kwds['server'] = self.server
+    if self.module:
+      kwds['module'] = self.module
     if offset:
       kwds['offset'] = offset
     if self.severity is not None:
@@ -1335,16 +1335,16 @@ def EnsureDir(path):
       raise
 
 
-def DoDownloadApp(rpcserver, out_dir, app_id, server, app_version):
+def DoDownloadApp(rpcserver, out_dir, app_id, module, app_version):
   """Downloads the files associated with a particular app version.
 
   Args:
     rpcserver: The RPC server to use to download.
     out_dir: The directory the files should be downloaded to.
     app_id: The app ID of the app whose files we want to download.
-    server: The server we want to download from.  Can be:
-      - None: We'll download from the default server.
-      - <server>: We'll download from the specified server.
+    module: The module we want to download from.  Can be:
+      - None: We'll download from the default module.
+      - <module>: We'll download from the specified module.
     app_version: The version number we want to download.  Can be:
       - None: We'll download the latest default version.
       - <major>: We'll download the latest minor version.
@@ -1354,8 +1354,8 @@ def DoDownloadApp(rpcserver, out_dir, app_id, server, app_version):
   StatusUpdate('Fetching file list...')
 
   url_args = {'app_id': app_id}
-  if server:
-    url_args['server'] = server
+  if module:
+    url_args['module'] = module
   if app_version is not None:
     url_args['version_match'] = app_version
 
@@ -1478,7 +1478,7 @@ class AppVersionUpload(object):
     started: True iff the StartServing method has been called.
   """
 
-  def __init__(self, rpcserver, config, server_yaml_path='app.yaml',
+  def __init__(self, rpcserver, config, module_yaml_path='app.yaml',
                backend=None,
                error_fh=None):
     """Creates a new AppVersionUpload.
@@ -1488,7 +1488,7 @@ class AppVersionUpload(object):
         or TestRpcServer.
       config: An AppInfoExternal object that specifies the configuration for
         this application.
-      server_yaml_path: The (string) path to the yaml file corresponding to
+      module_yaml_path: The (string) path to the yaml file corresponding to
         <config>, relative to the bundle directory.
       backend: If specified, indicates the update applies to the given backend.
         The backend name must match an entry in the backends: stanza.
@@ -1497,7 +1497,7 @@ class AppVersionUpload(object):
     self.rpcserver = rpcserver
     self.config = config
     self.app_id = self.config.application
-    self.server = self.config.server
+    self.module = self.config.module
     self.backend = backend
     self.error_fh = error_fh or sys.stderr
 
@@ -1506,8 +1506,8 @@ class AppVersionUpload(object):
     self.params = {}
     if self.app_id:
       self.params['app_id'] = self.app_id
-    if self.server:
-      self.params['server'] = self.server
+    if self.module:
+      self.params['module'] = self.module
     if self.backend:
       self.params['backend'] = self.backend
     elif self.version:
@@ -1532,7 +1532,7 @@ class AppVersionUpload(object):
 
     if not self.config.vm_settings:
       self.config.vm_settings = appinfo.VmSettings()
-    self.config.vm_settings['server_yaml_path'] = server_yaml_path
+    self.config.vm_settings['module_yaml_path'] = module_yaml_path
 
   def Send(self, url, payload=''):
     """Sends a request to the server, with common params."""
@@ -1562,8 +1562,8 @@ class AppVersionUpload(object):
   def Describe(self):
     """Returns a string describing the object being updated."""
     result = 'app: %s' % self.app_id
-    if self.server is not None and self.server != appinfo.DEFAULT_SERVER:
-      result += ', server: %s' % self.server
+    if self.module is not None and self.module != appinfo.DEFAULT_MODULE:
+      result += ', module: %s' % self.module
     if self.backend:
       result += ', backend: %s' % self.backend
     elif self.version:
@@ -2428,7 +2428,7 @@ class AppCfgApp(object):
     parser.add_option('-A', '--application', action='store', dest='app_id',
                       help=('Set the application, overriding the application '
                             'value from app.yaml file.'))
-    parser.add_option('-S', '--server_id', action='store', dest='server_id',
+    parser.add_option('-M', '--module', action='store', dest='module',
                       help=optparse.SUPPRESS_HELP)
     parser.add_option('-V', '--version', action='store', dest='version',
                       help=('Set the (major) version, overriding the version '
@@ -2616,12 +2616,12 @@ class AppCfgApp(object):
                         'configuration file.' % basename)
 
     orig_application = appyaml.application
-    orig_server = appyaml.server
+    orig_module = appyaml.module
     orig_version = appyaml.version
     if self.options.app_id:
       appyaml.application = self.options.app_id
-    if self.options.server_id:
-      appyaml.server = self.options.server_id
+    if self.options.module:
+      appyaml.module = self.options.module
     if self.options.version:
       appyaml.version = self.options.version
     if self.options.runtime:
@@ -2632,11 +2632,11 @@ class AppCfgApp(object):
       msg += ' (was: %s)' % orig_application
     if self.action.function is 'Update':
 
-      if (appyaml.server is not None and
-          appyaml.server != appinfo.DEFAULT_SERVER):
-        msg += '; server: %s' % appyaml.server
-        if appyaml.server != orig_server:
-          msg += ' (was: %s)' % orig_server
+      if (appyaml.module is not None and
+          appyaml.module != appinfo.DEFAULT_MODULE):
+        msg += '; module: %s' % appyaml.module
+        if appyaml.module != orig_module:
+          msg += ' (was: %s)' % orig_module
 
       msg += '; version: %s' % appyaml.version
       if appyaml.version != orig_version:
@@ -2769,7 +2769,7 @@ class AppCfgApp(object):
     if app_id is None:
       self.parser.error('You must specify an app ID via -A or --application.')
 
-    server = self.options.server_id
+    module = self.options.module
     app_version = self.options.version
 
 
@@ -2784,9 +2784,9 @@ class AppCfgApp(object):
 
     rpcserver = self._GetRpcServer()
 
-    DoDownloadApp(rpcserver, out_dir, app_id, server, app_version)
+    DoDownloadApp(rpcserver, out_dir, app_id, module, app_version)
 
-  def UpdateVersion(self, rpcserver, basepath, appyaml, server_yaml_path,
+  def UpdateVersion(self, rpcserver, basepath, appyaml, module_yaml_path,
                     backend=None):
     """Updates and deploys a new appversion.
 
@@ -2794,7 +2794,7 @@ class AppCfgApp(object):
       rpcserver: An AbstractRpcServer instance on which RPC calls can be made.
       basepath: The root directory of the version to update.
       appyaml: The AppInfoExternal object parsed from an app.yaml-like file.
-      server_yaml_path: The (string) path to the yaml file, relative to the
+      module_yaml_path: The (string) path to the yaml file, relative to the
         bundle directory.
       backend: The name of the backend to update, if any.
 
@@ -2857,7 +2857,7 @@ class AppCfgApp(object):
 
     appversion = AppVersionUpload(rpcserver,
                                   appyaml,
-                                  server_yaml_path=server_yaml_path,
+                                  module_yaml_path=module_yaml_path,
                                   backend=backend,
                                   error_fh=self.error_fh)
     return appversion.DoUpload(paths, openfunc)
@@ -2873,18 +2873,18 @@ class AppCfgApp(object):
       self.basepath = os.path.dirname(yaml_path)
       if not self.basepath:
         self.basepath = '.'
-      server_yaml = self._ParseAppInfoFromYaml(self.basepath,
+      module_yaml = self._ParseAppInfoFromYaml(self.basepath,
                                                os.path.splitext(file_name)[0])
-      if server_yaml.runtime == 'python':
+      if module_yaml.runtime == 'python':
         has_python25_version = True
 
 
 
-      if not server_yaml.server and file_name != 'app.yaml':
-        ErrorUpdate("Error: 'server' parameter not specified in %s" %
+      if not module_yaml.module and file_name != 'app.yaml':
+        ErrorUpdate("Error: 'module' parameter not specified in %s" %
                     yaml_path)
         continue
-      self.UpdateVersion(rpcserver, self.basepath, server_yaml, file_name)
+      self.UpdateVersion(rpcserver, self.basepath, module_yaml, file_name)
     if has_python25_version:
       MigratePython27Notice()
 
@@ -3231,7 +3231,7 @@ class AppCfgApp(object):
                               payload=backends_yaml.ToYAML())
     print >> self.out_fh, response
 
-  def _ParseAndValidateServerYamls(self, yaml_paths):
+  def _ParseAndValidateModuleYamls(self, yaml_paths):
     """Validates given yaml paths and returns the parsed yaml objects.
 
     Args:
@@ -3253,31 +3253,31 @@ class AppCfgApp(object):
       base_path = os.path.dirname(yaml_path)
       if not base_path:
         base_path = '.'
-      server_yaml = self._ParseAppInfoFromYaml(base_path,
+      module_yaml = self._ParseAppInfoFromYaml(base_path,
                                                os.path.splitext(file_name)[0])
 
-      if not server_yaml.server and file_name != 'app.yaml':
+      if not module_yaml.module and file_name != 'app.yaml':
         _PrintErrorAndExit(
             self.error_fh,
-            "Error: 'server' parameter not specified in %s" % yaml_path)
+            "Error: 'module' parameter not specified in %s" % yaml_path)
 
 
 
-      if app_id is not None and server_yaml.application != app_id:
+      if app_id is not None and module_yaml.application != app_id:
         _PrintErrorAndExit(
             self.error_fh,
             "Error: 'application' value '%s' in %s does not match the value "
-            "'%s', found in %s" % (server_yaml.application,
+            "'%s', found in %s" % (module_yaml.application,
                                    yaml_path,
                                    app_id,
                                    last_yaml_path))
-      app_id = server_yaml.application
+      app_id = module_yaml.application
       last_yaml_path = yaml_path
-      results.append(server_yaml)
+      results.append(module_yaml)
 
     return results
 
-  def _ServerAction(self, action_path):
+  def _ModuleAction(self, action_path):
     """Process flags and yaml files and make a call to the given path.
 
     The 'start' and 'stop' actions are extremely similar in how they process
@@ -3288,55 +3288,55 @@ class AppCfgApp(object):
       action_path: Path on the RPCServer to send the call to.
     """
 
-    servers_to_process = []
+    modules_to_process = []
     if len(self.args) == 0:
 
       if not (self.options.app_id and
-              self.options.server_id and
+              self.options.module and
               self.options.version):
         _PrintErrorAndExit(self.error_fh,
                            'Expected at least one <file> argument or the '
-                           '--application, --server_id and --version flags to'
+                           '--application, --module and --version flags to'
                            ' be set.')
       else:
-        servers_to_process.append((self.options.app_id,
-                                   self.options.server_id,
+        modules_to_process.append((self.options.app_id,
+                                   self.options.module,
                                    self.options.version))
     else:
 
 
-      if self.options.server_id:
+      if self.options.module:
 
         _PrintErrorAndExit(self.error_fh,
                            'You may not specify a <file> argument with the '
-                           '--server_id flag.')
+                           '--module flag.')
 
-      server_yamls = self._ParseAndValidateServerYamls(self.args)
-      for serv_yaml in server_yamls:
+      module_yamls = self._ParseAndValidateModuleYamls(self.args)
+      for serv_yaml in module_yamls:
 
 
         app_id = serv_yaml.application
-        servers_to_process.append((self.options.app_id or serv_yaml.application,
-                                   serv_yaml.server or appinfo.DEFAULT_SERVER,
+        modules_to_process.append((self.options.app_id or serv_yaml.application,
+                                   serv_yaml.module or appinfo.DEFAULT_MODULE,
                                    self.options.version or serv_yaml.version))
 
     rpcserver = self._GetRpcServer()
 
 
-    for app_id, server, version in servers_to_process:
+    for app_id, module, version in modules_to_process:
       response = rpcserver.Send(action_path,
                                 app_id=app_id,
-                                server=server,
+                                module=module,
                                 version=version)
       print >> self.out_fh, response
 
   def Start(self):
-    """Starts one or more servers."""
-    self._ServerAction('/api/servers/start')
+    """Starts one or more modules."""
+    self._ModuleAction('/api/modules/start')
 
   def Stop(self):
-    """Stops one or more servers."""
-    self._ServerAction('/api/servers/stop')
+    """Stops one or more modules."""
+    self._ModuleAction('/api/modules/stop')
 
   def Rollback(self):
     """Does a rollback of an existing transaction for this app version."""
@@ -3354,18 +3354,18 @@ class AppCfgApp(object):
     backend is specified the rollback will affect the current app version.
     """
     if os.path.isdir(self.basepath):
-      server_yaml = self._ParseAppInfoFromYaml(self.basepath)
+      module_yaml = self._ParseAppInfoFromYaml(self.basepath)
     else:
 
       file_name = os.path.basename(self.basepath)
       self.basepath = os.path.dirname(self.basepath)
       if not self.basepath:
         self.basepath = '.'
-      server_yaml = self._ParseAppInfoFromYaml(self.basepath,
+      module_yaml = self._ParseAppInfoFromYaml(self.basepath,
                                                os.path.splitext(file_name)[0])
 
-    appversion = AppVersionUpload(self._GetRpcServer(), server_yaml,
-                                  server_yaml_path='app.yaml',
+    appversion = AppVersionUpload(self._GetRpcServer(), module_yaml,
+                                  module_yaml_path='app.yaml',
                                   backend=backend)
 
     appversion.in_transaction = True
@@ -3373,11 +3373,11 @@ class AppCfgApp(object):
 
   def SetDefaultVersion(self):
     """Sets the default version."""
-    server = ''
+    module = ''
     if len(self.args) == 1:
       appyaml = self._ParseAppInfoFromYaml(self.args[0])
       app_id = appyaml.application
-      server = appyaml.server or ''
+      module = appyaml.module or ''
       version = appyaml.version
     elif len(self.args) == 0:
       if not (self.options.app_id and self.options.version):
@@ -3390,14 +3390,14 @@ class AppCfgApp(object):
 
     if self.options.app_id:
       app_id = self.options.app_id
-    if self.options.server_id:
-      server = self.options.server_id
+    if self.options.module:
+      module = self.options.module
     if self.options.version:
       version = self.options.version
 
     version_setter = DefaultVersionSet(self._GetRpcServer(),
                                        app_id,
-                                       server,
+                                       module,
                                        version)
     version_setter.SetVersion()
 
@@ -3405,11 +3405,11 @@ class AppCfgApp(object):
     """Write request logs to a file."""
 
     args_length = len(self.args)
-    server = ''
+    module = ''
     if args_length == 2:
       appyaml = self._ParseAppInfoFromYaml(self.args.pop(0))
       app_id = appyaml.application
-      server = appyaml.server or ''
+      module = appyaml.module or ''
       version = appyaml.version
     elif args_length == 1:
       if not (self.options.app_id and self.options.version):
@@ -3422,8 +3422,8 @@ class AppCfgApp(object):
 
     if self.options.app_id:
       app_id = self.options.app_id
-    if self.options.server_id:
-      server = self.options.server_id
+    if self.options.module:
+      module = self.options.module
     if self.options.version:
       version = self.options.version
 
@@ -3444,7 +3444,7 @@ class AppCfgApp(object):
 
     logs_requester = LogsRequester(rpcserver,
                                    app_id,
-                                   server,
+                                   module,
                                    version,
                                    self.args[0],
                                    self.options.num_days,
@@ -3922,7 +3922,7 @@ class AppCfgApp(object):
 
       'update': Action(
           function='Update',
-          usage='%prog [options] update <directory>',
+          usage='%prog [options] update <directory> | [file, ...]',
           options=_UpdateOptions,
           short_desc='Create or update an app version.',
           long_desc="""
@@ -3930,7 +3930,11 @@ Specify a directory that contains all of the files required by
 the app, and appcfg.py will create/update the app version referenced
 in the app.yaml file at the top level of that directory.  appcfg.py
 will follow symlinks and recursively upload all files to the server.
-Temporary or source control files (e.g. foo~, .svn/*) will be skipped."""),
+Temporary or source control files (e.g. foo~, .svn/*) will be skipped.
+
+If you are using the Modules feature, then you may prefer to pass multiple files
+to update, rather than a directory, to specify which modules you would like
+updated."""),
 
       'download_app': Action(
           function='DownloadApp',
@@ -4101,18 +4105,18 @@ each cron job defined in the cron.yaml file."""),
           hidden=True,
           uses_basepath=False,
           usage='%prog [options] start [file, ...]',
-          short_desc='Start a server version.',
+          short_desc='Start a module version.',
           long_desc="""
-The 'start' command will put a server version into the START state."""),
+The 'start' command will put a module version into the START state."""),
 
       'stop': Action(
           function='Stop',
           hidden=True,
           uses_basepath=False,
           usage='%prog [options] stop [file, ...]',
-          short_desc='Stop a server version.',
+          short_desc='Stop a module version.',
           long_desc="""
-The 'stop' command will put a server version into the STOP state."""),
+The 'stop' command will put a module version into the STOP state."""),
 
 
 

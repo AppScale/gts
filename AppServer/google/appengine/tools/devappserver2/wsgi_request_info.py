@@ -41,13 +41,13 @@ class WSGIRequestInfo(request_info.RequestInfo):
     """
     super(WSGIRequestInfo, self).__init__()
     self._request_wsgi_environ = {}
-    self._request_id_to_server_configuration = {}
+    self._request_id_to_module_configuration = {}
     self._request_id_to_instance = {}
     self._lock = threading.Lock()
     self._dispatcher = dispatcher
 
   @contextlib.contextmanager
-  def request(self, environ, server_configuration):
+  def request(self, environ, module_configuration):
     """A context manager that consumes a WSGI environ and returns a request id.
 
     with request_information.request(environ, app_info_external) as request_id:
@@ -57,23 +57,23 @@ class WSGIRequestInfo(request_info.RequestInfo):
 
     Args:
       environ: An environ dict for the request as defined in PEP-333.
-      server_configuration: An application_configuration.ServerConfiguration
-          instance respresenting the current server configuration.
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance respresenting the current module configuration.
 
     Returns:
       A unique string id that will be associated with the request.
     """
-    request_id = self.start_request(environ, server_configuration)
+    request_id = self.start_request(environ, module_configuration)
     yield request_id
     self.end_request(request_id)
 
-  def start_request(self, environ, server_configuration):
+  def start_request(self, environ, module_configuration):
     """Adds the WSGI to the state of the class and returns a request id.
 
     Args:
       environ: An environ dict for the request as defined in PEP-333.
-      server_configuration: An application_configuration.ServerConfiguration
-          instance respresenting the current server configuration.
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance respresenting the current module configuration.
 
     Returns:
       A unique string id that will be associated with the request.
@@ -81,15 +81,15 @@ class WSGIRequestInfo(request_info.RequestInfo):
     with self._lock:
       request_id = _choose_request_id()
       self._request_wsgi_environ[request_id] = environ
-      self._request_id_to_server_configuration[
-          request_id] = server_configuration
+      self._request_id_to_module_configuration[
+          request_id] = module_configuration
       return request_id
 
   def end_request(self, request_id):
     """Removes the information associated with given request_id."""
     with self._lock:
       del self._request_wsgi_environ[request_id]
-      del self._request_id_to_server_configuration[request_id]
+      del self._request_id_to_module_configuration[request_id]
       if request_id in self._request_id_to_instance:
         del self._request_id_to_instance[request_id]
 
@@ -127,20 +127,20 @@ class WSGIRequestInfo(request_info.RequestInfo):
     """
     return self._dispatcher
 
-  def get_server(self, request_id):
-    """Returns the name of the server serving this request.
+  def get_module(self, request_id):
+    """Returns the name of the module serving this request.
 
     Args:
       request_id: The string id of the request making the API call.
 
     Returns:
-      A str containing the server name.
+      A str containing the module name.
     """
     with self._lock:
-      return self._request_id_to_server_configuration[request_id].server_name
+      return self._request_id_to_module_configuration[request_id].module_name
 
   def get_version(self, request_id):
-    """Returns the version of the server serving this request.
+    """Returns the version of the module serving this request.
 
     Args:
       request_id: The string id of the request making the API call.
@@ -149,7 +149,7 @@ class WSGIRequestInfo(request_info.RequestInfo):
       A str containing the version.
     """
     with self._lock:
-      return self._request_id_to_server_configuration[request_id].major_version
+      return self._request_id_to_module_configuration[request_id].major_version
 
   def get_instance(self, request_id):
     """Returns the instance serving this request.
