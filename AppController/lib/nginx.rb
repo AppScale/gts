@@ -361,7 +361,7 @@ CONFIG
     locations = {}
 
     if old_config
-      # Check
+      # Check if there is no port conflict
       old_nginx_port = old_config.match(/listen (\d+)/m)[1]
       if old_nginx_port != nginx_port.to_s
         msg = "Can't update nginx configs for #{service_name} "\
