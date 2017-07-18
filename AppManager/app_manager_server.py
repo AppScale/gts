@@ -13,10 +13,13 @@ import subprocess
 import sys
 import threading
 import time
+import urllib
 import urllib2
 from xml.etree import ElementTree
 
 from M2Crypto import SSL
+from tornado.httpclient import HTTPClient
+from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 
 from appscale.common import (
@@ -363,6 +366,28 @@ def kill_instance(watch, instance_pid):
 
   logging.info('Finished stopping {}'.format(watch))
 
+def unmonitor(process_name, retries=5):
+  """ Unmonitors a process.
+
+  Args:
+    process_name: A string specifying the process to stop monitoring.
+    retries: An integer specifying the number of times to retry the operation.
+  """
+  client = HTTPClient()
+  process_url = '{}/{}'.format(monit_operator.LOCATION, process_name)
+  payload = urllib.urlencode({'action': 'unmonitor'})
+  try:
+    client.fetch(process_url, method='POST', body=payload)
+  except HTTPError as error:
+    if error.code == 503:
+      retries -= 1
+      if retries < 0:
+        raise
+
+      return unmonitor(process_name, retries)
+
+    raise
+
 def stop_app_instance(app_name, port):
   """ Stops a Google App Engine application process instance on current
       machine.
@@ -389,8 +414,7 @@ def stop_app_instance(app_name, port):
     logging.error('{} does not exist'.format(pid_location))
     return False
 
-  IOLoop.current().run_sync(
-    lambda: monit_operator.send_command(watch, 'unmonitor'))
+  unmonitor(watch)
 
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.
@@ -400,7 +424,7 @@ def stop_app_instance(app_name, port):
   except OSError as os_error:
     logging.error("Error deleting {0}".format(monit_config_file))
 
-  IOLoop.current().run_sync(monit_operator.reload)
+  monit_interface.run_with_retry([monit_interface.MONIT, 'reload'])
   threading.Thread(target=kill_instance, args=(watch, instance_pid)).start()
   return True
 

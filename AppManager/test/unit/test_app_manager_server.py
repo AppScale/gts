@@ -283,8 +283,7 @@ class TestAppManager(unittest.TestCase):
       and_return(flexmock(read=lambda: '20000'))
     flexmock(threading.Thread).should_receive('__new__').and_return(
       flexmock(start=lambda: None))
-    flexmock(IOLoop).should_receive('current').and_return(
-      flexmock(run_sync=lambda func: None))
+    flexmock(app_manager_server).should_receive('unmonitor')
     self.assertTrue(app_manager_server.stop_app_instance(app_id, port))
 
   def test_stop_app(self):
