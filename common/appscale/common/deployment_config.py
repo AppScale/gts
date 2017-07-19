@@ -37,15 +37,20 @@ class DeploymentConfigSection(object):
       section: A string specifying a configuration section name.
     """
     self.logger = logging.getLogger(self.__class__.__name__)
+    self.zk_client = zk_client
     self.section_name = section
     self.data = {}
+    self._stopped = False
 
-    section_node = '/appscale/config/{}'.format(section)
-    self.watch = zk_client.DataWatch(section_node, self._update_section)
+    self.section_node = '/appscale/config/{}'.format(section)
+    self.watch = zk_client.DataWatch(self.section_node, self._update_section)
 
-  def stop(self):
-    """ Stops the DataWatch on the configuration section. """
-    self.watch._stopped = True
+  def ensure_watch(self):
+    """ Restart the watch if it has been cancelled. """
+    if self._stopped:
+      self._stopped = False
+      self.watch = self.zk_client.DataWatch(self.section_node,
+                                            self._update_section)
 
   def _update_section(self, section_data, _):
     """ Updates the configuration data when the section node gets updated.
@@ -53,6 +58,11 @@ class DeploymentConfigSection(object):
     Args:
       section_data: A JSON string specifying configuration data.
     """
+    # If the section no longer exists, stop watching it.
+    if section_data is None:
+      self._stopped = True
+      return False
+
     try:
       self.data = json.loads(section_data)
     except ValueError:
@@ -130,15 +140,15 @@ class DeploymentConfig(object):
       to_remove = [section for section in self.config
                    if section not in children]
       for section_name in to_remove:
-        self.config[section_name].stop()
         del self.config[section_name]
 
       # Add new configuration sections.
       for child in children:
-        if child in self.config:
-          continue
+        if child not in self.config:
+          self.config[child] = DeploymentConfigSection(self.conn, child)
 
-        self.config[child] = DeploymentConfigSection(self.conn, child)
+        # Handle changes that happen between watches.
+        self.config[child].ensure_watch()
 
       self.logger.info('Deployment configuration updated')
       self.state = ConfigStates.LOADED
