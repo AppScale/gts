@@ -525,7 +525,8 @@ class Module(object):
     start_response('%d %s' % (status, httplib.responses[status]), [])
     return []
 
-  # AppScale.
+  # AppScale: Check if the instance should be shutting down before handling
+  # request.
   def _handle_request(self, environ, start_response, **kwargs):
     """ A _handle_request wrapper that keeps track of active requests.
 
