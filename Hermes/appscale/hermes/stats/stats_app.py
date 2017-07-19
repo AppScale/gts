@@ -155,7 +155,19 @@ def get_cluster_stats_api_routes(is_master):
 
 
 class ProfilingManager(object):
+  """
+  This manager watches stats profiling configs in Zookeeper,
+  when configs are changed it starts/stops/restarts periodical
+  tasks which writes profile log with proper parameters.
+  """
+
   def __init__(self, zk_client):
+    """ Initializes instance of ProfilingManager.
+    Starts watching profiling configs in zookeeper.
+
+    Args:
+      zk_client: an instance of KazooClient - started zookeeper client.
+    """
     self.nodes_profile_log = None
     self.processes_profile_log = None
     self.proxies_profile_log = None
@@ -164,9 +176,18 @@ class ProfilingManager(object):
     self.proxies_profile_task = None
 
     def bridge_to_ioloop(update_function):
-      def do_in_ioloop():
-        IOLoop.current().add_callback(update_function)
-      return do_in_ioloop
+      """ Creates function which schedule execution of update_function
+      inside current IOLoop.
+
+      Args:
+        update_function: a function to execute in IOLoop.
+      Returns:
+        A callable which schedules execution of update_function inside IOLoop.
+      """
+      def update_in_ioloop(new_conf, znode_stat):
+        update = lambda: update_function(new_conf, znode_stat)
+        IOLoop.current().add_callback(update)
+      return update_in_ioloop
 
     zk_client.DataWatch(NODES_STATS_CONFIGS_NODE,
                         bridge_to_ioloop(self.update_nodes_profiling_conf))
@@ -176,6 +197,13 @@ class ProfilingManager(object):
                         bridge_to_ioloop(self.update_proxies_profiling_conf))
 
   def update_nodes_profiling_conf(self, new_conf, znode_stat):
+    """ Handles new value of nodes profiling configs and
+    starts/stops profiling with proper parameters.
+
+    Args:
+      new_conf: a string representing new value of zookeeper node.
+      znode_stat: an instance if ZnodeStat.
+    """
     if not new_conf:
       logging.debug("No node stats profiling configs are specified yet")
       return
@@ -199,6 +227,13 @@ class ProfilingManager(object):
       self.nodes_profile_task = None
 
   def update_processes_profiling_conf(self, new_conf, znode_stat):
+    """ Handles new value of processes profiling configs and
+    starts/stops profiling with proper parameters.
+
+    Args:
+      new_conf: a string representing new value of zookeeper node.
+      znode_stat: an instance if ZnodeStat.
+    """
     if not new_conf:
       logging.debug("No processes stats profiling configs are specified yet")
       return
@@ -224,6 +259,13 @@ class ProfilingManager(object):
       self.processes_profile_task = None
 
   def update_proxies_profiling_conf(self, new_conf, znode_stat):
+    """ Handles new value of proxies profiling configs and
+    starts/stops profiling with proper parameters.
+
+    Args:
+      new_conf: a string representing new value of zookeeper node.
+      znode_stat: an instance if ZnodeStat.
+    """
     if not new_conf:
       logging.debug("No proxies stats profiling configs are specified yet")
       return
