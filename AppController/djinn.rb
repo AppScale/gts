@@ -621,11 +621,10 @@ class Djinn
     @last_updated = 0
     @state_change_lock = Monitor.new()
 
-    # These two variables are used to keep track of terminated or
-    # unaccounted AppServers. Both needs some special cares, since we need
-    # to terminate or remove them after some time.
+    # Keeps track of unaccounted AppServers. To prevent terminating instances
+    # that are in the process of starting, we wait three duty cycles before
+    # stopping them.
     @unaccounted = {}
-    @terminated = {}
 
     @initialized_apps = {}
     @total_req_seen = {}
@@ -2888,7 +2887,7 @@ class Djinn
     }
     HAProxy.create_ua_server_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
-    Nginx.create_service_config(
+    Nginx.add_service_location(
       'appscale-uaserver', my_node.private_ip,
       UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
   end
@@ -2922,7 +2921,7 @@ class Djinn
     # TaskQueue REST API routing.
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
     rest_prefix = '~ /taskqueue/v1beta2/projects/.*'
-    Nginx.create_service_config(
+    Nginx.add_service_location(
       'appscale-taskqueue', my_node.private_ip, TaskQueue::HAPROXY_PORT,
       TaskQueue::TASKQUEUE_SERVER_SSL_PORT, rest_prefix)
   end
@@ -3751,6 +3750,13 @@ class Djinn
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
     HermesService.start(@options['verbose'].downcase == 'true')
+    if my_node.is_shadow?
+      nginx_port = 17441
+      service_port = 4378
+      Nginx.add_service_location(
+        'appscale-administration', my_node.private_ip,
+        service_port, nginx_port, '/stats/cluster/')
+    end
     Djinn.log_info("Done starting Hermes service.")
   end
 
@@ -4297,18 +4303,6 @@ HOSTS
   end
 
 
-  # Reset the drain flags on HAProxy for to-be-terminated AppServers.
-  def reset_drain
-    @apps_loaded.each{ |app|
-      unless @terminated[app].nil?
-        @terminated[app].each { |location|
-          HAProxy.ensure_no_pending_request(app, location)
-        }
-      end
-    }
-  end
-
-
   # Writes new nginx and haproxy configuration files for the App Engine
   # applications hosted in this deployment. Callers should invoke this
   # method whenever there is a change in the number of machines hosting
@@ -4353,23 +4347,6 @@ HOSTS
           next if Integer(port) < 0
           appservers << location
         }
-        unless @terminated[app].nil?
-          to_remove = []
-          @terminated[app].each { |location, when_detected|
-            # Let's make sure it doesn't receive traffic, and see how many
-            # sessions are still active.
-            if Time.now.to_i > when_detected + Integer(@options['appserver_timeout'])
-              Djinn.log_info("#{location} has ran out of time: removing it.")
-              to_remove << location
-            elsif HAProxy.ensure_no_pending_request(app, location) <= 0
-              Djinn.log_info("#{location} has no more sessions: removing it.")
-              to_remove << location
-            else
-              appservers << location
-            end
-          }
-          to_remove.each{ |location| @terminated[app].delete(location) }
-        end
       end
 
       if appservers.empty?
@@ -4407,12 +4384,6 @@ HOSTS
 
         HAProxy.update_app_config(my_private, app, proxy_port, appservers)
       end
-
-      # We need to set the drain on haproxy on the terminated AppServers,
-      # since a reload of HAProxy would have reset them. We do it for each
-      # app in order to minimize the window of a terminated AppServer
-      # being reinstead as active by HAProxy.
-      reset_drain
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
   end
@@ -4669,8 +4640,8 @@ HOSTS
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
     if my_node.is_shadow?
-      Nginx.create_service_config('appscale-admin', my_node.private_ip,
-                                  service_port, nginx_port)
+      Nginx.add_service_location('appscale-administration', my_node.private_ip,
+                                 service_port, nginx_port, '/')
     end
   end
 
@@ -4846,7 +4817,6 @@ HOSTS
         # Since the removal of an app from HAProxy can cause a reset of
         # the drain flags, let's set them again.
         HAProxy.remove_app(app)
-        reset_drain
       end
 
       if my_node.is_appengine?
@@ -4885,25 +4855,17 @@ HOSTS
   end
 
 
-  # LoadBalancers needs to do some extra work to drain AppServers before
-  # removing them, and to detect when AppServers failed or terminated.
+  # LoadBalancers need to do some extra work to detect when AppServers failed
+  # or were terminated.
   def check_haproxy
     @apps_loaded.each{ |app|
-      running, failed = HAProxy.list_servers(app)
+      _, failed = HAProxy.list_servers(app)
       if my_node.is_shadow?
         failed.each{ |appserver|
           Djinn.log_warn("Detected failed AppServer for #{app}: #{appserver}.")
           @app_info_map[app]['appengine'].delete(appserver)
         }
       end
-      running.each{ |appserver|
-        unless @app_info_map[app]['appengine'].nil?
-          next if @app_info_map[app]['appengine'].include?(appserver)
-        end
-        @terminated[app] = {} if @terminated[app].nil?
-        @terminated[app][appserver] = Time.now.to_i
-        Djinn.log_info("Terminated AppServer #{appserver} will not received requests.")
-      }
     }
     regenerate_routing_config
   end
@@ -4983,13 +4945,13 @@ HOSTS
       been_here = Time.now.to_i - @unaccounted[appengine]
       if been_here > Integer(@options['appserver_timeout']) * 2
         Djinn.log_debug("AppServer #{appengine} for #{app} timed out.")
-        to_end << appengine
-        next
       end
       if to_start.include?(app) && been_here < DUTY_CYCLE * 3
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)
+      else
+        to_end << appengine
       end
     }
     Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
@@ -5538,7 +5500,7 @@ HOSTS
                                   allow_concurrency)
     max_conn = allow_concurrency ? HAProxy::MAX_APPSERVER_CONN : 1
     desired_appservers = curr_sessions.to_f / (DESIRED_LOAD * max_conn)
-    appservers_to_scale = desired_appservers.round - num_appengines
+    appservers_to_scale = desired_appservers.ceil - num_appengines
     return appservers_to_scale
   end
 
