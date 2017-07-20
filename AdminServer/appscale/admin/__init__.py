@@ -217,6 +217,7 @@ class VersionsHandler(BaseHandler):
 
     version['id'] = str(version['id'])
 
+    # Prevent multiple versions per service.
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid version ID')
