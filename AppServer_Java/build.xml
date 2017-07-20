@@ -88,12 +88,6 @@
     <delete dir="${gae_dist}/lib/user/tmp"/>
   </target>
 
-  <target name="update-api-labs-jar" depends="compile, repack-sdk">
-    <jar destfile="${gae_dist}/lib/impl/appengine-api-labs.jar" basedir="${build}" update="true">
-    </jar>
-    <copy file="${gae_dist}/lib/impl/appengine-api-labs.jar" tofile="${gae_dist}/lib/user/appengine-api-labs-${gae_version}.jar" />
-  </target>
-
   <target name="update-api-stubs-jar" depends="compile, repack-sdk">
     <unjar src="${gae_dist}/lib/impl/appengine-api-stubs.jar" dest="${build}" overwrite="true">
       <patternset>
@@ -142,7 +136,7 @@
     </jar>
   </target>
 
-  <target name="update-jars" depends="update-api-jar, update-api-labs-jar, update-agent-runtime-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar, update-remote-jar" />
+  <target name="update-jars" depends="update-api-jar, update-agent-runtime-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar, update-remote-jar" />
 
   <target name="install" depends="update-jars" />
 
