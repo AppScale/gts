@@ -4111,37 +4111,23 @@ class Djinn
   end
 
   def rsync_files(dest_node)
-    admin_server = "#{APPSCALE_HOME}/AdminServer"
-    appdb = "#{APPSCALE_HOME}/AppDB"
-    app_manager = "#{APPSCALE_HOME}/AppManager"
-    app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
-    controller = "#{APPSCALE_HOME}/AppController"
-    common = "#{APPSCALE_HOME}/common"
-    iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
-    app_dashboard = "#{APPSCALE_HOME}/AppDashboard"
-    scripts = "#{APPSCALE_HOME}/scripts"
-    server = "#{APPSCALE_HOME}/AppServer"
-    server_java = "#{APPSCALE_HOME}/AppServer_Java"
-    xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
-    log_service = "#{APPSCALE_HOME}/LogService"
-
+    # Get the keys and address of the destination node.
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
-    options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
+    options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc' --exclude='logs/*'"
 
-    HelperFunctions.shell("rsync #{options} #{admin_server}/* root@#{ip}:#{controller}")
-    HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
-    HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
-    HelperFunctions.shell("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
-    HelperFunctions.shell("rsync #{options} #{app_dashboard}/* root@#{ip}:#{app_dashboard}")
-    HelperFunctions.shell("rsync #{options} --exclude='logs/*' #{appdb}/* root@#{ip}:#{appdb}")
-    HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
-    HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
-    HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
-    HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
-    HelperFunctions.shell("rsync #{options} #{common}/* root@#{ip}:#{common}")
-    HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
-    HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
+    ["#{APPSCALE_HOME}/AdminServer", "#{APPSCALE_HOME}/AppDB",
+     "#{APPSCALE_HOME}/AppManager", "#{APPSCALE_HOME}/AppTaskQueue",
+     "#{APPSCALE_HOME}/AppController", "#{APPSCALE_HOME}/common",
+     "#{APPSCALE_HOME}/InfrastructureManager", "#{APPSCALE_HOME}/AppDashboard",
+     "#{APPSCALE_HOME}/scripts", "#{APPSCALE_HOME}/AppServer",
+     "#{APPSCALE_HOME}/AppServer_Java", "#{APPSCALE_HOME}/XMPPReceiver",
+     "#{APPSCALE_HOME}/LogService"].each { |dir|
+      if system("rsync #{options} #{dir}/* root@#{ip}:#{dir}") != true
+        Djinn.log_warn("Rsync of #{dir} to #{ip} failed!")
+      end
+    }
+
     if dest_node.is_appengine?
       locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {
