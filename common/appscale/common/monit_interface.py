@@ -26,6 +26,12 @@ NUM_RETRIES = 10
 
 SMALL_WAIT = 3
 
+
+class ProcessNotFound(Exception):
+  """ Indicates that Monit has no entry for a process. """
+  pass
+
+
 def run_with_retry(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
   monit is busy servicing other requests).
@@ -209,8 +215,15 @@ class MonitOperator(object):
       try:
         yield self.client.fetch(process_url, method='POST', body=payload)
         return
-      except HTTPError:
-        yield gen.sleep(.2)
+      except HTTPError as error:
+        if error.code == 503:
+          yield gen.sleep(.2)
+          continue
+
+        if error.code == 404:
+          raise ProcessNotFound('{} is not monitored'.format(process_name))
+
+        raise
 
   @gen.coroutine
   def wait_for_status(self, process_name, acceptable_states):
