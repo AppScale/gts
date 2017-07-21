@@ -85,11 +85,7 @@ class ProjectPushWorkerManager(object):
       yield self.monit_operator.reload()
     else:
       logging.info('Restarting push worker for {}'.format(self.project_id))
-      # Monit behaves unexpectedly with a restart. This hack makes it behave
-      # more smoothly.
-      yield self.monit_operator.send_command(self.monit_watch, 'stop')
-      yield gen.sleep(.5)
-      yield self.monit_operator.send_command(self.monit_watch, 'start')
+      yield self.monit_operator.send_command(self.monit_watch, 'restart')
 
     start_future = self.monit_operator.ensure_running(self.monit_watch)
     yield gen.with_timeout(timedelta(seconds=60), start_future,
