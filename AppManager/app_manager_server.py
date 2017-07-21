@@ -6,16 +6,20 @@ import json
 import logging
 import math
 import os
+import psutil
 import shutil
 import SOAPpy
 import subprocess
 import sys
 import threading
 import time
+import urllib
 import urllib2
 from xml.etree import ElementTree
 
 from M2Crypto import SSL
+from tornado.httpclient import HTTPClient
+from tornado.httpclient import HTTPError
 
 from appscale.common import (
   appscale_info,
@@ -28,6 +32,7 @@ from appscale.common import (
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
+from appscale.common.monit_interface import MonitOperator
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -90,8 +95,15 @@ ROUTING_RETRY_INTERVAL = 5
 PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
                                 'app___{project}-{port}.pid')
 
+# The number of seconds an instance is allowed to finish serving requests after
+# it receives a shutdown signal.
+MAX_INSTANCE_RESPONSE_TIME = 600
+
 # A DeploymentConfig accessor.
 deployment_config = None
+
+# An interface for working with Monit.
+monit_operator = MonitOperator()
 
 
 class BadConfigurationException(Exception):
@@ -337,6 +349,44 @@ def setup_logrotate(app_name, watch, log_size):
 
   return True
 
+def kill_instance(watch, instance_pid):
+  """ Stops an AppServer process.
+
+  Args:
+    watch: A string specifying the monit entry for the process.
+    instance_pid: An integer specifying the process ID.
+  """
+  process = psutil.Process(instance_pid)
+  process.terminate()
+  try:
+    process.wait(MAX_INSTANCE_RESPONSE_TIME)
+  except psutil.TimeoutExpired:
+    process.kill()
+
+  logging.info('Finished stopping {}'.format(watch))
+
+def unmonitor(process_name, retries=5):
+  """ Unmonitors a process.
+
+  Args:
+    process_name: A string specifying the process to stop monitoring.
+    retries: An integer specifying the number of times to retry the operation.
+  """
+  client = HTTPClient()
+  process_url = '{}/{}'.format(monit_operator.LOCATION, process_name)
+  payload = urllib.urlencode({'action': 'unmonitor'})
+  try:
+    client.fetch(process_url, method='POST', body=payload)
+  except HTTPError as error:
+    if error.code == 503:
+      retries -= 1
+      if retries < 0:
+        raise
+
+      return unmonitor(process_name, retries)
+
+    raise
+
 def stop_app_instance(app_name, port):
   """ Stops a Google App Engine application process instance on current
       machine.
@@ -354,10 +404,16 @@ def stop_app_instance(app_name, port):
 
   logging.info("Stopping application %s" % app_name)
   watch = "app___" + app_name + "-" + str(port)
-  if not monit_interface.stop(watch, is_group=False):
-    logging.error("Unable to stop application server for app {0} on " \
-      "port {1}".format(app_name, port))
+
+  pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))
+  try:
+    with open(pid_location) as pidfile:
+      instance_pid = int(pidfile.read().strip())
+  except IOError:
+    logging.error('{} does not exist'.format(pid_location))
     return False
+
+  unmonitor(watch)
 
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.
@@ -367,6 +423,8 @@ def stop_app_instance(app_name, port):
   except OSError as os_error:
     logging.error("Error deleting {0}".format(monit_config_file))
 
+  monit_interface.run_with_retry([monit_interface.MONIT, 'reload'])
+  threading.Thread(target=kill_instance, args=(watch, instance_pid)).start()
   return True
 
 

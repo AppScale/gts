@@ -15,10 +15,7 @@ import tq_lib
 
 from appscale.common import (
   appscale_info,
-  constants,
-  file_io,
-  monit_app_configuration,
-  monit_interface
+  constants
 )
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -36,14 +33,12 @@ from .queue import (
   TransientError
 )
 from .task import Task
-from .tq_config import TaskQueueConfig
 from .utils import (
-  CELERY_CONFIG_DIR,
-  CELERY_WORKER_DIR,
   get_celery_queue_name,
   get_queue_function_name,
   logger
 )
+from .queue_manager import GlobalQueueManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
@@ -202,29 +197,6 @@ def setup_env():
 class DistributedTaskQueue():
   """ AppScale taskqueue layer for the TaskQueue API. """
 
-  # Required start worker name tags.
-  SETUP_WORKERS_TAGS = ['app_id']
-
-  # Required stop worker name tags.
-  STOP_WORKERS_TAGS = ['app_id']
-
-  # The location of where celery logs go.
-  LOG_DIR = "/var/log/appscale/celery_workers/"
-
-  # The hard time limit of a running task in seconds, extra
-  # time over the soft limit allows it to catch up to interrupts.
-  HARD_TIME_LIMIT = 610
-
-  # The soft time limit of a running task.
-  TASK_SOFT_TIME_LIMIT = 600
-
-  # The location where celery tasks place their PID file. Prevents
-  # the same worker from being started if it is already running.
-  PID_FILE_LOC = "/etc/appscale/"
-
-  # A port number given to the monitoring service, but not actually used.
-  CELERY_PORT = 9999
-
   # The longest a task is allowed to run in days.
   DEFAULT_EXPIRATION = 30
 
@@ -242,30 +214,15 @@ class DistributedTaskQueue():
   # Kind used for storing task names.
   TASK_NAME_KIND = "__task_name__"
 
-  # A dict that tells celery to run tasks even though we are running as root.
-  CELERY_ENV_VARS = {'C_FORCE_ROOT': True}
-
-  # The max memory allocated to celery worker pools in MB.
-  CELERY_MAX_MEMORY = 1000
-
-  # The safe memory per Celery worker.
-  CELERY_SAFE_MEMORY = 1000
-
-  def __init__(self, db_access):
+  def __init__(self, db_access, zk_client):
     """ DistributedTaskQueue Constructor.
 
     Args:
       db_access: A DatastoreProxy object.
+      zk_client: A KazooClient.
     """
-    file_io.mkdir(self.LOG_DIR)
-    file_io.mkdir(CELERY_WORKER_DIR)
-    file_io.mkdir(CELERY_CONFIG_DIR)
-
     setup_env()
   
-    # Cache all queue information in memory.
-    self.__queue_info_cache = {}
-
     db_proxy = appscale_info.get_db_proxy()
     connection_str = '{}:{}'.format(db_proxy, str(constants.DB_SERVER_PORT))
     ds_distrib = datastore_distributed.DatastoreDistributed(
@@ -274,9 +231,7 @@ class DistributedTaskQueue():
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
     self.db_access = db_access
-
-    # Flag to see if code needs to be reloaded.
-    self.__force_reload = False
+    self.queue_manager = GlobalQueueManager(zk_client, db_access)
 
   def get_queue(self, app, queue):
     """ Fetches a Queue object.
@@ -287,15 +242,9 @@ class DistributedTaskQueue():
     Returns:
       A Queue object or None.
     """
-    cache = self.__queue_info_cache
-    if app in cache and queue in cache[app]:
-      return cache[app][queue]
-
-    config = TaskQueueConfig(app, self.db_access)
-    self.__queue_info_cache[app] = config.queues
-    if queue in config.queues:
-      return config.queues[queue]
-    else:
+    try:
+      return self.queue_manager[app][queue]
+    except KeyError:
       return None
 
   def __parse_json_and_validate_tags(self, json_request, tags):
@@ -320,184 +269,6 @@ class DistributedTaskQueue():
                          'reason': 'Missing ' + tag + ' tag'}
         break
     return json_response
-
-  def stop_worker(self, json_request):
-    """ Stops the monit watch for queues of an application on the current node.
-   
-    Args:
-      json_request: A JSON string with the queue name for which we're
-        stopping its queues.
-    Returns:
-      A JSON string with the result.
-    """
-    request = self.__parse_json_and_validate_tags(
-      json_request, self.STOP_WORKERS_TAGS)
-    logger.info("Stopping worker: {0}".format(request))
-    if 'error' in request:
-      return json.dumps(request)
-
-    app_id = request['app_id']
-    watch = "celery-" + str(app_id)
-    try:
-      if monit_interface.stop(watch):
-        stop_command = self.get_worker_stop_command(app_id)
-        os.system(stop_command) 
-        TaskQueueConfig.remove_config_files(app_id)
-        result = {'error': False}
-      else:
-        result = {'error': True, 'reason': "Unable to stop watch %s" % watch}
-    except OSError, os_error:
-      result = {'error': True, 'reason' : str(os_error)}
-
-    return json.dumps(result)
-    
-  def get_worker_stop_command(self, app_id):
-    """ Returns the command to run to stop celery workers for a given
-    application.
-  
-    Args:
-      app_id: The application ID.
-    Returns:
-      A string which, if run, will kill celery workers for a given
-      application ID.
-    """
-    stop_command = "/usr/bin/python2 {0}/scripts/stop_service.py worker {1}" \
-      .format(constants.APPSCALE_HOME, app_id)
-    return stop_command
-
-  def reload_worker(self, json_request):
-    """ Reloads taskqueue workers as needed. A worker can be started on both
-    a master and slave node.
- 
-    Args:
-      json_request: A JSON string with the application ID.
-    Returns:
-      A JSON string with the error status and error reason.
-    """
-    request = self.__parse_json_and_validate_tags(json_request,  
-                                         self.SETUP_WORKERS_TAGS)
-    logger.info("Reload worker request: {0}".format(request))
-    if 'error' in request:
-      return json.dumps(request)
-
-    app_id = self.__cleanse(request['app_id'])
-
-    cached_queues = {}
-    if app_id in self.__queue_info_cache:
-      cached_queues = self.__queue_info_cache[app_id]
-
-    try:
-      new_queues = TaskQueueConfig(app_id, self.db_access).queues
-    except (ValueError, NameError) as config_error:
-      return json.dumps({'error': True, 'reason': config_error.message})
-    except Exception as config_error:
-      logger.exception('Unknown exception')
-      return json.dumps({'error': True, 'reason': config_error.message})
-
-    reload_workers = False
-
-    # Stop workers for push queues that no longer exist.
-    for name, queue in cached_queues.iteritems():
-      if not isinstance(queue, PushQueue):
-        continue
-
-      if name not in new_queues:
-        logger.info('Deleting queue for {}: {}'.format(app_id, name))
-        reload_workers = True
-
-    # Create any new push queues and update ones that have changed.
-    for name, queue in new_queues.iteritems():
-      if not isinstance(queue, PushQueue):
-        continue
-
-      if name not in cached_queues:
-        logger.info('Creating queue for {}: {}'.format(app_id, name))
-        reload_workers = True
-        continue
-
-      if queue != cached_queues[name]:
-        logger.info('Reloading queue for {}: {}'.format(app_id, name))
-        logger.debug('Old: {}\nNew: {}'.format(cached_queues[name], queue))
-        reload_workers = True
-
-    if reload_workers:
-      self.stop_worker(json_request)
-      self.start_worker(json_request)
-      self.__force_reload = True
-    else:
-      logger.info('Not reloading queues')
-
-    self.__queue_info_cache[app_id] = new_queues
-
-    json_response = {'error': False}
-    return json.dumps(json_response)
-
-  def start_worker(self, json_request):
-    """ Starts taskqueue workers if they are not already running. A worker
-    can be started on both a master and slave node.
- 
-    Args:
-      json_request: A JSON string with the application id.
-    Returns:
-      A JSON string with the error status and error reason.
-    """
-    request = self.__parse_json_and_validate_tags(json_request,  
-                                         self.SETUP_WORKERS_TAGS)
-    logger.info("Start worker request: {0}".format(request))
-    if 'error' in request:
-      return json.dumps(request)
-
-    app_id = self.__cleanse(request['app_id'])
-
-    # Load the queue info.
-    try:
-      config = TaskQueueConfig(app_id, self.db_access)
-      self.__queue_info_cache[app_id] = config.queues
-      config.create_celery_file()
-    except (ValueError, NameError) as config_error:
-      return json.dumps({'error': True, 'reason': config_error.message})
-    except Exception as config_error:
-      logger.exception('Unknown exception')
-      return json.dumps({'error': True, 'reason': config_error.message})
-   
-    log_file = os.path.join(self.LOG_DIR, '{}.log'.format(app_id))
-    pidfile = os.path.join('/', 'var', 'run', 'appscale',
-                           'celery-{}.pid'.format(app_id))
-    state_db = os.path.join(TaskQueueConfig.CELERY_STATE_DIR,
-                            'worker___{}.db'.format(app_id))
-
-    env_vars = {'APP_ID': app_id, 'HOST': appscale_info.get_login_ip()}
-    env_vars.update(self.CELERY_ENV_VARS)
-
-    start_cmd = ' '.join([
-      'celery', 'worker',
-      '--app', TaskQueueConfig.WORKER_MODULE,
-      '--pool=eventlet',
-      '--concurrency={}'.format(TaskQueueConfig.CELERY_CONCURRENCY),
-      '--hostname', app_id,
-      '--workdir', CELERY_WORKER_DIR,
-      '--logfile', log_file,
-      '--pidfile', pidfile,
-      '--time-limit', str(self.HARD_TIME_LIMIT),
-      '--soft-time-limit', str(self.TASK_SOFT_TIME_LIMIT),
-      '--statedb', state_db,
-      '-Ofair'
-    ])
-
-    watch = "celery-" + str(app_id)
-    monit_app_configuration.create_config_file(
-      watch,
-      start_cmd,
-      pidfile,
-      env_vars=env_vars,
-      max_memory=self.CELERY_SAFE_MEMORY)
-
-    if monit_interface.start(watch):
-      json_response = {'error': False}
-    else:
-      json_response = {'error': True, 
-                       'reason': "Start of monit watch for %s failed" % watch}
-    return json.dumps(json_response)
 
   def fetch_queue_stats(self, app_id, http_data):
     """ Gets statistics about tasks in queues.
@@ -833,20 +604,10 @@ class DistributedTaskQueue():
     # Load queue info into cache.
     app_id = self.__cleanse(request.app_id())
     queue_name = request.queue_name()
-    if app_id not in self.__queue_info_cache:
-      try:
-        self.__queue_info_cache[app_id] = TaskQueueConfig(
-          app_id, self.db_access).queues
-      except (ValueError, NameError):
-        logger.exception('Unable to load queues for {}. Using defaults.'\
-          .format(app_id))
-      except Exception:
-        logger.exception('Unknown exception')
   
     # Use queue defaults.
-    if (app_id in self.__queue_info_cache and
-        queue_name in self.__queue_info_cache[app_id]):
-      queue = self.__queue_info_cache[app_id][queue_name]
+    queue = self.get_queue(app_id, queue_name)
+    if queue is not None:
       if not isinstance(queue, PushQueue):
         raise Exception('Only push queues are implemented')
 

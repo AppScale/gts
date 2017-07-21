@@ -7,6 +7,7 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'app_dashboard'
 require 'blobstore'
+require 'custom_exceptions'
 require 'datastore_server'
 require 'helperfunctions'
 require 'monit_interface'
@@ -312,7 +313,7 @@ CONFIG
       FileUtils.rm_f(config_path)
       return false
     end
-  end 
+  end
 
   def self.remove_app(app_name)
     config_name = "appscale-#{app_name}.#{CONFIG_EXTENSION}"
@@ -341,7 +342,8 @@ CONFIG
     end
   end
 
-  # Creates an Nginx configuration file for a service.
+  # Creates an Nginx configuration file for a service or just adds
+  # new location block
   #
   # Args:
   #   service_name: A string specifying the service name.
@@ -349,8 +351,32 @@ CONFIG
   #   service_port: An integer specifying the service port.
   #   nginx_port: An integer specifying the port for Nginx to listen on.
   #   location: A string specifying an Nginx location match.
-  def self.create_service_config(service_name, service_host, service_port,
+  def self.add_service_location(service_name, service_host, service_port,
     nginx_port, location='/')
+    proxy_pass = "#{service_host}:#{service_port}"
+    config_path = File.join(SITES_ENABLED_PATH,
+                            "#{service_name}.#{CONFIG_EXTENSION}")
+    old_config = File.read(config_path) if File.file?(config_path)
+
+    locations = {}
+
+    if old_config
+      # Check if there is no port conflict
+      old_nginx_port = old_config.match(/listen (\d+)/m)[1]
+      if old_nginx_port != nginx_port.to_s
+        msg = "Can't update nginx configs for #{service_name} "\
+              "(old nginx port: #{old_nginx_port}, new: #{nginx_port})"
+        Djinn.log_error(msg)
+        raise AppScaleException.new(msg)
+      end
+
+      # Find all specified locations and update it
+      regex = /location ([\/\w]+) \{.+?proxy_pass +http?\:\/\/([\d.]+\:\d+)/m
+      locations = Hash[old_config.scan(regex)]
+    end
+
+    # Ensure new location is associated with a right proxy_pass
+    locations[location] = proxy_pass
 
     config = <<CONFIG
 server {
@@ -375,18 +401,23 @@ server {
 
     error_page 502 /502.html;
 
-    location #{location} {
-      proxy_pass            http://#{service_host}:#{service_port};
+    # Locations:
+CONFIG
+
+    locations.each do |location_key, proxy_pass_value|
+      location_conf = <<LOCATION
+    location #{location_key} {
+      proxy_pass            http://#{proxy_pass_value};
       proxy_read_timeout    600;
       client_max_body_size  2G;
     }
-}
-CONFIG
 
-    config_path = File.join(SITES_ENABLED_PATH,
-                            "#{service_name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, 'w') { |dest_file| dest_file.write(config) }
+LOCATION
+      config << location_conf
+    end
+    config << "}"
 
+    File.write(config_path, config)
     Nginx.reload
   end
 

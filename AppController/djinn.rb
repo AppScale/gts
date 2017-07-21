@@ -43,7 +43,6 @@ require 'monit_interface'
 require 'nginx'
 require 'search'
 require 'taskqueue'
-require 'taskqueue_client'
 require 'terminate'
 require 'user_app_client'
 require 'zkinterface'
@@ -619,11 +618,10 @@ class Djinn
     @last_updated = 0
     @state_change_lock = Monitor.new()
 
-    # These two variables are used to keep track of terminated or
-    # unaccounted AppServers. Both needs some special cares, since we need
-    # to terminate or remove them after some time.
+    # Keeps track of unaccounted AppServers. To prevent terminating instances
+    # that are in the process of starting, we wait three duty cycles before
+    # stopping them.
     @unaccounted = {}
-    @terminated = {}
 
     @initialized_apps = {}
     @total_req_seen = {}
@@ -1689,26 +1687,6 @@ class Djinn
     end
   end
 
-  # Tells the UserAppServer to reserve the given app_id for
-  # a particular user.
-  #
-  # Args:
-  #   username: A str representing the app administrator's e-mail address.
-  #   app_id: A str representing the application ID to reserve.
-  #   app_language: The runtime (Python 2.5/2.7, Java, or Go) that the app
-  #     runs over.
-  def reserve_app_id(username, app_id, app_language, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      return uac.commit_new_app_name(username, app_id, app_language)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while reserving app id " +
-        "for the application #{app_id}.")
-    end
-  end
-
   # Removes an application and stops all AppServers hosting this application.
   #
   # Args:
@@ -1764,45 +1742,6 @@ class Djinn
     }
 
     return "true"
-  end
-
-  # Stop taskqueue worker on this local machine.
-  #
-  # Args:
-  #   app: The application ID.
-  def maybe_stop_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      Djinn.log_info("Stopping TaskQueue workers for app #{app}")
-      tqc = TaskQueueClient.new(my_node.private_ip)
-      begin
-        result = tqc.stop_worker(app)
-        Djinn.log_info("Stopped TaskQueue workers for app #{app}: #{result}")
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to stop TaskQueue workers for app #{app}")
-      end
-    end
-  end
-
-
-  # Reload the queue information of an app and reload the queues if needed.
-  #
-  # Args:
-  #   app: The application ID.
-  def maybe_reload_taskqueue_worker(app)
-    if my_node.is_taskqueue_master? or my_node.is_taskqueue_slave?
-      tqc = TaskQueueClient.new(my_node.private_ip)
-      begin
-        result = tqc.reload_worker(app)
-        message = "Checking TaskQueue worker for app #{app}: #{result}"
-        if result.key?('error') && result['error'] == false
-          Djinn.log_debug(message)
-        else
-          Djinn.log_warn(message)
-        end
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to reload TaskQueue workers for app #{app}")
-      end
-    end
   end
 
 
@@ -2019,11 +1958,14 @@ class Djinn
     write_database_info
     update_firewall
 
+    # If we have uncommitted changes, we rebuild/reinstall the
+    # corresponding packages to ensure we are using the latest code.
+    build_uncommitted_changes
+
     # If we are the headnode, we may need to start/setup all other nodes.
     # Better do it early on, since it may take some time for the other
     # nodes to start up.
     if my_node.is_shadow?
-      build_uncommitted_changes
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
       initialize_nodes_in_parallel(@nodes)
@@ -2057,6 +1999,7 @@ class Djinn
       end
 
       write_database_info
+      update_port_files
       update_firewall
       write_zookeeper_locations
 
@@ -2120,6 +2063,7 @@ class Djinn
         Djinn.log_info("--- Node at #{stats['public_ip']} has " +
           "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " +
           "and knows about these apps #{stats['apps']}.")
+        Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
         last_print = Time.now.to_i
       end
 
@@ -2931,7 +2875,7 @@ class Djinn
     }
     HAProxy.create_ua_server_config(all_db_private_ips,
       my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
-    Nginx.create_service_config(
+    Nginx.add_service_location(
       'appscale-uaserver', my_node.private_ip,
       UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
   end
@@ -2965,7 +2909,7 @@ class Djinn
     # TaskQueue REST API routing.
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
     rest_prefix = '~ /taskqueue/v1beta2/projects/.*'
-    Nginx.create_service_config(
+    Nginx.add_service_location(
       'appscale-taskqueue', my_node.private_ip, TaskQueue::HAPROXY_PORT,
       TaskQueue::TASKQUEUE_SERVER_SSL_PORT, rest_prefix)
   end
@@ -2982,6 +2926,32 @@ class Djinn
     tree = { :table => table, :replication => replication, :keyname => keyname }
     db_info_path = "#{APPSCALE_CONFIG_DIR}/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
+  end
+
+
+  def update_port_files()
+    ZKInterface.get_app_names.each { |project_id|
+      begin
+        version_details = ZKInterface.get_version_details(
+          project_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+      rescue VersionNotFound
+        next
+      end
+
+      http_port = version_details['appscaleExtensions']['httpPort']
+      port_file = "#{APPSCALE_CONFIG_DIR}/port-#{project_id}.txt"
+
+      begin
+        current_port = File.read(port_file).to_i
+        update_port = current_port != http_port
+      rescue Errno::ENOENT
+        update_port = true
+      end
+
+      if update_port
+        File.open(port_file, 'w') { |file| file.write("#{http_port}") }
+      end
+    }
   end
 
 
@@ -3574,13 +3544,7 @@ class Djinn
       stop_backup_service
     end
 
-    if my_node.is_shadow?
-      threads << Thread.new {
-        start_admin_server
-      }
-    else
-      stop_admin_server
-    end
+    start_admin_server
 
     if my_node.is_memcache?
       threads << Thread.new {
@@ -3781,6 +3745,13 @@ class Djinn
       @options["write_detailed_processes_stats_log"].downcase == 'true',
       @options["write_detailed_proxies_stats_log"].downcase == 'true'
     )
+    if my_node.is_shadow?
+      nginx_port = 17441
+      service_port = 4378
+      Nginx.add_service_location(
+        'appscale-administration', my_node.private_ip,
+        service_port, nginx_port, '/stats/cluster/')
+    end
     Djinn.log_info("Done starting Hermes service.")
   end
 
@@ -3925,26 +3896,68 @@ class Djinn
     @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
+
   def build_taskqueue()
     Djinn.log_info('Building uncommitted taskqueue changes')
     extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-    if system('pip install --upgrade --no-deps ' +
-              "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
-      Djinn.log_info('Finished building taskqueue')
-    else
-      Djinn.log_error('Unable to build taskqueue')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
+      Djinn.log_error('Unable to build taskqueue (install failed).')
+      return
     end
+    unless system('pip install ' +
+                  "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
+      Djinn.log_error('Unable to build taskqueue (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building taskqueue.')
   end
+
 
   def build_datastore()
     Djinn.log_info('Building uncommitted datastore changes')
-    if system('pip install --upgrade --no-deps ' +
-              "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
-      Djinn.log_info('Finished building datastore')
-    else
-      Djinn.log_error('Unable to build datastore')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
+      Djinn.log_error('Unable to build datastore (install failed).')
+      return
     end
+    unless system("pip install #{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
+      Djinn.log_error('Unable to build datastore (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building datastore.')
   end
+
+
+  def build_common
+    Djinn.log_info('Building uncommitted common changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/common > /dev/null 2>&1")
+      Djinn.log_error('Unable to build common (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/common > /dev/null 2>&1")
+      Djinn.log_error('Unable to build common (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building common.')
+  end
+
+
+  def build_admin_server
+    Djinn.log_info('Building uncommitted AdminServer changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
+      Djinn.log_error('Unable to build AdminServer (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
+      Djinn.log_error('Unable to build AdminServer (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building AdminServer.')
+  end
+
 
   def build_java_appserver()
     Djinn.log_info('Building uncommitted Java AppServer changes')
@@ -3975,8 +3988,10 @@ class Djinn
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes()
     status = `git -C #{APPSCALE_HOME} status`
+    build_admin_server if status.include?('AdminServer')
     build_taskqueue if status.include?('AppTaskQueue')
     build_datastore if status.include?('AppDB')
+    build_common if status.include?('common')
     build_java_appserver if status.include?('AppServer_Java')
   end
 
@@ -4096,12 +4111,13 @@ class Djinn
   end
 
   def rsync_files(dest_node)
+    admin_server = "#{APPSCALE_HOME}/AdminServer"
     appdb = "#{APPSCALE_HOME}/AppDB"
     app_manager = "#{APPSCALE_HOME}/AppManager"
     app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
     controller = "#{APPSCALE_HOME}/AppController"
+    common = "#{APPSCALE_HOME}/common"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
-    lib = "#{APPSCALE_HOME}/lib"
     app_dashboard = "#{APPSCALE_HOME}/AppDashboard"
     scripts = "#{APPSCALE_HOME}/scripts"
     server = "#{APPSCALE_HOME}/AppServer"
@@ -4113,6 +4129,7 @@ class Djinn
     ip = dest_node.private_ip
     options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
 
+    HelperFunctions.shell("rsync #{options} #{admin_server}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
     HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
     HelperFunctions.shell("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
@@ -4121,8 +4138,8 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
     HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
-    HelperFunctions.shell("rsync #{options} #{lib}/* root@#{ip}:#{lib}")
     HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
+    HelperFunctions.shell("rsync #{options} #{common}/* root@#{ip}:#{common}")
     HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
     HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
     if dest_node.is_appengine?
@@ -4134,57 +4151,6 @@ class Djinn
       }
       Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
       HelperFunctions.shell("rsync #{options} #{locations_json} root@#{ip}:#{locations_json}")
-    end
-
-    # Run a build on modified directories so that changes will take effect.
-    get_status = 'git -C appscale status'
-    ssh_opts = "-i #{ssh_key} -o StrictHostkeyChecking=no " +
-      '-o NumberOfPasswordPrompts=0'
-    status = `ssh #{ssh_opts} root@#{ip} #{get_status}`
-
-    if status.include?('AppTaskQueue')
-      Djinn.log_info("Building uncommitted taskqueue changes on #{ip}")
-      extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-      build_tq = 'pip install --upgrade --no-deps ' +
-        "#{APPSCALE_HOME}/AppTaskQueue[#{extras}]"
-      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build_tq}" > /dev/null 2>&1])
-        Djinn.log_info("Finished building taskqueue on #{ip}")
-      else
-        Djinn.log_error("Unable to build taskqueue on #{ip}")
-      end
-    end
-
-    if status.include?('AppDB')
-      Djinn.log_info("Building uncommitted datastore changes on #{ip}")
-      build_ds = "pip install --upgrade --no-deps #{APPSCALE_HOME}/AppDB"
-      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build_ds}" > /dev/null 2>&1])
-        Djinn.log_info("Finished building datastore on #{ip}")
-      else
-        Djinn.log_error("Unable to build datastore on #{ip}")
-      end
-    end
-
-    if status.include?('AppServer_Java')
-      Djinn.log_info("Building uncommitted Java AppServer changes on #{ip}")
-
-      java_sdk_archive = 'appengine-java-sdk-1.8.4.zip'
-      remote_archive = "#{APPSCALE_CACHE_DIR}/#{java_sdk_archive}"
-      mirrored_package = "http://#{PACKAGE_MIRROR_DOMAIN}" +
-        "#{PACKAGE_MIRROR_PATH}/#{java_sdk_archive}"
-      get_package = "if [ ! -f #{remote_archive} ]; " +
-        "then curl -o #{remote_archive} #{mirrored_package} ; fi"
-      system(%Q[ssh #{ssh_opts} root@#{ip} "#{get_package}" > /dev/null 2>&1])
-
-      build = [
-        "unzip -o #{remote_archive} -d #{server_java}",
-        "ant -f #{server_java}/build.xml install",
-        "ant -f #{server_java}/build.xml clean-build"
-      ].join(' && ')
-      if system(%Q[ssh #{ssh_opts} root@#{ip} "#{build}" > /dev/null 2>&1])
-        Djinn.log_info("Finished building Java AppServer on #{ip}")
-      else
-        Djinn.log_error("Unable to build Java AppServer on #{ip}")
-      end
     end
   end
 
@@ -4332,18 +4298,6 @@ HOSTS
   end
 
 
-  # Reset the drain flags on HAProxy for to-be-terminated AppServers.
-  def reset_drain
-    @apps_loaded.each{ |app|
-      unless @terminated[app].nil?
-        @terminated[app].each { |location|
-          HAProxy.ensure_no_pending_request(app, location)
-        }
-      end
-    }
-  end
-
-
   # Writes new nginx and haproxy configuration files for the App Engine
   # applications hosted in this deployment. Callers should invoke this
   # method whenever there is a change in the number of machines hosting
@@ -4388,23 +4342,6 @@ HOSTS
           next if Integer(port) < 0
           appservers << location
         }
-        unless @terminated[app].nil?
-          to_remove = []
-          @terminated[app].each { |location, when_detected|
-            # Let's make sure it doesn't receive traffic, and see how many
-            # sessions are still active.
-            if Time.now.to_i > when_detected + Integer(@options['appserver_timeout'])
-              Djinn.log_info("#{location} has ran out of time: removing it.")
-              to_remove << location
-            elsif HAProxy.ensure_no_pending_request(app, location) <= 0
-              Djinn.log_info("#{location} has no more sessions: removing it.")
-              to_remove << location
-            else
-              appservers << location
-            end
-          }
-          to_remove.each{ |location| @terminated[app].delete(location) }
-        end
       end
 
       if appservers.empty?
@@ -4442,12 +4379,6 @@ HOSTS
 
         HAProxy.update_app_config(my_private, app, proxy_port, appservers)
       end
-
-      # We need to set the drain on haproxy on the terminated AppServers,
-      # since a reload of HAProxy would have reset them. We do it for each
-      # app in order to minimize the window of a terminated AppServer
-      # being reinstead as active by HAProxy.
-      reset_drain
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
   end
@@ -4703,12 +4634,10 @@ HOSTS
     start_cmd = "#{script} -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
-    Nginx.create_service_config('appscale-admin', my_node.private_ip,
-                                service_port, nginx_port)
-  end
-
-  def stop_admin_server
-    MonitInterface.stop(:admin_server)
+    if my_node.is_shadow?
+      Nginx.add_service_location('appscale-administration', my_node.private_ip,
+                                 service_port, nginx_port, '/')
+    end
   end
 
   def start_memcache()
@@ -4805,11 +4734,6 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
-    # Reserve dashboard app ID.
-    result = reserve_app_id(APPSCALE_USER, AppDashboard::APP_NAME,
-      AppDashboard::APP_LANGUAGE, @@secret)
-    Djinn.log_debug("reserve_app_id for dashboard returned: #{result}.")
-
     source_archive = AppDashboard.prep(
       my_public, my_private, PERSISTENT_MOUNT_POINT, @@secret)
 
@@ -4888,7 +4812,6 @@ HOSTS
         # Since the removal of an app from HAProxy can cause a reset of
         # the drain flags, let's set them again.
         HAProxy.remove_app(app)
-        reset_drain
       end
 
       if my_node.is_appengine?
@@ -4922,31 +4845,22 @@ HOSTS
 
       Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
       CronHelper.clear_app_crontab(app)
-      maybe_stop_taskqueue_worker(app)
       Djinn.log_debug("Done cleaning up after stopped application #{app}.")
     }
   end
 
 
-  # LoadBalancers needs to do some extra work to drain AppServers before
-  # removing them, and to detect when AppServers failed or terminated.
+  # LoadBalancers need to do some extra work to detect when AppServers failed
+  # or were terminated.
   def check_haproxy
     @apps_loaded.each{ |app|
-      running, failed = HAProxy.list_servers(app)
+      _, failed = HAProxy.list_servers(app)
       if my_node.is_shadow?
         failed.each{ |appserver|
           Djinn.log_warn("Detected failed AppServer for #{app}: #{appserver}.")
           @app_info_map[app]['appengine'].delete(appserver)
         }
       end
-      running.each{ |appserver|
-        unless @app_info_map[app]['appengine'].nil?
-          next if @app_info_map[app]['appengine'].include?(appserver)
-        end
-        @terminated[app] = {} if @terminated[app].nil?
-        @terminated[app][appserver] = Time.now.to_i
-        Djinn.log_info("Terminated AppServer #{appserver} will not received requests.")
-      }
     }
     regenerate_routing_config
   end
@@ -4972,7 +4886,6 @@ HOSTS
         # Machines with a taskqueue role need to ensure that the files are
         # available and that we have the queue.yaml from the application.
         setup_app_dir(app)
-        maybe_reload_taskqueue_worker(app)
 
         # The remainer of this loop is for AppEngine nodes only, so we
         # need to do work only if we have AppServers.
@@ -5027,13 +4940,13 @@ HOSTS
       been_here = Time.now.to_i - @unaccounted[appengine]
       if been_here > Integer(@options['appserver_timeout']) * 2
         Djinn.log_debug("AppServer #{appengine} for #{app} timed out.")
-        to_end << appengine
-        next
       end
       if to_start.include?(app) && been_here < DUTY_CYCLE * 3
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)
+      else
+        to_end << appengine
       end
     }
     Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
@@ -5346,7 +5259,7 @@ HOSTS
     # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_images'])
     if max_scale_down_capacity <= 0
-      Djinn.log_warn("We are already at the minimum number of user specified machines," +
+      Djinn.log_debug("We are already at the minimum number of user specified machines," +
         "so will not be scaling down")
       return
     end
@@ -5504,9 +5417,11 @@ HOSTS
     # austoscale is disabled.
     return 0 if @options['autoscale'].downcase != "true"
 
+    haproxy_port = version_details['appscaleExtensions']['haproxyPort']
     # We need the haproxy stats to decide upon what to do.
-    total_requests_seen, total_req_in_queue, current_sessions, 
-      time_requests_were_seen = HAProxy.get_haproxy_stats(app_name)
+    total_requests_seen, total_req_in_queue, current_sessions,
+      time_requests_were_seen = HAProxy.get_haproxy_stats(
+        app_name, my_node.private_ip, haproxy_port)
 
     if time_requests_were_seen == :no_backend
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -5530,7 +5445,7 @@ HOSTS
       Djinn.log_debug("The deployment has reached its maximum load threshold for " +
         "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers.")
       return appservers_to_scale
-    
+
     elsif current_load <= MIN_LOAD_THRESHOLD
       if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
         Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
@@ -5545,16 +5460,16 @@ HOSTS
       Djinn.log_debug("The deployment is within the desired range of load for " +
         "app #{app_name} - Advising that there is no need to scale currently.")
       return 0
-    end  
+    end
   end
-  
+
   # Calculates the current load of the deployment based on the number of
-  # running AppServers, its max allowed threaded connections and current 
+  # running AppServers, its max allowed threaded connections and current
   # handled sessions.
   # Formula: Load = Current Sessions / (No of AppServers * Max conn)
-  # 
+  #
   # Args:
-  #   num_appengines: The total number of AppServers running for the app.  
+  #   num_appengines: The total number of AppServers running for the app.
   #   curr_sessions: The number of current sessions from HAProxy stats.
   #   allow_concurrency: A boolean indicating that AppServers can handle
   #     concurrent connections.
@@ -5566,7 +5481,7 @@ HOSTS
     return curr_sessions.to_f / max_sessions
   end
 
-  # Calculates the additional number of AppServers needed to be scaled up in 
+  # Calculates the additional number of AppServers needed to be scaled up in
   # order achieve the desired load.
   # Formula: No of AppServers = Current sessions / (Load * Max conn)
   #
@@ -5581,7 +5496,7 @@ HOSTS
                                   allow_concurrency)
     max_conn = allow_concurrency ? HAProxy::MAX_APPSERVER_CONN : 1
     desired_appservers = curr_sessions.to_f / (DESIRED_LOAD * max_conn)
-    appservers_to_scale = desired_appservers.round - num_appengines
+    appservers_to_scale = desired_appservers.ceil - num_appengines
     return appservers_to_scale
   end
 
@@ -5795,11 +5710,8 @@ HOSTS
 
     # Make sure we leave at least the minimum number of AppServers
     # running.
-    if delta_appservers > @app_info_map[app_name]['appengine'].length + min
-      num_to_remove = @app_info_map[app_name]['appengine'].length - min
-    else
-      num_to_remove = delta_appservers
-    end
+    max_delta = @app_info_map[app_name]['appengine'].length - min
+    num_to_remove = [delta_appservers, max_delta].min
 
     # Let's pick the latest appengine node hosting the application and
     # remove the AppServer there, so we can try to reclaim it once it's
@@ -5828,7 +5740,17 @@ HOSTS
   #   remove_old: boolean to force a re-setup of the app from the tarball
   def setup_app_dir(app, remove_old=false)
     app_dir = "#{HelperFunctions.get_app_path(app)}/app"
-    app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{app}.tar.gz"
+
+    begin
+      version_details = ZKInterface.get_version_details(
+        app, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound
+      Djinn.log_debug(
+        "Skipping #{app} setup because version node does not exist")
+      return
+    end
+
+    app_path = version_details['deployment']['zip']['sourceUrl']
     error_msg = ""
 
     if remove_old
@@ -6031,7 +5953,9 @@ HOSTS
 
   # Returns true on success, false otherwise
   def copy_app_to_local(appname)
-    app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{appname}.tar.gz"
+    version_details = ZKInterface.get_version_details(
+      appname, DEFAULT_SERVICE, DEFAULT_VERSION)
+    app_path = version_details['deployment']['zip']['sourceUrl']
 
     if File.exists?(app_path)
       Djinn.log_debug("I already have a copy of app #{appname} - won't grab it remotely")
@@ -6147,7 +6071,7 @@ HOSTS
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
     system_stats = JSON.load(imc.get_system_stats())
-    Djinn.log_debug("System stats: #{system_stats}")
+    Djinn.log_debug("get_node_stats_json: got system stats.")
 
     # Combine all useful stats and return.
     node_stats = system_stats
@@ -6169,7 +6093,9 @@ HOSTS
 
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
-          total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(app_name)
+          haproxy_port = version_details['appscaleExtensions']['haproxyPort']
+          total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(
+            app_name, my_node.private_ip, haproxy_port)
           # Create the apps hash with useful information containing HAProxy stats.
           begin
             appservers = 0
@@ -6218,7 +6144,6 @@ HOSTS
     node_stats["public_ip"] = my_node.public_ip
     node_stats["private_ip"] = my_node.private_ip
     node_stats["roles"] = my_node.jobs or ["none"]
-    Djinn.log_debug("Node stats: #{node_stats}")
 
     return JSON.dump(node_stats)
   end
