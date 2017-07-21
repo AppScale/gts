@@ -250,10 +250,17 @@ class MonitOperator(object):
       yield gen.sleep(1)
 
   @gen.coroutine
-  def _reload(self):
+  def _reload(self, retries=3):
     """ Reloads Monit. """
     time_since_reload = time.time() - self.last_reload
     wait_time = max(self.RELOAD_COOLDOWN - time_since_reload, 0)
     yield gen.sleep(wait_time)
     self.last_reload = time.time()
-    subprocess.check_call(['monit', 'reload'])
+    try:
+      subprocess.check_call(['monit', 'reload'])
+    except subprocess.CalledProcessError:
+      retries -= 1
+      if retries < 0:
+        raise
+
+      yield self._reload(retries)
