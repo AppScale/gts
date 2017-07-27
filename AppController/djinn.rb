@@ -4901,7 +4901,6 @@ HOSTS
           next if @my_private_ip != host
 
           if Integer(port) < 0
-            to_start << app
             no_appservers << app
           elsif not MonitInterface.is_running?("#{app}-#{port}")
             Djinn.log_warn("Didn't find the AppServer for #{app} at port #{port}.")
@@ -4916,6 +4915,12 @@ HOSTS
     # running AppServers.
     my_apps.each { |appserver|
       app, _ = appserver.split(":")
+
+      # Let's start AppServers with normal priority if we already have
+      # some AppServer for this application running.
+      no_appservers.each { |x|
+        to_start << app if x == app
+      }
       no_appservers.delete(app)
       @unaccounted.delete(appserver)
     }
