@@ -5,6 +5,7 @@ import unittest
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from appscale.taskqueue.distributed_tq import DistributedTaskQueue
 from appscale.taskqueue.queue_manager import GlobalQueueManager
+from appscale.taskqueue.service_manager import GlobalServiceManager
 from flexmock import flexmock
 
 from appscale.common import file_io
@@ -29,6 +30,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
       and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_delete(self):   
@@ -37,6 +40,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     db_access = flexmock()
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
       and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
@@ -47,6 +52,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
       and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_query_and_own_tasks(self):
@@ -55,6 +62,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     db_access = flexmock()
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
       and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
@@ -65,6 +74,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
       and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_modify_task_lease(self):
@@ -73,6 +84,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     db_access = flexmock()
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
       and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
@@ -83,6 +96,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
       and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_fetch_queue(self):
@@ -91,6 +106,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     db_access = flexmock()
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
       and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
@@ -101,6 +118,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
       and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_fetch_task(self):
@@ -109,6 +128,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     db_access = flexmock()
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
       and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
@@ -119,6 +140,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
       and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_delete_queue(self):
@@ -127,6 +150,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     db_access = flexmock()
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
       and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
@@ -137,6 +162,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
       and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_delete_group(self):
@@ -146,6 +173,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
       and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_update_storage_limit(self):
@@ -154,6 +183,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
     db_access = flexmock()
     zk_client = flexmock()
     flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
       and_return(flexmock())
     dtq = DistributedTaskQueue(db_access, zk_client)
 
