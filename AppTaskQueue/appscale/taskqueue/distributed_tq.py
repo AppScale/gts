@@ -617,13 +617,17 @@ class DistributedTaskQueue():
     app_id = self.__cleanse(request.app_id())
     queue_name = request.queue_name()
 
+
+    target_instance = appscale_info.get_login_ip()
+
     # Try to get the target from host (python sdk will set the target via
     # the Host header). Java sdk does not include Host header, so we catch
     # the KeyError.
     try:
       if not hasattr(self, '__version') and not hasattr(self, '__module'):
         self.set_module_version_source(headers['Version'], headers['Module'])
-      target_url = self.get_target_from_host(app_id, headers['Host'])
+      target_url = self.get_target_from_host(app_id, target_instance,
+                                             headers['Host'])
       args['url'] = "{0}{url}".format(target_url, url=request.url())
     except KeyError:
       target_url = None
@@ -642,13 +646,17 @@ class DistributedTaskQueue():
       # If we could not get the target from the host, try to get it from the
       # queue config.
       if not target_url and queue.target:
-        target_url = self.get_target_from_queue(app_id, queue.target)
+        target_url = self.get_target_from_queue(app_id, target_instance,
+                                                queue.target)
         args['url'] = "{0}{url}".format(target_url, url=request.url())
       # If we cannot get anything from the queue config, we use the module
       # and version from the request.
       elif not target_url:
         target_info = [self.__version, self.__module]
-        return self.get_module_port(app_id, target_info)
+        args['url'] = "http://{0}:{1}{2}".format(target_instance,
+           self.get_module_port(app_id, target_info), request.url())
+      logger.debug("Old url: {0} New url: {1}".format(request.url(),
+                                                     args['url']))
 
     # Override defaults.
     if request.has_retry_parameters():
@@ -666,27 +674,28 @@ class DistributedTaskQueue():
                                   retry_parameters().max_doublings()
     return args
 
-  def get_target_from_queue(self, app_id, target):
+  def get_target_from_queue(self, app_id, target_instance, target):
     """ Gets the url for the target using the queue's target defined in the 
     configuration file. If target is None, target will be the current running
     version and module.
     
     Args:
       app_id: The application id, used to lookup module port.
+      target_instance: The instance ip to use for the new url.
       target: A string containing the value of queue.target. 
     Returns:
        A url as a string for the given target.
     """
-    target_instance = appscale_info.get_login_ip()
     target_info = target.split('.')
     return "http://{0}:{1}".format(target_instance, self.get_module_port(
       app_id, target_info))
 
-  def get_target_from_host(self, app_id, host):
+  def get_target_from_host(self, app_id, target_instance, host):
     """ Gets the url for the target using the Host header.
     
     Args:
       app_id: The application id, used to lookup module port.
+      target_instance: The instance ip to use for the new url.
       host: A string containing the value of the Task's host from target or 
         the HTTP_HOST (which would contain AppScale's login ip).
         
@@ -696,8 +705,6 @@ class DistributedTaskQueue():
         method returns None the target will be determined by the queue or use 
         the current running version and module.
     """
-
-    target_instance = appscale_info.get_login_ip()
     if target_instance in host:
       return None
     target_info = host.split('.')
