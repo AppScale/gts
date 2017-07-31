@@ -4940,13 +4940,12 @@ HOSTS
       been_here = Time.now.to_i - @unaccounted[appengine]
       if been_here > Integer(@options['appserver_timeout']) * 2
         Djinn.log_debug("AppServer #{appengine} for #{app} timed out.")
+        to_end << appengine
       end
       if to_start.include?(app) && been_here < DUTY_CYCLE * 3
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)
-      else
-        to_end << appengine
       end
     }
     Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
@@ -5918,7 +5917,7 @@ HOSTS
   #   A Boolean indicating the success of the operation.
   def remove_appserver_process(app_id, port)
     @state = "Stopping an AppServer to free unused resources"
-    Djinn.log_debug("Deleting AppServer instance to free up unused resources")
+    Djinn.log_debug("Deleting AppServer for #{app_id} at port #{port}.")
 
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_manager = AppManagerClient.new(my_node.private_ip)
