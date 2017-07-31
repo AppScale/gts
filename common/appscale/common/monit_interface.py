@@ -26,6 +26,12 @@ NUM_RETRIES = 10
 
 SMALL_WAIT = 3
 
+
+class ProcessNotFound(Exception):
+  """ Indicates that Monit does not know about a process. """
+  pass
+
+
 def run_with_retry(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
   monit is busy servicing other requests).

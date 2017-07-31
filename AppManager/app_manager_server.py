@@ -33,6 +33,7 @@ from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from appscale.common.monit_interface import MonitOperator
+from appscale.common.monit_interface import ProcessNotFound
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -378,6 +379,9 @@ def unmonitor(process_name, retries=5):
   try:
     client.fetch(process_url, method='POST', body=payload)
   except HTTPError as error:
+    if error.code == 404:
+      raise ProcessNotFound('{} not listed by Monit'.format(process_name))
+
     if error.code == 503:
       retries -= 1
       if retries < 0:
@@ -413,7 +417,11 @@ def stop_app_instance(app_name, port):
     logging.error('{} does not exist'.format(pid_location))
     return False
 
-  unmonitor(watch)
+  try:
+    unmonitor(watch)
+  except ProcessNotFound:
+    # If Monit does not know about a process, assume it is already stopped.
+    return True
 
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.
