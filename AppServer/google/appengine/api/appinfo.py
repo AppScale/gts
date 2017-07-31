@@ -1723,7 +1723,7 @@ def LoadSingleAppInfo(app_info):
       appyaml.runtime = 'vm'
 
   # AppScale: Ensure that each module has only one version.
-  appyaml.version = '1'
+  appyaml.version = 'v1'
 
   return appyaml
 

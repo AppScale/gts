@@ -394,7 +394,7 @@ public class ApplicationConfigurationManager {
                   appEngineWebXml1.setAppId("no_app_id");
                }
                // AppScale: Ensure that each module has only one version.
-               appEngineWebXml1.setMajorVersionId("1");
+               appEngineWebXml1.setMajorVersionId("v1");
 
                LoggingConfigurationManager loggingConfigurationManager = new LoggingConfigurationManager();
                ApplicationConfigurationManager.this.validateAndRegisterGlobalValues(this.webModule, loggingConfigurationManager, this.externalResourceDirectory);
