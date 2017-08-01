@@ -504,7 +504,7 @@ class Djinn
 
 
   # The default version for a service.
-  DEFAULT_VERSION = 'default'
+  DEFAULT_VERSION = 'v1'
 
 
   # The port that the AdminServer listens on.
@@ -4964,8 +4964,14 @@ HOSTS
         # decision each time.
         if !no_appservers[0].nil?
           app = no_appservers[0]
-          version_details = ZKInterface.get_version_details(
-            app, DEFAULT_SERVICE, DEFAULT_VERSION)
+
+          begin
+            version_details = ZKInterface.get_version_details(
+              app, DEFAULT_SERVICE, DEFAULT_VERSION)
+          rescue VersionNotFound
+            next
+          end
+
           Djinn.log_info("Starting first AppServer for app: #{app}.")
           ret = add_appserver_process(
             app, version_details['appscaleExtensions']['httpPort'],
@@ -4973,8 +4979,14 @@ HOSTS
           Djinn.log_debug("add_appserver_process returned: #{ret}.")
         elsif !to_start[0].nil?
           app = to_start[0]
-          version_details = ZKInterface.get_version_details(
-            app, DEFAULT_SERVICE, DEFAULT_VERSION)
+
+          begin
+            version_details = ZKInterface.get_version_details(
+              app, DEFAULT_SERVICE, DEFAULT_VERSION)
+          rescue VersionNotFound
+            next
+          end
+
           Djinn.log_info("Starting AppServer for app: #{app}.")
           ret = add_appserver_process(
             app, version_details['appscaleExtensions']['httpPort'],
@@ -5565,8 +5577,14 @@ HOSTS
 
       # We need to keep track of the theoretical max memory used by all
       # the AppServervers.
-      version_details = ZKInterface.get_version_details(
-        appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+      begin
+        version_details = ZKInterface.get_version_details(
+          appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+      rescue VersionNotFound
+        Djinn.log_warn("#{appid} not found when considering memory usage")
+        return false
+      end
+
       max_app_mem = Integer(@options['max_memory'])
       if version_details.key?('instanceClass')
         instance_class = version_details['instanceClass'].to_sym
@@ -5591,8 +5609,14 @@ HOSTS
     }
 
     # Get the memory limit for this application.
-    version_details = ZKInterface.get_version_details(
-      app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+    begin
+      version_details = ZKInterface.get_version_details(
+        app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound
+      Djinn.log_info("Not scaling #{app_name} because it no longer exists")
+      return false
+    end
+
     max_app_mem = Integer(@options['max_memory'])
     if version_details.key?('instanceClass')
       instance_class = version_details['instanceClass'].to_sym
@@ -5697,11 +5721,16 @@ HOSTS
   def try_to_scale_down(app_name, delta_appservers)
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum.
-    version_details = ZKInterface.get_version_details(
-      app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
-    scaling_params = version_details.fetch('automaticScaling', {})
-    min = scaling_params.fetch('minTotalInstances',
-                               Integer(@options['appengine']))
+    begin
+      version_details = ZKInterface.get_version_details(
+        app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+      scaling_params = version_details.fetch('automaticScaling', {})
+      min = scaling_params.fetch('minTotalInstances',
+                                 Integer(@options['appengine']))
+    rescue VersionNotFound
+      min = 0
+    end
+
     if @app_info_map[app_name]['appengine'].length <= min
       Djinn.log_debug("We are already at the minimum number of AppServers for #{app_name}.")
       return false
@@ -5846,12 +5875,18 @@ HOSTS
     begin
       version_details = ZKInterface.get_version_details(
         app, DEFAULT_SERVICE, DEFAULT_VERSION)
-      max_app_mem = Integer(@options['max_memory'])
-      if version_details.key?('instanceClass')
-        instance_class = version_details['instanceClass'].to_sym
-        max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
-      end
+    rescue VersionNotFound
+      Djinn.log_warn("#{app} not found when starting AppServer")
+      return false
+    end
 
+    max_app_mem = Integer(@options['max_memory'])
+    if version_details.key?('instanceClass')
+      instance_class = version_details['instanceClass'].to_sym
+      max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
+    end
+
+    begin
       pid = app_manager.start_app(app, appengine_port, login_ip,
         app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
         get_shadow.private_ip)
@@ -5952,8 +5987,14 @@ HOSTS
 
   # Returns true on success, false otherwise
   def copy_app_to_local(appname)
-    version_details = ZKInterface.get_version_details(
-      appname, DEFAULT_SERVICE, DEFAULT_VERSION)
+    begin
+      version_details = ZKInterface.get_version_details(
+        appname, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound
+      Djinn.log_error("Unable to determine source location for #{appname}")
+      return false
+    end
+
     app_path = version_details['deployment']['zip']['sourceUrl']
 
     if File.exists?(app_path)
