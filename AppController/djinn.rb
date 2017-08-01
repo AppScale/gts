@@ -504,7 +504,7 @@ class Djinn
 
 
   # The default version for a service.
-  DEFAULT_VERSION = 'default'
+  DEFAULT_VERSION = 'v1'
 
 
   # The port that the AdminServer listens on.

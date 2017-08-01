@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import re
 import sys
 import time
 
@@ -142,6 +143,13 @@ def wait_for_delete(operation_id, http_port):
 
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
+
+  # A rule for validating version IDs.
+  VERSION_ID_RE = re.compile(r'(?!-)[a-z\d\-]{1,100}')
+
+  # Reserved names for version IDs.
+  RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
+
   def initialize(self, acc, ua_client, zk_client, version_update_lock,
                  thread_pool):
     """ Defines required resources to handle requests.
@@ -207,9 +215,21 @@ class VersionsHandler(BaseHandler):
     if version['runtime'] in [constants.JAVA, constants.PYTHON27]:
       utils.assert_fields_in_resource(['threadsafe'], 'version', version)
 
+    version['id'] = str(version['id'])
+
+    # Prevent multiple versions per service.
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid version ID')
+
+    if not self.VERSION_ID_RE.match(version['id']):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid version ID')
+
+    for reserved_id in self.RESERVED_VERSION_IDS:
+      if re.match(reserved_id, version['id']):
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                              message='Reserved version ID')
 
     if 'basicScaling' in version or 'manualScaling' in version:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,

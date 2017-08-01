@@ -56,7 +56,7 @@ UNPACK_ROOT = os.path.join('/', 'var', 'apps')
 DEFAULT_PORT = 17442
 
 # The default version for a service.
-DEFAULT_VERSION = 'default'
+DEFAULT_VERSION = 'v1'
 
 # The default service.
 DEFAULT_SERVICE = 'default'
