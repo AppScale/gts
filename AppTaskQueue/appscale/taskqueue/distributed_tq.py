@@ -393,12 +393,8 @@ class DistributedTaskQueue():
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
     bulk_request.add_add_request().CopyFrom(request)
 
-    try:
-      self.__bulk_add(bulk_request, bulk_response)
-    except InvalidTarget as e:
-      return (response.Encode(),
-              taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST,
-              e.message)
+    self.__bulk_add(bulk_request, bulk_response)
+
     if bulk_response.taskresult_size() == 1:
       result = bulk_response.taskresult(0).result()
     else:
@@ -425,12 +421,7 @@ class DistributedTaskQueue():
     """
     request = taskqueue_service_pb.TaskQueueBulkAddRequest(http_data)
     response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-    try:
-      self.__bulk_add(request, response)
-    except InvalidTarget as e:
-      return (response.Encode(),
-              taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST,
-              e.message)
+    self.__bulk_add(request, response)
     return (response.Encode(), 0, "")
 
   def __bulk_add(self, request, response):
@@ -505,6 +496,9 @@ class DistributedTaskQueue():
         self.__enqueue_push_task(add_request)
       except apiproxy_errors.ApplicationError as error:
         task_result.set_result(error.application_error)
+      except InvalidTarget as e:
+        logger.error(e.message)
+        task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST)
       else:
         task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
 

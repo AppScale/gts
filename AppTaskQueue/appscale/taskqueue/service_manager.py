@@ -86,7 +86,7 @@ class VersionPortManager(dict):
                  new_versions_list]
     for version_id in to_remove:
       logger.debug("updating: {}".format(to_remove))
-      self[version_id].stop()
+      self.watch.__stopped = True
       del self[version_id]
 
     for version_id in new_versions_list:
