@@ -835,7 +835,8 @@ class AppHandler(tornado.web.RequestHandler):
     if not start_app(project_id, config):
       raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to start application')
 
-  def delete(self, project_id):
+  @staticmethod
+  def delete(project_id):
     """ Stops all instances on this machine for a project.
 
     Args:
@@ -847,7 +848,9 @@ class AppHandler(tornado.web.RequestHandler):
 
 class InstanceHandler(tornado.web.RequestHandler):
   """ Handles requests to stop individual instances. """
-  def delete(self, project_id, port):
+
+  @staticmethod
+  def delete(project_id, port):
     """ Stops an AppServer instance on this machine. """
     if not stop_app_instance(project_id, int(port)):
       raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to stop instance')
