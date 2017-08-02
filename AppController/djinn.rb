@@ -4964,7 +4964,7 @@ HOSTS
     # re-evalute the priorities of what to start/stop.
     Thread.new {
       AMS_LOCK.synchronize {
-        # Work untill the next DUTY_CYCLE starts.
+        # Work until the next DUTY_CYCLE starts.
         end_work = Time.now.to_i + DUTY_CYCLE - 1
         while Time.now.to_i < end_work
           if !no_appservers[0].nil?
