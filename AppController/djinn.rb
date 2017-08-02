@@ -4114,7 +4114,7 @@ class Djinn
     # Get the keys and address of the destination node.
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
-    options = "-e 'ssh -i #{ssh_key}' -qarv --filter '- *.pyc'"
+    options = "-e 'ssh -i #{ssh_key}' -a --filter '- *.pyc'"
 
     ["#{APPSCALE_HOME}/AdminServer", "#{APPSCALE_HOME}/AppDB",
      "#{APPSCALE_HOME}/AppManager", "#{APPSCALE_HOME}/AppTaskQueue",
