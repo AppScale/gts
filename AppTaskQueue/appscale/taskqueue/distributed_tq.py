@@ -612,7 +612,7 @@ class DistributedTaskQueue():
     queue_name = request.queue_name()
 
 
-    target_instance = appscale_info.get_login_ip()
+    target_instance = appscale_info.get_load_balancer_ips()[0]
 
     # Try to get the target from host (python sdk will set the target via
     # the Host header). Java sdk does not include Host header, so we catch
