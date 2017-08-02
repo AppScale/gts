@@ -505,11 +505,9 @@ class ZKInterface
     configs_node = "/appscale/stats/profiling/nodes"
     self.ensure_path(configs_node)
     configs = {
-      "enabled" => is_enabled
+      "enabled" => is_enabled,
+      "interval" => interval
     }
-    unless interval.nil?
-      configs["interval"] = interval.to_i
-    end
     self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
@@ -519,11 +517,9 @@ class ZKInterface
     self.ensure_path(configs_node)
     configs = {
       "enabled" => is_enabled,
+      "interval" => interval,
       "detailed" => is_detailed
     }
-    unless interval.nil?
-      configs["interval"] = interval.to_i
-    end
     self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
@@ -533,11 +529,9 @@ class ZKInterface
     self.ensure_path(configs_node)
     configs = {
       "enabled" => is_enabled,
+      "interval" => interval,
       "detailed" => is_detailed
     }
-    unless interval.nil?
-      configs["interval"] = interval.to_i
-    end
     self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 

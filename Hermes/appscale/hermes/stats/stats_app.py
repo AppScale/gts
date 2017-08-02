@@ -11,10 +11,7 @@ from appscale.hermes.handlers import Respond404Handler
 from appscale.hermes.stats.constants import (
   NODES_STATS_CONFIGS_NODE,
   PROCESSES_STATS_CONFIGS_NODE,
-  PROXIES_STATS_CONFIGS_NODE,
-  PROFILE_NODES_STATS_INTERVAL,
-  PROFILE_PROCESSES_STATS_INTERVAL,
-  PROFILE_PROXIES_STATS_INTERVAL
+  PROXIES_STATS_CONFIGS_NODE
 )
 from appscale.hermes.stats.profile import (
   NodesProfileLog, ProcessesProfileLog, ProxiesProfileLog
@@ -208,8 +205,8 @@ class ProfilingManager(object):
       return
     logging.info("New nodes stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
-    enabled = conf.get("enabled", False)
-    interval = conf.get("interval", PROFILE_NODES_STATS_INTERVAL)
+    enabled = conf["enabled"]
+    interval = conf["interval"]
     if enabled:
       if not self.nodes_profile_log:
         self.nodes_profile_log = NodesProfileLog(DEFAULT_INCLUDE_LISTS)
@@ -238,9 +235,9 @@ class ProfilingManager(object):
       return
     logging.info("New processes stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
-    enabled = conf.get("enabled", False)
-    interval = conf.get("interval", PROFILE_PROCESSES_STATS_INTERVAL)
-    detailed = conf.get("detailed", False)
+    enabled = conf["enabled"]
+    interval = conf["interval"]
+    detailed = conf["detailed"]
     if enabled:
       if not self.processes_profile_log:
         self.processes_profile_log = ProcessesProfileLog(DEFAULT_INCLUDE_LISTS)
@@ -270,9 +267,9 @@ class ProfilingManager(object):
       return
     logging.info("New proxies stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
-    enabled = conf.get("enabled", False)
-    interval = conf.get("interval", PROFILE_PROXIES_STATS_INTERVAL)
-    detailed = conf.get("detailed", False)
+    enabled = conf["enabled"]
+    interval = conf["interval"]
+    detailed = conf["detailed"]
     if enabled:
       if not self.proxies_profile_log:
         self.proxies_profile_log = ProxiesProfileLog(DEFAULT_INCLUDE_LISTS)
