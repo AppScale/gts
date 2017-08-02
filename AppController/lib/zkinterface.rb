@@ -501,6 +501,15 @@ class ZKInterface
   end
 
 
+  # Defines a deployment-wide default for maximum instance memory.
+  def self.set_max_memory(max_memory)
+    max_memory_node = '/appscale/config/max_memory'
+    data = {'max_memory' => max_memory}
+    self.ensure_path('/appscale/config')
+    self.set(max_memory_node, JSON.dump(data), false)
+  end
+
+
   def self.run_zookeeper_operation(&block)
     begin
       yield
