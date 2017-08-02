@@ -2,13 +2,10 @@
 
 import fnmatch
 import glob
-import json
 import logging
 import math
 import os
-import psutil
 import shutil
-import SOAPpy
 import subprocess
 import sys
 import threading
@@ -17,10 +14,14 @@ import urllib
 import urllib2
 from xml.etree import ElementTree
 
+import psutil
+import tornado.web
 from kazoo.client import KazooClient
-from M2Crypto import SSL
+from tornado.escape import json_decode
 from tornado.httpclient import HTTPClient
 from tornado.httpclient import HTTPError
+from tornado.ioloop import IOLoop
+from tornado.options import options
 
 from appscale.common import (
   appscale_info,
@@ -30,8 +31,9 @@ from appscale.common import (
   monit_interface,
   misc
 )
-from appscale.common.deployment_config import DeploymentConfig
+from appscale.common.constants import HTTPCodes
 from appscale.common.deployment_config import ConfigInaccessible
+from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from appscale.common.monit_interface import MonitOperator
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -130,31 +132,6 @@ class NoRedirection(urllib2.HTTPErrorProcessor):
     return response
   https_response = http_response
 
-def convert_config_from_json(config):
-  """ Takes the configuration in JSON format and converts it to a dictionary.
-      Validates the dictionary configuration before returning.
-
-  Args:
-    config: The configuration to convert
-  Returns:
-    None if it failed to convert the config and a dictionary if it succeeded
-  """
-  logging.info("Configuration for app:" + str(config))
-  try:
-    config = json.loads(config)
-  except ValueError, error:
-    logging.error("%s Exception--Unable to parse configuration: %s" % \
-      (error.__class__, str(error)))
-    return None
-  except TypeError, error:
-    logging.error("%s Exception--Unable to parse configuration: %s" % \
-      (error.__class__, str(error)))
-    return None
-
-  if is_config_valid(config):
-    return config
-  else:
-    return None
 
 def add_routing(app, port):
   """ Tells the AppController to begin routing traffic to an AppServer.
@@ -173,10 +150,9 @@ def add_routing(app, port):
     return
 
   acc = appscale_info.get_appcontroller_client()
-  appserver_ip = appscale_info.get_private_ip()
 
   while True:
-    result = acc.add_routing_for_appserver(app, appserver_ip, port)
+    result = acc.add_routing_for_appserver(app, options.private_ip, port)
     if result == AppControllerClient.NOT_READY:
       logging.info('AppController not yet ready to add routing.')
       time.sleep(ROUTING_RETRY_INTERVAL)
@@ -186,13 +162,13 @@ def add_routing(app, port):
   logging.info('Successfully established routing for {} on port {}'.
     format(app, port))
 
-def start_app(config):
+def start_app(project_id, config):
   """ Starts a Google App Engine application on this machine. It
       will start it up and then proceed to fetch the main page.
 
   Args:
+    project_id: A string specifying a project ID.
     config: a dictionary that contains
-       app_name: Name of the application to start
        app_port: Port to start on
        language: What language the app is written in
        login_ip: Public ip of deployment
@@ -205,44 +181,45 @@ def start_app(config):
   Returns:
     PID of process on success, -1 otherwise
   """
-  config = convert_config_from_json(config)
-  if config is None:
-    logging.error("Invalid configuration for application")
-    return BAD_PID
+  required_params = ('app_port', 'language', 'login_ip', 'env_vars',
+                     'max_memory')
+  for param in required_params:
+    if param not in config:
+      logging.error('Missing parameter: {}'.format(param))
+      return BAD_PID
 
-  if not misc.is_app_name_valid(config['app_name']):
-    logging.error("Invalid app name for application: " + config['app_name'])
+  if not misc.is_app_name_valid(project_id):
+    logging.error("Invalid app name for application: " + project_id)
     return BAD_PID
   logging.info("Starting %s application %s" % (
-    config['language'], config['app_name']))
+    config['language'], project_id))
 
   env_vars = config['env_vars']
-  pidfile = PIDFILE_TEMPLATE.format(project=config['app_name'],
+  pidfile = PIDFILE_TEMPLATE.format(project=project_id,
                                     port=config['app_port'])
 
   if config['language'] == constants.GO:
-    env_vars['GOPATH'] = os.path.join('/var', 'apps', config['app_name'],
-                                      'gopath')
+    env_vars['GOPATH'] = os.path.join('/var', 'apps', project_id, 'gopath')
     env_vars['GOROOT'] = os.path.join(GO_SDK, 'goroot')
 
-  watch = "app___" + config['app_name']
+  watch = "app___" + project_id
   match_cmd = ""
 
   if config['language'] == constants.PYTHON27 or \
       config['language'] == constants.GO or \
       config['language'] == constants.PHP:
     start_cmd = create_python27_start_cmd(
-      config['app_name'],
+      project_id,
       config['login_ip'],
       config['app_port'],
       pidfile)
     stop_cmd = create_python27_stop_cmd(config['app_port'])
     env_vars.update(create_python_app_env(
       config['login_ip'],
-      config['app_name']))
+      project_id))
   elif config['language'] == constants.JAVA:
-    remove_conflicting_jars(config['app_name'])
-    copy_successful = copy_modified_jars(config['app_name'])
+    remove_conflicting_jars(project_id)
+    copy_successful = copy_modified_jars(project_id)
     if not copy_successful:
       return BAD_PID
 
@@ -252,21 +229,21 @@ def start_app(config):
     if max_heap <= 0:
       return BAD_PID
     start_cmd = create_java_start_cmd(
-      config['app_name'],
+      project_id,
       config['app_port'],
       config['login_ip'],
       max_heap,
       pidfile
     )
     match_cmd = "java -ea -cp.*--port={}.*{}".format(str(config['app_port']),
-      os.path.dirname(locate_dir("/var/apps/" + config['app_name'] + "/app/",
+      os.path.dirname(locate_dir("/var/apps/" + project_id + "/app/",
       "WEB-INF")))
 
     stop_cmd = create_java_stop_cmd(config['app_port'])
-    env_vars.update(create_java_app_env(config['app_name']))
+    env_vars.update(create_java_app_env(project_id))
   else:
     logging.error("Unknown application language %s for appname %s" \
-      % (config['language'], config['app_name']))
+      % (config['language'], project_id))
     return BAD_PID
 
   logging.info("Start command: " + str(start_cmd))
@@ -293,25 +270,25 @@ def start_app(config):
   full_watch = "{}-{}".format(str(watch), str(config['app_port']))
   if not monit_interface.start(full_watch, is_group=False):
     logging.warning("Monit was unable to start {}:{}".
-      format(str(config['app_name']), config['app_port']))
+      format(project_id, config['app_port']))
     return BAD_PID
 
   # Since we are going to wait, possibly for a long time for the
   # application to be ready, we do it in a thread.
   threading.Thread(target=add_routing,
-    args=(config['app_name'], config['app_port'])).start()
+    args=(project_id, config['app_port'])).start()
 
   if 'log_size' in config.keys():
     log_size = config['log_size']
   else:
-    if config['app_name'] == APPSCALE_DASHBOARD_ID:
+    if project_id == APPSCALE_DASHBOARD_ID:
       log_size = DASHBOARD_LOG_SIZE
     else:
       log_size = APP_LOG_SIZE
 
-  if not setup_logrotate(config['app_name'], watch, log_size):
+  if not setup_logrotate(project_id, watch, log_size):
     logging.error("Error while setting up log rotation for application: {}".
-      format(config['app_name']))
+      format(project_id))
 
   return 0
 
@@ -499,9 +476,8 @@ def wait_on_app(port):
     True on success, False otherwise
   """
   retries = math.ceil(START_APP_TIMEOUT / BACKOFF_TIME)
-  private_ip = appscale_info.get_private_ip()
 
-  url = "http://" + private_ip + ":" + str(port) + FETCH_PATH
+  url = "http://" + options.private_ip + ":" + str(port) + FETCH_PATH
   while retries > 0:
     try:
       opener = urllib2.build_opener(NoRedirection)
@@ -645,8 +621,8 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile):
     "--datastore_path " + db_proxy + ":"\
       + str(constants.DB_SERVER_PORT),
     "/var/apps/" + app_name + "/app",
-    "--host " + appscale_info.get_private_ip(),
-    "--admin_host " + appscale_info.get_private_ip(),
+    "--host " + options.private_ip,
+    "--admin_host " + options.private_ip,
     "--automatic_restart", "no",
     "--pidfile", pidfile]
 
@@ -781,7 +757,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     '--jvm_flag=-Xmx{}m'.format(max_heap),
     '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
     "--disable_update_check",
-    "--address=" + appscale_info.get_private_ip(),
+    "--address=" + options.private_ip,
     "--datastore_path=" + db_proxy,
     "--login_server=" + load_balancer_host,
     "--appscale_version=1",
@@ -843,6 +819,40 @@ def is_config_valid(config):
   return True
 
 
+class AppHandler(tornado.web.RequestHandler):
+  """ Handles requests to start and stop instances for a project. """
+  def post(self, project_id):
+    """ Starts an AppServer instance on this machine.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    try:
+      config = json_decode(self.request.body)
+    except ValueError:
+      raise HTTPError(HTTPCodes.BAD_REQUEST, 'Payload must be valid JSON')
+
+    if not start_app(project_id, config):
+      raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to start application')
+
+  def delete(self, project_id):
+    """ Stops all instances on this machine for a project.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    if not stop_app(project_id):
+      raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to stop application')
+
+
+class InstanceHandler(tornado.web.RequestHandler):
+  """ Handles requests to stop individual instances. """
+  def delete(self, project_id, port):
+    """ Stops an AppServer instance on this machine. """
+    if not stop_app_instance(project_id, int(port)):
+      raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to stop instance')
+
+
 ################################
 # MAIN
 ################################
@@ -854,15 +864,11 @@ if __name__ == "__main__":
   zk_client.start()
   deployment_config = DeploymentConfig(zk_client)
 
-  INTERNAL_IP = appscale_info.get_private_ip()
-  SERVER = SOAPpy.SOAPServer((INTERNAL_IP, constants.APP_MANAGER_PORT))
+  options.define('private_ip', appscale_info.get_private_ip())
+  app = tornado.web.Application([
+    ('/projects/([a-z0-9-]+)', AppHandler),
+    ('/projects/([a-z0-9-]+)/([0-9-]+)', InstanceHandler)
+  ])
 
-  SERVER.registerFunction(start_app)
-  SERVER.registerFunction(stop_app)
-  SERVER.registerFunction(stop_app_instance)
-
-  while 1:
-    try:
-      SERVER.serve_forever()
-    except SSL.SSLError:
-      pass
+  app.listen(constants.APP_MANAGER_PORT)
+  IOLoop.current().start()

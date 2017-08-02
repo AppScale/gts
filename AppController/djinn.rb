@@ -4819,13 +4819,10 @@ HOSTS
           Djinn.log_debug("Calling AppManager to stop app #{app}.")
           app_manager = AppManagerClient.new(my_node.private_ip)
           begin
-            if app_manager.stop_app(app)
-              Djinn.log_info("Asked AppManager to shut down app #{app}.")
-            else
-              Djinn.log_warn("AppManager is unable to stop app #{app}.")
-            end
-          rescue FailedNodeException
-            Djinn.log_warn("Failed to talk to AppManager about stopping #{app}.")
+            app_manager.stop_app(app)
+            Djinn.log_info("Asked AppManager to shut down app #{app}.")
+          rescue FailedNodeException => error
+            Djinn.log_warn("Error stopping #{app}: #{error.message}")
           end
 
           begin
@@ -5887,21 +5884,15 @@ HOSTS
     end
 
     begin
-      pid = app_manager.start_app(app, appengine_port, login_ip,
+      app_manager.start_app(app, appengine_port, login_ip,
         app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
         get_shadow.private_ip)
-    rescue FailedNodeException, AppScaleException, ArgumentError => error
-      Djinn.log_warn("#{error.class} encountered while starting #{app} "\
-        "with AppManager: #{error.message}")
-      pid = -1
+      Djinn.log_info("Done adding AppServer for #{app}.")
+    rescue FailedNodeException => error
+      Djinn.log_warn(
+        "Error while starting instance for #{app}: #{error.message}")
     end
-    if pid < 0
-      # Something may have gone wrong: inform the user and move on.
-      Djinn.log_warn("Something went wrong starting AppServer for" +
-        " #{app}: check logs and running processes as duplicate" +
-        " ports may have been allocated.")
-    end
-    Djinn.log_info("Done adding AppServer for #{app}.")
+
     return true
   end
 
@@ -5936,15 +5927,10 @@ HOSTS
     end
 
     begin
-      result = app_manager.stop_app_instance(app_id, port)
-    rescue FailedNodeException
-      Djinn.log_error("Unable to talk to the UserAppServer " +
-        "stop instance on port #{port} for application #{app_id}.")
-      result = false
-    end
-    unless result
-      Djinn.log_error("Unable to stop instance on port #{port} " +
-        "application #{app_id}")
+      app_manager.stop_app_instance(app_id, port)
+    rescue FailedNodeException => error
+      Djinn.log_error(
+        "Error while stopping #{app_id}:#{port}: #{error.message}")
     end
 
     return true
