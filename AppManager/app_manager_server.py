@@ -832,7 +832,7 @@ class AppHandler(tornado.web.RequestHandler):
     except ValueError:
       raise HTTPError(HTTPCodes.BAD_REQUEST, 'Payload must be valid JSON')
 
-    if not start_app(project_id, config):
+    if start_app(project_id, config) == BAD_PID:
       raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to start application')
 
   @staticmethod
