@@ -9,16 +9,16 @@ HAPROXY_STATS_SOCKET_PATH = '/etc/haproxy/stats'
 # Path to dictionary to write profile log
 PROFILE_LOG_DIR = '/var/log/appscale/profile'
 
-# The amount of time to wait for a local stats from slave node
+# The amount of time to wait for local stats from a slave node.
 STATS_REQUEST_TIMEOUT = 60
 
 # Stats which were produce less than X seconds ago is considered as current
 ACCEPTABLE_STATS_AGE = 10
 
 # The ZooKeeper location for storing Hermes configurations
-NODES_STATS_CONFIGS_NODE = '/appscale/hermes/stats-profiling/nodes'
-PROCESSES_STATS_CONFIGS_NODE = '/appscale/hermes/stats-profiling/processes'
-PROXIES_STATS_CONFIGS_NODE = '/appscale/hermes/stats-profiling/proxies'
+NODES_STATS_CONFIGS_NODE = '/appscale/stats/profiling/nodes'
+PROCESSES_STATS_CONFIGS_NODE = '/appscale/stats/profiling/processes'
+PROXIES_STATS_CONFIGS_NODE = '/appscale/stats/profiling/proxies'
 
 
 class _MissedValue(object):

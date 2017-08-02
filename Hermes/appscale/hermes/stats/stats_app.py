@@ -185,8 +185,7 @@ class ProfilingManager(object):
         A callable which schedules execution of update_function inside IOLoop.
       """
       def update_in_ioloop(new_conf, znode_stat):
-        update = lambda: update_function(new_conf, znode_stat)
-        IOLoop.current().add_callback(update)
+        IOLoop.current().add_callback(update_function, new_conf, znode_stat)
       return update_in_ioloop
 
     zk_client.DataWatch(NODES_STATS_CONFIGS_NODE,

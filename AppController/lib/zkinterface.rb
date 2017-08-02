@@ -487,7 +487,6 @@ class ZKInterface
     return active_projects
   end
 
-
   def self.get_version_details(project_id, service_id, version_id)
     version_node = "/appscale/projects/#{project_id}/services/#{service_id}" +
       "/versions/#{version_id}"
@@ -501,8 +500,9 @@ class ZKInterface
   end
 
 
+  # Writes new configs for node stats profiling to zookeeper.
   def self.update_hermes_nodes_profiling_conf(is_enabled, interval)
-    configs_node = "/appscale/hermes/stats-profiling/nodes"
+    configs_node = "/appscale/stats/profiling/nodes"
     self.ensure_path(configs_node)
     configs = {
       "enabled" => is_enabled
@@ -513,9 +513,9 @@ class ZKInterface
     self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
-
+  # Writes new configs for processes stats profiling to zookeeper
   def self.update_hermes_processes_profiling_conf(is_enabled, interval, is_detailed)
-    configs_node = "/appscale/hermes/stats-profiling/processes"
+    configs_node = "/appscale/stats/profiling/processes"
     self.ensure_path(configs_node)
     configs = {
       "enabled" => is_enabled,
@@ -527,9 +527,9 @@ class ZKInterface
     self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
-
+  # Writes new configs for proxies stats profiling to zookeeper
   def self.update_hermes_proxies_profiling_conf(is_enabled, interval, is_detailed)
-    configs_node = "/appscale/hermes/stats-profiling/proxies"
+    configs_node = "/appscale/stats/profiling/proxies"
     self.ensure_path(configs_node)
     configs = {
       "enabled" => is_enabled,
