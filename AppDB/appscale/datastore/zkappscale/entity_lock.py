@@ -15,7 +15,7 @@ from kazoo.retry import (
 )
 
 # The ZooKeeper node that contains lock entries for an entity group.
-LOCK_PATH_TEMPLATE = '/appscale/apps/{project}/locks/{namespace}/{group}'
+LOCK_PATH_TEMPLATE = u'/appscale/apps/{project}/locks/{namespace}/{group}'
 
 # The number of seconds to wait for a lock before raising a timeout error.
 LOCK_TIMEOUT = 10
@@ -29,23 +29,23 @@ def zk_group_path(key):
   Returns:
     A string containing the location of a ZooKeeper path.
   """
-  project = key.app()
+  project = key.app().decode('utf-8')
   if key.name_space():
-    namespace = key.name_space()
+    namespace = key.name_space().decode('utf-8')
   else:
-    namespace = ':default'
+    namespace = u':default'
 
   first_element = key.path().element(0)
-  kind = first_element.type()
+  kind = first_element.type().decode('utf-8')
 
   # Differentiate between types of identifiers.
   if first_element.has_id():
-    suffix = ':{}'.format(first_element.id())
+    group = u'{}:{}'.format(kind, first_element.id())
   else:
-    suffix = '::{}'.format(first_element.name())
+    group = u'{}::{}'.format(kind, first_element.name().decode('utf-8'))
 
   return LOCK_PATH_TEMPLATE.format(project=project, namespace=namespace,
-                                   group=kind + suffix)
+                                   group=group)
 
 
 class EntityLock(object):
