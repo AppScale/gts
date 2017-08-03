@@ -699,7 +699,7 @@ class DistributedTaskQueue():
         method returns None the target will be determined by the queue or use 
         the current running version and module.
     """
-    if target_instance in host:
+    if appscale_info.get_login_ip() in host:
       return None
     target_info = host.split('.')
     return "http://{0}:{1}".format(target_instance, self.get_module_port(
