@@ -76,7 +76,8 @@ module AppDashboard
 
     app_stopped = false
     begin
-      app_stopped = app_manager.stop_app(APP_NAME)
+      app_manager.stop_app(APP_NAME)
+      app_stopped = true
     rescue FailedNodeException
       app_stopped = false
     end
