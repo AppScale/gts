@@ -4347,6 +4347,13 @@ HOSTS
           static_handlers = []
         end
 
+        # Reload haproxy first, to ensure we have the backend ready when
+        # nginx routing is enabled.
+        unless HAProxy.update_app_config(my_private, app, proxy_port, appservers)
+          Djinn.log_warn("No AppServer in haproxy for application #{app}.")
+          next
+        end
+
         # If nginx config files have been updated, we communicate the app's
         # ports to the UserAppServer to make sure we have the latest info.
         if Nginx.write_fullproxy_app_config(app, http_port, https_port,
@@ -4362,8 +4369,6 @@ HOSTS
             Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
           end
         end
-
-        HAProxy.update_app_config(my_private, app, proxy_port, appservers)
       end
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
