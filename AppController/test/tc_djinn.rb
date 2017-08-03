@@ -63,7 +63,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_online_users_list(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.done_uploading(@app, "/tmp/app",
       @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.is_app_running(@app, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.add_routing_for_appserver(@app, 'baz',
       'baz', @secret))

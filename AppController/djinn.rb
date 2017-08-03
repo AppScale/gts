@@ -2309,21 +2309,6 @@ class Djinn
   end
 
 
-  def is_app_running(appname, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    hosters = ZKInterface.get_app_hosters(appname, @options['keyname'])
-    hosters_w_appengine = []
-    hosters.each { |node|
-      hosters_w_appengine << node if node.is_appengine?
-    }
-
-    app_running = !hosters_w_appengine.empty?
-    Djinn.log_debug("Is app #{appname} running? #{app_running}")
-    return app_running
-  end
-
-
   # This SOAP-exposed method dynamically scales up a currently running
   # AppScale deployment. For virtualized clusters, this assumes the
   # user has given us a list of IP addresses where AppScale has been
