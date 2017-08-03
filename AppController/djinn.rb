@@ -1422,7 +1422,7 @@ class Djinn
         Djinn.log_warn("Changing keyname can break your deployment!")
       elsif key == "max_memory"
         Djinn.log_warn("max_memory will be enforced on new AppServers only.")
-        ZKInterface.set_max_memory(Integer(val))
+        ZKInterface.set_runtime_params({:max_memory => Integer(val)})
       elsif key == "min_images"
         unless is_cloud?
           Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
@@ -3167,7 +3167,8 @@ class Djinn
     Djinn.log_info('Set custom cassandra configuration.')
 
     if @options.key?('max_memory')
-      ZKInterface.set_max_memory(Integer(@options['max_memory']))
+      ZKInterface.set_runtime_params(
+        {:max_memory => Integer(@options['max_memory'])})
     end
   end
 

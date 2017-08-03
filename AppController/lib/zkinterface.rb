@@ -501,12 +501,11 @@ class ZKInterface
   end
 
 
-  # Defines a deployment-wide default for maximum instance memory.
-  def self.set_max_memory(max_memory)
-    max_memory_node = '/appscale/config/max_memory'
-    data = {'max_memory' => max_memory}
+  # Defines deployment-wide defaults for runtime parameters.
+  def self.set_runtime_params(parameters)
+    runtime_params_node = '/appscale/config/runtime_parameters'
     self.ensure_path('/appscale/config')
-    self.set(max_memory_node, JSON.dump(data), false)
+    self.set(runtime_params_node, JSON.dump(parameters), false)
   end
 
 
