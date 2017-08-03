@@ -3,7 +3,7 @@
 
 # Imports within Ruby's standard libraries
 require 'base64'
-require 'digest/sha1'
+require 'digest'
 require 'fileutils'
 require 'net/http'
 require 'openssl'
@@ -443,9 +443,13 @@ module HelperFunctions
   #
   # Args:
   #   tar_gz_location: The location on the local filesystem where the tarball is.
+  #   md5: The MD5 digest of the tarball.
   # Returns:
   #   true  if the tarball is correct, false otherwise.
-  def self.check_tarball(tar_gz_location)
+  def self.check_tarball(tar_gz_location, md5)
+    local_md5 = Digest::MD5.file tar_gz_location
+    return false unless md5 == local_md5.hexdigest
+
     cmd = "tar -ztf #{tar_gz_location} > /dev/null 2> /dev/null"
     case system(cmd)
     when nil

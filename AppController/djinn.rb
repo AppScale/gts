@@ -2245,63 +2245,27 @@ class Djinn
   end
 
 
-  # This function adds this node to the list of possible sources for the
-  # application 'appname' tarball source. Others nodes will be able to get
-  # the tarball from this node.
-  #
-  # Args:
-  #   appname: The application ID.
-  #   location: Full path for the tarball of the application.
-  #   secret: The deployment current secret.
-  # Returns:
-  #   A Boolean indicating the success of the operation.
-  def done_uploading(appname, location, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    unless File.exists?(location)
-      Djinn.log_warn("The #{appname} app was not found at #{location}.")
-      return false
-    end
-
-    RETRIES.downto(0) {
-      begin
-        ZKInterface.add_app_entry(appname, my_node.private_ip, location)
-        Djinn.log_info("This node is now hosting #{appname} source (#{location}).")
-        return true
-      rescue FailedZooKeeperOperationException => except
-        Djinn.log_warn("(done_uploading) couldn't talk to zookeeper " +
-          "with #{except.message}.")
-      end
-      Kernel.sleep(SMALL_WAIT)
-    }
-    Djinn.log_warn("Failed to notify zookeeper this node hosts #{appname}.")
-    return false
-  end
-
-
   # This function removes this node from the list of possible sources for
-  # the application 'appname' tarball source.
+  # a revision's source archive.
   #
   # Args:
-  #   appname: The application ID.
+  #   revision_key: The revision key.
   #   location: Full path for the tarball of the application.
   #   secret: The deployment current secret.
   # Returns:
   #   A Boolean indicating the success of the operation.
-  def not_hosting_app(appname, location, secret)
+  def not_hosting_revision(revision_key, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    unless File.exists?(location)
-      Djinn.log_warn("The #{appname} app was still found at #{location}.")
-    end
+    Djinn.log_warn("#{location} still exists") unless File.exists?(location)
 
     begin
-      ZKInterface.remove_app_entry(appname, my_node.private_ip)
+      ZKInterface.remove_revision_entry(revision_key, my_node.private_ip)
       return true
     rescue FailedZooKeeperOperationException => except
       # We just warn here and don't retry, since the shadow may have
       # already cleaned up the hosters.
-      Djinn.log_warn("not_hosting_app: got exception talking to " +
+      Djinn.log_warn("not_hosting_revision: got exception talking to " +
         "zookeeper: #{except.message}.")
     end
 
@@ -4800,13 +4764,6 @@ HOSTS
           rescue FailedNodeException => error
             Djinn.log_warn("Error stopping #{app}: #{error.message}")
           end
-
-          begin
-            ZKInterface.remove_app_entry(app, my_node.private_ip)
-          rescue FailedZooKeeperOperationException => except
-            Djinn.log_warn("check_stopped_apps: got exception talking to " +
-              "zookeeper: #{except.message}.")
-          end
         }
       end
 
@@ -5763,7 +5720,9 @@ HOSTS
         FileUtils.rm_rf(app_dir)
       else
         FileUtils.rm_rf(app_path)
-        not_hosting_app(app, app_path, @@secret)
+        revision_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION,
+                        version_details['revision'].to_s].join('_')
+        not_hosting_revision(revision_key, app_path, @@secret)
       end
     end
 
@@ -5787,7 +5746,6 @@ HOSTS
           # Application is good: let's set it up.
           begin
             HelperFunctions.setup_app(app)
-            done_uploading(app, app_path, @@secret)
           rescue AppScaleException => exception
             error_msg = "ERROR: couldn't setup source for #{app} " +
               "(#{exception.message})."
@@ -5968,9 +5926,12 @@ HOSTS
       Djinn.log_debug("I don't have a copy of app #{appname} - will grab it remotely")
     end
 
-    nodes_with_app = []
     RETRIES.downto(0) { |attempt|
-      nodes_with_app = ZKInterface.get_app_hosters(appname, @options['keyname'])
+      revision_key = [appname, DEFAULT_SERVICE, DEFAULT_VERSION,
+                      version_details['revision'].to_s].join('_')
+      nodes_with_app = ZKInterface.get_revision_hosters(
+        revision_key, @options['keyname'])
+
       if nodes_with_app.empty?
         Djinn.log_info("#{attempt} attempt: waiting for a node to " +
           "have a copy of app #{appname}")
@@ -5983,13 +5944,16 @@ HOSTS
       nodes_with_app.shuffle.each { |node|
         ssh_key = node.ssh_key
         ip = node.private_ip
+        md5 = ZKInterface.get_revision_md5(revision_key, ip)
         Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
         RETRIES.downto(0) {
           begin
             HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
             if File.exists?(app_path)
-              if HelperFunctions.check_tarball(app_path)
+              if HelperFunctions.check_tarball(app_path, md5)
                 Djinn.log_info("Got a copy of #{appname} from #{ip}.")
+                ZKInterface.add_revision_entry(
+                  revision_key, my_node.private_ip, md5)
                 return true
               end
             end
