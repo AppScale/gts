@@ -194,7 +194,7 @@ class DevAppServerImpl
         System.setProperty("MODULE", mainModule.getModuleName());
         String versionId = config.getMajorVersionId();
         if (versionId == null)
-          versionId = "default";
+          versionId = "v1";
         System.setProperty("VERSION", versionId);
         // End AppScale
     }

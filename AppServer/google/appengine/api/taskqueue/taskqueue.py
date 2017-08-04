@@ -869,7 +869,7 @@ class Task(object):
     target_info = target.split('.')
     if len(target_info) > 2:
       raise InvalidTaskError(
-        'AppScale does not support instance parameter for target, i.e. '
+        'AppScale does not support instance parameter for target, e.g. '
         'instance.version.module')
 
     # AppScale: do not send default_hostname, AppTaskQueue will get that and

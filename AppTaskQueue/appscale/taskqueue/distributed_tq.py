@@ -26,7 +26,10 @@ from cassandra import (
 )
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
-from .constants import InvalidTarget
+from .constants import (
+  InvalidTarget,
+  TARGET_REGEX
+)
 from .queue import (
   InvalidLeaseRequest,
   PullQueue,
@@ -233,6 +236,7 @@ class DistributedTaskQueue():
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
     self.db_access = db_access
+    self.load_balancer = appscale_info.get_load_balancer_ips()[0]
     self.queue_manager = GlobalQueueManager(zk_client, db_access)
     self.service_manager = GlobalServiceManager(zk_client, db_access)
 
@@ -611,8 +615,7 @@ class DistributedTaskQueue():
     app_id = self.__cleanse(request.app_id())
     queue_name = request.queue_name()
 
-
-    target_instance = appscale_info.get_load_balancer_ips()[0]
+    target_instance = self.load_balancer
 
     # Try to get the target from host (python sdk will set the target via
     # the Host header). Java sdk does not include Host header, so we catch
@@ -620,9 +623,10 @@ class DistributedTaskQueue():
     try:
       if not hasattr(self, '__version') and not hasattr(self, '__module'):
         self.set_module_version_source(headers['Version'], headers['Module'])
+
       target_url = self.get_target_from_host(app_id, target_instance,
                                              headers['Host'])
-      args['url'] = "{0}{url}".format(target_url, url=request.url())
+      args['url'] = "{target}{url}".format(target=target_url, url=request.url())
     except KeyError:
       target_url = None
 
@@ -642,13 +646,14 @@ class DistributedTaskQueue():
       if not target_url and queue.target:
         target_url = self.get_target_from_queue(app_id, target_instance,
                                                 queue.target)
-        args['url'] = "{0}{url}".format(target_url, url=request.url())
+        args['url'] = "{target}{url}".format(target=target_url, url=request.url())
       # If we cannot get anything from the queue config, we use the module
       # and version from the request.
       elif not target_url:
         target_info = [self.__version, self.__module]
-        args['url'] = "http://{0}:{1}{2}".format(target_instance,
-           self.get_module_port(app_id, target_info), request.url())
+        args['url'] = "http://{ip}:{port}{url}".format(ip=target_instance,
+           port=self.get_module_port(app_id, target_info), url=request.url())
+
       logger.debug("Old url: {0} New url: {1}".format(request.url(),
                                                      args['url']))
 
@@ -681,8 +686,8 @@ class DistributedTaskQueue():
        A url as a string for the given target.
     """
     target_info = target.split('.')
-    return "http://{0}:{1}".format(target_instance, self.get_module_port(
-      app_id, target_info))
+    return "http://{ip}:{port}".format(ip=target_instance,
+             port=self.get_module_port(app_id, target_info))
 
   def get_target_from_host(self, app_id, target_instance, host):
     """ Gets the url for the target using the Host header.
@@ -699,11 +704,11 @@ class DistributedTaskQueue():
         method returns None the target will be determined by the queue or use 
         the current running version and module.
     """
-    if appscale_info.get_login_ip() in host:
+    if not TARGET_REGEX.match(host):
       return None
     target_info = host.split('.')
-    return "http://{0}:{1}".format(target_instance, self.get_module_port(
-      app_id, target_info))
+    return "http://{ip}:{port}".format(ip=target_instance,
+             port=self.get_module_port(app_id, target_info))
 
   def get_module_port(self, app_id, target_info):
     """ Gets the port for the desired version and module or uses the current 
@@ -718,7 +723,6 @@ class DistributedTaskQueue():
       InvalidTarget if the app_id, module, and version cannot be found in 
         self.service_manager which maintains a dict of zookeeper info.
     """
-    target_instance = appscale_info.get_login_ip()
     try:
       target_module = target_info.pop(-1)
     except IndexError:
@@ -727,14 +731,14 @@ class DistributedTaskQueue():
       target_version = target_info.pop(-1)
     except IndexError:
       target_version = self.__version
-    logger.info("app: {0} instance: {1} version: {2} module: {3}".format(
-      app_id, target_instance, target_version, target_module))
+    logger.debug("app: {0} version: {1} module: {2}".format(
+      app_id, target_version, target_module))
     try:
-      logger.info(self.service_manager)
+      logger.debug(self.service_manager)
       port = self.service_manager[app_id][target_module][target_version]
     except KeyError:
-      err_msg = "target '{0}.{1}' does not exist".format(target_version,
-                                                         target_module)
+      err_msg = "target '{version}.{module}' does not exist".format(
+        version=target_version, module=target_module)
       raise InvalidTarget(err_msg)
     return port
 
