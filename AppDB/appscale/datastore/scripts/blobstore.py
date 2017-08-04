@@ -31,6 +31,7 @@ from appscale.common.constants import LOG_FORMAT
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from kazoo.client import KazooClient
 from StringIO import StringIO
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -423,7 +424,10 @@ def main():
   args = parser.parse_args()
 
   datastore_path = args.datastore_path
-  deployment_config = DeploymentConfig(appscale_info.get_zk_locations_string())
+  zk_ips = appscale_info.get_zk_node_ips()
+  zk_client = KazooClient(hosts=','.join(zk_ips))
+  zk_client.start()
+  deployment_config = DeploymentConfig(zk_client)
   setup_env()
 
   http_server = tornado.httpserver.HTTPServer(

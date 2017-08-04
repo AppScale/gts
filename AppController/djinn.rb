@@ -559,8 +559,11 @@ class Djinn
     'user_commands' => [ String, nil, true ],
     'verbose' => [ TrueClass, 'False', true ],
     'write_nodes_stats_log' => [ TrueClass, 'False', true ],
+    'nodes_stats_log_interval' => [ Fixnum, '15', true ],
     'write_processes_stats_log' => [ TrueClass, 'False', true ],
+    'processes_stats_log_interval' => [ Fixnum, '65', true ],
     'write_proxies_stats_log' => [ TrueClass, 'False', true ],
+    'proxies_stats_log_interval' => [ Fixnum, '35', true ],
     'write_detailed_processes_stats_log' => [ TrueClass, 'False', true ],
     'write_detailed_proxies_stats_log' => [ TrueClass, 'False', true ],
     'zone' => [ String, nil, true ]
@@ -1451,16 +1454,25 @@ class Djinn
 
       @options[key] = val
 
-      hermes_profiling_flags = [
-        "write_nodes_stats_log", "write_processes_stats_log",
-        "write_proxies_stats_log", "write_detailed_processes_stats_log",
-        "write_detailed_proxies_stats_log"
-      ]
-      if hermes_profiling_flags.include?(key)
-        Thread.new {
-          stop_hermes()
-          start_hermes()
-        }
+      if key.include? "stats_log"
+        if key.include? "nodes"
+          ZKInterface.update_hermes_nodes_profiling_conf(
+            @options["write_nodes_stats_log"].downcase == "true",
+            @options["nodes_stats_log_interval"].to_i
+          )
+        elsif key.include? "processes"
+          ZKInterface.update_hermes_processes_profiling_conf(
+            @options["write_processes_stats_log"].downcase == "true",
+            @options["processes_stats_log_interval"].to_i,
+            @options["write_detailed_processes_stats_log"].downcase == "true"
+          )
+        elsif key.include? "proxies"
+          ZKInterface.update_hermes_proxies_profiling_conf(
+            @options["write_proxies_stats_log"].downcase == "true",
+            @options["proxies_stats_log_interval"].to_i,
+            @options["write_detailed_proxies_stats_log"].downcase == "true"
+          )
+        end
       end
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
@@ -3737,14 +3749,7 @@ class Djinn
   def start_hermes()
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    HermesService.start(
-      @options['verbose'].downcase == 'true',
-      @options["write_nodes_stats_log"].downcase == 'true',
-      @options["write_processes_stats_log"].downcase == 'true',
-      @options["write_proxies_stats_log"].downcase == 'true',
-      @options["write_detailed_processes_stats_log"].downcase == 'true',
-      @options["write_detailed_proxies_stats_log"].downcase == 'true'
-    )
+    HermesService.start(@options['verbose'].downcase == 'true')
     if my_node.is_shadow?
       nginx_port = 17441
       service_port = 4378
@@ -4111,37 +4116,23 @@ class Djinn
   end
 
   def rsync_files(dest_node)
-    admin_server = "#{APPSCALE_HOME}/AdminServer"
-    appdb = "#{APPSCALE_HOME}/AppDB"
-    app_manager = "#{APPSCALE_HOME}/AppManager"
-    app_task_queue = "#{APPSCALE_HOME}/AppTaskQueue"
-    controller = "#{APPSCALE_HOME}/AppController"
-    common = "#{APPSCALE_HOME}/common"
-    iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
-    app_dashboard = "#{APPSCALE_HOME}/AppDashboard"
-    scripts = "#{APPSCALE_HOME}/scripts"
-    server = "#{APPSCALE_HOME}/AppServer"
-    server_java = "#{APPSCALE_HOME}/AppServer_Java"
-    xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
-    log_service = "#{APPSCALE_HOME}/LogService"
-
+    # Get the keys and address of the destination node.
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
-    options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
+    options = "-e 'ssh -i #{ssh_key}' -a --filter '- *.pyc'"
 
-    HelperFunctions.shell("rsync #{options} #{admin_server}/* root@#{ip}:#{controller}")
-    HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
-    HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
-    HelperFunctions.shell("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
-    HelperFunctions.shell("rsync #{options} #{app_dashboard}/* root@#{ip}:#{app_dashboard}")
-    HelperFunctions.shell("rsync #{options} --exclude='logs/*' #{appdb}/* root@#{ip}:#{appdb}")
-    HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
-    HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
-    HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
-    HelperFunctions.shell("rsync #{options} #{app_task_queue}/* root@#{ip}:#{app_task_queue}")
-    HelperFunctions.shell("rsync #{options} #{common}/* root@#{ip}:#{common}")
-    HelperFunctions.shell("rsync #{options} #{scripts}/* root@#{ip}:#{scripts}")
-    HelperFunctions.shell("rsync #{options} #{log_service}/* root@#{ip}:#{log_service}")
+    ["#{APPSCALE_HOME}/AdminServer", "#{APPSCALE_HOME}/AppDB",
+     "#{APPSCALE_HOME}/AppManager", "#{APPSCALE_HOME}/AppTaskQueue",
+     "#{APPSCALE_HOME}/AppController", "#{APPSCALE_HOME}/common",
+     "#{APPSCALE_HOME}/InfrastructureManager", "#{APPSCALE_HOME}/AppDashboard",
+     "#{APPSCALE_HOME}/scripts", "#{APPSCALE_HOME}/AppServer",
+     "#{APPSCALE_HOME}/AppServer_Java", "#{APPSCALE_HOME}/XMPPReceiver",
+     "#{APPSCALE_HOME}/LogService"].each { |dir|
+      if system("rsync #{options} #{dir}/* root@#{ip}:#{dir}") != true
+        Djinn.log_warn("Rsync of #{dir} to #{ip} failed!")
+      end
+    }
+
     if dest_node.is_appengine?
       locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {
@@ -4361,6 +4352,13 @@ HOSTS
           static_handlers = []
         end
 
+        # Reload haproxy first, to ensure we have the backend ready when
+        # nginx routing is enabled.
+        unless HAProxy.update_app_config(my_private, app, proxy_port, appservers)
+          Djinn.log_warn("No AppServer in haproxy for application #{app}.")
+          next
+        end
+
         # If nginx config files have been updated, we communicate the app's
         # ports to the UserAppServer to make sure we have the latest info.
         if Nginx.write_fullproxy_app_config(app, http_port, https_port,
@@ -4376,8 +4374,6 @@ HOSTS
             Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
           end
         end
-
-        HAProxy.update_app_config(my_private, app, proxy_port, appservers)
       end
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
@@ -4819,13 +4815,10 @@ HOSTS
           Djinn.log_debug("Calling AppManager to stop app #{app}.")
           app_manager = AppManagerClient.new(my_node.private_ip)
           begin
-            if app_manager.stop_app(app)
-              Djinn.log_info("Asked AppManager to shut down app #{app}.")
-            else
-              Djinn.log_warn("AppManager is unable to stop app #{app}.")
-            end
-          rescue FailedNodeException
-            Djinn.log_warn("Failed to talk to AppManager about stopping #{app}.")
+            app_manager.stop_app(app)
+            Djinn.log_info("Asked AppManager to shut down app #{app}.")
+          rescue FailedNodeException => error
+            Djinn.log_warn("Error stopping #{app}: #{error.message}")
           end
 
           begin
@@ -4901,7 +4894,6 @@ HOSTS
           next if @my_private_ip != host
 
           if Integer(port) < 0
-            to_start << app
             no_appservers << app
           elsif not MonitInterface.is_running?("#{app}-#{port}")
             Djinn.log_warn("Didn't find the AppServer for #{app} at port #{port}.")
@@ -4916,6 +4908,12 @@ HOSTS
     # running AppServers.
     my_apps.each { |appserver|
       app, _ = appserver.split(":")
+
+      # Let's start AppServers with normal priority if we already have
+      # some AppServer for this application running.
+      no_appservers.each { |x|
+        to_start << app if x == app
+      }
       no_appservers.delete(app)
       @unaccounted.delete(appserver)
     }
@@ -4954,50 +4952,47 @@ HOSTS
     Djinn.log_debug("AppServers to terminate: #{to_end}.") unless to_end.empty?
 
     # Now we do the talking with the appmanagerserver. Since it may take
-    # some time to start/stop apps, we do this in a thread. We do one
-    # operation at a time since it is expensive and we want to
-    # re-evaluate.
+    # some time to start/stop apps, we do this in a thread. We take care
+    # of not letting this thread go past the duty cycle, to ensure we can
+    # re-evalute the priorities of what to start/stop.
     Thread.new {
       AMS_LOCK.synchronize {
-        # We then start or terminate AppServers as needed. We do it one a
-        # time since it's lengthy proposition and we want to revisit the
-        # decision each time.
-        if !no_appservers[0].nil?
-          app = no_appservers[0]
-
-          begin
-            version_details = ZKInterface.get_version_details(
-              app, DEFAULT_SERVICE, DEFAULT_VERSION)
-          rescue VersionNotFound
-            next
+        # Work until the next DUTY_CYCLE starts.
+        end_work = Time.now.to_i + DUTY_CYCLE - 1
+        while Time.now.to_i < end_work
+          if !no_appservers[0].nil?
+            app = no_appservers.shift
+            begin
+              version_details = ZKInterface.get_version_details(
+                app, DEFAULT_SERVICE, DEFAULT_VERSION)
+            rescue VersionNotFound
+              next
+            end
+            Djinn.log_info("Starting first AppServer for app: #{app}.")
+            ret = add_appserver_process(
+              app, version_details['appscaleExtensions']['httpPort'],
+              version_details['runtime'])
+            Djinn.log_debug("add_appserver_process returned: #{ret}.")
+          elsif !to_start[0].nil?
+            app = to_start.shift
+            begin
+              version_details = ZKInterface.get_version_details(
+                app, DEFAULT_SERVICE, DEFAULT_VERSION)
+            rescue VersionNotFound
+              next
+            end
+            Djinn.log_info("Starting AppServer for app: #{app}.")
+            ret = add_appserver_process(
+              app, version_details['appscaleExtensions']['httpPort'],
+              version_details['runtime'])
+            Djinn.log_debug("add_appserver_process returned: #{ret}.")
+          elsif !to_end[0].nil?
+            Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
+            app, port = to_end.shift.split(":")
+            ret = remove_appserver_process(app, port)
+            @unaccounted.delete(to_end[0])
+            Djinn.log_debug("remove_appserver_process returned: #{ret}.")
           end
-
-          Djinn.log_info("Starting first AppServer for app: #{app}.")
-          ret = add_appserver_process(
-            app, version_details['appscaleExtensions']['httpPort'],
-            version_details['runtime'])
-          Djinn.log_debug("add_appserver_process returned: #{ret}.")
-        elsif !to_start[0].nil?
-          app = to_start[0]
-
-          begin
-            version_details = ZKInterface.get_version_details(
-              app, DEFAULT_SERVICE, DEFAULT_VERSION)
-          rescue VersionNotFound
-            next
-          end
-
-          Djinn.log_info("Starting AppServer for app: #{app}.")
-          ret = add_appserver_process(
-            app, version_details['appscaleExtensions']['httpPort'],
-            version_details['runtime'])
-          Djinn.log_debug("add_appserver_process returned: #{ret}.")
-        elsif !to_end[0].nil?
-          Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
-          app, port = to_end[0].split(":")
-          ret = remove_appserver_process(app, port)
-          @unaccounted.delete(to_end[0])
-          Djinn.log_debug("remove_appserver_process returned: #{ret}.")
         end
       }
     }
@@ -5887,21 +5882,15 @@ HOSTS
     end
 
     begin
-      pid = app_manager.start_app(app, appengine_port, login_ip,
+      app_manager.start_app(app, appengine_port, login_ip,
         app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
         get_shadow.private_ip)
-    rescue FailedNodeException, AppScaleException, ArgumentError => error
-      Djinn.log_warn("#{error.class} encountered while starting #{app} "\
-        "with AppManager: #{error.message}")
-      pid = -1
+      Djinn.log_info("Done adding AppServer for #{app}.")
+    rescue FailedNodeException => error
+      Djinn.log_warn(
+        "Error while starting instance for #{app}: #{error.message}")
     end
-    if pid < 0
-      # Something may have gone wrong: inform the user and move on.
-      Djinn.log_warn("Something went wrong starting AppServer for" +
-        " #{app}: check logs and running processes as duplicate" +
-        " ports may have been allocated.")
-    end
-    Djinn.log_info("Done adding AppServer for #{app}.")
+
     return true
   end
 
@@ -5936,15 +5925,10 @@ HOSTS
     end
 
     begin
-      result = app_manager.stop_app_instance(app_id, port)
-    rescue FailedNodeException
-      Djinn.log_error("Unable to talk to the UserAppServer " +
-        "stop instance on port #{port} for application #{app_id}.")
-      result = false
-    end
-    unless result
-      Djinn.log_error("Unable to stop instance on port #{port} " +
-        "application #{app_id}")
+      app_manager.stop_app_instance(app_id, port)
+    rescue FailedNodeException => error
+      Djinn.log_error(
+        "Error while stopping #{app_id}:#{port}: #{error.message}")
     end
 
     return true
