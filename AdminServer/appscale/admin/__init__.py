@@ -712,6 +712,7 @@ def main():
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
   options.define('private_ip', appscale_info.get_private_ip())
+  options.define('load_balancer', appscale_info.get_load_balancer_ips()[0])
 
   acc = appscale_info.get_appcontroller_client()
   ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
