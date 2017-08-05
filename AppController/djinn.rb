@@ -4920,31 +4920,43 @@ HOSTS
     Djinn.log_debug("Running AppServers on this node: #{my_apps}.") unless my_apps.empty?
 
     # Check that all the AppServers running are indeed known to the
-    # head node.
+    # head node. The ones that need to be terminated will be given a grace
+    # period in order to complete the on-going requests.
     MonitInterface.running_appengines().each { |appengine|
       # Nothing to do if we already account for this AppServer.
       next if my_apps.include?(appengine)
 
-      # Here we have an AppServer which is not listed in @app_info_map. We
-      # have 2 options: it may be coming up and it's not registered yet,
-      # or it has been terminated. In either case, we give a grace period
-      # and then we terminate it. The time needs to be at least
-      # 'appserver_timeout' for termination.
+      # If the application has been undeployed, we don't need to give any
+      # grace period to the AppServer.
       app, _ = appengine.split(":")
+      unless @apps_loaded.include?(app)
+        Djinn.log_debug("Terminating #{appengine} of undeployed app #{app}.")
+        to_end << appengine
+        next
+      end
+
+      # Keep track of the first time we found an unaccounted AppServer.
       if @unaccounted[appengine].nil?
         Djinn.log_debug("Found unaccounted AppServer #{appengine} for #{app}.")
         @unaccounted[appengine] = Time.now.to_i
       end
       been_here = Time.now.to_i - @unaccounted[appengine]
+
+      # If the AppServer has been in limbo for more than the allocated
+      # grace period, terminate it.
       if been_here > Integer(@options['appserver_timeout']) * 2
         Djinn.log_debug("AppServer #{appengine} for #{app} timed out.")
+        to_end << appengine
+        next
       end
+
+      # If we have requests to start new AppServers, and we have
+      # unaccounted ones for this app, we simply give it a bit more time
+      # for the leader node to register it.
       if to_start.include?(app) && been_here < DUTY_CYCLE * 3
         Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
         to_start.delete(app)
         no_appservers.delete(app)
-      else
-        to_end << appengine
       end
     }
     Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
@@ -5907,7 +5919,7 @@ HOSTS
   #   A Boolean indicating the success of the operation.
   def remove_appserver_process(app_id, port)
     @state = "Stopping an AppServer to free unused resources"
-    Djinn.log_debug("Deleting AppServer instance to free up unused resources")
+    Djinn.log_debug("Deleting AppServer for #{app_id} at port #{port}.")
 
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_manager = AppManagerClient.new(my_node.private_ip)
