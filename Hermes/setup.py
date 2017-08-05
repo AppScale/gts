@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name='appscale-hermes',
-  version='0.0.3',
+  version='0.0.5',
   description='AppScale module which takes care of periodical backup and '
               'restore tasks and provides statistics API.',
   author='AppScale Systems, Inc.',
@@ -12,6 +12,7 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common',
+    'kazoo',
     'tornado',
     'psutil==5.1.3',
     'attrs>=16',

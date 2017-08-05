@@ -13,7 +13,7 @@ class TestCurrentNodeStats(unittest.TestCase):
     mock_get_private_ip.return_value = '10.10.11.12'
 
     # Calling method under test
-    stats = node_stats.NodeStatsSource().get_current()
+    stats = node_stats.NodeStatsSource.get_current()
 
     # Asserting expectations
     self.assertIsInstance(stats, node_stats.NodeStatsSnapshot)

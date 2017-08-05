@@ -7,6 +7,8 @@ import os
 import pkgutil
 import sys
 
+from kazoo.client import KazooClient
+
 from appscale.common import appscale_info
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.deployment_config import InvalidConfig
@@ -28,7 +30,9 @@ if __name__ == "__main__":
   args = parser.parse_args()
   zk_locations = args.zk_locations if args.zk_locations else \
     appscale_info.get_zk_locations_string()
-  deployment_config = DeploymentConfig(zk_locations)
+  zk_client = KazooClient(hosts=zk_locations)
+  zk_client.start()
+  deployment_config = DeploymentConfig(zk_client)
   cassandra_config = deployment_config.get_config('cassandra')
   if 'num_tokens' not in cassandra_config:
     raise InvalidConfig('num_tokens not specified in deployment config.')

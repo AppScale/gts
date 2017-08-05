@@ -73,7 +73,7 @@ class TestCurrentProcessesStats(unittest.TestCase):
     mock_get_private_ip.return_value = '1.1.1.1'
 
     # Calling method under test
-    snapshot = process_stats.ProcessesStatsSource().get_current()
+    snapshot = process_stats.ProcessesStatsSource.get_current()
 
     # Checking expectations
     mock_process_stats.assert_has_calls([
@@ -97,7 +97,7 @@ class TestCurrentProcessesStats(unittest.TestCase):
     mock_get_private_ip.return_value = '10.10.11.12'
 
     # Calling method under test
-    stats_snapshot = process_stats.ProcessesStatsSource().get_current()
+    stats_snapshot = process_stats.ProcessesStatsSource.get_current()
 
     # Verifying outcomes
     self.assertIsInstance(stats_snapshot.utc_timestamp, float)

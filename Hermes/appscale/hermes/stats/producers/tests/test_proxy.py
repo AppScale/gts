@@ -28,7 +28,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
     mock_socket.return_value = fake_socket
 
     # Running method under test
-    stats_snapshot = proxy_stats.ProxiesStatsSource().get_current()
+    stats_snapshot = proxy_stats.ProxiesStatsSource.get_current()
 
     # Verifying outcomes
     self.assertIsInstance(stats_snapshot.utc_timestamp, float)
@@ -81,7 +81,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
     mock_socket.return_value = fake_socket
 
     # Running method under test
-    stats_snapshot = proxy_stats.ProxiesStatsSource().get_current()
+    stats_snapshot = proxy_stats.ProxiesStatsSource.get_current()
 
     # Verifying outcomes
     self.assertIsInstance(stats_snapshot.utc_timestamp, float)

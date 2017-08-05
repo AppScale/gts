@@ -245,7 +245,7 @@ module HAProxy
     }
     if servers.length <= 0
       Djinn.log_warn("update_app_config called but no servers found.")
-      return
+      return false
     end
 
     config = "# Create a load balancer for the app #{app_name} \n"
