@@ -2254,7 +2254,7 @@ class Djinn
   #   secret: The deployment current secret.
   # Returns:
   #   A Boolean indicating the success of the operation.
-  def not_hosting_revision(revision_key, location, secret)
+  def stop_hosting_revision(revision_key, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Djinn.log_warn("#{location} still exists") unless File.exists?(location)
@@ -2265,7 +2265,7 @@ class Djinn
     rescue FailedZooKeeperOperationException => except
       # We just warn here and don't retry, since the shadow may have
       # already cleaned up the hosters.
-      Djinn.log_warn("not_hosting_revision: got exception talking to " +
+      Djinn.log_warn("stop_hosting_revision: got exception talking to " +
         "zookeeper: #{except.message}.")
     end
 
@@ -5722,7 +5722,7 @@ HOSTS
         FileUtils.rm_rf(app_path)
         revision_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION,
                         version_details['revision'].to_s].join('_')
-        not_hosting_revision(revision_key, app_path, @@secret)
+        stop_hosting_revision(revision_key, app_path, @@secret)
       end
     end
 
