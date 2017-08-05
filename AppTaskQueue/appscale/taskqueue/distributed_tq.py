@@ -675,8 +675,7 @@ class DistributedTaskQueue():
 
   def get_target_from_queue(self, app_id, target_instance, target):
     """ Gets the url for the target using the queue's target defined in the 
-    configuration file. If target is None, target will be the current running
-    version and module.
+    configuration file.
     
     Args:
       app_id: The application id, used to lookup module port.
