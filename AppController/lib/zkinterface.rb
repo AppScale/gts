@@ -500,6 +500,14 @@ class ZKInterface
   end
 
 
+  # Defines deployment-wide defaults for runtime parameters.
+  def self.set_runtime_params(parameters)
+    runtime_params_node = '/appscale/config/runtime_parameters'
+    self.ensure_path('/appscale/config')
+    self.set(runtime_params_node, JSON.dump(parameters), false)
+  end
+
+
   # Writes new configs for node stats profiling to zookeeper.
   def self.update_hermes_nodes_profiling_conf(is_enabled, interval)
     configs_node = "/appscale/stats/profiling/nodes"
