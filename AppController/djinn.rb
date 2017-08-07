@@ -621,11 +621,6 @@ class Djinn
     @last_updated = 0
     @state_change_lock = Monitor.new()
 
-    # Keeps track of unaccounted AppServers. To prevent terminating instances
-    # that are in the process of starting, we wait three duty cycles before
-    # stopping them.
-    @unaccounted = {}
-
     # Keeps track of started instances that have not been registered yet.
     @pending_appservers = {}
 
@@ -4947,7 +4942,6 @@ HOSTS
         to_start << app if x == app
       }
       no_appservers.delete(app)
-      @unaccounted.delete(appserver)
     }
     Djinn.log_debug("Running AppServers on this node: #{my_apps}.") unless my_apps.empty?
 
@@ -5007,7 +5001,6 @@ HOSTS
             Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
             app, port = to_end.shift.split(":")
             ret = remove_appserver_process(app, port)
-            @unaccounted.delete(to_end[0])
             Djinn.log_debug("remove_appserver_process returned: #{ret}.")
           end
         end
