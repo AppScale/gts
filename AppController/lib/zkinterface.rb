@@ -144,51 +144,29 @@ class ZKInterface
   end
 
 
-  def self.add_app_entry(appname, ip, location)
-    appname_path = ROOT_APP_PATH + "/#{appname}"
-    full_path = appname_path + "/#{ip}"
-
-    # can't just create path in ZK
-    # need to do create the nodes at each level
-
-    self.set(ROOT_APP_PATH, DUMMY_DATA, NOT_EPHEMERAL)
-    self.set(appname_path, DUMMY_DATA, NOT_EPHEMERAL)
-    self.set(full_path, location, EPHEMERAL)
+  def self.add_revision_entry(revision_key, ip, md5)
+    revision_path = "#{ROOT_APP_PATH}/#{revision_key}/#{ip}"
+    self.set(revision_path, md5, NOT_EPHEMERAL)
   end
 
 
-  def self.remove_app_entry(appname, ip)
-    appname_path = ROOT_APP_PATH + "/#{appname}/#{ip}"
-    self.delete(appname_path)
+  def self.remove_revision_entry(revision_key, ip)
+    self.delete("#{ROOT_APP_PATH}/#{revision_key}/#{ip}")
   end
 
 
-  def self.get_app_hosters(appname, keyname)
-    appname_path = ROOT_APP_PATH + "/#{appname}"
-    app_hosters = self.get_children(appname_path)
+  def self.get_revision_hosters(revision_key, keyname)
+    revision_hosters = self.get_children("#{ROOT_APP_PATH}/#{revision_key}")
     converted = []
-    app_hosters.each { |host|
+    revision_hosters.each { |host|
       converted << DjinnJobData.new(self.get_job_data_for_ip(host), keyname)
     }
     return converted
   end
 
 
-  # Erases all of the ZooKeeper entries that correspond to where an app's tar
-  # file can be found.
-  #
-  # Args:
-  #   appname: A String corresponding to the appid of the app whose hosting
-  #     data we want to erase.
-  def self.clear_app_hosters(appname)
-    return unless defined?(@@zk)
-
-    appname_path = ROOT_APP_PATH + "/#{appname}"
-    app_hosters = self.get_children(appname_path)
-    app_hosters.each { |host_info|
-      self.delete(appname_path + "/#{host_info}")
-    }
-    return
+  def self.get_revision_md5(revision_key, ip)
+    return self.get("#{ROOT_APP_PATH}/#{revision_key}/#{ip}").chomp
   end
 
 
