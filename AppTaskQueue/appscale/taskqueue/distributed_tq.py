@@ -719,7 +719,7 @@ class DistributedTaskQueue():
     Returns:
       An int containing the port for the target.
     Raises:
-      InvalidTarget if the app_id, module, and version cannot be found in 
+      InvalidTarget if the app_id, module, and version cannot be found in
         self.service_manager which maintains a dict of zookeeper info.
     """
     try:
@@ -742,7 +742,7 @@ class DistributedTaskQueue():
     return port
 
   def set_module_version_source(self, version, module):
-    """ Sets version and module defaults, should be used to set version and 
+    """ Sets version and module defaults, should be used to set version and
     module according to the request's running version and module.
     
     Args:
