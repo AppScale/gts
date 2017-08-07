@@ -4876,7 +4876,7 @@ HOSTS
     # Registered instances are no longer pending.
     @app_info_map.each { |app, info|
       info['appengine'].each { |location|
-        host, port = location.split(':')
+        _, port = location.split(':')
         @pending_appservers.delete("#{app}:#{port}")
       }
     }
@@ -4907,7 +4907,7 @@ HOSTS
         next unless info['appengine']
 
         pending_count = 0
-        @pending_appservers.each { |instance_key, start_time|
+        @pending_appservers.each { |instance_key, _|
           pending_count += 1 if instance_key.split(':')[0] == app
         }
 
