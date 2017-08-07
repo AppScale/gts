@@ -674,13 +674,13 @@ class DistributedTaskQueue():
     return args
 
   def get_target_from_queue(self, app_id, target_instance, target):
-    """ Gets the url for the target using the queue's target defined in the 
+    """ Gets the url for the target using the queue's target defined in the
     configuration file.
     
     Args:
       app_id: The application id, used to lookup module port.
       target_instance: The instance ip to use for the new url.
-      target: A string containing the value of queue.target. 
+      target: A string containing the value of queue.target.
     Returns:
        A url as a string for the given target.
     """
@@ -694,13 +694,13 @@ class DistributedTaskQueue():
     Args:
       app_id: The application id, used to lookup module port.
       target_instance: The instance ip to use for the new url.
-      host: A string containing the value of the Task's host from target or 
+      host: A string containing the value of the Task's host from target or
         the HTTP_HOST (which would contain AppScale's login ip).
         
     Returns:
-      A url as a string for the given target or None if target contains the 
-        AppScale login ip because the Task did not specify a target. If this 
-        method returns None the target will be determined by the queue or use 
+      A url as a string for the given target or None if target contains the
+        AppScale login ip because the Task did not specify a target. If this
+        method returns None the target will be determined by the queue or use
         the current running version and module.
     """
     if not TARGET_REGEX.match(host):
@@ -710,7 +710,7 @@ class DistributedTaskQueue():
              port=self.get_module_port(app_id, target_info))
 
   def get_module_port(self, app_id, target_info):
-    """ Gets the port for the desired version and module or uses the current 
+    """ Gets the port for the desired version and module or uses the current
     running version and module.
     
     Args:
