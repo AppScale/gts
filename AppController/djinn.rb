@@ -140,6 +140,10 @@ DESIRED_LOAD = 0.8
 MIN_LOAD_THRESHOLD = 0.7
 
 
+# The number of seconds to wait for an AppServer instance to start.
+START_APP_TIMEOUT = 180
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -528,7 +532,6 @@ class Djinn
     'azure_storage_account' => [ String, nil, false ],
     'azure_group_tag' => [ String, nil, false ],
     'appengine' => [ Fixnum, '2', true ],
-    'appserver_timeout' => [ Fixnum, '180', true ],
     'autoscale' => [ TrueClass, 'True', true ],
     'client_secrets' => [ String, nil, false ],
     'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
@@ -4879,7 +4882,7 @@ HOSTS
     # If an instance has not been registered in time, allow it to be removed.
     expired_appservers = []
     @pending_appservers.each { |instance_key, start_time|
-      if Time.new > start_time + Integer(@options['appserver_timeout'])
+      if Time.new > start_time + START_APP_TIMEOUT
         expired_appservers << instance_key
       end
     }
