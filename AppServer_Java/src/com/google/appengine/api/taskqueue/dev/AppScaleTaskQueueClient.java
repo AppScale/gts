@@ -40,6 +40,8 @@ public class AppScaleTaskQueueClient {
     private final int MAX_CONNECTIONS_PER_ROUTE_LOCALHOST = 80;
     private final int INPUT_STREAM_SIZE = 10240;
     private final String APPDATA_HEADER = "AppData";
+    private final String MODULE_HEADER = "Module";
+    private final String VERSION_HEADER = "Version";
     private final String SERVICE_NAME = "taskqueue";
     private final String PROTOCOL_BUFFER_HEADER = "ProtocolBufferType";
     private final String PROTOCOL_BUFFER_VALUE = "Request";
@@ -156,8 +158,8 @@ public class AppScaleTaskQueueClient {
         post.addHeader(PROTOCOL_BUFFER_HEADER, PROTOCOL_BUFFER_VALUE);
         String tag = getAppId();
         post.addHeader(APPDATA_HEADER, tag);
-        post.addHeader("Module", System.getProperty("MODULE"));
-        post.addHeader("Version", System.getProperty("VERSION"));
+        post.addHeader(MODULE_HEADER, System.getProperty("MODULE"));
+        post.addHeader(VERSION_HEADER, System.getProperty("VERSION"));
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
         try {
             bao.write(request.toByteArray());
