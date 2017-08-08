@@ -31,6 +31,7 @@ setup(
   ],
   namespace_packages=['appscale'],
   packages=['appscale',
-            'appscale.admin'],
+            'appscale.admin',
+            'appscale.admin.instance_manager'],
   entry_points={'console_scripts': ['appscale-admin=appscale.admin:main']}
 )
