@@ -4424,13 +4424,9 @@ HOSTS
 
   # This function performs basic setup ahead of starting the API services.
   def initialize_server()
-    if not HAProxy.is_running?
-      HAProxy.initialize_config()
-      HAProxy.start()
-      Djinn.log_info("HAProxy configured and started.")
-    else
-      Djinn.log_info("HAProxy already configured.")
-    end
+    HAProxy.initialize_config
+    Djinn.log_info("HAProxy configured.")
+
     if not Nginx.is_running?
       Nginx.initialize_config()
       Nginx.start()
