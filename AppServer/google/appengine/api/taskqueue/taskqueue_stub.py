@@ -1888,7 +1888,7 @@ class _TaskExecutor(object):
       response = dispatcher.add_request(method, task.url(), headers,
                                         task.body() if task.has_body() else '',
                                         '0.1.0.2')
-    except request_info.ServerDoesNotExistError:
+    except request_info.ModuleDoesNotExistError:
       logging.exception('Failed to dispatch task')
       return 0
     return int(response.status.split(' ', 1)[0])

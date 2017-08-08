@@ -20,24 +20,24 @@ var DEFAULT_PYTHON_SOURCE_ = 'import os\n' +
  * @private
  */
 var SERVER_NAME_TO_RUNTIME_NAME_ = {
-{% for server in servers %}
-  '{{ server.name }}': '{{ server.server_configuration.runtime }}',
+{% for module in modules %}
+  '{{ module.name }}': '{{ module.module_configuration.runtime }}',
 {% endfor %}
 };
 
 /**
- * Return the interactive code for the given server. This code is saved using
+ * Return the interactive code for the given module. This code is saved using
  * HTML localStorage and is unique per application.
- * @param {string} serverName The name of the server whose code should be
+ * @param {string} moduleName The name of the module whose code should be
  *     returned.
- * @return {string} The code for the given server. If no code was previously
- *     saved for this server then some example code is returned.
+ * @return {string} The code for the given module. If no code was previously
+ *     saved for this module then some example code is returned.
  */
-function getCode(serverName) {
-  var text = localStorage.getItem('{{ app_id }}:' + serverName);
+function getCode(moduleName) {
+  var text = localStorage.getItem('{{ app_id }}:' + moduleName);
   if (text == null) {
-    if (SERVER_NAME_TO_RUNTIME_NAME_[serverName] == 'python' ||
-        SERVER_NAME_TO_RUNTIME_NAME_[serverName] == 'python27') {
+    if (SERVER_NAME_TO_RUNTIME_NAME_[moduleName] == 'python' ||
+        SERVER_NAME_TO_RUNTIME_NAME_[moduleName] == 'python27') {
       return DEFAULT_PYTHON_SOURCE_;
     } else {
       return '';
@@ -47,13 +47,13 @@ function getCode(serverName) {
 }
 
 /**
- * Set the interactive code for the given server. This code is saved using
+ * Set the interactive code for the given module. This code is saved using
  * HTML localStorage and is unique per application.
- * @param {string} serverName The name of the server to save the code for.
+ * @param {string} moduleName The name of the module to save the code for.
  * @param {string} code The code to save.
  */
-function setCode(serverName, code) {
-  localStorage.setItem('{{ app_id }}:' + serverName, code);
+function setCode(moduleName, code) {
+  localStorage.setItem('{{ app_id }}:' + moduleName, code);
 }
 
 function enableExecuteButton() {
@@ -78,23 +78,23 @@ function disableRestartButton() {
 
 $(window).unload(function() {
   // Save the current code text.
-  setCode($('#server_name').val(), $('#code_text').val());
+  setCode($('#module_name').val(), $('#code_text').val());
 });
 
 $(document).ready(function() {
-  $('#server_name').data('previous_value', $('#server_name').val());
-  $('#code_text').val(getCode($('#server_name').val()));
+  $('#module_name').data('previous_value', $('#module_name').val());
+  $('#code_text').val(getCode($('#module_name').val()));
 
-  $('#server_name').change(function() {
+  $('#module_name').change(function() {
     var $this = $(this);
     setCode($this.data('previous_value'), $('#code_text').val());
     $('#code_text').val(getCode($this.val()));
-    $('#server_name').data('previous_value', $('#server_name').val());
+    $('#module_name').data('previous_value', $('#module_name').val());
   });
 
   $('#code_text').change(function() {
     // Save the current code text.
-    setCode($('#server_name').val(), $('#code_text').val());
+    setCode($('#module_name').val(), $('#code_text').val());
   });
 
   $('#restart_button').click(function() {
@@ -104,7 +104,7 @@ $(document).ready(function() {
 
     var request = $.ajax({
       url: '{{ request.uri }}/restart/' +
-           encodeURIComponent($('#server_name').val()),
+           encodeURIComponent($('#module_name').val()),
       type: 'POST'
     })
     .done(function(data) {
@@ -125,7 +125,7 @@ $(document).ready(function() {
     disableExecuteButton();
 
     var data = {'code': $('#code_text').val(),
-                'server_name': $('#server_name').val(),
+                'module_name': $('#module_name').val(),
                 'xsrf_token': '{{ xsrf_token }}'};
 
     var request = $.ajax({

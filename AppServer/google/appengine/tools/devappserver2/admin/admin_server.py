@@ -33,9 +33,9 @@ from google.appengine.tools.devappserver2.admin import datastore_stats_handler
 from google.appengine.tools.devappserver2.admin import datastore_viewer
 from google.appengine.tools.devappserver2.admin import mail_request_handler
 from google.appengine.tools.devappserver2.admin import memcache_viewer
+from google.appengine.tools.devappserver2.admin import modules_handler
 from google.appengine.tools.devappserver2.admin import quit_handler
 from google.appengine.tools.devappserver2.admin import search_handler
-from google.appengine.tools.devappserver2.admin import servers_handler
 from google.appengine.tools.devappserver2.admin import static_file_handler
 from google.appengine.tools.devappserver2.admin import taskqueue_queues_handler
 from google.appengine.tools.devappserver2.admin import taskqueue_tasks_handler
@@ -78,7 +78,7 @@ class AdminApplication(webapp2.WSGIApplication):
          ('/search/document', search_handler.SearchDocumentHandler),
          ('/search/index', search_handler.SearchIndexHandler),
          ('/assets/(.+)', static_file_handler.StaticFileHandler),
-         ('/instances', servers_handler.ServersHandler),
+         ('/instances', modules_handler.ModulesHandler),
          webapp2.Route('/',
                        webapp2.RedirectHandler,
                        defaults={'_uri': '/datastore'})],

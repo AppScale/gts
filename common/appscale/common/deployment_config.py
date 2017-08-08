@@ -2,14 +2,12 @@ import json
 import logging
 import time
 
-from kazoo.client import KazooClient
 from kazoo.client import KazooException
 from kazoo.client import KazooState
 from kazoo.client import NoNodeError
 from kazoo.exceptions import ZookeeperError
 from threading import Lock
 
-from .constants import SMALL_WAIT
 from .constants import TINY_WAIT
 
 
@@ -29,24 +27,66 @@ class ConfigStates(object):
   LOADED = 'loaded'
 
 
+class DeploymentConfigSection(object):
+  """ Keeps track of a section of configuration data. """
+  def __init__(self, zk_client, section):
+    """ Creates a new DeploymentConfigSection.
+
+    Args:
+      zk_client: A KazooClient.
+      section: A string specifying a configuration section name.
+    """
+    self.logger = logging.getLogger(self.__class__.__name__)
+    self.zk_client = zk_client
+    self.section_name = section
+    self.data = {}
+    self._stopped = False
+
+    self.section_node = '/appscale/config/{}'.format(section)
+    self.watch = zk_client.DataWatch(self.section_node, self._update_section)
+
+  def ensure_watch(self):
+    """ Restart the watch if it has been cancelled. """
+    if self._stopped:
+      self._stopped = False
+      self.watch = self.zk_client.DataWatch(self.section_node,
+                                            self._update_section)
+
+  def _update_section(self, section_data, _):
+    """ Updates the configuration data when the section node gets updated.
+
+    Args:
+      section_data: A JSON string specifying configuration data.
+    """
+    # If the section no longer exists, stop watching it.
+    if section_data is None:
+      self._stopped = True
+      return False
+
+    try:
+      self.data = json.loads(section_data)
+    except ValueError:
+      self.logger.error('Invalid deployment config for {}: {}'.format(
+        self.section_name, section_data))
+
+
 class DeploymentConfig(object):
   """ Accesses deployment configuration options. """
   # The ZooKeeper node where configuration is stored.
   CONFIG_ROOT = '/appscale/config'
 
-  def __init__(self, hosts):
+  def __init__(self, zk_client):
     """ Creates new DeploymentConfig object.
 
     Args:
-      hosts: A list of ZooKeeper hosts.
+      zk_client: A KazooClient.
     """
     self.logger = logging.getLogger(self.__class__.__name__)
     self.update_lock = Lock()
     self.state = ConfigStates.LOADING
     self.config = {}
-    self.conn = KazooClient(hosts=hosts, read_only=True)
+    self.conn = zk_client
     self.conn.add_listener(self._conn_listener)
-    self.conn.start()
     self.conn.ensure_path(self.CONFIG_ROOT)
     self.conn.ChildrenWatch(self.CONFIG_ROOT, func=self._update_config)
 
@@ -96,17 +136,19 @@ class DeploymentConfig(object):
     with self.update_lock:
       self.state = ConfigStates.LOADING
 
-      # Ensure old sections are removed.
-      self.config = {}
+      # Remove configuration sections that no longer exist.
+      to_remove = [section for section in self.config
+                   if section not in children]
+      for section_name in to_remove:
+        del self.config[section_name]
 
+      # Add new configuration sections.
       for child in children:
-        while True:
-          try:
-            self.config[child] = self._load_child(child)
-            break
-          except ConfigInaccessible as load_error:
-            self.logger.warning(str(load_error))
-            time.sleep(SMALL_WAIT)
+        if child not in self.config:
+          self.config[child] = DeploymentConfigSection(self.conn, child)
+
+        # Handle changes that happen between watches.
+        self.config[child].ensure_watch()
 
       self.logger.info('Deployment configuration updated')
       self.state = ConfigStates.LOADED
@@ -132,7 +174,7 @@ class DeploymentConfig(object):
     with self.update_lock:
       if section not in self.config:
         return {}
-      return self.config[section]
+      return self.config[section].data
 
   def close(self):
     """ Close the ZooKeeper connection. """

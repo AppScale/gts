@@ -66,11 +66,11 @@ def check_for_updates(application_configuration):
   Args:
     application_configuration: The
         application_configuration.ApplicationConfiguration for the application.
-        Used to check if the api_versions used by the servers are supported by
+        Used to check if the api_versions used by the modules are supported by
         the SDK.
 
   Raises:
-    SystemExit: if the api_version used by a server is not supported by the
+    SystemExit: if the api_version used by a module is not supported by the
         SDK.
   """
   update_server = appengine_rpc.HttpRpcServer(
@@ -83,9 +83,9 @@ def check_for_updates(application_configuration):
 
   # TODO: Update check needs to be refactored so the api_version for
   # all runtimes can be checked without generating duplicate nag messages.
-  if application_configuration.servers:
+  if application_configuration.modules:
     update_check = sdk_update_checker.SDKUpdateChecker(
-        update_server, application_configuration.servers)
+        update_server, application_configuration.modules)
     update_check.CheckSupportedVersion()  # Can raise SystemExit.
     if update_check.AllowedToCheckForUpdates():
       update_check.CheckForUpdates()

@@ -56,7 +56,7 @@ UNPACK_ROOT = os.path.join('/', 'var', 'apps')
 DEFAULT_PORT = 17442
 
 # The default version for a service.
-DEFAULT_VERSION = 'default'
+DEFAULT_VERSION = 'v1'
 
 # The default service.
 DEFAULT_SERVICE = 'default'
@@ -72,6 +72,12 @@ REDEPLOY_WAIT = 20
 
 # A list of projects that cannot be modified by users.
 IMMUTABLE_PROJECTS = [DASHBOARD_APP_ID]
+
+# The directory where source archives are stored.
+SOURCES_DIRECTORY = os.path.join('/', 'opt', 'appscale', 'apps')
+
+# The character used to separate portions of a complete version string.
+VERSION_PATH_SEPARATOR = '_'
 
 # The ZooKeeper location for storing version details.
 VERSION_NODE_TEMPLATE = ('/appscale/projects/{project_id}'

@@ -297,6 +297,7 @@ installgems()
     gem install soap4r-ng ${GEMOPT}
     gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
+    gem install posixpsutil ${GEMOPT}
     # This is for the unit testing framework.
     gem install simplecov ${GEMOPT}
 }
@@ -334,10 +335,10 @@ installsolr()
 
 installcassandra()
 {
-    CASSANDRA_VER=3.7
+    CASSANDRA_VER=3.11.0
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    CASSANDRA_PACKAGE_MD5="39968c48cbb2a333e525f852db59fb48"
+    CASSANDRA_PACKAGE_MD5="96c72922df1170b4b5dec81b27d451fa"
     cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
     # Remove old Cassandra environment directory.

@@ -53,7 +53,6 @@ from google.appengine.api.prospective_search import prospective_search_stub
 from google.appengine.api.memcache import memcache_distributed # AS
 from google.appengine.api.modules import modules_stub
 from google.appengine.api.remote_socket import _remote_socket_stub
-from google.appengine.api.servers import servers_stub
 from google.appengine.api.system import system_stub
 from google.appengine.api.xmpp import xmpp_service_real # AS
 from google.appengine.datastore import datastore_sqlite_stub
@@ -370,10 +369,6 @@ def setup_stubs(
   apiproxy_stub_map.apiproxy.RegisterStub(
       'modules',
       modules_stub.ModulesServiceStub(request_data))
-
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'servers',
-      servers_stub.ServersServiceStub(request_data))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'system',

@@ -44,7 +44,7 @@ class _PHPEnvironmentError(Exception):
 
 
 class _BadPHPEnvironmentRuntimeProxy(instance.RuntimeProxy):
-  """Servers an error page describing the problem with the user's PHP setup."""
+  """Serves an error page describing the problem with the user's PHP setup."""
 
   def __init__(self, php_executable_path, problem_description):
     self._php_executable_path = php_executable_path
@@ -107,7 +107,7 @@ class PHPRuntimeInstanceFactory(instance.InstanceFactory):
       login='admin')
   FILE_CHANGE_INSTANCE_RESTART_POLICY = instance.NEVER
 
-  def __init__(self, request_data, runtime_config_getter, server_configuration):
+  def __init__(self, request_data, runtime_config_getter, module_configuration):
     """Initializer for PHPRuntimeInstanceFactory.
 
     Args:
@@ -116,14 +116,14 @@ class PHPRuntimeInstanceFactory(instance.InstanceFactory):
       runtime_config_getter: A function that can be called without arguments
           and returns the runtime_config_pb2.Config containing the configuration
           for the runtime.
-      server_configuration: An application_configuration.ServerConfiguration
-          instance respresenting the configuration of the server that owns the
+      module_configuration: An application_configuration.ModuleConfiguration
+          instance respresenting the configuration of the module that owns the
           runtime.
     """
     super(PHPRuntimeInstanceFactory, self).__init__(
         request_data, 8 if runtime_config_getter().threadsafe else 1)
     self._runtime_config_getter = runtime_config_getter
-    self._server_configuration = server_configuration
+    self._module_configuration = module_configuration
     self._bad_environment_proxy = None
 
   @staticmethod
@@ -171,7 +171,7 @@ class PHPRuntimeInstanceFactory(instance.InstanceFactory):
     """Create and return a new Instance.
 
     Args:
-      instance_id: A string or integer representing the unique (per server) id
+      instance_id: A string or integer representing the unique (per module) id
           of the instance.
       expect_ready_request: If True then the instance will be sent a special
           request (i.e. /_ah/warmup or /_ah/start) before it can handle external
@@ -204,7 +204,7 @@ class PHPRuntimeInstanceFactory(instance.InstanceFactory):
     if proxy is None:
       proxy = http_runtime.HttpRuntimeProxy(_RUNTIME_ARGS,
                                             instance_config_getter,
-                                            self._server_configuration)
+                                            self._module_configuration)
     return instance.Instance(self.request_data,
                              instance_id,
                              proxy,
