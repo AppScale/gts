@@ -208,16 +208,16 @@ class ProjectManager(dict):
     main_io_loop.add_callback(self.update_services, new_services_list)
 
 
-class ProjectsManager(dict):
+class GlobalProjectsManager(dict):
   """ Keeps track of projects. """
   def __init__(self, zk_client, callback=None):
-    """ Creates a new ProjectsManager.
+    """ Creates a new GlobalProjectsManager.
 
     Args:
       zk_client: A KazooClient.
       callback: A function to call whenever a version is updated.
     """
-    super(ProjectsManager, self).__init__()
+    super(GlobalProjectsManager, self).__init__()
     self.zk_client = zk_client
     self.callback = callback
 

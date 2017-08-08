@@ -32,7 +32,8 @@ from appscale.admin.instance_manager.constants import (
   LOGROTATE_CONFIG_DIR,
   MONIT_INSTANCE_PREFIX
 )
-from appscale.admin.instance_manager.projects_manager import ProjectsManager
+from appscale.admin.instance_manager.projects_manager import (
+  GlobalProjectsManager)
 from appscale.common import (
   appscale_info,
   constants,
@@ -94,7 +95,7 @@ MAX_INSTANCE_RESPONSE_TIME = 600
 # A DeploymentConfig accessor.
 deployment_config = None
 
-# A ProjectsManager watch.
+# A GlobalProjectsManager watch.
 projects_manager = None
 
 # An interface for working with Monit.
@@ -837,7 +838,7 @@ if __name__ == "__main__":
   zk_client = KazooClient(hosts=','.join(zk_ips))
   zk_client.start()
   deployment_config = DeploymentConfig(zk_client)
-  projects_manager = ProjectsManager(zk_client)
+  projects_manager = GlobalProjectsManager(zk_client)
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('login_ip', appscale_info.get_login_ip())
