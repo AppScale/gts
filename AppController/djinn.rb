@@ -4006,6 +4006,9 @@ class Djinn
     ssh_key = dest_node.ssh_key
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
 
+    # Ensure we don't have an old host key for this host.
+    Djinn.log_run("ssh-keygen -f '~/.ssh/known_hosts' -R #{ip}")
+
     # Get the username to use for ssh (depends on environments).
     if ["ec2", "euca"].include?(@options['infrastructure'])
       # Add deployment key to remote instance's authorized_keys.
