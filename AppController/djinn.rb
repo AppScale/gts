@@ -140,6 +140,10 @@ DESIRED_LOAD = 0.8
 MIN_LOAD_THRESHOLD = 0.7
 
 
+# The number of seconds to wait for an AppServer instance to start.
+START_APP_TIMEOUT = 180
+
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -521,7 +525,6 @@ class Djinn
     'azure_storage_account' => [ String, nil, false ],
     'azure_group_tag' => [ String, nil, false ],
     'appengine' => [ Fixnum, '2', true ],
-    'appserver_timeout' => [ Fixnum, '180', true ],
     'autoscale' => [ TrueClass, 'True', true ],
     'client_secrets' => [ String, nil, false ],
     'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
@@ -614,10 +617,8 @@ class Djinn
     @last_updated = 0
     @state_change_lock = Monitor.new()
 
-    # Keeps track of unaccounted AppServers. To prevent terminating instances
-    # that are in the process of starting, we wait three duty cycles before
-    # stopping them.
-    @unaccounted = {}
+    # Keeps track of started instances that have not been registered yet.
+    @pending_appservers = {}
 
     @initialized_apps = {}
     @total_req_seen = {}
@@ -3998,6 +3999,9 @@ class Djinn
     ssh_key = dest_node.ssh_key
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
 
+    # Ensure we don't have an old host key for this host.
+    Djinn.log_run("ssh-keygen -f '~/.ssh/known_hosts' -R #{ip}")
+
     # Get the username to use for ssh (depends on environments).
     if ["ec2", "euca"].include?(@options['infrastructure'])
       # Add deployment key to remote instance's authorized_keys.
@@ -4413,13 +4417,9 @@ HOSTS
 
   # This function performs basic setup ahead of starting the API services.
   def initialize_server()
-    if not HAProxy.is_running?
-      HAProxy.initialize_config()
-      HAProxy.start()
-      Djinn.log_info("HAProxy configured and started.")
-    else
-      Djinn.log_info("HAProxy already configured.")
-    end
+    HAProxy.initialize_config
+    Djinn.log_info("HAProxy configured.")
+
     if not Nginx.is_running?
       Nginx.initialize_config()
       Nginx.start()
@@ -4811,6 +4811,25 @@ HOSTS
       return
     end
 
+    # Registered instances are no longer pending.
+    @app_info_map.each { |app, info|
+      info['appengine'].each { |location|
+        _, port = location.split(':')
+        @pending_appservers.delete("#{app}:#{port}")
+      }
+    }
+
+    # If an instance has not been registered in time, allow it to be removed.
+    expired_appservers = []
+    @pending_appservers.each { |instance_key, start_time|
+      if Time.new > start_time + START_APP_TIMEOUT
+        expired_appservers << instance_key
+      end
+    }
+    expired_appservers.each { |instance_key|
+      @pending_appservers.delete(instance_key)
+    }
+
     to_start = []
     no_appservers = []
     my_apps = []
@@ -4825,6 +4844,11 @@ HOSTS
         # need to do work only if we have AppServers.
         next unless info['appengine']
 
+        pending_count = 0
+        @pending_appservers.each { |instance_key, _|
+          pending_count += 1 if instance_key.split(':')[0] == app
+        }
+
         if info['appengine'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
           Djinn.log_debug("Checking #{app} with #{info['appengine'].length} AppServers.")
         else
@@ -4835,7 +4859,12 @@ HOSTS
           next if @my_private_ip != host
 
           if Integer(port) < 0
-            no_appservers << app
+            # Start a new instance unless there is one pending.
+            if pending_count > 0
+              pending_count -= 1
+            else
+              no_appservers << app
+            end
           elsif not MonitInterface.is_running?("#{app}-#{port}")
             Djinn.log_warn("Didn't find the AppServer for #{app} at port #{port}.")
             to_end << "#{app}:#{port}"
@@ -4856,7 +4885,6 @@ HOSTS
         to_start << app if x == app
       }
       no_appservers.delete(app)
-      @unaccounted.delete(appserver)
     }
     Djinn.log_debug("Running AppServers on this node: #{my_apps}.") unless my_apps.empty?
 
@@ -4866,28 +4894,13 @@ HOSTS
       # Nothing to do if we already account for this AppServer.
       next if my_apps.include?(appengine)
 
-      # Here we have an AppServer which is not listed in @app_info_map. We
-      # have 2 options: it may be coming up and it's not registered yet,
-      # or it has been terminated. In either case, we give a grace period
-      # and then we terminate it. The time needs to be at least
-      # 'appserver_timeout' for termination.
-      app, _ = appengine.split(":")
-      if @unaccounted[appengine].nil?
-        Djinn.log_debug("Found unaccounted AppServer #{appengine} for #{app}.")
-        @unaccounted[appengine] = Time.now.to_i
-      end
-      been_here = Time.now.to_i - @unaccounted[appengine]
-      if been_here > Integer(@options['appserver_timeout']) * 2
-        Djinn.log_debug("AppServer #{appengine} for #{app} timed out.")
-      end
-      if to_start.include?(app) && been_here < DUTY_CYCLE * 3
-        Djinn.log_debug("Ignoring request for #{app} since we have pending AppServers.")
-        to_start.delete(app)
-        no_appservers.delete(app)
-      else
-        to_end << appengine
-      end
+      # Give pending instances more time to start.
+      next if @pending_appservers.key?(appengine)
+
+      # If the unaccounted instance is not pending, stop it.
+      to_end << appengine
     }
+
     Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
     Djinn.log_debug("AppServers to start: #{to_start}.") unless to_start.empty?
     Djinn.log_debug("AppServers to terminate: #{to_end}.") unless to_end.empty?
@@ -4931,7 +4944,6 @@ HOSTS
             Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
             app, port = to_end.shift.split(":")
             ret = remove_appserver_process(app, port)
-            @unaccounted.delete(to_end[0])
             Djinn.log_debug("remove_appserver_process returned: #{ret}.")
           end
         end
@@ -5822,6 +5834,7 @@ HOSTS
       app_manager.start_app(app, appengine_port, login_ip,
         app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
         get_shadow.private_ip)
+      @pending_appservers["#{app}:#{appengine_port}"] = Time.new
       Djinn.log_info("Done adding AppServer for #{app}.")
     rescue FailedNodeException => error
       Djinn.log_warn(
