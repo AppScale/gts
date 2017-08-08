@@ -89,11 +89,11 @@ _EXPIRATION_CONVERSIONS = {
 
 
 APP_ID_MAX_LEN = 100
-SERVER_ID_MAX_LEN = 63
+MODULE_ID_MAX_LEN = 63
 
 
 
-SERVER_VERSION_ID_MAX_LEN = 63
+MODULE_VERSION_ID_MAX_LEN = 63
 MAX_URL_MAPS = 100
 
 
@@ -106,10 +106,10 @@ DOMAIN_SEPARATOR = ':'
 VERSION_SEPARATOR = '.'
 
 
-SERVER_SEPARATOR = ':'
+MODULE_SEPARATOR = ':'
 
 
-DEFAULT_SERVER = 'default'
+DEFAULT_MODULE = 'default'
 
 
 
@@ -123,15 +123,15 @@ APPLICATION_RE_STRING = (r'(?:%s)?(?:%s)?%s' %
                           DOMAIN_RE_STRING,
                           DISPLAY_APP_ID_RE_STRING))
 
-SERVER_ID_RE_STRING = r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' % (SERVER_ID_MAX_LEN - 1)
+MODULE_ID_RE_STRING = r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' % (MODULE_ID_MAX_LEN - 1)
 
 
 
 
 
 
-SERVER_VERSION_ID_RE_STRING = (r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' %
-                               (SERVER_VERSION_ID_MAX_LEN - 1))
+MODULE_VERSION_ID_RE_STRING = (r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' %
+                               (MODULE_VERSION_ID_MAX_LEN - 1))
 
 _IDLE_INSTANCES_REGEX = r'^([\d]+|automatic)$'
 _INSTANCES_REGEX = r'^[\d]+$'
@@ -207,7 +207,7 @@ APPLICATION_READABLE = 'application_readable'
 
 
 APPLICATION = 'application'
-SERVER = 'server'
+MODULE = 'module'
 AUTOMATIC_SCALING = 'automatic_scaling'
 MANUAL_SCALING = 'manual_scaling'
 BASIC_SCALING = 'basic_scaling'
@@ -1447,8 +1447,8 @@ class AppInfoExternal(validation.Validated):
 
 
       APPLICATION: APPLICATION_RE_STRING,
-      SERVER: validation.Optional(SERVER_ID_RE_STRING),
-      VERSION: validation.Optional(SERVER_VERSION_ID_RE_STRING),
+      MODULE: validation.Optional(MODULE_ID_RE_STRING),
+      VERSION: validation.Optional(MODULE_VERSION_ID_RE_STRING),
       RUNTIME: RUNTIME_RE_STRING,
 
 
@@ -1722,6 +1722,9 @@ def LoadSingleAppInfo(app_info):
       appyaml.vm_settings['vm_runtime'] = appyaml.runtime
       appyaml.runtime = 'vm'
 
+  # AppScale: Ensure that each module has only one version.
+  appyaml.version = 'v1'
+
   return appyaml
 
 
@@ -1738,7 +1741,7 @@ class AppInfoSummary(validation.Validated):
 
   ATTRIBUTES = {
       APPLICATION: APPLICATION_RE_STRING,
-      MAJOR_VERSION: SERVER_VERSION_ID_RE_STRING,
+      MAJOR_VERSION: MODULE_VERSION_ID_RE_STRING,
       MINOR_VERSION: validation.TYPE_LONG
   }
 

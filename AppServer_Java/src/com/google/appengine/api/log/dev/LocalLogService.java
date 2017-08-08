@@ -220,35 +220,6 @@ public class LocalLogService extends AbstractLocalRpcService
     line.setLevel(level);
     line.setLogMessage(message);
 
-    // Send the log to the Admin Console for later viewing
-    HashMap<String, Object> logHash = new HashMap<String, Object>();
-    logHash.put("timestamp", time / 1e6);
-    logHash.put("level", level);
-    logHash.put("message", message);
-    HashMap<String, Object>[] logList = new HashMap[1];
-    logList[0] = logHash;
-
-    Gson gson = new Gson();
-    HashMap<String, Object> data = new HashMap<String, Object>();
-    data.put("service_name", System.getProperty("APPLICATION_ID"));
-    data.put("logs", logList);
-    data.put("host", System.getProperty("MY_IP_ADDRESS"));
-
-    try {
-        String jsonData = gson.toJson(data);
-        URL url = new URL("https://" + System.getProperty("LOGIN_SERVER") + ":1443/logs/upload");
-        HTTPRequest request = new HTTPRequest(url, HTTPMethod.POST);
-        request.setPayload(jsonData.getBytes());
-
-        URLFetchService fetcher = URLFetchServiceFactory.getURLFetchService();
-        fetcher.fetchAsync(request);
-    } catch (IOException e) {
-        System.out.println("[IOException] Failed to execute REST call to save log: " + e.getMessage());
-    } catch (CallNotFoundException e) {
-        // This is commented out because otherwise it floods the logs.
-        //System.out.println("[CallNotFoundException] Failed to execute REST call to save log: " + e.getMessage());
-    }
-
     LogServicePb.RequestLog log = findLogInLogMapOrAddNewLog(requestId);
     log.addLine(line);
   }

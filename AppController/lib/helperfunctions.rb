@@ -3,7 +3,7 @@
 
 # Imports within Ruby's standard libraries
 require 'base64'
-require 'digest/sha1'
+require 'digest'
 require 'fileutils'
 require 'net/http'
 require 'openssl'
@@ -443,9 +443,13 @@ module HelperFunctions
   #
   # Args:
   #   tar_gz_location: The location on the local filesystem where the tarball is.
+  #   md5: The MD5 digest of the tarball.
   # Returns:
   #   true  if the tarball is correct, false otherwise.
-  def self.check_tarball(tar_gz_location)
+  def self.check_tarball(tar_gz_location, md5)
+    local_md5 = Digest::MD5.file tar_gz_location
+    return false unless md5 == local_md5.hexdigest
+
     cmd = "tar -ztf #{tar_gz_location} > /dev/null 2> /dev/null"
     case system(cmd)
     when nil
@@ -489,7 +493,13 @@ module HelperFunctions
   def self.setup_app(app_name)
     meta_dir = get_app_path(app_name)
     tar_dir = "#{meta_dir}/app/"
-    tar_path = "/opt/appscale/apps/#{app_name}.tar.gz"
+    begin
+      version_details = ZKInterface.get_version_details(
+        app_name, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
+    rescue VersionNotFound => error
+      raise AppScaleException.new(error.message)
+    end
+    tar_path = version_details['deployment']['zip']['sourceUrl']
 
     self.shell("mkdir -p #{tar_dir}")
     self.shell("mkdir -p #{meta_dir}/log")
@@ -1066,7 +1076,15 @@ module HelperFunctions
   #   file can be found.
   def self.parse_java_static_data(app_name)
     # Verify that app_name is a Java app.
-    tar_gz_location = "/opt/appscale/apps/#{app_name}.tar.gz"
+    begin
+      version_details = ZKInterface.get_version_details(
+        app_name, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
+    rescue VersionNotFound => error
+      Djinn.log_error(error.message)
+      return []
+    end
+
+    tar_gz_location = version_details['deployment']['zip']['sourceUrl']
     unless self.app_has_config_file?(tar_gz_location)
       Djinn.log_warn("#{app_name} does not appear to be a Java app")
       return []

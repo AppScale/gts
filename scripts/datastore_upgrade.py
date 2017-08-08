@@ -151,16 +151,6 @@ def start_zookeeper(zk_ips, keyname):
   logging.info("Successfully started ZooKeeper.")
 
 
-def get_datastore():
-  """ Returns a reference to the batch datastore interface. Validates where
-  the <database>_interface.py is and adds that path to the system path.
-  """
-  db_info = appscale_info.get_db_info()
-  db_type = db_info[':table']
-  datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
-  return datastore_batch
-
-
 def get_zookeeper(zk_location_ips):
   """ Returns a handler for making ZooKeeper operations.
   Args:
@@ -357,17 +347,18 @@ def stop_zookeeper(zk_ips, keyname):
       logging.error('Unable to stop ZooKeeper on {}'.format(ip))
 
 
-def wait_for_quorum(keyname, db_nodes, replication):
+def wait_for_quorum(keyname, db_master, db_nodes, replication):
   """ Waits until enough Cassandra nodes are up for a quorum.
 
   Args:
     keyname: A string containing the deployment's keyname.
+    db_master: A string containing the IP address of the primary DB machine.
     db_nodes: An integer specifying the total number of DB nodes.
     replication: An integer specifying the keyspace replication factor.
   """
   command = cassandra_interface.NODE_TOOL + " " + 'status'
   key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
-  ssh_cmd = ['ssh', '-i', key_file, appscale_info.get_db_master_ip(), command]
+  ssh_cmd = ['ssh', '-i', key_file, db_master, command]
 
   # Determine the number of nodes needed for a quorum.
   if db_nodes < 1 or replication < 1:

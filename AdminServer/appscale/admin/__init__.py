@@ -3,17 +3,18 @@
 import argparse
 import json
 import logging
-import os
+import re
 import sys
 import time
 
 from appscale.common import appscale_info
 from appscale.common.constants import (
-  CONFIG_DIR,
   HTTPCodes,
   LOG_FORMAT,
   ZK_PERSISTENT_RECONNECTS
 )
+from appscale.common.monit_interface import MonitOperator
+from appscale.common.appscale_utils import get_md5
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -29,11 +30,14 @@ from tornado.escape import json_encode
 from tornado.ioloop import IOLoop
 from . import utils
 from . import constants
+from .appengine_api import UpdateQueuesHandler
+from .base_handler import BaseHandler
 from .constants import (
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
-  VALID_RUNTIMES
+  VALID_RUNTIMES,
+  VERSION_PATH_SEPARATOR
 )
 from .operation import (
   CreateVersionOperation,
@@ -41,6 +45,7 @@ from .operation import (
   UpdateVersionOperation
 )
 from .operations_cache import OperationsCache
+from .push_worker_manager import GlobalPushWorkerManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -138,40 +143,15 @@ def wait_for_delete(operation_id, http_port):
   operation.finish()
 
 
-class BaseHandler(web.RequestHandler):
-  """ A handler with helper functions that other handlers can extend. """
-  def authenticate(self):
-    """ Ensures requests are authenticated.
-
-    Raises:
-      CustomHTTPError if the secret is invalid.
-    """
-    if 'AppScale-Secret' not in self.request.headers:
-      message = 'A required header is missing: AppScale-Secret'
-      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=message)
-
-    if self.request.headers['AppScale-Secret'] != options.secret:
-      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
-
-  def write_error(self, status_code, **kwargs):
-    """ Writes a custom JSON-based error message.
-
-    Args:
-      status_code: An integer specifying the HTTP error code.
-    """
-    details = {'code': status_code}
-    if 'exc_info' in kwargs:
-      error = kwargs['exc_info'][1]
-      try:
-        details.update(error.kwargs)
-      except AttributeError:
-        pass
-
-    self.finish(json_encode({'error': details}))
-
-
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
+
+  # A rule for validating version IDs.
+  VERSION_ID_RE = re.compile(r'(?!-)[a-z\d\-]{1,100}')
+
+  # Reserved names for version IDs.
+  RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
+
   def initialize(self, acc, ua_client, zk_client, version_update_lock,
                  thread_pool):
     """ Defines required resources to handle requests.
@@ -237,9 +217,21 @@ class VersionsHandler(BaseHandler):
     if version['runtime'] in [constants.JAVA, constants.PYTHON27]:
       utils.assert_fields_in_resource(['threadsafe'], 'version', version)
 
+    version['id'] = str(version['id'])
+
+    # Prevent multiple versions per service.
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid version ID')
+
+    if not self.VERSION_ID_RE.match(version['id']):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid version ID')
+
+    for reserved_id in self.RESERVED_VERSION_IDS:
+      if re.match(reserved_id, version['id']):
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                              message='Reserved version ID')
 
     if 'basicScaling' in version or 'manualScaling' in version:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
@@ -382,28 +374,36 @@ class VersionsHandler(BaseHandler):
       message = 'Error while updating application: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
-  def identify_as_hoster(self, project_id, source_location):
+  @gen.coroutine
+  def identify_as_hoster(self, project_id, service_id, version):
     """ Marks this machine as having a version's source code.
 
     Args:
       project_id: A string specifying a project ID.
-      source_location: A string specifying the location of the version's
-        source archive.
+      service_id: A string specifying a service ID.
+      version: A dictionary containing version details.
     """
-    private_ip = appscale_info.get_private_ip()
-    hoster_node = '/apps/{}/{}'.format(project_id, private_ip)
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
+    hoster_node = '/apps/{}/{}'.format(revision_key, options.private_ip)
+    source_location = version['deployment']['zip']['sourceUrl']
 
+    md5 = yield self.thread_pool.submit(get_md5, source_location)
     try:
-      self.zk_client.create(hoster_node, str(source_location), ephemeral=True,
-                            makepath=True)
+      self.zk_client.create(hoster_node, md5, makepath=True)
     except NodeExistsError:
-      self.zk_client.set(hoster_node, str(source_location))
+      raise CustomHTTPError(
+        HTTPCodes.INTERNAL_ERROR, message='Revision already exists')
 
-    # Remove other hosters that have old code.
-    hosters = self.zk_client.get_children('/apps/{}'.format(project_id))
-    old_hosters = [hoster for hoster in hosters if hoster != private_ip]
-    for hoster in old_hosters:
-      self.zk_client.delete('/apps/{}/{}'.format(project_id, hoster))
+    # Remove old revision nodes.
+    version_prefix = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id']])
+    old_revisions = [node for node in self.zk_client.get_children('/apps')
+                     if node.startswith(version_prefix)
+                     and node < revision_key]
+    for node in old_revisions:
+      logging.info('Removing hosting entries for {}'.format(node))
+      self.zk_client.delete('/apps/{}'.format(node), recursive=True)
 
   @gen.coroutine
   def post(self, project_id, service_id):
@@ -426,15 +426,17 @@ class VersionsHandler(BaseHandler):
 
     self.ensure_user_is_owner(project_id, user)
 
-    source_path = version['deployment']['zip']['sourceUrl']
-
     try:
       utils.extract_source(version, project_id)
     except IOError:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='{} does not exist'.format(source_path))
+      message = '{} does not exist'.format(
+        version['deployment']['zip']['sourceUrl'])
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
-    self.identify_as_hoster(project_id, source_path)
+    new_path = utils.rename_source_archive(project_id, service_id, version)
+    version['deployment']['zip']['sourceUrl'] = new_path
+    yield self.identify_as_hoster(project_id, service_id, version)
+    utils.remove_old_archives(project_id, service_id, version)
 
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
@@ -592,10 +594,6 @@ class VersionHandler(BaseHandler):
 
     http_port = version['appscaleExtensions']['httpPort']
     https_port = version['appscaleExtensions']['httpsPort']
-    port_file_location = os.path.join(
-      CONFIG_DIR, 'port-{}.txt'.format(project_id))
-    with open(port_file_location, 'w') as port_file:
-      port_file.write(str(http_port))
 
     try:
       self.ua_client.add_instance(project_id, options.login_ip, http_port,
@@ -723,6 +721,7 @@ def main():
 
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
+  options.define('private_ip', appscale_info.get_private_ip())
 
   acc = appscale_info.get_appcontroller_client()
   ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
@@ -732,6 +731,7 @@ def main():
   zk_client.start()
   version_update_lock = zk_client.Lock(constants.VERSION_UPDATE_LOCK_NODE)
   thread_pool = ThreadPoolExecutor(4)
+  monit_operator = MonitOperator()
   all_resources = {
     'acc': acc,
     'ua_client': ua_client,
@@ -740,12 +740,17 @@ def main():
     'thread_pool': thread_pool
   }
 
+  if options.private_ip in appscale_info.get_taskqueue_nodes():
+    logging.info('Starting push worker manager')
+    GlobalPushWorkerManager(zk_client, monit_operator)
+
   app = web.Application([
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
      VersionHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
+    ('/api/queue/update', UpdateQueuesHandler, {'zk_client': zk_client})
   ])
   logging.info('Starting AdminServer')
   app.listen(args.port)

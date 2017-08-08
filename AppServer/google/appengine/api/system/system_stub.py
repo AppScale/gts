@@ -83,7 +83,7 @@ class SystemServiceStub(apiproxy_stub.APIProxyStub):
     background_request_id = '%x' % random.randrange(1 << 64)
     try:
       self.request_data.get_dispatcher().send_background_request(
-          self.request_data.get_server(request_id),
+          self.request_data.get_module(request_id),
           self.request_data.get_version(request_id),
           self.request_data.get_instance(request_id),
           background_request_id)

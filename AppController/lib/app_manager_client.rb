@@ -1,26 +1,14 @@
 #!/usr/bin/ruby -w
 
-require 'base64'
-require 'openssl'
-require 'soap/rpc/driver'
-require 'timeout'
+require 'json'
+require 'net/http'
 require 'helperfunctions'
 
-require 'rubygems'
-require 'json'
-
-# Number of seconds to wait before timing out when doing a SOAP call.
-# This number should be higher than the maximum time required for remote calls
-# to properly execute (i.e., starting a process may take more than 2 minutes).
+# Number of seconds to wait before timing out when making a call to the
+# AppManager. Starting a process may take more than 2 minutes.
 MAX_TIME_OUT = 180
 
-# This is transitional glue code as we shift from ruby to python. The 
-# AppManager is written in python and hence we use a SOAP client to communicate
-# between the two services.
 class AppManagerClient
-
-  # The connection to use and IP to connect to
-  attr_reader :conn, :ip
 
   # The port that the AppManager binds to, by default.
   SERVER_PORT = 17445
@@ -28,47 +16,23 @@ class AppManagerClient
   # Initialization function for AppManagerClient
   def initialize(ip)
     @ip = ip
-
-    @conn = SOAP::RPC::Driver.new("http://#{@ip}:#{SERVER_PORT}")
-    @conn.options["protocol.http.connect_timeout"] = MAX_TIME_OUT
-    @conn.options["protocol.http.send_timeout"] = MAX_TIME_OUT
-    @conn.options["protocol.http.receive_timeout"] = MAX_TIME_OUT
-    @conn.add_method("start_app", "config")
-    @conn.add_method("stop_app", "app_name")
-    @conn.add_method("stop_app_instance", "app_name", "port")
   end
 
-  # Check the comments in AppController/lib/app_controller_client.rb.
-  def make_call(time, retry_on_except, callr)
+  def make_call(request, uri)
     begin
-      Timeout.timeout(time) {
-        begin
-          yield if block_given?
-        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
-          OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
-          Errno::ECONNRESET, SOAP::EmptyResponseError, StandardError => e
-          if retry_on_except
-            Kernel.sleep(1)
-            Djinn.log_debug("[#{callr}] exception in make_call to " +
-              "#{@ip}:#{SERVER_PORT}. Exception class: #{e.class}. Retrying...")
-            retry
-          else
-            trace = e.backtrace.join("\n")
-            Djinn.log_warn("Exception encountered while talking to " +
-              "#{@ip}:#{SERVER_PORT}.\n#{trace}")
-            raise FailedNodeException.new("Exception #{e.class}:#{e.message} encountered " +
-              "while talking to #{@ip}:#{SERVER_PORT}.")
-          end
-        end
-      }
-    rescue Timeout::Error
-      Djinn.log_warn("[#{callr}] SOAP call to #{@ip} timed out")
-      raise FailedNodeException.new("Time out talking to #{@ip}:#{SERVER_PORT}")
+      response = Net::HTTP.start(uri.hostname, uri.port,
+                                 :read_timeout => MAX_TIME_OUT) do |http|
+        http.request(request)
+      end
+      if response.code != '200'
+        raise FailedNodeException.new("AppManager error: #{response.body}")
+      end
+    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT
+      raise FailedNodeException.new("Call to AppManager timed out")
     end
   end
 
-  # Wrapper for SOAP call to the AppManager to start an process instance of
-  # an application server.
+  # Starts an AppServer instance with the AppManager.
   #
   # Args:
   #   app_name: Name of the application
@@ -81,12 +45,6 @@ class AppManagerClient
   #   max_memory: An Integer that names the maximum amount of memory (in
   #     megabytes) that should be used for this App Engine app.
   #   syslog_server: The IP address of the remote syslog server to use.
-  # Returns:
-  #   The PID of the process started
-  # Note:
-  #   We currently send hashes over in SOAP using json because
-  #   of incompatibilities between SOAP mappings from ruby to python.
-  #   As we convert over to python we should use native dictionaries.
   #
   def start_app(app_name,
                 app_port,
@@ -95,51 +53,40 @@ class AppManagerClient
                 env_vars,
                 max_memory=500,
                 syslog_server="")
-    config = {'app_name' => app_name,
-              'app_port' => app_port,
+    config = {'app_port' => app_port,
               'login_ip' => login_ip,
               'language' => language,
               'env_vars' => env_vars,
               'max_memory' => max_memory,
               'syslog_server' => syslog_server}
-    json_config = JSON.dump(config)
-    result = -1
-    make_call(MAX_TIME_OUT, false, "start_app") {
-      result = @conn.start_app(json_config)
-    }
-    return Integer(result)
+
+    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}")
+    headers = {'Content-Type' => 'application/json'}
+    request = Net::HTTP::Post.new(uri.path, headers)
+    request.body = JSON.dump(config)
+    make_call(request, uri)
   end
 
-  # Wrapper for SOAP call to the AppManager to stop an application
-  # process instance from the current host.
+  # Stops an AppServer instance with the AppManager.
   #
   # Args:
   #   app_name: The name of the application
   #   port: The port the process instance of the application is running
-  # Returns:
-  #   True on success, False otherwise
   #
   def stop_app_instance(app_name, port)
-    result = ""
-    make_call(MAX_TIME_OUT, false, "stop_app_instance") {
-      result = @conn.stop_app_instance(app_name, port)
-    }
-    return result
+    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}/#{port}")
+    request = Net::HTTP::Delete.new(uri.path)
+    make_call(request, uri)
   end
 
-  # Wrapper for SOAP call to the AppManager to remove an application
-  # from the current host.
-  # 
+  # Stops all AppServer instances for a project with the AppManager.
+  #
   # Args:
   #   app_name: The name of the application
-  # Returns:
-  #   True on success, False otherwise
   #
   def stop_app(app_name)
-    result = ""
-    make_call(MAX_TIME_OUT, false, "stop_app") {
-      result = @conn.stop_app(app_name)
-    }
-    return result
+    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}")
+    request = Net::HTTP::Delete.new(uri.path)
+    make_call(request, uri)
   end
 end
