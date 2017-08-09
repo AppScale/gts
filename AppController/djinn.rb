@@ -534,7 +534,8 @@ class Djinn
     'appengine' => [ Fixnum, '2', true ],
     'autoscale' => [ TrueClass, 'True', true ],
     'client_secrets' => [ String, nil, false ],
-    'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
+    'controller_logs_to_dashboard' => [ TrueClass, 'False', false ],
+    'lb_conect_timeout' => [ Fixnum, '120000', false ],
     'disks' => [ String, nil, true ],
     'ec2_access_key' => [ String, nil, false ],
     'ec2_secret_key' => [ String, nil, false ],
@@ -1452,6 +1453,10 @@ class Djinn
       elsif key == "login"
         Djinn.log_info("Restarting applications since public IP changed.")
         notify_restart_app_to_nodes(@apps_loaded)
+      elsif key == "lb_conect_timeout"
+        Djinn.log_info("Reload haproxy with new connect timeout.")
+        HAProxy.initialize_config(@options['lb_connect_timeout'])
+        HAProxy.regenerate_config
       end
 
       @options[key] = val
@@ -4424,12 +4429,12 @@ HOSTS
 
   # This function performs basic setup ahead of starting the API services.
   def initialize_server()
-    HAProxy.initialize_config
+    HAProxy.initialize_config(@options['lb_connect_timeout'])
     Djinn.log_info("HAProxy configured.")
 
     if not Nginx.is_running?
-      Nginx.initialize_config()
-      Nginx.start()
+      Nginx.initialize_config
+      Nginx.start
       Djinn.log_info("Nginx configured and started.")
     else
       Djinn.log_info("Nginx already configured and running.")
