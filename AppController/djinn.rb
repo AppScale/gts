@@ -535,7 +535,7 @@ class Djinn
     'autoscale' => [ TrueClass, 'True', true ],
     'client_secrets' => [ String, nil, false ],
     'controller_logs_to_dashboard' => [ TrueClass, 'False', false ],
-    'lb_conect_timeout' => [ Fixnum, '120000', false ],
+    'lb_connect_timeout' => [ Fixnum, '120000', false ],
     'disks' => [ String, nil, true ],
     'ec2_access_key' => [ String, nil, false ],
     'ec2_secret_key' => [ String, nil, false ],
@@ -1453,7 +1453,7 @@ class Djinn
       elsif key == "login"
         Djinn.log_info("Restarting applications since public IP changed.")
         notify_restart_app_to_nodes(@apps_loaded)
-      elsif key == "lb_conect_timeout"
+      elsif key == "lb_connect_timeout"
         Djinn.log_info("Reload haproxy with new connect timeout.")
         HAProxy.initialize_config(@options['lb_connect_timeout'])
         HAProxy.regenerate_config
