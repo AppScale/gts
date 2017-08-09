@@ -4007,7 +4007,7 @@ class Djinn
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
 
     # Ensure we don't have an old host key for this host.
-    Djinn.log_run("ssh-keygen -f '~/.ssh/known_hosts' -R #{ip}")
+    Djinn.log_run("ssh-keygen -R #{ip}")
 
     # Get the username to use for ssh (depends on environments).
     if ["ec2", "euca"].include?(@options['infrastructure'])
