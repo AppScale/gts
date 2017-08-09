@@ -380,18 +380,19 @@ class DistributedTaskQueue():
 
     return response.Encode(), 0, ""
 
-  def add(self, app_id, http_data):
+  def add(self, source_info, http_data):
     """ Adds a single task to the task queue.
 
     Args:
-      app_id: The application ID.
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       http_data: The payload containing the protocol buffer request.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
     # Just call bulk add with one task.
     request = taskqueue_service_pb.TaskQueueAddRequest(http_data)
-    request.set_app_id(app_id)
+    request.set_app_id(source_info['app_id'])
     response = taskqueue_service_pb.TaskQueueAddResponse()
     bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
@@ -414,24 +415,27 @@ class DistributedTaskQueue():
 
     return (response.Encode(), 0, "")
 
-  def bulk_add(self, app_id, http_data):
+  def bulk_add(self, source_info, http_data):
     """ Adds multiple tasks to the task queue.
 
     Args:
-      app_id: The application ID.
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       http_data: The payload containing the protocol buffer request.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueBulkAddRequest(http_data)
     response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-    self.__bulk_add(request, response)
+    self.__bulk_add(source_info, request, response)
     return (response.Encode(), 0, "")
 
-  def __bulk_add(self, request, response):
+  def __bulk_add(self, source_info, request, response):
     """ Function for bulk adding tasks.
    
     Args:
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       request: taskqueue_service_pb.TaskQueueBulkAddRequest.
       response: taskqueue_service_pb.TaskQueueBulkAddResponse.
     Raises:
@@ -497,7 +501,7 @@ class DistributedTaskQueue():
         continue
 
       try:
-        self.__enqueue_push_task(add_request)
+        self.__enqueue_push_task(source_info, add_request)
       except apiproxy_errors.ApplicationError as error:
         task_result.set_result(error.application_error)
       except InvalidTarget as e:
@@ -558,16 +562,18 @@ class DistributedTaskQueue():
         raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.DATASTORE_ERROR)
 
-  def __enqueue_push_task(self, request):
+  def __enqueue_push_task(self, source_info, request):
     """ Enqueues a batch of push tasks.
   
     Args:
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     """
     self.__validate_push_task(request)
     self.__check_and_store_task_names(request)
     headers = self.get_task_headers(request)
-    args = self.get_task_args(request, headers)
+    args = self.get_task_args(source_info, headers, request)
     countdown = int(headers['X-AppEngine-TaskETA']) - \
                 int(datetime.datetime.now().strftime("%s"))
 
@@ -585,12 +591,14 @@ class DistributedTaskQueue():
       routing_key=celery_queue,
     )
 
-  def get_task_args(self, request, headers):
+  def get_task_args(self, source_info, headers, request):
     """ Gets the task args used when making a task web request.
   
     Args:
-      request: A taskqueue_service_pb.TaskQueueAddRequest.
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       headers: The request headers, used to determine target.
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
     Returns:
       A dictionary used by a task worker.
     """
@@ -615,21 +623,6 @@ class DistributedTaskQueue():
     app_id = self.__cleanse(request.app_id())
     queue_name = request.queue_name()
 
-    target_instance = self.load_balancer
-
-    # Try to get the target from host (python sdk will set the target via
-    # the Host header). Java sdk does not include Host header, so we catch
-    # the KeyError.
-    try:
-      if not hasattr(self, '__version') and not hasattr(self, '__module'):
-        self.set_module_version_source(headers['Version'], headers['Module'])
-
-      target_url = self.get_target_from_host(app_id, target_instance,
-                                             headers['Host'])
-      args['url'] = "{target}{url}".format(target=target_url, url=request.url())
-    except KeyError:
-      target_url = None
-
     # Use queue defaults.
     queue = self.get_queue(app_id, queue_name)
     if queue is not None:
@@ -643,17 +636,27 @@ class DistributedTaskQueue():
 
       # If we could not get the target from the host, try to get it from the
       # queue config.
-      if not target_url and queue.target:
-        target_url = self.get_target_from_queue(app_id, target_instance,
+      if queue.target:
+        target_url = self.get_target_from_queue(app_id, self.load_balancer,
                                                 queue.target)
-        args['url'] = "{target}{url}".format(target=target_url, url=request.url())
-      # If we cannot get anything from the queue config, we use the module
-      # and version from the request.
-      elif not target_url:
-        target_info = [self.__version, self.__module]
-        args['url'] = "http://{ip}:{port}{url}".format(ip=target_instance,
-           port=self.get_module_port(app_id, target_info), url=request.url())
+      # If we cannot get anything from the queue config, we try the target from
+      # the request.
+      else:
+        # Try to get the target from host (python sdk will set the target via
+        # the Host header). Java sdk does not include Host header, so we catch
+        # the KeyError.
+        try:
+          target_url = self.get_target_from_host(app_id, self.load_balancer,
+                                                 headers['Host'])
+        # If we cannot get the target from the request we use the source
+        # module and version.
+        except KeyError:
+          target_info = [source_info['version_id'], source_info['module_id']]
+          target_url = "http://{ip}:{port}".format(
+            ip=self.load_balancer,
+            port=self.get_module_port(app_id, target_info))
 
+      args['url'] = "{target}{url}".format(target=target_url, url=request.url())
       logger.debug("Old url: {0} New url: {1}".format(request.url(),
                                                      args['url']))
 
@@ -685,8 +688,8 @@ class DistributedTaskQueue():
        A url as a string for the given target.
     """
     target_info = target.split('.')
-    return "http://{ip}:{port}".format(ip=target_instance,
-             port=self.get_module_port(app_id, target_info))
+    return "http://{ip}:{port}".format(
+      ip=target_instance, port=self.get_module_port(app_id, target_info))
 
   def get_target_from_host(self, app_id, target_instance, host):
     """ Gets the url for the target using the Host header.
@@ -706,8 +709,8 @@ class DistributedTaskQueue():
     if not TARGET_REGEX.match(host):
       return None
     target_info = host.split('.')
-    return "http://{ip}:{port}".format(ip=target_instance,
-             port=self.get_module_port(app_id, target_info))
+    return "http://{ip}:{port}".format(
+      ip=target_instance, port=self.get_module_port(app_id, target_info))
 
   def get_module_port(self, app_id, target_info):
     """ Gets the port for the desired version and module or uses the current
@@ -740,17 +743,6 @@ class DistributedTaskQueue():
         version=target_version, module=target_module)
       raise InvalidTarget(err_msg)
     return port
-
-  def set_module_version_source(self, version, module):
-    """ Sets version and module defaults, should be used to set version and
-    module according to the request's running version and module.
-    
-    Args:
-      version: A string containing the version from request.
-      module: A string containing the module from request.
-    """
-    self.__version = version
-    self.__module = module
 
   def get_task_headers(self, request):
     """ Gets the task headers used for a task web request. 

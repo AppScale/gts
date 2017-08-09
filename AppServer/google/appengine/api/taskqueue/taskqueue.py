@@ -784,12 +784,7 @@ class Task(object):
     Raises:
       InvalidTaskError: If the task is invalid.
     """
-    # AppScale: Set Version and Module headers to current version & module.
-    # CURRENT_VERSION_ID is formatted module:major_version.minor_version.
-    module_version_info = os.environ['CURRENT_VERSION_ID'].split(':')
-    self.__headers['Version'] = module_version_info.pop(-1).split('.')[0]
-    self.__headers['Module'] = module_version_info.pop(-1) if len(
-      module_version_info) > 1 else 'default'
+
     if 'HTTP_HOST' not in os.environ:
       logging.warning(
           'The HTTP_HOST environment variable was not set, but is required '
