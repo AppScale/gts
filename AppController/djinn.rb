@@ -5126,9 +5126,7 @@ HOSTS
       delta_appservers = get_scaling_info_for_app(app_name)
       if delta_appservers > 0
         Djinn.log_debug("Considering scaling up app #{app_name}.")
-        unless try_to_scale_up(app_name, delta_appservers)
-          needed_appservers += delta_appservers
-        end
+        needed_appservers += try_to_scale_up(app_name, delta_appservers)
       elsif delta_appservers < 0
         Djinn.log_debug("Considering scaling down app #{app_name}.")
         try_to_scale_down(app_name, delta_appservers.abs)
@@ -5515,7 +5513,8 @@ HOSTS
   #   app_name: A String containing the application ID.
   #   delta_appservers: The desired number of new AppServers.
   # Returns:
-  #   A boolean indicating if the desired AppServers were started.
+  #   An Integer indicating the number of AppServers we didn't start (0
+  #     if we started all).
   def try_to_scale_up(app_name, delta_appservers)
     # Select an appengine machine if it has enough resources to support
     # another AppServer for this app.
@@ -5621,20 +5620,18 @@ HOSTS
     }
     Djinn.log_debug("Hosts available to scale #{app_name}: #{available_hosts}.")
 
-    # If we're this far, no room is available for AppServers, so try to
-    # add a new node instead.
-    if available_hosts.empty?
-      Djinn.log_info("No AppServer available to scale #{app_name}")
-      return false
-    end
-
     # Since we may have 'clumps' of the same host (say a very big
     # appengine machine) we shuffle the list of candidate here.
     available_hosts.shuffle!
 
     # We prefer candidate that are not already running the application, so
     # ensure redundancy for the application.
-    delta_appservers.downto(1) {
+    delta_appservers.downto(1) { |delta|
+      if available_hosts.empty?
+        Djinn.log_info("No appengine node is available to scale #{app_name}.")
+        return delta
+      end
+
       appserver_to_use = nil
       available_hosts.each { |host|
         unless current_hosts.include?(host)
@@ -5654,13 +5651,11 @@ HOSTS
 
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}.")
       @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
-
-      # If we ran our of available hosts, we'll have to wait for the
-      # next cycle to add more AppServers.
-      break if available_hosts.empty?
     }
+
+    # We started all desired AppServers.
     @last_decision[app_name] = Time.now.to_i
-    return true
+    return 0
   end
 
 
