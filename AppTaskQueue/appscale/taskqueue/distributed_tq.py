@@ -637,7 +637,7 @@ class DistributedTaskQueue():
       # If we could not get the target from the host, try to get it from the
       # queue config.
       if queue.target:
-        target_url = self.get_target_from_queue(app_id, self.load_balancer,
+        target_url = self.get_target_from_queue(app_id, source_info,
                                                 queue.target)
       # If we cannot get anything from the queue config, we try the target from
       # the request.
@@ -646,15 +646,14 @@ class DistributedTaskQueue():
         # the Host header). Java sdk does not include Host header, so we catch
         # the KeyError.
         try:
-          target_url = self.get_target_from_host(app_id, self.load_balancer,
+          target_url = self.get_target_from_host(app_id, source_info,
                                                  headers['Host'])
         # If we cannot get the target from the request we use the source
         # module and version.
         except KeyError:
-          target_info = [source_info['version_id'], source_info['module_id']]
           target_url = "http://{ip}:{port}".format(
             ip=self.load_balancer,
-            port=self.get_module_port(app_id, target_info))
+            port=self.get_module_port(app_id, source_info, target_info=[]))
 
       args['url'] = "{target}{url}".format(target=target_url, url=request.url())
       logger.debug("Old url: {0} New url: {1}".format(request.url(),
@@ -676,27 +675,28 @@ class DistributedTaskQueue():
                                   retry_parameters().max_doublings()
     return args
 
-  def get_target_from_queue(self, app_id, target_instance, target):
+  def get_target_from_queue(self, app_id, source_info, target):
     """ Gets the url for the target using the queue's target defined in the
     configuration file.
     
     Args:
       app_id: The application id, used to lookup module port.
-      target_instance: The instance ip to use for the new url.
+      source_info: A dictionary containing the source version and module ids.
       target: A string containing the value of queue.target.
     Returns:
        A url as a string for the given target.
     """
     target_info = target.split('.')
     return "http://{ip}:{port}".format(
-      ip=target_instance, port=self.get_module_port(app_id, target_info))
+      ip=self.load_balancer,
+      port=self.get_module_port(app_id, source_info, target_info))
 
-  def get_target_from_host(self, app_id, target_instance, host):
+  def get_target_from_host(self, app_id, source_info, host):
     """ Gets the url for the target using the Host header.
     
     Args:
       app_id: The application id, used to lookup module port.
-      target_instance: The instance ip to use for the new url.
+      source_info: A dictionary containing the source version and module ids.
       host: A string containing the value of the Task's host from target or
         the HTTP_HOST (which would contain AppScale's login ip).
         
@@ -710,14 +710,16 @@ class DistributedTaskQueue():
       return None
     target_info = host.split('.')
     return "http://{ip}:{port}".format(
-      ip=target_instance, port=self.get_module_port(app_id, target_info))
+      ip=self.load_balancer,
+      port=self.get_module_port(app_id, source_info, target_info))
 
-  def get_module_port(self, app_id, target_info):
+  def get_module_port(self, app_id, source_info, target_info):
     """ Gets the port for the desired version and module or uses the current
     running version and module.
     
     Args:
      app_id: The application id, used to lookup port.
+     source_info: A dictionary containing the source version and module ids.
      target_info: A list containing [version, module]
     Returns:
       An int containing the port for the target.
@@ -728,11 +730,11 @@ class DistributedTaskQueue():
     try:
       target_module = target_info.pop(-1)
     except IndexError:
-      target_module = self.__module
+      target_module = source_info['module_id']
     try:
       target_version = target_info.pop(-1)
     except IndexError:
-      target_version = self.__version
+      target_version = source_info['version_id']
     logger.debug("app: {0} version: {1} module: {2}".format(
       app_id, target_version, target_module))
     try:
