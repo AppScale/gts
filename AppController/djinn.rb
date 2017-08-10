@@ -487,7 +487,7 @@ class Djinn
 
   # A String that is returned to callers of set_property that provide an invalid
   # instance variable name to set.
-  KEY_NOT_FOUND = "No property exists with the given name."
+  KEY_NOT_FOUND = "Invalid property name, or property value."
 
 
   # A String indicating when we are looking for a Zookeeper connection to
@@ -1454,8 +1454,12 @@ class Djinn
         Djinn.log_info("Restarting applications since public IP changed.")
         notify_restart_app_to_nodes(@apps_loaded)
       elsif key == "lb_connect_timeout"
+        unless val > 0
+          Djinn.log_warn("Cannot set a negative timeout.")
+          next
+        end
         Djinn.log_info("Reload haproxy with new connect timeout.")
-        HAProxy.initialize_config(@options['lb_connect_timeout'])
+        HAProxy.initialize_config(val)
         HAProxy.regenerate_config
       end
 
