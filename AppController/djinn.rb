@@ -1454,7 +1454,7 @@ class Djinn
         Djinn.log_info("Restarting applications since public IP changed.")
         notify_restart_app_to_nodes(@apps_loaded)
       elsif key == "lb_connect_timeout"
-        unless val > 0
+        unless Integer(val) > 0
           Djinn.log_warn("Cannot set a negative timeout.")
           next
         end
