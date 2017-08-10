@@ -126,12 +126,15 @@ class ProtocolMessage:
     pb_type = str(self.__class__).split('.')[-1]
     conn.putheader("ProtocolBufferType" , pb_type)
     conn.putheader("AppData", url) # app id, user email, nick name, auth domain
-    # AppScale: Set Version and Module headers to current version & module.
-    # CURRENT_VERSION_ID is formatted module:major_version.minor_version.
-    module_version_info = os.environ['CURRENT_VERSION_ID'].split(':')
-    conn.putheader("Version", module_version_info.pop(-1).split('.')[0])
-    conn.putheader("Module", module_version_info.pop(-1) if len(
-      module_version_info) > 1 else 'default')
+    try:
+      # AppScale: Set Version and Module headers to current version & module.
+      # CURRENT_VERSION_ID is formatted module:major_version.minor_version.
+      module_version_info = os.environ['CURRENT_VERSION_ID'].split(':')
+      conn.putheader("Version", module_version_info.pop(-1).split('.')[0])
+      conn.putheader("Module", module_version_info.pop(-1) if len(
+        module_version_info) > 1 else 'default')
+    except KeyError:
+      pass
     conn.endheaders()
     conn.send(data)
     resp = conn.getresponse()
