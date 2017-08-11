@@ -215,13 +215,19 @@ module HAProxy
 
     # Update config file.
     File.open(config_file, "w+") { |dest_file| dest_file.write(config) }
-    if system("#{HAPROXY_BIN} -c -f #{config_file}") != true
+    unless self.valid_config?(config_file)
       Djinn.log_warn("Invalid haproxy configuration at #{config_file}.")
       return false
     end
 
     Djinn.log_info("Updated haproxy configuration at #{config_file}.")
     return true
+  end
+
+  # Checks is a given HAProxy config file is valid.
+  def self.valid_config?(config_file)
+    return false unless File.file?(config_file)
+    return system("#{HAPROXY_BIN} -c -f #{config_file}")
   end
 
   # Regenerate the configuration file for HAProxy (if anything changed)
