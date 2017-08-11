@@ -2286,12 +2286,32 @@ class Djinn
     return false
   end
 
+  # Finds an 'open' node and assigns the specified roles.
+  #
+  # Args:
+  #   roles: An Array with the list of roles to assume.
+  #
+  # Returns:
+  #   A Boolean indicating if an open node was found and the roles
+  #   assigned.
+  def assign_roles_to_open_node(roles)
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        if node.is_open?
+          Djinn.log_debug("New roles #{roles} will be assumed by open node #{node}.")
+          node.jobs = roles
+          return true
+        end
+    }
+    return false
+  end
 
   # This SOAP-exposed method dynamically scales up a currently running
   # AppScale deployment. For virtualized clusters, this assumes the
   # user has given us a list of IP addresses where AppScale has been
   # installed to, and for cloud deployments, we assume that the user
   # wants to use the same credentials as for their current deployment.
+  #
   # Args:
   #   ips_hash: A Hash that maps roles (e.g., appengine, database) to the
   #     IP address (in virtualized deployments) or unique identifier (in
@@ -2369,39 +2389,40 @@ class Djinn
       }
     }
 
-    # Let's count the open nodes we can use before having to create new
-    # VMs.
+    # Use for 'open' nodes first and delete them from the list of roles
+    # still to fulfill.
     open_nodes = 0
-    @state_change_lock.synchronize {
-      @nodes.each { |node| open_nodes += 1 if node.is_open?  }
+    new_nodes_roles.each { |_, roles|
+      open_nodes += 1 if assign_roles_to_open_node(roles)
     }
+    open_nodes.downto(1) { new_nodes_roles.shift }
 
     # We spawn new nodes if we need to (and can do so) here.
     new_nodes_info = []
-    if new_nodes_roles.length > open_nodes
-      num_of_vms = new_nodes_roles.length - open_nodes
+    if new_nodes_roles.length > 0
       unless is_cloud?
-        Djinn.log_warn("Still need #{num_of_vms} more nodes, but we " +
-        "aren't in a cloud environment, so we can't acquire more nodes - " +
-        "failing the caller's request.")
+        Djinn.log_warn("Still need #{new_nodes_roles.length} more " +
+          "nodes, but we aren't in a cloud environment, so we can't " +
+          "aquire more nodes - failing the caller's request.")
         return NOT_ENOUGH_OPEN_NODES
       end
-      Djinn.log_info("Need to spawn #{num_of_vms} VMs.")
+      Djinn.log_info("Need to spawn #{new_nodes_roles.length} VMs.")
 
       # We create here the needed nodes, with open role and no disk.
-      disks = Array.new(num_of_vms, nil)
+      disks = Array.new(new_nodes_roles.length, nil)
       imc = InfrastructureManagerClient.new(@@secret)
       begin
-        new_nodes_info = imc.spawn_vms(num_of_vms, @options,
+        new_nodes_info = imc.spawn_vms(new_nodes_roles.length, @options,
            new_nodes_roles.values, disks)
       rescue FailedNodeException, AppScaleException => exception
-        Djinn.log_error("Couldn't spawn #{num_of_vms} VMs with roles " +
-          "open because: #{exception.message}")
+        Djinn.log_error("Couldn't spawn #{new_nodes_roles.length} VMs " +
+          "because: #{exception.message}")
         return exception.message
       end
     end
+    Djinn.log_debug("We used #{open_nodes} open nodes.")
     Djinn.log_debug("We spawned VMs for these roles #{new_nodes_info}.")
-    Djinn.log_debug("We will use the following nodes #{node_roles}.")
+    Djinn.log_debug("We used the following existing nodes #{node_roles}.")
 
     # If we have an already running node with the same IP, we change its
     # roles list.
