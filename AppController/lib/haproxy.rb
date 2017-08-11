@@ -99,6 +99,22 @@ module HAProxy
   HAPROXY_SERVER_TIMEOUT = 600
 
 
+  # Start HAProxy for API services.
+  def self.services_start()
+    start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D " +
+      "-p #{SERVICES_PIDFILE}"
+    stop_cmd = "#{KILL_BIN} `cat #{SERVICES_PIDFILE}`"
+    MonitInterface.start_daemon(
+      :service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
+  end
+
+  # Start HAProxy for AppServer instances.
+  def self.apps_start()
+    start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
+    stop_cmd = "#{KILL_BIN} `cat #{PIDFILE}`"
+    MonitInterface.start_daemon(:apps_haproxy, start_cmd, stop_cmd, PIDFILE)
+  end
+
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(server_ips, my_ip, listen_port)
     # We reach out to UserAppServers on the DB nodes.
@@ -219,9 +235,7 @@ module HAProxy
         Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
                       " -D -sf `cat #{PIDFILE}`")
       else
-        start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
-        stop_cmd = "#{KILL_BIN} `cat #{PIDFILE}`"
-        MonitInterface.start_daemon(:apps_haproxy, start_cmd, stop_cmd, PIDFILE)
+        self.apps_start
       end
     end
 
@@ -233,9 +247,7 @@ module HAProxy
         Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
                       " -D -sf `cat #{SERVICES_PIDFILE}`")
       else
-        start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D -p #{SERVICES_PIDFILE}"
-        stop_cmd = "#{KILL_BIN} `cat #{SERVICES_PIDFILE}`"
-        MonitInterface.start_daemon(:service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
+        self.services_start
       end
     end
   end

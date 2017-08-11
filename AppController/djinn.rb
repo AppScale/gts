@@ -4427,6 +4427,9 @@ HOSTS
     HAProxy.initialize_config
     Djinn.log_info("HAProxy configured.")
 
+    # HAProxy must be running so that the UAServer can be accessed.
+    HAProxy.services_start unless MonitInterface.is_running?(:service_haproxy)
+
     if not Nginx.is_running?
       Nginx.initialize_config()
       Nginx.start()
