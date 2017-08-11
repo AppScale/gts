@@ -4429,8 +4429,14 @@ HOSTS
 
     # HAProxy must be running so that the UAServer can be accessed and
     # AppServer instances can be examined after a reboot.
-    HAProxy.services_start unless MonitInterface.is_running?(:service_haproxy)
-    HAProxy.apps_start unless MonitInterface.is_running?(:apps_haproxy)
+    if File.file?(HAProxy::SERVICES_MAIN_FILE) &&
+        !MonitInterface.is_running?(:service_haproxy)
+      HAProxy.services_start
+    end
+    if File.file?(HAProxy::MAIN_CONFIG_FILE) &&
+        !MonitInterface.is_running?(:apps_haproxy)
+      HAProxy.apps_start
+    end
 
     if not Nginx.is_running?
       Nginx.initialize_config()
