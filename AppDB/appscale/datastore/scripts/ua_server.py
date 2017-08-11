@@ -403,7 +403,7 @@ def add_admin_for_app(user, app, secret):
     return "Error: Unable to update the user."
 
 
-def commit_new_app(appname, user, language, secret):
+def commit_new_app(appname, language, secret):
   global db
   global user_schema
   global app_schema
@@ -421,39 +421,16 @@ def commit_new_app(appname, user, language, secret):
   if does_app_exist(appname, secret) == "true":
     return EXISTING_PROJECT_MESSAGE
 
-  ret = "true"
-
-  try:
-    user_result = db.get_entity(USER_TABLE, user, user_schema)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if user_result[0] in ERROR_CODES and len(user_result) > 1:
-    user_result = user_result[1:]
-    n_user = Users("a", "b", "c")
-    n_user.unpackit(user_result)
-    n_user.applications_.append(appname)
-    t = datetime.datetime.now()
-    n_user.date_change_ = str(time.mktime(t.timetuple()))
-    n_app = Apps(appname, user, language)
-    array = n_user.arrayit()
-
-    result = db.put_entity(USER_TABLE, user, user_schema, array)
-    if result[0] in ERROR_CODES:
-      ret = "true"
-    else:
-      return "false"
-
-    array = n_app.arrayit()
-    result = db.put_entity(APP_TABLE, appname, app_schema, array)
-    if result[0] in ERROR_CODES:
-      ret = "true"
-    else:
-      return "false"
-    return ret
+  # User is not needed, but a placeholder is used to keep the same schema.
+  user = ''
+  n_app = Apps(appname, user, language)
+  array = n_app.arrayit()
+  result = db.put_entity(APP_TABLE, appname, app_schema, array)
+  if result[0] in ERROR_CODES:
+    ret = "true"
   else:
-    error = "Error: User not found"
-    return error
+    return "false"
+  return ret
 
 
 def get_tar(app_name, secret):

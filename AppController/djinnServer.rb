@@ -68,8 +68,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "set_parameters", "layout", "options", "secret")
     add_method(@djinn, "get_cluster_stats_json", "secret")
     add_method(@djinn, "get_application_cron_info", "app_name", "secret")
-    add_method(@djinn, "upload_app", "archived_file", "file_suffix", "email",
-      "secret")
+    add_method(@djinn, "upload_app", "archived_file", "file_suffix", "secret")
     add_method(@djinn, "get_app_upload_status", "reservation_id", "secret")
     add_method(@djinn, "get_database_information", "secret")
     add_method(@djinn, "get_instance_info", "app_id", "secret")
