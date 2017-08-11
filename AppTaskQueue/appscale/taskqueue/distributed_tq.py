@@ -634,31 +634,6 @@ class DistributedTaskQueue():
       args['max_backoff_sec'] = queue.max_backoff_seconds
       args['max_doublings'] = queue.max_doublings
 
-      # If we could not get the target from the host, try to get it from the
-      # queue config.
-      if queue.target:
-        target_url = self.get_target_from_queue(app_id, source_info,
-                                                queue.target)
-      # If we cannot get anything from the queue config, we try the target from
-      # the request.
-      else:
-        # Try to get the target from host (python sdk will set the target via
-        # the Host header). Java sdk does not include Host header, so we catch
-        # the KeyError.
-        try:
-          target_url = self.get_target_from_host(app_id, source_info,
-                                                 headers['Host'])
-        # If we cannot get the target from the request we use the source
-        # module and version.
-        except KeyError:
-          target_url = "http://{ip}:{port}".format(
-            ip=self.load_balancer,
-            port=self.get_module_port(app_id, source_info, target_info=[]))
-
-      args['url'] = "{target}{url}".format(target=target_url, url=request.url())
-      logger.debug("Old url: {0} New url: {1}".format(request.url(),
-                                                     args['url']))
-
     # Override defaults.
     if request.has_retry_parameters():
       retry_params = request.retry_parameters()
@@ -673,6 +648,40 @@ class DistributedTaskQueue():
       if retry_params.has_max_doublings():
         args['max_doublings'] = request.\
                                   retry_parameters().max_doublings()
+
+    target_url = None
+    # If we could not get the target from the host, try to get it from the
+    # queue config.
+    if queue.target:
+      target_url = self.get_target_from_queue(app_id, source_info,
+                                              queue.target)
+
+      args['url'] = "{target}{url}".format(target=target_url, url=request.url())
+      logger.debug("Old url: {0} New url: {1}".format(request.url(),
+                                                      args['url']))
+      return args
+    # If we cannot get anything from the queue config, we try the target from
+    # the request.
+    # Try to get the target from host (python sdk will set the target via
+    # the Host header). Java sdk does not include Host header, so we catch
+    # the KeyError.
+    try:
+      target_url = self.get_target_from_host(app_id, source_info,
+                                             headers['Host'])
+    except KeyError:
+      pass
+
+    # If we cannot get the target from the request we use the source
+    # module and version.
+    if target_url is None:
+      target_url = "http://{ip}:{port}".format(
+        ip=self.load_balancer,
+        port=self.get_module_port(app_id, source_info, target_info=[]))
+
+    args['url'] = "{target}{url}".format(target=target_url, url=request.url())
+    logger.debug("Old url: {0} New url: {1}".format(request.url(),
+                                                    args['url']))
+
     return args
 
   def get_target_from_queue(self, app_id, source_info, target):
