@@ -398,7 +398,7 @@ class DistributedTaskQueue():
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
     bulk_request.add_add_request().CopyFrom(request)
 
-    self.__bulk_add(bulk_request, bulk_response)
+    self.__bulk_add(source_info, bulk_request, bulk_response)
 
     if bulk_response.taskresult_size() == 1:
       result = bulk_response.taskresult(0).result()
