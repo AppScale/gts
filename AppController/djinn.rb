@@ -2302,6 +2302,7 @@ class Djinn
           node.jobs = roles
           return true
         end
+      }
     }
     return false
   end
@@ -2388,6 +2389,7 @@ class Djinn
         end
       }
     }
+    Djinn.log_debug("Need to assign the following roles: #{new_nodes_roles}.")
 
     # Use for 'open' nodes first and delete them from the list of roles
     # still to fulfill.
