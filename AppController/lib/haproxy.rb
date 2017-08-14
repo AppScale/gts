@@ -316,8 +316,8 @@ module HAProxy
   # Set up the folder structure and creates the configuration files necessary for haproxy
   #
   # Args:
-  #   connect_timeout: Number of milliseconds for a requests to wait
-  #     before a backend server will accept connection.
+  #   connect_timeout: Number of milliseconds for a request to wait before
+  #     a backend server will accept connection.
   def self.initialize_config(connect_timeout)
     base_config = <<CONFIG
 global
