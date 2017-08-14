@@ -227,7 +227,7 @@ class InfrastructureManagerClient
     instances_created = []
     vm_info['public_ips'].each_index { |index|
       tmp_jobs = jobs[index]
-      tmp_jobs = 'open' if jobs[index] == nil
+      tmp_jobs = 'open' if jobs[index].nil?
       instances_created << {
         'public_ip' => vm_info['public_ips'][index],
         'private_ip' => vm_info['private_ips'][index],
