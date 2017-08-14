@@ -25,6 +25,10 @@ from appscale.common import monit_app_configuration
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager_server
 
+options.define('login_ip', '127.0.0.1')
+options.define('syslog_server', '127.0.0.1')
+options.define('private_ip', '<private_ip>')
+
 
 class TestAppManager(unittest.TestCase):
   def test_start_app_badconfig(self):
@@ -49,13 +53,14 @@ class TestAppManager(unittest.TestCase):
   def test_start_app_goodconfig_python(self):
     configuration = {
       'app_port': 2000,
-      'language': 'python27',
-      'login_ip': '127.0.0.1',
-      'load_balancer_port': 8080,
-      'dblocations': ['127.0.0.1', '127.0.0.2'],
-      'env_vars': {},
-      'max_memory': 500
+      'service_id': 'default',
+      'version_id': 'v1',
+      'env_vars': {}
     }
+
+    version_manager = flexmock(version_details={'runtime': 'python27'})
+    app_manager_server.projects_manager = {
+      'test': {'default': {'v1': version_manager}}}
 
     flexmock(appscale_info).should_receive('get_db_proxy').\
       and_return('<private_ip>')
@@ -81,13 +86,14 @@ class TestAppManager(unittest.TestCase):
   def test_start_app_goodconfig_java(self):
     configuration = {
       'app_port': 2000,
-      'language': 'java',
-      'login_ip': '127.0.0.1',
-      'load_balancer_port': 8080,
-      'dblocations': ['127.0.0.1', '127.0.0.2'],
-      'env_vars': {},
-      'max_memory': 500
+      'service_id': 'default',
+      'version_id': 'v1',
+      'env_vars': {}
     }
+
+    version_manager = flexmock(version_details={'runtime': 'java'})
+    app_manager_server.projects_manager = {
+      'test': {'default': {'v1': version_manager}}}
 
     flexmock(appscale_info).should_receive('get_db_proxy').\
       and_return('<private_ip>')
@@ -207,7 +213,6 @@ class TestAppManager(unittest.TestCase):
       and_return('<private_ip>')
     flexmock(app_manager_server).should_receive('locate_dir').\
       and_return('/path/to/dir/')
-    options.define('private_ip', '<private_ip>')
     app_id = 'testapp'
     max_heap = 260
     pidfile = 'testpid'

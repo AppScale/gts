@@ -99,6 +99,22 @@ module HAProxy
   HAPROXY_SERVER_TIMEOUT = 600
 
 
+  # Start HAProxy for API services.
+  def self.services_start()
+    start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D " +
+      "-p #{SERVICES_PIDFILE}"
+    stop_cmd = "#{KILL_BIN} `cat #{SERVICES_PIDFILE}`"
+    MonitInterface.start_daemon(
+      :service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
+  end
+
+  # Start HAProxy for AppServer instances.
+  def self.apps_start()
+    start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
+    stop_cmd = "#{KILL_BIN} `cat #{PIDFILE}`"
+    MonitInterface.start_daemon(:apps_haproxy, start_cmd, stop_cmd, PIDFILE)
+  end
+
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(server_ips, my_ip, listen_port)
     # We reach out to UserAppServers on the DB nodes.
@@ -199,13 +215,19 @@ module HAProxy
 
     # Update config file.
     File.open(config_file, "w+") { |dest_file| dest_file.write(config) }
-    if system("#{HAPROXY_BIN} -c -f #{config_file}") != true
+    unless self.valid_config?(config_file)
       Djinn.log_warn("Invalid haproxy configuration at #{config_file}.")
       return false
     end
 
     Djinn.log_info("Updated haproxy configuration at #{config_file}.")
     return true
+  end
+
+  # Checks if a given HAProxy config file is valid.
+  def self.valid_config?(config_file)
+    return false unless File.file?(config_file)
+    return system("#{HAPROXY_BIN} -c -f #{config_file}")
   end
 
   # Regenerate the configuration file for HAProxy (if anything changed)
@@ -219,9 +241,7 @@ module HAProxy
         Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
                       " -D -sf `cat #{PIDFILE}`")
       else
-        start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
-        stop_cmd = "#{KILL_BIN} `cat #{PIDFILE}`"
-        MonitInterface.start_daemon(:apps_haproxy, start_cmd, stop_cmd, PIDFILE)
+        self.apps_start
       end
     end
 
@@ -233,9 +253,7 @@ module HAProxy
         Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
                       " -D -sf `cat #{SERVICES_PIDFILE}`")
       else
-        start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D -p #{SERVICES_PIDFILE}"
-        stop_cmd = "#{KILL_BIN} `cat #{SERVICES_PIDFILE}`"
-        MonitInterface.start_daemon(:service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
+        self.services_start
       end
     end
   end
