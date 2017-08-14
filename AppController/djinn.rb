@@ -4440,6 +4440,12 @@ HOSTS
     # a default route.
     configure_uaserver()
 
+    # HAProxy must be running so that the UAServer can be accessed.
+    if HAProxy.valid_config?(HAProxy::SERVICES_MAIN_FILE) &&
+        !MonitInterface.is_running?(:service_haproxy)
+      HAProxy.services_start
+    end
+
     # Volume is mounted, let's finish the configuration of static files.
     if my_node.is_shadow? and not my_node.is_appengine?
       write_app_logrotate()
@@ -4449,6 +4455,12 @@ HOSTS
     if my_node.is_load_balancer?
       configure_db_haproxy
       Djinn.log_info("DB HAProxy configured")
+
+      # Make HAProxy instance stats accessible after a reboot.
+      if HAProxy.valid_config?(HAProxy::MAIN_CONFIG_FILE) &&
+          !MonitInterface.is_running?(:apps_haproxy)
+        HAProxy.apps_start
+      end
     end
 
     write_locations
