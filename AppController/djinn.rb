@@ -5830,29 +5830,11 @@ HOSTS
     Djinn.log_info("Starting #{app_language} app #{app} on " +
       "#{@my_private_ip}:#{appengine_port}")
 
-    # The IP we use to reach this deployment: it will be used by XMPP, and
-    # dashboard (authentication) redirections.
-    login_ip = @options['login']
-
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
-      version_details = ZKInterface.get_version_details(
-        app, DEFAULT_SERVICE, DEFAULT_VERSION)
-    rescue VersionNotFound
-      Djinn.log_warn("#{app} not found when starting AppServer")
-      return false
-    end
-
-    max_app_mem = Integer(@options['max_memory'])
-    if version_details.key?('instanceClass')
-      instance_class = version_details['instanceClass'].to_sym
-      max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
-    end
-
-    begin
-      app_manager.start_app(app, appengine_port, login_ip,
-        app_language, HelperFunctions.get_app_env_vars(app), max_app_mem,
-        get_shadow.private_ip)
+      app_manager.start_app(
+        app, DEFAULT_SERVICE, DEFAULT_VERSION, appengine_port,
+        HelperFunctions.get_app_env_vars(app))
       @pending_appservers["#{app}:#{appengine_port}"] = Time.new
       Djinn.log_info("Done adding AppServer for #{app}.")
     rescue FailedNodeException => error
