@@ -138,31 +138,31 @@ def restart(watch):
   return run_with_retry([MONIT, 'restart', '-g', watch])
 
 
-def process_status(response, process_name):
-  """ Extracts a watch's status from a Monit response.
+def parse_entries(response):
+  """ Extracts each watch's status from a Monit response.
 
   Args:
-    response: An XML string
+    response: An XML string.
+  Returns:
+    A dictionary mapping Monit entries to their state.
   """
   root = ElementTree.XML(response)
+  entries = {}
   for service in root.iter('service'):
     name = service.find('name').text
-    if name != process_name:
-      continue
-
     monitored = int(service.find('monitor').text)
     status = int(service.find('status').text)
     if monitored == 0:
-      return constants.MonitStates.UNMONITORED
+      entries[name] = MonitStates.UNMONITORED
     elif monitored == 1:
       if status == 0:
-       return constants.MonitStates.RUNNING
+        entries[name] = MonitStates.RUNNING
       else:
-        return constants.MonitStates.STOPPED
+        entries[name] = MonitStates.STOPPED
     else:
-      return constants.MonitStates.PENDING
+      entries[name] = MonitStates.PENDING
 
-  return constants.MonitStates.MISSING
+  return entries
 
 
 class MonitOperator(object):
@@ -189,17 +189,28 @@ class MonitOperator(object):
     yield self.reload_future
 
   @gen.coroutine
-  def get_status(self, process_name):
-    """ Retrieves the status of a given process.
+  def get_entries(self, retries=5):
+    """ Retrieves the status for each Monit entry.
 
     Args:
-      process_name: A string specifying a monit watch.
+      retries: An integer specifying the number of times to retry failures.
     Returns:
-      A string specifying the current status.
+      A dictionary mapping Monit entries to their state.
     """
     status_url = '{}/_status?format=xml'.format(self.LOCATION)
-    response = yield self.client.fetch(status_url)
-    raise gen.Return(process_status(response.body, process_name))
+    try:
+      response = yield self.client.fetch(status_url)
+    except HTTPError:
+      retries -= 1
+      if retries < 0:
+        raise
+
+      yield gen.sleep(.5)
+      entries = yield self.get_entries(retries=retries)
+      raise gen.Return(entries)
+
+    monit_entries = parse_entries(response.body)
+    raise gen.Return(monit_entries)
 
   @gen.coroutine
   def send_command(self, process_name, command):
@@ -227,7 +238,8 @@ class MonitOperator(object):
       acceptable_states: An iterable of strings specifying states.
     """
     while True:
-      status = yield self.get_status(process_name)
+      entries = yield self.get_entries()
+      status = entries[process_name]
       if status in acceptable_states:
         raise gen.Return(status)
       yield gen.sleep(.2)

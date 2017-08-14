@@ -897,12 +897,16 @@ module HelperFunctions
     return result
   end
 
-  def self.get_loaded_apps()
-    apps =[]
-    Dir["#{APPLICATIONS_DIR}/*"].each{ |app|
-      apps << File.basename(app)
+  def self.get_loaded_versions
+    version_keys = []
+    Dir["#{APPLICATIONS_DIR}/*"].each{ |revision_dir|
+      revision_key = File.basename(revision_dir)
+
+      # Ignore project directories.
+      next unless revision_key.include?('_')
+      version_keys << revision_key.rpartition('_')[0]
     }
-    return apps
+    return version_keys
   end
 
   def self.get_app_path(app_name)
