@@ -224,7 +224,7 @@ module HAProxy
     return true
   end
 
-  # Checks is a given HAProxy config file is valid.
+  # Checks if a given HAProxy config file is valid.
   def self.valid_config?(config_file)
     return false unless File.file?(config_file)
     return system("#{HAPROXY_BIN} -c -f #{config_file}")
