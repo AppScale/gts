@@ -239,7 +239,7 @@ class MonitOperator(object):
     """
     while True:
       entries = yield self.get_entries()
-      status = entries[process_name]
+      status = entries.get(process_name, MonitStates.MISSING)
       if status in acceptable_states:
         raise gen.Return(status)
       yield gen.sleep(.2)
