@@ -9,6 +9,7 @@ import subprocess
 
 from appscale.common.constants import APPSCALE_HOME
 from appscale.common.constants import CONFIG_DIR
+from .constants import CONFLICTING_JARS
 from ..constants import InvalidSource
 
 
@@ -101,17 +102,7 @@ def remove_conflicting_jars(source_path):
     return
 
   logging.info('Removing jars from {}'.format(lib_dir))
-  conflicting_jars_pattern = [
-    'appengine-api-1.0-sdk-*.jar',
-    'appengine-api-stubs-*.jar',
-    'appengine-api-labs-*.jar',
-    'appengine-jsr107cache-*.jar',
-    'jsr107cache-*.jar',
-    'appengine-mapreduce*.jar',
-    'appengine-pipeline*.jar',
-    'appengine-gcs-client*.jar'
-  ]
   for file in os.listdir(lib_dir):
-    for pattern in conflicting_jars_pattern:
+    for pattern in CONFLICTING_JARS:
       if fnmatch.fnmatch(file, pattern):
         os.remove(os.path.join(lib_dir, file))
