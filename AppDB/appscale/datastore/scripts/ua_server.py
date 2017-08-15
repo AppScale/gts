@@ -405,7 +405,6 @@ def add_admin_for_app(user, app, secret):
 
 def commit_new_app(appname, language, secret):
   global db
-  global user_schema
   global app_schema
   global super_secret
   if secret != super_secret:
