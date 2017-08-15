@@ -1,6 +1,7 @@
 """ Common constants for managing AppServer instances. """
 
 import os
+from appscale.common.constants import APPSCALE_HOME
 
 
 # Max application server log size in bytes.
@@ -29,6 +30,17 @@ DEFAULT_MAX_MEMORY = 400
 
 # Default logrotate configuration directory.
 LOGROTATE_CONFIG_DIR = os.path.join('/', 'etc', 'logrotate.d')
+
+# The modified Java SDK's lib directory.
+REPACKED_LIB_DIR = os.path.join(
+  APPSCALE_HOME, 'AppServer_Java', 'appengine-java-sdk-repacked', 'lib')
+
+# Patterns that match jars that should be copied to version sources.
+MODIFIED_JARS = [
+  os.path.join(REPACKED_LIB_DIR, 'user', '*.jar'),
+  os.path.join(REPACKED_LIB_DIR, 'impl', 'appscale-*.jar'),
+  os.path.join('/', 'usr', 'share', 'appscale', 'ext', '*')
+]
 
 # A prefix added to instance entries to distinguish them from services.
 MONIT_INSTANCE_PREFIX = 'app___'

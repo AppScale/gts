@@ -7,9 +7,9 @@ import os
 import shutil
 import subprocess
 
-from appscale.common.constants import APPSCALE_HOME
 from appscale.common.constants import CONFIG_DIR
 from .constants import CONFLICTING_JARS
+from .constants import MODIFIED_JARS
 from ..constants import InvalidSource
 
 
@@ -79,14 +79,7 @@ def copy_modified_jars(source_path):
     logging.info('Creating lib directory: {}'.format(lib_dir))
     os.mkdir(lib_dir)
 
-  repacked_lib_dir = os.path.join(
-    APPSCALE_HOME, 'AppServer_Java', 'appengine-java-sdk-repacked', 'lib')
-  patterns_to_copy = [
-    os.path.join(repacked_lib_dir, 'user', '*.jar'),
-    os.path.join(repacked_lib_dir, 'impl', 'appscale-*.jar'),
-    os.path.join('/', 'usr', 'share', 'appscale', 'ext', '*')
-  ]
-  for pattern in patterns_to_copy:
+  for pattern in MODIFIED_JARS:
     copy_files_matching_pattern(pattern, lib_dir)
 
 
