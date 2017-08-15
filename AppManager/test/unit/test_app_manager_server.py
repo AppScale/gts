@@ -183,8 +183,6 @@ class TestAppManager(AsyncTestCase):
 
     flexmock(app_manager_server).should_receive('find_web_inf').\
       and_return('/path/to/dir/WEB-INF')
-    flexmock(app_manager_server).should_receive('find_web_xml').\
-      and_return('/path/to/dir/WEB-INF/appengine-web.xml')
     flexmock(monit_app_configuration).should_receive('create_config_file').\
       and_raise(IOError)
 
@@ -198,56 +196,9 @@ class TestAppManager(AsyncTestCase):
     assert 'appscale' in env_vars['APPSCALE_HOME']
     assert 0 < int(env_vars['GOMAXPROCS'])
 
-  def test_find_web_xml(self):
-    app_id = 'foo'
-    files = [('/var/apps/{}/app/WEB-INF'.format(app_id), '',
-      'appengine-web.xml')]
-    flexmock(os).should_receive('walk').and_return(files)
-    app_manager_server.find_web_xml(app_id)
-
-    files = [('', '', '')]
-    flexmock(os).should_receive('walk').and_return(files)
-    self.assertRaises(app_manager_server.BadConfigurationException,
-      app_manager_server.find_web_xml, app_id)
-
-    files = [
-      ('/var/apps/{}/app/WEB-INF'.format(app_id), '', 'appengine-web.xml'),
-      ('/var/apps/{}/app/war/WEB-INF'.format(app_id), '', 'appengine-web.xml')
-    ]
-    flexmock(os).should_receive('walk').and_return(files)
-    shortest_path = files[0]
-    web_xml = app_manager_server.find_web_xml(app_id)
-    self.assertEqual(web_xml, os.path.join(shortest_path[0], shortest_path[-1]))
-
-  def test_extract_env_vars_from_xml(self):
-    xml_template = \
-      '<appengine-web-app xmlns="http://appengine.google.com/ns/1.0">\
-         <application>{}</application>\
-         {}\
-      </appengine-web-app>'
-
-    env_var_section = \
-      '<env-variables>\
-        <env-var name="custom-var-1" value="foo"/>\
-        <env-var name="custom-var-2" value="bar"/>\
-      </env-variables>'
-
-    xml = xml_template.format('app-id', env_var_section)
-    flexmock(ElementTree).should_receive('parse').\
-      and_return(flexmock(getroot=lambda: ElementTree.fromstring(xml)))
-    assert len(app_manager_server.extract_env_vars_from_xml('/file.xml')) == 2
-
-    xml = xml_template.format('app-id', '')
-    flexmock(ElementTree).should_receive('parse').\
-      and_return(flexmock(getroot=lambda: ElementTree.fromstring(xml)))
-    assert app_manager_server.extract_env_vars_from_xml('/file.xml') == {}
-
   def test_create_java_app_env(self):
     app_manager_server.deployment_config = flexmock(get_config=lambda x: {})
     app_name = 'foo'
-    flexmock(app_manager_server).should_receive('find_web_xml').and_return()
-    flexmock(app_manager_server).should_receive('extract_env_vars_from_xml').\
-      and_return({})
     env_vars = app_manager_server.create_java_app_env(app_name)
     assert 'appscale' in env_vars['APPSCALE_HOME']
 
