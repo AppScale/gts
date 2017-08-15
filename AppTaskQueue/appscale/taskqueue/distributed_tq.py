@@ -238,7 +238,7 @@ class DistributedTaskQueue():
     self.db_access = db_access
     self.load_balancer = appscale_info.get_load_balancer_ips()[0]
     self.queue_manager = GlobalQueueManager(zk_client, db_access)
-    self.service_manager = GlobalServiceManager(zk_client, db_access)
+    self.service_manager = GlobalServiceManager(zk_client)
 
   def get_queue(self, app, queue):
     """ Fetches a Queue object.
@@ -649,39 +649,28 @@ class DistributedTaskQueue():
         args['max_doublings'] = request.\
                                   retry_parameters().max_doublings()
 
-    target_url = None
-    # If we could not get the target from the host, try to get it from the
-    # queue config.
+    target_url = "http://{ip}:{port}".format(
+      ip=self.load_balancer,
+      port=self.get_module_port(app_id, source_info, target_info=[]))
+
+    # Try to set target based on queue config.
     if queue.target:
       target_url = self.get_target_from_queue(app_id, source_info,
                                               queue.target)
-
-      args['url'] = "{target}{url}".format(target=target_url, url=request.url())
-      logger.debug("Old url: {0} New url: {1}".format(request.url(),
-                                                      args['url']))
-      return args
     # If we cannot get anything from the queue config, we try the target from
     # the request.
     # Try to get the target from host (python sdk will set the target via
     # the Host header). Java sdk does not include Host header, so we catch
     # the KeyError.
-    try:
-      target_url = self.get_target_from_host(app_id, source_info,
-                                             headers['Host'])
-    except KeyError:
-      pass
+    else:
+      try:
+        target_url = self.get_target_from_host(app_id, source_info,
+                                               headers['Host'])
+      except KeyError:
+        pass
 
-    # If we cannot get the target from the request we use the source
-    # module and version.
-    if target_url is None:
-      target_url = "http://{ip}:{port}".format(
-        ip=self.load_balancer,
-        port=self.get_module_port(app_id, source_info, target_info=[]))
 
     args['url'] = "{target}{url}".format(target=target_url, url=request.url())
-    logger.debug("Old url: {0} New url: {1}".format(request.url(),
-                                                    args['url']))
-
     return args
 
   def get_target_from_queue(self, app_id, source_info, target):
@@ -737,17 +726,14 @@ class DistributedTaskQueue():
         self.service_manager which maintains a dict of zookeeper info.
     """
     try:
-      target_module = target_info.pop(-1)
+      target_module = target_info.pop()
     except IndexError:
       target_module = source_info['module_id']
     try:
-      target_version = target_info.pop(-1)
+      target_version = target_info.pop()
     except IndexError:
       target_version = source_info['version_id']
-    logger.debug("app: {0} version: {1} module: {2}".format(
-      app_id, target_version, target_module))
     try:
-      logger.debug(self.service_manager)
       port = self.service_manager[app_id][target_module][target_version]
     except KeyError:
       err_msg = "target '{version}.{module}' does not exist".format(

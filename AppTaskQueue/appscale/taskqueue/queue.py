@@ -198,7 +198,7 @@ class PushQueue(Queue):
     self.rate = self.DEFAULT_RATE
     if 'rate' in queue_info:
       self.rate = queue_info['rate']
-    self.target = queue_info['target'] if 'target' in queue_info else None
+    self.target = queue_info.get('target')
     self.task_age_limit = self.DEFAULT_AGE_LIMIT
     self.min_backoff_seconds = self.DEFAULT_MIN_BACKOFF
     self.max_backoff_seconds = self.DEFAULT_MAX_BACKOFF
