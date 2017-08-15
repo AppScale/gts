@@ -45,12 +45,10 @@ class AppManagerClient
   def start_app(app_name,
                 service_id,
                 version_id,
-                app_port,
-                env_vars)
+                app_port)
     config = {'app_port' => app_port,
               'service_id' => service_id,
-              'version_id' => version_id,
-              'env_vars' => env_vars}
+              'version_id' => version_id}
 
     uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}")
     headers = {'Content-Type' => 'application/json'}

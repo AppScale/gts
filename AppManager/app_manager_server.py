@@ -173,17 +173,14 @@ def start_app(project_id, config):
        app_port: Port to start on
        service_id: A string specifying the service ID.
        version_id: A string specifying the version ID.
-       env_vars: A dict of environment variables that should be passed to the
-        app.
   """
-  required_params = ('app_port', 'service_id', 'version_id', 'env_vars')
+  required_params = ('app_port', 'service_id', 'version_id')
   for param in required_params:
     if param not in config:
       raise BadConfigurationException('Missing parameter: {}'.format(param))
 
   service_id = config['service_id']
   version_id = config['version_id']
-  env_vars = config['env_vars']
 
   if not misc.is_app_name_valid(project_id):
     raise BadConfigurationException(
@@ -196,6 +193,7 @@ def start_app(project_id, config):
     raise BadConfigurationException('Version not found')
 
   runtime = version_details['runtime']
+  env_vars = version_details.get('envVariables', {})
   runtime_params = deployment_config.get_config('runtime_params')
   max_memory = runtime_params.get('max_memory', DEFAULT_MAX_MEMORY)
   if 'instanceClass' in version_details:
