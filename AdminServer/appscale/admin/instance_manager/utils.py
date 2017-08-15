@@ -8,6 +8,7 @@ import shutil
 import subprocess
 
 from appscale.common.constants import APPSCALE_HOME
+from appscale.common.constants import CONFIG_DIR
 from ..constants import InvalidSource
 
 
@@ -18,9 +19,11 @@ def fetch_file(host, location):
     host: A string specifying the location of the remote machine.
     location: A string specifying the path to the file.
   """
-  key_file = os.path.join('/', 'etc', 'appscale', 'ssh.key')
+  key_file = os.path.join(CONFIG_DIR, 'ssh.key')
   remote_location = '{}:{}'.format(host, location)
-  scp_cmd = ['scp', '-i', key_file, remote_location, location]
+  scp_cmd = ['scp', '-i', key_file,
+             '-o', 'StrictHostKeyChecking no',
+             remote_location, location]
   subprocess.check_call(scp_cmd)
 
 
