@@ -653,60 +653,38 @@ class DistributedTaskQueue():
       ip=self.load_balancer,
       port=self.get_module_port(app_id, source_info, target_info=[]))
 
+    try:
+      host = headers['Host']
+    except KeyError:
+      host = None
+    else:
+      host =  host if TARGET_REGEX.match(host) else None
+
     # Try to set target based on queue config.
     if queue.target:
-      target_url = self.get_target_from_queue(app_id, source_info,
-                                              queue.target)
+      target_url = self.get_target_url(app_id, source_info, queue.target)
     # If we cannot get anything from the queue config, we try the target from
-    # the request.
-    # Try to get the target from host (python sdk will set the target via
-    # the Host header). Java sdk does not include Host header, so we catch
-    # the KeyError.
-    else:
-      try:
-        target_url = self.get_target_from_host(app_id, source_info,
-                                               headers['Host'])
-      except KeyError:
-        pass
+    # the request (python sdk will set the target via the Host header). Java
+    # sdk does not include Host header, so we catch the KeyError.
+    elif host:
+      target_url = self.get_target_url(app_id, source_info, host)
 
 
     args['url'] = "{target}{url}".format(target=target_url, url=request.url())
     return args
 
-  def get_target_from_queue(self, app_id, source_info, target):
+  def get_target_url(self, app_id, source_info, target):
     """ Gets the url for the target using the queue's target defined in the
-    configuration file.
+    configuration file or the request's host header.
     
     Args:
       app_id: The application id, used to lookup module port.
       source_info: A dictionary containing the source version and module ids.
-      target: A string containing the value of queue.target.
+      target: A string containing the value of queue.target or the host header.
     Returns:
        A url as a string for the given target.
     """
     target_info = target.split('.')
-    return "http://{ip}:{port}".format(
-      ip=self.load_balancer,
-      port=self.get_module_port(app_id, source_info, target_info))
-
-  def get_target_from_host(self, app_id, source_info, host):
-    """ Gets the url for the target using the Host header.
-    
-    Args:
-      app_id: The application id, used to lookup module port.
-      source_info: A dictionary containing the source version and module ids.
-      host: A string containing the value of the Task's host from target or
-        the HTTP_HOST (which would contain AppScale's login ip).
-        
-    Returns:
-      A url as a string for the given target or None if target contains the
-        AppScale login ip because the Task did not specify a target. If this
-        method returns None the target will be determined by the queue or use
-        the current running version and module.
-    """
-    if not TARGET_REGEX.match(host):
-      return None
-    target_info = host.split('.')
     return "http://{ip}:{port}".format(
       ip=self.load_balancer,
       port=self.get_module_port(app_id, source_info, target_info))
