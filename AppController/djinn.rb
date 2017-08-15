@@ -396,8 +396,8 @@ class Djinn
   SMALL_WAIT = 5
 
 
-  # How often we should attempt to increase the number of AppServers on a
-  # given node. It's measured as a multiplier of DUTY_CYCLE.
+  # How often we should attempt to scale up. It's measured as a multiplier
+  # of DUTY_CYCLE.
   SCALEUP_THRESHOLD = 5
 
 
@@ -406,21 +406,14 @@ class Djinn
   SCALEDOWN_THRESHOLD = 15
 
 
-  # When spinning new node up or down, we need to use a much longer time
-  # to dampen the scaling factor, to give time to the instance to fully
-  # boot, and to reap the benefit of an already running instance. This is
-  # a multiplication factor we use with the above thresholds.
+  # When scaling down instances we need to use a much longer time in order
+  # to reap the benefit of an already running instance.  This is a
+  # multiplication factor we use with the above threshold.
   SCALE_TIME_MULTIPLIER = 6
 
 
   # This is the generic retries to do.
   RETRIES = 5
-
-
-  # The minimum number of requests that have to sit in haproxy's wait queue for
-  # an App Engine application before we will scale up the number of AppServers
-  # that serve that application.
-  SCALEUP_QUEUE_SIZE_THRESHOLD = 5
 
 
   # A Float that determines how much CPU can be used before the autoscaler will
@@ -5207,8 +5200,7 @@ HOSTS
       SCALE_LOCK.synchronize {
         Djinn.log_info("We need #{vms_to_spawn} more VMs.")
 
-        if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
-              SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
+        if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
           Djinn.log_info("Not scaling up right now, as we recently scaled " +
             "up or down.")
           return
@@ -5241,7 +5233,7 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
+    if Time.now.to_i - @last_scaling_time < (SCALEDOWN_THRESHOLD *
         SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
       Djinn.log_info("Not scaling down right now, as we recently scaled " +
         "up or down.")
@@ -5412,10 +5404,6 @@ HOSTS
     current_load = calculate_current_load(num_appengines, current_sessions,
                                           allow_concurrency)
     if current_load >= MAX_LOAD_THRESHOLD
-      if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
-        Djinn.log_debug("Not enough time has passed to scale up app #{app_name}")
-        return 0
-      end
       appservers_to_scale = calculate_appservers_needed(
         num_appengines, current_sessions, allow_concurrency)
       Djinn.log_debug("The deployment has reached its maximum load threshold for " +
