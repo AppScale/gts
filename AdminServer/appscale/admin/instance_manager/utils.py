@@ -16,7 +16,7 @@ def fetch_file(host, location):
   """ Copies a file from another machine.
 
   Args:
-    host: A string specifying the location of the remote machine.
+    host: A string specifying the IP address or hostname of the remote machine.
     location: A string specifying the path to the file.
   """
   key_file = os.path.join(CONFIG_DIR, 'ssh.key')
