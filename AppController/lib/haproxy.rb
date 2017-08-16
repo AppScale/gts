@@ -332,7 +332,11 @@ module HAProxy
   end
 
   # Set up the folder structure and creates the configuration files necessary for haproxy
-  def self.initialize_config()
+  #
+  # Args:
+  #   connect_timeout: Number of milliseconds for a request to wait before
+  #     a backend server will accept connection.
+  def self.initialize_config(connect_timeout)
     base_config = <<CONFIG
 global
   maxconn 64000
@@ -374,7 +378,7 @@ defaults
   option redispatch
 
   # Time to wait for a connection attempt to a server.
-  timeout connect 5000ms
+  timeout connect #{connect_timeout}ms
 
   # The maximum inactivity time allowed for a client.
   timeout client 50000ms

@@ -480,7 +480,7 @@ class Djinn
 
   # A String that is returned to callers of set_property that provide an invalid
   # instance variable name to set.
-  KEY_NOT_FOUND = "No property exists with the given name."
+  KEY_NOT_FOUND = "Invalid property name, or property value."
 
 
   # A String indicating when we are looking for a Zookeeper connection to
@@ -527,7 +527,7 @@ class Djinn
     'appengine' => [ Fixnum, '2', true ],
     'autoscale' => [ TrueClass, 'True', true ],
     'client_secrets' => [ String, nil, false ],
-    'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
+    'controller_logs_to_dashboard' => [ TrueClass, 'False', false ],
     'disks' => [ String, nil, true ],
     'ec2_access_key' => [ String, nil, false ],
     'ec2_secret_key' => [ String, nil, false ],
@@ -542,6 +542,7 @@ class Djinn
     'keyname' => [ String, nil, false ],
     'infrastructure' => [ String, nil, true ],
     'instance_type' => [ String, nil, true ],
+    'lb_connect_timeout' => [ Fixnum, '120000', true ],
     'login' => [ String, nil, true ],
     'machine' => [ String, nil, true ],
     'max_images' => [ Fixnum, '0', true ],
@@ -1444,6 +1445,14 @@ class Djinn
       elsif key == "login"
         Djinn.log_info("Restarting applications since public IP changed.")
         notify_restart_app_to_nodes(@apps_loaded)
+      elsif key == "lb_connect_timeout"
+        unless Integer(val) > 0
+          Djinn.log_warn("Cannot set a negative timeout.")
+          next
+        end
+        Djinn.log_info("Reload haproxy with new connect timeout.")
+        HAProxy.initialize_config(val)
+        HAProxy.regenerate_config
       end
 
       @options[key] = val
@@ -4416,12 +4425,12 @@ HOSTS
 
   # This function performs basic setup ahead of starting the API services.
   def initialize_server()
-    HAProxy.initialize_config
+    HAProxy.initialize_config(@options['lb_connect_timeout'])
     Djinn.log_info("HAProxy configured.")
 
     if not Nginx.is_running?
-      Nginx.initialize_config()
-      Nginx.start()
+      Nginx.initialize_config
+      Nginx.start
       Djinn.log_info("Nginx configured and started.")
     else
       Djinn.log_info("Nginx already configured and running.")
