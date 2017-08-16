@@ -36,29 +36,21 @@ class AppManagerClient
   #
   # Args:
   #   app_name: Name of the application
+  #   service_id: The AppServer's service ID.
+  #   version_id: The AppServer's version ID.
   #   app_port: The port to run the application server
-  #   login_ip: The public IP of this deployemnt
-  #   load_balancer_port: The port of the load balancer
-  #   language: The language the application is written in
   #   env_vars: A Hash of environemnt variables that should be passed to the
   #     application to start.
-  #   max_memory: An Integer that names the maximum amount of memory (in
-  #     megabytes) that should be used for this App Engine app.
-  #   syslog_server: The IP address of the remote syslog server to use.
   #
   def start_app(app_name,
+                service_id,
+                version_id,
                 app_port,
-                login_ip,
-                language,
-                env_vars,
-                max_memory=500,
-                syslog_server="")
+                env_vars)
     config = {'app_port' => app_port,
-              'login_ip' => login_ip,
-              'language' => language,
-              'env_vars' => env_vars,
-              'max_memory' => max_memory,
-              'syslog_server' => syslog_server}
+              'service_id' => service_id,
+              'version_id' => version_id,
+              'env_vars' => env_vars}
 
     uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}")
     headers = {'Content-Type' => 'application/json'}

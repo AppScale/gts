@@ -252,7 +252,7 @@ def rename_source_archive(project_id, service_id, version):
   """
   new_filename = VERSION_PATH_SEPARATOR.join(
     [project_id, service_id, version['id'],
-     '{}.tar.gz'.format(int(time.time() * 1000))])
+     '{}.tar.gz'.format(version['revision'])])
   new_location = os.path.join(SOURCES_DIRECTORY, new_filename)
   os.rename(version['deployment']['zip']['sourceUrl'], new_location)
   return new_location

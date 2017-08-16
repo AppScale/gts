@@ -288,32 +288,6 @@ class AppControllerClient():
       self.secret)
 
 
-  def is_app_running(self, app_id):
-    """Queries the AppController to see if the named application is running.
-
-    Args:
-      app_id: A str that indicates which application we should be checking
-        for.
-    Returns:
-      True if the application is running, False otherwise.
-    """
-    return self.call(self.MAX_RETRIES, self.server.is_app_running, app_id,
-      self.secret)
-
-
-  def done_uploading(self, app_id, remote_app_location):
-    """Tells the AppController that an application has been uploaded to its
-    machine, and where to find it.
-
-    Args:
-      app_id: A str that indicates which application we have copied over.
-      remote_app_location: A str that indicates the location on the remote
-        machine where the App Engine application can be found.
-    """
-    return self.call(self.MAX_RETRIES, self.server.done_uploading, app_id,
-      remote_app_location, self.secret)
-
-
   def update(self, apps_to_run):
     """Tells the AppController which applications to run, which we assume have
     already been uploaded to that machine.

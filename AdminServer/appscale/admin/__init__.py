@@ -14,6 +14,7 @@ from appscale.common.constants import (
   ZK_PERSISTENT_RECONNECTS
 )
 from appscale.common.monit_interface import MonitOperator
+from appscale.common.appscale_utils import get_md5
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -35,7 +36,8 @@ from .constants import (
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
-  VALID_RUNTIMES
+  VALID_RUNTIMES,
+  VERSION_PATH_SEPARATOR
 )
 from .operation import (
   CreateVersionOperation,
@@ -372,28 +374,36 @@ class VersionsHandler(BaseHandler):
       message = 'Error while updating application: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
-  def identify_as_hoster(self, project_id, source_location):
+  @gen.coroutine
+  def identify_as_hoster(self, project_id, service_id, version):
     """ Marks this machine as having a version's source code.
 
     Args:
       project_id: A string specifying a project ID.
-      source_location: A string specifying the location of the version's
-        source archive.
+      service_id: A string specifying a service ID.
+      version: A dictionary containing version details.
     """
-    private_ip = appscale_info.get_private_ip()
-    hoster_node = '/apps/{}/{}'.format(project_id, private_ip)
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
+    hoster_node = '/apps/{}/{}'.format(revision_key, options.private_ip)
+    source_location = version['deployment']['zip']['sourceUrl']
 
+    md5 = yield self.thread_pool.submit(get_md5, source_location)
     try:
-      self.zk_client.create(hoster_node, str(source_location), ephemeral=True,
-                            makepath=True)
+      self.zk_client.create(hoster_node, md5, makepath=True)
     except NodeExistsError:
-      self.zk_client.set(hoster_node, str(source_location))
+      raise CustomHTTPError(
+        HTTPCodes.INTERNAL_ERROR, message='Revision already exists')
 
-    # Remove other hosters that have old code.
-    hosters = self.zk_client.get_children('/apps/{}'.format(project_id))
-    old_hosters = [hoster for hoster in hosters if hoster != private_ip]
-    for hoster in old_hosters:
-      self.zk_client.delete('/apps/{}/{}'.format(project_id, hoster))
+    # Remove old revision nodes.
+    version_prefix = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id']])
+    old_revisions = [node for node in self.zk_client.get_children('/apps')
+                     if node.startswith(version_prefix)
+                     and node < revision_key]
+    for node in old_revisions:
+      logging.info('Removing hosting entries for {}'.format(node))
+      self.zk_client.delete('/apps/{}'.format(node), recursive=True)
 
   @gen.coroutine
   def post(self, project_id, service_id):
@@ -425,7 +435,7 @@ class VersionsHandler(BaseHandler):
 
     new_path = utils.rename_source_archive(project_id, service_id, version)
     version['deployment']['zip']['sourceUrl'] = new_path
-    self.identify_as_hoster(project_id, new_path)
+    yield self.identify_as_hoster(project_id, service_id, version)
     utils.remove_old_archives(project_id, service_id, version)
 
     yield self.thread_pool.submit(self.version_update_lock.acquire)
