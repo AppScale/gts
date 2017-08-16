@@ -27,7 +27,7 @@ module HAProxy
   HAPROXY_PATH = File.join("/", "etc", "haproxy")
   CONFIG_EXTENSION = "cfg"
   HAPROXY_BIN = `which haproxy`.chomp
-  KILL_BIN = `which kill`.chomp
+  BASH_BIN = `which bash`.chomp
 
   # These are for the AppScale internal services haproxy.
   SERVICES_SITES_PATH = File.join(HAPROXY_PATH, "services-sites-enabled")
@@ -103,7 +103,7 @@ module HAProxy
   def self.services_start()
     start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D " +
       "-p #{SERVICES_PIDFILE}"
-    stop_cmd = "#{KILL_BIN} `cat #{SERVICES_PIDFILE}`"
+    stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{SERVICES_PIDFILE})'"
     MonitInterface.start_daemon(
       :service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
   end
@@ -111,7 +111,7 @@ module HAProxy
   # Start HAProxy for AppServer instances.
   def self.apps_start()
     start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
-    stop_cmd = "#{KILL_BIN} `cat #{PIDFILE}`"
+    stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{PIDFILE})'"
     MonitInterface.start_daemon(:apps_haproxy, start_cmd, stop_cmd, PIDFILE)
   end
 
