@@ -1122,13 +1122,12 @@ class Djinn
   #   archived_file: A String, with the path to the compressed file containing
   #     the app.
   #   file_suffix: A String indicating what suffix the file should have.
-  #   email: A String with the email address of the user that will own this app.
   #   secret: A String with the shared key for authentication.
   # Returns:
   #   A JSON-dumped Hash with fields indicating if the upload process began
   #   successfully, and a reservation ID that can be used with
   #   get_app_upload_status to see if the app has successfully uploaded or not.
-  def upload_app(archived_file, file_suffix, email, secret)
+  def upload_app(archived_file, file_suffix, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     unless my_node.is_shadow?
@@ -1138,7 +1137,7 @@ class Djinn
         remote_file = [archived_file, file_suffix].join('.')
         HelperFunctions.scp_file(archived_file, remote_file,
                                  get_shadow.private_ip, get_shadow.ssh_key)
-        return acc.upload_app(remote_file, file_suffix, email)
+        return acc.upload_app(remote_file, file_suffix)
       rescue FailedNodeException
         Djinn.log_warn("Failed to forward upload_app call to shadow (#{get_shadow}).")
         return NOT_READY
@@ -1150,7 +1149,7 @@ class Djinn
 
     Djinn.log_debug(
       "Received a request to upload app at #{archived_file}, with suffix " +
-      "#{file_suffix}, with admin user #{email}.")
+      "#{file_suffix}")
 
     Thread.new {
       # If the dashboard is on the same node as the shadow, the archive needs
@@ -1165,7 +1164,7 @@ class Djinn
       Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @options['keyname']
       command = "#{UPLOAD_APP_SCRIPT} --file '#{archived_file}' " +
-        "--email #{email} --keyname #{keyname} 2>&1"
+        "--keyname #{keyname} 2>&1"
       output = Djinn.log_run(command)
       if output.include?("Your app can be reached at the following URL")
         result = "true"

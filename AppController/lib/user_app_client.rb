@@ -41,7 +41,7 @@ class UserAppClient
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("change_password", "user", "password", "secret")
     @conn.add_method("commit_new_user", "user", "passwd", "utype", "secret")
-    @conn.add_method("commit_new_app", "user", "appname", "language", "secret")
+    @conn.add_method("commit_new_app", "appname", "language", "secret")
     @conn.add_method("commit_tar", "app_name", "tar", "secret")
     @conn.add_method("delete_app", "appname", "secret")
     @conn.add_method("does_app_exist", "appname", "secret")
@@ -108,15 +108,15 @@ class UserAppClient
     return result
   end
 
-  def commit_new_app(user, app_name, language, file_location)
-    commit_new_app_name(user, app_name, language)
+  def commit_new_app(app_name, language, file_location)
+    commit_new_app_name(app_name, language)
     commit_tar(app_name, file_location)
   end
 
-  def commit_new_app_name(user, app_name, language, retry_on_except=true)
+  def commit_new_app_name(app_name, language, retry_on_except=true)
     result = ""
     make_call(DS_MIN_TIMEOUT, retry_on_except, "commit_new_app_name") {
-      result = @conn.commit_new_app(user, app_name, language, @secret)
+      result = @conn.commit_new_app(app_name, language, @secret)
     }
 
     if result == "true"
