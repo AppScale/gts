@@ -5056,6 +5056,45 @@ HOSTS
     @apps_loaded << app unless @apps_loaded.include?(app)
   end
 
+  # Accessory function for find_lowest_free_port: it looks into
+  # app_info_map if a port is used.
+  #
+  # Args:
+  #  port_to_check : An Integer that represent the port we are interested in.
+  #
+  # Returns:
+  #   A Boolean indicating if the port has been found in app_info_map.
+  def is_port_already_in_use(port_to_check)
+    APPS_LOCK.synchronize {
+      @app_info_map.each { |_, info|
+        next unless info['appengine']
+        info['appengine'].each { |location|
+          host, port = location.split(":")
+          next if @my_private_ip != host
+          return if port_to_check == Integer(port)
+        }
+      }
+    }
+    return false
+  end
+
+
+  # Accessory function for find_lowest_free_port: it looks into
+  # pending_appservers if a port is used.
+  #
+  # Args:
+  #  port_to_check : An Integer that represent the port we are interested in.
+  #
+  # Returns:
+  def is_port_pending(port_to_check)
+    @pending_appservers.each { |appserver, _|
+      host, port = appserver.split(":")
+      next if @my_private_ip != host
+      return true if port_to_check == Integer(port)
+    }
+    return false
+  end
+
 
   # Finds the lowest numbered port that is free to serve a new process.
   #
@@ -5070,42 +5109,22 @@ HOSTS
   #   A Fixnum corresponding to the port number that a new process can be bound
   #   to.
   def find_lowest_free_port(starting_port)
-    possibly_free_port = starting_port
+    port = starting_port
     loop {
-      in_use = false
+      next if is_port_already_in_use(port) || is_port_pending(port)
 
-      # Make sure the port is not already allocated to any application.
-      @app_info_map.each { |app, info|
-        break if in_use
-        next unless info['appengine']
-        info['appengine'].each { |location|
-          host, port = location.split(":")
-          next if @my_private_ip != host
-          in_use = true if possibly_free_port == Integer(port)
-        }
-      }
-
-      # And now let's check if any pending AppServer on this host has this
-      # port already assigned.
-      @pending_appservers.each { |appserver, _|
-        break if in_use
-        host, port = appserver.split(":")
-        next if @my_private_ip != host
-        in_use = true if possibly_free_port == Integer(port)
-      }
-
-      # Check if the port is really available.
+      # Check if the port is not in use by the system.
       unless in_use
-        actually_available = Djinn.log_run("lsof -i:#{possibly_free_port} -sTCP:LISTEN")
+        actually_available = Djinn.log_run("lsof -i:#{port} -sTCP:LISTEN")
         if actually_available.empty?
-          Djinn.log_debug("Port #{possibly_free_port} is available for use.")
-          return possibly_free_port
+          Djinn.log_debug("Port #{port} is available for use.")
+          return port
         end
       end
 
       # Let's try the next available port.
-      Djinn.log_debug("Port #{possibly_free_port} is in use, so skipping it.")
-      possibly_free_port += 1
+      Djinn.log_debug("Port #{port} is in use, so skipping it.")
+      port += 1
     }
     return -1
   end
