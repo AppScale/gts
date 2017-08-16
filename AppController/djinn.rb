@@ -5065,36 +5065,33 @@ HOSTS
   #
   # Args:
   #   starting_port: we look for ports starting from this port.
-  #   ending_port:   we look up to this port, if 0, we keep going.
-  #   appid:         if ports are used by this app, we ignore them, if
-  #                  nil we check all the applications ports.
   #
   # Returns:
   #   A Fixnum corresponding to the port number that a new process can be bound
   #   to.
-  def find_lowest_free_port(starting_port, ending_port=0, appid="")
+  def find_lowest_free_port(starting_port)
     possibly_free_port = starting_port
     loop {
-      # If we have ending_port, we need to check the upper limit too.
-      break if ending_port > 0 and possibly_free_port > ending_port
+      in_use = false
 
       # Make sure the port is not already allocated to any application.
-      # This is important when applications start at the same time since
-      # there can be a race condition allocating ports.
-      in_use = false
       @app_info_map.each { |app, info|
-        # If appid is defined, let's ignore its ports.
-        next if app == appid
-
-        # These ports are allocated on the AppServers nodes.
-        if info['appengine']
-          info['appengine'].each { |location|
-            _, port = location.split(":")
-            in_use = true if possibly_free_port == Integer(port)
-          }
-        end
-
         break if in_use
+        next unless info['appengine']
+        info['appengine'].each { |location|
+          host, port = location.split(":")
+          next if @my_private_ip != host
+          in_use = true if possibly_free_port == Integer(port)
+        }
+      }
+
+      # And now let's check if any pending AppServer on this host has this
+      # port already assigned.
+      @pending_appservers.each { |appserver, _|
+        break if in_use
+        host, port = appserver.split(":")
+        next if @my_private_ip != host
+        in_use = true if possibly_free_port == Integer(port)
       }
 
       # Check if the port is really available.
