@@ -172,7 +172,7 @@ class AppControllerClient():
                      appid, http_port, https_port, self.secret))
     return res
 
-  def upload_app(self, filename, file_suffix, email):
+  def upload_app(self, filename, file_suffix):
     """Tells the AppController to use the AppScale Tools to upload the Google
     App Engine application at the specified location.
 
@@ -180,14 +180,12 @@ class AppControllerClient():
       filename: A str that points to a compressed file on the local filesystem
         containing the user's Google App Engine application.
       file_suffix: A str that names the suffix this file should have.
-      email: A str containing an e-mail address that should be registered as the
-        administrator of this application.
     Returns:
       A str that indicates either that the app was successfully uploaded, or the
       reason why the application upload failed.
     """
     return json.loads(self.call(self.MAX_RETRIES, self.server.upload_app,
-      filename, file_suffix, email, self.secret))
+      filename, file_suffix, self.secret))
 
 
   def get_app_upload_status(self, reservation_id):

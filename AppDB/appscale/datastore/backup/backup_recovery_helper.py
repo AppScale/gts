@@ -358,7 +358,6 @@ def deploy_apps(app_paths):
     True on success, False otherwise.
   """
   secret = appscale_info.get_secret()
-  ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
   acc = AppControllerClient(appscale_info.get_headnode_ip(), secret)
 
   # Wait for Cassandra to come up after a restore.
@@ -372,21 +371,10 @@ def deploy_apps(app_paths):
         "application recovery for '{}'. Aborting...".format(app_path))
       return False
 
-    # Retrieve app admin via uaserver.
-    app_data = ua_client.get_app_data(app_id)
-
-    if 'owner' in app_data:
-      app_admin = app_data['owner']
-    else:
-      logging.error("Missing application data. Cannot complete application "
-        "recovery for '{}'. Aborting...".format(app_id))
-      return False
-
     file_suffix = re.search("\.(.*)\Z", app_path).group(1)
 
-    logging.warning("Restoring app '{}', from '{}', with owner '{}'.".
-      format(app_id, app_path, app_admin))
+    logging.warning("Restoring app '{}', from '{}'".format(app_id, app_path))
 
-    acc.upload_app(app_path, file_suffix, app_admin)
+    acc.upload_app(app_path, file_suffix)
 
   return True

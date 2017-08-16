@@ -123,8 +123,7 @@ def deploy_sensor_app():
     try:
       logging.info("Deploying the sensor app for registered deployments.")
       acc = appscale_info.get_appcontroller_client()
-      acc.upload_app(app_dir_location, constants.FILE_SUFFIX,
-                     constants.USER_EMAIL)
+      acc.upload_app(app_dir_location, constants.FILE_SUFFIX)
     except AppControllerException:
       logging.exception("AppControllerException while trying to deploy "
         "appscalesensor app.")
