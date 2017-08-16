@@ -396,8 +396,8 @@ class Djinn
   SMALL_WAIT = 5
 
 
-  # How often we should attempt to increase the number of AppServers on a
-  # given node. It's measured as a multiplier of DUTY_CYCLE.
+  # How often we should attempt to scale up. It's measured as a multiplier
+  # of DUTY_CYCLE.
   SCALEUP_THRESHOLD = 5
 
 
@@ -406,21 +406,14 @@ class Djinn
   SCALEDOWN_THRESHOLD = 15
 
 
-  # When spinning new node up or down, we need to use a much longer time
-  # to dampen the scaling factor, to give time to the instance to fully
-  # boot, and to reap the benefit of an already running instance. This is
-  # a multiplication factor we use with the above thresholds.
+  # When scaling down instances we need to use a much longer time in order
+  # to reap the benefit of an already running instance.  This is a
+  # multiplication factor we use with the above threshold.
   SCALE_TIME_MULTIPLIER = 6
 
 
   # This is the generic retries to do.
   RETRIES = 5
-
-
-  # The minimum number of requests that have to sit in haproxy's wait queue for
-  # an App Engine application before we will scale up the number of AppServers
-  # that serve that application.
-  SCALEUP_QUEUE_SIZE_THRESHOLD = 5
 
 
   # A Float that determines how much CPU can be used before the autoscaler will
@@ -1129,13 +1122,12 @@ class Djinn
   #   archived_file: A String, with the path to the compressed file containing
   #     the app.
   #   file_suffix: A String indicating what suffix the file should have.
-  #   email: A String with the email address of the user that will own this app.
   #   secret: A String with the shared key for authentication.
   # Returns:
   #   A JSON-dumped Hash with fields indicating if the upload process began
   #   successfully, and a reservation ID that can be used with
   #   get_app_upload_status to see if the app has successfully uploaded or not.
-  def upload_app(archived_file, file_suffix, email, secret)
+  def upload_app(archived_file, file_suffix, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     unless my_node.is_shadow?
@@ -1145,7 +1137,7 @@ class Djinn
         remote_file = [archived_file, file_suffix].join('.')
         HelperFunctions.scp_file(archived_file, remote_file,
                                  get_shadow.private_ip, get_shadow.ssh_key)
-        return acc.upload_app(remote_file, file_suffix, email)
+        return acc.upload_app(remote_file, file_suffix)
       rescue FailedNodeException
         Djinn.log_warn("Failed to forward upload_app call to shadow (#{get_shadow}).")
         return NOT_READY
@@ -1157,7 +1149,7 @@ class Djinn
 
     Djinn.log_debug(
       "Received a request to upload app at #{archived_file}, with suffix " +
-      "#{file_suffix}, with admin user #{email}.")
+      "#{file_suffix}")
 
     Thread.new {
       # If the dashboard is on the same node as the shadow, the archive needs
@@ -1172,7 +1164,7 @@ class Djinn
       Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @options['keyname']
       command = "#{UPLOAD_APP_SCRIPT} --file '#{archived_file}' " +
-        "--email #{email} --keyname #{keyname} 2>&1"
+        "--keyname #{keyname} 2>&1"
       output = Djinn.log_run(command)
       if output.include?("Your app can be reached at the following URL")
         result = "true"
@@ -5140,8 +5132,7 @@ HOSTS
       SCALE_LOCK.synchronize {
         Djinn.log_info("We need #{vms_to_spawn} more VMs.")
 
-        if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
-              SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
+        if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
           Djinn.log_info("Not scaling up right now, as we recently scaled " +
             "up or down.")
           return
@@ -5174,7 +5165,7 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD *
+    if Time.now.to_i - @last_scaling_time < (SCALEDOWN_THRESHOLD *
         SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
       Djinn.log_info("Not scaling down right now, as we recently scaled " +
         "up or down.")
@@ -5345,10 +5336,6 @@ HOSTS
     current_load = calculate_current_load(num_appengines, current_sessions,
                                           allow_concurrency)
     if current_load >= MAX_LOAD_THRESHOLD
-      if Time.now.to_i - @last_decision[app_name] < SCALEUP_THRESHOLD * DUTY_CYCLE
-        Djinn.log_debug("Not enough time has passed to scale up app #{app_name}")
-        return 0
-      end
       appservers_to_scale = calculate_appservers_needed(
         num_appengines, current_sessions, allow_concurrency)
       Djinn.log_debug("The deployment has reached its maximum load threshold for " +

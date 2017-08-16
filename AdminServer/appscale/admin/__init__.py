@@ -269,51 +269,22 @@ class VersionsHandler(BaseHandler):
       logging.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
-  def create_project(self, project_id, user, runtime):
+  def create_project(self, project_id, runtime):
     """ Creates a new project.
     
     Args:
       project_id: A string specifying a project ID.
-      user: A string specifying a user's email address.
       runtime: A string specifying the project's runtime.
     Raises:
       CustomHTTPError if unable to create new project.
     """
     logging.info('Creating project: {}'.format(project_id))
     try:
-      self.ua_client.commit_new_app(project_id, user, runtime)
+      self.ua_client.commit_new_app(project_id, runtime)
     except UAException:
       message = 'Unable to ensure project exists: {}'.format(project_id)
       logging.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
-  def ensure_user_is_owner(self, project_id, user):
-    """ Ensures a user is the owner of a project.
-    
-    Args:
-      project_id: A string specifying a project ID.
-      user: A string specifying a user's email address.
-    Raises:
-      CustomHTTPError if the user is not the owner.
-    """
-    # Immutable projects do not have owners.
-    if project_id in constants.IMMUTABLE_PROJECTS:
-      return
-
-    try:
-      project_metadata = self.ua_client.get_app_data(project_id)
-    except UAException:
-      message = 'Unable to retrieve project metadata'
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
-    if 'owner' not in project_metadata:
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
-                            message='Project owner not defined')
-
-    if project_metadata['owner'] != user:
-      message = 'User is not project owner: {}'.format(user)
-      raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=message)
 
   def put_version(self, project_id, service_id, new_version):
     """ Create or update version node.
@@ -414,17 +385,14 @@ class VersionsHandler(BaseHandler):
       service_id: A string specifying a service ID.
     """
     self.authenticate()
-    user = self.get_current_user()
     version = self.version_from_payload()
 
     project_exists = self.project_exists(project_id)
     if not project_exists:
-      self.create_project(project_id, user, version['runtime'])
+      self.create_project(project_id, version['runtime'])
 
     if service_id != constants.DEFAULT_SERVICE:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
-
-    self.ensure_user_is_owner(project_id, user)
 
     revision_key = VERSION_PATH_SEPARATOR.join(
       [project_id, service_id, version['id'], str(version['revision'])])

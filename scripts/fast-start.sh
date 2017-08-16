@@ -267,7 +267,7 @@ KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
 
 # Deploy sample app.
 [ -z "${ADMIN_EMAIL}" ] && ADMIN_EMAIL="a@a.com"
-[ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
+[ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --file ${GUESTBOOK_APP}
 
 # Relocate to port 80.
 ${APPSCALE_CMD} relocate guestbook 80 443
