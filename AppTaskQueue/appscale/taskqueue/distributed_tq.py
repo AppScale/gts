@@ -236,7 +236,7 @@ class DistributedTaskQueue():
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
     self.db_access = db_access
-    self.load_balancer = appscale_info.get_load_balancer_ips()[0]
+    self.load_balancers = appscale_info.get_load_balancer_ips()
     self.queue_manager = GlobalQueueManager(zk_client, db_access)
     self.service_manager = GlobalServiceManager(zk_client)
 
@@ -650,7 +650,7 @@ class DistributedTaskQueue():
                                   retry_parameters().max_doublings()
 
     target_url = "http://{ip}:{port}".format(
-      ip=self.load_balancer,
+      ip=self.load_balancers[0],
       port=self.get_module_port(app_id, source_info, target_info=[]))
 
     try:
@@ -686,7 +686,7 @@ class DistributedTaskQueue():
     """
     target_info = target.split('.')
     return "http://{ip}:{port}".format(
-      ip=self.load_balancer,
+      ip=self.load_balancers[0],
       port=self.get_module_port(app_id, source_info, target_info))
 
   def get_module_port(self, app_id, source_info, target_info):

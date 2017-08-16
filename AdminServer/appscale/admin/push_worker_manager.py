@@ -79,7 +79,7 @@ class ProjectPushWorkerManager(object):
     # Start the worker if it doesn't exist. Restart it if it does.
     if status == MonitStates.MISSING:
       command = self.celery_command()
-      env_vars = {'APP_ID': self.project_id, 'HOST': options.load_balancer,
+      env_vars = {'APP_ID': self.project_id, 'HOST': options.load_balancers[0],
                   'C_FORCE_ROOT': True}
       pidfile = os.path.join(PID_DIR, 'celery-{}.pid'.format(self.project_id))
       create_config_file(self.monit_watch, command, pidfile, env_vars=env_vars,
