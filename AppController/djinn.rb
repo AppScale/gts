@@ -5071,7 +5071,7 @@ HOSTS
         info['appengine'].each { |location|
           host, port = location.split(":")
           next if @my_private_ip != host
-          return if port_to_check == Integer(port)
+          return true if port_to_check == Integer(port)
         }
       }
     }
@@ -5086,7 +5086,7 @@ HOSTS
   #  port_to_check : An Integer that represent the port we are interested in.
   #
   # Returns:
-  def is_port_pending(port_to_check)
+  def is_port_assigned(port_to_check)
     @pending_appservers.each { |appserver, _|
       host, port = appserver.split(":")
       next if @my_private_ip != host
@@ -5111,10 +5111,8 @@ HOSTS
   def find_lowest_free_port(starting_port)
     port = starting_port
     loop {
-      next if is_port_already_in_use(port) || is_port_pending(port)
-
-      # Check if the port is not in use by the system.
-      unless in_use
+      if !is_port_already_in_use(port) && !is_port_assigned(port)
+        # Check if the port is not in use by the system.
         actually_available = Djinn.log_run("lsof -i:#{port} -sTCP:LISTEN")
         if actually_available.empty?
           Djinn.log_debug("Port #{port} is available for use.")
