@@ -1,5 +1,6 @@
 """ This service starts and stops application servers of a given application. """
 
+import errno
 import glob
 import logging
 import math
@@ -399,7 +400,10 @@ def stop_app_instance(app_name, port):
   try:
     with open(pid_location) as pidfile:
       instance_pid = int(pidfile.read().strip())
-  except IOError:
+  except IOError as error:
+    if error.errno != errno.ENOENT:
+      raise
+
     raise HTTPError(HTTPCodes.INTERNAL_ERROR,
                     '{} does not exist'.format(pid_location))
 

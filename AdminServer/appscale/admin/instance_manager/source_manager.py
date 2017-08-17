@@ -1,5 +1,6 @@
 """ Fetches and prepares the source code for revisions. """
 
+import errno
 import logging
 import os
 import random
@@ -137,8 +138,12 @@ class SourceManager(object):
                                       '{}.tar.gz'.format(revision_key))
       try:
         os.remove(archive_location)
-      except OSError:
-        pass
+      except OSError as error:
+        if error.errno != errno.ENOENT:
+          raise
+
+        logging.debug(
+          '{} did not exist when trying to remove it'.format(archive_location))
 
       futures_to_clear.append(revision_key)
 
