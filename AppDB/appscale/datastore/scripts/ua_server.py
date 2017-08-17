@@ -548,28 +548,6 @@ def enable_app(appname, secret):
   return "true"
 
 
-def disable_app(appname, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ['enabled'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) != 2:
-    return "Error: " + result[0]
-  if result[1] == "false":
-    return "Error: Trying to disable an application twice"
-  result = db.put_entity(APP_TABLE, appname, ['enabled'], ['false'])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
-
-
 def is_app_enabled(appname, secret):
   global db
   global super_secret
@@ -819,7 +797,6 @@ def main():
 
   server.registerFunction(change_password)
 
-  server.registerFunction(disable_app)
   server.registerFunction(enable_app)
   server.registerFunction(is_app_enabled)
   server.registerFunction(disable_user)

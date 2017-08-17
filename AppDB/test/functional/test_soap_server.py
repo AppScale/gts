@@ -190,10 +190,6 @@ ret = server.change_password("xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.disable_app("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.enable_app("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -259,10 +255,6 @@ if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.change_password(user[0], "", super_secret)
-if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.disable_app(app[0], super_secret)
 if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
@@ -403,15 +395,6 @@ if ret != "true":
 #################################
 ret = server.enable_app(app[0], super_secret)
 if "Error:" not in ret: 
-  err(helper_functions.lineno(), ret)
-###################
-# Disable app twice
-###################
-ret = server.disable_app(app[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-ret = server.disable_app(app[0], super_secret)
-if ret != "Error: Trying to disable an application twice":
   err(helper_functions.lineno(), ret)
 ##################
 # Reenable App
