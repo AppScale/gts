@@ -448,43 +448,6 @@ def get_tar(app_name, secret):
     return "Error:" + result[0]
 
 
-def commit_tar(app_name, tar, secret):
-  global db
-  global super_secret
-  global app_schema
-
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  if does_app_exist(app_name, secret) == "false":
-    return "Error: app does not exist"
-
-
-  columns = ["tar_ball", "version", "last_time_updated_date", "enabled"]
-  try:
-    result = db.get_entity(APP_TABLE, app_name, columns)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] in ERROR_CODES and len(result) > 1:
-    result = result[1:]
-    values = []
-    t = datetime.datetime.now()
-    date = str(time.mktime(t.timetuple()))
-    version = result[1]
-    values += [tar]
-    values += [str(int(version) + 1)]
-    values += [date]
-    values += ["true"] #enable bit
-    result = db.put_entity(APP_TABLE, app_name, columns, values)
-    if result[0] not in ERROR_CODES:
-      return "Error: unable to commit new tar ball %s" % result[0]
-  else:
-    error = "Error: unable to get app %s" % result[0]
-    return error
-  return "true"
-
-
 def delete_all_apps(secret):
   global db
   global super_secret
@@ -1038,7 +1001,6 @@ def main():
   server.registerFunction(add_admin_for_app)
   server.registerFunction(commit_new_user)
   server.registerFunction(commit_new_app)
-  server.registerFunction(commit_tar)
   server.registerFunction(commit_new_token)
   server.registerFunction(delete_instance)
   server.registerFunction(delete_all_apps)

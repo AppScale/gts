@@ -42,7 +42,6 @@ class UserAppClient
     @conn.add_method("change_password", "user", "password", "secret")
     @conn.add_method("commit_new_user", "user", "passwd", "utype", "secret")
     @conn.add_method("commit_new_app", "appname", "language", "secret")
-    @conn.add_method("commit_tar", "app_name", "tar", "secret")
     @conn.add_method("delete_app", "appname", "secret")
     @conn.add_method("does_app_exist", "appname", "secret")
     @conn.add_method("enable_app", "appname", "secret")
@@ -109,7 +108,6 @@ class UserAppClient
 
   def commit_new_app(app_name, language, file_location)
     commit_new_app_name(app_name, language)
-    commit_tar(app_name, file_location)
   end
 
   def commit_new_app_name(app_name, language, retry_on_except=true)
@@ -130,26 +128,6 @@ class UserAppClient
       puts "[unexpected] Commit new app says: [#{result}]"
     end
     return result
-  end
-
-  def commit_tar(app_name, file_location, retry_on_except=true)
-    file = File.open(file_location, "rb")
-    tar_contents = Base64.encode64(file.read)
-
-    result = ""
-    make_call(DS_MIN_TIMEOUT * 25, retry_on_except, "commit_tar") {
-      result = @conn.commit_tar(app_name, tar_contents, @secret)
-    }
-
-    if result == "true"
-      puts "#{app_name} was uploaded successfully."
-    elsif result == "Error: app does not exist"
-      HelperFunctions.log_and_crash("We were unable to upload your " +
-        "application. Please contact your cloud administrator for more " +
-        "information.")
-    else
-      puts "[unexpected] Commit new tar says: [#{result}]"
-    end
   end
 
   def change_password(user, new_password, retry_on_except=true)

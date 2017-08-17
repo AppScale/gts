@@ -208,10 +208,6 @@ ret = server.commit_new_app("xxx", "xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.commit_tar("xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.commit_new_token("xxx", "xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -505,15 +501,6 @@ if "version: 0" not in ret:
 # Commit tar ball for an app that does not exist
 ################################################
 tar = helper_functions.random_string(10000)
-ret = server.commit_tar("xxx", tar, super_secret)
-if ret != "Error: app does not exist":
-  err(helper_functions.lineno(), ret)  
-#####################
-# Commit a tar
-#####################
-ret = server.commit_tar(app[0], tar, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
 ####################
 # Get the tar
 ####################
@@ -687,9 +674,6 @@ if "enabled:false" not in ret:
 # Commit a new tar ball
 #######################
 tar2 = helper_functions.random_string(10000)
-ret = server.commit_tar(app[0], tar2, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
 ##########################
 # Get app data and version
 ##########################
