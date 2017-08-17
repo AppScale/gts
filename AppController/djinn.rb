@@ -1597,25 +1597,6 @@ class Djinn
     end
   end
 
-  # Queries the UserAppServer to see if the named application exists,
-  # and if it is listening to any port.
-  #
-  # Args:
-  #   appname: The name of the app that we should check for existence.
-  # Returns:
-  #   A boolean indicating whether or not the user application exists.
-  def does_app_exist(appname, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      return uac.does_app_exist?(appname)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer to check if the  " +
-        "application #{appname} exists")
-    end
-  end
-
   # Resets a user's password.
   #
   # Args:
@@ -3476,7 +3457,7 @@ class Djinn
       UserAppClient::SSL_SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
     begin
-      uac.does_app_exist?("not-there")
+      uac.does_user_exist?("not-there")
     rescue FailedNodeException
       Djinn.log_debug("UserAppServer not ready yet: retrying.")
       retry

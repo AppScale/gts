@@ -160,10 +160,6 @@ ret = server.does_user_exist("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.does_app_exist("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.is_user_enabled("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -245,10 +241,6 @@ if ret != BAD_SECRET:
 ##########################################################
 app = createApp()
 user = createUser()
-
-ret = server.does_app_exist(app[0], super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
 
 ret = server.is_user_enabled(user[0], super_secret)
 if ret != "false":
@@ -455,9 +447,6 @@ if user[0] not in ret or app[0] not in ret:
   err(helper_functions.lineno(), ret)
 ret = server.get_all_apps(super_secret)
 if app[0] not in ret:
-  err(helper_functions.lineno(), ret)
-ret = server.does_app_exist(app[0], super_secret)
-if ret != "true":
   err(helper_functions.lineno(), ret)
 ret = server.is_app_enabled(app[0], super_secret)
 if ret != "true":

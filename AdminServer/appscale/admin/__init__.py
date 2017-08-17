@@ -254,20 +254,17 @@ class VersionsHandler(BaseHandler):
 
     return version
 
-  def project_exists(self, project_id):
-    """ Checks if a project exists.
-    
+  def version_exists(self, project_id, service_id, version_id):
+    """ Checks if a version exists.
+
     Args:
       project_id: A string specifying a project ID.
-    Raises:
-      CustomHTTPError if unable to determine if project exists.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
     """
-    try:
-      return self.ua_client.does_app_exist(project_id)
-    except UAException:
-      message = 'Unable to check if project exists: {}'.format(project_id)
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
+      project_id, service_id, version_id)
+    return self.zk_client.exists(version_node) is not None
 
   def put_version(self, project_id, service_id, new_version):
     """ Create or update version node.
@@ -370,11 +367,10 @@ class VersionsHandler(BaseHandler):
     self.authenticate()
     version = self.version_from_payload()
 
-    project_exists = self.project_exists(project_id)
-
     if service_id != constants.DEFAULT_SERVICE:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
 
+    version_exists = self.version_exists(project_id, service_id, version['id'])
     try:
       utils.extract_source(version, project_id)
     except IOError:
@@ -398,7 +394,7 @@ class VersionsHandler(BaseHandler):
     operation = CreateVersionOperation(project_id, service_id, version)
     operations[operation.id] = operation
 
-    pre_wait = REDEPLOY_WAIT if project_exists else 0
+    pre_wait = REDEPLOY_WAIT if version_exists else 0
     logging.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
     IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id,

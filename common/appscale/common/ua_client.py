@@ -84,23 +84,6 @@ class UAClient(object):
     if response.lower() != 'true':
       raise UAException(response)
 
-  def does_app_exist(self, app_id):
-    """ Checks if an application exists.
-
-    Args:
-      app_id: A string specifying an application ID.
-    Returns:
-      A boolean indicating whether or not the application exists.
-    Raises:
-      UAException when unable to determine if app exists.
-    """
-    response = self.server.does_app_exist(app_id, self.secret)
-
-    if response.lower() not in ['true', 'false']:
-      raise UAException(response)
-
-    return response.lower() == 'true'
-
   def does_user_exist(self, email):
     """ Checks if a user exists.
     

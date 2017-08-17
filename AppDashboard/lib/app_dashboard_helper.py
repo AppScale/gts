@@ -13,6 +13,7 @@ import time
 import urllib
 
 from google.appengine.api.appcontroller_client import AppControllerClient
+from google.appengine.api import urlfetch
 from google.appengine.api import users
 
 from custom_exceptions import BadConfigurationException
@@ -64,6 +65,15 @@ class AppDashboardHelper(object):
 
   # The port that the UserAppServer runs on, by default.
   UA_SERVER_PORT = 4343
+
+  # The port that the AdminServer runs on.
+  ADMIN_SERVER_PORT = 17441
+
+  # The default service for a project.
+  DEFAULT_SERVICE = 'default'
+
+  # The default version for a service.
+  DEFAULT_VERSION = 'v1'
 
   # Users have a list of applications that they own stored in their user data.
   # This character is the delimiter that separates them in their data.
@@ -504,31 +514,18 @@ class AppDashboardHelper(object):
       A str indicating whether or not the application was successfully removed
         from this AppScale deployment.
     """
-    try:
-      if not self.does_app_exist(appname):
-        return "The given application is not currently running."
-      acc = self.get_appcontroller_client()
-      ret = acc.stop_app(appname)
-      if ret != "true":
-        logging.error("AppController returned: {0}".format(ret))
-        return "There was an error attempting to remove the application."
-    except Exception as err:
-      logging.exception(err)
-      return "There was an error attempting to remove the application."
+    admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
+    version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
+      admin_server, appname, self.DEFAULT_SERVICE, self.DEFAULT_VERSION)
+    result = urlfetch.fetch(version_url,
+                            method=urlfetch.DELETE,
+                            headers={'AppScale-Secret': GLOBAL_SECRET_KEY},
+                            validate_certificate=False)
+    if result.status_code != 200:
+      return result.content
+
     return "Application removed successfully. Please wait for your app to " + \
            "shut down."
-
-  def does_app_exist(self, appname):
-    """ Queries the UserAppServer to see if the named application id has been
-    registered.
-
-    Args:
-      appname: A str containing the name of the application we wish to query.
-    Returns:
-      True if the app id has been registered, and False otherwise.
-    """
-    result = self.get_uaserver().does_app_exist(appname, GLOBAL_SECRET_KEY)
-    return result.lower() == 'true'
 
   def is_user_logged_in(self):
     """ Checks to see if this user is logged in.

@@ -33,9 +33,5 @@ if __name__ == "__main__":
     print "User does not exist."
     sys.exit(1)
 
-  if not ua_client.does_app_exist(app_id):
-    print "Application ID does not exist."
-    sys.exit(1)
-
   ua_client.add_admin_for_app(email, app_id)
   print('{} granted admin access to {}'.format(email, app_id))

@@ -803,23 +803,6 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_does_app_exist
-    good_secret = 'good_secret'
-    bad_secret = 'bad_secret'
-    app_exists = true
-    appname = 'app1'
-
-    flexmock(UserAppClient).new_instances.should_receive(:does_app_exist? => true)
-
-    djinn = get_djinn_mock
-    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
-    assert_equal(BAD_SECRET_MSG, djinn.does_app_exist(appname, bad_secret))
-
-    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
-    assert_equal(app_exists, djinn.does_app_exist(appname, good_secret))
-  end
-
-
   def test_reset_password
     good_secret = 'good_secret'
     bad_secret = 'bad_secret'

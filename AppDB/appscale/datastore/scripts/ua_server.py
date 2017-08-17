@@ -256,21 +256,6 @@ def does_user_exist(username, secret):
     return "false"
 
 
-def does_app_exist(appname, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  try:
-    result = db.get_entity(APP_TABLE, appname, ["name"])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-  if result[0] in ERROR_CODES and len(result) == 2:
-    return "true"
-  else:
-    return "false"
-
-
 def get_user_apps(username, secret):
   global db
   global super_secret
@@ -895,7 +880,6 @@ def main():
 
   # Register soap functions.
   server.registerFunction(does_user_exist)
-  server.registerFunction(does_app_exist)
 
   server.registerFunction(get_all_apps)
   server.registerFunction(get_all_users)
