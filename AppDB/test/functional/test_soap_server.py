@@ -158,10 +158,6 @@ ret = server.get_user_data("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_version("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.commit_new_user("xxx", "xxx", "user", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -212,10 +208,6 @@ if "____" not in ret:
 
 ret = server.get_user_data(user[0], super_secret)
 if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_version(app[0], super_secret)
-if ret != "false":
   err(helper_functions.lineno(), ret)
 
 ret = server.delete_user(user[0], super_secret)
@@ -345,12 +337,6 @@ if ret != "true":
 ##################
 ret = server.is_user_enabled(user[0], super_secret)
 if ret != "true":
-  err(helper_functions.lineno(), ret)
-#############################
-# Get the version of the app
-#############################
-ret = server.get_version(app[0], super_secret)
-if "version: 0" not in ret:
   err(helper_functions.lineno(), ret)
 ###################
 # Delete user

@@ -420,24 +420,6 @@ def commit_new_token(user, token, token_exp, secret):
   return "true"
 
 
-def get_version(appname, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  columns = ['version']
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, columns)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false"
-  result = result[1:]
-  return "version: " + result[0] + "\n"
-
-
 def change_password(user, password, secret):
   global db
   global super_secret
@@ -688,7 +670,6 @@ def main():
   server.registerFunction(does_user_exist)
   server.registerFunction(get_all_users)
   server.registerFunction(get_user_data)
-  server.registerFunction(get_version)
   server.registerFunction(add_admin_for_app)
   server.registerFunction(commit_new_user)
   server.registerFunction(commit_new_token)
