@@ -10,7 +10,6 @@ import threading
 import time
 import urllib
 import urllib2
-from xml.etree import ElementTree
 
 import psutil
 import tornado.web
