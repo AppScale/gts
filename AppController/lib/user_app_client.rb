@@ -41,7 +41,6 @@ class UserAppClient
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("change_password", "user", "password", "secret")
     @conn.add_method("commit_new_user", "user", "passwd", "utype", "secret")
-    @conn.add_method("is_app_enabled", "appname", "secret")
     @conn.add_method("is_user_cloud_admin", "username", "secret")
     @conn.add_method("does_user_exist", "username", "secret")
     @conn.add_method("get_user_data", "username", "secret")
@@ -113,19 +112,6 @@ class UserAppClient
       puts "[unexpected] Got this message back: [#{result}]"
     end
     return result
-  end
-
-  def is_app_enabled?(app, retry_on_except=true)
-    result = ""
-    make_call(DS_MIN_TIMEOUT, retry_on_except, "is_app_enabled") {
-      result = @conn.is_app_enabled(app, @secret)
-    }
-
-    if result == "true"
-      return true
-    else
-      return false
-    end
   end
 
   def does_user_exist?(user, retry_on_except=true)

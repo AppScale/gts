@@ -130,17 +130,6 @@ class UAClient(object):
     """
     return self.server.get_user_data(email, self.secret)
 
-  def is_app_enabled(self, app_id):
-    """ Checks if an application is enabled.
-
-    Args:
-      app_id: A string specifying an application ID.
-    Returns:
-      A boolean indicating whether or not an application is enabled.
-    """
-    response = self.server.is_app_enabled(app_id, self.secret)
-    return response.lower() == 'true'
-
   def is_user_cloud_admin(self, email):
     """ Checks if a user has cloud admin privliges.
 

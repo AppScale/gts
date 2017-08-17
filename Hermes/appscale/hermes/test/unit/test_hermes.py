@@ -96,14 +96,12 @@ class TestHelper(unittest.TestCase):
     hermes.options = fake_options
     flexmock(appscale_info).should_receive('get_db_master_ip').and_return()
     # Assume appscalesensor app already running.
-    flexmock(UAClient).should_receive('is_app_enabled').and_return(True)
     flexmock(AppControllerClient).should_receive('upload_app').and_return(). \
       times(0)
     deploy_sensor_app()
 
     # Test sensor app is not deployed when the app is not currently running but
     # there was an error in creating a new user.
-    flexmock(UAClient).should_receive('is_app_enabled').and_return(False)
     # Assume error while creating a new user.
     flexmock(UAClient).should_receive('does_user_exist').and_return(False)
     flexmock(UAClient).should_receive('commit_new_user').and_raise(UAException)

@@ -525,23 +525,6 @@ def change_password(user, password, secret):
   return "true"
 
 
-def is_app_enabled(appname, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ['enabled'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) != 2:
-    return "false"
-  return result[1]
-
-
 def enable_user(user, secret):
   global db
   global super_secret
@@ -774,7 +757,6 @@ def main():
 
   server.registerFunction(change_password)
 
-  server.registerFunction(is_app_enabled)
   server.registerFunction(disable_user)
   server.registerFunction(enable_user)
   server.registerFunction(is_user_enabled)

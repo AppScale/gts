@@ -4706,12 +4706,6 @@ HOSTS
     app_list.each { |app|
       next if ZKInterface.get_app_names.include?(app)
       next if RESERVED_APPS.include?(app)
-      begin
-        next if uac.is_app_enabled?(app)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to talk to the UserAppServer about app #{app}.")
-        next
-      end
 
       Djinn.log_info("#{app} is no longer running: removing old states.")
 
@@ -5785,16 +5779,9 @@ HOSTS
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting AppServer instance to free up unused resources")
 
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_manager = AppManagerClient.new(my_node.private_ip)
 
-    begin
-      app_is_enabled = uac.is_app_enabled?(app_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer about " +
-        "application #{app_id}")
-      return false
-    end
+    app_is_enabled = ZKInterface.get_app_names.include?(app_id)
     Djinn.log_debug("is app #{app_id} enabled? #{app_is_enabled}")
     if app_is_enabled == "false"
       return false

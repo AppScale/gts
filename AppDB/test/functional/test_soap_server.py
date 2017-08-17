@@ -142,10 +142,6 @@ if allusers:
   print server.get_all_users(super_secret)
   exit(0)
 
-ret = server.is_app_enabled("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.does_user_exist("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -190,10 +186,6 @@ ret = server.change_password("xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.is_app_enabled("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.disable_user("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -213,10 +205,6 @@ app = createApp()
 user = createUser()
 
 ret = server.is_user_enabled(user[0], super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.is_app_enabled(app[0], super_secret)
 if ret != "false":
   err(helper_functions.lineno(), ret)
 
@@ -375,12 +363,6 @@ if ret != "true":
 #############################
 ret = server.get_version(app[0], super_secret)
 if "version: 0" not in ret:
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.is_app_enabled(app[0], super_secret)
-if ret != "true":
   err(helper_functions.lineno(), ret)
 ####################
 # Remove an instance
