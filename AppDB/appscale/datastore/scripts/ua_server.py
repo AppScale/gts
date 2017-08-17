@@ -389,47 +389,6 @@ def get_all_users(secret):
   return userstring
 
 
-def delete_instance(appname, host, port, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  ret = "true"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ['host', 'port'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  error = result[0]
-  if error not in ERROR_CODES or len(result) == 1:
-    return "false"
-  result = result[1:]
-
-  hosts = []
-  ports = []
-
-  if result[0]: hosts = result[0].split(':')
-  if result[1]: ports = result[1].split(':')
-  if len(hosts) != len(ports):
-    return "Error: bad number of hosts to ports"
-
-  for kk in range(0, len(hosts)):
-    if str(hosts[kk]) == str(host):
-      del hosts[kk]
-      del ports[kk]
-
-  hosts = ':'.join(hosts)
-  ports = ':'.join(ports)
-
-  result = db.put_entity(APP_TABLE, appname, ['host', 'port'], [hosts, ports])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return ret
-
-
 def commit_new_token(user, token, token_exp, secret):
   global db
   global super_secret
@@ -733,7 +692,6 @@ def main():
   server.registerFunction(add_admin_for_app)
   server.registerFunction(commit_new_user)
   server.registerFunction(commit_new_token)
-  server.registerFunction(delete_instance)
   server.registerFunction(delete_user)
 
   server.registerFunction(change_password)

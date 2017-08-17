@@ -170,10 +170,6 @@ ret = server.commit_new_token("xxx", "xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.delete_instance("xxx", "xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.delete_user("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -219,10 +215,6 @@ if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.get_version(app[0], super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.delete_instance(app[0], "xxx", "xxx", super_secret)
 if ret != "false":
   err(helper_functions.lineno(), ret)
 
@@ -359,16 +351,6 @@ if ret != "true":
 #############################
 ret = server.get_version(app[0], super_secret)
 if "version: 0" not in ret:
-  err(helper_functions.lineno(), ret)
-####################
-# Remove an instance
-####################
-host1 = helper_functions.random_string(10)
-port1 = helper_functions.random_string(4)
-host2 = helper_functions.random_string(10)
-port2 = helper_functions.random_string(4)
-ret = server.delete_instance(app[0], host1, port1, super_secret)
-if ret != "true":
   err(helper_functions.lineno(), ret)
 ###################
 # Delete user

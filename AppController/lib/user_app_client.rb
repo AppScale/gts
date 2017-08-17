@@ -44,7 +44,6 @@ class UserAppClient
     @conn.add_method("is_user_cloud_admin", "username", "secret")
     @conn.add_method("does_user_exist", "username", "secret")
     @conn.add_method("get_user_data", "username", "secret")
-    @conn.add_method("delete_instance", "appname", "host", "port", "secret")
     @conn.add_method("get_all_users", "secret")
     @conn.add_method("set_cloud_admin_status", "username", "is_cloud_admin", "secret")
     @conn.add_method("set_capabilities", "username", "capabilities", "secret")
@@ -127,15 +126,6 @@ class UserAppClient
     result = ""
     make_call(DS_MIN_TIMEOUT, retry_on_except, "get_user_data") {
       result = @conn.get_user_data(username, @secret)
-    }
-
-    return result
-  end
-
-  def delete_instance(appname, host, port, retry_on_except=true)
-    result = ""
-    make_call(DS_MIN_TIMEOUT, retry_on_except, "delete_instance") {
-      result = @conn.delete_instance(appname, host, port, @secret)
     }
 
     return result
