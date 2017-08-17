@@ -269,23 +269,6 @@ class VersionsHandler(BaseHandler):
       logging.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
-  def create_project(self, project_id, runtime):
-    """ Creates a new project.
-    
-    Args:
-      project_id: A string specifying a project ID.
-      runtime: A string specifying the project's runtime.
-    Raises:
-      CustomHTTPError if unable to create new project.
-    """
-    logging.info('Creating project: {}'.format(project_id))
-    try:
-      self.ua_client.commit_new_app(project_id, runtime)
-    except UAException:
-      message = 'Unable to ensure project exists: {}'.format(project_id)
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
   def put_version(self, project_id, service_id, new_version):
     """ Create or update version node.
 
@@ -388,8 +371,6 @@ class VersionsHandler(BaseHandler):
     version = self.version_from_payload()
 
     project_exists = self.project_exists(project_id)
-    if not project_exists:
-      self.create_project(project_id, version['runtime'])
 
     if service_id != constants.DEFAULT_SERVICE:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')

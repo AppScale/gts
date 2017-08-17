@@ -41,7 +41,6 @@ class UserAppClient
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("change_password", "user", "password", "secret")
     @conn.add_method("commit_new_user", "user", "passwd", "utype", "secret")
-    @conn.add_method("commit_new_app", "appname", "language", "secret")
     @conn.add_method("delete_app", "appname", "secret")
     @conn.add_method("does_app_exist", "appname", "secret")
     @conn.add_method("enable_app", "appname", "secret")
@@ -101,30 +100,6 @@ class UserAppClient
         "account. Please contact your cloud administrator for further details.")
     else
       puts "\n[unexpected] Commit new user returned: [#{result}]"
-    end
-    return result
-  end
-
-  def commit_new_app(app_name, language, file_location)
-    commit_new_app_name(app_name, language)
-  end
-
-  def commit_new_app_name(app_name, language, retry_on_except=true)
-    result = ""
-    make_call(DS_MIN_TIMEOUT, retry_on_except, "commit_new_app_name") {
-      result = @conn.commit_new_app(app_name, language, @secret)
-    }
-
-    if result == "true"
-      puts "We have reserved the name #{app_name} for your application."
-    elsif result == "Error: appname already exist"
-      puts "We are uploading a new version of the application #{app_name}."
-    elsif result == "Error: User not found"
-      HelperFunctions.log_and_crash("We were unable to reserve the name of " +
-        "your application. Please contact your cloud administrator for more " +
-        "information.")
-    else
-      puts "[unexpected] Commit new app says: [#{result}]"
     end
     return result
   end

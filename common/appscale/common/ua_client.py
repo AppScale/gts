@@ -45,22 +45,6 @@ class UAClient(object):
     if response.lower() != 'true':
       raise UAException(response)
 
-  def commit_new_app(self, app_id, language):
-    """ Creates new project.
-
-    Args:
-      app_id: A string specifying an application ID.
-      language: A string specifying the project's language.
-    """
-    response = self.server.commit_new_app(app_id, language, self.secret)
-
-    # If the project already exists, consider the operation a success.
-    if response == EXISTING_PROJECT_MESSAGE:
-      return
-
-    if response.lower() != 'true':
-      raise UAException(response)
-
   def commit_new_user(self, email, hashed_pwd, type):
     """ Creates a new user.
 

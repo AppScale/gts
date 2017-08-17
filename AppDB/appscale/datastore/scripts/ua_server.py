@@ -403,35 +403,6 @@ def add_admin_for_app(user, app, secret):
     return "Error: Unable to update the user."
 
 
-def commit_new_app(appname, language, secret):
-  global db
-  global app_schema
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  error =  "Error: appname/language can only be alpha numeric"
-  if not language.isalnum():
-    return error
-
-  if re.search(APPNAME_REGEX,appname) is None:
-    return error
-
-  if does_app_exist(appname, secret) == "true":
-    return EXISTING_PROJECT_MESSAGE
-
-  # User is not needed, but a placeholder is used to keep the same schema.
-  user = ''
-  n_app = Apps(appname, user, language)
-  array = n_app.arrayit()
-  result = db.put_entity(APP_TABLE, appname, app_schema, array)
-  if result[0] in ERROR_CODES:
-    ret = "true"
-  else:
-    return "false"
-  return ret
-
-
 def delete_all_apps(secret):
   global db
   global super_secret
@@ -983,7 +954,6 @@ def main():
   server.registerFunction(get_version)
   server.registerFunction(add_admin_for_app)
   server.registerFunction(commit_new_user)
-  server.registerFunction(commit_new_app)
   server.registerFunction(commit_new_token)
   server.registerFunction(delete_instance)
   server.registerFunction(delete_all_apps)

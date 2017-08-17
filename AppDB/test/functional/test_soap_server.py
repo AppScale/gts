@@ -200,10 +200,6 @@ ret = server.commit_new_user("xxx", "xxx", "user", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.commit_new_app("xxx", "xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.commit_new_token("xxx", "xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -461,28 +457,6 @@ if ret != "true":
 ret = server.is_user_enabled(user[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
-#########################
-# Commit bad name for app
-#########################
-ret = server.commit_new_app("!@#$$%", user[0], "python", super_secret)
-if ret != "Error: appname/language can only be alpha numeric":
-  err(helper_functions.lineno(), ret)
-ret = server.commit_new_app(app[0], user[0], "!@#$%", super_secret)
-if ret != "Error: appname/language can only be alpha numeric":
-  err(helper_functions.lineno(), ret)
-
-######################
-# Committing a new app
-######################
-ret = server.commit_new_app(app[0], user[0], "python", super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-###########################
-# Commit the same app twice
-###########################
-ret = server.commit_new_app(app[0], user[0], "python", super_secret)
-if ret != "Error: appname already exist":
-  err(helper_functions.lineno(), ret)
 #############################
 # Get the version of the app
 #############################
@@ -616,23 +590,10 @@ if user[0] not in ret:
 ret = server.does_user_exist(user[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
-##################################
-# Upload an app with a random user 
-##################################
-app2 = createApp()
-ret = server.commit_new_app(app2[0], user[0], "java", super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-##########################
-# Upload a second app
-#########################
-app2 = createApp()
-ret = server.commit_new_app(app2[0], user[0], "java", super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
 ########################
 # Get app data
 ########################
+app2 = createApp()
 ret = server.get_app_data(app2[0], super_secret)
 if app2[0] not in ret or user[0] not in ret:
   err(helper_functions.lineno(), ret)
