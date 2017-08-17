@@ -235,6 +235,11 @@ class TestAppManager(unittest.TestCase):
   def test_stop_app_instance(self):
     app_id = 'test'
     port = 20000
+
+    acc = flexmock(remove_routing_for_appserver=lambda key, ip, port: None)
+    flexmock(appscale_info).should_receive('get_appcontroller_client').\
+      and_return(acc)
+
     flexmock(misc).should_receive('is_app_name_valid').and_return(False)
     self.assertFalse(app_manager_server.stop_app_instance(app_id, port))
 

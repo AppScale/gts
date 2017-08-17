@@ -2803,6 +2803,42 @@ class Djinn
     return "OK"
   end
 
+  # Instructs Nginx and HAProxy to stop routing traffic for the AppServer.
+  #
+  # Args:
+  #   version_key: A string specifying the version key.
+  #   ip: A string specifying the location of the AppServer instance.
+  #   port: An integer specifying the location of the AppServer instance.
+  #   secret: A string used to authenticate the client.
+  def remove_routing_for_appserver(version_key, ip, port, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless my_node.is_shadow?
+      # We need to send the call to the shadow.
+      Djinn.log_debug(
+        "Sending remove routing call for #{version_key} to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.remove_routing_for_appserver(version_key, ip, port)
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward remove routing call to shadow (#{get_shadow}).")
+        return NOT_READY
+      end
+    end
+
+    project_id = version_key.split('_')[0]
+    APPS_LOCK.synchronize {
+      if @app_info_map.key?(project_id) &&
+          @app_info_map[project_id].key?('appengine')
+        @app_info_map[project_id]['appengine'].delete("#{ip}:#{port}")
+      end
+      Djinn.log_debug("Removed routing for #{project_id} at #{ip}:#{port}.")
+    }
+
+    return 'OK'
+  end
+
   # Instruct HAProxy to begin routing traffic to the BlobServers.
   #
   # Args:

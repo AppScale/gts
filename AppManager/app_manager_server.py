@@ -23,6 +23,9 @@ from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 from tornado.options import options
 
+from appscale.admin.constants import DEFAULT_SERVICE
+from appscale.admin.constants import DEFAULT_VERSION
+from appscale.admin.constants import VERSION_PATH_SEPARATOR
 from appscale.admin.instance_manager.constants import (
   APP_LOG_SIZE,
   DASHBOARD_LOG_SIZE,
@@ -375,6 +378,12 @@ def stop_app_instance(app_name, port):
     return False
 
   logging.info("Stopping application %s" % app_name)
+
+  acc = appscale_info.get_appcontroller_client()
+  version_key = VERSION_PATH_SEPARATOR.join(
+    [app_name, DEFAULT_SERVICE, DEFAULT_VERSION])
+  acc.remove_routing_for_appserver(version_key, options.private_ip, port)
+
   watch = '{}{}-{}'.format(MONIT_INSTANCE_PREFIX, app_name, port)
 
   pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))

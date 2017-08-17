@@ -85,6 +85,8 @@ class AppControllerClient
     @conn.add_method("get_node_stats_json", "secret")
     @conn.add_method("get_instance_info", "secret")
     @conn.add_method("get_request_info", "app_id", "secret")
+    @conn.add_method('remove_routing_for_appserver', 'version_key', 'ip',
+                     'port', 'secret')
   end
 
 
@@ -241,4 +243,10 @@ class AppControllerClient
     }
   end
 
+  # Instructs Nginx and HAProxy to stop routing traffic for the AppServer.
+  def remove_routing_for_appserver(version_key, ip, port)
+    make_call(10, RETRY_ON_FAIL, 'remove_routing_for_appserver') {
+      @conn.remove_routing_for_appserver(version_key, ip, port, @secret)
+    }
+  end
 end

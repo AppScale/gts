@@ -84,6 +84,8 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "gather_logs", "secret")
     add_method(@djinn, "add_routing_for_appserver", "app_id", "ip", "port",
       "secret")
+    add_method(@djinn, 'remove_routing_for_appserver', 'version_key', 'ip',
+               'port', 'secret')
     add_method(@djinn, "add_routing_for_blob_server", "secret")
     add_method(@djinn, "run_groomer", "secret")
     add_method(@djinn, "get_property", "property_regex", "secret")
