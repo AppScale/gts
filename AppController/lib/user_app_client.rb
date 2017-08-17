@@ -48,7 +48,6 @@ class UserAppClient
     @conn.add_method("get_user_data", "username", "secret")
     @conn.add_method("get_app_data", "appname", "secret")
     @conn.add_method("delete_instance", "appname", "host", "port", "secret")
-    @conn.add_method("get_all_apps", "secret")
     @conn.add_method("get_all_users", "secret")
     @conn.add_method("set_cloud_admin_status", "username", "is_cloud_admin", "secret")
     @conn.add_method("set_capabilities", "username", "capabilities", "secret")
@@ -183,20 +182,6 @@ class UserAppClient
     }
 
     return result
-  end
-
-  def get_all_apps(retry_on_except=true)
-    all_apps = ""
-    make_call(DS_MIN_TIMEOUT, retry_on_except, "get_all_apps") {
-      all_apps = @conn.get_all_apps(@secret)
-    }
-
-    app_list = all_apps.split(":")
-    if app_list[0] == "Error"
-      raise FailedNodeException.new("get_all_apps: got #{all_apps}.")
-    end
-    app_list = app_list - [app_list[0]] # first item is a dummy value
-    return app_list
   end
 
   def get_all_users(retry_on_except=true)

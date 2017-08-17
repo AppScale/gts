@@ -434,34 +434,6 @@ def get_all_users(secret):
   return userstring
 
 
-def get_all_apps(secret):
-  global db
-  global super_secret
-  global app_schema
-  apps = []
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  result = db.get_table(APP_TABLE, app_schema)
-  if result[0] not in ERROR_CODES:
-    return "Error:" + result[0]
-  result = result[1:]
-  for ii in range(0, (len(result)/len(app_schema))):
-    partial = result[(ii * len(app_schema)): ((1 + ii) * len(app_schema))]
-    if len(partial) != len(app_schema):
-      pass
-    else:
-      a = Apps("x", "x", "x")
-      a.unpackit(partial)
-      apps.append(a)
-
-  # this is a placeholder, soap exception happens if returning empty string
-  appstring = "____"
-  for kk in apps:
-    appstring += ":" + kk.name_
-  return appstring
-
-
 def delete_instance(appname, host, port, secret):
   global db
   global super_secret
@@ -881,7 +853,6 @@ def main():
   # Register soap functions.
   server.registerFunction(does_user_exist)
 
-  server.registerFunction(get_all_apps)
   server.registerFunction(get_all_users)
   server.registerFunction(get_user_data)
   server.registerFunction(get_app_data)

@@ -145,11 +145,8 @@ if appname or username:
     print "======================"
   exit(0)
 
-if allapps or allusers:
-  if allapps:
-    print server.get_all_apps(super_secret)
-  if allusers:
-    print server.get_all_users(super_secret)
+if allusers:
+  print server.get_all_users(super_secret)
   exit(0)
 
 ret = server.is_app_enabled("xxx", "xxx")
@@ -165,10 +162,6 @@ if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
 ret = server.get_all_users("xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_all_apps("xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
@@ -258,11 +251,6 @@ if ret != "false":
 ret = server.get_all_users(super_secret)
 if "____" not in ret:
   print "Make sure you run appscale with at least one user"
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_all_apps(super_secret)
-if "____" not in ret:
-  print "Make sure you run appscale with at least one app uploaded"
   err(helper_functions.lineno(), ret)
 
 ret = server.get_user_data(user[0], super_secret)
@@ -445,9 +433,6 @@ if "version: 0" not in ret:
 ret = server.get_app_data(app[0], super_secret)
 if user[0] not in ret or app[0] not in ret:
   err(helper_functions.lineno(), ret)
-ret = server.get_all_apps(super_secret)
-if app[0] not in ret:
-  err(helper_functions.lineno(), ret)
 ret = server.is_app_enabled(app[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
@@ -545,9 +530,6 @@ if ret != "true":
 app2 = createApp()
 ret = server.get_app_data(app2[0], super_secret)
 if app2[0] not in ret or user[0] not in ret:
-  err(helper_functions.lineno(), ret)
-ret = server.get_all_apps(super_secret)
-if app[0] not in ret or app2[0] not in ret:
   err(helper_functions.lineno(), ret)
 ########################
 # Delete all apps
