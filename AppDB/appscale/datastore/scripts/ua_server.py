@@ -506,24 +506,6 @@ def commit_new_token(user, token, token_exp, secret):
   return "true"
 
 
-def get_token(user, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  columns = ['appdrop_rem_token', 'appdrop_rem_token_exp']
-
-  try:
-    result = db.get_entity(USER_TABLE, user, columns)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false"
-  result = result[1:]
-  return "token:"+ result[0] + "\n" + "token_exp:" + result[1] + "\n"
-
-
 def get_version(appname, secret):
   global db
   global super_secret
@@ -852,11 +834,9 @@ def main():
 
   # Register soap functions.
   server.registerFunction(does_user_exist)
-
   server.registerFunction(get_all_users)
   server.registerFunction(get_user_data)
   server.registerFunction(get_app_data)
-  server.registerFunction(get_token)
   server.registerFunction(get_version)
   server.registerFunction(add_admin_for_app)
   server.registerFunction(commit_new_user)

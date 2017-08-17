@@ -173,10 +173,6 @@ ret = server.get_app_data("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_token("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.get_version("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -261,10 +257,6 @@ ret = server.get_app_data(app[0], super_secret)
 if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_token(user[0], super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
 ret = server.get_version(app[0], super_secret)
 if ret != "false":
   err(helper_functions.lineno(), ret)
@@ -335,12 +327,6 @@ ret = server.get_user_data(user[0], super_secret)
 if user[0] not in ret or user[1] not in ret:
   err(helper_functions.lineno(), ret)
 #################
-# Get empty token
-#################
-ret = server.get_token(user[0], super_secret)
-if "token:notSet" not in ret:
-  err(helper_functions.lineno(), ret)
-#################
 # Change password
 #################
 newpw = helper_functions.random_string(10)
@@ -378,12 +364,6 @@ token = helper_functions.random_string(10)
 token_exp = helper_functions.random_string(10)
 ret = server.commit_new_token(user[0], token, token_exp, super_secret)
 if ret != "true":
-  err(helper_functions.lineno(), ret)
-####################
-# Get token 
-####################
-ret = server.get_token(user[0], super_secret)
-if token not in ret or token_exp not in ret:
   err(helper_functions.lineno(), ret)
 ##################
 # Disable the user
