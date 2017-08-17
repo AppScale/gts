@@ -1730,19 +1730,6 @@ class Djinn
     # Since stopping an application can take some time, we do it in a
     # thread.
     Thread.new {
-      begin
-        uac = UserAppClient.new(my_node.private_ip, @@secret)
-        if not uac.does_app_exist?(app_name)
-          Djinn.log_info("(stop_app) #{app_name} does not exist.")
-        else
-          result = uac.delete_app(app_name)
-          Djinn.log_debug("(stop_app) delete_app returned: #{result}.")
-        end
-      rescue FailedNodeException
-        Djinn.log_warn("(stop_app) delete_app: failed to talk " +
-          "to the UserAppServer.")
-      end
-
       # If this node has any information about AppServers for this app,
       # clear that information out.
       APPS_LOCK.synchronize {

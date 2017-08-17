@@ -212,10 +212,6 @@ ret = server.delete_user("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.delete_app("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.change_password("xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -299,10 +295,6 @@ if ret != "false":
 
 ret = server.delete_user(user[0], super_secret)
 if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.delete_app(app[0], super_secret)
-if "false" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.change_password(user[0], user[1], super_secret)
@@ -523,16 +515,6 @@ ret = server.get_app_data(app[0], super_secret)
 if user[0] not in ret or app[0] not in ret \
 or host1 in ret or port1 in ret \
 or host2 not in ret or port2 not in ret:
-  err(helper_functions.lineno(), ret)
-########################
-# Delete the application
-########################
-ret = server.delete_app(app[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-ret = server.delete_app(app[0], super_secret)
-if ret != "Error: Trying to disable an application twice":
-  print ret
   err(helper_functions.lineno(), ret)
 ###################
 # Get app data 

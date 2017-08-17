@@ -477,29 +477,6 @@ def get_all_apps(secret):
   return appstring
 
 
-def delete_app(appname, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ["owner"])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false: unable to get entity for app"
-
-  result = db.put_entity(APP_TABLE, appname,
-                         ["host", "port", "num_entries"], ["", "", "0"])
-  if result[0] not in ERROR_CODES:
-    return "false: unable to delete instances"
-
-  # disabling the app, a type of soft delete
-  return disable_app(appname, secret)
-
-
 def delete_instance(appname, host, port, secret):
   global db
   global super_secret
@@ -932,7 +909,6 @@ def main():
   server.registerFunction(delete_instance)
   server.registerFunction(delete_all_apps)
   server.registerFunction(delete_user)
-  server.registerFunction(delete_app)
 
   server.registerFunction(change_password)
 
