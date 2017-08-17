@@ -130,19 +130,12 @@ def err(test_num, code):
   " with unexpected output of: " + str(code)
   exit(1)
 
-if appname or username:
-  if appname:
-    print "======================"
-    print "App data for given app:"
-    ret = server.get_app_data(appname, super_secret)
-    print ret
-    print "======================"
-  if username:
-    print "======================"
-    print "User data for given user:"
-    ret = server.get_user_data(username, super_secret)
-    print ret
-    print "======================"
+if username:
+  print "======================"
+  print "User data for given user:"
+  ret = server.get_user_data(username, super_secret)
+  print ret
+  print "======================"
   exit(0)
 
 if allusers:
@@ -166,10 +159,6 @@ if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
 ret = server.get_user_data("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_app_data("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
@@ -250,10 +239,6 @@ if "____" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.get_user_data(user[0], super_secret)
-if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_app_data(app[0], super_secret)
 if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
@@ -410,9 +395,6 @@ if "version: 0" not in ret:
 ###################
 # Get app data 
 ###################
-ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret:
-  err(helper_functions.lineno(), ret)
 ret = server.is_app_enabled(app[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
@@ -437,45 +419,15 @@ if ret != "Error: Trying to disable an application twice":
 ret = server.enable_app(app[0], super_secret)
 if ret != "true":
    err(helper_functions.lineno(), ret)
-##################
-# Commit instances
-##################
+####################
+# Remove an instance
+####################
 host1 = helper_functions.random_string(10)
 port1 = helper_functions.random_string(4)
 host2 = helper_functions.random_string(10)
 port2 = helper_functions.random_string(4)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret:
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret:
-  err(helper_functions.lineno(), ret)
-####################
-# Remove an instance
-####################
 ret = server.delete_instance(app[0], host1, port1, super_secret)
 if ret != "true":
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret \
-or host1 in ret or port1 in ret \
-or host2 not in ret or port2 not in ret:
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if "enabled:false" not in ret or "num_entries:0" not in ret \
-or "classes:\n" not in ret:  
   err(helper_functions.lineno(), ret)
 ###################
 # Delete user
@@ -505,30 +457,10 @@ ret = server.does_user_exist(user[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
 ########################
-# Get app data
-########################
-app2 = createApp()
-ret = server.get_app_data(app2[0], super_secret)
-if app2[0] not in ret or user[0] not in ret:
-  err(helper_functions.lineno(), ret)
-########################
 # Delete all apps
 ########################
 ret = server.delete_all_apps(super_secret)
 if ret != "true":
-  err(helper_functions.lineno(), ret)
-ret = server.get_app_data(app[0], super_secret)
-if "enabled:false" not in ret:
-  err(helper_functions.lineno(), ret)
-ret = server.get_app_data(app2[0], super_secret)
-if "enabled:false" not in ret:
-  err(helper_functions.lineno(), ret)
-##########################
-# Get app data and version
-##########################
-ret = server.get_app_data(app[0], super_secret)
-if app[0] not in ret or user[0] not in ret \
-or "enabled:true" not in ret:
   err(helper_functions.lineno(), ret)
 ##########################
 # Get all users

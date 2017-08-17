@@ -295,33 +295,6 @@ def get_user_data(username, secret):
   return user.stringit()
 
 
-def get_app_data(appname, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-  if not appname or  not secret:
-    return "Error: Null appname"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, app_schema)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "Error: " + result[0]
-
-  result = result[1:]
-
-  if len(app_schema) != len(result):
-    error = "Error: Bad length of app schema vs app result " + str(app_schema) + " vs " + str(result) + " for appname: " + appname
-    return  error
-  app = Apps("a","b", "c")
-  app.unpackit(result)
-  return app.to_json()
-
-
 def commit_new_user(user, passwd, utype, secret):
   global db
   global super_secret
@@ -836,7 +809,6 @@ def main():
   server.registerFunction(does_user_exist)
   server.registerFunction(get_all_users)
   server.registerFunction(get_user_data)
-  server.registerFunction(get_app_data)
   server.registerFunction(get_version)
   server.registerFunction(add_admin_for_app)
   server.registerFunction(commit_new_user)

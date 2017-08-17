@@ -46,7 +46,6 @@ class UserAppClient
     @conn.add_method("is_user_cloud_admin", "username", "secret")
     @conn.add_method("does_user_exist", "username", "secret")
     @conn.add_method("get_user_data", "username", "secret")
-    @conn.add_method("get_app_data", "appname", "secret")
     @conn.add_method("delete_instance", "appname", "host", "port", "secret")
     @conn.add_method("get_all_users", "secret")
     @conn.add_method("set_cloud_admin_status", "username", "is_cloud_admin", "secret")
@@ -157,20 +156,6 @@ class UserAppClient
     make_call(DS_MIN_TIMEOUT, retry_on_except, "get_user_data") {
       result = @conn.get_user_data(username, @secret)
     }
-
-    return result
-  end
-
-  def get_app_data(appname, retry_on_except=true)
-    result = ""
-    make_call(DS_MIN_TIMEOUT, retry_on_except, "get_app_data") {
-      result = @conn.get_app_data(appname, @secret)
-    }
-    if result[0..4] == "Error"
-      msg = "get_app_data: failed to get data for app #{appname}."
-      Djinn.log_debug(msg)
-      raise FailedNodeException.new(msg)
-    end
 
     return result
   end

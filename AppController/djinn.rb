@@ -1665,24 +1665,6 @@ class Djinn
     end
   end
 
-  # Retrieve application metadata from the UAServer.
-  #
-  #  Args:
-  #    app_id: A string containing the application ID.
-  #  Returns:
-  #    A JSON-encoded string containing the application metadata.
-  def get_app_data(app_id, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      return uac.get_app_data(app_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while getting the app " +
-        "admin for the application #{app_id}.")
-    end
-  end
-
   # Removes an application and stops all AppServers hosting this application.
   #
   # Args:
@@ -1745,7 +1727,7 @@ class Djinn
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
                     "Exception of #{except.class} with message #{except.message}"
-          place_error_app(app, error_msg, get_app_language(app))
+          place_error_app(app, error_msg)
         end
       }
     end
@@ -4276,7 +4258,7 @@ HOSTS
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
             "Exception of #{except.class} with message #{except.message}"
-          place_error_app(app, error_msg, app_language)
+          place_error_app(app, error_msg)
           static_handlers = []
         end
 
@@ -4691,9 +4673,17 @@ HOSTS
   #   app_name: Name of application to construct an error application for
   #   err_msg: A String message that will be displayed as
   #            the reason why we couldn't start their application.
-  #   language: The language the application is written in.
-  def place_error_app(app_name, err_msg, language)
+  def place_error_app(app_name, err_msg)
     Djinn.log_error("Placing error application for #{app_name} because of: #{err_msg}")
+
+    begin
+      language = ZKInterface.get_version_details(
+        app_name, DEFAULT_SERVICE, DEFAULT_VERSION)['runtime']
+    rescue VersionNotFound
+      # If the version does not exist, just assume it's Python.
+      language = 'python27'
+    end
+
     ea = ErrorApp.new(app_name, err_msg)
     ea.generate(language)
   end
@@ -4925,37 +4915,6 @@ HOSTS
         end
       }
     }
-  end
-
-  # This functions returns the language of the application as recorded in
-  # the metadata.
-  # Args
-  #   app: A String naming the application.
-  # Returns:
-  #   language: returns python27, java, php or go depending on the
-  #       language of the app
-  def get_app_language(app)
-    app_language = ""
-
-    # Let's get the application language as we have in the metadata (this
-    # will be the latest from the user).
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    loop {
-      begin
-        result = uac.get_app_data(app)
-        app_data = JSON.load(result)
-        Djinn.log_debug("Got application data for #{app}: #{app_data}.")
-        app_language = app_data['language']
-        break
-      rescue FailedNodeException
-        # Failed to talk to the UserAppServer: let's try again.
-        Djinn.log_debug("Failed to talk to UserAppServer for #{app}.")
-      end
-      Djinn.log_info("Waiting for app data to have instance info for app named #{app}")
-      Kernel.sleep(SMALL_WAIT)
-    }
-
-    return app_language
   end
 
   # Small utility function that returns the full path for the rsyslog
@@ -5764,7 +5723,7 @@ HOSTS
     end
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
-      place_error_app(app, error_msg, get_app_language(app))
+      place_error_app(app, error_msg)
     end
   end
 

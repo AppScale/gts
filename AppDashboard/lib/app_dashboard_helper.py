@@ -393,13 +393,23 @@ class AppDashboardHelper(object):
         AppScale deployment, or if it is running but does not have a port
         assigned to it.
     """
-    app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-    result = json.loads(app_data)
-    if not result or 'hosts' not in result or not result['hosts'].values():
-      raise AppHelperException('{} does not have a port number.'.
-                               format(appname))
-    return [int(result['hosts'].values()[0]['http']),
-            int(result['hosts'].values()[0]['https'])]
+    admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
+    version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
+      admin_server, appname, self.DEFAULT_SERVICE, self.DEFAULT_VERSION)
+    result = urlfetch.fetch(version_url,
+                            headers={'AppScale-Secret': GLOBAL_SECRET_KEY},
+                            validate_certificate = False)
+
+    if result.status_code != 200:
+      raise AppHelperException(result.content)
+
+    try:
+      version_details = json.loads(result.content)
+    except ValueError:
+      raise AppHelperException('Invalid response: {}'.format(result.content))
+
+    extensions = version_details['appscaleExtensions']
+    return extensions['httpPort'], extensions['httpsPort']
 
   def shell_check(self, argument):
     """ Checks for special characters in arguments that are part of shell

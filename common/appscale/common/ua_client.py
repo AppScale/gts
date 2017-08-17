@@ -138,25 +138,6 @@ class UAClient(object):
 
     return response.split(':')
 
-  def get_app_data(self, app_id):
-    """ Retrieves application metadata.
-
-    Args:
-      app_id: A string specifying an application ID.
-    Returns:
-      A dictionary containing application metadata.
-    Raises:
-      UAException if unable to retrieve application metadata.
-    """
-    response = self.server.get_app_data(app_id, self.secret)
-
-    try:
-      data = json.loads(response)
-    except ValueError:
-      raise UAException(response)
-
-    return data
-
   def get_user_data(self, email):
     """ Retrieves user metadata.
 

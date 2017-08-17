@@ -874,21 +874,4 @@ class TestDjinn < Test::Unit::TestCase
     djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
     assert_equal(set_admin_role_success, djinn.set_admin_role(username, is_cloud_admin, capabilities, good_secret))
   end
-
-
-  def test_get_app_data
-    good_secret = 'good_secret'
-    bad_secret = 'bad_secret'
-    app_id = 'app1'
-    get_app_data_success = true
-
-    flexmock(UserAppClient).new_instances.should_receive(:get_app_data => true)
-
-    djinn = get_djinn_mock
-    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
-    assert_equal(BAD_SECRET_MSG, djinn.get_app_data(app_id, bad_secret))
-
-    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
-    assert_equal(get_app_data_success, djinn.get_app_data(app_id, good_secret))
-  end
 end
