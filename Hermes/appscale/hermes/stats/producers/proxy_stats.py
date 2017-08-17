@@ -8,8 +8,7 @@ from datetime import datetime
 
 import attr
 
-from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, \
-  LOCAL_STATS_DEBUG_INTERVAL, MISSED
+from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, MISSED
 from appscale.hermes.stats.converter import include_list_name, Meta
 from appscale.hermes.stats.unified_service_names import find_service_by_pxname
 
@@ -229,6 +228,8 @@ class ProxyStats(object):
   backend = attr.ib(metadata={Meta.ENTITY: HAProxyBackendStats})
   servers = attr.ib(metadata={Meta.ENTITY_LIST: HAProxyServerStats})
   listeners = attr.ib(metadata={Meta.ENTITY_LIST: HAProxyListenerStats})
+  servers_count = attr.ib()  # number of servers serving this proxy
+  listeners_count = attr.ib()  # number of listeners serving this proxy
 
 
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -268,15 +269,16 @@ def get_stats():
 class ProxiesStatsSource(object):
 
   first_run = True
-  last_debug = 0
 
-  def get_current(self):
+  @staticmethod
+  def get_current():
     """ Method which parses haproxy stats and returns detailed
     proxy statistics for all proxies.
 
     Returns:
       An instance of ProxiesStatsSnapshot.
     """
+    start = time.time()
     # Get CSV table with haproxy stats
     csv_buf = get_stats()
     csv_buf.seek(2)  # Seek to the beginning but skip "# " in the first row
@@ -342,15 +344,15 @@ class ProxiesStatsSource(object):
       proxy_stats = ProxyStats(
         name=proxy_name, unified_service_name=service_name,
         application_id=application_id, frontend=frontends[0],
-        backend=backends[0], servers=servers, listeners=listeners
+        backend=backends[0], servers=servers, listeners=listeners,
+        servers_count=len(servers), listeners_count=len(listeners)
       )
       proxy_stats_list.append(proxy_stats)
 
     stats = ProxiesStatsSnapshot(
-      utc_timestamp=time.mktime(datetime.utcnow().timetuple()),
+      utc_timestamp=time.mktime(datetime.now().timetuple()),
       proxies_stats=proxy_stats_list
     )
-    if time.time() - self.last_debug > LOCAL_STATS_DEBUG_INTERVAL:
-      ProxiesStatsSource.last_debug = time.time()
-      logging.debug(stats)
+    logging.info("Prepared stats about {prox} proxies in {elapsed:.1f}s."
+                 .format(prox=len(proxy_stats_list), elapsed=time.time()-start))
     return stats

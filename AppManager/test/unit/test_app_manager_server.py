@@ -1,6 +1,5 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import json
 import os
 import shutil
 import subprocess
@@ -11,6 +10,9 @@ import unittest
 import urllib2
 from xml.etree import ElementTree
 
+from flexmock import flexmock
+from tornado.options import options
+
 from appscale.common import (
   file_io,
   appscale_info,
@@ -18,52 +20,24 @@ from appscale.common import (
   monit_interface,
   testing
 )
-from flexmock import flexmock
-
 from appscale.common import monit_app_configuration
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager_server
 
+options.define('login_ip', '127.0.0.1')
+options.define('syslog_server', '127.0.0.1')
+options.define('private_ip', '<private_ip>')
+
 
 class TestAppManager(unittest.TestCase):
-  def test_bad_convert_config_from_json(self):
-    testing.disable_logging()
-    self.assertEqual(None, app_manager_server.convert_config_from_json(None))
-    self.assertEqual(None, app_manager_server.convert_config_from_json("{}"))
-    self.assertEqual(None,
-      app_manager_server.convert_config_from_json("{'app_name':'test'}"))
-
-  def test_good_convert_config_from_json(self):
-    configuration = {
-      'app_name': 'test',
-      'app_port': 2000,
-      'language': 'python27',
-      'login_ip': '127.0.0.1',
-      'load_balancer_port': 8080,
-      'dblocations': ['127.0.0.1', '127.0.0.2'],
-      'env_vars': {},
-      'max_memory': 500
-    }
-    configuration = json.dumps(configuration)
-
-    self.assertEqual(True,
-      isinstance(app_manager_server.convert_config_from_json(configuration),
-      dict))
-   
   def test_start_app_badconfig(self):
     testing.disable_logging()
     self.assertEqual(app_manager_server.BAD_PID,
-      app_manager_server.start_app({}))
+      app_manager_server.start_app('test', {}))
 
-  def test_start_app_badconfig2(self):
-    testing.disable_logging()
-    self.assertEqual(app_manager_server.BAD_PID,
-      app_manager_server.start_app("{'app_name':'test'}"))
-  
   def test_start_app_bad_appname(self):
     configuration = {
-      'app_name': 'badName!@#$%^&*([]/.,',
       'app_port': 2000,
       'language': 'python27',
       'login_ip': '127.0.0.1',
@@ -72,21 +46,21 @@ class TestAppManager(unittest.TestCase):
       'env_vars': {},
       'max_memory': 500
     }
-    configuration = json.dumps(configuration)
-    self.assertEqual(-1, app_manager_server.start_app(configuration)) 
+    response = app_manager_server.start_app('badName!@#$%^&*([]/.,',
+                                            configuration)
+    self.assertEqual(-1, response)
 
   def test_start_app_goodconfig_python(self):
     configuration = {
-      'app_name': 'test',
       'app_port': 2000,
-      'language': 'python27',
-      'login_ip': '127.0.0.1',
-      'load_balancer_port': 8080,
-      'dblocations': ['127.0.0.1', '127.0.0.2'],
-      'env_vars': {},
-      'max_memory': 500
+      'service_id': 'default',
+      'version_id': 'v1',
+      'env_vars': {}
     }
-    configuration = json.dumps(configuration)
+
+    version_manager = flexmock(version_details={'runtime': 'python27'})
+    app_manager_server.projects_manager = {
+      'test': {'default': {'v1': version_manager}}}
 
     flexmock(appscale_info).should_receive('get_db_proxy').\
       and_return('<private_ip>')
@@ -107,20 +81,19 @@ class TestAppManager(unittest.TestCase):
     flexmock(threading).should_receive('Thread').\
       and_return(flexmock(start=lambda: None))
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
-    self.assertEqual(0, app_manager_server.start_app(configuration))
+    self.assertEqual(0, app_manager_server.start_app('test', configuration))
   
   def test_start_app_goodconfig_java(self):
     configuration = {
-      'app_name': 'test',
       'app_port': 2000,
-      'language': 'java',
-      'login_ip': '127.0.0.1',
-      'load_balancer_port': 8080,
-      'dblocations': ['127.0.0.1', '127.0.0.2'],
-      'env_vars': {},
-      'max_memory': 500
+      'service_id': 'default',
+      'version_id': 'v1',
+      'env_vars': {}
     }
-    configuration = json.dumps(configuration)
+
+    version_manager = flexmock(version_details={'runtime': 'java'})
+    app_manager_server.projects_manager = {
+      'test': {'default': {'v1': version_manager}}}
 
     flexmock(appscale_info).should_receive('get_db_proxy').\
       and_return('<private_ip>')
@@ -146,11 +119,10 @@ class TestAppManager(unittest.TestCase):
       and_return(flexmock(start=lambda: None))
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
     flexmock(os).should_receive('listdir').and_return([])
-    self.assertEqual(0, app_manager_server.start_app(configuration))
+    self.assertEqual(0, app_manager_server.start_app('test', configuration))
 
   def test_start_app_failed_copy_java(self):
     configuration = {
-      'app_name': 'test',
       'app_port': 2000,
       'language': 'java',
       'login_ip': '127.0.0.1',
@@ -158,7 +130,6 @@ class TestAppManager(unittest.TestCase):
       'dblocations': ['127.0.0.1', '127.0.0.2'],
       'max_memory': 500
     }
-    configuration = json.dumps(configuration)
 
     flexmock(appscale_info).should_receive('get_private_ip').\
       and_return('<private_ip>')
@@ -171,7 +142,7 @@ class TestAppManager(unittest.TestCase):
       and_return(flexmock(read=lambda: '12345\n'))
     flexmock(file_io).should_receive('write').and_return()
     flexmock(subprocess).should_receive('call').and_return(1)
-    self.assertEqual(-1, app_manager_server.start_app(configuration))
+    self.assertEqual(-1, app_manager_server.start_app('test', configuration))
 
   def test_create_python_app_env(self):
     env_vars = app_manager_server.create_python_app_env('1', '2')

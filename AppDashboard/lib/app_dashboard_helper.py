@@ -433,7 +433,7 @@ class AppDashboardHelper(object):
         tgz_file.write(upload_file.read())
 
       try:
-        upload_info = acc.upload_app(tgz_file.name, file_suffix, user.email())
+        upload_info = acc.upload_app(tgz_file.name, file_suffix)
         status = upload_info['status']
 
         while status == AppUploadStatuses.STARTING:
