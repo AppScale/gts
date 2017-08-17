@@ -31,6 +31,7 @@ from appscale.admin.instance_manager.constants import (
   DEFAULT_MAX_MEMORY,
   INSTANCE_CLASSES,
   LOGROTATE_CONFIG_DIR,
+  MAX_BACKGROUND_WORKERS,
   MONIT_INSTANCE_PREFIX
 )
 from appscale.admin.instance_manager.projects_manager import (
@@ -719,7 +720,7 @@ if __name__ == "__main__":
   zk_client.start()
   deployment_config = DeploymentConfig(zk_client)
   projects_manager = GlobalProjectsManager(zk_client)
-  thread_pool = ThreadPoolExecutor(4)
+  thread_pool = ThreadPoolExecutor(MAX_BACKGROUND_WORKERS)
   source_manager = SourceManager(zk_client, thread_pool)
 
   options.define('private_ip', appscale_info.get_private_ip())

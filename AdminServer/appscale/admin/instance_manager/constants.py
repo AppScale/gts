@@ -35,6 +35,9 @@ LOGROTATE_CONFIG_DIR = os.path.join('/', 'etc', 'logrotate.d')
 REPACKED_LIB_DIR = os.path.join(
   APPSCALE_HOME, 'AppServer_Java', 'appengine-java-sdk-repacked', 'lib')
 
+# The maximum number of threads to use for executing blocking tasks.
+MAX_BACKGROUND_WORKERS = 4
+
 # Patterns that match jars that should be copied to version sources.
 MODIFIED_JARS = [
   os.path.join(REPACKED_LIB_DIR, 'user', '*.jar'),
