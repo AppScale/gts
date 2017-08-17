@@ -432,22 +432,6 @@ def commit_new_app(appname, language, secret):
   return ret
 
 
-def get_tar(app_name, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  try:
-    result = db.get_entity(APP_TABLE, app_name, ["tar_ball"])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] in ERROR_CODES and len(result) == 2:
-    return result[1]
-  else:
-    return "Error:" + result[0]
-
-
 def delete_all_apps(secret):
   global db
   global super_secret
@@ -995,7 +979,6 @@ def main():
   server.registerFunction(get_all_users)
   server.registerFunction(get_user_data)
   server.registerFunction(get_app_data)
-  server.registerFunction(get_tar)
   server.registerFunction(get_token)
   server.registerFunction(get_version)
   server.registerFunction(add_admin_for_app)

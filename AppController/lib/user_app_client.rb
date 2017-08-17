@@ -51,7 +51,6 @@ class UserAppClient
     @conn.add_method("get_user_data", "username", "secret")
     @conn.add_method("get_app_data", "appname", "secret")
     @conn.add_method("delete_instance", "appname", "host", "port", "secret")
-    @conn.add_method("get_tar", "app_name", "secret")
     @conn.add_method("get_all_apps", "secret")
     @conn.add_method("get_all_users", "secret")
     @conn.add_method("set_cloud_admin_status", "username", "is_cloud_admin", "secret")
@@ -265,15 +264,6 @@ class UserAppClient
     end
     user_list = user_list - [user_list[0]]  # first item is a dummy value
     return user_list
-  end
-
-  def get_tar(appname, retry_on_except=true)
-    result = ""
-    make_call(DS_MIN_TIMEOUT * 25, retry_on_except, "get_tar") {
-      result = @conn.get_tar(appname, @secret)
-    }
-
-    return result
   end
 
   def is_user_cloud_admin?(user, retry_on_except=true)

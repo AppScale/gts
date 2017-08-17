@@ -188,10 +188,6 @@ ret = server.get_app_data("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_tar("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.get_token("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -298,10 +294,6 @@ if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.get_app_data(app[0], super_secret)
-if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_tar(app[0], super_secret)
 if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
@@ -497,17 +489,6 @@ if ret != "Error: appname already exist":
 ret = server.get_version(app[0], super_secret)
 if "version: 0" not in ret:
   err(helper_functions.lineno(), ret)
-################################################
-# Commit tar ball for an app that does not exist
-################################################
-tar = helper_functions.random_string(10000)
-####################
-# Get the tar
-####################
-ret = server.get_tar(app[0], super_secret)
-if ret != tar:
-  print ret
-  err(helper_functions.lineno(), ret)
 ###################
 # Get app data 
 ###################
@@ -670,10 +651,6 @@ if "enabled:false" not in ret:
 ret = server.get_app_data(app2[0], super_secret)
 if "enabled:false" not in ret:
   err(helper_functions.lineno(), ret)
-########################
-# Commit a new tar ball
-#######################
-tar2 = helper_functions.random_string(10000)
 ##########################
 # Get app data and version
 ##########################
