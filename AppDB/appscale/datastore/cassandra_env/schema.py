@@ -33,7 +33,6 @@ def define_ua_schema(session):
     session: A cassandra-driver session.
   """
   uaserver_tables = [
-    {'name': dbconstants.APPS_TABLE, 'schema': dbconstants.APPS_SCHEMA},
     {'name': dbconstants.USERS_TABLE, 'schema': dbconstants.USERS_SCHEMA}
   ]
   for table in uaserver_tables:

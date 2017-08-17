@@ -10,23 +10,16 @@ functions.
 import datetime
 import json
 import logging
-import re
 import SOAPpy
 import sys
 import time
 
 from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.ua_client import EXISTING_PROJECT_MESSAGE
 from .. import appscale_datastore
 from ..dbconstants import AppScaleDBConnectionError
-from ..dbconstants import APPS_SCHEMA
-from ..dbconstants import APPS_TABLE
 from ..dbconstants import USERS_SCHEMA
 from ..dbconstants import USERS_TABLE
-
-# Name of the application table which stores AppScale application information.
-APP_TABLE = APPS_TABLE
 
 # Name of the users table which stores information about AppScale users.
 USER_TABLE = USERS_TABLE
@@ -57,9 +50,6 @@ db = []
 
 # The schema we use to store user information.
 user_schema = []
-
-# The schema we use to store app information.
-app_schema = []
 
 # The application name regex to validate an application ID.
 APPNAME_REGEX = r'^[\d\w\.@-]+$'
@@ -139,104 +129,6 @@ class Users:
       self.applications_ = self.applications_.split(':')
     else:
       self.applications_ = []
-
-    return "true"
-
-
-class Apps:
-  attributes_ = APPS_SCHEMA
-  def __init__(self, name, owner, language):
-    self.tar_ball_ = "None"
-    self.yaml_file_ = "None"
-    self.version_ = "0"
-    self.language_ = language
-    self.admins_list_ = []
-    self.host_ = []
-    self.port_ = []
-    self.creation_date_ = "0"
-    self.last_time_updated_date_ = "0"
-    self.name_ = name
-    self.owner_ = owner
-    t = datetime.datetime.now()
-    self.creation_date_ = str(time.mktime(t.timetuple()))
-    self.last_time_updated_date_ = str(self.creation_date_)
-    self.cksum_ = "0"
-    self.num_entries_ = "0"
-    self.enabled_ = "false"
-    self.indexes_ = "0"
-    return
-
-  def stringit(self):
-    appstring = ""
-    appstring += "app_name:" + str(self.name_) + "\n"
-    appstring += "language:" + str(self.language_) + "\n"
-    appstring += "version:" + str(self.version_) + "\n"
-    appstring += "app_owner:" + self.owner_ + "\n"
-    appstring += "num_admins:" + str(len(self.admins_list_)) + "\n"
-    appstring += "admins:" + ':'.join(self.admins_list_) + "\n"
-    appstring += "num_hosts:" + str(len(self.host_)) + "\n"
-    appstring += "hosts:" + ':'.join(self.host_) + "\n"
-    appstring += "num_ports:" + str(len(self.port_)) + "\n"
-    appstring += "ports: " + ':'.join(self.port_) + "\n"
-    appstring += "creation_date:" + str(self.creation_date_) + "\n"
-    appstring += "last_update_date:" + str(self.last_time_updated_date_) + "\n"
-    appstring += "check_sum:" + str(self.cksum_) + "\n"
-    appstring += "num_entries:" + str(self.num_entries_) + "\n"
-    appstring += "enabled:" + str(self.enabled_) + "\n"
-    appstring += "indexes:" + str(self.indexes_) + "\n"
-    return appstring
-
-  def to_json(self):
-    hosts = {}
-    for index, host in enumerate(self.host_):
-      ports = self.port_[index].split(PORT_SEPARATOR)
-      hosts[host] = {'http': int(ports[0])}
-      if len(ports) > 1 and ports[1]:
-        hosts[host]['https'] = int(ports[1])
-
-    response = {
-      'hosts': hosts,
-      'language': self.language_,
-    }
-    if self.owner_:
-      response['owner'] = self.owner_
-
-    return json.dumps(response)
-
-  def checksum(self):
-    return "true"
-
-  def arrayit(self):
-    array = []
-    # order must match self.attributes
-    # some entries must be converted to string format from arrays
-    for ii in Apps.attributes_:
-      if ii == "admins_list" or ii == 'host' or ii == 'port':
-        array.append(':'.join(getattr(self, ii + "_")))
-      else:
-        array.append(str(getattr(self, ii+ "_")))
-
-    return array
-
-  def unpackit(self, array):
-    for ii in range(0,len(array)):
-      setattr(self, Apps.attributes_[ii] + "_", array[ii])
-
-    # convert to different types
-    if self.admins_list_:
-      self.admins_list_ = self.admins_list_.split(':')
-    else:
-      self.admins_list_ = []
-
-    if self.host_:
-      self.host_ = self.host_.split(':')
-    else:
-      self.host_ = []
-
-    if self.port_:
-      self.port_ = self.port_.split(':')
-    else:
-      self.port_ = []
 
     return "true"
 
@@ -333,7 +225,6 @@ def add_admin_for_app(user, app, secret):
   """
   global db
   global user_schema
-  global app_schema
   global super_secret
   if secret != super_secret:
     return "Error: bad secret"
@@ -603,7 +494,6 @@ def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   logging.info('Starting UAServer')
 
-  global app_schema
   global bindport
   global datastore_type
   global db
@@ -642,18 +532,6 @@ def main():
     if user_schema[0] in ERROR_CODES:
       user_schema = user_schema[1:]
       Users.attributes_ = user_schema
-    else:
-      time.sleep(timeout)
-      continue
-    try:
-      app_schema = db.get_schema(APP_TABLE)
-    except AppScaleDBConnectionError as db_error:
-      time.sleep(timeout)
-      continue
-
-    if app_schema[0] in ERROR_CODES:
-      app_schema = app_schema[1:]
-      Apps.attributes_ = app_schema
     else:
       time.sleep(timeout)
       continue
