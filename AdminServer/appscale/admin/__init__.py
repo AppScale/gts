@@ -560,15 +560,6 @@ class VersionHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
-    http_port = version['appscaleExtensions']['httpPort']
-    https_port = version['appscaleExtensions']['httpsPort']
-
-    try:
-      self.ua_client.add_instance(project_id, options.login_ip, http_port,
-                                  https_port)
-    except UAException:
-      logging.warning('Failed to notify UAServer about updated ports')
-
     raise gen.Return(version)
 
   @gen.coroutine

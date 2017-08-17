@@ -168,14 +168,6 @@ ret = server.is_user_enabled("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.add_instance("xxx","xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret =  server.add_instance("xxx","xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.get_key_block("xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -289,10 +281,6 @@ if ret != "false":
 ret = server.does_user_exist(user[0], super_secret)
 if ret != "false":
   print user[0]
-  err(helper_functions.lineno(), ret)
-
-ret = server.add_instance(app[0], "xxx", "xxx", super_secret)
-if ret != "false":
   err(helper_functions.lineno(), ret)
 
 ret = server.get_key_block(app[0], "50", super_secret)
@@ -574,14 +562,8 @@ if ret != "true":
 ##################
 host1 = helper_functions.random_string(10)
 port1 = helper_functions.random_string(4)
-ret =server.add_instance(app[0], host1, port1, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
 host2 = helper_functions.random_string(10)
 port2 = helper_functions.random_string(4)
-ret = server.add_instance(app[0], host2, port2, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
 ###################
 # Get app data 
 ###################

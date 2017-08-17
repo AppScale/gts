@@ -559,31 +559,6 @@ def get_all_apps(secret):
   return appstring
 
 
-def add_instance(appname, host, port, https_port, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  columns = ["host", "port"]
-  try:
-    result = db.get_entity(APP_TABLE, appname, columns)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  error = result[0]
-  if error not in ERROR_CODES or len(columns) != (len(result) - 1):
-    return "false"
-
-  # We only have one host/port for each app.
-  result = db.put_entity(APP_TABLE, appname, columns, [host,
-    "{}{}{}".format(port, PORT_SEPARATOR, https_port)])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
-
-
 def delete_app(appname, secret):
   global db
   global super_secret
@@ -1049,7 +1024,6 @@ def main():
   #server.config.dumpSOAPIn = 1
 
   # Register soap functions.
-  server.registerFunction(add_instance)
   server.registerFunction(does_user_exist)
   server.registerFunction(does_app_exist)
 

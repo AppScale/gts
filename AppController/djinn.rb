@@ -4319,21 +4319,9 @@ HOSTS
           next
         end
 
-        # If nginx config files have been updated, we communicate the app's
-        # ports to the UserAppServer to make sure we have the latest info.
-        if Nginx.write_fullproxy_app_config(app, http_port, https_port,
-            my_public, my_private, proxy_port, static_handlers, login_ip,
-            app_language)
-          uac = UserAppClient.new(my_node.private_ip, @@secret)
-          begin
-            if uac.add_instance(app, my_public, http_port, https_port)
-              Djinn.log_info("Committed application info for #{app} " +
-                "to user_app_server")
-            end
-          rescue FailedNodeException
-            Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
-          end
-        end
+        Nginx.write_fullproxy_app_config(
+          app, http_port, https_port, my_public, my_private, proxy_port,
+          static_handlers, login_ip, app_language)
       end
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
