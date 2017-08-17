@@ -168,10 +168,6 @@ ret = server.is_user_enabled("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_key_block("xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.get_all_users("xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -269,10 +265,6 @@ if ret != "false":
 ret = server.does_user_exist(user[0], super_secret)
 if ret != "false":
   print user[0]
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_key_block(app[0], "50", super_secret)
-if ret != "false":
   err(helper_functions.lineno(), ret)
 
 ret = server.get_all_users(super_secret)
@@ -531,20 +523,6 @@ ret = server.get_app_data(app[0], super_secret)
 if user[0] not in ret or app[0] not in ret \
 or host1 in ret or port1 in ret \
 or host2 not in ret or port2 not in ret:
-  err(helper_functions.lineno(), ret)
-#######################
-# Get a key block of 50
-#######################
-ret = server.get_key_block(app[0], "50", super_secret)
-if ret != "1":
-  err(helper_functions.lineno(), ret)
-ret = server.get_key_block(app[0], "25", super_secret)
-if ret != "51":
-  print ret
-  err(helper_functions.lineno(), ret)
-ret = server.get_key_block(app[0], "25", super_secret)
-if ret != "76":
-  print ret
   err(helper_functions.lineno(), ret)
 ########################
 # Delete the application

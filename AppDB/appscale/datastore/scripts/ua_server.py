@@ -784,31 +784,6 @@ def is_user_enabled(user, secret):
   return result[1]
 
 
-def get_key_block(app_id, block_size, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, app_id, ['num_entries'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false"
-  key = result[1]
-  if key == "0":
-    key = "1"
-  next_key = str(int(key) + int(block_size))
-  #Update number of entries
-  result = db.put_entity(APP_TABLE, app_id, ['num_entries'], [next_key])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return key
-
-
 def is_user_cloud_admin(username, secret):
   global db
   global super_secret
@@ -945,7 +920,6 @@ def main():
   server.registerFunction(does_user_exist)
   server.registerFunction(does_app_exist)
 
-  server.registerFunction(get_key_block)
   server.registerFunction(get_all_apps)
   server.registerFunction(get_all_users)
   server.registerFunction(get_user_data)
