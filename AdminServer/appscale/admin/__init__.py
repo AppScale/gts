@@ -313,13 +313,6 @@ class VersionsHandler(BaseHandler):
       CustomHTTPError if unable to start the deployment process.
     """
     try:
-      self.ua_client.enable_app(project_id)
-    except UAException:
-      message = 'Unable to enable project'
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
-    try:
       self.acc.update([project_id])
     except AppControllerException as error:
       message = 'Error while updating application: {}'.format(error)

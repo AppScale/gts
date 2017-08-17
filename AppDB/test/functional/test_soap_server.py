@@ -190,10 +190,6 @@ ret = server.change_password("xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.enable_app("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.is_app_enabled("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -255,10 +251,6 @@ if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.change_password(user[0], "", super_secret)
-if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.enable_app(app[0], super_secret)
 if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
@@ -390,18 +382,6 @@ if "version: 0" not in ret:
 ret = server.is_app_enabled(app[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
-#################################
-# Enable when its already enabled
-#################################
-ret = server.enable_app(app[0], super_secret)
-if "Error:" not in ret: 
-  err(helper_functions.lineno(), ret)
-##################
-# Reenable App
-##################
-ret = server.enable_app(app[0], super_secret)
-if ret != "true":
-   err(helper_functions.lineno(), ret)
 ####################
 # Remove an instance
 ####################
