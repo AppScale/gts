@@ -15,9 +15,9 @@ from flexmock import flexmock
 from tornado.ioloop import IOLoop
 
 from appscale import hermes
-from appscale.hermes import deploy_sensor_app
 from appscale.hermes import helper
 from appscale.hermes import poll
+from appscale.hermes import SensorDeployer
 from appscale.hermes import shutdown
 from appscale.hermes import signal_handler
 
@@ -87,7 +87,10 @@ class TestHelper(unittest.TestCase):
       times(0)
     flexmock(AppControllerClient).should_receive('upload_app').and_return().\
       times(0)
-    deploy_sensor_app()
+
+    zk_client = flexmock(exists=lambda node: None)
+    sensor_deployer = SensorDeployer(zk_client)
+    sensor_deployer.deploy()
 
     # Test sensor app is not deployed when it is already running.
     flexmock(helper).should_receive('get_deployment_id').and_return(
@@ -98,7 +101,10 @@ class TestHelper(unittest.TestCase):
     # Assume appscalesensor app already running.
     flexmock(AppControllerClient).should_receive('upload_app').and_return(). \
       times(0)
-    deploy_sensor_app()
+
+    zk_client = flexmock(exists=lambda node: True)
+    sensor_deployer = SensorDeployer(zk_client)
+    sensor_deployer.deploy()
 
     # Test sensor app is not deployed when the app is not currently running but
     # there was an error in creating a new user.
@@ -109,7 +115,10 @@ class TestHelper(unittest.TestCase):
       times(1)
     flexmock(AppControllerClient).should_receive('upload_app').and_return(). \
       times(0)
-    deploy_sensor_app()
+
+    zk_client = flexmock(exists=lambda node: None)
+    sensor_deployer = SensorDeployer(zk_client)
+    sensor_deployer.deploy()
 
     # Test sensor app is deployed after successfully creating a new user or
     # with an existing user.
@@ -123,7 +132,10 @@ class TestHelper(unittest.TestCase):
     flexmock(hermes).should_receive('create_xmpp_user').and_return(True)
     flexmock(AppControllerClient).should_receive('upload_app').and_return(). \
       times(1)
-    deploy_sensor_app()
+
+    zk_client = flexmock(exists=lambda node: None)
+    sensor_deployer = SensorDeployer(zk_client)
+    sensor_deployer.deploy()
 
 if __name__ == "__main__":
   unittest.main()
