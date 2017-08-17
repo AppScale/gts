@@ -3585,20 +3585,6 @@ class Djinn
     HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
-
-  # Delete all apps running on this instance.
-  def erase_app_instance_info()
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    begin
-      result = uac.delete_all_apps()
-      Djinn.log_info("UserAppServer delete_all_apps returned: #{result}.")
-    rescue FailedNodeException
-      Djinn.log_warn("Couldn't call delete_all_apps from UserAppServer.")
-      return
-    end
-  end
-
-
   def start_backup_service()
     BackupRecoveryService.start()
   end
@@ -5819,17 +5805,6 @@ HOSTS
       'num_of_requests' => @total_req_seen[app_id]
     })
     return encoded_request_info
-  end
-
-  def stop_appengine()
-    Djinn.log_info("Shutting down AppEngine")
-
-    erase_app_instance_info()
-    Nginx.reload()
-
-    APPS_LOCK.synchronize {
-      @apps_loaded = []
-    }
   end
 
   # Returns true on success, false otherwise

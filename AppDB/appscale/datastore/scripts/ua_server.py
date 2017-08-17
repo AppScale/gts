@@ -361,24 +361,6 @@ def add_admin_for_app(user, app, secret):
     return "Error: Unable to update the user."
 
 
-def delete_all_apps(secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  ret = "true"
-  result = db.get_table(APP_TABLE, ['name'])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  result = result[1:]
-  for ii in result:
-    if delete_app(ii, secret) == "false":
-      ret = "false"
-  return ret
-
-
 def get_all_users(secret):
   global db
   global super_secret
@@ -752,7 +734,6 @@ def main():
   server.registerFunction(commit_new_user)
   server.registerFunction(commit_new_token)
   server.registerFunction(delete_instance)
-  server.registerFunction(delete_all_apps)
   server.registerFunction(delete_user)
 
   server.registerFunction(change_password)

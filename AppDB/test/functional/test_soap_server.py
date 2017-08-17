@@ -174,10 +174,6 @@ ret = server.delete_instance("xxx", "xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.delete_all_apps("xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.delete_user("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
@@ -399,12 +395,6 @@ ret = server.get_user_data(user[0], super_secret)
 if user[0] not in ret:
   err(helper_functions.lineno(), ret)
 ret = server.does_user_exist(user[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-########################
-# Delete all apps
-########################
-ret = server.delete_all_apps(super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
 ##########################
