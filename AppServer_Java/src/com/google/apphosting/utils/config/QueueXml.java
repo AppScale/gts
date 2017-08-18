@@ -44,7 +44,7 @@ public class QueueXml {
       this.validateLastEntry();
    }
 
-   public Collection getEntries() {
+   public Collection<QueueXml.Entry> getEntries() {
       this.validateLastEntry();
       return this.entries.values();
    }
