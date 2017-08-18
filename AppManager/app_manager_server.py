@@ -193,7 +193,7 @@ def start_app(project_id, config):
     return BAD_PID
 
   runtime = version_details['runtime']
-  runtime_params = deployment_config.get_config('runtime_params')
+  runtime_params = deployment_config.get_config('runtime_parameters')
   max_memory = runtime_params.get('max_memory', DEFAULT_MAX_MEMORY)
   if 'instanceClass' in version_details:
     max_memory = INSTANCE_CLASSES.get(version_details['instanceClass'],
