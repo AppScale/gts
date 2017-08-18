@@ -119,7 +119,8 @@ def execute_task(task, headers, args):
       celery.control.revoke(task.request.id)
       db.delete(item)
       return
-
+    # Targets do not get X-Forwarded-Proto from nginx, they use haproxy port.
+    headers['X-Forwarded-Proto'] = url.scheme
     if url.scheme == 'http':
       connection = httplib.HTTPConnection(remote_host, url.port)
     elif url.scheme == 'https':
