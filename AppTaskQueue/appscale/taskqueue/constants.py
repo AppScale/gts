@@ -5,6 +5,9 @@ class InvalidQueueConfiguration(Exception):
   """ Indicates an invalid queue configuration. """
   pass
 
+class InvalidTarget(Exception):
+  """ Indicates an invalid target. """
+  pass
 
 def non_negative_int(value):
   """ Checks if a value is greater than 0. """
@@ -19,6 +22,9 @@ QUEUE_NAME_RE = re.compile(r'^[a-zA-Z0-9-]{1,100}$')
 
 # A regex rule for validating push queue rate.
 RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
+
+# A regex rule for validating targets, will not match instance.version.module.
+TARGET_REGEX = re.compile(r'^([a-zA-Z0-9\-]+[\.]?[a-zA-Z0-9\-]*)$')
 
 REQUIRED_PULL_QUEUE_FIELDS = ['name', 'mode']
 
@@ -37,6 +43,7 @@ SUPPORTED_PUSH_QUEUE_FIELDS = {
   'mode': lambda mode: mode == 'push',
   'name': QUEUE_NAME_RE.match,
   'rate': RATE_REGEX.match,
+  'target': TARGET_REGEX.match,
   'retry_parameters': {
     'task_retry_limit': non_negative_int,
     'task_age_limit': AGE_LIMIT_REGEX.match,

@@ -480,7 +480,7 @@ class Djinn
 
   # A String that is returned to callers of set_property that provide an invalid
   # instance variable name to set.
-  KEY_NOT_FOUND = "No property exists with the given name."
+  KEY_NOT_FOUND = "Invalid property name, or property value."
 
 
   # A String indicating when we are looking for a Zookeeper connection to
@@ -527,7 +527,7 @@ class Djinn
     'appengine' => [ Fixnum, '2', true ],
     'autoscale' => [ TrueClass, 'True', true ],
     'client_secrets' => [ String, nil, false ],
-    'controller_logs_to_dashboard' => [ TrueClass, 'False' ],
+    'controller_logs_to_dashboard' => [ TrueClass, 'False', false ],
     'disks' => [ String, nil, true ],
     'ec2_access_key' => [ String, nil, false ],
     'ec2_secret_key' => [ String, nil, false ],
@@ -542,6 +542,7 @@ class Djinn
     'keyname' => [ String, nil, false ],
     'infrastructure' => [ String, nil, true ],
     'instance_type' => [ String, nil, true ],
+    'lb_connect_timeout' => [ Fixnum, '120000', true ],
     'login' => [ String, nil, true ],
     'machine' => [ String, nil, true ],
     'max_images' => [ Fixnum, '0', true ],
@@ -1444,6 +1445,14 @@ class Djinn
       elsif key == "login"
         Djinn.log_info("Restarting applications since public IP changed.")
         notify_restart_app_to_nodes(@apps_loaded)
+      elsif key == "lb_connect_timeout"
+        unless Integer(val) > 0
+          Djinn.log_warn("Cannot set a negative timeout.")
+          next
+        end
+        Djinn.log_info("Reload haproxy with new connect timeout.")
+        HAProxy.initialize_config(val)
+        HAProxy.regenerate_config
       end
 
       @options[key] = val
@@ -4353,12 +4362,12 @@ HOSTS
 
   # This function performs basic setup ahead of starting the API services.
   def initialize_server()
-    HAProxy.initialize_config
+    HAProxy.initialize_config(@options['lb_connect_timeout'])
     Djinn.log_info("HAProxy configured.")
 
     if not Nginx.is_running?
-      Nginx.initialize_config()
-      Nginx.start()
+      Nginx.initialize_config
+      Nginx.start
       Djinn.log_info("Nginx configured and started.")
     else
       Djinn.log_info("Nginx already configured and running.")
@@ -4988,6 +4997,45 @@ HOSTS
     @apps_loaded << app unless @apps_loaded.include?(app)
   end
 
+  # Accessory function for find_lowest_free_port: it looks into
+  # app_info_map if a port is used.
+  #
+  # Args:
+  #  port_to_check : An Integer that represent the port we are interested in.
+  #
+  # Returns:
+  #   A Boolean indicating if the port has been found in app_info_map.
+  def is_port_already_in_use(port_to_check)
+    APPS_LOCK.synchronize {
+      @app_info_map.each { |_, info|
+        next unless info['appengine']
+        info['appengine'].each { |location|
+          host, port = location.split(":")
+          next if @my_private_ip != host
+          return true if port_to_check == Integer(port)
+        }
+      }
+    }
+    return false
+  end
+
+
+  # Accessory function for find_lowest_free_port: it looks into
+  # pending_appservers if a port is used.
+  #
+  # Args:
+  #  port_to_check : An Integer that represent the port we are interested in.
+  #
+  # Returns:
+  def is_port_assigned(port_to_check)
+    @pending_appservers.each { |appserver, _|
+      host, port = appserver.split(":")
+      next if @my_private_ip != host
+      return true if port_to_check == Integer(port)
+    }
+    return false
+  end
+
 
   # Finds the lowest numbered port that is free to serve a new process.
   #
@@ -4997,50 +5045,25 @@ HOSTS
   #
   # Args:
   #   starting_port: we look for ports starting from this port.
-  #   ending_port:   we look up to this port, if 0, we keep going.
-  #   appid:         if ports are used by this app, we ignore them, if
-  #                  nil we check all the applications ports.
   #
   # Returns:
   #   A Fixnum corresponding to the port number that a new process can be bound
   #   to.
-  def find_lowest_free_port(starting_port, ending_port=0, appid="")
-    possibly_free_port = starting_port
+  def find_lowest_free_port(starting_port)
+    port = starting_port
     loop {
-      # If we have ending_port, we need to check the upper limit too.
-      break if ending_port > 0 and possibly_free_port > ending_port
-
-      # Make sure the port is not already allocated to any application.
-      # This is important when applications start at the same time since
-      # there can be a race condition allocating ports.
-      in_use = false
-      @app_info_map.each { |app, info|
-        # If appid is defined, let's ignore its ports.
-        next if app == appid
-
-        # These ports are allocated on the AppServers nodes.
-        if info['appengine']
-          info['appengine'].each { |location|
-            _, port = location.split(":")
-            in_use = true if possibly_free_port == Integer(port)
-          }
-        end
-
-        break if in_use
-      }
-
-      # Check if the port is really available.
-      unless in_use
-        actually_available = Djinn.log_run("lsof -i:#{possibly_free_port} -sTCP:LISTEN")
+      if !is_port_already_in_use(port) && !is_port_assigned(port)
+        # Check if the port is not in use by the system.
+        actually_available = Djinn.log_run("lsof -i:#{port} -sTCP:LISTEN")
         if actually_available.empty?
-          Djinn.log_debug("Port #{possibly_free_port} is available for use.")
-          return possibly_free_port
+          Djinn.log_debug("Port #{port} is available for use.")
+          return port
         end
       end
 
       # Let's try the next available port.
-      Djinn.log_debug("Port #{possibly_free_port} is in use, so skipping it.")
-      possibly_free_port += 1
+      Djinn.log_debug("Port #{port} is in use, so skipping it.")
+      port += 1
     }
     return -1
   end
