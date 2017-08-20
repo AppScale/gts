@@ -1778,7 +1778,7 @@ class Djinn
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
                     "Exception of #{except.class} with message #{except.message}"
-          place_error_app(app, error_msg, get_app_language(app))
+          place_error_app(version_key, error_msg)
         end
       }
     end
@@ -4247,7 +4247,7 @@ HOSTS
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
             "Exception of #{except.class} with message #{except.message}"
-          place_error_app(app, error_msg, app_language)
+          place_error_app(version_key, error_msg)
           static_handlers = []
         end
 
@@ -4665,19 +4665,30 @@ HOSTS
   end
 
   #
-  # Swaps out an application with one that relays an error message to the
-  # developer. It will take the application that currently exists in the
-  # application folder, deletes it, and places a templated app that prints out the
-  # given error message.
+  # Swaps out a version with one that relays an error message to the developer.
+  # It deletes the existing version source and places a templated app that
+  # prints out the given error message.
   #
   # Args:
-  #   app_name: Name of application to construct an error application for
+  #   version_key: Name of version to construct an error application for
   #   err_msg: A String message that will be displayed as
   #            the reason why we couldn't start their application.
-  #   language: The language the application is written in.
-  def place_error_app(app_name, err_msg, language)
-    Djinn.log_error("Placing error application for #{app_name} because of: #{err_msg}")
-    ea = ErrorApp.new(app_name, err_msg)
+  def place_error_app(version_key, err_msg)
+    Djinn.log_error(
+      "Placing error application for #{version_key} because of: #{err_msg}")
+
+    project_id, service_id, version_id = version_key.split('_')
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      # If the version does not exist, do not place an error app.
+      return
+    end
+    language = version_details['runtime']
+    revision_key = [version_key, version_details['revision'].to_s].join('_')
+
+    ea = ErrorApp.new(revision_key, err_msg)
     ea.generate(language)
   end
 
@@ -5728,7 +5739,7 @@ HOSTS
     end
     unless error_msg.empty?
       # Something went wrong: place the error applcation instead.
-      place_error_app(app, error_msg, get_app_language(app))
+      place_error_app(version_key, error_msg)
     end
   end
 

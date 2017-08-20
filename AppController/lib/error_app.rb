@@ -18,13 +18,14 @@ class ErrorApp
   # Constructor 
   #
   # Args: 
-  #   app_name: Name of the application to construct an error application for.
+  #   revision_key: The revision to construct an error application for.
   #   error_msg: A String message that will be displayed as the reason 
   #              why we couldn't start their application.
-  def initialize(app_name, error_msg)
-    @app_name = app_name
+  def initialize(revision_key, error_msg)
+    @project_id = revision_key.split('_')[0]
+    @revision_key = revision_key
     @error_msg = error_msg
-    @dir_path = "#{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app/"
+    @dir_path = "#{HelperFunctions::APPLICATIONS_DIR}/#{revision_key}/app/"
   end
 
   # High level for generating an error application.
@@ -44,16 +45,14 @@ class ErrorApp
     app_xml =<<CONFIG
 <?xml version="1.0" encoding="utf-8"?>
 <appengine-web-app xmlns="http://appengine.google.com/ns/1.0">
-  <application>#{@app_name}</application>
-  <version>badversion</version>
+  <application>#{@project_id}</application>
   <threadsafe>true</threadsafe>
-
 </appengine-web-app>
 CONFIG
      
     HelperFunctions.write_file("#{@dir_path}/war/WEB-INF/appengine-web.xml",
       app_xml)
-    app_tar = "/opt/appscale/apps/#{@app_name}.tar.gz"
+    app_tar = "/opt/appscale/apps/#{@revision_key}.tar.gz"
     Djinn.log_run("rm #{app_tar}")
     Dir.chdir(@dir_path) do
       Djinn.log_run("tar zcvf #{app_tar} ./*")
@@ -66,15 +65,14 @@ CONFIG
   # and retars the application file.
   def generate_python()
     app_yaml = <<CONFIG
-application: #{@app_name}
-version: 1
+application: #{@project_id}
 runtime: python27
 api_version: 1
 threadsafe: true
 
 handlers:
 - url: /.*
-  script: #{@app_name}.application
+  script: #{@project_id}.application
 CONFIG
 
     script = <<SCRIPT
@@ -94,16 +92,15 @@ application = webapp2.WSGIApplication([
 SCRIPT
 
     HelperFunctions.write_file("#{@dir_path}app.yaml", app_yaml)
-    HelperFunctions.write_file("#{@dir_path}#{@app_name}.py", script)
+    HelperFunctions.write_file("#{@dir_path}#{@project_id}.py", script)
 
-    app_tar = "/opt/appscale/apps/#{@app_name}.tar.gz"
+    app_tar = "/opt/appscale/apps/#{@revision_key}.tar.gz"
     Djinn.log_run("rm #{app_tar}")
     Dir.chdir(@dir_path) do
-      Djinn.log_run("tar zcvf #{app_tar} app.yaml #{@app_name}.py")
+      Djinn.log_run("tar zcvf #{app_tar} app.yaml #{@project_id}.py")
     end
 
     return true
   end
 
 end
-
