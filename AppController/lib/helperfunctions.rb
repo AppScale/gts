@@ -499,6 +499,7 @@ module HelperFunctions
     tar_dir = "#{meta_dir}/app"
     return if File.directory?(tar_dir)
 
+    Djinn.fetch_revision(revision_key)
     tar_path = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
 
     FileUtils.mkdir_p(tar_dir)
@@ -970,16 +971,12 @@ module HelperFunctions
       return []
     end
 
-    source_archive = version_details['deployment']['zip']['sourceUrl']
     revision_key = [version_key, version_details['revision'].to_s].join('_')
-    unless File.file?(source_archive)
-      remote_machine = ZKInterface.get_revision_hosters(
-        revision_key, @options['keyname'])[0]
-      HelperFunctions.scp_file(source_archive, source_archive,
-                               remote_machine.ip, remote_machine.ssh_key, true)
+    begin
+      self.setup_revision(revision_key)
+    rescue AppScaleException
+      return []
     end
-
-    self.setup_revision(revision_key)
     untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
 
     begin
@@ -1133,22 +1130,34 @@ module HelperFunctions
     return handlers.compact
   end
 
-  # Parses the app.yaml file for the specified application and returns
+  # Parses the app.yaml file for the specified version and returns
   # any URL handlers with a secure tag. The returns secure tags are
   # put into a hash where the hash key is the value of the secure
   # tag (always or never) and value is a list of handlers.
   # Params:
-  #   app_name Name of the application
+  #   version_key: A string specifying the version key.
   # Returns:
   #   A hash containing lists of secure handlers
-  def self.get_secure_handlers(app_name)
-    Djinn.log_debug("Getting secure handlers for app #{app_name}")
-    untar_dir = get_untar_dir(app_name)
+  def self.get_secure_handlers(version_key)
+    Djinn.log_debug("Getting secure handlers for #{version_key}")
+    project_id, service_id, version_id = version_key.split('_')
 
     secure_handlers = {
         :always => [],
         :never => []
     }
+
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      Djinn.log_warn("Skipping secure handlers for #{version_key} because " +
+                     "version node does not exist")
+      return secure_handlers
+    end
+    revision_key = [version_key, version_details['revision'].to_s].join('_')
+    self.setup_revision(revision_key)
+    untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
 
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))

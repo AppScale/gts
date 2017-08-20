@@ -4205,7 +4205,7 @@ HOSTS
       rescue VersionNotFound
         Djinn.log_debug(
           "Removing routing for #{app} since it should not be running.")
-        Nginx.remove_app(app)
+        Nginx.remove_version(version_key)
         CronHelper.clear_app_crontab(app)
         HAProxy.remove_app(app)
         next
@@ -4236,7 +4236,7 @@ HOSTS
       if appservers.empty?
         # If no AppServer is running, we clear the routing and the crons.
         Djinn.log_debug("Removing routing for #{app} since no AppServer is running.")
-        Nginx.remove_app(app)
+        Nginx.remove_version(version_key)
         CronHelper.clear_app_crontab(app)
         HAProxy.remove_app(app)
       else
@@ -4260,9 +4260,9 @@ HOSTS
 
         # If nginx config files have been updated, we communicate the app's
         # ports to the UserAppServer to make sure we have the latest info.
-        if Nginx.write_fullproxy_app_config(app, http_port, https_port,
-            my_public, my_private, proxy_port, static_handlers, login_ip,
-            app_language)
+        if Nginx.write_fullproxy_version_config(
+          version_key, http_port, https_port, my_public, my_private,
+          proxy_port, static_handlers, login_ip, app_language)
           uac = UserAppClient.new(my_node.private_ip, @@secret)
           begin
             if uac.add_instance(app, my_public, http_port, https_port)
@@ -4711,7 +4711,7 @@ HOSTS
 
       if my_node.is_load_balancer?
         stop_xmpp_for_app(app)
-        Nginx.remove_app(app)
+        Nginx.remove_version(version_key)
 
         # Since the removal of an app from HAProxy can cause a reset of
         # the drain flags, let's set them again.
@@ -5710,27 +5710,11 @@ HOSTS
       Djinn.log_info("App untar directory created from scratch.")
       FileUtils.mkdir_p(app_dir)
 
-      # Let's make sure we have a copy of the application locally.
-      if copy_app_to_local(app)
-        # Let's make sure their app has an app.yaml or appengine-web.xml in it,
-        # since the following code assumes it is present. If it is not there
-        # (which can happen if the scp fails on a large app), throw up a dummy
-        # app.
-        unless HelperFunctions.app_has_config_file?(app_path)
-          error_msg = "ERROR: No app.yaml or appengine-web.xml for app: #{app}."
-        else
-          # Application is good: let's set it up.
-          begin
-            HelperFunctions.setup_revision(revision_key)
-          rescue AppScaleException => exception
-            error_msg = "ERROR: couldn't setup source for #{app} " +
-              "(#{exception.message})."
-          end
-        end
-      else
-        # If we couldn't get a copy of the application, place a dummy error
-        # application to inform the user we had issues.
-        error_msg = "ERROR: Failed to copy app: #{app}."
+      begin
+        HelperFunctions.setup_revision(revision_key)
+      rescue AppScaleException => exception
+        error_msg = "ERROR: couldn't setup source for #{app} " +
+          "(#{exception.message})."
       end
     end
     if remove_old and my_node.is_load_balancer?
@@ -5865,69 +5849,56 @@ HOSTS
     }
   end
 
-  # Returns true on success, false otherwise
-  def copy_app_to_local(appname)
-    begin
-      version_details = ZKInterface.get_version_details(
-        appname, DEFAULT_SERVICE, DEFAULT_VERSION)
-    rescue VersionNotFound
-      Djinn.log_error("Unable to determine source location for #{appname}")
-      return false
-    end
+  # Copies a revision archive from a machine that has it.
+  #
+  # Args:
+  #   revision_key: A string specifying the revision key.
+  # Raises:
+  #   AppScaleException if unable to fetch source archive.
+  def fetch_revision(revision_key)
+    app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
 
-    app_path = version_details['deployment']['zip']['sourceUrl']
+    return if File.file?(app_path)
 
-    if File.exists?(app_path)
-      Djinn.log_debug("I already have a copy of app #{appname} - won't grab it remotely")
-      return true
-    else
-      Djinn.log_debug("I don't have a copy of app #{appname} - will grab it remotely")
-    end
+    Djinn.log_debug("Fetching #{app_path}")
 
     RETRIES.downto(0) { |attempt|
-      revision_key = [appname, DEFAULT_SERVICE, DEFAULT_VERSION,
-                      version_details['revision'].to_s].join('_')
-      nodes_with_app = ZKInterface.get_revision_hosters(
-        revision_key, @options['keyname'])
+      remote_machine = ZKInterface.get_revision_hosters(
+        revision_key, @options['keyname']).sample
 
-      if nodes_with_app.empty?
-        Djinn.log_info("#{attempt} attempt: waiting for a node to " +
-          "have a copy of app #{appname}")
+      if remote_machine.nil?
+        Djinn.log_info("Waiting for a machine to have a copy of #{app_path}")
         Kernel.sleep(SMALL_WAIT)
         next
       end
 
-      # Try few times on each node known to retrieve this application. Make
-      # sure we pick a random order to not overload the same host.
-      nodes_with_app.shuffle.each { |node|
-        ssh_key = node.ssh_key
-        ip = node.private_ip
-        md5 = ZKInterface.get_revision_md5(revision_key, ip)
-        Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
-        RETRIES.downto(0) {
-          begin
-            HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
-            if File.exists?(app_path)
-              if HelperFunctions.check_tarball(app_path, md5)
-                Djinn.log_info("Got a copy of #{appname} from #{ip}.")
-                ZKInterface.add_revision_entry(
-                  revision_key, my_node.private_ip, md5)
-                return true
-              end
+      ssh_key = remote_machine.ssh_key
+      ip = remote_machine.private_ip
+      md5 = ZKInterface.get_revision_md5(revision_key, ip)
+      Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
+      RETRIES.downto(0) {
+        begin
+          HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
+          if File.exists?(app_path)
+            if HelperFunctions.check_tarball(app_path, md5)
+              Djinn.log_info("Got a copy of #{appname} from #{ip}.")
+              ZKInterface.add_revision_entry(
+                revision_key, my_node.private_ip, md5)
+              return
             end
-          rescue AppScaleSCPException
-            Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
           end
-          # Removing possibly corrupted, or partially downloaded tarball.
-          FileUtils.rm_rf(app_path)
-          Kernel.sleep(SMALL_WAIT)
-        }
-        Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}: scp failed.")
+        rescue AppScaleSCPException
+          Djinn.log_debug("Got scp issues getting a copy of #{app_path} from #{ip}.")
+        end
+        # Removing possibly corrupted, or partially downloaded tarball.
+        FileUtils.rm_rf(app_path)
+        Kernel.sleep(SMALL_WAIT)
       }
+      Djinn.log_warn("Unable to get the application from #{ip}:#{app_path}: scp failed.")
     }
 
     Djinn.log_error("Unable to get the application from any node.")
-    return false
+    raise AppScaleException.new("Unable to fetch #{app_path}")
   end
 
   # This function creates the xmpp account for 'app', as app@login_ip.
