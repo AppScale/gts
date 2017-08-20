@@ -108,6 +108,8 @@ module Nginx
     my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
     language)
 
+    version_key = [app_name, Djinn::DEFAULT_SERVICE,
+                   Djinn::DEFAULT_VERSION].join('_')
     parsing_log = "Writing proxy for app #{app_name} with language #{language}.\n"
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
@@ -226,7 +228,7 @@ server {
     ignore_invalid_headers off;
     rewrite_log off;
     error_page 404 = /404.html;
-    set $cache_dir #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/cache;
+    set $cache_dir #{HelperFunctions::VERSION_ASSETS_DIR}/#{version_key};
 
     # If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
@@ -267,7 +269,7 @@ server {
 
     ignore_invalid_headers off;
     rewrite_log off;
-    set $cache_dir #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/cache;
+    set $cache_dir #{HelperFunctions::VERSION_ASSETS_DIR}/#{version_key};
 
     error_page 404 = /404.html;
 

@@ -44,6 +44,10 @@ module HelperFunctions
   APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 
+  # The directory where static version assets are stored.
+  VERSION_ASSETS_DIR = '/var/appscale/version_assets'
+
+
   APPSCALE_KEYS_DIR = "#{APPSCALE_CONFIG_DIR}/keys/cloud1"
 
 
@@ -909,10 +913,6 @@ module HelperFunctions
     return "#{APPLICATIONS_DIR}/#{app_name}"
   end
 
-  def self.get_cache_path(app_name)
-    return File.join(get_app_path(app_name),"cache")
-  end
-
   # The directory where the applications tarball will be extracted to
   def self.get_untar_dir(app_name)
     return File.join(get_app_path(app_name),"app")
@@ -960,19 +960,38 @@ module HelperFunctions
     return filename[get_untar_dir(app_name).length..filename.length]
   end
 
-  def self.parse_static_data(app_name, copy_files)
-    untar_dir = get_untar_dir(app_name)
+  def self.parse_static_data(version_key, copy_files)
+    # Retrieve latest source archive if not on this machine.
+    project_id, service_id, version_id = version_key.split('_')
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      return []
+    end
+
+    source_archive = version_details['deployment']['zip']['sourceUrl']
+    revision_key = [version_key, version_details['revision'].to_s].join('_')
+    unless File.file?(source_archive)
+      remote_machine = ZKInterface.get_revision_hosters(
+        revision_key, @options['keyname'])[0]
+      HelperFunctions.scp_file(source_archive, source_archive,
+                               remote_machine.ip, remote_machine.ssh_key, true)
+    end
+
+    self.setup_revision(revision_key)
+    untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
 
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT
-      return self.parse_java_static_data(app_name)
+      return self.parse_java_static_data(revision_key)
     end
 
     default_expiration = expires_duration(tree["default_expiration"])
 
     # Create the destination cache directory
-    cache_path = get_cache_path(app_name)
+    cache_path = "#{VERSION_ASSETS_DIR}/#{version_key}"
     FileUtils.mkdir_p cache_path
 
     skip_files_regex = DEFAULT_SKIP_FILES_REGEX
@@ -1068,23 +1087,17 @@ module HelperFunctions
   # assuming they want to use the default scheme mentioned above.
   #
   # Args:
-  #   app_name: A String containing the name of the application whose static
-  #     file info needs to be generated.
+  #   revision_key: A String containing the revision key.
   # Returns:
   #   An Array of Hashes, where each hash names the URL that a static file will
   #   be accessed at, and the location in the static file directory where the
   #   file can be found.
-  def self.parse_java_static_data(app_name)
-    # Verify that app_name is a Java app.
-    begin
-      version_details = ZKInterface.get_version_details(
-        app_name, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
-    rescue VersionNotFound => error
-      Djinn.log_error(error.message)
-      return []
-    end
+  def self.parse_java_static_data(revision_key)
+    version_key = revision_key.rpartition('_')[0]
 
-    tar_gz_location = version_details['deployment']['zip']['sourceUrl']
+    # Verify that revision is a Java app.
+    tar_gz_location = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/" +
+      "#{revision_key}.tar.gz"
     unless self.app_has_config_file?(tar_gz_location)
       Djinn.log_warn("#{app_name} does not appear to be a Java app")
       return []
@@ -1092,11 +1105,11 @@ module HelperFunctions
 
     # Walk through all files in the war directory, and add them if (1) they
     # don't end in .jsp and (2) it isn't the WEB-INF directory.
-    cache_path = self.get_cache_path(app_name)
+    cache_path = "#{VERSION_ASSETS_DIR}/#{version_key}"
     FileUtils.mkdir_p(cache_path)
-    Djinn.log_debug("Made static file dir for app #{app_name} at #{cache_path}")
+    Djinn.log_debug("Made static file dir for #{version_key} at #{cache_path}")
 
-    untar_dir = self.get_untar_dir(app_name)
+    untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
     war_dir = self.get_web_inf_dir(untar_dir)
 
     # Copy static files.

@@ -1771,8 +1771,9 @@ class Djinn
     # Self needs to update source code/cache.
     if my_node.is_load_balancer?
       apps_to_restart.each{ |app|
+        version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
         begin
-          HelperFunctions.parse_static_data(app, true)
+          HelperFunctions.parse_static_data(version_key, true)
         rescue => except
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
@@ -4197,7 +4198,7 @@ HOSTS
     login_ip = @options['login']
 
     @apps_loaded.each { |app|
-
+      version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
       begin
         version_details = ZKInterface.get_version_details(
           app, DEFAULT_SERVICE, DEFAULT_VERSION)
@@ -4240,7 +4241,8 @@ HOSTS
         HAProxy.remove_app(app)
       else
         begin
-          static_handlers = HelperFunctions.parse_static_data(app, false)
+          static_handlers = HelperFunctions.parse_static_data(
+            version_key, false)
         rescue => except
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
@@ -5688,6 +5690,7 @@ HOSTS
 
     revision_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION,
                     version_details['revision'].to_s].join('_')
+    version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     if remove_old
       Djinn.log_info("Removing old application version for app: #{app}.")
       if my_node.is_shadow?
@@ -5732,7 +5735,7 @@ HOSTS
     end
     if remove_old and my_node.is_load_balancer?
       begin
-        HelperFunctions.parse_static_data(app, true)
+        HelperFunctions.parse_static_data(version_key, true)
       rescue => except
         # This specific exception may be a JSON parse error.
         error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
