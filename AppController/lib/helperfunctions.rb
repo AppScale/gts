@@ -486,25 +486,21 @@ module HelperFunctions
   # Prepare the application code to be run by AppServers.
   #
   # Args:
-  #   app_name: A String containing the application id.
+  #   revision_key: A String containing the revision key.
   # Raise:
   #   AppScaleException: if the setup failed for whatever reason (ie bad
   #     tarball). The exception message would indicate the error.
-  def self.setup_app(app_name)
-    meta_dir = get_app_path(app_name)
-    tar_dir = "#{meta_dir}/app/"
-    begin
-      version_details = ZKInterface.get_version_details(
-        app_name, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
-    rescue VersionNotFound => error
-      raise AppScaleException.new(error.message)
-    end
-    tar_path = version_details['deployment']['zip']['sourceUrl']
+  def self.setup_revision(revision_key)
+    meta_dir = "#{APPLICATIONS_DIR}/revision_key"
+    tar_dir = "#{meta_dir}/app"
+    return if File.directory?(tar_dir)
 
-    self.shell("mkdir -p #{tar_dir}")
-    self.shell("mkdir -p #{meta_dir}/log")
-    self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
-    self.shell("touch #{meta_dir}/log/server.log")
+    tar_path = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
+
+    FileUtils.mkdir_p(tar_dir)
+    FileUtils.mkdir_p("#{meta_dir}/log")
+    FileUtils.cp("#{APPSCALE_HOME}/AppDashboard/setup/404.html", meta_dir)
+    FileUtils.touch("#{meta_dir}/log/server.log")
 
     cmd = "tar -xzf #{tar_path} --force-local --no-same-owner -C #{tar_dir}"
     unless system(cmd)

@@ -5686,6 +5686,8 @@ HOSTS
     app_path = version_details['deployment']['zip']['sourceUrl']
     error_msg = ""
 
+    revision_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION,
+                    version_details['revision'].to_s].join('_')
     if remove_old
       Djinn.log_info("Removing old application version for app: #{app}.")
       if my_node.is_shadow?
@@ -5693,8 +5695,6 @@ HOSTS
         FileUtils.rm_rf(app_dir)
       else
         FileUtils.rm_rf(app_path)
-        revision_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION,
-                        version_details['revision'].to_s].join('_')
         stop_hosting_revision(revision_key, app_path, @@secret)
       end
     end
@@ -5718,7 +5718,7 @@ HOSTS
         else
           # Application is good: let's set it up.
           begin
-            HelperFunctions.setup_app(app)
+            HelperFunctions.setup_revision(revision_key)
           rescue AppScaleException => exception
             error_msg = "ERROR: couldn't setup source for #{app} " +
               "(#{exception.message})."
