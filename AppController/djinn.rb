@@ -4207,7 +4207,7 @@ HOSTS
           "Removing routing for #{app} since it should not be running.")
         Nginx.remove_version(version_key)
         CronHelper.clear_app_crontab(app)
-        HAProxy.remove_app(app)
+        HAProxy.remove_version(version_key)
         next
       end
 
@@ -4238,7 +4238,7 @@ HOSTS
         Djinn.log_debug("Removing routing for #{app} since no AppServer is running.")
         Nginx.remove_version(version_key)
         CronHelper.clear_app_crontab(app)
-        HAProxy.remove_app(app)
+        HAProxy.remove_version(version_key)
       else
         begin
           static_handlers = HelperFunctions.parse_static_data(
@@ -4253,8 +4253,9 @@ HOSTS
 
         # Reload haproxy first, to ensure we have the backend ready when
         # nginx routing is enabled.
-        unless HAProxy.update_app_config(my_private, app, proxy_port, appservers)
-          Djinn.log_warn("No AppServer in haproxy for application #{app}.")
+        unless HAProxy.update_version_config(my_private, version_key,
+                                             proxy_port, appservers)
+          Djinn.log_warn("No AppServer in haproxy for #{version_key}.")
           next
         end
 
@@ -4726,7 +4727,7 @@ HOSTS
 
         # Since the removal of an app from HAProxy can cause a reset of
         # the drain flags, let's set them again.
-        HAProxy.remove_app(app)
+        HAProxy.remove_version(version_key)
       end
 
       if my_node.is_appengine?
@@ -5323,6 +5324,7 @@ HOSTS
   #     means we want more, a negative that we want to remove some, and 0
   #     for no changes).
   def get_scaling_info_for_app(app_name)
+    version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     begin
       version_details = ZKInterface.get_version_details(
         app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
@@ -5357,7 +5359,7 @@ HOSTS
     # We need the haproxy stats to decide upon what to do.
     total_requests_seen, total_req_in_queue, current_sessions,
       time_requests_were_seen = HAProxy.get_haproxy_stats(
-        app_name, my_node.private_ip, haproxy_port)
+        version_key, my_node.private_ip, haproxy_port)
 
     if time_requests_were_seen == :no_backend
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
@@ -5367,8 +5369,7 @@ HOSTS
     update_request_info(app_name, total_requests_seen, time_requests_were_seen,
       total_req_in_queue)
 
-    prepended_app_name = [HelperFunctions::GAE_PREFIX, app_name].join
-    allow_concurrency = HelperFunctions.get_app_thread_safe(prepended_app_name)
+    allow_concurrency = version_details.fetch('threadsafe', true)
     current_load = calculate_current_load(num_appengines, current_sessions,
                                           allow_concurrency)
     if current_load >= MAX_LOAD_THRESHOLD
@@ -5992,6 +5993,7 @@ HOSTS
             next
           end
 
+          version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
           begin
             version_details = ZKInterface.get_version_details(
               app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
@@ -6003,7 +6005,7 @@ HOSTS
           Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
           haproxy_port = version_details['appscaleExtensions']['haproxyPort']
           total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(
-            app_name, my_node.private_ip, haproxy_port)
+            version_key, my_node.private_ip, haproxy_port)
           # Create the apps hash with useful information containing HAProxy stats.
           begin
             appservers = 0

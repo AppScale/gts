@@ -1324,40 +1324,24 @@ module HelperFunctions
   end
 
 
-  # Examines the configuration file for the given Google App Engine application
-  # to see if the app is thread safe.
+  # Examines the configuration file for the given version to see if it is
+  # thread safe.
   #
   # Args:
-  #   app: A String that represents the application ID of the app whose config
-  #   file we should read. This arg is expected to have the prefix 'gae_'
-  #   so we know it is a gae app and not an appscale app.
+  #   version_key: A String that specifies the version key.
   # Returns:
   #   Boolean true if the app is thread safe. Boolean false if it is not.
-  def self.get_app_thread_safe(app)
-    if app != AppDashboard::APP_NAME and app.start_with?(GAE_PREFIX) == false
+  def self.get_version_thread_safe(version_key)
+    project_id, service_id, version_id = version_key.split('_')
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      # If the version does not exist, assume it is not thread safe.
       return false
     end
-    app = app.sub(GAE_PREFIX, '')
-    app_yaml_file = "#{get_app_path(app)}/app/app.yaml"
-    appengine_web_xml_file = self.get_appengine_web_xml(app)
-    if File.exists?(app_yaml_file)
-      tree = YAML.load_file(app_yaml_file)
-      return tree['threadsafe'] == true
-    elsif File.exists?(appengine_web_xml_file)
-      return_val = "false"
-      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
-      match_data = xml.scan(/<threadsafe>(.*)<\/threadsafe>/)
-      match_data.each { |key_and_val|
-        if key_and_val.length == 1
-          return_val = key_and_val[0]
-        end
-      }
-      return return_val == "true"
-    else
-      Djinn.log_warn("Couldn't find an app configuration file for app " +
-        "#{app}, so assuming it is not threadsafe.")
-      return false
-    end
+
+    return version_details.fetch('threadsafe', true)
   end
 
 
