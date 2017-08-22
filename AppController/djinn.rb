@@ -169,7 +169,7 @@ class Djinn
 
   # An Array of Strings, each of which corresponding to the name of an App
   # Engine app that has been loaded on this node.
-  attr_accessor :apps_loaded
+  attr_accessor :versions_loaded
 
 
   # An Array of Strings, each of which corresponding to the name of an App
@@ -575,7 +575,7 @@ class Djinn
   # Instance variables that we need to restore from the head node.
   DEPLOYMENT_STATE = [
     "@app_info_map",
-    "@apps_loaded",
+    "@versions_loaded",
     "@nodes",
     "@options",
     "@last_decision"
@@ -644,7 +644,7 @@ class Djinn
     # The following variables are restored from the headnode ie they are
     # part of the common state of the running deployment.
     @app_info_map = {}
-    @apps_loaded = []
+    @versions_loaded = []
     @nodes = []
     @options = {}
     @last_decision = {}
@@ -1444,7 +1444,12 @@ class Djinn
         next
       elsif key == "login"
         Djinn.log_info("Restarting applications since public IP changed.")
-        notify_restart_app_to_nodes(@apps_loaded)
+        projects_loaded = []
+        @versions_loaded.each { |version_key|
+          project = version_key.split('_')[0]
+          projects_loaded << project unless projects_loaded.include?(project)
+        }
+        notify_restart_app_to_nodes(projects_loaded)
       elsif key == "lb_connect_timeout"
         unless Integer(val) > 0
           Djinn.log_warn("Cannot set a negative timeout.")
@@ -1722,6 +1727,7 @@ class Djinn
       end
     end
 
+    version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     app_name.gsub!(/[^\w\d\-]/, "")
     return "false: #{app_name} is a reserved app." if RESERVED_APPS.include?(app_name)
     Djinn.log_info("Shutting down app named [#{app_name}]")
@@ -1747,7 +1753,7 @@ class Djinn
       # clear that information out.
       APPS_LOCK.synchronize {
         @app_info_map.delete(app_name) unless @app_info_map[app_name].nil?
-        @apps_loaded = @apps_loaded - [app_name]
+        @versions_loaded = @versions_loaded - [version_key]
       }
 
       # To prevent future deploys from using the old application code, we
@@ -1805,7 +1811,12 @@ class Djinn
 
     apps_to_restart = []
     APPS_LOCK.synchronize {
-      apps_to_restart = @apps_loaded & apps
+      projects_loaded = []
+      @versions_loaded.each { |version_key|
+        project = version_key.split('_')[0]
+        projects_loaded << project unless projects_loaded.include?(project)
+      }
+      apps_to_restart = projects_loaded & apps
     }
     # Notify nodes, and remove any running AppServer of the application.
     notify_restart_app_to_nodes(apps_to_restart)
@@ -1978,7 +1989,12 @@ class Djinn
 
         APPS_LOCK.synchronize {
           # Starts apps that are not running yet but they should.
-          apps_to_load = ZKInterface.get_app_names - @apps_loaded
+          projects_loaded = []
+          @versions_loaded.each { |version_key|
+            project = version_key.split('_')[0]
+            projects_loaded << project unless projects_loaded.include?(project)
+          }
+          apps_to_load = ZKInterface.get_app_names - projects_loaded
           apps_to_load.each { |app|
             setup_app_dir(app, true)
             setup_appengine_application(app)
@@ -4197,16 +4213,18 @@ HOSTS
     my_private = my_node.private_ip
     login_ip = @options['login']
 
-    @apps_loaded.each { |app|
-      version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+    @versions_loaded.each { |version_key|
+      project_id, service_id, version_id = version_key.split('_')
       begin
         version_details = ZKInterface.get_version_details(
-          app, DEFAULT_SERVICE, DEFAULT_VERSION)
+          project_id, service_id, version_id)
       rescue VersionNotFound
-        Djinn.log_debug(
-          "Removing routing for #{app} since it should not be running.")
+        Djinn.log_debug("Removing routing for #{version_key} since it " +
+                        "should not be running.")
         Nginx.remove_version(version_key)
-        CronHelper.clear_app_crontab(app)
+        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
+          CronHelper.clear_app_crontab(project_id)
+        end
         HAProxy.remove_version(version_key)
         next
       end
@@ -4219,14 +4237,16 @@ HOSTS
       # Check that we have the application information needed to
       # regenerate the routing configuration.
       appservers = []
-      unless @app_info_map[app].nil? || @app_info_map[app]['appengine'].nil?
-        Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
-          "port #{http_port}, https port #{https_port}, and haproxy port " +
+      unless @app_info_map[project_id].nil? ||
+          @app_info_map[project_id]['appengine'].nil?
+        Djinn.log_debug(
+          "Regenerating nginx config for #{project_id} on http port " +
+          "#{http_port}, https port #{https_port}, and haproxy port " +
           "#{proxy_port}.")
 
         # Let's see if we already have any AppServers running for this
         # application. We count also the ones we need to terminate.
-        @app_info_map[app]['appengine'].each { |location|
+        @app_info_map[project_id]['appengine'].each { |location|
           _, port = location.split(":")
           next if Integer(port) < 0
           appservers << location
@@ -4235,9 +4255,12 @@ HOSTS
 
       if appservers.empty?
         # If no AppServer is running, we clear the routing and the crons.
-        Djinn.log_debug("Removing routing for #{app} since no AppServer is running.")
+        Djinn.log_debug(
+          "Removing routing for #{version_key} since no AppServer is running.")
         Nginx.remove_version(version_key)
-        CronHelper.clear_app_crontab(app)
+        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
+          CronHelper.clear_app_crontab(project_id)
+        end
         HAProxy.remove_version(version_key)
       else
         begin
@@ -4245,8 +4268,9 @@ HOSTS
             version_key, false)
         rescue => except
           # This specific exception may be a JSON parse error.
-          error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-            "Exception of #{except.class} with message #{except.message}"
+          error_msg = "ERROR: Unable to parse app.yaml file for " +
+                      "#{version_key}. Exception of #{except.class} with " +
+                      "message #{except.message}"
           place_error_app(version_key, error_msg)
           static_handlers = []
         end
@@ -4266,12 +4290,13 @@ HOSTS
           proxy_port, static_handlers, login_ip, app_language)
           uac = UserAppClient.new(my_node.private_ip, @@secret)
           begin
-            if uac.add_instance(app, my_public, http_port, https_port)
-              Djinn.log_info("Committed application info for #{app} " +
-                "to user_app_server")
+            if uac.add_instance(project_id, my_public, http_port, https_port)
+              Djinn.log_info("Committed application info for #{project_id} " +
+                             "to user_app_server")
             end
           rescue FailedNodeException
-            Djinn.log_warn("Failed to talk to UAServer to add_instance for #{app}.")
+            Djinn.log_warn(
+              "Failed to talk to UAServer to add_instance for #{project_id}.")
           end
         end
       end
@@ -4758,12 +4783,14 @@ HOSTS
   # LoadBalancers need to do some extra work to detect when AppServers failed
   # or were terminated.
   def check_haproxy
-    @apps_loaded.each{ |app|
-      _, failed = HAProxy.list_servers(app)
+    @versions_loaded.each{ |version_key|
+      project_id = version_key.split('_')[0]
+      _, failed = HAProxy.list_servers(version_key)
       if my_node.is_shadow?
         failed.each{ |appserver|
-          Djinn.log_warn("Detected failed AppServer for #{app}: #{appserver}.")
-          @app_info_map[app]['appengine'].delete(appserver)
+          Djinn.log_warn(
+            "Detected failed AppServer for #{version_key}: #{appserver}.")
+          @app_info_map[project_id]['appengine'].delete(appserver)
         }
       end
     }
@@ -4977,6 +5004,7 @@ HOSTS
     end
     Djinn.log_debug("setup_appengine_application: info for #{app}: #{@app_info_map[app]}.")
 
+    version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     version_details = ZKInterface.get_version_details(
       app, DEFAULT_SERVICE, DEFAULT_VERSION)
     nginx_port = version_details['appscaleExtensions']['httpPort']
@@ -5008,7 +5036,9 @@ HOSTS
       Djinn.log_warn("Failed to start xmpp for application #{app}")
     end
 
-    @apps_loaded << app unless @apps_loaded.include?(app)
+    unless @versions_loaded.include?(version_key)
+      @versions_loaded << version_key
+    end
   end
 
   # Accessory function for find_lowest_free_port: it looks into
@@ -5092,7 +5122,8 @@ HOSTS
   def scale_appservers
     needed_appservers = 0
     ZKInterface.get_app_names.each { |app_name|
-      next unless @apps_loaded.include?(app_name)
+      version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+      next unless @versions_loaded.include?(version_key)
 
       initialize_scaling_info_for_app(app_name)
 
@@ -5222,11 +5253,12 @@ HOSTS
           break if num_scaled_down == max_scale_down_capacity
 
           hosted_apps = []
-          @apps_loaded.each { |app_name|
-            @app_info_map[app_name]['appengine'].each { |location|
+          @versions_loaded.each { |version_key|
+            project_id = version_key.split('_')[0]
+            @app_info_map[project_id]['appengine'].each { |location|
               host, port = location.split(":")
               if host == node.private_ip
-                hosted_apps << "#{app_name}:#{port}"
+                hosted_apps << "#{version_key}:#{port}"
               end
             }
           }
@@ -5857,7 +5889,7 @@ HOSTS
     Nginx.reload()
 
     APPS_LOCK.synchronize {
-      @apps_loaded = []
+      @versions_loaded = []
     }
   end
 
@@ -5987,13 +6019,15 @@ HOSTS
     node_stats["apps"] = {}
     if my_node.is_shadow?
       APPS_LOCK.synchronize {
-        @apps_loaded.each { |app_name|
-          if @app_info_map[app_name].nil? or @app_info_map[app_name]['appengine'].nil?
-            Djinn.log_debug("#{app_name} not setup yet: skipping getting stats.")
+        @versions_loaded.each { |version_key|
+          project_id = version_key.split('_')[0]
+          if @app_info_map[project_id].nil? ||
+              @app_info_map[project_id]['appengine'].nil?
+            Djinn.log_debug(
+              "#{version_key} not setup yet: skipping getting stats.")
             next
           end
 
-          version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
           begin
             version_details = ZKInterface.get_version_details(
               app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
@@ -6002,7 +6036,7 @@ HOSTS
           end
 
           # Get HAProxy requests.
-          Djinn.log_debug("Getting HAProxy stats for app: #{app_name}")
+          Djinn.log_debug("Getting HAProxy stats for #{version_key}")
           haproxy_port = version_details['appscaleExtensions']['haproxyPort']
           total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(
             version_key, my_node.private_ip, haproxy_port)
@@ -6015,7 +6049,7 @@ HOSTS
               reqs_enqueued = 0
             else
 
-              @app_info_map[app_name]['appengine'].each { |location|
+              @app_info_map[project_id]['appengine'].each { |location|
                 host, port = location.split(":")
                 if Integer(port) > 0
                   appservers += 1
@@ -6024,7 +6058,7 @@ HOSTS
                 end
               }
             end
-            node_stats["apps"][app_name] = {
+            node_stats["apps"][project_id] = {
               "language" => version_details['runtime'].tr('^A-Za-z', ''),
               "appservers" => appservers,
               "pending_appservers" => pending,
