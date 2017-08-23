@@ -5506,6 +5506,56 @@ HOSTS
     @last_sampling_time[app_name] = time_requests_were_seen
   end
 
+  # Determines the amount of memory already allocated for instances on each
+  # machine.
+  #
+  # Returns:
+  #   A hash mapping locations to memory allocated in MB.
+  def get_allocated_memory
+    allocated_memory = {}
+    @app_info_map.each_pair { |appid, app_info|
+      next if app_info['appengine'].nil?
+
+      max_app_mem = Integer(@options['max_memory'])
+      begin
+        version_details = ZKInterface.get_version_details(
+          appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+      rescue VersionNotFound
+        Djinn.log_warn("#{appid} not found when considering memory usage")
+        version_details = {}
+      end
+
+      if version_details.key?('instanceClass')
+        instance_class = version_details['instanceClass'].to_sym
+        max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
+      end
+
+      app_info['appengine'].each { |location|
+        host = location.split(':')[0]
+        allocated_memory[host] = 0 unless allocated_memory.key?(host)
+        allocated_memory[host] += max_app_mem
+      }
+    }
+    return allocated_memory
+  end
+
+  # Retrieves a list of hosts that are running instances for a project.
+  #
+  # Args:
+  #   project_id: A string specifying a project ID.
+  # Returns:
+  #   A set of IP addresses.
+  def get_hosts_for_project(project_id)
+    current_hosts = Set.new()
+    if @app_info_map.key?(project_id) &&
+        @app_info_map[project_id].key?('appengine')
+      @app_info_map[project_id]['appengine'].each {
+        host = location.split(":")[0]
+        current_hosts << host
+      }
+    end
+    return current_hosts
+  end
 
   # Try to add an AppServer for the specified application, ensuring
   # that a minimum number of AppServers is always kept.
@@ -5521,47 +5571,11 @@ HOSTS
     # another AppServer for this app.
     available_hosts = []
 
-    # We count now the number of AppServers running on each node: we will
-    # need to consider the maximum amount of memory allocated to it, in
-    # order to not overprovision the appengine node.
-    appservers_count = {}
-    current_hosts = Set.new()
-    max_memory = {}
-    @app_info_map.each_pair { |appid, app_info|
-      next if app_info['appengine'].nil?
+    # Prevent each machine from being assigned too many instances.
+    allocated_memory = get_allocated_memory
 
-      # We need to keep track of the theoretical max memory used by all
-      # the AppServervers.
-      begin
-        version_details = ZKInterface.get_version_details(
-          appid, DEFAULT_SERVICE, DEFAULT_VERSION)
-      rescue VersionNotFound
-        Djinn.log_warn("#{appid} not found when considering memory usage")
-        return false
-      end
-
-      max_app_mem = Integer(@options['max_memory'])
-      if version_details.key?('instanceClass')
-        instance_class = version_details['instanceClass'].to_sym
-        max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
-      end
-
-      app_info['appengine'].each { |location|
-        host, _ = location.split(":")
-        if appservers_count[host].nil?
-          appservers_count[host] = 1
-          max_memory[host] = max_app_mem
-        else
-          appservers_count[host] += 1
-          max_memory[host] += max_app_mem
-        end
-
-        # We also see which host is running the application we need to
-        # scale. We will need later on to prefer hosts not running this
-        # app.
-        current_hosts << host if app_name == appid
-      }
-    }
+    # Prioritize machines that aren't serving the application.
+    current_hosts = get_hosts_for_project(app_name)
 
     # Get the memory limit for this application.
     begin
@@ -5589,8 +5603,9 @@ HOSTS
 
         # Check how many new AppServers of this app, we can run on this
         # node (as theoretical maximum memory usage goes).
-        max_memory[host] = 0 if max_memory[host].nil?
-        max_new_total = Integer((total - max_memory[host] - SAFE_MEM)/ max_app_mem)
+        allocated_memory[host] = 0 if allocated_memory[host].nil?
+        max_new_total = Integer(
+          (total - allocated_memory[host] - SAFE_MEM) / max_app_mem)
         Djinn.log_debug("Check for total memory usage: #{host} can run #{max_new_total}" +
           " AppServers for #{app_name}.")
         break if max_new_total <= 0
