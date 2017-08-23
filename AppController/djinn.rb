@@ -4815,10 +4815,9 @@ HOSTS
 
     # Registered instances are no longer pending.
     @app_info_map.each { |version_key, info|
-      project_id = version_key.split('_')[0]
       info['appengine'].each { |location|
-        _, port = location.split(':')
-        @pending_appservers.delete("#{project_id}:#{port}")
+        port = location.split(':')[1]
+        @pending_appservers.delete("#{version_key}:#{port}")
       }
     }
 
@@ -4846,7 +4845,7 @@ HOSTS
         pending_count = 0
         project_id = version_key.split('_')[0]
         @pending_appservers.each { |instance_key, _|
-          pending_count += 1 if instance_key.split(':')[0] == project_id
+          pending_count += 1 if instance_key.split(':')[0] == version_key
         }
 
         if info['appengine'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
@@ -4904,7 +4903,7 @@ HOSTS
       next if my_apps.include?(instance_key)
 
       # Give pending instances more time to start.
-      next if @pending_appservers.key?(appengine)
+      next if @pending_appservers.key?(instance_key)
 
       # If the unaccounted instance is not pending, stop it.
       to_end << instance_key
@@ -5095,9 +5094,8 @@ HOSTS
   #
   # Returns:
   def is_port_assigned(port_to_check)
-    @pending_appservers.each { |appserver, _|
-      host, port = appserver.split(":")
-      next if @my_private_ip != host
+    @pending_appservers.each { |instance_key, _|
+      port = instance_key.split(':')[1]
       return true if port_to_check == Integer(port)
     }
     return false
@@ -5832,6 +5830,7 @@ HOSTS
   def add_appserver_process(app, nginx_port, app_language)
     Djinn.log_info("Received request to add an AppServer for #{app}.")
 
+    version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     # Wait for the head node to be setup for this app.
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
     HelperFunctions.write_file(port_file, "#{nginx_port}")
@@ -5850,7 +5849,7 @@ HOSTS
     begin
       app_manager.start_app(
         app, DEFAULT_SERVICE, DEFAULT_VERSION, appengine_port)
-      @pending_appservers["#{app}:#{appengine_port}"] = Time.new
+      @pending_appservers["#{version_key}:#{appengine_port}"] = Time.new
       Djinn.log_info("Done adding AppServer for #{app}.")
     rescue FailedNodeException => error
       Djinn.log_warn(
