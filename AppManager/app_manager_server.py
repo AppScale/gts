@@ -5,6 +5,7 @@ import glob
 import logging
 import math
 import os
+import re
 import sys
 import threading
 import time
@@ -22,6 +23,8 @@ from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 from tornado.options import options
 
+from appscale.admin.constants import DEFAULT_SERVICE
+from appscale.admin.constants import DEFAULT_VERSION
 from appscale.admin.constants import UNPACK_ROOT
 from appscale.admin.constants import VERSION_PATH_SEPARATOR
 from appscale.admin.instance_manager.constants import (
@@ -91,7 +94,7 @@ HTTP_OK = 200
 ROUTING_RETRY_INTERVAL = 5
 
 PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
-                                'app___{project}-{port}.pid')
+                                'app___{revision}-{port}.pid')
 
 # The number of seconds an instance is allowed to finish serving requests after
 # it receives a shutdown signal.
@@ -208,14 +211,14 @@ def start_app(project_id, config):
 
   logging.info('Starting {} application {}'.format(runtime, project_id))
 
-  pidfile = PIDFILE_TEMPLATE.format(project=project_id,
+  pidfile = PIDFILE_TEMPLATE.format(revision=revision_key,
                                     port=config['app_port'])
 
   if runtime == constants.GO:
     env_vars['GOPATH'] = os.path.join(UNPACK_ROOT, revision_key, 'gopath')
     env_vars['GOROOT'] = os.path.join(GO_SDK, 'goroot')
 
-  watch = ''.join([MONIT_INSTANCE_PREFIX, project_id])
+  watch = ''.join([MONIT_INSTANCE_PREFIX, revision_key])
 
   if runtime in (constants.PYTHON27, constants.GO, constants.PHP):
     start_cmd = create_python27_start_cmd(
@@ -279,17 +282,16 @@ def start_app(project_id, config):
   else:
     log_size = APP_LOG_SIZE
 
-  if not setup_logrotate(project_id, watch, log_size):
+  if not setup_logrotate(project_id, log_size):
     logging.error("Error while setting up log rotation for application: {}".
       format(project_id))
 
-def setup_logrotate(app_name, watch, log_size):
+def setup_logrotate(app_name, log_size):
   """ Creates a logrotate script for the logs that the given application
       will create.
 
   Args:
     app_name: A string, the application ID.
-    watch: A string of the form 'app___<app_ID>'.
     log_size: An integer, the size of logs that are kept per application server.
       The size should be in bytes.
   Returns:
@@ -299,8 +301,10 @@ def setup_logrotate(app_name, watch, log_size):
   app_logrotate_script = "{0}/appscale-{1}".\
     format(LOGROTATE_CONFIG_DIR, app_name)
 
+  log_prefix = ''.join([MONIT_INSTANCE_PREFIX, app_name])
+
   # Application logrotate script content.
-  contents = """/var/log/appscale/{watch}*.log {{
+  contents = """/var/log/appscale/{log_prefix}*.log {{
   size {size}
   missingok
   rotate 7
@@ -309,7 +313,7 @@ def setup_logrotate(app_name, watch, log_size):
   notifempty
   copytruncate
 }}
-""".format(watch=watch, size=log_size)
+""".format(log_prefix=log_prefix, size=log_size)
   logging.debug("Logrotate file: {} - Contents:\n{}".
     format(app_logrotate_script, contents))
 
@@ -393,7 +397,19 @@ def stop_app_instance(app_name, port):
     raise BadConfigurationException('Invalid project ID: {}'.format(app_name))
 
   logging.info("Stopping application %s" % app_name)
-  watch = '{}{}-{}'.format(MONIT_INSTANCE_PREFIX, app_name, port)
+
+  # Discover revision key from version and port.
+  version_key = VERSION_PATH_SEPARATOR.join(
+    [app_name, DEFAULT_SERVICE, DEFAULT_VERSION])
+  instance_key_re = re.compile(
+    '{}{}.*-{}'.format(MONIT_INSTANCE_PREFIX, version_key, port))
+  monit_entries = yield monit_operator.get_entries()
+  try:
+    watch = next(entry for entry in monit_entries
+                 if instance_key_re.match(entry))
+  except StopIteration:
+    message = 'No entries exist for {} with port {}'.format(app_name, port)
+    raise HTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
   pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))
   try:
@@ -439,7 +455,10 @@ def stop_app(app_name):
     raise BadConfigurationException('Invalid project ID: {}'.format(app_name))
 
   logging.info("Stopping application %s" % app_name)
-  watch = ''.join([MONIT_INSTANCE_PREFIX, app_name])
+  version_key = VERSION_PATH_SEPARATOR.join(
+    [app_name, DEFAULT_SERVICE, DEFAULT_VERSION])
+
+  watch = ''.join([MONIT_INSTANCE_PREFIX, version_key])
   monit_result = monit_interface.stop(watch)
 
   if not monit_result:
@@ -448,7 +467,8 @@ def stop_app(app_name):
 
   # Remove the monit config files for the application.
   # TODO: Reload monit to pick up config changes.
-  config_files = glob.glob('{}/appscale-{}-*.cfg'.format(MONIT_CONFIG_DIR, watch))
+  config_files = glob.glob(
+    '{}/appscale-{}*.cfg'.format(MONIT_CONFIG_DIR, watch))
   for config_file in config_files:
     try:
       os.remove(config_file)

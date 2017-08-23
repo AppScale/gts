@@ -4866,9 +4866,9 @@ HOSTS
             else
               no_appservers << version_key
             end
-          elsif not MonitInterface.is_running?("#{project_id}-#{port}")
+          elsif not MonitInterface.instance_running?(version_key, port)
             Djinn.log_warn(
-              "Didn't find the AppServer for #{project_id} at port #{port}.")
+              "Didn't find the AppServer for #{version_key} at port #{port}.")
             to_end << "#{version_key}:#{port}"
           else
             running_instances << "#{version_key}:#{port}"
@@ -4894,13 +4894,13 @@ HOSTS
 
     # Check that all the AppServers running are indeed known to the
     # head node.
-    MonitInterface.running_appengines().each { |appengine|
-      project_id, port = appengine.split(':')
-      version_key = [project_id, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+    MonitInterface.running_appengines().each { |instance_entry|
+      revision_key, port = instance_entry.split(':')
+      version_key = revision_key.rpartition('_')[0]
       instance_key = [version_key, port].join(':')
 
       # Nothing to do if we already account for this AppServer.
-      next if my_apps.include?(instance_key)
+      next if running_instances.include?(instance_key)
 
       # Give pending instances more time to start.
       next if @pending_appservers.key?(instance_key)

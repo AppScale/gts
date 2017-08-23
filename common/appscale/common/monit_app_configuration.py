@@ -1,6 +1,7 @@
 import os
 import sys
 
+from appscale.admin.constants import VERSION_PATH_SEPARATOR
 from appscale.common import appscale_info
 from distutils.spawn import find_executable
 from . import file_io
@@ -55,10 +56,12 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
     bash_exec = 'exec env {vars} {start_cmd} >> {log} 2>&1'.format(
       vars=env_vars_str, start_cmd=start_cmd, log=logfile)
   else:
-    bash_exec = 'exec env {vars} {start_cmd} 2>&1 | tee -a {log} | '\
-                'logger -t {watch} -u /tmp/ignored -n {syslog_server} -P 514'.\
-      format(vars=env_vars_str, start_cmd=start_cmd, log=logfile, watch=watch,
-             syslog_server=syslog_server)
+    version_key = watch.rsplit(VERSION_PATH_SEPARATOR, 1)[0]
+    bash_exec = (
+      'exec env {vars} {start_cmd} 2>&1 | tee -a {log} | '
+      'logger -t {version} -u /tmp/ignored -n {syslog_server} -P 514'
+    ).format(vars=env_vars_str, start_cmd=start_cmd, log=logfile,
+             version=version_key, syslog_server=syslog_server)
 
   start_line = ' '.join([
     start_stop_daemon,
