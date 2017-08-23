@@ -11,6 +11,7 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from celery.utils.log import get_task_logger
 from eventlet.green import httplib
 from eventlet.green.httplib import BadStatusLine
+from eventlet.timeout import Timeout as EventletTimeout
 from socket import error as SocketError
 from urlparse import urlparse
 from .distributed_tq import TaskName
@@ -25,6 +26,9 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.ext import db
 
+
+# The maximum number of seconds a task is permitted to take.
+MAX_TASK_DURATION = 10 * 60
 
 app_id = os.environ['APP_ID']
 remote_host = os.environ['HOST']
@@ -91,117 +95,128 @@ def execute_task(task, headers, args):
               'Args: {}'.format(args['task_name'], headers, loggable_args))
   url = urlparse(args['url'])
 
-  redirects_left = 1
-  while True:
-    urlpath = url.path
-    if url.query:
-      urlpath += "?" + url.query
-
-    method = args['method']
-    if args['expires'] <= datetime.datetime.now():
-      # We do this check because the expires attribute in
-      # celery is not passed to retried tasks. This is a
-      # documented bug in celery.
-      logger.error(
-        "Task %s with id %s has expired with expiration date %s" % (
-         args['task_name'], task.request.id, args['expires']))
-      item = TaskName.get_by_key_name(args['task_name'])
-      celery.control.revoke(task.request.id)
-      db.delete(item)
-      return
-
-    if (args['max_retries'] != 0 and
-        task.request.retries >= args['max_retries']):
-      logger.error("Task %s with id %s has exceeded retries: %s" % (
-        args['task_name'], task.request.id,
-        args['max_retries']))
-      item = TaskName.get_by_key_name(args['task_name'])
-      celery.control.revoke(task.request.id)
-      db.delete(item)
-      return
-    # Targets do not get X-Forwarded-Proto from nginx, they use haproxy port.
-    headers['X-Forwarded-Proto'] = url.scheme
-    if url.scheme == 'http':
-      connection = httplib.HTTPConnection(remote_host, url.port)
-    elif url.scheme == 'https':
-      connection = httplib.HTTPSConnection(remote_host, url.port)
-    else:
-      logger.error("Task %s tried to use url scheme %s, "
-                   "which is not supported." % (
-                   args['task_name'], url.scheme))
-
-    skip_host = False
-    if 'host' in headers or 'Host' in headers:
-      skip_host = True
-
-    skip_accept_encoding = False
-    if 'accept-encoding' in headers or 'Accept-Encoding' in headers:
-      skip_accept_encoding = True
-
-    connection.putrequest(method,
-                          urlpath,
-                          skip_host=skip_host,
-                          skip_accept_encoding=skip_accept_encoding)
-
-    # Update the task headers
-    headers['X-AppEngine-TaskRetryCount'] = str(task.request.retries)
-    headers['X-AppEngine-TaskExecutionCount'] = str(task.request.retries)
-
-    for header in headers:
-      connection.putheader(header, headers[header])
-
-    if 'content-type' not in headers or 'Content-Type' not in headers:
+  timeout = EventletTimeout(MAX_TASK_DURATION)
+  try:
+    redirects_left = 1
+    while True:
+      urlpath = url.path
       if url.query:
-        connection.putheader('content-type', 'application/octet-stream')
+        urlpath += "?" + url.query
+
+      method = args['method']
+      if args['expires'] <= datetime.datetime.now():
+        # We do this check because the expires attribute in
+        # celery is not passed to retried tasks. This is a
+        # documented bug in celery.
+        logger.error(
+          "Task %s with id %s has expired with expiration date %s" % (
+           args['task_name'], task.request.id, args['expires']))
+        item = TaskName.get_by_key_name(args['task_name'])
+        celery.control.revoke(task.request.id)
+        db.delete(item)
+        return
+
+      if (args['max_retries'] != 0 and
+          task.request.retries >= args['max_retries']):
+        logger.error("Task %s with id %s has exceeded retries: %s" % (
+          args['task_name'], task.request.id,
+          args['max_retries']))
+        item = TaskName.get_by_key_name(args['task_name'])
+        celery.control.revoke(task.request.id)
+        db.delete(item)
+        return
+      # Targets do not get X-Forwarded-Proto from nginx, they use haproxy port.
+      headers['X-Forwarded-Proto'] = url.scheme
+      if url.scheme == 'http':
+        connection = httplib.HTTPConnection(remote_host, url.port)
+      elif url.scheme == 'https':
+        connection = httplib.HTTPSConnection(remote_host, url.port)
       else:
-        connection.putheader('content-type',
-                             'application/x-www-form-urlencoded')
+        logger.error("Task %s tried to use url scheme %s, "
+                     "which is not supported." % (
+                     args['task_name'], url.scheme))
 
-    connection.putheader("Content-Length", str(content_length))
+      skip_host = False
+      if 'host' in headers or 'Host' in headers:
+        skip_host = True
 
-    retries = int(task.request.retries) + 1
-    wait_time = get_wait_time(retries, args)
+      skip_accept_encoding = False
+      if 'accept-encoding' in headers or 'Accept-Encoding' in headers:
+        skip_accept_encoding = True
 
-    try:
-      connection.endheaders()
-      if args["body"]:
-        connection.send(args['body'])
+      connection.putrequest(method,
+                            urlpath,
+                            skip_host=skip_host,
+                            skip_accept_encoding=skip_accept_encoding)
 
-      response = connection.getresponse()
-      response.read()
-      response.close()
-    except (BadStatusLine, SocketError):
-      logger.warning(
-        '{task} failed before receiving response. It will retry in {wait} '
-        'seconds.'.format(task=args['task_name'], wait=wait_time))
-      raise task.retry(countdown=wait_time)
+      # Update the task headers
+      headers['X-AppEngine-TaskRetryCount'] = str(task.request.retries)
+      headers['X-AppEngine-TaskExecutionCount'] = str(task.request.retries)
 
-    if 200 <= response.status < 300:
-      # Task successful.
-      item = TaskName.get_by_key_name(args['task_name'])
-      db.delete(item)
-      time_elapsed = datetime.datetime.utcnow() - start_time
-      logger.info(
-        '{task} received status {status} from {url} [time elapsed: {te}]'. \
-        format(task=args['task_name'], status=response.status,
-               url=url, te=str(time_elapsed)))
-      return response.status
-    elif response.status == 302:
-      redirect_url = response.getheader('Location')
-      logger.info(
-        "Task %s asked us to redirect to %s, so retrying there." % (
-          args['task_name'], redirect_url))
-      url = urlparse(redirect_url)
-      if redirects_left == 0:
+      for header in headers:
+        connection.putheader(header, headers[header])
+
+      if 'content-type' not in headers or 'Content-Type' not in headers:
+        if url.query:
+          connection.putheader('content-type', 'application/octet-stream')
+        else:
+          connection.putheader('content-type',
+                               'application/x-www-form-urlencoded')
+
+      connection.putheader("Content-Length", str(content_length))
+
+      retries = int(task.request.retries) + 1
+      wait_time = get_wait_time(retries, args)
+
+      try:
+        connection.endheaders()
+        if args["body"]:
+          connection.send(args['body'])
+
+        response = connection.getresponse()
+        response.read()
+        response.close()
+      except (BadStatusLine, SocketError):
+        logger.warning(
+          '{task} failed before receiving response. It will retry in {wait} '
+          'seconds.'.format(task=args['task_name'], wait=wait_time))
         raise task.retry(countdown=wait_time)
-      redirects_left -= 1
-    else:
-      message = ('Received a {status} for {task}. '
-                 'Retrying in {wait} secs.'.format(status=response.status,
-                                                   task=args['task_name'],
-                                                   wait=wait_time))
-      logger.warning(message)
-      raise task.retry(countdown=wait_time)
+
+      if 200 <= response.status < 300:
+        # Task successful.
+        item = TaskName.get_by_key_name(args['task_name'])
+        db.delete(item)
+        time_elapsed = datetime.datetime.utcnow() - start_time
+        logger.info(
+          '{task} received status {status} from {url} [time elapsed: {te}]'. \
+          format(task=args['task_name'], status=response.status,
+                 url=url, te=str(time_elapsed)))
+        return response.status
+      elif response.status == 302:
+        redirect_url = response.getheader('Location')
+        logger.info(
+          "Task %s asked us to redirect to %s, so retrying there." % (
+            args['task_name'], redirect_url))
+        url = urlparse(redirect_url)
+        if redirects_left == 0:
+          raise task.retry(countdown=wait_time)
+        redirects_left -= 1
+      else:
+        message = ('Received a {status} for {task}. '
+                   'Retrying in {wait} secs.'.format(status=response.status,
+                                                     task=args['task_name'],
+                                                     wait=wait_time))
+        logger.warning(message)
+        raise task.retry(countdown=wait_time)
+  except EventletTimeout as thrown_timeout:
+    if thrown_timeout != timeout:
+      raise
+
+    logger.exception('Task timed out')
+    # This could probably be calculated, but for now, just retry immediately.
+    raise task.retry(countdown=0)
+  finally:
+    timeout.cancel()
 
 
 for queue in celery.conf['CELERY_QUEUES']:
