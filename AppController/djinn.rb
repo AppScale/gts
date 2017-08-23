@@ -690,15 +690,15 @@ class Djinn
 
 
   # A SOAP-exposed method that callers can use to get information about what
-  # apps are running on this machine, as well as what ports they are bound to,
-  # and what ports run nginx and haproxy in front of them.
+  # versions are running on this machine, as well as what ports they are bound
+  # to, and what ports run nginx and haproxy in front of them.
   #
   # Args:
   #   secret: A String that authenticates callers.
   # Returns:
   #   BAD_SECRET_MSG if the caller could not be authenticated. If the caller
   #   can be authenticated, a JSON-dumped Hash containing information about
-  #   applications on this machine is returned.
+  #   versions on this machine is returned.
   def get_app_info_map(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
@@ -1752,7 +1752,7 @@ class Djinn
       # If this node has any information about AppServers for this app,
       # clear that information out.
       APPS_LOCK.synchronize {
-        @app_info_map.delete(app_name) unless @app_info_map[app_name].nil?
+        @app_info_map.delete(version_key)
         @versions_loaded = @versions_loaded - [version_key]
       }
 
@@ -1792,7 +1792,8 @@ class Djinn
     Djinn.log_info("Remove old AppServers for #{apps_to_restart}.")
     APPS_LOCK.synchronize {
       apps_to_restart.each{ |app|
-        @app_info_map[app]['appengine'].clear
+        version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+        @app_info_map[version_key]['appengine'].clear
       }
     }
   end
@@ -2720,6 +2721,7 @@ class Djinn
        end
     end
 
+    version_key = [app_id, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     begin
       version_details = ZKInterface.get_version_details(
         app_id, DEFAULT_SERVICE, DEFAULT_VERSION)
@@ -2728,23 +2730,25 @@ class Djinn
     end
 
     APPS_LOCK.synchronize {
-      if @app_info_map[app_id].nil? or @app_info_map[app_id]['appengine'].nil?
+      if @app_info_map[version_key].nil? ||
+          @app_info_map[version_key]['appengine'].nil?
         return NOT_READY
-      elsif @app_info_map[app_id]['appengine'].include?("#{ip}:#{port}")
-        Djinn.log_warn("Already registered AppServer for app #{app_id} at #{ip}:#{port}.")
+      elsif @app_info_map[version_key]['appengine'].include?("#{ip}:#{port}")
+        Djinn.log_warn(
+          "Already registered AppServer for #{version_key} at #{ip}:#{port}.")
         return INVALID_REQUEST
       end
 
       Djinn.log_debug("Add routing for app #{app_id} at #{ip}:#{port}.")
 
       # Find and remove an entry for this AppServer node and app.
-      match = @app_info_map[app_id]['appengine'].index("#{ip}:-1")
+      match = @app_info_map[version_key]['appengine'].index("#{ip}:-1")
       if match
-        @app_info_map[app_id]['appengine'].delete_at(match)
+        @app_info_map[version_key]['appengine'].delete_at(match)
       else
         Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
       end
-      @app_info_map[app_id]['appengine'] << "#{ip}:#{port}"
+      @app_info_map[version_key]['appengine'] << "#{ip}:#{port}"
 
 
       # Now that we have at least one AppServer running, we can start the
@@ -3043,7 +3047,7 @@ class Djinn
       }
     }
 
-    @app_info_map.each { |_app_id, app_info|
+    @app_info_map.each { |_, app_info|
       next if app_info['appengine'].nil?
 
       changed = false
@@ -3208,11 +3212,12 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
     APPS_LOCK.synchronize {
       instance_info = []
-      @app_info_map.each_pair { |appid, app_info|
+      @app_info_map.each_pair { |version_key, app_info|
         next if app_info['appengine'].nil?
+        project_id, service_id, version_id = version_key.split('_')
         begin
           version_details = ZKInterface.get_version_details(
-            appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+            project_id, service_id, version_id)
         rescue VersionNotFound
           next
         end
@@ -3221,7 +3226,7 @@ class Djinn
           host, port = location.split(":")
           next if Integer(port) < 0
           instance_info << {
-            'appid' => appid,
+            'versionKey' => version_key,
             'host' => host,
             'port' => Integer(port),
             'language' => version_details['runtime']
@@ -4237,16 +4242,16 @@ HOSTS
       # Check that we have the application information needed to
       # regenerate the routing configuration.
       appservers = []
-      unless @app_info_map[project_id].nil? ||
-          @app_info_map[project_id]['appengine'].nil?
+      unless @app_info_map[version_key].nil? ||
+          @app_info_map[version_key]['appengine'].nil?
         Djinn.log_debug(
-          "Regenerating nginx config for #{project_id} on http port " +
+          "Regenerating nginx config for #{version_key} on http port " +
           "#{http_port}, https port #{https_port}, and haproxy port " +
           "#{proxy_port}.")
 
         # Let's see if we already have any AppServers running for this
         # application. We count also the ones we need to terminate.
-        @app_info_map[project_id]['appengine'].each { |location|
+        @app_info_map[version_key]['appengine'].each { |location|
           _, port = location.split(":")
           next if Integer(port) < 0
           appservers << location
@@ -4784,13 +4789,12 @@ HOSTS
   # or were terminated.
   def check_haproxy
     @versions_loaded.each{ |version_key|
-      project_id = version_key.split('_')[0]
       _, failed = HAProxy.list_servers(version_key)
       if my_node.is_shadow?
         failed.each{ |appserver|
           Djinn.log_warn(
             "Detected failed AppServer for #{version_key}: #{appserver}.")
-          @app_info_map[project_id]['appengine'].delete(appserver)
+          @app_info_map[version_key]['appengine'].delete(appserver)
         }
       end
     }
@@ -4810,10 +4814,11 @@ HOSTS
     end
 
     # Registered instances are no longer pending.
-    @app_info_map.each { |app, info|
+    @app_info_map.each { |version_key, info|
+      project_id = version_key.split('_')[0]
       info['appengine'].each { |location|
         _, port = location.split(':')
-        @pending_appservers.delete("#{app}:#{port}")
+        @pending_appservers.delete("#{project_id}:#{port}")
       }
     }
 
@@ -4830,23 +4835,26 @@ HOSTS
 
     to_start = []
     no_appservers = []
-    my_apps = []
+    running_instances = []
     to_end = []
     APPS_LOCK.synchronize {
-      @app_info_map.each { |app, info|
+      @app_info_map.each { |version_key, info|
         # The remainer of this loop is for AppEngine nodes only, so we
         # need to do work only if we have AppServers.
         next unless info['appengine']
 
         pending_count = 0
+        project_id = version_key.split('_')[0]
         @pending_appservers.each { |instance_key, _|
-          pending_count += 1 if instance_key.split(':')[0] == app
+          pending_count += 1 if instance_key.split(':')[0] == project_id
         }
 
         if info['appengine'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-          Djinn.log_debug("Checking #{app} with #{info['appengine'].length} AppServers.")
+          Djinn.log_debug("Checking #{version_key} with " +
+                          "#{info['appengine'].length} AppServers.")
         else
-          Djinn.log_debug("Checking #{app} running at #{info['appengine']}.")
+          Djinn.log_debug(
+            "Checking #{version_key} running at #{info['appengine']}.")
         end
         info['appengine'].each { |location|
           host, port = location.split(":")
@@ -4857,45 +4865,54 @@ HOSTS
             if pending_count > 0
               pending_count -= 1
             else
-              no_appservers << app
+              no_appservers << version_key
             end
-          elsif not MonitInterface.is_running?("#{app}-#{port}")
-            Djinn.log_warn("Didn't find the AppServer for #{app} at port #{port}.")
-            to_end << "#{app}:#{port}"
+          elsif not MonitInterface.is_running?("#{project_id}-#{port}")
+            Djinn.log_warn(
+              "Didn't find the AppServer for #{project_id} at port #{port}.")
+            to_end << "#{version_key}:#{port}"
           else
-            my_apps << "#{app}:#{port}"
+            running_instances << "#{version_key}:#{port}"
           end
         }
       }
     }
     # Let's make sure we have the proper list of apps with no currently
     # running AppServers.
-    my_apps.each { |appserver|
-      app, _ = appserver.split(":")
+    running_instances.each { |appserver|
+      version_key, _ = appserver.split(":")
 
       # Let's start AppServers with normal priority if we already have
       # some AppServer for this application running.
       no_appservers.each { |x|
-        to_start << app if x == app
+        to_start << version_key if x == version_key
       }
-      no_appservers.delete(app)
+      no_appservers.delete(version_key)
     }
-    Djinn.log_debug("Running AppServers on this node: #{my_apps}.") unless my_apps.empty?
+    unless running_instances.empty?
+      Djinn.log_debug("Running AppServers on this node: #{running_instances}.")
+    end
 
     # Check that all the AppServers running are indeed known to the
     # head node.
     MonitInterface.running_appengines().each { |appengine|
+      project_id, port = appengine.split(':')
+      version_key = [project_id, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+      instance_key = [version_key, port].join(':')
+
       # Nothing to do if we already account for this AppServer.
-      next if my_apps.include?(appengine)
+      next if my_apps.include?(instance_key)
 
       # Give pending instances more time to start.
       next if @pending_appservers.key?(appengine)
 
       # If the unaccounted instance is not pending, stop it.
-      to_end << appengine
+      to_end << instance_key
     }
 
-    Djinn.log_debug("First AppServers to start: #{no_appservers}.") unless no_appservers.empty?
+    unless no_appservers.empty?
+      Djinn.log_debug("First AppServers to start: #{no_appservers}.")
+    end
     Djinn.log_debug("AppServers to start: #{to_start}.") unless to_start.empty?
     Djinn.log_debug("AppServers to terminate: #{to_end}.") unless to_end.empty?
 
@@ -4909,35 +4926,40 @@ HOSTS
         end_work = Time.now.to_i + DUTY_CYCLE - 1
         while Time.now.to_i < end_work
           if !no_appservers[0].nil?
-            app = no_appservers.shift
+            version_key = no_appservers.shift
+            project_id, service_id, version_id = version_key.split('_')
             begin
               version_details = ZKInterface.get_version_details(
-                app, DEFAULT_SERVICE, DEFAULT_VERSION)
+                project_id, service_id, version_id)
             rescue VersionNotFound
               next
             end
-            Djinn.log_info("Starting first AppServer for app: #{app}.")
+            Djinn.log_info("Starting first AppServer for #{version_key}.")
             ret = add_appserver_process(
-              app, version_details['appscaleExtensions']['httpPort'],
+              project_id, version_details['appscaleExtensions']['httpPort'],
               version_details['runtime'])
             Djinn.log_debug("add_appserver_process returned: #{ret}.")
           elsif !to_start[0].nil?
-            app = to_start.shift
+            version_key = to_start.shift
+            project_id, service_id, version_id = version_key.split('_')
             begin
               version_details = ZKInterface.get_version_details(
-                app, DEFAULT_SERVICE, DEFAULT_VERSION)
+                project_id, service_id, version_id)
             rescue VersionNotFound
               next
             end
-            Djinn.log_info("Starting AppServer for app: #{app}.")
+            Djinn.log_info("Starting AppServer for #{version_key}.")
             ret = add_appserver_process(
-              app, version_details['appscaleExtensions']['httpPort'],
+              project_id, version_details['appscaleExtensions']['httpPort'],
               version_details['runtime'])
             Djinn.log_debug("add_appserver_process returned: #{ret}.")
           elsif !to_end[0].nil?
-            Djinn.log_info("Terminate the following AppServer: #{to_end[0]}.")
-            app, port = to_end.shift.split(":")
-            ret = remove_appserver_process(app, port)
+            instance_key = to_end.shift
+            Djinn.log_info(
+              "Terminate the following AppServer: #{instance_key}.")
+            version_key, port = instance_key.split(":")
+            project_id = version_key.split('_')[0]
+            ret = remove_appserver_process(project_id, port)
             Djinn.log_debug("remove_appserver_process returned: #{ret}.")
           end
         end
@@ -4996,15 +5018,16 @@ HOSTS
     @state = "Setting up AppServers for #{app}"
     Djinn.log_debug("setup_appengine_application: got a new app #{app}.")
 
-    # Let's create an entry for the application if we don't already have it.
-    @app_info_map[app] = {} if @app_info_map[app].nil?
-
-    if @app_info_map[app]['appengine'].nil?
-      @app_info_map[app]['appengine'] = []
-    end
-    Djinn.log_debug("setup_appengine_application: info for #{app}: #{@app_info_map[app]}.")
-
     version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+    # Let's create an entry for the application if we don't already have it.
+    @app_info_map[version_key] = {} if @app_info_map[version_key].nil?
+
+    if @app_info_map[version_key]['appengine'].nil?
+      @app_info_map[version_key]['appengine'] = []
+    end
+    Djinn.log_debug("setup_appengine_application: info for #{version_key}: " +
+                    "#{@app_info_map[version_key]}.")
+
     version_details = ZKInterface.get_version_details(
       app, DEFAULT_SERVICE, DEFAULT_VERSION)
     nginx_port = version_details['appscaleExtensions']['httpPort']
@@ -5254,8 +5277,7 @@ HOSTS
 
           hosted_apps = []
           @versions_loaded.each { |version_key|
-            project_id = version_key.split('_')[0]
-            @app_info_map[project_id]['appengine'].each { |location|
+            @app_info_map[version_key]['appengine'].each { |location|
               host, port = location.split(":")
               if host == node.private_ip
                 hosted_apps << "#{version_key}:#{port}"
@@ -5300,21 +5322,21 @@ HOSTS
     remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
 
     to_remove = {}
-    @app_info_map.each { |_, info|
+    @app_info_map.each { |version_key, info|
       next if info['appengine'].nil?
 
       info['appengine'].each { |location|
-        host, port = location.split(":")
+        host = location.split(":")[0]
         if host == node_to_remove.private_ip
-          to_remove[app] = [] if to_remove[app].nil?
-          to_remove[app] << location
+          to_remove[version_key] = [] if to_remove[version_key].nil?
+          to_remove[version_key] << location
         end
       }
     }
-    to_remove.each { |app, locations|
-        locations.each { |location|
-          @app_info_map[app]['appengine'].delete(location)
-        }
+    to_remove.each { |version_key, locations|
+      locations.each { |location|
+        @app_info_map[version_key]['appengine'].delete(location)
+      }
     }
 
     imc = InfrastructureManagerClient.new(@@secret)
@@ -5367,11 +5389,11 @@ HOSTS
     end
 
     # Let's make sure we have the minimum number of AppServers running.
-    Djinn.log_debug("Evaluating app #{app_name} for scaling.")
-    if @app_info_map[app_name]['appengine'].nil?
+    Djinn.log_debug("Evaluating #{version_key} for scaling.")
+    if @app_info_map[version_key]['appengine'].nil?
       num_appengines = 0
     else
-      num_appengines = @app_info_map[app_name]['appengine'].length
+      num_appengines = @app_info_map[version_key]['appengine'].length
     end
 
     scaling_params = version_details.fetch('automaticScaling', {})
@@ -5513,15 +5535,17 @@ HOSTS
   #   A hash mapping locations to memory allocated in MB.
   def get_allocated_memory
     allocated_memory = {}
-    @app_info_map.each_pair { |appid, app_info|
+    @app_info_map.each_pair { |version_key, app_info|
       next if app_info['appengine'].nil?
 
+      project_id, service_id, version_id = version_key.split('_')
       max_app_mem = Integer(@options['max_memory'])
       begin
         version_details = ZKInterface.get_version_details(
-          appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+          project_id, service_id, version_id)
       rescue VersionNotFound
-        Djinn.log_warn("#{appid} not found when considering memory usage")
+        Djinn.log_warn(
+          "#{version_key} not found when considering memory usage")
         version_details = {}
       end
 
@@ -5539,17 +5563,17 @@ HOSTS
     return allocated_memory
   end
 
-  # Retrieves a list of hosts that are running instances for a project.
+  # Retrieves a list of hosts that are running instances for a version.
   #
   # Args:
-  #   project_id: A string specifying a project ID.
+  #   version_key: A string specifying a version key.
   # Returns:
   #   A set of IP addresses.
-  def get_hosts_for_project(project_id)
+  def get_hosts_for_version(version_key)
     current_hosts = Set.new()
-    if @app_info_map.key?(project_id) &&
-        @app_info_map[project_id].key?('appengine')
-      @app_info_map[project_id]['appengine'].each {
+    if @app_info_map.key?(version_key) &&
+        @app_info_map[version_key].key?('appengine')
+      @app_info_map[version_key]['appengine'].each {
         host = location.split(":")[0]
         current_hosts << host
       }
@@ -5567,6 +5591,7 @@ HOSTS
   #   An Integer indicating the number of AppServers we didn't start (0
   #     if we started all).
   def try_to_scale_up(app_name, delta_appservers)
+    version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     # Select an appengine machine if it has enough resources to support
     # another AppServer for this app.
     available_hosts = []
@@ -5575,7 +5600,7 @@ HOSTS
     allocated_memory = get_allocated_memory
 
     # Prioritize machines that aren't serving the application.
-    current_hosts = get_hosts_for_project(app_name)
+    current_hosts = get_hosts_for_version(version_key)
 
     # Get the memory limit for this application.
     begin
@@ -5666,7 +5691,7 @@ HOSTS
       available_hosts.delete_at(available_hosts.index(appserver_to_use))
 
       Djinn.log_info("Adding a new AppServer on #{appserver_to_use} for #{app_name}.")
-      @app_info_map[app_name]['appengine'] << "#{appserver_to_use}:-1"
+      @app_info_map[version_key]['appengine'] << "#{appserver_to_use}:-1"
     }
 
     # We started all desired AppServers.
@@ -5685,6 +5710,7 @@ HOSTS
   # Returns:
   #   A boolean indicating if an AppServer was removed.
   def try_to_scale_down(app_name, delta_appservers)
+    version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum.
     begin
@@ -5697,24 +5723,25 @@ HOSTS
       min = 0
     end
 
-    if @app_info_map[app_name]['appengine'].length <= min
-      Djinn.log_debug("We are already at the minimum number of AppServers for #{app_name}.")
+    if @app_info_map[version_key]['appengine'].length <= min
+      Djinn.log_debug("We are already at the minimum number of AppServers " +
+                      "for #{version_key}.")
       return false
     end
 
     # Make sure we leave at least the minimum number of AppServers
     # running.
-    max_delta = @app_info_map[app_name]['appengine'].length - min
+    max_delta = @app_info_map[version_key]['appengine'].length - min
     num_to_remove = [delta_appservers, max_delta].min
 
     # Let's pick the latest appengine node hosting the application and
     # remove the AppServer there, so we can try to reclaim it once it's
     # unloaded.
     get_all_appengine_nodes.reverse_each { |node_ip|
-      @app_info_map[app_name]['appengine'].each { |location|
+      @app_info_map[version_key]['appengine'].each { |location|
         host, _ = location.split(":")
         if host == node_ip
-          @app_info_map[app_name]['appengine'].delete(location)
+          @app_info_map[version_key]['appengine'].delete(location)
           @last_decision[app_name] = Time.now.to_i
           Djinn.log_info("Removing an AppServer for #{app_name} #{location}.")
           num_to_remove -= 1
@@ -6036,8 +6063,8 @@ HOSTS
       APPS_LOCK.synchronize {
         @versions_loaded.each { |version_key|
           project_id = version_key.split('_')[0]
-          if @app_info_map[project_id].nil? ||
-              @app_info_map[project_id]['appengine'].nil?
+          if @app_info_map[version_key].nil? ||
+              @app_info_map[version_key]['appengine'].nil?
             Djinn.log_debug(
               "#{version_key} not setup yet: skipping getting stats.")
             next
@@ -6064,7 +6091,7 @@ HOSTS
               reqs_enqueued = 0
             else
 
-              @app_info_map[project_id]['appengine'].each { |location|
+              @app_info_map[version_key]['appengine'].each { |location|
                 host, port = location.split(":")
                 if Integer(port) > 0
                   appservers += 1

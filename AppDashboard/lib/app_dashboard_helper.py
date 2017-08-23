@@ -65,6 +65,15 @@ class AppDashboardHelper(object):
   # The port that the UserAppServer runs on, by default.
   UA_SERVER_PORT = 4343
 
+  # The port that the AdminServer runs on.
+  ADMIN_SERVER_PORT = 17441
+
+  # The default service for a project.
+  DEFAULT_SERVICE = 'default'
+
+  # The default version for a service.
+  DEFAULT_VERSION = 'v1'
+
   # Users have a list of applications that they own stored in their user data.
   # This character is the delimiter that separates them in their data.
   APP_DELIMITER = ":"
@@ -246,6 +255,8 @@ class AppDashboardHelper(object):
       A list of dicts containing host, port, and language information for
         each instance hosting the given application.
     """
+    version_key = '_'.join([app_id, self.DEFAULT_SERVICE,
+                            self.DEFAULT_VERSION])
     try:
       instances = self.get_appcontroller_client().get_instance_info()
       instance_infos = [{
@@ -253,7 +264,7 @@ class AppDashboardHelper(object):
                           'port': instance.get('port'),
                           'language': instance.get('language')
                         } for instance in instances\
-                        if instance.get('appid') == app_id]
+                        if instance.get('versionKey') == version_key]
       return instance_infos
     except Exception as err:
       logging.exception(err)
