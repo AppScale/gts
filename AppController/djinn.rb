@@ -1781,23 +1781,6 @@ class Djinn
         end
       }
     end
-    threads = []
-    @nodes.each_index { |index|
-      result = ""
-      ip = @nodes[index].private_ip
-      next if my_node.private_ip == ip
-
-      threads << Thread.new {
-        acc = AppControllerClient.new(ip, @@secret)
-        begin
-          result = acc.set_apps_to_restart(apps_to_restart)
-        rescue FailedNodeException
-          Djinn.log_warn("Couldn't tell #{ip} to restart #{apps_to_restart}.")
-        end
-        Djinn.log_debug("Set apps to restart at #{ip} returned #{result}.")
-      }
-    }
-    threads.each { |t| t.join }
 
     Djinn.log_info("Remove old AppServers for #{apps_to_restart}.")
     APPS_LOCK.synchronize {
@@ -1828,45 +1811,6 @@ class Djinn
 
     Djinn.log_info("Done updating apps: #{apps}.")
     return 'OK'
-  end
-
-  # Adds the list of apps that should be restarted to this node's list of apps
-  # that should be restarted.
-  #
-  # Args:
-  #   apps_to_restart: An Array of Strings, where each String is an appid
-  #     corresponding to an application that should be restarted.
-  #   secret: The String that authenticates the caller.
-  # Returns:
-  #   A String indicating that the SOAP call succeeded, or the reason why it
-  #   did not.
-  def set_apps_to_restart(apps_to_restart, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-    return INVALID_REQUEST if apps_to_restart.class != Array
-
-    Djinn.log_debug("Apps to restart called for [#{apps_to_restart.join(', ')}]")
-    restart_apps = []
-    APPS_LOCK.synchronize {
-      apps_to_restart.each { |app|
-        unless @apps_loaded.include?(app)
-          Djinn.log_warn("Ignoring request to restart non-running app #{app}.")
-          next
-        end
-        restart_apps << app
-      }
-    }
-
-    # Make sure we pull a new version of the application code. Since it
-    # can take some time, we do it in a thread.
-    Thread.new {
-      restart_apps.each{ |app|
-        APPS_LOCK.synchronize {
-          setup_app_dir(app, true)
-        }
-      }
-    }
-
-    return "OK"
   end
 
   def get_all_public_ips(secret)
@@ -1936,13 +1880,6 @@ class Djinn
     # previous start, or it comes from the tools. If the tools communicate
     # the deployment's data, then we are the headnode.
     unless restore_appcontroller_state()
-      # Remove old copies of the RESERVED apps code. We need a fresh copy
-      # every time we boot.
-      RESERVED_APPS.each { |reserved_app|
-        app_dir = "#{HelperFunctions.get_app_path(reserved_app)}/app"
-        app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{reserved_app}.tar.gz"
-        FileUtils.rm_rf([app_dir, app_path])
-      }
       erase_old_data()
       wait_for_data()
     end
@@ -4756,8 +4693,9 @@ HOSTS
 
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     Djinn.log_debug("Checking applications that have been stopped.")
-    app_list = HelperFunctions.get_loaded_apps()
-    app_list.each { |app|
+    version_list = HelperFunctions.get_loaded_versions
+    version_list.each { |version_key|
+      app = version_key.split('_')[0]
       next if ZKInterface.get_app_names.include?(app)
       next if RESERVED_APPS.include?(app)
       begin
@@ -4797,7 +4735,6 @@ HOSTS
         HelperFunctions.shell("service rsyslog restart")
       end
 
-      Djinn.log_run("rm -rf #{HelperFunctions.get_app_path(app)}")
       CronHelper.clear_app_crontab(app)
       Djinn.log_debug("Done cleaning up after stopped application #{app}.")
     }
@@ -4856,10 +4793,6 @@ HOSTS
     to_end = []
     APPS_LOCK.synchronize {
       @app_info_map.each { |app, info|
-        # Machines with a taskqueue role need to ensure that the files are
-        # available and that we have the queue.yaml from the application.
-        setup_app_dir(app)
-
         # The remainer of this loop is for AppEngine nodes only, so we
         # need to do work only if we have AppServers.
         next unless info['appengine']
@@ -5843,8 +5776,7 @@ HOSTS
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
       app_manager.start_app(
-        app, DEFAULT_SERVICE, DEFAULT_VERSION, appengine_port,
-        HelperFunctions.get_app_env_vars(app))
+        app, DEFAULT_SERVICE, DEFAULT_VERSION, appengine_port)
       @pending_appservers["#{app}:#{appengine_port}"] = Time.new
       Djinn.log_info("Done adding AppServer for #{app}.")
     rescue FailedNodeException => error

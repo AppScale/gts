@@ -394,12 +394,18 @@ class VersionsHandler(BaseHandler):
     if service_id != constants.DEFAULT_SERVICE:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
 
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
     try:
-      utils.extract_source(version, project_id)
+      yield self.thread_pool.submit(
+        utils.extract_source, revision_key,
+        version['deployment']['zip']['sourceUrl'], version['runtime'])
     except IOError:
       message = '{} does not exist'.format(
         version['deployment']['zip']['sourceUrl'])
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+    except constants.InvalidSource as error:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=str(error))
 
     new_path = utils.rename_source_archive(project_id, service_id, version)
     version['deployment']['zip']['sourceUrl'] = new_path
