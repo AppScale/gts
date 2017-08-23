@@ -6061,7 +6061,6 @@ HOSTS
     if my_node.is_shadow?
       APPS_LOCK.synchronize {
         @versions_loaded.each { |version_key|
-          project_id = version_key.split('_')[0]
           if @app_info_map[version_key].nil? ||
               @app_info_map[version_key]['appengine'].nil?
             Djinn.log_debug(
@@ -6099,7 +6098,7 @@ HOSTS
                 end
               }
             end
-            node_stats["apps"][project_id] = {
+            node_stats["apps"][version_key] = {
               "language" => version_details['runtime'].tr('^A-Za-z', ''),
               "appservers" => appservers,
               "pending_appservers" => pending,
