@@ -897,12 +897,16 @@ module HelperFunctions
     return result
   end
 
-  def self.get_loaded_apps()
-    apps =[]
-    Dir["#{APPLICATIONS_DIR}/*"].each{ |app|
-      apps << File.basename(app)
+  def self.get_loaded_versions
+    version_keys = []
+    Dir["#{APPLICATIONS_DIR}/*"].each{ |revision_dir|
+      revision_key = File.basename(revision_dir)
+
+      # Ignore project directories.
+      next unless revision_key.include?('_')
+      version_keys << revision_key.rpartition('_')[0]
     }
-    return apps
+    return version_keys
   end
 
   def self.get_app_path(app_name)
@@ -1301,39 +1305,6 @@ module HelperFunctions
     Djinn.log_debug(env)
   end
 
-  # Finds the configuration file for the given Google App Engine application to
-  # see if any environment variables should be set for it.
-  #
-  # Args:
-  #   app: A String that represents the application ID of the app whose config
-  #   file we should read.
-  # Returns:
-  #   A Hash whose keys are the environment variables to set, and whose values
-  #   correspond to the values of each environment variable found.
-  # Raises:
-  #   AppScaleException: If the given application doesn't have a configuration
-  #   file.
-  def self.get_app_env_vars(app)
-    app_yaml_file = "#{get_app_path(app)}/app/app.yaml"
-    appengine_web_xml_file = self.get_appengine_web_xml(app)
-    if File.exists?(app_yaml_file)
-      tree = YAML.load_file(app_yaml_file)
-      return tree['env_variables'] || {}
-    elsif File.exists?(appengine_web_xml_file)
-      env_vars = {}
-      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
-      match_data = xml.scan(/<env-var name="(.*)" value="(.*)" \/>/)
-      match_data.each { |key_and_val|
-        if key_and_val.length == 2
-          env_vars[key_and_val[0]] = key_and_val[1]
-        end
-      }
-      return env_vars
-    else
-      raise AppScaleException.new("Couldn't find an app.yaml or " +
-        "appengine-web.xml file in the #{app} application.")
-    end
-  end
 
   # Examines the configuration file for the given Google App Engine application
   # to see if the app is thread safe.

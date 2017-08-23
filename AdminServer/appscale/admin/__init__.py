@@ -364,12 +364,18 @@ class VersionsHandler(BaseHandler):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
 
     version_exists = self.version_exists(project_id, service_id, version['id'])
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
     try:
-      utils.extract_source(version, project_id)
+      yield self.thread_pool.submit(
+        utils.extract_source, revision_key,
+        version['deployment']['zip']['sourceUrl'], version['runtime'])
     except IOError:
       message = '{} does not exist'.format(
         version['deployment']['zip']['sourceUrl'])
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+    except constants.InvalidSource as error:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=str(error))
 
     new_path = utils.rename_source_archive(project_id, service_id, version)
     version['deployment']['zip']['sourceUrl'] = new_path
@@ -651,6 +657,7 @@ def main():
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
   options.define('private_ip', appscale_info.get_private_ip())
+  options.define('load_balancers', appscale_info.get_load_balancer_ips())
 
   acc = appscale_info.get_appcontroller_client()
   ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)

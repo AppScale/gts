@@ -79,7 +79,7 @@ class ProjectPushWorkerManager(object):
     # Start the worker if it doesn't exist. Restart it if it does.
     if status == MonitStates.MISSING:
       command = self.celery_command()
-      env_vars = {'APP_ID': self.project_id, 'HOST': options.login_ip,
+      env_vars = {'APP_ID': self.project_id, 'HOST': options.load_balancers[0],
                   'C_FORCE_ROOT': True}
       pidfile = os.path.join(PID_DIR, 'celery-{}.pid'.format(self.project_id))
       create_config_file(self.monit_watch, command, pidfile, env_vars=env_vars,
@@ -88,11 +88,7 @@ class ProjectPushWorkerManager(object):
       yield self.monit_operator.reload()
     else:
       logging.info('Restarting push worker for {}'.format(self.project_id))
-      # Monit behaves unexpectedly with a restart. This hack makes it behave
-      # more smoothly.
-      yield self.monit_operator.send_command(self.monit_watch, 'stop')
-      yield gen.sleep(.5)
-      yield self.monit_operator.send_command(self.monit_watch, 'start')
+      yield self.monit_operator.send_command(self.monit_watch, 'restart')
 
     start_future = self.monit_operator.ensure_running(self.monit_watch)
     yield gen.with_timeout(timedelta(seconds=60), start_future,

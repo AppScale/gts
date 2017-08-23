@@ -166,7 +166,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
                require_indexes=False,
                service_name='datastore_v3',
                trusted=False,
-               root_path='/var/apps/'):
+               root_path=None):
     """Constructor.
 
     Args:
@@ -203,7 +203,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self.__cursor_lock = threading.Lock()
 
     self.__require_indexes = require_indexes
-    self.__root_path = root_path + self.__app_id + "/app"
+    self.__root_path = root_path
     self.__cached_yaml = (None, None, None)
     if require_indexes:
       self._SetupIndexes()

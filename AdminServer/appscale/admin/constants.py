@@ -35,6 +35,11 @@ class OperationTimeout(Exception):
   pass
 
 
+class InvalidSource(Exception):
+  """ Indicates that a revision's source code is invalid. """
+  pass
+
+
 class ServingStatus(object):
   """ The possible serving states for a project or version. """
   SERVING = 'SERVING'
