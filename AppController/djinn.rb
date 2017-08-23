@@ -1444,12 +1444,7 @@ class Djinn
         next
       elsif key == "login"
         Djinn.log_info("Restarting applications since public IP changed.")
-        projects_loaded = []
-        @versions_loaded.each { |version_key|
-          project = version_key.split('_')[0]
-          projects_loaded << project unless projects_loaded.include?(project)
-        }
-        notify_restart_app_to_nodes(projects_loaded)
+        restart_versions(@versions_loaded)
       elsif key == "lb_connect_timeout"
         unless Integer(val) > 0
           Djinn.log_warn("Cannot set a negative timeout.")
@@ -1766,33 +1761,32 @@ class Djinn
   end
 
 
-  # Tell all nodes to restart some applications.
+  # Clears version entries to make way for a new revision.
   #
   # Args:
-  #   apps_to_restart: An Array containing the app_id to restart.
-  def notify_restart_app_to_nodes(apps_to_restart)
-    return if apps_to_restart.empty?
+  #   versions_to_restart: An Array containing the version keys to restart.
+  def restart_versions(versions_to_restart)
+    return if versions_to_restart.empty?
 
-    Djinn.log_info("Notify nodes to restart #{apps_to_restart}.")
+    Djinn.log_info("Restarting versions: #{versions_to_restart}.")
     # Self needs to update source code/cache.
     if my_node.is_load_balancer?
-      apps_to_restart.each{ |app|
-        version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+      versions_to_restart.each{ |version_key|
         begin
           HelperFunctions.parse_static_data(version_key, true)
         rescue => except
           # This specific exception may be a JSON parse error.
-          error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-                    "Exception of #{except.class} with message #{except.message}"
+          error_msg = "ERROR: Unable to parse app.yaml file for " +
+                      "#{version_key}. Exception of #{except.class} with " +
+                      "message #{except.message}"
           place_error_app(version_key, error_msg)
         end
       }
     end
 
-    Djinn.log_info("Remove old AppServers for #{apps_to_restart}.")
+    Djinn.log_info("Remove old AppServers for #{versions_to_restart}.")
     APPS_LOCK.synchronize {
-      apps_to_restart.each{ |app|
-        version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+      versions_to_restart.each{ |version_key|
         @app_info_map[version_key]['appengine'].clear
       }
     }
@@ -1805,24 +1799,19 @@ class Djinn
   # forwarded if arrived to the wrong node.
   #
   # Args:
-  #   apps: An Array containing the app_id to start or update.
+  #   versions: An Array containing the version keys to start or update.
   #   secret: A String containing the deployment secret.
-  def update(apps, secret)
+  def update(versions, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    apps_to_restart = []
+    versions_to_restart = []
     APPS_LOCK.synchronize {
-      projects_loaded = []
-      @versions_loaded.each { |version_key|
-        project = version_key.split('_')[0]
-        projects_loaded << project unless projects_loaded.include?(project)
-      }
-      apps_to_restart = projects_loaded & apps
+      versions_to_restart = @versions_loaded & versions
     }
     # Notify nodes, and remove any running AppServer of the application.
-    notify_restart_app_to_nodes(apps_to_restart)
+    restart_versions(versions_to_restart)
 
-    Djinn.log_info("Done updating apps: #{apps}.")
+    Djinn.log_info("Done updating #{versions}.")
     return 'OK'
   end
 

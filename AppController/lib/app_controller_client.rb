@@ -69,7 +69,7 @@ class AppControllerClient
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("set_parameters", "layout", "options", "secret")
     @conn.add_method("upload_app", "archived_file", "file_suffix", "secret")
-    @conn.add_method("update", "app_names", "secret")
+    @conn.add_method("update", "versions", "secret")
     @conn.add_method("stop_app", "app_name", "secret")    
     @conn.add_method("get_all_public_ips", "secret")
     @conn.add_method("is_done_loading", "secret")

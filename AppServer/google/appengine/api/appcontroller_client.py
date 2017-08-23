@@ -286,15 +286,15 @@ class AppControllerClient():
       self.secret)
 
 
-  def update(self, apps_to_run):
-    """Tells the AppController which applications to run, which we assume have
+  def update(self, versions):
+    """Tells the AppController which versions to run, which we assume have
     already been uploaded to that machine.
 
     Args:
-      apps_to_run: A list of apps to start running on nodes running the App
-        Engine service.
+      versions: A list of version keys to start running on nodes running the
+        App Engine service.
     """
-    return self.call(self.MAX_RETRIES, self.server.update, apps_to_run,
+    return self.call(self.MAX_RETRIES, self.server.update, versions,
       self.secret)
 
 
