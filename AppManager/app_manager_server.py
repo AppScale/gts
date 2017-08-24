@@ -23,8 +23,6 @@ from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 from tornado.options import options
 
-from appscale.admin.constants import DEFAULT_SERVICE
-from appscale.admin.constants import DEFAULT_VERSION
 from appscale.admin.constants import UNPACK_ROOT
 from appscale.admin.constants import VERSION_PATH_SEPARATOR
 from appscale.admin.instance_manager.constants import (
@@ -385,24 +383,25 @@ def clean_old_sources():
   source_manager.clean_old_revisions(active_revisions=active_revisions)
 
 @gen.coroutine
-def stop_app_instance(app_name, port):
+def stop_app_instance(version_key, port):
   """ Stops a Google App Engine application process instance on current
       machine.
 
   Args:
-    app_name: A string, the name of application to stop.
+    version_key: A string, the name of version to stop.
     port: The port the application is running on.
   Returns:
     True on success, False otherwise.
   """
-  if not misc.is_app_name_valid(app_name):
-    raise BadConfigurationException('Invalid project ID: {}'.format(app_name))
+  project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
 
-  logging.info("Stopping application %s" % app_name)
+  if not misc.is_app_name_valid(project_id):
+    raise BadConfigurationException(
+      'Invalid project ID: {}'.format(project_id))
+
+  logging.info('Stopping {}:{}'.format(version_key, port))
 
   # Discover revision key from version and port.
-  version_key = VERSION_PATH_SEPARATOR.join(
-    [app_name, DEFAULT_SERVICE, DEFAULT_VERSION])
   instance_key_re = re.compile(
     '{}{}.*-{}'.format(MONIT_INSTANCE_PREFIX, version_key, port))
   monit_entries = yield monit_operator.get_entries()
@@ -410,7 +409,7 @@ def stop_app_instance(app_name, port):
     watch = next(entry for entry in monit_entries
                  if instance_key_re.match(entry))
   except StopIteration:
-    message = 'No entries exist for {} with port {}'.format(app_name, port)
+    message = 'No entries exist for {}:{}'.format(version_key, port)
     raise HTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
   pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))
@@ -444,21 +443,22 @@ def stop_app_instance(app_name, port):
   threading.Thread(target=kill_instance, args=(watch, instance_pid)).start()
 
 @gen.coroutine
-def stop_app(app_name):
-  """ Stops all process instances of a Google App Engine application on this
-      machine.
+def stop_app(version_key):
+  """ Stops all process instances of a version on this machine.
 
   Args:
-    app_name: Name of application to stop
+    version_key: Name of version to stop
   Returns:
     True on success, False otherwise
   """
-  if not misc.is_app_name_valid(app_name):
-    raise BadConfigurationException('Invalid project ID: {}'.format(app_name))
+  project_id, service_id, version_id = version_key.split(
+    VERSION_PATH_SEPARATOR)
 
-  logging.info("Stopping application %s" % app_name)
-  version_key = VERSION_PATH_SEPARATOR.join(
-    [app_name, DEFAULT_SERVICE, DEFAULT_VERSION])
+  if not misc.is_app_name_valid(project_id):
+    raise BadConfigurationException(
+      'Invalid project ID: {}'.format(project_id))
+
+  logging.info('Stopping {}'.format(version_key))
 
   watch = ''.join([MONIT_INSTANCE_PREFIX, version_key])
   monit_result = monit_interface.stop(watch)
@@ -477,9 +477,9 @@ def stop_app(app_name):
     except OSError:
       logging.exception('Error removing {}'.format(config_file))
 
-  if not remove_logrotate(app_name):
+  if not remove_logrotate(project_id):
     logging.error("Error while setting up log rotation for application: {}".
-      format(app_name))
+      format(project_id))
 
   yield clean_old_sources()
 
@@ -709,14 +709,14 @@ class AppHandler(tornado.web.RequestHandler):
 
   @staticmethod
   @gen.coroutine
-  def delete(project_id):
-    """ Stops all instances on this machine for a project.
+  def delete(version_key):
+    """ Stops all instances on this machine for a version.
 
     Args:
-      project_id: A string specifying a project ID.
+      version_key: A string specifying a version key.
     """
     try:
-      yield stop_app(project_id)
+      yield stop_app(version_key)
     except BadConfigurationException as error:
       raise HTTPError(HTTPCodes.BAD_REQUEST, error.message)
 
@@ -726,10 +726,10 @@ class InstanceHandler(tornado.web.RequestHandler):
 
   @staticmethod
   @gen.coroutine
-  def delete(project_id, port):
+  def delete(version_key, port):
     """ Stops an AppServer instance on this machine. """
     try:
-      yield stop_app_instance(project_id, int(port))
+      yield stop_app_instance(version_key, int(port))
     except BadConfigurationException as error:
       raise HTTPError(HTTPCodes.BAD_REQUEST, error.message)
 

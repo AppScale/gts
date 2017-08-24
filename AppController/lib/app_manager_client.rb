@@ -60,22 +60,22 @@ class AppManagerClient
   # Stops an AppServer instance with the AppManager.
   #
   # Args:
-  #   app_name: The name of the application
+  #   version_key: The name of the version
   #   port: The port the process instance of the application is running
   #
-  def stop_app_instance(app_name, port)
-    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}/#{port}")
+  def stop_app_instance(version_key, port)
+    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{version_key}/#{port}")
     request = Net::HTTP::Delete.new(uri.path)
     make_call(request, uri)
   end
 
-  # Stops all AppServer instances for a project with the AppManager.
+  # Stops all AppServer instances for a version with the AppManager.
   #
   # Args:
-  #   app_name: The name of the application
+  #   version_key: The name of the version
   #
-  def stop_app(app_name)
-    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}")
+  def stop_app(version_key)
+    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{version_key}")
     request = Net::HTTP::Delete.new(uri.path)
     make_call(request, uri)
   end

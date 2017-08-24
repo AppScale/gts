@@ -495,7 +495,7 @@ module HelperFunctions
   #   AppScaleException: if the setup failed for whatever reason (ie bad
   #     tarball). The exception message would indicate the error.
   def self.setup_revision(revision_key)
-    meta_dir = "#{APPLICATIONS_DIR}/revision_key"
+    meta_dir = "#{APPLICATIONS_DIR}/#{revision_key}"
     tar_dir = "#{meta_dir}/app"
     return if File.directory?(tar_dir)
 

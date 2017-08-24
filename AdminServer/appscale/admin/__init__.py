@@ -615,8 +615,10 @@ class VersionHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
+    version_key = VERSION_PATH_SEPARATOR.join([project_id, service_id,
+                                               version_id])
     try:
-      self.acc.stop_app(project_id)
+      self.acc.stop_version(version_key)
     except AppControllerException as error:
       message = 'Error while stopping application: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
