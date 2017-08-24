@@ -53,7 +53,9 @@ module AppDashboard
     Djinn.log_run("tar -czf #{app_location} -C #{APPSCALE_HOME}/AppDashboard .")
 
     # Tell the app what nginx port sits in front of it.
-    port_file = "/etc/appscale/port-#{APP_NAME}.txt"
+    version_key = [APP_NAME, Djinn::DEFAULT_SERVICE,
+                   Djinn::DEFAULT_VERSION].join('_')
+    port_file = "/etc/appscale/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, "#{LISTEN_PORT}")
 
     # Restore repo template values.

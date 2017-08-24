@@ -2861,8 +2861,9 @@ class Djinn
         next
       end
 
+      version_key = [project_id, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
       http_port = version_details['appscaleExtensions']['httpPort']
-      port_file = "#{APPSCALE_CONFIG_DIR}/port-#{project_id}.txt"
+      port_file = "#{APPSCALE_CONFIG_DIR}/port-#{version_key}.txt"
 
       begin
         current_port = File.read(port_file).to_i
@@ -5034,7 +5035,7 @@ HOSTS
     https_port = version_details['appscaleExtensions']['httpsPort']
     proxy_port = version_details['appscaleExtensions']['haproxyPort']
 
-    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
+    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, nginx_port.to_s)
     Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
       "https port #{https_port}, and haproxy port #{proxy_port}")
@@ -5833,7 +5834,7 @@ HOSTS
 
     version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
     # Wait for the head node to be setup for this app.
-    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{app}.txt"
+    port_file = "#{APPSCALE_CONFIG_DIR}/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, "#{nginx_port}")
     Djinn.log_info("Using NGINX port #{nginx_port} for #{app}.")
 

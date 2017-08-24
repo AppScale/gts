@@ -70,9 +70,15 @@ class ImagesBlobStub(object):
     # Host prefix does not include a port, so retrieve it from the filesystem.
     full_prefix = self._host_prefix
     if full_prefix:
+      version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
+      if ':' not in version_info:
+        version_info = 'default:' + version_info
+
+      service_id, version_id = version_info.split(':')
+      version_key = '_'.join(
+        [os.environ['APPLICATION_ID'], service_id, version_id])
       port_file_location = os.path.join(
-        '/', 'etc', 'appscale',
-        'port-{}.txt'.format(os.environ['APPLICATION_ID']))
+        '/', 'etc', 'appscale', 'port-{}.txt'.format(version_key))
       with open(port_file_location) as port_file:
         port = port_file.read().strip()
       full_prefix = '{}:{}'.format(full_prefix, port)
