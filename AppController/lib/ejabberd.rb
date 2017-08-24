@@ -45,8 +45,14 @@ module Ejabberd
   end
 
   def self.does_app_need_receive?(app, runtime)
+    begin
+      source_dir = HelperFunctions.get_source_for_project(app)
+    rescue AppScaleException
+      return false
+    end
+
     if ["python27", "go", "php"].include?(runtime)
-      app_yaml_file = "#{HelperFunctions::APPLICATIONS_DIR}/#{app}/app/app.yaml"
+      app_yaml_file = "#{source_dir}/app.yaml"
       app_yaml = YAML.load_file(app_yaml_file)["inbound_services"]
       if !app_yaml.nil? and app_yaml.include?("xmpp_message")
         return true
@@ -54,7 +60,8 @@ module Ejabberd
         return false
       end
     elsif runtime == "java"
-      appengine_web_xml_file = HelperFunctions.get_appengine_web_xml(app)
+      appengine_web_xml_file = HelperFunctions.get_appengine_web_xml(
+        source_dir)
       xml_contents = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
 
       begin

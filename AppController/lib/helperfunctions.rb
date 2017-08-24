@@ -910,13 +910,26 @@ module HelperFunctions
     return version_keys
   end
 
-  def self.get_app_path(app_name)
-    return "#{APPLICATIONS_DIR}/#{app_name}"
-  end
+  # Retrieves the latest revision directory for a project.
+  #
+  # Args:
+  #   project_id: A string specifying a project ID.
+  # Returns:
+  #   A string specifying the location of the source directory.
+  # Raises:
+  #   AppScaleException when unable to find the source directory.
+  def self.get_source_for_project(project_id)
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
+    rescue VersionNotFound
+      raise AppScaleException.new('Version not found')
+    end
 
-  # The directory where the applications tarball will be extracted to
-  def self.get_untar_dir(app_name)
-    return File.join(get_app_path(app_name),"app")
+    revision_key = [project_id, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION,
+                    version_details['revision'].to_s].join('_')
+    self.setup_revision(revision_key)
+    return "#{APPLICATIONS_DIR}/#{revision_key}/app"
   end
 
   # Locates WEB-INF folder in an untarred Java app directory.
@@ -946,19 +959,19 @@ module HelperFunctions
   # Finds the path to appengine-web.xml configuration file.
   #
   # Args:
-  #  app: The name of the Java app to be deployed.
+  #  source_dir: The location of the revision's source code.
   #
   # Returns:
   #  The absolute path of the appengine-web.xml configuration file.
-  def self.get_appengine_web_xml(app)
-    return File.join(self.get_web_inf_dir("#{get_app_path(app)}/app"), "/appengine-web.xml")
+  def self.get_appengine_web_xml(source_dir)
+    return File.join(self.get_web_inf_dir(source_dir), "/appengine-web.xml")
   end
 
   # We have the files full path (e.g. ./data/myappname/static/file.txt) but we want is
   # the files path relative to the apps directory (e.g. /static/file.txt).
   # This is the hacky way of getting that.
-  def self.get_relative_filename filename, app_name
-    return filename[get_untar_dir(app_name).length..filename.length]
+  def self.get_relative_filename filename, untar_dir
+    return filename[untar_dir.length..filename.length]
   end
 
   def self.parse_static_data(version_key, copy_files)
@@ -1017,7 +1030,7 @@ module HelperFunctions
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
         if handler["url"] == "/"
-          Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
+          Djinn.log_debug("Remapped path from / to temp_fix for application #{version_key}")
           handler["url"] = "/temp_fix"
         end
 
@@ -1038,7 +1051,7 @@ module HelperFunctions
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
         if handler["url"] == "/"
-          Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
+          Djinn.log_debug("Remapped path from / to temp_fix for application #{version_key}")
           handler["url"] = "/temp_fix"
         end
         # Need to convert all \1 into $1 so that nginx understands it
@@ -1053,7 +1066,7 @@ module HelperFunctions
         filenames = Dir.glob(File.join(untar_dir,"**","*"))
 
         filenames.each do |filename|
-          relative_filename = get_relative_filename(filename,app_name)
+          relative_filename = get_relative_filename(filename, untar_dir)
 
           # Only include files that match the provided upload regular expression
           next unless relative_filename.match(upload_regex)

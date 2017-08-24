@@ -1990,9 +1990,8 @@ class Djinn
           # Starts apps that are not running yet but they should.
           versions_to_load = ZKInterface.get_versions - @versions_loaded
           versions_to_load.each { |version_key|
-            project_id = version_key.split('_')[0]
-            setup_app_dir(project_id, true)
-            setup_appengine_application(project_id)
+            setup_app_dir(version_key, true)
+            setup_appengine_version(version_key)
           }
           scale_deployment
         }
@@ -2666,7 +2665,10 @@ class Djinn
       }
 
       # Next, tar.gz it up in the dashboard app so that users can download it.
-      dashboard_log_location = "#{HelperFunctions.get_app_path(AppDashboard::APP_NAME)}/app/static/download-logs/#{uuid}.tar.gz"
+      version_key = [AppDashboard::APP_NAME, DEFAULT_SERVICE,
+                     DEFAULT_VERSION].join('_')
+      assets_dir = "#{HelperFunctions::VERSION_ASSETS_DIR}/#{version_key}"
+      dashboard_log_location = "#{assets_dir}/static/download-logs/#{uuid}.tar.gz"
       Djinn.log_info("Done gathering logs - placing logs at " +
         dashboard_log_location)
       Djinn.log_run("tar -czf #{dashboard_log_location} #{local_log_dir}")
@@ -4986,64 +4988,68 @@ HOSTS
   end
 
   # Small utility function that returns the full path for the rsyslog
-  # configuration for each application.
+  # configuration for each version.
   #
   # Args:
-  #   app: A String containing the application ID.
+  #   version_key: A String containing the version key.
   # Returns:
   #   path: A String with the path to the rsyslog configuration file.
-  def get_rsyslog_conf(app)
-    return "/etc/rsyslog.d/10-#{app}.conf"
+  def get_rsyslog_conf(version_key)
+    return "/etc/rsyslog.d/10-#{version_key}.conf"
   end
 
-  # Performs all of the preprocessing needed to start an App Engine application
-  # on this node. This method then starts the actual app by calling the AppManager.
+  # Performs all of the preprocessing needed to start a version on this node.
+  # This method then starts the actual version by calling the AppManager.
   #
   # Args:
-  #   app: A String containing the appid for the app to start.
-  def setup_appengine_application(app)
-    @state = "Setting up AppServers for #{app}"
-    Djinn.log_debug("setup_appengine_application: got a new app #{app}.")
+  #   version_key: A String containing the version key for the app to start.
+  def setup_appengine_version(version_key)
+    @state = "Setting up AppServers for #{version_key}"
+    Djinn.log_debug(
+      "setup_appengine_version: got a new version #{version_key}.")
 
-    version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+    project_id, service_id, version_id = version_key.split('_')
     # Let's create an entry for the application if we don't already have it.
     @app_info_map[version_key] = {} if @app_info_map[version_key].nil?
 
     if @app_info_map[version_key]['appengine'].nil?
       @app_info_map[version_key]['appengine'] = []
     end
-    Djinn.log_debug("setup_appengine_application: info for #{version_key}: " +
+    Djinn.log_debug("setup_appengine_version: info for #{version_key}: " +
                     "#{@app_info_map[version_key]}.")
 
     version_details = ZKInterface.get_version_details(
-      app, DEFAULT_SERVICE, DEFAULT_VERSION)
+      project_id, service_id, version_id)
     nginx_port = version_details['appscaleExtensions']['httpPort']
     https_port = version_details['appscaleExtensions']['httpsPort']
     proxy_port = version_details['appscaleExtensions']['haproxyPort']
 
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, nginx_port.to_s)
-    Djinn.log_debug("App #{app} will be using nginx port #{nginx_port}, " +
-      "https port #{https_port}, and haproxy port #{proxy_port}")
+    Djinn.log_debug("#{version_key} will be using nginx port #{nginx_port}, " +
+                    "https port #{https_port}, and haproxy port #{proxy_port}")
 
     # Setup rsyslog to store application logs.
-    app_log_config_file = get_rsyslog_conf(app)
+    app_log_config_file = get_rsyslog_conf(version_key)
     begin
       existing_app_log_config = HelperFunctions.read_file(app_log_config_file)
     rescue Errno::ENOENT
       existing_app_log_config = ''
     end
     app_log_template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
-    app_log_config = app_log_template.gsub("{0}", app)
+    app_log_config = app_log_template.gsub("{0}", version_key)
     unless existing_app_log_config == app_log_config
-      Djinn.log_info("Installing log configuration for #{app}.")
+      Djinn.log_info("Installing log configuration for #{version_key}.")
       HelperFunctions.write_file(app_log_config_file, app_log_config)
       HelperFunctions.shell("service rsyslog restart")
     end
-    begin
-      start_xmpp_for_app(app, version_details['runtime'])
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to start xmpp for application #{app}")
+
+    if service_id == DEFAULT_SERVICE
+      begin
+        start_xmpp_for_app(project_id, version_details['runtime'])
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to start xmpp for application #{project_id}")
+      end
     end
 
     unless @versions_loaded.include?(version_key)
@@ -5752,59 +5758,67 @@ HOSTS
   # the old application code can be forced with a parameter.
   #
   # Args:
-  #   app       : the application name to setup
+  #   version_key: the version to setup
   #   remove_old: boolean to force a re-setup of the app from the tarball
-  def setup_app_dir(app, remove_old=false)
-    app_dir = "#{HelperFunctions.get_app_path(app)}/app"
-
+  def setup_app_dir(version_key, remove_old=false)
+    project_id, service_id, version_id = version_key.split('_')
     begin
       version_details = ZKInterface.get_version_details(
-        app, DEFAULT_SERVICE, DEFAULT_VERSION)
+        project_id, service_id, version_id)
     rescue VersionNotFound
       Djinn.log_debug(
-        "Skipping #{app} setup because version node does not exist")
+        "Skipping #{version_key} setup because version node does not exist")
       return
     end
 
-    app_path = version_details['deployment']['zip']['sourceUrl']
     error_msg = ""
 
-    revision_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION,
-                    version_details['revision'].to_s].join('_')
-    version_key = [app, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
-    if remove_old
-      Djinn.log_info("Removing old application version for app: #{app}.")
-      if my_node.is_shadow?
-        # Force the shadow node to refresh the application directory.
-        FileUtils.rm_rf(app_dir)
-      else
-        FileUtils.rm_rf(app_path)
-        stop_hosting_revision(revision_key, app_path, @@secret)
-      end
+    revision_key = [version_key, version_details['revision'].to_s].join('_')
+    if remove_old && my_node.is_load_balancer?
+      Djinn.log_info("Removing old application revisions for #{version_key}.")
+      revision_dirs = []
+      Dir.entries(HelperFunctions::APPLICATIONS_DIR).each { |revision_dir|
+        next unless File.directory?(revision_dir)
+        next unless revision_dir.include?(version_key)
+        # Keep revision that is being set up.
+        next if revision_dir == revision_key
+        revision_dirs << revision_key
+      }
+      revision_dirs = revision_dirs.sort
+      # Keep last revision in case this machine is hosting instances.
+      revision_dirs.pop
+      revision_dirs.each { |revision_dir|
+        FileUtils.rm_rf("#{HelperFunctions::APPLICATIONS_DIR}/#{revision_dir}")
+      }
+
+      old_source_archives = []
+      Dir.entries("#{PERSISTENT_MOUNT_POINT}/apps").each { |source_archive|
+        next unless File.file?(source_archive)
+        next unless source_archive.include?(version_key)
+        next if source_archive.include?(revision_key)
+        old_source_archives << source_archive
+      }
+      old_source_archives = old_source_archives.sort
+      old_source_archives.pop
+      old_source_archives.each { |source_archive|
+        FileUtils.rm_f("#{PERSISTENT_MOUNT_POINT}/apps/#{source_archive}")
+      }
     end
 
-    # Let's make sure we have a copy of the tarball of the application. If
-    # not, we will get the latest version from another node.
-    FileUtils.rm_rf(app_dir) unless File.exists?(app_path)
-
-    unless File.directory?(app_dir)
-      Djinn.log_info("App untar directory created from scratch.")
-      FileUtils.mkdir_p(app_dir)
-
-      begin
-        HelperFunctions.setup_revision(revision_key)
-      rescue AppScaleException => exception
-        error_msg = "ERROR: couldn't setup source for #{app} " +
-          "(#{exception.message})."
-      end
+    begin
+      HelperFunctions.setup_revision(revision_key)
+    rescue AppScaleException => exception
+      error_msg = "ERROR: couldn't setup source for #{version_key} " +
+                  "(#{exception.message})."
     end
     if remove_old and my_node.is_load_balancer?
       begin
         HelperFunctions.parse_static_data(version_key, true)
       rescue => except
         # This specific exception may be a JSON parse error.
-        error_msg = "ERROR: Unable to parse app.yaml file for #{app}. "\
-                  "Exception of #{except.class} with message #{except.message}"
+        error_msg = "ERROR: Unable to parse app.yaml file for " +
+                    "#{version_key}. Exception of #{except.class} with " +
+                    "message #{except.message}"
       end
     end
     unless error_msg.empty?
