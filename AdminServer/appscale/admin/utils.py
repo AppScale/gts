@@ -9,6 +9,7 @@ import socket
 import tarfile
 
 from appscale.common.constants import HTTPCodes
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
@@ -19,8 +20,7 @@ from .constants import (
   JAVA,
   SOURCES_DIRECTORY,
   Types,
-  UNPACK_ROOT,
-  VERSION_PATH_SEPARATOR
+  UNPACK_ROOT
 )
 from .instance_manager.utils import copy_modified_jars
 from .instance_manager.utils import remove_conflicting_jars
@@ -271,7 +271,7 @@ def remove_old_archives(project_id, service_id, version):
     service_id: A string specifying a service ID.
     version: A dictionary containing version details.
   """
-  prefix = constants.VERSION_PATH_SEPARATOR.join(
+  prefix = VERSION_PATH_SEPARATOR.join(
     [project_id, service_id, version['id']])
   current_name = os.path.basename(version['deployment']['zip']['sourceUrl'])
   old_sources = [os.path.join(SOURCES_DIRECTORY, archive) for archive

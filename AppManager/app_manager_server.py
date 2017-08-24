@@ -24,7 +24,6 @@ from tornado.ioloop import IOLoop
 from tornado.options import options
 
 from appscale.admin.constants import UNPACK_ROOT
-from appscale.admin.constants import VERSION_PATH_SEPARATOR
 from appscale.admin.instance_manager.constants import (
   APP_LOG_SIZE,
   DASHBOARD_LOG_SIZE,
@@ -48,6 +47,7 @@ from appscale.common import (
   misc
 )
 from appscale.common.constants import HTTPCodes
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR

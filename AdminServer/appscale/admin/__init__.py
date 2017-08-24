@@ -11,6 +11,7 @@ from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
   LOG_FORMAT,
+  VERSION_PATH_SEPARATOR,
   ZK_PERSISTENT_RECONNECTS
 )
 from appscale.common.monit_interface import MonitOperator
@@ -36,8 +37,7 @@ from .constants import (
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
-  VALID_RUNTIMES,
-  VERSION_PATH_SEPARATOR
+  VALID_RUNTIMES
 )
 from .operation import (
   CreateVersionOperation,

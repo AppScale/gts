@@ -18,7 +18,7 @@ import urllib
 
 from appscale.admin.constants import DEFAULT_SERVICE
 from appscale.admin.constants import DEFAULT_VERSION
-from appscale.admin.constants import VERSION_PATH_SEPARATOR
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 
 
 # Third-party libraries

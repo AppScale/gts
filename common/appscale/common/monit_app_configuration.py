@@ -1,10 +1,10 @@
 import os
 import sys
 
-from appscale.admin.constants import VERSION_PATH_SEPARATOR
 from appscale.common import appscale_info
 from distutils.spawn import find_executable
 from . import file_io
+from .constants import VERSION_PATH_SEPARATOR
 
 # Directory with the task templates.
 TEMPLATE_DIR = os.path.join(
