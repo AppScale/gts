@@ -479,11 +479,11 @@ class AppDashboardHelper(object):
       raise AppHelperException("There was an error uploading your application: "
                                "{0}".format(failure_message))
 
-  def relocate_app(self, appid, http_port, https_port):
-    """ Relocates a Google App Engine application to different ports.
+  def relocate_version(self, version_key, http_port, https_port):
+    """ Relocates a version to different ports.
 
       Args:
-        appid: The application to be relocated
+        version_key: A string specifying the version to be relocated
         http_port: The HTTP Port to relocate the application to
         https_port: The HTTPS Port to relocate the application to
       Returns:
@@ -493,7 +493,7 @@ class AppDashboardHelper(object):
       """
     acc = self.get_appcontroller_client()
     try:
-      relocate_info = acc.relocate_app(appid, http_port, https_port)
+      relocate_info = acc.relocate_version(version_key, http_port, https_port)
       # Returns:
       # "OK" if the relocation occurred successfully, and a String containing
       # the reason why the relocation failed in all other cases.

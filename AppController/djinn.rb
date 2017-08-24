@@ -707,12 +707,11 @@ class Djinn
 
 
   # A SOAP-exposed method that callers can use to tell this AppController that
-  # an app hosted in this cloud needs to have its nginx reverse proxy serving
-  # HTTP and HTTPS traffic on different ports.
+  # a version hosted in this cloud needs to have its nginx reverse proxy
+  # serving HTTP and HTTPS traffic on different ports.
   #
   # Args:
-  #   appid: A String that names the application already running in this
-  #     deployment that should be relocated.
+  #   version_key: A String that names the version that should be relocated.
   #   http_port: A String or Fixnum that names the port that should be used to
   #     serve HTTP traffic for this app.
   #   https_port: A String or Fixnum that names the port that should be used to
@@ -721,26 +720,29 @@ class Djinn
   # Returns:
   #   "OK" if the relocation occurred successfully, and a String containing the
   #   reason why the relocation failed in all other cases.
-  def relocate_app(appid, http_port, https_port, secret)
+  def relocate_version(version_key, http_port, https_port, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-    Djinn.log_debug("Received relocate_app for #{appid} for " +
-        "http port #{http_port} and https port #{https_port}.")
+    Djinn.log_debug("Received relocate_version for #{version_key} for " +
+                    "http port #{http_port} and https port #{https_port}.")
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
-      Djinn.log_debug("Sending relocate_app for #{appid} to #{get_shadow}.")
+      Djinn.log_debug(
+        "Sending relocate_version for #{version_key} to #{get_shadow}.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
-        return acc.relocate_app(appid, http_port, https_port)
+        return acc.relocate_version(version_key, http_port, https_port)
       rescue FailedNodeException
-        Djinn.log_warn("Failed to forward relocate_app call to #{get_shadow}.")
+        Djinn.log_warn(
+          "Failed to forward relocate_version call to #{get_shadow}.")
         return NOT_READY
       end
     end
 
+    project_id, service_id, version_id = version_key.split('_')
     begin
       version_details = ZKInterface.get_version_details(
-        appid, DEFAULT_SERVICE, DEFAULT_VERSION)
+        project_id, service_id, version_id)
     rescue VersionNotFound => error
       return "false: #{error.message}"
     end
@@ -748,8 +750,8 @@ class Djinn
     # Forward relocate as a patch request to the AdminServer.
     version = {:appscaleExtensions => {:httpPort => http_port.to_i,
                                        :httpsPort => https_port.to_i}}
-    endpoint = ['v1', 'apps', appid, 'services', DEFAULT_SERVICE,
-                'versions', DEFAULT_VERSION].join('/')
+    endpoint = ['v1', 'apps', project_id, 'services', service_id,
+                'versions', version_id].join('/')
     fields_updated = %w(appscaleExtensions.httpPort
                         appscaleExtensions.httpsPort)
     uri = URI("http://#{my_node.private_ip}:#{ADMIN_SERVER_PORT}/#{endpoint}")
@@ -763,9 +765,11 @@ class Djinn
     end
     return "false: #{response.body}" if response.code != '200'
 
-    CronHelper.update_cron(
-      get_load_balancer.public_ip, http_port, version_details['runtime'],
-      appid)
+    if service_id == DEFAULT_SERVICE
+      CronHelper.update_cron(
+        get_load_balancer.public_ip, http_port, version_details['runtime'],
+        project_id)
+    end
 
     return "OK"
   end

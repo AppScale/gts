@@ -62,8 +62,8 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "is_done_loading", "secret")
     add_method(@djinn, "get_role_info", "secret")
     add_method(@djinn, "get_app_info_map", "secret")
-    add_method(@djinn, "relocate_app", "appid", "http_port", "https_port",
-      "secret")
+    add_method(@djinn, "relocate_version", "version_key", "http_port",
+               "https_port", "secret")
     add_method(@djinn, "kill", "stop_deployment", "secret")
     add_method(@djinn, "set_parameters", "layout", "options", "secret")
     add_method(@djinn, "get_cluster_stats_json", "secret")

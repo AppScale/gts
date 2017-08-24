@@ -510,7 +510,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_relocate_app_but_port_in_use_by_nginx
+  def test_relocate_version_but_port_in_use_by_nginx
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
@@ -542,11 +542,11 @@ class TestDjinn < Test::Unit::TestCase
       flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
     assert_equal("false: #{admin_server_error}",
-                 djinn.relocate_app('myapp', 80, 4380, @secret))
+                 djinn.relocate_version('myapp_default_v1', 80, 4380, @secret))
   end
 
 
-  def test_relocate_app_but_port_in_use_by_nginx_https
+  def test_relocate_version_but_port_in_use_by_nginx_https
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
@@ -577,12 +577,13 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Net::HTTP).should_receive(:start).and_return(
       flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    assert_equal("false: #{admin_server_error}",
-                 djinn.relocate_app('myapp', 8080, 443, @secret))
+    assert_equal(
+      "false: #{admin_server_error}",
+      djinn.relocate_version('myapp_default_v1', 8080, 443, @secret))
   end
 
 
-  def test_relocate_app_but_port_in_use_by_haproxy
+  def test_relocate_version_but_port_in_use_by_haproxy
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
@@ -613,12 +614,13 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Net::HTTP).should_receive(:start).and_return(
       flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    assert_equal("false: #{admin_server_error}",
-                 djinn.relocate_app('myapp', 8080, 4380, @secret))
+    assert_equal(
+      "false: #{admin_server_error}",
+      djinn.relocate_version('myapp_default_v1', 8080, 4380, @secret))
   end
 
 
-  def test_relocate_app_but_port_in_use_by_appserver
+  def test_relocate_version_but_port_in_use_by_appserver
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
@@ -649,8 +651,9 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Net::HTTP).should_receive(:start).and_return(
       flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    assert_equal("false: #{admin_server_error}",
-                 djinn.relocate_app('myapp', 8080, 4380, @secret))
+    assert_equal(
+      "false: #{admin_server_error}",
+      djinn.relocate_version('myapp_default_v1', 8080, 4380, @secret))
   end
 
 

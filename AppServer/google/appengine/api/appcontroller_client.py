@@ -152,13 +152,13 @@ class AppControllerClient():
     return json.loads(self.call(self.MAX_RETRIES,
       self.server.get_database_information, self.secret))
 
-  def relocate_app(self, appid, http_port, https_port):
+  def relocate_version(self, version_key, http_port, https_port):
     """Asks the AppController to start serving traffic for the named application
     on the given ports, instead of the ports that it was previously serving at.
 
     Args:
-      appid: A str that names the already deployed application that we want to
-        move to a different port.
+      version_key: A string that names the version that we want to move to a
+        different port.
       http_port: An int between 80 and 90, or between 1024 and 65535, that names
         the port that unencrypted traffic should be served from for this app.
       https_port: An int between 443 and 453, or between 1024 and 65535, that
@@ -168,8 +168,8 @@ class AppControllerClient():
       A str that indicates if the operation was successful, and in unsuccessful
       cases, the reason why the operation failed.
     """
-    res = (self.call(self.MAX_RETRIES, self.server.relocate_app,
-                     appid, http_port, https_port, self.secret))
+    res = (self.call(self.MAX_RETRIES, self.server.relocate_version,
+                     version_key, http_port, https_port, self.secret))
     return res
 
   def upload_app(self, filename, file_suffix):
