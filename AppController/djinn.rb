@@ -621,7 +621,7 @@ class Djinn
     # Keeps track of started instances that have not been registered yet.
     @pending_appservers = {}
 
-    @initialized_apps = {}
+    @initialized_versions = {}
     @total_req_seen = {}
     @current_req_rate = {}
     @average_req_rate = {}
@@ -5144,10 +5144,10 @@ HOSTS
       project_id = version_key.split('_')[0]
       next unless @versions_loaded.include?(version_key)
 
-      initialize_scaling_info_for_app(project_id)
+      initialize_scaling_info_for_version(version_key)
 
       # Get the desired changes in the number of AppServers.
-      delta_appservers = get_scaling_info_for_app(project_id)
+      delta_appservers = get_scaling_info_for_version(version_key)
       if delta_appservers > 0
         Djinn.log_debug("Considering scaling up app #{project_id}.")
         needed_appservers += try_to_scale_up(project_id, delta_appservers)
@@ -5348,38 +5348,38 @@ HOSTS
   end
 
   # Sets up information about the request rate and number of requests in
-  # haproxy's queue for the given application.
+  # haproxy's queue for the given version.
   #
   # Args:
-  #   app_name: The name of the application to set up scaling info
+  #   version_key: The name of the version to set up scaling info
   #   force: A boolean value that indicates if we should reset the scaling
   #     info even in the presence of existing scaling info.
-  def initialize_scaling_info_for_app(app_name, force=false)
-    return if @initialized_apps[app_name] and !force
+  def initialize_scaling_info_for_version(version_key, force=false)
+    return if @initialized_versions[version_key] and !force
 
-    @current_req_rate[app_name] = 0
-    @total_req_seen[app_name] = 0
-    @last_sampling_time[app_name] = Time.now.to_i
-    (@last_decision[app_name] = 0) unless @last_decision.has_key?(app_name)
-    @initialized_apps[app_name] = true
+    @current_req_rate[version_key] = 0
+    @total_req_seen[version_key] = 0
+    @last_sampling_time[version_key] = Time.now.to_i
+    @last_decision[version_key] = 0 unless @last_decision.key?(version_key)
+    @initialized_versions[version_key] = true
   end
 
 
-  # Queries haproxy to see how many requests are queued for a given application
+  # Queries haproxy to see how many requests are queued for a given version
   # and how many requests are served at a given time.
   # Args:
-  #   app_name: The name of the application to get info for.
+  #   version_key: The name of the version to get info for.
   # Returns:
   #   an Integer: the number of AppServers desired (a positive number
   #     means we want more, a negative that we want to remove some, and 0
   #     for no changes).
-  def get_scaling_info_for_app(app_name)
-    version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+  def get_scaling_info_for_version(version_key)
+    project_id, service_id, version_id, = version_key.split('_')
     begin
       version_details = ZKInterface.get_version_details(
-        app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+        project_id, service_id, version_id)
     rescue VersionNotFound
-      Djinn.log_info("Not scaling app #{app_name} since we aren't " +
+      Djinn.log_info("Not scaling app #{version_key} since we aren't " +
                      'hosting it anymore.')
       return 0
     end
@@ -5396,8 +5396,9 @@ HOSTS
     min = scaling_params.fetch('minTotalInstances',
                                Integer(@options['appengine']))
     if num_appengines < min
-      Djinn.log_info("#{app_name} needs #{min - num_appengines} more AppServers.")
-      @last_decision[app_name] = 0
+      Djinn.log_info(
+        "#{version_key} needs #{min - num_appengines} more AppServers.")
+      @last_decision[version_key] = 0
       return min - num_appengines
     end
 
@@ -5416,8 +5417,8 @@ HOSTS
       return 0
     end
 
-    update_request_info(app_name, total_requests_seen, time_requests_were_seen,
-      total_req_in_queue)
+    update_request_info(version_key, total_requests_seen,
+                        time_requests_were_seen, total_req_in_queue)
 
     allow_concurrency = version_details.fetch('threadsafe', true)
     current_load = calculate_current_load(num_appengines, current_sessions,
@@ -5425,23 +5426,28 @@ HOSTS
     if current_load >= MAX_LOAD_THRESHOLD
       appservers_to_scale = calculate_appservers_needed(
         num_appengines, current_sessions, allow_concurrency)
-      Djinn.log_debug("The deployment has reached its maximum load threshold for " +
-        "app #{app_name} - Advising that we scale up #{appservers_to_scale} AppServers.")
+      Djinn.log_debug("The deployment has reached its maximum load " +
+                      "threshold for #{version_key} - Advising that we " +
+                      "scale up #{appservers_to_scale} AppServers.")
       return appservers_to_scale
 
     elsif current_load <= MIN_LOAD_THRESHOLD
-      if Time.now.to_i - @last_decision[app_name] < SCALEDOWN_THRESHOLD * DUTY_CYCLE
-        Djinn.log_debug("Not enough time has passed to scale down app #{app_name}")
+      downscale_cooldown = SCALEDOWN_THRESHOLD * DUTY_CYCLE
+      if Time.now.to_i - @last_decision[version_key] < downscale_cooldown
+        Djinn.log_debug(
+          "Not enough time has passed to scale down #{version_key}")
         return 0
       end
       appservers_to_scale = calculate_appservers_needed(
         num_appengines, current_sessions, allow_concurrency)
-      Djinn.log_debug("The deployment is below its minimum load threshold for " +
-        "app #{app_name} - Advising that we scale down #{appservers_to_scale.abs} AppServers.")
+      Djinn.log_debug("The deployment is below its minimum load threshold " +
+                      "for #{version_key} - Advising that we scale down " +
+                      "#{appservers_to_scale.abs} AppServers.")
       return appservers_to_scale
     else
-      Djinn.log_debug("The deployment is within the desired range of load for " +
-        "app #{app_name} - Advising that there is no need to scale currently.")
+      Djinn.log_debug("The deployment is within the desired range of load " +
+                      "for #{version_key} - Advising that there is no need " +
+                      "to scale currently.")
       return 0
     end
   end
@@ -5483,12 +5489,11 @@ HOSTS
     return appservers_to_scale
   end
 
-  # Updates internal state about the number of requests seen for the given App
-  # Engine app, as well as how many requests are currently enqueued for it.
+  # Updates internal state about the number of requests seen for the given
+  # version, as well as how many requests are currently enqueued for it.
   #
   # Args:
-  #   app_name: A String that indicates the name this Google App Engine
-  #     application is registered as.
+  #   version_key: A String that indicates a version key.
   #   total_requests_seen: An Integer that indicates how many requests haproxy
   #     has received for the given application since we reloaded it (which
   #     occurs when we start the app or add/remove AppServers).
@@ -5496,32 +5501,33 @@ HOSTS
   #     got request info from haproxy.
   #   total_req_in_queue: An Integer that represents the current number of
   #     requests waiting to be served.
-  def update_request_info(app_name, total_requests_seen,
-    time_requests_were_seen, total_req_in_queue)
+  def update_request_info(version_key, total_requests_seen,
+                          time_requests_were_seen, total_req_in_queue)
     Djinn.log_debug("Time now is #{time_requests_were_seen}, last " +
-      "time was #{@last_sampling_time[app_name]}")
+      "time was #{@last_sampling_time[version_key]}")
     Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " +
-      "time was #{@total_req_seen[app_name]}")
+      "time was #{@total_req_seen[version_key]}")
     Djinn.log_debug("Requests currently in the queue #{total_req_in_queue}")
-    requests_since_last_sampling = total_requests_seen - @total_req_seen[app_name]
-    time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
+    requests_since_last_sampling = total_requests_seen - @total_req_seen[version_key]
+    time_since_last_sampling = time_requests_were_seen - @last_sampling_time[version_key]
     if time_since_last_sampling.zero?
       time_since_last_sampling = 1
     end
 
     average_request_rate = Float(requests_since_last_sampling) / Float(time_since_last_sampling)
     if average_request_rate < 0
-      Djinn.log_info("Saw negative request rate for app #{app_name}, so " +
-        "resetting our haproxy stats for this app.")
-      initialize_scaling_info_for_app(app_name, true)
+      Djinn.log_info("Saw negative request rate for #{version_key}, so " +
+                     "resetting our haproxy stats for this version.")
+      initialize_scaling_info_for_version(version_key, true)
       return
     end
     Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
-      "for app #{app_name}, with last sampling time #{time_requests_were_seen}")
-    @average_req_rate[app_name] = average_request_rate
-    @current_req_rate[app_name] = total_req_in_queue
-    @total_req_seen[app_name] = total_requests_seen
-    @last_sampling_time[app_name] = time_requests_were_seen
+                    "for #{version_key}, with last sampling time " +
+                    "#{time_requests_were_seen}")
+    @average_req_rate[version_key] = average_request_rate
+    @current_req_rate[version_key] = total_req_in_queue
+    @total_req_seen[version_key] = total_requests_seen
+    @last_sampling_time[version_key] = time_requests_were_seen
   end
 
   # Determines the amount of memory already allocated for instances on each
@@ -5691,7 +5697,7 @@ HOSTS
     }
 
     # We started all desired AppServers.
-    @last_decision[app_name] = Time.now.to_i
+    @last_decision[version_key] = Time.now.to_i
     return 0
   end
 
@@ -5738,8 +5744,9 @@ HOSTS
         host, _ = location.split(":")
         if host == node_ip
           @app_info_map[version_key]['appengine'].delete(location)
-          @last_decision[app_name] = Time.now.to_i
-          Djinn.log_info("Removing an AppServer for #{app_name} #{location}.")
+          @last_decision[version_key] = Time.now.to_i
+          Djinn.log_info(
+            "Removing an AppServer for #{version_key} #{location}.")
           num_to_remove -= 1
           return true if num_to_remove == 0
         end
@@ -5902,21 +5909,22 @@ HOSTS
   # containing the average request rate, timestamp, and total requests seen.
   #
   # Args:
-  #   app_id: A String that indicates which application id we are storing
+  #   version_key: A String that indicates which version we are fetching
   #     request info for.
   #   secret: A String that authenticates callers.
   # Returns:
   #   A JSON string containing the average request rate, timestamp, and total
   # requests seen for the given application.
-  def get_request_info(app_id, secret)
+  def get_request_info(version_key, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-    Djinn.log_debug("Sending a log with request rate #{app_id}, timestamp " +
-      "#{@last_sampling_time[app_id]}, request rate " +
-      "#{@average_req_rate[app_id]}")
+
+    Djinn.log_debug("Sending a log with request rate #{version_key}, " +
+                    "timestamp #{@last_sampling_time[version_key]}, request " +
+                    "rate #{@average_req_rate[version_key]}")
     encoded_request_info = JSON.dump({
-      'timestamp' => @last_sampling_time[app_id],
-      'avg_request_rate' => @average_req_rate[app_id],
-      'num_of_requests' => @total_req_seen[app_id]
+      'timestamp' => @last_sampling_time[version_key],
+      'avg_request_rate' => @average_req_rate[version_key],
+      'num_of_requests' => @total_req_seen[version_key]
     })
     return encoded_request_info
   end
@@ -6059,6 +6067,7 @@ HOSTS
     if my_node.is_shadow?
       APPS_LOCK.synchronize {
         @versions_loaded.each { |version_key|
+          project_id, service_id, version_id = version_key.split('_')
           if @app_info_map[version_key].nil? ||
               @app_info_map[version_key]['appengine'].nil?
             Djinn.log_debug(
@@ -6068,7 +6077,7 @@ HOSTS
 
           begin
             version_details = ZKInterface.get_version_details(
-              app_name, DEFAULT_SERVICE, DEFAULT_VERSION)
+              project_id, service_id, version_id)
           rescue VersionNotFound
             next
           end
