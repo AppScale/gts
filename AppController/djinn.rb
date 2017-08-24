@@ -2682,13 +2682,13 @@ class Djinn
 
 
   # Instructs Nginx and HAProxy to begin routing traffic for the named
-  # application to a new AppServer.
+  # version to a new AppServer.
   #
   # This method should be called at the AppController running the login role,
   # as it is the node that receives application traffic from the outside.
   #
   # Args:
-  #   app_id: A String that identifies the application that runs the new
+  #   version_key: A String that identifies the version that runs the new
   #     AppServer.
   #   ip: A String that identifies the private IP address where the new
   #     AppServer runs.
@@ -2704,25 +2704,25 @@ class Djinn
   #     add AppServers to HAProxy config files).
   #   - NOT_READY: If this node runs HAProxy, but hasn't allocated ports for
   #     it and nginx yet. Callers should retry at a later time.
-  def add_routing_for_appserver(app_id, ip, port, secret)
+  def add_routing_for_appserver(version_key, ip, port, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     unless my_node.is_shadow?
        # We need to send the call to the shadow.
-       Djinn.log_debug("Sending routing call for #{app_id} to shadow.")
+       Djinn.log_debug("Sending routing call for #{version_key} to shadow.")
        acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
        begin
-         return acc.add_routing_for_appserver(app_id, ip, port)
+         return acc.add_routing_for_appserver(version_key, ip, port)
        rescue FailedNodeException => except
          Djinn.log_warn("Failed to forward routing call to shadow (#{get_shadow}).")
          return NOT_READY
        end
     end
 
-    version_key = [app_id, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+    project_id, service_id, version_id = version_key.split('_')
     begin
       version_details = ZKInterface.get_version_details(
-        app_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+        project_id, service_id, version_id)
     rescue VersionNotFound => error
       return "false: #{error.message}"
     end
@@ -2737,7 +2737,7 @@ class Djinn
         return INVALID_REQUEST
       end
 
-      Djinn.log_debug("Add routing for app #{app_id} at #{ip}:#{port}.")
+      Djinn.log_debug("Add routing for #{version_key} at #{ip}:#{port}.")
 
       # Find and remove an entry for this AppServer node and app.
       match = @app_info_map[version_key]['appengine'].index("#{ip}:-1")
@@ -2751,9 +2751,12 @@ class Djinn
 
       # Now that we have at least one AppServer running, we can start the
       # cron job of the application.
-      CronHelper.update_cron(get_load_balancer.public_ip,
-        version_details['appscaleExtensions']['httpPort'],
-        version_details['runtime'], app_id)
+      if service_id == DEFAULT_SERVICE
+        CronHelper.update_cron(
+          get_load_balancer.public_ip,
+          version_details['appscaleExtensions']['httpPort'],
+          version_details['runtime'], project_id)
+      end
     }
 
     return "OK"

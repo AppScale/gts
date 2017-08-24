@@ -137,34 +137,33 @@ class NoRedirection(urllib2.HTTPErrorProcessor):
   https_response = http_response
 
 
-def add_routing(app, port):
+def add_routing(version_key, port):
   """ Tells the AppController to begin routing traffic to an AppServer.
 
   Args:
-    app: A string that contains the application ID.
+    version_key: A string that contains the version key.
     port: A string that contains the port that the AppServer listens on.
   """
-  logging.info("Waiting for application {} on port {} to be active.".
-    format(str(app), str(port)))
+  logging.info('Waiting for {}:{}'.format(version_key, port))
   if not wait_on_app(port):
     # In case the AppServer fails we let the AppController to detect it
     # and remove it if it still show in monit.
-    logging.warning("AppServer did not come up in time, for {}:{}.".
-      format(str(app), str(port)))
+    logging.warning('{}:{} did not come up in time'.format(version_key, port))
     return
 
   acc = appscale_info.get_appcontroller_client()
 
   while True:
-    result = acc.add_routing_for_appserver(app, options.private_ip, port)
+    result = acc.add_routing_for_appserver(version_key, options.private_ip,
+                                           port)
     if result == AppControllerClient.NOT_READY:
       logging.info('AppController not yet ready to add routing.')
       time.sleep(ROUTING_RETRY_INTERVAL)
     else:
       break
 
-  logging.info('Successfully established routing for {} on port {}'.
-    format(app, port))
+  logging.info(
+    'Successfully established routing for {}:{}'.format(version_key, port))
 
 @gen.coroutine
 def start_app(project_id, config):
@@ -203,6 +202,9 @@ def start_app(project_id, config):
   if 'instanceClass' in version_details:
     max_memory = INSTANCE_CLASSES.get(version_details['instanceClass'],
                                       max_memory)
+
+  version_key = VERSION_PATH_SEPARATOR.join(
+    [project_id, service_id, version_id])
   revision_key = VERSION_PATH_SEPARATOR.join(
     [project_id, service_id, version_id, str(version_details['revision'])])
   source_archive = version_details['deployment']['zip']['sourceUrl']
@@ -275,7 +277,7 @@ def start_app(project_id, config):
   # Since we are going to wait, possibly for a long time for the
   # application to be ready, we do it in a thread.
   threading.Thread(target=add_routing,
-    args=(project_id, config['app_port'])).start()
+    args=(version_key, config['app_port'])).start()
 
   if project_id == DASHBOARD_PROJECT_ID:
     log_size = DASHBOARD_LOG_SIZE
