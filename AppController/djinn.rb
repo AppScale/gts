@@ -1988,15 +1988,11 @@ class Djinn
 
         APPS_LOCK.synchronize {
           # Starts apps that are not running yet but they should.
-          projects_loaded = []
-          @versions_loaded.each { |version_key|
-            project = version_key.split('_')[0]
-            projects_loaded << project unless projects_loaded.include?(project)
-          }
-          apps_to_load = ZKInterface.get_app_names - projects_loaded
-          apps_to_load.each { |app|
-            setup_app_dir(app, true)
-            setup_appengine_application(app)
+          versions_to_load = ZKInterface.get_versions - @versions_loaded
+          versions_to_load.each { |version_key|
+            project_id = version_key.split('_')[0]
+            setup_app_dir(project_id, true)
+            setup_appengine_application(project_id)
           }
           scale_deployment
         }
@@ -2853,15 +2849,15 @@ class Djinn
 
 
   def update_port_files()
-    ZKInterface.get_app_names.each { |project_id|
+    ZKInterface.get_versions.each { |version_key|
+      project_id, service_id, version_id = version_key.split('_')
       begin
         version_details = ZKInterface.get_version_details(
-          project_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+          project_id, service_id, version_id)
       rescue VersionNotFound
         next
       end
 
-      version_key = [project_id, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
       http_port = version_details['appscaleExtensions']['httpPort']
       port_file = "#{APPSCALE_CONFIG_DIR}/port-#{version_key}.txt"
 
@@ -4742,7 +4738,7 @@ HOSTS
     version_list = HelperFunctions.get_loaded_versions
     version_list.each { |version_key|
       app = version_key.split('_')[0]
-      next if ZKInterface.get_app_names.include?(app)
+      next if ZKInterface.get_versions.include?(version_key)
       next if RESERVED_APPS.include?(app)
       begin
         next if uac.is_app_enabled?(app)
@@ -5144,22 +5140,22 @@ HOSTS
   #   start for lack of resources.
   def scale_appservers
     needed_appservers = 0
-    ZKInterface.get_app_names.each { |app_name|
-      version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
+    ZKInterface.get_versions.each { |version_key|
+      project_id = version_key.split('_')[0]
       next unless @versions_loaded.include?(version_key)
 
-      initialize_scaling_info_for_app(app_name)
+      initialize_scaling_info_for_app(project_id)
 
       # Get the desired changes in the number of AppServers.
-      delta_appservers = get_scaling_info_for_app(app_name)
+      delta_appservers = get_scaling_info_for_app(project_id)
       if delta_appservers > 0
-        Djinn.log_debug("Considering scaling up app #{app_name}.")
-        needed_appservers += try_to_scale_up(app_name, delta_appservers)
+        Djinn.log_debug("Considering scaling up app #{project_id}.")
+        needed_appservers += try_to_scale_up(project_id, delta_appservers)
       elsif delta_appservers < 0
-        Djinn.log_debug("Considering scaling down app #{app_name}.")
-        try_to_scale_down(app_name, delta_appservers.abs)
+        Djinn.log_debug("Considering scaling down app #{project_id}.")
+        try_to_scale_down(project_id, delta_appservers.abs)
       else
-        Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
+        Djinn.log_debug("Not scaling app #{project_id} up or down right now.")
       end
     }
 
