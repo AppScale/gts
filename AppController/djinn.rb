@@ -1706,49 +1706,54 @@ class Djinn
     end
   end
 
-  # Removes an application and stops all AppServers hosting this application.
+  # Removes a version and stops all AppServers hosting it.
   #
   # Args:
-  #   app_name: The application to stop
+  #   version_key: The version to stop
   #   secret: Shared key for authentication
   #
-  def stop_app(app_name, secret)
+  def stop_version(version_key, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     unless my_node.is_shadow?
-      Djinn.log_debug("Sending stop_app call for #{app_name} to shadow.")
+      Djinn.log_debug(
+        "Sending stop_version call for #{version_key} to shadow.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
-        return acc.stop_app(app_name)
+        return acc.stop_version(version_key)
       rescue FailedNodeException
-        Djinn.log_warn("Failed to forward stop_app call to shadow (#{get_shadow}).")
+        Djinn.log_warn(
+          "Failed to forward stop_version call to shadow (#{get_shadow}).")
         return NOT_READY
       end
     end
 
-    version_key = [app_name, DEFAULT_SERVICE, DEFAULT_VERSION].join('_')
-    app_name.gsub!(/[^\w\d\-]/, "")
-    return "false: #{app_name} is a reserved app." if RESERVED_APPS.include?(app_name)
-    Djinn.log_info("Shutting down app named [#{app_name}]")
+    project_id, service_id, _ = version_key.split('_')
+    if RESERVED_APPS.include?(project_id)
+      return "false: #{project_id} is a reserved app."
+    end
+    Djinn.log_info("Shutting down #{version_key}")
     result = ""
 
     # Since stopping an application can take some time, we do it in a
     # thread.
     Thread.new {
-      begin
-        uac = UserAppClient.new(my_node.private_ip, @@secret)
-        if not uac.does_app_exist?(app_name)
-          Djinn.log_info("(stop_app) #{app_name} does not exist.")
-        else
-          result = uac.delete_app(app_name)
-          Djinn.log_debug("(stop_app) delete_app returned: #{result}.")
+      if service_id == DEFAULT_SERVICE
+        begin
+          uac = UserAppClient.new(my_node.private_ip, @@secret)
+          if not uac.does_app_exist?(project_id)
+            Djinn.log_info("(stop_version) #{project_id} does not exist.")
+          else
+            result = uac.delete_app(project_id)
+            Djinn.log_debug("(stop_version) delete_app returned: #{result}.")
+          end
+        rescue FailedNodeException
+          Djinn.log_warn("(stop_version) delete_app: failed to talk " +
+                         "to the UserAppServer.")
         end
-      rescue FailedNodeException
-        Djinn.log_warn("(stop_app) delete_app: failed to talk " +
-          "to the UserAppServer.")
       end
 
-      # If this node has any information about AppServers for this app,
+      # If this node has any information about AppServers for this version,
       # clear that information out.
       APPS_LOCK.synchronize {
         @app_info_map.delete(version_key)

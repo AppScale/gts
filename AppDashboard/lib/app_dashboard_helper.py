@@ -515,11 +515,13 @@ class AppDashboardHelper(object):
       A str indicating whether or not the application was successfully removed
         from this AppScale deployment.
     """
+    version_key = '_'.join([appname, self.DEFAULT_SERVICE,
+                            self.DEFAULT_VERSION])
     try:
       if not self.does_app_exist(appname):
         return "The given application is not currently running."
       acc = self.get_appcontroller_client()
-      ret = acc.stop_app(appname)
+      ret = acc.stop_version(version_key)
       if ret != "true":
         logging.error("AppController returned: {0}".format(ret))
         return "There was an error attempting to remove the application."

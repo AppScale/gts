@@ -274,16 +274,16 @@ class AppControllerClient():
       roles_to_nodes, self.secret)
 
 
-  def stop_app(self, app_id):
-    """Tells the AppController to no longer host the named application.
+  def stop_version(self, version_key):
+    """Tells the AppController to no longer host the named version.
 
     Args:
-      app_id: A str that indicates which application should be stopped.
+      version_key: A str that indicates which version should be stopped.
     Returns:
-      The result of telling the AppController to no longer host the app.
+      The result of telling the AppController to no longer host the version.
     """
-    return self.call(self.MAX_RETRIES, self.server.stop_app, app_id,
-      self.secret)
+    return self.call(self.MAX_RETRIES, self.server.stop_version, version_key,
+                     self.secret)
 
 
   def update(self, versions):
