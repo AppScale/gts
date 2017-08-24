@@ -7,7 +7,6 @@ import threading
 import time
 import unittest
 import urllib2
-from xml.etree import ElementTree
 
 from flexmock import flexmock
 from tornado.gen import Future
@@ -24,6 +23,7 @@ from appscale.common import (
   testing
 )
 from appscale.common import monit_app_configuration
+from appscale.common.monit_interface import MonitOperator
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager_server
@@ -215,24 +215,28 @@ class TestAppManager(AsyncTestCase):
 
   @gen_test
   def test_stop_app_instance(self):
-    app_id = 'test'
+    version_key = 'test_default_v1'
     port = 20000
     flexmock(misc).should_receive('is_app_name_valid').and_return(False)
 
     with self.assertRaises(BadConfigurationException):
-      yield app_manager_server.stop_app_instance(app_id, port)
+      yield app_manager_server.stop_app_instance(version_key, port)
 
     flexmock(misc).should_receive('is_app_name_valid').and_return(True)
     flexmock(app_manager_server).should_receive('unmonitor').\
       and_raise(HTTPError)
+    entries_response = Future()
+    entries_response.set_result(['app___test_default_v1_revid-20000'])
+    flexmock(MonitOperator).should_receive('get_entries').\
+      and_return(entries_response)
 
     with self.assertRaises(HTTPError):
-      yield app_manager_server.stop_app_instance(app_id, port)
+      yield app_manager_server.stop_app_instance(version_key, port)
 
     builtins = flexmock(sys.modules['__builtin__'])
     builtins.should_call('open')
     builtins.should_receive('open').\
-      with_args('/var/run/appscale/app___test-20000.pid').\
+      with_args('/var/run/appscale/app___test_default_v1_revid-20000.pid').\
       and_return(flexmock(read=lambda: '20000'))
     flexmock(app_manager_server).should_receive('unmonitor')
     flexmock(os).should_receive('remove')
@@ -246,7 +250,7 @@ class TestAppManager(AsyncTestCase):
     flexmock(threading.Thread).should_receive('__new__').and_return(
       flexmock(start=lambda: None))
 
-    yield app_manager_server.stop_app_instance(app_id, port)
+    yield app_manager_server.stop_app_instance(version_key, port)
 
   def test_stop_app(self):
     flexmock(monit_interface).should_receive('stop').\
