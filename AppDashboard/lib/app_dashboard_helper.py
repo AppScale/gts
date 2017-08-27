@@ -82,6 +82,9 @@ class AppDashboardHelper(object):
   # applications a user owns, when applied to their user data.
   USER_APP_LIST_REGEX = "\napplications:(.+)\n"
 
+  # Indicates that the user is a cloud-level administrator.
+  CLOUD_ADMIN_MARKER = 'CLOUD_ADMIN'
+
   # A regular expression that can be used to find out from the user's data in
   # the UserAppServer if they are a cloud-level administrator in this AppScale
   # cloud.
@@ -714,7 +717,12 @@ class AppDashboardHelper(object):
       response: A webapp2 response that the new user's logged in cookie
         should be set in.
     """
-    apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(apps_list)
+    # Add an extra value to indicate that cloud admins have access to all apps.
+    full_admin_list = apps_list
+    if self.is_user_cloud_admin(email):
+      full_admin_list.append(self.CLOUD_ADMIN_MARKER)
+
+    apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(full_admin_list)
     if AppDashboardHelper.USE_SHIBBOLETH:
       response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
                           value=self.get_cookie_value(email, apps),
