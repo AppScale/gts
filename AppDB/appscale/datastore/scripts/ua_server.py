@@ -51,9 +51,6 @@ db = []
 # The schema we use to store user information.
 user_schema = []
 
-# The application name regex to validate an application ID.
-APPNAME_REGEX = r'^[\d\w\.@-]+$'
-
 # Different types of valid users created.
 VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
 
