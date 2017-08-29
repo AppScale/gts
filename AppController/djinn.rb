@@ -5029,8 +5029,7 @@ HOSTS
   # Returns:
   def is_port_assigned(port_to_check)
     @pending_appservers.each { |appserver, _|
-      host, port = appserver.split(":")
-      next if @my_private_ip != host
+      port = appserver.split(':')[1]
       return true if port_to_check == Integer(port)
     }
     return false
