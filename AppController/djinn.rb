@@ -765,7 +765,7 @@ class Djinn
     end
     return "false: #{response.body}" if response.code != '200'
 
-    if service_id == DEFAULT_SERVICE
+    if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
       CronHelper.update_cron(
         get_load_balancer.public_ip, http_port, version_details['runtime'],
         project_id)
@@ -1728,7 +1728,7 @@ class Djinn
       end
     end
 
-    project_id, service_id, _ = version_key.split('_')
+    project_id, service_id, version_id = version_key.split('_')
     if RESERVED_APPS.include?(project_id)
       return "false: #{project_id} is a reserved app."
     end
@@ -1738,7 +1738,7 @@ class Djinn
     # Since stopping an application can take some time, we do it in a
     # thread.
     Thread.new {
-      if service_id == DEFAULT_SERVICE
+      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
         begin
           uac = UserAppClient.new(my_node.private_ip, @@secret)
           if not uac.does_app_exist?(project_id)
@@ -2749,7 +2749,7 @@ class Djinn
 
       # Now that we have at least one AppServer running, we can start the
       # cron job of the application.
-      if service_id == DEFAULT_SERVICE
+      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
         CronHelper.update_cron(
           get_load_balancer.public_ip,
           version_details['appscaleExtensions']['httpPort'],
@@ -4738,7 +4738,7 @@ HOSTS
     Djinn.log_debug("Checking applications that have been stopped.")
     version_list = HelperFunctions.get_loaded_versions
     version_list.each { |version_key|
-      project_id, service_id, _ = version_key.split('_')
+      project_id, service_id, version_id = version_key.split('_')
       next if ZKInterface.get_versions.include?(version_key)
       next if RESERVED_APPS.include?(project_id)
 
@@ -4746,7 +4746,9 @@ HOSTS
         "#{version_key} is no longer running: removing old states.")
 
       if my_node.is_load_balancer?
-        stop_xmpp_for_app(project_id) if service_id == DEFAULT_SERVICE
+        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
+          stop_xmpp_for_app(project_id)
+        end
         Nginx.remove_version(version_key)
 
         # Since the removal of an app from HAProxy can cause a reset of
@@ -4773,7 +4775,9 @@ HOSTS
         HelperFunctions.shell("service rsyslog restart")
       end
 
-      CronHelper.clear_app_crontab(project_id) if service_id == DEFAULT_SERVICE
+      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
+        CronHelper.clear_app_crontab(project_id)
+      end
       Djinn.log_debug("Done cleaning up after stopped version #{version_key}.")
     }
   end
@@ -5046,7 +5050,7 @@ HOSTS
       HelperFunctions.shell("service rsyslog restart")
     end
 
-    if service_id == DEFAULT_SERVICE
+    if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
       begin
         start_xmpp_for_app(project_id, version_details['runtime'])
       rescue FailedNodeException
