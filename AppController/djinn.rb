@@ -4888,6 +4888,8 @@ HOSTS
     # Check that all the AppServers running are indeed known to the
     # head node.
     MonitInterface.running_appengines().each { |instance_entry|
+      # Instance entries are formatted as
+      # project-id_service-id_version-id_revision-id:port.
       revision_key, port = instance_entry.split(':')
       version_key = revision_key.rpartition('_')[0]
       instance_key = [version_key, port].join(':')
@@ -5660,7 +5662,7 @@ HOSTS
       "Hosts available to scale #{version_key}: #{available_hosts}.")
 
     # Since we may have 'clumps' of the same host (say a very big
-    # appengine machine) we shuffle the list of candidate here.
+    # appengine machine) we shuffle the list of candidates here.
     available_hosts.shuffle!
 
     # We prefer candidate that are not already running the application, so

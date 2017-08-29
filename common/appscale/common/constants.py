@@ -143,4 +143,5 @@ SMALL_WAIT = 5
 TINY_WAIT = .1
 
 # The character used to separate portions of a complete version string.
+# (e.g. guestbook_default_v1)
 VERSION_PATH_SEPARATOR = '_'

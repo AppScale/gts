@@ -154,6 +154,7 @@ def LoginRedirect(login_url,
   """
   hostname = os.environ['NGINX_HOST']
 
+  # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
   version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
   if ':' not in version_info:
     version_info = 'default:' + version_info
@@ -211,6 +212,7 @@ def main():
 
   nginx_url = os.environ['NGINX_HOST']
 
+  # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
   version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
   if ':' not in version_info:
     version_info = 'default:' + version_info

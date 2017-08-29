@@ -70,6 +70,7 @@ class ImagesBlobStub(object):
     # Host prefix does not include a port, so retrieve it from the filesystem.
     full_prefix = self._host_prefix
     if full_prefix:
+      # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
       version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
       if ':' not in version_info:
         version_info = 'default:' + version_info
