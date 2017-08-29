@@ -5254,11 +5254,11 @@ HOSTS
     remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
 
     to_remove = {}
-    @app_info_map.each { |_, info|
+    @app_info_map.each { |app, info|
       next if info['appengine'].nil?
 
       info['appengine'].each { |location|
-        host, port = location.split(":")
+        host = location.split(":")[0]
         if host == node_to_remove.private_ip
           to_remove[app] = [] if to_remove[app].nil?
           to_remove[app] << location
@@ -5266,9 +5266,9 @@ HOSTS
       }
     }
     to_remove.each { |app, locations|
-        locations.each { |location|
-          @app_info_map[app]['appengine'].delete(location)
-        }
+      locations.each { |location|
+        @app_info_map[app]['appengine'].delete(location)
+      }
     }
 
     imc = InfrastructureManagerClient.new(@@secret)
