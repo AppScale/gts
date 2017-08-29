@@ -460,7 +460,8 @@ class ZKInterface
         versions_node = "/appscale/projects/#{project_id}/services/" +
           "#{service_id}/versions"
         self.get_children(versions_node).each { |version_id|
-          active_versions << [project_id, service_id, version_id].join('_')
+          active_versions << [project_id, service_id,
+                              version_id].join(Djinn::VERSION_PATH_SEPARATOR)
         }
       }
     }

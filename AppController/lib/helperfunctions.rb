@@ -904,8 +904,8 @@ module HelperFunctions
       revision_key = File.basename(revision_dir)
 
       # Ignore project directories.
-      next unless revision_key.include?('_')
-      version_keys << revision_key.rpartition('_')[0]
+      next unless revision_key.include?(Djinn::VERSION_PATH_SEPARATOR)
+      version_keys << revision_key.rpartition(Djinn::VERSION_PATH_SEPARATOR)[0]
     }
     return version_keys
   end
@@ -926,8 +926,9 @@ module HelperFunctions
       raise AppScaleException.new('Version not found')
     end
 
-    revision_key = [project_id, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION,
-                    version_details['revision'].to_s].join('_')
+    revision_key = [
+      project_id, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION,
+      version_details['revision'].to_s].join(Djinn::VERSION_PATH_SEPARATOR)
     self.setup_revision(revision_key)
     return "#{APPLICATIONS_DIR}/#{revision_key}/app"
   end
@@ -976,7 +977,8 @@ module HelperFunctions
 
   def self.parse_static_data(version_key, copy_files)
     # Retrieve latest source archive if not on this machine.
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      Djinn::VERSION_PATH_SEPARATOR)
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
@@ -984,7 +986,8 @@ module HelperFunctions
       return []
     end
 
-    revision_key = [version_key, version_details['revision'].to_s].join('_')
+    revision_key = [version_key, version_details['revision'].to_s].join(
+      Djinn::VERSION_PATH_SEPARATOR)
     begin
       self.setup_revision(revision_key)
     rescue AppScaleException
@@ -1103,13 +1106,13 @@ module HelperFunctions
   #   be accessed at, and the location in the static file directory where the
   #   file can be found.
   def self.parse_java_static_data(revision_key)
-    version_key = revision_key.rpartition('_')[0]
+    version_key = revision_key.rpartition(Djinn::VERSION_PATH_SEPARATOR)[0]
 
     # Verify that revision is a Java app.
     tar_gz_location = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/" +
       "#{revision_key}.tar.gz"
     unless self.app_has_config_file?(tar_gz_location)
-      Djinn.log_warn("#{app_name} does not appear to be a Java app")
+      Djinn.log_warn("#{revision_key} does not appear to be a Java app")
       return []
     end
 
@@ -1153,7 +1156,8 @@ module HelperFunctions
   #   A hash containing lists of secure handlers
   def self.get_secure_handlers(version_key)
     Djinn.log_debug("Getting secure handlers for #{version_key}")
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      Djinn::VERSION_PATH_SEPARATOR)
 
     secure_handlers = {
         :always => [],
@@ -1168,7 +1172,8 @@ module HelperFunctions
                      "version node does not exist")
       return secure_handlers
     end
-    revision_key = [version_key, version_details['revision'].to_s].join('_')
+    revision_key = [version_key, version_details['revision'].to_s].join(
+      Djinn::VERSION_PATH_SEPARATOR)
     self.setup_revision(revision_key)
     untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
 
@@ -1345,7 +1350,8 @@ module HelperFunctions
   # Returns:
   #   Boolean true if the app is thread safe. Boolean false if it is not.
   def self.get_version_thread_safe(version_key)
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      Djinn::VERSION_PATH_SEPARATOR)
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)

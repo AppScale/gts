@@ -504,6 +504,11 @@ class Djinn
   DEFAULT_VERSION = 'v1'
 
 
+  # The character used to separate portions of a complete version string.
+  # (e.g. guestbook_default_v1)
+  VERSION_PATH_SEPARATOR = '_'
+
+
   # The port that the AdminServer listens on.
   ADMIN_SERVER_PORT = 17442
 
@@ -739,7 +744,8 @@ class Djinn
       end
     end
 
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
@@ -1728,7 +1734,8 @@ class Djinn
       end
     end
 
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     if RESERVED_APPS.include?(project_id)
       return "false: #{project_id} is a reserved app."
     end
@@ -2666,7 +2673,7 @@ class Djinn
 
       # Next, tar.gz it up in the dashboard app so that users can download it.
       version_key = [AppDashboard::APP_NAME, DEFAULT_SERVICE,
-                     DEFAULT_VERSION].join('_')
+                     DEFAULT_VERSION].join(VERSION_PATH_SEPARATOR)
       assets_dir = "#{HelperFunctions::VERSION_ASSETS_DIR}/#{version_key}"
       dashboard_log_location = "#{assets_dir}/static/download-logs/#{uuid}.tar.gz"
       Djinn.log_info("Done gathering logs - placing logs at " +
@@ -2717,7 +2724,8 @@ class Djinn
        end
     end
 
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
@@ -2852,7 +2860,8 @@ class Djinn
 
   def update_port_files()
     ZKInterface.get_versions.each { |version_key|
-      project_id, service_id, version_id = version_key.split('_')
+      project_id, service_id, version_id = version_key.split(
+        VERSION_PATH_SEPARATOR)
       begin
         version_details = ZKInterface.get_version_details(
           project_id, service_id, version_id)
@@ -3214,7 +3223,8 @@ class Djinn
       instance_info = []
       @app_info_map.each_pair { |version_key, app_info|
         next if app_info['appengine'].nil?
-        project_id, service_id, version_id = version_key.split('_')
+        project_id, service_id, version_id = version_key.split(
+          VERSION_PATH_SEPARATOR)
         begin
           version_details = ZKInterface.get_version_details(
             project_id, service_id, version_id)
@@ -4219,7 +4229,8 @@ HOSTS
     login_ip = @options['login']
 
     @versions_loaded.each { |version_key|
-      project_id, service_id, version_id = version_key.split('_')
+      project_id, service_id, version_id = version_key.split(
+        VERSION_PATH_SEPARATOR)
       begin
         version_details = ZKInterface.get_version_details(
           project_id, service_id, version_id)
@@ -4708,7 +4719,8 @@ HOSTS
     Djinn.log_error(
       "Placing error application for #{version_key} because of: #{err_msg}")
 
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
@@ -4717,7 +4729,8 @@ HOSTS
       return
     end
     language = version_details['runtime']
-    revision_key = [version_key, version_details['revision'].to_s].join('_')
+    revision_key = [version_key, version_details['revision'].to_s].join(
+      VERSION_PATH_SEPARATOR)
 
     ea = ErrorApp.new(revision_key, err_msg)
     ea.generate(language)
@@ -4738,7 +4751,8 @@ HOSTS
     Djinn.log_debug("Checking applications that have been stopped.")
     version_list = HelperFunctions.get_loaded_versions
     version_list.each { |version_key|
-      project_id, service_id, version_id = version_key.split('_')
+      project_id, service_id, version_id = version_key.split(
+        VERSION_PATH_SEPARATOR)
       next if ZKInterface.get_versions.include?(version_key)
       next if RESERVED_APPS.include?(project_id)
 
@@ -4895,7 +4909,7 @@ HOSTS
       # Instance entries are formatted as
       # project-id_service-id_version-id_revision-id:port.
       revision_key, port = instance_entry.split(':')
-      version_key = revision_key.rpartition('_')[0]
+      version_key = revision_key.rpartition(VERSION_PATH_SEPARATOR)[0]
       instance_key = [version_key, port].join(':')
 
       # Nothing to do if we already account for this AppServer.
@@ -4925,7 +4939,8 @@ HOSTS
         while Time.now.to_i < end_work
           if !no_appservers[0].nil?
             version_key = no_appservers.shift
-            project_id, service_id, version_id = version_key.split('_')
+            project_id, service_id, version_id = version_key.split(
+              VERSION_PATH_SEPARATOR)
             begin
               version_details = ZKInterface.get_version_details(
                 project_id, service_id, version_id)
@@ -4938,7 +4953,8 @@ HOSTS
             Djinn.log_debug("add_appserver_process returned: #{ret}.")
           elsif !to_start[0].nil?
             version_key = to_start.shift
-            project_id, service_id, version_id = version_key.split('_')
+            project_id, service_id, version_id = version_key.split(
+              VERSION_PATH_SEPARATOR)
             begin
               version_details = ZKInterface.get_version_details(
                 project_id, service_id, version_id)
@@ -5014,7 +5030,8 @@ HOSTS
     Djinn.log_debug(
       "setup_appengine_version: got a new version #{version_key}.")
 
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     # Let's create an entry for the application if we don't already have it.
     @app_info_map[version_key] = {} if @app_info_map[version_key].nil?
 
@@ -5375,7 +5392,8 @@ HOSTS
   #     means we want more, a negative that we want to remove some, and 0
   #     for no changes).
   def get_scaling_info_for_version(version_key)
-    project_id, service_id, version_id, = version_key.split('_')
+    project_id, service_id, version_id, = version_key.split(
+      VERSION_PATH_SEPARATOR)
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
@@ -5541,7 +5559,8 @@ HOSTS
     @app_info_map.each_pair { |version_key, app_info|
       next if app_info['appengine'].nil?
 
-      project_id, service_id, version_id = version_key.split('_')
+      project_id, service_id, version_id = version_key.split(
+        VERSION_PATH_SEPARATOR)
       max_app_mem = Integer(@options['max_memory'])
       begin
         version_details = ZKInterface.get_version_details(
@@ -5605,7 +5624,8 @@ HOSTS
     current_hosts = get_hosts_for_version(version_key)
 
     # Get the memory limit for this application.
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
@@ -5716,7 +5736,8 @@ HOSTS
   # Returns:
   #   A boolean indicating if an AppServer was removed.
   def try_to_scale_down(version_key, delta_appservers)
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     # See how many AppServers are running on each machine. We cannot scale
     # if we already are at the requested minimum.
     begin
@@ -5767,7 +5788,8 @@ HOSTS
   #   version_key: the version to setup
   #   remove_old: boolean to force a re-setup of the app from the tarball
   def setup_app_dir(version_key, remove_old=false)
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
@@ -5779,7 +5801,8 @@ HOSTS
 
     error_msg = ""
 
-    revision_key = [version_key, version_details['revision'].to_s].join('_')
+    revision_key = [version_key, version_details['revision'].to_s].join(
+      VERSION_PATH_SEPARATOR)
     if remove_old && my_node.is_load_balancer?
       Djinn.log_info("Removing old application revisions for #{version_key}.")
       revision_dirs = []
@@ -5847,7 +5870,8 @@ HOSTS
   def add_appserver_process(version_key, nginx_port)
     Djinn.log_info("Received request to add an AppServer for #{version_key}.")
 
-    project_id, service_id, version_id = version_key.split('_')
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, "#{nginx_port}")
     Djinn.log_info("Using NGINX port #{nginx_port} for #{version_key}.")
@@ -5887,7 +5911,7 @@ HOSTS
   # Returns:
   #   A Boolean indicating the success of the operation.
   def remove_appserver_process(version_key, port)
-    project_id = version_key.split('_')[0]
+    project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting AppServer instance to free up unused resources")
 
@@ -6079,7 +6103,8 @@ HOSTS
     if my_node.is_shadow?
       APPS_LOCK.synchronize {
         @versions_loaded.each { |version_key|
-          project_id, service_id, version_id = version_key.split('_')
+          project_id, service_id, version_id = version_key.split(
+            VERSION_PATH_SEPARATOR)
           if @app_info_map[version_key].nil? ||
               @app_info_map[version_key]['appengine'].nil?
             Djinn.log_debug(

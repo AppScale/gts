@@ -22,7 +22,7 @@ class ErrorApp
   #   error_msg: A String message that will be displayed as the reason 
   #              why we couldn't start their application.
   def initialize(revision_key, error_msg)
-    @project_id = revision_key.split('_')[0]
+    @project_id = revision_key.split(Djinn::VERSION_PATH_SEPARATOR)[0]
     @revision_key = revision_key
     @error_msg = error_msg
     @dir_path = "#{HelperFunctions::APPLICATIONS_DIR}/#{revision_key}/app/"

@@ -54,7 +54,7 @@ module AppDashboard
 
     # Tell the app what nginx port sits in front of it.
     version_key = [APP_NAME, Djinn::DEFAULT_SERVICE,
-                   Djinn::DEFAULT_VERSION].join('_')
+                   Djinn::DEFAULT_VERSION].join(Djinn::VERSION_PATH_SEPARATOR)
     port_file = "/etc/appscale/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, "#{LISTEN_PORT}")
 
