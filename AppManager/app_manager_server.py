@@ -164,24 +164,20 @@ def add_routing(version_key, port):
     'Successfully established routing for {}:{}'.format(version_key, port))
 
 @gen.coroutine
-def start_app(project_id, config):
+def start_app(version_key, config):
   """ Starts a Google App Engine application on this machine. It
       will start it up and then proceed to fetch the main page.
 
   Args:
-    project_id: A string specifying a project ID.
+    version_key: A string specifying a version key.
     config: a dictionary that contains
-       app_port: Port to start on
-       service_id: A string specifying the service ID.
-       version_id: A string specifying the version ID.
+      app_port: An integer specifying the port to use.
   """
-  required_params = ('app_port', 'service_id', 'version_id')
-  for param in required_params:
-    if param not in config:
-      raise BadConfigurationException('Missing parameter: {}'.format(param))
+  if 'app_port' not in config:
+    raise BadConfigurationException('app_port is required')
 
-  service_id = config['service_id']
-  version_id = config['version_id']
+  project_id, service_id, version_id = version_key.split(
+    VERSION_PATH_SEPARATOR)
 
   if not misc.is_app_name_valid(project_id):
     raise BadConfigurationException(
@@ -687,14 +683,14 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
   return ' '.join(cmd)
 
 
-class AppHandler(tornado.web.RequestHandler):
+class VersionHandler(tornado.web.RequestHandler):
   """ Handles requests to start and stop instances for a project. """
   @gen.coroutine
-  def post(self, project_id):
+  def post(self, version_key):
     """ Starts an AppServer instance on this machine.
 
     Args:
-      project_id: A string specifying a project ID.
+      version_key: A string specifying a version key.
     """
     try:
       config = json_decode(self.request.body)
@@ -702,7 +698,7 @@ class AppHandler(tornado.web.RequestHandler):
       raise HTTPError(HTTPCodes.BAD_REQUEST, 'Payload must be valid JSON')
 
     try:
-      yield start_app(project_id, config)
+      yield start_app(version_key, config)
     except BadConfigurationException as error:
       raise HTTPError(HTTPCodes.BAD_REQUEST, error.message)
 
@@ -754,8 +750,8 @@ if __name__ == "__main__":
   options.define('tq_proxy', appscale_info.get_tq_proxy())
 
   app = tornado.web.Application([
-    ('/projects/([a-z0-9-]+)', AppHandler),
-    ('/projects/([a-z0-9-]+)/([0-9-]+)', InstanceHandler)
+    ('/versions/([a-z0-9-_]+)', VersionHandler),
+    ('/versions/([a-z0-9-_]+)/([0-9-]+)', InstanceHandler)
   ])
 
   app.listen(constants.APP_MANAGER_PORT)

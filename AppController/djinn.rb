@@ -5870,8 +5870,6 @@ HOSTS
   def add_appserver_process(version_key, nginx_port)
     Djinn.log_info("Received request to add an AppServer for #{version_key}.")
 
-    project_id, service_id, version_id = version_key.split(
-      VERSION_PATH_SEPARATOR)
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, "#{nginx_port}")
     Djinn.log_info("Using NGINX port #{nginx_port} for #{version_key}.")
@@ -5887,8 +5885,7 @@ HOSTS
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
-      app_manager.start_app(
-        project_id, service_id, version_id, appengine_port)
+      app_manager.start_app(version_key, appengine_port)
       @pending_appservers["#{version_key}:#{appengine_port}"] = Time.new
       Djinn.log_info("Done adding AppServer for #{version_key}.")
     rescue FailedNodeException => error
