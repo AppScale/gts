@@ -5595,7 +5595,7 @@ HOSTS
     current_hosts = Set.new()
     if @app_info_map.key?(version_key) &&
         @app_info_map[version_key].key?('appengine')
-      @app_info_map[version_key]['appengine'].each {
+      @app_info_map[version_key]['appengine'].each { |location|
         host = location.split(":")[0]
         current_hosts << host
       }
