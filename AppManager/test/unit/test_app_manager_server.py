@@ -59,7 +59,7 @@ class TestAppManager(AsyncTestCase):
 
     with self.assertRaises(BadConfigurationException):
       yield app_manager_server.start_app(
-        'badName!@#$%^&*([]/.,', configuration)
+        'badName!@#$%^&*([]/.,_default_v1', configuration)
 
   @gen_test
   def test_start_app_goodconfig_python(self):
@@ -101,7 +101,7 @@ class TestAppManager(AsyncTestCase):
       and_return(flexmock(start=lambda: None))
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
 
-    yield app_manager_server.start_app('test', configuration)
+    yield app_manager_server.start_app('test_default_v1', configuration)
 
   @gen_test
   def test_start_app_goodconfig_java(self):
@@ -153,7 +153,7 @@ class TestAppManager(AsyncTestCase):
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
     flexmock(os).should_receive('listdir').and_return([])
 
-    yield app_manager_server.start_app('test', configuration)
+    yield app_manager_server.start_app('test_default_v1', configuration)
 
   @gen_test
   def test_start_app_failed_copy_java(self):
@@ -187,7 +187,7 @@ class TestAppManager(AsyncTestCase):
       and_raise(IOError)
 
     with self.assertRaises(IOError):
-      yield app_manager_server.start_app('test', configuration)
+      yield app_manager_server.start_app('test_default_v1', configuration)
 
   def test_create_python_app_env(self):
     env_vars = app_manager_server.create_python_app_env('1', '2')
