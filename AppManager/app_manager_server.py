@@ -734,6 +734,7 @@ class InstanceHandler(tornado.web.RequestHandler):
 ################################
 if __name__ == "__main__":
   file_io.set_logging_format()
+  logging.getLogger().setLevel(logging.INFO)
 
   zk_ips = appscale_info.get_zk_node_ips()
   zk_client = KazooClient(hosts=','.join(zk_ips))
@@ -755,4 +756,5 @@ if __name__ == "__main__":
   ])
 
   app.listen(constants.APP_MANAGER_PORT)
+  logging.info('Starting AppManager on {}'.format(constants.APP_MANAGER_PORT))
   IOLoop.current().start()
