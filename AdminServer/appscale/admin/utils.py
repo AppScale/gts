@@ -187,48 +187,52 @@ def extract_source(revision_key, location, runtime):
   app_path = os.path.join(revision_base, 'app')
   ensure_path(app_path)
   # The working directory must be the target in order to validate paths.
+  original_cwd = os.getcwd()
   os.chdir(app_path)
 
-  with tarfile.open(location, 'r:gz') as archive:
-    # Check if the archive is valid before extracting it.
-    has_config = False
-    for file_info in archive:
-      file_name = file_info.name
-      if not canonical_path(file_name).startswith(app_path):
-        raise constants.InvalidSource(
-          'Invalid location in archive: {}'.format(file_name))
-
-      if file_info.issym() or file_info.islnk():
-        if not valid_link(file_name, file_info.linkname, app_path):
+  try:
+    with tarfile.open(location, 'r:gz') as archive:
+      # Check if the archive is valid before extracting it.
+      has_config = False
+      for file_info in archive:
+        file_name = file_info.name
+        if not canonical_path(file_name).startswith(app_path):
           raise constants.InvalidSource(
-            'Invalid link in archive: {}'.format(file_name))
+            'Invalid location in archive: {}'.format(file_name))
 
-      if runtime == JAVA:
-        if file_name.endswith('appengine-web.xml'):
-          has_config = True
-      else:
-        if canonical_path(file_name) == os.path.join(app_path, 'app.yaml'):
-          has_config = True
+        if file_info.issym() or file_info.islnk():
+          if not valid_link(file_name, file_info.linkname, app_path):
+            raise constants.InvalidSource(
+              'Invalid link in archive: {}'.format(file_name))
 
-    if not has_config:
-      if runtime == JAVA:
-        missing_file = 'appengine.web.xml'
-      else:
-        missing_file = 'app.yaml'
-      raise constants.InvalidSource(
-        'Archive must have {}'.format(missing_file))
+        if runtime == JAVA:
+          if file_name.endswith('appengine-web.xml'):
+            has_config = True
+        else:
+          if canonical_path(file_name) == os.path.join(app_path, 'app.yaml'):
+            has_config = True
 
-    archive.extractall(path=app_path)
+      if not has_config:
+        if runtime == JAVA:
+          missing_file = 'appengine.web.xml'
+        else:
+          missing_file = 'app.yaml'
+        raise constants.InvalidSource(
+          'Archive must have {}'.format(missing_file))
 
-  if runtime == GO:
-    try:
-      shutil.move(os.path.join(app_path, 'gopath'), revision_base)
-    except IOError:
-      logging.debug('{} does not have a gopath directory'.format(revision_key))
+      archive.extractall(path=app_path)
 
-  if runtime == JAVA:
-    remove_conflicting_jars(app_path)
-    copy_modified_jars(app_path)
+    if runtime == GO:
+      try:
+        shutil.move(os.path.join(app_path, 'gopath'), revision_base)
+      except IOError:
+        logging.debug('{} does not have a gopath directory'.format(revision_key))
+
+    if runtime == JAVA:
+      remove_conflicting_jars(app_path)
+      copy_modified_jars(app_path)
+  finally:
+    os.chdir(original_cwd)
 
 
 def port_is_open(host, port):
