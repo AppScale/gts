@@ -247,8 +247,10 @@ class TestAppManager(AsyncTestCase):
     flexmock(app_manager_server).should_receive('clean_old_sources').\
       and_return(response)
 
-    flexmock(threading.Thread).should_receive('__new__').and_return(
-      flexmock(start=lambda: None))
+    response = Future()
+    response.set_result(None)
+    flexmock(app_manager_server).should_receive('unmonitor_and_terminate').\
+      and_return(response)
 
     yield app_manager_server.stop_app_instance(version_key, port)
 
