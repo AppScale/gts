@@ -468,48 +468,6 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_log_sending
-    # mock out getting our ip address
-    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4 ")
-
-    node_info = {
-      "public_ip" => "1.2.3.3",
-      "private_ip" => "1.2.3.3",
-      "jobs" => ["shadow", "login"],
-      "instance_id" => "i-000000"
-    }
-    node = DjinnJobData.new(node_info, "boo")
-
-    djinn = Djinn.new()
-    djinn.nodes = [node]
-    djinn.my_index = 0
-    djinn.options = { 'controller_logs_to_dashboard' => 'false' }
-
-    # test that the buffer is initially empty
-    assert_equal([], Djinn.get_logs_buffer())
-
-    # do a couple log statements to populate the buffer
-    Djinn.log_fatal("one")
-    Djinn.log_fatal("two")
-    Djinn.log_fatal("three")
-
-    # and make sure they're in there
-    assert_equal(3, Djinn.get_logs_buffer().length)
-
-    # mock out sending the logs
-    flexmock(Net::HTTP).new_instances { |instance|
-      instance.should_receive(:post).with("/logs/upload", String, Hash)
-    }
-
-    # flush the buffer
-    djinn.flush_log_buffer()
-
-    # make sure our buffer is empty again
-    assert_equal([], Djinn.get_logs_buffer())
-  end
-
-
   def test_relocate_app_but_port_in_use_by_nginx
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
