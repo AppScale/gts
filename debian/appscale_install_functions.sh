@@ -75,14 +75,11 @@ cachepackage() {
     fi
 
     echo "Fetching ${remote_file}"
-    for _ in $(seq 1 5);
-    do
-        if curl ${CURL_OPTS} -o ${CACHED_FILE} -C - "${remote_file}"; then
-            break
-        else
-            echo "Error while downloading ${remote_file}. Trying to resume."
-        fi
-    done
+    if ! curl ${CURL_OPTS} -o ${CACHED_FILE} --retry 5 -C - "${remote_file}";
+    then
+        echo "Error while downloading ${remote_file}"
+        return 1
+    fi
 
     MD5=($(md5sum ${CACHED_FILE}))
     if [ "$MD5" = "$2" ]; then
@@ -92,6 +89,7 @@ cachepackage() {
              "manually, copying it to ${CACHED_FILE}, and re-running the "\
              "build."
         rm ${CACHED_FILE}
+        return 1
     fi
 }
 
