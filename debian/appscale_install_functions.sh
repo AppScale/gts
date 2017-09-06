@@ -75,7 +75,7 @@ cachepackage() {
     fi
 
     echo "Fetching ${remote_file}"
-    for i in `seq 1 5`;
+    for _ in $(seq 1 5);
     do
         if curl ${CURL_OPTS} -o ${CACHED_FILE} -C - "${remote_file}"; then
             break
