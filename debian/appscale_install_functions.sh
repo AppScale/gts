@@ -62,16 +62,35 @@ pipwrapper ()
 # Download a package from a mirror if it's not already cached.
 cachepackage() {
     CACHED_FILE="${PACKAGE_CACHE}/$1"
+    remote_file="${APPSCALE_PACKAGE_MIRROR}/$1"
     mkdir -p ${PACKAGE_CACHE}
     if [ -f ${CACHED_FILE} ]; then
         MD5=($(md5sum ${CACHED_FILE}))
         if [ "$MD5" = "$2" ]; then
             return 0
+        else
+            echo "Incorrect md5sum for ${CACHED_FILE}. Removing it."
+            rm ${CACHED_FILE}
         fi
     fi
 
-    echo "Fetching $1 from $APPSCALE_PACKAGE_MIRROR"
-    curl ${CURL_OPTS} -o ${CACHED_FILE} "${APPSCALE_PACKAGE_MIRROR}/$1"
+    echo "Fetching ${remote_file}"
+    if ! curl ${CURL_OPTS} -o ${CACHED_FILE} --retry 5 -C - "${remote_file}";
+    then
+        echo "Error while downloading ${remote_file}"
+        return 1
+    fi
+
+    MD5=($(md5sum ${CACHED_FILE}))
+    if [ "$MD5" = "$2" ]; then
+        return 0
+    else
+        echo "Unable to download ${remote_file}. Try downloading it "\
+             "manually, copying it to ${CACHED_FILE}, and re-running the "\
+             "build."
+        rm ${CACHED_FILE}
+        return 1
+    fi
 }
 
 # This function is to disable the specify service so that it won't start
