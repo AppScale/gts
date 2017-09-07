@@ -237,24 +237,32 @@ module HAProxy
     if regenerate_config_file(SITES_ENABLED_PATH,
                               BASE_CONFIG_FILE,
                               MAIN_CONFIG_FILE)
-      if MonitInterface.is_running?(:apps_haproxy)
-        Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
-                      " -D -sf `cat #{PIDFILE}`")
-      else
-        self.apps_start
-      end
+      # Ensure the service is monitored and running.
+      self.apps_start
+      Djinn::RETRIES.downto(0) {
+        break if MonitInterface.is_running?(:apps_haproxy)
+        sleep(Djinn::SMALL_WAIT)
+      }
+
+      # Reload with the new configuration file.
+      Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
+                    " -D -sf `cat #{PIDFILE}`")
     end
 
     # Regenerate configuration for the AppScale serices haproxy.
     if regenerate_config_file(SERVICES_SITES_PATH,
                               SERVICES_BASE_FILE,
                               SERVICES_MAIN_FILE)
-      if MonitInterface.is_running?(:service_haproxy)
-        Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
-                      " -D -sf `cat #{SERVICES_PIDFILE}`")
-      else
-        self.services_start
-      end
+      # Ensure the service is monitored and running.
+      self.services_start
+      Djinn::RETRIES.downto(0) {
+        break if MonitInterface.is_running?(:service_haproxy)
+        sleep(Djinn::SMALL_WAIT)
+      }
+
+      # Reload with the new configuration file.
+      Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
+                    " -D -sf `cat #{SERVICES_PIDFILE}`")
     end
   end
 
