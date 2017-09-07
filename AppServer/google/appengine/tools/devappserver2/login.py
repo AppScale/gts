@@ -60,6 +60,9 @@ LOGIN_ACTION = 'login'
 # Name of the cookie that stores the user info.
 _COOKIE_NAME = 'dev_appserver_login'
 
+# Indicates that the user has admin access to all applications.
+CLOUD_ADMIN_MARKER = 'CLOUD_ADMIN'
+
 # The port that the AppDashboard serves HTTPS traffic on.
 DASHBOARD_HTTPS_PORT = "1443"
 
@@ -120,7 +123,7 @@ def _get_user_info_from_dict(cookie_dict, cookie_name=_COOKIE_NAME):
 
   admin_apps = admin.split(',')
   current_app = os.environ['APPLICATION_ID']
-  is_admin = current_app in admin_apps
+  is_admin = current_app in admin_apps or CLOUD_ADMIN_MARKER in admin_apps
   return email, is_admin, nickname
 
 def _create_cookie_data(email, admin):
