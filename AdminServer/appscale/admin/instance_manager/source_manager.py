@@ -159,7 +159,8 @@ class SourceManager(object):
     for revision_key in futures_to_clear:
       del self.source_futures[revision_key]
 
-  def update_secret(self, revision_key):
+  @staticmethod
+  def update_secret(revision_key):
     """ Ensures the revision's secret matches the deployment secret. """
     deployment_secret = get_secret()
     revision_base = os.path.join(UNPACK_ROOT, revision_key)
