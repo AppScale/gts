@@ -190,6 +190,17 @@ def extract_source(revision_key, location, runtime):
   original_cwd = os.getcwd()
   os.chdir(app_path)
 
+  if runtime == JAVA:
+    config_file_name = 'appengine-web.xml'
+
+    def is_version_config(path):
+      return path.endswith(config_file_name)
+  else:
+    config_file_name = 'app.yaml'
+
+    def is_version_config(path):
+      return canonical_path(path) == os.path.join(app_path, config_file_name)
+
   try:
     with tarfile.open(location, 'r:gz') as archive:
       # Check if the archive is valid before extracting it.
@@ -205,20 +216,12 @@ def extract_source(revision_key, location, runtime):
             raise constants.InvalidSource(
               'Invalid link in archive: {}'.format(file_name))
 
-        if runtime == JAVA:
-          if file_name.endswith('appengine-web.xml'):
-            has_config = True
-        else:
-          if canonical_path(file_name) == os.path.join(app_path, 'app.yaml'):
-            has_config = True
+        if is_version_config(file_name):
+          has_config = True
 
       if not has_config:
-        if runtime == JAVA:
-          missing_file = 'appengine.web.xml'
-        else:
-          missing_file = 'app.yaml'
         raise constants.InvalidSource(
-          'Archive must have {}'.format(missing_file))
+          'Archive must have {}'.format(config_file_name))
 
       archive.extractall(path=app_path)
 
