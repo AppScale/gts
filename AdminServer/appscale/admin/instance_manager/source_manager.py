@@ -17,6 +17,8 @@ from ..constants import SOURCES_DIRECTORY
 from ..constants import UNPACK_ROOT
 from ..utils import extract_source
 
+logger = logging.getLogger('appscale-admin')
+
 
 class SourceManager(object):
   """ Fetches and prepares the source code for revisions. """
@@ -89,7 +91,7 @@ class SourceManager(object):
       yield self.thread_pool.submit(self.zk_client.create, new_hoster_node,
                                     md5, makepath=True)
     except NodeExistsError:
-      logging.debug('{} is already a hoster'.format(options.private_ip))
+      logger.debug('{} is already a hoster'.format(options.private_ip))
 
     yield self.thread_pool.submit(extract_source, revision_key, location,
                                   runtime)
@@ -142,7 +144,7 @@ class SourceManager(object):
         if error.errno != errno.ENOENT:
           raise
 
-        logging.debug(
+        logger.debug(
           '{} did not exist when trying to remove it'.format(archive_location))
 
       futures_to_clear.append(revision_key)

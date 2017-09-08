@@ -47,6 +47,8 @@ TASK_SOFT_TIME_LIMIT = 600
 # The worker script for Celery to use.
 WORKER_MODULE = 'appscale.taskqueue.push_worker'
 
+logger = logging.getLogger('appscale-admin')
+
 
 class ProjectPushWorkerManager(object):
   """ Manages the Celery worker for a single project. """
@@ -84,10 +86,10 @@ class ProjectPushWorkerManager(object):
       pidfile = os.path.join(PID_DIR, 'celery-{}.pid'.format(self.project_id))
       create_config_file(self.monit_watch, command, pidfile, env_vars=env_vars,
                          max_memory=CELERY_SAFE_MEMORY)
-      logging.info('Starting push worker for {}'.format(self.project_id))
+      logger.info('Starting push worker for {}'.format(self.project_id))
       yield self.monit_operator.reload()
     else:
-      logging.info('Restarting push worker for {}'.format(self.project_id))
+      logger.info('Restarting push worker for {}'.format(self.project_id))
       yield self.monit_operator.send_command(self.monit_watch, 'restart')
 
     start_future = self.monit_operator.ensure_running(self.monit_watch)

@@ -25,6 +25,8 @@ from .constants import (
 from .instance_manager.utils import copy_modified_jars
 from .instance_manager.utils import remove_conflicting_jars
 
+logger = logging.getLogger('appscale-admin')
+
 
 def assert_fields_in_resource(required_fields, resource_name, resource):
   """ Ensures the resource contains the required fields.
@@ -224,7 +226,7 @@ def extract_source(revision_key, location, runtime):
     try:
       shutil.move(os.path.join(app_path, 'gopath'), revision_base)
     except IOError:
-      logging.debug('{} does not have a gopath directory'.format(revision_key))
+      logger.debug('{} does not have a gopath directory'.format(revision_key))
 
   if runtime == JAVA:
     remove_conflicting_jars(app_path)

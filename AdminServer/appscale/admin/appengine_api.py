@@ -15,6 +15,8 @@ from .base_handler import BaseHandler
 from .constants import CustomHTTPError
 from .utils import queues_from_dict
 
+logger = logging.getLogger('appscale-admin')
+
 
 class UpdateQueuesHandler(BaseHandler):
   """ Handles UpdateQueues operations. """
@@ -54,4 +56,4 @@ class UpdateQueuesHandler(BaseHandler):
         raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                               message='{} not found'.format(project_id))
 
-    logging.info('Updated queues for {}'.format(project_id))
+    logger.info('Updated queues for {}'.format(project_id))
