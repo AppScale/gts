@@ -298,9 +298,11 @@ class AppDashboardData():
     Args:
       app_id: A string, the application identifier.
     """
+    version_key = '_'.join([app_id, AppDashboardHelper.DEFAULT_SERVICE,
+                            AppDashboardHelper.DEFAULT_VERSION])
     try:
-      request_info = self.helper.get_appcontroller_client()\
-                                  .get_request_info(app_id)
+      acc = self.helper.get_appcontroller_client()
+      request_info = acc.get_request_info(version_key)
       timestamp = datetime.datetime.fromtimestamp(request_info.get('timestamp'))
       lastHourDateTime = timestamp - datetime.timedelta(hours=1)
       old_requests_query = RequestInfo.query(RequestInfo.timestamp <

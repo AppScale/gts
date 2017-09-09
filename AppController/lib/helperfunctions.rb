@@ -44,6 +44,10 @@ module HelperFunctions
   APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 
+  # The directory where static version assets are stored.
+  VERSION_ASSETS_DIR = '/var/appscale/version_assets'
+
+
   APPSCALE_KEYS_DIR = "#{APPSCALE_CONFIG_DIR}/keys/cloud1"
 
 
@@ -486,25 +490,22 @@ module HelperFunctions
   # Prepare the application code to be run by AppServers.
   #
   # Args:
-  #   app_name: A String containing the application id.
+  #   revision_key: A String containing the revision key.
   # Raise:
   #   AppScaleException: if the setup failed for whatever reason (ie bad
   #     tarball). The exception message would indicate the error.
-  def self.setup_app(app_name)
-    meta_dir = get_app_path(app_name)
-    tar_dir = "#{meta_dir}/app/"
-    begin
-      version_details = ZKInterface.get_version_details(
-        app_name, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
-    rescue VersionNotFound => error
-      raise AppScaleException.new(error.message)
-    end
-    tar_path = version_details['deployment']['zip']['sourceUrl']
+  def self.setup_revision(revision_key)
+    meta_dir = "#{APPLICATIONS_DIR}/#{revision_key}"
+    tar_dir = "#{meta_dir}/app"
+    return if File.directory?(tar_dir)
 
-    self.shell("mkdir -p #{tar_dir}")
-    self.shell("mkdir -p #{meta_dir}/log")
-    self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
-    self.shell("touch #{meta_dir}/log/server.log")
+    Djinn.fetch_revision(revision_key)
+    tar_path = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
+
+    FileUtils.mkdir_p(tar_dir)
+    FileUtils.mkdir_p("#{meta_dir}/log")
+    FileUtils.cp("#{APPSCALE_HOME}/AppDashboard/setup/404.html", meta_dir)
+    FileUtils.touch("#{meta_dir}/log/server.log")
 
     cmd = "tar -xzf #{tar_path} --force-local --no-same-owner -C #{tar_dir}"
     unless system(cmd)
@@ -903,23 +904,33 @@ module HelperFunctions
       revision_key = File.basename(revision_dir)
 
       # Ignore project directories.
-      next unless revision_key.include?('_')
-      version_keys << revision_key.rpartition('_')[0]
+      next unless revision_key.include?(Djinn::VERSION_PATH_SEPARATOR)
+      version_keys << revision_key.rpartition(Djinn::VERSION_PATH_SEPARATOR)[0]
     }
     return version_keys
   end
 
-  def self.get_app_path(app_name)
-    return "#{APPLICATIONS_DIR}/#{app_name}"
-  end
+  # Retrieves the latest revision directory for a project.
+  #
+  # Args:
+  #   project_id: A string specifying a project ID.
+  # Returns:
+  #   A string specifying the location of the source directory.
+  # Raises:
+  #   AppScaleException when unable to find the source directory.
+  def self.get_source_for_project(project_id)
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
+    rescue VersionNotFound
+      raise AppScaleException.new('Version not found')
+    end
 
-  def self.get_cache_path(app_name)
-    return File.join(get_app_path(app_name),"cache")
-  end
-
-  # The directory where the applications tarball will be extracted to
-  def self.get_untar_dir(app_name)
-    return File.join(get_app_path(app_name),"app")
+    revision_key = [
+      project_id, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION,
+      version_details['revision'].to_s].join(Djinn::VERSION_PATH_SEPARATOR)
+    self.setup_revision(revision_key)
+    return "#{APPLICATIONS_DIR}/#{revision_key}/app"
   end
 
   # Locates WEB-INF folder in an untarred Java app directory.
@@ -949,34 +960,51 @@ module HelperFunctions
   # Finds the path to appengine-web.xml configuration file.
   #
   # Args:
-  #  app: The name of the Java app to be deployed.
+  #  source_dir: The location of the revision's source code.
   #
   # Returns:
   #  The absolute path of the appengine-web.xml configuration file.
-  def self.get_appengine_web_xml(app)
-    return File.join(self.get_web_inf_dir("#{get_app_path(app)}/app"), "/appengine-web.xml")
+  def self.get_appengine_web_xml(source_dir)
+    return File.join(self.get_web_inf_dir(source_dir), "/appengine-web.xml")
   end
 
   # We have the files full path (e.g. ./data/myappname/static/file.txt) but we want is
   # the files path relative to the apps directory (e.g. /static/file.txt).
   # This is the hacky way of getting that.
-  def self.get_relative_filename filename, app_name
-    return filename[get_untar_dir(app_name).length..filename.length]
+  def self.get_relative_filename filename, untar_dir
+    return filename[untar_dir.length..filename.length]
   end
 
-  def self.parse_static_data(app_name, copy_files)
-    untar_dir = get_untar_dir(app_name)
+  def self.parse_static_data(version_key, copy_files)
+    # Retrieve latest source archive if not on this machine.
+    project_id, service_id, version_id = version_key.split(
+      Djinn::VERSION_PATH_SEPARATOR)
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      return []
+    end
+
+    revision_key = [version_key, version_details['revision'].to_s].join(
+      Djinn::VERSION_PATH_SEPARATOR)
+    begin
+      self.setup_revision(revision_key)
+    rescue AppScaleException
+      return []
+    end
+    untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
 
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT
-      return self.parse_java_static_data(app_name)
+      return self.parse_java_static_data(revision_key)
     end
 
     default_expiration = expires_duration(tree["default_expiration"])
 
     # Create the destination cache directory
-    cache_path = get_cache_path(app_name)
+    cache_path = "#{VERSION_ASSETS_DIR}/#{version_key}"
     FileUtils.mkdir_p cache_path
 
     skip_files_regex = DEFAULT_SKIP_FILES_REGEX
@@ -1005,7 +1033,7 @@ module HelperFunctions
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
         if handler["url"] == "/"
-          Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
+          Djinn.log_debug("Remapped path from / to temp_fix for application #{version_key}")
           handler["url"] = "/temp_fix"
         end
 
@@ -1026,7 +1054,7 @@ module HelperFunctions
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
         if handler["url"] == "/"
-          Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
+          Djinn.log_debug("Remapped path from / to temp_fix for application #{version_key}")
           handler["url"] = "/temp_fix"
         end
         # Need to convert all \1 into $1 so that nginx understands it
@@ -1041,7 +1069,7 @@ module HelperFunctions
         filenames = Dir.glob(File.join(untar_dir,"**","*"))
 
         filenames.each do |filename|
-          relative_filename = get_relative_filename(filename,app_name)
+          relative_filename = get_relative_filename(filename, untar_dir)
 
           # Only include files that match the provided upload regular expression
           next unless relative_filename.match(upload_regex)
@@ -1072,35 +1100,29 @@ module HelperFunctions
   # assuming they want to use the default scheme mentioned above.
   #
   # Args:
-  #   app_name: A String containing the name of the application whose static
-  #     file info needs to be generated.
+  #   revision_key: A String containing the revision key.
   # Returns:
   #   An Array of Hashes, where each hash names the URL that a static file will
   #   be accessed at, and the location in the static file directory where the
   #   file can be found.
-  def self.parse_java_static_data(app_name)
-    # Verify that app_name is a Java app.
-    begin
-      version_details = ZKInterface.get_version_details(
-        app_name, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
-    rescue VersionNotFound => error
-      Djinn.log_error(error.message)
-      return []
-    end
+  def self.parse_java_static_data(revision_key)
+    version_key = revision_key.rpartition(Djinn::VERSION_PATH_SEPARATOR)[0]
 
-    tar_gz_location = version_details['deployment']['zip']['sourceUrl']
+    # Verify that revision is a Java app.
+    tar_gz_location = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/" +
+      "#{revision_key}.tar.gz"
     unless self.app_has_config_file?(tar_gz_location)
-      Djinn.log_warn("#{app_name} does not appear to be a Java app")
+      Djinn.log_warn("#{revision_key} does not appear to be a Java app")
       return []
     end
 
     # Walk through all files in the war directory, and add them if (1) they
     # don't end in .jsp and (2) it isn't the WEB-INF directory.
-    cache_path = self.get_cache_path(app_name)
+    cache_path = "#{VERSION_ASSETS_DIR}/#{version_key}"
     FileUtils.mkdir_p(cache_path)
-    Djinn.log_debug("Made static file dir for app #{app_name} at #{cache_path}")
+    Djinn.log_debug("Made static file dir for #{version_key} at #{cache_path}")
 
-    untar_dir = self.get_untar_dir(app_name)
+    untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
     war_dir = self.get_web_inf_dir(untar_dir)
 
     # Copy static files.
@@ -1124,22 +1146,36 @@ module HelperFunctions
     return handlers.compact
   end
 
-  # Parses the app.yaml file for the specified application and returns
+  # Parses the app.yaml file for the specified version and returns
   # any URL handlers with a secure tag. The returns secure tags are
   # put into a hash where the hash key is the value of the secure
   # tag (always or never) and value is a list of handlers.
   # Params:
-  #   app_name Name of the application
+  #   version_key: A string specifying the version key.
   # Returns:
   #   A hash containing lists of secure handlers
-  def self.get_secure_handlers(app_name)
-    Djinn.log_debug("Getting secure handlers for app #{app_name}")
-    untar_dir = get_untar_dir(app_name)
+  def self.get_secure_handlers(version_key)
+    Djinn.log_debug("Getting secure handlers for #{version_key}")
+    project_id, service_id, version_id = version_key.split(
+      Djinn::VERSION_PATH_SEPARATOR)
 
     secure_handlers = {
         :always => [],
         :never => []
     }
+
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      Djinn.log_warn("Skipping secure handlers for #{version_key} because " +
+                     "version node does not exist")
+      return secure_handlers
+    end
+    revision_key = [version_key, version_details['revision'].to_s].join(
+      Djinn::VERSION_PATH_SEPARATOR)
+    self.setup_revision(revision_key)
+    untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
 
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
@@ -1306,40 +1342,25 @@ module HelperFunctions
   end
 
 
-  # Examines the configuration file for the given Google App Engine application
-  # to see if the app is thread safe.
+  # Examines the configuration file for the given version to see if it is
+  # thread safe.
   #
   # Args:
-  #   app: A String that represents the application ID of the app whose config
-  #   file we should read. This arg is expected to have the prefix 'gae_'
-  #   so we know it is a gae app and not an appscale app.
+  #   version_key: A String that specifies the version key.
   # Returns:
   #   Boolean true if the app is thread safe. Boolean false if it is not.
-  def self.get_app_thread_safe(app)
-    if app != AppDashboard::APP_NAME and app.start_with?(GAE_PREFIX) == false
+  def self.get_version_thread_safe(version_key)
+    project_id, service_id, version_id = version_key.split(
+      Djinn::VERSION_PATH_SEPARATOR)
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      # If the version does not exist, assume it is not thread safe.
       return false
     end
-    app = app.sub(GAE_PREFIX, '')
-    app_yaml_file = "#{get_app_path(app)}/app/app.yaml"
-    appengine_web_xml_file = self.get_appengine_web_xml(app)
-    if File.exists?(app_yaml_file)
-      tree = YAML.load_file(app_yaml_file)
-      return tree['threadsafe'] == true
-    elsif File.exists?(appengine_web_xml_file)
-      return_val = "false"
-      xml = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
-      match_data = xml.scan(/<threadsafe>(.*)<\/threadsafe>/)
-      match_data.each { |key_and_val|
-        if key_and_val.length == 1
-          return_val = key_and_val[0]
-        end
-      }
-      return return_val == "true"
-    else
-      Djinn.log_warn("Couldn't find an app configuration file for app " +
-        "#{app}, so assuming it is not threadsafe.")
-      return false
-    end
+
+    return version_details.fetch('threadsafe', true)
   end
 
 

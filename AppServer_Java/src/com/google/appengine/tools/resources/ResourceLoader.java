@@ -67,7 +67,9 @@ public class ResourceLoader
 
     public static String getNginxPort()
     {
-        String portFileLocation = "/etc/appscale/port-" + System.getProperty("APP_NAME") + ".txt";
+        String versionKey = System.getProperty("APP_NAME") + "_" + System.getProperty("MODULE") + "_" +
+                System.getProperty("VERSION");
+        String portFileLocation = "/etc/appscale/port-" + versionKey + ".txt";
         BufferedReader br;
         try {
             br = new BufferedReader(new FileReader(portFileLocation));

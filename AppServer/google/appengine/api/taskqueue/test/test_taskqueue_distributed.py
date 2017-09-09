@@ -114,7 +114,7 @@ class TestTaskqueueDistributed(unittest.TestCase):
     self.assertEquals(None, tqd._Dynamic_Add(FakeAddRequest(), FakeAddResponse()))
 
   def test_dynamic_bulkadd(self):
-    app_id = 'app_id'
+    app_id = 'app-id'
 
     tqd = flexmock(taskqueue_distributed.TaskQueueServiceStub)
     flexmock(taskqueue_service_pb) 
@@ -127,7 +127,7 @@ class TestTaskqueueDistributed(unittest.TestCase):
     tqd = taskqueue_distributed.TaskQueueServiceStub(app_id, "hostname")
 
     port_file = os.path.join(
-      '/', 'etc', 'appscale', 'port-{}.txt'.format(app_id))
+      '/', 'etc', 'appscale', 'port-{}.txt'.format('app-id_default_v1'))
     flexmock(sys.modules['__builtin__']).should_receive('open').\
       with_args(port_file).and_return(flexmock(read=lambda: '80'))
 
