@@ -146,7 +146,7 @@ class FunctionalTestAppDashboard(unittest.TestCase):
       {'table':'fake_database', 'replication':1}
       )
     acc.should_receive('upload_tgz').and_return('true')
-    acc.should_receive('stop_app').and_return('true')
+    acc.should_receive('stop_version').and_return('true')
    
     fake_soap = flexmock(name='fake_soap')
     soap = flexmock(SOAPpy)

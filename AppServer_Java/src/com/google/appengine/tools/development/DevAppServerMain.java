@@ -62,7 +62,6 @@ public class DevAppServerMain
     private String              cookie;
     private String              appscale_version;
     private String              admin_console_version;
-    private static final String PORT_FILE_PREFIX                      = "/etc/appscale/port-";
     private static final String SECRET_LOCATION                       = "/etc/appscale/secret.key";
 
     private final List<Option>  PARSERS                               = buildOptions(this);

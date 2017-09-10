@@ -11,6 +11,7 @@ from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
   LOG_FORMAT,
+  VERSION_PATH_SEPARATOR,
   ZK_PERSISTENT_RECONNECTS
 )
 from appscale.common.monit_interface import MonitOperator
@@ -36,8 +37,7 @@ from .constants import (
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
-  VALID_RUNTIMES,
-  VERSION_PATH_SEPARATOR
+  VALID_RUNTIMES
 )
 from .operation import (
   CreateVersionOperation,
@@ -304,18 +304,22 @@ class VersionsHandler(BaseHandler):
 
     return new_version
 
-  def begin_deploy(self, project_id):
+  def begin_deploy(self, project_id, service_id, version_id):
     """ Triggers the deployment process.
     
     Args:
       project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
     Raises:
       CustomHTTPError if unable to start the deployment process.
     """
+    version_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version_id])
     try:
-      self.acc.update([project_id])
+      self.acc.update([version_key])
     except AppControllerException as error:
-      message = 'Error while updating application: {}'.format(error)
+      message = 'Error while updating version: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
   @gen.coroutine
@@ -360,9 +364,6 @@ class VersionsHandler(BaseHandler):
     self.authenticate()
     version = self.version_from_payload()
 
-    if service_id != constants.DEFAULT_SERVICE:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
-
     version_exists = self.version_exists(project_id, service_id, version['id'])
     revision_key = VERSION_PATH_SEPARATOR.join(
       [project_id, service_id, version['id'], str(version['revision'])])
@@ -388,7 +389,7 @@ class VersionsHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
-    self.begin_deploy(project_id)
+    self.begin_deploy(project_id, service_id, version['id'])
 
     operation = CreateVersionOperation(project_id, service_id, version)
     operations[operation.id] = operation
@@ -553,9 +554,6 @@ class VersionHandler(BaseHandler):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='{} cannot be deleted'.format(project_id))
 
-    if service_id != constants.DEFAULT_SERVICE:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
-
     if version_id != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid version')
 
@@ -578,8 +576,10 @@ class VersionHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
+    version_key = VERSION_PATH_SEPARATOR.join([project_id, service_id,
+                                               version_id])
     try:
-      self.acc.stop_app(project_id)
+      self.acc.stop_version(version_key)
     except AppControllerException as error:
       message = 'Error while stopping application: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)

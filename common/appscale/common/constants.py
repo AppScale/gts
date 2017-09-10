@@ -141,3 +141,7 @@ SMALL_WAIT = 5
 
 # The number of seconds to wait before retrying some operations.
 TINY_WAIT = .1
+
+# The character used to separate portions of a complete version string.
+# (e.g. guestbook_default_v1)
+VERSION_PATH_SEPARATOR = '_'
