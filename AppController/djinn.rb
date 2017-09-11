@@ -4256,7 +4256,7 @@ HOSTS
           next
         end
 
-        Nginx.write_fullproxy_app_config(
+        Nginx.write_fullproxy_version_config(
           version_key, http_port, https_port, my_public, my_private,
           proxy_port, static_handlers, login_ip, app_language)
       end
