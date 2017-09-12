@@ -65,6 +65,15 @@ class AppDashboardHelper(object):
   # The port that the UserAppServer runs on, by default.
   UA_SERVER_PORT = 4343
 
+  # The port that the AdminServer runs on.
+  ADMIN_SERVER_PORT = 17441
+
+  # The default service for a project.
+  DEFAULT_SERVICE = 'default'
+
+  # The default version for a service.
+  DEFAULT_VERSION = 'v1'
+
   # Users have a list of applications that they own stored in their user data.
   # This character is the delimiter that separates them in their data.
   APP_DELIMITER = ":"
@@ -249,6 +258,8 @@ class AppDashboardHelper(object):
       A list of dicts containing host, port, and language information for
         each instance hosting the given application.
     """
+    version_key = '_'.join([app_id, self.DEFAULT_SERVICE,
+                            self.DEFAULT_VERSION])
     try:
       instances = self.get_appcontroller_client().get_instance_info()
       instance_infos = [{
@@ -256,7 +267,7 @@ class AppDashboardHelper(object):
                           'port': instance.get('port'),
                           'language': instance.get('language')
                         } for instance in instances\
-                        if instance.get('appid') == app_id]
+                        if instance.get('versionKey') == version_key]
       return instance_infos
     except Exception as err:
       logging.exception(err)
@@ -471,11 +482,11 @@ class AppDashboardHelper(object):
       raise AppHelperException("There was an error uploading your application: "
                                "{0}".format(failure_message))
 
-  def relocate_app(self, appid, http_port, https_port):
-    """ Relocates a Google App Engine application to different ports.
+  def relocate_version(self, version_key, http_port, https_port):
+    """ Relocates a version to different ports.
 
       Args:
-        appid: The application to be relocated
+        version_key: A string specifying the version to be relocated
         http_port: The HTTP Port to relocate the application to
         https_port: The HTTPS Port to relocate the application to
       Returns:
@@ -485,7 +496,7 @@ class AppDashboardHelper(object):
       """
     acc = self.get_appcontroller_client()
     try:
-      relocate_info = acc.relocate_app(appid, http_port, https_port)
+      relocate_info = acc.relocate_version(version_key, http_port, https_port)
       # Returns:
       # "OK" if the relocation occurred successfully, and a String containing
       # the reason why the relocation failed in all other cases.
@@ -507,11 +518,13 @@ class AppDashboardHelper(object):
       A str indicating whether or not the application was successfully removed
         from this AppScale deployment.
     """
+    version_key = '_'.join([appname, self.DEFAULT_SERVICE,
+                            self.DEFAULT_VERSION])
     try:
       if not self.does_app_exist(appname):
         return "The given application is not currently running."
       acc = self.get_appcontroller_client()
-      ret = acc.stop_app(appname)
+      ret = acc.stop_version(version_key)
       if ret != "true":
         logging.error("AppController returned: {0}".format(ret))
         return "There was an error attempting to remove the application."

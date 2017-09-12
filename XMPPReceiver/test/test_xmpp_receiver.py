@@ -50,7 +50,7 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_port_file = flexmock(name="fake_port_file")
     fake_port_file.should_receive('read').and_return(str(self.app_port))
     fake_open.should_receive('open').with_args('/etc/appscale/port-{0}.txt' \
-      .format(self.appid)).and_return(fake_port_file)
+      .format('{}_default_v1'.format(self.appid))).and_return(fake_port_file)
 
 
   def test_connect_to_xmpp_but_it_is_down(self):

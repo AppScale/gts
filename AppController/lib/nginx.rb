@@ -101,16 +101,17 @@ module Nginx
     return ($?.to_i == 0)
   end
 
-  # Creates a Nginx config file for the provided app name on the load balancer.
+  # Creates a Nginx config file for the provided version on the load balancer.
   # Returns:
   #   boolean: indicates if the nginx configuration has been written.
-  def self.write_fullproxy_app_config(app_name, http_port, https_port,
+  def self.write_fullproxy_version_config(version_key, http_port, https_port,
     my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
     language)
 
-    parsing_log = "Writing proxy for app #{app_name} with language #{language}.\n"
+    parsing_log = "Writing proxy for #{version_key} with language " +
+      "#{language}.\n"
 
-    secure_handlers = HelperFunctions.get_secure_handlers(app_name)
+    secure_handlers = HelperFunctions.get_secure_handlers(version_key)
     parsing_log += "Secure handlers: #{secure_handlers}.\n"
     always_secure_locations = secure_handlers[:always].map { |handler|
       HelperFunctions.generate_secure_location_config(handler, https_port)
@@ -144,7 +145,7 @@ module Nginx
     if language == "java"
       java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
 location ~ /_ah/upload/.* {
-      proxy_pass            http://gae_#{app_name}_blobstore;
+      proxy_pass            http://gae_#{version_key}_blobstore;
       proxy_connect_timeout 600;
       proxy_read_timeout    600;
       client_body_timeout   600;
@@ -164,7 +165,7 @@ location / {
       proxy_set_header      X-Forwarded-Ssl $ssl;
       proxy_set_header      Host $http_host;
       proxy_redirect        off;
-      proxy_pass            http://gae_ssl_#{app_name};
+      proxy_pass            http://gae_ssl_#{version_key};
       proxy_connect_timeout 600;
       proxy_read_timeout    600;
       client_body_timeout   600;
@@ -184,7 +185,7 @@ location / {
       proxy_set_header      X-Forwarded-Ssl $ssl;
       proxy_set_header      Host $http_host;
       proxy_redirect        off;
-      proxy_pass            http://gae_#{app_name};
+      proxy_pass            http://gae_#{version_key};
       proxy_connect_timeout 600;
       proxy_read_timeout    600;
       client_body_timeout   600;
@@ -195,15 +196,15 @@ DEFAULT_CONFIG
 
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
-upstream gae_#{app_name} {
+upstream gae_#{version_key} {
     server #{my_private_ip}:#{proxy_port};
 }
 
-upstream gae_ssl_#{app_name} {
+upstream gae_ssl_#{version_key} {
     server #{my_private_ip}:#{proxy_port};
 }
 
-upstream gae_#{app_name}_blobstore {
+upstream gae_#{version_key}_blobstore {
     server #{my_private_ip}:#{BlobServer::HAPROXY_PORT};
 }
 
@@ -214,19 +215,18 @@ map $scheme $ssl {
 
 server {
     listen      #{http_port};
-    server_name #{my_public_ip}-#{app_name};
+    server_name #{my_public_ip}-#{version_key};
 
-    #root #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}/appscale-#{app_name}.access.log upstream;
+    #access_log #{NGINX_LOG_PATH}/appscale-#{version_key}.access.log upstream;
     #error_log  /dev/null crit;
     access_log  off;
-    error_log   #{NGINX_LOG_PATH}/appscale-#{app_name}.error.log;
+    error_log   #{NGINX_LOG_PATH}/appscale-#{version_key}.error.log;
 
     ignore_invalid_headers off;
     rewrite_log off;
     error_page 404 = /404.html;
-    set $cache_dir #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/cache;
+    set $cache_dir #{HelperFunctions::VERSION_ASSETS_DIR}/#{version_key};
 
     # If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
@@ -248,7 +248,7 @@ server {
 
 server {
     listen      #{https_port};
-    server_name #{my_public_ip}-#{app_name}-ssl;
+    server_name #{my_public_ip}-#{version_key}-ssl;
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate     #{NGINX_PATH}/mycert.pem;
@@ -258,16 +258,15 @@ server {
     error_page 400 https://$host:$server_port$request_uri;
     error_page 497 https://$host:$server_port$request_uri;
 
-    #root #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log #{NGINX_LOG_PATH}/appscale-#{app_name}.access.log upstream;
+    #access_log #{NGINX_LOG_PATH}/appscale-#{version_key}.access.log upstream;
     #error_log  /dev/null crit;
     access_log  off;
-    error_log   #{NGINX_LOG_PATH}/appscale-#{app_name}.error.log;
+    error_log   #{NGINX_LOG_PATH}/appscale-#{version_key}.error.log;
 
     ignore_invalid_headers off;
     rewrite_log off;
-    set $cache_dir #{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/cache;
+    set $cache_dir #{HelperFunctions::VERSION_ASSETS_DIR}/#{version_key};
 
     error_page 404 = /404.html;
 
@@ -288,7 +287,7 @@ server {
 CONFIG
 
     config_path = File.join(SITES_ENABLED_PATH,
-                            "appscale-#{app_name}.#{CONFIG_EXTENSION}")
+                            "appscale-#{version_key}.#{CONFIG_EXTENSION}")
 
     # Let's reload and overwrite only if something changed.
     current = ""
@@ -296,7 +295,7 @@ CONFIG
     if current != config
       Djinn.log_debug(parsing_log)
       File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
-      reload_nginx(config_path, app_name)
+      reload_nginx(config_path, version_key)
       return true
     end
 
@@ -304,19 +303,19 @@ CONFIG
     return false
   end
 
-  def self.reload_nginx(config_path, app_name)
+  def self.reload_nginx(config_path, version_key)
     if Nginx.check_config()
       Nginx.reload()
       return true
     else
-      Djinn.log_error("Unable to load Nginx config for #{app_name}")
+      Djinn.log_error("Unable to load Nginx config for #{version_key}")
       FileUtils.rm_f(config_path)
       return false
     end
   end
 
-  def self.remove_app(app_name)
-    config_name = "appscale-#{app_name}.#{CONFIG_EXTENSION}"
+  def self.remove_version(version_key)
+    config_name = "appscale-#{version_key}.#{CONFIG_EXTENSION}"
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     Nginx.reload()
   end
