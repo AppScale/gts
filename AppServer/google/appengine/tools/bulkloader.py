@@ -1196,15 +1196,36 @@ class MapperItem(KeyRangeItem):
     return transfer_time
 
 
-def IncrementId(high_id_key):
-  """Increment unique id counter associated with high_id_key beyond high_id_key.
+def ConvertKeys(keys):
+  """Convert a list of keys to a list of keys with the app_id of the caller.
 
   Args:
-    high_id_key: A key with a full path to the desired kind and id
-        value to which to increment the unique id counter beyond.
+    keys: A list of datastore Entity Keys.
+
+  Returns:
+    A new list of keys in the same order as the input with app_id set to the
+    default app_id in the calling context. Whichever input keys were already
+    of this app_id are copied by reference.
   """
-  unused_start, end = datastore.AllocateIds(high_id_key, max=high_id_key.id())
-  assert end >= high_id_key.id()
+  def ChangeApp(key, app_id):
+    if key.app() == app_id:
+      return key
+    return datastore.Key.from_path(namespace=key.namespace(),
+                                   _app=app_id, *key.to_path())
+
+  app_id = datastore.Key.from_path('kind', 'name').app()
+  return [ChangeApp(key, app_id) for key in keys]
+
+
+def ReserveKeys(keys):
+  """Reserve all ids in the paths of the given keys.
+
+  Args:
+    keys: A list of keys with ids in their paths, for which the corresponding
+        id sequences should be advanced to prevent id collisions.
+  """
+
+  datastore._GetConnection()._reserve_keys(ConvertKeys(keys))
 
 
 def _AuthFunction(host, email, passin, raw_input_fn, password_input_fn):
@@ -1343,18 +1364,16 @@ class RequestManager(object):
     return _AuthFunction(self.host, self.email, self.passin,
                          raw_input_fn, password_input_fn)
 
-  def IncrementId(self, ancestor_path, kind, high_id):
-    """Increment the unique id counter associated with ancestor_path and kind.
+  def ReserveKeys(self, keys):
+    """Reserve all ids in the paths of the given keys.
 
     Args:
-      ancestor_path: A list encoding the path of a key.
-      kind: The string name of a kind.
-      high_id: The int value to which to increment the unique id counter.
+      keys: A list of keys with ids in their paths, for which the corresponding
+          id sequences should be advanced to prevent id collisions.
     """
     if self.dry_run:
       return
-    high_id_key = datastore.Key.from_path(*(ancestor_path + [kind, high_id]))
-    IncrementId(high_id_key)
+    ReserveKeys(keys)
 
   def GetSchemaKinds(self):
     """Returns the list of kinds for this app."""
@@ -2673,13 +2692,14 @@ class Loader(object):
     """
     Loader.__loaders[loader.kind] = loader
 
-  def get_high_ids(self):
-    """Returns dict {ancestor_path : {kind : id}} with high id values.
+  def get_keys_to_reserve(self):
+    """Returns keys with ids in their paths to be reserved.
 
-    The returned dictionary is used to increment the id counters
-    associated with each ancestor_path and kind to be at least id.
+    Returns:
+      A list of keys used to advance the id sequences associated with
+      each id to prevent collisions with future ids.
     """
-    return {}
+    return []
 
   def alias_old_names(self):
     """Aliases method names so that Loaders defined with old names work."""
@@ -2887,39 +2907,38 @@ class RestoreLoader(Loader):
     self.queue = Queue.Queue(1000)
     restore_thread = RestoreThread(self.queue, filename)
     restore_thread.start()
-    self.high_id_table = self._find_high_id(self.generate_records(filename))
+    self.keys_to_reserve = self._find_keys_to_reserve(
+        self.generate_records(filename))
     restore_thread = RestoreThread(self.queue, filename)
     restore_thread.start()
 
-  def get_high_ids(self):
-    return dict(self.high_id_table)
+  def get_keys_to_reserve(self):
+    """Returns keys with ids in their paths to be reserved.
 
-  def _find_high_id(self, record_generator):
-    """Find the highest numeric id used for each ancestor-path, kind pair.
+    Returns:
+      A list of keys used to advance the id sequences associated with
+      each id to prevent collisions with future ids.
+    """
+    return self.keys_to_reserve
+
+  def _find_keys_to_reserve(self, record_generator):
+    """Find all entity keys with ids in their paths.
 
     Args:
       record_generator: A generator of entity_encoding strings.
 
     Returns:
-      A map from ancestor-path to maps from kind to id. {path : {kind : id}}
+      A list of keys to reserve.
     """
-    high_id = {}
+    keys_to_reserve = []
     for values in record_generator:
       entity = self.create_entity(values)
       key = entity.key()
-
-      if not key.id():
-        continue
-      kind = key.kind()
-      ancestor_path = []
-      if key.parent():
-        ancestor_path = key.parent().to_path()
-      if tuple(ancestor_path) not in high_id:
-        high_id[tuple(ancestor_path)] = {}
-      kind_map = high_id[tuple(ancestor_path)]
-      if kind not in kind_map or kind_map[kind] < key.id():
-        kind_map[kind] = key.id()
-    return high_id
+      for id_or_name in key.to_path()[1::2]:
+        if isinstance(id_or_name, (int, long)):
+          keys_to_reserve.append(key)
+          break
+    return keys_to_reserve
 
   def generate_records(self, filename):
     while True:
@@ -3582,10 +3601,7 @@ class BulkUploaderApp(BulkTransporterApp):
 
   def RunPostAuthentication(self):
     loader = Loader.RegisteredLoader(self.kind)
-    high_id_table = loader.get_high_ids()
-    for ancestor_path, kind_map in high_id_table.iteritems():
-      for kind, high_id in kind_map.iteritems():
-        self.request_manager.IncrementId(list(ancestor_path), kind, high_id)
+    self.request_manager.ReserveKeys(loader.get_keys_to_reserve())
     return [self.kind]
 
   def ReportStatus(self):
@@ -3824,7 +3840,7 @@ def LoadYamlConfig(config_file_name):
     config_file_name: The name of the configuration file.
   """
   (loaders, exporters) = bulkloader_config.load_config(config_file_name,
-                                                       increment_id=IncrementId)
+                                                       reserve_keys=ReserveKeys)
   for cls in loaders:
     Loader.RegisterLoader(cls())
   for cls in exporters:

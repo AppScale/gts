@@ -67,6 +67,8 @@ from google.appengine.api import datastore_types
 
 from google.appengine.api.app_identity import app_identity
 from google.appengine.datastore import datastore_pb
+from google.appengine.datastore import datastore_v4a_pb
+from google.appengine.datastore import entity_v4_pb
 from google.appengine.runtime import apiproxy_errors
 
 
@@ -675,6 +677,14 @@ class Configuration(BaseConfiguration):
     return value
 
   @ConfigOption
+  def max_allocate_ids_keys(value):
+    """The maximum number of keys in a v4 AllocateIds rpc."""
+    if not (isinstance(value, (int, long)) and value > 0):
+      raise datastore_errors.BadArgumentError(
+          'max_allocate_ids_keys should be a positive integer')
+    return value
+
+  @ConfigOption
   def max_rpc_bytes(value):
     """The maximum serialized size of a Get/Put/Delete without batching."""
     if not (isinstance(value, (int, long)) and value > 0):
@@ -1087,11 +1097,12 @@ class BaseConnection(object):
 
 
 
-  def create_rpc(self, config=None):
+  def create_rpc(self, config=None, service_name='datastore_v3'):
     """Create an RPC object using the configuration parameters.
 
     Args:
       config: Optional Configuration object.
+      service_name: Optional datastore service name.
 
     Returns:
       A new UserRPC object with the designated settings.
@@ -1114,7 +1125,7 @@ class BaseConnection(object):
 
       def callback():
         return on_completion(rpc)
-    rpc = apiproxy_stub_map.UserRPC('datastore_v3', deadline, callback)
+    rpc = apiproxy_stub_map.UserRPC(service_name, deadline, callback)
     return rpc
 
   def _set_request_read_policy(self, request, config=None):
@@ -1165,7 +1176,8 @@ class BaseConnection(object):
     return None
 
   def make_rpc_call(self, config, method, request, response,
-                get_result_hook=None, user_data=None):
+                    get_result_hook=None, user_data=None,
+                    service_name='datastore_v3'):
     """Make an RPC call.
 
     Except for the added config argument, this is a thin wrapper
@@ -1192,7 +1204,7 @@ class BaseConnection(object):
     if isinstance(config, apiproxy_stub_map.UserRPC):
       rpc = config
     else:
-      rpc = self.create_rpc(config)
+      rpc = self.create_rpc(config, service_name)
     rpc.make_call(method, request, response, get_result_hook, user_data)
     self._add_pending(rpc)
     return rpc
@@ -1231,6 +1243,7 @@ class BaseConnection(object):
   MAX_GET_KEYS = 1000
   MAX_PUT_ENTITIES = 500
   MAX_DELETE_KEYS = 500
+  MAX_ALLOCATE_IDS_KEYS = 500
 
 
   DEFAULT_MAX_ENTITY_GROUPS_PER_RPC = 10
@@ -1243,32 +1256,51 @@ class BaseConnection(object):
     return Configuration.max_entity_groups_per_rpc(
         config, self.__config) or self.DEFAULT_MAX_ENTITY_GROUPS_PER_RPC
 
-  def __extract_entity_group(self, value):
+  def _extract_entity_group(self, value):
     """Internal helper: extracts the entity group from a key or entity."""
     if isinstance(value, entity_pb.EntityProto):
       value = value.key()
     return value.path().element(0)
 
-  def __group_indexed_pbs_by_entity_group(self, values, value_to_pb):
+  def _map_and_group(self, values, map_fn, group_fn):
+    """Internal helper: map values to keys and group by key. Here key is any
+    object derived from an input value by map_fn, and which can be grouped
+    by group_fn.
+
+    Args:
+      values: The values to be grouped by applying get_group(to_ref(value)).
+      map_fn: a function that maps a value to a key to be grouped.
+      group_fn: a function that groups the keys output by map_fn.
+
+    Returns:
+      A list where each element is a list of (key, index) pairs.  Here
+      index is the location of the value from which the key was derived in
+      the original list.
+    """
+    indexed_key_groups = collections.defaultdict(list)
+    for index, value in enumerate(values):
+      key = map_fn(value)
+      indexed_key_groups[group_fn(key)].append((key, index))
+    return indexed_key_groups.values()
+
+  def __group_indexed_pbs_by_entity_group(self, values, to_ref):
     """Internal helper: group pbs by entity group.
 
     Args:
       values: The values to be grouped by entity group.
-      value_to_pb: A function that translates a value to a pb.
+      to_ref: A function that translates a value to a Reference pb.
 
     Returns:
       A list where each element is a list of (pb, index) pairs.  Here index is
       the location of the value from which pb was derived in the original list.
     """
-    indexed_pbs_by_entity_group = collections.defaultdict(list)
-    for index, value in enumerate(values):
-      pb = value_to_pb(value)
-      eg = self.__extract_entity_group(pb)
+    def get_entity_group(ref):
+      eg = self._extract_entity_group(ref)
 
 
-      uid = (eg.type(), eg.id() or eg.name() or ('new', id(eg)))
-      indexed_pbs_by_entity_group[uid].append((pb, index))
-    return indexed_pbs_by_entity_group.values()
+      return (eg.type(), eg.id() or eg.name() or ('new', id(eg)))
+
+    return self._map_and_group(values, to_ref, get_entity_group)
 
   def __create_result_index_pairs(self, indexes):
     """Internal helper: build a function that ties an index with each result.
@@ -1305,13 +1337,13 @@ class BaseConnection(object):
       return results
     return sort_result_index_pairs
 
-  def __generate_pb_lists(self, indexed_pb_lists_by_eg, base_size, max_count,
-                          max_egs_per_rpc, config):
+  def _generate_pb_lists(self, grouped_values, base_size, max_count,
+                         max_groups, config):
     """Internal helper: repeatedly yield a list of 2 elements.
 
     Args:
-      indexed_pb_lists_by_eg: A list of lists.  The inner lists consist of
-        objects that all belong to the same entity group.
+      grouped_values: A list of lists.  The inner lists consist of objects
+        grouped by e.g. entity group or id sequence.
 
       base_size: An integer representing the base size of an rpc.  Used for
         splitting operations across multiple RPCs due to size limitations.
@@ -1319,10 +1351,10 @@ class BaseConnection(object):
       max_count: An integer representing the maximum number of objects we can
         send in an rpc.  Used for splitting operations across multiple RPCs.
 
-      max_egs_per_rpc: An integer representing the maximum number of entity
-        groups we can have represented in an rpc.  Can be None.
+      max_groups: An integer representing the maximum number of groups we can
+        have represented in an rpc.  Can be None, in which case no constraint.
 
-      config: The config object to use.
+      config: The config object, defining max rpc size in bytes.
 
     Yields:
       Repeatedly yields 2 element tuples.  The first element is a list of
@@ -1335,15 +1367,15 @@ class BaseConnection(object):
     pbs = []
     pb_indexes = []
     size = base_size
-    num_entity_groups = 0
-    for indexed_pbs in indexed_pb_lists_by_eg:
-      num_entity_groups += 1
-      if max_egs_per_rpc is not None and num_entity_groups > max_egs_per_rpc:
+    num_groups = 0
+    for indexed_pbs in grouped_values:
+      num_groups += 1
+      if max_groups is not None and num_groups > max_groups:
         yield (pbs, pb_indexes)
         pbs = []
         pb_indexes = []
         size = base_size
-        num_entity_groups = 1
+        num_groups = 1
       for indexed_pb in indexed_pbs:
         (pb, index) = indexed_pb
 
@@ -1358,7 +1390,7 @@ class BaseConnection(object):
           pbs = []
           pb_indexes = []
           size = base_size
-          num_entity_groups = 1
+          num_groups = 1
         pbs.append(pb)
         pb_indexes.append(index)
         size += incr_size
@@ -1433,7 +1465,7 @@ class BaseConnection(object):
 
 
 
-    pbsgen = self.__generate_pb_lists(
+    pbsgen = self._generate_pb_lists(
         indexed_keys_by_entity_group, base_size, max_count, max_egs_per_rpc,
         config)
 
@@ -1553,7 +1585,7 @@ class BaseConnection(object):
     else:
       max_egs_per_rpc = None
 
-    pbsgen = self.__generate_pb_lists(
+    pbsgen = self._generate_pb_lists(
         indexed_entities_by_entity_group, base_size, max_count, max_egs_per_rpc,
         config)
 
@@ -1628,7 +1660,7 @@ class BaseConnection(object):
 
 
 
-    pbsgen = self.__generate_pb_lists(
+    pbsgen = self._generate_pb_lists(
         indexed_keys_by_entity_group, base_size, max_count, max_egs_per_rpc,
         config)
     rpcs = []
@@ -1696,7 +1728,7 @@ class Connection(BaseConnection):
   """Transaction-less connection class.
 
   This contains those operations that are not allowed on transactional
-  connections.  (Currently only allocate_ids.)
+  connections.  (Currently only allocate_ids and reserve_key_ids.)
   """
 
   @_positional(1)
@@ -1732,6 +1764,38 @@ class Connection(BaseConnection):
 
 
 
+  def __to_v4_key(self, ref):
+    """Convert a valid v3 Reference pb to a v4 Key pb."""
+    key = entity_v4_pb.Key()
+    key.mutable_partition_id().set_dataset_id(ref.app())
+    if ref.name_space():
+      key.mutable_partition_id().set_namespace(ref.name_space())
+    for el_v3 in ref.path().element_list():
+      el_v4 = key.add_path_element()
+      el_v4.set_kind(el_v3.type())
+      if el_v3.has_id():
+        el_v4.set_id(el_v3.id())
+      if el_v3.has_name():
+        el_v4.set_name(el_v3.name())
+    return key
+
+  def __to_v3_reference(self, key):
+    """Convert a valid v4 Key pb to a v3 Reference pb."""
+    ref = entity_pb.Reference()
+    ref.set_app(key.partition_id().dataset_id())
+    if key.partition_id().has_namespace():
+      ref.set_name_space(key.partition_id().namespace())
+    for el_v4 in key.path_element_list():
+      el_v3 = ref.mutable_path().add_element()
+      el_v3.set_type(el_v4.kind())
+      if el_v4.has_id():
+        el_v3.set_id(el_v4.id())
+      if el_v4.has_name():
+        el_v3.set_name(el_v4.name())
+    return ref
+
+
+
   def allocate_ids(self, key, size=None, max=None):
     """Synchronous AllocateIds operation.
 
@@ -1749,7 +1813,7 @@ class Connection(BaseConnection):
 
   def async_allocate_ids(self, config, key, size=None, max=None,
                          extra_hook=None):
-    """Asynchronous Get operation.
+    """Asynchronous AllocateIds operation.
 
     Args:
       config: A Configuration object or None.  Defaults are taken from
@@ -1803,6 +1867,62 @@ class Connection(BaseConnection):
     return pair
 
 
+
+  def _reserve_keys(self, keys):
+    """Synchronous AllocateIds operation to reserve the given keys.
+
+    Sends one or more v4 AllocateIds rpcs with keys to reserve.
+    Reserved keys must be complete and must have valid ids.
+
+    Args:
+      keys: Iterable of user-level keys.
+    """
+    self._async_reserve_keys(None, keys).get_result()
+
+  def _async_reserve_keys(self, config, keys, extra_hook=None):
+    """Asynchronous AllocateIds operation to reserve the given keys.
+
+    Sends one or more v4 AllocateIds rpcs with keys to reserve.
+    Reserved keys must be complete and must have valid ids.
+
+    Args:
+      config: A Configuration object or None to use Connection default.
+      keys: Iterable of user-level keys.
+      extra_hook: Optional function to be called on rpc result.
+
+    Returns:
+      None, or the result of user-supplied extra_hook.
+    """
+    def to_id_key(key):
+      if key.path().element_size() == 1:
+        return 'root_idkey'
+      else:
+        eg = self._extract_entity_group(key)
+        return (eg.type(), eg.id() or eg.name())
+
+    keys_by_idkey = self._map_and_group(keys, self.__adapter.key_to_pb,
+                                        to_id_key)
+    max_count = (Configuration.max_allocate_ids_keys(config, self.__config) or
+                 self.MAX_ALLOCATE_IDS_KEYS)
+
+    rpcs = []
+    pbsgen = self._generate_pb_lists(keys_by_idkey, 0, max_count, None, config)
+    for pbs, _ in pbsgen:
+      req = datastore_v4a_pb.AllocateIdsRequest()
+      req.reserve_list().extend([self.__to_v4_key(key) for key in pbs])
+      resp = datastore_v4a_pb.AllocateIdsResponse()
+      rpcs.append(self.make_rpc_call(config, 'AllocateIds', req, resp,
+                                     self.__reserve_keys_hook, extra_hook,
+                                     'datastore_v4'))
+    return MultiRpc(rpcs)
+
+  def __reserve_keys_hook(self, rpc):
+    """Internal get_result_hook for _reserve_keys."""
+    self.check_rpc_success(rpc)
+    if rpc.user_data is not None:
+      return rpc.user_data(rpc.response)
+
+
 class TransactionOptions(Configuration):
   """An immutable class that contains options for a transaction."""
 
@@ -1810,8 +1930,8 @@ class TransactionOptions(Configuration):
   """Create a nested transaction under an existing one."""
 
   MANDATORY = 2
-  """Always propagate an exsiting transaction, throw an exception if there is no
-  exsiting transaction."""
+  """Always propagate an existing transaction, throw an exception if there is
+  no existing transaction."""
 
   ALLOWED = 3
   """If there is an existing transaction propagate it."""
