@@ -75,6 +75,10 @@ class AppDashboardHelper(object):
   # The default version for a service.
   DEFAULT_VERSION = 'v1'
 
+  # The character used to separate portions of a complete version string.
+  # (e.g. guestbook_default_v1)
+  VERSION_PATH_SEPARATOR = '_'
+
   # Users have a list of applications that they own stored in their user data.
   # This character is the delimiter that separates them in their data.
   APP_DELIMITER = ":"
@@ -286,27 +290,27 @@ class AppDashboardHelper(object):
     """
     try:
       status_on_all_nodes = self.get_appcontroller_client().get_cluster_stats()
-      app_names_and_urls = {}
+      version_names_and_urls = {}
 
       if not status_on_all_nodes:
         return {}
 
       for status in status_on_all_nodes:
-        for app, done_loading in status['apps'].iteritems():
-          if app == self.NO_APPS_RUNNING:
+        for version_key, done_loading in status['apps'].iteritems():
+          if version_key == self.NO_APPS_RUNNING:
             continue
           if done_loading:
             try:
               host_url = self.get_login_ip()
-              ports = self.get_app_ports(app)
-              app_names_and_urls[app] = [
+              ports = self.get_version_ports(version_key)
+              version_names_and_urls[version_key] = [
                 "http://{0}:{1}".format(host_url, ports[0]),
                 "https://{0}:{1}".format(host_url, ports[1])]
             except AppHelperException:
-              app_names_and_urls[app] = None
+              version_names_and_urls[version_key] = None
           else:
-            app_names_and_urls[app] = None
-      return app_names_and_urls
+            version_names_and_urls[version_key] = None
+      return version_names_and_urls
     except Exception as err:
       logging.exception(err)
       return {}
@@ -380,7 +384,7 @@ class AppDashboardHelper(object):
       return ''
     return login_property.get('login')
 
-  def get_app_ports(self, appname):
+  def get_version_ports(self, version_key):
     """ Queries the UserAppServer to learn which port the named application runs
     on.
 
@@ -389,18 +393,20 @@ class AppDashboardHelper(object):
     login service.
 
     Args:
-      appname: A str that indicates which application we want to find a hosted
+      version_key: A str that indicates which version we want to find a hosted
         port for.
     Returns:
-      A list that indicates which ports the named app runs on. ex. [8080,1443]
+      A list that indicates which ports the version runs on. ex. [8080,1443]
     Raises:
-      AppHelperException: If the named application is not running in this
+      AppHelperException: If the version is not running in this
         AppScale deployment, or if it is running but does not have a port
         assigned to it.
     """
+    project_id, service_id, version_id = version_key.split(
+      self.VERSION_PATH_SEPARATOR)
     admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
     version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
-      admin_server, appname, self.DEFAULT_SERVICE, self.DEFAULT_VERSION)
+      admin_server, project_id, service_id, version_id)
     result = urlfetch.fetch(version_url,
                             headers={'AppScale-Secret': GLOBAL_SECRET_KEY},
                             validate_certificate = False)
