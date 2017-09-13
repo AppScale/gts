@@ -37,6 +37,7 @@ from .constants import (
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
+  ServingStatus,
   VALID_RUNTIMES
 )
 from .operation import (
@@ -538,6 +539,32 @@ class VersionHandler(BaseHandler):
       self.version_update_lock.release()
 
     raise gen.Return(version)
+
+  def get(self, project_id, service_id, version_id):
+    """ Gets the specified version resource.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    """
+    self.authenticate()
+
+    version_details = self.get_version(project_id, service_id, version_id)
+
+    # Hide details that aren't needed for the public API.
+    version_details.pop('revision', None)
+    version_details.get('appscaleExtensions', {}).pop('haproxyPort', None)
+
+    http_port = version_details['appscaleExtensions']['httpPort']
+    response = {
+      'name': 'apps/{}/services/{}/versions/{}'.format(project_id, service_id,
+                                                       version_id),
+      'servingStatus': ServingStatus.SERVING,
+      'versionUrl': 'http://{}:{}'.format(options.login_ip, http_port)
+    }
+    response.update(version_details)
+    self.write(json_encode(response))
 
   @gen.coroutine
   def delete(self, project_id, service_id, version_id):
