@@ -50,35 +50,23 @@ class DatastoreV4Stub(apiproxy_stub.APIProxyStub):
 
   THREADSAFE = False
 
+  _ACCEPTS_REQUEST_ID = True
+
   def __init__(self, app_id):
     apiproxy_stub.APIProxyStub.__init__(self, SERVICE_NAME)
     self.__app_id = app_id
     self.__entity_converter = datastore_pbs.get_entity_converter()
     self.__service_validator = datastore_v4_validator.get_service_validator()
 
-  def _Dynamic_AllocateIds(self, req, resp):
+  def _Dynamic_AllocateIds(self, req, resp, request_id=None):
     v3_stub = apiproxy_stub_map.apiproxy.GetStub(V3_SERVICE_NAME)
     try:
       self.__service_validator.validate_allocate_ids_req(req)
-
-      if req.allocate_list():
-        v3_refs = self.__entity_converter.v4_to_v3_references(
-            req.allocate_list())
-
-        v3_full_refs = v3_stub._AllocateIds(v3_refs)
-        resp.allocated_list().extend(
-            self.__entity_converter.v3_to_v4_keys(v3_full_refs))
-      elif req.reserve_list():
-        v3_refs = self.__entity_converter.v4_to_v3_references(
-            req.reserve_list())
-
-        v3_stub._AllocateIds(v3_refs)
-    except datastore_pbs.InvalidConversionError, e:
-      raise apiproxy_errors.ApplicationError(
-          datastore_v4_pb.Error.BAD_REQUEST, str(e))
     except datastore_v4_validator.ValidationError, e:
       raise apiproxy_errors.ApplicationError(
-          datastore_v4_pb.Error.BAD_REQUEST, str(e))
+        datastore_v4_pb.Error.BAD_REQUEST, str(e))
+
+    v3_stub._RemoteSend(req, resp, 'datastore_v4.AllocateIds', request_id)
 
   def __make_v3_call(self, method, v3_req, v3_resp):
     apiproxy_stub_map.MakeSyncCall(V3_SERVICE_NAME, method, v3_req, v3_resp)
