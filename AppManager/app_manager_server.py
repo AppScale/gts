@@ -471,10 +471,12 @@ def stop_app(version_key):
       os.remove(config_file)
     except OSError:
       logging.exception('Error removing {}'.format(config_file))
-
-  if not remove_logrotate(project_id):
-    logging.error("Error while setting up log rotation for application: {}".
-      format(project_id))
+  try:
+    projects_manager[project_id]
+  except KeyError:
+    if not remove_logrotate(project_id):
+      logging.error("Error while setting up log rotation for application: {}".
+                    format(project_id))
 
   yield clean_old_sources()
 

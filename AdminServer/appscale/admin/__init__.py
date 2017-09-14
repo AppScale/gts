@@ -40,6 +40,8 @@ from .constants import (
   VALID_RUNTIMES
 )
 from .operation import (
+  DeleteProjectOperation,
+  DeleteServiceOperation,
   CreateVersionOperation,
   DeleteVersionOperation,
   UpdateVersionOperation
@@ -112,12 +114,12 @@ def wait_for_deploy(operation_id, acc):
 
 
 @gen.coroutine
-def wait_for_delete(operation_id, http_port):
-  """ Tracks the progress of removing a version.
+def wait_for_delete(operation_id, ports_to_close):
+  """ Tracks the progress of removing version(s).
 
   Args:
     operation_id: A string specifying the operation ID.
-    http_port: An integer specifying the version's port.
+    ports_to_close: A list of integers specifying the ports to wait for.
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
@@ -129,18 +131,197 @@ def wait_for_delete(operation_id, http_port):
   start_time = time.time()
   deadline = start_time + constants.MAX_OPERATION_TIME
 
+  finished = 0
+  ports = ports_to_close[:]
   while True:
     if time.time() > deadline:
       message = 'Delete operation took too long.'
       operation.set_error(message)
       raise OperationTimeout(message)
-
-    if not utils.port_is_open(options.login_ip, http_port):
+    to_remove = []
+    for http_port in ports:
+      if not utils.port_is_open(options.login_ip, int(http_port)):
+        finished += 1
+        to_remove.append(http_port)
+      else:
+        continue
+    ports = [p for p in ports if p not in to_remove]
+    if finished == len(ports_to_close):
       break
 
     yield gen.sleep(1)
 
   operation.finish()
+
+
+class BaseVersionHandler(BaseHandler):
+
+  def get_version(self, project_id, service_id, version_id):
+    """ Fetches a version node.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    Returns:
+      A dictionary containing version details.
+    """
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id, version_id=version_id)
+
+    try:
+      version_json, _ = self.zk_client.get(version_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Version not found')
+
+    return json.loads(version_json)
+
+  @gen.coroutine
+  def start_delete_version(self, project_id, service_id, version_id):
+    version = self.get_version(project_id, service_id, version_id)
+    try:
+      http_port = int(version['appscaleExtensions']['httpPort'])
+    except KeyError:
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Version serving port not found')
+
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id, version_id=version_id)
+
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      try:
+        self.zk_client.delete(version_node)
+      except NoNodeError:
+        pass
+    finally:
+      self.version_update_lock.release()
+
+    version_key = VERSION_PATH_SEPARATOR.join([project_id, service_id,
+                                               version_id])
+    try:
+      self.acc.stop_version(version_key)
+    except AppControllerException as error:
+      message = 'Error while stopping application: {}'.format(error)
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+
+    raise gen.Return(http_port)
+
+
+class ProjectHandler(BaseVersionHandler):
+  """ Manages application. """
+
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
+    """ Defines required resources to handle requests.
+
+    Args:
+      acc: An AppControllerClient.
+      ua_client: A UAClient.
+      zk_client: A KazooClient.
+      version_update_lock: A kazoo lock.
+      thread_pool: A ThreadPoolExecutor.
+    """
+    self.acc = acc
+    self.ua_client = ua_client
+    self.zk_client = zk_client
+    self.version_update_lock = version_update_lock
+    self.thread_pool = thread_pool
+
+  @gen.coroutine
+  def delete(self, project_id):
+    """ Deletes a project.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    project_path = '/appscale/projects/{0}'.format(project_id)
+    self.zk_client.exists(project_path)
+    ports_to_close = []
+    # Delete each version of each service of the project.
+    for service_id in \
+        self.zk_client.get_children("{0}/services".format(project_path)):
+      for version_id in self.zk_client.get_children(
+          "{0}/services/{1}/versions".format(project_path, service_id)):
+
+        port = yield self.start_delete_version(project_id, service_id,
+                                               version_id)
+        ports_to_close.append(port)
+
+    del_operation = DeleteProjectOperation(project_id)
+    operations[del_operation.id] = del_operation
+
+    IOLoop.current().spawn_callback(wait_for_delete,
+                                    del_operation.id, ports_to_close)
+
+    # Cleanup the project in zookeeper.
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      try:
+        self.zk_client.delete(project_path, recursive=True)
+      except NoNodeError:
+        pass
+    finally:
+      self.version_update_lock.release()
+
+    self.write(json_encode(del_operation.rest_repr()))
+
+
+class ServiceHandler(BaseVersionHandler):
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
+    """ Defines required resources to handle requests.
+
+    Args:
+      acc: An AppControllerClient.
+      ua_client: A UAClient.
+      zk_client: A KazooClient.
+      version_update_lock: A kazoo lock.
+      thread_pool: A ThreadPoolExecutor.
+    """
+    self.acc = acc
+    self.ua_client = ua_client
+    self.zk_client = zk_client
+    self.version_update_lock = version_update_lock
+    self.thread_pool = thread_pool
+
+  @gen.coroutine
+  def delete(self, project_id, service_id):
+    """ Deletes a service.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+    """
+    service_path = '/appscale/projects/{0}/services/{1}'.format(project_id,
+                                                                service_id)
+    self.zk_client.exists(service_path)
+    ports_to_close = []
+    # Delete each version of the service.
+    for version_id in self.zk_client.get_children(
+        "{0}/versions".format(service_path, service_id)):
+
+      port = yield self.start_delete_version(project_id, service_id,
+                                             version_id)
+      ports_to_close.append(port)
+
+    del_operation = DeleteServiceOperation(project_id, service_id)
+    operations[del_operation.id] = del_operation
+
+    IOLoop.current().spawn_callback(wait_for_delete,
+                                    del_operation.id, ports_to_close)
+
+    # Cleanup the service in zookeeper.
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      try:
+        self.zk_client.delete(service_path, recursive=True)
+      except NoNodeError:
+        pass
+    finally:
+      self.version_update_lock.release()
+
+    self.write(json_encode(del_operation.rest_repr()))
 
 
 class VersionsHandler(BaseHandler):
@@ -433,7 +614,7 @@ class VersionsHandler(BaseHandler):
     self.write(json_encode(operation.rest_repr()))
 
 
-class VersionHandler(BaseHandler):
+class VersionHandler(BaseVersionHandler):
   """ Manages particular service versions. """
 
   def initialize(self, acc, ua_client, zk_client, version_update_lock,
@@ -596,40 +777,16 @@ class VersionHandler(BaseHandler):
     if version_id != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid version')
 
-    version = self.get_version(project_id, service_id, version_id)
-    try:
-      http_port = version['appscaleExtensions']['httpPort']
-    except KeyError:
-      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
-                            message='Version serving port not found')
+    port = yield self.start_delete_version(project_id, service_id,
+                                           version_id)
+    ports_to_close = [port]
+    del_operation = DeleteVersionOperation(project_id, service_id, version_id)
+    operations[del_operation.id] = del_operation
 
-    version_node = constants.VERSION_NODE_TEMPLATE.format(
-      project_id=project_id, service_id=service_id, version_id=version_id)
+    IOLoop.current().spawn_callback(wait_for_delete,
+                                    del_operation.id, ports_to_close)
 
-    yield self.thread_pool.submit(self.version_update_lock.acquire)
-    try:
-      try:
-        self.zk_client.delete(version_node)
-      except NoNodeError:
-        pass
-    finally:
-      self.version_update_lock.release()
-
-    version_key = VERSION_PATH_SEPARATOR.join([project_id, service_id,
-                                               version_id])
-    try:
-      self.acc.stop_version(version_key)
-    except AppControllerException as error:
-      message = 'Error while stopping application: {}'.format(error)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
-    version = {'id': version_id}
-    operation = DeleteVersionOperation(project_id, service_id, version)
-    operations[operation.id] = operation
-
-    IOLoop.current().spawn_callback(wait_for_delete, operation.id, http_port)
-
-    self.write(json_encode(operation.rest_repr()))
+    self.write(json_encode(del_operation))
 
   @gen.coroutine
   def patch(self, project_id, service_id, version_id):
@@ -721,6 +878,10 @@ def main():
 
   app = web.Application([
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
+     all_resources),
+    ('/v1/apps/([a-z0-9-]+)', ProjectHandler,
+     all_resources),
+    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)', ServiceHandler,
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
      VersionHandler, all_resources),
