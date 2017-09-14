@@ -86,20 +86,18 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   """
   _ACCEPTS_REQUEST_ID = True
 
-  def __init__(self, app_id, host, port, service_name='taskqueue'):
+  def __init__(self, app_id, host, service_name='taskqueue'):
     """Constructor.
 
     Args:
       app_id: The application ID.
       host: The nginx host.
-      port: The nginx port.
       service_name: Service name expected for all calls.
     """
     super(TaskQueueServiceStub, self).__init__(
         service_name, max_request_size=MAX_REQUEST_SIZE)
     self.__app_id = app_id
     self.__nginx_host = host
-    self.__nginx_port = port
 
   def _GetTQLocations(self):
     """ Gets a list of TaskQueue proxies. """
@@ -223,9 +221,6 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
 
     for add_request in request.add_request_list():
       add_request.set_app_id(self.__app_id)
-      url = add_request.url()
-      url = "http://" + self.__nginx_host + ":" + str(self.__nginx_port) + url
-      add_request.set_url(url)
 
     self._RemoteSend(request, response, "BulkAdd", request_id)
     return response

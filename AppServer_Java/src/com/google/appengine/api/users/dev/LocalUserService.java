@@ -9,6 +9,7 @@ import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.appengine.tools.development.ServiceProvider;
+import com.google.appengine.tools.resources.ResourceLoader;
 import com.google.apphosting.api.UserServicePb;
 
 
@@ -33,7 +34,6 @@ public final class LocalUserService extends AbstractLocalRpcService
     private String oauthAuthDomain = "gmail.com";
     private boolean oauthIsAdmin = false;
     private final String NGINX_ADDR = "NGINX_ADDR";
-    private final String NGINX_PORT = "NGINX_PORT";
     private final String DASHBOARD_HTTPS_PORT = "1443";
 
     public UserServicePb.CreateLoginURLResponse createLoginURL( LocalRpcService.Status status, UserServicePb.CreateLoginURLRequest request )
@@ -42,7 +42,8 @@ public final class LocalUserService extends AbstractLocalRpcService
         String destinationUrl = request.getDestinationUrl();
         if(destinationUrl != null && destinationUrl.startsWith("/"))
         {
-            destinationUrl = "http://" + System.getProperty(NGINX_ADDR) + ":" + System.getProperty(NGINX_PORT) + destinationUrl;
+            String nginxPort = ResourceLoader.getNginxPort();
+            destinationUrl = "http://" + System.getProperty(NGINX_ADDR) + ":" + nginxPort + destinationUrl;
         }
          
         response.setLoginUrl(LOGIN_URL + "?continue=" + encode(destinationUrl));
@@ -52,7 +53,8 @@ public final class LocalUserService extends AbstractLocalRpcService
     public UserServicePb.CreateLogoutURLResponse createLogoutURL( LocalRpcService.Status status, UserServicePb.CreateLogoutURLRequest request )
     {
         UserServicePb.CreateLogoutURLResponse response = new UserServicePb.CreateLogoutURLResponse();
-        String redirect_url = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/logout?continue=http://" + LOGIN_SERVER + ":" + getAppPort();
+        String nginxPort = ResourceLoader.getNginxPort();
+        String redirect_url = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/logout?continue=http://" + LOGIN_SERVER + ":" + nginxPort;
         response.setLogoutUrl(redirect_url);
 
         return response;
@@ -120,10 +122,5 @@ public final class LocalUserService extends AbstractLocalRpcService
         {
             throw new RuntimeException("Could not find UTF-8 encoding", ex);
         }
-    }
-
-    private String getAppPort()
-    {
-        return System.getProperty(NGINX_PORT);
     }
 }

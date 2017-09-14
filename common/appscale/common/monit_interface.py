@@ -1,8 +1,18 @@
 import logging
 import subprocess
 import time
+import urllib
+from datetime import timedelta
+from xml.etree import ElementTree
 
+from tornado import gen
+from tornado.httpclient import AsyncHTTPClient
+from tornado.httpclient import HTTPError
+from tornado.ioloop import IOLoop
+
+from . import constants
 from . import misc
+from .constants import MonitStates
 
 """ 
 This file contains top level functions for starting and stopping 
@@ -15,6 +25,12 @@ MONIT = "/usr/bin/monit"
 NUM_RETRIES = 10
 
 SMALL_WAIT = 3
+
+
+class ProcessNotFound(Exception):
+  """ Indicates that Monit has no entry for a process. """
+  pass
+
 
 def run_with_retry(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
@@ -46,6 +62,7 @@ def run_with_retry(args):
 
   return False
 
+
 def start(watch, is_group=True):
   """ Instructs monit to start the given program, assuming that a configuration
   file has already been written for it.
@@ -76,6 +93,7 @@ def start(watch, is_group=True):
     run_with_retry([MONIT, 'monitor',  watch])
     return run_with_retry([MONIT, 'start', watch])
 
+
 def stop(watch, is_group=True):
   """ Shut down the named programs monit is watching, and stop monitoring it.
  
@@ -101,6 +119,7 @@ def stop(watch, is_group=True):
 
   return run_with_retry(stop_command)
 
+
 def restart(watch):
   """ Instructs monit to restart all processes hosting the given watch.
 
@@ -118,3 +137,155 @@ def restart(watch):
   logging.info("Restarting watch {0}".format(watch))
   return run_with_retry([MONIT, 'restart', '-g', watch])
 
+
+def parse_entries(response):
+  """ Extracts each watch's status from a Monit response.
+
+  Args:
+    response: An XML string.
+  Returns:
+    A dictionary mapping Monit entries to their state.
+  """
+  root = ElementTree.XML(response)
+  entries = {}
+  for service in root.iter('service'):
+    name = service.find('name').text
+    monitored = int(service.find('monitor').text)
+    status = int(service.find('status').text)
+    if monitored == 0:
+      entries[name] = MonitStates.UNMONITORED
+    elif monitored == 1:
+      if status == 0:
+        entries[name] = MonitStates.RUNNING
+      else:
+        entries[name] = MonitStates.STOPPED
+    else:
+      entries[name] = MonitStates.PENDING
+
+  return entries
+
+
+class MonitOperator(object):
+  """ Handles Monit operations. """
+
+  # The location of Monit's XML API.
+  LOCATION = 'http://localhost:2812'
+
+  # The number of seconds to wait between each reload operation.
+  RELOAD_COOLDOWN = 1
+
+  def __init__(self):
+    """ Creates a new MonitOperator. There should only be one. """
+    self.reload_future = None
+    self.client = AsyncHTTPClient()
+    self.last_reload = time.time()
+
+  @gen.coroutine
+  def reload(self):
+    """ Groups closely-timed reload operations. """
+    if self.reload_future is None or self.reload_future.done():
+      self.reload_future = self._reload()
+
+    yield self.reload_future
+
+  @gen.coroutine
+  def get_entries(self, retries=5):
+    """ Retrieves the status for each Monit entry.
+
+    Args:
+      retries: An integer specifying the number of times to retry failures.
+    Returns:
+      A dictionary mapping Monit entries to their state.
+    """
+    status_url = '{}/_status?format=xml'.format(self.LOCATION)
+    try:
+      response = yield self.client.fetch(status_url)
+    except HTTPError:
+      retries -= 1
+      if retries < 0:
+        raise
+
+      yield gen.sleep(.5)
+      entries = yield self.get_entries(retries=retries)
+      raise gen.Return(entries)
+
+    monit_entries = parse_entries(response.body)
+    raise gen.Return(monit_entries)
+
+  @gen.coroutine
+  def send_command(self, process_name, command):
+    """ Sends a command to the Monit API.
+
+    Args:
+      process_name: A string specifying a monit watch.
+      command: A string specifying the command to send.
+    """
+    process_url = '{}/{}'.format(self.LOCATION, process_name)
+    payload = urllib.urlencode({'action': command})
+    while True:
+      try:
+        yield self.client.fetch(process_url, method='POST', body=payload)
+        return
+      except HTTPError as error:
+        if error.code == 503:
+          yield gen.sleep(.2)
+          continue
+
+        if error.code == 404:
+          raise ProcessNotFound('{} is not monitored'.format(process_name))
+
+        raise
+
+  @gen.coroutine
+  def wait_for_status(self, process_name, acceptable_states):
+    """ Waits until a process is in a desired state.
+
+    Args:
+      process_name: A string specifying a monit watch.
+      acceptable_states: An iterable of strings specifying states.
+    """
+    while True:
+      entries = yield self.get_entries()
+      status = entries.get(process_name, MonitStates.MISSING)
+      if status in acceptable_states:
+        raise gen.Return(status)
+      yield gen.sleep(.2)
+
+  @gen.coroutine
+  def ensure_running(self, process_name):
+    """ Waits for a process to finish starting.
+
+    Args:
+      process_name: A string specifying a monit watch.
+    """
+    while True:
+      non_missing_states = (
+        MonitStates.RUNNING, MonitStates.UNMONITORED, MonitStates.PENDING,
+        MonitStates.STOPPED)
+      status_future = self.wait_for_status(process_name, non_missing_states)
+      status = yield gen.with_timeout(timedelta(seconds=5), status_future,
+                                      IOLoop.current())
+
+      if status == constants.MonitStates.RUNNING:
+        raise gen.Return()
+
+      if status == constants.MonitStates.UNMONITORED:
+        yield self.send_command(process_name, 'start')
+
+      yield gen.sleep(1)
+
+  @gen.coroutine
+  def _reload(self, retries=3):
+    """ Reloads Monit. """
+    time_since_reload = time.time() - self.last_reload
+    wait_time = max(self.RELOAD_COOLDOWN - time_since_reload, 0)
+    yield gen.sleep(wait_time)
+    self.last_reload = time.time()
+    try:
+      subprocess.check_call(['monit', 'reload'])
+    except subprocess.CalledProcessError:
+      retries -= 1
+      if retries < 0:
+        raise
+
+      yield self._reload(retries)

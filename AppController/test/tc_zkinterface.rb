@@ -21,10 +21,10 @@ class TestZKInterface < Test::Unit::TestCase
   end
 
 
-  def test_add_and_remove_app_entry
-    app_path = ZKInterface::ROOT_APP_PATH + "/app"
-    ip1_path = "#{app_path}/ip1"
-    ip2_path = "#{app_path}/ip2"
+  def test_add_and_remove_revision_entry
+    revision_path = ZKInterface::ROOT_APP_PATH + "/app_default_v1_1"
+    ip1_path = "#{revision_path}/ip1"
+    ip2_path = "#{revision_path}/ip2"
 
     all_ok = {:rc => 0}
     file_does_exist = {:rc => 0, :stat => flexmock(:exists => true)}
@@ -41,10 +41,8 @@ class TestZKInterface < Test::Unit::TestCase
     zk.should_receive(:set).with(:path => ZKInterface::ROOT_APP_PATH,
       :data => ZKInterface::DUMMY_DATA).and_return(all_ok)
 
-    zk.should_receive(:get).with(:path => app_path).
+    zk.should_receive(:get).with(:path => revision_path).
       and_return(file_does_exist)
-    zk.should_receive(:set).with(:path => app_path, 
-      :data => ZKInterface::DUMMY_DATA).and_return(all_ok)
 
     # but let's say that there's no node (file) for each of our IPs
     zk.should_receive(:get).with(:path => ip1_path).
@@ -54,15 +52,15 @@ class TestZKInterface < Test::Unit::TestCase
 
     # creating those files should be fine
     zk.should_receive(:create).with(:path => ip1_path, 
-      :ephemeral => ZKInterface::EPHEMERAL, :data => "/boo/baz1").
+      :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "md5-1").
       and_return(all_ok)
     zk.should_receive(:create).with(:path => ip2_path, 
-      :ephemeral => ZKInterface::EPHEMERAL, :data => "/boo/baz2").
+      :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "md5-1").
       and_return(all_ok)
 
     # getting a list of the IPs hosting the app should return both
     # IPs the first time around, and no IPs the second time around
-    zk.should_receive(:get_children).with(:path => app_path).
+    zk.should_receive(:get_children).with(:path => revision_path).
       and_return({:children => ["ip1", "ip2"]}, {:children => []})
 
     ip1_data = {
@@ -105,20 +103,21 @@ class TestZKInterface < Test::Unit::TestCase
     ZKInterface.init_to_ip("public_ip", "public_ip")
 
     # next, add two app entries
-    ZKInterface.add_app_entry("app", "ip1", "/boo/baz1")
-    ZKInterface.add_app_entry("app", "ip2", "/boo/baz2")
+    ZKInterface.add_revision_entry("app_default_v1_1", "ip1", "md5-1")
+    ZKInterface.add_revision_entry("app_default_v1_1", "ip2", "md5-1")
 
     # make sure they show up when we do a 'get'
-    actual = ZKInterface.get_app_hosters("app", "key")
+    actual = ZKInterface.get_revision_hosters('app_default_v1_1', 'key')
     assert_equal('ip1', actual[0].public_ip)
     assert_equal('ip2', actual[1].public_ip)
 
     # then remove the entries
-    ZKInterface.remove_app_entry("app", "ip1")
-    ZKInterface.remove_app_entry("app", "ip2")
+    ZKInterface.remove_revision_entry("app_default_v1_1", "ip1")
+    ZKInterface.remove_revision_entry("app_default_v1_1", "ip2")
 
     # make sure they no longer show up when we do a 'get'
-    assert_equal([], ZKInterface.get_app_hosters("app", "key"))
+    assert_equal([], ZKInterface.get_revision_hosters(
+      'app_default_v1_1', 'key'))
   end
 
 

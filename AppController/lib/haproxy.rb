@@ -2,6 +2,7 @@
 
 
 require 'fileutils'
+require 'posixpsutil'
 
 
 $:.unshift File.join(File.dirname(__FILE__))
@@ -20,21 +21,24 @@ require 'user_app_client'
 module HAProxy
 
 
+  # We do have 2 haproxy, one that is used for AppServers, and the other
+  # for internal AppScale services (Datastore, TaskQueue etc...). We keep
+  # them separate to be able to control when reload is necessary.
   HAPROXY_PATH = File.join("/", "etc", "haproxy")
-
-
-  SITES_ENABLED_PATH = File.join(HAPROXY_PATH, "sites-enabled")
-
-
   CONFIG_EXTENSION = "cfg"
+  HAPROXY_BIN = `which haproxy`.chomp
+  BASH_BIN = `which bash`.chomp
 
-
-  # The configuration file that haproxy reads from.
-  MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "haproxy.#{CONFIG_EXTENSION}")
-
-
-  # Provides a set of default configurations.
-  BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "base.#{CONFIG_EXTENSION}")
+  # These are for the AppScale internal services haproxy.
+  SERVICES_SITES_PATH = File.join(HAPROXY_PATH, "services-sites-enabled")
+  SERVICES_MAIN_FILE = File.join(HAPROXY_PATH, "services-haproxy.#{CONFIG_EXTENSION}")
+  SERVICES_BASE_FILE = File.join(HAPROXY_PATH, "services-base.#{CONFIG_EXTENSION}")
+  SERVICES_PIDFILE = '/var/run/services-haproxy.pid'
+  # These are for the AppServer haproxy.
+  SITES_ENABLED_PATH = File.join(HAPROXY_PATH, "apps-sites-enabled")
+  MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "apps-haproxy.#{CONFIG_EXTENSION}")
+  BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "apps-base.#{CONFIG_EXTENSION}")
+  PIDFILE = '/var/run/apps-haproxy.pid'
 
 
   # Options to used to configure servers.
@@ -95,30 +99,20 @@ module HAProxy
   HAPROXY_SERVER_TIMEOUT = 600
 
 
-  def self.start()
-    service = `which service`.chomp
-    start_cmd = "#{service} haproxy start"
-    stop_cmd = "#{service} haproxy stop"
-    pidfile = '/var/run/haproxy.pid'
-    MonitInterface.start_daemon(:haproxy, start_cmd, stop_cmd, pidfile)
+  # Start HAProxy for API services.
+  def self.services_start()
+    start_cmd = "#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -D " +
+      "-p #{SERVICES_PIDFILE}"
+    stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{SERVICES_PIDFILE})'"
+    MonitInterface.start_daemon(
+      :service_haproxy, start_cmd, stop_cmd, SERVICES_PIDFILE)
   end
 
-  def self.stop()
-    MonitInterface.stop(:haproxy, false)
-  end
-
-  def self.restart()
-    MonitInterface.restart(:haproxy)
-  end
-
-  def self.reload()
-    Djinn.log_run("service haproxy reload")
-  end
-
-  def self.is_running?
-   output = MonitInterface.is_running?(:haproxy)
-   Djinn.log_debug("Checking if haproxy is already monitored: #{output}")
-   return output
+  # Start HAProxy for AppServer instances.
+  def self.apps_start()
+    start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
+    stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{PIDFILE})'"
+    MonitInterface.start_daemon(:apps_haproxy, start_cmd, stop_cmd, PIDFILE)
   end
 
   # Create the config file for UserAppServer.
@@ -134,7 +128,7 @@ module HAProxy
 
   # Remove the configuration for TaskQueue REST API endpoints.
   def self.remove_tq_endpoints
-    FileUtils.rm_f(File.join(SITES_ENABLED_PATH, TaskQueue::NAME))
+    FileUtils.rm_f(File.join(SERVICES_SITES_PATH, TaskQueue::NAME))
     HAProxy.regenerate_config
   end
 
@@ -183,7 +177,13 @@ module HAProxy
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
 
-    config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    # Internal services uses a different haproxy.
+    if name == TaskQueue::NAME || name == DatastoreServer::NAME ||
+        name == UserAppClient::NAME
+      config_path = File.join(SERVICES_SITES_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    else
+      config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    end
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
@@ -191,69 +191,124 @@ module HAProxy
 
   # Generates a load balancer configuration file. Since HAProxy doesn't provide
   # a `file include` option we emulate that functionality here.
-  def self.regenerate_config()
+  def self.regenerate_config_file(config_dir, base_config_file, config_file)
     # Remove any files that are not configs
-    sites = Dir.entries(SITES_ENABLED_PATH)
+    sites = Dir.entries(config_dir)
     sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
     sites.sort!
 
     # Build the configuration in memory first.
-    config = File.read(BASE_CONFIG_FILE)
+    config = File.read(base_config_file)
     sites.each do |site|
-      config << File.read(File.join(SITES_ENABLED_PATH, site))
+      config << File.read(File.join(config_dir, site))
       config << "\n"
     end
 
     # We overwrite only if something changed.
     current = ""
-    current = File.read(MAIN_CONFIG_FILE)  if File.exists?(MAIN_CONFIG_FILE)
+    current = File.read(config_file)  if File.exists?(config_file)
     if current == config
-      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
-      return
+      Djinn.log_debug("No need to restart haproxy for #{config_file}:" +
+                      " configuration didn't change.")
+      return false
     end
 
-    # Update config file and restart haproxy.
-    File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
-    HAProxy.reload
+    # Update config file.
+    File.open(config_file, "w+") { |dest_file| dest_file.write(config) }
+    unless self.valid_config?(config_file)
+      Djinn.log_warn("Invalid haproxy configuration at #{config_file}.")
+      return false
+    end
+
+    Djinn.log_info("Updated haproxy configuration at #{config_file}.")
+    return true
+  end
+
+  # Checks if a given HAProxy config file is valid.
+  def self.valid_config?(config_file)
+    return false unless File.file?(config_file)
+    return system("#{HAPROXY_BIN} -c -f #{config_file}")
+  end
+
+  # Regenerate the configuration file for HAProxy (if anything changed)
+  # then starts or reload haproxy as needed.
+  def self.regenerate_config
+    # Regenerate configuration for the AppServers haproxy.
+    if regenerate_config_file(SITES_ENABLED_PATH,
+                              BASE_CONFIG_FILE,
+                              MAIN_CONFIG_FILE)
+      # Ensure the service is monitored and running.
+      self.apps_start
+      Djinn::RETRIES.downto(0) {
+        break if MonitInterface.is_running?(:apps_haproxy)
+        sleep(Djinn::SMALL_WAIT)
+      }
+
+      # Reload with the new configuration file.
+      Djinn.log_run("#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -p #{PIDFILE}" +
+                    " -D -sf `cat #{PIDFILE}`")
+    end
+
+    # Regenerate configuration for the AppScale serices haproxy.
+    if regenerate_config_file(SERVICES_SITES_PATH,
+                              SERVICES_BASE_FILE,
+                              SERVICES_MAIN_FILE)
+      # Ensure the service is monitored and running.
+      self.services_start
+      Djinn::RETRIES.downto(0) {
+        break if MonitInterface.is_running?(:service_haproxy)
+        sleep(Djinn::SMALL_WAIT)
+      }
+
+      # Reload with the new configuration file.
+      Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICES_MAIN_FILE} -p #{SERVICES_PIDFILE}" +
+                    " -D -sf `cat #{SERVICES_PIDFILE}`")
+    end
   end
 
 
   # Generate the server configuration line for the provided inputs. GAE applications
   # that are thread safe will have a higher connection limit.
-  def self.server_config(app_name, location)
-    if HelperFunctions.get_app_thread_safe(app_name)
-      return "  server #{app_name}-#{location} #{location} #{THREADED_SERVER_OPTIONS}"
+  def self.server_config(server_name, location)
+    if server_name.start_with?(HelperFunctions::GAE_PREFIX)
+      version_key = server_name[HelperFunctions::GAE_PREFIX.length..-1]
+      threadsafe = HelperFunctions.get_version_thread_safe(version_key)
     else
-      return "  server #{app_name}-#{location} #{location} #{SERVER_OPTIONS}"
+      # Allow only one connection at a time for services.
+      threadsafe = false
     end
+
+    max_conn = threadsafe ? THREADED_SERVER_OPTIONS : SERVER_OPTIONS
+    return "  server #{server_name}-#{location} #{location} #{max_conn}"
   end
 
 
-  # Updates the HAProxy config file for this App Engine application to
-  # point to all the ports currently used by the application.
-  def self.update_app_config(private_ip, app_name, listen_port, appservers)
+  # Updates the HAProxy config file for a version to point to all the ports
+  # currently used by the version.
+  def self.update_version_config(private_ip, version_key, listen_port,
+                                 appservers)
     # Add a prefix to the app name to avoid collisions with non-GAE apps
-    full_app_name = "gae_#{app_name}"
+    full_version_name = "gae_#{version_key}"
 
     servers = []
     appservers.each { |location|
       # Ignore not-yet started appservers.
       _, port = location.split(":")
       next if Integer(port) < 0
-      servers << HAProxy.server_config(full_app_name, location)
+      servers << HAProxy.server_config(full_version_name, location)
     }
     if servers.length <= 0
-      Djinn.log_warn("update_app_config called but no servers found.")
-      return
+      Djinn.log_warn("update_version_config called but no servers found.")
+      return false
     end
 
-    config = "# Create a load balancer for the app #{app_name} \n"
-    config << "listen #{full_app_name}\n"
+    config = "# Create a load balancer for #{version_key}\n"
+    config << "listen #{full_version_name}\n"
     config << "  bind #{private_ip}:#{listen_port}\n"
     config << servers.join("\n")
 
-    config_path = File.join(SITES_ENABLED_PATH,
-      "#{full_app_name}.#{CONFIG_EXTENSION}")
+    config_path = File.join(
+      SITES_ENABLED_PATH, "#{full_version_name}.#{CONFIG_EXTENSION}")
 
     # Let's reload and overwrite only if something changed.
     current = ""
@@ -269,8 +324,8 @@ module HAProxy
   end
 
 
-  def self.remove_app(app_name)
-    config_name = "gae_#{app_name}.#{CONFIG_EXTENSION}"
+  def self.remove_version(version_key)
+    config_name = "gae_#{version_key}.#{CONFIG_EXTENSION}"
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     HAProxy.regenerate_config
   end
@@ -278,18 +333,24 @@ module HAProxy
 
   # Removes all the enabled sites
   def self.clear_sites_enabled()
-    if File.directory?(SITES_ENABLED_PATH)
-      sites = Dir.entries(SITES_ENABLED_PATH)
-      # Remove any files that are not configs
-      sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
-      full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }
-      FileUtils.rm_f full_path_sites
-      HAProxy.regenerate_config
-    end
+    [SITES_ENABLED_PATH, SERVICES_SITES_PATH].each { |path|
+      if File.directory?(path)
+        sites = Dir.entries(path)
+        # Remove any files that are not configs
+        sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
+        full_path_sites = sites.map { |site| File.join(path, site) }
+        FileUtils.rm_f full_path_sites
+        HAProxy.regenerate_config
+      end
+    }
   end
 
   # Set up the folder structure and creates the configuration files necessary for haproxy
-  def self.initialize_config()
+  #
+  # Args:
+  #   connect_timeout: Number of milliseconds for a request to wait before
+  #     a backend server will accept connection.
+  def self.initialize_config(connect_timeout)
     base_config = <<CONFIG
 global
   maxconn 64000
@@ -331,7 +392,7 @@ defaults
   option redispatch
 
   # Time to wait for a connection attempt to a server.
-  timeout connect 5000ms
+  timeout connect #{connect_timeout}ms
 
   # The maximum inactivity time allowed for a client.
   timeout client 50000ms
@@ -357,21 +418,55 @@ CONFIG
     unless File.exists? SITES_ENABLED_PATH
       FileUtils.mkdir_p SITES_ENABLED_PATH
     end
+    unless File.exists? SERVICES_SITES_PATH
+      FileUtils.mkdir_p SERVICES_SITES_PATH
+    end
 
-    # Write the base configuration file which sets default configuration parameters
+    # Write the base configuration file which sets default configuration
+    # parameters for both haproxies.
     File.open(BASE_CONFIG_FILE, "w+") { |dest_file| dest_file.write(base_config) }
+    File.open(SERVICES_BASE_FILE, "w+") { |dest_file|
+      dest_file.write(base_config.sub("/stats", "/service-stats"))
+    }
+  end
+
+  # Counts the current established HAProxy connections for a version's port.
+  #
+  # Args:
+  #   ip_address: The current machine's IP address.
+  #   port: The HAProxy port that the version listens to.
+  # Returns:
+  #   The total number of active connections for a version.
+  def self.count_connections(ip_address, port)
+    current_sessions = 0
+    PosixPsutil::Process.process_iter.each { |process|
+      begin
+        next unless process.name == 'haproxy'
+        process.connections.each{ |connection|
+          if connection.status == 'ESTABLISHED' &&
+              connection.laddr == [ip_address, port]
+            current_sessions += 1
+          end
+        }
+      rescue PosixPsutil::NoSuchProcess
+        next
+      end
+    }
+    return current_sessions
   end
 
 
   # Retrieves HAProxy stats for the given app.
   #
   # Args:
-  #   app_name: The name of the app to get HAProxy stats for.
+  #   version_key: The version key to get HAProxy stats for.
+  #   ip_address: The current machine's IP address.
+  #   port: The HAProxy port that the version listens to.
   # Returns:
   #   The total requests for the app, the requests enqueued and the
   #   timestamp of stat collection.
-  def self.get_haproxy_stats(app_name)
-    full_app_name = "gae_#{app_name}"
+  def self.get_haproxy_stats(version_key, ip_address, port)
+    full_app_name = "gae_#{version_key}"
     Djinn.log_debug("Getting scaling info for application #{full_app_name}")
 
     total_requests_seen = 0
@@ -413,94 +508,66 @@ CONFIG
         current_sessions = parsed_info[CURRENT_SESSIONS_INDEX].to_i
         Djinn.log_debug("#{full_app_name} #{service_name} Queued Currently " +
           "#{total_req_in_queue}")
-        Djinn.log_debug("Current sessions for #{full_app_name} " +
-          "is #{current_sessions}.")
       end
     }
+
+    # Every time HAProxy loads a new configuration file, the statistics
+    # from the old process are lost. Asking the system can give us a more
+    # accurate count.
+    active_connections = self.count_connections(ip_address, port)
+
+    # If for some reason there is a problem finding the HAProxy processes,
+    # use the stats.
+    current_sessions = [active_connections, current_sessions].max
+    Djinn.log_debug("#{version_key} current sessions: #{current_sessions}")
 
     return total_requests_seen, total_req_in_queue, current_sessions, time_requests_were_seen
   end
 
 
   # This method returns the list of running and failed AppServers
-  # associated with a specific application.
+  # associated with a specific version.
   #
   # Args:
-  #   app: A String containing the application ID.
+  #   version_key: A String containing the version key.
   # Returns:
   #   An Array of running AppServers (ip:port).
   #   An Array of failed (marked as DOWN) AppServers (ip:port).
-  def self.list_servers(app)
-    full_app_name = "gae_#{app}"
+  def self.list_servers(version_key)
+    full_version_name = "gae_#{version_key}"
     running = []
     failed = []
     servers = Djinn.log_run("echo \"show stat\" | socat stdio " +
-      "unix-connect:#{HAPROXY_PATH}/stats | grep \"#{full_app_name}\"")
+      "unix-connect:#{HAPROXY_PATH}/stats | grep \"#{full_version_name}\"")
     servers.each_line{ |line|
       parsed_info = line.split(',')
       # Make sure the application name is correct (application name can be
       # prefix of others application names), and ignore the service
       # summary lines.
-      next if parsed_info[APP_NAME_INDEX] != full_app_name
+      next if parsed_info[APP_NAME_INDEX] != full_version_name
       next if parsed_info[SERVICE_NAME_INDEX] == "FRONTEND"
       next if parsed_info[SERVICE_NAME_INDEX] == "BACKEND"
 
       if parsed_info[SERVER_STATUS_INDEX] == "DOWN"
-        failed << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
+        failed << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_version_name}-/,'')
       else
-        running << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_app_name}-/,'')
+        running << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_version_name}-/,'')
       end
     }
     if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-      Djinn.log_debug("Haproxy: found #{running.length} running AppServers for #{app}.")
+      Djinn.log_debug("Haproxy: found #{running.length} running AppServers " +
+                      "for #{version_key}.")
     else
-      Djinn.log_debug("Haproxy: found these running AppServer for #{app}: #{running}.")
+      Djinn.log_debug("Haproxy: found these running AppServers for " +
+                      "#{version_key}: #{running}.")
     end
     if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-      Djinn.log_debug("Haproxy: found #{failed.length} failed AppServers for #{app}.")
+      Djinn.log_debug("Haproxy: found #{failed.length} failed AppServers " +
+                      "for #{version_key}.")
     else
-      Djinn.log_debug("Haproxy: found these failed AppServer for #{app}: #{failed}.")
+      Djinn.log_debug("Haproxy: found these failed AppServers for " +
+                      "#{version_key}: #{failed}.")
     end
     return running, failed
-  end
-
-  # This method sets the weight of the specified server (which needs to be
-  # in haproxy) to 0 (that is no more new requests will be sent to the
-  # server) and returns the number of current sessions handled by such
-  # server.
-  #
-  # Args:
-  #   app: A String containing the application ID.
-  #   location: A String with the host:port of the running appserver.
-  # Returns:
-  #   An Integer containing the number of current sessions, or -1 if the
-  #     server is not known by haproxy.
-  def self.ensure_no_pending_request(app, location)
-    full_app_name = "gae_#{app}"
-    appserver = "#{full_app_name}-#{location}"
-    Djinn.log_debug("We will put 0% weight to #{appserver}.")
-
-    # Let's set the weight to 0, and check if the server is actually known by haproxy.
-    result = Djinn.log_run("echo \"set weight #{full_app_name}/#{appserver} 0%\" |" +
-      " socat stdio unix-connect:#{HAPROXY_PATH}/stats")
-    if result.include?(HAPROXY_ERROR_PREFIX)
-      Djinn.log_warn("Server #{full_app_name}/#{appserver} does not exists.")
-      return -1
-    end
-
-    # Retrieve the current sessions for this server.
-    server_stat = Djinn.log_run("echo \"show stat\" | socat stdio " +
-      "unix-connect:#{HAPROXY_PATH}/stats | grep \"#{full_app_name},#{appserver}\"")
-    if server_stat.empty? or server_stat.length > 1
-      # We shouldn't be here, since we set the weight before.
-      Djinn.log_warn("Something wrong retrieving stat for #{full_app_name}/#{appserver}!")
-      return -1
-    end
-
-    parsed_info = server_stat.split(',')
-    current_sessions = parsed_info[CURRENT_SESSIONS_INDEX]
-    Djinn.log_debug("Current sessions for #{full_app_name}/#{appserver} " +
-      "is #{current_sessions}.")
-    return current_sessions
   end
 end

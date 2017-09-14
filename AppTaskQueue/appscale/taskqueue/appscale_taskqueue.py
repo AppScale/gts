@@ -4,16 +4,19 @@ servers. """
 import argparse
 import json
 import logging
+import signal
 import sys
 import time
 import tornado.httpserver
-import tornado.ioloop
 import tornado.web
+from kazoo.client import KazooClient
+from tornado.ioloop import IOLoop
 
-import distributed_tq
-
+from appscale.common import appscale_info
+from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
+from . import distributed_tq
 from .rest_api import RESTLease
 from .rest_api import RESTQueue
 from .rest_api import RESTTask
@@ -25,52 +28,14 @@ from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.ext.remote_api import remote_api_pb
 
 
+# The TaskQueue server's Tornado HTTPServer.
+server = None
+
 # Global for Distributed TaskQueue.
 task_queue = None
 
 # Global stats.
 STATS = {}
-
-class StopWorkerHandler(tornado.web.RequestHandler):
-  """ Stops taskqueue workers for an app if they are running. """
-  @tornado.web.asynchronous
-  def post(self):
-    """ Function which handles POST requests. Data of the request is the
-    request from the AppController in a JSON string. """
-    global task_queue    
-    request = self.request
-    http_request_data = request.body
-    json_response = task_queue.stop_worker(http_request_data)
-    self.write(json_response)
-    self.finish()
-
-
-class ReloadWorkerHandler(tornado.web.RequestHandler):
-  """ Reloads taskqueue workers for an app. """
-  @tornado.web.asynchronous
-  def post(self):
-    """ Function which handles POST requests. Data of the request is the
-    request from the AppController in a JSON string. """
-    global task_queue    
-    request = self.request
-    http_request_data = request.body
-    json_response = task_queue.reload_worker(http_request_data)
-    self.write(json_response)
-    self.finish()
-
-
-class StartWorkerHandler(tornado.web.RequestHandler):
-  """ Starts taskqueue workers for an app if they are not running. """
-  @tornado.web.asynchronous
-  def post(self):
-    """ Function which handles POST requests. Data of the request is the
-    request from the AppController in a JSON string. """
-    global task_queue
-    request = self.request
-    http_request_data = request.body
-    json_response = task_queue.start_worker(http_request_data)
-    self.write(json_response)
-    self.finish()
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -98,9 +63,11 @@ class MainHandler(tornado.web.RequestHandler):
     app_data = request.headers['appdata']
     app_data  = app_data.split(':')
     app_id = app_data[0]
- 
+    version = request.headers['Version']
+    module = request.headers['Module']
+    app_info = {'app_id': app_id, 'version_id': version, 'module_id': module}
     if pb_type == "Request":
-      self.remote_request(app_id, http_request_data)
+      self.remote_request(app_info, http_request_data)
     else:
       self.unknown_request(app_id, http_request_data, pb_type)
 
@@ -116,13 +83,14 @@ class MainHandler(tornado.web.RequestHandler):
     self.write(json.dumps(tq_stats))
     self.finish()
 
-  def remote_request(self, app_id, http_request_data):
+  def remote_request(self, app_info, http_request_data):
     """ Receives a remote request to which it should give the correct
     response. The http_request_data holds an encoded protocol buffer of a
     certain type. Each type has a particular response type.
 
     Args:
-      app_id: The application ID that is sending this request.
+      app_info: A dictionary containing the application, module, and version ID
+        of the app that is sending this request.
       http_request_data: Encoded protocol buffer.
     """
     global task_queue    
@@ -134,7 +102,7 @@ class MainHandler(tornado.web.RequestHandler):
     errdetail = ""
     method = ""
     http_request_data = ""
-
+    app_id = app_info['app_id']
     if not apirequest.has_method():
       errcode = taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST
       errdetail = "Method was not set in request"
@@ -171,10 +139,10 @@ class MainHandler(tornado.web.RequestHandler):
                                                  app_id,
                                                  http_request_data)
     elif method == "Add":
-      response, errcode, errdetail = task_queue.add(app_id,
+      response, errcode, errdetail = task_queue.add(app_info,
                                                  http_request_data)
     elif method == "BulkAdd":
-      response, errcode, errdetail = task_queue.bulk_add(app_id,
+      response, errcode, errdetail = task_queue.bulk_add(app_info,
                                                  http_request_data)
     elif method == "ModifyTaskLease":
       response, errcode, errdetail = task_queue.modify_task_lease(app_id,
@@ -233,6 +201,18 @@ class MainHandler(tornado.web.RequestHandler):
     self.write(apiresponse.Encode())
 
 
+def graceful_shutdown(*_):
+  """ Stop accepting new requests and exit on the next I/O loop iteration.
+
+  This is safe as long as the server is synchronous. It will stop in the middle
+  of requests as soon as the server has asynchronous handlers.
+  """
+  logger.info('Stopping server')
+  server.stop()
+  io_loop = IOLoop.instance()
+  io_loop.add_callback_from_signal(io_loop.stop)
+
+
 def main():
   """ Main function which initializes and starts the tornado server. """
   parser = argparse.ArgumentParser(description='A taskqueue API server')
@@ -247,13 +227,14 @@ def main():
 
   global task_queue
 
+  zk_client = KazooClient(
+    hosts=','.join(appscale_info.get_zk_node_ips()),
+    connection_retry=ZK_PERSISTENT_RECONNECTS)
+  zk_client.start()
+
   db_access = DatastoreProxy()
-  task_queue = distributed_tq.DistributedTaskQueue(db_access)
+  task_queue = distributed_tq.DistributedTaskQueue(db_access, zk_client)
   handlers = [
-    # Takes JSON requests from AppController.
-    (r"/startworker", StartWorkerHandler),
-    (r"/stopworker", StopWorkerHandler),
-    (r"/reloadworker", ReloadWorkerHandler),
     # Takes protocol buffers from the AppServers.
     (r"/*", MainHandler)
   ]
@@ -268,15 +249,14 @@ def main():
 
   tq_application = tornado.web.Application(handlers)
 
+  global server
   server = tornado.httpserver.HTTPServer(
     tq_application,
     decompress_request=True)   # Automatically decompress incoming requests.
   server.listen(args.port)
 
-  while 1:
-    try:
-      logger.info('Starting TaskQueue server on port {}'.format(args.port))
-      tornado.ioloop.IOLoop.instance().start()
-    except KeyboardInterrupt:
-      logger.warning('Server interrupted by user, terminating...')
-      sys.exit(1)
+  signal.signal(signal.SIGTERM, graceful_shutdown)
+  signal.signal(signal.SIGINT, graceful_shutdown)
+
+  logger.info('Starting TaskQueue server on port {}'.format(args.port))
+  IOLoop.current().start()

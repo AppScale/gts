@@ -10,6 +10,7 @@ import java.io.FileReader;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
+import com.google.appengine.tools.resources.ResourceLoader;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -39,6 +40,8 @@ public class AppScaleTaskQueueClient {
     private final int MAX_CONNECTIONS_PER_ROUTE_LOCALHOST = 80;
     private final int INPUT_STREAM_SIZE = 10240;
     private final String APPDATA_HEADER = "AppData";
+    private final String MODULE_HEADER = "Module";
+    private final String VERSION_HEADER = "Version";
     private final String SERVICE_NAME = "taskqueue";
     private final String PROTOCOL_BUFFER_HEADER = "ProtocolBufferType";
     private final String PROTOCOL_BUFFER_VALUE = "Request";
@@ -61,10 +64,9 @@ public class AppScaleTaskQueueClient {
     }
 
     public TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest addRequest) {
+        String nginxPort = ResourceLoader.getNginxPort();
+
         addRequest.setAppId(getAppId());
-        String taskPath = addRequest.getUrl();
-        String appScaleTaskPath = "http://" + getNginxHost() + ":" + getNginxPort() + taskPath;
-        addRequest.setUrl(appScaleTaskPath);
         Request request = new Request();
         request.setMethod("Add");
         request.setServiceName(SERVICE_NAME);
@@ -156,6 +158,8 @@ public class AppScaleTaskQueueClient {
         post.addHeader(PROTOCOL_BUFFER_HEADER, PROTOCOL_BUFFER_VALUE);
         String tag = getAppId();
         post.addHeader(APPDATA_HEADER, tag);
+        post.addHeader(MODULE_HEADER, System.getProperty("MODULE"));
+        post.addHeader(VERSION_HEADER, System.getProperty("VERSION"));
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
         try {
             bao.write(request.toByteArray());
@@ -185,11 +189,6 @@ public class AppScaleTaskQueueClient {
     private String getNginxHost() {
         String nginxHost = System.getProperty("NGINX_ADDR");
         return nginxHost;
-    }
-
-    private String getNginxPort() {
-        String nginxPort = System.getProperty("NGINX_PORT");
-        return nginxPort;
     }
 
     private String getAppId() {

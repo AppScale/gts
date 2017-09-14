@@ -55,6 +55,7 @@
       <classpath refid="gae.classpath" />
       <include name="com/google/appengine/api/**" />
       <include name="com/google/appengine/tools/**" />
+      <include name="com/google/apphosting/utils/config/**" />
       <include name="apphosting/tools/**" />
     </javac>
     <copy file="src/apphosting/tools/dev-channel-js.js" todir="${build}/apphosting/tools/"/>
@@ -117,6 +118,7 @@
  
   <target name="update-local-runtime-jar" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/impl/appengine-local-runtime.jar" basedir="${build}" update="true">
+      <include name="com/google/apphosting/utils/config/*" />
       <include name="com/google/appengine/tools/development/*" />
       <include name="com/google/appengine/tools/resources/*" />
     </jar>
@@ -131,6 +133,7 @@
 
   <target name="update-tools-api-jar" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/appengine-tools-api.jar" basedir="${build}" update="true">
+      <include name="com/google/apphosting/utils/config/*" />
       <include name="com/google/appengine/tools/development/DevAppServerMain*" />
       <include name="com/google/appengine/tools/development/DevAppServerFactory*" />
     </jar>

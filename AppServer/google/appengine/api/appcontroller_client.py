@@ -152,13 +152,13 @@ class AppControllerClient():
     return json.loads(self.call(self.MAX_RETRIES,
       self.server.get_database_information, self.secret))
 
-  def relocate_app(self, appid, http_port, https_port):
+  def relocate_version(self, version_key, http_port, https_port):
     """Asks the AppController to start serving traffic for the named application
     on the given ports, instead of the ports that it was previously serving at.
 
     Args:
-      appid: A str that names the already deployed application that we want to
-        move to a different port.
+      version_key: A string that names the version that we want to move to a
+        different port.
       http_port: An int between 80 and 90, or between 1024 and 65535, that names
         the port that unencrypted traffic should be served from for this app.
       https_port: An int between 443 and 453, or between 1024 and 65535, that
@@ -168,11 +168,11 @@ class AppControllerClient():
       A str that indicates if the operation was successful, and in unsuccessful
       cases, the reason why the operation failed.
     """
-    res = (self.call(self.MAX_RETRIES, self.server.relocate_app,
-                     appid, http_port, https_port, self.secret))
+    res = (self.call(self.MAX_RETRIES, self.server.relocate_version,
+                     version_key, http_port, https_port, self.secret))
     return res
 
-  def upload_app(self, filename, file_suffix, email):
+  def upload_app(self, filename, file_suffix):
     """Tells the AppController to use the AppScale Tools to upload the Google
     App Engine application at the specified location.
 
@@ -180,14 +180,12 @@ class AppControllerClient():
       filename: A str that points to a compressed file on the local filesystem
         containing the user's Google App Engine application.
       file_suffix: A str that names the suffix this file should have.
-      email: A str containing an e-mail address that should be registered as the
-        administrator of this application.
     Returns:
       A str that indicates either that the app was successfully uploaded, or the
       reason why the application upload failed.
     """
     return json.loads(self.call(self.MAX_RETRIES, self.server.upload_app,
-      filename, file_suffix, email, self.secret))
+      filename, file_suffix, self.secret))
 
 
   def get_app_upload_status(self, reservation_id):
@@ -204,18 +202,18 @@ class AppControllerClient():
       reservation_id, self.secret)
 
 
-  def get_request_info(self, app_id):
+  def get_request_info(self, version_key):
     """Queries the AppController to get request statistics for a given
-    application.
+    version.
     Args:
-      app_id: A String that indicates which application id we are querying for.
+      version_key: A String that indicates which version we are querying for.
     Returns:
       A list of dicts, where each dict contains the average request rate,
-        timestamp, and total requests seen for the given application.
+        timestamp, and total requests seen for the given version.
     """
     return yaml.safe_load(self.call(self.MAX_RETRIES,
                                     self.server.get_request_info,
-                                    app_id, self.secret))
+                                    version_key, self.secret))
 
   def get_instance_info(self):
     """Queries the AppController to get server-level statistics and a list of
@@ -276,53 +274,27 @@ class AppControllerClient():
       roles_to_nodes, self.secret)
 
 
-  def stop_app(self, app_id):
-    """Tells the AppController to no longer host the named application.
+  def stop_version(self, version_key):
+    """Tells the AppController to no longer host the named version.
 
     Args:
-      app_id: A str that indicates which application should be stopped.
+      version_key: A str that indicates which version should be stopped.
     Returns:
-      The result of telling the AppController to no longer host the app.
+      The result of telling the AppController to no longer host the version.
     """
-    return self.call(self.MAX_RETRIES, self.server.stop_app, app_id,
-      self.secret)
+    return self.call(self.MAX_RETRIES, self.server.stop_version, version_key,
+                     self.secret)
 
 
-  def is_app_running(self, app_id):
-    """Queries the AppController to see if the named application is running.
-
-    Args:
-      app_id: A str that indicates which application we should be checking
-        for.
-    Returns:
-      True if the application is running, False otherwise.
-    """
-    return self.call(self.MAX_RETRIES, self.server.is_app_running, app_id,
-      self.secret)
-
-
-  def done_uploading(self, app_id, remote_app_location):
-    """Tells the AppController that an application has been uploaded to its
-    machine, and where to find it.
-
-    Args:
-      app_id: A str that indicates which application we have copied over.
-      remote_app_location: A str that indicates the location on the remote
-        machine where the App Engine application can be found.
-    """
-    return self.call(self.MAX_RETRIES, self.server.done_uploading, app_id,
-      remote_app_location, self.secret)
-
-
-  def update(self, apps_to_run):
-    """Tells the AppController which applications to run, which we assume have
+  def update(self, versions):
+    """Tells the AppController which versions to run, which we assume have
     already been uploaded to that machine.
 
     Args:
-      apps_to_run: A list of apps to start running on nodes running the App
-        Engine service.
+      versions: A list of version keys to start running on nodes running the
+        App Engine service.
     """
-    return self.call(self.MAX_RETRIES, self.server.update, apps_to_run,
+    return self.call(self.MAX_RETRIES, self.server.update, versions,
       self.secret)
 
 
@@ -342,17 +314,17 @@ class AppControllerClient():
     return self.call(self.MAX_RETRIES, self.server.run_groomer, self.secret)
 
 
-  def add_routing_for_appserver(self, app_id, appserver_ip, port):
+  def add_routing_for_appserver(self, version_key, appserver_ip, port):
     """ Tells the AppController to begin routing traffic to an AppServer.
 
     Args:
-      app_id: A string that contains the application ID.
+      version_key: A string that contains the version key.
       appserver_ip: A string that contains the IP address of the instance
         running the AppServer.
       port: A string that contains the port that the AppServer listens on.
     """
     return self.call(self.MAX_RETRIES, self.server.add_routing_for_appserver,
-      app_id, appserver_ip, port, self.secret)
+                     version_key, appserver_ip, port, self.secret)
 
 
   def add_routing_for_blob_server(self):

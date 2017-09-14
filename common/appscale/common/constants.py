@@ -13,11 +13,20 @@ class HTTPCodes(object):
   INTERNAL_ERROR = 500
   NOT_IMPLEMENTED = 501
 
+
+class MonitStates(object):
+  MISSING = 'missing'
+  PENDING = 'pending'  # Monit is trying to either start or stop the process.
+  RUNNING = 'running'
+  STOPPED = 'stopped'  # Monit will likely try to start the process soon.
+  UNMONITORED = 'unmonitored'
+
+
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
-# Location of PID files for processes and applications.
-APP_PID_DIR = '/etc/appscale/'
+# Directory where configuration files are stored.
+CONFIG_DIR = os.path.join('/', 'etc', 'appscale')
 
 # Location of where data is persisted on disk.
 APPSCALE_DATA_DIR = '/opt/appscale'
@@ -124,8 +133,15 @@ CONTROLLER_SERVICE = 'appscale-controller'
 # The default log directory for AppScale services.
 LOG_DIR = os.path.join('/var', 'log', 'appscale')
 
+# The default directory for pidfiles.
+PID_DIR = os.path.join('/', 'var', 'run', 'appscale')
+
 # The number of seconds to wait before retrying some operations.
 SMALL_WAIT = 5
 
 # The number of seconds to wait before retrying some operations.
 TINY_WAIT = .1
+
+# The character used to separate portions of a complete version string.
+# (e.g. guestbook_default_v1)
+VERSION_PATH_SEPARATOR = '_'

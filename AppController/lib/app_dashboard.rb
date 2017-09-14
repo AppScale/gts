@@ -29,9 +29,7 @@ module AppDashboard
   APP_LANGUAGE = "python27"
 
 
-  # Starts the AppDashboard on this machine. Does not configure or start nginx
-  # or haproxy, which are needed to load balance traffic to the AppDashboard
-  # instances we start here.
+  # Prepares the dashboard's source archive.
   #
   # Args:
   #   public_ip: This machine's public IP address or FQDN.
@@ -40,8 +38,8 @@ module AppDashboard
   #   secret: A String that is used to authenticate this application with
   #     other AppScale services.
   # Returns:
-  #   true if the AppDashboard was started successfully, and false otherwise.
-  def self.start(public_ip, private_ip, persistent_storage, secret)
+  #   A string specifying the location of the prepared archive.
+  def self.prep(public_ip, private_ip, persistent_storage, secret)
 
     # Pass the secret key and our public IP address (needed to connect to the
     # AppController) to the app.
@@ -55,7 +53,9 @@ module AppDashboard
     Djinn.log_run("tar -czf #{app_location} -C #{APPSCALE_HOME}/AppDashboard .")
 
     # Tell the app what nginx port sits in front of it.
-    port_file = "/etc/appscale/port-#{APP_NAME}.txt"
+    version_key = [APP_NAME, Djinn::DEFAULT_SERVICE,
+                   Djinn::DEFAULT_VERSION].join(Djinn::VERSION_PATH_SEPARATOR)
+    port_file = "/etc/appscale/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, "#{LISTEN_PORT}")
 
     # Restore repo template values.
@@ -65,7 +65,7 @@ module AppDashboard
 
     Djinn.log_debug("Done setting dashboard.")
 
-    return true
+    return app_location
   end
 
 
@@ -78,7 +78,8 @@ module AppDashboard
 
     app_stopped = false
     begin
-      app_stopped = app_manager.stop_app(APP_NAME)
+      app_manager.stop_app(APP_NAME)
+      app_stopped = true
     rescue FailedNodeException
       app_stopped = false
     end

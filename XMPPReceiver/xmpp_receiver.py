@@ -11,9 +11,14 @@
 # General-purpose Python libraries
 import httplib
 import logging
+import os
 import select
 import sys
 import urllib
+
+from appscale.admin.constants import DEFAULT_SERVICE
+from appscale.admin.constants import DEFAULT_VERSION
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 
 
 # Third-party libraries
@@ -60,9 +65,6 @@ class XMPPReceiver():
     self.login_ip = login_ip
     self.app_password = app_password
 
-    with open("/etc/appscale/port-{0}.txt".format(self.appid)) as file_handle:
-      self.app_port = int(file_handle.read().strip())
-
     self.my_jid = self.appid + "@" + self.login_ip
     log_file = "/var/log/appscale/xmppreceiver-{0}.log".format(self.my_jid)
     sys.stderr = open(log_file, 'a')
@@ -91,10 +93,17 @@ class XMPPReceiver():
     params['body'] = event.getBody()
     encoded_params = urllib.urlencode(params)
 
+    version_key = VERSION_PATH_SEPARATOR.join([self.appid, DEFAULT_SERVICE,
+                                               DEFAULT_VERSION])
+    port_file_location = os.path.join(
+      '/', 'etc', 'appscale', 'port-{}.txt'.format(version_key))
+    with open(port_file_location) as port_file:
+      app_port = int(port_file.read().strip())
+
     try:
       logging.debug("Attempting to open connection to {0}:{1}".format(
-        self.login_ip, self.app_port))
-      connection = httplib.HTTPConnection(self.login_ip, self.app_port)
+        self.login_ip, app_port))
+      connection = httplib.HTTPConnection(self.login_ip, app_port)
       connection.request('POST', '/_ah/xmpp/message/chat/', encoded_params,
         self.HEADERS)
       response = connection.getresponse()

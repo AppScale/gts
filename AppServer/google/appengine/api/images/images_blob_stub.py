@@ -27,6 +27,7 @@
 
 
 import logging
+import os
 
 from google.appengine.api import datastore
 
@@ -44,8 +45,8 @@ class ImagesBlobStub(object):
     """Stub implementation of blob-related parts of the images API.
 
     Args:
-      host_prefix: the URL prefix (protocol://host:port) to preprend to
-        image urls on a call to GetUrlBase.
+      host_prefix: the URL prefix (protocol://host) to prepend to image urls
+        on a call to GetUrlBase.
     """
     self._host_prefix = host_prefix
 
@@ -66,7 +67,24 @@ class ImagesBlobStub(object):
     entity_info["blob_key"] = request.blob_key()
     datastore.Put(entity_info)
 
-    response.set_url("%s/_ah/img/%s" % (self._host_prefix, request.blob_key()))
+    # Host prefix does not include a port, so retrieve it from the filesystem.
+    full_prefix = self._host_prefix
+    if full_prefix:
+      # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
+      version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
+      if ':' not in version_info:
+        version_info = 'default:' + version_info
+
+      service_id, version_id = version_info.split(':')
+      version_key = '_'.join(
+        [os.environ['APPLICATION_ID'], service_id, version_id])
+      port_file_location = os.path.join(
+        '/', 'etc', 'appscale', 'port-{}.txt'.format(version_key))
+      with open(port_file_location) as port_file:
+        port = port_file.read().strip()
+      full_prefix = '{}:{}'.format(full_prefix, port)
+
+    response.set_url("%s/_ah/img/%s" % (full_prefix, request.blob_key()))
 
   def DeleteUrlBase(self, request, response):
     """Trivial implementation of ImagesService::DeleteUrlBase.

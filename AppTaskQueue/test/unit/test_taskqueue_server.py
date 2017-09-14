@@ -4,6 +4,8 @@ import unittest
 
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from appscale.taskqueue.distributed_tq import DistributedTaskQueue
+from appscale.taskqueue.queue_manager import GlobalQueueManager
+from appscale.taskqueue.service_manager import GlobalServiceManager
 from flexmock import flexmock
 
 from appscale.common import file_io
@@ -25,91 +27,166 @@ class TestDistributedTaskQueue(unittest.TestCase):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_delete(self):   
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_purge_queue(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_query_and_own_tasks(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_bulk_add(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_modify_task_lease(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_update_queue(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_fetch_queue(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_query_tasks(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_fetch_task(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_force_run(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_delete_queue(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_pause_queue(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_delete_group(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
   def test_update_storage_limit(self):
     mock_file_io()
     flexmock(DatastoreProxy).should_receive('__init__')
     db_access = flexmock()
-    dtq = DistributedTaskQueue(db_access)
+    zk_client = flexmock()
+    flexmock(GlobalQueueManager).should_receive('__new__').\
+      and_return(flexmock())
+    flexmock(GlobalServiceManager).should_receive('__new__'). \
+      and_return(flexmock())
+    dtq = DistributedTaskQueue(db_access, zk_client)
 
 if __name__ == "__main__":
   unittest.main()

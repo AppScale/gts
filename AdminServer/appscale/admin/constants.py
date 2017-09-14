@@ -27,10 +27,16 @@ class Methods(object):
   """ The methods handled by the Admin API. """
   CREATE_VERSION = 'google.appengine.v1.Versions.CreateVersion'
   DELETE_VERSION = 'google.appengine.v1.Versions.DeleteVersion'
+  UPDATE_VERSION = 'google.appengine.v1.Versions.UpdateVersion'
 
 
 class OperationTimeout(Exception):
   """ Indicates that an operation has taken too long. """
+  pass
+
+
+class InvalidSource(Exception):
+  """ Indicates that a revision's source code is invalid. """
   pass
 
 
@@ -55,7 +61,7 @@ UNPACK_ROOT = os.path.join('/', 'var', 'apps')
 DEFAULT_PORT = 17442
 
 # The default version for a service.
-DEFAULT_VERSION = 'default'
+DEFAULT_VERSION = 'v1'
 
 # The default service.
 DEFAULT_SERVICE = 'default'
@@ -69,5 +75,26 @@ VALID_RUNTIMES = {PYTHON27, JAVA, GO, PHP}
 # The seconds to wait for redeploys.
 REDEPLOY_WAIT = 20
 
-# A list of projects that cannot be used or modified by users.
-RESERVED_PROJECTS = [DASHBOARD_APP_ID]
+# A list of projects that cannot be modified by users.
+IMMUTABLE_PROJECTS = [DASHBOARD_APP_ID]
+
+# The directory where source archives are stored.
+SOURCES_DIRECTORY = os.path.join('/', 'opt', 'appscale', 'apps')
+
+# The ZooKeeper location for storing version details.
+VERSION_NODE_TEMPLATE = ('/appscale/projects/{project_id}'
+                         '/services/{service_id}/versions/{version_id}')
+
+# The ZooKeeper node that prevents concurrent location assignments.
+VERSION_UPDATE_LOCK_NODE = '/appscale/version_update_lock'
+
+# The ranges to use for automatically assigned ports.
+AUTO_HTTP_PORTS = range(8080, 8100)
+AUTO_HTTPS_PORTS = range(4380, 4400)
+
+# The ports that can be assigned to versions.
+ALLOWED_HTTP_PORTS = [80, 1080] + list(AUTO_HTTP_PORTS)
+ALLOWED_HTTPS_PORTS = [443, 1443] + list(AUTO_HTTPS_PORTS)
+
+# The range of HAProxy ports to assign to versions.
+HAPROXY_PORTS = range(10000, 10020)

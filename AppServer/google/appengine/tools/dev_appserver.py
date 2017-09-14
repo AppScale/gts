@@ -182,7 +182,6 @@ DEFAULT_ENV = {
     'COOKIE_SECRET': 'secret',
     'LOGIN_SERVER': '0.0.0.0',
     'NGINX_HOST': '0.0.0.0',
-    'NGINX_PORT': '0',
 }
 
 
@@ -3514,7 +3513,6 @@ def SetupStubs(app_id, **config):
 
   # AppScale 
   # Set the port and server to the Nginx proxy.
-  serve_port = int(config.get('NGINX_PORT', 8080))
   serve_address = config.get('NGINX_HOST', 'localhost')
   xmpp_path = config['xmpp_path']
   uaserver_path = config['uaserver_path']
@@ -3577,7 +3575,7 @@ def SetupStubs(app_id, **config):
   hash_secret = hashlib.sha1(app_id + '/'+ cookie_secret).hexdigest()
   apiproxy_stub_map.apiproxy.RegisterStub(
       'taskqueue',
-      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address, serve_port))
+      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'urlfetch',
@@ -3636,7 +3634,7 @@ def SetupStubs(app_id, **config):
 
   try:
     from google.appengine.api.images import images_stub
-    host_prefix = 'http://%s:%d' % (serve_address, serve_port)
+    host_prefix = 'http://{}'.format(serve_address)
     apiproxy_stub_map.apiproxy.RegisterStub(
         'images',
         images_stub.ImagesServiceStub(host_prefix=host_prefix))

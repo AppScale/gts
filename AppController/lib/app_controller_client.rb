@@ -68,10 +68,9 @@ class AppControllerClient
     # Disable certificate verification.
     @conn.options["protocol.http.ssl_config.verify_mode"] = nil
     @conn.add_method("set_parameters", "layout", "options", "secret")
-    @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
-    @conn.add_method("upload_app", "archived_file", "file_suffix", "email", "secret")
-    @conn.add_method("update", "app_names", "secret")
-    @conn.add_method("stop_app", "app_name", "secret")    
+    @conn.add_method("upload_app", "archived_file", "file_suffix", "secret")
+    @conn.add_method("update", "versions", "secret")
+    @conn.add_method("stop_version", "version_key", "secret")
     @conn.add_method("get_all_public_ips", "secret")
     @conn.add_method("is_done_loading", "secret")
     @conn.add_method("is_done_initializing", "secret")
@@ -84,7 +83,7 @@ class AppControllerClient
     @conn.add_method("get_cluster_stats_json", "secret")
     @conn.add_method("get_node_stats_json", "secret")
     @conn.add_method("get_instance_info", "secret")
-    @conn.add_method("get_request_info", "app_id", "secret")
+    @conn.add_method("get_request_info", "version_key", "secret")
   end
 
 
@@ -92,7 +91,6 @@ class AppControllerClient
   # used in few other clients (it should be made in a library):
   #   lib/infrastructure_manager_client.rb
   #   lib/user_app_client.rb
-  #   lib/taskqueue_client.rb
   #   lib/app_manager_client.rb
   #   lib/app_controller_client.rb
   # Modification in this function should be reflected on the others too.
@@ -152,14 +150,16 @@ class AppControllerClient
     end
   end
 
-  def upload_app(archived_file, file_suffix, email)
+  def upload_app(archived_file, file_suffix)
     make_call(30, RETRY_ON_FAIL, "upload_app") {
-      @conn.upload_app(archived_file, file_suffix, email, @secret)
+      @conn.upload_app(archived_file, file_suffix, @secret)
     }
   end
 
-  def stop_app(app_name)
-    make_call(30, RETRY_ON_FAIL, "stop_app") { @conn.stop_app(app_name, @secret) }
+  def stop_version(version_key)
+    make_call(30, RETRY_ON_FAIL, "stop_version") {
+      @conn.stop_version(version_key, @secret)
+    }
   end
   
   def update(app_names)
@@ -192,18 +192,6 @@ class AppControllerClient
   def get_queues_in_use()
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "get_queues_in_use") { 
       @conn.get_queues_in_use(@secret)
-    }
-  end
-
-  # Tells an AppController that it needs to restart one or more Google App
-  # Engine applications.
-  #
-  # Args:
-  #   app_names: An Array of Strings, where each String is an appid
-  #     corresponding to an application that needs to be restarted.
-  def set_apps_to_restart(app_names)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "set_apps_to_restart") {
-      @conn.set_apps_to_restart(app_names, @secret)
     }
   end
 

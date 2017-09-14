@@ -20,6 +20,11 @@ class FailedZooKeeperOperationException < StandardError
 end
 
 
+# Indicates that the requested version node was not found.
+class VersionNotFound < StandardError
+end
+
+
 # The AppController employs the open source software ZooKeeper as a highly
 # available naming service, to store and retrieve information about the status
 # of applications hosted within AppScale. This class provides methods to
@@ -139,51 +144,29 @@ class ZKInterface
   end
 
 
-  def self.add_app_entry(appname, ip, location)
-    appname_path = ROOT_APP_PATH + "/#{appname}"
-    full_path = appname_path + "/#{ip}"
-
-    # can't just create path in ZK
-    # need to do create the nodes at each level
-
-    self.set(ROOT_APP_PATH, DUMMY_DATA, NOT_EPHEMERAL)
-    self.set(appname_path, DUMMY_DATA, NOT_EPHEMERAL)
-    self.set(full_path, location, EPHEMERAL)
+  def self.add_revision_entry(revision_key, ip, md5)
+    revision_path = "#{ROOT_APP_PATH}/#{revision_key}/#{ip}"
+    self.set(revision_path, md5, NOT_EPHEMERAL)
   end
 
 
-  def self.remove_app_entry(appname, ip)
-    appname_path = ROOT_APP_PATH + "/#{appname}/#{ip}"
-    self.delete(appname_path)
+  def self.remove_revision_entry(revision_key, ip)
+    self.delete("#{ROOT_APP_PATH}/#{revision_key}/#{ip}")
   end
 
 
-  def self.get_app_hosters(appname, keyname)
-    appname_path = ROOT_APP_PATH + "/#{appname}"
-    app_hosters = self.get_children(appname_path)
+  def self.get_revision_hosters(revision_key, keyname)
+    revision_hosters = self.get_children("#{ROOT_APP_PATH}/#{revision_key}")
     converted = []
-    app_hosters.each { |host|
+    revision_hosters.each { |host|
       converted << DjinnJobData.new(self.get_job_data_for_ip(host), keyname)
     }
     return converted
   end
 
 
-  # Erases all of the ZooKeeper entries that correspond to where an app's tar
-  # file can be found.
-  #
-  # Args:
-  #   appname: A String corresponding to the appid of the app whose hosting
-  #     data we want to erase.
-  def self.clear_app_hosters(appname)
-    return unless defined?(@@zk)
-
-    appname_path = ROOT_APP_PATH + "/#{appname}"
-    app_hosters = self.get_children(appname_path)
-    app_hosters.each { |host_info|
-      self.delete(appname_path + "/#{host_info}")
-    }
-    return
+  def self.get_revision_md5(revision_key, ip)
+    return self.get("#{ROOT_APP_PATH}/#{revision_key}/#{ip}").chomp
   end
 
 
@@ -213,7 +196,7 @@ class ZKInterface
       @@zk.create(:path => APPCONTROLLER_LOCK_PATH,  :ephemeral => EPHEMERAL,
                   :data => @@client_ip)
     }
-    if info[:rc].zero? 
+    if info[:rc].zero?
       return true
     else # we couldn't get the lock for some reason
       Djinn.log_warn("Couldn't get the AppController lock, saw info " +
@@ -229,7 +212,7 @@ class ZKInterface
     self.delete(APPCONTROLLER_LOCK_PATH)
   end
 
-  
+
   # This method provides callers with an easier way to read and write to
   # AppController data in ZooKeeper. This is useful for methods that aren't
   # sure if they already have the ZooKeeper lock or not, but definitely need
@@ -255,7 +238,7 @@ class ZKInterface
         owner = JSON.load(info[:data])
         if @@client_ip == owner
           got_lock = false
-        else 
+        else
           raise "Tried to get the lock, but it's currently owned by #{owner}."
         end
       end
@@ -287,7 +270,7 @@ class ZKInterface
     return JSON.load(self.get(IP_LIST))
   end
 
-  
+
   # Add the given IP to the list of IPs that we store in ZooKeeper. If the IPs
   # file doesn't exist in ZooKeeper, create it and add in the given IP address.
   # We also update the timestamp associated with this list so that others know
@@ -378,7 +361,7 @@ class ZKInterface
     # Create the folder for all nodes if it doesn't exist.
     unless self.exists?(APPCONTROLLER_NODE_PATH)
       self.run_zookeeper_operation {
-        @@zk.create(:path => APPCONTROLLER_NODE_PATH, 
+        @@zk.create(:path => APPCONTROLLER_NODE_PATH,
           :ephemeral => NOT_EPHEMERAL, :data => DUMMY_DATA)
       }
     end
@@ -386,7 +369,7 @@ class ZKInterface
     # Create the folder for this node.
     my_ip_path = "#{APPCONTROLLER_NODE_PATH}/#{node.private_ip}"
     self.run_zookeeper_operation {
-      @@zk.create(:path => my_ip_path, :ephemeral => NOT_EPHEMERAL, 
+      @@zk.create(:path => my_ip_path, :ephemeral => NOT_EPHEMERAL,
         :data => DUMMY_DATA)
     }
 
@@ -429,18 +412,18 @@ class ZKInterface
     end
   end
 
-  
+
   # Writes the ephemeral link in ZooKeeper that represents a given node
   # being alive. Callers should only use this method to indicate that their
   # own node is alive, and not do it on behalf of other nodes.
   def self.set_live_node_ephemeral_link(ip)
     self.run_zookeeper_operation {
-      @@zk.create(:path => "#{APPCONTROLLER_NODE_PATH}/#{ip}/live", 
+      @@zk.create(:path => "#{APPCONTROLLER_NODE_PATH}/#{ip}/live",
         :ephemeral => EPHEMERAL, :data => DUMMY_DATA)
     }
   end
 
-  
+
   # Provides a convenience function that callers can use to indicate that their
   # node is done loading (if they have finished starting/stopping roles), or is
   # not done loading (if they have roles they need to start or stop).
@@ -464,8 +447,81 @@ class ZKInterface
 
 
   def self.set_job_data_for_ip(ip, job_data)
-    return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data", 
+    return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data",
       JSON.dump(job_data), NOT_EPHEMERAL)
+  end
+
+
+  def self.get_versions()
+    active_versions = []
+    self.get_children('/appscale/projects').each { |project_id|
+      services_node = "/appscale/projects/#{project_id}/services"
+      self.get_children(services_node).each { |service_id|
+        versions_node = "/appscale/projects/#{project_id}/services/" +
+          "#{service_id}/versions"
+        self.get_children(versions_node).each { |version_id|
+          active_versions << [project_id, service_id,
+                              version_id].join(Djinn::VERSION_PATH_SEPARATOR)
+        }
+      }
+    }
+    return active_versions
+  end
+
+  def self.get_version_details(project_id, service_id, version_id)
+    version_node = "/appscale/projects/#{project_id}/services/#{service_id}" +
+      "/versions/#{version_id}"
+    begin
+      version_details_json = self.get(version_node)
+    rescue FailedZooKeeperOperationException
+      raise VersionNotFound,
+            "#{project_id}/#{service_id}/#{version_id} does not exist"
+    end
+    return JSON.load(version_details_json)
+  end
+
+
+  # Defines deployment-wide defaults for runtime parameters.
+  def self.set_runtime_params(parameters)
+    runtime_params_node = '/appscale/config/runtime_parameters'
+    self.ensure_path('/appscale/config')
+    self.set(runtime_params_node, JSON.dump(parameters), false)
+  end
+
+
+  # Writes new configs for node stats profiling to zookeeper.
+  def self.update_hermes_nodes_profiling_conf(is_enabled, interval)
+    configs_node = "/appscale/stats/profiling/nodes"
+    self.ensure_path(configs_node)
+    configs = {
+      "enabled" => is_enabled,
+      "interval" => interval
+    }
+    self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
+  end
+
+  # Writes new configs for processes stats profiling to zookeeper
+  def self.update_hermes_processes_profiling_conf(is_enabled, interval, is_detailed)
+    configs_node = "/appscale/stats/profiling/processes"
+    self.ensure_path(configs_node)
+    configs = {
+      "enabled" => is_enabled,
+      "interval" => interval,
+      "detailed" => is_detailed
+    }
+    self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
+  end
+
+  # Writes new configs for proxies stats profiling to zookeeper
+  def self.update_hermes_proxies_profiling_conf(is_enabled, interval, is_detailed)
+    configs_node = "/appscale/stats/profiling/proxies"
+    self.ensure_path(configs_node)
+    configs = {
+      "enabled" => is_enabled,
+      "interval" => interval,
+      "detailed" => is_detailed
+    }
+    self.set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
 

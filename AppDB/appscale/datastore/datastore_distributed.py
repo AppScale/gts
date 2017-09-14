@@ -3143,9 +3143,9 @@ class DatastoreDistributed():
       task_ops: A list of tasks.
     """
     if app not in self.taskqueue_stubs:
-      # The host and port are used only for generating URLs, which have already
-      # been generated for the tasks.
-      self.taskqueue_stubs[app] = TaskQueueServiceStub(app, '', '')
+      # The host is used only for generating URLs, which have already been
+      # generated for the tasks.
+      self.taskqueue_stubs[app] = TaskQueueServiceStub(app, '')
 
     bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()

@@ -1,4 +1,16 @@
+import sys
+
 from setuptools import setup
+
+install_requires = [
+  'appscale-common',
+  'kazoo',
+  'PyYaml',
+  'SOAPpy',
+  'tornado'
+]
+if sys.version_info < (3,):
+  install_requires.append('futures')
 
 setup(
   name='appscale-admin',
@@ -9,12 +21,7 @@ setup(
   license='Apache License 2.0',
   keywords='appscale google-app-engine python',
   platforms='Posix',
-  install_requires=[
-    'appscale-common',
-    'kazoo',
-    'SOAPpy',
-    'tornado'
-  ],
+  install_requires=install_requires,
   classifiers=[
     'Development Status :: 3 - Alpha',
     'Intended Audience :: Developers',
@@ -24,6 +31,7 @@ setup(
   ],
   namespace_packages=['appscale'],
   packages=['appscale',
-            'appscale.admin'],
+            'appscale.admin',
+            'appscale.admin.instance_manager'],
   entry_points={'console_scripts': ['appscale-admin=appscale.admin:main']}
 )

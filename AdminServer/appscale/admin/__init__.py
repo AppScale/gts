@@ -1,7 +1,9 @@
 """ A server that handles application deployments. """
 
 import argparse
+import json
 import logging
+import re
 import sys
 import time
 
@@ -9,13 +11,18 @@ from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
   LOG_FORMAT,
+  VERSION_PATH_SEPARATOR,
   ZK_PERSISTENT_RECONNECTS
 )
+from appscale.common.monit_interface import MonitOperator
+from appscale.common.appscale_utils import get_md5
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from concurrent.futures import ThreadPoolExecutor
 from kazoo.client import KazooClient
 from kazoo.exceptions import NodeExistsError
+from kazoo.exceptions import NoNodeError
 from tornado import gen
 from tornado.options import options
 from tornado import web
@@ -24,15 +31,21 @@ from tornado.escape import json_encode
 from tornado.ioloop import IOLoop
 from . import utils
 from . import constants
+from .appengine_api import UpdateQueuesHandler
+from .base_handler import BaseHandler
 from .constants import (
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
   VALID_RUNTIMES
 )
-from .operation import CreateVersionOperation
-from .operation import DeleteVersionOperation
+from .operation import (
+  CreateVersionOperation,
+  DeleteVersionOperation,
+  UpdateVersionOperation
+)
 from .operations_cache import OperationsCache
+from .push_worker_manager import GlobalPushWorkerManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -40,44 +53,6 @@ from google.appengine.api.appcontroller_client import AppControllerException
 
 # The state of each operation.
 operations = OperationsCache()
-
-
-@gen.coroutine
-def wait_for_port_assignment(operation_id, deadline, acc):
-  """ Waits until port is assigned for version.
-
-  Args:
-    operation_id: A string specifying an operation ID.
-    deadline: A float containing a unix timestamp.
-    acc: An AppControllerClient.
-  Raises:
-    OperationTimeout if the deadline is exceeded.
-  """
-  try:
-    operation = operations[operation_id]
-  except KeyError:
-    raise OperationTimeout('Operation no longer in cache')
-
-  project_id = operation.project_id
-
-  while True:
-    if time.time() > deadline:
-      message = 'Deploy operation took too long.'
-      operation.set_error(message)
-      raise OperationTimeout(message)
-
-    try:
-      info_map = acc.get_app_info_map()
-    except AppControllerException as error:
-      logging.warning('Unable to fetch info map: {}'.format(error))
-      yield gen.sleep(1)
-      continue
-
-    try:
-      raise gen.Return(info_map[project_id]['nginx'])
-    except KeyError:
-      yield gen.sleep(1)
-      continue
 
 
 @gen.coroutine
@@ -127,7 +102,7 @@ def wait_for_deploy(operation_id, acc):
   start_time = time.time()
   deadline = start_time + constants.MAX_OPERATION_TIME
 
-  http_port = yield wait_for_port_assignment(operation_id, deadline, acc)
+  http_port = operation.version['appscaleExtensions']['httpPort']
   yield wait_for_port_to_open(http_port, operation_id, deadline)
 
   url = 'http://{}:{}'.format(options.login_ip, http_port)
@@ -168,51 +143,31 @@ def wait_for_delete(operation_id, http_port):
   operation.finish()
 
 
-class BaseHandler(web.RequestHandler):
-  """ A handler with helper functions that other handlers can extend. """
-  def authenticate(self):
-    """ Ensures requests are authenticated.
-
-    Raises:
-      CustomHTTPError if the secret is invalid.
-    """
-    if 'AppScale-Secret' not in self.request.headers:
-      message = 'A required header is missing: AppScale-Secret'
-      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=message)
-
-    if self.request.headers['AppScale-Secret'] != options.secret:
-      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
-
-  def write_error(self, status_code, **kwargs):
-    """ Writes a custom JSON-based error message.
-
-    Args:
-      status_code: An integer specifying the HTTP error code.
-    """
-    details = {'code': status_code}
-    if 'exc_info' in kwargs:
-      error = kwargs['exc_info'][1]
-      try:
-        details.update(error.kwargs)
-      except AttributeError:
-        pass
-
-    self.finish(json_encode({'error': details}))
-
-
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
-  def initialize(self, acc, ua_client, zk_client):
-    """ Defines an AppControllerClient, UAClient, and KazooClient.
+
+  # A rule for validating version IDs.
+  VERSION_ID_RE = re.compile(r'(?!-)[a-z\d\-]{1,100}')
+
+  # Reserved names for version IDs.
+  RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
+
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
+    """ Defines required resources to handle requests.
 
     Args:
       acc: An AppControllerClient.
       ua_client: A UAClient.
       zk_client: A KazooClient.
+      version_update_lock: A kazoo lock.
+      thread_pool: A ThreadPoolExecutor.
     """
     self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
+    self.version_update_lock = version_update_lock
+    self.thread_pool = thread_pool
 
   def get_current_user(self):
     """ Retrieves the current user.
@@ -262,9 +217,40 @@ class VersionsHandler(BaseHandler):
     if version['runtime'] in [constants.JAVA, constants.PYTHON27]:
       utils.assert_fields_in_resource(['threadsafe'], 'version', version)
 
+    version['id'] = str(version['id'])
+
+    # Prevent multiple versions per service.
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid version ID')
+
+    if not self.VERSION_ID_RE.match(version['id']):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid version ID')
+
+    for reserved_id in self.RESERVED_VERSION_IDS:
+      if re.match(reserved_id, version['id']):
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                              message='Reserved version ID')
+
+    if 'basicScaling' in version or 'manualScaling' in version:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Only automaticScaling is supported')
+
+    # Create a revision ID to differentiate between deployments of the same
+    # version.
+    version['revision'] = int(time.time() * 1000)
+
+    extensions = version.get('appscaleExtensions', {})
+    http_port = extensions.get('httpPort', None)
+    https_port = extensions.get('httpsPort', None)
+    if http_port is not None and http_port not in constants.ALLOWED_HTTP_PORTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid HTTP port')
+
+    if (https_port is not None and
+        https_port not in constants.ALLOWED_HTTPS_PORTS):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid HTTPS port')
 
     return version
 
@@ -283,53 +269,68 @@ class VersionsHandler(BaseHandler):
       logging.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
-  def create_project(self, project_id, user, runtime):
+  def create_project(self, project_id, runtime):
     """ Creates a new project.
     
     Args:
       project_id: A string specifying a project ID.
-      user: A string specifying a user's email address.
       runtime: A string specifying the project's runtime.
     Raises:
       CustomHTTPError if unable to create new project.
     """
     logging.info('Creating project: {}'.format(project_id))
     try:
-      self.ua_client.commit_new_app(project_id, user, runtime)
+      self.ua_client.commit_new_app(project_id, runtime)
     except UAException:
       message = 'Unable to ensure project exists: {}'.format(project_id)
       logging.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
-  def ensure_user_is_owner(self, project_id, user):
-    """ Ensures a user is the owner of a project.
-    
+  def put_version(self, project_id, service_id, new_version):
+    """ Create or update version node.
+
     Args:
       project_id: A string specifying a project ID.
-      user: A string specifying a user's email address.
-    Raises:
-      CustomHTTPError if the user is not the owner.
+      service_id: A string specifying a service ID.
+      new_version: A dictionary containing version details.
+    Returns:
+      A dictionary containing updated version details.
     """
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id,
+      version_id=new_version['id'])
+
     try:
-      project_metadata = self.ua_client.get_app_data(project_id)
-    except UAException:
-      message = 'Unable to retrieve project metadata'
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+      old_version_json, _ = self.zk_client.get(version_node)
+      old_version = json.loads(old_version_json)
+    except NoNodeError:
+      old_version = {}
 
-    if 'owner' not in project_metadata:
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
-                            message='Project owner not defined')
+    if 'appscaleExtensions' not in new_version:
+      new_version['appscaleExtensions'] = {}
 
-    if project_metadata['owner'] != user:
-      message = 'User is not project owner: {}'.format(user)
-      raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=message)
+    new_version['appscaleExtensions'].update(
+      utils.assign_ports(old_version, new_version, self.zk_client))
 
-  def begin_deploy(self, project_id):
+    try:
+      self.zk_client.create(version_node, json.dumps(new_version),
+                            makepath=True)
+    except NodeExistsError:
+      if project_id in constants.IMMUTABLE_PROJECTS:
+        message = '{} cannot be modified'.format(project_id)
+        raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=message)
+
+      self.zk_client.set(version_node, json.dumps(new_version))
+
+    return new_version
+
+  def begin_deploy(self, project_id, service_id, version_id):
     """ Triggers the deployment process.
     
     Args:
       project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
     Raises:
       CustomHTTPError if unable to start the deployment process.
     """
@@ -340,34 +341,46 @@ class VersionsHandler(BaseHandler):
       logging.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
+    version_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version_id])
     try:
-      self.acc.update([project_id])
+      self.acc.update([version_key])
     except AppControllerException as error:
-      message = 'Error while updating application: {}'.format(error)
+      message = 'Error while updating version: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
-  def identify_as_hoster(self, project_id, source_location):
+  @gen.coroutine
+  def identify_as_hoster(self, project_id, service_id, version):
     """ Marks this machine as having a version's source code.
 
     Args:
       project_id: A string specifying a project ID.
-      source_path: A string specifying the location of the version's source.
+      service_id: A string specifying a service ID.
+      version: A dictionary containing version details.
     """
-    private_ip = appscale_info.get_private_ip()
-    hoster_node = '/apps/{}/{}'.format(project_id, private_ip)
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
+    hoster_node = '/apps/{}/{}'.format(revision_key, options.private_ip)
+    source_location = version['deployment']['zip']['sourceUrl']
 
+    md5 = yield self.thread_pool.submit(get_md5, source_location)
     try:
-      self.zk_client.create(hoster_node, str(source_location), ephemeral=True,
-                            makepath=True)
+      self.zk_client.create(hoster_node, md5, makepath=True)
     except NodeExistsError:
-      self.zk_client.set(hoster_node, str(source_location))
+      raise CustomHTTPError(
+        HTTPCodes.INTERNAL_ERROR, message='Revision already exists')
 
-    # Remove other hosters that have old code.
-    hosters = self.zk_client.get_children('/apps/{}'.format(project_id))
-    old_hosters = [hoster for hoster in hosters if hoster != private_ip]
-    for hoster in old_hosters:
-      self.zk_client.delete('/apps/{}/{}'.format(project_id, hoster))
+    # Remove old revision nodes.
+    version_prefix = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id']])
+    old_revisions = [node for node in self.zk_client.get_children('/apps')
+                     if node.startswith(version_prefix)
+                     and node < revision_key]
+    for node in old_revisions:
+      logging.info('Removing hosting entries for {}'.format(node))
+      self.zk_client.delete('/apps/{}'.format(node), recursive=True)
 
+  @gen.coroutine
   def post(self, project_id, service_id):
     """ Creates or updates a version.
     
@@ -376,34 +389,37 @@ class VersionsHandler(BaseHandler):
       service_id: A string specifying a service ID.
     """
     self.authenticate()
-    user = self.get_current_user()
     version = self.version_from_payload()
-
-    if project_id in constants.RESERVED_PROJECTS:
-      raise CustomHTTPError(HTTPCodes.FORBIDDEN,
-                            message='{} cannot be modified'.format(project_id))
 
     project_exists = self.project_exists(project_id)
     if not project_exists:
-      self.create_project(project_id, user, version['runtime'])
+      self.create_project(project_id, version['runtime'])
 
-    if service_id != constants.DEFAULT_SERVICE:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
-
-    self.ensure_user_is_owner(project_id, user)
-
-    source_path = utils.resolve_source_path(
-      version['deployment']['zip']['sourceUrl'])
-
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
     try:
-      utils.extract_source(version, project_id)
+      yield self.thread_pool.submit(
+        utils.extract_source, revision_key,
+        version['deployment']['zip']['sourceUrl'], version['runtime'])
     except IOError:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='{} does not exist'.format(source_path))
+      message = '{} does not exist'.format(
+        version['deployment']['zip']['sourceUrl'])
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+    except constants.InvalidSource as error:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=str(error))
 
-    self.identify_as_hoster(project_id, source_path)
+    new_path = utils.rename_source_archive(project_id, service_id, version)
+    version['deployment']['zip']['sourceUrl'] = new_path
+    yield self.identify_as_hoster(project_id, service_id, version)
+    utils.remove_old_archives(project_id, service_id, version)
 
-    self.begin_deploy(project_id)
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      version = self.put_version(project_id, service_id, version)
+    finally:
+      self.version_update_lock.release()
+
+    self.begin_deploy(project_id, service_id, version['id'])
 
     operation = CreateVersionOperation(project_id, service_id, version)
     operations[operation.id] = operation
@@ -420,14 +436,149 @@ class VersionsHandler(BaseHandler):
 class VersionHandler(BaseHandler):
   """ Manages particular service versions. """
 
-  def initialize(self, acc):
-    """ Defines an AppControllerClient.
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
+    """ Defines required resources to handle requests.
 
     Args:
       acc: An AppControllerClient.
+      ua_client: A UAClient.
+      zk_client: A KazooClient.
+      version_update_lock: A kazoo lock.
+      thread_pool: A ThreadPoolExecutor.
     """
     self.acc = acc
+    self.ua_client = ua_client
+    self.zk_client = zk_client
+    self.version_update_lock = version_update_lock
+    self.thread_pool = thread_pool
 
+  def get_version(self, project_id, service_id, version_id):
+    """ Fetches a version node.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    Returns:
+      A dictionary containing version details.
+    """
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id, version_id=version_id)
+
+    try:
+      version_json, _ = self.zk_client.get(version_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Version not found')
+
+    return json.loads(version_json)
+
+  def version_from_payload(self):
+    """ Constructs version from payload.
+
+    Returns:
+      A dictionary containing version details.
+    """
+    update_mask = self.get_argument('updateMask', None)
+    if not update_mask:
+      message = 'At least one field must be specified for this operation.'
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    desired_fields = update_mask.split(',')
+    supported_fields = {'appscaleExtensions.httpPort',
+                        'appscaleExtensions.httpsPort'}
+    for field in desired_fields:
+      if field not in supported_fields:
+        message = ('This operation is only supported on the following '
+                   'field(s): [{}]'.format(', '.join(supported_fields)))
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    try:
+      given_version = json_decode(self.request.body)
+    except ValueError:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Payload must be valid JSON')
+
+    masked_version = utils.apply_mask_to_version(given_version, desired_fields)
+
+    extensions = masked_version.get('appscaleExtensions', {})
+    http_port = extensions.get('httpPort', None)
+    https_port = extensions.get('httpsPort', None)
+    if http_port is not None and http_port not in constants.ALLOWED_HTTP_PORTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid HTTP port')
+
+    if (https_port is not None and
+        https_port not in constants.ALLOWED_HTTPS_PORTS):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid HTTPS port')
+
+    return masked_version
+
+  def update_version(self, project_id, service_id, version_id, new_fields):
+    """ Updates a version node.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+      new_fields: A dictionary containing version details.
+    Returns:
+      A dictionary containing completed version details.
+    """
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id, version_id=version_id)
+
+    try:
+      version_json, _ = self.zk_client.get(version_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Version not found')
+
+    version = json.loads(version_json)
+    new_ports = utils.assign_ports(version, new_fields, self.zk_client)
+    version['appscaleExtensions'].update(new_ports)
+    self.zk_client.set(version_node, json.dumps(version))
+    return version
+
+  @gen.coroutine
+  def relocate_version(self, project_id, service_id, version_id, http_port,
+                       https_port):
+    """ Assigns new ports to a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+      http_port: An integer specifying a port.
+      https_port: An integer specifying a port.
+    Returns:
+      A dictionary containing completed version details.
+    """
+    new_fields = {'appscaleExtensions': {}}
+    if http_port is not None:
+      new_fields['appscaleExtensions']['httpPort'] = http_port
+
+    if https_port is not None:
+      new_fields['appscaleExtensions']['httpsPort'] = https_port
+
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      version = self.update_version(project_id, service_id, version_id,
+                                    new_fields)
+    finally:
+      self.version_update_lock.release()
+
+    http_port = version['appscaleExtensions']['httpPort']
+    https_port = version['appscaleExtensions']['httpsPort']
+
+    try:
+      self.ua_client.add_instance(project_id, options.login_ip, http_port,
+                                  https_port)
+    except UAException:
+      logging.warning('Failed to notify UAServer about updated ports')
+
+    raise gen.Return(version)
+
+  @gen.coroutine
   def delete(self, project_id, service_id, version_id):
     """ Deletes a version.
 
@@ -438,26 +589,36 @@ class VersionHandler(BaseHandler):
     """
     self.authenticate()
 
-    if service_id != constants.DEFAULT_SERVICE:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
+    if project_id in constants.IMMUTABLE_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} cannot be deleted'.format(project_id))
 
     if version_id != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid version')
 
+    version = self.get_version(project_id, service_id, version_id)
     try:
-      app_info_map = self.acc.get_app_info_map()
-    except AppControllerException:
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
-                            message='Unable to fetch version info')
-
-    try:
-      http_port = app_info_map[project_id]['nginx']
+      http_port = version['appscaleExtensions']['httpPort']
     except KeyError:
       raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                             message='Version serving port not found')
 
+    version_node = constants.VERSION_NODE_TEMPLATE.format(
+      project_id=project_id, service_id=service_id, version_id=version_id)
+
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
-      self.acc.stop_app(project_id)
+      try:
+        self.zk_client.delete(version_node)
+      except NoNodeError:
+        pass
+    finally:
+      self.version_update_lock.release()
+
+    version_key = VERSION_PATH_SEPARATOR.join([project_id, service_id,
+                                               version_id])
+    try:
+      self.acc.stop_version(version_key)
     except AppControllerException as error:
       message = 'Error while stopping application: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
@@ -468,6 +629,33 @@ class VersionHandler(BaseHandler):
 
     IOLoop.current().spawn_callback(wait_for_delete, operation.id, http_port)
 
+    self.write(json_encode(operation.rest_repr()))
+
+  @gen.coroutine
+  def patch(self, project_id, service_id, version_id):
+    """ Updates a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    """
+    self.authenticate()
+
+    if project_id in constants.IMMUTABLE_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} cannot be updated'.format(project_id))
+
+    version = self.version_from_payload()
+
+    extensions = version.get('appscaleExtensions', {})
+    if 'httpPort' in extensions or 'httpsPort' in extensions:
+      new_http_port = extensions.get('httpPort')
+      new_https_port = extensions.get('httpsPort')
+      version = yield self.relocate_version(
+        project_id, service_id, version_id, new_http_port, new_https_port)
+
+    operation = UpdateVersionOperation(project_id, service_id, version)
     self.write(json_encode(operation.rest_repr()))
 
 
@@ -507,6 +695,8 @@ def main():
 
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
+  options.define('private_ip', appscale_info.get_private_ip())
+  options.define('load_balancers', appscale_info.get_load_balancer_ips())
 
   acc = appscale_info.get_appcontroller_client()
   ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
@@ -514,13 +704,28 @@ def main():
     hosts=','.join(appscale_info.get_zk_node_ips()),
     connection_retry=ZK_PERSISTENT_RECONNECTS)
   zk_client.start()
+  version_update_lock = zk_client.Lock(constants.VERSION_UPDATE_LOCK_NODE)
+  thread_pool = ThreadPoolExecutor(4)
+  monit_operator = MonitOperator()
+  all_resources = {
+    'acc': acc,
+    'ua_client': ua_client,
+    'zk_client': zk_client,
+    'version_update_lock': version_update_lock,
+    'thread_pool': thread_pool
+  }
+
+  if options.private_ip in appscale_info.get_taskqueue_nodes():
+    logging.info('Starting push worker manager')
+    GlobalPushWorkerManager(zk_client, monit_operator)
 
   app = web.Application([
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
-     {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client}),
+     all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
-     VersionHandler, {'acc': acc}),
+     VersionHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
+    ('/api/queue/update', UpdateQueuesHandler, {'zk_client': zk_client})
   ])
   logging.info('Starting AdminServer')
   app.listen(args.port)

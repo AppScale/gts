@@ -51,7 +51,6 @@ def main():
   os.environ['COOKIE_SECRET'] = 'secret'
   os.environ['MY_PORT'] = '8080'
   os.environ['NGINX_HOST'] = 'localhost'
-  os.environ['NGINX_PORT'] = '8080'
 
   sys.path.extend(TEST_LIBRARY_PATHS)
 

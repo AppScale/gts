@@ -62,7 +62,6 @@ public class DevAppServerMain
     private String              cookie;
     private String              appscale_version;
     private String              admin_console_version;
-    private static final String PORT_FILE_PREFIX                      = "/etc/appscale/port-";
     private static final String SECRET_LOCATION                       = "/etc/appscale/secret.key";
 
     private final List<Option>  PARSERS                               = buildOptions(this);
@@ -230,12 +229,6 @@ public class DevAppServerMain
             {
                 System.setProperty("NGINX_ADDR", getValue());
             }
-        }, new DevAppServerOption(main, null, "NGINX_PORT", false)
-        {
-            public void apply()
-            {
-                System.setProperty("NGINX_PORT", getNginxPort());
-            }
         }, new DevAppServerOption(main, null, "TQ_PROXY", false)
         {
             public void apply()
@@ -272,35 +265,6 @@ public class DevAppServerMain
 
     private static void reportBadInstancePortValue(String optionValue) {
         throw new IllegalArgumentException("Invalid instance_port value " + optionValue);
-    }
-
-    private static String getNginxPort()
-    {
-        String appName = System.getProperty("APP_NAME");
-        String portString = null;
-        BufferedReader bufferReader = null;
-        try
-        {
-            bufferReader = new BufferedReader(new FileReader(PORT_FILE_PREFIX + appName + ".txt"));
-            portString = bufferReader.readLine();
-        }
-        catch(IOException e)
-        {
-            System.out.println("IOException getting port from " + PORT_FILE_PREFIX + appName + ".txt");
-            e.printStackTrace(); 
-        }        
-        finally
-        {
-            try
-            {
-                if (bufferReader != null) bufferReader.close();
-            } 
-            catch (IOException ex)
-            {
-                ex.printStackTrace();
-            }
-        }
-        return portString; 
     }
 
     private static List<Option> buildOptions( DevAppServerMain main )

@@ -175,7 +175,8 @@ CONFIG
                   '--pidfile', pidfile,
                   '--startas', "#{bash} -- -c '#{bash_exec}'"]
 
-    stop_cmd = "#{start_stop_daemon} --stop --pidfile #{pidfile} && " +
+    stop_cmd = "#{start_stop_daemon} --stop --pidfile #{pidfile} " +
+               "--retry=TERM/20/KILL/5 && " +
                "#{rm} #{pidfile}"
 
     contents = <<BOO
@@ -200,6 +201,23 @@ BOO
   def self.is_running?(watch)
     output = self.run_cmd("#{MONIT} summary | grep #{watch} | grep -E '(Running|Initializing)'")
     return (not output == "")
+  end
+
+  # Checks if an AppServer instance is running.
+  #
+  # Args:
+  #   version_key: A string specifying a version key.
+  #   port: An integer specifying a port.
+  # Returns:
+  #   A boolean indicating whether or not the instance is running.
+  def self.instance_running?(version_key, port)
+    output = self.run_cmd("#{MONIT} summary")
+    output.each_line { |entry|
+      next unless entry.include?(version_key)
+      next unless entry.include?(port.to_s)
+      return entry.include?('Running') || entry.include?('Initialized')
+    }
+    return false
   end
 
   # This function returns a list of running applications: the

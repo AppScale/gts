@@ -15,10 +15,7 @@ import tq_lib
 
 from appscale.common import (
   appscale_info,
-  constants,
-  file_io,
-  monit_app_configuration,
-  monit_interface
+  constants
 )
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -29,6 +26,10 @@ from cassandra import (
 )
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
+from .constants import (
+  InvalidTarget,
+  TARGET_REGEX
+)
 from .queue import (
   InvalidLeaseRequest,
   PullQueue,
@@ -36,14 +37,13 @@ from .queue import (
   TransientError
 )
 from .task import Task
-from .tq_config import TaskQueueConfig
 from .utils import (
-  CELERY_CONFIG_DIR,
-  CELERY_WORKER_DIR,
   get_celery_queue_name,
   get_queue_function_name,
   logger
 )
+from .queue_manager import GlobalQueueManager
+from .service_manager import GlobalServiceManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
@@ -202,29 +202,6 @@ def setup_env():
 class DistributedTaskQueue():
   """ AppScale taskqueue layer for the TaskQueue API. """
 
-  # Required start worker name tags.
-  SETUP_WORKERS_TAGS = ['app_id']
-
-  # Required stop worker name tags.
-  STOP_WORKERS_TAGS = ['app_id']
-
-  # The location of where celery logs go.
-  LOG_DIR = "/var/log/appscale/celery_workers/"
-
-  # The hard time limit of a running task in seconds, extra
-  # time over the soft limit allows it to catch up to interrupts.
-  HARD_TIME_LIMIT = 610
-
-  # The soft time limit of a running task.
-  TASK_SOFT_TIME_LIMIT = 600
-
-  # The location where celery tasks place their PID file. Prevents
-  # the same worker from being started if it is already running.
-  PID_FILE_LOC = "/etc/appscale/"
-
-  # A port number given to the monitoring service, but not actually used.
-  CELERY_PORT = 9999
-
   # The longest a task is allowed to run in days.
   DEFAULT_EXPIRATION = 30
 
@@ -242,29 +219,14 @@ class DistributedTaskQueue():
   # Kind used for storing task names.
   TASK_NAME_KIND = "__task_name__"
 
-  # A dict that tells celery to run tasks even though we are running as root.
-  CELERY_ENV_VARS = {'C_FORCE_ROOT': True}
-
-  # The max memory allocated to celery worker pools in MB.
-  CELERY_MAX_MEMORY = 1000
-
-  # The safe memory per Celery worker.
-  CELERY_SAFE_MEMORY = 200
-
-  def __init__(self, db_access):
+  def __init__(self, db_access, zk_client):
     """ DistributedTaskQueue Constructor.
 
     Args:
       db_access: A DatastoreProxy object.
+      zk_client: A KazooClient.
     """
-    file_io.mkdir(self.LOG_DIR)
-    file_io.mkdir(CELERY_WORKER_DIR)
-    file_io.mkdir(CELERY_CONFIG_DIR)
-
     setup_env()
-  
-    # Cache all queue information in memory.
-    self.__queue_info_cache = {}
 
     db_proxy = appscale_info.get_db_proxy()
     connection_str = '{}:{}'.format(db_proxy, str(constants.DB_SERVER_PORT))
@@ -274,9 +236,9 @@ class DistributedTaskQueue():
     os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
     self.db_access = db_access
-
-    # Flag to see if code needs to be reloaded.
-    self.__force_reload = False
+    self.load_balancers = appscale_info.get_load_balancer_ips()
+    self.queue_manager = GlobalQueueManager(zk_client, db_access)
+    self.service_manager = GlobalServiceManager(zk_client)
 
   def get_queue(self, app, queue):
     """ Fetches a Queue object.
@@ -287,15 +249,9 @@ class DistributedTaskQueue():
     Returns:
       A Queue object or None.
     """
-    cache = self.__queue_info_cache
-    if app in cache and queue in cache[app]:
-      return cache[app][queue]
-
-    config = TaskQueueConfig(app, self.db_access)
-    self.__queue_info_cache[app] = config.queues
-    if queue in config.queues:
-      return config.queues[queue]
-    else:
+    try:
+      return self.queue_manager[app][queue]
+    except KeyError:
       return None
 
   def __parse_json_and_validate_tags(self, json_request, tags):
@@ -320,187 +276,6 @@ class DistributedTaskQueue():
                          'reason': 'Missing ' + tag + ' tag'}
         break
     return json_response
-
-  def stop_worker(self, json_request):
-    """ Stops the monit watch for queues of an application on the current node.
-   
-    Args:
-      json_request: A JSON string with the queue name for which we're
-        stopping its queues.
-    Returns:
-      A JSON string with the result.
-    """
-    request = self.__parse_json_and_validate_tags(
-      json_request, self.STOP_WORKERS_TAGS)
-    logger.info("Stopping worker: {0}".format(request))
-    if 'error' in request:
-      return json.dumps(request)
-
-    app_id = request['app_id']
-    watch = "celery-" + str(app_id)
-    try:
-      if monit_interface.stop(watch):
-        stop_command = self.get_worker_stop_command(app_id)
-        os.system(stop_command) 
-        TaskQueueConfig.remove_config_files(app_id)
-        result = {'error': False}
-      else:
-        result = {'error': True, 'reason': "Unable to stop watch %s" % watch}
-    except OSError, os_error:
-      result = {'error': True, 'reason' : str(os_error)}
-
-    return json.dumps(result)
-    
-  def get_worker_stop_command(self, app_id):
-    """ Returns the command to run to stop celery workers for a given
-    application.
-  
-    Args:
-      app_id: The application ID.
-    Returns:
-      A string which, if run, will kill celery workers for a given
-      application ID.
-    """
-    stop_command = "/usr/bin/python2 {0}/scripts/stop_service.py worker {1}" \
-      .format(constants.APPSCALE_HOME, app_id)
-    return stop_command
-
-  def reload_worker(self, json_request):
-    """ Reloads taskqueue workers as needed. A worker can be started on both
-    a master and slave node.
- 
-    Args:
-      json_request: A JSON string with the application ID.
-    Returns:
-      A JSON string with the error status and error reason.
-    """
-    request = self.__parse_json_and_validate_tags(json_request,  
-                                         self.SETUP_WORKERS_TAGS)
-    logger.info("Reload worker request: {0}".format(request))
-    if 'error' in request:
-      return json.dumps(request)
-
-    app_id = self.__cleanse(request['app_id'])
-
-    cached_queues = {}
-    if app_id in self.__queue_info_cache:
-      cached_queues = self.__queue_info_cache[app_id]
-
-    try:
-      new_queues = TaskQueueConfig(app_id, self.db_access).queues
-    except (ValueError, NameError) as config_error:
-      return json.dumps({'error': True, 'reason': config_error.message})
-    except Exception as config_error:
-      logger.exception('Unknown exception')
-      return json.dumps({'error': True, 'reason': config_error.message})
-
-    reload_workers = False
-
-    # Stop workers for push queues that no longer exist.
-    for name, queue in cached_queues.iteritems():
-      if not isinstance(queue, PushQueue):
-        continue
-
-      if name not in new_queues:
-        logger.info('Deleting queue for {}: {}'.format(app_id, name))
-        reload_workers = True
-
-    # Create any new push queues and update ones that have changed.
-    for name, queue in new_queues.iteritems():
-      if not isinstance(queue, PushQueue):
-        continue
-
-      if name not in cached_queues:
-        logger.info('Creating queue for {}: {}'.format(app_id, name))
-        reload_workers = True
-        continue
-
-      if queue != cached_queues[name]:
-        logger.info('Reloading queue for {}: {}'.format(app_id, name))
-        logger.debug('Old: {}\nNew: {}'.format(cached_queues[name], queue))
-        reload_workers = True
-
-    if reload_workers:
-      self.stop_worker(json_request)
-      self.start_worker(json_request)
-      self.__force_reload = True
-    else:
-      logger.info('Not reloading queues')
-
-    self.__queue_info_cache[app_id] = new_queues
-
-    json_response = {'error': False}
-    return json.dumps(json_response)
-
-  def start_worker(self, json_request):
-    """ Starts taskqueue workers if they are not already running. A worker
-    can be started on both a master and slave node.
- 
-    Args:
-      json_request: A JSON string with the application id.
-    Returns:
-      A JSON string with the error status and error reason.
-    """
-    request = self.__parse_json_and_validate_tags(json_request,  
-                                         self.SETUP_WORKERS_TAGS)
-    logger.info("Start worker request: {0}".format(request))
-    if 'error' in request:
-      return json.dumps(request)
-
-    app_id = self.__cleanse(request['app_id'])
-
-    # Load the queue info.
-    try:
-      config = TaskQueueConfig(app_id, self.db_access)
-      self.__queue_info_cache[app_id] = config.queues
-      config.create_celery_file()
-    except (ValueError, NameError) as config_error:
-      return json.dumps({'error': True, 'reason': config_error.message})
-    except Exception as config_error:
-      logger.exception('Unknown exception')
-      return json.dumps({'error': True, 'reason': config_error.message})
-   
-    log_file = os.path.join(self.LOG_DIR, '{}.log'.format(app_id))
-    pidfile = os.path.join('/', 'var', 'run', 'appscale',
-                           'celery-{}.pid'.format(app_id))
-    state_db = os.path.join(TaskQueueConfig.CELERY_STATE_DIR,
-                            'worker___{}.db'.format(app_id))
-    max_memory = self.CELERY_SAFE_MEMORY * \
-                 TaskQueueConfig.MAX_CELERY_CONCURRENCY
-
-    env_vars = {'APP_ID': app_id, 'HOST': appscale_info.get_login_ip()}
-    env_vars.update(self.CELERY_ENV_VARS)
-
-    start_cmd = ' '.join([
-      'celery', 'worker',
-      '--app', TaskQueueConfig.WORKER_MODULE,
-      '--hostname', app_id,
-      '--workdir', CELERY_WORKER_DIR,
-      '--logfile', log_file,
-      '--pidfile', pidfile,
-      '--time-limit', str(self.HARD_TIME_LIMIT),
-      '--autoscale', '{max},{min}'.format(
-        max=TaskQueueConfig.MAX_CELERY_CONCURRENCY,
-        min=TaskQueueConfig.MIN_CELERY_CONCURRENCY),
-      '--soft-time-limit', str(self.TASK_SOFT_TIME_LIMIT),
-      '--statedb', state_db,
-      '-Ofair'
-    ])
-
-    watch = "celery-" + str(app_id)
-    monit_app_configuration.create_config_file(
-      watch,
-      start_cmd,
-      pidfile,
-      env_vars=env_vars,
-      max_memory=max_memory)
-
-    if monit_interface.start(watch):
-      json_response = {'error': False}
-    else:
-      json_response = {'error': True, 
-                       'reason': "Start of monit watch for %s failed" % watch}
-    return json.dumps(json_response)
 
   def fetch_queue_stats(self, app_id, http_data):
     """ Gets statistics about tasks in queues.
@@ -605,24 +380,25 @@ class DistributedTaskQueue():
 
     return response.Encode(), 0, ""
 
-  def add(self, app_id, http_data):
+  def add(self, source_info, http_data):
     """ Adds a single task to the task queue.
 
     Args:
-      app_id: The application ID.
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       http_data: The payload containing the protocol buffer request.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
     # Just call bulk add with one task.
     request = taskqueue_service_pb.TaskQueueAddRequest(http_data)
-    request.set_app_id(app_id)
+    request.set_app_id(source_info['app_id'])
     response = taskqueue_service_pb.TaskQueueAddResponse()
     bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
     bulk_request.add_add_request().CopyFrom(request)
 
-    self.__bulk_add(bulk_request, bulk_response) 
+    self.__bulk_add(source_info, bulk_request, bulk_response)
 
     if bulk_response.taskresult_size() == 1:
       result = bulk_response.taskresult(0).result()
@@ -639,24 +415,27 @@ class DistributedTaskQueue():
 
     return (response.Encode(), 0, "")
 
-  def bulk_add(self, app_id, http_data):
+  def bulk_add(self, source_info, http_data):
     """ Adds multiple tasks to the task queue.
 
     Args:
-      app_id: The application ID.
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       http_data: The payload containing the protocol buffer request.
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueBulkAddRequest(http_data)
     response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-    self.__bulk_add(request, response)
+    self.__bulk_add(source_info, request, response)
     return (response.Encode(), 0, "")
 
-  def __bulk_add(self, request, response):
+  def __bulk_add(self, source_info, request, response):
     """ Function for bulk adding tasks.
    
     Args:
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       request: taskqueue_service_pb.TaskQueueBulkAddRequest.
       response: taskqueue_service_pb.TaskQueueBulkAddResponse.
     Raises:
@@ -722,9 +501,12 @@ class DistributedTaskQueue():
         continue
 
       try:
-        self.__enqueue_push_task(add_request)
+        self.__enqueue_push_task(source_info, add_request)
       except apiproxy_errors.ApplicationError as error:
         task_result.set_result(error.application_error)
+      except InvalidTarget as e:
+        logger.error(e.message)
+        task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST)
       else:
         task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
 
@@ -780,16 +562,18 @@ class DistributedTaskQueue():
         raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.DATASTORE_ERROR)
 
-  def __enqueue_push_task(self, request):
+  def __enqueue_push_task(self, source_info, request):
     """ Enqueues a batch of push tasks.
   
     Args:
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     """
     self.__validate_push_task(request)
     self.__check_and_store_task_names(request)
-    args = self.get_task_args(request)
     headers = self.get_task_headers(request)
+    args = self.get_task_args(source_info, headers, request)
     countdown = int(headers['X-AppEngine-TaskETA']) - \
                 int(datetime.datetime.now().strftime("%s"))
 
@@ -807,17 +591,19 @@ class DistributedTaskQueue():
       routing_key=celery_queue,
     )
 
-  def get_task_args(self, request):
+  def get_task_args(self, source_info, headers, request):
     """ Gets the task args used when making a task web request.
   
     Args:
+      source_info: A dictionary containing the application, module, and version
+       ID that is sending this request.
+      headers: The request headers, used to determine target.
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     Returns:
       A dictionary used by a task worker.
     """
     args = {}
     args['task_name'] = request.task_name()
-    args['url'] = request.url()
     args['app_id'] = request.app_id()
     args['queue_name'] = request.queue_name()
     args['method'] = self.__method_mapping(request.method())
@@ -836,20 +622,10 @@ class DistributedTaskQueue():
     # Load queue info into cache.
     app_id = self.__cleanse(request.app_id())
     queue_name = request.queue_name()
-    if app_id not in self.__queue_info_cache:
-      try:
-        self.__queue_info_cache[app_id] = TaskQueueConfig(
-          app_id, self.db_access).queues
-      except (ValueError, NameError):
-        logger.exception('Unable to load queues for {}. Using defaults.'\
-          .format(app_id))
-      except Exception:
-        logger.exception('Unknown exception')
-  
+
     # Use queue defaults.
-    if (app_id in self.__queue_info_cache and
-        queue_name in self.__queue_info_cache[app_id]):
-      queue = self.__queue_info_cache[app_id][queue_name]
+    queue = self.get_queue(app_id, queue_name)
+    if queue is not None:
       if not isinstance(queue, PushQueue):
         raise Exception('Only push queues are implemented')
 
@@ -872,7 +648,76 @@ class DistributedTaskQueue():
       if retry_params.has_max_doublings():
         args['max_doublings'] = request.\
                                   retry_parameters().max_doublings()
+
+    target_url = "http://{ip}:{port}".format(
+      ip=self.load_balancers[0],
+      port=self.get_module_port(app_id, source_info, target_info=[]))
+
+    try:
+      host = headers['Host']
+    except KeyError:
+      host = None
+    else:
+      host =  host if TARGET_REGEX.match(host) else None
+
+    # Try to set target based on queue config.
+    if queue.target:
+      target_url = self.get_target_url(app_id, source_info, queue.target)
+    # If we cannot get anything from the queue config, we try the target from
+    # the request (python sdk will set the target via the Host header). Java
+    # sdk does not include Host header, so we catch the KeyError.
+    elif host:
+      target_url = self.get_target_url(app_id, source_info, host)
+
+
+    args['url'] = "{target}{url}".format(target=target_url, url=request.url())
     return args
+
+  def get_target_url(self, app_id, source_info, target):
+    """ Gets the url for the target using the queue's target defined in the
+    configuration file or the request's host header.
+    
+    Args:
+      app_id: The application id, used to lookup module port.
+      source_info: A dictionary containing the source version and module ids.
+      target: A string containing the value of queue.target or the host header.
+    Returns:
+       A url as a string for the given target.
+    """
+    target_info = target.split('.')
+    return "http://{ip}:{port}".format(
+      ip=self.load_balancers[0],
+      port=self.get_module_port(app_id, source_info, target_info))
+
+  def get_module_port(self, app_id, source_info, target_info):
+    """ Gets the port for the desired version and module or uses the current
+    running version and module.
+    
+    Args:
+     app_id: The application id, used to lookup port.
+     source_info: A dictionary containing the source version and module ids.
+     target_info: A list containing [version, module]
+    Returns:
+      An int containing the port for the target.
+    Raises:
+      InvalidTarget if the app_id, module, and version cannot be found in
+        self.service_manager which maintains a dict of zookeeper info.
+    """
+    try:
+      target_module = target_info.pop()
+    except IndexError:
+      target_module = source_info['module_id']
+    try:
+      target_version = target_info.pop()
+    except IndexError:
+      target_version = source_info['version_id']
+    try:
+      port = self.service_manager[app_id][target_module][target_version]
+    except KeyError:
+      err_msg = "target '{version}.{module}' does not exist".format(
+        version=target_version, module=target_module)
+      raise InvalidTarget(err_msg)
+    return port
 
   def get_task_headers(self, request):
     """ Gets the task headers used for a task web request. 

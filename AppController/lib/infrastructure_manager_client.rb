@@ -28,6 +28,10 @@ class InfrastructureManagerClient
   NO_TIMEOUT = 100000
 
 
+  # A constant that indicates the number of second to wait.
+  SMALL_WAIT = 3
+
+
   # A constant that callers can use to indicate that SOAP calls should be
   # retried if they fail (e.g., if the connection was refused).
   RETRY_ON_FAIL = true
@@ -133,6 +137,7 @@ class InfrastructureManagerClient
       "azure_resource_group" => options['azure_resource_group'],
       "azure_group_tag" => options['azure_group_tag'],
       "azure_storage_account" => options['azure_storage_account'],
+      "autoscale_agent" => true
     }
   end
 
@@ -169,7 +174,6 @@ class InfrastructureManagerClient
     parameters['region'] = options['region']
     parameters['IS_VERBOSE'] = options['verbose']
     parameters['zone'] = options['zone']
-    parameters['autoscale_agent'] = true
 
     terminate_result = make_call(NO_TIMEOUT, RETRY_ON_FAIL,
       "terminate_instances") {
@@ -198,7 +202,6 @@ class InfrastructureManagerClient
     parameters['cloud'] = 'cloud1'
     parameters['zone'] = options['zone']
     parameters['region'] = options['region']
-    parameters['autoscale_agent'] = true
     parameters['IS_VERBOSE'] = options['verbose']
 
     run_result = run_instances(parameters)
@@ -209,7 +212,7 @@ class InfrastructureManagerClient
     loop {
       describe_result = describe_instances("reservation_id" => reservation_id)
       Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']} " +
-        "and vm_info is #{describe_result['vm_info']}.")
+        "and vm_info is #{describe_result['vm_info'].inspect}.")
 
       if describe_result["state"] == "running"
         vm_info = describe_result["vm_info"]
@@ -217,16 +220,18 @@ class InfrastructureManagerClient
       elsif describe_result["state"] == "failed"
         raise AppScaleException.new(describe_result["reason"])
       end
-      Kernel.sleep(10)
+      Kernel.sleep(SMALL_WAIT)
     }
 
     # ip:job:instance-id
     instances_created = []
     vm_info['public_ips'].each_index { |index|
+      tmp_jobs = jobs[index]
+      tmp_jobs = 'open' if jobs[index].nil?
       instances_created << {
         'public_ip' => vm_info['public_ips'][index],
         'private_ip' => vm_info['private_ips'][index],
-        'jobs' => jobs[index],
+        'jobs' => tmp_jobs,
         'instance_id' => vm_info['instance_ids'][index],
         'disk' => disks[index]
       }
@@ -275,22 +280,11 @@ class InfrastructureManagerClient
     Djinn.log_debug("Calling SystemManager")
 
     cpu_usage = JSON.parse(@conn.get_cpu_usage(@secret))
-    Djinn.log_debug("CPU usage: #{cpu_usage}")
-
     disk_usage = JSON.parse(@conn.get_disk_usage(@secret))
-    Djinn.log_debug("Disk usage: #{disk_usage}")
-
     memory_usage = JSON.parse(@conn.get_memory_usage(@secret))
-    Djinn.log_debug("Memory usage: #{memory_usage}")
-
     service_summary = JSON.parse(@conn.get_service_summary(@secret))
-    Djinn.log_debug("Service summary: #{service_summary}")
-
     swap_usage = JSON.parse(@conn.get_swap_usage(@secret))
-    Djinn.log_debug("Swap usage: #{swap_usage}")
-
     loadavg = JSON.parse(@conn.get_loadavg(@secret))
-    Djinn.log_debug("Loadavg: #{loadavg}")
 
     all_stats = cpu_usage
     all_stats = all_stats.merge(disk_usage)

@@ -53,7 +53,6 @@ from google.appengine.api.prospective_search import prospective_search_stub
 from google.appengine.api.memcache import memcache_distributed # AS
 from google.appengine.api.modules import modules_stub
 from google.appengine.api.remote_socket import _remote_socket_stub
-from google.appengine.api.servers import servers_stub
 from google.appengine.api.system import system_stub
 from google.appengine.api.xmpp import xmpp_service_real # AS
 from google.appengine.datastore import datastore_sqlite_stub
@@ -317,8 +316,9 @@ def setup_stubs(
       'channel',
       channel_service_stub.ChannelServiceStub(request_data=request_data))
 
-  datastore = datastore_distributed.DatastoreDistributed(app_id, datastore_path,
-      require_indexes=datastore_require_indexes, trusted=trusted)
+  datastore = datastore_distributed.DatastoreDistributed(
+      app_id, datastore_path, require_indexes=datastore_require_indexes,
+      trusted=trusted, root_path=application_root)
 
   apiproxy_stub_map.apiproxy.ReplaceStub(
       'datastore_v3', datastore)
@@ -328,7 +328,6 @@ def setup_stubs(
       file_service_stub.FileServiceStub(blob_storage))
 
   serve_address = os.environ['NGINX_HOST']
-  serve_port = int(os.environ['NGINX_PORT'])
   try:
     from google.appengine.api.images import images_stub
   except ImportError:
@@ -342,7 +341,7 @@ def setup_stubs(
         images_not_implemented_stub.ImagesNotImplementedServiceStub(
             host_prefix=images_host_prefix))
   else:
-    host_prefix = 'http://{0}:{1}'.format(serve_address, serve_port)
+    host_prefix = 'http://{}'.format(serve_address)
     apiproxy_stub_map.apiproxy.RegisterStub(
         'images',
         images_stub.ImagesServiceStub(host_prefix=host_prefix))
@@ -373,17 +372,12 @@ def setup_stubs(
       modules_stub.ModulesServiceStub(request_data))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
-      'servers',
-      servers_stub.ServersServiceStub(request_data))
-
-  apiproxy_stub_map.apiproxy.RegisterStub(
       'system',
       system_stub.SystemServiceStub(request_data=request_data))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'taskqueue',
-      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address,
-      serve_port))
+      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address))
 
   urlmatchers_to_fetch_functions = []
   urlmatchers_to_fetch_functions.extend(

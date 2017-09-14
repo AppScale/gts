@@ -62,16 +62,35 @@ pipwrapper ()
 # Download a package from a mirror if it's not already cached.
 cachepackage() {
     CACHED_FILE="${PACKAGE_CACHE}/$1"
+    remote_file="${APPSCALE_PACKAGE_MIRROR}/$1"
     mkdir -p ${PACKAGE_CACHE}
     if [ -f ${CACHED_FILE} ]; then
         MD5=($(md5sum ${CACHED_FILE}))
         if [ "$MD5" = "$2" ]; then
             return 0
+        else
+            echo "Incorrect md5sum for ${CACHED_FILE}. Removing it."
+            rm ${CACHED_FILE}
         fi
     fi
 
-    echo "Fetching $1 from $APPSCALE_PACKAGE_MIRROR"
-    curl ${CURL_OPTS} -o ${CACHED_FILE} "${APPSCALE_PACKAGE_MIRROR}/$1"
+    echo "Fetching ${remote_file}"
+    if ! curl ${CURL_OPTS} -o ${CACHED_FILE} --retry 5 -C - "${remote_file}";
+    then
+        echo "Error while downloading ${remote_file}"
+        return 1
+    fi
+
+    MD5=($(md5sum ${CACHED_FILE}))
+    if [ "$MD5" = "$2" ]; then
+        return 0
+    else
+        echo "Unable to download ${remote_file}. Try downloading it "\
+             "manually, copying it to ${CACHED_FILE}, and re-running the "\
+             "build."
+        rm ${CACHED_FILE}
+        return 1
+    fi
 }
 
 # This function is to disable the specify service so that it won't start
@@ -212,7 +231,7 @@ EOF
     chgrp adm /var/log/appscale
     chmod g+rwx /var/log/appscale
 
-    mkdir -pv /var/appscale/
+    mkdir -pv /var/appscale/version_assets
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
@@ -297,6 +316,7 @@ installgems()
     gem install soap4r-ng ${GEMOPT}
     gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
+    gem install posixpsutil ${GEMOPT}
     # This is for the unit testing framework.
     gem install simplecov ${GEMOPT}
 }
@@ -334,10 +354,10 @@ installsolr()
 
 installcassandra()
 {
-    CASSANDRA_VER=3.7
+    CASSANDRA_VER=3.11.0
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    CASSANDRA_PACKAGE_MD5="39968c48cbb2a333e525f852db59fb48"
+    CASSANDRA_PACKAGE_MD5="96c72922df1170b4b5dec81b27d451fa"
     cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
     # Remove old Cassandra environment directory.

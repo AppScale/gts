@@ -2,13 +2,13 @@
 {% block page_title %}Instances{% endblock %}
 
 {% block page_head %}
-  <style type="text/css">{% include "servers.css" %}</style>
+  <style type="text/css">{% include "modules.css" %}</style>
 {% endblock %}
 
 {% block body %}
-<div id="servers">
+<div id="modules">
 <h3>Instances</h3>
-  <table id="ae-servers" class="ae-table">
+  <table id="ae-modules" class="ae-table">
     <thead>
       <tr>
         <th></th>
@@ -18,22 +18,22 @@
       </tr>
     </thead>
     <tbody>
-      {% for server in servers|sort(attribute='name') %}
+      {% for module in modules|sort(attribute='name') %}
       <tr>
         <th colspan=4>
-          <a href="//{{ server.balanced_address }}" target="_blank">
-            {{ server.name }}</a>
+          <a href="//{{ module.balanced_address }}" target="_blank">
+            {{ module.name }}</a>
         </th>
       </tr>
-      {% for instance in server.instances|sort(attribute='instance_id') %}
+      {% for instance in module.instances|sort(attribute='instance_id') %}
       <tr class="instance">
         <td class="instance-id">
-          {% if server.supports_individually_addressable_instances %}
-          <a href="//{{ server.get_instance_address(instance.instance_id) }}"
+          {% if module.supports_individually_addressable_instances %}
+          <a href="//{{ module.get_instance_address(instance.instance_id) }}"
             target="_blank">
           {% endif %}
           {{ instance.instance_id }}
-          {% if server.supports_individually_addressable_instances %}
+          {% if module.supports_individually_addressable_instances %}
           </a>
           {% endif %}
         </td>

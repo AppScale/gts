@@ -19,7 +19,7 @@ IP="$(which ip)"
 APPSCALE_CMD="$(which appscale)"
 APPSCALE_UPLOAD="$(which appscale-upload-app)"
 GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
-GUESTBOOK_URL="http://www.appscale.com/wp-content/uploads/2014/07/guestbook.tar.gz"
+GUESTBOOK_URL="https://www.appscale.com/wp-content/uploads/2017/07/guestbook.tar.gz"
 GUESTBOOK_APP="/root/guestbook.tar.gz"
 USE_DEMO_APP="Y"
 FORCE_PRIVATE="N"
@@ -267,7 +267,7 @@ KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
 
 # Deploy sample app.
 [ -z "${ADMIN_EMAIL}" ] && ADMIN_EMAIL="a@a.com"
-[ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --email ${ADMIN_EMAIL} --file ${GUESTBOOK_APP}
+[ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --file ${GUESTBOOK_APP}
 
 # Relocate to port 80.
 ${APPSCALE_CMD} relocate guestbook 80 443

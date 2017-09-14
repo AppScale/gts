@@ -720,11 +720,13 @@ class AppRelocatePage(AppDashboard):
       return
 
     app_id = self.request.POST.get('app_id')
+    version_key = '_'.join([app_id, AppDashboardHelper.DEFAULT_SERVICE,
+                            AppDashboardHelper.DEFAULT_VERSION])
     if self.dstore.is_user_cloud_admin() or \
             app_id in self.dstore.get_owned_apps():
       try:
-        success_msg = self.helper.relocate_app(
-          self.request.POST.multi['app_id'],
+        success_msg = self.helper.relocate_version(
+          version_key,
           self.request.POST.multi['http_port'],
           self.request.POST.multi['https_port'])
       except AppHelperException as err:

@@ -163,6 +163,20 @@ class DevAppServerImpl
       ApiProxy.clearEnvironmentForCurrentThread();
       restoreLocalTimeZone(currentTimeZone);
     }
+
+    // AppScale: Capture sigterm in order to finish requests before exiting.
+    ShutdownThread shutdownThread = new ShutdownThread(this) {
+      public void run() {
+        try {
+          this.server.shutdown();
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }
+    };
+    Runtime.getRuntime().addShutdownHook(shutdownThread);
+    // End AppScale.
+
     this.shutdownLatch = new CountDownLatch(1);
     this.serverState = ServerState.RUNNING;
 
@@ -176,6 +190,13 @@ class DevAppServerImpl
     else
     {
         System.setProperty(APPLICATION_ID_PROPERTY, config.getAppId());
+        // AppScale: Set MODULE and VERSION env variables for taskqueue.
+        System.setProperty("MODULE", mainModule.getModuleName());
+        String versionId = config.getMajorVersionId();
+        if (versionId == null)
+          versionId = "v1";
+        System.setProperty("VERSION", versionId);
+        // End AppScale
     }
     logger.info("Dev App Server is now running");
     return this.shutdownLatch;
@@ -184,7 +205,8 @@ class DevAppServerImpl
   public void setInboundServicesProperty() {
     ImmutableSet.Builder setBuilder = ImmutableSet.builder();
 
-    for (ApplicationConfigurationManager.ModuleConfigurationHandle moduleConfigurationHandle : applicationConfigurationManager.getModuleConfigurationHandles()) {
+    for (Object uncastHandle : applicationConfigurationManager.getModuleConfigurationHandles()) {
+      ApplicationConfigurationManager.ModuleConfigurationHandle moduleConfigurationHandle = (ApplicationConfigurationManager.ModuleConfigurationHandle) uncastHandle;
       setBuilder.addAll(moduleConfigurationHandle.getModule().getAppEngineWebXml().getInboundServices());
     }
 
@@ -273,6 +295,7 @@ class DevAppServerImpl
 
   public void shutdown() throws Exception
   {
+    logger.info("Shutting down.");
     if (this.serverState != ServerState.RUNNING) {
       throw new IllegalStateException("Cannot shutdown a server that is not currently running.");
     }
@@ -353,4 +376,16 @@ class DevAppServerImpl
   {
     INITIALIZING, RUNNING, STOPPING, SHUTDOWN;
   }
+
+  // AppScale: Needed for passing server instance to shutdown thread.
+  private class ShutdownThread extends Thread
+  {
+    public DevAppServerImpl server;
+
+    public ShutdownThread(DevAppServerImpl server) {
+      super();
+      this.server = server;
+    }
+  }
+  // End AppScale.
 }
