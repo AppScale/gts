@@ -22,7 +22,7 @@ from google.appengine.datastore.datastore_stub_util import (
 )
 
 # The number of scattered IDs the datastore should reserve at a time.
-DEFAULT_RESERVATION_SIZE = 100000
+DEFAULT_RESERVATION_SIZE = 10000
 
 
 class ReservationFailed(Exception):
