@@ -67,8 +67,8 @@ from google.appengine.api import datastore_types
 
 from google.appengine.api.app_identity import app_identity
 from google.appengine.datastore import datastore_pb
-from google.appengine.datastore import datastore_v4a_pb
-from google.appengine.datastore import entity_v4_pb
+from google.appengine.datastore import datastore_pbs
+from google.appengine.datastore import datastore_v4_pb
 from google.appengine.runtime import apiproxy_errors
 
 
@@ -1764,38 +1764,6 @@ class Connection(BaseConnection):
 
 
 
-  def __to_v4_key(self, ref):
-    """Convert a valid v3 Reference pb to a v4 Key pb."""
-    key = entity_v4_pb.Key()
-    key.mutable_partition_id().set_dataset_id(ref.app())
-    if ref.name_space():
-      key.mutable_partition_id().set_namespace(ref.name_space())
-    for el_v3 in ref.path().element_list():
-      el_v4 = key.add_path_element()
-      el_v4.set_kind(el_v3.type())
-      if el_v3.has_id():
-        el_v4.set_id(el_v3.id())
-      if el_v3.has_name():
-        el_v4.set_name(el_v3.name())
-    return key
-
-  def __to_v3_reference(self, key):
-    """Convert a valid v4 Key pb to a v3 Reference pb."""
-    ref = entity_pb.Reference()
-    ref.set_app(key.partition_id().dataset_id())
-    if key.partition_id().has_namespace():
-      ref.set_name_space(key.partition_id().namespace())
-    for el_v4 in key.path_element_list():
-      el_v3 = ref.mutable_path().add_element()
-      el_v3.set_type(el_v4.kind())
-      if el_v4.has_id():
-        el_v3.set_id(el_v4.id())
-      if el_v4.has_name():
-        el_v3.set_name(el_v4.name())
-    return ref
-
-
-
   def allocate_ids(self, key, size=None, max=None):
     """Synchronous AllocateIds operation.
 
@@ -1908,9 +1876,11 @@ class Connection(BaseConnection):
     rpcs = []
     pbsgen = self._generate_pb_lists(keys_by_idkey, 0, max_count, None, config)
     for pbs, _ in pbsgen:
-      req = datastore_v4a_pb.AllocateIdsRequest()
-      req.reserve_list().extend([self.__to_v4_key(key) for key in pbs])
-      resp = datastore_v4a_pb.AllocateIdsResponse()
+      req = datastore_v4_pb.AllocateIdsRequest()
+      for key in pbs:
+        datastore_pbs.get_entity_converter().v3_to_v4_key(key,
+                                                          req.add_reserve())
+      resp = datastore_v4_pb.AllocateIdsResponse()
       rpcs.append(self.make_rpc_call(config, 'AllocateIds', req, resp,
                                      self.__reserve_keys_hook, extra_hook,
                                      'datastore_v4'))

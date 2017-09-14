@@ -204,7 +204,7 @@ class PartitionId(ProtocolBuffer.ProtocolMessage):
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.datastore.v4.PartitionId'
   _SERIALIZED_DESCRIPTOR = array.array('B')
-  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WiRhcHBob3N0aW5nL2RhdGFzdG9yZS9lbnRpdHlfdjQucHJvdG8KI2FwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LlBhcnRpdGlvbklkExoKZGF0YXNldF9pZCADKAIwCTgBFBMaCW5hbWVzcGFjZSAEKAIwCTgBFHN6CUNvbnN0YW50c4sBkgERTUFYX0RJTUVOU0lPTl9UQUeYAWSMAXS6AYYHCiRhcHBob3N0aW5nL2RhdGFzdG9yZS9lbnRpdHlfdjQucHJvdG8SF2FwcGhvc3RpbmcuZGF0YXN0b3JlLnY0IlgKC1BhcnRpdGlvbklkEhIKCmRhdGFzZXRfaWQYAyABKAkSEQoJbmFtZXNwYWNlGAQgASgJIiIKCUNvbnN0YW50cxIVChFNQVhfRElNRU5TSU9OX1RBRxBkIrgBCgNLZXkSOgoMcGFydGl0aW9uX2lkGAEgASgLMiQuYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuUGFydGl0aW9uSWQSPgoMcGF0aF9lbGVtZW50GAIgAygLMiguYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuS2V5LlBhdGhFbGVtZW50GjUKC1BhdGhFbGVtZW50EgwKBGtpbmQYASACKAkSCgoCaWQYAiABKAMSDAoEbmFtZRgDIAEoCSLDAgoFVmFsdWUSFQoNYm9vbGVhbl92YWx1ZRgBIAEoCBIVCg1pbnRlZ2VyX3ZhbHVlGAIgASgDEhQKDGRvdWJsZV92YWx1ZRgDIAEoARIkChx0aW1lc3RhbXBfbWljcm9zZWNvbmRzX3ZhbHVlGAQgASgDEi8KCWtleV92YWx1ZRgFIAEoCzIcLmFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LktleRIWCg5ibG9iX2tleV92YWx1ZRgQIAEoCRIUCgxzdHJpbmdfdmFsdWUYESABKAkSEgoKYmxvYl92YWx1ZRgSIAEoDBI1CgxlbnRpdHlfdmFsdWUYBiABKAsyHy5hcHBob3N0aW5nLmRhdGFzdG9yZS52NC5FbnRpdHkSDwoHbWVhbmluZxgOIAEoBRIVCgdpbmRleGVkGA8gASgIOgR0cnVlIl0KCFByb3BlcnR5EgwKBG5hbWUYASACKAkSFAoFbXVsdGkYAiABKAg6BWZhbHNlEi0KBXZhbHVlGAMgAygLMh4uYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuVmFsdWUiaAoGRW50aXR5EikKA2tleRgBIAEoCzIcLmFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LktleRIzCghwcm9wZXJ0eRgCIAMoCzIhLmFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LlByb3BlcnR5QiEKH2NvbS5nb29nbGUuYXBwaG9zdGluZy5kYXRhc3RvcmU="))
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WiRhcHBob3N0aW5nL2RhdGFzdG9yZS9lbnRpdHlfdjQucHJvdG8KI2FwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LlBhcnRpdGlvbklkExoKZGF0YXNldF9pZCADKAIwCTgBFBMaCW5hbWVzcGFjZSAEKAIwCTgBFHN6CUNvbnN0YW50c4sBkgERTUFYX0RJTUVOU0lPTl9UQUeYAWSMAXS6AYAICiRhcHBob3N0aW5nL2RhdGFzdG9yZS9lbnRpdHlfdjQucHJvdG8SF2FwcGhvc3RpbmcuZGF0YXN0b3JlLnY0IlgKC1BhcnRpdGlvbklkEhIKCmRhdGFzZXRfaWQYAyABKAkSEQoJbmFtZXNwYWNlGAQgASgJIiIKCUNvbnN0YW50cxIVChFNQVhfRElNRU5TSU9OX1RBRxBkIrgBCgNLZXkSOgoMcGFydGl0aW9uX2lkGAEgASgLMiQuYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuUGFydGl0aW9uSWQSPgoMcGF0aF9lbGVtZW50GAIgAygLMiguYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuS2V5LlBhdGhFbGVtZW50GjUKC1BhdGhFbGVtZW50EgwKBGtpbmQYASACKAkSCgoCaWQYAiABKAMSDAoEbmFtZRgDIAEoCSL3AgoFVmFsdWUSFQoNYm9vbGVhbl92YWx1ZRgBIAEoCBIVCg1pbnRlZ2VyX3ZhbHVlGAIgASgDEhQKDGRvdWJsZV92YWx1ZRgDIAEoARIkChx0aW1lc3RhbXBfbWljcm9zZWNvbmRzX3ZhbHVlGAQgASgDEi8KCWtleV92YWx1ZRgFIAEoCzIcLmFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LktleRIWCg5ibG9iX2tleV92YWx1ZRgQIAEoCRIUCgxzdHJpbmdfdmFsdWUYESABKAkSEgoKYmxvYl92YWx1ZRgSIAEoDBI1CgxlbnRpdHlfdmFsdWUYBiABKAsyHy5hcHBob3N0aW5nLmRhdGFzdG9yZS52NC5FbnRpdHkSMgoKbGlzdF92YWx1ZRgHIAMoCzIeLmFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LlZhbHVlEg8KB21lYW5pbmcYDiABKAUSFQoHaW5kZXhlZBgPIAEoCDoEdHJ1ZSKiAQoIUHJvcGVydHkSDAoEbmFtZRgBIAIoCRIfChBkZXByZWNhdGVkX211bHRpGAIgASgIOgVmYWxzZRI4ChBkZXByZWNhdGVkX3ZhbHVlGAMgAygLMh4uYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuVmFsdWUSLQoFdmFsdWUYBCABKAsyHi5hcHBob3N0aW5nLmRhdGFzdG9yZS52NC5WYWx1ZSJoCgZFbnRpdHkSKQoDa2V5GAEgASgLMhwuYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuS2V5EjMKCHByb3BlcnR5GAIgAygLMiEuYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuUHJvcGVydHlCIQofY29tLmdvb2dsZS5hcHBob3N0aW5nLmRhdGFzdG9yZQ=="))
   if _net_proto___parse__python is not None:
     _net_proto___parse__python.RegisterType(
         _SERIALIZED_DESCRIPTOR.tostring())
@@ -632,6 +632,7 @@ class Value(ProtocolBuffer.ProtocolMessage):
   indexed_ = 1
 
   def __init__(self, contents=None):
+    self.list_value_ = []
     self.lazy_init_lock_ = thread.allocate_lock()
     if contents is not None: self.MergeFromString(contents)
 
@@ -764,6 +765,22 @@ class Value(ProtocolBuffer.ProtocolMessage):
 
   def has_entity_value(self): return self.has_entity_value_
 
+  def list_value_size(self): return len(self.list_value_)
+  def list_value_list(self): return self.list_value_
+
+  def list_value(self, i):
+    return self.list_value_[i]
+
+  def mutable_list_value(self, i):
+    return self.list_value_[i]
+
+  def add_list_value(self):
+    x = Value()
+    self.list_value_.append(x)
+    return x
+
+  def clear_list_value(self):
+    self.list_value_ = []
   def meaning(self): return self.meaning_
 
   def set_meaning(self, x):
@@ -802,6 +819,7 @@ class Value(ProtocolBuffer.ProtocolMessage):
     if (x.has_string_value()): self.set_string_value(x.string_value())
     if (x.has_blob_value()): self.set_blob_value(x.blob_value())
     if (x.has_entity_value()): self.mutable_entity_value().MergeFrom(x.entity_value())
+    for i in xrange(x.list_value_size()): self.add_list_value().CopyFrom(x.list_value(i))
     if (x.has_meaning()): self.set_meaning(x.meaning())
     if (x.has_indexed()): self.set_indexed(x.indexed())
 
@@ -852,6 +870,9 @@ class Value(ProtocolBuffer.ProtocolMessage):
     if self.has_blob_value_ and self.blob_value_ != x.blob_value_: return 0
     if self.has_entity_value_ != x.has_entity_value_: return 0
     if self.has_entity_value_ and self.entity_value_ != x.entity_value_: return 0
+    if len(self.list_value_) != len(x.list_value_): return 0
+    for e1, e2 in zip(self.list_value_, x.list_value_):
+      if e1 != e2: return 0
     if self.has_meaning_ != x.has_meaning_: return 0
     if self.has_meaning_ and self.meaning_ != x.meaning_: return 0
     if self.has_indexed_ != x.has_indexed_: return 0
@@ -862,6 +883,8 @@ class Value(ProtocolBuffer.ProtocolMessage):
     initialized = 1
     if (self.has_key_value_ and not self.key_value_.IsInitialized(debug_strs)): initialized = 0
     if (self.has_entity_value_ and not self.entity_value_.IsInitialized(debug_strs)): initialized = 0
+    for p in self.list_value_:
+      if not p.IsInitialized(debug_strs): initialized=0
     return initialized
 
   def ByteSize(self):
@@ -875,6 +898,8 @@ class Value(ProtocolBuffer.ProtocolMessage):
     if (self.has_string_value_): n += 2 + self.lengthString(len(self.string_value_))
     if (self.has_blob_value_): n += 2 + self.lengthString(len(self.blob_value_))
     if (self.has_entity_value_): n += 1 + self.lengthString(self.entity_value_.ByteSize())
+    n += 1 * len(self.list_value_)
+    for i in xrange(len(self.list_value_)): n += self.lengthString(self.list_value_[i].ByteSize())
     if (self.has_meaning_): n += 1 + self.lengthVarInt64(self.meaning_)
     if (self.has_indexed_): n += 2
     return n
@@ -890,6 +915,8 @@ class Value(ProtocolBuffer.ProtocolMessage):
     if (self.has_string_value_): n += 2 + self.lengthString(len(self.string_value_))
     if (self.has_blob_value_): n += 2 + self.lengthString(len(self.blob_value_))
     if (self.has_entity_value_): n += 1 + self.lengthString(self.entity_value_.ByteSizePartial())
+    n += 1 * len(self.list_value_)
+    for i in xrange(len(self.list_value_)): n += self.lengthString(self.list_value_[i].ByteSizePartial())
     if (self.has_meaning_): n += 1 + self.lengthVarInt64(self.meaning_)
     if (self.has_indexed_): n += 2
     return n
@@ -904,6 +931,7 @@ class Value(ProtocolBuffer.ProtocolMessage):
     self.clear_string_value()
     self.clear_blob_value()
     self.clear_entity_value()
+    self.clear_list_value()
     self.clear_meaning()
     self.clear_indexed()
 
@@ -928,6 +956,10 @@ class Value(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(50)
       out.putVarInt32(self.entity_value_.ByteSize())
       self.entity_value_.OutputUnchecked(out)
+    for i in xrange(len(self.list_value_)):
+      out.putVarInt32(58)
+      out.putVarInt32(self.list_value_[i].ByteSize())
+      self.list_value_[i].OutputUnchecked(out)
     if (self.has_meaning_):
       out.putVarInt32(112)
       out.putVarInt32(self.meaning_)
@@ -965,6 +997,10 @@ class Value(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(50)
       out.putVarInt32(self.entity_value_.ByteSizePartial())
       self.entity_value_.OutputPartial(out)
+    for i in xrange(len(self.list_value_)):
+      out.putVarInt32(58)
+      out.putVarInt32(self.list_value_[i].ByteSizePartial())
+      self.list_value_[i].OutputPartial(out)
     if (self.has_meaning_):
       out.putVarInt32(112)
       out.putVarInt32(self.meaning_)
@@ -1008,6 +1044,12 @@ class Value(ProtocolBuffer.ProtocolMessage):
         d.skip(length)
         self.mutable_entity_value().TryMerge(tmp)
         continue
+      if tt == 58:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.add_list_value().TryMerge(tmp)
+        continue
       if tt == 112:
         self.set_meaning(d.getVarInt32())
         continue
@@ -1046,6 +1088,14 @@ class Value(ProtocolBuffer.ProtocolMessage):
       res+=prefix+"entity_value <\n"
       res+=self.entity_value_.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
+    cnt=0
+    for e in self.list_value_:
+      elm=""
+      if printElemNumber: elm="(%d)" % cnt
+      res+=prefix+("list_value%s <\n" % elm)
+      res+=e.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+      cnt+=1
     if self.has_meaning_: res+=prefix+("meaning: %s\n" % self.DebugFormatInt32(self.meaning_))
     if self.has_indexed_: res+=prefix+("indexed: %s\n" % self.DebugFormatBool(self.indexed_))
     return res
@@ -1063,6 +1113,7 @@ class Value(ProtocolBuffer.ProtocolMessage):
   kstring_value = 17
   kblob_value = 18
   kentity_value = 6
+  klist_value = 7
   kmeaning = 14
   kindexed = 15
 
@@ -1074,6 +1125,7 @@ class Value(ProtocolBuffer.ProtocolMessage):
     4: "timestamp_microseconds_value",
     5: "key_value",
     6: "entity_value",
+    7: "list_value",
     14: "meaning",
     15: "indexed",
     16: "blob_key_value",
@@ -1089,6 +1141,7 @@ class Value(ProtocolBuffer.ProtocolMessage):
     4: ProtocolBuffer.Encoder.NUMERIC,
     5: ProtocolBuffer.Encoder.STRING,
     6: ProtocolBuffer.Encoder.STRING,
+    7: ProtocolBuffer.Encoder.STRING,
     14: ProtocolBuffer.Encoder.NUMERIC,
     15: ProtocolBuffer.Encoder.NUMERIC,
     16: ProtocolBuffer.Encoder.STRING,
@@ -1101,7 +1154,7 @@ class Value(ProtocolBuffer.ProtocolMessage):
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.datastore.v4.Value'
   _SERIALIZED_DESCRIPTOR = array.array('B')
-  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WiRhcHBob3N0aW5nL2RhdGFzdG9yZS9lbnRpdHlfdjQucHJvdG8KHWFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LlZhbHVlExoNYm9vbGVhbl92YWx1ZSABKAAwCDgBFBMaDWludGVnZXJfdmFsdWUgAigAMAM4ARQTGgxkb3VibGVfdmFsdWUgAygBMAE4ARQTGhx0aW1lc3RhbXBfbWljcm9zZWNvbmRzX3ZhbHVlIAQoADADOAEUExoJa2V5X3ZhbHVlIAUoAjALOAFKG2FwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LktleaMBqgEFY3R5cGWyAQZwcm90bzKkARQTGg5ibG9iX2tleV92YWx1ZSAQKAIwCTgBFBMaDHN0cmluZ192YWx1ZSARKAIwCTgBFBMaCmJsb2JfdmFsdWUgEigCMAk4ARQTGgxlbnRpdHlfdmFsdWUgBigCMAs4AUoeYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuRW50aXR5owGqAQVjdHlwZbIBBnByb3RvMqQBFBMaB21lYW5pbmcgDigAMAU4ARQTGgdpbmRleGVkIA8oADAIOAFCBHRydWWjAaoBB2RlZmF1bHSyAQR0cnVlpAEUwgEjYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuUGFydGl0aW9uSWQ="))
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WiRhcHBob3N0aW5nL2RhdGFzdG9yZS9lbnRpdHlfdjQucHJvdG8KHWFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LlZhbHVlExoNYm9vbGVhbl92YWx1ZSABKAAwCDgBFBMaDWludGVnZXJfdmFsdWUgAigAMAM4ARQTGgxkb3VibGVfdmFsdWUgAygBMAE4ARQTGhx0aW1lc3RhbXBfbWljcm9zZWNvbmRzX3ZhbHVlIAQoADADOAEUExoJa2V5X3ZhbHVlIAUoAjALOAFKG2FwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LktleaMBqgEFY3R5cGWyAQZwcm90bzKkARQTGg5ibG9iX2tleV92YWx1ZSAQKAIwCTgBFBMaDHN0cmluZ192YWx1ZSARKAIwCTgBFBMaCmJsb2JfdmFsdWUgEigCMAk4ARQTGgxlbnRpdHlfdmFsdWUgBigCMAs4AUoeYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuRW50aXR5owGqAQVjdHlwZbIBBnByb3RvMqQBFBMaCmxpc3RfdmFsdWUgBygCMAs4A0odYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuVmFsdWWjAaoBBWN0eXBlsgEGcHJvdG8ypAEUExoHbWVhbmluZyAOKAAwBTgBFBMaB2luZGV4ZWQgDygAMAg4AUIEdHJ1ZaMBqgEHZGVmYXVsdLIBBHRydWWkARTCASNhcHBob3N0aW5nLmRhdGFzdG9yZS52NC5QYXJ0aXRpb25JZA=="))
   if _net_proto___parse__python is not None:
     _net_proto___parse__python.RegisterType(
         _SERIALIZED_DESCRIPTOR.tostring())
@@ -1109,11 +1162,14 @@ class Value(ProtocolBuffer.ProtocolMessage):
 class Property(ProtocolBuffer.ProtocolMessage):
   has_name_ = 0
   name_ = ""
-  has_multi_ = 0
-  multi_ = 0
+  has_deprecated_multi_ = 0
+  deprecated_multi_ = 0
+  has_value_ = 0
+  value_ = None
 
   def __init__(self, contents=None):
-    self.value_ = []
+    self.deprecated_value_ = []
+    self.lazy_init_lock_ = thread.allocate_lock()
     if contents is not None: self.MergeFromString(contents)
 
   def name(self): return self.name_
@@ -1129,41 +1185,61 @@ class Property(ProtocolBuffer.ProtocolMessage):
 
   def has_name(self): return self.has_name_
 
-  def multi(self): return self.multi_
+  def deprecated_multi(self): return self.deprecated_multi_
 
-  def set_multi(self, x):
-    self.has_multi_ = 1
-    self.multi_ = x
+  def set_deprecated_multi(self, x):
+    self.has_deprecated_multi_ = 1
+    self.deprecated_multi_ = x
 
-  def clear_multi(self):
-    if self.has_multi_:
-      self.has_multi_ = 0
-      self.multi_ = 0
+  def clear_deprecated_multi(self):
+    if self.has_deprecated_multi_:
+      self.has_deprecated_multi_ = 0
+      self.deprecated_multi_ = 0
 
-  def has_multi(self): return self.has_multi_
+  def has_deprecated_multi(self): return self.has_deprecated_multi_
 
-  def value_size(self): return len(self.value_)
-  def value_list(self): return self.value_
+  def deprecated_value_size(self): return len(self.deprecated_value_)
+  def deprecated_value_list(self): return self.deprecated_value_
 
-  def value(self, i):
-    return self.value_[i]
+  def deprecated_value(self, i):
+    return self.deprecated_value_[i]
 
-  def mutable_value(self, i):
-    return self.value_[i]
+  def mutable_deprecated_value(self, i):
+    return self.deprecated_value_[i]
 
-  def add_value(self):
+  def add_deprecated_value(self):
     x = Value()
-    self.value_.append(x)
+    self.deprecated_value_.append(x)
     return x
 
+  def clear_deprecated_value(self):
+    self.deprecated_value_ = []
+  def value(self):
+    if self.value_ is None:
+      self.lazy_init_lock_.acquire()
+      try:
+        if self.value_ is None: self.value_ = Value()
+      finally:
+        self.lazy_init_lock_.release()
+    return self.value_
+
+  def mutable_value(self): self.has_value_ = 1; return self.value()
+
   def clear_value(self):
-    self.value_ = []
+
+    if self.has_value_:
+      self.has_value_ = 0;
+      if self.value_ is not None: self.value_.Clear()
+
+  def has_value(self): return self.has_value_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_name()): self.set_name(x.name())
-    if (x.has_multi()): self.set_multi(x.multi())
-    for i in xrange(x.value_size()): self.add_value().CopyFrom(x.value(i))
+    if (x.has_deprecated_multi()): self.set_deprecated_multi(x.deprecated_multi())
+    for i in xrange(x.deprecated_value_size()): self.add_deprecated_value().CopyFrom(x.deprecated_value(i))
+    if (x.has_value()): self.mutable_value().MergeFrom(x.value())
 
   if _net_proto___parse__python is not None:
     def _CMergeFromString(self, s):
@@ -1196,11 +1272,13 @@ class Property(ProtocolBuffer.ProtocolMessage):
     if x is self: return 1
     if self.has_name_ != x.has_name_: return 0
     if self.has_name_ and self.name_ != x.name_: return 0
-    if self.has_multi_ != x.has_multi_: return 0
-    if self.has_multi_ and self.multi_ != x.multi_: return 0
-    if len(self.value_) != len(x.value_): return 0
-    for e1, e2 in zip(self.value_, x.value_):
+    if self.has_deprecated_multi_ != x.has_deprecated_multi_: return 0
+    if self.has_deprecated_multi_ and self.deprecated_multi_ != x.deprecated_multi_: return 0
+    if len(self.deprecated_value_) != len(x.deprecated_value_): return 0
+    for e1, e2 in zip(self.deprecated_value_, x.deprecated_value_):
       if e1 != e2: return 0
+    if self.has_value_ != x.has_value_: return 0
+    if self.has_value_ and self.value_ != x.value_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -1209,16 +1287,18 @@ class Property(ProtocolBuffer.ProtocolMessage):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: name not set.')
-    for p in self.value_:
+    for p in self.deprecated_value_:
       if not p.IsInitialized(debug_strs): initialized=0
+    if (self.has_value_ and not self.value_.IsInitialized(debug_strs)): initialized = 0
     return initialized
 
   def ByteSize(self):
     n = 0
     n += self.lengthString(len(self.name_))
-    if (self.has_multi_): n += 2
-    n += 1 * len(self.value_)
-    for i in xrange(len(self.value_)): n += self.lengthString(self.value_[i].ByteSize())
+    if (self.has_deprecated_multi_): n += 2
+    n += 1 * len(self.deprecated_value_)
+    for i in xrange(len(self.deprecated_value_)): n += self.lengthString(self.deprecated_value_[i].ByteSize())
+    if (self.has_value_): n += 1 + self.lengthString(self.value_.ByteSize())
     return n + 1
 
   def ByteSizePartial(self):
@@ -1226,38 +1306,48 @@ class Property(ProtocolBuffer.ProtocolMessage):
     if (self.has_name_):
       n += 1
       n += self.lengthString(len(self.name_))
-    if (self.has_multi_): n += 2
-    n += 1 * len(self.value_)
-    for i in xrange(len(self.value_)): n += self.lengthString(self.value_[i].ByteSizePartial())
+    if (self.has_deprecated_multi_): n += 2
+    n += 1 * len(self.deprecated_value_)
+    for i in xrange(len(self.deprecated_value_)): n += self.lengthString(self.deprecated_value_[i].ByteSizePartial())
+    if (self.has_value_): n += 1 + self.lengthString(self.value_.ByteSizePartial())
     return n
 
   def Clear(self):
     self.clear_name()
-    self.clear_multi()
+    self.clear_deprecated_multi()
+    self.clear_deprecated_value()
     self.clear_value()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.name_)
-    if (self.has_multi_):
+    if (self.has_deprecated_multi_):
       out.putVarInt32(16)
-      out.putBoolean(self.multi_)
-    for i in xrange(len(self.value_)):
+      out.putBoolean(self.deprecated_multi_)
+    for i in xrange(len(self.deprecated_value_)):
       out.putVarInt32(26)
-      out.putVarInt32(self.value_[i].ByteSize())
-      self.value_[i].OutputUnchecked(out)
+      out.putVarInt32(self.deprecated_value_[i].ByteSize())
+      self.deprecated_value_[i].OutputUnchecked(out)
+    if (self.has_value_):
+      out.putVarInt32(34)
+      out.putVarInt32(self.value_.ByteSize())
+      self.value_.OutputUnchecked(out)
 
   def OutputPartial(self, out):
     if (self.has_name_):
       out.putVarInt32(10)
       out.putPrefixedString(self.name_)
-    if (self.has_multi_):
+    if (self.has_deprecated_multi_):
       out.putVarInt32(16)
-      out.putBoolean(self.multi_)
-    for i in xrange(len(self.value_)):
+      out.putBoolean(self.deprecated_multi_)
+    for i in xrange(len(self.deprecated_value_)):
       out.putVarInt32(26)
-      out.putVarInt32(self.value_[i].ByteSizePartial())
-      self.value_[i].OutputPartial(out)
+      out.putVarInt32(self.deprecated_value_[i].ByteSizePartial())
+      self.deprecated_value_[i].OutputPartial(out)
+    if (self.has_value_):
+      out.putVarInt32(34)
+      out.putVarInt32(self.value_.ByteSizePartial())
+      self.value_.OutputPartial(out)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -1266,13 +1356,19 @@ class Property(ProtocolBuffer.ProtocolMessage):
         self.set_name(d.getPrefixedString())
         continue
       if tt == 16:
-        self.set_multi(d.getBoolean())
+        self.set_deprecated_multi(d.getBoolean())
         continue
       if tt == 26:
         length = d.getVarInt32()
         tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
         d.skip(length)
-        self.add_value().TryMerge(tmp)
+        self.add_deprecated_value().TryMerge(tmp)
+        continue
+      if tt == 34:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.mutable_value().TryMerge(tmp)
         continue
 
 
@@ -1283,15 +1379,19 @@ class Property(ProtocolBuffer.ProtocolMessage):
   def __str__(self, prefix="", printElemNumber=0):
     res=""
     if self.has_name_: res+=prefix+("name: %s\n" % self.DebugFormatString(self.name_))
-    if self.has_multi_: res+=prefix+("multi: %s\n" % self.DebugFormatBool(self.multi_))
+    if self.has_deprecated_multi_: res+=prefix+("deprecated_multi: %s\n" % self.DebugFormatBool(self.deprecated_multi_))
     cnt=0
-    for e in self.value_:
+    for e in self.deprecated_value_:
       elm=""
       if printElemNumber: elm="(%d)" % cnt
-      res+=prefix+("value%s <\n" % elm)
+      res+=prefix+("deprecated_value%s <\n" % elm)
       res+=e.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
       cnt+=1
+    if self.has_value_:
+      res+=prefix+"value <\n"
+      res+=self.value_.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
     return res
 
 
@@ -1299,29 +1399,32 @@ class Property(ProtocolBuffer.ProtocolMessage):
     return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
 
   kname = 1
-  kmulti = 2
-  kvalue = 3
+  kdeprecated_multi = 2
+  kdeprecated_value = 3
+  kvalue = 4
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "name",
-    2: "multi",
-    3: "value",
-  }, 3)
+    2: "deprecated_multi",
+    3: "deprecated_value",
+    4: "value",
+  }, 4)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.NUMERIC,
     3: ProtocolBuffer.Encoder.STRING,
-  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+    4: ProtocolBuffer.Encoder.STRING,
+  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.datastore.v4.Property'
   _SERIALIZED_DESCRIPTOR = array.array('B')
-  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WiRhcHBob3N0aW5nL2RhdGFzdG9yZS9lbnRpdHlfdjQucHJvdG8KIGFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LlByb3BlcnR5ExoEbmFtZSABKAIwCTgCFBMaBW11bHRpIAIoADAIOAFCBWZhbHNlowGqAQdkZWZhdWx0sgEFZmFsc2WkARQTGgV2YWx1ZSADKAIwCzgDSh1hcHBob3N0aW5nLmRhdGFzdG9yZS52NC5WYWx1ZaMBqgEFY3R5cGWyAQZwcm90bzKkARTCASNhcHBob3N0aW5nLmRhdGFzdG9yZS52NC5QYXJ0aXRpb25JZA=="))
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WiRhcHBob3N0aW5nL2RhdGFzdG9yZS9lbnRpdHlfdjQucHJvdG8KIGFwcGhvc3RpbmcuZGF0YXN0b3JlLnY0LlByb3BlcnR5ExoEbmFtZSABKAIwCTgCFBMaEGRlcHJlY2F0ZWRfbXVsdGkgAigAMAg4AUIFZmFsc2WjAaoBB2RlZmF1bHSyAQVmYWxzZaQBFBMaEGRlcHJlY2F0ZWRfdmFsdWUgAygCMAs4A0odYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuVmFsdWWjAaoBBWN0eXBlsgEGcHJvdG8ypAEUExoFdmFsdWUgBCgCMAs4AUodYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuVmFsdWWjAaoBBWN0eXBlsgEGcHJvdG8ypAEUwgEjYXBwaG9zdGluZy5kYXRhc3RvcmUudjQuUGFydGl0aW9uSWQ="))
   if _net_proto___parse__python is not None:
     _net_proto___parse__python.RegisterType(
         _SERIALIZED_DESCRIPTOR.tostring())
