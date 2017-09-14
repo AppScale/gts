@@ -1603,25 +1603,6 @@ class Djinn
     end
   end
 
-  # Queries the UserAppServer to see if the named application exists,
-  # and if it is listening to any port.
-  #
-  # Args:
-  #   appname: The name of the app that we should check for existence.
-  # Returns:
-  #   A boolean indicating whether or not the user application exists.
-  def does_app_exist(appname, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      return uac.does_app_exist?(appname)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer to check if the  " +
-        "application #{appname} exists")
-    end
-  end
-
   # Resets a user's password.
   #
   # Args:
@@ -1690,24 +1671,6 @@ class Djinn
     end
   end
 
-  # Retrieve application metadata from the UAServer.
-  #
-  #  Args:
-  #    app_id: A string containing the application ID.
-  #  Returns:
-  #    A JSON-encoded string containing the application metadata.
-  def get_app_data(app_id, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      return uac.get_app_data(app_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while getting the app " +
-        "admin for the application #{app_id}.")
-    end
-  end
-
   # Removes a version and stops all AppServers hosting it.
   #
   # Args:
@@ -1741,21 +1704,6 @@ class Djinn
     # Since stopping an application can take some time, we do it in a
     # thread.
     Thread.new {
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        begin
-          uac = UserAppClient.new(my_node.private_ip, @@secret)
-          if not uac.does_app_exist?(project_id)
-            Djinn.log_info("(stop_version) #{project_id} does not exist.")
-          else
-            result = uac.delete_app(project_id)
-            Djinn.log_debug("(stop_version) delete_app returned: #{result}.")
-          end
-        rescue FailedNodeException
-          Djinn.log_warn("(stop_version) delete_app: failed to talk " +
-                         "to the UserAppServer.")
-        end
-      end
-
       # If this node has any information about AppServers for this version,
       # clear that information out.
       APPS_LOCK.synchronize {
@@ -3397,7 +3345,7 @@ class Djinn
       UserAppClient::SSL_SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
     begin
-      uac.does_app_exist?("not-there")
+      uac.does_user_exist?("not-there")
     rescue FailedNodeException
       Djinn.log_debug("UserAppServer not ready yet: retrying.")
       retry
@@ -3542,20 +3490,6 @@ class Djinn
     @state = "Failed to prime #{table}."
     HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
-
-
-  # Delete all apps running on this instance.
-  def erase_app_instance_info()
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    begin
-      result = uac.delete_all_apps()
-      Djinn.log_info("UserAppServer delete_all_apps returned: #{result}.")
-    rescue FailedNodeException
-      Djinn.log_warn("Couldn't call delete_all_apps from UserAppServer.")
-      return
-    end
-  end
-
 
   def start_backup_service()
     BackupRecoveryService.start()
@@ -4238,22 +4172,9 @@ HOSTS
           next
         end
 
-        # If nginx config files have been updated, we communicate the app's
-        # ports to the UserAppServer to make sure we have the latest info.
-        if Nginx.write_fullproxy_version_config(
+        Nginx.write_fullproxy_version_config(
           version_key, http_port, https_port, my_public, my_private,
           proxy_port, static_handlers, login_ip, app_language)
-          uac = UserAppClient.new(my_node.private_ip, @@secret)
-          begin
-            if uac.add_instance(project_id, my_public, http_port, https_port)
-              Djinn.log_info("Committed application info for #{project_id} " +
-                             "to user_app_server")
-            end
-          rescue FailedNodeException
-            Djinn.log_warn(
-              "Failed to talk to UAServer to add_instance for #{project_id}.")
-          end
-        end
       end
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
@@ -4915,37 +4836,6 @@ HOSTS
         end
       }
     }
-  end
-
-  # This functions returns the language of the application as recorded in
-  # the metadata.
-  # Args
-  #   app: A String naming the application.
-  # Returns:
-  #   language: returns python27, java, php or go depending on the
-  #       language of the app
-  def get_app_language(app)
-    app_language = ""
-
-    # Let's get the application language as we have in the metadata (this
-    # will be the latest from the user).
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    loop {
-      begin
-        result = uac.get_app_data(app)
-        app_data = JSON.load(result)
-        Djinn.log_debug("Got application data for #{app}: #{app_data}.")
-        app_language = app_data['language']
-        break
-      rescue FailedNodeException
-        # Failed to talk to the UserAppServer: let's try again.
-        Djinn.log_debug("Failed to talk to UserAppServer for #{app}.")
-      end
-      Djinn.log_info("Waiting for app data to have instance info for app named #{app}")
-      Kernel.sleep(SMALL_WAIT)
-    }
-
-    return app_language
   end
 
   # Small utility function that returns the full path for the rsyslog
@@ -5847,24 +5737,14 @@ HOSTS
   # Returns:
   #   A Boolean indicating the success of the operation.
   def remove_appserver_process(version_key, port)
-    project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting AppServer instance to free up unused resources")
 
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_manager = AppManagerClient.new(my_node.private_ip)
 
-    begin
-      app_is_enabled = uac.is_app_enabled?(project_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer about " +
-        "application #{project_id}")
-      return false
-    end
-    Djinn.log_debug("is app #{project_id} enabled? #{app_is_enabled}")
-    if app_is_enabled == "false"
-      return false
-    end
+    version_is_enabled = ZKInterface.get_versions.include?(version_key)
+    Djinn.log_debug("is version #{version_key} enabled? #{version_is_enabled}")
+    return false unless version_is_enabled
 
     begin
       app_manager.stop_app_instance(version_key, port)
@@ -5899,17 +5779,6 @@ HOSTS
       'num_of_requests' => @total_req_seen[version_key]
     })
     return encoded_request_info
-  end
-
-  def stop_appengine()
-    Djinn.log_info("Shutting down AppEngine")
-
-    erase_app_instance_info()
-    Nginx.reload()
-
-    APPS_LOCK.synchronize {
-      @versions_loaded = []
-    }
   end
 
   # Copies a revision archive from a machine that has it.
