@@ -601,10 +601,6 @@ class Djinn
     # methods exposed via SOAP.
     @@secret = HelperFunctions.get_secret()
 
-    # An Array of Hashes, where each Hash contains a log message and the time
-    # it was logged.
-    @@logs_buffer = []
-
     @@log = Logger.new(STDOUT)
     @@log.level = Logger::INFO
 
@@ -1989,7 +1985,6 @@ class Djinn
       # restart apps, terminate non-responsive AppServers, and autoscale.
       # Every other node syncs its state with the login node state.
       if my_node.is_shadow?
-        flush_log_buffer
         update_node_info_cache
         backup_appcontroller_state
 
@@ -2467,14 +2462,10 @@ class Djinn
   # This method logs a message that is useful to know when debugging AppScale,
   # but is too extraneous to know when AppScale normally runs.
   #
-  # Messages are logged both to STDOUT as well as to @@logs_buffer, which is
-  # sent to the AppDashboard for viewing via a web UI.
-  #
   # Args:
   #   message: A String containing the message to be logged.
   def self.log_debug(message)
     @@log.debug(message)
-    self.log_to_buffer(Logger::DEBUG, message)
   end
 
 
@@ -2485,7 +2476,6 @@ class Djinn
   #   message: A String containing the message to be logged.
   def self.log_info(message)
     @@log.info(message)
-    self.log_to_buffer(Logger::INFO, message)
   end
 
 
@@ -2496,7 +2486,6 @@ class Djinn
   #   message: A String containing the message to be logged.
   def self.log_warn(message)
     @@log.warn(message)
-    self.log_to_buffer(Logger::WARN, message)
   end
 
 
@@ -2507,7 +2496,6 @@ class Djinn
   #   message: A String containing the message to be logged.
   def self.log_error(message)
     @@log.error(message)
-    self.log_to_buffer(Logger::ERROR, message)
   end
 
 
@@ -2518,7 +2506,6 @@ class Djinn
   #   message: A String containing the message to be logged.
   def self.log_fatal(message)
     @@log.fatal(message)
-    self.log_to_buffer(Logger::FATAL, message)
   end
 
   # Use syslogd to log a message to the combined application log.
@@ -2530,29 +2517,6 @@ class Djinn
     Syslog.open("app___#{app_id}", Syslog::LOG_PID, Syslog::LOG_USER) { |s|
       s.err message
     }
-  end
-
-  # Appends this log message to a buffer, which will be periodically sent to
-  # the AppDashbord.
-  #
-  # Only sends the message if it has content (as some empty messages are the
-  # result of exec'ing commands that produce no output), and if its log level
-  # is at least as great as the log level that we want to capture logs for.
-  #
-  # Args:
-  #   level: An Integer in the set of Logger levels (e.g., Logger::DEBUG,
-  #     Logger::INFO) that indicates the severity of this log message.
-  #   message: A String containing the message to be logged.
-  def self.log_to_buffer(level, message)
-    return if message.empty?
-    return if level < @@log.level
-    time = Time.now
-    @@logs_buffer << {
-      'timestamp' => time.to_i,
-      'level' => level + 1,  # Python and Java are one higher than Ruby
-      'message' => message
-    }
-    return
   end
 
 
@@ -3187,54 +3151,6 @@ class Djinn
     end
 
     return
-  end
-
-
-  # Returns the buffer that contains all logs yet to be sent to the Admin
-  # Console for viewing.
-  #
-  # Returns:
-  #   An Array of Hashes, where each Hash has information about a single log
-  #     line.
-  def self.get_logs_buffer()
-    return @@logs_buffer
-  end
-
-
-  # Sends all of the logs that have been buffered up to the Admin Console for
-  # viewing in a web UI.
-  def flush_log_buffer()
-    APPS_LOCK.synchronize {
-      loop {
-        break if @@logs_buffer.empty?
-        encoded_logs = JSON.dump({
-          'service_name' => 'appcontroller',
-          'host' => my_node.public_ip,
-          'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
-        })
-
-        # We send logs to dashboard only if controller_logs_to_dashboard
-        # is set to True. This will incur in higher traffic to the
-        # database, depending on the verbosity and the deployment.
-        if @options['controller_logs_to_dashboard'].downcase == "true"
-          begin
-            url = URI.parse("https://#{get_load_balancer.public_ip}:" +
-              "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
-            http = Net::HTTP.new(url.host, url.port)
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-            http.use_ssl = true
-            response = http.post(url.path, encoded_logs,
-              {'Content-Type'=>'application/json'})
-            Djinn.log_debug("Done flushing logs to AppDashboard. " +
-              "Response is: #{response.body}.")
-          rescue
-            # Don't crash the AppController because we weren't able to send over
-            # the logs - just continue on.
-            Djinn.log_debug("Ignoring exception talking to dashboard.")
-          end
-        end
-      }
-    }
   end
 
 
