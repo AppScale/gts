@@ -45,36 +45,6 @@ class UAClient(object):
     if response.lower() != 'true':
       raise UAException(response)
 
-  def add_instance(self, app_id, host, port, https_port):
-    """ Associates an application with a hostname and ports.
-
-    Args:
-      app_id: A string specifying an application ID.
-      host: A string specifying a hostname.
-      port: An integer specifying a port.
-      https_port: An integer specifying a port.
-    """
-    response = self.server.add_instance(app_id, host, port, https_port,
-                                        self.secret)
-    if response.lower() != 'true':
-      raise UAException(response)
-
-  def commit_new_app(self, app_id, language):
-    """ Creates new project.
-
-    Args:
-      app_id: A string specifying an application ID.
-      language: A string specifying the project's language.
-    """
-    response = self.server.commit_new_app(app_id, language, self.secret)
-
-    # If the project already exists, consider the operation a success.
-    if response == EXISTING_PROJECT_MESSAGE:
-      return
-
-    if response.lower() != 'true':
-      raise UAException(response)
-
   def commit_new_user(self, email, hashed_pwd, type):
     """ Creates a new user.
 
@@ -114,23 +84,6 @@ class UAClient(object):
     if response.lower() != 'true':
       raise UAException(response)
 
-  def does_app_exist(self, app_id):
-    """ Checks if an application exists.
-
-    Args:
-      app_id: A string specifying an application ID.
-    Returns:
-      A boolean indicating whether or not the application exists.
-    Raises:
-      UAException when unable to determine if app exists.
-    """
-    response = self.server.does_app_exist(app_id, self.secret)
-
-    if response.lower() not in ['true', 'false']:
-      raise UAException(response)
-
-    return response.lower() == 'true'
-
   def does_user_exist(self, email):
     """ Checks if a user exists.
     
@@ -147,24 +100,6 @@ class UAClient(object):
       raise UAException(response)
 
     return response.lower() == 'true'
-
-  def enable_app(self, app_id):
-    """ Enables a project.
-
-    Args:
-      app_id: A string specifying an application ID.
-    Raises:
-      UAException when unable to enable project.
-    """
-    response = self.server.enable_app(app_id, self.secret)
-
-    # This operation should be idempotent.
-    already_enabled = 'Error: Trying to enable an application that is '\
-                      'already enabled'
-    if response.lower() == 'true' or response == already_enabled:
-      return
-
-    raise UAException(response)
 
   def get_all_users(self):
     """ Retrieves a list of all users.
@@ -185,25 +120,6 @@ class UAClient(object):
 
     return response.split(':')
 
-  def get_app_data(self, app_id):
-    """ Retrieves application metadata.
-
-    Args:
-      app_id: A string specifying an application ID.
-    Returns:
-      A dictionary containing application metadata.
-    Raises:
-      UAException if unable to retrieve application metadata.
-    """
-    response = self.server.get_app_data(app_id, self.secret)
-
-    try:
-      data = json.loads(response)
-    except ValueError:
-      raise UAException(response)
-
-    return data
-
   def get_user_data(self, email):
     """ Retrieves user metadata.
 
@@ -213,17 +129,6 @@ class UAClient(object):
       A string containing user metadata.
     """
     return self.server.get_user_data(email, self.secret)
-
-  def is_app_enabled(self, app_id):
-    """ Checks if an application is enabled.
-
-    Args:
-      app_id: A string specifying an application ID.
-    Returns:
-      A boolean indicating whether or not an application is enabled.
-    """
-    response = self.server.is_app_enabled(app_id, self.secret)
-    return response.lower() == 'true'
 
   def is_user_cloud_admin(self, email):
     """ Checks if a user has cloud admin privliges.

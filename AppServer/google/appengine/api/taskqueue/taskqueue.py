@@ -785,10 +785,6 @@ class Task(object):
       InvalidTaskError: If the task is invalid.
     """
 
-
-
-
-
     if 'HTTP_HOST' not in os.environ:
       logging.warning(
           'The HTTP_HOST environment variable was not set, but is required '
@@ -864,17 +860,17 @@ class Task(object):
     """
     default_hostname = app_identity.get_default_version_hostname()
     if default_hostname is None:
-
-
-
       return None
+    # AppScale: We do not support the instance parameter.
+    target_info = target.split('.')
+    if len(target_info) > 2:
+      raise InvalidTaskError(
+        'AppScale does not support instance parameter for target, e.g. '
+        'instance.version.module')
 
-    if target is DEFAULT_APP_VERSION:
-      return default_hostname
-    else:
-
-
-      return '%s.%s' % (target, default_hostname)
+    # AppScale: do not send default_hostname, AppTaskQueue will get that and
+    # it makes it simpler to determine whether we have a target.
+    return target
 
   @staticmethod
   def __determine_url(relative_url):

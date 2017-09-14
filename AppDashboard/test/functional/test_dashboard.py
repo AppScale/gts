@@ -146,14 +146,11 @@ class FunctionalTestAppDashboard(unittest.TestCase):
       {'table':'fake_database', 'replication':1}
       )
     acc.should_receive('upload_tgz').and_return('true')
-    acc.should_receive('stop_app').and_return('true')
+    acc.should_receive('stop_version').and_return('true')
    
     fake_soap = flexmock(name='fake_soap')
     soap = flexmock(SOAPpy)
     soap.should_receive('SOAPProxy').and_return(fake_soap)
-    fake_soap.should_receive('get_app_data').and_return(
-      "\n\n ports: 8080\n num_ports:1\n"
-      )
 
     fake_soap.should_receive('get_capabilities')\
       .with_args('a@a.com', GLOBAL_SECRET_KEY)\

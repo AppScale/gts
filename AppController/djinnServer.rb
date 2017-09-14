@@ -62,8 +62,8 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "is_done_loading", "secret")
     add_method(@djinn, "get_role_info", "secret")
     add_method(@djinn, "get_app_info_map", "secret")
-    add_method(@djinn, "relocate_app", "appid", "http_port", "https_port",
-      "secret")
+    add_method(@djinn, "relocate_version", "version_key", "http_port",
+               "https_port", "secret")
     add_method(@djinn, "kill", "stop_deployment", "secret")
     add_method(@djinn, "set_parameters", "layout", "options", "secret")
     add_method(@djinn, "get_cluster_stats_json", "secret")
@@ -72,18 +72,17 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "get_app_upload_status", "reservation_id", "secret")
     add_method(@djinn, "get_database_information", "secret")
     add_method(@djinn, "get_instance_info", "app_id", "secret")
-    add_method(@djinn, "get_request_info", "secret")
-    add_method(@djinn, "stop_app", "app_name", "secret")
-    add_method(@djinn, "update", "app_names", "secret")
-    add_method(@djinn, "set_apps_to_restart", "apps_to_restart", "secret")
+    add_method(@djinn, "get_request_info", "version_key", "secret")
+    add_method(@djinn, "stop_version", "version_key", "secret")
+    add_method(@djinn, "update", "versions", "secret")
     add_method(@djinn, "get_all_public_ips", "secret")
     add_method(@djinn, "get_all_private_ips", "secret")
     add_method(@djinn, "get_online_users_list", "secret")
     add_method(@djinn, "backup_appscale", "backup_in_info", "secret")
     add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
     add_method(@djinn, "gather_logs", "secret")
-    add_method(@djinn, "add_routing_for_appserver", "app_id", "ip", "port",
-      "secret")
+    add_method(@djinn, "add_routing_for_appserver", "version_key", "ip",
+               "port", "secret")
     add_method(@djinn, "add_routing_for_blob_server", "secret")
     add_method(@djinn, "run_groomer", "secret")
     add_method(@djinn, "get_property", "property_regex", "secret")
@@ -95,12 +94,10 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "set_node_read_only", "read_only", "secret")
     add_method(@djinn, "set_read_only", "read_only", "secret")
     add_method(@djinn, "get_node_stats_json", "secret")
-    add_method(@djinn, "does_app_exist", "appname", "secret")
     add_method(@djinn, "reset_password", "username", "password", "secret")
     add_method(@djinn, "does_user_exist", "username", "secret")
     add_method(@djinn, "create_user", "username", "password", "account_type" ,"secret")
     add_method(@djinn, "set_admin_role", "username", "is_cloud_admin", "capabilities" ,"secret")
-    add_method(@djinn, "get_app_data", "app_id", "secret")
     add_method(@djinn, "primary_db_is_up", "secret")
   end
 end

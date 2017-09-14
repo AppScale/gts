@@ -1,28 +1,29 @@
 """ This service starts and stops application servers of a given application. """
 
-import fnmatch
+import errno
 import glob
 import logging
 import math
 import os
-import shutil
-import subprocess
+import re
 import sys
 import threading
 import time
 import urllib
 import urllib2
-from xml.etree import ElementTree
 
 import psutil
 import tornado.web
+from concurrent.futures import ThreadPoolExecutor
 from kazoo.client import KazooClient
+from tornado import gen
 from tornado.escape import json_decode
 from tornado.httpclient import HTTPClient
 from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 from tornado.options import options
 
+from appscale.admin.constants import UNPACK_ROOT
 from appscale.admin.instance_manager.constants import (
   APP_LOG_SIZE,
   DASHBOARD_LOG_SIZE,
@@ -30,10 +31,13 @@ from appscale.admin.instance_manager.constants import (
   DEFAULT_MAX_MEMORY,
   INSTANCE_CLASSES,
   LOGROTATE_CONFIG_DIR,
+  MAX_BACKGROUND_WORKERS,
   MONIT_INSTANCE_PREFIX
 )
 from appscale.admin.instance_manager.projects_manager import (
   GlobalProjectsManager)
+from appscale.admin.instance_manager.source_manager import SourceManager
+from appscale.admin.instance_manager.utils import find_web_inf
 from appscale.common import (
   appscale_info,
   constants,
@@ -43,6 +47,7 @@ from appscale.common import (
   misc
 )
 from appscale.common.constants import HTTPCodes
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
@@ -87,7 +92,7 @@ HTTP_OK = 200
 ROUTING_RETRY_INTERVAL = 5
 
 PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
-                                'app___{project}-{port}.pid')
+                                'app___{revision}-{port}.pid')
 
 # The number of seconds an instance is allowed to finish serving requests after
 # it receives a shutdown signal.
@@ -101,6 +106,12 @@ projects_manager = None
 
 # An interface for working with Monit.
 monit_operator = MonitOperator()
+
+# Fetches, extracts, and keeps track of revision source code.
+source_manager = None
+
+# Allows synchronous code to be executed in the background.
+thread_pool = None
 
 
 class BadConfigurationException(Exception):
@@ -127,125 +138,120 @@ class NoRedirection(urllib2.HTTPErrorProcessor):
   https_response = http_response
 
 
-def add_routing(app, port):
+def add_routing(version_key, port):
   """ Tells the AppController to begin routing traffic to an AppServer.
 
   Args:
-    app: A string that contains the application ID.
+    version_key: A string that contains the version key.
     port: A string that contains the port that the AppServer listens on.
   """
-  logging.info("Waiting for application {} on port {} to be active.".
-    format(str(app), str(port)))
+  logging.info('Waiting for {}:{}'.format(version_key, port))
   if not wait_on_app(port):
     # In case the AppServer fails we let the AppController to detect it
     # and remove it if it still show in monit.
-    logging.warning("AppServer did not come up in time, for {}:{}.".
-      format(str(app), str(port)))
+    logging.warning('{}:{} did not come up in time'.format(version_key, port))
     return
 
   acc = appscale_info.get_appcontroller_client()
 
   while True:
-    result = acc.add_routing_for_appserver(app, options.private_ip, port)
+    result = acc.add_routing_for_appserver(version_key, options.private_ip,
+                                           port)
     if result == AppControllerClient.NOT_READY:
       logging.info('AppController not yet ready to add routing.')
       time.sleep(ROUTING_RETRY_INTERVAL)
     else:
       break
 
-  logging.info('Successfully established routing for {} on port {}'.
-    format(app, port))
+  logging.info(
+    'Successfully established routing for {}:{}'.format(version_key, port))
 
-def start_app(project_id, config):
+@gen.coroutine
+def start_app(version_key, config):
   """ Starts a Google App Engine application on this machine. It
       will start it up and then proceed to fetch the main page.
 
   Args:
-    project_id: A string specifying a project ID.
+    version_key: A string specifying a version key.
     config: a dictionary that contains
-       app_port: Port to start on
-       service_id: A string specifying the service ID.
-       version_id: A string specifying the version ID.
-       env_vars: A dict of environment variables that should be passed to the
-        app.
-  Returns:
-    PID of process on success, -1 otherwise
+      app_port: An integer specifying the port to use.
   """
-  required_params = ('app_port', 'service_id', 'version_id', 'env_vars')
-  for param in required_params:
-    if param not in config:
-      logging.error('Missing parameter: {}'.format(param))
-      return BAD_PID
+  if 'app_port' not in config:
+    raise BadConfigurationException('app_port is required')
 
-  service_id = config['service_id']
-  version_id = config['version_id']
-  env_vars = config['env_vars']
+  project_id, service_id, version_id = version_key.split(
+    VERSION_PATH_SEPARATOR)
 
   if not misc.is_app_name_valid(project_id):
-    logging.error("Invalid app name for application: " + project_id)
-    return BAD_PID
+    raise BadConfigurationException(
+      'Invalid project ID: {}'.format(project_id))
 
   try:
     service_manager = projects_manager[project_id][service_id]
     version_details = service_manager[version_id].version_details
   except KeyError:
-    logging.error('Version not found')
-    return BAD_PID
+    raise BadConfigurationException('Version not found')
 
   runtime = version_details['runtime']
-  runtime_params = deployment_config.get_config('runtime_params')
+  env_vars = version_details.get('envVariables', {})
+  runtime_params = deployment_config.get_config('runtime_parameters')
   max_memory = runtime_params.get('max_memory', DEFAULT_MAX_MEMORY)
   if 'instanceClass' in version_details:
     max_memory = INSTANCE_CLASSES.get(version_details['instanceClass'],
                                       max_memory)
+
+  version_key = VERSION_PATH_SEPARATOR.join(
+    [project_id, service_id, version_id])
+  revision_key = VERSION_PATH_SEPARATOR.join(
+    [project_id, service_id, version_id, str(version_details['revision'])])
+  source_archive = version_details['deployment']['zip']['sourceUrl']
+
+  yield source_manager.ensure_source(revision_key, source_archive, runtime)
+
   logging.info('Starting {} application {}'.format(runtime, project_id))
 
-  pidfile = PIDFILE_TEMPLATE.format(project=project_id,
+  pidfile = PIDFILE_TEMPLATE.format(revision=revision_key,
                                     port=config['app_port'])
 
   if runtime == constants.GO:
-    env_vars['GOPATH'] = os.path.join('/var', 'apps', project_id, 'gopath')
+    env_vars['GOPATH'] = os.path.join(UNPACK_ROOT, revision_key, 'gopath')
     env_vars['GOROOT'] = os.path.join(GO_SDK, 'goroot')
 
-  watch = ''.join([MONIT_INSTANCE_PREFIX, project_id])
+  watch = ''.join([MONIT_INSTANCE_PREFIX, revision_key])
 
   if runtime in (constants.PYTHON27, constants.GO, constants.PHP):
     start_cmd = create_python27_start_cmd(
       project_id,
       options.login_ip,
       config['app_port'],
-      pidfile)
-    stop_cmd = create_python27_stop_cmd(config['app_port'])
+      pidfile,
+      revision_key)
     env_vars.update(create_python_app_env(
       options.login_ip,
       project_id))
   elif runtime == constants.JAVA:
-    remove_conflicting_jars(project_id)
-    copy_successful = copy_modified_jars(project_id)
-    if not copy_successful:
-      return BAD_PID
-
     # Account for MaxPermSize (~170MB), the parent process (~50MB), and thread
     # stacks (~20MB).
     max_heap = max_memory - 250
     if max_heap <= 0:
-      return BAD_PID
+      raise BadConfigurationException(
+        'Memory for Java applications must be greater than 250MB')
+
     start_cmd = create_java_start_cmd(
       project_id,
       config['app_port'],
       options.login_ip,
       max_heap,
-      pidfile
+      pidfile,
+      revision_key
     )
 
-    stop_cmd = create_java_stop_cmd(config['app_port'])
     env_vars.update(create_java_app_env(project_id))
   else:
-    logging.error('Unknown runtime {} for {}'.format(runtime, project_id))
-    return BAD_PID
+    raise BadConfigurationException(
+      'Unknown runtime {} for {}'.format(runtime, project_id))
 
   logging.info("Start command: " + str(start_cmd))
-  logging.info("Stop command: " + str(stop_cmd))
   logging.info("Environment variables: " + str(env_vars))
 
   monit_app_configuration.create_config_file(
@@ -262,34 +268,29 @@ def start_app(project_id, config):
   # group, since monit can get slow if there are quite a few processes in
   # the same group.
   full_watch = '{}-{}'.format(watch, config['app_port'])
-  if not monit_interface.start(full_watch, is_group=False):
-    logging.warning("Monit was unable to start {}:{}".
-      format(project_id, config['app_port']))
-    return BAD_PID
+  assert monit_interface.start(full_watch, is_group=False), (
+    'Monit was unable to start {}:{}'.format(project_id, config['app_port']))
 
   # Since we are going to wait, possibly for a long time for the
   # application to be ready, we do it in a thread.
   threading.Thread(target=add_routing,
-    args=(project_id, config['app_port'])).start()
+    args=(version_key, config['app_port'])).start()
 
   if project_id == DASHBOARD_PROJECT_ID:
     log_size = DASHBOARD_LOG_SIZE
   else:
     log_size = APP_LOG_SIZE
 
-  if not setup_logrotate(project_id, watch, log_size):
+  if not setup_logrotate(project_id, log_size):
     logging.error("Error while setting up log rotation for application: {}".
       format(project_id))
 
-  return 0
-
-def setup_logrotate(app_name, watch, log_size):
+def setup_logrotate(app_name, log_size):
   """ Creates a logrotate script for the logs that the given application
       will create.
 
   Args:
     app_name: A string, the application ID.
-    watch: A string of the form 'app___<app_ID>'.
     log_size: An integer, the size of logs that are kept per application server.
       The size should be in bytes.
   Returns:
@@ -299,8 +300,10 @@ def setup_logrotate(app_name, watch, log_size):
   app_logrotate_script = "{0}/appscale-{1}".\
     format(LOGROTATE_CONFIG_DIR, app_name)
 
+  log_prefix = ''.join([MONIT_INSTANCE_PREFIX, app_name])
+
   # Application logrotate script content.
-  contents = """/var/log/appscale/{watch}*.log {{
+  contents = """/var/log/appscale/{log_prefix}*.log {{
   size {size}
   missingok
   rotate 7
@@ -309,7 +312,7 @@ def setup_logrotate(app_name, watch, log_size):
   notifempty
   copytruncate
 }}
-""".format(watch=watch, size=log_size)
+""".format(log_prefix=log_prefix, size=log_size)
   logging.debug("Logrotate file: {} - Contents:\n{}".
     format(app_logrotate_script, contents))
 
@@ -318,6 +321,7 @@ def setup_logrotate(app_name, watch, log_size):
 
   return True
 
+@gen.coroutine
 def kill_instance(watch, instance_pid):
   """ Stops an AppServer process.
 
@@ -328,7 +332,7 @@ def kill_instance(watch, instance_pid):
   process = psutil.Process(instance_pid)
   process.terminate()
   try:
-    process.wait(MAX_INSTANCE_RESPONSE_TIME)
+    yield thread_pool.submit(process.wait, MAX_INSTANCE_RESPONSE_TIME)
   except psutil.TimeoutExpired:
     process.kill()
 
@@ -359,87 +363,124 @@ def unmonitor(process_name, retries=5):
 
     raise
 
-def stop_app_instance(app_name, port):
-  """ Stops a Google App Engine application process instance on current
-      machine.
+@gen.coroutine
+def clean_old_sources():
+  """ Removes source code for obsolete revisions. """
+  monit_entries = yield monit_operator.get_entries()
+  active_revisions = {
+    entry[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)[0]
+    for entry in monit_entries
+    if entry.startswith(MONIT_INSTANCE_PREFIX)}
+
+  for project_id, project_manager in projects_manager.items():
+    for service_id, service_manager in project_manager.items():
+      for version_id, version_manager in service_manager.items():
+        revision_id = version_manager.version_details['revision']
+        revision_key = VERSION_PATH_SEPARATOR.join(
+          [project_id, service_id, version_id, str(revision_id)])
+        active_revisions.add(revision_key)
+
+  source_manager.clean_old_revisions(active_revisions=active_revisions)
+
+@gen.coroutine
+def unmonitor_and_terminate(watch):
+  """ Unmonitors an instance and terminates it.
 
   Args:
-    app_name: A string, the name of application to stop.
-    port: The port the application is running on.
-  Returns:
-    True on success, False otherwise.
+    watch: A string specifying the Monit entry.
   """
-  if not misc.is_app_name_valid(app_name):
-    logging.error("Unable to kill app process %s on port %d because of " \
-      "invalid name for application" % (app_name, int(port)))
-    return False
-
-  logging.info("Stopping application %s" % app_name)
-  watch = '{}{}-{}'.format(MONIT_INSTANCE_PREFIX, app_name, port)
-
   pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))
   try:
     with open(pid_location) as pidfile:
       instance_pid = int(pidfile.read().strip())
-  except IOError:
-    logging.error('{} does not exist'.format(pid_location))
-    return False
+  except IOError as error:
+    if error.errno != errno.ENOENT:
+      raise
+
+    raise HTTPError(HTTPCodes.INTERNAL_ERROR,
+                    '{} does not exist'.format(pid_location))
 
   try:
     unmonitor(watch)
   except ProcessNotFound:
     # If Monit does not know about a process, assume it is already stopped.
-    return True
+    raise gen.Return()
 
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.
   monit_config_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, watch)
   try:
     os.remove(monit_config_file)
-  except OSError as os_error:
+  except OSError:
     logging.error("Error deleting {0}".format(monit_config_file))
 
-  monit_interface.run_with_retry([monit_interface.MONIT, 'reload'])
-  threading.Thread(target=kill_instance, args=(watch, instance_pid)).start()
-  return True
+  IOLoop.current().spawn_callback(kill_instance, watch, instance_pid)
 
-
-def stop_app(app_name):
-  """ Stops all process instances of a Google App Engine application on this
+@gen.coroutine
+def stop_app_instance(version_key, port):
+  """ Stops a Google App Engine application process instance on current
       machine.
 
   Args:
-    app_name: Name of application to stop
+    version_key: A string, the name of version to stop.
+    port: The port the application is running on.
+  Returns:
+    True on success, False otherwise.
+  """
+  project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
+
+  if not misc.is_app_name_valid(project_id):
+    raise BadConfigurationException(
+      'Invalid project ID: {}'.format(project_id))
+
+  logging.info('Stopping {}:{}'.format(version_key, port))
+
+  # Discover revision key from version and port.
+  instance_key_re = re.compile(
+    '{}{}.*-{}'.format(MONIT_INSTANCE_PREFIX, version_key, port))
+  monit_entries = yield monit_operator.get_entries()
+  try:
+    watch = next(entry for entry in monit_entries
+                 if instance_key_re.match(entry))
+  except StopIteration:
+    message = 'No entries exist for {}:{}'.format(version_key, port)
+    raise HTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+
+  yield unmonitor_and_terminate(watch)
+
+  yield monit_operator.reload()
+  yield clean_old_sources()
+
+@gen.coroutine
+def stop_app(version_key):
+  """ Stops all process instances of a version on this machine.
+
+  Args:
+    version_key: Name of version to stop
   Returns:
     True on success, False otherwise
   """
-  if not misc.is_app_name_valid(app_name):
-    logging.error("Unable to kill app process %s on because of " \
-      "invalid name for application" % (app_name))
-    return False
+  project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
 
-  logging.info("Stopping application %s" % app_name)
-  watch = ''.join([MONIT_INSTANCE_PREFIX, app_name])
-  monit_result = monit_interface.stop(watch)
+  if not misc.is_app_name_valid(project_id):
+    raise BadConfigurationException(
+      'Invalid project ID: {}'.format(project_id))
 
-  if not monit_result:
-    logging.error("Unable to shut down monit interface for watch %s" % watch)
-    return False
+  logging.info('Stopping {}'.format(version_key))
 
-  # Remove the monit config files for the application.
-  # TODO: Reload monit to pick up config changes.
-  config_files = glob.glob('{}/appscale-{}-*.cfg'.format(MONIT_CONFIG_DIR, watch))
-  for config_file in config_files:
-    try:
-      os.remove(config_file)
-    except OSError:
-      logging.exception('Error removing {}'.format(config_file))
+  version_group = ''.join([MONIT_INSTANCE_PREFIX, version_key])
+  monit_entries = yield monit_operator.get_entries()
+  version_entries = [entry for entry in monit_entries
+                     if entry.startswith(version_group)]
+  for entry in version_entries:
+    yield unmonitor_and_terminate(entry)
 
-  if not remove_logrotate(app_name):
+  if not remove_logrotate(project_id):
     logging.error("Error while setting up log rotation for application: {}".
-      format(app_name))
+      format(project_id))
 
-  return True
+  yield monit_operator.reload()
+  yield clean_old_sources()
 
 def remove_logrotate(app_name):
   """ Removes logrotate script for the given application.
@@ -510,60 +551,6 @@ def create_python_app_env(public_ip, app_name):
   env_vars['PYTHON_LIB'] = "{0}/AppServer/".format(constants.APPSCALE_HOME)
   return env_vars
 
-def find_web_xml(app_name):
-  """ Returns the location of a Java application's appengine-web.xml file.
-
-  Args:
-    app_name: A string containing the application ID.
-  Returns:
-    A string containing the location of the file.
-  Raises:
-    BadConfigurationException if the file is not found or multiple candidates
-    are found.
-
-  """
-  app_dir = '/var/apps/{}/app'.format(app_name)
-  file_name = 'appengine-web.xml'
-  matches = []
-  for root, dirs, files in os.walk(app_dir):
-    if file_name in files and root.endswith('/WEB-INF'):
-      matches.append(os.path.join(root, file_name))
-
-  if len(matches) < 1:
-    raise BadConfigurationException(
-      'Unable to find {} file for {}'.format(file_name, app_name))
-  if len(matches) > 1:
-    # Use the shortest path. If there are any ties, use the first after
-    # sorting alphabetically.
-    matches.sort()
-    match_to_use = matches[0]
-    for match in matches:
-      if len(match) < len(match_to_use):
-        match_to_use = match
-    return match_to_use
-  return matches[0]
-
-def extract_env_vars_from_xml(xml_file):
-  """ Returns any custom environment variables defined in appengine-web.xml.
-
-  Args:
-    xml_file: A string containing the location of the xml file.
-  Returns:
-    A dictionary containing the custom environment variables.
-  """
-  custom_vars = {}
-  tree = ElementTree.parse(xml_file)
-  root = tree.getroot()
-  for child in root:
-    if not child.tag.endswith('env-variables'):
-      continue
-
-    for env_var in child:
-      var_dict = env_var.attrib
-      custom_vars[var_dict['name']] = var_dict['value']
-
-  return custom_vars
-
 def create_java_app_env(app_name):
   """ Returns the environment variables Java application servers uses.
 
@@ -573,10 +560,6 @@ def create_java_app_env(app_name):
     A dictionary containing the environment variables
   """
   env_vars = {'APPSCALE_HOME': constants.APPSCALE_HOME}
-
-  config_file = find_web_xml(app_name)
-  custom_env_vars = extract_env_vars_from_xml(config_file)
-  env_vars.update(custom_env_vars)
 
   gcs_config = {'scheme': 'https', 'port': 443}
   try:
@@ -589,7 +572,7 @@ def create_java_app_env(app_name):
 
   return env_vars
 
-def create_python27_start_cmd(app_name, login_ip, port, pidfile):
+def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key):
   """ Creates the start command to run the python application server.
 
   Args:
@@ -597,10 +580,11 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile):
     login_ip: The public IP of this deployment
     port: The local port the application server will bind to
     pidfile: A string specifying the pidfile location.
+    revision_key: A string specifying the revision key.
   Returns:
     A string of the start command.
   """
-  db_proxy = appscale_info.get_db_proxy()
+  source_directory = os.path.join(UNPACK_ROOT, revision_key, 'app')
 
   cmd = [
     "/usr/bin/python2",
@@ -614,11 +598,11 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile):
     "--enable_sendmail",
     "--xmpp_path " + login_ip,
     "--php_executable_path=" + str(PHP_CGI_LOCATION),
-    "--uaserver_path " + db_proxy + ":"\
+    "--uaserver_path " + options.db_proxy + ":"\
       + str(constants.UA_SERVER_PORT),
-    "--datastore_path " + db_proxy + ":"\
+    "--datastore_path " + options.db_proxy + ":"\
       + str(constants.DB_SERVER_PORT),
-    "/var/apps/" + app_name + "/app",
+    source_directory,
     "--host " + options.private_ip,
     "--admin_host " + options.private_ip,
     "--automatic_restart", "no",
@@ -659,75 +643,8 @@ def locate_dir(path, dir_name):
   else:
     return None
 
-def remove_conflicting_jars(app_name):
-  """ Removes jars uploaded which may conflict with AppScale jars.
-
-  Args:
-    app_name: The name of the application to run.
-  """
-  app_dir = "/var/apps/" + app_name + "/app/"
-  lib_dir = locate_dir(app_dir, "lib")
-  if not lib_dir:
-    logging.warn("Lib directory not found in app code while updating.")
-    return
-  logging.info("Removing jars from {0}".format(lib_dir))
-  conflicting_jars_pattern = ['appengine-api-1.0-sdk-*.jar', 'appengine-api-stubs-*.jar',
-                  'appengine-api-labs-*.jar', 'appengine-jsr107cache-*.jar',
-                  'jsr107cache-*.jar', 'appengine-mapreduce*.jar',
-                  'appengine-pipeline*.jar', 'appengine-gcs-client*.jar']
-  for file in os.listdir(lib_dir):
-    for pattern in conflicting_jars_pattern:
-      if fnmatch.fnmatch(file, pattern):
-        os.remove(lib_dir + os.sep + file)
-
-def copy_modified_jars(app_name):
-  """ Copies the changes made to the Java SDK
-  for AppScale into the apps lib folder.
-
-  Args:
-    app_name: The name of the application to run
-
-  Returns:
-    False if there were any errors, True if success
-  """
-  appscale_home = constants.APPSCALE_HOME
-
-  app_dir = "/var/apps/" + app_name + "/app/"
-  lib_dir = locate_dir(app_dir, "lib")
-
-  if not lib_dir:
-    web_inf_dir = locate_dir(app_dir, "WEB-INF")
-    lib_dir = web_inf_dir + os.sep + "lib"
-    logging.info("Creating lib directory at: {0}".format(lib_dir))
-    mkdir_result = subprocess.call("mkdir " + lib_dir, shell=True)
-
-    if mkdir_result != 0:
-      logging.error("Failed to create missing lib directory in: {0}.".
-        format(web_inf_dir))
-      return False
-  try:
-    copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
-                "appengine-java-sdk-repacked/lib/user/*.jar", lib_dir)
-    copy_files_matching_pattern(appscale_home + "/AppServer_Java/" +\
-                "appengine-java-sdk-repacked/lib/impl/appscale-*.jar", lib_dir)
-    copy_files_matching_pattern("/usr/share/appscale/ext/*", lib_dir)
-  except IOError as io_error:
-    logging.error("Failed to copy modified jar files to lib directory of " + app_name +\
-                  " due to:" + str(io_error))
-    return False
-  return True
-
-def copy_files_matching_pattern(file_path_pattern, dest):
-  """ Copies files matching the specified pattern to the destination directory.
-  Args:
-      file_path_pattern: The pattern of the files to be copied over.
-      dest: The destination directory.
-  """
-  for file in glob.glob(file_path_pattern):
-    shutil.copy(file, dest)
-
 def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
-                          pidfile):
+                          pidfile, revision_key):
   """ Creates the start command to run the java application server.
 
   Args:
@@ -736,14 +653,15 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     load_balancer_host: The host of the load balancer
     max_heap: An integer specifying the max heap size in MB.
     pidfile: A string specifying the pidfile location.
+    revision_key: A string specifying the revision key.
   Returns:
     A string of the start command.
   """
-  db_proxy = appscale_info.get_db_proxy()
-  tq_proxy = appscale_info.get_tq_proxy()
   java_start_script = os.path.join(
     constants.JAVA_APPSERVER, 'appengine-java-sdk-repacked', 'bin',
     'dev_appserver.sh')
+  revision_base = os.path.join(UNPACK_ROOT, revision_key)
+  web_inf_directory = find_web_inf(revision_base)
 
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
   # local FS and see what port it's running on. The value doesn't matter.
@@ -756,84 +674,63 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
     "--disable_update_check",
     "--address=" + options.private_ip,
-    "--datastore_path=" + db_proxy,
+    "--datastore_path=" + options.db_proxy,
     "--login_server=" + load_balancer_host,
     "--appscale_version=1",
     "--APP_NAME=" + app_name,
     "--NGINX_ADDRESS=" + load_balancer_host,
-    "--TQ_PROXY=" + tq_proxy,
+    "--TQ_PROXY=" + options.tq_proxy,
     "--pidfile={}".format(pidfile),
-    os.path.dirname(locate_dir("/var/apps/" + app_name + "/app/", "WEB-INF"))
+    os.path.dirname(web_inf_directory)
   ]
 
   return ' '.join(cmd)
 
-def create_python27_stop_cmd(port):
-  """ This creates the stop command for an application which is
-  uniquely identified by a port number. Additional portions of the
-  start command are included to prevent the termination of other
-  processes.
 
-  Args:
-    port: The port which the application server is running
-  Returns:
-    A string of the stop command.
-  """
-  stop_cmd = "/usr/bin/python2 {0}/scripts/stop_service.py " \
-    "dev_appserver.py {1}".format(constants.APPSCALE_HOME, port)
-  return stop_cmd
-
-def create_java_stop_cmd(port):
-  """ This creates the stop command for an application which is
-  uniquely identified by a port number. Additional portions of the
-  start command are included to prevent the termination of other
-  processes.
-
-  Args:
-    port: The port which the application server is running
-  Returns:
-    A string of the stop command.
-  """
-  stop_cmd = "/usr/bin/python2 {0}/scripts/stop_service.py " \
-    "java {1}".format(constants.APPSCALE_HOME, port)
-  return stop_cmd
-
-
-class AppHandler(tornado.web.RequestHandler):
+class VersionHandler(tornado.web.RequestHandler):
   """ Handles requests to start and stop instances for a project. """
-  def post(self, project_id):
+  @gen.coroutine
+  def post(self, version_key):
     """ Starts an AppServer instance on this machine.
 
     Args:
-      project_id: A string specifying a project ID.
+      version_key: A string specifying a version key.
     """
     try:
       config = json_decode(self.request.body)
     except ValueError:
       raise HTTPError(HTTPCodes.BAD_REQUEST, 'Payload must be valid JSON')
 
-    if start_app(project_id, config) == BAD_PID:
-      raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to start application')
+    try:
+      yield start_app(version_key, config)
+    except BadConfigurationException as error:
+      raise HTTPError(HTTPCodes.BAD_REQUEST, error.message)
 
   @staticmethod
-  def delete(project_id):
-    """ Stops all instances on this machine for a project.
+  @gen.coroutine
+  def delete(version_key):
+    """ Stops all instances on this machine for a version.
 
     Args:
-      project_id: A string specifying a project ID.
+      version_key: A string specifying a version key.
     """
-    if not stop_app(project_id):
-      raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to stop application')
+    try:
+      yield stop_app(version_key)
+    except BadConfigurationException as error:
+      raise HTTPError(HTTPCodes.BAD_REQUEST, error.message)
 
 
 class InstanceHandler(tornado.web.RequestHandler):
   """ Handles requests to stop individual instances. """
 
   @staticmethod
-  def delete(project_id, port):
+  @gen.coroutine
+  def delete(version_key, port):
     """ Stops an AppServer instance on this machine. """
-    if not stop_app_instance(project_id, int(port)):
-      raise HTTPError(HTTPCodes.INTERNAL_ERROR, 'Unable to stop instance')
+    try:
+      yield stop_app_instance(version_key, int(port))
+    except BadConfigurationException as error:
+      raise HTTPError(HTTPCodes.BAD_REQUEST, error.message)
 
 
 ################################
@@ -841,20 +738,27 @@ class InstanceHandler(tornado.web.RequestHandler):
 ################################
 if __name__ == "__main__":
   file_io.set_logging_format()
+  logging.getLogger().setLevel(logging.INFO)
 
   zk_ips = appscale_info.get_zk_node_ips()
   zk_client = KazooClient(hosts=','.join(zk_ips))
   zk_client.start()
   deployment_config = DeploymentConfig(zk_client)
   projects_manager = GlobalProjectsManager(zk_client)
+  thread_pool = ThreadPoolExecutor(MAX_BACKGROUND_WORKERS)
+  source_manager = SourceManager(zk_client, thread_pool)
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('login_ip', appscale_info.get_login_ip())
   options.define('syslog_server', appscale_info.get_headnode_ip())
+  options.define('db_proxy', appscale_info.get_db_proxy())
+  options.define('tq_proxy', appscale_info.get_tq_proxy())
+
   app = tornado.web.Application([
-    ('/projects/([a-z0-9-]+)', AppHandler),
-    ('/projects/([a-z0-9-]+)/([0-9-]+)', InstanceHandler)
+    ('/versions/([a-z0-9-_]+)', VersionHandler),
+    ('/versions/([a-z0-9-_]+)/([0-9-]+)', InstanceHandler)
   ])
 
   app.listen(constants.APP_MANAGER_PORT)
+  logging.info('Starting AppManager on {}'.format(constants.APP_MANAGER_PORT))
   IOLoop.current().start()

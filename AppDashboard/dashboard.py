@@ -720,11 +720,13 @@ class AppRelocatePage(AppDashboard):
       return
 
     app_id = self.request.POST.get('app_id')
+    version_key = '_'.join([app_id, AppDashboardHelper.DEFAULT_SERVICE,
+                            AppDashboardHelper.DEFAULT_VERSION])
     if self.dstore.is_user_cloud_admin() or \
             app_id in self.dstore.get_owned_apps():
       try:
-        success_msg = self.helper.relocate_app(
-          self.request.POST.multi['app_id'],
+        success_msg = self.helper.relocate_version(
+          version_key,
           self.request.POST.multi['http_port'],
           self.request.POST.multi['https_port'])
       except AppHelperException as err:
@@ -879,66 +881,6 @@ class LogServiceHostPage(AppDashboard):
       'is_more': is_more,
       'page_content': self.TEMPLATE,
     })
-
-
-class LogUploadPage(webapp2.RequestHandler):
-  """ Class to handle requests to the /logs/upload page. """
-
-  def post(self):
-    """ Saves logs records to the Datastore for later viewing. """
-    encoded_data = self.request.body
-    data = json.loads(encoded_data)
-    service_name = data['service_name']
-    host = data['host']
-    log_lines = data['logs']
-
-    # First, check to see if this service has been registered.
-    service = LoggedService.get_by_id(service_name)
-    if service is None:
-      service = LoggedService(id=service_name)
-      service.hosts = [host]
-      service.put()
-    else:
-      if host not in service.hosts:
-        service.hosts.append(host)
-        service.put()
-
-    # Next, add in each log line as an AppLogLine
-    entities_to_store = {}
-    for log_line_dict in log_lines:
-      the_time = int(log_line_dict['timestamp'])
-      reversed_time = (2 ** 34 - the_time) * 1000000
-      key_name = service_name + host + str(reversed_time)
-      log_line = None
-      # Check the local cache first.
-      if key_name in entities_to_store:
-        log_line = entities_to_store[key_name]
-      else:
-        # Grab it from the datastore.
-        log_line = RequestLogLine.get_by_id(id=key_name)
-      if not log_line:
-        # This is the first log for this timestamp.
-        log_line = RequestLogLine(id=key_name)
-        log_line.service_name = service_name
-        log_line.host = host
-        # Catch entity so that it does not repeatedly get fetched.
-        entities_to_store[key_name] = log_line
-
-      # Update the log entry with the given timestamp.
-      app_log_line = AppLogLine()
-      app_log_line.message = log_line_dict['message']
-      app_log_line.level = log_line_dict['level']
-      app_log_line.timestamp = datetime.datetime.fromtimestamp(the_time)
-
-      # We append to the list property of the log line.
-      log_line.app_logs.append(app_log_line)
-      # Update our local cache with the new version of the log line.
-      entities_to_store[key_name] = log_line
-
-    batch_put = []
-    for key_name in entities_to_store:
-      batch_put.append(entities_to_store[key_name])
-    ndb.put_multi(batch_put)
 
 
 class LogDownloader(AppDashboard):
@@ -1321,7 +1263,6 @@ dashboard_pages = [
   ('/apps/json/(.+)', AppsAsJSONPage),
   ('/apps/stats', StatsPage),
   ('/logs', LogMainPage),
-  ('/logs/upload', LogUploadPage),
   ('/logs/(.+)/(.+)', LogServiceHostPage),
   ('/logs/(.+)', LogServicePage),
   ('/cron', CronConsolePage),

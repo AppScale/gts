@@ -452,17 +452,20 @@ class ZKInterface
   end
 
 
-  def self.get_app_names()
-    projects = self.get_children('/appscale/projects')
-    active_projects = []
-    service_id = Djinn::DEFAULT_SERVICE
-    version_id = Djinn::DEFAULT_VERSION
-    projects.each { |project_id|
-      version_node = "/appscale/projects/#{project_id}" +
-        "/services/#{service_id}/versions/#{version_id}"
-      active_projects << project_id if self.exists?(version_node)
+  def self.get_versions()
+    active_versions = []
+    self.get_children('/appscale/projects').each { |project_id|
+      services_node = "/appscale/projects/#{project_id}/services"
+      self.get_children(services_node).each { |service_id|
+        versions_node = "/appscale/projects/#{project_id}/services/" +
+          "#{service_id}/versions"
+        self.get_children(versions_node).each { |version_id|
+          active_versions << [project_id, service_id,
+                              version_id].join(Djinn::VERSION_PATH_SEPARATOR)
+        }
+      }
     }
-    return active_projects
+    return active_versions
   end
 
   def self.get_version_details(project_id, service_id, version_id)

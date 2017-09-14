@@ -7,9 +7,9 @@ import os
 import shutil
 import socket
 import tarfile
-import time
 
 from appscale.common.constants import HTTPCodes
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
@@ -20,9 +20,10 @@ from .constants import (
   JAVA,
   SOURCES_DIRECTORY,
   Types,
-  UNPACK_ROOT,
-  VERSION_PATH_SEPARATOR
+  UNPACK_ROOT
 )
+from .instance_manager.utils import copy_modified_jars
+from .instance_manager.utils import remove_conflicting_jars
 
 
 def assert_fields_in_resource(required_fields, resource_name, resource):
@@ -169,61 +170,72 @@ def ensure_path(path):
       raise
 
 
-def extract_source(version, project_id):
+def extract_source(revision_key, location, runtime):
   """ Unpacks an archive to a given location.
 
   Args:
-    version: A dictionary containing version details.
-    project_id: A string specifying a project ID.
+    revision_key: A string specifying the revision key.
+    location: A string specifying the location of the source archive.
+    runtime: A string specifying the revision's runtime.
   Raises:
-    IOError if version source archive does not exist
+    IOError if version source archive does not exist.
+    InvalidSource if the source archive is not valid.
   """
-  project_base = os.path.join(UNPACK_ROOT, project_id)
-  shutil.rmtree(project_base, ignore_errors=True)
-  ensure_path(os.path.join(project_base, 'log'))
+  revision_base = os.path.join(UNPACK_ROOT, revision_key)
+  ensure_path(os.path.join(revision_base, 'log'))
 
-  app_path = os.path.join(project_base, 'app')
+  app_path = os.path.join(revision_base, 'app')
   ensure_path(app_path)
   # The working directory must be the target in order to validate paths.
+  original_cwd = os.getcwd()
   os.chdir(app_path)
 
-  source_path = version['deployment']['zip']['sourceUrl']
-  with tarfile.open(source_path, 'r:gz') as archive:
-    # Check if the archive is valid before extracting it.
-    has_config = False
-    for file_info in archive:
-      file_name = file_info.name
-      if not canonical_path(file_name).startswith(app_path):
-        message = 'Invalid location in archive: {}'.format(file_name)
-        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+  if runtime == JAVA:
+    config_file_name = 'appengine-web.xml'
 
-      if file_info.issym() or file_info.islnk():
-        if not valid_link(file_name, file_info.linkname, app_path):
-          message = 'Invalid link in archive: {}'.format(file_name)
-          raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+    def is_version_config(path):
+      return path.endswith(config_file_name)
+  else:
+    config_file_name = 'app.yaml'
 
-      if version['runtime'] == JAVA:
-        if file_name.endswith('appengine-web.xml'):
+    def is_version_config(path):
+      return canonical_path(path) == os.path.join(app_path, config_file_name)
+
+  try:
+    with tarfile.open(location, 'r:gz') as archive:
+      # Check if the archive is valid before extracting it.
+      has_config = False
+      for file_info in archive:
+        file_name = file_info.name
+        if not canonical_path(file_name).startswith(app_path):
+          raise constants.InvalidSource(
+            'Invalid location in archive: {}'.format(file_name))
+
+        if file_info.issym() or file_info.islnk():
+          if not valid_link(file_name, file_info.linkname, app_path):
+            raise constants.InvalidSource(
+              'Invalid link in archive: {}'.format(file_name))
+
+        if is_version_config(file_name):
           has_config = True
-      else:
-        if canonical_path(file_name) == os.path.join(app_path, 'app.yaml'):
-          has_config = True
 
-    if not has_config:
-      if version['runtime'] == JAVA:
-        missing_file = 'appengine.web.xml'
-      else:
-        missing_file = 'app.yaml'
-      message = 'Archive must have {}'.format(missing_file)
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+      if not has_config:
+        raise constants.InvalidSource(
+          'Archive must have {}'.format(config_file_name))
 
-    archive.extractall(path=app_path)
+      archive.extractall(path=app_path)
 
-  if version['runtime'] == GO:
-    try:
-      shutil.move(os.path.join(app_path, 'gopath'), project_base)
-    except IOError:
-      logging.debug('{} does not have a gopath directory'.format(project_id))
+    if runtime == GO:
+      try:
+        shutil.move(os.path.join(app_path, 'gopath'), revision_base)
+      except IOError:
+        logging.debug('{} does not have a gopath directory'.format(revision_key))
+
+    if runtime == JAVA:
+      remove_conflicting_jars(app_path)
+      copy_modified_jars(app_path)
+  finally:
+    os.chdir(original_cwd)
 
 
 def port_is_open(host, port):
@@ -266,7 +278,7 @@ def remove_old_archives(project_id, service_id, version):
     service_id: A string specifying a service ID.
     version: A dictionary containing version details.
   """
-  prefix = constants.VERSION_PATH_SEPARATOR.join(
+  prefix = VERSION_PATH_SEPARATOR.join(
     [project_id, service_id, version['id']])
   current_name = os.path.basename(version['deployment']['zip']['sourceUrl'])
   old_sources = [os.path.join(SOURCES_DIRECTORY, archive) for archive

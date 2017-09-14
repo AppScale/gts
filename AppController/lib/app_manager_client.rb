@@ -35,24 +35,13 @@ class AppManagerClient
   # Starts an AppServer instance with the AppManager.
   #
   # Args:
-  #   app_name: Name of the application
-  #   service_id: The AppServer's service ID.
-  #   version_id: The AppServer's version ID.
+  #   version_key: The AppServer instance's version key.
   #   app_port: The port to run the application server
-  #   env_vars: A Hash of environemnt variables that should be passed to the
-  #     application to start.
   #
-  def start_app(app_name,
-                service_id,
-                version_id,
-                app_port,
-                env_vars)
-    config = {'app_port' => app_port,
-              'service_id' => service_id,
-              'version_id' => version_id,
-              'env_vars' => env_vars}
+  def start_app(version_key, app_port)
+    config = {'app_port' => app_port}
 
-    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}")
+    uri = URI("http://#{@ip}:#{SERVER_PORT}/versions/#{version_key}")
     headers = {'Content-Type' => 'application/json'}
     request = Net::HTTP::Post.new(uri.path, headers)
     request.body = JSON.dump(config)
@@ -62,22 +51,22 @@ class AppManagerClient
   # Stops an AppServer instance with the AppManager.
   #
   # Args:
-  #   app_name: The name of the application
+  #   version_key: The name of the version
   #   port: The port the process instance of the application is running
   #
-  def stop_app_instance(app_name, port)
-    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}/#{port}")
+  def stop_app_instance(version_key, port)
+    uri = URI("http://#{@ip}:#{SERVER_PORT}/versions/#{version_key}/#{port}")
     request = Net::HTTP::Delete.new(uri.path)
     make_call(request, uri)
   end
 
-  # Stops all AppServer instances for a project with the AppManager.
+  # Stops all AppServer instances for a version with the AppManager.
   #
   # Args:
-  #   app_name: The name of the application
+  #   version_key: The name of the version
   #
-  def stop_app(app_name)
-    uri = URI("http://#{@ip}:#{SERVER_PORT}/projects/#{app_name}")
+  def stop_app(version_key)
+    uri = URI("http://#{@ip}:#{SERVER_PORT}/versions/#{version_key}")
     request = Net::HTTP::Delete.new(uri.path)
     make_call(request, uri)
   end

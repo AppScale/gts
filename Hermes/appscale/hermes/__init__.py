@@ -15,6 +15,8 @@ import urllib
 import tornado.escape
 import tornado.httpclient
 import tornado.web
+from appscale.admin.constants import DEFAULT_SERVICE
+from appscale.admin.constants import DEFAULT_VERSION
 from appscale.common import appscale_info, appscale_utils
 from appscale.common.constants import LOG_FORMAT, ZK_PERSISTENT_RECONNECTS
 from appscale.common.ua_client import UAClient, UAException
@@ -32,6 +34,55 @@ from appscale.hermes.stats import constants as stats_constants
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
+
+
+class SensorDeployer(object):
+  """ Uploads the sensor app for registered deployments. """
+  def __init__(self, zk_client):
+    """ Creates new SensorDeployer object.
+
+    Args:
+      zk_client: A KazooClient.
+    """
+    self.zk_client = zk_client
+
+  def deploy(self):
+    """ Uploads the sensor app for registered deployments. """
+    deployment_id = helper.get_deployment_id()
+    # If deployment is not registered, then do nothing.
+    if not deployment_id:
+      return
+
+    ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
+
+    # If the appscalesensor app is already running, then do nothing.
+    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
+      constants.APPSCALE_SENSOR, DEFAULT_SERVICE, DEFAULT_VERSION)
+    if self.zk_client.exists(version_node) is not None:
+      return
+
+    pwd = appscale_utils.encrypt_password(constants.USER_EMAIL,
+                                          appscale_utils.random_password_generator())
+    if create_appscale_user(pwd, ua_client) and create_xmpp_user(pwd,
+                                                                 ua_client):
+      logging.debug("Created new user and now tarring app to be deployed.")
+      file_path = os.path.join(os.path.dirname(__file__), '../Apps/sensor')
+      app_dir_location = os.path.join(constants.APP_DIR_LOCATION,
+                                      constants.APPSCALE_SENSOR)
+      archive = tarfile.open(app_dir_location, "w|gz")
+      archive.add(file_path, arcname=constants.APPSCALE_SENSOR)
+      archive.close()
+
+      try:
+        logging.info("Deploying the sensor app for registered deployments.")
+        acc = appscale_info.get_appcontroller_client()
+        acc.upload_app(app_dir_location, constants.FILE_SUFFIX)
+      except AppControllerException:
+        logging.exception("AppControllerException while trying to deploy "
+                          "appscalesensor app.")
+    else:
+      logging.error("Error while creating or accessing the user to deploy "
+                    "appscalesensor app.")
 
 
 def poll():
@@ -93,43 +144,6 @@ def poll():
 
   # The poller can move forward without waiting for a response here.
   helper.urlfetch_async(request)
-
-
-def deploy_sensor_app():
-  """ Uploads the sensor app for registered deployments. """
-
-  deployment_id = helper.get_deployment_id()
-  #If deployment is not registered, then do nothing.
-  if not deployment_id:
-    return
-
-  ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
-
-  # If the appscalesensor app is already running, then do nothing.
-  if ua_client.is_app_enabled(constants.APPSCALE_SENSOR):
-    return
-
-  pwd = appscale_utils.encrypt_password(constants.USER_EMAIL,
-                                        appscale_utils.random_password_generator())
-  if create_appscale_user(pwd, ua_client) and create_xmpp_user(pwd, ua_client):
-    logging.debug("Created new user and now tarring app to be deployed.")
-    file_path = os.path.join(os.path.dirname(__file__), '../Apps/sensor')
-    app_dir_location = os.path.join(constants.APP_DIR_LOCATION,
-                                    constants.APPSCALE_SENSOR)
-    archive = tarfile.open(app_dir_location, "w|gz")
-    archive.add(file_path, arcname= constants.APPSCALE_SENSOR)
-    archive.close()
-
-    try:
-      logging.info("Deploying the sensor app for registered deployments.")
-      acc = appscale_info.get_appcontroller_client()
-      acc.upload_app(app_dir_location, constants.FILE_SUFFIX)
-    except AppControllerException:
-      logging.exception("AppControllerException while trying to deploy "
-        "appscalesensor app.")
-  else:
-    logging.error("Error while creating or accessing the user to deploy "
-      "appscalesensor app.")
 
 
 def create_appscale_user(password, uaserver):
@@ -204,11 +218,6 @@ def main():
   is_lb = (my_ip in appscale_info.get_load_balancer_ips())
 
   if is_master:
-    # Periodically checks if the deployment is registered and uploads the
-    # appscalesensor app for registered deployments.
-    PeriodicCallback(deploy_sensor_app,
-                     constants.UPLOAD_SENSOR_INTERVAL).start()
-
     # Periodically check with the portal for new tasks.
     # Note: Currently, any active handlers from the tornado app will block
     # polling until they complete.
@@ -223,6 +232,12 @@ def main():
     zk_client.start()
     # Start watching profiling configs in ZooKeeper
     stats_app.ProfilingManager(zk_client)
+
+    # Periodically checks if the deployment is registered and uploads the
+    # appscalesensor app for registered deployments.
+    sensor_deployer = SensorDeployer(zk_client)
+    PeriodicCallback(sensor_deployer.deploy,
+                     constants.UPLOAD_SENSOR_INTERVAL).start()
   else:
     task_route = ('/do_task', Respond404Handler,
                   dict(reason='Hermes slaves do not manage tasks from Portal'))
