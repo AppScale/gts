@@ -35,8 +35,15 @@ module CronHelper
     app_crontab = NO_EMAIL_CRON + "\n"
     parsing_log = "saw a cron request with args [#{ip}][#{lang}][#{app}]\n"
 
+    begin
+      source_dir = HelperFunctions.get_source_for_project(app)
+    rescue AppScaleException
+      clear_app_crontab(app)
+      return
+    end
+
     if lang == "python27" or lang == "go" or lang == "php"
-      cron_file = "#{HelperFunctions::APPLICATIONS_DIR}/#{app}/app/cron.yaml"
+      cron_file = "#{source_dir}/cron.yaml"
 
       begin
         yaml_file = YAML.load_file(cron_file)
@@ -89,7 +96,7 @@ CRON
       }
 
     elsif lang == "java"
-      web_inf_dir = HelperFunctions.get_web_inf_dir(HelperFunctions.get_untar_dir(app))
+      web_inf_dir = HelperFunctions.get_web_inf_dir(source_dir)
       cron_file = "#{web_inf_dir}/cron.xml"
       return unless File.exists?(cron_file)
 
@@ -220,9 +227,15 @@ CRON
   def self.get_application_cron_info(app_name)
     etc_crond_filename = "/etc/cron.d/appscale-#{app_name}"
     etc_crond_file = File.exists?(etc_crond_filename) ? File.read(etc_crond_filename): ""
-    cron_yaml_filename = "#{HelperFunctions::APPLICATIONS_DIR}/#{app_name}/app/cron.yaml"
-    cron_yaml_file = YAML.load_file(cron_yaml_filename)
-    cron_yaml_file = cron_yaml_file ? cron_yaml_file: ""
+
+    begin
+      source_dir = HelperFunctions.get_source_for_project(app_name)
+      cron_yaml_filename = "#{source_dir}/cron.yaml"
+      cron_yaml_file = YAML.load_file(cron_yaml_filename)
+      cron_yaml_file = cron_yaml_file ? cron_yaml_file: ""
+    rescue AppScaleException
+      cron_yaml_file = ''
+    end
 
     return {"etc_crond_file" => etc_crond_file, "cron_yaml_file" => cron_yaml_file}
   end
@@ -520,7 +533,7 @@ CRON
       cron << " root curl -sSH \"X-Appengine-Cron:true\" "\
               "-H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k "\
               "-L \"http://#{ip}:#{port}#{url}\" "\
-              "2>&1 >> #{HelperFunctions::APPLICATIONS_DIR}/#{app}/log/cron.log"
+              "2>&1 >> /var/log/appscale/cron-#{app}.log"
     }
 
     valid_cron_lines = []

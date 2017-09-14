@@ -130,37 +130,19 @@ def err(test_num, code):
   " with unexpected output of: " + str(code)
   exit(1)
 
-if appname or username:
-  if appname:
-    print "======================"
-    print "App data for given app:"
-    ret = server.get_app_data(appname, super_secret)
-    print ret
-    print "======================"
-  if username:
-    print "======================"
-    print "User data for given user:"
-    ret = server.get_user_data(username, super_secret)
-    print ret
-    print "======================"
+if username:
+  print "======================"
+  print "User data for given user:"
+  ret = server.get_user_data(username, super_secret)
+  print ret
+  print "======================"
   exit(0)
 
-if allapps or allusers:
-  if allapps:
-    print server.get_all_apps(super_secret)
-  if allusers:
-    print server.get_all_users(super_secret)
+if allusers:
+  print server.get_all_users(super_secret)
   exit(0)
-
-ret = server.is_app_enabled("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
 
 ret = server.does_user_exist("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.does_app_exist("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
@@ -168,23 +150,7 @@ ret = server.is_user_enabled("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.add_instance("xxx","xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret =  server.add_instance("xxx","xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_key_block("xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.get_all_users("xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_all_apps("xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
@@ -192,31 +158,7 @@ ret = server.get_user_data("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_app_data("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_tar("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_token("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_version("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.commit_new_user("xxx", "xxx", "user", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.commit_new_app("xxx", "xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.commit_tar("xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
@@ -224,35 +166,11 @@ ret = server.commit_new_token("xxx", "xxx", "xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.delete_instance("xxx", "xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.delete_all_apps("xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.delete_user("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
-ret = server.delete_app("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
 ret = server.change_password("xxx", "xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.disable_app("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.enable_app("xxx", "xxx")
-if ret != BAD_SECRET:
-  err(helper_functions.lineno(), ret)
-
-ret = server.is_app_enabled("xxx", "xxx")
 if ret != BAD_SECRET:
   err(helper_functions.lineno(), ret)
 
@@ -274,15 +192,7 @@ if ret != BAD_SECRET:
 app = createApp()
 user = createUser()
 
-ret = server.does_app_exist(app[0], super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
 ret = server.is_user_enabled(user[0], super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.is_app_enabled(app[0], super_secret)
 if ret != "false":
   err(helper_functions.lineno(), ret)
 
@@ -291,54 +201,17 @@ if ret != "false":
   print user[0]
   err(helper_functions.lineno(), ret)
 
-ret = server.add_instance(app[0], "xxx", "xxx", super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_key_block(app[0], "50", super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
 ret = server.get_all_users(super_secret)
 if "____" not in ret:
   print "Make sure you run appscale with at least one user"
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_all_apps(super_secret)
-if "____" not in ret:
-  print "Make sure you run appscale with at least one app uploaded"
   err(helper_functions.lineno(), ret)
 
 ret = server.get_user_data(user[0], super_secret)
 if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
-ret = server.get_app_data(app[0], super_secret)
-if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_tar(app[0], super_secret)
-if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_token(user[0], super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.get_version(app[0], super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.delete_instance(app[0], "xxx", "xxx", super_secret)
-if ret != "false":
-  err(helper_functions.lineno(), ret)
-
 ret = server.delete_user(user[0], super_secret)
 if ret != "false":
-  err(helper_functions.lineno(), ret)
-
-ret = server.delete_app(app[0], super_secret)
-if "false" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.change_password(user[0], user[1], super_secret)
@@ -346,14 +219,6 @@ if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
 ret = server.change_password(user[0], "", super_secret)
-if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.disable_app(app[0], super_secret)
-if "Error" not in ret:
-  err(helper_functions.lineno(), ret)
-
-ret = server.enable_app(app[0], super_secret)
 if "Error" not in ret:
   err(helper_functions.lineno(), ret)
 
@@ -399,12 +264,6 @@ ret = server.get_user_data(user[0], super_secret)
 if user[0] not in ret or user[1] not in ret:
   err(helper_functions.lineno(), ret)
 #################
-# Get empty token
-#################
-ret = server.get_token(user[0], super_secret)
-if "token:notSet" not in ret:
-  err(helper_functions.lineno(), ret)
-#################
 # Change password
 #################
 newpw = helper_functions.random_string(10)
@@ -443,12 +302,6 @@ token_exp = helper_functions.random_string(10)
 ret = server.commit_new_token(user[0], token, token_exp, super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
-####################
-# Get token 
-####################
-ret = server.get_token(user[0], super_secret)
-if token not in ret or token_exp not in ret:
-  err(helper_functions.lineno(), ret)
 ##################
 # Disable the user
 ##################
@@ -485,160 +338,6 @@ if ret != "true":
 ret = server.is_user_enabled(user[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
-#########################
-# Commit bad name for app
-#########################
-ret = server.commit_new_app("!@#$$%", user[0], "python", super_secret)
-if ret != "Error: appname/language can only be alpha numeric":
-  err(helper_functions.lineno(), ret)
-ret = server.commit_new_app(app[0], user[0], "!@#$%", super_secret)
-if ret != "Error: appname/language can only be alpha numeric":
-  err(helper_functions.lineno(), ret)
-
-######################
-# Committing a new app
-######################
-ret = server.commit_new_app(app[0], user[0], "python", super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-###########################
-# Commit the same app twice
-###########################
-ret = server.commit_new_app(app[0], user[0], "python", super_secret)
-if ret != "Error: appname already exist":
-  err(helper_functions.lineno(), ret)
-#############################
-# Get the version of the app
-#############################
-ret = server.get_version(app[0], super_secret)
-if "version: 0" not in ret:
-  err(helper_functions.lineno(), ret)
-################################################
-# Commit tar ball for an app that does not exist
-################################################
-tar = helper_functions.random_string(10000)
-ret = server.commit_tar("xxx", tar, super_secret)
-if ret != "Error: app does not exist":
-  err(helper_functions.lineno(), ret)  
-#####################
-# Commit a tar
-#####################
-ret = server.commit_tar(app[0], tar, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-####################
-# Get the tar
-####################
-ret = server.get_tar(app[0], super_secret)
-if ret != tar:
-  print ret
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret:
-  err(helper_functions.lineno(), ret)
-ret = server.get_all_apps(super_secret)
-if app[0] not in ret:
-  err(helper_functions.lineno(), ret)
-ret = server.does_app_exist(app[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-ret = server.is_app_enabled(app[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-#################################
-# Enable when its already enabled
-#################################
-ret = server.enable_app(app[0], super_secret)
-if "Error:" not in ret: 
-  err(helper_functions.lineno(), ret)
-###################
-# Disable app twice
-###################
-ret = server.disable_app(app[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-ret = server.disable_app(app[0], super_secret)
-if ret != "Error: Trying to disable an application twice":
-  err(helper_functions.lineno(), ret)
-##################
-# Reenable App
-##################
-ret = server.enable_app(app[0], super_secret)
-if ret != "true":
-   err(helper_functions.lineno(), ret)
-##################
-# Commit instances
-##################
-host1 = helper_functions.random_string(10)
-port1 = helper_functions.random_string(4)
-ret =server.add_instance(app[0], host1, port1, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-host2 = helper_functions.random_string(10)
-port2 = helper_functions.random_string(4)
-ret = server.add_instance(app[0], host2, port2, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret:
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret:
-  err(helper_functions.lineno(), ret)
-####################
-# Remove an instance
-####################
-ret = server.delete_instance(app[0], host1, port1, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if user[0] not in ret or app[0] not in ret \
-or host1 in ret or port1 in ret \
-or host2 not in ret or port2 not in ret:
-  err(helper_functions.lineno(), ret)
-#######################
-# Get a key block of 50
-#######################
-ret = server.get_key_block(app[0], "50", super_secret)
-if ret != "1":
-  err(helper_functions.lineno(), ret)
-ret = server.get_key_block(app[0], "25", super_secret)
-if ret != "51":
-  print ret
-  err(helper_functions.lineno(), ret)
-ret = server.get_key_block(app[0], "25", super_secret)
-if ret != "76":
-  print ret
-  err(helper_functions.lineno(), ret)
-########################
-# Delete the application
-########################
-ret = server.delete_app(app[0], super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-ret = server.delete_app(app[0], super_secret)
-if ret != "Error: Trying to disable an application twice":
-  print ret
-  err(helper_functions.lineno(), ret)
-###################
-# Get app data 
-###################
-ret = server.get_app_data(app[0], super_secret)
-if "enabled:false" not in ret or "num_entries:0" not in ret \
-or "classes:\n" not in ret:  
-  err(helper_functions.lineno(), ret)
 ###################
 # Delete user
 ###################
@@ -665,55 +364,6 @@ if user[0] not in ret:
   err(helper_functions.lineno(), ret)
 ret = server.does_user_exist(user[0], super_secret)
 if ret != "true":
-  err(helper_functions.lineno(), ret)
-##################################
-# Upload an app with a random user 
-##################################
-app2 = createApp()
-ret = server.commit_new_app(app2[0], user[0], "java", super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-##########################
-# Upload a second app
-#########################
-app2 = createApp()
-ret = server.commit_new_app(app2[0], user[0], "java", super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-########################
-# Get app data
-########################
-ret = server.get_app_data(app2[0], super_secret)
-if app2[0] not in ret or user[0] not in ret:
-  err(helper_functions.lineno(), ret)
-ret = server.get_all_apps(super_secret)
-if app[0] not in ret or app2[0] not in ret:
-  err(helper_functions.lineno(), ret)
-########################
-# Delete all apps
-########################
-ret = server.delete_all_apps(super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-ret = server.get_app_data(app[0], super_secret)
-if "enabled:false" not in ret:
-  err(helper_functions.lineno(), ret)
-ret = server.get_app_data(app2[0], super_secret)
-if "enabled:false" not in ret:
-  err(helper_functions.lineno(), ret)
-########################
-# Commit a new tar ball
-#######################
-tar2 = helper_functions.random_string(10000)
-ret = server.commit_tar(app[0], tar2, super_secret)
-if ret != "true":
-  err(helper_functions.lineno(), ret)
-##########################
-# Get app data and version
-##########################
-ret = server.get_app_data(app[0], super_secret)
-if app[0] not in ret or user[0] not in ret \
-or "enabled:true" not in ret:
   err(helper_functions.lineno(), ret)
 ##########################
 # Get all users

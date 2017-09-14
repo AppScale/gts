@@ -231,7 +231,7 @@ EOF
     chgrp adm /var/log/appscale
     chmod g+rwx /var/log/appscale
 
-    mkdir -pv /var/appscale/
+    mkdir -pv /var/appscale/version_assets
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then

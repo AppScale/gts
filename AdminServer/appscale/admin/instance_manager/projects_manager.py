@@ -7,7 +7,7 @@ import os
 from tornado.ioloop import IOLoop
 
 from appscale.common.constants import CONFIG_DIR
-from ..constants import VERSION_PATH_SEPARATOR
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 
 logger = logging.getLogger('appscale-admin')
 

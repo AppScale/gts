@@ -13,6 +13,7 @@ import time
 import urllib
 
 from google.appengine.api.appcontroller_client import AppControllerClient
+from google.appengine.api import urlfetch
 from google.appengine.api import users
 
 from custom_exceptions import BadConfigurationException
@@ -64,6 +65,19 @@ class AppDashboardHelper(object):
 
   # The port that the UserAppServer runs on, by default.
   UA_SERVER_PORT = 4343
+
+  # The port that the AdminServer runs on.
+  ADMIN_SERVER_PORT = 17441
+
+  # The default service for a project.
+  DEFAULT_SERVICE = 'default'
+
+  # The default version for a service.
+  DEFAULT_VERSION = 'v1'
+
+  # The character used to separate portions of a complete version string.
+  # (e.g. guestbook_default_v1)
+  VERSION_PATH_SEPARATOR = '_'
 
   # Users have a list of applications that they own stored in their user data.
   # This character is the delimiter that separates them in their data.
@@ -249,6 +263,8 @@ class AppDashboardHelper(object):
       A list of dicts containing host, port, and language information for
         each instance hosting the given application.
     """
+    version_key = '_'.join([app_id, self.DEFAULT_SERVICE,
+                            self.DEFAULT_VERSION])
     try:
       instances = self.get_appcontroller_client().get_instance_info()
       instance_infos = [{
@@ -256,7 +272,7 @@ class AppDashboardHelper(object):
                           'port': instance.get('port'),
                           'language': instance.get('language')
                         } for instance in instances\
-                        if instance.get('appid') == app_id]
+                        if instance.get('versionKey') == version_key]
       return instance_infos
     except Exception as err:
       logging.exception(err)
@@ -274,27 +290,27 @@ class AppDashboardHelper(object):
     """
     try:
       status_on_all_nodes = self.get_appcontroller_client().get_cluster_stats()
-      app_names_and_urls = {}
+      version_names_and_urls = {}
 
       if not status_on_all_nodes:
         return {}
 
       for status in status_on_all_nodes:
-        for app, done_loading in status['apps'].iteritems():
-          if app == self.NO_APPS_RUNNING:
+        for version_key, done_loading in status['apps'].iteritems():
+          if version_key == self.NO_APPS_RUNNING:
             continue
           if done_loading:
             try:
               host_url = self.get_login_ip()
-              ports = self.get_app_ports(app)
-              app_names_and_urls[app] = [
+              ports = self.get_version_ports(version_key)
+              version_names_and_urls[version_key] = [
                 "http://{0}:{1}".format(host_url, ports[0]),
                 "https://{0}:{1}".format(host_url, ports[1])]
             except AppHelperException:
-              app_names_and_urls[app] = None
+              version_names_and_urls[version_key] = None
           else:
-            app_names_and_urls[app] = None
-      return app_names_and_urls
+            version_names_and_urls[version_key] = None
+      return version_names_and_urls
     except Exception as err:
       logging.exception(err)
       return {}
@@ -368,7 +384,7 @@ class AppDashboardHelper(object):
       return ''
     return login_property.get('login')
 
-  def get_app_ports(self, appname):
+  def get_version_ports(self, version_key):
     """ Queries the UserAppServer to learn which port the named application runs
     on.
 
@@ -377,22 +393,34 @@ class AppDashboardHelper(object):
     login service.
 
     Args:
-      appname: A str that indicates which application we want to find a hosted
+      version_key: A str that indicates which version we want to find a hosted
         port for.
     Returns:
-      A list that indicates which ports the named app runs on. ex. [8080,1443]
+      A list that indicates which ports the version runs on. ex. [8080,1443]
     Raises:
-      AppHelperException: If the named application is not running in this
+      AppHelperException: If the version is not running in this
         AppScale deployment, or if it is running but does not have a port
         assigned to it.
     """
-    app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-    result = json.loads(app_data)
-    if not result or 'hosts' not in result or not result['hosts'].values():
-      raise AppHelperException('{} does not have a port number.'.
-                               format(appname))
-    return [int(result['hosts'].values()[0]['http']),
-            int(result['hosts'].values()[0]['https'])]
+    project_id, service_id, version_id = version_key.split(
+      self.VERSION_PATH_SEPARATOR)
+    admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
+    version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
+      admin_server, project_id, service_id, version_id)
+    result = urlfetch.fetch(version_url,
+                            headers={'AppScale-Secret': GLOBAL_SECRET_KEY},
+                            validate_certificate = False)
+
+    if result.status_code != 200:
+      raise AppHelperException(result.content)
+
+    try:
+      version_details = json.loads(result.content)
+    except ValueError:
+      raise AppHelperException('Invalid response: {}'.format(result.content))
+
+    extensions = version_details['appscaleExtensions']
+    return extensions['httpPort'], extensions['httpsPort']
 
   def shell_check(self, argument):
     """ Checks for special characters in arguments that are part of shell
@@ -471,11 +499,11 @@ class AppDashboardHelper(object):
       raise AppHelperException("There was an error uploading your application: "
                                "{0}".format(failure_message))
 
-  def relocate_app(self, appid, http_port, https_port):
-    """ Relocates a Google App Engine application to different ports.
+  def relocate_version(self, version_key, http_port, https_port):
+    """ Relocates a version to different ports.
 
       Args:
-        appid: The application to be relocated
+        version_key: A string specifying the version to be relocated
         http_port: The HTTP Port to relocate the application to
         https_port: The HTTPS Port to relocate the application to
       Returns:
@@ -485,7 +513,7 @@ class AppDashboardHelper(object):
       """
     acc = self.get_appcontroller_client()
     try:
-      relocate_info = acc.relocate_app(appid, http_port, https_port)
+      relocate_info = acc.relocate_version(version_key, http_port, https_port)
       # Returns:
       # "OK" if the relocation occurred successfully, and a String containing
       # the reason why the relocation failed in all other cases.
@@ -507,31 +535,18 @@ class AppDashboardHelper(object):
       A str indicating whether or not the application was successfully removed
         from this AppScale deployment.
     """
-    try:
-      if not self.does_app_exist(appname):
-        return "The given application is not currently running."
-      acc = self.get_appcontroller_client()
-      ret = acc.stop_app(appname)
-      if ret != "true":
-        logging.error("AppController returned: {0}".format(ret))
-        return "There was an error attempting to remove the application."
-    except Exception as err:
-      logging.exception(err)
-      return "There was an error attempting to remove the application."
+    admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
+    version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
+      admin_server, appname, self.DEFAULT_SERVICE, self.DEFAULT_VERSION)
+    result = urlfetch.fetch(version_url,
+                            method=urlfetch.DELETE,
+                            headers={'AppScale-Secret': GLOBAL_SECRET_KEY},
+                            validate_certificate=False)
+    if result.status_code != 200:
+      return result.content
+
     return "Application removed successfully. Please wait for your app to " + \
            "shut down."
-
-  def does_app_exist(self, appname):
-    """ Queries the UserAppServer to see if the named application id has been
-    registered.
-
-    Args:
-      appname: A str containing the name of the application we wish to query.
-    Returns:
-      True if the app id has been registered, and False otherwise.
-    """
-    result = self.get_uaserver().does_app_exist(appname, GLOBAL_SECRET_KEY)
-    return result.lower() == 'true'
 
   def is_user_logged_in(self):
     """ Checks to see if this user is logged in.
