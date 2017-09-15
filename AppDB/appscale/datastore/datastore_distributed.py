@@ -12,6 +12,7 @@ import dbconstants
 import helper_functions
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from kazoo.client import KazooState
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import MAX_TX_DURATION
@@ -139,6 +140,8 @@ class DatastoreDistributed():
 
     # Maintain a sequential allocator for each project.
     self.sequential_allocators = {}
+
+    self.zookeeper.handle.add_listener(self._zk_state_listener)
 
   def get_limit(self, query):
     """ Returns the limit that should be used for the given query.
@@ -3362,3 +3365,13 @@ class DatastoreDistributed():
       return (api_base_pb.VoidProto().Encode(),
               datastore_pb.Error.PERMISSION_DENIED, 
               "Unable to rollback for this transaction: {0}".format(str(zkte)))
+
+  def _zk_state_listener(self, state):
+    """ Handles changes to the ZooKeeper connection state.
+
+    Args:
+      state: A string specifying the new connection state.
+    """
+    # Discard any allocated blocks if disconnected from ZooKeeper.
+    if state in [KazooState.LOST, KazooState.SUSPENDED]:
+      self.scattered_allocators.clear()
