@@ -54,7 +54,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_node_stats_json(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_cluster_stats_json(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.stop_app(@app, @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.stop_version(@app, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.update([@app], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_all_public_ips(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_all_private_ips(@secret))
@@ -468,48 +468,6 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_log_sending
-    # mock out getting our ip address
-    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
-      and_return("inet addr:1.2.3.4 ")
-
-    node_info = {
-      "public_ip" => "1.2.3.3",
-      "private_ip" => "1.2.3.3",
-      "jobs" => ["shadow", "login"],
-      "instance_id" => "i-000000"
-    }
-    node = DjinnJobData.new(node_info, "boo")
-
-    djinn = Djinn.new()
-    djinn.nodes = [node]
-    djinn.my_index = 0
-    djinn.options = { 'controller_logs_to_dashboard' => 'false' }
-
-    # test that the buffer is initially empty
-    assert_equal([], Djinn.get_logs_buffer())
-
-    # do a couple log statements to populate the buffer
-    Djinn.log_fatal("one")
-    Djinn.log_fatal("two")
-    Djinn.log_fatal("three")
-
-    # and make sure they're in there
-    assert_equal(3, Djinn.get_logs_buffer().length)
-
-    # mock out sending the logs
-    flexmock(Net::HTTP).new_instances { |instance|
-      instance.should_receive(:post).with("/logs/upload", String, Hash)
-    }
-
-    # flush the buffer
-    djinn.flush_log_buffer()
-
-    # make sure our buffer is empty again
-    assert_equal([], Djinn.get_logs_buffer())
-  end
-
-
   def test_relocate_app_but_port_in_use_by_nginx
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
@@ -542,11 +500,11 @@ class TestDjinn < Test::Unit::TestCase
       flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
     assert_equal("false: #{admin_server_error}",
-                 djinn.relocate_app('myapp', 80, 4380, @secret))
+                 djinn.relocate_version('myapp_default_v1', 80, 4380, @secret))
   end
 
 
-  def test_relocate_app_but_port_in_use_by_nginx_https
+  def test_relocate_version_but_port_in_use_by_nginx_https
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
@@ -577,12 +535,13 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Net::HTTP).should_receive(:start).and_return(
       flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    assert_equal("false: #{admin_server_error}",
-                 djinn.relocate_app('myapp', 8080, 443, @secret))
+    assert_equal(
+      "false: #{admin_server_error}",
+      djinn.relocate_version('myapp_default_v1', 8080, 443, @secret))
   end
 
 
-  def test_relocate_app_but_port_in_use_by_haproxy
+  def test_relocate_version_but_port_in_use_by_haproxy
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
@@ -613,12 +572,13 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Net::HTTP).should_receive(:start).and_return(
       flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    assert_equal("false: #{admin_server_error}",
-                 djinn.relocate_app('myapp', 8080, 4380, @secret))
+    assert_equal(
+      "false: #{admin_server_error}",
+      djinn.relocate_version('myapp_default_v1', 8080, 4380, @secret))
   end
 
 
-  def test_relocate_app_but_port_in_use_by_appserver
+  def test_relocate_version_but_port_in_use_by_appserver
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
@@ -649,8 +609,9 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Net::HTTP).should_receive(:start).and_return(
       flexmock(:request => nil, :code => 400, :body => admin_server_error))
 
-    assert_equal("false: #{admin_server_error}",
-                 djinn.relocate_app('myapp', 8080, 4380, @secret))
+    assert_equal(
+      "false: #{admin_server_error}",
+      djinn.relocate_version('myapp_default_v1', 8080, 4380, @secret))
   end
 
 
@@ -802,23 +763,6 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_does_app_exist
-    good_secret = 'good_secret'
-    bad_secret = 'bad_secret'
-    app_exists = true
-    appname = 'app1'
-
-    flexmock(UserAppClient).new_instances.should_receive(:does_app_exist? => true)
-
-    djinn = get_djinn_mock
-    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
-    assert_equal(BAD_SECRET_MSG, djinn.does_app_exist(appname, bad_secret))
-
-    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
-    assert_equal(app_exists, djinn.does_app_exist(appname, good_secret))
-  end
-
-
   def test_reset_password
     good_secret = 'good_secret'
     bad_secret = 'bad_secret'
@@ -889,22 +833,5 @@ class TestDjinn < Test::Unit::TestCase
 
     djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
     assert_equal(set_admin_role_success, djinn.set_admin_role(username, is_cloud_admin, capabilities, good_secret))
-  end
-
-
-  def test_get_app_data
-    good_secret = 'good_secret'
-    bad_secret = 'bad_secret'
-    app_id = 'app1'
-    get_app_data_success = true
-
-    flexmock(UserAppClient).new_instances.should_receive(:get_app_data => true)
-
-    djinn = get_djinn_mock
-    djinn.should_receive(:valid_secret?).with(bad_secret).and_return(false)
-    assert_equal(BAD_SECRET_MSG, djinn.get_app_data(app_id, bad_secret))
-
-    djinn.should_receive(:valid_secret?).with(good_secret).and_return(true)
-    assert_equal(get_app_data_success, djinn.get_app_data(app_id, good_secret))
   end
 end

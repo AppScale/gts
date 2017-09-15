@@ -52,7 +52,6 @@ VALID_DATASTORES = ['cassandra']
 
 # Table names
 USERS_TABLE = "USERS__"
-APPS_TABLE = "APPS__"
 JOURNAL_TABLE = "JOURNAL__"
 
 ASC_PROPERTY_TABLE = "ASC_PROPERTY__"
@@ -73,7 +72,6 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   COMPOSITE_TABLE,
                   METADATA_TABLE,
                   USERS_TABLE,
-                  APPS_TABLE,
                   SCHEMA_TABLE,
                   DATASTORE_METADATA_TABLE]
 
@@ -126,23 +124,6 @@ USERS_SCHEMA = [
   "type",
   "is_cloud_admin",
   "capabilities" ]
-
-APPS_SCHEMA = [
-  "name",
-  "language",
-  "version",
-  "owner",
-  "admins_list",
-  "host",
-  "port",
-  "creation_date",
-  "last_time_updated_date",
-  "yaml_file",
-  "cksum",
-  "num_entries",
-  "tar_ball",
-  "enabled",
-  "indexes" ]
 
 DATASTORE_METADATA_SCHEMA = [
   "version"]

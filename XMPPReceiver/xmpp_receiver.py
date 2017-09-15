@@ -16,6 +16,10 @@ import select
 import sys
 import urllib
 
+from appscale.admin.constants import DEFAULT_SERVICE
+from appscale.admin.constants import DEFAULT_VERSION
+from appscale.common.constants import VERSION_PATH_SEPARATOR
+
 
 # Third-party libraries
 # On AppScale VMs, we use Python 2.7 to run the XMPPReceiver, but because we
@@ -89,8 +93,10 @@ class XMPPReceiver():
     params['body'] = event.getBody()
     encoded_params = urllib.urlencode(params)
 
+    version_key = VERSION_PATH_SEPARATOR.join([self.appid, DEFAULT_SERVICE,
+                                               DEFAULT_VERSION])
     port_file_location = os.path.join(
-      '/', 'etc', 'appscale', 'port-{}.txt'.format(self.appid))
+      '/', 'etc', 'appscale', 'port-{}.txt'.format(version_key))
     with open(port_file_location) as port_file:
       app_port = int(port_file.read().strip())
 

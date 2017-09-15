@@ -231,7 +231,7 @@ EOF
     chgrp adm /var/log/appscale
     chmod g+rwx /var/log/appscale
 
-    mkdir -pv /var/appscale/
+    mkdir -pv /var/appscale/version_assets
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
@@ -431,10 +431,8 @@ installzookeeper()
         apt-get install -y zookeeper-server
     fi
 
-    # Trusty's kazoo version is too old, so use the version in Xenial.
-    case "$DIST" in
-        precise|trusty|wheezy) pipwrapper "kazoo==2.2.1" ;;
-    esac
+    # Use 2.4.0 to avoid NoNodeError for ChildrenWatches with no parents.
+    pipwrapper "kazoo==2.4.0"
 }
 
 installpycrypto()

@@ -11,6 +11,7 @@ from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
   LOG_FORMAT,
+  VERSION_PATH_SEPARATOR,
   ZK_PERSISTENT_RECONNECTS
 )
 from appscale.common.monit_interface import MonitOperator
@@ -36,8 +37,8 @@ from .constants import (
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
-  VALID_RUNTIMES,
-  VERSION_PATH_SEPARATOR
+  ServingStatus,
+  VALID_RUNTIMES
 )
 from .operation import (
   CreateVersionOperation,
@@ -254,37 +255,17 @@ class VersionsHandler(BaseHandler):
 
     return version
 
-  def project_exists(self, project_id):
-    """ Checks if a project exists.
-    
-    Args:
-      project_id: A string specifying a project ID.
-    Raises:
-      CustomHTTPError if unable to determine if project exists.
-    """
-    try:
-      return self.ua_client.does_app_exist(project_id)
-    except UAException:
-      message = 'Unable to check if project exists: {}'.format(project_id)
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+  def version_exists(self, project_id, service_id, version_id):
+    """ Checks if a version exists.
 
-  def create_project(self, project_id, runtime):
-    """ Creates a new project.
-    
     Args:
       project_id: A string specifying a project ID.
-      runtime: A string specifying the project's runtime.
-    Raises:
-      CustomHTTPError if unable to create new project.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
     """
-    logging.info('Creating project: {}'.format(project_id))
-    try:
-      self.ua_client.commit_new_app(project_id, runtime)
-    except UAException:
-      message = 'Unable to ensure project exists: {}'.format(project_id)
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
+      project_id, service_id, version_id)
+    return self.zk_client.exists(version_node) is not None
 
   def put_version(self, project_id, service_id, new_version):
     """ Create or update version node.
@@ -324,25 +305,22 @@ class VersionsHandler(BaseHandler):
 
     return new_version
 
-  def begin_deploy(self, project_id):
+  def begin_deploy(self, project_id, service_id, version_id):
     """ Triggers the deployment process.
     
     Args:
       project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
     Raises:
       CustomHTTPError if unable to start the deployment process.
     """
+    version_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version_id])
     try:
-      self.ua_client.enable_app(project_id)
-    except UAException:
-      message = 'Unable to enable project'
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
-    try:
-      self.acc.update([project_id])
+      self.acc.update([version_key])
     except AppControllerException as error:
-      message = 'Error while updating application: {}'.format(error)
+      message = 'Error while updating version: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
   @gen.coroutine
@@ -387,13 +365,7 @@ class VersionsHandler(BaseHandler):
     self.authenticate()
     version = self.version_from_payload()
 
-    project_exists = self.project_exists(project_id)
-    if not project_exists:
-      self.create_project(project_id, version['runtime'])
-
-    if service_id != constants.DEFAULT_SERVICE:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
-
+    version_exists = self.version_exists(project_id, service_id, version['id'])
     revision_key = VERSION_PATH_SEPARATOR.join(
       [project_id, service_id, version['id'], str(version['revision'])])
     try:
@@ -418,12 +390,12 @@ class VersionsHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
-    self.begin_deploy(project_id)
+    self.begin_deploy(project_id, service_id, version['id'])
 
     operation = CreateVersionOperation(project_id, service_id, version)
     operations[operation.id] = operation
 
-    pre_wait = REDEPLOY_WAIT if project_exists else 0
+    pre_wait = REDEPLOY_WAIT if version_exists else 0
     logging.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
     IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id,
@@ -566,16 +538,33 @@ class VersionHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
-    http_port = version['appscaleExtensions']['httpPort']
-    https_port = version['appscaleExtensions']['httpsPort']
-
-    try:
-      self.ua_client.add_instance(project_id, options.login_ip, http_port,
-                                  https_port)
-    except UAException:
-      logging.warning('Failed to notify UAServer about updated ports')
-
     raise gen.Return(version)
+
+  def get(self, project_id, service_id, version_id):
+    """ Gets the specified version resource.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    """
+    self.authenticate()
+
+    version_details = self.get_version(project_id, service_id, version_id)
+
+    # Hide details that aren't needed for the public API.
+    version_details.pop('revision', None)
+    version_details.get('appscaleExtensions', {}).pop('haproxyPort', None)
+
+    http_port = version_details['appscaleExtensions']['httpPort']
+    response = {
+      'name': 'apps/{}/services/{}/versions/{}'.format(project_id, service_id,
+                                                       version_id),
+      'servingStatus': ServingStatus.SERVING,
+      'versionUrl': 'http://{}:{}'.format(options.login_ip, http_port)
+    }
+    response.update(version_details)
+    self.write(json_encode(response))
 
   @gen.coroutine
   def delete(self, project_id, service_id, version_id):
@@ -591,9 +580,6 @@ class VersionHandler(BaseHandler):
     if project_id in constants.IMMUTABLE_PROJECTS:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='{} cannot be deleted'.format(project_id))
-
-    if service_id != constants.DEFAULT_SERVICE:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid service')
 
     if version_id != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid version')
@@ -617,8 +603,10 @@ class VersionHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
+    version_key = VERSION_PATH_SEPARATOR.join([project_id, service_id,
+                                               version_id])
     try:
-      self.acc.stop_app(project_id)
+      self.acc.stop_version(version_key)
     except AppControllerException as error:
       message = 'Error while stopping application: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)

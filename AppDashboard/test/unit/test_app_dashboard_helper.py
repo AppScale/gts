@@ -265,7 +265,7 @@ class TestAppDashboardHelper(unittest.TestCase):
     }
     flexmock(AppDashboardHelper)
     AppDashboardHelper.should_receive('get_login_host').and_return('1.1.1.1')
-    AppDashboardHelper.should_receive('get_app_ports').and_return([1, 1])\
+    AppDashboardHelper.should_receive('get_version_ports').and_return([1, 1])\
       .and_return([2, 2])
     self.setUpClusterStats()
     app_info = AppDashboardHelper().get_application_info()
