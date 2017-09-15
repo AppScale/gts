@@ -12,13 +12,13 @@ from tornado.options import options
 
 from appscale.common.appscale_utils import get_md5
 from appscale.common.appscale_info import get_secret
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 from .utils import fetch_file
 from ..constants import (
   DASHBOARD_APP_ID,
   InvalidSource,
   SOURCES_DIRECTORY,
-  UNPACK_ROOT,
-  VERSION_PATH_SEPARATOR
+  UNPACK_ROOT
 )
 from ..utils import extract_source
 
