@@ -30,6 +30,7 @@ sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.datastore import datastore_pb
+from google.appengine.datastore import datastore_v4_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
 
@@ -225,6 +226,9 @@ class MainHandler(tornado.web.RequestHandler):
                                                        http_request_data)
     elif method == 'AddActions':
       response, errcode, errdetail = self.add_actions_request(
+        app_id, http_request_data)
+    elif method == 'datastore_v4.AllocateIds':
+      response, errcode, errdetail = self.v4_allocate_ids_request(
         app_id, http_request_data)
     else:
       errcode = datastore_pb.Error.BAD_REQUEST 
@@ -538,6 +542,27 @@ class MainHandler(tornado.web.RequestHandler):
     response.set_start(start)
     response.set_end(end)
     return response.Encode(), 0, ""
+
+  def v4_allocate_ids_request(self, app_id, http_request_data):
+    """ Reserves entity IDs so that they will not be re-allocated.
+
+    Args:
+      app_id: Name of the application.
+      http_request_data: The protocol buffer request from the AppServer.
+    Returns:
+       Returns an encoded response.
+    """
+    request = datastore_v4_pb.AllocateIdsRequest(http_request_data)
+    response = datastore_v4_pb.AllocateIdsResponse()
+
+    if not request.reserve_list():
+      return (response.Encode(), datastore_v4_pb.Error.BAD_REQUEST,
+              'Request must include reserve list')
+
+    ids = [key.path_element_list()[-1].id() for key in request.reserve_list()]
+    datastore_access.reserve_ids(app_id, ids)
+
+    return response.Encode(), 0, ''
 
   def put_request(self, app_id, http_request_data):
     """ High level function for doing puts.
