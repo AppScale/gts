@@ -564,8 +564,9 @@ class MainHandler(tornado.web.RequestHandler):
     response.set_end(end)
     return response.Encode(), 0, ""
 
+  @staticmethod
   @gen.coroutine
-  def v4_allocate_ids_request(self, app_id, http_request_data):
+  def v4_allocate_ids_request(app_id, http_request_data):
     """ Reserves entity IDs so that they will not be re-allocated.
 
     Args:
