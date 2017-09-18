@@ -272,12 +272,16 @@ class ScatteredAllocator(EntityIDAllocator):
     Args:
       counter: An integer specifying the minimum counter value.
     """
+    # If there's no chance the ID could be allocated, do nothing.
     if self.start_id is not None and self.start_id >= counter:
       return
 
+    # If the ID is in the allocated block, adjust the block.
     if self.end_id is not None and self.end_id > counter:
-      self.start_id = max(self.start_id, counter)
+      self.start_id = counter
 
+    # If this server has never allocated a block, adjust the minimum for
+    # future blocks.
     if self.start_id is None:
       if (self._last_reserved_cache is not None and
           self._last_reserved_cache >= counter):
@@ -286,5 +290,7 @@ class ScatteredAllocator(EntityIDAllocator):
       self.allocate_max(counter)
       return
 
+    # If this server has allocated a block, but the relevant ID is greater than
+    # the end ID, get a new block that starts at least as high as the ID.
     self.start_id, self.end_id = self.allocate_size(DEFAULT_RESERVATION_SIZE,
                                                     min_counter=counter)
