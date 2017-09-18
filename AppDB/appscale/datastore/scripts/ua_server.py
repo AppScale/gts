@@ -10,23 +10,16 @@ functions.
 import datetime
 import json
 import logging
-import re
 import SOAPpy
 import sys
 import time
 
 from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.ua_client import EXISTING_PROJECT_MESSAGE
 from .. import appscale_datastore
 from ..dbconstants import AppScaleDBConnectionError
-from ..dbconstants import APPS_SCHEMA
-from ..dbconstants import APPS_TABLE
 from ..dbconstants import USERS_SCHEMA
 from ..dbconstants import USERS_TABLE
-
-# Name of the application table which stores AppScale application information.
-APP_TABLE = APPS_TABLE
 
 # Name of the users table which stores information about AppScale users.
 USER_TABLE = USERS_TABLE
@@ -57,12 +50,6 @@ db = []
 
 # The schema we use to store user information.
 user_schema = []
-
-# The schema we use to store app information.
-app_schema = []
-
-# The application name regex to validate an application ID.
-APPNAME_REGEX = r'^[\d\w\.@-]+$'
 
 # Different types of valid users created.
 VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
@@ -143,104 +130,6 @@ class Users:
     return "true"
 
 
-class Apps:
-  attributes_ = APPS_SCHEMA
-  def __init__(self, name, owner, language):
-    self.tar_ball_ = "None"
-    self.yaml_file_ = "None"
-    self.version_ = "0"
-    self.language_ = language
-    self.admins_list_ = []
-    self.host_ = []
-    self.port_ = []
-    self.creation_date_ = "0"
-    self.last_time_updated_date_ = "0"
-    self.name_ = name
-    self.owner_ = owner
-    t = datetime.datetime.now()
-    self.creation_date_ = str(time.mktime(t.timetuple()))
-    self.last_time_updated_date_ = str(self.creation_date_)
-    self.cksum_ = "0"
-    self.num_entries_ = "0"
-    self.enabled_ = "false"
-    self.indexes_ = "0"
-    return
-
-  def stringit(self):
-    appstring = ""
-    appstring += "app_name:" + str(self.name_) + "\n"
-    appstring += "language:" + str(self.language_) + "\n"
-    appstring += "version:" + str(self.version_) + "\n"
-    appstring += "app_owner:" + self.owner_ + "\n"
-    appstring += "num_admins:" + str(len(self.admins_list_)) + "\n"
-    appstring += "admins:" + ':'.join(self.admins_list_) + "\n"
-    appstring += "num_hosts:" + str(len(self.host_)) + "\n"
-    appstring += "hosts:" + ':'.join(self.host_) + "\n"
-    appstring += "num_ports:" + str(len(self.port_)) + "\n"
-    appstring += "ports: " + ':'.join(self.port_) + "\n"
-    appstring += "creation_date:" + str(self.creation_date_) + "\n"
-    appstring += "last_update_date:" + str(self.last_time_updated_date_) + "\n"
-    appstring += "check_sum:" + str(self.cksum_) + "\n"
-    appstring += "num_entries:" + str(self.num_entries_) + "\n"
-    appstring += "enabled:" + str(self.enabled_) + "\n"
-    appstring += "indexes:" + str(self.indexes_) + "\n"
-    return appstring
-
-  def to_json(self):
-    hosts = {}
-    for index, host in enumerate(self.host_):
-      ports = self.port_[index].split(PORT_SEPARATOR)
-      hosts[host] = {'http': int(ports[0])}
-      if len(ports) > 1 and ports[1]:
-        hosts[host]['https'] = int(ports[1])
-
-    response = {
-      'hosts': hosts,
-      'language': self.language_,
-    }
-    if self.owner_:
-      response['owner'] = self.owner_
-
-    return json.dumps(response)
-
-  def checksum(self):
-    return "true"
-
-  def arrayit(self):
-    array = []
-    # order must match self.attributes
-    # some entries must be converted to string format from arrays
-    for ii in Apps.attributes_:
-      if ii == "admins_list" or ii == 'host' or ii == 'port':
-        array.append(':'.join(getattr(self, ii + "_")))
-      else:
-        array.append(str(getattr(self, ii+ "_")))
-
-    return array
-
-  def unpackit(self, array):
-    for ii in range(0,len(array)):
-      setattr(self, Apps.attributes_[ii] + "_", array[ii])
-
-    # convert to different types
-    if self.admins_list_:
-      self.admins_list_ = self.admins_list_.split(':')
-    else:
-      self.admins_list_ = []
-
-    if self.host_:
-      self.host_ = self.host_.split(':')
-    else:
-      self.host_ = []
-
-    if self.port_:
-      self.port_ = self.port_.split(':')
-    else:
-      self.port_ = []
-
-    return "true"
-
-
 def does_user_exist(username, secret):
   global db
   global super_secret
@@ -248,21 +137,6 @@ def does_user_exist(username, secret):
     return "Error: bad secret"
   try:
     result = db.get_entity(USER_TABLE, username, ["email"])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-  if result[0] in ERROR_CODES and len(result) == 2:
-    return "true"
-  else:
-    return "false"
-
-
-def does_app_exist(appname, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  try:
-    result = db.get_entity(APP_TABLE, appname, ["name"])
   except AppScaleDBConnectionError as db_error:
     return 'Error: {}'.format(db_error)
   if result[0] in ERROR_CODES and len(result) == 2:
@@ -310,33 +184,6 @@ def get_user_data(username, secret):
   return user.stringit()
 
 
-def get_app_data(appname, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-  if not appname or  not secret:
-    return "Error: Null appname"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, app_schema)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "Error: " + result[0]
-
-  result = result[1:]
-
-  if len(app_schema) != len(result):
-    error = "Error: Bad length of app schema vs app result " + str(app_schema) + " vs " + str(result) + " for appname: " + appname
-    return  error
-  app = Apps("a","b", "c")
-  app.unpackit(result)
-  return app.to_json()
-
-
 def commit_new_user(user, passwd, utype, secret):
   global db
   global super_secret
@@ -375,7 +222,6 @@ def add_admin_for_app(user, app, secret):
   """
   global db
   global user_schema
-  global app_schema
   global super_secret
   if secret != super_secret:
     return "Error: bad secret"
@@ -401,106 +247,6 @@ def add_admin_for_app(user, app, secret):
     return "true"
   else:
     return "Error: Unable to update the user."
-
-
-def commit_new_app(appname, language, secret):
-  global db
-  global app_schema
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  error =  "Error: appname/language can only be alpha numeric"
-  if not language.isalnum():
-    return error
-
-  if re.search(APPNAME_REGEX,appname) is None:
-    return error
-
-  if does_app_exist(appname, secret) == "true":
-    return EXISTING_PROJECT_MESSAGE
-
-  # User is not needed, but a placeholder is used to keep the same schema.
-  user = ''
-  n_app = Apps(appname, user, language)
-  array = n_app.arrayit()
-  result = db.put_entity(APP_TABLE, appname, app_schema, array)
-  if result[0] in ERROR_CODES:
-    ret = "true"
-  else:
-    return "false"
-  return ret
-
-
-def get_tar(app_name, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  try:
-    result = db.get_entity(APP_TABLE, app_name, ["tar_ball"])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] in ERROR_CODES and len(result) == 2:
-    return result[1]
-  else:
-    return "Error:" + result[0]
-
-
-def commit_tar(app_name, tar, secret):
-  global db
-  global super_secret
-  global app_schema
-
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  if does_app_exist(app_name, secret) == "false":
-    return "Error: app does not exist"
-
-
-  columns = ["tar_ball", "version", "last_time_updated_date", "enabled"]
-  try:
-    result = db.get_entity(APP_TABLE, app_name, columns)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] in ERROR_CODES and len(result) > 1:
-    result = result[1:]
-    values = []
-    t = datetime.datetime.now()
-    date = str(time.mktime(t.timetuple()))
-    version = result[1]
-    values += [tar]
-    values += [str(int(version) + 1)]
-    values += [date]
-    values += ["true"] #enable bit
-    result = db.put_entity(APP_TABLE, app_name, columns, values)
-    if result[0] not in ERROR_CODES:
-      return "Error: unable to commit new tar ball %s" % result[0]
-  else:
-    error = "Error: unable to get app %s" % result[0]
-    return error
-  return "true"
-
-
-def delete_all_apps(secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  ret = "true"
-  result = db.get_table(APP_TABLE, ['name'])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  result = result[1:]
-  for ii in result:
-    if delete_app(ii, secret) == "false":
-      ret = "false"
-  return ret
 
 
 def get_all_users(secret):
@@ -529,123 +275,6 @@ def get_all_users(secret):
   for kk in users:
     userstring += ":" + kk.email_
   return userstring
-
-
-def get_all_apps(secret):
-  global db
-  global super_secret
-  global app_schema
-  apps = []
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  result = db.get_table(APP_TABLE, app_schema)
-  if result[0] not in ERROR_CODES:
-    return "Error:" + result[0]
-  result = result[1:]
-  for ii in range(0, (len(result)/len(app_schema))):
-    partial = result[(ii * len(app_schema)): ((1 + ii) * len(app_schema))]
-    if len(partial) != len(app_schema):
-      pass
-    else:
-      a = Apps("x", "x", "x")
-      a.unpackit(partial)
-      apps.append(a)
-
-  # this is a placeholder, soap exception happens if returning empty string
-  appstring = "____"
-  for kk in apps:
-    appstring += ":" + kk.name_
-  return appstring
-
-
-def add_instance(appname, host, port, https_port, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  columns = ["host", "port"]
-  try:
-    result = db.get_entity(APP_TABLE, appname, columns)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  error = result[0]
-  if error not in ERROR_CODES or len(columns) != (len(result) - 1):
-    return "false"
-
-  # We only have one host/port for each app.
-  result = db.put_entity(APP_TABLE, appname, columns, [host,
-    "{}{}{}".format(port, PORT_SEPARATOR, https_port)])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
-
-
-def delete_app(appname, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ["owner"])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false: unable to get entity for app"
-
-  result = db.put_entity(APP_TABLE, appname,
-                         ["host", "port", "num_entries"], ["", "", "0"])
-  if result[0] not in ERROR_CODES:
-    return "false: unable to delete instances"
-
-  # disabling the app, a type of soft delete
-  return disable_app(appname, secret)
-
-
-def delete_instance(appname, host, port, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  ret = "true"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ['host', 'port'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  error = result[0]
-  if error not in ERROR_CODES or len(result) == 1:
-    return "false"
-  result = result[1:]
-
-  hosts = []
-  ports = []
-
-  if result[0]: hosts = result[0].split(':')
-  if result[1]: ports = result[1].split(':')
-  if len(hosts) != len(ports):
-    return "Error: bad number of hosts to ports"
-
-  for kk in range(0, len(hosts)):
-    if str(hosts[kk]) == str(host):
-      del hosts[kk]
-      del ports[kk]
-
-  hosts = ':'.join(hosts)
-  ports = ':'.join(ports)
-
-  result = db.put_entity(APP_TABLE, appname, ['host', 'port'], [hosts, ports])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return ret
 
 
 def commit_new_token(user, token, token_exp, secret):
@@ -679,42 +308,6 @@ def commit_new_token(user, token, token_exp, secret):
   return "true"
 
 
-def get_token(user, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  columns = ['appdrop_rem_token', 'appdrop_rem_token_exp']
-
-  try:
-    result = db.get_entity(USER_TABLE, user, columns)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false"
-  result = result[1:]
-  return "token:"+ result[0] + "\n" + "token_exp:" + result[1] + "\n"
-
-
-def get_version(appname, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    return "Error: bad secret"
-  columns = ['version']
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, columns)
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false"
-  result = result[1:]
-  return "version: " + result[0] + "\n"
-
-
 def change_password(user, password, secret):
   global db
   global super_secret
@@ -741,68 +334,6 @@ def change_password(user, password, secret):
   if result[0] not in ERROR_CODES:
     return "Error:" + result[0]
   return "true"
-
-
-def enable_app(appname, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ['enabled'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) != 2:
-    return "Error: " + result[0]
-  if result[1] == "true":
-    return "Error: Trying to enable an application that is already enabled"
-
-  result = db.put_entity(APP_TABLE, appname, ['enabled'], ['true'])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
-
-
-def disable_app(appname, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ['enabled'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) != 2:
-    return "Error: " + result[0]
-  if result[1] == "false":
-    return "Error: Trying to disable an application twice"
-  result = db.put_entity(APP_TABLE, appname, ['enabled'], ['false'])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
-
-
-def is_app_enabled(appname, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, appname, ['enabled'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) != 2:
-    return "false"
-  return result[1]
 
 
 def enable_user(user, secret):
@@ -891,31 +422,6 @@ def is_user_enabled(user, secret):
   return result[1]
 
 
-def get_key_block(app_id, block_size, secret):
-  global db
-  global super_secret
-  global app_schema
-  if secret != super_secret:
-    return "Error: bad secret"
-
-  try:
-    result = db.get_entity(APP_TABLE, app_id, ['num_entries'])
-  except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
-
-  if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false"
-  key = result[1]
-  if key == "0":
-    key = "1"
-  next_key = str(int(key) + int(block_size))
-  #Update number of entries
-  result = db.put_entity(APP_TABLE, app_id, ['num_entries'], [next_key])
-  if result[0] not in ERROR_CODES:
-    return "false"
-  return key
-
-
 def is_user_cloud_admin(username, secret):
   global db
   global super_secret
@@ -985,7 +491,6 @@ def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   logging.info('Starting UAServer')
 
-  global app_schema
   global bindport
   global datastore_type
   global db
@@ -1027,18 +532,6 @@ def main():
     else:
       time.sleep(timeout)
       continue
-    try:
-      app_schema = db.get_schema(APP_TABLE)
-    except AppScaleDBConnectionError as db_error:
-      time.sleep(timeout)
-      continue
-
-    if app_schema[0] in ERROR_CODES:
-      app_schema = app_schema[1:]
-      Apps.attributes_ = app_schema
-    else:
-      time.sleep(timeout)
-      continue
     break
 
   ip = "0.0.0.0"
@@ -1049,33 +542,16 @@ def main():
   #server.config.dumpSOAPIn = 1
 
   # Register soap functions.
-  server.registerFunction(add_instance)
   server.registerFunction(does_user_exist)
-  server.registerFunction(does_app_exist)
-
-  server.registerFunction(get_key_block)
-  server.registerFunction(get_all_apps)
   server.registerFunction(get_all_users)
   server.registerFunction(get_user_data)
-  server.registerFunction(get_app_data)
-  server.registerFunction(get_tar)
-  server.registerFunction(get_token)
-  server.registerFunction(get_version)
   server.registerFunction(add_admin_for_app)
   server.registerFunction(commit_new_user)
-  server.registerFunction(commit_new_app)
-  server.registerFunction(commit_tar)
   server.registerFunction(commit_new_token)
-  server.registerFunction(delete_instance)
-  server.registerFunction(delete_all_apps)
   server.registerFunction(delete_user)
-  server.registerFunction(delete_app)
 
   server.registerFunction(change_password)
 
-  server.registerFunction(disable_app)
-  server.registerFunction(enable_app)
-  server.registerFunction(is_app_enabled)
   server.registerFunction(disable_user)
   server.registerFunction(enable_user)
   server.registerFunction(is_user_enabled)

@@ -110,6 +110,9 @@ monit_operator = MonitOperator()
 # Fetches, extracts, and keeps track of revision source code.
 source_manager = None
 
+# Allows synchronous code to be executed in the background.
+thread_pool = None
+
 
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
@@ -318,6 +321,7 @@ def setup_logrotate(app_name, log_size):
 
   return True
 
+@gen.coroutine
 def kill_instance(watch, instance_pid):
   """ Stops an AppServer process.
 
@@ -328,7 +332,7 @@ def kill_instance(watch, instance_pid):
   process = psutil.Process(instance_pid)
   process.terminate()
   try:
-    process.wait(MAX_INSTANCE_RESPONSE_TIME)
+    yield thread_pool.submit(process.wait, MAX_INSTANCE_RESPONSE_TIME)
   except psutil.TimeoutExpired:
     process.kill()
 
@@ -379,6 +383,40 @@ def clean_old_sources():
   source_manager.clean_old_revisions(active_revisions=active_revisions)
 
 @gen.coroutine
+def unmonitor_and_terminate(watch):
+  """ Unmonitors an instance and terminates it.
+
+  Args:
+    watch: A string specifying the Monit entry.
+  """
+  pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))
+  try:
+    with open(pid_location) as pidfile:
+      instance_pid = int(pidfile.read().strip())
+  except IOError as error:
+    if error.errno != errno.ENOENT:
+      raise
+
+    raise HTTPError(HTTPCodes.INTERNAL_ERROR,
+                    '{} does not exist'.format(pid_location))
+
+  try:
+    unmonitor(watch)
+  except ProcessNotFound:
+    # If Monit does not know about a process, assume it is already stopped.
+    raise gen.Return()
+
+  # Now that the AppServer is stopped, remove its monit config file so that
+  # monit doesn't pick it up and restart it.
+  monit_config_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, watch)
+  try:
+    os.remove(monit_config_file)
+  except OSError:
+    logging.error("Error deleting {0}".format(monit_config_file))
+
+  IOLoop.current().spawn_callback(kill_instance, watch, instance_pid)
+
+@gen.coroutine
 def stop_app_instance(version_key, port):
   """ Stops a Google App Engine application process instance on current
       machine.
@@ -408,35 +446,10 @@ def stop_app_instance(version_key, port):
     message = 'No entries exist for {}:{}'.format(version_key, port)
     raise HTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
-  pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))
-  try:
-    with open(pid_location) as pidfile:
-      instance_pid = int(pidfile.read().strip())
-  except IOError as error:
-    if error.errno != errno.ENOENT:
-      raise
+  yield unmonitor_and_terminate(watch)
 
-    raise HTTPError(HTTPCodes.INTERNAL_ERROR,
-                    '{} does not exist'.format(pid_location))
-
-  try:
-    unmonitor(watch)
-  except ProcessNotFound:
-    # If Monit does not know about a process, assume it is already stopped.
-    raise gen.Return()
-
-  # Now that the AppServer is stopped, remove its monit config file so that
-  # monit doesn't pick it up and restart it.
-  monit_config_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, watch)
-  try:
-    os.remove(monit_config_file)
-  except OSError:
-    logging.error("Error deleting {0}".format(monit_config_file))
-
-  monit_interface.run_with_retry([monit_interface.MONIT, 'reload'])
+  yield monit_operator.reload()
   yield clean_old_sources()
-
-  threading.Thread(target=kill_instance, args=(watch, instance_pid)).start()
 
 @gen.coroutine
 def stop_app(version_key):
@@ -455,22 +468,13 @@ def stop_app(version_key):
 
   logging.info('Stopping {}'.format(version_key))
 
-  watch = ''.join([MONIT_INSTANCE_PREFIX, version_key])
-  monit_result = monit_interface.stop(watch)
+  version_group = ''.join([MONIT_INSTANCE_PREFIX, version_key])
+  monit_entries = yield monit_operator.get_entries()
+  version_entries = [entry for entry in monit_entries
+                     if entry.startswith(version_group)]
+  for entry in version_entries:
+    yield unmonitor_and_terminate(entry)
 
-  if not monit_result:
-    raise HTTPError(HTTPCodes.INTERNAL_ERROR,
-                    'Unable to stop {}'.format(watch))
-
-  # Remove the monit config files for the application.
-  # TODO: Reload monit to pick up config changes.
-  config_files = glob.glob(
-    '{}/appscale-{}*.cfg'.format(MONIT_CONFIG_DIR, watch))
-  for config_file in config_files:
-    try:
-      os.remove(config_file)
-    except OSError:
-      logging.exception('Error removing {}'.format(config_file))
   try:
     projects_manager[project_id]
   except KeyError:
@@ -478,6 +482,7 @@ def stop_app(version_key):
       logging.error("Error while setting up log rotation for application: {}".
                     format(project_id))
 
+  yield monit_operator.reload()
   yield clean_old_sources()
 
 def remove_logrotate(app_name):

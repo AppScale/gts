@@ -13,6 +13,7 @@ import time
 import urllib
 
 from google.appengine.api.appcontroller_client import AppControllerClient
+from google.appengine.api import urlfetch
 from google.appengine.api import users
 
 from custom_exceptions import BadConfigurationException
@@ -74,6 +75,10 @@ class AppDashboardHelper(object):
   # The default version for a service.
   DEFAULT_VERSION = 'v1'
 
+  # The character used to separate portions of a complete version string.
+  # (e.g. guestbook_default_v1)
+  VERSION_PATH_SEPARATOR = '_'
+
   # Users have a list of applications that they own stored in their user data.
   # This character is the delimiter that separates them in their data.
   APP_DELIMITER = ":"
@@ -90,6 +95,9 @@ class AppDashboardHelper(object):
   # A regular expression that can be used to find out which Google App Engine
   # applications a user owns, when applied to their user data.
   USER_APP_LIST_REGEX = "\napplications:(.+)\n"
+
+  # Indicates that the user is a cloud-level administrator.
+  CLOUD_ADMIN_MARKER = 'CLOUD_ADMIN'
 
   # A regular expression that can be used to find out from the user's data in
   # the UserAppServer if they are a cloud-level administrator in this AppScale
@@ -282,27 +290,27 @@ class AppDashboardHelper(object):
     """
     try:
       status_on_all_nodes = self.get_appcontroller_client().get_cluster_stats()
-      app_names_and_urls = {}
+      version_names_and_urls = {}
 
       if not status_on_all_nodes:
         return {}
 
       for status in status_on_all_nodes:
-        for app, done_loading in status['apps'].iteritems():
-          if app == self.NO_APPS_RUNNING:
+        for version_key, done_loading in status['apps'].iteritems():
+          if version_key == self.NO_APPS_RUNNING:
             continue
           if done_loading:
             try:
               host_url = self.get_login_ip()
-              ports = self.get_app_ports(app)
-              app_names_and_urls[app] = [
+              ports = self.get_version_ports(version_key)
+              version_names_and_urls[version_key] = [
                 "http://{0}:{1}".format(host_url, ports[0]),
                 "https://{0}:{1}".format(host_url, ports[1])]
             except AppHelperException:
-              app_names_and_urls[app] = None
+              version_names_and_urls[version_key] = None
           else:
-            app_names_and_urls[app] = None
-      return app_names_and_urls
+            version_names_and_urls[version_key] = None
+      return version_names_and_urls
     except Exception as err:
       logging.exception(err)
       return {}
@@ -376,7 +384,7 @@ class AppDashboardHelper(object):
       return ''
     return login_property.get('login')
 
-  def get_app_ports(self, appname):
+  def get_version_ports(self, version_key):
     """ Queries the UserAppServer to learn which port the named application runs
     on.
 
@@ -385,22 +393,34 @@ class AppDashboardHelper(object):
     login service.
 
     Args:
-      appname: A str that indicates which application we want to find a hosted
+      version_key: A str that indicates which version we want to find a hosted
         port for.
     Returns:
-      A list that indicates which ports the named app runs on. ex. [8080,1443]
+      A list that indicates which ports the version runs on. ex. [8080,1443]
     Raises:
-      AppHelperException: If the named application is not running in this
+      AppHelperException: If the version is not running in this
         AppScale deployment, or if it is running but does not have a port
         assigned to it.
     """
-    app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
-    result = json.loads(app_data)
-    if not result or 'hosts' not in result or not result['hosts'].values():
-      raise AppHelperException('{} does not have a port number.'.
-                               format(appname))
-    return [int(result['hosts'].values()[0]['http']),
-            int(result['hosts'].values()[0]['https'])]
+    project_id, service_id, version_id = version_key.split(
+      self.VERSION_PATH_SEPARATOR)
+    admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
+    version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
+      admin_server, project_id, service_id, version_id)
+    result = urlfetch.fetch(version_url,
+                            headers={'AppScale-Secret': GLOBAL_SECRET_KEY},
+                            validate_certificate = False)
+
+    if result.status_code != 200:
+      raise AppHelperException(result.content)
+
+    try:
+      version_details = json.loads(result.content)
+    except ValueError:
+      raise AppHelperException('Invalid response: {}'.format(result.content))
+
+    extensions = version_details['appscaleExtensions']
+    return extensions['httpPort'], extensions['httpsPort']
 
   def shell_check(self, argument):
     """ Checks for special characters in arguments that are part of shell
@@ -515,33 +535,18 @@ class AppDashboardHelper(object):
       A str indicating whether or not the application was successfully removed
         from this AppScale deployment.
     """
-    version_key = '_'.join([appname, self.DEFAULT_SERVICE,
-                            self.DEFAULT_VERSION])
-    try:
-      if not self.does_app_exist(appname):
-        return "The given application is not currently running."
-      acc = self.get_appcontroller_client()
-      ret = acc.stop_version(version_key)
-      if ret != "true":
-        logging.error("AppController returned: {0}".format(ret))
-        return "There was an error attempting to remove the application."
-    except Exception as err:
-      logging.exception(err)
-      return "There was an error attempting to remove the application."
+    admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
+    version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
+      admin_server, appname, self.DEFAULT_SERVICE, self.DEFAULT_VERSION)
+    result = urlfetch.fetch(version_url,
+                            method=urlfetch.DELETE,
+                            headers={'AppScale-Secret': GLOBAL_SECRET_KEY},
+                            validate_certificate=False)
+    if result.status_code != 200:
+      return result.content
+
     return "Application removed successfully. Please wait for your app to " + \
            "shut down."
-
-  def does_app_exist(self, appname):
-    """ Queries the UserAppServer to see if the named application id has been
-    registered.
-
-    Args:
-      appname: A str containing the name of the application we wish to query.
-    Returns:
-      True if the app id has been registered, and False otherwise.
-    """
-    result = self.get_uaserver().does_app_exist(appname, GLOBAL_SECRET_KEY)
-    return result.lower() == 'true'
 
   def is_user_logged_in(self):
     """ Checks to see if this user is logged in.
@@ -727,7 +732,12 @@ class AppDashboardHelper(object):
       response: A webapp2 response that the new user's logged in cookie
         should be set in.
     """
-    apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(apps_list)
+    # Add an extra value to indicate that cloud admins have access to all apps.
+    full_admin_list = apps_list
+    if self.is_user_cloud_admin(email):
+      full_admin_list.append(self.CLOUD_ADMIN_MARKER)
+
+    apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(full_admin_list)
     if AppDashboardHelper.USE_SHIBBOLETH:
       response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
                           value=self.get_cookie_value(email, apps),

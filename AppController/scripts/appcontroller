@@ -1,4 +1,7 @@
 #!/bin/sh
+
+# pidfile: /var/run/appscale/controller.pid
+
 ### BEGIN INIT INFO
 # Provides:          appscale-controller
 # Required-Start:    $local_fs
