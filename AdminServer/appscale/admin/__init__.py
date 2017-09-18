@@ -181,8 +181,8 @@ class BaseVersionHandler(BaseHandler):
 
   @gen.coroutine
   def start_delete_version(self, project_id, service_id, version_id):
-    """ Starts the process of deleting a version by calling stop_version on 
-    the AppController and deleting the version node. Returns the version's 
+    """ Starts the process of deleting a version by calling stop_version on
+    the AppController and deleting the version node. Returns the version's
     port that will be closing, the caller should wait for this port to close.
 
     Args:
@@ -313,7 +313,7 @@ class ServiceHandler(BaseVersionHandler):
     ports_to_close = []
     # Delete each version of the service.
     for version_id in self.zk_client.get_children(
-        "{0}/versions".format(service_path, service_id)):
+        "{0}/versions".format(service_path)):
 
       port = yield self.start_delete_version(project_id, service_id,
                                              version_id)
