@@ -141,11 +141,13 @@ def wait_for_delete(operation_id, ports_to_close):
       raise OperationTimeout(message)
     to_remove = []
     for http_port in ports:
-      if not utils.port_is_open(options.login_ip, int(http_port)):
-        finished += 1
-        to_remove.append(http_port)
-      else:
+      # If the port is open, continue to process other ports.
+      if utils.port_is_open(options.login_ip, int(http_port)):
         continue
+      # Otherwise one more port has finished and remove it from the list of
+      # ports to check.
+      finished += 1
+      to_remove.append(http_port)
     ports = [p for p in ports if p not in to_remove]
     if finished == len(ports_to_close):
       break
@@ -179,6 +181,17 @@ class BaseVersionHandler(BaseHandler):
 
   @gen.coroutine
   def start_delete_version(self, project_id, service_id, version_id):
+    """ Starts the process of deleting a version by calling stop_version on 
+    the AppController and deleting the version node. Returns the version's 
+    port that will be closing, the caller should wait for this port to close.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    Returns:
+      The version's port.
+    """
     version = self.get_version(project_id, service_id, version_id)
     try:
       http_port = int(version['appscaleExtensions']['httpPort'])
@@ -203,7 +216,7 @@ class BaseVersionHandler(BaseHandler):
     try:
       self.acc.stop_version(version_key)
     except AppControllerException as error:
-      message = 'Error while stopping application: {}'.format(error)
+      message = 'Error while stopping version: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
     raise gen.Return(http_port)

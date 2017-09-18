@@ -23,12 +23,10 @@ class Operation(object):
     self.service_id = service_id
     self.version = version
     self.target = 'apps/{}'.format(project_id)
-    if self.service_id and self.version:
-      self.target += '/services/{}/versions/{}'.format(self.service_id,
-                                                       self.version['id'])
-    elif self.service_id:
+    if self.service_id:
       self.target += '/services/{}'.format(self.service_id)
-
+    if self.version:
+      self.target += '/versions/{}'.format(self.version['id'])
 
     self.id = str(uuid.uuid4())
     self.start_time = datetime.datetime.utcnow()
