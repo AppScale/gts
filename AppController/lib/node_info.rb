@@ -12,11 +12,11 @@ require 'helperfunctions'
 
 # A class that represents a single node running in AppScale. It provides methods
 # to easily see the IP address of a node, how to access it, and what roles
-# (jobs) a node is currently running. If running in a cloud infrastructure, it
+# (roles) a node is currently running. If running in a cloud infrastructure, it
 # also contains info about when we spawned the node (helpful for optimizing
 # costs, which may charge on an hourly basis).
-class DjinnJobData
-  attr_accessor :public_ip, :private_ip, :jobs, :instance_id, :cloud, :ssh_key
+class DjinnRoleData
+  attr_accessor :public_ip, :private_ip, :roles, :instance_id, :cloud, :ssh_key
   attr_accessor :disk
  
 
@@ -29,14 +29,14 @@ class DjinnJobData
     @public_ip = json_data['public_ip']
     @private_ip = json_data['private_ip']
 
-    jobs = json_data['jobs']
-    if jobs.class == Array
-      @jobs = jobs
-    elsif jobs.class == String
-      @jobs = [jobs]
+    roles = json_data['roles']
+    if roles.class == Array
+      @roles = roles
+    elsif roles.class == String
+      @roles = [roles]
     else
-      HelperFunctions.log_and_crash("Jobs must be an Array or String, not " +
-        "a #{jobs.class} containing #{jobs}")
+      HelperFunctions.log_and_crash("Roles must be an Array or String, not " +
+        "a #{roles.class} containing #{roles}")
     end
 
     @cloud = "cloud1"
@@ -48,21 +48,21 @@ class DjinnJobData
 
 
   def add_roles(roles)
-    new_jobs = roles.split(":")
-    @jobs = (@jobs + new_jobs).uniq
-    @jobs.delete("open")
+    new_roles = roles.split(":")
+    @roles = (@roles + new_roles).uniq
+    @roles.delete("open")
   end
 
 
   def remove_roles(roles)
-    new_jobs = roles.split(":")
-    @jobs = (@jobs - new_jobs)
-    @jobs = ["open"] if @jobs.empty?
+    new_roles = roles.split(":")
+    @roles = (@roles - new_roles)
+    @roles = ["open"] if @roles.empty?
   end
 
 
   def set_roles(roles)
-    @jobs = roles.split(":")
+    @roles = roles.split(":")
   end
 
 
@@ -72,7 +72,7 @@ class DjinnJobData
     return {
       'public_ip' => @public_ip,
       'private_ip' => @private_ip,
-      'jobs' => @jobs,
+      'roles' => @roles,
       'instance_id' => @instance_id,
       'cloud' => @cloud,
       'ssh_key' => @ssh_key,
@@ -82,15 +82,15 @@ class DjinnJobData
 
 
   def to_s
-    if @jobs.empty?
-      jobs = "not doing anything"
+    if @roles.empty?
+      roles = "not doing anything"
     else
-      jobs = @jobs.join(', ')
+      roles = @roles.join(', ')
     end
 
     status = "Node in cloud #{@cloud} with instance id #{@instance_id}" +
       " responds to ssh key #{@ssh_key}, has pub IP #{@public_ip}," +
-      " priv IP #{@private_ip}, and is currently #{jobs}. "
+      " priv IP #{@private_ip}, and is currently #{roles}. "
 
     if @disk.nil?
       status += "It does not back up its data to a persistent disk."
@@ -108,7 +108,7 @@ class DjinnJobData
   # TODO: remove this and place dynamic method adds in initialize
   def method_missing(id, *args, &block)
     if id.to_s =~ /is_(.*)\?/
-      if @jobs.include?($1)
+      if @roles.include?($1)
         return true
       else
         return false
@@ -121,14 +121,14 @@ class DjinnJobData
   # db_master nodes. A node that is a database and is not the db_master is
   # now considered a db_slave.
   def is_db_slave?
-    return @jobs.include?('database') && !@jobs.include?('db_master')
+    return @roles.include?('database') && !@roles.include?('db_master')
   end
 
   # In the process of removing roles, taskqueue_slave is no longer added to non
   # taskqueue_master nodes. A node that is a taskqueue and is not the
   # taskqueue_master is now considered a taskqueue_slave.
   def is_taskqueue_slave?
-    return @jobs.include?('taskqueue') && !@jobs.include?('taskqueue_master')
+    return @roles.include?('taskqueue') && !@roles.include?('taskqueue_master')
   end
 
   def eql?(other_node)

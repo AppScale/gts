@@ -73,14 +73,14 @@ class TestDjinn < Test::Unit::TestCase
     role1 = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["shadow"],
+      "roles" => ["shadow"],
       "instance_id" => "instance_id"
     }
 
     role2 = {
       "public_ip" => "public_ip2",
       "private_ip" => "private_ip2",
-      "jobs" => ["appengine"],
+      "roles" => ["appengine"],
       "instance_id" => "instance_id2"
     }
 
@@ -104,14 +104,14 @@ class TestDjinn < Test::Unit::TestCase
     # make sure role1 got hashed fine
     assert_equal("public_ip", role1_to_hash['public_ip'])
     assert_equal("private_ip", role1_to_hash['private_ip'])
-    assert_equal(["shadow"], role1_to_hash['jobs'])
+    assert_equal(["shadow"], role1_to_hash['roles'])
     assert_equal("instance_id", role1_to_hash['instance_id'])
     assert_equal("cloud1", role1_to_hash['cloud'])
 
     # and make sure role2 got hashed fine
     assert_equal("public_ip2", role2_to_hash['public_ip'])
     assert_equal("private_ip2", role2_to_hash['private_ip'])
-    assert_equal(["appengine"], role2_to_hash['jobs'])
+    assert_equal(["appengine"], role2_to_hash['roles'])
     assert_equal("instance_id2", role2_to_hash['instance_id'])
     assert_equal("cloud1", role2_to_hash['cloud'])
   end
@@ -128,7 +128,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
-      'jobs' => ['some_role'],
+      'roles' => ['some_role'],
       'instance_id' => 'instance_id'
     }])
 
@@ -164,7 +164,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
-      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'roles' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -196,7 +196,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'roles' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -219,7 +219,7 @@ class TestDjinn < Test::Unit::TestCase
     master_role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["taskqueue_master"],
+      "roles" => ["taskqueue_master"],
       "instance_id" => "instance_id"
     }
 
@@ -256,14 +256,14 @@ class TestDjinn < Test::Unit::TestCase
     master_role = {
       "public_ip" => "public_ip1",
       "private_ip" => "private_ip1",
-      "jobs" => ["taskqueue_master"],
+      "roles" => ["taskqueue_master"],
       "instance_id" => "instance_id1"
     }
 
     slave_role = {
       "public_ip" => "public_ip2",
       "private_ip" => "private_ip2",
-      "jobs" => ["taskqueue_slave"],
+      "roles" => ["taskqueue_slave"],
       "instance_id" => "instance_id2"
     }
 
@@ -307,7 +307,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => ["shadow"],
+      "roles" => ["shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -381,7 +381,7 @@ class TestDjinn < Test::Unit::TestCase
         :rc => 0, :stat => flexmock(:exists => false)})
 
     flexmock(JSON).should_receive(:dump).with(Hash).
-      and_return('"{\"disk\":null,\"public_ip\":\"public_ip\",\"private_ip\":\"private_ip\",\"cloud\":\"cloud1\",\"instance_id\":\"instance_id\",\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"jobs\":\"shadow\"}"')
+      and_return('"{\"disk\":null,\"public_ip\":\"public_ip\",\"private_ip\":\"private_ip\",\"cloud\":\"cloud1\",\"instance_id\":\"instance_id\",\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"roles\":\"shadow\"}"')
     baz.should_receive(:set).with(
       :path => node_path + "/job_data",
       :data => JSON.dump(my_node.to_hash())).and_return(all_ok)
@@ -475,7 +475,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
-      "jobs" => ["login","shadow"],
+      "roles" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -511,7 +511,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
-      "jobs" => ["login","shadow"],
+      "roles" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -548,7 +548,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
-      "jobs" => ["login","shadow"],
+      "roles" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -585,7 +585,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
-      "jobs" => ["login","shadow"],
+      "roles" => ["login","shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -632,7 +632,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'roles' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -670,7 +670,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'roles' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -752,7 +752,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
         "public_ip" => "my public ip",
         "private_ip" => "my private ip",
-        "jobs" => ["login"]
+        "roles" => ["login"]
     }
     djinn = flexmock(Djinn.new())
     djinn.my_index = 0

@@ -862,23 +862,23 @@ class Djinn
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       end
-      if !node['public_ip'] || !node['private_ip'] || !node['jobs'] ||
+      if !node['public_ip'] || !node['private_ip'] || !node['roles'] ||
         !node['instance_id']
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       elsif node['public_ip'].empty? || node['private_ip'].empty? ||
-         node['jobs'].empty? || node['instance_id'].empty?
+         node['roles'].empty? || node['instance_id'].empty?
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       end
-      if node['jobs'].class == String
-        all_roles << node['jobs']
-      elsif node['jobs'].class == Array
-        all_roles += node['jobs']
+      if node['roles'].class == String
+        all_roles << node['roles']
+      elsif node['roles'].class == Array
+        all_roles += node['roles']
       else
-        msg = "Error: node jobs is not String or Array for #{node}."
+        msg = "Error: node roles is not String or Array for #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       end
@@ -927,7 +927,7 @@ class Djinn
         begin
           Djinn.log_warn("Removing unknown parameter '" + key.to_s + "'.")
         rescue
-          Djinn.log_warn("Removing unknown paramete.")
+          Djinn.log_warn("Removing unknown parameter.")
         end
         next
       end
@@ -1927,7 +1927,7 @@ class Djinn
       # We save the current @options and roles to check if
       # restore_appcontroller_state modifies them.
       old_options = @options.clone
-      old_jobs = my_node.jobs
+      old_roles = my_node.roles
 
       # The following is the core of the duty cycle: start new apps,
       # restart apps, terminate non-responsive AppServers, and autoscale.
@@ -1951,7 +1951,7 @@ class Djinn
       end
 
       # We act here if options or roles for this node changed.
-      check_role_change(old_options, old_jobs)
+      check_role_change(old_options, old_roles)
 
       # Check the running, terminated, pending AppServers.
       check_running_appservers
@@ -2198,7 +2198,7 @@ class Djinn
       @nodes.each { |node|
         if node.is_open?
           Djinn.log_debug("New roles #{roles} will be assumed by open node #{node}.")
-          node.jobs = roles
+          node.roles = roles
           return true
         end
       }
@@ -2273,7 +2273,7 @@ class Djinn
         found = false
         node_roles.each { |node|
           if node['private_ip'] == ip
-            node.jobs << role
+            node.roles << role
             found = true
             break
           end
@@ -2282,7 +2282,7 @@ class Djinn
           node_roles << {
             "public_ip" => ip,
             "private_ip" => ip,
-            "jobs" => role,
+            "roles" => role,
             "disk" => nil
           }
         end
@@ -2333,8 +2333,8 @@ class Djinn
         delete_index = nil
         new_nodes_info.each_with_index { |new_node, index|
           if new_node['private_ip'] == node.private_ip
-            Djinn.log_info("Node at #{node.private_ip} changed role to #{new_node['jobs']}.")
-            node.jobs = new_node['jobs']
+            Djinn.log_info("Node at #{node.private_ip} changed role to #{new_node['roles']}.")
+            node.roles = new_node['roles']
             delete_index = index
             break
           end
@@ -2869,11 +2869,11 @@ class Djinn
   # Args:
   #   old_options: this is a clone of @options. We will compare it with
   #     the current value.
-  #   old_jobs: this is a list of roles. It will be compared against the
-  #     current list of jobs for this node.
-  def check_role_change(old_options, old_jobs)
-    if old_jobs != my_node.jobs
-      Djinn.log_info("Roles for this node are now: #{my_node.jobs}.")
+  #   old_roles: this is a list of roles. It will be compared against the
+  #     current list of roles for this node.
+  def check_role_change(old_options, old_roles)
+    if old_roles != my_node.roles
+      Djinn.log_info("Roles for this node are now: #{my_node.roles}.")
       start_stop_api_services
     end
 
@@ -3287,7 +3287,7 @@ class Djinn
       db_master = nil
       @state_change_lock.synchronize {
         @nodes.each { |node|
-          db_master = node.private_ip if node.jobs.include?('db_master')
+          db_master = node.private_ip if node.roles.include?('db_master')
         }
       }
       setup_db_config_files(db_master)
@@ -4365,7 +4365,7 @@ HOSTS
     stop_cmd = "#{service} appscale-controller stop"
     pidfile = '/var/run/appscale/controller.pid'
 
-    # Let's make sure we don't have 2 jobs monitoring the controller.
+    # Let's make sure we don't have 2 roles monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
 
     begin
@@ -5138,7 +5138,7 @@ HOSTS
           # appengine role, so we check specifically for that during downscaling
           # to make sure we only downscale the new machines added.
           node_to_remove = nil
-          if node.jobs == ['appengine']
+          if node.roles == ['appengine']
             Djinn.log_info("Removing node #{node}")
             node_to_remove = node
           end
@@ -5976,7 +5976,7 @@ HOSTS
     node_stats["is_loaded"] = @done_loading
     node_stats["public_ip"] = my_node.public_ip
     node_stats["private_ip"] = my_node.private_ip
-    node_stats["roles"] = my_node.jobs or ["none"]
+    node_stats["roles"] = my_node.roles or ["none"]
 
     return JSON.dump(node_stats)
   end

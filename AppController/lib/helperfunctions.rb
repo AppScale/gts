@@ -679,7 +679,7 @@ module HelperFunctions
   end
 
 
-  def self.spawn_vms(num_of_vms_to_spawn, job, image_id, instance_type, keyname,
+  def self.spawn_vms(num_of_vms_to_spawn, role, image_id, instance_type, keyname,
     infrastructure, cloud, group, spot=false)
 
     start_time = Time.now
@@ -703,7 +703,7 @@ module HelperFunctions
     instance_ids_up = []
     public_up_already = []
     private_up_already = []
-    Djinn.log_debug("[#{num_of_vms_to_spawn}] [#{job}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]")
+    Djinn.log_debug("[#{num_of_vms_to_spawn}] [#{role}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]")
     Djinn.log_debug("EC2_URL = [#{ENV['EC2_URL']}]")
     loop { # need to make sure ec2 doesn't return an error message here
       describe_instances = `#{infrastructure}-describe-instances 2>&1`
@@ -779,18 +779,18 @@ module HelperFunctions
       }
     end
 
-    jobs = []
-    if job.is_a?(String)
-      # We only got one job, so just repeat it for each one of the nodes
-      public_ips.length.times { jobs << job }
+    roles = []
+    if role.is_a?(String)
+      # We only got one role, so just repeat it for each one of the nodes
+      public_ips.length.times { roles << role }
     else
-      jobs = job
+      roles = role
     end
 
-    # ip:job:instance-id
+    # ip:role:instance-id
     instances_created = []
     public_ips.each_index { |index|
-      instances_created << "#{public_ips[index]}:#{private_ips[index]}:#{jobs[index]}:#{instance_ids[index]}:#{cloud}"
+      instances_created << "#{public_ips[index]}:#{private_ips[index]}:#{roles[index]}:#{instance_ids[index]}:#{cloud}"
     }
 
     end_time = Time.now

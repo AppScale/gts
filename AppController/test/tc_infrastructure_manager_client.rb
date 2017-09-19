@@ -103,7 +103,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
     expected = [{
       "public_ip" => "public-ip",
       "private_ip" => "private-ip",
-      "jobs" => "open",
+      "roles" => "open",
       "instance_id" => "i-id",
       "disk" => nil
     }]
@@ -197,20 +197,20 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
     expected = [{
       'public_ip' => 'public-ip1',
       'private_ip' => 'private-ip1',
-      'jobs' => 'a',
+      'roles' => 'a',
       'instance_id' => 'i-id1',
       'disk' => nil
     }, {
       'public_ip' => 'public-ip2',
       'private_ip' => 'private-ip2',
-      'jobs' => 'b',
+      'roles' => 'b',
       'instance_id' => 'i-id2',
       'disk' => nil
 
     }, {
       'public_ip' => 'public-ip3',
       'private_ip' => 'private-ip3',
-      'jobs' => 'c',
+      'roles' => 'c',
       'instance_id' => 'i-id3',
       'disk' => nil
     }]
@@ -302,20 +302,20 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
     expected = [{
       'public_ip' => 'public-ip1',
       'private_ip' => 'private-ip1',
-      'jobs' => 'a',
+      'roles' => 'a',
       'instance_id' => 'i-id1',
       'disk' => nil
     }, {
       'public_ip' => 'public-ip2',
       'private_ip' => 'private-ip2',
-      'jobs' => 'b',
+      'roles' => 'b',
       'instance_id' => 'i-id2',
       'disk' => nil
 
     }, {
       'public_ip' => 'public-ip3',
       'private_ip' => 'private-ip3',
-      'jobs' => 'c',
+      'roles' => 'c',
       'instance_id' => 'i-id3',
       'disk' => nil
     }]
@@ -407,7 +407,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
     expected = [{
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
-      'jobs' => 'open',
+      'roles' => 'open',
       'instance_id' => 'i-id',
       'disk' => nil
     }]
