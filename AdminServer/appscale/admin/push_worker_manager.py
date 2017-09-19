@@ -17,6 +17,7 @@ from appscale.common.constants import (
   CONFIG_DIR
 )
 from appscale.common.monit_app_configuration import create_config_file
+from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from .utils import ensure_path
 
 # The number of tasks the Celery worker can handle at a time.
@@ -93,6 +94,17 @@ class ProjectPushWorkerManager(object):
     start_future = self.monit_operator.ensure_running(self.monit_watch)
     yield gen.with_timeout(timedelta(seconds=60), start_future,
                            IOLoop.current())
+
+  @gen.coroutine
+  def stop_worker()
+    """ Removes the monit configuration for the project's push worker. """
+    status = yield self._wait_for_stable_state()
+    if status == MonitStates.RUNNING:
+      logging.info('Stopping push worker for {}.'.format(self.project_id))
+      yield self.monit_operator.send_command(self.monit_watch, 'stop')
+      watch_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, self.monit_watch)
+      os.remove(watch_file)
+
 
   def celery_command(self):
     """ Generates the Celery command for a project's push worker. """
@@ -205,6 +217,7 @@ class GlobalPushWorkerManager(object):
     to_stop = [project for project in self.projects
                if project not in new_project_list]
     for project_id in to_stop:
+      self.projects[new_project_id].stop_worker()
       del self.projects[project_id]
 
     for new_project_id in new_project_list:
