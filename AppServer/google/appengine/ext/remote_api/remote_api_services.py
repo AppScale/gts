@@ -45,6 +45,7 @@ from google.appengine.api.system import system_service_pb
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api.xmpp import xmpp_service_pb
 from google.appengine.datastore import datastore_pb
+from google.appengine.datastore import datastore_v4_pb
 from google.appengine.ext.remote_api import remote_api_pb
 
 
@@ -102,6 +103,10 @@ SERVICE_PB_MAP = {
                             api_base_pb.VoidProto),
         'GetIndices':      (api_base_pb.StringProto,
                             datastore_pb.CompositeIndices),
+    },
+    'datastore_v4': {
+        'AllocateIds': (datastore_v4_pb.AllocateIdsRequest,
+                        datastore_v4_pb.AllocateIdsResponse),
     },
     'file': {
         'Create': (file_service_pb.CreateRequest,

@@ -22,7 +22,7 @@ from google.appengine.datastore.datastore_stub_util import (
 )
 
 # The number of scattered IDs the datastore should reserve at a time.
-DEFAULT_RESERVATION_SIZE = 100000
+DEFAULT_RESERVATION_SIZE = 10000
 
 
 class ReservationFailed(Exception):
@@ -47,6 +47,10 @@ class EntityIDAllocator(object):
       self.max_allowed = _MAX_SCATTERED_COUNTER
     else:
       self.max_allowed = _MAX_SEQUENTIAL_COUNTER
+
+    # Allows the allocator to avoid making unnecessary Cassandra requests when
+    # setting the minimum counter value.
+    self._last_reserved_cache = None
 
   def _ensure_entry(self, retries=5):
     """ Ensures an entry exists for a reservation.
@@ -90,6 +94,7 @@ class EntityIDAllocator(object):
       self._ensure_entry()
       return self._get_last_reserved()
 
+    self._last_reserved_cache = result.last_reserved
     return result.last_reserved
 
   def _get_last_op_id(self):
@@ -138,12 +143,15 @@ class EntityIDAllocator(object):
     if not result.was_applied:
       raise ReservationFailed('Last reserved value changed')
 
-  def allocate_size(self, size, retries=5):
+    self._last_reserved_cache = new_reserved
+
+  def allocate_size(self, size, retries=5, min_counter=None):
     """ Reserve a block of IDs for this project.
 
     Args:
       size: The number of IDs to reserve.
       retries: The number of times to retry the reservation.
+      min_counter: The minimum counter value that should be reserved.
     Returns:
       A tuple of integers specifying the start and end ID.
     Raises:
@@ -158,7 +166,11 @@ class EntityIDAllocator(object):
     except TRANSIENT_CASSANDRA_ERRORS:
       raise AppScaleDBConnectionError('Unable to get last reserved ID')
 
-    new_reserved = last_reserved + size
+    if min_counter is None:
+      new_reserved = last_reserved + size
+    else:
+      new_reserved = max(last_reserved, min_counter) + size
+
     if new_reserved > self.max_allowed:
       raise AppScaleBadArg('Exceeded maximum allocated IDs')
 
@@ -195,7 +207,7 @@ class EntityIDAllocator(object):
       raise AppScaleDBConnectionError('Unable to get last reserved ID')
 
     # Instead of returning an error, the API returns an invalid range.
-    if last_reserved > max_id:
+    if last_reserved >= max_id:
       return last_reserved + 1, last_reserved
 
     try:
@@ -206,6 +218,18 @@ class EntityIDAllocator(object):
     start_id = last_reserved + 1
     end_id = max_id
     return start_id, end_id
+
+  def set_min_counter(self, counter):
+    """ Ensures the counter is at least as large as the given value.
+
+    Args:
+      counter: An integer specifying the minimum counter value.
+    """
+    if (self._last_reserved_cache is not None and
+        self._last_reserved_cache >= counter):
+      return
+
+    self.allocate_max(counter)
 
 
 class ScatteredAllocator(EntityIDAllocator):
@@ -241,3 +265,32 @@ class ScatteredAllocator(EntityIDAllocator):
     next_id = ToScatteredId(self.start_id)
     self.start_id += 1
     return next_id
+
+  def set_min_counter(self, counter):
+    """ Ensures the counter is at least as large as the given value.
+
+    Args:
+      counter: An integer specifying the minimum counter value.
+    """
+    # If there's no chance the ID could be allocated, do nothing.
+    if self.start_id is not None and self.start_id >= counter:
+      return
+
+    # If the ID is in the allocated block, adjust the block.
+    if self.end_id is not None and self.end_id > counter:
+      self.start_id = counter
+
+    # If this server has never allocated a block, adjust the minimum for
+    # future blocks.
+    if self.start_id is None:
+      if (self._last_reserved_cache is not None and
+          self._last_reserved_cache >= counter):
+        return
+
+      self.allocate_max(counter)
+      return
+
+    # If this server has allocated a block, but the relevant ID is greater than
+    # the end ID, get a new block that starts at least as high as the ID.
+    self.start_id, self.end_id = self.allocate_size(DEFAULT_RESERVATION_SIZE,
+                                                    min_counter=counter)

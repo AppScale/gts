@@ -13,11 +13,16 @@ import sys
 import threading
 import time
 import tornado.httpserver
-import tornado.ioloop
 import tornado.web
 
 from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from kazoo.client import KazooState
+from kazoo.exceptions import NodeExistsError
+from tornado import gen
+from tornado.httpclient import AsyncHTTPClient
+from tornado.ioloop import IOLoop
+from tornado.options import options
 from .. import dbconstants
 from ..appscale_datastore_batch import DatastoreFactory
 from ..datastore_distributed import DatastoreDistributed
@@ -30,11 +35,15 @@ sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.datastore import datastore_pb
+from google.appengine.datastore import datastore_v4_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
 
 # Global for accessing the datastore. An instance of DatastoreDistributed.
 datastore_access = None
+
+# A record of active datastore servers.
+datastore_servers = set()
 
 # ZooKeeper global variable for locking
 zookeeper = None
@@ -45,6 +54,9 @@ READ_ONLY = False
 
 # Global stats.
 STATS = {}
+
+# The ZooKeeper path where a list of active datastore servers is stored.
+DATASTORE_SERVERS_NODE = '/appscale/datastore/servers'
 
 
 class ClearHandler(tornado.web.RequestHandler):
@@ -90,6 +102,16 @@ class ReadOnlyHandler(tornado.web.RequestHandler):
     self.finish()
 
 
+class ReserveKeysHandler(tornado.web.RequestHandler):
+  """ Handles v4 AllocateIds requests from other servers. """
+  def post(self):
+    """ Prevents the provided IDs from being re-allocated. """
+    project_id = self.request.headers['appdata']
+    request = datastore_v4_pb.AllocateIdsRequest(self.request.body)
+    ids = [key.path_element_list()[-1].id() for key in request.reserve_list()]
+    datastore_access.reserve_ids(project_id, ids)
+
+
 class MainHandler(tornado.web.RequestHandler):
   """
   Defines what to do when the webserver receives different types of 
@@ -111,7 +133,7 @@ class MainHandler(tornado.web.RequestHandler):
     raise NotImplementedError("Unknown request of operation {0}" \
       .format(pb_type))
   
-  @tornado.web.asynchronous
+  @gen.coroutine
   def post(self):
     """ Function which handles POST requests. Data of the request is
         the request from the AppServer in an encoded protocol buffer
@@ -133,17 +155,16 @@ class MainHandler(tornado.web.RequestHandler):
       app_id = app_data[0]
       os.environ['APPLICATION_ID'] = app_id
     else:
-      return
+      raise gen.Return()
 
     # If the application identifier has the HRD string prepened, remove it.
     app_id = clean_app_id(app_id)
 
     if pb_type == "Request":
-      self.remote_request(app_id, http_request_data)
+      yield self.remote_request(app_id, http_request_data)
     else:
       self.unknown_request(app_id, http_request_data, pb_type)
-    self.finish()
-  
+
   @tornado.web.asynchronous
   def get(self):
     """ Handles get request for the web server. Returns that it is currently
@@ -152,6 +173,7 @@ class MainHandler(tornado.web.RequestHandler):
     self.write(json.dumps(STATS))
     self.finish() 
 
+  @gen.coroutine
   def remote_request(self, app_id, http_request_data):
     """ Receives a remote request to which it should give the correct 
         response. The http_request_data holds an encoded protocol buffer
@@ -225,6 +247,9 @@ class MainHandler(tornado.web.RequestHandler):
                                                        http_request_data)
     elif method == 'AddActions':
       response, errcode, errdetail = self.add_actions_request(
+        app_id, http_request_data)
+    elif method == 'datastore_v4.AllocateIds':
+      response, errcode, errdetail = yield self.v4_allocate_ids_request(
         app_id, http_request_data)
     else:
       errcode = datastore_pb.Error.BAD_REQUEST 
@@ -539,6 +564,49 @@ class MainHandler(tornado.web.RequestHandler):
     response.set_end(end)
     return response.Encode(), 0, ""
 
+  @staticmethod
+  @gen.coroutine
+  def v4_allocate_ids_request(app_id, http_request_data):
+    """ Reserves entity IDs so that they will not be re-allocated.
+
+    Args:
+      app_id: Name of the application.
+      http_request_data: The protocol buffer request from the AppServer.
+    Returns:
+       Returns an encoded response.
+    """
+    request = datastore_v4_pb.AllocateIdsRequest(http_request_data)
+    response = datastore_v4_pb.AllocateIdsResponse()
+
+    if not request.reserve_list():
+      raise gen.Return((response.Encode(), datastore_v4_pb.Error.BAD_REQUEST,
+                        'Request must include reserve list'))
+
+    ids = [key.path_element_list()[-1].id() for key in request.reserve_list()]
+    datastore_access.reserve_ids(app_id, ids)
+
+    # Forward request to other datastore servers in order to adjust any blocks
+    # they've already allocated.
+    client = AsyncHTTPClient()
+    headers = {'appdata': app_id}
+
+    futures = []
+    for server in datastore_servers:
+      ip, port = server.split(':')
+      port = int(port)
+      if ip == options.private_ip and port == options.port:
+        continue
+
+      url = 'http://{}:{}/reserve-keys'.format(ip, port)
+      future = client.fetch(url, method='POST', headers=headers,
+                            body=http_request_data)
+      futures.append(future)
+
+    for future in futures:
+      yield future
+
+    raise gen.Return((response.Encode(), 0, ''))
+
   def put_request(self, app_id, http_request_data):
     """ High level function for doing puts.
 
@@ -697,9 +765,53 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore connection error when adding transaction tasks.')
 
 
+def zk_state_listener(state):
+  """ Handles changes to ZooKeeper connection state.
+
+  Args:
+    state: A string specifying the new ZooKeeper connection state.
+  """
+  if state == KazooState.CONNECTED:
+    server_id = ':'.join([options.private_ip, str(options.port)])
+    server_node = '/'.join([DATASTORE_SERVERS_NODE, server_id])
+    try:
+      zookeeper.handle.create(server_node, ephemeral=True)
+    except NodeExistsError:
+      # If the server gets restarted, the old node may exist for a short time.
+      zookeeper.handle.delete(server_node)
+      zookeeper.handle.create(server_node, ephemeral=True)
+
+
+def update_servers(new_servers):
+  """ Updates the record of active datastore servers.
+
+  Args:
+    new_servers: A list of strings identifying server locations.
+  """
+  to_remove = [server for server in datastore_servers
+               if server not in new_servers]
+  for old_server in to_remove:
+    datastore_servers.remove(old_server)
+
+  for new_server in new_servers:
+    if new_server not in datastore_servers:
+      datastore_servers.add(new_server)
+
+
+def update_servers_watch(new_servers):
+  """ Updates the record of active datastore servers.
+
+  Args:
+    new_servers: A list of strings identifying server locations.
+  """
+  main_io_loop = IOLoop.instance()
+  main_io_loop.add_callback(update_servers, new_servers)
+
+
 pb_application = tornado.web.Application([
   ('/clear', ClearHandler),
   ('/read-only', ReadOnlyHandler),
+  ('/reserve-keys', ReserveKeysHandler),
   (r'/*', MainHandler),
 ])
 
@@ -708,6 +820,7 @@ def main():
   """ Starts a web service for handing datastore requests. """
 
   global datastore_access
+  global zookeeper
   zookeeper_locations = appscale_info.get_zk_locations_string()
 
   parser = argparse.ArgumentParser()
@@ -724,11 +837,21 @@ def main():
   if args.verbose:
     logger.setLevel(logging.DEBUG)
 
+  options.define('private_ip', appscale_info.get_private_ip())
+  options.define('port', args.port)
+
   datastore_batch = DatastoreFactory.getDatastore(
     args.type, log_level=logger.getEffectiveLevel())
   zookeeper = zktransaction.ZKTransaction(
     host=zookeeper_locations, start_gc=True, db_access=datastore_batch,
     log_level=logger.getEffectiveLevel())
+
+  zookeeper.handle.add_listener(zk_state_listener)
+  zookeeper.handle.ensure_path(DATASTORE_SERVERS_NODE)
+  # Since the client was started before adding the listener, make sure the
+  # server node gets created.
+  zk_state_listener(zookeeper.handle.state)
+  zookeeper.handle.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
 
   datastore_access = DatastoreDistributed(
     datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
@@ -736,4 +859,4 @@ def main():
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)
 
-  tornado.ioloop.IOLoop.current().start()
+  IOLoop.current().start()

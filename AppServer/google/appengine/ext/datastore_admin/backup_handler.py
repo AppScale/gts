@@ -1572,7 +1572,7 @@ class RestoreEntity(object):
     if not self.kind_filter or entity.kind() in self.kind_filter:
       yield op.db.Put(entity)
       if self.app_id:
-        yield utils.AllocateMaxId(entity.key(), self.app_id)
+        yield utils.ReserveKey(entity.key(), self.app_id)
 
 
 def validate_gs_bucket_name(bucket_name):
