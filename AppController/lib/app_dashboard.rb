@@ -43,7 +43,6 @@ module AppDashboard
 
     # Pass the secret key and our public IP address (needed to connect to the
     # AppController) to the app.
-    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py")
     Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
     Djinn.log_run("echo \"UA_SERVER_IP = '#{private_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
 
@@ -59,7 +58,6 @@ module AppDashboard
     HelperFunctions.write_file(port_file, "#{LISTEN_PORT}")
 
     # Restore repo template values.
-    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/secret_key.py")
     Djinn.log_run("echo \"MY_PUBLIC_IP = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
     Djinn.log_run("echo \"UA_SERVER_IP = 'THIS VALUE WILL BE OVERWRITTEN ON STARTUP'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
 
