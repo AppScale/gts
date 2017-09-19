@@ -249,6 +249,7 @@ class ProjectHandler(BaseVersionHandler):
     Args:
       project_id: A string specifying a project ID.
     """
+    self.authenticate()
     project_path = '/appscale/projects/{0}'.format(project_id)
     ports_to_close = []
     # Delete each version of each service of the project.
@@ -306,6 +307,7 @@ class ServiceHandler(BaseVersionHandler):
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
     """
+    self.authenticate()
     service_path = '/appscale/projects/{0}/services/{1}'.format(project_id,
                                                                 service_id)
     ports_to_close = []
