@@ -475,12 +475,9 @@ def stop_app(version_key):
   for entry in version_entries:
     yield unmonitor_and_terminate(entry)
 
-  try:
-    projects_manager[project_id]
-  except KeyError:
-    if not remove_logrotate(project_id):
-      logging.error("Error while setting up log rotation for application: {}".
-                    format(project_id))
+  if project_id not in projects_manager and not remove_logrotate(project_id):
+    logging.error("Error while removing log rotation for application: {}".
+                  format(project_id))
 
   yield monit_operator.reload()
   yield clean_old_sources()
