@@ -250,7 +250,6 @@ class ProjectHandler(BaseVersionHandler):
       project_id: A string specifying a project ID.
     """
     project_path = '/appscale/projects/{0}'.format(project_id)
-    self.zk_client.exists(project_path)
     ports_to_close = []
     # Delete each version of each service of the project.
     for service_id in \
@@ -309,7 +308,6 @@ class ServiceHandler(BaseVersionHandler):
     """
     service_path = '/appscale/projects/{0}/services/{1}'.format(project_id,
                                                                 service_id)
-    self.zk_client.exists(service_path)
     ports_to_close = []
     # Delete each version of the service.
     for version_id in self.zk_client.get_children(
