@@ -173,7 +173,7 @@ class BaseVersionHandler(BaseHandler):
       project_id=project_id, service_id=service_id, version_id=version_id)
 
     try:
-      version_json, _ = self.zk_client.get(version_node)
+      version_json = self.zk_client.get(version_node)[0]
     except NoNodeError:
       raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Version not found')
 
