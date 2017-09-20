@@ -62,8 +62,7 @@ class TestGCEAgent(TestCase):
   def test_gce_run_instances(self):
     # mock out interactions with GCE
     # first, mock out the oauth library calls
-    fake_credentials = flexmock(name='fake_credentials')
-    fake_credentials.should_receive('invalid').and_return(False)
+    fake_credentials = flexmock(name='fake_credentials', invalid=False)
     fake_storage = flexmock(name='fake_storage')
     fake_storage.should_receive('get').and_return(fake_credentials)
 
@@ -225,8 +224,7 @@ class TestGCEAgent(TestCase):
   def test_attach_persistent_disk(self):
     # mock out interactions with GCE
     # first, mock out the oauth library calls
-    fake_credentials = flexmock(name='fake_credentials')
-    fake_credentials.should_receive('invalid').and_return(False)
+    fake_credentials = flexmock(name='fake_credentials', invalid=False)
     fake_storage = flexmock(name='fake_storage')
     fake_storage.should_receive('get').and_return(fake_credentials)
 

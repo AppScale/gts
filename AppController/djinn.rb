@@ -3898,7 +3898,9 @@ class Djinn
       HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
     end
 
-    HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
+    if File.exists?(gce_oauth)
+      HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
+    end
   end
 
   # Logs into the named host and alters its ssh configuration to enable the
