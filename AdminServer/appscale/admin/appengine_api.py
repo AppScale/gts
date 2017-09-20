@@ -10,10 +10,12 @@ from kazoo.exceptions import NoNodeError
 from yaml.parser import ParserError
 
 from appscale.common.constants import HTTPCodes
-from appscale.taskqueue.queue import InvalidQueueConfiguration
 from .base_handler import BaseHandler
 from .constants import CustomHTTPError
+from .constants import InvalidConfiguration
 from .utils import queues_from_dict
+
+logger = logging.getLogger('appscale-admin')
 
 
 class UpdateQueuesHandler(BaseHandler):
@@ -37,11 +39,11 @@ class UpdateQueuesHandler(BaseHandler):
     try:
       payload = yaml.safe_load(self.request.body)
     except ParserError:
-      raise InvalidQueueConfiguration('Payload must be valid YAML')
+      raise InvalidConfiguration('Payload must be valid YAML')
 
     try:
       queues = queues_from_dict(payload)
-    except InvalidQueueConfiguration as error:
+    except InvalidConfiguration as error:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error.message)
 
     queue_node = '/appscale/projects/{}/queues'.format(project_id)
@@ -54,4 +56,4 @@ class UpdateQueuesHandler(BaseHandler):
         raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                               message='{} not found'.format(project_id))
 
-    logging.info('Updated queues for {}'.format(project_id))
+    logger.info('Updated queues for {}'.format(project_id))

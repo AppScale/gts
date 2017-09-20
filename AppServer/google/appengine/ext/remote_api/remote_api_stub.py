@@ -66,6 +66,7 @@ A few caveats:
 
 
 import google
+import imp
 import os
 import pickle
 import random
@@ -250,7 +251,13 @@ class RuntimeRemoteStub(RemoteStub):
 
   def CreateRPC(self):
     """ Create an RPC that can be used asynchronously. """
-    return apiproxy_rpc.RealRPC(stub=self)
+    # If the runtime is importing a module, fall back to the non-threaded RPC.
+    # This prevents a deadlock in cases when the RealRPC thread tries to
+    # acquire the import lock.
+    if imp.lock_held():
+      return apiproxy_rpc.RPC(stub=self)
+    else:
+      return apiproxy_rpc.RealRPC(stub=self)
 
 
 class RemoteDatastoreStub(RemoteStub):
@@ -538,7 +545,13 @@ class RuntimeDatastoreStub(RemoteDatastoreStub):
 
   def CreateRPC(self):
     """ Create an RPC that can be used asynchronously. """
-    return apiproxy_rpc.RealRPC(stub=self)
+    # If the runtime is importing a module, fall back to the non-threaded RPC.
+    # This prevents a deadlock in cases when the RealRPC thread tries to
+    # acquire the import lock.
+    if imp.lock_held():
+      return apiproxy_rpc.RPC(stub=self)
+    else:
+      return apiproxy_rpc.RealRPC(stub=self)
 
 
 ALL_SERVICES = set(remote_api_services.SERVICE_PB_MAP)

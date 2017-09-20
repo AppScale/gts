@@ -169,6 +169,9 @@ LOGIN_ADMIN = 'admin'
 AUTH_FAIL_ACTION_REDIRECT = 'redirect'
 AUTH_FAIL_ACTION_UNAUTHORIZED = 'unauthorized'
 
+DATASTORE_ID_POLICY_LEGACY = 'legacy'
+DATASTORE_ID_POLICY_DEFAULT = 'default'
+
 SECURE_HTTP = 'never'
 SECURE_HTTPS = 'always'
 SECURE_HTTP_OR_HTTPS = 'optional'
@@ -234,6 +237,7 @@ ADMIN_CONSOLE = 'admin_console'
 ERROR_HANDLERS = 'error_handlers'
 BACKENDS = 'backends'
 THREADSAFE = 'threadsafe'
+DATASTORE_AUTO_ID_POLICY = 'auto_id_policy'
 API_CONFIG = 'api_config'
 CODE_LOCK = 'code_lock'
 ENV_VARIABLES = 'env_variables'
@@ -1478,6 +1482,9 @@ class AppInfoExternal(validation.Validated):
       BACKENDS: validation.Optional(validation.Repeated(
           backendinfo.BackendEntry)),
       THREADSAFE: validation.Optional(bool),
+      DATASTORE_AUTO_ID_POLICY: validation.Optional(
+          validation.Options(DATASTORE_ID_POLICY_LEGACY,
+                             DATASTORE_ID_POLICY_DEFAULT)),
       API_CONFIG: validation.Optional(ApiConfigHandler),
       CODE_LOCK: validation.Optional(bool),
       ENV_VARIABLES: validation.Optional(EnvironmentVariables),
@@ -1527,6 +1534,20 @@ class AppInfoExternal(validation.Validated):
         not self._skip_runtime_checks):
       raise appinfo_errors.MissingThreadsafe(
           'threadsafe must be present and set to either "yes" or "no"')
+
+    if self.auto_id_policy == DATASTORE_ID_POLICY_LEGACY:
+      datastore_auto_ids_url = ('http://developers.google.com/'
+                                'appengine/docs/python/datastore/'
+                                'entities#Kinds_and_Identifiers')
+      appcfg_auto_ids_url = ('http://developers.google.com/appengine/docs/'
+                             'python/config/appconfig#auto_id_policy')
+      logging.warning(
+          "You have set the datastore auto_id_policy to 'legacy'. It is "
+          "recommended that you select 'default' instead.\n"
+          "Legacy auto ids are deprecated. You can continue to allocate\n"
+          "legacy ids manually using the allocate_ids() API functions.\n"
+          "For more information see:\n"
+          + datastore_auto_ids_url + '\n' + appcfg_auto_ids_url + '\n')
 
     if self.libraries:
       if self.runtime != 'python27' and not self._skip_runtime_checks:

@@ -11,11 +11,18 @@ from tornado import gen
 from tornado.options import options
 
 from appscale.common.appscale_utils import get_md5
+from appscale.common.appscale_info import get_secret
+from appscale.common.constants import VERSION_PATH_SEPARATOR
 from .utils import fetch_file
-from ..constants import InvalidSource
-from ..constants import SOURCES_DIRECTORY
-from ..constants import UNPACK_ROOT
+from ..constants import (
+  DASHBOARD_APP_ID,
+  InvalidSource,
+  SOURCES_DIRECTORY,
+  UNPACK_ROOT
+)
 from ..utils import extract_source
+
+logger = logging.getLogger('appscale-admin')
 
 
 class SourceManager(object):
@@ -89,10 +96,14 @@ class SourceManager(object):
       yield self.thread_pool.submit(self.zk_client.create, new_hoster_node,
                                     md5, makepath=True)
     except NodeExistsError:
-      logging.debug('{} is already a hoster'.format(options.private_ip))
+      logger.debug('{} is already a hoster'.format(options.private_ip))
 
     yield self.thread_pool.submit(extract_source, revision_key, location,
                                   runtime)
+
+    project_id = revision_key.split(VERSION_PATH_SEPARATOR)[0]
+    if project_id == DASHBOARD_APP_ID:
+      self.update_secret(revision_key)
 
   @gen.coroutine
   def ensure_source(self, revision_key, location, runtime):
@@ -142,10 +153,24 @@ class SourceManager(object):
         if error.errno != errno.ENOENT:
           raise
 
-        logging.debug(
+        logger.debug(
           '{} did not exist when trying to remove it'.format(archive_location))
 
       futures_to_clear.append(revision_key)
 
     for revision_key in futures_to_clear:
       del self.source_futures[revision_key]
+
+  @staticmethod
+  def update_secret(revision_key):
+    """ Ensures the revision's secret matches the deployment secret. """
+    deployment_secret = get_secret()
+    revision_base = os.path.join(UNPACK_ROOT, revision_key)
+    secret_module = os.path.join(revision_base, 'app', 'lib', 'secret_key.py')
+    with open(secret_module) as secret_file:
+      revision_secret = secret_file.read().split()[-1][1:-1]
+      if revision_secret == deployment_secret:
+        return
+
+    with open(secret_module, 'w') as secret_file:
+      secret_file.write("GLOBAL_SECRET_KEY = '{}'".format(deployment_secret))
