@@ -1,7 +1,6 @@
 """ This service starts and stops application servers of a given application. """
 
 import errno
-import glob
 import logging
 import math
 import os
@@ -32,11 +31,13 @@ from appscale.admin.instance_manager.constants import (
   INSTANCE_CLASSES,
   LOGROTATE_CONFIG_DIR,
   MAX_BACKGROUND_WORKERS,
+  MAX_INSTANCE_RESPONSE_TIME,
   MONIT_INSTANCE_PREFIX
 )
 from appscale.admin.instance_manager.projects_manager import (
   GlobalProjectsManager)
 from appscale.admin.instance_manager.source_manager import SourceManager
+from appscale.admin.instance_manager.stop_instance import stop_instance
 from appscale.admin.instance_manager.utils import find_web_inf
 from appscale.common import (
   appscale_info,
@@ -93,10 +94,6 @@ ROUTING_RETRY_INTERVAL = 5
 
 PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
                                 'app___{revision}-{port}.pid')
-
-# The number of seconds an instance is allowed to finish serving requests after
-# it receives a shutdown signal.
-MAX_INSTANCE_RESPONSE_TIME = 600
 
 # A DeploymentConfig accessor.
 deployment_config = None
@@ -389,17 +386,6 @@ def unmonitor_and_terminate(watch):
   Args:
     watch: A string specifying the Monit entry.
   """
-  pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))
-  try:
-    with open(pid_location) as pidfile:
-      instance_pid = int(pidfile.read().strip())
-  except IOError as error:
-    if error.errno != errno.ENOENT:
-      raise
-
-    raise HTTPError(HTTPCodes.INTERNAL_ERROR,
-                    '{} does not exist'.format(pid_location))
-
   try:
     unmonitor(watch)
   except ProcessNotFound:
@@ -414,7 +400,8 @@ def unmonitor_and_terminate(watch):
   except OSError:
     logging.error("Error deleting {0}".format(monit_config_file))
 
-  IOLoop.current().spawn_callback(kill_instance, watch, instance_pid)
+  IOLoop.current().spawn_callback(stop_instance, watch,
+                                  MAX_INSTANCE_RESPONSE_TIME)
 
 @gen.coroutine
 def stop_app_instance(version_key, port):

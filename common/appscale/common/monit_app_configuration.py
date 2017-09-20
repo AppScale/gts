@@ -51,8 +51,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
   logfile = os.path.join(
     '/', 'var', 'log', 'appscale', '{}.log'.format(process_name))
 
-  stop = ('start-stop-daemon --stop --pidfile {0} --retry=TERM/20/KILL/5 && '
-          'rm {0}'.format(pidfile))
+  stop = 'appscale-stop-instance --watch {}'.format(process_name)
   if syslog_server is None:
     bash_exec = 'exec env {vars} {start_cmd} >> {log} 2>&1'.format(
       vars=env_vars_str, start_cmd=start_cmd, log=logfile)
