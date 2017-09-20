@@ -222,7 +222,40 @@ class BaseVersionHandler(BaseHandler):
     raise gen.Return(http_port)
 
 class ProjectsHandler(BaseVersionHandler):
-  """ Manages application. """
+  """ Manages projects. """
+
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
+    """ Defines required resources to handle requests.
+
+    Args:
+      acc: An AppControllerClient.
+      ua_client: A UAClient.
+      zk_client: A KazooClient.
+      version_update_lock: A kazoo lock.
+      thread_pool: A ThreadPoolExecutor.
+    """
+    self.acc = acc
+    self.ua_client = ua_client
+    self.zk_client = zk_client
+    self.version_update_lock = version_update_lock
+    self.thread_pool = thread_pool
+
+
+  @gen.coroutine
+  def get(self):
+    """ List projects.
+    """
+    self.authenticate()
+    try:
+      projects = self.zk_client.get_children('/appscale/projects')
+    except NoNodeError:
+      projects = []
+    logging.info(projects)
+    self.write(json.dumps(projects))
+
+class ProjectHandler(BaseVersionHandler):
+  """ Manages a project. """
 
   def initialize(self, acc, ua_client, zk_client, version_update_lock,
                  thread_pool):
@@ -287,26 +320,16 @@ class ProjectsHandler(BaseVersionHandler):
     finally:
       self.version_update_lock.release()
 
-  @gen.coroutine
-  def get(self):
-    """ List projects.
-    """
-    self.authenticate()
-    try:
-      projects = self.zk_client.get_children('/appscale/projects')
-    except NoNodeError:
-      projects = []
-    logging.info(projects)
-    self.write(json.dumps(projects))
 
   @gen.coroutine
-  def delete(self):
+  def delete(self, projectId):
     """ Deletes a project.
+    
+    Args:
+      projectId: The id of the project to delete.
     """
     self.authenticate()
-    data = json.loads(self.request.body)
-    project_id = data['projectId']
-    project_path = '/appscale/projects/{0}'.format(project_id)
+    project_path = '/appscale/projects/{0}'.format(projectId)
     ports_to_close = []
     # Delete each version of each service of the project.
     for service_id in \
@@ -314,7 +337,7 @@ class ProjectsHandler(BaseVersionHandler):
       for version_id in self.zk_client.get_children(
           "{0}/services/{1}/versions".format(project_path, service_id)):
 
-        port = yield self.start_delete_version(project_id, service_id,
+        port = yield self.start_delete_version(projectId, service_id,
                                                version_id)
         ports_to_close.append(port)
 
@@ -924,6 +947,7 @@ def main():
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
      all_resources),
     ('/v1/projects', ProjectsHandler, all_resources),
+    ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)', ServiceHandler,
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
