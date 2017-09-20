@@ -247,7 +247,7 @@ class ProjectsHandler(BaseVersionHandler):
   
     Args:
       ports_to_close: A list of integers specifying the ports to wait for.
-      project_path: The zookeeper path to the project that should be deleted 
+      project_path: The zookeeper path to the project that should be deleted
         after the ports are closed.
     Raises:
       OperationTimeout if the deadline is exceeded.
@@ -288,7 +288,7 @@ class ProjectsHandler(BaseVersionHandler):
       self.version_update_lock.release()
 
   @gen.coroutine
-  def post(self):
+  def get(self):
     """ List projects.
     """
     self.authenticate()
