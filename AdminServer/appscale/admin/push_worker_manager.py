@@ -96,7 +96,7 @@ class ProjectPushWorkerManager(object):
                            IOLoop.current())
 
   @gen.coroutine
-  def stop_worker()
+  def stop_worker(self):
     """ Removes the monit configuration for the project's push worker. """
     status = yield self._wait_for_stable_state()
     if status == MonitStates.RUNNING:
@@ -104,6 +104,8 @@ class ProjectPushWorkerManager(object):
       yield self.monit_operator.send_command(self.monit_watch, 'stop')
       watch_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, self.monit_watch)
       os.remove(watch_file)
+    else:
+      logging.debug('Not stopping push worker for {} since it is not running.'.format(self.project_id))
 
 
   def celery_command(self):
@@ -207,6 +209,7 @@ class GlobalPushWorkerManager(object):
     zk_client.ensure_path('/appscale/projects')
     zk_client.ChildrenWatch('/appscale/projects', self._update_projects)
 
+  @gen.coroutine
   def update_projects(self, new_project_list):
     """ Establishes watches for each project's queue configuration.
 
@@ -217,7 +220,7 @@ class GlobalPushWorkerManager(object):
     to_stop = [project for project in self.projects
                if project not in new_project_list]
     for project_id in to_stop:
-      self.projects[new_project_id].stop_worker()
+      yield self.projects[project_id].stop_worker()
       del self.projects[project_id]
 
     for new_project_id in new_project_list:
