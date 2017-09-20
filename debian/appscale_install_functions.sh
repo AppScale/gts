@@ -431,10 +431,8 @@ installzookeeper()
         apt-get install -y zookeeper-server
     fi
 
-    # Trusty's kazoo version is too old, so use the version in Xenial.
-    case "$DIST" in
-        precise|trusty|wheezy) pipwrapper "kazoo==2.2.1" ;;
-    esac
+    # Use 2.4.0 to avoid NoNodeError for ChildrenWatches with no parents.
+    pipwrapper "kazoo==2.4.0"
 }
 
 installpycrypto()

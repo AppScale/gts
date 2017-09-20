@@ -3448,6 +3448,7 @@ def SetupStubs(app_id, **config):
     prospective_search_path: Path to the file to store Prospective Search stub
         data in.
     use_sqlite: Use the SQLite stub for the datastore.
+    auto_id_policy: How datastore stub assigns IDs, sequential or scattered.
     high_replication: Use the high replication consistency model
     history_path: DEPRECATED, No-op.
     clear_datastore: If the datastore should be cleared on startup.
@@ -3487,6 +3488,7 @@ def SetupStubs(app_id, **config):
   prospective_search_path = config.get('prospective_search_path', '')
   clear_prospective_search = config.get('clear_prospective_search', False)
   use_sqlite = config.get('use_sqlite', False)
+  auto_id_policy = config.get('auto_id_policy', datastore_stub_util.SEQUENTIAL)
   high_replication = config.get('high_replication', False)
   require_indexes = config.get('require_indexes', False)
   mysql_host = config.get('mysql_host', None)

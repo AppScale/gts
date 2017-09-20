@@ -3,7 +3,6 @@
 #
 # NOMURA Yoshihide <nomura@pobox.com>
 
-import base64
 import os
 import sys
 import unittest
@@ -11,8 +10,6 @@ import unittest
 from appscale.common.constants import APPSCALE_HOME
 from appscale.datastore import appscale_datastore
 from appscale.datastore import helper_functions as hf
-from appscale.datastore.dbconstants import APPS_SCHEMA
-from appscale.datastore.dbconstants import APPS_TABLE
 from appscale.datastore.dbconstants import USERS_SCHEMA
 from appscale.datastore.dbconstants import USERS_TABLE
 from test import test_support
@@ -41,19 +38,11 @@ class TestDatastoreFunctions(unittest.TestCase):
   def test_getput(self):
     ret = self.db.put_entity(USERS_TABLE, "1", USERS_SCHEMA, USERS_VALUES)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.put_entity(APPS_TABLE, "1", APPS_SCHEMA, APPS_VALUES)
-    self.assertEqual(self.error_code, ret[0])
     ret = self.db.get_entity(USERS_TABLE, "1", USERS_SCHEMA)
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual(USERS_VALUES[0], ret[1])
     self.assertEqual(USERS_VALUES[1], ret[2])
-    ret = self.db.get_entity(APPS_TABLE, "1", APPS_SCHEMA)
-    self.assertEqual(self.error_code, ret[0])
-    self.assertEqual(APPS_VALUES[0], ret[1])
-    self.assertEqual(APPS_VALUES[1], ret[2])
     ret = self.db.delete_row(USERS_TABLE, "1")
-    self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_row(APPS_TABLE, "1")
     self.assertEqual(self.error_code, ret[0])
 
   def test_getput_longkey(self):
@@ -108,14 +97,6 @@ class TestDatastoreFunctions(unittest.TestCase):
     ret = self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
-  def notest_get_nonexisting_key(self):
-    ret = self.db.get_entity(APPS_TABLE, "dummyappname", ["enabled"])
-    self.assertNotEqual(self.error_code, ret[0])
-
-  def notest_delete_nonexisting_key(self):
-    ret = self.db.delete_row(APPS_TABLE, "dummyappname")
-    self.assertNotEqual(self.error_code, ret[0])
-
   def notest_delete_row_nonexisting_table(self):
     ret = self.db.delete_row("dummytable", "dummyappname")
     self.assertNotEqual(self.error_code, ret[0])
@@ -156,72 +137,16 @@ class TestDatastoreFunctions(unittest.TestCase):
     ret = self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
-  def test_enabled(self):
-    ret = self.db.put_entity(APPS_TABLE, "enabledtest", ["enabled"], ["true"])
-    self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(APPS_TABLE, "enabledtest", ["enabled"])
-    self.assertEqual(self.error_code, ret[0])
-    self.assertEqual("true", ret[1])
-    ret = self.db.put_entity(APPS_TABLE, "enabledtest", ["enabled"], ["false"])
-    self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(APPS_TABLE, "enabledtest", ["enabled"])
-    self.assertEqual(self.error_code, ret[0])
-    self.assertEqual("false", ret[1])
-    ret = self.db.delete_row(APPS_TABLE, "enabledtest")
-    self.assertEqual(self.error_code, ret[0])
-
-  def test_language(self):
-    ret = self.db.put_entity(APPS_TABLE, "languagetest", ["language"], ["python"])
-    self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(APPS_TABLE, "languagetest", ["language"])
-    self.assertEqual(self.error_code, ret[0])
-    self.assertEqual("python", ret[1])
-    ret = self.db.delete_row(APPS_TABLE, "languagetest")
-    self.assertEqual(self.error_code, ret[0])
-
-  def test_genid(self):
-    ret = self.db.put_entity(APPS_TABLE, "genidtest", ["num_entries"], ["1"])
-    self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(APPS_TABLE, "genidtest", ["num_entries"])
-    self.assertEqual(self.error_code, ret[0])
-    err, value = ret
-    value = int(value)
-    self.assertEqual(1, value)
-    ret = self.db.put_entity(APPS_TABLE, "genidtest", ["num_entries"], [str(value + 1)])
-    self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(APPS_TABLE, "genidtest", ["num_entries"])
-    self.assertEqual(self.error_code, ret[0])
-    self.assertEqual("2", ret[1])
-    ret = self.db.delete_row(APPS_TABLE, "genidtest")
-    self.assertEqual(self.error_code, ret[0])
-
   def test_getschema(self):
     user_schema = self.db.get_schema(USERS_TABLE)
     self.assertEqual(self.error_code, user_schema[0])
     self.assertEqual(1, user_schema.count("email"))
     self.assertEqual(1, user_schema.count("pw"))
     self.assertEqual(1, user_schema.count("enabled"))
-    app_schema = self.db.get_schema(APPS_TABLE)
-    self.assertEqual(self.error_code, app_schema[0])
-    self.assertEqual(1, app_schema.count("name"))
-    self.assertEqual(1, app_schema.count("version"))
-    self.assertEqual(1, app_schema.count("enabled"))
 
   def test_getschema_nonexisting_table(self):
     ret = self.db.get_schema("dummytable")
     self.assertNotEqual(self.error_code, ret[0])
-
-  def test_getput_tar(self):
-    f = open('%s/AppDB/test/guestbook.tar.gz' % APPSCALE_HOME, 'r')
-    data = f.read()
-    encdata = base64.b64encode(data)
-    ret = self.db.put_entity(APPS_TABLE, "tartest", ["tar_ball"], [encdata])  
-    self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(APPS_TABLE, "tartest", ["tar_ball"])
-    self.assertEqual(self.error_code, ret[0])
-    self.assertEqual(encdata, ret[1])
-    ret = self.db.delete_row(APPS_TABLE, "tartest")
-    self.assertEqual(self.error_code, ret[0])
 
   def test_getput_binary(self):
     f = open('%s/AppDB/test/guestbook.tar.gz' % APPSCALE_HOME, 'r')

@@ -37,6 +37,7 @@ from .constants import (
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
+  ServingStatus,
   VALID_RUNTIMES
 )
 from .operation import (
@@ -50,6 +51,8 @@ from .push_worker_manager import GlobalPushWorkerManager
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
 
+
+logger = logging.getLogger('appscale-admin')
 
 # The state of each operation.
 operations = OperationsCache()
@@ -66,7 +69,7 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
-  logging.debug('Waiting for {} to open'.format(http_port))
+  logger.debug('Waiting for {} to open'.format(http_port))
   try:
     operation = operations[operation_id]
   except KeyError:
@@ -108,7 +111,7 @@ def wait_for_deploy(operation_id, acc):
   url = 'http://{}:{}'.format(options.login_ip, http_port)
   operation.finish(url)
 
-  logging.info('Finished operation {}'.format(operation_id))
+  logger.info('Finished operation {}'.format(operation_id))
 
 
 @gen.coroutine
@@ -186,7 +189,7 @@ class VersionsHandler(BaseHandler):
       user_exists = self.ua_client.does_user_exist(user)
     except UAException:
       message = 'Unable to determine if user exists: {}'.format(user)
-      logging.exception(message)
+      logger.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
     if not user_exists:
@@ -254,37 +257,17 @@ class VersionsHandler(BaseHandler):
 
     return version
 
-  def project_exists(self, project_id):
-    """ Checks if a project exists.
-    
-    Args:
-      project_id: A string specifying a project ID.
-    Raises:
-      CustomHTTPError if unable to determine if project exists.
-    """
-    try:
-      return self.ua_client.does_app_exist(project_id)
-    except UAException:
-      message = 'Unable to check if project exists: {}'.format(project_id)
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+  def version_exists(self, project_id, service_id, version_id):
+    """ Checks if a version exists.
 
-  def create_project(self, project_id, runtime):
-    """ Creates a new project.
-    
     Args:
       project_id: A string specifying a project ID.
-      runtime: A string specifying the project's runtime.
-    Raises:
-      CustomHTTPError if unable to create new project.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
     """
-    logging.info('Creating project: {}'.format(project_id))
-    try:
-      self.ua_client.commit_new_app(project_id, runtime)
-    except UAException:
-      message = 'Unable to ensure project exists: {}'.format(project_id)
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+    version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
+      project_id, service_id, version_id)
+    return self.zk_client.exists(version_node) is not None
 
   def put_version(self, project_id, service_id, new_version):
     """ Create or update version node.
@@ -334,15 +317,9 @@ class VersionsHandler(BaseHandler):
     Raises:
       CustomHTTPError if unable to start the deployment process.
     """
-    try:
-      self.ua_client.enable_app(project_id)
-    except UAException:
-      message = 'Unable to enable project'
-      logging.exception(message)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
     version_key = VERSION_PATH_SEPARATOR.join(
       [project_id, service_id, version_id])
+
     try:
       self.acc.update([version_key])
     except AppControllerException as error:
@@ -377,7 +354,7 @@ class VersionsHandler(BaseHandler):
                      if node.startswith(version_prefix)
                      and node < revision_key]
     for node in old_revisions:
-      logging.info('Removing hosting entries for {}'.format(node))
+      logger.info('Removing hosting entries for {}'.format(node))
       self.zk_client.delete('/apps/{}'.format(node), recursive=True)
 
   @gen.coroutine
@@ -391,10 +368,7 @@ class VersionsHandler(BaseHandler):
     self.authenticate()
     version = self.version_from_payload()
 
-    project_exists = self.project_exists(project_id)
-    if not project_exists:
-      self.create_project(project_id, version['runtime'])
-
+    version_exists = self.version_exists(project_id, service_id, version['id'])
     revision_key = VERSION_PATH_SEPARATOR.join(
       [project_id, service_id, version['id'], str(version['revision'])])
     try:
@@ -424,7 +398,7 @@ class VersionsHandler(BaseHandler):
     operation = CreateVersionOperation(project_id, service_id, version)
     operations[operation.id] = operation
 
-    pre_wait = REDEPLOY_WAIT if project_exists else 0
+    pre_wait = REDEPLOY_WAIT if version_exists else 0
     logging.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
     IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id,
@@ -567,16 +541,33 @@ class VersionHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
-    http_port = version['appscaleExtensions']['httpPort']
-    https_port = version['appscaleExtensions']['httpsPort']
-
-    try:
-      self.ua_client.add_instance(project_id, options.login_ip, http_port,
-                                  https_port)
-    except UAException:
-      logging.warning('Failed to notify UAServer about updated ports')
-
     raise gen.Return(version)
+
+  def get(self, project_id, service_id, version_id):
+    """ Gets the specified version resource.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+    """
+    self.authenticate()
+
+    version_details = self.get_version(project_id, service_id, version_id)
+
+    # Hide details that aren't needed for the public API.
+    version_details.pop('revision', None)
+    version_details.get('appscaleExtensions', {}).pop('haproxyPort', None)
+
+    http_port = version_details['appscaleExtensions']['httpPort']
+    response = {
+      'name': 'apps/{}/services/{}/versions/{}'.format(project_id, service_id,
+                                                       version_id),
+      'servingStatus': ServingStatus.SERVING,
+      'versionUrl': 'http://{}:{}'.format(options.login_ip, http_port)
+    }
+    response.update(version_details)
+    self.write(json_encode(response))
 
   @gen.coroutine
   def delete(self, project_id, service_id, version_id):
@@ -691,7 +682,7 @@ def main():
   args = parser.parse_args()
 
   if args.verbose:
-    logging.getLogger().setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
 
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
@@ -716,7 +707,7 @@ def main():
   }
 
   if options.private_ip in appscale_info.get_taskqueue_nodes():
-    logging.info('Starting push worker manager')
+    logger.info('Starting push worker manager')
     GlobalPushWorkerManager(zk_client, monit_operator)
 
   app = web.Application([
@@ -727,7 +718,7 @@ def main():
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
     ('/api/queue/update', UpdateQueuesHandler, {'zk_client': zk_client})
   ])
-  logging.info('Starting AdminServer')
+  logger.info('Starting AdminServer')
   app.listen(args.port)
   io_loop = IOLoop.current()
   io_loop.start()

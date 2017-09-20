@@ -9,6 +9,8 @@ from tornado.ioloop import IOLoop
 from appscale.common.constants import CONFIG_DIR
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 
+logger = logging.getLogger('appscale-admin')
+
 
 class VersionManager(object):
   """ Keeps track of version details. """
@@ -53,7 +55,7 @@ class VersionManager(object):
     with open(port_file_location, 'w') as port_file:
       port_file.write(str(http_port))
 
-    logging.info('Updated version details: {}'.format(version_key))
+    logger.info('Updated version details: {}'.format(version_key))
     if self.callback is not None:
       self.callback()
 

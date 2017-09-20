@@ -12,6 +12,8 @@ from .constants import CONFLICTING_JARS
 from .constants import MODIFIED_JARS
 from ..constants import InvalidSource
 
+logger = logging.getLogger('appscale-admin')
+
 
 def fetch_file(host, location):
   """ Copies a file from another machine.
@@ -76,7 +78,7 @@ def copy_modified_jars(source_path):
   lib_dir = os.path.join(web_inf_dir, 'lib')
 
   if not os.path.isdir(lib_dir):
-    logging.info('Creating lib directory: {}'.format(lib_dir))
+    logger.info('Creating lib directory: {}'.format(lib_dir))
     os.mkdir(lib_dir)
 
   for pattern in MODIFIED_JARS:
@@ -91,10 +93,10 @@ def remove_conflicting_jars(source_path):
   """
   lib_dir = os.path.join(find_web_inf(source_path), 'lib')
   if not os.path.isdir(lib_dir):
-    logging.warn('Java source does not contain lib directory')
+    logger.warn('Java source does not contain lib directory')
     return
 
-  logging.info('Removing jars from {}'.format(lib_dir))
+  logger.info('Removing jars from {}'.format(lib_dir))
   for file in os.listdir(lib_dir):
     for pattern in CONFLICTING_JARS:
       if fnmatch.fnmatch(file, pattern):

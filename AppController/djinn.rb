@@ -601,10 +601,6 @@ class Djinn
     # methods exposed via SOAP.
     @@secret = HelperFunctions.get_secret()
 
-    # An Array of Hashes, where each Hash contains a log message and the time
-    # it was logged.
-    @@logs_buffer = []
-
     @@log = Logger.new(STDOUT)
     @@log.level = Logger::INFO
 
@@ -1607,25 +1603,6 @@ class Djinn
     end
   end
 
-  # Queries the UserAppServer to see if the named application exists,
-  # and if it is listening to any port.
-  #
-  # Args:
-  #   appname: The name of the app that we should check for existence.
-  # Returns:
-  #   A boolean indicating whether or not the user application exists.
-  def does_app_exist(appname, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      return uac.does_app_exist?(appname)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer to check if the  " +
-        "application #{appname} exists")
-    end
-  end
-
   # Resets a user's password.
   #
   # Args:
@@ -1694,24 +1671,6 @@ class Djinn
     end
   end
 
-  # Retrieve application metadata from the UAServer.
-  #
-  #  Args:
-  #    app_id: A string containing the application ID.
-  #  Returns:
-  #    A JSON-encoded string containing the application metadata.
-  def get_app_data(app_id, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
-      return uac.get_app_data(app_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while getting the app " +
-        "admin for the application #{app_id}.")
-    end
-  end
-
   # Removes a version and stops all AppServers hosting it.
   #
   # Args:
@@ -1745,21 +1704,6 @@ class Djinn
     # Since stopping an application can take some time, we do it in a
     # thread.
     Thread.new {
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        begin
-          uac = UserAppClient.new(my_node.private_ip, @@secret)
-          if not uac.does_app_exist?(project_id)
-            Djinn.log_info("(stop_version) #{project_id} does not exist.")
-          else
-            result = uac.delete_app(project_id)
-            Djinn.log_debug("(stop_version) delete_app returned: #{result}.")
-          end
-        rescue FailedNodeException
-          Djinn.log_warn("(stop_version) delete_app: failed to talk " +
-                         "to the UserAppServer.")
-        end
-      end
-
       # If this node has any information about AppServers for this version,
       # clear that information out.
       APPS_LOCK.synchronize {
@@ -1989,7 +1933,6 @@ class Djinn
       # restart apps, terminate non-responsive AppServers, and autoscale.
       # Every other node syncs its state with the login node state.
       if my_node.is_shadow?
-        flush_log_buffer
         update_node_info_cache
         backup_appcontroller_state
 
@@ -2467,14 +2410,10 @@ class Djinn
   # This method logs a message that is useful to know when debugging AppScale,
   # but is too extraneous to know when AppScale normally runs.
   #
-  # Messages are logged both to STDOUT as well as to @@logs_buffer, which is
-  # sent to the AppDashboard for viewing via a web UI.
-  #
   # Args:
   #   message: A String containing the message to be logged.
   def self.log_debug(message)
     @@log.debug(message)
-    self.log_to_buffer(Logger::DEBUG, message)
   end
 
 
@@ -2485,7 +2424,6 @@ class Djinn
   #   message: A String containing the message to be logged.
   def self.log_info(message)
     @@log.info(message)
-    self.log_to_buffer(Logger::INFO, message)
   end
 
 
@@ -2496,7 +2434,6 @@ class Djinn
   #   message: A String containing the message to be logged.
   def self.log_warn(message)
     @@log.warn(message)
-    self.log_to_buffer(Logger::WARN, message)
   end
 
 
@@ -2507,7 +2444,6 @@ class Djinn
   #   message: A String containing the message to be logged.
   def self.log_error(message)
     @@log.error(message)
-    self.log_to_buffer(Logger::ERROR, message)
   end
 
 
@@ -2518,7 +2454,6 @@ class Djinn
   #   message: A String containing the message to be logged.
   def self.log_fatal(message)
     @@log.fatal(message)
-    self.log_to_buffer(Logger::FATAL, message)
   end
 
   # Use syslogd to log a message to the combined application log.
@@ -2530,29 +2465,6 @@ class Djinn
     Syslog.open("app___#{app_id}", Syslog::LOG_PID, Syslog::LOG_USER) { |s|
       s.err message
     }
-  end
-
-  # Appends this log message to a buffer, which will be periodically sent to
-  # the AppDashbord.
-  #
-  # Only sends the message if it has content (as some empty messages are the
-  # result of exec'ing commands that produce no output), and if its log level
-  # is at least as great as the log level that we want to capture logs for.
-  #
-  # Args:
-  #   level: An Integer in the set of Logger levels (e.g., Logger::DEBUG,
-  #     Logger::INFO) that indicates the severity of this log message.
-  #   message: A String containing the message to be logged.
-  def self.log_to_buffer(level, message)
-    return if message.empty?
-    return if level < @@log.level
-    time = Time.now
-    @@logs_buffer << {
-      'timestamp' => time.to_i,
-      'level' => level + 1,  # Python and Java are one higher than Ruby
-      'message' => message
-    }
-    return
   end
 
 
@@ -3190,54 +3102,6 @@ class Djinn
   end
 
 
-  # Returns the buffer that contains all logs yet to be sent to the Admin
-  # Console for viewing.
-  #
-  # Returns:
-  #   An Array of Hashes, where each Hash has information about a single log
-  #     line.
-  def self.get_logs_buffer()
-    return @@logs_buffer
-  end
-
-
-  # Sends all of the logs that have been buffered up to the Admin Console for
-  # viewing in a web UI.
-  def flush_log_buffer()
-    APPS_LOCK.synchronize {
-      loop {
-        break if @@logs_buffer.empty?
-        encoded_logs = JSON.dump({
-          'service_name' => 'appcontroller',
-          'host' => my_node.public_ip,
-          'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
-        })
-
-        # We send logs to dashboard only if controller_logs_to_dashboard
-        # is set to True. This will incur in higher traffic to the
-        # database, depending on the verbosity and the deployment.
-        if @options['controller_logs_to_dashboard'].downcase == "true"
-          begin
-            url = URI.parse("https://#{get_load_balancer.public_ip}:" +
-              "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
-            http = Net::HTTP.new(url.host, url.port)
-            http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-            http.use_ssl = true
-            response = http.post(url.path, encoded_logs,
-              {'Content-Type'=>'application/json'})
-            Djinn.log_debug("Done flushing logs to AppDashboard. " +
-              "Response is: #{response.body}.")
-          rescue
-            # Don't crash the AppController because we weren't able to send over
-            # the logs - just continue on.
-            Djinn.log_debug("Ignoring exception talking to dashboard.")
-          end
-        end
-      }
-    }
-  end
-
-
   # Returns information about the AppServer processes hosting App Engine apps on
   # this machine.
   def get_instance_info(secret)
@@ -3481,7 +3345,7 @@ class Djinn
       UserAppClient::SSL_SERVER_PORT, USE_SSL)
     uac = UserAppClient.new(@my_private_ip, @@secret)
     begin
-      uac.does_app_exist?("not-there")
+      uac.does_user_exist?("not-there")
     rescue FailedNodeException
       Djinn.log_debug("UserAppServer not ready yet: retrying.")
       retry
@@ -3626,20 +3490,6 @@ class Djinn
     @state = "Failed to prime #{table}."
     HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
-
-
-  # Delete all apps running on this instance.
-  def erase_app_instance_info()
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    begin
-      result = uac.delete_all_apps()
-      Djinn.log_info("UserAppServer delete_all_apps returned: #{result}.")
-    rescue FailedNodeException
-      Djinn.log_warn("Couldn't call delete_all_apps from UserAppServer.")
-      return
-    end
-  end
-
 
   def start_backup_service()
     BackupRecoveryService.start()
@@ -4048,7 +3898,9 @@ class Djinn
       HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
     end
 
-    HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
+    if File.exists?(gce_oauth)
+      HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
+    end
   end
 
   # Logs into the named host and alters its ssh configuration to enable the
@@ -4322,22 +4174,9 @@ HOSTS
           next
         end
 
-        # If nginx config files have been updated, we communicate the app's
-        # ports to the UserAppServer to make sure we have the latest info.
-        if Nginx.write_fullproxy_version_config(
+        Nginx.write_fullproxy_version_config(
           version_key, http_port, https_port, my_public, my_private,
           proxy_port, static_handlers, login_ip, app_language)
-          uac = UserAppClient.new(my_node.private_ip, @@secret)
-          begin
-            if uac.add_instance(project_id, my_public, http_port, https_port)
-              Djinn.log_info("Committed application info for #{project_id} " +
-                             "to user_app_server")
-            end
-          rescue FailedNodeException
-            Djinn.log_warn(
-              "Failed to talk to UAServer to add_instance for #{project_id}.")
-          end
-        end
       end
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
@@ -4999,37 +4838,6 @@ HOSTS
         end
       }
     }
-  end
-
-  # This functions returns the language of the application as recorded in
-  # the metadata.
-  # Args
-  #   app: A String naming the application.
-  # Returns:
-  #   language: returns python27, java, php or go depending on the
-  #       language of the app
-  def get_app_language(app)
-    app_language = ""
-
-    # Let's get the application language as we have in the metadata (this
-    # will be the latest from the user).
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
-    loop {
-      begin
-        result = uac.get_app_data(app)
-        app_data = JSON.load(result)
-        Djinn.log_debug("Got application data for #{app}: #{app_data}.")
-        app_language = app_data['language']
-        break
-      rescue FailedNodeException
-        # Failed to talk to the UserAppServer: let's try again.
-        Djinn.log_debug("Failed to talk to UserAppServer for #{app}.")
-      end
-      Djinn.log_info("Waiting for app data to have instance info for app named #{app}")
-      Kernel.sleep(SMALL_WAIT)
-    }
-
-    return app_language
   end
 
   # Small utility function that returns the full path for the rsyslog
@@ -5931,24 +5739,14 @@ HOSTS
   # Returns:
   #   A Boolean indicating the success of the operation.
   def remove_appserver_process(version_key, port)
-    project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting AppServer instance to free up unused resources")
 
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
     app_manager = AppManagerClient.new(my_node.private_ip)
 
-    begin
-      app_is_enabled = uac.is_app_enabled?(project_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer about " +
-        "application #{project_id}")
-      return false
-    end
-    Djinn.log_debug("is app #{project_id} enabled? #{app_is_enabled}")
-    if app_is_enabled == "false"
-      return false
-    end
+    version_is_enabled = ZKInterface.get_versions.include?(version_key)
+    Djinn.log_debug("is version #{version_key} enabled? #{version_is_enabled}")
+    return false unless version_is_enabled
 
     begin
       app_manager.stop_app_instance(version_key, port)
@@ -5983,17 +5781,6 @@ HOSTS
       'num_of_requests' => @total_req_seen[version_key]
     })
     return encoded_request_info
-  end
-
-  def stop_appengine()
-    Djinn.log_info("Shutting down AppEngine")
-
-    erase_app_instance_info()
-    Nginx.reload()
-
-    APPS_LOCK.synchronize {
-      @versions_loaded = []
-    }
   end
 
   # Copies a revision archive from a machine that has it.

@@ -4371,6 +4371,19 @@ class GetResponse(ProtocolBuffer.ProtocolMessage):
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting_datastore_v3.GetResponse'
 class PutRequest(ProtocolBuffer.ProtocolMessage):
+
+
+  CURRENT      =    0
+  SEQUENTIAL   =    1
+
+  _AutoIdPolicy_NAMES = {
+    0: "CURRENT",
+    1: "SEQUENTIAL",
+  }
+
+  def AutoIdPolicy_Name(cls, x): return cls._AutoIdPolicy_NAMES.get(x, "")
+  AutoIdPolicy_Name = classmethod(AutoIdPolicy_Name)
+
   has_transaction_ = 0
   transaction_ = None
   has_trusted_ = 0
@@ -4379,6 +4392,8 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
   force_ = 0
   has_mark_changes_ = 0
   mark_changes_ = 0
+  has_auto_id_policy_ = 0
+  auto_id_policy_ = 0
 
   def __init__(self, contents=None):
     self.entity_ = []
@@ -4493,6 +4508,19 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
 
   def clear_snapshot(self):
     self.snapshot_ = []
+  def auto_id_policy(self): return self.auto_id_policy_
+
+  def set_auto_id_policy(self, x):
+    self.has_auto_id_policy_ = 1
+    self.auto_id_policy_ = x
+
+  def clear_auto_id_policy(self):
+    if self.has_auto_id_policy_:
+      self.has_auto_id_policy_ = 0
+      self.auto_id_policy_ = 0
+
+  def has_auto_id_policy(self): return self.has_auto_id_policy_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -4503,6 +4531,7 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
     if (x.has_force()): self.set_force(x.force())
     if (x.has_mark_changes()): self.set_mark_changes(x.mark_changes())
     for i in xrange(x.snapshot_size()): self.add_snapshot().CopyFrom(x.snapshot(i))
+    if (x.has_auto_id_policy()): self.set_auto_id_policy(x.auto_id_policy())
 
   def Equals(self, x):
     if x is self: return 1
@@ -4523,6 +4552,8 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
     if len(self.snapshot_) != len(x.snapshot_): return 0
     for e1, e2 in zip(self.snapshot_, x.snapshot_):
       if e1 != e2: return 0
+    if self.has_auto_id_policy_ != x.has_auto_id_policy_: return 0
+    if self.has_auto_id_policy_ and self.auto_id_policy_ != x.auto_id_policy_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -4548,6 +4579,7 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_mark_changes_): n += 2
     n += 1 * len(self.snapshot_)
     for i in xrange(len(self.snapshot_)): n += self.lengthString(self.snapshot_[i].ByteSize())
+    if (self.has_auto_id_policy_): n += 1 + self.lengthVarInt64(self.auto_id_policy_)
     return n
 
   def ByteSizePartial(self):
@@ -4562,6 +4594,7 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_mark_changes_): n += 2
     n += 1 * len(self.snapshot_)
     for i in xrange(len(self.snapshot_)): n += self.lengthString(self.snapshot_[i].ByteSizePartial())
+    if (self.has_auto_id_policy_): n += 1 + self.lengthVarInt64(self.auto_id_policy_)
     return n
 
   def Clear(self):
@@ -4572,6 +4605,7 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
     self.clear_force()
     self.clear_mark_changes()
     self.clear_snapshot()
+    self.clear_auto_id_policy()
 
   def OutputUnchecked(self, out):
     for i in xrange(len(self.entity_)):
@@ -4599,6 +4633,9 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(74)
       out.putVarInt32(self.snapshot_[i].ByteSize())
       self.snapshot_[i].OutputUnchecked(out)
+    if (self.has_auto_id_policy_):
+      out.putVarInt32(80)
+      out.putVarInt32(self.auto_id_policy_)
 
   def OutputPartial(self, out):
     for i in xrange(len(self.entity_)):
@@ -4626,6 +4663,9 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(74)
       out.putVarInt32(self.snapshot_[i].ByteSizePartial())
       self.snapshot_[i].OutputPartial(out)
+    if (self.has_auto_id_policy_):
+      out.putVarInt32(80)
+      out.putVarInt32(self.auto_id_policy_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -4662,6 +4702,9 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
         tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
         d.skip(length)
         self.add_snapshot().TryMerge(tmp)
+        continue
+      if tt == 80:
+        self.set_auto_id_policy(d.getVarInt32())
         continue
 
 
@@ -4702,6 +4745,7 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
       res+=e.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
       cnt+=1
+    if self.has_auto_id_policy_: res+=prefix+("auto_id_policy: %s\n" % self.DebugFormatInt32(self.auto_id_policy_))
     return res
 
 
@@ -4715,6 +4759,7 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
   kforce = 7
   kmark_changes = 8
   ksnapshot = 9
+  kauto_id_policy = 10
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -4725,7 +4770,8 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
     7: "force",
     8: "mark_changes",
     9: "snapshot",
-  }, 9)
+    10: "auto_id_policy",
+  }, 10)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -4736,7 +4782,8 @@ class PutRequest(ProtocolBuffer.ProtocolMessage):
     7: ProtocolBuffer.Encoder.NUMERIC,
     8: ProtocolBuffer.Encoder.NUMERIC,
     9: ProtocolBuffer.Encoder.STRING,
-  }, 9, ProtocolBuffer.Encoder.MAX_TYPE)
+    10: ProtocolBuffer.Encoder.NUMERIC,
+  }, 10, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
