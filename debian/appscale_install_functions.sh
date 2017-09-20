@@ -542,7 +542,9 @@ EOF
     sed -i 's/set daemon.*/set daemon 5/' /etc/monit/monitrc
 
     # Monitor cron.
-    if [ -e /etc/monit/conf-available/cron -a ! -e /etc/monit/conf-enabled/cron ]; then
+    if [ -e /etc/monit/conf-available/cron ] &&
+            [ -e /etc/monit/conf-enabled ] &&
+            [ ! -e /etc/monit/conf-enabled/cron ]; then
         ln -s /etc/monit/conf-available/cron /etc/monit/conf-enabled
     fi
 
