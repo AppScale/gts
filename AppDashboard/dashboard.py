@@ -678,7 +678,6 @@ class AppDeletePage(AppDashboard):
     if self.dstore.is_user_cloud_admin() or \
             appname in self.dstore.get_owned_apps():
       message = self.helper.delete_app(appname)
-      self.dstore.delete_app_from_datastore(appname)
       try:
         taskqueue.add(url='/status/refresh')
         taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAIT_TIME)
