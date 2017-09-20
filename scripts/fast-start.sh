@@ -240,15 +240,13 @@ if [ ! -e AppScalefile ]; then
 
     # Download sample app.
     if [ ! -e ${GUESTBOOK_APP} ]; then
-      echo -n "Downloading sample app..."
+      echo "Downloading sample app."
       ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
-      if ! md5sum -c ${MD5_SUMS} ; then
-        echo "failed to get sample app (md5 check failed)!"
+      if ! md5sum --ignore-missing -c ${MD5_SUMS} ; then
+        echo "Failed to get sample app (md5 check failed)!"
         echo "Removing sample app tarball and disabling starts of sample app."
         rm -f ${GUESTBOOK_APP}
         USE_DEMO_APP="N"
-      else
-        echo "done."
       fi
     fi
 else
