@@ -21,6 +21,7 @@ APPSCALE_UPLOAD="$(which appscale-upload-app)"
 GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
 GUESTBOOK_URL="https://www.appscale.com/wp-content/uploads/2017/09/guestbook.tar.gz"
 GUESTBOOK_APP="/root/guestbook.tar.gz"
+MD5_SUMS="md5sums.txt"
 USE_DEMO_APP="Y"
 FORCE_PRIVATE="N"
 AZURE_METADATA="http://169.254.169.254/metadata/v1/InstanceInfo"
@@ -241,7 +242,14 @@ if [ ! -e AppScalefile ]; then
     if [ ! -e ${GUESTBOOK_APP} ]; then
       echo -n "Downloading sample app..."
       ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
-      echo "done."
+      if ! md5sum -c ${MD5_SUMS} ; then
+        echo "failed to get sample app (md5 check failed)!"
+        echo "Removing sample app tarball and disabling starts of sample app."
+        rm -f ${GUESTBOOK_APP}
+        USE_DEMO_APP="N"
+      else
+        echo "done."
+      fi
     fi
 else
     # If AppScalefile is present, do not redeploy the demo app.
