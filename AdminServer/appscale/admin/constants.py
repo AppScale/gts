@@ -35,6 +35,11 @@ class OperationTimeout(Exception):
   pass
 
 
+class InvalidConfiguration(Exception):
+  """ Indicates that a given configuration cannot be enforced. """
+  pass
+
+
 class InvalidSource(Exception):
   """ Indicates that a revision's source code is invalid. """
   pass

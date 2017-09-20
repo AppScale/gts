@@ -52,6 +52,8 @@ sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
 
 
+logger = logging.getLogger('appscale-admin')
+
 # The state of each operation.
 operations = OperationsCache()
 
@@ -67,7 +69,7 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
-  logging.debug('Waiting for {} to open'.format(http_port))
+  logger.debug('Waiting for {} to open'.format(http_port))
   try:
     operation = operations[operation_id]
   except KeyError:
@@ -109,7 +111,7 @@ def wait_for_deploy(operation_id, acc):
   url = 'http://{}:{}'.format(options.login_ip, http_port)
   operation.finish(url)
 
-  logging.info('Finished operation {}'.format(operation_id))
+  logger.info('Finished operation {}'.format(operation_id))
 
 
 @gen.coroutine
@@ -187,7 +189,7 @@ class VersionsHandler(BaseHandler):
       user_exists = self.ua_client.does_user_exist(user)
     except UAException:
       message = 'Unable to determine if user exists: {}'.format(user)
-      logging.exception(message)
+      logger.exception(message)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
     if not user_exists:
@@ -317,6 +319,7 @@ class VersionsHandler(BaseHandler):
     """
     version_key = VERSION_PATH_SEPARATOR.join(
       [project_id, service_id, version_id])
+
     try:
       self.acc.update([version_key])
     except AppControllerException as error:
@@ -351,7 +354,7 @@ class VersionsHandler(BaseHandler):
                      if node.startswith(version_prefix)
                      and node < revision_key]
     for node in old_revisions:
-      logging.info('Removing hosting entries for {}'.format(node))
+      logger.info('Removing hosting entries for {}'.format(node))
       self.zk_client.delete('/apps/{}'.format(node), recursive=True)
 
   @gen.coroutine
@@ -679,7 +682,7 @@ def main():
   args = parser.parse_args()
 
   if args.verbose:
-    logging.getLogger().setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
 
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
@@ -704,7 +707,7 @@ def main():
   }
 
   if options.private_ip in appscale_info.get_taskqueue_nodes():
-    logging.info('Starting push worker manager')
+    logger.info('Starting push worker manager')
     GlobalPushWorkerManager(zk_client, monit_operator)
 
   app = web.Application([
@@ -715,7 +718,7 @@ def main():
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
     ('/api/queue/update', UpdateQueuesHandler, {'zk_client': zk_client})
   ])
-  logging.info('Starting AdminServer')
+  logger.info('Starting AdminServer')
   app.listen(args.port)
   io_loop = IOLoop.current()
   io_loop.start()
