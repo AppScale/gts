@@ -221,8 +221,7 @@ class BaseVersionHandler(BaseHandler):
 
     raise gen.Return(http_port)
 
-
-class ProjectHandler(BaseVersionHandler):
+class ProjectsHandler(BaseVersionHandler):
   """ Manages application. """
 
   def initialize(self, acc, ua_client, zk_client, version_update_lock,
@@ -243,13 +242,70 @@ class ProjectHandler(BaseVersionHandler):
     self.thread_pool = thread_pool
 
   @gen.coroutine
-  def delete(self, project_id):
-    """ Deletes a project.
-
+  def wait_for_delete(self, ports_to_close, project_path):
+    """ Tracks the progress of removing version(s).
+  
     Args:
-      project_id: A string specifying a project ID.
+      ports_to_close: A list of integers specifying the ports to wait for.
+      project_path: The zookeeper path to the project that should be deleted 
+        after the ports are closed.
+    Raises:
+      OperationTimeout if the deadline is exceeded.
+    """
+
+    start_time = time.time()
+    deadline = start_time + constants.MAX_OPERATION_TIME
+
+    finished = 0
+    ports = ports_to_close[:]
+    while True:
+      if time.time() > deadline:
+        message = 'Delete operation took too long.'
+        raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+      to_remove = []
+      for http_port in ports:
+        # If the port is open, continue to process other ports.
+        if utils.port_is_open(options.login_ip, int(http_port)):
+          continue
+        # Otherwise one more port has finished and remove it from the list of
+        # ports to check.
+        finished += 1
+        to_remove.append(http_port)
+      ports = [p for p in ports if p not in to_remove]
+      if finished == len(ports_to_close):
+        break
+
+      yield gen.sleep(1)
+
+    # Cleanup the project in zookeeper.
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      try:
+        self.zk_client.delete(project_path, recursive=True)
+      except NoNodeError:
+        pass
+    finally:
+      self.version_update_lock.release()
+
+  @gen.coroutine
+  def post(self):
+    """ List projects.
     """
     self.authenticate()
+    try:
+      projects = self.zk_client.get_children('/appscale/projects')
+    except NoNodeError:
+      projects = []
+    logging.info(projects)
+    self.write(json.dumps(projects))
+
+  @gen.coroutine
+  def delete(self):
+    """ Deletes a project.
+    """
+    self.authenticate()
+    data = json.loads(self.request.body)
+    project_id = data['projectId']
     project_path = '/appscale/projects/{0}'.format(project_id)
     ports_to_close = []
     # Delete each version of each service of the project.
@@ -262,23 +318,10 @@ class ProjectHandler(BaseVersionHandler):
                                                version_id)
         ports_to_close.append(port)
 
-    del_operation = DeleteProjectOperation(project_id)
-    operations[del_operation.id] = del_operation
+    IOLoop.current().spawn_callback(self.wait_for_delete,
+                                    ports_to_close, project_path)
 
-    IOLoop.current().spawn_callback(wait_for_delete,
-                                    del_operation.id, ports_to_close)
-
-    # Cleanup the project in zookeeper.
-    yield self.thread_pool.submit(self.version_update_lock.acquire)
-    try:
-      try:
-        self.zk_client.delete(project_path, recursive=True)
-      except NoNodeError:
-        pass
-    finally:
-      self.version_update_lock.release()
-
-    self.write(json_encode(del_operation.rest_repr()))
+    self.set_status(200)
 
 
 class ServiceHandler(BaseVersionHandler):
@@ -880,8 +923,7 @@ def main():
   app = web.Application([
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
      all_resources),
-    ('/v1/apps/([a-z0-9-]+)', ProjectHandler,
-     all_resources),
+    ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)', ServiceHandler,
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
