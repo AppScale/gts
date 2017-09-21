@@ -5,6 +5,7 @@ from setuptools import setup
 install_requires = [
   'appscale-common',
   'kazoo',
+  'psutil',
   'PyYaml',
   'SOAPpy',
   'tornado'
@@ -33,5 +34,8 @@ setup(
   packages=['appscale',
             'appscale.admin',
             'appscale.admin.instance_manager'],
-  entry_points={'console_scripts': ['appscale-admin=appscale.admin:main']}
+  entry_points={'console_scripts': [
+    'appscale-admin=appscale.admin:main',
+    'appscale-stop-instance=appscale.admin.instance_manager.stop_instance:main'
+  ]}
 )
