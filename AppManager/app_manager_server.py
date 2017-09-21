@@ -318,23 +318,6 @@ def setup_logrotate(app_name, log_size):
 
   return True
 
-@gen.coroutine
-def kill_instance(watch, instance_pid):
-  """ Stops an AppServer process.
-
-  Args:
-    watch: A string specifying the monit entry for the process.
-    instance_pid: An integer specifying the process ID.
-  """
-  process = psutil.Process(instance_pid)
-  process.terminate()
-  try:
-    yield thread_pool.submit(process.wait, MAX_INSTANCE_RESPONSE_TIME)
-  except psutil.TimeoutExpired:
-    process.kill()
-
-  logging.info('Finished stopping {}'.format(watch))
-
 def unmonitor(process_name, retries=5):
   """ Unmonitors a process.
 
