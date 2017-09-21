@@ -20,6 +20,7 @@ from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from kazoo.client import KazooClient
 from kazoo.exceptions import NodeExistsError
 from kazoo.exceptions import NoNodeError
@@ -41,7 +42,6 @@ from .constants import (
   VALID_RUNTIMES
 )
 from .operation import (
-  DeleteProjectOperation,
   DeleteServiceOperation,
   CreateVersionOperation,
   DeleteVersionOperation,
@@ -159,6 +159,28 @@ def wait_for_delete(operation_id, ports_to_close):
   operation.finish()
 
 
+def update_project_state(zk_client, project_id, new_state):
+  """ Method for updating a project and its state in zookeeper."""
+  project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
+  state_json, _ = zk_client.get(project_path)
+  if state_json:
+    state = json.loads(state_json)
+  else:
+    state = {
+      'projectId': project_id,
+      'lifecycleState': new_state
+    }
+  state.update({'lifecycleState': LifecycleState.DELETE_REQUESTED})
+  zk_client.set(project_path, json.dumps(state))
+
+
+class LifecycleState(object):
+  ACTIVE = 'ACTIVE'
+  LIFECYCLE_STATE_UNSPECIFIED = 'LIFECYCLE_STATE_UNSPECIFIED'
+  DELETE_REQUESTED = 'DELETE_REQUESTED'
+  DELETE_IN_PROGRESS = 'DELETE_IN_PROGRESS'
+
+
 class BaseVersionHandler(BaseHandler):
 
   def get_version(self, project_id, service_id, version_id):
@@ -253,8 +275,18 @@ class ProjectsHandler(BaseVersionHandler):
       projects = self.zk_client.get_children('/appscale/projects')
     except NoNodeError:
       projects = []
-    logging.info(projects)
-    self.write(json.dumps(projects))
+
+    project_dicts = []
+    for project in projects:
+      project_json, metadata = self.zk_client.get(
+        constants.PROJECT_NODE_TEMPLATE.format(project))
+      project_dict = json.loads(project_json)
+      created = datetime.fromtimestamp(metadata.ctime / 1000.0).isoformat() + 'Z'
+      project_dict.update({'createTime': created})
+
+      project_dicts.append(project_dict)
+
+    self.write(json.dumps({'projects': project_dicts}))
 
 class ProjectHandler(BaseVersionHandler):
   """ Manages a project. """
@@ -277,17 +309,18 @@ class ProjectHandler(BaseVersionHandler):
     self.thread_pool = thread_pool
 
   @gen.coroutine
-  def wait_for_delete(self, ports_to_close, project_path):
+  def wait_for_delete(self, ports_to_close, project_id):
     """ Tracks the progress of removing version(s).
   
     Args:
       ports_to_close: A list of integers specifying the ports to wait for.
-      project_path: The zookeeper path to the project that should be deleted
-        after the ports are closed.
+      project_id: The id of the project we are deleting.
     Raises:
       OperationTimeout if the deadline is exceeded.
     """
-
+    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
+    update_project_state(self.zk_client, project_id,
+                         LifecycleState.DELETE_IN_PROGRESS)
     start_time = time.time()
     deadline = start_time + constants.MAX_OPERATION_TIME
 
@@ -331,7 +364,9 @@ class ProjectHandler(BaseVersionHandler):
       projectId: The id of the project to delete.
     """
     self.authenticate()
-    project_path = '/appscale/projects/{0}'.format(projectId)
+    project_path = constants.PROJECT_NODE_TEMPLATE.format(projectId)
+    update_project_state(self.zk_client, projectId,
+                         LifecycleState.DELETE_REQUESTED)
     ports_to_close = []
     # Delete each version of each service of the project.
     for service_id in \
@@ -344,7 +379,7 @@ class ProjectHandler(BaseVersionHandler):
         ports_to_close.append(port)
 
     IOLoop.current().spawn_callback(self.wait_for_delete,
-                                    ports_to_close, project_path)
+                                    ports_to_close, projectId)
 
     self.set_status(200)
 
@@ -554,6 +589,19 @@ class VersionsHandler(BaseHandler):
 
     new_version['appscaleExtensions'].update(
       utils.assign_ports(old_version, new_version, self.zk_client))
+
+    new_project = {
+      'projectId': project_id,
+      'lifecycleState': LifecycleState.ACTIVE
+    }
+    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
+    try:
+      self.zk_client.create(project_path, json.dumps(new_project),
+                            makepath=True)
+    except NodeExistsError:
+      if self.zk_client.get(project_path):
+        pass
+      self.zk_client.set(project_path, json.dumps(new_project))
 
     try:
       self.zk_client.create(version_node, json.dumps(new_version),

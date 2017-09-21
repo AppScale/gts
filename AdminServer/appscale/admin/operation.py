@@ -70,24 +70,6 @@ class Operation(object):
     return output
 
 
-class DeleteProjectOperation(Operation):
-  """ A container that keeps track of DeleteVersion operations. """
-
-  def __init__(self, project_id):
-    """ Creates a new CreateVersionOperation.
-
-    Args:
-      project_id: A string specifying a project ID.
-    """
-    super(DeleteProjectOperation, self).__init__(project_id)
-    self.method = Methods.DELETE_PROJECT
-
-  def finish(self):
-    """ Marks the operation as completed. """
-    self.response = {'@type': Types.EMPTY}
-    self.done = True
-
-
 class DeleteServiceOperation(Operation):
   """ A container that keeps track of DeleteVersion operations. """
 
