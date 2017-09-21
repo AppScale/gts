@@ -245,6 +245,7 @@ class BaseVersionHandler(BaseHandler):
 
     raise gen.Return(http_port)
 
+
 class ProjectsHandler(BaseVersionHandler):
   """ Manages projects. """
 
@@ -264,7 +265,6 @@ class ProjectsHandler(BaseVersionHandler):
     self.zk_client = zk_client
     self.version_update_lock = version_update_lock
     self.thread_pool = thread_pool
-
 
   @gen.coroutine
   def get(self):
@@ -287,6 +287,7 @@ class ProjectsHandler(BaseVersionHandler):
       project_dicts.append(project_dict)
 
     self.write(json.dumps({'projects': project_dicts}))
+
 
 class ProjectHandler(BaseVersionHandler):
   """ Manages a project. """
@@ -355,17 +356,16 @@ class ProjectHandler(BaseVersionHandler):
     finally:
       self.version_update_lock.release()
 
-
   @gen.coroutine
-  def delete(self, projectId):
+  def delete(self, project_id):
     """ Deletes a project.
     
     Args:
-      projectId: The id of the project to delete.
+      project_id: The id of the project to delete.
     """
     self.authenticate()
-    project_path = constants.PROJECT_NODE_TEMPLATE.format(projectId)
-    update_project_state(self.zk_client, projectId,
+    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
+    update_project_state(self.zk_client, project_id,
                          LifecycleState.DELETE_REQUESTED)
     ports_to_close = []
     # Delete each version of each service of the project.
@@ -374,14 +374,12 @@ class ProjectHandler(BaseVersionHandler):
       for version_id in self.zk_client.get_children(
           "{0}/services/{1}/versions".format(project_path, service_id)):
 
-        port = yield self.start_delete_version(projectId, service_id,
+        port = yield self.start_delete_version(project_id, service_id,
                                                version_id)
         ports_to_close.append(port)
 
     IOLoop.current().spawn_callback(self.wait_for_delete,
-                                    ports_to_close, projectId)
-
-    self.set_status(200)
+                                    ports_to_close, project_id)
 
 
 class ServiceHandler(BaseVersionHandler):
