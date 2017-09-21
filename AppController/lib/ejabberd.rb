@@ -5,7 +5,7 @@ require 'fileutils'
 
 
 $:.unshift File.join(File.dirname(__FILE__))
-require 'djinn_job_data'
+require 'node_info'
 require 'helperfunctions'
 require 'monit_interface'
 
