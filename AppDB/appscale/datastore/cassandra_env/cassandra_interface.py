@@ -511,12 +511,14 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-  def apply_mutations(self, mutations, txid):
-    """ Apply mutations across tables.
+  def statements_for_mutations(self, mutations, txid):
+    """ Generates Cassandra statements for a list of mutations.
 
     Args:
       mutations: A list of dictionaries representing mutations.
       txid: An integer specifying a transaction ID.
+    Returns:
+      A list of tuples containing Cassandra statements and parameters.
     """
     prepared_statements = {'insert': {}, 'delete': {}}
     statements_and_params = []
@@ -551,6 +553,16 @@ class DatastoreProxy(AppDBInterface):
         statements_and_params.append(
           (prepared_statements['delete'][table], params))
 
+    return statements_and_params
+
+  def apply_mutations(self, mutations, txid):
+    """ Apply mutations across tables.
+
+    Args:
+      mutations: A list of dictionaries representing mutations.
+      txid: An integer specifying a transaction ID.
+    """
+    statements_and_params = self.statements_for_mutations(mutations, txid)
     execute_concurrent(self.session, statements_and_params,
                        raise_on_first_error=True)
 
