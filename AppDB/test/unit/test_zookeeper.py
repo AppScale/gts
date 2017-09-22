@@ -205,7 +205,6 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # and when it's blacklisted
     zk.ZKTransaction.should_receive('is_blacklisted').and_return(True)
-    fake_transaction = zk.ZKTransaction(host="something")
     self.assertRaises(zk.ZKTransactionException, transaction.is_in_transaction,
       self.appid, 1)
 
