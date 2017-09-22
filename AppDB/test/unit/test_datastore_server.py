@@ -18,11 +18,10 @@ from appscale.datastore.cassandra_env.entity_id_allocator import\
   ScatteredAllocator
 
 from appscale.datastore.cassandra_env.cassandra_interface import (
-  DatastoreProxy,
-  deletions_for_entity,
-  index_deletions,
-  mutations_for_entity
-)
+  DatastoreProxy)
+from appscale.datastore.cassandra_env.utils import deletions_for_entity
+from appscale.datastore.cassandra_env.utils import index_deletions
+from appscale.datastore.cassandra_env.utils import mutations_for_entity
 
 from appscale.datastore.utils import (
   get_entity_key,

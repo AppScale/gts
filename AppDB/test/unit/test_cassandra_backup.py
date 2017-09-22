@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 import re
-import sys
 import subprocess
+import sys
 import unittest
 from flexmock import flexmock
 
 from appscale.common import appscale_info
+from appscale.common import appscale_utils
 from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from appscale.datastore.backup import backup_exceptions
 from appscale.datastore.backup import cassandra_backup
@@ -43,32 +44,35 @@ class TestCassandraBackup(unittest.TestCase):
 
     flexmock(appscale_info).should_receive('get_db_ips').and_return(db_ips)
 
-    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, re.compile('.*snapshot$'))
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, re.compile('.*snapshot$'))
 
-    flexmock(utils).should_receive('ssh').with_args(db_ips[0], keyname,
-      re.compile('.*du -s.*'), method=subprocess.check_output).\
-      and_return('200 file1\n500 file2\n')
-    flexmock(utils).should_receive('ssh').with_args(db_ips[1], keyname,
-      re.compile('.*du -s.*'), method=subprocess.check_output).\
-      and_return('900 file1\n100 file2\n')
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      db_ips[0], keyname, re.compile('.*du -s.*'),
+      method=subprocess.check_output).and_return('200 file1\n500 file2\n')
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      db_ips[1], keyname, re.compile('.*du -s.*'),
+      method=subprocess.check_output).and_return('900 file1\n100 file2\n')
 
     # Assume first DB machine does not have enough space.
-    flexmock(utils).should_receive('ssh').with_args(db_ips[0], keyname,
-      re.compile('^df .*'), method=subprocess.check_output).\
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      db_ips[0], keyname, re.compile('^df .*'),
+      method=subprocess.check_output).\
       and_return('headers\ndisk blocks used 100 etc')
     self.assertRaises(backup_exceptions.BRException,
       cassandra_backup.backup_data, path, keyname)
 
-    flexmock(utils).should_receive('ssh').with_args(db_ips[0], keyname,
-      re.compile('^df .*'), method=subprocess.check_output).\
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      db_ips[0], keyname, re.compile('^df .*'),
+      method=subprocess.check_output).\
       and_return('headers\ndisk blocks used 2000 etc')
-    flexmock(utils).should_receive('ssh').with_args(db_ips[1], keyname,
-      re.compile('^df .*'), method=subprocess.check_output).\
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      db_ips[1], keyname, re.compile('^df .*'),
+      method=subprocess.check_output).\
       and_return('headers\ndisk blocks used 3000 etc')
 
-    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, re.compile('.*tar --transform.*'))
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, re.compile('.*tar --transform.*'))
     cassandra_backup.backup_data(path, keyname)
 
   def test_restore_data(self):
@@ -78,26 +82,28 @@ class TestCassandraBackup(unittest.TestCase):
 
     flexmock(appscale_info).should_receive('get_db_ips').and_return(db_ips)
 
-    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, 'ls {}'.format(path), method=subprocess.call).and_return(0)
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, 'ls {}'.format(path),
+      method=subprocess.call).and_return(0)
 
-    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, 'monit summary', method=subprocess.check_output).\
-      and_return('summary output')
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, 'monit summary',
+      method=subprocess.check_output).and_return('summary output')
     status_outputs = (['Not monitored'] * len(db_ips)) +\
                      (['Running'] * len(db_ips))
-    flexmock(utils).should_receive('monit_status').and_return(*status_outputs)\
-      .one_by_one()
+    flexmock(utils).should_receive('monit_status').\
+      and_return(*status_outputs).one_by_one()
 
-    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, re.compile('^find.* -exec rm .*'))
-    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, re.compile('^tar xf .*'))
-    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, re.compile('^monit start .*'), subprocess.call)
-    flexmock(utils).should_receive('ssh').with_args(re.compile('^192.*'),
-      keyname, re.compile('^monit start .*'))
-    flexmock(utils).should_receive('ssh').with_args(
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, re.compile('^find.* -exec rm .*'))
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, re.compile('^tar xf .*'))
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, re.compile('^monit start .*'),
+      subprocess.call)
+    flexmock(appscale_utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, re.compile('^monit start .*'))
+    flexmock(appscale_utils).should_receive('ssh').with_args(
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
     flexmock(rebalance).should_receive('get_status').and_return(
       [{'state': 'UN'} for _ in db_ips])
