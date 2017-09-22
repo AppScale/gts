@@ -1,19 +1,21 @@
 """ Top level server for the Search API. """
-from search_api import SearchService
-
 import logging
 
+import argparse
+from appscale.common.constants import LOG_FORMAT
 import tornado.httpserver
 import tornado.httputil
 import tornado.ioloop
 import tornado.web
+
+from search_api import SearchService
 
 # Default port for the search API web server.
 DEFAULT_PORT = 53423
 
 class MainHandler(tornado.web.RequestHandler):
   """ Main handler class. """
-  
+
   def initialize(self, search_service):
     """ Class for initializing search service web handler. """
     self.search_service = search_service
@@ -36,16 +38,21 @@ class MainHandler(tornado.web.RequestHandler):
     request.connection.finish()
 
 
-def get_application():
-  """ Retrieves the application to feed into tornado. """
-  return tornado.web.Application([
-    (r"/?", MainHandler, dict(search_service=SearchService())),
-    ], )
-
 if __name__ == "__main__":
-  logging.getLogger().setLevel(logging.INFO) 
+  parser = argparse.ArgumentParser()
+  parser.add_argument(
+    '-v', '--verbose', action='store_true',
+    help='Output debug-level logging')
+  args = parser.parse_args()
+
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+  if args.verbose:
+    logging.getLogger().setLevel(logging.DEBUG)
+
   logging.info("Starting server on port {0}".format(DEFAULT_PORT))
 
-  app = get_application()
+  app = tornado.web.Application([
+    (r"/?", MainHandler, dict(search_service=SearchService())),
+  ])
   app.listen(DEFAULT_PORT)
   tornado.ioloop.IOLoop.current().start()

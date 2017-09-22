@@ -3502,7 +3502,8 @@ class Djinn
   end
 
   def start_search_role
-    Search.start_master(false)
+    verbose = @options['verbose'].downcase == "true"
+    Search.start_master(false, verbose)
   end
 
   def stop_search_role

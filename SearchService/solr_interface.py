@@ -42,7 +42,7 @@ class Solr():
     Returns:
       A str, the internal name of the index.
     """
-    return app_id + "_" + namespace + "_" + name  
+    return app_id + "_" + namespace + "_" + name
 
   def delete_doc(self, doc_id):
     """ Deletes a document by doc ID.
@@ -61,11 +61,11 @@ class Solr():
     try:
       req = urllib2.Request(solr_url, data=json_request)
       req.add_header('Content-Type', 'application/json')
-      conn = urllib2.urlopen(req) 
+      conn = urllib2.urlopen(req)
       if conn.getcode() != HTTP_OK:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
-      response = json.load(conn)
-      status = response['responseHeader']['status'] 
+      response = json_load_byteified(conn)
+      status = response['responseHeader']['status']
       logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
@@ -100,20 +100,20 @@ class Solr():
       conn = urllib2.urlopen(solr_url)
       if conn.getcode() != HTTP_OK:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
-      response = json.load(conn)
+      response = json_load_byteified(conn)
       logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
         exception))
       raise search_exceptions.InternalError("Malformed response from SOLR.")
 
-    # Make sure the response we got from SOLR was with a good status. 
-    status = response['responseHeader']['status'] 
+    # Make sure the response we got from SOLR was with a good status.
+    status = response['responseHeader']['status']
     if status != 0:
       raise search_exceptions.InternalError(
         "SOLR response status of {0}".format(status))
- 
-    # Get only fields which match the index name prefix. 
+
+    # Get only fields which match the index name prefix.
     filtered_fields = []
     for field in response['fields']:
       if field['name'].startswith("{0}_".format(index_name)):
@@ -140,11 +140,11 @@ class Solr():
     try:
       req = urllib2.Request(solr_url, data=json_request)
       req.add_header('Content-Type', 'application/json')
-      conn = urllib2.urlopen(req) 
+      conn = urllib2.urlopen(req)
       if conn.getcode() != HTTP_OK:
         raise search_exceptions.InternalError("Malformed response from SOLR.")
-      response = json.load(conn)
-      status = response['responseHeader']['status'] 
+      response = json_load_byteified(conn)
+      status = response['responseHeader']['status']
       logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
@@ -184,7 +184,7 @@ class Solr():
         hash_map[index.name + "_" + field.name] = iso8601
       elif field_type == Field.GEO:
         hash_map[index.name + "_" + field.name] = value
-      else: 
+      else:
         hash_map[index.name + "_" + field.name] = value
     return hash_map
 
@@ -204,13 +204,13 @@ class Solr():
     try:
       req = urllib2.Request(solr_url, data=json_payload)
       req.add_header('Content-Type', 'application/json')
-      conn = urllib2.urlopen(req) 
+      conn = urllib2.urlopen(req)
       if conn.getcode() != HTTP_OK:
         logging.error("Got code {0} with URL {1} and payload {2}".format(
         conn.getcode(), solr_url, json_payload))
         raise search_exceptions.InternalError("Bad request sent to SOLR.")
-      response = json.load(conn)
-      status = response['responseHeader']['status'] 
+      response = json_load_byteified(conn)
+      status = response['responseHeader']['status']
       logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
@@ -351,13 +351,13 @@ class Solr():
     try:
       req = urllib2.Request(solr_url)
       req.add_header('Content-Type', 'application/json')
-      conn = urllib2.urlopen(req) 
+      conn = urllib2.urlopen(req)
       if conn.getcode() != HTTP_OK:
         logging.error("Got code {0} with URL {1}.".format(
           conn.getcode(), solr_url))
         raise search_exceptions.InternalError("Bad request sent to SOLR.")
-      response = json.load(conn)
-      status = response['responseHeader']['status'] 
+      response = json_load_byteified(conn)
+      status = response['responseHeader']['status']
       logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
@@ -405,7 +405,7 @@ class Solr():
       if not key.startswith(index.name):
         continue
       field_name = key.split("{0}_".format(index.name), 1)[1]
-      new_field = new_doc.add_field() 
+      new_field = new_doc.add_field()
       new_field.set_name(field_name)
       new_value = new_field.mutable_value()
       field_type = ""
@@ -446,7 +446,7 @@ class Solr():
       geo = new_value.mutable_geo()
       lat, lng = value.split(',')
       geo.set_lat(float(lat))
-      geo.set_lng(float(lng)) 
+      geo.set_lng(float(lng))
       new_value.set_type(FieldValue.GEO)
     elif ftype.startswith(Field.TEXT_):
       new_value.set_string_value(value)
@@ -505,7 +505,7 @@ class Field():
   DATE = "date"
   NUMBER = "number"
 
-  def __init__(self, name, field_type, stored=True, indexed=True, 
+  def __init__(self, name, field_type, stored=True, indexed=True,
     multi_valued=False, value=None):
     """ Constructor for Field type. 
 
@@ -531,3 +531,43 @@ class Results():
     self.num_found = num_found
     self.docs = docs
     self.header = header
+
+
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Thanks to Mirec Miskuf (https://stackoverflow.com/a/33571117)
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+def json_load_byteified(file_handle):
+    return _byteify(
+      json.load(file_handle, object_hook=_byteify),
+      ignore_dicts=True
+    )
+
+
+def json_loads_byteified(json_text):
+  return _byteify(
+    json.loads(json_text, object_hook=_byteify),
+    ignore_dicts=True
+  )
+
+
+def _byteify(data, ignore_dicts=False):
+  # if this is a unicode string, return its string representation
+  if isinstance(data, unicode):
+    return data.encode('utf-8')
+  # if this is a list of values, return list of byteified values
+  if isinstance(data, list):
+    return [_byteify(item, ignore_dicts=True) for item in data]
+  # if this is a dictionary, return dictionary of byteified keys and values
+  # but only if we haven't already byteified it
+  if isinstance(data, dict) and not ignore_dicts:
+    return {
+      _byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True)
+      for key, value in data.iteritems()
+    }
+  # if it's anything else, return it in its original form
+  return data
+
+# <<<<<<<<<<<<<<<<<<<
+#  END of copy-paste
+# <<<<<<<<<<<<<<<<<<<
