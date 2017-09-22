@@ -86,8 +86,8 @@ class TestDjinn < Test::Unit::TestCase
 
     keyname = "appscale"
 
-    node1 = DjinnJobData.new(role1, keyname)
-    node2 = DjinnJobData.new(role2, keyname)
+    node1 = NodeInfo.new(role1, keyname)
+    node2 = NodeInfo.new(role2, keyname)
 
     # Instead of mocking out "valid_secret?" like we do elsewhere, let's
     # mock out the read_file function, which provides the same effect but
@@ -225,7 +225,7 @@ class TestDjinn < Test::Unit::TestCase
 
     djinn = Djinn.new
     djinn.my_index = 0
-    djinn.nodes = [DjinnJobData.new(master_role, "appscale")]
+    djinn.nodes = [NodeInfo.new(master_role, "appscale")]
 
     # Set the clear_datastore option.
     djinn.options = {'clear_datastore' => 'false',
@@ -269,7 +269,7 @@ class TestDjinn < Test::Unit::TestCase
 
     djinn = Djinn.new
     djinn.my_index = 1
-    djinn.nodes = [DjinnJobData.new(master_role, "appscale"), DjinnJobData.new(slave_role, "appscale")]
+    djinn.nodes = [NodeInfo.new(master_role, "appscale"), NodeInfo.new(slave_role, "appscale")]
 
     # Set the clear_datastore option.
     djinn.options = {'clear_datastore' => 'false',
@@ -314,7 +314,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.done_loading = true
-    my_node = DjinnJobData.new(role, "appscale")
+    my_node = NodeInfo.new(role, "appscale")
     djinn.nodes = [my_node]
 
     baz = flexmock("baz")
@@ -482,7 +482,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.done_loading = true
-    my_node = DjinnJobData.new(role, "appscale")
+    my_node = NodeInfo.new(role, "appscale")
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
@@ -518,7 +518,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.done_loading = true
-    my_node = DjinnJobData.new(role, "appscale")
+    my_node = NodeInfo.new(role, "appscale")
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
@@ -555,7 +555,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.done_loading = true
-    my_node = DjinnJobData.new(role, "appscale")
+    my_node = NodeInfo.new(role, "appscale")
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
@@ -592,7 +592,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.done_loading = true
-    my_node = DjinnJobData.new(role, "appscale")
+    my_node = NodeInfo.new(role, "appscale")
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
@@ -756,7 +756,7 @@ class TestDjinn < Test::Unit::TestCase
     }
     djinn = flexmock(Djinn.new())
     djinn.my_index = 0
-    djinn.nodes = [DjinnJobData.new(role, "appscale")]
+    djinn.nodes = [NodeInfo.new(role, "appscale")]
     djinn.last_updated = 0
     djinn.done_loading = true
     djinn

@@ -15,7 +15,7 @@ require 'helperfunctions'
 # (roles) a node is currently running. If running in a cloud infrastructure, it
 # also contains info about when we spawned the node (helpful for optimizing
 # costs, which may charge on an hourly basis).
-class DjinnRoleData
+class NodeInfo
   attr_accessor :public_ip, :private_ip, :roles, :instance_id, :cloud, :ssh_key
   attr_accessor :disk
  

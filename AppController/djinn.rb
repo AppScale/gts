@@ -150,7 +150,7 @@ START_APP_TIMEOUT = 180
 # be hosting, and exposes these methods via a SOAP interface (as is provided
 # in DjinnServer).
 class Djinn
-  # An Array of DjinnJobData objects, each of which containing information about
+  # An Array of NodeInfo objects, each of which containing information about
   # a node in the currently running AppScale deployment.
   attr_accessor :nodes
 
@@ -830,10 +830,10 @@ class Djinn
   #     informations (IPs, roles, instance ID etc...). These are the nodes
   #     specified in the AppScalefile at startup time.
   #   keyname: the key of this deployment, needed to initialize
-  #     DjinnJobData.
+  #     NodeInfo.
   #
   # Returns:
-  #   A DjinnJobData array suitale to be used in @nodes.
+  #   A NodeInfo array suitale to be used in @nodes.
   #
   # Exception:
   #   AppScaleException: returns a message if the layout is not valid.
@@ -896,7 +896,7 @@ class Djinn
       end
     }
 
-    # Transform the hash into DjinnJobData and return it.
+    # Transform the hash into NodeInfo and return it.
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     return nodes
   end
@@ -2484,13 +2484,13 @@ class Djinn
 
 
   # This method converts an Array of Strings (where each String contains all the
-  # information about a single node) to an Array of DjinnJobData objects, which
+  # information about a single node) to an Array of NodeInfo objects, which
   # provide convenience methods that make them easier to operate on than just
   # raw String objects.
   def self.convert_location_array_to_class(nodes, keyname)
     array_of_nodes = []
     nodes.each { |node|
-      converted = DjinnJobData.new(node, keyname)
+      converted = NodeInfo.new(node, keyname)
       array_of_nodes << converted
     }
 
@@ -2500,7 +2500,7 @@ class Djinn
 
   # This method is the opposite of the previous method, and is needed when an
   # AppController wishes to pass node information to other AppControllers via
-  # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
+  # SOAP (as SOAP accepts Arrays and Strings but not NodeInfo objects).
   def self.convert_location_class_to_json(layout)
     if layout.class != Array
       @state = "Locations is not an Array, but a #{layout.class}."
@@ -4328,7 +4328,7 @@ HOSTS
   # machine.
   #
   # Args:
-  # - node: A DjinnJobData that represents the machine where the given commands
+  # - node: A NodeInfo that represents the machine where the given commands
   #   should be executed.
   def run_user_commands(node)
     if @options['user_commands'].class == String
