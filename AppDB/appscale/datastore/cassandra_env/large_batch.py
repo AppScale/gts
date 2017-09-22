@@ -1,12 +1,22 @@
+import sys
 import uuid
 
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
+from tornado import gen
 from .retry_policies import (BASIC_RETRIES,
                              NO_RETRIES)
+from .utils import deletions_for_entity
+from .utils import mutations_for_entity
 from ..dbconstants import TRANSIENT_CASSANDRA_ERRORS
+from ..cassandra_env.tornado_cassandra import TornadoCassandra
 from ..utils import (logger,
                      tx_partition)
+
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.datastore import entity_pb
 
 
 class BatchNotFound(Exception):
@@ -214,3 +224,215 @@ class LargeBatch(object):
       assert result.was_applied
     except (TRANSIENT_CASSANDRA_ERRORS, AssertionError):
       raise FailedBatch('Unable to claim batch')
+
+
+class BatchResolver(object):
+  """ Resolves large batches. """
+  def __init__(self, project_id, db_access):
+    """ Creates a new BatchResolver.
+
+    Args:
+      project_id: A string specifying a project ID.
+      db_access: A DatastoreProxy.
+    """
+    self.project_id = project_id
+
+    self._db_access = db_access
+    self._session = self._db_access.session
+    self._tornado_cassandra = TornadoCassandra(self._session)
+    self._prepared_statements = {}
+
+  @gen.coroutine
+  def resolve(self, txid, composite_indexes):
+    """ Resolves a large batch for a given transaction.
+
+    Args:
+      txid: An integer specifying a transaction ID.
+      composite_indexes: A list of CompositeIndex objects.
+    """
+    txid_hash = tx_partition(self.project_id, txid)
+    new_op_id = uuid.uuid4()
+    try:
+      batch_status = yield self._get_status(txid_hash)
+    except BatchNotFound:
+      # Make sure another process doesn't try to commit the transaction.
+      yield self._insert(txid_hash, new_op_id)
+      raise gen.Return()
+
+    old_op_id = batch_status.op_id
+    yield self._update_op_id(txid_hash, batch_status.applied, old_op_id,
+                             new_op_id)
+
+    if batch_status.applied:
+      # Make sure all the mutations in the batch have been applied.
+      yield self._apply_mutations(txid, composite_indexes)
+
+  @gen.coroutine
+  def cleanup(self, txid):
+    """ Cleans up the metadata from the finished batch.
+
+    Args:
+      txid: An integer specifying a transaction ID.
+    """
+    txid_hash = tx_partition(self.project_id, txid)
+    yield self._delete_mutations(txid)
+    yield self._delete_status(txid_hash)
+
+  def _get_prepared(self, statement):
+    """ Caches prepared statements.
+
+    Args:
+      statement: A string containing a Cassandra statement.
+    """
+    if statement not in self._prepared_statements:
+      self._prepared_statements[statement] = self._session.prepare(statement)
+
+    return self._prepared_statements[statement]
+
+  @gen.coroutine
+  def _get_status(self, txid_hash):
+    """ Gets the current status of a large batch.
+
+    Args:
+      txid_hash: A byte array identifying the transaction.
+    Returns:
+      A Cassandra result for the batch entry.
+    """
+    statement = self._get_prepared("""
+      SELECT applied, op_id FROM batch_status
+      WHERE txid_hash = ?
+    """)
+    bound_statement = statement.bind((txid_hash,))
+    bound_statement.consistency_level = ConsistencyLevel.SERIAL
+    bound_statement.retry_policy = BASIC_RETRIES
+    results = yield self._tornado_cassandra.execute(bound_statement)
+    try:
+      raise gen.Return(results[0])
+    except IndexError:
+      raise BatchNotFound('Batch not found')
+
+  @gen.coroutine
+  def _insert(self, txid_hash, op_id):
+    """ Claims the large batch.
+
+    Args:
+      txid_hash: A byte array identifying the transaction.
+      op_id: A uuid4 specifying the process ID.
+    """
+    statement = self._get_prepared("""
+      INSERT INTO batch_status (txid_hash, applied, op_id)
+      VALUES (?, ?, ?)
+      IF NOT EXISTS
+    """)
+    bound_statement = statement.bind((txid_hash, False, op_id))
+    bound_statement.retry_policy = NO_RETRIES
+    results = yield self._tornado_cassandra.execute(bound_statement)
+    if not results[0].applied:
+      raise BatchNotOwned('Another process started applying the transaction')
+
+  @gen.coroutine
+  def _select_mutations(self, txid):
+    """ Fetches a list of the mutations for the batch.
+
+    Args:
+      txid: An integer specifying a transaction ID.
+    Returns:
+      An iterator of Cassandra results.
+    """
+    statement = self._get_prepared("""
+      SELECT old_value, new_value FROM batches
+      WHERE app = ? AND transaction = ?
+    """)
+    bound_statement = statement.bind((self.project_id, txid))
+    bound_statement.retry_policy = BASIC_RETRIES
+    results = yield self._tornado_cassandra.execute(bound_statement)
+    raise gen.Return(results)
+
+  @gen.coroutine
+  def _apply_mutations(self, txid, composite_indexes):
+    """ Applies all the mutations in the batch.
+
+    Args:
+      txid: An integer specifying a transaction ID.
+      composite_indexes: A list of CompositeIndex objects.
+    """
+    results = yield self._select_mutations(txid)
+    futures = []
+    for result in results:
+      old_entity = result.old_value
+      if old_entity is not None:
+        old_entity = entity_pb.EntityProto(old_entity)
+
+      new_entity = result.new_value
+      if new_entity is not None:
+        new_entity = entity_pb.EntityProto(new_entity)
+
+      if new_entity is None:
+        mutations = deletions_for_entity(old_entity, composite_indexes)
+      else:
+        mutations = mutations_for_entity(new_entity, txid, old_entity,
+                                         composite_indexes)
+
+      statements_and_params = self._db_access.statements_for_mutations(
+        mutations, txid)
+      for statement, params in statements_and_params:
+        futures.append(self._tornado_cassandra.execute(statement, params))
+
+    for future in futures:
+      yield future
+
+  @gen.coroutine
+  def _update_op_id(self, txid_hash, applied_status, old_op_id, new_op_id):
+    """ Claims a batch that is in progress.
+
+    Args:
+      txid_hash: A byte array identifying the transaction.
+      applied_status: A boolean indicating that the batch has been committed.
+      old_op_id: A uuid4 specifying the last read process ID.
+      new_op_id: A uuid4 specifying the new process ID.
+    """
+    statement = self._get_prepared("""
+      UPDATE batch_status
+      SET op_id = ?
+      WHERE txid_hash = ?
+      IF op_id = ?
+      AND applied = ?
+    """)
+    params = (new_op_id, txid_hash, old_op_id, applied_status)
+    bound_statement = statement.bind(params)
+    bound_statement.retry_policy = NO_RETRIES
+    results = yield self._tornado_cassandra.execute(bound_statement)
+    if not results[0].applied:
+      raise BatchNotOwned('Batch status changed after checking')
+
+  @gen.coroutine
+  def _delete_mutations(self, txid):
+    """ Removes mutation entries for the batch.
+
+    Args:
+      txid: An integer specifying a transaction ID.
+    """
+    statement = self._get_prepared("""
+      DELETE FROM batches
+      WHERE app = ? AND transaction = ?
+    """)
+    params = (self.project_id, txid)
+    bound_statement = statement.bind(params)
+    bound_statement.retry_policy = BASIC_RETRIES
+    yield self._tornado_cassandra.execute(bound_statement)
+
+  @gen.coroutine
+  def _delete_status(self, txid_hash):
+    """ Removes the batch status entry.
+
+    Args:
+      txid_hash: A byte array identifying a transaction.
+    """
+    statement = self._get_prepared("""
+      DELETE FROM batch_status
+      WHERE txid_hash = ?
+      IF EXISTS
+    """)
+    bound_statement = statement.bind((txid_hash,))
+    bound_statement.retry_policy = NO_RETRIES
+    yield self._tornado_cassandra.execute(bound_statement)
