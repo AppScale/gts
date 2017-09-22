@@ -25,7 +25,8 @@ class TornadoCassandra(object):
       callback_args=(tornado_future,), errback_args=(tornado_future,))
     return tornado_future
 
-  def _handle_success(self, result_set, tornado_future):
+  @staticmethod
+  def _handle_success(result_set, tornado_future):
     """ Assigns the Cassandra result to the Tornado future.
 
     Args:
@@ -34,7 +35,8 @@ class TornadoCassandra(object):
     """
     tornado_future.set_result(result_set)
 
-  def _handle_failure(self, error, tornado_future):
+  @staticmethod
+  def _handle_failure(error, tornado_future):
     """ Assigns the Cassandra exception to the Tornado future.
 
     Args:
