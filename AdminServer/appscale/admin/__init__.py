@@ -146,6 +146,127 @@ def wait_for_delete(operation_id, http_port):
   operation.finish()
 
 
+class AppsHandler(BaseHandler):
+  """ Manages applications. """
+  def initialize(self, zk_client):
+    """ Defines required resources to handle requests.
+
+    Args:
+      zk_client: An KazooClient.
+    """
+    self.zk_client = zk_client
+
+  def get(self):
+    """ Retrieves projects.
+
+    Returns:
+      A dict specifying apps information with full path to the project
+      and project ID.
+    """
+    self.authenticate()
+
+    apps_node = '/appscale/projects'
+    apps_info = {
+      'apps': []
+    }
+
+    try:
+      apps = self.zk_client.get_children(apps_node)
+
+      for app in apps:
+        apps_info['apps'].append({
+          'name': '{apps_node}/{app}'.format(apps_node=apps_node, app=app),
+          'id': app
+        })
+    except NoNodeError:
+      message = 'Applications not found'
+      logging.warn('{}. Node: {}'.format(message, apps_node))
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message=message)
+
+    self.write(json_encode(apps_info))
+
+
+class AppHandler(BaseHandler):
+  """ Manages application. """
+
+  def initialize(self, zk_client):
+    """ Defines required resources to handle requests.
+
+    Args:
+      zk_client: An KazooClient.
+    """
+    self.zk_client = zk_client
+
+  def get(self, project_id):
+    """ Retrieves project.
+
+    Returns:
+      A dict specifying app information with full path to the project
+      and project ID.
+    """
+    self.authenticate()
+
+    app_node = '/appscale/projects/{app}'.format(app=project_id)
+    app_info = {}
+
+    if self.zk_client.exists(app_node):
+      app_info = {
+        'name': app_node,
+        'id': project_id
+      }
+    else:
+      message = 'Application not found'
+      logging.warn('{}. Node: {}'.format(message, app_node))
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message=message)
+
+    self.write(json_encode(app_info))
+
+
+class ServicesHandler(BaseHandler):
+  """ Manages application services. """
+  def initialize(self, zk_client):
+    """ Defines required resources to handle requests.
+
+    Args:
+      zk_client: A KazooClient.
+    """
+    self.zk_client = zk_client
+
+  def get(self, project_id):
+    """ Retrieves project services.
+
+    Args:
+      project_id: A string specifying a project ID.
+    Returns:
+      A dict specifying service information with full path to the service
+      and service ID.
+    """
+    self.authenticate()
+
+    services_node = ('/appscale/projects/{project_id}/services'
+           .format(project_id=project_id))
+
+    services_info = {
+      'services': []
+    }
+
+    try:
+      services = self.zk_client.get_children(services_node)
+
+      for service in services:
+        services_info['services'].append({
+          'name': '{services_node}/{service}'.format(
+            services_node=services_node, service=service),
+          'id': service
+        })
+    except NoNodeError:
+      message = 'Services not found'
+      logging.warn('{}. Node: {}'.format(message, services_node))
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message=message)
+
+    self.write(json_encode(services_info))
+
+
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
 
@@ -171,6 +292,52 @@ class VersionsHandler(BaseHandler):
     self.zk_client = zk_client
     self.version_update_lock = version_update_lock
     self.thread_pool = thread_pool
+
+  def get(self, project_id, service_id):
+    """ Retrieves service versions.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+    Returns:
+      A dict specifying version information with full path to the version,
+      and version ID, runtime, threadsafe, http and https ports.
+    """
+    self.authenticate()
+
+    versions_node = (
+      '/appscale/projects/{project_id}/services/{service_id}/versions'
+        .format(project_id=project_id, service_id=service_id))
+
+    version_node = None
+
+    versions_info = {
+      'versions': []
+    }
+
+    try:
+      versions = self.zk_client.get_children(versions_node)
+
+      for version in versions:
+        version_node = '{versions_node}/{version}'.format(
+          versions_node=versions_node, version=version)
+        version_info = json_decode(self.zk_client.get(version_node)[0])
+
+        versions_info['versions'].append({
+          'name': version_node,
+          'id': version,
+          'runtime': version_info['runtime'],
+          'threadsafe': version_info['threadsafe'],
+          'http_port': version_info['appscaleExtensions']['httpPort'],
+          'https_port': version_info['appscaleExtensions']['httpsPort']
+        })
+    except NoNodeError:
+      message = 'Version(s) not found'
+      logging.warn('{}. Node: {}'.format(
+        message, version_node if version_info else versions_node))
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message=message)
+
+    self.write(json_encode(versions_info))
 
   def get_current_user(self):
     """ Retrieves the current user.
@@ -711,6 +878,10 @@ def main():
     GlobalPushWorkerManager(zk_client, monit_operator)
 
   app = web.Application([
+    ('/v1/apps', AppsHandler, {'zk_client': zk_client}),
+    ('/v1/apps/([a-z0-9-]+)', AppHandler, {'zk_client': zk_client}),
+    ('/v1/apps/([a-z0-9-]+)/services', ServicesHandler,
+     {'zk_client': zk_client}),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
