@@ -76,12 +76,6 @@ class TestZookeeperTransaction(unittest.TestCase):
     zoo.acquire_lock(self.appid, txid, "__allocate9__") 
     zoo.acquire_lock(self.appid, txid, "__allocate10__") 
 
-    current_id_1 = zoo.get_valid_transaction_id(self.appid, txid, "__allocate9__/key")
-    current_id_2 = zoo.get_valid_transaction_id(self.appid, txid, "__allocate10__/key")
-
-    zoo.register_updated_key(self.appid, current_id_1, txid, "__allocate9__/key")
-    zoo.register_updated_key(self.appid, current_id_2, txid, "__allocate10__/key")
-
     self.assertEquals(txid, zoo.get_valid_transaction_id(self.appid, txid, "__allocate9__/key"))
     self.assertEquals(txid, zoo.get_valid_transaction_id(self.appid, txid, "__allocate10__/key"))
 
@@ -97,9 +91,6 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     current_id_1 = zoo.get_valid_transaction_id(self.appid, txid, "__allocate11__/key")
     current_id_2 = zoo.get_valid_transaction_id(self.appid, txid, "__allocate12__/key")
-
-    zoo.register_updated_key(self.appid, current_id_1, txid, "__allocate11__/key")
-    zoo.register_updated_key(self.appid, current_id_2, txid, "__allocate12__/key")
 
     zoo.notify_failed_transaction(self.appid, txid)
 

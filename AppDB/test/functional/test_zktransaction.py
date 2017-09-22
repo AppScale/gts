@@ -307,7 +307,6 @@ class TestZKTransaction(unittest.TestCase):
     # timeout very fast
 #    self.zk.stopGC()
     dbconstants.MAX_TX_DURATION = 1
-    zktransaction.GC_INTERVAL = 1
 #    self.zk.setRollbackFunction(self.__rollbackReceiver)
     # restart gc thread
     self.keylist = None
@@ -342,7 +341,6 @@ class TestZKTransaction(unittest.TestCase):
     # revert settings
 #    self.zk.stopGC()
     dbconstants.MAX_TX_DURATION = 30
-    zktransaction.GC_INTERVAL = 30
 #    self.zk.setRollbackFunction(None)
     self.zk.startGC()
 
@@ -350,7 +348,6 @@ class TestZKTransaction(unittest.TestCase):
     # timeout very fast
 #    self.zk.stopGC()
     dbconstants.MAX_TX_DURATION = 1
-    zktransaction.GC_INTERVAL = 1
 #    self.zk.setRollbackFunction(self.__rollbackReceiver)
     # restart gc thread
     self.keylist = None
@@ -363,7 +360,6 @@ class TestZKTransaction(unittest.TestCase):
     ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
     vid = 100L
-    self.zk.register_updated_key(app, txid, vid, key + "/a")
     # wait for gc
     time.sleep(5)
     self.assertTrue(self.zk.is_blacklisted(app, txid))
@@ -389,7 +385,6 @@ class TestZKTransaction(unittest.TestCase):
     # revert settings
 #    self.zk.stopGC()
     dbconstants.MAX_TX_DURATION = 30
-    zktransaction.GC_INTERVAL = 30
 #    self.zk.setRollbackFunction(None)
     self.zk.startGC()
 
@@ -397,7 +392,6 @@ class TestZKTransaction(unittest.TestCase):
     # timeout very fast
 #    self.zk.stopGC()
     dbconstants.MAX_TX_DURATION = 1
-    zktransaction.GC_INTERVAL = 1
 #    self.zk.setRollbackFunction(self.__rollbackReceiver)
     # restart gc thread
     self.keylist = None
@@ -421,7 +415,6 @@ class TestZKTransaction(unittest.TestCase):
     # revert settings
 #    self.zk.stopGC()
     dbconstants.MAX_TX_DURATION = 30
-    zktransaction.GC_INTERVAL = 30
 #    self.zk.setRollbackFunction(None)
     self.zk.startGC()
 
@@ -457,7 +450,6 @@ class TestZKTransaction(unittest.TestCase):
     ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
     vid = 0L
-    self.zk.register_updated_key(app, txid, vid, key + "/a")
     ret = self.zk.notify_failed_transaction(app, txid)
     self.assertTrue(ret)
     self.assertTrue(self.zk.is_blacklisted(app, txid))
@@ -472,7 +464,6 @@ class TestZKTransaction(unittest.TestCase):
     self.assertEqual(vid, ret)
     # update previous valid id
     vid = 100L
-    self.zk.register_updated_key(app, txid2, vid, key + "/a")
     # try to get updated previous valid id
     ret = self.zk.get_valid_transaction_id(app, txid, key + "/a")
     self.assertEqual(vid, ret)
@@ -482,16 +473,9 @@ class TestZKTransaction(unittest.TestCase):
     global zkconnection
     self.zk = zkconnection
 
-  def tearDown(self):
-    # for debug
-    self.zk.dump_tree("/appscale/apps")
-
 if __name__ == "__main__":
   global zkconnection
   zkconnection = zktransaction.ZKTransaction()
-  if len(sys.argv) > 1 and sys.argv[1] == "dump":
-    zkconnection.dump_tree("/appscale")
-  else:
-    zkconnection.deleteRecursive("/appscale/apps")
-    test_support.run_unittest(TestZKTransaction)
+  zkconnection.deleteRecursive("/appscale/apps")
+  test_support.run_unittest(TestZKTransaction)
   zkconnection.close()

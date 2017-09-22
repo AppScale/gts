@@ -42,7 +42,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
     # assert, make sure we got back our id
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals((0, 1), transaction.increment_and_get_counter(
       self.appid, 1))
 
@@ -75,7 +75,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
     # assert, make sure we got back our id
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(1, transaction.create_sequence_node('/rootpath/' + \
       self.appid, 'now'))
 
@@ -97,7 +97,7 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # mock out zookeeper.create for txn id
     path_to_create = "/rootpath/" + self.appid
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(None, transaction.create_node('/rootpath/' + self.appid,
       'now'))
 
@@ -133,7 +133,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('create_node').with_args(xg_path, '1000')
 
     # assert, make sure we got back our id
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(1, transaction.get_transaction_id(self.appid, is_xg=True))
 
   def test_get_txn_path_before_getting_id(self):
@@ -150,7 +150,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('get_app_root_path').and_return("app_root_path")
 
     expected = zk.PATH_SEPARATOR.join(["app_root_path", zk.APP_TX_PATH, zk.APP_TX_PREFIX])
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(expected,
       transaction.get_txn_path_before_getting_id(self.appid))
 
@@ -173,7 +173,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     expected = zk.PATH_SEPARATOR.join(["app_root_path", zk.APP_TX_PATH,
       tx_str, zk.XG_PREFIX]) 
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(expected, transaction.get_xg_path("xxx", 100))
 
   def test_is_in_transaction(self):
@@ -193,19 +193,19 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('is_blacklisted').and_return(False)
     fake_zookeeper.should_receive('retry').with_args('exists', str) \
       .and_return(True)
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.is_in_transaction(self.appid, 1))
 
     # and when it's not
     zk.ZKTransaction.should_receive('is_blacklisted').and_return(False)
     fake_zookeeper.should_receive('retry').with_args('exists', str) \
       .and_return(False)
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(False, transaction.is_in_transaction(self.appid, 1))
 
     # and when it's blacklisted
     zk.ZKTransaction.should_receive('is_blacklisted').and_return(True)
-    fake_transaction = zk.ZKTransaction(host="something", start_gc=False)
+    fake_transaction = zk.ZKTransaction(host="something")
     self.assertRaises(zk.ZKTransactionException, transaction.is_in_transaction,
       self.appid, 1)
 
@@ -229,7 +229,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('is_in_transaction').and_return(False)
     zk.ZKTransaction.should_receive('acquire_additional_lock').and_return(True)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.acquire_lock(self.appid, "txid",
       "somekey"))
 
@@ -240,7 +240,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     fake_zookeeper.should_receive('retry').with_args('get', str) \
       .and_return(['/lock/root/path'])
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.acquire_lock(self.appid, "txid",
       "somekey"))
 
@@ -253,7 +253,7 @@ class TestZookeeperTransaction(unittest.TestCase):
       .and_return(['/lock/root/path2'])
     zk.ZKTransaction.should_receive('is_xg').and_return(False)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertRaises(zk.ZKTransactionException, transaction.acquire_lock, 
       self.appid, "txid", "somekey")
 
@@ -266,7 +266,7 @@ class TestZookeeperTransaction(unittest.TestCase):
       .and_return(['/lock/root/path2'])
     zk.ZKTransaction.should_receive('is_xg').and_return(True)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.acquire_lock(self.appid, "txid",
       "somekey"))
 
@@ -301,7 +301,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.acquire_additional_lock(self.appid,
       "txid", "somekey", False))
 
@@ -315,14 +315,14 @@ class TestZookeeperTransaction(unittest.TestCase):
     fake_zookeeper.should_receive('retry').with_args('get', str) \
       .and_return([lock_list_str])
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertRaises(zk.ZKTransactionException,
       transaction.acquire_additional_lock, self.appid, "txid", "somekey", False)
 
     # Test for when there is a node which already exists.
     fake_zookeeper.should_receive('retry').with_args('create', str, str, None,
       bool, bool, bool).and_raise(kazoo.exceptions.NodeExistsError)
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertRaises(zk.ZKTransactionException,
       transaction.acquire_additional_lock, self.appid, "txid", "somekey", False)
 
@@ -344,7 +344,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.check_transaction(self.appid, 1))
 
     # Check to make sure it raises exception for blacklisted transactions.
@@ -369,7 +369,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.is_xg(self.appid, 1))
 
   def test_release_lock(self):
@@ -399,7 +399,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.release_lock(self.appid, 1))
 
     zk.ZKTransaction.should_receive('is_xg').and_return(True)
@@ -433,109 +433,12 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.is_blacklisted(self.appid, 1))
 
-  def test_register_updated_key(self):
-    # mock out getTransactionRootPath
-    flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('get_valid_transaction_path').\
-      and_return('/txn/path')
-    zk.ZKTransaction.should_receive('get_transaction_path').\
-      and_return('/txn/path')
-
-    zk.ZKTransaction.should_receive('get_blacklist_root_path').\
-      and_return("bl_root_path")
-
-    # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', exists='exists',
-      set_async='set_async', connected=lambda: True)
-    fake_zookeeper.should_receive('start')
-    fake_zookeeper.should_receive('retry').with_args('exists', str) \
-      .and_return(True)
-    fake_zookeeper.should_receive('retry').with_args('set_async', str, str)
-
-    flexmock(kazoo.client)
-    kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
-
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
-    self.assertEquals(True, transaction.register_updated_key(self.appid, 
-      "1", "2", "somekey"))
-
-    fake_zookeeper.should_receive('retry').with_args('exists', str) \
-      .and_return(False)
-    self.assertRaises(ZKTransactionException, 
-      transaction.register_updated_key, self.appid, "1", "2", "somekey")
-
-  def test_try_garbage_collection(self):
-    # mock out getTransactionRootPath
-    flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('update_node')
-
-    # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', exists='exists', get='get',
-      get_children='get_children', create='create', delete='delete')
-    fake_zookeeper.should_receive('start')
-    fake_zookeeper.should_receive('retry').with_args('exists', str) \
-      .and_return(True)
-    fake_zookeeper.should_receive('retry').with_args('get', str) \
-      .and_return([str(time.time() + 10000)])
-    fake_zookeeper.should_receive('retry').with_args('get_children', str) \
-      .and_return(['1','2','3'])
-    fake_zookeeper.should_receive('retry').with_args('create', str, value=str, 
-      acl=None, ephemeral=bool)
-    fake_zookeeper.should_receive('retry').with_args('delete', str)
-
-    flexmock(kazoo.client)
-    kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
-
-    # Put the last time we ran GC way into the future.
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
-    self.assertEquals(False, transaction.try_garbage_collection(self.appid, 
-      "/some/path"))
-
-    # Make it so we recently ran the GC
-    fake_zookeeper.should_receive('retry').with_args('get', str) \
-      .and_return([str(time.time())])
-    self.assertEquals(False, transaction.try_garbage_collection(self.appid, 
-      "/some/path"))
-
-    # Make it so we ran the GC a long time ago.
-    fake_zookeeper.should_receive('retry').with_args('get', str) \
-      .and_return([str(time.time() - 1000)])
-    self.assertEquals(True, transaction.try_garbage_collection(self.appid, 
-      "/some/path"))
-
-    # No node means we have not run the GC before, so run it.
-    fake_zookeeper.should_receive('retry').with_args('get', str) \
-      .and_raise(kazoo.exceptions.NoNodeError)
-    self.assertEquals(True, transaction.try_garbage_collection(self.appid, 
-      "/some/path"))
-    
   def test_notify_failed_transaction(self):
     pass
-    #TODO  
-
-  def test_execute_garbage_collection(self):
-    # mock out getTransactionRootPath
-    flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('notify_failed_transaction')
-
-    # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', exists='exists', get='get',
-      get_children='get_children')
-    fake_zookeeper.should_receive('start')
-    fake_zookeeper.should_receive('retry').with_args('exists', str) \
-      .and_return(True)
-    fake_zookeeper.should_receive('retry').with_args('get', str) \
-      .and_return([str(time.time() + 10000)])
-    fake_zookeeper.should_receive('retry').with_args('get_children', str) \
-      .and_return(['1','2','3'])
-
-    flexmock(kazoo.client)
-    kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
-    transaction.execute_garbage_collection(self.appid, "some/path")
+    #TODO
 
   def test_get_lock_with_path(self):
     flexmock(zk.ZKTransaction)
@@ -549,7 +452,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.get_lock_with_path('path'))
 
     fake_zookeeper.should_receive('retry').with_args('create', str, value=str,
@@ -567,7 +470,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction = zk.ZKTransaction(host="something")
     self.assertEquals(True, transaction.release_lock_with_path('some/path'))
 
     fake_zookeeper.should_receive('retry').with_args('delete', str). \
