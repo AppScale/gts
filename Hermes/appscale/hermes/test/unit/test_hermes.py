@@ -70,6 +70,7 @@ class TestHelper(unittest.TestCase):
     poll()
 
   def test_signal_handler(self):
+    hermes.zk_client = flexmock(stop=lambda: None)
     flexmock(IOLoop.instance()).should_receive('add_callback').and_return()\
       .times(1)
     signal_handler(15, None)
