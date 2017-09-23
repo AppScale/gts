@@ -122,6 +122,17 @@ if ! ${PKG_CMD} remove --purge -y --force-yes ${PACKAGES}; then
     exit 1
 fi
 
+# Java 8 and capnproto require the backports repository.
+if [ "${DIST}" = "jessie" ]; then
+    backports_line="deb http://ftp.debian.org/debian jessie-backports main"
+    if ! grep $backports_line /etc/apt/sources.list; then
+        echo $backports_line >> /etc/apt/sources.list
+    fi
+    apt-get update
+    apt-get -t jessie-backports -y install capnproto
+    apt-get -t jessie-backports -y install openjdk-8-jdk
+fi
+
 # Let's make sure we use ruby 1.9.
 case ${DIST} in
     precise|wheezy)
