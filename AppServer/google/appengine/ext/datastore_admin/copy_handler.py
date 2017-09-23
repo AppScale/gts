@@ -236,7 +236,7 @@ class CopyEntity(object):
     target_entity = datastore.Entity._FromPb(entity_proto)
 
     yield operation.db.Put(target_entity)
-    yield utils.AllocateMaxId(key, target_app)
+    yield utils.ReserveKey(key, target_app)
     yield operation.counters.Increment(KindPathFromKey(key))
 
 

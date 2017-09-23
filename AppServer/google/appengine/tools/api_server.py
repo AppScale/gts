@@ -67,6 +67,7 @@ from google.appengine.api.xmpp import xmpp_service_stub
 from google.appengine.api import datastore_file_stub
 from google.appengine.datastore import datastore_sqlite_stub
 from google.appengine.datastore import datastore_stub_util
+from google.appengine.datastore import datastore_v4_stub
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.ext.remote_api import remote_api_pb
@@ -361,6 +362,10 @@ def _SetupStubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'datastore_v3', datastore)
+
+  apiproxy_stub_map.apiproxy.RegisterStub(
+      'datastore_v4',
+      datastore_v4_stub.DatastoreV4Stub(app_id))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'file',

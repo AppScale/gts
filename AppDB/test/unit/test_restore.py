@@ -76,7 +76,10 @@ class TestRestore(unittest.TestCase):
     pass
 
   def test_run(self):
-    zookeeper = flexmock()
+    zk_client = flexmock()
+    zk_client.should_receive('add_listener')
+
+    zookeeper = flexmock(handle=zk_client)
     ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     flexmock(datastore_distributed).should_receive(
