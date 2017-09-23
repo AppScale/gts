@@ -102,13 +102,12 @@ class ProjectPushWorkerManager(object):
     """ Removes the monit configuration for the project's push worker. """
     status = yield self._wait_for_stable_state()
     if status == MonitStates.RUNNING:
-      logging.info('Stopping push worker for {}.'.format(self.project_id))
+      logger.info('Stopping push worker for {}.'.format(self.project_id))
       yield self.monit_operator.send_command(self.monit_watch, 'stop')
       watch_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, self.monit_watch)
       os.remove(watch_file)
     else:
-      logging.debug('Not stopping push worker for {} since it is not running.'.format(self.project_id))
-
+      logger.debug('Not stopping push worker for {} since it is not running.'.format(self.project_id))
 
   def celery_command(self):
     """ Generates the Celery command for a project's push worker. """
