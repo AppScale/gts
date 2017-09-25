@@ -50,14 +50,14 @@ class FakeConnection():
   def __init__(self, is_good_code):
     self.code = 200
     if not is_good_code:
-      self.code = 500 
+      self.code = 500
   def getcode(self):
     return self.code
 
-class TestSolrInterface(unittest.TestCase):                              
+class TestSolrInterface(unittest.TestCase):
   """                                                                           
   A set of test cases for the solr interface module.
-  """            
+  """
   def test_get_index(self):
     appscale_info = flexmock()
     appscale_info.should_receive("get_search_location").and_return("somelocation")
@@ -104,7 +104,7 @@ class TestSolrInterface(unittest.TestCase):
     dictionary = {"responseHeader":{"status":1}}
     json.should_receive("load").and_return(dictionary)
     self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
-    
+
     dictionary = {"responseHeader":{"status":0}}
     json.should_receive("load").and_return(dictionary)
     solr.update_schema(updates)
@@ -119,7 +119,7 @@ class TestSolrInterface(unittest.TestCase):
     appscale_info = flexmock()
     appscale_info.should_receive("get_search_location").and_return("somelocation")
     solr = solr_interface.Solr()
-    
+
     flexmock(json)
     json.should_receive("loads").and_return({})
 
@@ -143,14 +143,14 @@ class TestSolrInterface(unittest.TestCase):
     appscale_info = flexmock()
     appscale_info.should_receive("get_search_location").and_return("somelocation")
     solr = solr_interface.Solr()
-    solr = flexmock(solr) 
+    solr = flexmock(solr)
     solr.should_receive("to_solr_doc").and_return(FakeSolrDoc())
     solr.should_receive("get_index").and_return(FakeIndex())
     solr.should_receive("compute_updates").and_return([])
     solr.should_receive("to_solr_hash_map").and_return(None)
     solr.should_receive("commit_update").and_return(None)
     solr.update_document("app_id", None, FakeIndexSpec())
-     
+
     solr.should_receive("compute_updates").and_return([1,2])
     solr.should_receive("update_schema").twice()
     solr.update_document("app_id", None, FakeIndexSpec())
@@ -158,3 +158,32 @@ class TestSolrInterface(unittest.TestCase):
     solr.should_receive("to_solr_hash_map").and_return(None).once()
     solr.update_document("app_id", None, FakeIndexSpec())
 
+  def test_json_loads_byteified(self):
+    json_with_unicode = (
+      '{"key2": [{"\\u2611": 28, "\\u2616": ["\\u263a"]}, "second", "third"], '
+      '"key1": "value", '
+      '"\\u2604": {"\\u2708": "\\u2708"}}'
+    )
+    parsed_obj = solr_interface.json_loads_byteified(json_with_unicode)
+
+    def walk_and_check_type(obj):
+      if isinstance(obj, dict):
+        for key, value in obj.iteritems():
+          self.assertIsInstance(key, str)
+          walk_and_check_type(value)
+      elif isinstance(obj, list):
+        for value in obj:
+          walk_and_check_type(value)
+      else:
+        self.assertIsInstance(obj, (str, int))
+
+    walk_and_check_type(parsed_obj)
+    self.assertEqual(parsed_obj, {
+      'key1': 'value',
+      'key2': [
+        {'\xe2\x98\x91': 28, '\xe2\x98\x96': ['\xe2\x98\xba']},
+        'second',
+        'third'
+      ],
+      '\xe2\x98\x84': {'\xe2\x9c\x88': '\xe2\x9c\x88'}
+    })

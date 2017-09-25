@@ -38,6 +38,10 @@ REPACKED_LIB_DIR = os.path.join(
 # The maximum number of threads to use for executing blocking tasks.
 MAX_BACKGROUND_WORKERS = 4
 
+# The number of seconds an instance is allowed to finish serving requests after
+# it receives a shutdown signal.
+MAX_INSTANCE_RESPONSE_TIME = 600
+
 # Patterns that match jars that should be copied to version sources.
 MODIFIED_JARS = [
   os.path.join(REPACKED_LIB_DIR, 'user', '*.jar'),

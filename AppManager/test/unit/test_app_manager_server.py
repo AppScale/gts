@@ -225,6 +225,12 @@ class TestAppManager(AsyncTestCase):
     flexmock(misc).should_receive('is_app_name_valid').and_return(True)
     flexmock(app_manager_server).should_receive('unmonitor').\
       and_raise(HTTPError)
+
+    unmonitor_future = Future()
+    unmonitor_future.set_exception(HTTPError(500))
+    flexmock(app_manager_server).should_receive('unmonitor_and_terminate').\
+      and_return(unmonitor_future)
+
     entries_response = Future()
     entries_response.set_result(['app___test_default_v1_revid-20000'])
     flexmock(MonitOperator).should_receive('get_entries').\
@@ -233,11 +239,6 @@ class TestAppManager(AsyncTestCase):
     with self.assertRaises(HTTPError):
       yield app_manager_server.stop_app_instance(version_key, port)
 
-    builtins = flexmock(sys.modules['__builtin__'])
-    builtins.should_call('open')
-    builtins.should_receive('open').\
-      with_args('/var/run/appscale/app___test_default_v1_revid-20000.pid').\
-      and_return(flexmock(read=lambda: '20000'))
     flexmock(app_manager_server).should_receive('unmonitor')
     flexmock(os).should_receive('remove')
     flexmock(monit_interface).should_receive('run_with_retry')

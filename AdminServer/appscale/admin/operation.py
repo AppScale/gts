@@ -11,17 +11,22 @@ from .constants import Types
 class Operation(object):
   """ A parent class for keeping track of particular operations. """
 
-  def __init__(self, project_id, service_id, version):
+  def __init__(self, project_id, service_id=None, version=None):
     """ Creates a new CreateVersionOperation.
 
     Args:
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
-      version: A dictionary containing verision details.
+      version: A dictionary containing version details.
     """
     self.project_id = project_id
     self.service_id = service_id
     self.version = version
+    self.target = 'apps/{}'.format(project_id)
+    if self.service_id:
+      self.target += '/services/{}'.format(self.service_id)
+    if self.version:
+      self.target += '/versions/{}'.format(self.version['id'])
 
     self.id = str(uuid.uuid4())
     self.start_time = datetime.datetime.utcnow()
@@ -51,8 +56,7 @@ class Operation(object):
         '@type': Types.OPERATION_METADATA,
         'method': self.method,
         'insertTime': self.start_time.isoformat() + 'Z',
-        'target': 'apps/{}/services/{}/versions/{}'.format(
-          self.project_id, self.service_id, self.version['id'])
+        'target': self.target
       },
       'done': self.done
     }
@@ -65,6 +69,24 @@ class Operation(object):
 
     return output
 
+
+class DeleteServiceOperation(Operation):
+  """ A container that keeps track of DeleteVersion operations. """
+
+  def __init__(self, project_id, service_id):
+    """ Creates a new CreateVersionOperation.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+    """
+    super(DeleteServiceOperation, self).__init__(project_id, service_id)
+    self.method = Methods.DELETE_SERVICE
+
+  def finish(self):
+    """ Marks the operation as completed. """
+    self.response = {'@type': Types.EMPTY}
+    self.done = True
 
 class CreateVersionOperation(Operation):
   """ A container that keeps track of CreateVersion operations. """
