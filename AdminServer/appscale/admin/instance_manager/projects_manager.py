@@ -125,7 +125,7 @@ class ServiceManager(dict):
 
   def stop(self):
     """ Stops all watches associated with this service. """
-    for version_id in self:
+    for version_id in self.keys():
       del self[version_id]
 
     self._stopped = True
@@ -187,7 +187,7 @@ class ProjectManager(dict):
 
   def stop(self):
     """ Stops all watches associated with this service. """
-    for service_id in self:
+    for service_id in self.keys():
       self[service_id].stop()
       del self[service_id]
 
