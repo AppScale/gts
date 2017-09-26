@@ -1,6 +1,10 @@
 import re
 
 
+class QueueNotFound(Exception):
+  """ Indicates that the specified queue does not exist. """
+  pass
+
 class InvalidQueueConfiguration(Exception):
   """ Indicates an invalid queue configuration. """
   pass

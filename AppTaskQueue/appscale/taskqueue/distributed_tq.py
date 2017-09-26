@@ -28,6 +28,7 @@ from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from .constants import (
   InvalidTarget,
+  QueueNotFound,
   TARGET_REGEX
 )
 from .queue import (
@@ -254,7 +255,8 @@ class DistributedTaskQueue():
     try:
       return self.queue_manager[app][queue]
     except KeyError:
-      return None
+      raise QueueNotFound(
+        'The queue {} is not defined for {}'.format(queue, app))
 
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the proper tags.
@@ -293,7 +295,11 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse()
 
     for queue_name in request.queue_name_list():
-      queue = self.get_queue(app_id, queue_name)
+      try:
+        queue = self.get_queue(app_id, queue_name)
+      except QueueNotFound as error:
+        return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
       stats_response = response.add_queuestats()
 
       if isinstance(queue, PullQueue):
@@ -329,7 +335,11 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueuePurgeQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueuePurgeQueueResponse()
 
-    queue = self.get_queue(app_id, request.queue_name())
+    try:
+      queue = self.get_queue(app_id, request.queue_name())
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     queue.purge()
     return (response.Encode(), 0, "")
 
@@ -345,7 +355,11 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueueDeleteRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteResponse()
 
-    queue = self.get_queue(app_id, request.queue_name())
+    try:
+      queue = self.get_queue(app_id, request.queue_name())
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     for task_name in request.task_name_list():
       queue.delete_task(Task({'id': task_name}))
       response.add_result(TaskQueueServiceError.OK)
@@ -364,7 +378,11 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest(http_data)
     response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
 
-    queue = self.get_queue(app_id, request.queue_name())
+    try:
+      queue = self.get_queue(app_id, request.queue_name())
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     tag = None
     if request.has_tag():
       tag = request.tag()
@@ -400,7 +418,10 @@ class DistributedTaskQueue():
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
     bulk_request.add_add_request().CopyFrom(request)
 
-    self.__bulk_add(source_info, bulk_request, bulk_response)
+    try:
+      self.__bulk_add(source_info, bulk_request, bulk_response)
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
     if bulk_response.taskresult_size() == 1:
       result = bulk_response.taskresult(0).result()
@@ -428,7 +449,12 @@ class DistributedTaskQueue():
     """
     request = taskqueue_service_pb.TaskQueueBulkAddRequest(http_data)
     response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-    self.__bulk_add(source_info, request, response)
+
+    try:
+      self.__bulk_add(source_info, request, response)
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     return (response.Encode(), 0, "")
 
   def __bulk_add(self, source_info, request, response):
@@ -812,7 +838,11 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest(http_data)
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
 
-    queue = self.get_queue(app_id, request.queue_name())
+    try:
+      queue = self.get_queue(app_id, request.queue_name())
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     task_info = {'id': request.task_name()}
     try:
       # The Python AppServer sets eta_usec with a resolution of 1 second,
