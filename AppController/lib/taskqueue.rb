@@ -56,7 +56,7 @@ module TaskQueue
   RABBITMQCTL = `which rabbitmqctl`.chomp
 
   # The longest we'll wait for RabbitMQ to come up in seconds.
-  MAX_WAIT_FOR_RABBITMQ = 30
+  MAX_WAIT_FOR_RABBITMQ = 60
 
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
