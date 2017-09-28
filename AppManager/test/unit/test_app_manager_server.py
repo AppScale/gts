@@ -77,7 +77,7 @@ class TestAppManager(AsyncTestCase):
     app_manager_server.projects_manager = {
       'test': {'default': {'v1': version_manager}}}
     app_manager_server.deployment_config = flexmock(
-      get_config=lambda x: {'max_memory': 400})
+      get_config=lambda x: {'default_max_appserver_memory': 400})
 
     source_manager = flexmock()
     response = Future()
@@ -119,7 +119,7 @@ class TestAppManager(AsyncTestCase):
     app_manager_server.projects_manager = {
       'test': {'default': {'v1': version_manager}}}
     app_manager_server.deployment_config = flexmock(
-      get_config=lambda x: {'max_memory': 400})
+      get_config=lambda x: {'default_max_appserver_memory': 400})
 
     source_manager = flexmock()
     response = Future()
@@ -171,7 +171,7 @@ class TestAppManager(AsyncTestCase):
     app_manager_server.projects_manager = {
       'test': {'default': {'v1': version_manager}}}
     app_manager_server.deployment_config = flexmock(
-      get_config=lambda x: {'max_memory': 400})
+      get_config=lambda x: {'default_max_appserver_memory': 400})
 
     source_manager = flexmock()
     response = Future()

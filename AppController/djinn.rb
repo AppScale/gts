@@ -551,7 +551,7 @@ class Djinn
     'login' => [ String, nil, true ],
     'machine' => [ String, nil, true ],
     'max_images' => [ Fixnum, '0', true ],
-    'max_memory' => [ Fixnum, "#{DEFAULT_MEMORY}", true ],
+    'default_max_appserver_memory' => [ Fixnum, "#{DEFAULT_MEMORY}", true ],
     'min_images' => [ Fixnum, '1', true ],
     'region' => [ String, nil, true ],
     'replication' => [ Fixnum, '1', true ],
@@ -1423,9 +1423,9 @@ class Djinn
       # We give some extra information to the user about some properties.
       if key == "keyname"
         Djinn.log_warn("Changing keyname can break your deployment!")
-      elsif key == "max_memory"
-        Djinn.log_warn("max_memory will be enforced on new AppServers only.")
-        ZKInterface.set_runtime_params({:max_memory => Integer(val)})
+      elsif key == "default_max_appserver_memory"
+        Djinn.log_warn("default_max_appserver_memory will be enforced on new AppServers only.")
+        ZKInterface.set_runtime_params({:default_max_appserver_memory => Integer(val)})
       elsif key == "min_images"
         unless is_cloud?
           Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
@@ -3031,9 +3031,9 @@ class Djinn
                     false)
     Djinn.log_info('Set custom cassandra configuration.')
 
-    if @options.key?('max_memory')
+    if @options.key?('default_max_appserver_memory')
       ZKInterface.set_runtime_params(
-        {:max_memory => Integer(@options['max_memory'])})
+        {:default_max_appserver_memory => Integer(@options['default_max_appserver_memory'])})
     end
   end
 
@@ -5393,7 +5393,7 @@ HOSTS
 
       project_id, service_id, version_id = version_key.split(
         VERSION_PATH_SEPARATOR)
-      max_app_mem = Integer(@options['max_memory'])
+      max_app_mem = Integer(@options['default_max_appserver_memory'])
       begin
         version_details = ZKInterface.get_version_details(
           project_id, service_id, version_id)
@@ -5466,7 +5466,7 @@ HOSTS
       return false
     end
 
-    max_app_mem = Integer(@options['max_memory'])
+    max_app_mem = Integer(@options['default_max_appserver_memory'])
     if version_details.key?('instanceClass')
       instance_class = version_details['instanceClass'].to_sym
       max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
