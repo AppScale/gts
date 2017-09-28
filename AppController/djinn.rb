@@ -529,7 +529,7 @@ class Djinn
     'azure_resource_group' => [ String, nil, false ],
     'azure_storage_account' => [ String, nil, false ],
     'azure_group_tag' => [ String, nil, false ],
-    'appengine' => [ Fixnum, '2', true ],
+    'default_min_appservers' => [ Fixnum, '2', true ],
     'autoscale' => [ TrueClass, 'True', true ],
     'client_secrets' => [ String, nil, false ],
     'controller_logs_to_dashboard' => [ TrueClass, 'False', false ],
@@ -5245,7 +5245,7 @@ HOSTS
 
     scaling_params = version_details.fetch('automaticScaling', {})
     min = scaling_params.fetch('minTotalInstances',
-                               Integer(@options['appengine']))
+                               Integer(@options['default_min_appservers']))
     if num_appengines < min
       Djinn.log_info(
         "#{version_key} needs #{min - num_appengines} more AppServers.")
@@ -5253,8 +5253,8 @@ HOSTS
       return min - num_appengines
     end
 
-    # We only run @options['appengine'] AppServers per application if
-    # austoscale is disabled.
+    # We only run @options['default_min_appservers'] AppServers per application
+    # if austoscale is disabled.
     return 0 if @options['autoscale'].downcase != "true"
 
     haproxy_port = version_details['appscaleExtensions']['haproxyPort']
@@ -5577,7 +5577,7 @@ HOSTS
         project_id, service_id, version_id)
       scaling_params = version_details.fetch('automaticScaling', {})
       min = scaling_params.fetch('minTotalInstances',
-                                 Integer(@options['appengine']))
+                                 Integer(@options['default_min_appservers']))
     rescue VersionNotFound
       min = 0
     end
