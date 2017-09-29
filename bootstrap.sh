@@ -140,7 +140,8 @@ while fuser /var/lib/apt/lists/lock; do
         echo "Waiting for another process to update package lists"
         printed_status=true
     fi
-    elapsed_time=$(($(date +%s) - $lock_wait_start))
+    current_time=$(date +%s)
+    elapsed_time=$((current_time - lock_wait_start))
     if [ "${elapsed_time}" -gt 30 ]; then break; fi
     sleep 1
 done
@@ -154,7 +155,8 @@ while fuser /var/lib/dpkg/lock; do
         echo "Waiting for another process to update packages"
         printed_status=true
     fi
-    elapsed_time=$(($(date +%s) - $lock_wait_start))
+    current_time=$(date +%s)
+    elapsed_time=$((current_time - lock_wait_start))
     if [ "${elapsed_time}" -gt 120 ]; then break; fi
     sleep 1
 done
