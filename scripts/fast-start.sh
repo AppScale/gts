@@ -212,7 +212,13 @@ if [ ! -e AppScalefile ]; then
     # This is to create the minimum AppScalefile.
     echo -n "Creating AppScalefile..."
     echo "ips_layout :" > AppScalefile
-    echo "  controller : ${PRIVATE_IP}" >> AppScalefile
+    echo "  -" >> AppScalefile
+    echo "    roles:" >> AppScalefile
+    echo "      - master" >> AppScalefile
+    echo "      - appengine" >> AppScalefile
+    echo "      - database" >> AppScalefile
+    echo "      - zookeeper" >> AppScalefile
+    echo "    nodes: ${PRIVATE_IP}" >> AppScalefile
     if [ "${FORCE_PRIVATE}" = "Y" ]; then
         echo "login : ${PRIVATE_IP}" >> AppScalefile
     else
