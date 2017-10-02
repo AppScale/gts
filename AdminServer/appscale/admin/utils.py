@@ -8,11 +8,17 @@ import shutil
 import socket
 import tarfile
 
+import random
+
+import traceback
 from appscale.common.constants import HTTPCodes
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
+from tornado import gen
+from tornado.gen import BadYieldError
+
 from . import constants
 from .constants import (
   CustomHTTPError,
@@ -497,3 +503,70 @@ def queues_from_dict(payload):
     queues[name] = queue
 
   return {'queue': queues}
+
+
+def retry_coroutine(func, async=True, backoff_base=2, backoff_multiplier=0.2,
+                    backoff_threshold=300, max_retries=None,
+                    retry_on_exception=None, refresh_args_kwargs_func=None):
+  """ Wraps func with retry mechanism which runs up to max_retries attempts
+  with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
+  
+  Args:
+    func: function or coroutine to wrap.
+    async: a boolean indicating if result of function should be yielded.
+    backoff_base: a number to use in backoff calculation.
+    backoff_multiplier: a number indicating initial backoff.
+    backoff_threshold: a number indicating maximum backoff.
+    max_retries: an integer indicating maximum number of retries.
+    retry_on_exception: a function receiving one argument: exception object and
+      returning True if retry makes sense for such exception.
+    refresh_args_kwargs_func: a function without arguments which should return
+      tuple of two elements (arguments list, keyword arguments dict).
+  Returns:
+    Wrapped persistent function
+  """
+
+  @gen.coroutine
+  def persistent_execute(*args, **kwargs):
+    retries = 0
+    backoff = backoff_multiplier * (backoff_base ** 1)
+
+    while True:
+      try:
+        result = func(*args, **kwargs)
+
+        if async:
+          try:
+            # Try to yield result
+            result = yield result
+          except BadYieldError:
+            pass
+
+        raise gen.Return(result)
+
+      except gen.Return:
+        raise
+      except Exception as e:
+        # Decide if retries is needed
+        if max_retries is not None and retries >= max_retries:
+          raise
+        if retry_on_exception is not None and not retry_on_exception(e):
+          raise
+        retries += 1
+
+        # Proceed with exponential backoff
+        sleep_time = backoff * random.gauss(1, 0.3)
+        backoff *= backoff_base
+        if backoff > backoff_threshold:
+          backoff = backoff_threshold
+        # Report error to logs
+        error = traceback.format_exc()
+        logger.error(u"{error}Retry #{retry} in {sleep:0.1f}s"
+                     .format(error=error, retry=retries, sleep=sleep_time))
+        yield gen.sleep(sleep_time)
+
+        # Refresh arguments if applicable
+        if refresh_args_kwargs_func is not None:
+          args, kwargs = refresh_args_kwargs_func()
+
+  return persistent_execute

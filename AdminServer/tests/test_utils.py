@@ -1,5 +1,10 @@
 import unittest
 
+import re
+from mock import call, patch
+from mock.mock import MagicMock
+from tornado import testing
+
 from appscale.admin import utils
 from appscale.taskqueue.constants import InvalidQueueConfiguration
 
@@ -53,3 +58,90 @@ class TestUtils(unittest.TestCase):
 
     for queue in invalid_queues:
       self.assertRaises(InvalidQueueConfiguration, utils.validate_queue, queue)
+
+
+class TestRetryCoroutine(testing.AsyncTestCase):
+
+  @patch.object(utils.gen, 'sleep')
+  @patch.object(utils.logger, 'error')
+  @testing.gen_test
+  def test_no_errors(self, logger_mock, gen_sleep_mock):
+    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+
+    # Call dummy lambda persistently.
+    persistent_work = utils.retry_coroutine(lambda: "No Errors")
+    result = yield persistent_work()
+
+    # Assert outcomes.
+    self.assertEqual(result, "No Errors")
+    self.assertEqual(gen_sleep_mock.call_args_list, [])
+    self.assertEqual(logger_mock.call_args_list, [])
+
+  @patch.object(utils.gen, 'sleep')
+  @patch.object(utils.logger, 'error')
+  @patch.object(utils.random, 'gauss')
+  @testing.gen_test
+  def test_backoff_and_logging(self, gauss_mock, logger_mock, gen_sleep_mock):
+    random_value = 1.1
+    gauss_mock.return_value = random_value
+    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+
+    def do_work():
+      raise ValueError(u"Error \u26a0!")
+
+    persistent_work = utils.retry_coroutine(
+      do_work, backoff_base=3, backoff_multiplier=0.1,
+      backoff_threshold=2, max_retries=4
+    )
+    try:
+      yield persistent_work()
+      self.fail("Exception was expected")
+    except ValueError:
+      pass
+
+    # Check backoff sleep calls (0.1 * (3 ** attempt) * random_value).
+    sleep_args = [args[0] for args, kwargs in gen_sleep_mock.call_args_list]
+    self.assertAlmostEqual(sleep_args[0], 0.33, 5)
+    self.assertAlmostEqual(sleep_args[1], 0.99, 5)
+    self.assertAlmostEqual(sleep_args[2], 2.2, 5)
+    self.assertAlmostEqual(sleep_args[3], 2.2, 5)
+
+    # Verify logged errors.
+    expected_logs = [
+      (re.compile(r"ValueError: Error \\u26a0!\nRetry #1 in 0\.3s")),
+      (re.compile(r"ValueError: Error \\u26a0!\nRetry #2 in 1\.0s")),
+      (re.compile(r"ValueError: Error \\u26a0!\nRetry #3 in 2\.2s")),
+      (re.compile(r"ValueError: Error \\u26a0!\nRetry #4 in 2\.2s")),
+    ]
+    self.assertEqual(len(expected_logs), len(logger_mock.call_args_list))
+    expected_messages = iter(expected_logs)
+    for call_args, call_kwargs in logger_mock.call_args_list:
+      error_message = expected_messages.next()
+      self.assertRegexpMatches(call_args[0], error_message)
+
+  @patch.object(utils.gen, 'sleep')
+  @testing.gen_test
+  def test_exception_filter(self, gen_sleep_mock):
+    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+
+    def func(exc_class, msg, retries_to_success):
+      retries_to_success['counter'] -= 1
+      if retries_to_success['counter'] <= 0:
+        return "Succeeded"
+      raise exc_class(msg)
+
+    def err_filter(exception):
+      return isinstance(exception, ValueError)
+
+    wrapped = utils.retry_coroutine(func, retry_on_exception=err_filter)
+
+    # Test retry helps.
+    result = yield wrapped(ValueError, "Matched", {"counter": 3})
+    self.assertEqual(result, "Succeeded")
+
+    # Test retry not applicable.
+    try:
+      yield wrapped(TypeError, "Failed", {"counter": 3})
+      self.fail("Exception was expected")
+    except TypeError:
+      pass
