@@ -4,6 +4,36 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
+
+AppScale version 3.4.0, released Oct, 2017
+Highlights of features/bugs in this release:
+- Introduced ability to deploy and manage multiple services
+- Improved celery worker performance by using eventlet pool
+- Reduced the number of dashboards running for smaller deployment
+- Added capability to store version details in Zookeeper
+- Upgraded Cassandra to 3.11
+- Improved various autoscaling policies
+- Reduced verbosity of logs to improve readability
+- Fixed a bug which left behind old celery producer connections
+- Moved Hermes configurations to Zookeeper
+- Added support for UpdateQueues API
+- Allowed external access to Hermes
+- Allowed use of separate HAProxy for appservers and services
+- Handled graceful instance termination with the AppManager
+- Handled graceful stop of Taskqueue servers
+- Added some monit interface improvements
+- Fixed a bug which allowes datastore clients to keep connections alive
+- Changed hosting structure to manage revisions
+- Allowed haproxy timeout to be tunable from the tools
+- Removed the need for email address while deploying apps
+- Fixed a bug to consider nodes with open role before spawning new instances
+- Fixed HAProxy stop commands
+- Removed tracking of application metadata from UAServer and relied on Zookeeper instead
+- Added support for resumable package downloads after failures during the build
+- Implemented the datastore_v4.AllocateIds API
+- Upgraded to Kazoo to 2.4.0
+- Fixed a bug which allowed to properly handle non-ascii coes in Search API
+
 AppScale version 3.3.0, released June, 2017
 Highlights of features/bugs in this release:
 - Added support for Ubuntu Xenial
