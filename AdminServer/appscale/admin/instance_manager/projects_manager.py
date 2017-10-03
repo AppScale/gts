@@ -9,6 +9,8 @@ from tornado.ioloop import IOLoop
 from appscale.common.constants import CONFIG_DIR
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 
+from appscale.admin import utils
+
 logger = logging.getLogger('appscale-admin')
 
 
@@ -76,8 +78,11 @@ class VersionManager(object):
       self._stopped = True
       return False
 
+    persistent_update_version = utils.retry_data_watch_coroutine(
+      self.zk_client, self.version_node, self.update_version
+    )
     main_io_loop = IOLoop.instance()
-    main_io_loop.add_callback(self.update_version, new_version)
+    main_io_loop.add_callback(persistent_update_version, new_version)
 
 
 class ServiceManager(dict):
@@ -143,8 +148,11 @@ class ServiceManager(dict):
     if self._stopped:
       return False
 
+    persistent_update_versions = utils.retry_children_watch_coroutine(
+      self.zk_client, self.versions_node, self.update_versions
+    )
     main_io_loop = IOLoop.instance()
-    main_io_loop.add_callback(self.update_versions, new_versions_list)
+    main_io_loop.add_callback(persistent_update_versions, new_versions_list)
 
 
 class ProjectManager(dict):
@@ -206,8 +214,11 @@ class ProjectManager(dict):
     if self._stopped:
       return False
 
+    persistent_update_services = utils.retry_children_watch_coroutine(
+      self.zk_client, self.services_node, self.update_services
+    )
     main_io_loop = IOLoop.instance()
-    main_io_loop.add_callback(self.update_services, new_services_list)
+    main_io_loop.add_callback(persistent_update_services, new_services_list)
 
 
 class GlobalProjectsManager(dict):
@@ -252,5 +263,8 @@ class GlobalProjectsManager(dict):
     Args:
       new_projects_list: A fresh list of strings specifying existing projects.
     """
+    persistent_update_project = utils.retry_children_watch_coroutine(
+      self.zk_client, '/appscale/projects', self.update_projects
+    )
     main_io_loop = IOLoop.instance()
-    main_io_loop.add_callback(self.update_projects, new_projects_list)
+    main_io_loop.add_callback(persistent_update_project, new_projects_list)

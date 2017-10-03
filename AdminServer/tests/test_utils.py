@@ -79,10 +79,10 @@ class TestRetryCoroutine(testing.AsyncTestCase):
 
   @patch.object(utils.gen, 'sleep')
   @patch.object(utils.logger, 'error')
-  @patch.object(utils.random, 'gauss')
+  @patch.object(utils.random, 'random')
   @testing.gen_test
   def test_backoff_and_logging(self, gauss_mock, logger_mock, gen_sleep_mock):
-    random_value = 1.1
+    random_value = 0.84
     gauss_mock.return_value = random_value
     gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
 
@@ -101,10 +101,10 @@ class TestRetryCoroutine(testing.AsyncTestCase):
 
     # Check backoff sleep calls (0.1 * (3 ** attempt) * random_value).
     sleep_args = [args[0] for args, kwargs in gen_sleep_mock.call_args_list]
-    self.assertAlmostEqual(sleep_args[0], 0.33, 5)
-    self.assertAlmostEqual(sleep_args[1], 0.99, 5)
-    self.assertAlmostEqual(sleep_args[2], 2.2, 5)
-    self.assertAlmostEqual(sleep_args[3], 2.2, 5)
+    self.assertAlmostEqual(sleep_args[0], 0.33, 2)
+    self.assertAlmostEqual(sleep_args[1], 0.99, 2)
+    self.assertAlmostEqual(sleep_args[2], 2.2, 2)
+    self.assertAlmostEqual(sleep_args[3], 2.2, 2)
 
     # Verify logged errors.
     expected_logs = [

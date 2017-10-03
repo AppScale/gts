@@ -559,7 +559,7 @@ def retry_coroutine(func, async=True, backoff_base=2, backoff_multiplier=0.2,
         retries += 1
 
         # Proceed with exponential backoff
-        sleep_time = backoff * random.gauss(1, 0.3)
+        sleep_time = backoff * (random.random()*0.3 + 0.85)
         backoff *= backoff_base
         if backoff > backoff_threshold:
           backoff = backoff_threshold
@@ -585,7 +585,10 @@ def retry_data_watch_coroutine(zk_client, node, func, **kwargs):
     A tornado coroutine wrapping function with retry mechanism.
   """
   def refresh_data():
-    data = zk_client.get(node)
+    try:
+      data = zk_client.get(node)
+    except NoNodeError:
+      data = None
     args = (data, )
     keyword_args = {}
     return args, keyword_args
