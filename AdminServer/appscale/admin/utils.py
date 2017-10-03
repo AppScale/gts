@@ -523,7 +523,7 @@ def retry_coroutine(func, async=True, backoff_base=2, backoff_multiplier=0.2,
     refresh_args_kwargs_func: a function without arguments which should return
       tuple of two elements (arguments list, keyword arguments dict).
   Returns:
-    Wrapped persistent function
+    A tornado coroutine wrapping function with retry mechanism.
   """
 
   @gen.coroutine
@@ -533,6 +533,10 @@ def retry_coroutine(func, async=True, backoff_base=2, backoff_multiplier=0.2,
 
     while True:
       try:
+        if retries and refresh_args_kwargs_func is not None:
+          # Refresh arguments if applicable after the first try
+          args, kwargs = refresh_args_kwargs_func()
+
         result = func(*args, **kwargs)
 
         if async:
@@ -565,8 +569,50 @@ def retry_coroutine(func, async=True, backoff_base=2, backoff_multiplier=0.2,
                      .format(error=error, retry=retries, sleep=sleep_time))
         yield gen.sleep(sleep_time)
 
-        # Refresh arguments if applicable
-        if refresh_args_kwargs_func is not None:
-          args, kwargs = refresh_args_kwargs_func()
-
   return persistent_execute
+
+
+def retry_data_watch_coroutine(zk_client, node, func, **kwargs):
+  """ Prepares retry coroutine which will do retries with the newest
+  state of node.
+  
+  Args:
+    zk_client: an instance of KazooClient.
+    node: a string representing zk node path.
+    func: a function or coroutine which handles node update.
+    kwargs: keyword arguments to be passed to retry_coroutine.
+  Returns:
+    A tornado coroutine wrapping function with retry mechanism.
+  """
+  def refresh_data():
+    data = zk_client.get(node)
+    args = (data, )
+    keyword_args = {}
+    return args, keyword_args
+
+  return retry_coroutine(
+    func, refresh_args_kwargs_func=refresh_data, **kwargs
+  )
+
+
+def retry_children_watch_coroutine(zk_client, node, func, **kwargs):
+  """ Prepares retry coroutine which will do retries with the newest
+  children list.
+  
+  Args:
+    zk_client: an instance of KazooClient.
+    node: a string representing zk node path.
+    func: a function or coroutine which handles node update.
+    kwargs: keyword arguments to be passed to retry_coroutine.
+  Returns:
+    A tornado coroutine wrapping function with retry mechanism.
+  """
+  def refresh_children():
+    data = zk_client.get_children(node)
+    args = (data, )
+    keyword_args = {}
+    return args, keyword_args
+
+  return retry_coroutine(
+    func, refresh_args_kwargs_func=refresh_children, **kwargs
+  )

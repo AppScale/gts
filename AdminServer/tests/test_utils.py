@@ -3,7 +3,7 @@ import unittest
 import re
 from mock import call, patch
 from mock.mock import MagicMock
-from tornado import testing
+from tornado import testing, gen
 
 from appscale.admin import utils
 from appscale.taskqueue.constants import InvalidQueueConfiguration
@@ -145,3 +145,56 @@ class TestRetryCoroutine(testing.AsyncTestCase):
       self.fail("Exception was expected")
     except TypeError:
       pass
+
+  @patch.object(utils.gen, 'sleep')
+  @testing.gen_test
+  def test_refresh_args(self, gen_sleep_mock):
+    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+
+    def func(first, second):
+      if first <= second:
+        raise ValueError("First should be greater than second")
+      return first, second
+
+    # Mock will be tracking function calls
+    func = MagicMock(side_effect=func)
+
+    fresh_args_kwargs = [
+      ((1,), {'second': 4}),   # causes ValueError: 1 <= 4
+      ((2,), {'second': 3}),   # causes ValueError: 1 <= 4
+      ((3,), {'second': 2}),   # ok: 3 > 2 (successful return here)
+      ((4,), {'second': 1}),   # ok: 4 > 1 (shouldn't be used)
+    ]
+    refresh_func = iter(fresh_args_kwargs).next
+    wrapped = utils.retry_coroutine(func, refresh_args_kwargs_func=refresh_func)
+
+    result = yield wrapped(0, 5)  # First try should fail (0 <= 5)
+    self.assertEqual(result, (3, 2))
+    self.assertEqual(func.call_args_list, [
+      call(0, 5),
+      call(1, second=4),
+      call(2, second=3),
+      call(3, second=2)
+    ])
+
+  @patch.object(utils.gen, 'sleep')
+  @testing.gen_test
+  def test_wrapping_coroutine(self, gen_sleep_mock):
+    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+
+    @gen.coroutine
+    def func(first, second):
+      if first <= second:
+        raise ValueError("First should be greater than second")
+      raise gen.Return((first, second))
+
+    fresh_args_kwargs = [
+      ((1,), {'second': 4}),   # causes ValueError: 1 <= 4
+      ((3,), {'second': 2}),   # ok: 3 > 2 (successful return here)
+    ]
+    refresh_func = iter(fresh_args_kwargs).next
+    wrapped = utils.retry_coroutine(func, refresh_args_kwargs_func=refresh_func)
+
+    # Test retry helps.
+    result = yield wrapped(0, 5)
+    self.assertEqual(result, (3, 2))
