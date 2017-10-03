@@ -27,10 +27,13 @@ module TerminateHelper
         next if line.include?('cron')
         next if line.start_with?('System')
         next unless line.include?('Running')
+
         all_stopped = false
+        next if line.include?('stop pending')
         entry = line.split[1][1..-2]
         `monit stop #{entry} 2>&1`
         sleep(0.5)
+        break
       end
       break if all_stopped
     end
