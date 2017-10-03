@@ -24,7 +24,7 @@ module TerminateHelper
       all_stopped = true
       monit_output.each_line do |line|
         # Leave cron-related entries alone.
-        next if line.start_with?('cron')
+        next if line.include?('cron')
         next if line.start_with?('System')
         next unless line.include?('Running')
         all_stopped = false
