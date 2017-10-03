@@ -115,9 +115,9 @@ class TestRetryCoroutine(testing.AsyncTestCase):
     ]
     self.assertEqual(len(expected_logs), len(logger_mock.call_args_list))
     expected_messages = iter(expected_logs)
-    for call_args, call_kwargs in logger_mock.call_args_list:
+    for call_args_kwargs in logger_mock.call_args_list:
       error_message = expected_messages.next()
-      self.assertRegexpMatches(call_args[0], error_message)
+      self.assertRegexpMatches(call_args_kwargs[0][0], error_message)
 
   @patch.object(utils.gen, 'sleep')
   @testing.gen_test

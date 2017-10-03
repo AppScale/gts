@@ -510,7 +510,7 @@ def retry_coroutine(func, async=True, backoff_base=2, backoff_multiplier=0.2,
                     retry_on_exception=None, refresh_args_kwargs_func=None):
   """ Wraps func with retry mechanism which runs up to max_retries attempts
   with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
-  
+
   Args:
     func: function or coroutine to wrap.
     async: a boolean indicating if result of function should be yielded.
