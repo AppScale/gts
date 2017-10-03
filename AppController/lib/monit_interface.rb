@@ -224,18 +224,18 @@ BOO
   # dev_appservers needs to still be monitored by monit.
   # Returns:
   #   A list of application:port records.
-  def self.running_appengines()
-    appengines = []
+  def self.running_appservers()
+    appservers = []
     output = self.run_cmd("#{MONIT} summary | grep -E 'app___.*(Running|Initializing)'")
-    appengines_raw = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
-    if appengines_raw
-      appengines_raw.split("\n").each{ |appengine|
-        appengines << appengine if !appengine.split(":")[1].nil?
+    appservers_raw = output.gsub! /Process 'app___(.*)-([0-9]*).*/, '\1:\2'
+    if appservers_raw
+      appservers_raw.split("\n").each{ |appengine|
+        appservers << appengine if !appengine.split(":")[1].nil?
       }
     end
 
-    Djinn.log_debug("Found these appservers processes running: #{appengines}.")
-    return appengines
+    Djinn.log_debug("Found these appservers processes running: #{appservers}.")
+    return appservers
   end
 
   private
