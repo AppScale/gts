@@ -575,7 +575,7 @@ def retry_coroutine(func, async=True, backoff_base=2, backoff_multiplier=0.2,
 def retry_data_watch_coroutine(zk_client, node, func, **kwargs):
   """ Prepares retry coroutine which will do retries with the newest
   state of node.
-  
+
   Args:
     zk_client: an instance of KazooClient.
     node: a string representing zk node path.
@@ -601,7 +601,7 @@ def retry_data_watch_coroutine(zk_client, node, func, **kwargs):
 def retry_children_watch_coroutine(zk_client, node, func, **kwargs):
   """ Prepares retry coroutine which will do retries with the newest
   children list.
-  
+
   Args:
     zk_client: an instance of KazooClient.
     node: a string representing zk node path.

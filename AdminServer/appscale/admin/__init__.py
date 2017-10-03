@@ -312,7 +312,7 @@ class ProjectHandler(BaseVersionHandler):
   @gen.coroutine
   def wait_for_delete(self, ports_to_close, project_id):
     """ Tracks the progress of removing version(s).
-  
+
     Args:
       ports_to_close: A list of integers specifying the ports to wait for.
       project_id: The id of the project we are deleting.
@@ -359,7 +359,7 @@ class ProjectHandler(BaseVersionHandler):
   @gen.coroutine
   def delete(self, project_id):
     """ Deletes a project.
-    
+
     Args:
       project_id: The id of the project to delete.
     """
@@ -615,7 +615,7 @@ class VersionsHandler(BaseHandler):
 
   def begin_deploy(self, project_id, service_id, version_id):
     """ Triggers the deployment process.
-    
+
     Args:
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
@@ -666,7 +666,7 @@ class VersionsHandler(BaseHandler):
   @gen.coroutine
   def post(self, project_id, service_id):
     """ Creates or updates a version.
-    
+
     Args:
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
@@ -936,7 +936,7 @@ class OperationsHandler(BaseHandler):
   """ Retrieves operations. """
   def get(self, project_id, operation_id):
     """ Retrieves operation status.
-    
+
     Args:
       project_id: A string specifying a project ID.
       operation_id: A string specifying an operation ID.
