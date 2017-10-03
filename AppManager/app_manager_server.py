@@ -1,7 +1,6 @@
 """ This service starts and stops application servers of a given application. """
 
 import errno
-import glob
 import logging
 import math
 import os
@@ -28,15 +27,17 @@ from appscale.admin.instance_manager.constants import (
   APP_LOG_SIZE,
   DASHBOARD_LOG_SIZE,
   DASHBOARD_PROJECT_ID,
-  DEFAULT_MAX_MEMORY,
+  DEFAULT_MAX_APPSERVER_MEMORY,
   INSTANCE_CLASSES,
   LOGROTATE_CONFIG_DIR,
   MAX_BACKGROUND_WORKERS,
+  MAX_INSTANCE_RESPONSE_TIME,
   MONIT_INSTANCE_PREFIX
 )
 from appscale.admin.instance_manager.projects_manager import (
   GlobalProjectsManager)
 from appscale.admin.instance_manager.source_manager import SourceManager
+from appscale.admin.instance_manager.stop_instance import stop_instance
 from appscale.admin.instance_manager.utils import find_web_inf
 from appscale.common import (
   appscale_info,
@@ -93,10 +94,6 @@ ROUTING_RETRY_INTERVAL = 5
 
 PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
                                 'app___{revision}-{port}.pid')
-
-# The number of seconds an instance is allowed to finish serving requests after
-# it receives a shutdown signal.
-MAX_INSTANCE_RESPONSE_TIME = 600
 
 # A DeploymentConfig accessor.
 deployment_config = None
@@ -195,7 +192,8 @@ def start_app(version_key, config):
   runtime = version_details['runtime']
   env_vars = version_details.get('envVariables', {})
   runtime_params = deployment_config.get_config('runtime_parameters')
-  max_memory = runtime_params.get('max_memory', DEFAULT_MAX_MEMORY)
+  max_memory = runtime_params.get('default_max_appserver_memory',
+                                  DEFAULT_MAX_APPSERVER_MEMORY)
   if 'instanceClass' in version_details:
     max_memory = INSTANCE_CLASSES.get(version_details['instanceClass'],
                                       max_memory)
@@ -321,23 +319,6 @@ def setup_logrotate(app_name, log_size):
 
   return True
 
-@gen.coroutine
-def kill_instance(watch, instance_pid):
-  """ Stops an AppServer process.
-
-  Args:
-    watch: A string specifying the monit entry for the process.
-    instance_pid: An integer specifying the process ID.
-  """
-  process = psutil.Process(instance_pid)
-  process.terminate()
-  try:
-    yield thread_pool.submit(process.wait, MAX_INSTANCE_RESPONSE_TIME)
-  except psutil.TimeoutExpired:
-    process.kill()
-
-  logging.info('Finished stopping {}'.format(watch))
-
 def unmonitor(process_name, retries=5):
   """ Unmonitors a process.
 
@@ -389,17 +370,6 @@ def unmonitor_and_terminate(watch):
   Args:
     watch: A string specifying the Monit entry.
   """
-  pid_location = os.path.join(constants.PID_DIR, '{}.pid'.format(watch))
-  try:
-    with open(pid_location) as pidfile:
-      instance_pid = int(pidfile.read().strip())
-  except IOError as error:
-    if error.errno != errno.ENOENT:
-      raise
-
-    raise HTTPError(HTTPCodes.INTERNAL_ERROR,
-                    '{} does not exist'.format(pid_location))
-
   try:
     unmonitor(watch)
   except ProcessNotFound:
@@ -414,7 +384,8 @@ def unmonitor_and_terminate(watch):
   except OSError:
     logging.error("Error deleting {0}".format(monit_config_file))
 
-  IOLoop.current().spawn_callback(kill_instance, watch, instance_pid)
+  IOLoop.current().spawn_callback(stop_instance, watch,
+                                  MAX_INSTANCE_RESPONSE_TIME)
 
 @gen.coroutine
 def stop_app_instance(version_key, port):
@@ -475,9 +446,9 @@ def stop_app(version_key):
   for entry in version_entries:
     yield unmonitor_and_terminate(entry)
 
-  if not remove_logrotate(project_id):
-    logging.error("Error while setting up log rotation for application: {}".
-      format(project_id))
+  if project_id not in projects_manager and not remove_logrotate(project_id):
+    logging.error("Error while removing log rotation for application: {}".
+                  format(project_id))
 
   yield monit_operator.reload()
   yield clean_old_sources()

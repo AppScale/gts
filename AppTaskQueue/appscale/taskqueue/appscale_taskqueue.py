@@ -34,6 +34,9 @@ server = None
 # Global for Distributed TaskQueue.
 task_queue = None
 
+# A KazooClient for watching queue configuration.
+zk_client = None
+
 # Global stats.
 STATS = {}
 
@@ -208,6 +211,7 @@ def graceful_shutdown(*_):
   of requests as soon as the server has asynchronous handlers.
   """
   logger.info('Stopping server')
+  zk_client.stop()
   server.stop()
   io_loop = IOLoop.instance()
   io_loop.add_callback_from_signal(io_loop.stop)
@@ -225,7 +229,7 @@ def main():
   if args.verbose:
     logger.setLevel(logging.DEBUG)
 
-  global task_queue
+  global task_queue, zk_client
 
   zk_client = KazooClient(
     hosts=','.join(appscale_info.get_zk_node_ips()),

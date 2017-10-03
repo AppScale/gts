@@ -80,6 +80,16 @@ module TaskQueue
        raise AppScaleException.new(msg)
     end
 
+    # On Xenial, rabbitmq starts an epmd daemon that doesn't play well with
+    # ejabberd. This makes sure that the compatible service is started first.
+    begin
+      services = `systemctl list-unit-files`
+      `systemctl start epmd` if services.include?('epmd.service')
+    rescue Errno::ENOENT
+      # Distros without systemd don't have systemctl, and they do not exhibit
+      # the issue.
+    end
+
     pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
                         "rabbit@#{Socket.gethostname}.pid")
     begin

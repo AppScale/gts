@@ -4317,6 +4317,12 @@ namespace google\appengine_datastore_v3 {
     }
   }
 }
+namespace google\appengine_datastore_v3\PutRequest {
+  class AutoIdPolicy {
+    const CURRENT = 0;
+    const SEQUENTIAL = 1;
+  }
+}
 namespace google\appengine_datastore_v3 {
   class PutRequest extends \google\net\ProtocolMessage {
     private $entity = array();
@@ -4488,6 +4494,23 @@ namespace google\appengine_datastore_v3 {
     public function clearSnapshot() {
       $this->snapshot = array();
     }
+    public function getAutoIdPolicy() {
+      if (!isset($this->auto_id_policy)) {
+        return 0;
+      }
+      return $this->auto_id_policy;
+    }
+    public function setAutoIdPolicy($val) {
+      $this->auto_id_policy = $val;
+      return $this;
+    }
+    public function clearAutoIdPolicy() {
+      unset($this->auto_id_policy);
+      return $this;
+    }
+    public function hasAutoIdPolicy() {
+      return isset($this->auto_id_policy);
+    }
     public function clear() {
       $this->clearEntity();
       $this->clearTransaction();
@@ -4496,6 +4519,7 @@ namespace google\appengine_datastore_v3 {
       $this->clearForce();
       $this->clearMarkChanges();
       $this->clearSnapshot();
+      $this->clearAutoIdPolicy();
     }
     public function byteSizePartial() {
       $res = 0;
@@ -4526,6 +4550,10 @@ namespace google\appengine_datastore_v3 {
       $res += 1 * sizeof($this->snapshot);
       foreach ($this->snapshot as $value) {
         $res += $this->lengthString($value->byteSizePartial());
+      }
+      if (isset($this->auto_id_policy)) {
+        $res += 1;
+        $res += $this->lengthVarInt64($this->auto_id_policy);
       }
       return $res;
     }
@@ -4565,6 +4593,10 @@ namespace google\appengine_datastore_v3 {
         $out->putVarInt32($value->byteSizePartial());
         $value->outputPartial($out);
       }
+      if (isset($this->auto_id_policy)) {
+        $out->putVarInt32(80);
+        $out->putVarInt32($this->auto_id_policy);
+      }
     }
     public function tryMerge($d) {
       while($d->avail() > 0) {
@@ -4602,6 +4634,9 @@ namespace google\appengine_datastore_v3 {
             $tmp = new \google\net\Decoder($d->buffer(), $d->pos(), $d->pos() + $length);
             $d->skip($length);
             $this->addSnapshot()->tryMerge($tmp);
+            break;
+          case 80:
+            $this->setAutoIdPolicy($d->getVarInt32());
             break;
           case 0:
             throw new \google\net\ProtocolBufferDecodeError();
@@ -4647,6 +4682,9 @@ namespace google\appengine_datastore_v3 {
       foreach ($x->getSnapshotList() as $v) {
         $this->addSnapshot()->copyFrom($v);
       }
+      if ($x->hasAutoIdPolicy()) {
+        $this->setAutoIdPolicy($x->getAutoIdPolicy());
+      }
     }
     public function equals($x) {
       if ($x === $this) { return true; }
@@ -4670,6 +4708,8 @@ namespace google\appengine_datastore_v3 {
       foreach (array_map(null, $this->snapshot, $x->snapshot) as $v) {
         if (!$v[0]->equals($v[1])) return false;
       }
+      if (isset($this->auto_id_policy) !== isset($x->auto_id_policy)) return false;
+      if (isset($this->auto_id_policy) && $this->auto_id_policy !== $x->auto_id_policy) return false;
       return true;
     }
     public function shortDebugString($prefix = "") {
@@ -4694,6 +4734,9 @@ namespace google\appengine_datastore_v3 {
       }
       foreach ($this->snapshot as $value) {
         $res .= $prefix . "snapshot <\n" . $value->shortDebugString($prefix . "  ") . $prefix . ">\n";
+      }
+      if (isset($this->auto_id_policy)) {
+        $res .= $prefix . "auto_id_policy: " . ($this->auto_id_policy) . "\n";
       }
       return $res;
     }

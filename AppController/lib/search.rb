@@ -22,8 +22,8 @@ module Search
 
   # The port that SOLR server runs on, by default.
   SOLR_SERVER_PORT = 8983
- 
-  # The port where the TaskQueue server runs on, by default. 
+
+  # The port where the TaskQueue server runs on, by default.
   SEARCH_SERVER_PORT = 53423
 
   # The python executable path.
@@ -43,7 +43,7 @@ module Search
   # Args:
   #   clear_data: A boolean that indicates whether or not SOLR state should
   #     be erased before starting SOLR.
-  def self.start_master(clear_data)
+  def self.start_master(clear_data, verbose)
     Djinn.log_info("Starting Search Master.")
 
     if clear_data
@@ -55,7 +55,7 @@ module Search
     # First, start up SOLR.
     start_solr()
     # Start up the search server which handles API calls from applications.
-    start_search_server()
+    start_search_server(verbose)
   end
 
   # Starts up SOLR.
@@ -72,10 +72,11 @@ module Search
   end
 
   # Starts the AppScale search server.
-  def self.start_search_server()
+  def self.start_search_server(verbose)
     Djinn.log_debug("Starting search server on this node.")
     script = "#{APPSCALE_HOME}/SearchService/search_server.py"
     start_cmd = "#{PYTHON_EXEC} #{script}"
+    start_cmd << " --verbose" if verbose
     MonitInterface.start(:search, start_cmd)
     HelperFunctions.sleep_until_port_is_open("localhost", SEARCH_SERVER_PORT)
     Djinn.log_debug("Done starting search_server on this node.")

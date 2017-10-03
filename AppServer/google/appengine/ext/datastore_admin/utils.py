@@ -49,6 +49,7 @@ KINDS_AND_SIZES_VAR = 'kinds_and_sizes'
 MAPREDUCE_MIN_SHARDS = 8
 MAPREDUCE_DEFAULT_SHARDS = 32
 MAPREDUCE_MAX_SHARDS = 256
+RESERVE_KEY_POOL_MAX_SIZE = 1000
 
 
 DATASTORE_ADMIN_OPERATION_KIND = '_AE_DatastoreAdmin_Operation'
@@ -632,74 +633,40 @@ def FixKeys(entity_proto, app_id):
   FixPropertyList(entity_proto.raw_property_list())
 
 
-class AllocateMaxIdPool(object):
-  """Mapper pool to keep track of all allocated ids.
+class ReserveKeyPool(object):
+  """Mapper pool which buffers keys with ids to reserve.
 
-  Runs allocate_ids rpcs when flushed.
-
-  This code uses the knowloedge of allocate_id implementation detail.
-  Though we don't plan to change allocate_id logic, we don't really
-  want to depend on it either. We are using this details here to implement
-  batch-style remote allocate_ids.
+  Runs v4 AllocateIds rpc(s) when flushed.
   """
 
-  def __init__(self, app_id):
-    self.app_id = app_id
+  def __init__(self):
+    self.keys = []
 
-    self.ns_to_path_to_max_id = collections.defaultdict(dict)
-
-  def allocate_max_id(self, key):
-    """Record the key to allocate max id.
-
-    Args:
-      key: Datastore key.
-    """
-    path = key.to_path()
-    if len(path) == 2:
-
-
-      path_tuple = ('Foo', 1)
-      key_id = path[-1]
-    else:
-
-
-      path_tuple = (path[0], path[1], 'Foo', 1)
-
-
-      key_id = None
-      for path_element in path[2:]:
-        if isinstance(path_element, (int, long)):
-          key_id = max(key_id, path_element)
-
-    if not isinstance(key_id, (int, long)):
-
-      return
-
-
-    path_to_max_id = self.ns_to_path_to_max_id[key.namespace()]
-    path_to_max_id[path_tuple] = max(key_id, path_to_max_id.get(path_tuple, 0))
+  def reserve_key(self, key):
+    for id_or_name in key.to_path()[1::2]:
+      if isinstance(id_or_name, (int, long)):
+        self.keys.append(key)
+        if len(self.keys) >= RESERVE_KEY_POOL_MAX_SIZE:
+          self.flush()
+        return
 
   def flush(self):
-    for namespace, path_to_max_id in self.ns_to_path_to_max_id.iteritems():
-      for path, max_id in path_to_max_id.iteritems():
-        datastore.AllocateIds(db.Key.from_path(namespace=namespace,
-                                               _app=self.app_id,
-                                               *list(path)),
-                              max=max_id)
-    self.ns_to_path_to_max_id = collections.defaultdict(dict)
+
+    datastore._GetConnection()._reserve_keys(self.keys)
+    self.keys = []
 
 
-class AllocateMaxId(operation.Operation):
-  """Mapper operation to allocate max id."""
+class ReserveKey(operation.Operation):
+  """Mapper operation to reserve key ids."""
 
   def __init__(self, key, app_id):
     self.key = key
     self.app_id = app_id
-    self.pool_id = 'allocate_max_id_%s_pool' % self.app_id
+    self.pool_id = 'reserve_key_%s_pool' % self.app_id
 
   def __call__(self, ctx):
     pool = ctx.get_pool(self.pool_id)
     if not pool:
-      pool = AllocateMaxIdPool(self.app_id)
+      pool = ReserveKeyPool()
       ctx.register_pool(self.pool_id, pool)
-    pool.allocate_max_id(self.key)
+    pool.reserve_key(self.key)

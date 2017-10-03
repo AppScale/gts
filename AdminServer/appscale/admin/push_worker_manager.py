@@ -17,6 +17,7 @@ from appscale.common.constants import (
   CONFIG_DIR
 )
 from appscale.common.monit_app_configuration import create_config_file
+from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from .utils import ensure_path
 
 # The number of tasks the Celery worker can handle at a time.
@@ -46,6 +47,8 @@ TASK_SOFT_TIME_LIMIT = 600
 
 # The worker script for Celery to use.
 WORKER_MODULE = 'appscale.taskqueue.push_worker'
+
+logger = logging.getLogger('appscale-admin')
 
 
 class ProjectPushWorkerManager(object):
@@ -84,15 +87,27 @@ class ProjectPushWorkerManager(object):
       pidfile = os.path.join(PID_DIR, 'celery-{}.pid'.format(self.project_id))
       create_config_file(self.monit_watch, command, pidfile, env_vars=env_vars,
                          max_memory=CELERY_SAFE_MEMORY)
-      logging.info('Starting push worker for {}'.format(self.project_id))
+      logger.info('Starting push worker for {}'.format(self.project_id))
       yield self.monit_operator.reload()
     else:
-      logging.info('Restarting push worker for {}'.format(self.project_id))
+      logger.info('Restarting push worker for {}'.format(self.project_id))
       yield self.monit_operator.send_command(self.monit_watch, 'restart')
 
     start_future = self.monit_operator.ensure_running(self.monit_watch)
     yield gen.with_timeout(timedelta(seconds=60), start_future,
                            IOLoop.current())
+
+  @gen.coroutine
+  def stop_worker(self):
+    """ Removes the monit configuration for the project's push worker. """
+    status = yield self._wait_for_stable_state()
+    if status == MonitStates.RUNNING:
+      logger.info('Stopping push worker for {}.'.format(self.project_id))
+      yield self.monit_operator.send_command(self.monit_watch, 'stop')
+      watch_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, self.monit_watch)
+      os.remove(watch_file)
+    else:
+      logger.debug('Not stopping push worker for {} since it is not running.'.format(self.project_id))
 
   def celery_command(self):
     """ Generates the Celery command for a project's push worker. """
@@ -195,6 +210,7 @@ class GlobalPushWorkerManager(object):
     zk_client.ensure_path('/appscale/projects')
     zk_client.ChildrenWatch('/appscale/projects', self._update_projects)
 
+  @gen.coroutine
   def update_projects(self, new_project_list):
     """ Establishes watches for each project's queue configuration.
 
@@ -205,6 +221,7 @@ class GlobalPushWorkerManager(object):
     to_stop = [project for project in self.projects
                if project not in new_project_list]
     for project_id in to_stop:
+      yield self.projects[project_id].stop_worker()
       del self.projects[project_id]
 
     for new_project_id in new_project_list:

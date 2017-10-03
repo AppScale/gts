@@ -57,11 +57,11 @@ class SolrQueryParser():
       query = query.strip()
       if not isinstance(query, unicode):
         query = unicode(query, 'utf-8')
-      logging.debug("Query: {0}".format(query))
+      logging.debug(u"Query: {0}".format(query))
       query_tree = query_parser.ParseAndSimplify(query)
-      logging.debug("Tree dump:{0}".format(self.__dump_tree(query_tree)))
+      logging.debug(u"Tree dump:{0}".format(self.__dump_tree(query_tree)))
       query_string += "+AND+" + self.__create_query_string(query_tree)
-      logging.debug("Query string {0}".format(query_string))
+      logging.debug(u"Query string {0}".format(query_string))
     # Use edismax as the parsing engine for more query abilities.
     query_string += "&defType=edismax"
 
@@ -69,11 +69,11 @@ class SolrQueryParser():
    
     # Get the field list for the query.
     field_list = self.__get_field_list()
-    logging.debug("Field list: {0}".format(field_list))
+    logging.debug(u"Field list: {0}".format(field_list))
     if field_list:
       query_string += field_list
     else:
-      logging.debug("Using default field list")
+      logging.debug(u"Using default field list")
       query_string += "&fl=id+" + Document.INDEX_LOCALE + "+" + query_fields
      
     # Set sort order.
@@ -87,7 +87,7 @@ class SolrQueryParser():
 
     query_string += self.__get_offset()
  
-    logging.debug("SOLR STRING: {0}".format(query_string))
+    logging.debug(u"SOLR STRING: {0}".format(query_string))
     return query_string
 
   def __get_row_limit(self):

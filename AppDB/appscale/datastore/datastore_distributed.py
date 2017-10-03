@@ -12,6 +12,7 @@ import dbconstants
 import helper_functions
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from kazoo.client import KazooState
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import MAX_TX_DURATION
@@ -44,6 +45,8 @@ from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import sortable_pb_encoder
+from google.appengine.datastore.datastore_stub_util import IdToCounter
+from google.appengine.datastore.datastore_stub_util import SEQUENTIAL
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.ext import db
 from google.appengine.ext.db.metadata import Namespace
@@ -134,6 +137,11 @@ class DatastoreDistributed():
 
     # Maintain a scattered allocator for each project.
     self.scattered_allocators = {}
+
+    # Maintain a sequential allocator for each project.
+    self.sequential_allocators = {}
+
+    self.zookeeper.handle.add_listener(self._zk_state_listener)
 
   def get_limit(self, query):
     """ Returns the limit that should be used for the given query.
@@ -470,7 +478,11 @@ class DatastoreDistributed():
     Returns:
       A tuple of integers specifying the start and end ID.
     """
-    allocator = EntityIDAllocator(self.datastore_batch.session, project)
+    if project not in self.sequential_allocators:
+      self.sequential_allocators[project] = EntityIDAllocator(
+        self.datastore_batch.session, project)
+
+    allocator = self.sequential_allocators[project]
     return allocator.allocate_size(size)
 
   def allocate_max(self, project, max_id):
@@ -482,8 +494,36 @@ class DatastoreDistributed():
     Returns:
       A tuple of integers specifying the start and end ID.
     """
-    allocator = EntityIDAllocator(self.datastore_batch.session, project)
+    if project not in self.sequential_allocators:
+      self.sequential_allocators[project] = EntityIDAllocator(
+        self.datastore_batch.session, project)
+
+    allocator = self.sequential_allocators[project]
     return allocator.allocate_max(max_id)
+
+  def reserve_ids(self, project_id, ids):
+    """ Ensures the given IDs are not re-allocated.
+
+    Args:
+      project_id: A string specifying the project ID.
+      ids: An iterable of integers specifying entity IDs.
+    """
+    if project_id not in self.sequential_allocators:
+      self.sequential_allocators[project_id] = EntityIDAllocator(
+        self.datastore_batch.session, project_id)
+
+    if project_id not in self.scattered_allocators:
+      self.scattered_allocators[project_id] = ScatteredAllocator(
+        self.datastore_batch.session, project_id)
+
+    for id_ in ids:
+      counter, space = IdToCounter(id_)
+      if space == SEQUENTIAL:
+        allocator = self.sequential_allocators[project_id]
+      else:
+        allocator = self.scattered_allocators[project_id]
+
+      allocator.set_min_counter(counter)
 
   def put_entities(self, app, entities, composite_indexes=()):
     """ Updates indexes of existing entities, inserts new entities and 
@@ -3325,3 +3365,13 @@ class DatastoreDistributed():
       return (api_base_pb.VoidProto().Encode(),
               datastore_pb.Error.PERMISSION_DENIED, 
               "Unable to rollback for this transaction: {0}".format(str(zkte)))
+
+  def _zk_state_listener(self, state):
+    """ Handles changes to the ZooKeeper connection state.
+
+    Args:
+      state: A string specifying the new connection state.
+    """
+    # Discard any allocated blocks if disconnected from ZooKeeper.
+    if state in [KazooState.LOST, KazooState.SUSPENDED]:
+      self.scattered_allocators.clear()

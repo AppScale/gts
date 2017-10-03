@@ -1534,6 +1534,10 @@ class AppVersionUpload(object):
       self.config.vm_settings = appinfo.VmSettings()
     self.config.vm_settings['module_yaml_path'] = module_yaml_path
 
+
+    if not self.config.auto_id_policy:
+      self.config.auto_id_policy = appinfo.DATASTORE_ID_POLICY_DEFAULT
+
   def Send(self, url, payload=''):
     """Sends a request to the server, with common params."""
     logging.info('Send: %s, params=%s', url, self.params)
