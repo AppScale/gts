@@ -26,7 +26,7 @@ DASHBOARD_PROJECT_ID = 'appscaledashboard'
 DASHBOARD_LOG_SIZE = 10 * 1024 * 1024
 
 # The default amount of memory in MB to allow an instance.
-DEFAULT_MAX_MEMORY = 400
+DEFAULT_MAX_APPSERVER_MEMORY = 400
 
 # Default logrotate configuration directory.
 LOGROTATE_CONFIG_DIR = os.path.join('/', 'etc', 'logrotate.d')
