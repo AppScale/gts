@@ -10,10 +10,6 @@ import tarfile
 
 import random
 
-import traceback
-
-import weakref
-
 import collections
 from appscale.common.constants import HTTPCodes
 from appscale.common.constants import VERSION_PATH_SEPARATOR
@@ -21,7 +17,6 @@ from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
 from tornado import gen, locks
-from tornado.gen import BadYieldError
 
 from . import constants
 from .constants import (

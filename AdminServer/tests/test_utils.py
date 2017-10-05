@@ -1,8 +1,6 @@
 import unittest
 
-import re
-from mock import call, patch
-from mock.mock import MagicMock
+from mock import patch
 from tornado import testing, gen
 
 from appscale.admin import utils
