@@ -79,7 +79,7 @@ class VersionManager(object):
       return False
 
     persistent_update_version = utils.retry_data_watch_coroutine(
-      self.zk_client, self.version_node, self.update_version
+      self.version_node, self.update_version
     )
     main_io_loop = IOLoop.instance()
     main_io_loop.add_callback(persistent_update_version, new_version)
@@ -149,7 +149,7 @@ class ServiceManager(dict):
       return False
 
     persistent_update_versions = utils.retry_children_watch_coroutine(
-      self.zk_client, self.versions_node, self.update_versions
+      self.versions_node, self.update_versions
     )
     main_io_loop = IOLoop.instance()
     main_io_loop.add_callback(persistent_update_versions, new_versions_list)
@@ -215,7 +215,7 @@ class ProjectManager(dict):
       return False
 
     persistent_update_services = utils.retry_children_watch_coroutine(
-      self.zk_client, self.services_node, self.update_services
+      self.services_node, self.update_services
     )
     main_io_loop = IOLoop.instance()
     main_io_loop.add_callback(persistent_update_services, new_services_list)
@@ -264,7 +264,7 @@ class GlobalProjectsManager(dict):
       new_projects_list: A fresh list of strings specifying existing projects.
     """
     persistent_update_project = utils.retry_children_watch_coroutine(
-      self.zk_client, '/appscale/projects', self.update_projects
+      '/appscale/projects', self.update_projects
     )
     main_io_loop = IOLoop.instance()
     main_io_loop.add_callback(persistent_update_project, new_projects_list)

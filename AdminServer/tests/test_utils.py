@@ -62,35 +62,37 @@ class TestUtils(unittest.TestCase):
 
 class TestRetryCoroutine(testing.AsyncTestCase):
 
-  @patch.object(utils.gen, 'sleep')
+  @patch.object(utils.locks.Condition, 'wait')
   @patch.object(utils.logger, 'error')
   @testing.gen_test
-  def test_no_errors(self, logger_mock, gen_sleep_mock):
-    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+  def test_no_errors(self, logger_mock, wait_mock):
+    wait_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
 
     # Call dummy lambda persistently.
-    persistent_work = utils.retry_coroutine(lambda: "No Errors")
+    persistent_work = utils.retry_data_watch_coroutine(
+      "node", lambda: "No Errors"
+    )
     result = yield persistent_work()
 
     # Assert outcomes.
     self.assertEqual(result, "No Errors")
-    self.assertEqual(gen_sleep_mock.call_args_list, [])
+    self.assertEqual(wait_mock.call_args_list, [])
     self.assertEqual(logger_mock.call_args_list, [])
 
-  @patch.object(utils.gen, 'sleep')
-  @patch.object(utils.logger, 'error')
+  @patch.object(utils.locks.Condition, 'wait')
+  @patch.object(utils.logger, 'exception')
   @patch.object(utils.random, 'random')
   @testing.gen_test
-  def test_backoff_and_logging(self, gauss_mock, logger_mock, gen_sleep_mock):
+  def test_backoff_and_logging(self, gauss_mock, logger_mock, wait_mock):
     random_value = 0.84
     gauss_mock.return_value = random_value
-    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+    wait_mock.side_effect = testing.gen.coroutine(lambda sec: False)
 
     def do_work():
       raise ValueError(u"Error \u26a0!")
 
-    persistent_work = utils.retry_coroutine(
-      do_work, backoff_base=3, backoff_multiplier=0.1,
+    persistent_work = utils.retry_data_watch_coroutine(
+      "node", do_work, backoff_base=3, backoff_multiplier=0.1,
       backoff_threshold=2, max_retries=4
     )
     try:
@@ -100,7 +102,7 @@ class TestRetryCoroutine(testing.AsyncTestCase):
       pass
 
     # Check backoff sleep calls (0.1 * (3 ** attempt) * random_value).
-    sleep_args = [args[0] for args, kwargs in gen_sleep_mock.call_args_list]
+    sleep_args = [args[0] for args, kwargs in wait_mock.call_args_list]
     self.assertAlmostEqual(sleep_args[0], 0.33, 2)
     self.assertAlmostEqual(sleep_args[1], 0.99, 2)
     self.assertAlmostEqual(sleep_args[2], 2.2, 2)
@@ -108,21 +110,21 @@ class TestRetryCoroutine(testing.AsyncTestCase):
 
     # Verify logged errors.
     expected_logs = [
-      (re.compile(r"ValueError: Error \\u26a0!\nRetry #1 in 0\.3s")),
-      (re.compile(r"ValueError: Error \\u26a0!\nRetry #2 in 1\.0s")),
-      (re.compile(r"ValueError: Error \\u26a0!\nRetry #3 in 2\.2s")),
-      (re.compile(r"ValueError: Error \\u26a0!\nRetry #4 in 2\.2s")),
+      "Retry #1 in 0.3s",
+      "Retry #2 in 1.0s",
+      "Retry #3 in 2.2s",
+      "Retry #4 in 2.2s",
     ]
     self.assertEqual(len(expected_logs), len(logger_mock.call_args_list))
     expected_messages = iter(expected_logs)
     for call_args_kwargs in logger_mock.call_args_list:
       error_message = expected_messages.next()
-      self.assertRegexpMatches(call_args_kwargs[0][0], error_message)
+      self.assertEqual(call_args_kwargs[0][0], error_message)
 
-  @patch.object(utils.gen, 'sleep')
+  @patch.object(utils.locks.Condition, 'wait')
   @testing.gen_test
-  def test_exception_filter(self, gen_sleep_mock):
-    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+  def test_exception_filter(self, wait_mock):
+    wait_mock.side_effect = testing.gen.coroutine(lambda sec: False)
 
     def func(exc_class, msg, retries_to_success):
       retries_to_success['counter'] -= 1
@@ -133,7 +135,9 @@ class TestRetryCoroutine(testing.AsyncTestCase):
     def err_filter(exception):
       return isinstance(exception, ValueError)
 
-    wrapped = utils.retry_coroutine(func, retry_on_exception=err_filter)
+    wrapped = utils.retry_data_watch_coroutine(
+      "node", func, retry_on_exception=err_filter
+    )
 
     # Test retry helps.
     result = yield wrapped(ValueError, "Matched", {"counter": 3})
@@ -146,55 +150,74 @@ class TestRetryCoroutine(testing.AsyncTestCase):
     except TypeError:
       pass
 
-  @patch.object(utils.gen, 'sleep')
+  @patch.object(utils.locks.Condition, 'wait')
   @testing.gen_test
-  def test_refresh_args(self, gen_sleep_mock):
-    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+  def test_wrapping_coroutine(self, wait_mock):
+    wait_mock.side_effect = testing.gen.coroutine(lambda sec: False)
 
-    def func(first, second):
-      if first <= second:
-        raise ValueError("First should be greater than second")
-      return first, second
-
-    # Mock will be tracking function calls
-    func = MagicMock(side_effect=func)
-
-    fresh_args_kwargs = [
-      ((1,), {'second': 4}),   # causes ValueError: 1 <= 4
-      ((2,), {'second': 3}),   # causes ValueError: 1 <= 4
-      ((3,), {'second': 2}),   # ok: 3 > 2 (successful return here)
-      ((4,), {'second': 1}),   # ok: 4 > 1 (shouldn't be used)
-    ]
-    refresh_func = iter(fresh_args_kwargs).next
-    wrapped = utils.retry_coroutine(func, refresh_args_kwargs_func=refresh_func)
-
-    result = yield wrapped(0, 5)  # First try should fail (0 <= 5)
-    self.assertEqual(result, (3, 2))
-    self.assertEqual(func.call_args_list, [
-      call(0, 5),
-      call(1, second=4),
-      call(2, second=3),
-      call(3, second=2)
-    ])
-
-  @patch.object(utils.gen, 'sleep')
-  @testing.gen_test
-  def test_wrapping_coroutine(self, gen_sleep_mock):
-    gen_sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
+    attempt = {'i': 0}
 
     @gen.coroutine
-    def func(first, second):
-      if first <= second:
+    def func(increment):
+      if attempt['i'] <= 4:
+        attempt['i'] += increment
         raise ValueError("First should be greater than second")
-      raise gen.Return((first, second))
+      raise gen.Return(attempt)
 
-    fresh_args_kwargs = [
-      ((1,), {'second': 4}),   # causes ValueError: 1 <= 4
-      ((3,), {'second': 2}),   # ok: 3 > 2 (successful return here)
-    ]
-    refresh_func = iter(fresh_args_kwargs).next
-    wrapped = utils.retry_coroutine(func, refresh_args_kwargs_func=refresh_func)
+    wrapped = utils.retry_data_watch_coroutine("node", func)
 
     # Test retry helps.
-    result = yield wrapped(0, 5)
-    self.assertEqual(result, (3, 2))
+    result = yield wrapped(2)
+    self.assertEqual(result, {'i': 6})
+
+  @testing.gen_test
+  def test_concurrency_without_failures(self):
+    shared_data = []
+
+    @gen.coroutine
+    def func(call_arg):
+      for _ in xrange(20):
+        # Let tornado chance to switch to another coroutine.
+        yield gen.sleep(0.001)
+        shared_data.append(call_arg)
+
+    wrapped = utils.retry_data_watch_coroutine("node", func)
+
+    yield [wrapped(1), wrapped(2), wrapped(3), wrapped(4)]
+    # We expect that calls will be handled one by one without collisions.
+    self.assertEqual(shared_data, [1]*20 + [2]*20 + [3]*20 + [4]*20)
+
+  @testing.gen_test
+  def test_concurrency_with_failures(self):
+    shared_data = []
+
+    @gen.coroutine
+    def func(call_arg):
+      for _ in xrange(3):
+        yield gen.sleep(0.001)
+        shared_data.append(call_arg)
+      if call_arg != 4:
+        raise ValueError("Why not 4?")
+
+    wrapped = utils.retry_data_watch_coroutine("node", func)
+
+    yield [wrapped(1), wrapped(2), wrapped(3), wrapped(4)]
+    self.assertEqual(shared_data, [1]*3 + [2]*3 + [3]*3 + [4]*3)
+
+  @testing.gen_test
+  def test_concurrency_between_different_nodes(self):
+    shared_data = []
+
+    @gen.coroutine
+    def func(call_arg):
+      for _ in xrange(20):
+        yield gen.sleep(0.001)
+        shared_data.append(call_arg)
+
+    wrapped_1 = utils.retry_data_watch_coroutine("node-1", func)
+    wrapped_2 = utils.retry_data_watch_coroutine("node-2", func)
+    wrapped_3 = utils.retry_data_watch_coroutine("node-3", func)
+    wrapped_4 = utils.retry_data_watch_coroutine("node-4", func)
+
+    yield [wrapped_1(1), wrapped_2(2), wrapped_3(3), wrapped_4(4)]
+    self.assertNotEqual(shared_data, [1]*20 + [2]*20 + [3]*20 + [4]*20)

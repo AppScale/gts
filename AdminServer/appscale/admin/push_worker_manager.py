@@ -194,7 +194,7 @@ class ProjectPushWorkerManager(object):
         return False
 
     persistent_update_worker = utils.retry_data_watch_coroutine(
-      self.zk_client, self.queues_node, self.update_worker
+      self.queues_node, self.update_worker
     )
     main_io_loop = IOLoop.instance()
     main_io_loop.add_callback(persistent_update_worker, queue_config)
@@ -246,7 +246,7 @@ class GlobalPushWorkerManager(object):
       new_projects: A list of strings specifying all existing project IDs.
     """
     persistent_update_project = utils.retry_children_watch_coroutine(
-      self.zk_client, '/appscale/projects', self.update_projects
+      '/appscale/projects', self.update_projects
     )
     main_io_loop = IOLoop.instance()
     main_io_loop.add_callback(persistent_update_project, new_projects)

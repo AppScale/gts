@@ -11,12 +11,16 @@ import tarfile
 import random
 
 import traceback
+
+import weakref
+
+import collections
 from appscale.common.constants import HTTPCodes
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
-from tornado import gen
+from tornado import gen, locks
 from tornado.gen import BadYieldError
 
 from . import constants
@@ -505,117 +509,92 @@ def queues_from_dict(payload):
   return {'queue': queues}
 
 
-def retry_coroutine(func, async=True, backoff_base=2, backoff_multiplier=0.2,
-                    backoff_threshold=300, max_retries=None,
-                    retry_on_exception=None, refresh_args_kwargs_func=None):
-  """ Wraps func with retry mechanism which runs up to max_retries attempts
-  with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
+class _PersistentWatch(object):
 
-  Args:
-    func: function or coroutine to wrap.
-    async: a boolean indicating if result of function should be yielded.
-    backoff_base: a number to use in backoff calculation.
-    backoff_multiplier: a number indicating initial backoff.
-    backoff_threshold: a number indicating maximum backoff.
-    max_retries: an integer indicating maximum number of retries.
-    retry_on_exception: a function receiving one argument: exception object and
-      returning True if retry makes sense for such exception.
-    refresh_args_kwargs_func: a function without arguments which should return
-      tuple of two elements (arguments list, keyword arguments dict).
-  Returns:
-    A tornado coroutine wrapping function with retry mechanism.
-  """
+  def __init__(self):
 
-  @gen.coroutine
-  def persistent_execute(*args, **kwargs):
-    retries = 0
-    backoff = backoff_multiplier * (backoff_base ** 1)
+    class CompliantLock(object):
+      def __init__(self):
+        self.waiters = 0
+        self.lock = locks.Lock()
+        self.condition = locks.Condition()
 
-    while True:
-      try:
-        if retries and refresh_args_kwargs_func is not None:
-          # Refresh arguments if applicable after the first try
-          args, kwargs = refresh_args_kwargs_func()
+    self._locks = collections.defaultdict(CompliantLock)
 
-        result = func(*args, **kwargs)
+  def __call__(self, node, func, backoff_base=2, backoff_multiplier=0.2,
+               backoff_threshold=300, max_retries=None,
+               retry_on_exception=None):
+    """ Wraps func with retry mechanism which runs up to max_retries attempts
+    with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
+  
+    Args:
+      node: a string representing path to zookeeper node.
+      func: function or coroutine to wrap.
+      backoff_base: a number to use in backoff calculation.
+      backoff_multiplier: a number indicating initial backoff.
+      backoff_threshold: a number indicating maximum backoff.
+      max_retries: an integer indicating maximum number of retries.
+      retry_on_exception: a function receiving one argument: exception object
+        and returning True if retry makes sense for such exception.
+    Returns:
+      A tornado coroutine wrapping function with retry mechanism.
+    """
+    @gen.coroutine
+    def persistent_execute(*args, **kwargs):
+      retries = 0
+      backoff = backoff_multiplier
+      node_lock = self._locks[node]
 
-        if async:
+      # Wake older update calls (*)
+      node_lock.condition.notify_all()
+      node_lock.waiters += 1
+      with (yield node_lock.lock.acquire()):
+        node_lock.waiters -= 1
+
+        while True:
           try:
-            # Try to yield result
-            result = yield result
-          except BadYieldError:
-            pass
+            result = func(*args, **kwargs)
+            if isinstance(result, gen.Future):
+              result = yield result
+            break
 
-        raise gen.Return(result)
+          except Exception as e:
 
-      except gen.Return:
-        raise
-      except Exception as e:
-        # Decide if retries is needed
-        if max_retries is not None and retries >= max_retries:
-          raise
-        if retry_on_exception is not None and not retry_on_exception(e):
-          raise
-        retries += 1
+            # Decide if retry is needed
+            if max_retries is not None and retries >= max_retries:
+              if not node_lock.waiters:
+                del self._locks[node]
+              raise
+            if retry_on_exception is not None and not retry_on_exception(e):
+              if not node_lock.waiters:
+                del self._locks[node]
+              raise
 
-        # Proceed with exponential backoff
-        sleep_time = backoff * (random.random()*0.3 + 0.85)
-        backoff *= backoff_base
-        if backoff > backoff_threshold:
-          backoff = backoff_threshold
-        # Report error to logs
-        error = traceback.format_exc()
-        logger.error(u"{error}Retry #{retry} in {sleep:0.1f}s"
-                     .format(error=error, retry=retries, sleep=sleep_time))
-        yield gen.sleep(sleep_time)
+            retries += 1
 
-  return persistent_execute
+            # Proceed with exponential backoff
+            backoff = backoff * backoff_base
+            if backoff > backoff_threshold:
+              backoff = backoff_threshold
+            sleep_time = backoff * (random.random() * 0.3 + 0.85)
+            # Report error to logs
+            logger.exception(u"Retry #{retry} in {sleep:0.1f}s"
+                             .format(retry=retries, sleep=sleep_time))
 
+            # (*) Sleep with one eye open, give up if newer update wake you
+            interrupted = yield node_lock.condition.wait(sleep_time)
+            if interrupted or node_lock.waiters:
+              logger.info("Giving up retrying because newer update came up")
+              if not node_lock.waiters:
+                del self._locks[node]
+              raise gen.Return()
 
-def retry_data_watch_coroutine(zk_client, node, func, **kwargs):
-  """ Prepares retry coroutine which will do retries with the newest
-  state of node.
+      if not node_lock.waiters:
+        del self._locks[node]
+      raise gen.Return(result)
 
-  Args:
-    zk_client: an instance of KazooClient.
-    node: a string representing zk node path.
-    func: a function or coroutine which handles node update.
-    kwargs: keyword arguments to be passed to retry_coroutine.
-  Returns:
-    A tornado coroutine wrapping function with retry mechanism.
-  """
-  def refresh_data():
-    try:
-      data = zk_client.get(node)
-    except NoNodeError:
-      data = None
-    args = (data, )
-    keyword_args = {}
-    return args, keyword_args
-
-  return retry_coroutine(
-    func, refresh_args_kwargs_func=refresh_data, **kwargs
-  )
+    return persistent_execute
 
 
-def retry_children_watch_coroutine(zk_client, node, func, **kwargs):
-  """ Prepares retry coroutine which will do retries with the newest
-  children list.
-
-  Args:
-    zk_client: an instance of KazooClient.
-    node: a string representing zk node path.
-    func: a function or coroutine which handles node update.
-    kwargs: keyword arguments to be passed to retry_coroutine.
-  Returns:
-    A tornado coroutine wrapping function with retry mechanism.
-  """
-  def refresh_children():
-    data = zk_client.get_children(node)
-    args = (data, )
-    keyword_args = {}
-    return args, keyword_args
-
-  return retry_coroutine(
-    func, refresh_args_kwargs_func=refresh_children, **kwargs
-  )
+retry_data_watch_coroutine = _PersistentWatch()
+retry_children_watch_coroutine = _PersistentWatch()
