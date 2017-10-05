@@ -514,11 +514,20 @@ class _PersistentWatch(object):
   def __init__(self):
 
     class CompliantLock(object):
+      """
+      A container for three pieces which makes possible to
+      organize compliant locking of zk_node:
+       - update function won't be interrupted by another;
+       - sleep between retries can be interrupted by newer update;
+       - _PersistentWatch is able to identify and remove unused locks.
+      """
       def __init__(self):
         self.waiters = 0
         self.lock = locks.Lock()
         self.condition = locks.Condition()
 
+    # Dict of locks for zk_nodes (shared between all functions decorated
+    # by an instance of _PersistentWatch)
     self._locks = collections.defaultdict(CompliantLock)
 
   def __call__(self, node, func, backoff_base=2, backoff_multiplier=0.2,
@@ -544,6 +553,7 @@ class _PersistentWatch(object):
       retries = 0
       backoff = backoff_multiplier
       node_lock = self._locks[node]
+      result = None
 
       # Wake older update calls (*)
       node_lock.condition.notify_all()
@@ -596,5 +606,6 @@ class _PersistentWatch(object):
     return persistent_execute
 
 
+# Two different instances for having two locks namespaces
 retry_data_watch_coroutine = _PersistentWatch()
 retry_children_watch_coroutine = _PersistentWatch()
