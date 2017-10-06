@@ -109,17 +109,13 @@ server {
 }
 "
 
-if [ -e /etc/nginx/sites-enabled/appscale-${APP_ID}.conf ]; then
-    echo "$CONFIG" > /etc/nginx/sites-enabled/appscale-${APP_ID}_datastore_viewer.conf
-    nginx -t
-    service nginx reload
-    sed -i "/AppController/ i\
+echo "$CONFIG" > /etc/nginx/sites-enabled/appscale-${APP_ID}_datastore_viewer.conf
+nginx -t
+service nginx reload
+sed -i "/AppController/ i\
 iptables -A INPUT -p tcp --dport $VIEWER_PORT -j ACCEPT   # Enable datastore viewer" $APPSCALE_HOME/firewall.conf
-    bash $APPSCALE_HOME/firewall.conf
-    echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}"
-    if [ -n "$TRUSTED_IP" ]; then
-        echo "Allowed IP: $TRUSTED_IP."
-    fi
-else
-    echo "Cannot find configuration for ${APP_ID}."
+bash $APPSCALE_HOME/firewall.conf
+echo "Datastore viewer enabled for ${APP_ID} at http://$(cat /etc/appscale/my_public_ip):${VIEWER_PORT}"
+if [ -n "$TRUSTED_IP" ]; then
+    echo "Allowed IP: $TRUSTED_IP."
 fi
