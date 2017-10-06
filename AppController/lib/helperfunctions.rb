@@ -1127,7 +1127,12 @@ module HelperFunctions
     Djinn.log_debug("Made static file dir for #{version_key} at #{cache_path}")
 
     untar_dir = "#{APPLICATIONS_DIR}/#{revision_key}/app"
-    war_dir = self.get_web_inf_dir(untar_dir)
+    begin
+      war_dir = self.get_web_inf_dir(untar_dir)
+    rescue InvalidSource => error
+      Djinn.log_error(error.message)
+      return []
+    end
 
     # Copy static files.
     handlers = []
