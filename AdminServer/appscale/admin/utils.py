@@ -510,8 +510,8 @@ class _PersistentWatch(object):
 
     class CompliantLock(object):
       """
-      A container for three pieces which makes possible to
-      organize compliant locking of zk_node:
+      A container which allows to organize compliant locking
+      of zk_node by making sure:
        - update function won't be interrupted by another;
        - sleep between retries can be interrupted by newer update;
        - _PersistentWatch is able to identify and remove unused locks.
@@ -586,7 +586,7 @@ class _PersistentWatch(object):
             logger.exception(u"Retry #{retry} in {sleep:0.1f}s"
                              .format(retry=retries, sleep=sleep_time))
 
-            # (*) Sleep with one eye open, give up if newer update wake you
+            # (*) Sleep with one eye open, give up if newer update wakes you
             interrupted = yield node_lock.condition.wait(sleep_time)
             if interrupted or node_lock.waiters:
               logger.info("Giving up retrying because newer update came up")
