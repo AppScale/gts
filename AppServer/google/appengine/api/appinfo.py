@@ -1271,6 +1271,32 @@ class EnvironmentVariables(validation.ValidatedDict):
   VALUE_VALIDATOR = str
 
 
+def NormalizeVmSettings(appyaml):
+  """Normalize Vm settings.
+
+  Args:
+    appyaml: AppInfoExternal instance.
+
+  Returns:
+    Normalized app yaml.
+  """
+
+
+
+
+
+
+  if appyaml.vm:
+    if not appyaml.vm_settings:
+      appyaml.vm_settings = VmSettings()
+    if 'vm_runtime' not in appyaml.vm_settings:
+
+
+      appyaml.vm_settings['vm_runtime'] = appyaml.runtime
+      appyaml.runtime = 'vm'
+  return appyaml
+
+
 class AppInclude(validation.Validated):
   """Class representing the contents of an included app.yaml file.
 
@@ -1286,6 +1312,7 @@ class AppInclude(validation.Validated):
       HANDLERS: validation.Optional(validation.Repeated(URLMap)),
       ADMIN_CONSOLE: validation.Optional(AdminConsole),
       MANUAL_SCALING: validation.Optional(ManualScaling),
+      VM: validation.Optional(bool),
       VM_SETTINGS: validation.Optional(VmSettings),
 
 
@@ -1329,6 +1356,26 @@ class AppInclude(validation.Validated):
     return appinclude_one
 
   @classmethod
+  def _CommonMergeOps(cls, one, two):
+    """This function performs common merge operations."""
+
+    AppInclude.MergeManualScaling(one, two)
+
+
+    one.admin_console = AdminConsole.Merge(one.admin_console,
+                                           two.admin_console)
+
+
+
+    one.vm = two.vm or one.vm
+
+
+    one.vm_settings = VmSettings.Merge(one.vm_settings,
+                                       two.vm_settings)
+
+    return one
+
+  @classmethod
   def MergeAppYamlAppInclude(cls, appyaml, appinclude):
     """This function merges an app.yaml file with referenced builtins/includes.
     """
@@ -1356,18 +1403,8 @@ class AppInclude(validation.Validated):
 
       appyaml.handlers.extend(tail)
 
-
-    AppInclude.MergeManualScaling(appyaml, appinclude)
-
-
-    appyaml.admin_console = AdminConsole.Merge(appyaml.admin_console,
-                                               appinclude.admin_console)
-
-
-    appyaml.vm_settings = VmSettings.Merge(appyaml.vm_settings,
-                                           appinclude.vm_settings)
-
-    return appyaml
+    appyaml = cls._CommonMergeOps(appyaml, appinclude)
+    return NormalizeVmSettings(appyaml)
 
   @classmethod
   def MergeAppIncludes(cls, appinclude_one, appinclude_two):
@@ -1401,22 +1438,7 @@ class AppInclude(validation.Validated):
     else:
       appinclude_one.handlers = appinclude_two.handlers
 
-
-    appinclude_one = AppInclude.MergeManualScaling(
-        appinclude_one,
-        appinclude_two)
-
-
-    appinclude_one.admin_console = (
-        AdminConsole.Merge(appinclude_one.admin_console,
-                           appinclude_two.admin_console))
-
-
-    appinclude_one.vm_settings = VmSettings.Merge(
-        appinclude_one.vm_settings,
-        appinclude_two.vm_settings)
-
-    return appinclude_one
+    return cls._CommonMergeOps(appinclude_one, appinclude_two)
 
 
 class AppInfoExternal(validation.Validated):
@@ -1728,25 +1750,7 @@ def LoadSingleAppInfo(app_info):
   if appyaml.builtins:
     BuiltinHandler.Validate(appyaml.builtins, appyaml.runtime)
 
-
-
-
-
-
-
-  if appyaml.vm:
-    if not appyaml.vm_settings:
-      appyaml.vm_settings = VmSettings()
-    if not 'vm_runtime' in appyaml.vm_settings:
-
-
-      appyaml.vm_settings['vm_runtime'] = appyaml.runtime
-      appyaml.runtime = 'vm'
-
-  # AppScale: Ensure that each module has only one version.
-  appyaml.version = 'v1'
-
-  return appyaml
+  return NormalizeVmSettings(appyaml)
 
 
 class AppInfoSummary(validation.Validated):
