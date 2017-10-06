@@ -13,6 +13,11 @@ class AppScaleSCPException < StandardError
 end
 
 
+# Indicates that a revision's source code is invalid.
+class InvalidSource < StandardError
+end
+
+
 # A class of exceptions that can be thrown if the AppController believes that
 # the node it is talking to has failed.
 class FailedNodeException < AppScaleException

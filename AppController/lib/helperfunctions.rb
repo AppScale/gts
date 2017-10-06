@@ -5,6 +5,7 @@
 require 'base64'
 require 'digest'
 require 'fileutils'
+require 'find'
 require 'net/http'
 require 'openssl'
 require 'socket'
@@ -941,20 +942,23 @@ module HelperFunctions
   # Returns:
   #  The directory that contains WEB-INF inside a Java app.
   def self.get_web_inf_dir(untar_dir)
-    locations = Array.new()
-    Dir["#{untar_dir}/**/"].each { |path| locations.push(path) if path =~ /^#{untar_dir}\/(.*\/)*WEB-INF\/$/ }
-    if !locations.empty?
-      sorted_locations = locations.sort()
-      location_to_use = sorted_locations[0]
-      sorted_locations.each{ |location|
-        if location.length() < location_to_use.length()
-          location_to_use = location
-        end
-      }
-      return location_to_use
-    else
-      return ""
-    end
+    matches = Array.new
+    Find.find(untar_dir) { |path|
+      next unless File.basename(path) == 'appengine-web.xml'
+      next unless File.file?(path)
+      next unless File.dirname(path).end_with?('/WEB-INF')
+      matches << File.dirname(path)
+    }
+
+    raise InvalidSource.new('WEB-INF directory not found') if matches.empty?
+
+    shortest_match = matches[0]
+    matches.each { |match|
+      if match.split('/').length < shortest_match.split('/').length
+        shortest_match = match
+      end
+    }
+    return shortest_match
   end
 
   # Finds the path to appengine-web.xml configuration file.
