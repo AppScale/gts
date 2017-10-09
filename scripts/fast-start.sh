@@ -212,7 +212,13 @@ if [ ! -e AppScalefile ]; then
     # This is to create the minimum AppScalefile.
     echo -n "Creating AppScalefile..."
     echo "ips_layout :" > AppScalefile
-    echo "  controller : ${PRIVATE_IP}" >> AppScalefile
+    echo "  -" >> AppScalefile
+    echo "    roles:" >> AppScalefile
+    echo "      - master" >> AppScalefile
+    echo "      - appengine" >> AppScalefile
+    echo "      - database" >> AppScalefile
+    echo "      - zookeeper" >> AppScalefile
+    echo "    nodes: ${PRIVATE_IP}" >> AppScalefile
     if [ "${FORCE_PRIVATE}" = "Y" ]; then
         echo "login : ${PRIVATE_IP}" >> AppScalefile
     else
@@ -242,7 +248,7 @@ if [ ! -e AppScalefile ]; then
     if [ ! -e ${GUESTBOOK_APP} ]; then
       echo "Downloading sample app."
       ${CURL} -Lso ${GUESTBOOK_APP} ${GUESTBOOK_URL}
-      if ! md5sum --ignore-missing -c ${MD5_SUMS} ; then
+      if ! md5sum -c ${MD5_SUMS} ; then
         echo "Failed to get sample app (md5 check failed)!"
         echo "Removing sample app tarball and disabling starts of sample app."
         rm -f ${GUESTBOOK_APP}

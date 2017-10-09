@@ -2,6 +2,7 @@
 
 
 # First-party Ruby libraries
+require 'posixpsutil'
 require 'resolv'
 require 'socket'
 require 'timeout'
@@ -84,7 +85,17 @@ module TaskQueue
     # ejabberd. This makes sure that the compatible service is started first.
     begin
       services = `systemctl list-unit-files`
-      `systemctl start epmd` if services.include?('epmd.service')
+      if services.include?('epmd.service')
+        PosixPsutil::Process.processes.each { |process|
+          begin
+            next unless process.name == 'epmd'
+            process.terminate if process.cmdline.include?('-daemon')
+          rescue PosixPsutil::NoSuchProcess
+            next
+          end
+        }
+        `systemctl start epmd`
+      end
     rescue Errno::ENOENT
       # Distros without systemd don't have systemctl, and they do not exhibit
       # the issue.

@@ -529,10 +529,11 @@ class Djinn
     'azure_resource_group' => [ String, nil, false ],
     'azure_storage_account' => [ String, nil, false ],
     'azure_group_tag' => [ String, nil, false ],
-    'appengine' => [ Fixnum, '2', true ],
     'autoscale' => [ TrueClass, 'True', true ],
     'client_secrets' => [ String, nil, false ],
     'controller_logs_to_dashboard' => [ TrueClass, 'False', false ],
+    'default_max_appserver_memory' => [ Fixnum, "#{DEFAULT_MEMORY}", true ],
+    'default_min_appservers' => [ Fixnum, '2', true ],
     'disks' => [ String, nil, true ],
     'ec2_access_key' => [ String, nil, false ],
     'ec2_secret_key' => [ String, nil, false ],
@@ -550,9 +551,8 @@ class Djinn
     'lb_connect_timeout' => [ Fixnum, '120000', true ],
     'login' => [ String, nil, true ],
     'machine' => [ String, nil, true ],
-    'max_images' => [ Fixnum, '0', true ],
-    'max_memory' => [ Fixnum, "#{DEFAULT_MEMORY}", true ],
-    'min_images' => [ Fixnum, '1', true ],
+    'max_machines' => [ Fixnum, '0', true ],
+    'min_machines' => [ Fixnum, '1', true ],
     'region' => [ String, nil, true ],
     'replication' => [ Fixnum, '1', true ],
     'project' => [ String, nil, false ],
@@ -1095,17 +1095,17 @@ class Djinn
     # The first one is to check that max and min are set appropriately.
     # Max and min needs to be at least the number of started nodes, it
     # needs to be positive. Max needs to be no smaller than min.
-    if Integer(@options['max_images']) < @nodes.length
-      Djinn.log_warn("max_images is less than the number of nodes!")
-      @options['max_images'] = @nodes.length.to_s
+    if Integer(@options['max_machines']) < @nodes.length
+      Djinn.log_warn("max_machines is less than the number of nodes!")
+      @options['max_machines'] = @nodes.length.to_s
     end
-    if Integer(@options['min_images']) < @nodes.length
-      Djinn.log_warn("min_images is less than the number of nodes!")
-      @options['min_images'] = @nodes.length.to_s
+    if Integer(@options['min_machines']) < @nodes.length
+      Djinn.log_warn("min_machines is less than the number of nodes!")
+      @options['min_machines'] = @nodes.length.to_s
     end
-    if Integer(@options['max_images']) < Integer(@options['min_images'])
-      Djinn.log_warn("min_images is bigger than max_images!")
-      @options['max_images'] = @options['min_images']
+    if Integer(@options['max_machines']) < Integer(@options['min_machines'])
+      Djinn.log_warn("min_machines is bigger than max_machines!")
+      @options['max_machines'] = @options['min_machines']
     end
 
     # We need to make sure this node is listed in the started nodes.
@@ -1423,24 +1423,24 @@ class Djinn
       # We give some extra information to the user about some properties.
       if key == "keyname"
         Djinn.log_warn("Changing keyname can break your deployment!")
-      elsif key == "max_memory"
-        Djinn.log_warn("max_memory will be enforced on new AppServers only.")
-        ZKInterface.set_runtime_params({:max_memory => Integer(val)})
-      elsif key == "min_images"
+      elsif key == "default_max_appserver_memory"
+        Djinn.log_warn("default_max_appserver_memory will be enforced on new AppServers only.")
+        ZKInterface.set_runtime_params({:default_max_appserver_memory => Integer(val)})
+      elsif key == "min_machines"
         unless is_cloud?
-          Djinn.log_warn("min_images is not used in non-cloud infrastructures.")
+          Djinn.log_warn("min_machines is not used in non-cloud infrastructures.")
         end
-        if Integer(val) < Integer(@options['min_images'])
-          Djinn.log_warn("Invalid input: cannot lower min_images!")
-          return "min_images cannot be less than the nodes defined in ips_layout"
+        if Integer(val) < Integer(@options['min_machines'])
+          Djinn.log_warn("Invalid input: cannot lower min_machines!")
+          return "min_machines cannot be less than the nodes defined in ips_layout"
         end
-      elsif key == "max_images"
+      elsif key == "max_machines"
         unless is_cloud?
-          Djinn.log_warn("max_images is not used in non-cloud infrastructures.")
+          Djinn.log_warn("max_machines is not used in non-cloud infrastructures.")
         end
-        if Integer(val) < Integer(@options['min_images'])
-          Djinn.log_warn("Invalid input: max_images is smaller than min_images!")
-          return "max_images is smaller than min_images."
+        if Integer(val) < Integer(@options['min_machines'])
+          Djinn.log_warn("Invalid input: max_machines is smaller than min_machines!")
+          return "max_machines is smaller than min_machines."
         end
       elsif key == "flower_password"
         TaskQueue.stop_flower
@@ -2553,9 +2553,9 @@ class Djinn
   # minimum images specified.
   def get_autoscaled_nodes()
     autoscaled_nodes = []
-    min_images = Integer(@options['min_images'])
+    min_machines = Integer(@options['min_machines'])
     @state_change_lock.synchronize {
-      autoscaled_nodes = @nodes.drop(min_images)
+      autoscaled_nodes = @nodes.drop(min_machines)
     }
   end
 
@@ -3031,9 +3031,9 @@ class Djinn
                     false)
     Djinn.log_info('Set custom cassandra configuration.')
 
-    if @options.key?('max_memory')
+    if @options.key?('default_max_appserver_memory')
       ZKInterface.set_runtime_params(
-        {:max_memory => Integer(@options['max_memory'])})
+        {:default_max_appserver_memory => Integer(@options['default_max_appserver_memory'])})
     end
   end
 
@@ -3864,6 +3864,8 @@ class Djinn
       # sure.
       Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
       Kernel.sleep(60)
+
+      enable_root_login(ip, ssh_key, 'ubuntu')
 
     elsif @options['infrastructure'] == 'azure'
       user_name = 'azureuser'
@@ -5039,7 +5041,7 @@ HOSTS
     # we need.
     vms_to_spawn = 0
     roles_needed = {}
-    vm_scaleup_capacity = Integer(@options['max_images']) - @nodes.length
+    vm_scaleup_capacity = Integer(@options['max_machines']) - @nodes.length
     if needed_appservers > 0
       # TODO: Here we use 3 as an arbitrary number to calculate the number of machines
       # needed to run those number of appservers. That will change in the next step
@@ -5094,7 +5096,7 @@ HOSTS
     num_scaled_down = 0
     # If we are already at the minimum number of machines that the user specified,
     # then we do not have the capacity to scale down.
-    max_scale_down_capacity = @nodes.length - Integer(@options['min_images'])
+    max_scale_down_capacity = @nodes.length - Integer(@options['min_machines'])
     if max_scale_down_capacity <= 0
       Djinn.log_debug("We are already at the minimum number of user specified machines," +
         "so will not be scaling down")
@@ -5245,7 +5247,7 @@ HOSTS
 
     scaling_params = version_details.fetch('automaticScaling', {})
     min = scaling_params.fetch('minTotalInstances',
-                               Integer(@options['appengine']))
+                               Integer(@options['default_min_appservers']))
     if num_appengines < min
       Djinn.log_info(
         "#{version_key} needs #{min - num_appengines} more AppServers.")
@@ -5253,8 +5255,8 @@ HOSTS
       return min - num_appengines
     end
 
-    # We only run @options['appengine'] AppServers per application if
-    # austoscale is disabled.
+    # We only run @options['default_min_appservers'] AppServers per application
+    # if austoscale is disabled.
     return 0 if @options['autoscale'].downcase != "true"
 
     haproxy_port = version_details['appscaleExtensions']['haproxyPort']
@@ -5393,7 +5395,7 @@ HOSTS
 
       project_id, service_id, version_id = version_key.split(
         VERSION_PATH_SEPARATOR)
-      max_app_mem = Integer(@options['max_memory'])
+      max_app_mem = Integer(@options['default_max_appserver_memory'])
       begin
         version_details = ZKInterface.get_version_details(
           project_id, service_id, version_id)
@@ -5466,7 +5468,7 @@ HOSTS
       return false
     end
 
-    max_app_mem = Integer(@options['max_memory'])
+    max_app_mem = Integer(@options['default_max_appserver_memory'])
     if version_details.key?('instanceClass')
       instance_class = version_details['instanceClass'].to_sym
       max_app_mem = INSTANCE_CLASSES.fetch(instance_class, max_app_mem)
@@ -5577,7 +5579,7 @@ HOSTS
         project_id, service_id, version_id)
       scaling_params = version_details.fetch('automaticScaling', {})
       min = scaling_params.fetch('minTotalInstances',
-                                 Integer(@options['appengine']))
+                                 Integer(@options['default_min_appservers']))
     rescue VersionNotFound
       min = 0
     end
