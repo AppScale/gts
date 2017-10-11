@@ -7,6 +7,7 @@
 
 AppScale version 3.4.0, released Oct, 2017
 Highlights of features/bugs in this release:
+- Upgraded Appscale images to Xenial
 - Introduced ability to deploy and manage multiple services
 - Improved celery worker performance by using eventlet pool
 - Reduced the number of dashboards running for smaller deployment
