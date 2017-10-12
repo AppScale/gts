@@ -33,6 +33,9 @@ Highlights of features/bugs in this release:
 - Added performance profiling
 - Other minor improvements and fixes
 
+Known issues:
+- Transactional tasks do not currently work for Java
+
 AppScale version 3.2.1, released April, 2017
 Highlights of features/bugs in this release:
 - Fixed appscale upgrade from 3.1.0
@@ -70,6 +73,7 @@ Highlights of features/bugs in this release:
 - Pin tornado to 4.2.0
 - Pin google-api-python-client to 1.5.4
 - Added dependencies: capnproto, pycapnp
+
 Known Issues:
 - There can be some brief downtime when redeploying or updating an application
 
