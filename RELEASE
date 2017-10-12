@@ -35,6 +35,9 @@ Highlights of features/bugs in this release:
 - Upgraded to Kazoo to 2.4.0
 - Fixed a bug which allowed to properly handle non-ascii coes in Search API
 
+Known issues:
+- Transactional tasks do not currently work for Java
+
 AppScale version 3.3.0, released June, 2017
 Highlights of features/bugs in this release:
 - Added support for Ubuntu Xenial
@@ -101,6 +104,7 @@ Highlights of features/bugs in this release:
 - Pin tornado to 4.2.0
 - Pin google-api-python-client to 1.5.4
 - Added dependencies: capnproto, pycapnp
+
 Known Issues:
 - There can be some brief downtime when redeploying or updating an application
 
