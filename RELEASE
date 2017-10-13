@@ -33,10 +33,11 @@ Highlights of features/bugs in this release:
 - Added support for resumable package downloads after failures during the build
 - Implemented the datastore_v4.AllocateIds API
 - Upgraded to Kazoo to 2.4.0
-- Fixed a bug which allowed to properly handle non-ascii coes in Search API
+- Fixed a bug which allowed to properly handle non-ascii codes in Search API
 
 Known issues:
 - Transactional tasks do not currently work for Java
+- Combined application logs are not currently available in Xenial
 
 AppScale version 3.3.0, released June, 2017
 Highlights of features/bugs in this release:
