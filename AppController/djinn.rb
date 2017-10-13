@@ -4893,8 +4893,14 @@ HOSTS
     rescue Errno::ENOENT
       existing_app_log_config = ''
     end
+
+    rsyslog_prop = ':syslogtag'
+    rsyslog_version = Gem::Version.new(`rsyslogd -v`.split[1].chomp(','))
+    rsyslog_prop = ':programname' if rsyslog_version < Gem::Version.new('8.12')
+
     app_log_template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
-    app_log_config = app_log_template.gsub("{0}", version_key)
+    app_log_config = app_log_template.gsub('{property}', rsyslog_prop)
+    app_log_config = app_log_config.gsub('{version}', version_key)
     unless existing_app_log_config == app_log_config
       Djinn.log_info("Installing log configuration for #{version_key}.")
       HelperFunctions.write_file(app_log_config_file, app_log_config)
