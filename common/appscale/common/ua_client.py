@@ -18,6 +18,19 @@ class UAException(Exception):
 
 class UAClient(object):
   """ A client that makes requests to the UAServer. """
+
+  # Users have a list of applications that they own stored in their user data.
+  # This character is the delimiter that separates them in their data.
+  APP_DELIMITER = ":"
+
+  # A regular expression that can be used to retrieve the SHA1-hashed password
+  # stored in a user's data with the UserAppServer.
+  USER_DATA_PASSWORD_REGEX = 'password:([0-9a-fA-F]+)'
+
+  # A regular expression that can be used to find out which Google App Engine
+  # applications a user owns, when applied to their user data.
+  USER_APP_LIST_REGEX = "\napplications:(.+)\n"
+
   def __init__(self, host, secret):
     """ Creates a UAClient instance.
 
