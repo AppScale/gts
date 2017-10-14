@@ -83,7 +83,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
 
   if check_port:
     private_ip = appscale_info.get_private_ip()
-    output += '  if failed host {} port {} then restart\n'.format(
+    output += '  if failed host {} port {} for 3 cycles then restart\n'.format(
       private_ip, port)
 
   config_file = os.path.join(MONIT_CONFIG_DIR,

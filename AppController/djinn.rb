@@ -3865,6 +3865,8 @@ class Djinn
       Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
       Kernel.sleep(60)
 
+      enable_root_login(ip, ssh_key, 'ubuntu')
+
     elsif @options['infrastructure'] == 'azure'
       user_name = 'azureuser'
       enable_root_login(ip, ssh_key, user_name)
