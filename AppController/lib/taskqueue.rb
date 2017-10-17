@@ -104,6 +104,12 @@ module TaskQueue
     pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
                         "rabbit@#{Socket.gethostname}.pid")
     begin
+      docker_check_cmd = `grep docker /proc/1/cgroup > /dev/null`
+      if $?.exitstatus == 0
+        # In docker, the pid file is present at /var/run/rabbitmq/pid
+        pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+      end
+      
       installed_version = Gem::Version.new(self.get_rabbitmq_version)
       new_location_version = Gem::Version.new('3.4')
       if installed_version < new_location_version
