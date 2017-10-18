@@ -40,6 +40,7 @@ usage() {
     echo "  --passwd <password>     administrator's password"
     echo "  --no-demo-app           don't start the demo application"
     echo "  --force-private         don't use public IP (needed for marketplace)"
+    echo "  --no-metadata-server    don't try to contact metadata servers"
     echo
 }
 
@@ -95,6 +96,11 @@ while [ $# -gt 0 ]; do
         FORCE_PRIVATE="Y"
         continue
     fi
+    if [ "$1" = "--no-metadata-server" ]; then
+        shift
+        PROVIDER="CLUSTER"
+        continue
+    fi
     usage
     exit 1
 done
@@ -110,36 +116,38 @@ fi
 PUBLIC_IP=""
 PRIVATE_IP=""
 
-if grep docker /proc/1/cgroup > /dev/null ; then
-    # We need to start sshd by hand.
-    /usr/sbin/sshd
-    # Force Start cron
-    /usr/sbin/cron
-    PROVIDER="Docker"
-elif lspci | grep VirtualBox > /dev/null ; then
-    PROVIDER="VirtualBox"
-elif ${CURL} -iLs metadata.google.internal |grep 'Metadata-Flavor: Google' > /dev/null ; then
-    # As per https://cloud.google.com/compute/docs/metadata.
-    PROVIDER="GCE"
-elif [ "$(${CURL} -s -o /dev/null -w "%{http_code}" $AZURE_METADATA)" = "200" ] ; then
-    PROVIDER="Azure"
-else
-    # Get the public and private IP of this instance.
-    PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
-    PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
-
-    if [ "$PUBLIC_IP" = "unavailable" ]; then
-        PUBLIC_IP=""
-    fi
-    if [ "$PRIVATE_IP" = "unavailable" ]; then
-        PRIVATE_IP=""
-    fi
-
-    if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
-        PROVIDER="AWS"
+if [ -z "${PROVIDER}" ]; then
+    if grep docker /proc/1/cgroup > /dev/null ; then
+        # We need to start sshd by hand.
+        /usr/sbin/sshd
+        # Force Start cron
+        /usr/sbin/cron
+        PROVIDER="Docker"
+    elif lspci | grep VirtualBox > /dev/null ; then
+        PROVIDER="VirtualBox"
+    elif ${CURL} -iLs metadata.google.internal |grep 'Metadata-Flavor: Google' > /dev/null ; then
+        # As per https://cloud.google.com/compute/docs/metadata.
+        PROVIDER="GCE"
+    elif [ "$(${CURL} -s -o /dev/null -w "%{http_code}" $AZURE_METADATA)" = "200" ] ; then
+        PROVIDER="Azure"
     else
-        # Let's assume virtualized cluster.
-        PROVIDER="CLUSTER"
+        # Get the public and private IP of this instance.
+        PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
+        PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
+
+        if [ "$PUBLIC_IP" = "unavailable" ]; then
+            PUBLIC_IP=""
+        fi
+        if [ "$PRIVATE_IP" = "unavailable" ]; then
+            PRIVATE_IP=""
+        fi
+
+        if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
+            PROVIDER="AWS"
+        else
+            # Let's assume virtualized cluster.
+            PROVIDER="CLUSTER"
+        fi
     fi
 fi
 
@@ -187,7 +195,9 @@ case "$PROVIDER" in
     ADMIN_EMAIL="a@a.com"
     ADMIN_PASSWD="$(cat /etc/hostname)"
     ;;
-* )
+"CLUSTER")
+    ADMIN_EMAIL="a@a.com"
+    ADMIN_PASSWD="appscale"
     # Let's discover the device used for external communication.
     DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/' | uniq)"
     [ -z "$DEFAULT_DEV" ] && { echo "error: cannot detect the default route"; exit 1; }
@@ -195,6 +205,10 @@ case "$PROVIDER" in
     PUBLIC_IP="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
     # There is no private/public IPs in this configuration.
     PRIVATE_IP="${PUBLIC_IP}"
+    ;;
+* )
+    echo "Couldn't detect infrastructure ($PROVIDER)"
+    exit 1
     ;;
 esac
 
