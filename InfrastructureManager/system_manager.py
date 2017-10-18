@@ -83,16 +83,21 @@ class SystemManager():
         InfrastructureManager.REASON_BAD_SECRET)
 
     inner_disk_stats_dict = []
-    for partition in psutil.disk_partitions():
-      if partition.mountpoint not in MOUNTPOINT_WHITELIST:
-        continue
+    relevant_mountpoints = [
+      partition.mountpoint for partition in psutil.disk_partitions()
+      if partition.mountpoint in MOUNTPOINT_WHITELIST]
 
-      disk_stats = psutil.disk_usage(partition.mountpoint)
-      inner_disk_stats_dict.append({ partition.mountpoint : {
-        JSONTags.TOTAL : disk_stats.total,
-        JSONTags.FREE : disk_stats.free,
-        JSONTags.USED : disk_stats.used
-      }})
+    # Try at least to get overall disk usage.
+    if not relevant_mountpoints:
+      relevant_mountpoints.append('/')
+
+    for partition in relevant_mountpoints:
+      disk_stats = psutil.disk_usage(partition)
+      partition_stats = {partition: {JSONTags.TOTAL: disk_stats.total,
+                                     JSONTags.FREE: disk_stats.free,
+                                     JSONTags.USED: disk_stats.used}}
+      inner_disk_stats_dict.append(partition_stats)
+
     disk_stats_dict = { JSONTags.DISK : inner_disk_stats_dict }
     logging.debug("Disk stats: {}".format(disk_stats_dict))
 
