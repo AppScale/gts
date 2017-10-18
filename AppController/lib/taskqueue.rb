@@ -103,17 +103,18 @@ module TaskQueue
 
     pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
                         "rabbit@#{Socket.gethostname}.pid")
+
+    var_run_pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+    if File.read('/proc/1/cgroup').include?('docker')
+      # In docker, the pid file is present at /var/run/rabbitmq/pid
+      pidfile = var_run_pidfile
+    end
+
     begin
-      docker_check_cmd = `grep docker /proc/1/cgroup > /dev/null`
-      if $?.exitstatus == 0
-        # In docker, the pid file is present at /var/run/rabbitmq/pid
-        pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
-      end
-      
       installed_version = Gem::Version.new(self.get_rabbitmq_version)
       new_location_version = Gem::Version.new('3.4')
       if installed_version < new_location_version
-        pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+        pidfile = var_run_pidfile
       end
     rescue TaskQueue::UnknownVersion => error
       Djinn.log_warn("Error while getting rabbitmq version: #{error.message}")
