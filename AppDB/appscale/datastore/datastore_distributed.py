@@ -3079,6 +3079,11 @@ class DatastoreDistributed():
           ('query is too large. may not have more than {0} filters'
            ' + sort orders ancestor total'.format(self._MAX_QUERY_COMPONENTS)))
 
+    for prop_name in query.property_name_list():
+      if dbconstants.RESERVED_PROPERTY_NAME.match(prop_name):
+        raise dbconstants.BadRequest('projections are not supported for the '
+                                     'property: {}'.format(prop_name))
+
     app_id = clean_app_id(query.app())
 
     self.validate_app_id(app_id)

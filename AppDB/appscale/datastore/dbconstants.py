@@ -2,6 +2,7 @@
  Datastore Constants
 """
 import cassandra.cluster
+import re
 
 SECRET_LOCATION = "/etc/appscale/secret.key"
 
@@ -36,6 +37,9 @@ MAX_NUMBER_OF_COMPOSITE_INDEXES = 1000
 # "have a maximum duration of 60 seconds with a 10 second idle expiration time
 # after 30 seconds." The 10-second idle check is not yet implemented.
 MAX_TX_DURATION = 60
+
+# Matches property names that should not be returned to the user.
+RESERVED_PROPERTY_NAME = re.compile('^__.*__$')
 
 # A string used to create end keys when doing range queries.
 TERMINATING_STRING = chr(255) * 500
@@ -185,6 +189,9 @@ class AppScaleBadArg(Exception):
     self.value = value
   def __str__(self):
     return repr(self.value)
+
+class BadRequest(Exception):
+  """ Indicates that a client's request cannot be satisfied. """
 
 class ConcurrentModificationException(Exception):
   """ Indicates that an entity fetched during a transaction has changed. """
