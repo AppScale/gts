@@ -106,7 +106,8 @@ module TaskQueue
     service_bin = `which service`.chomp
     start_cmd = "#{service_bin} rabbitmq-server start"
     stop_cmd = "#{service_bin} rabbitmq-server stop"
-    MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile)
+    MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile,
+                                MAX_WAIT_FOR_RABBITMQ)
   end
 
 
