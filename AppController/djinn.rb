@@ -3859,6 +3859,7 @@ class Djinn
 
     # Ensure we don't have an old host key for this host.
     Djinn.log_run("ssh-keygen -R #{ip}")
+    Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
 
     # Get the username to use for ssh (depends on environments).
     if ["ec2", "euca"].include?(@options['infrastructure'])
