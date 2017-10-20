@@ -1841,11 +1841,11 @@ class Djinn
     # the options for this deployment. It's either a save state from a
     # previous start, or it comes from the tools. If the tools communicate
     # the deployment's data, then we are the headnode.
-    unless restore_appcontroller_state()
-      erase_old_data()
-      wait_for_data()
+    unless restore_appcontroller_state
+      wait_for_data
+      erase_old_data
     end
-    parse_options()
+    parse_options
 
     # Load datastore helper.
     # TODO: this should be the class or module.
@@ -2377,12 +2377,19 @@ class Djinn
 
   # Cleans out temporary files that may have been written by a previous
   # AppScale deployment.
-  def erase_old_data()
+  def erase_old_data
     Djinn.log_run("rm -f ~/.appscale_cookies")
+
+    # Delete (possibly old) mapping of IP <-> HostKey.
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        Djinn.log_run("ssh-keygen -R #{node.private_ip}")
+        Djinn.log_run("ssh-keygen -R #{node.public_ip}")
+      }
+    }
 
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
-    Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
     CronHelper.clear_app_crontabs()
   end
 
