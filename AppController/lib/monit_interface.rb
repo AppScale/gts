@@ -73,7 +73,7 @@ module MonitInterface
     config = <<CONFIG
 CHECK PROCESS #{watch} PIDFILE "#{pidfile}"
   group #{watch}
-  start program = "#{start_cmd}" #{start_timeout}
+  start program = "#{start_cmd}" #{timeout_suffix}
   stop program = "#{stop_cmd}"
 CONFIG
 
