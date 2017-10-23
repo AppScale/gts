@@ -1009,6 +1009,10 @@ class OAuthHandler(BaseHandler):
     if not password:
       missing_arguments.append('password')
 
+    scope = self.get_argument('scope', default=None, strip=True)
+    if not scope:
+      missing_arguments.append('scope')
+
     if missing_arguments:
       error_msg['error'] = constants.AccessTokenErrors.INVALID_REQUEST
       error_msg['error_description'] = 'Required parameters(s) are missing: {}'\
@@ -1018,6 +1022,12 @@ class OAuthHandler(BaseHandler):
     if grant_type != 'password':
       error_msg['error'] = constants.AccessTokenErrors.UNSUPPORTED_GRANT_TYPE
       error_msg['error_description'] = 'Grant type {} not supported.'.format(
+          grant_type)
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
+
+    if scope != self.AUTH_SCOPE:
+      error_msg['error'] = constants.AccessTokenErrors.INVALID_SCOPE
+      error_msg['error_description'] = 'Scope {} not supported.'.format(
           grant_type)
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
 
