@@ -1058,7 +1058,7 @@ class OAuthHandler(BaseHandler):
 
     metadata_base64 = base64.urlsafe_b64encode(json.dumps(metadata))
 
-    method = {'type': 'JWT', 'alg': 'RS256'}
+    method = {'type': 'JWT', 'alg': 'SHA-1'}
 
     method_base64 = base64.urlsafe_b64encode(json.dumps(method))
 
