@@ -66,6 +66,7 @@ class BaseHandler(web.RequestHandler):
     self.check_token_scope(metadata)
     self.check_user_access(metadata, project_id, ua_client)
 
+  @classmethod
   def check_token_hash(self, method_base64, metadata_base64, signature):
     """
     Args:
@@ -84,6 +85,7 @@ class BaseHandler(web.RequestHandler):
     if signature != hasher.hexdigest():
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid token.')
 
+  @classmethod
   def check_token_expiration(self, metadata):
     """
     Args:
@@ -126,6 +128,7 @@ class BaseHandler(web.RequestHandler):
       raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=
         '"{}" is not authorized for project "{}".'.format(user, project_id))
 
+  @classmethod
   def get_users_projects(self, user, ua_client):
     """
     Args:
