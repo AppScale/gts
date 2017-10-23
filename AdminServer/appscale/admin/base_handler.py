@@ -120,6 +120,11 @@ class BaseHandler(web.RequestHandler):
        CustomHTTPError if the user cannot access the project.
     """
     user = metadata['user']
+
+    # If user is cloud admin, return since they can access all projects.
+    if ua_client.is_user_cloud_admin(user):
+      return
+
     projects_list = self.get_users_projects(user, ua_client)
 
     # Unauthorized if user cannot access project.

@@ -284,13 +284,14 @@ class ProjectsHandler(BaseVersionHandler):
       metadata = json.loads(base64.urlsafe_b64decode(metadata_base64))
       self.check_token_expiration(metadata)
       self.check_token_scope(metadata)
-      projects = self.get_users_projects(metadata['user'], self.ua_client)
+      user = metadata['user']
+      if self.ua_client.is_user_cloud_admin(user):
+        projects = self.get_projects_from_zookeeper()
+      else:
+        projects = self.get_users_projects(user, self.ua_client)
     else:
       self.authenticate(project_id=None, ua_client=None)
-      try:
-        projects = self.zk_client.get_children('/appscale/projects')
-      except NoNodeError:
-        projects = []
+      projects = self.get_projects_from_zookeeper()
 
     project_dicts = []
     for project in projects:
@@ -303,6 +304,13 @@ class ProjectsHandler(BaseVersionHandler):
       project_dicts.append(project_dict)
 
     self.write(json.dumps({'projects': project_dicts}))
+
+  def get_projects_from_zookeeper(self):
+    """ Wrapper function for getting list of projects from zookeeper. """
+    try:
+      return self.zk_client.get_children('/appscale/projects')
+    except NoNodeError:
+      return []
 
 
 class ProjectHandler(BaseVersionHandler):
