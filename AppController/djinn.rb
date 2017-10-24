@@ -421,7 +421,7 @@ class Djinn
   MAX_CPU_FOR_APPSERVERS = 90.00
 
 
-  # We won't allow any AppEngine server to have 1 minute average load
+  # We won't allow any AppServer to have 1 minute average load
   # (normalized on the number of CPUs) to be bigger than this constant.
   MAX_LOAD_AVG = 2.0
 
@@ -465,7 +465,7 @@ class Djinn
 
   # A Fixnum that indicates what the first port is that can be used for hosting
   # Google App Engine apps.
-  STARTING_APPENGINE_PORT = 20000
+  STARTING_APPSERVER_PORT = 20000
 
 
   # A String that is returned to callers of get_app_upload_status that provide
@@ -4715,7 +4715,7 @@ HOSTS
     to_end = []
     APPS_LOCK.synchronize {
       @app_info_map.each { |version_key, info|
-        # The remainer of this loop is for AppEngine nodes only, so we
+        # The remainder of this loop is for Compute nodes only, so we
         # need to do work only if we have AppServers.
         next unless info['appservers']
 
@@ -5708,7 +5708,7 @@ HOSTS
     HelperFunctions.write_file(port_file, "#{nginx_port}")
     Djinn.log_info("Using NGINX port #{nginx_port} for #{version_key}.")
 
-    appserver_port = find_lowest_free_port(STARTING_APPENGINE_PORT)
+    appserver_port = find_lowest_free_port(STARTING_APPSERVER_PORT)
     if appserver_port < 0
       Djinn.log_error(
         "Failed to get port for #{version_key} on #{@my_private_ip}")
