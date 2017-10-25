@@ -80,7 +80,7 @@ class TestDjinn < Test::Unit::TestCase
     role2 = {
       "public_ip" => "public_ip2",
       "private_ip" => "private_ip2",
-      "jobs" => ["appengine"],
+      "jobs" => ["compute"],
       "instance_id" => "instance_id2"
     }
 
@@ -111,7 +111,7 @@ class TestDjinn < Test::Unit::TestCase
     # and make sure role2 got hashed fine
     assert_equal("public_ip2", role2_to_hash['public_ip'])
     assert_equal("private_ip2", role2_to_hash['private_ip'])
-    assert_equal(["appengine"], role2_to_hash['jobs'])
+    assert_equal(["compute"], role2_to_hash['jobs'])
     assert_equal("instance_id2", role2_to_hash['instance_id'])
     assert_equal("cloud1", role2_to_hash['cloud'])
   end
@@ -164,7 +164,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
-      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'jobs' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -196,7 +196,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'jobs' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -486,10 +486,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'appengine' => ["1.2.3.4:20001"]
+        'compute' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'appengine' => ["1.2.3.4:20000"]
+        'compute' => ["1.2.3.4:20000"]
       }
     }
 
@@ -522,10 +522,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'appengine' => ["1.2.3.4:20001"]
+        'compute' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'appengine' => ["1.2.3.4:20000"]
+        'compute' => ["1.2.3.4:20000"]
       }
     }
 
@@ -559,10 +559,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'appengine' => ["1.2.3.4:20001"]
+        'compute' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'appengine' => ["1.2.3.4:20000"]
+        'compute' => ["1.2.3.4:20000"]
       }
     }
 
@@ -596,10 +596,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'appengine' => ["1.2.3.4:20000"]
+        'compute' => ["1.2.3.4:20000"]
       },
       'another-app' => {
-        'appengine' => ["1.2.3.4:8080"]
+        'compute' => ["1.2.3.4:8080"]
       }
     }
 
@@ -632,7 +632,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'jobs' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -670,7 +670,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'jobs' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'jobs' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
