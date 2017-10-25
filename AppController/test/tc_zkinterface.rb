@@ -66,7 +66,7 @@ class TestZKInterface < Test::Unit::TestCase
     ip1_data = {
       'public_ip' => 'ip1',
       'private_ip' => 'ip1',
-      'jobs' => 'appengine',
+      'jobs' => 'compute',
       'instance_id' => 'i-id1',
       'disk' => nil
     }
@@ -78,7 +78,7 @@ class TestZKInterface < Test::Unit::TestCase
     ip2_data = {
       'public_ip' => 'ip2',
       'private_ip' => 'ip2',
-      'jobs' => 'appengine',
+      'jobs' => 'compute',
       'instance_id' => 'i-id2',
       'disk' => nil
     }
