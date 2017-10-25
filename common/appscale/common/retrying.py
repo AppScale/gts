@@ -1,0 +1,116 @@
+import functools
+import logging
+import random
+import traceback
+import time
+
+DEFAULT_BACKOFF_BASE = 2
+DEFAULT_BACKOFF_MULTIPLIER = 0.2
+DEFAULT_BACKOFF_THRESHOLD = 300
+DEFAULT_MAX_RETRIES = 10
+DEFAULT_RETRYING_TIMEOUT = 60
+DEFAULT_RETRY_ON_EXCEPTION = None   # Retry after any exception.
+
+MISSED = object()
+
+
+class _Retry(object):
+  def __init__(self):
+    self.backoff_base = DEFAULT_BACKOFF_BASE
+    self.backoff_multiplier = DEFAULT_BACKOFF_MULTIPLIER
+    self.backoff_threshold = DEFAULT_BACKOFF_THRESHOLD
+    self.max_retries = DEFAULT_MAX_RETRIES
+    self.retrying_timeout = DEFAULT_RETRYING_TIMEOUT
+    self.retry_on_exception = DEFAULT_RETRY_ON_EXCEPTION
+
+  def __call__(self, func=None, backoff_base=MISSED, backoff_multiplier=MISSED,
+               backoff_threshold=MISSED, max_retries=MISSED,
+               retrying_timeout=MISSED, retry_on_exception=MISSED):
+    """ Wraps func with retry mechanism which runs up to max_retries attempts
+    with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
+    
+    Args:
+      func: function to wrap.
+      backoff_base: a number to use in backoff calculation.
+      backoff_multiplier: a number indicating initial backoff.
+      backoff_threshold: a number indicating maximum backoff.
+      max_retries: an integer indicating maximum number of retries.
+      retrying_timeout: a number indicating number of seconds after which
+        retrying should be stopped.
+      retry_on_exception: a function receiving one argument: exception object
+        and returning True if retry makes sense for such exception.
+        Alternatively you can pass list of exception types for which
+        retry is needed.
+    Returns:
+      A wrapped function or self if function was omitted in arguments.
+    """
+    if backoff_base is not MISSED:
+      self.backoff_base = backoff_base
+    if backoff_multiplier is not MISSED:
+      self.backoff_multiplier = backoff_multiplier
+    if backoff_threshold is not MISSED:
+      self.backoff_threshold = backoff_threshold
+    if max_retries is not MISSED:
+      self.max_retries = max_retries
+    if retrying_timeout is not MISSED:
+      self.retrying_timeout = retrying_timeout
+    if retry_on_exception is not MISSED:
+      self.retry_on_exception = retry_on_exception
+
+    if func is None:
+      return self
+
+    @functools.wraps(func)
+    def wrapped(*args, **kwargs):
+      # Allow runtime customization of retrying parameters.
+      base = kwargs.pop('backoff_base', self.backoff_base)
+      multiplier = kwargs.pop('backoff_multiplier', self.backoff_multiplier)
+      threshold = kwargs.pop('backoff_threshold', self.backoff_threshold)
+      retries_limit = kwargs.pop('max_retries', self.max_retries)
+      timeout = kwargs.pop('retrying_timeout', self.retrying_timeout)
+      check_exception = kwargs.pop('retry_on_exception', self.retry_on_exception)
+
+      if check_exception is None:
+        check_exception = lambda error: True
+      elif isinstance(check_exception, (list, tuple)):
+        check_exception = lambda error: error.__class__ in check_exception
+
+      retries = 0
+      backoff = multiplier
+      start_time = time.time()
+      while True:
+        # Start of retrying iteration
+        try:
+          # Call original function
+          return func(*args, **kwargs)
+
+        except Exception as err:
+          retries += 1
+
+          # Check if need to retry
+          if retries_limit is not None and retries > retries_limit:
+            logging.error("Giving up retrying after {} attempts during {:0.1f}s"
+                          .format(retries, time.time()-start_time))
+            raise
+          if timeout and time.time() - start_time > timeout:
+            logging.error("Giving up retrying after {} attempts during {:0.1f}s"
+                          .format(retries, time.time()-start_time))
+            raise
+          if not check_exception(err):
+            raise
+
+          # Proceed with exponential backoff
+          backoff = min(backoff * base, threshold)
+          sleep_time = backoff * (random.random() * 0.3 + 0.85)
+          # Report problem to logs
+          stacktrace = traceback.format_exc()
+          msg = "Retry #{} in {:0.1f}s".format(retries, sleep_time)
+          logging.warn(stacktrace + msg)
+
+          time.sleep(sleep_time)
+
+        # End of retrying iteration
+
+    return wrapped
+
+retry = _Retry()
