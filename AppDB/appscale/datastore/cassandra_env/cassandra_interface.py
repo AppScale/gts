@@ -78,7 +78,7 @@ PRIMED_KEY = 'primed'
 # The size in bytes that a batch must be to use the batches table.
 LARGE_BATCH_THRESHOLD = 5 << 10
 
-# Entities have a .78% chance of getting the scatter property. Their keys
+# Entities have a .78% chance of getting the scatter property.
 SCATTER_CHANCE = .0078
 
 # The scatter threshold is defined within a 2-byte space.
