@@ -73,7 +73,8 @@ class _Retry(object):
       if check_exception is None:
         check_exception = lambda error: True
       elif isinstance(check_exception, (list, tuple)):
-        check_exception = lambda error: error.__class__ in check_exception
+        orig_check_exception = check_exception
+        check_exception = lambda error: error.__class__ in orig_check_exception
 
       retries = 0
       backoff = multiplier

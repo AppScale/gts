@@ -25,8 +25,8 @@ class _RetryCoroutine(object):
   def __call__(self, func=None, backoff_base=MISSED, backoff_multiplier=MISSED,
                backoff_threshold=MISSED, max_retries=MISSED,
                retrying_timeout=MISSED, retry_on_exception=MISSED):
-    """ Wraps tornado coroutine with retry mechanism which runs up to
-    max_retries attempts with exponential backoff
+    """ Wraps python generator with tornado coroutine and retry mechanism
+    which runs up to max_retries attempts with exponential backoff
     (sleep = backoff_multiplier * backoff_base**X).
 
     Args:
@@ -96,7 +96,7 @@ class _RetryCoroutine(object):
           # Check if need to retry
           if retries_limit is not None and retries > retries_limit:
             logging.error("Giving up retrying after {} attempts during {:0.1f}s"
-                          .format(retries, time.time() - start_time))
+                          .format(retries,  - start_time))
             raise
           if timeout and time.time() - start_time > timeout:
             logging.error("Giving up retrying after {} attempts during {:0.1f}s"
