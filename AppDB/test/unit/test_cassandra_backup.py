@@ -3,6 +3,7 @@
 import re
 import sys
 import subprocess
+import time
 import unittest
 from flexmock import flexmock
 
@@ -101,6 +102,8 @@ class TestCassandraBackup(unittest.TestCase):
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
     flexmock(rebalance).should_receive('get_status').and_return(
       [{'state': 'UN'} for _ in db_ips])
+
+    flexmock(time).should_receive('sleep')
 
     cassandra_backup.restore_data(path, keyname)
 
