@@ -16,10 +16,10 @@ from . import constants
 from . import misc
 from .constants import MonitStates
 
-""" 
-This file contains top level functions for starting and stopping 
+"""
+This file contains top level functions for starting and stopping
 monitoring of processes using monit. Each component is in
-charge of creating configuration files for the process they want started. 
+charge of creating configuration files for the process they want started.
 """
 
 MONIT = "/usr/bin/monit"
@@ -111,7 +111,7 @@ def start(watch, is_group=True):
 
 def stop(watch, is_group=True):
   """ Shut down the named programs monit is watching, and stop monitoring it.
- 
+
   Args:
     watch: The name of the group of programs that monit is watching, that should
       no longer be watched.
@@ -206,7 +206,7 @@ class MonitOperator(object):
   @retry_coroutine(retrying_timeout=RETRYING_TIMEOUT)
   def get_entries(self):
     """ Retrieves the status for each Monit entry.
-    
+
     Returns:
       A dictionary mapping Monit entries to their state.
     """

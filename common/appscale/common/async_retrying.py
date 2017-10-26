@@ -159,7 +159,7 @@ class _PersistentWatch(object):
                retry_on_exception=MISSED):
     """ Wraps func with retry mechanism which runs up to max_retries attempts
     with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
-  
+
     Args:
       node: a string representing path to zookeeper node.
       func: function or coroutine to wrap.
