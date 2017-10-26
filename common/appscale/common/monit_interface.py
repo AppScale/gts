@@ -11,6 +11,7 @@ from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 
 from appscale.common.async_retrying import retry_coroutine
+from appscale.common.retrying import retry
 from . import constants
 from . import misc
 from .constants import MonitStates
@@ -34,35 +35,47 @@ class ProcessNotFound(Exception):
   pass
 
 
-def run_with_retry(args):
+class NotMonitCommand(Exception):
+  """ Indicates that wrong command was asked to be run """
+  pass
+
+
+class NonZeroReturnStatus(Exception):
+  """ Indicates that command returned non-zero return status """
+  pass
+
+
+@retry(retrying_timeout=RETRYING_TIMEOUT, backoff_multiplier=0.5,
+       retry_on_exception=lambda err: not isinstance(err, NotMonitCommand))
+def monit_run(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
   monit is busy servicing other requests).
 
   Args:
-    args: A list of strs, where each str is a command-line argument composing
-      the command to execute.
-  Returns:
-    True on success, and False otherwise.
+    args: A list of strs, where each str is a command-line argument for monit.
+  Raises:
+    NonZeroReturnStatus if command returned status different from 0.
   """
-  if args[0] != MONIT:
-    logging.error("Cannot execute command {0}, as it is not a monit command." \
-      .format(args))
+  return_status = subprocess.call([MONIT] + args)
+  if return_status != 0:
+    raise NonZeroReturnStatus("Command `{}` return non-zero status: {}"
+                              .format(' '.join(args), return_status))
+
+
+def safe_monit_run(args):
+  """ Runs the given monit command, retrying it if it fails.
+
+  Args:
+    args: A list of strs, where each str is a command-line argument for monit.
+  Returns:
+    True if command succeeded, False otherwise.
+  """
+  try:
+    monit_run(args)
+    return True
+  except NonZeroReturnStatus as err:
+    logging.error(err)
     return False
-
-  retries_left = NUM_RETRIES
-  while retries_left:
-    return_status = subprocess.call(args)
-    if return_status == 0:
-      logging.info("Monit command {0} returned successfully!".format(args))
-      return True
-
-    retries_left -= 1
-
-    logging.warning("Monit command {0} returned with status {1}, {2} retries " \
-      "left.".format(args, return_status, retries_left))
-    time.sleep(SMALL_WAIT)
-
-  return False
 
 
 def start(watch, is_group=True):
@@ -84,16 +97,16 @@ def start(watch, is_group=True):
     return False
 
   logging.info("Reloading monit.")
-  if not run_with_retry([MONIT, 'reload']):
+  if not safe_monit_run(['reload']):
     return False
 
   logging.info("Starting watch {0}".format(watch))
   if is_group:
-    run_with_retry([MONIT, 'monitor', '-g', watch])
-    return run_with_retry([MONIT, 'start', '-g', watch])
+    safe_monit_run(['monitor', '-g', watch])
+    return safe_monit_run(['start', '-g', watch])
   else:
-    run_with_retry([MONIT, 'monitor',  watch])
-    return run_with_retry([MONIT, 'start', watch])
+    safe_monit_run(['monitor', watch])
+    return safe_monit_run(['start', watch])
 
 
 def stop(watch, is_group=True):
@@ -115,11 +128,11 @@ def stop(watch, is_group=True):
 
   logging.info("Stopping watch {0}".format(watch))
   if is_group:
-    stop_command = [MONIT, 'stop', '-g', watch]
+    stop_command = ['stop', '-g', watch]
   else:
-    stop_command = [MONIT, 'stop', watch]
+    stop_command = ['stop', watch]
 
-  return run_with_retry(stop_command)
+  return safe_monit_run(stop_command)
 
 
 def restart(watch):
@@ -137,7 +150,7 @@ def restart(watch):
     return False
 
   logging.info("Restarting watch {0}".format(watch))
-  return run_with_retry([MONIT, 'restart', '-g', watch])
+  return safe_monit_run(['restart', '-g', watch])
 
 
 def parse_entries(response):

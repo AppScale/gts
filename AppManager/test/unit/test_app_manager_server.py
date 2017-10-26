@@ -241,7 +241,7 @@ class TestAppManager(AsyncTestCase):
 
     flexmock(app_manager_server).should_receive('unmonitor')
     flexmock(os).should_receive('remove')
-    flexmock(monit_interface).should_receive('run_with_retry')
+    flexmock(monit_interface).should_receive('safe_run')
 
     response = Future()
     response.set_result(None)
@@ -279,6 +279,6 @@ class TestAppManager(AsyncTestCase):
     flexmock(time).should_receive('sleep').and_return()
     fake_opener.should_receive('open').and_raise(IOError)
     self.assertEqual(False, app_manager_server.wait_on_app(port))
-    
+
 if __name__ == "__main__":
   unittest.main()
