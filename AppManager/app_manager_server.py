@@ -27,7 +27,7 @@ from appscale.admin.instance_manager.constants import (
   APP_LOG_SIZE,
   DASHBOARD_LOG_SIZE,
   DASHBOARD_PROJECT_ID,
-  DEFAULT_MAX_MEMORY,
+  DEFAULT_MAX_APPSERVER_MEMORY,
   INSTANCE_CLASSES,
   LOGROTATE_CONFIG_DIR,
   MAX_BACKGROUND_WORKERS,
@@ -192,7 +192,8 @@ def start_app(version_key, config):
   runtime = version_details['runtime']
   env_vars = version_details.get('envVariables', {})
   runtime_params = deployment_config.get_config('runtime_parameters')
-  max_memory = runtime_params.get('max_memory', DEFAULT_MAX_MEMORY)
+  max_memory = runtime_params.get('default_max_appserver_memory',
+                                  DEFAULT_MAX_APPSERVER_MEMORY)
   if 'instanceClass' in version_details:
     max_memory = INSTANCE_CLASSES.get(version_details['instanceClass'],
                                       max_memory)
@@ -445,9 +446,9 @@ def stop_app(version_key):
   for entry in version_entries:
     yield unmonitor_and_terminate(entry)
 
-  if not remove_logrotate(project_id):
-    logging.error("Error while setting up log rotation for application: {}".
-      format(project_id))
+  if project_id not in projects_manager and not remove_logrotate(project_id):
+    logging.error("Error while removing log rotation for application: {}".
+                  format(project_id))
 
   yield monit_operator.reload()
   yield clean_old_sources()

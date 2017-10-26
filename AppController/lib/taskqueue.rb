@@ -2,6 +2,7 @@
 
 
 # First-party Ruby libraries
+require 'posixpsutil'
 require 'resolv'
 require 'socket'
 require 'timeout'
@@ -80,13 +81,40 @@ module TaskQueue
        raise AppScaleException.new(msg)
     end
 
+    # On Xenial, rabbitmq starts an epmd daemon that doesn't play well with
+    # ejabberd. This makes sure that the compatible service is started first.
+    begin
+      services = `systemctl list-unit-files`
+      if services.include?('epmd.service')
+        PosixPsutil::Process.processes.each { |process|
+          begin
+            next unless process.name == 'epmd'
+            process.terminate if process.cmdline.include?('-daemon')
+          rescue PosixPsutil::NoSuchProcess
+            next
+          end
+        }
+        `systemctl start epmd`
+      end
+    rescue Errno::ENOENT
+      # Distros without systemd don't have systemctl, and they do not exhibit
+      # the issue.
+    end
+
     pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
                         "rabbit@#{Socket.gethostname}.pid")
+
+    var_run_pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+    if File.read('/proc/1/cgroup').include?('docker')
+      # In docker, the pid file is present at /var/run/rabbitmq/pid
+      pidfile = var_run_pidfile
+    end
+
     begin
       installed_version = Gem::Version.new(self.get_rabbitmq_version)
       new_location_version = Gem::Version.new('3.4')
       if installed_version < new_location_version
-        pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+        pidfile = var_run_pidfile
       end
     rescue TaskQueue::UnknownVersion => error
       Djinn.log_warn("Error while getting rabbitmq version: #{error.message}")

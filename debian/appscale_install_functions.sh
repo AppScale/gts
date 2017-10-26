@@ -521,6 +521,10 @@ postinstallrsyslog()
     sed -i 's/#module(load="imtcp")/module(load="imtcp")/' /etc/rsyslog.conf
     sed -i 's/#input(type="imtcp" port="514")/input(type="imtcp" port="514")/' /etc/rsyslog.conf
 
+    # Set up template for formatting combined application log messages.
+    cp ${APPSCALE_HOME}/common/appscale/common/templates/rsyslog-template.conf\
+        /etc/rsyslog.d/09-appscale.conf
+
     # Restart the service
     service rsyslog restart || true
 }
@@ -540,6 +544,13 @@ EOF
 
     # Check services every 5 seconds
     sed -i 's/set daemon.*/set daemon 5/' /etc/monit/monitrc
+
+    # Monitor cron.
+    if [ -e /etc/monit/conf-available/cron ] &&
+            [ -e /etc/monit/conf-enabled ] &&
+            [ ! -e /etc/monit/conf-enabled/cron ]; then
+        ln -s /etc/monit/conf-available/cron /etc/monit/conf-enabled
+    fi
 
     # Monit cannot start at boot time: in case of accidental reboot, it
     # would start processes out of order. The controller will restart

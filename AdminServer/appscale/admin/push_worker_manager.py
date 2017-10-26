@@ -17,6 +17,9 @@ from appscale.common.constants import (
   CONFIG_DIR
 )
 from appscale.common.monit_app_configuration import create_config_file
+from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
+
+from appscale.admin import utils
 from .utils import ensure_path
 
 # The number of tasks the Celery worker can handle at a time.
@@ -96,6 +99,18 @@ class ProjectPushWorkerManager(object):
     yield gen.with_timeout(timedelta(seconds=60), start_future,
                            IOLoop.current())
 
+  @gen.coroutine
+  def stop_worker(self):
+    """ Removes the monit configuration for the project's push worker. """
+    status = yield self._wait_for_stable_state()
+    if status == MonitStates.RUNNING:
+      logger.info('Stopping push worker for {}.'.format(self.project_id))
+      yield self.monit_operator.send_command(self.monit_watch, 'stop')
+      watch_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, self.monit_watch)
+      os.remove(watch_file)
+    else:
+      logger.debug('Not stopping push worker for {} since it is not running.'.format(self.project_id))
+
   def celery_command(self):
     """ Generates the Celery command for a project's push worker. """
     log_file = os.path.join(CELERY_WORKER_LOG_DIR,
@@ -165,8 +180,6 @@ class ProjectPushWorkerManager(object):
     Args:
       queue_config: A JSON string specifying queue configuration.
     """
-    main_io_loop = IOLoop.instance()
-
     # Prevent further watches if they are no longer needed.
     if queue_config is None:
       try:
@@ -180,7 +193,11 @@ class ProjectPushWorkerManager(object):
         self._stopped = True
         return False
 
-    main_io_loop.add_callback(self.update_worker, queue_config)
+    persistent_update_worker = utils.retry_data_watch_coroutine(
+      self.queues_node, self.update_worker
+    )
+    main_io_loop = IOLoop.instance()
+    main_io_loop.add_callback(persistent_update_worker, queue_config)
 
 
 class GlobalPushWorkerManager(object):
@@ -197,6 +214,7 @@ class GlobalPushWorkerManager(object):
     zk_client.ensure_path('/appscale/projects')
     zk_client.ChildrenWatch('/appscale/projects', self._update_projects)
 
+  @gen.coroutine
   def update_projects(self, new_project_list):
     """ Establishes watches for each project's queue configuration.
 
@@ -207,6 +225,7 @@ class GlobalPushWorkerManager(object):
     to_stop = [project for project in self.projects
                if project not in new_project_list]
     for project_id in to_stop:
+      yield self.projects[project_id].stop_worker()
       del self.projects[project_id]
 
     for new_project_id in new_project_list:
@@ -226,5 +245,8 @@ class GlobalPushWorkerManager(object):
     Args:
       new_projects: A list of strings specifying all existing project IDs.
     """
+    persistent_update_project = utils.retry_children_watch_coroutine(
+      '/appscale/projects', self.update_projects
+    )
     main_io_loop = IOLoop.instance()
-    main_io_loop.add_callback(self.update_projects, new_projects)
+    main_io_loop.add_callback(persistent_update_project, new_projects)

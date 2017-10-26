@@ -25,6 +25,8 @@ class CustomHTTPError(HTTPError):
 
 class Methods(object):
   """ The methods handled by the Admin API. """
+  DELETE_PROJECT = 'google.appengine.v1.Projects.DeleteProject'
+  DELETE_SERVICE = 'google.appengine.v1.Services.DeleteService'
   CREATE_VERSION = 'google.appengine.v1.Versions.CreateVersion'
   DELETE_VERSION = 'google.appengine.v1.Versions.DeleteVersion'
   UPDATE_VERSION = 'google.appengine.v1.Versions.UpdateVersion'
@@ -85,6 +87,9 @@ IMMUTABLE_PROJECTS = [DASHBOARD_APP_ID]
 
 # The directory where source archives are stored.
 SOURCES_DIRECTORY = os.path.join('/', 'opt', 'appscale', 'apps')
+
+# The ZooKeeper location for storing project details.
+PROJECT_NODE_TEMPLATE = '/appscale/projects/{}'
 
 # The ZooKeeper location for storing version details.
 VERSION_NODE_TEMPLATE = ('/appscale/projects/{project_id}'

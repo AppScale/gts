@@ -35,6 +35,9 @@ from appscale.hermes.stats import constants as stats_constants
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
 
+# A KazooClient for detecting configuration changes.
+zk_client = None
+
 
 class SensorDeployer(object):
   """ Uploads the sensor app for registered deployments. """
@@ -187,6 +190,7 @@ def create_xmpp_user(password, uaserver):
 def signal_handler(signal, frame):
   """ Signal handler for graceful shutdown. """
   logging.warning("Caught signal: {0}".format(signal))
+  zk_client.stop()
   IOLoop.instance().add_callback(shutdown)
 
 
@@ -226,6 +230,7 @@ def main():
     # Only master Hermes node handles /do_task route
     task_route = ('/do_task', TaskHandler)
 
+    global zk_client
     zk_client = KazooClient(
       hosts=','.join(appscale_info.get_zk_node_ips()),
       connection_retry=ZK_PERSISTENT_RECONNECTS)
