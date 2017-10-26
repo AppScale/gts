@@ -28,6 +28,7 @@ from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from .constants import (
   InvalidTarget,
+  QueueNotFound,
   TARGET_REGEX
 )
 from .queue import (
@@ -50,6 +51,8 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.api.taskqueue.taskqueue_service_pb import (
+  TaskQueueServiceError)
 from google.appengine.ext import db
 from google.appengine.runtime import apiproxy_errors
 
@@ -252,7 +255,8 @@ class DistributedTaskQueue():
     try:
       return self.queue_manager[app][queue]
     except KeyError:
-      return None
+      raise QueueNotFound(
+        'The queue {} is not defined for {}'.format(queue, app))
 
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the proper tags.
@@ -291,7 +295,11 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse()
 
     for queue_name in request.queue_name_list():
-      queue = self.get_queue(app_id, queue_name)
+      try:
+        queue = self.get_queue(app_id, queue_name)
+      except QueueNotFound as error:
+        return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
       stats_response = response.add_queuestats()
 
       if isinstance(queue, PullQueue):
@@ -327,7 +335,11 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueuePurgeQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueuePurgeQueueResponse()
 
-    queue = self.get_queue(app_id, request.queue_name())
+    try:
+      queue = self.get_queue(app_id, request.queue_name())
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     queue.purge()
     return (response.Encode(), 0, "")
 
@@ -343,10 +355,14 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueueDeleteRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteResponse()
 
-    queue = self.get_queue(app_id, request.queue_name())
+    try:
+      queue = self.get_queue(app_id, request.queue_name())
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     for task_name in request.task_name_list():
       queue.delete_task(Task({'id': task_name}))
-      response.add_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+      response.add_result(TaskQueueServiceError.OK)
 
     return response.Encode(), 0, ""
 
@@ -362,7 +378,11 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest(http_data)
     response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
 
-    queue = self.get_queue(app_id, request.queue_name())
+    try:
+      queue = self.get_queue(app_id, request.queue_name())
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     tag = None
     if request.has_tag():
       tag = request.tag()
@@ -371,7 +391,7 @@ class DistributedTaskQueue():
       tasks = queue.lease_tasks(request.max_tasks(), request.lease_seconds(),
                                 group_by_tag=request.group_by_tag(), tag=tag)
     except TransientError as lease_error:
-      pb_error = taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR
+      pb_error = TaskQueueServiceError.TRANSIENT_ERROR
       return response.Encode(), pb_error, str(lease_error)
 
     for task in tasks:
@@ -398,16 +418,18 @@ class DistributedTaskQueue():
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
     bulk_request.add_add_request().CopyFrom(request)
 
-    self.__bulk_add(source_info, bulk_request, bulk_response)
+    try:
+      self.__bulk_add(source_info, bulk_request, bulk_response)
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
     if bulk_response.taskresult_size() == 1:
       result = bulk_response.taskresult(0).result()
     else:
-      err_code = taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR 
-      return (response.Encode(), err_code, 
+      return (response.Encode(), TaskQueueServiceError.INTERNAL_ERROR,
               "Task did not receive a task response.")
 
-    if result != taskqueue_service_pb.TaskQueueServiceError.OK:
+    if result != TaskQueueServiceError.OK:
       return (response.Encode(), result, "Task did not get an OK status.")
     elif bulk_response.taskresult(0).has_chosen_task_name():
       response.set_chosen_task_name(
@@ -427,7 +449,12 @@ class DistributedTaskQueue():
     """
     request = taskqueue_service_pb.TaskQueueBulkAddRequest(http_data)
     response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-    self.__bulk_add(source_info, request, response)
+
+    try:
+      self.__bulk_add(source_info, request, response)
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     return (response.Encode(), 0, "")
 
   def __bulk_add(self, source_info, request, response):
@@ -455,8 +482,7 @@ class DistributedTaskQueue():
           add_request.mode() == taskqueue_service_pb.TaskQueueMode.PULL):
         queue = self.get_queue(add_request.app_id(), add_request.queue_name())
         if not isinstance(queue, PullQueue):
-          task_result.set_result(
-            taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_MODE)
+          task_result.set_result(TaskQueueServiceError.INVALID_QUEUE_MODE)
           error_found = True
 
         encoded_payload = base64.urlsafe_b64encode(add_request.body())
@@ -469,7 +495,7 @@ class DistributedTaskQueue():
 
         new_task = Task(task_info)
         queue.add_task(new_task)
-        task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+        task_result.set_result(TaskQueueServiceError.OK)
         task_result.set_chosen_task_name(new_task.id)
         continue
 
@@ -478,7 +504,7 @@ class DistributedTaskQueue():
       # Tasks go from SKIPPED to OK once they're run. If there are
       # any failures from other tasks then we pass this request 
       # back as skipped.
-      if result == taskqueue_service_pb.TaskQueueServiceError.SKIPPED:
+      if result == TaskQueueServiceError.SKIPPED:
         task_name = None       
         if add_request.has_task_name():
           task_name = add_request.task_name()
@@ -506,9 +532,9 @@ class DistributedTaskQueue():
         task_result.set_result(error.application_error)
       except InvalidTarget as e:
         logger.error(e.message)
-        task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST)
+        task_result.set_result(TaskQueueServiceError.INVALID_REQUEST)
       else:
-        task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+        task_result.set_result(TaskQueueServiceError.OK)
 
   def __method_mapping(self, method):
     """ Maps an int index to a string. 
@@ -550,7 +576,7 @@ class DistributedTaskQueue():
     if item:
       logger.warning("Task already exists")
       raise apiproxy_errors.ApplicationError(
-        taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
+        TaskQueueServiceError.TASK_ALREADY_EXISTS)
     else:
       new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
         queue=request.queue_name(), app_id=request.app_id())
@@ -560,7 +586,7 @@ class DistributedTaskQueue():
       except datastore_errors.InternalError, internal_error:
         logger.error(str(internal_error))
         raise apiproxy_errors.ApplicationError(
-          taskqueue_service_pb.TaskQueueServiceError.DATASTORE_ERROR)
+          TaskQueueServiceError.DATASTORE_ERROR)
 
   def __enqueue_push_task(self, source_info, request):
     """ Enqueues a batch of push tasks.
@@ -786,20 +812,19 @@ class DistributedTaskQueue():
     """ 
     if not request.has_queue_name():
       raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_NAME)
+        TaskQueueServiceError.INVALID_QUEUE_NAME)
     if not request.has_task_name():
       raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.INVALID_TASK_NAME)
+        TaskQueueServiceError.INVALID_TASK_NAME)
     if not request.has_app_id():
       raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
+        TaskQueueServiceError.UNKNOWN_QUEUE)
     if not request.has_url():
+      raise apiproxy_errors.ApplicationError(TaskQueueServiceError.INVALID_URL)
+    if (request.has_mode() and
+        request.mode() == taskqueue_service_pb.TaskQueueMode.PULL):
       raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.INVALID_URL)
-    if request.has_mode() and request.mode() == \
-              taskqueue_service_pb.TaskQueueMode.PULL:
-      raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_MODE)
+        TaskQueueServiceError.INVALID_QUEUE_MODE)
      
   def modify_task_lease(self, app_id, http_data):
     """ 
@@ -813,14 +838,18 @@ class DistributedTaskQueue():
     request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest(http_data)
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
 
-    queue = self.get_queue(app_id, request.queue_name())
+    try:
+      queue = self.get_queue(app_id, request.queue_name())
+    except QueueNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+
     task_info = {'id': request.task_name()}
     try:
       # The Python AppServer sets eta_usec with a resolution of 1 second,
       # so update_lease can't be used. It checks with millisecond precision.
       task = queue.update_task(Task(task_info), request.lease_seconds())
     except InvalidLeaseRequest as lease_error:
-      error = taskqueue_service_pb.TaskQueueServiceError.TASK_LEASE_EXPIRED
+      error = TaskQueueServiceError.TASK_LEASE_EXPIRED
       # The response requires ETA to be set before encoding.
       response.set_updated_eta_usec(0)
       return response.Encode(), error, str(lease_error)
