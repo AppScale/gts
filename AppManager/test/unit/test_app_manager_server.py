@@ -241,7 +241,7 @@ class TestAppManager(AsyncTestCase):
 
     flexmock(app_manager_server).should_receive('unmonitor')
     flexmock(os).should_receive('remove')
-    flexmock(monit_interface).should_receive('safe_run')
+    flexmock(monit_interface).should_receive('safe_monit_run')
 
     response = Future()
     response.set_result(None)
