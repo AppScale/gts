@@ -131,7 +131,35 @@ echo "Exit now (ctrl-c) if this is incorrect"
 echo
 
 sleep 5
+
+# Wait up to 30 seconds for the package lists lock to become available.
+lock_wait_start=$(date +%s)
+printed_status=false
+while fuser /var/lib/apt/lists/lock; do
+    if [ "${printed_status}" = false ]; then
+        echo "Waiting for another process to update package lists"
+        printed_status=true
+    fi
+    current_time=$(date +%s)
+    elapsed_time=$((current_time - lock_wait_start))
+    if [ "${elapsed_time}" -gt 30 ]; then break; fi
+    sleep 1
+done
 apt-get update
+
+# Wait up to 2 min for the dpkg lock to become available.
+lock_wait_start=$(date +%s)
+printed_status=false
+while fuser /var/lib/dpkg/lock; do
+    if [ "${printed_status}" = false ]; then
+        echo "Waiting for another process to update packages"
+        printed_status=true
+    fi
+    current_time=$(date +%s)
+    elapsed_time=$((current_time - lock_wait_start))
+    if [ "${elapsed_time}" -gt 120 ]; then break; fi
+    sleep 1
+done
 apt-get install -y git
 if [ ! -d appscale ]; then
     # We split the commands, to ensure it fails if branch doesn't
