@@ -111,6 +111,11 @@ class StartupScriptFailureApplication(object):
         traceback=self._formatted_traceback)
 
 
+def expand_user(path):
+  """Fake implementation of os.path.expanduser(path)."""
+  return path
+
+
 def main():
   config = runtime_config_pb2.Config()
   config.ParseFromString(base64.b64decode(sys.stdin.read()))
@@ -141,6 +146,7 @@ def main():
   else:
     setup_stubs(config)
     sandbox.enable_sandbox(config)
+    os.path.expanduser = expand_user
     # This import needs to be after enabling the sandbox so the runtime
     # implementation imports the sandboxed version of the logging module.
     from google.appengine.tools.devappserver2.python import request_handler
