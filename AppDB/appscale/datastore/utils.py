@@ -329,25 +329,25 @@ def get_index_kv_from_tuple(tuple_list, reverse=False):
      A list of keys and values of indexes
   """
   all_rows = []
-  for prefix, e in tuple_list:
-    for p in e.property_list():
-      val = str(encode_index_pb(p.value()))
+  for prefix, entity in tuple_list:
+    for prop in entity.property_list():
+      val = str(encode_index_pb(prop.value()))
 
       if reverse:
         val = helper_functions.reverse_lex(val)
 
       params = [prefix,
-                get_entity_kind(e),
-                p.name(),
+                get_entity_kind(entity),
+                prop.name(),
                 val,
-                str(encode_index_pb(e.key().path()))]
+                str(encode_index_pb(entity.key().path()))]
 
       index_key = get_index_key_from_params(params)
       p_vals = [index_key,
                 buffer(prefix + dbconstants.KEY_DELIMITER) + \
-                encode_index_pb(e.key().path())]
+                encode_index_pb(entity.key().path())]
       all_rows.append(p_vals)
-  return tuple(ii for ii in all_rows)
+  return tuple(all_rows)
 
 
 def get_ancestor_paths_from_ent_key(ent_key):
