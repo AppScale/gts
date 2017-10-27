@@ -3138,12 +3138,14 @@ class DatastoreDistributed():
       query_result.mutable_compiled_cursor().\
         CopyFrom(datastore_pb.CompiledCursor())
 
-  def dynamic_add_actions(self, app_id, request):
+  def dynamic_add_actions(self, app_id, request, service_id, version_id):
     """ Adds tasks to enqueue upon committing the transaction.
 
     Args:
       app_id: A string specifying the application ID.
       request: A protocol buffer AddActions request.
+      service_id: A string specifying the client's service ID.
+      version_id: A string specifying the client's version ID.
     """
     txid = request.add_request(0).transaction().handle()
 
@@ -3158,7 +3160,7 @@ class DatastoreDistributed():
       raise dbconstants.ExcessiveTasks(message)
 
     self.datastore_batch.add_transactional_tasks(
-      app_id, txid, request.add_request_list())
+      app_id, txid, request.add_request_list(), service_id, version_id)
 
   def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
@@ -3189,13 +3191,19 @@ class DatastoreDistributed():
 
     bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
+
+    # Assume all tasks have the same client version.
+    service_id = tasks[0]['service_id']
+    version_id = tasks[0]['version_id']
+
     for task in tasks:
-      bulk_request.add_add_request().CopyFrom(task)
+      bulk_request.add_add_request().CopyFrom(task['task'])
 
     self.logger.debug(
       'Enqueuing {} tasks'.format(bulk_request.add_request_size()))
     self.taskqueue_stubs[app]._RemoteSend(
-      bulk_request, bulk_response, 'BulkAdd')
+      bulk_request, bulk_response, 'BulkAdd', service_id=service_id,
+      version_id=version_id)
 
     # The transaction has already been committed, but enqueuing the tasks may
     # fail. We need a way to enqueue the task with the condition that it
