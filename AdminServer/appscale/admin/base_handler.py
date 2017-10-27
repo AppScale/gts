@@ -41,23 +41,24 @@ class BaseHandler(web.RequestHandler):
         options.secret:
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
     elif authorization_header:
-      try:
-        self.authenticate_access_token(
-          self.request.headers['Authorization'].split()[1],
-          project_id, ua_client)
-      except IndexError:
-        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Malformed '
-                                                             'authorization.')
+      self.authenticate_access_token(self.request.headers, project_id,
+                                     ua_client)
 
-  def authenticate_access_token(self, token, project_id, ua_client):
+  def authenticate_access_token(self, headers, project_id, ua_client):
     """ Method to go through Access Token authentication.
     Args:
-      token: The token associated with the request.
+      headers: The headers associated with the request.
       project_id: The project that the user wants to access.
       ua_client: A UA Client, used to see if the user can access the project.
     Raises:
       CustomHTTPError specified in called function.
     """
+    try:
+      token = headers['Authorization'].split()[1]
+    except IndexError:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Malformed '
+                                                           'authorization.')
+
     method_base64, metadata_base64, signature = token.split('.')
     self.check_token_hash(method_base64, metadata_base64, signature)
 
@@ -129,7 +130,6 @@ class BaseHandler(web.RequestHandler):
 
     # Unauthorized if user cannot access project.
     if project_id not in projects_list:
-      user = metadata['user']
       raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=
         '"{}" is not authorized for project "{}".'.format(user, project_id))
 

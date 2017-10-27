@@ -277,7 +277,11 @@ class ProjectsHandler(BaseVersionHandler):
       # Run all the authenticate functions in authenticate_access_token but
       # don't check if user is authenticated for a specific project,
       # get projects user can access.
-      token = self.request.headers['Authorization'].split()[1]
+      try:
+        token = self.request.headers['Authorization'].split()[1]
+      except IndexError:
+        message = 'A required header is missing: Authorization'
+        raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=message)
       method_base64, metadata_base64, signature = token.split('.')
       self.check_token_hash(method_base64, metadata_base64, signature)
 
@@ -285,7 +289,13 @@ class ProjectsHandler(BaseVersionHandler):
       self.check_token_expiration(metadata)
       self.check_token_scope(metadata)
       user = metadata['user']
-      if self.ua_client.is_user_cloud_admin(user):
+      try:
+        is_user_cloud_admin = self.ua_client.is_user_cloud_admin(user)
+      except UAException:
+        message = 'Unable to determine user data for {}.'.format(user)
+        raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+
+      if is_user_cloud_admin:
         projects = self.get_projects_from_zookeeper()
       else:
         projects = self.get_users_projects(user, self.ua_client)
@@ -1070,7 +1080,7 @@ class OAuthHandler(BaseHandler):
     # so we create it.
     metadata = {
       'user': username,
-      'exp': time.time() + 3600,
+      'exp': int(time.time()) + 3600,
       'scope': self.AUTH_SCOPE
     }
 
