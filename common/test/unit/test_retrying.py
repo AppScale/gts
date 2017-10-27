@@ -8,8 +8,8 @@ class TestRetry(unittest.TestCase):
 
   @patch.object(retrying.time, 'sleep')
   @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warn')
-  def test_no_errors(self, warn_mock, error_mock, sleep_mock):
+  @patch.object(retrying.logging, 'warning')
+  def test_no_errors(self, warning_mock, error_mock, sleep_mock):
 
     @retrying.retry
     def no_errors():
@@ -20,14 +20,14 @@ class TestRetry(unittest.TestCase):
     # Assert outcomes.
     self.assertEqual(result, "No Errors")
     self.assertEqual(sleep_mock.call_args_list, [])
-    self.assertEqual(warn_mock.call_args_list, [])
+    self.assertEqual(warning_mock.call_args_list, [])
     self.assertEqual(error_mock.call_args_list, [])
 
   @patch.object(retrying.time, 'sleep')
   @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warn')
+  @patch.object(retrying.logging, 'warning')
   @patch.object(retrying.random, 'random')
-  def test_backoff_and_logging(self, random_mock, warn_mock, error_mock,
+  def test_backoff_and_logging(self, random_mock, warning_mock, error_mock,
                                sleep_mock):
     random_value = 0.84
     random_mock.return_value = random_value
@@ -58,9 +58,9 @@ class TestRetry(unittest.TestCase):
       "Retry #3 in 2.2s",
       "Retry #4 in 2.2s",
     ]
-    self.assertEqual(len(expected_warnings), len(warn_mock.call_args_list))
+    self.assertEqual(len(expected_warnings), len(warning_mock.call_args_list))
     expected_messages = iter(expected_warnings)
-    for call_args_kwargs in warn_mock.call_args_list:
+    for call_args_kwargs in warning_mock.call_args_list:
       error_message = expected_messages.next()
       self.assertTrue(call_args_kwargs[0][0].startswith("Traceback"))
       self.assertTrue(call_args_kwargs[0][0].endswith(error_message))
@@ -73,8 +73,9 @@ class TestRetry(unittest.TestCase):
   @patch.object(retrying.time, 'time')
   @patch.object(retrying.time, 'sleep')
   @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warn')
-  def test_retrying_timeout(self, warn_mock, err_mock, sleep_mock, time_mock):
+  @patch.object(retrying.logging, 'warning')
+  def test_retrying_timeout(self, warning_mock, err_mock, sleep_mock,
+                            time_mock):
     times = [
       100,  # Start time.
       120,  # The first retry can go (elapsed 20s less than 50s timeout).
@@ -101,7 +102,7 @@ class TestRetry(unittest.TestCase):
     # Check if there were 2 retries.
     sleep_args = [args[0] for args, kwargs in sleep_mock.call_args_list]
     self.assertEqual(len(sleep_args), 2)
-    self.assertEqual(len(warn_mock.call_args_list), 2)
+    self.assertEqual(len(warning_mock.call_args_list), 2)
     # Verify errors
     self.assertEqual(err_mock.call_args_list,
                      [call("Giving up retrying after 3 attempts during 60.0s")])

@@ -9,7 +9,7 @@ DEFAULT_BACKOFF_MULTIPLIER = 0.2
 DEFAULT_BACKOFF_THRESHOLD = 300
 DEFAULT_MAX_RETRIES = 10
 DEFAULT_RETRYING_TIMEOUT = 60
-DEFAULT_RETRY_ON_EXCEPTION = None   # Retry after any exception.
+DEFAULT_RETRY_ON_EXCEPTION = (Exception, )   # Retry after any exception.
 
 MISSED = object()
 
@@ -27,9 +27,8 @@ def not_missed(value_1, value_2):
 
 
 class _Retry(object):
-  def __init__(self, backoff_base=MISSED, backoff_multiplier=MISSED,
-               backoff_threshold=MISSED, max_retries=MISSED,
-               retrying_timeout=MISSED, retry_on_exception=MISSED):
+  def __init__(self, backoff_base, backoff_multiplier, backoff_threshold,
+               max_retries, retrying_timeout, retry_on_exception):
     """
     Args:
       backoff_base: a number to use in backoff calculation.
@@ -43,25 +42,22 @@ class _Retry(object):
         Alternatively you can pass list of exception types for which
         retry is needed.
     """
-    self.backoff_base = not_missed(backoff_base, DEFAULT_BACKOFF_BASE)
-    self.backoff_multiplier = not_missed(backoff_multiplier,
-                                         DEFAULT_BACKOFF_MULTIPLIER)
-    self.backoff_threshold = not_missed(backoff_threshold,
-                                        DEFAULT_BACKOFF_THRESHOLD)
-    self.max_retries = not_missed(max_retries, DEFAULT_MAX_RETRIES)
-    self.retrying_timeout = not_missed(retrying_timeout,
-                                       DEFAULT_RETRYING_TIMEOUT)
-    self.retry_on_exception = not_missed(retry_on_exception,
-                                         DEFAULT_RETRY_ON_EXCEPTION)
+    self.backoff_base = backoff_base
+    self.backoff_multiplier = backoff_multiplier
+    self.backoff_threshold = backoff_threshold
+    self.max_retries = max_retries
+    self.retrying_timeout = retrying_timeout
+    self.retry_on_exception = retry_on_exception
 
   def __call__(self, func=None, backoff_base=MISSED, backoff_multiplier=MISSED,
                backoff_threshold=MISSED, max_retries=MISSED,
                retrying_timeout=MISSED, retry_on_exception=MISSED):
     """ Wraps func with retry mechanism which runs up to max_retries attempts
     with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
+    Or just creates another instance of _Retry with custom parameters. 
 
     Args:
-      func: function to wrap.
+      func: a callable to wrap.
       backoff_base: a number to use in backoff calculation.
       backoff_multiplier: a number indicating initial backoff.
       backoff_threshold: a number indicating maximum backoff.
@@ -73,23 +69,46 @@ class _Retry(object):
         Alternatively you can pass list of exception types for which
         retry is needed.
     Returns:
-      A wrapped function or self if function was omitted in arguments.
+      A wrapped callable or parametrised instance of its class
+      if function was omitted in arguments.
     """
-    if func is None:
-      return _Retry(
-        backoff_base=backoff_base,
-        backoff_multiplier=backoff_multiplier,
-        backoff_threshold=backoff_threshold,
-        max_retries=max_retries,
-        retrying_timeout=retrying_timeout,
-        retry_on_exception=retry_on_exception
+    params = (backoff_base, backoff_multiplier, backoff_threshold, max_retries,
+              retrying_timeout, retry_on_exception)
+
+    if any((argument is not MISSED) for argument in params):
+      # There are custom retrying parameters
+      custom_retry = type(self)(
+        backoff_base=not_missed(backoff_base, self.backoff_base),
+        backoff_multiplier=not_missed(backoff_multiplier,
+                                      self.backoff_multiplier),
+        backoff_threshold=not_missed(backoff_threshold, self.backoff_threshold),
+        max_retries=not_missed(max_retries, self.max_retries),
+        retrying_timeout=not_missed(retrying_timeout, self.retrying_timeout),
+        retry_on_exception=not_missed(retry_on_exception,
+                                      self.retry_on_exception)
       )
 
-    args = (backoff_base, backoff_multiplier, backoff_threshold, max_retries,
-            retrying_timeout, retry_on_exception)
-    if any((argument is not MISSED) for argument in args):
-      raise TypeError('You should pass either func or parameters')
+      if func is None:
+        # This is probably called using decorator syntax with parameters:
+        # @retry_data_watch_coroutine(retrying_timeout=60)
+        # def func():
+        #   ...
+        return custom_retry
+      else:
+        # This is used as a regular function to get wrapped function.
+        return custom_retry.wrap(func)
 
+    return self.wrap(func)
+
+  def wrap(self, func):
+    """ Wraps func with retry mechanism which runs up to max_retries attempts
+    with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
+
+    Args:
+      func: function to wrap.
+    Returns:
+      A wrapped function.
+    """
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
       # Allow runtime customization of retrying parameters.
@@ -100,11 +119,13 @@ class _Retry(object):
       timeout = kwargs.pop('retrying_timeout', self.retrying_timeout)
       check_exception = kwargs.pop('retry_on_exception', self.retry_on_exception)
 
-      if check_exception is None:
-        check_exception = lambda error: True
-      elif isinstance(check_exception, (list, tuple)):
+      if isinstance(check_exception, (list, tuple)):
         orig_check_exception = check_exception
-        check_exception = lambda error: error.__class__ in orig_check_exception
+
+        def check_exception(error):
+          return any(
+            isinstance(error, exception) for exception in orig_check_exception
+          )
 
       retries = 0
       backoff = multiplier
@@ -136,7 +157,7 @@ class _Retry(object):
           # Report problem to logs
           stacktrace = traceback.format_exc()
           msg = "Retry #{} in {:0.1f}s".format(retries, sleep_time)
-          logging.warn(stacktrace + msg)
+          logging.warning(stacktrace + msg)
 
           time.sleep(sleep_time)
 
@@ -144,4 +165,11 @@ class _Retry(object):
 
     return wrapped
 
-retry = _Retry()
+retry = _Retry(
+  backoff_base=DEFAULT_BACKOFF_BASE,
+  backoff_multiplier=DEFAULT_BACKOFF_MULTIPLIER,
+  backoff_threshold=DEFAULT_BACKOFF_THRESHOLD,
+  max_retries=DEFAULT_MAX_RETRIES,
+  retrying_timeout=DEFAULT_RETRYING_TIMEOUT,
+  retry_on_exception=DEFAULT_RETRY_ON_EXCEPTION
+)

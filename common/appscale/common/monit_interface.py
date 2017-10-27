@@ -260,7 +260,7 @@ class MonitOperator(object):
         raise gen.Return(status)
 
       if elapsed > 1:
-        # Keep logs informative and don't report to early
+        # Keep logs informative and don't report too early
         logging.info("Status of '{}' is not acceptable ('{}') after {:0.1f}s."
                      "Checking again in {:0.1f}s."
                      .format(process_name, status, elapsed, backoff))

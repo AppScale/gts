@@ -8,9 +8,9 @@ class TestRetryCoroutine(testing.AsyncTestCase):
 
   @patch.object(async_retrying.gen, 'sleep')
   @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warn')
+  @patch.object(async_retrying.logging, 'warning')
   @testing.gen_test
-  def test_no_errors(self, warn_mock, error_mock, sleep_mock):
+  def test_no_errors(self, warning_mock, error_mock, sleep_mock):
     sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
 
     @async_retrying.retry_coroutine
@@ -22,15 +22,15 @@ class TestRetryCoroutine(testing.AsyncTestCase):
     # Assert outcomes.
     self.assertEqual(result, "No Errors")
     self.assertEqual(sleep_mock.call_args_list, [])
-    self.assertEqual(warn_mock.call_args_list, [])
+    self.assertEqual(warning_mock.call_args_list, [])
     self.assertEqual(error_mock.call_args_list, [])
 
   @patch.object(async_retrying.gen, 'sleep')
   @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warn')
+  @patch.object(async_retrying.logging, 'warning')
   @patch.object(async_retrying.random, 'random')
   @testing.gen_test
-  def test_backoff_and_logging(self, random_mock, warn_mock, error_mock,
+  def test_backoff_and_logging(self, random_mock, warning_mock, error_mock,
                                sleep_mock):
     random_value = 0.84
     random_mock.return_value = random_value
@@ -62,9 +62,9 @@ class TestRetryCoroutine(testing.AsyncTestCase):
       "Retry #3 in 2.2s",
       "Retry #4 in 2.2s",
     ]
-    self.assertEqual(len(expected_warnings), len(warn_mock.call_args_list))
+    self.assertEqual(len(expected_warnings), len(warning_mock.call_args_list))
     expected_messages = iter(expected_warnings)
-    for call_args_kwargs in warn_mock.call_args_list:
+    for call_args_kwargs in warning_mock.call_args_list:
       error_message = expected_messages.next()
       self.assertTrue(call_args_kwargs[0][0].startswith("Traceback"))
       self.assertTrue(call_args_kwargs[0][0].endswith(error_message))
@@ -77,9 +77,10 @@ class TestRetryCoroutine(testing.AsyncTestCase):
   @patch.object(async_retrying.time, 'time')
   @patch.object(async_retrying.gen, 'sleep')
   @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warn')
+  @patch.object(async_retrying.logging, 'warning')
   @testing.gen_test
-  def test_retrying_timeout(self, warn_mock, err_mock, sleep_mock, time_mock):
+  def test_retrying_timeout(self, warning_mock, err_mock, sleep_mock,
+                            time_mock):
     times = [
       100,  # Start time.
       120,  # The first retry can go (elapsed 20s less than 50s timeout).
@@ -107,7 +108,7 @@ class TestRetryCoroutine(testing.AsyncTestCase):
     # Check if there were 2 retries.
     sleep_args = [args[0] for args, kwargs in sleep_mock.call_args_list]
     self.assertEqual(len(sleep_args), 2)
-    self.assertEqual(len(warn_mock.call_args_list), 2)
+    self.assertEqual(len(warning_mock.call_args_list), 2)
     # Verify errors
     self.assertEqual(err_mock.call_args_list,
                      [call("Giving up retrying after 3 attempts during 60.0s")])
@@ -148,9 +149,9 @@ class TestRetryWatchCoroutine(testing.AsyncTestCase):
 
   @patch.object(async_retrying.locks.Condition, 'wait')
   @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warn')
+  @patch.object(async_retrying.logging, 'warning')
   @testing.gen_test
-  def test_no_errors(self, warn_mock, error_mock, wait_mock):
+  def test_no_errors(self, warning_mock, error_mock, wait_mock):
     wait_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
 
     # Call dummy lambda persistently.
@@ -162,16 +163,16 @@ class TestRetryWatchCoroutine(testing.AsyncTestCase):
     # Assert outcomes.
     self.assertEqual(result, "No Errors")
     self.assertEqual(wait_mock.call_args_list, [])
-    self.assertEqual(warn_mock.call_args_list, [])
+    self.assertEqual(warning_mock.call_args_list, [])
     self.assertEqual(error_mock.call_args_list, [])
 
   @patch.object(async_retrying.IOLoop, 'current')
   @patch.object(async_retrying.locks.Condition, 'wait')
   @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warn')
+  @patch.object(async_retrying.logging, 'warning')
   @patch.object(async_retrying.random, 'random')
   @testing.gen_test
-  def test_backoff_and_logging(self, random_mock, warn_mock, error_mock,
+  def test_backoff_and_logging(self, random_mock, warning_mock, error_mock,
                                wait_mock, current_io_loop_mock):
     random_value = 0.84
     random_mock.return_value = random_value
@@ -205,9 +206,9 @@ class TestRetryWatchCoroutine(testing.AsyncTestCase):
       "Retry #3 in 2.2s",
       "Retry #4 in 2.2s",
     ]
-    self.assertEqual(len(expected_warnings), len(warn_mock.call_args_list))
+    self.assertEqual(len(expected_warnings), len(warning_mock.call_args_list))
     expected_messages = iter(expected_warnings)
-    for call_args_kwargs in warn_mock.call_args_list:
+    for call_args_kwargs in warning_mock.call_args_list:
       error_message = expected_messages.next()
       self.assertTrue(call_args_kwargs[0][0].startswith("Traceback"))
       self.assertTrue(call_args_kwargs[0][0].endswith(error_message))
