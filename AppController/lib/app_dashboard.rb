@@ -35,14 +35,12 @@ module AppDashboard
   #   public_ip: This machine's public IP address or FQDN.
   #   private_ip: This machine's private IP address or FQDN.
   #   persistent_storage: Where we store the application tarball.
-  #   secret: A String that is used to authenticate this application with
-  #     other AppScale services.
   # Returns:
   #   A string specifying the location of the prepared archive.
-  def self.prep(public_ip, private_ip, persistent_storage, secret)
+  def self.prep(public_ip, private_ip, persistent_storage)
 
-    # Pass the secret key and our public IP address (needed to connect to the
-    # AppController) to the app.
+    # Pass our public IP address (needed to connect to the AppController)
+    # to the app.
     Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
     Djinn.log_run("echo \"UA_SERVER_IP = '#{private_ip}'\" > #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
 

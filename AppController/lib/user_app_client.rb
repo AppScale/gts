@@ -138,7 +138,7 @@ class UserAppClient
     }
 
     user_list = all_users.split(":")
-    if user_list[0] = "Error"
+    if user_list[0] == "Error"
       raise FailedNodeException.new("get_all_users: got #{all_users}.")
     end
     user_list = user_list - [user_list[0]]  # first item is a dummy value

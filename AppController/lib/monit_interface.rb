@@ -238,7 +238,6 @@ BOO
     return appservers
   end
 
-  private
   def self.run_cmd(cmd, sleep=false)
     output = ""
     MONIT_LOCK.synchronize {
