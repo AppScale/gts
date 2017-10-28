@@ -1735,7 +1735,7 @@ class Djinn
           HelperFunctions.parse_static_data(version_key, true)
         rescue => except
           Djinn.log_debug("restart_versions: parse_static_data exception" \
-            " from #{version_key}: #{except.backtrace}."
+            " from #{version_key}: #{except.backtrace}.")
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for " +
                       "#{version_key}. Exception of #{except.class} with " +
@@ -1976,6 +1976,7 @@ class Djinn
           # In addition only shadow kick off the autoscaler.
           scale_deployment if my_node.is_shadow?
         }
+      end
 
       # Check the running, terminated, pending AppServers.
       check_running_appservers
@@ -4187,7 +4188,7 @@ HOSTS
             version_key, false)
         rescue => except
           Djinn.log_debug("regenerate_routing_config: parse_static_data " \
-            "exception from #{version_key}: #{except.backtrace}."
+            "exception from #{version_key}: #{except.backtrace}.")
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for " +
                       "#{version_key}. Exception of #{except.class} with " +
@@ -5668,6 +5669,12 @@ HOSTS
 
     error_msg = ""
 
+    # Make sure we have the application directory (only certain roles
+    # needs it).
+    unless Dir.exist?(HelperFunctions::APPLICATIONS_DIR)
+      Dir.mkdir(HelperFunctions::APPLICATIONS_DIR)
+    end
+
     revision_key = [version_key, version_details['revision'].to_s].join(
       VERSION_PATH_SEPARATOR)
     if remove_old && my_node.is_load_balancer?
@@ -5713,7 +5720,7 @@ HOSTS
         HelperFunctions.parse_static_data(version_key, true)
       rescue => except
         Djinn.log_debug("setup_app_dir: parse_static_data exception from" \
-          " #{version_key}: #{except.backtrace}."
+          " #{version_key}: #{except.backtrace}.")
         # This specific exception may be a JSON parse error.
         error_msg = "ERROR: Unable to parse app.yaml file for " +
                     "#{version_key}. Exception of #{except.class} with " +
@@ -5853,7 +5860,7 @@ HOSTS
           HelperFunctions.scp_file(app_path, app_path, ip, ssh_key, true)
           if File.exists?(app_path)
             if HelperFunctions.check_tarball(app_path, md5)
-              Djinn.log_info("Got a copy of #{appname} from #{ip}.")
+              Djinn.log_info("Got a copy of #{revision_key} from #{ip}.")
               ZKInterface.add_revision_entry(
                 revision_key, my_node.private_ip, md5)
               return

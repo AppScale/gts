@@ -502,7 +502,7 @@ module HelperFunctions
 
     # Make sure we have the applcation source. If not, we have to wait
     # till the AC populates it.
-    app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
+    app_path = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
     end_work = Time.now.to_i + SLEEP_TIME * RETRIES
     while Time.now.to_i < end_work
       break if File.file?(app_path)
@@ -528,7 +528,7 @@ module HelperFunctions
     begin
       FileUtils.mv("#{tar_dir}/gopath", "#{meta_dir}/gopath")
     rescue Errno::ENOENT
-      Djinn.log_debug("#{app_name} does not have a gopath directory")
+      Djinn.log_debug("#{revision_key} does not have a gopath directory")
     end
 
     return true
