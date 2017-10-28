@@ -1699,7 +1699,6 @@ class Djinn
       return "false: #{project_id} is a reserved app."
     end
     Djinn.log_info("Shutting down #{version_key}")
-    result = ""
 
     # Since stopping an application can take some time, we do it in a
     # thread.
@@ -1735,6 +1734,8 @@ class Djinn
         begin
           HelperFunctions.parse_static_data(version_key, true)
         rescue => except
+          Djinn.log_debug("restart_versions: parse_static_data exception" \
+            " from #{version_key}: #{except.backtrace}."
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for " +
                       "#{version_key}. Exception of #{except.class} with " +
@@ -1763,6 +1764,19 @@ class Djinn
   #   secret: A String containing the deployment secret.
   def update(versions, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless my_node.is_shadow?
+      Djinn.log_debug(
+        "Sending update call for #{versions} to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.update(versions)
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward update call to shadow (#{get_shadow}).")
+        return NOT_READY
+      end
+    end
 
     versions_to_restart = []
     APPS_LOCK.synchronize {
@@ -1922,8 +1936,6 @@ class Djinn
       # the state in case we are looking for a zookeeper server.
       pick_zookeeper(@zookeeper_data)
 
-      @state = "Done starting up AppScale, now in heartbeat mode"
-
       # We save the current @options and roles to check if
       # restore_appcontroller_state modifies them.
       old_options = @options.clone
@@ -1931,27 +1943,39 @@ class Djinn
 
       # The following is the core of the duty cycle: start new apps,
       # restart apps, terminate non-responsive AppServers, and autoscale.
-      # Every other node syncs its state with the login node state.
+
+      # Every other node syncs its state with the login node state. The
+      # load_balancers needs to check the applications that got loaded
+      # this time, to setup the routining.
+      my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
       if my_node.is_shadow?
         update_node_info_cache
         backup_appcontroller_state
-
-        APPS_LOCK.synchronize {
-          # Starts apps that are not running yet but they should.
-          versions_to_load = ZKInterface.get_versions - @versions_loaded
-          versions_to_load.each { |version_key|
-            setup_app_dir(version_key, true)
-            setup_appengine_version(version_key)
-          }
-          scale_deployment
-        }
       elsif !restore_appcontroller_state
+        @state = "Couldn't reach the deployment state: now in isolated mode"
         Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
         next
       end
 
       # We act here if options or roles for this node changed.
       check_role_change(old_options, old_jobs)
+
+      # Load balancers (and shadow) needs to setup new applications.
+      if my_node.is_load_balancer?
+        APPS_LOCK.synchronize {
+          # Starts apps that are not running yet but they should.
+          if my_node.is_shadow?
+            versions_to_load = ZKInterface.get_versions - @versions_loaded
+          else
+            versions_to_load = @versions_loaded - my_versions_loaded
+          end
+          versions_to_load.each { |version_key|
+            setup_app_dir(version_key, true)
+            setup_appengine_version(version_key)
+          }
+          # In addition only shadow kick off the autoscaler.
+          scale_deployment if my_node.is_shadow?
+        }
 
       # Check the running, terminated, pending AppServers.
       check_running_appservers
@@ -1966,6 +1990,7 @@ class Djinn
           check_haproxy
         }
       end
+      @state = "Done starting up AppScale, now in heartbeat mode"
 
       # Print stats in the log recurrently; works as a heartbeat mechanism.
       if last_print < (Time.now.to_i - 60 * PRINT_STATS_MINUTES)
@@ -4161,6 +4186,8 @@ HOSTS
           static_handlers = HelperFunctions.parse_static_data(
             version_key, false)
         rescue => except
+          Djinn.log_debug("regenerate_routing_config: parse_static_data " \
+            "exception from #{version_key}: #{except.backtrace}."
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for " +
                       "#{version_key}. Exception of #{except.class} with " +
@@ -5675,15 +5702,18 @@ HOSTS
     end
 
     begin
+      fetch_revision(revision_key)
       HelperFunctions.setup_revision(revision_key)
     rescue AppScaleException => exception
       error_msg = "ERROR: couldn't setup source for #{version_key} " +
                   "(#{exception.message})."
     end
-    if remove_old and my_node.is_load_balancer?
+    if remove_old && my_node.is_load_balancer?
       begin
         HelperFunctions.parse_static_data(version_key, true)
       rescue => except
+        Djinn.log_debug("setup_app_dir: parse_static_data exception from" \
+          " #{version_key}: #{except.backtrace}."
         # This specific exception may be a JSON parse error.
         error_msg = "ERROR: Unable to parse app.yaml file for " +
                     "#{version_key}. Exception of #{except.class} with " +
@@ -5800,7 +5830,6 @@ HOSTS
   #   AppScaleException if unable to fetch source archive.
   def fetch_revision(revision_key)
     app_path = "#{PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
-
     return if File.file?(app_path)
 
     Djinn.log_debug("Fetching #{app_path}")
