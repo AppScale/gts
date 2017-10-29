@@ -2800,6 +2800,10 @@ class DatastoreDistributed():
     Raises:
       AppScaleDBError: The given property name is not in the matching entity.
     """
+    # Skip validating reserved properties.
+    if dbconstants.RESERVED_PROPERTY_NAME.match(prop_name):
+      return True
+
     reference = entry[entry.keys()[0]]['reference']
 
     # Reference may be absent from entities if the entity was deleted or part

@@ -41,6 +41,12 @@ MAX_TX_DURATION = 60
 # Matches property names that should not be returned to the user.
 RESERVED_PROPERTY_NAME = re.compile('^__.*__$')
 
+# Entities have a .78% chance of getting the scatter property.
+SCATTER_CHANCE = .0078
+
+# The scatter threshold is defined within a 2-byte space.
+SCATTER_PROPORTION = int(round(256 ** 2 * SCATTER_CHANCE))
+
 # A string used to create end keys when doing range queries.
 TERMINATING_STRING = chr(255) * 500
 

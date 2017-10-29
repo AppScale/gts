@@ -6,7 +6,6 @@
 import cassandra
 import datetime
 import logging
-import mmh3
 import struct
 import sys
 import time
@@ -77,12 +76,6 @@ PRIMED_KEY = 'primed'
 
 # The size in bytes that a batch must be to use the batches table.
 LARGE_BATCH_THRESHOLD = 5 << 10
-
-# Entities have a .78% chance of getting the scatter property.
-SCATTER_CHANCE = .0078
-
-# The scatter threshold is defined within a 2-byte space.
-SCATTER_PROPORTION = int(round(256 ** 2 * SCATTER_CHANCE))
 
 
 def batch_size(batch):
@@ -215,40 +208,6 @@ def index_deletions(old_entity, new_entity, composite_indices=()):
   return deletions
 
 
-def get_scatter_prop(element_list):
-  """ Gets the scatter property for an object.
-
-  This will return a property for only a small percentage of entities.
-
-  Args:
-    element_list: A list of entity_pb.Path_Element objects.
-  Returns:
-    An entity_pb.Property object or None.
-  """
-  def id_from_element(element):
-    if element.has_name():
-      return element.name()
-    elif element.has_id():
-      return str(element.id())
-    else:
-      return ''
-
-  to_hash = ''.join([id_from_element(element) for element in element_list])
-  full_hash = mmh3.hash(to_hash)
-  hash_bytes = struct.pack('i', full_hash)[0:2]
-  (hash_int,) = struct.unpack('H', hash_bytes)
-  if hash_int >= SCATTER_PROPORTION:
-    return None
-
-  scatter_property = entity_pb.Property()
-  scatter_property.set_name('__scatter__')
-  scatter_property.set_meaning(entity_pb.Property.BYTESTRING)
-  scatter_property.set_multiple(False)
-  property_value = scatter_property.mutable_value()
-  property_value.set_stringvalue(hash_bytes)
-  return scatter_property
-
-
 def mutations_for_entity(entity, txn, current_value=None,
                          composite_indices=()):
   """ Get a list of mutations needed across tables for an entity change.
@@ -265,11 +224,6 @@ def mutations_for_entity(entity, txn, current_value=None,
   if current_value is not None:
     mutations.extend(
       index_deletions(current_value, entity, composite_indices))
-
-  # Give some entities a property that makes it easy to sample keys.
-  scatter_prop = get_scatter_prop(entity.key().path().element_list())
-  if scatter_prop is not None:
-    entity.add_property().MergeFrom(scatter_prop)
 
   app_id = clean_app_id(entity.key().app())
   namespace = entity.key().name_space()
