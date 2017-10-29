@@ -16,6 +16,7 @@ from appscale.common import constants
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.common.unpackaged import DASHBOARD_DIR
 from appscale.taskqueue.distributed_tq import TaskName
+from . import helper_functions
 from .cassandra_env import cassandra_interface
 from .datastore_distributed import DatastoreDistributed
 from .utils import get_composite_indexes_rows
@@ -93,6 +94,9 @@ class DatastoreGroomer(threading.Thread):
   # The ID for the task to clean up old tasks.
   CLEAN_TASKS_TASK = 'tasks'
 
+  # The task ID for populating indexes with the scatter property.
+  POPULATE_SCATTER = 'populate-scatter'
+
   # Log progress every time this many seconds have passed.
   LOG_PROGRESS_FREQUENCY = 60 * 5
 
@@ -121,6 +125,7 @@ class DatastoreGroomer(threading.Thread):
     self.index_entries_checked = 0
     self.index_entries_delete_failures = 0
     self.index_entries_cleaned = 0
+    self.scatter_prop_vals_populated = 0
     self.last_logged = time.time()
     self.groomer_state = []
 
@@ -439,6 +444,104 @@ class DatastoreGroomer(threading.Thread):
       retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
       retry_time=self.ds_access.LOCK_RETRY_TIME
     )
+
+  def insert_scatter_indexes(self, entity_key, path, scatter_prop):
+    """ Writes scatter property references to the index tables.
+
+    Args:
+      entity_key: A string specifying the entity key.
+      path: A list of strings representing path elements.
+      scatter_prop: An entity_pb.Property object.
+    """
+    app_id, namespace, encoded_path = entity_key.split(
+      dbconstants.KEY_DELIMITER)
+    kind = path[-1].split(dbconstants.ID_SEPARATOR)[0]
+    asc_val = str(utils.encode_index_pb(scatter_prop.value()))
+    dsc_val = helper_functions.reverse_lex(asc_val)
+    prefix = dbconstants.KEY_DELIMITER.join([app_id, namespace])
+    prop_name = '__scatter__'
+    rows = [{'table': dbconstants.ASC_PROPERTY_TABLE, 'val': asc_val},
+            {'table': dbconstants.DSC_PROPERTY_TABLE, 'val': dsc_val}]
+
+    for row in rows:
+      index_key = utils.get_index_key_from_params(
+        [prefix, kind, prop_name, row['val'], encoded_path])
+      # There's no need to insert with a particular timestamp because
+      # datastore writes and deletes to this key should take precedence.
+      statement = """
+        INSERT INTO "{table}" ({key}, {column}, {value})
+        VALUES (%s, %s, %s)
+      """.format(table=row['table'],
+                 key=cassandra_interface.ThriftColumn.KEY,
+                 column=cassandra_interface.ThriftColumn.COLUMN_NAME,
+                 value=cassandra_interface.ThriftColumn.VALUE)
+      params = (bytearray(index_key), 'reference', bytearray(entity_key))
+      self.db_access.session.execute(statement, params)
+
+  def populate_scatter_prop(self):
+    """ Populates the scatter property for existing entities. """
+    table_name = dbconstants.APP_ENTITY_TABLE
+    task_id = self.POPULATE_SCATTER
+
+    # If we have state information beyond what function to use, load the last
+    # seen start key.
+    start_key = ''
+    if len(self.groomer_state) > 1 and self.groomer_state[0] == task_id:
+      start_key = self.groomer_state[1]
+
+    # Indicate that this job has started after the scatter property was added.
+    if not start_key:
+      index_state = self.db_access.get_metadata(
+        cassandra_interface.SCATTER_PROP_KEY)
+      if index_state is None:
+        self.db_access.set_metadata(
+          cassandra_interface.SCATTER_PROP_KEY,
+          cassandra_interface.ScatterPropStates.POPULATION_IN_PROGRESS)
+
+    while True:
+      statement = """
+        SELECT DISTINCT key FROM "{table}"
+        WHERE token(key) > %s
+        LIMIT {limit}
+      """.format(table=dbconstants.APP_ENTITY_TABLE, limit=self.BATCH_SIZE)
+      parameters = (bytearray(start_key),)
+      keys = self.db_access.session.execute(statement, parameters)
+
+      if not keys:
+        break
+
+      def create_path_element(encoded_element):
+        element = entity_pb.Path_Element()
+        # IDs are treated as names here. This avoids having to fetch the entity
+        # to tell the difference.
+        element.set_name(encoded_element.split(dbconstants.ID_SEPARATOR)[-1])
+        return element
+
+      key = None
+      for row in keys:
+        key = row.key
+        encoded_path = key.split(dbconstants.KEY_DELIMITER)[2]
+        path = [element for element
+                in encoded_path.split(dbconstants.KIND_SEPARATOR) if element]
+        element_list = [create_path_element(element) for element in path]
+        scatter_prop = utils.get_scatter_prop(element_list)
+
+        if scatter_prop is not None:
+          self.insert_scatter_indexes(key, path, scatter_prop)
+          self.scatter_prop_vals_populated += 1
+
+      start_key = key
+
+      if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
+        logging.info('Populated {} scatter property index entries'
+          .format(self.scatter_prop_vals_populated))
+        self.last_logged = time.time()
+
+      self.update_groomer_state([task_id, start_key])
+
+    self.db_access.set_metadata(
+      cassandra_interface.SCATTER_PROP_KEY,
+      cassandra_interface.ScatterPropStates.POPULATED)
 
   def clean_up_indexes(self, direction):
     """ Deletes invalid single property index entries.
@@ -1085,6 +1188,13 @@ class DatastoreGroomer(threading.Thread):
       }
     ]
 
+    populate_scatter_prop = [
+      {'id': self.POPULATE_SCATTER,
+       'description': 'populate indexes with scatter property',
+       'function': self.populate_scatter_prop,
+       'args': []}
+    ]
+
     tasks = [
       {
         'id': self.CLEAN_ENTITIES_TASK,
@@ -1110,6 +1220,11 @@ class DatastoreGroomer(threading.Thread):
       cassandra_interface.INDEX_STATE_KEY)
     if index_state != cassandra_interface.IndexStates.CLEAN:
       tasks.extend(clean_indexes)
+
+    scatter_prop_state = self.db_access.get_metadata(
+      cassandra_interface.SCATTER_PROP_KEY)
+    if scatter_prop_state != cassandra_interface.ScatterPropStates.POPULATED:
+      tasks.extend(populate_scatter_prop)
 
     groomer_state = self.zoo_keeper.get_node(self.GROOMER_STATE_PATH)
     logging.info('groomer_state: {}'.format(groomer_state))
@@ -1153,6 +1268,8 @@ class DatastoreGroomer(threading.Thread):
       self.index_entries_checked))
     logging.info("Groomer cleaned {0} index entries".format(
       self.index_entries_cleaned))
+    logging.info('Groomer populated {} scatter property index entries'.format(
+      self.scatter_prop_vals_populated))
     if self.index_entries_delete_failures > 0:
       logging.info("Groomer failed to remove {0} index entries".format(
         self.index_entries_delete_failures))
