@@ -480,7 +480,6 @@ class DatastoreGroomer(threading.Thread):
 
   def populate_scatter_prop(self):
     """ Populates the scatter property for existing entities. """
-    table_name = dbconstants.APP_ENTITY_TABLE
     task_id = self.POPULATE_SCATTER
 
     # If we have state information beyond what function to use, load the last
