@@ -4,92 +4,14 @@ import subprocess
 import time
 from datetime import datetime
 
-import attr
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.stats.converter import Meta, include_list_name
+from appscale.hermes.stats.models import ProcessCPU, ProcessMemory, \
+  ProcessNetwork, ProcessChildrenSum, ProcessStats, ProcessesStatsSnapshot, \
+  ProcessDiskIO
 from appscale.hermes.stats.unified_service_names import \
   find_service_by_monit_name
-
-
-@include_list_name('process.cpu')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class ProcessCPU(object):
-  user = attr.ib()
-  system = attr.ib()
-  percent = attr.ib()
-
-
-@include_list_name('process.memory')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class ProcessMemory(object):
-  resident = attr.ib()
-  virtual = attr.ib()
-  unique = attr.ib()
-
-
-@include_list_name('process.disk_io')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class ProcessDiskIO(object):
-  read_count = attr.ib()
-  write_count = attr.ib()
-  read_bytes = attr.ib()
-  write_bytes = attr.ib()
-
-
-@include_list_name('process.network')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class ProcessNetwork(object):
-  connections_num = attr.ib()
-
-
-@include_list_name('process.children_stats_sum')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class ProcessChildrenSum(object):
-  cpu = attr.ib(metadata={Meta.ENTITY: ProcessCPU})
-  memory = attr.ib(metadata={Meta.ENTITY: ProcessMemory})
-  disk_io = attr.ib(metadata={Meta.ENTITY: ProcessDiskIO})
-  network = attr.ib(metadata={Meta.ENTITY: ProcessNetwork})
-  threads_num = attr.ib()
-
-
-@include_list_name('process')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class ProcessStats(object):
-  """
-  Object of ProcessStats is kind of structured container for all info related
-  to resources used by specific process. Additionally it stores UTC timestamp
-  which reflects the moment when stats were taken.
-
-  Every Hermes node collects its processes statistics, but Master node also
-  requests this statistics of all nodes in cluster.
-  All processes started by monit should be profiled.
-  """
-  pid = attr.ib()
-  monit_name = attr.ib()
-
-  unified_service_name = attr.ib()  #| These 4 fields are primary key
-  application_id = attr.ib()        #| for an instance of appscale service
-  private_ip = attr.ib()            #| - Application ID can be None if
-  port = attr.ib()                  #|   process is not related to specific app
-                                    #| - port can be missed if it is not
-                                    #|   mentioned in monit process name
-  cmdline = attr.ib()
-  cpu = attr.ib(metadata={Meta.ENTITY: ProcessCPU})
-  memory = attr.ib(metadata={Meta.ENTITY: ProcessMemory})
-  disk_io = attr.ib(metadata={Meta.ENTITY: ProcessDiskIO})
-  network = attr.ib(metadata={Meta.ENTITY: ProcessNetwork})
-  threads_num = attr.ib()
-  children_stats_sum = attr.ib(metadata={Meta.ENTITY: ProcessChildrenSum})
-  children_num = attr.ib()
-
-
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class ProcessesStatsSnapshot(object):
-  utc_timestamp = attr.ib()  # UTC timestamp
-  processes_stats = attr.ib(metadata={Meta.ENTITY_LIST: ProcessStats})
-
 
 MONIT_PROCESS_PATTERN = re.compile(
   r"^Process \'(?P<name>[^']+)\' *\n"

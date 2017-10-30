@@ -28,9 +28,8 @@ from tornado.options import options
 from appscale.hermes import constants, helper
 from appscale.hermes.handlers import MainHandler, TaskHandler, Respond404Handler
 from appscale.hermes.helper import JSONTags
-from appscale.hermes.stats import stats_app
 from appscale.hermes.stats import constants as stats_constants
-
+from appscale.hermes.stats.server import stats_app
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.appcontroller_client import AppControllerException
@@ -251,10 +250,10 @@ def main():
       ("/", MainHandler),
       task_route,
     ]
-    + stats_app.get_local_stats_api_routes(is_lb)
-    + stats_app.get_cluster_stats_api_routes(is_master),
-    debug=False
-  )
+                                + stats_app.get_local_stats_api_routes(is_lb)
+                                + stats_app.get_cluster_stats_api_routes(is_master),
+                                debug=False
+                                )
   app.listen(constants.HERMES_PORT)
 
   # Start loop for accepting http requests.

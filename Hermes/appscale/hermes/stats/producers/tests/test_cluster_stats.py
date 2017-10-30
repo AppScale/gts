@@ -4,10 +4,10 @@ import os
 from mock import patch, MagicMock
 from tornado import testing, gen
 
-from appscale.hermes.stats import converter
+from appscale.hermes.stats import converter, models
 from appscale.hermes.stats.converter import IncludeLists
 from appscale.hermes.stats.producers import (
-  cluster_stats, node_stats, process_stats, proxy_stats
+  cluster_stats, node_stats, process_stats
 )
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -42,7 +42,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'node-stats.json', node_stats.NodeStatsSnapshot
+      'node-stats.json', models.NodeStatsSnapshot
     )
     # Mock local source
     mock_get_current.return_value = stats_test_data['192.168.33.10']
@@ -73,9 +73,9 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     local_stats = stats['192.168.33.10']
     slave_stats = stats['192.168.33.11']
-    self.assertIsInstance(local_stats, node_stats.NodeStatsSnapshot)
+    self.assertIsInstance(local_stats, models.NodeStatsSnapshot)
     self.assertEqual(local_stats.utc_timestamp, 1494248091.0)
-    self.assertIsInstance(slave_stats, node_stats.NodeStatsSnapshot)
+    self.assertIsInstance(slave_stats, models.NodeStatsSnapshot)
     self.assertEqual(slave_stats.utc_timestamp, 1494248082.0)
 
   @patch.object(cluster_stats, 'options')
@@ -93,7 +93,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
     # Read test data from json file
     stats_test_data = get_stats_from_file(
-      'node-stats.json', node_stats.NodeStatsSnapshot
+      'node-stats.json', models.NodeStatsSnapshot
     )[1]
     # Mock local source
     mock_get_current.return_value = stats_test_data['192.168.33.10']
@@ -122,7 +122,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     local_stats = stats['192.168.33.10']
     self.assertNotIn('192.168.33.11', stats)
-    self.assertIsInstance(local_stats, node_stats.NodeStatsSnapshot)
+    self.assertIsInstance(local_stats, models.NodeStatsSnapshot)
     self.assertEqual(local_stats.utc_timestamp, 1494248091.0)
     self.assertEqual(failures, {'192.168.33.11': '500 Timeout error'})
 
@@ -143,7 +143,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'node-stats.json', node_stats.NodeStatsSnapshot
+      'node-stats.json', models.NodeStatsSnapshot
     )
     # Mock local source
     mock_get_current.return_value = stats_test_data['192.168.33.10']
@@ -188,9 +188,9 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     local_stats = stats['192.168.33.10']
     slave_stats = stats['192.168.33.11']
-    self.assertIsInstance(local_stats, node_stats.NodeStatsSnapshot)
+    self.assertIsInstance(local_stats, models.NodeStatsSnapshot)
     self.assertEqual(local_stats.utc_timestamp, 1494248091.0)
-    self.assertIsInstance(slave_stats, node_stats.NodeStatsSnapshot)
+    self.assertIsInstance(slave_stats, models.NodeStatsSnapshot)
     self.assertEqual(slave_stats.utc_timestamp, 1494248082.0)
 
 
@@ -212,7 +212,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'processes-stats.json', process_stats.ProcessesStatsSnapshot
+      'processes-stats.json', models.ProcessesStatsSnapshot
     )
     # Mock local source
     mock_get_current.return_value = stats_test_data['192.168.33.10']
@@ -244,10 +244,10 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
     local_stats = stats['192.168.33.10']
     slave_stats = stats['192.168.33.11']
-    self.assertIsInstance(local_stats, process_stats.ProcessesStatsSnapshot)
+    self.assertIsInstance(local_stats, models.ProcessesStatsSnapshot)
     self.assertEqual(len(local_stats.processes_stats), 24)
     self.assertEqual(local_stats.utc_timestamp, 1494248000.0)
-    self.assertIsInstance(slave_stats, process_stats.ProcessesStatsSnapshot)
+    self.assertIsInstance(slave_stats, models.ProcessesStatsSnapshot)
     self.assertEqual(len(slave_stats.processes_stats), 10)
     self.assertEqual(slave_stats.utc_timestamp, 1494248091.0)
 
@@ -267,7 +267,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
     # Read test data from json file
     raw_test_data, stats_test_data = get_stats_from_file(
-      'processes-stats.json', process_stats.ProcessesStatsSnapshot
+      'processes-stats.json', models.ProcessesStatsSnapshot
     )
     # Mock local source
     mock_get_current.return_value = stats_test_data['192.168.33.10']
@@ -315,10 +315,10 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
     local_stats = stats['192.168.33.10']
     slave_stats = stats['192.168.33.11']
-    self.assertIsInstance(local_stats, process_stats.ProcessesStatsSnapshot)
+    self.assertIsInstance(local_stats, models.ProcessesStatsSnapshot)
     self.assertEqual(len(local_stats.processes_stats), 24)
     self.assertEqual(local_stats.utc_timestamp, 1494248000.0)
-    self.assertIsInstance(slave_stats, process_stats.ProcessesStatsSnapshot)
+    self.assertIsInstance(slave_stats, models.ProcessesStatsSnapshot)
     self.assertEqual(len(slave_stats.processes_stats), 10)
     self.assertEqual(slave_stats.utc_timestamp, 1494248091.0)
 
@@ -339,7 +339,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
     # Read test data from json file
     raw_test_data = get_stats_from_file(
-      'proxies-stats.json', proxy_stats.ProxiesStatsSnapshot
+      'proxies-stats.json', models.ProxiesStatsSnapshot
     )[0]
     # Mock AsyncHTTPClient.fetch using raw stats dictionaries from test data
     response = MagicMock(body=json.dumps(raw_test_data['192.168.33.11']),
@@ -367,7 +367,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     self.assertEqual(failures, {})
 
     lb_stats = stats['192.168.33.11']
-    self.assertIsInstance(lb_stats, proxy_stats.ProxiesStatsSnapshot)
+    self.assertIsInstance(lb_stats, models.ProxiesStatsSnapshot)
     self.assertEqual(len(lb_stats.proxies_stats), 5)
     self.assertEqual(lb_stats.utc_timestamp, 1494248097.0)
 
@@ -385,7 +385,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     mock_options.secret = 'secret'
     # Read test data from json file
     raw_test_data = get_stats_from_file(
-      'proxies-stats.json', proxy_stats.ProxiesStatsSnapshot
+      'proxies-stats.json', models.ProxiesStatsSnapshot
     )[0]
     #Prepare raw dict with include lists
     raw_include_lists = {
@@ -428,6 +428,6 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     self.assertEqual(failures, {})
 
     lb_stats = stats['192.168.33.11']
-    self.assertIsInstance(lb_stats, proxy_stats.ProxiesStatsSnapshot)
+    self.assertIsInstance(lb_stats, models.ProxiesStatsSnapshot)
     self.assertEqual(len(lb_stats.proxies_stats), 5)
     self.assertEqual(lb_stats.utc_timestamp, 1494248097.0)

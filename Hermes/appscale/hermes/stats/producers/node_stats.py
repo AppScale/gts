@@ -3,100 +3,13 @@ import os
 import time
 from datetime import datetime
 
-import attr
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.stats.converter import include_list_name, Meta
-
-
-@include_list_name('node.cpu')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodeCPU(object):
-  user = attr.ib()
-  system = attr.ib()
-  idle = attr.ib()
-  percent = attr.ib()
-  count = attr.ib()
-
-
-@include_list_name('node.loadavg')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodeLoadAvg(object):
-  last_1min = attr.ib()
-  last_5min = attr.ib()
-  last_15min = attr.ib()
-
-
-@include_list_name('node.memory')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodeMemory(object):
-  total = attr.ib()
-  available = attr.ib()
-  used = attr.ib()
-
-
-@include_list_name('node.swap')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodeSwap(object):
-  total = attr.ib()
-  free = attr.ib()
-  used = attr.ib()
-
-
-@include_list_name('node.disk_io')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodeDiskIO(object):
-  read_count = attr.ib()
-  write_count = attr.ib()
-  read_bytes = attr.ib()
-  write_bytes = attr.ib()
-  read_time = attr.ib()
-  write_time = attr.ib()
-
-
-@include_list_name('node.partition')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodePartition(object):
-  total = attr.ib()
-  free = attr.ib()
-  used = attr.ib()
-
-
-@include_list_name('node.network')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodeNetwork(object):
-  bytes_sent = attr.ib()
-  bytes_recv = attr.ib()
-  packets_sent = attr.ib()
-  packets_recv = attr.ib()
-  errin = attr.ib()
-  errout = attr.ib()
-  dropin = attr.ib()
-  dropout = attr.ib()
-  connections_num = attr.ib()
-
-
-@include_list_name('node')
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class NodeStatsSnapshot(object):
-  """
-  Object of NodeStatsSnapshot is kind of structured container for all info related
-  to resources used on the machine. Additionally it stores UTC timestamp
-  which reflects the moment when stats were taken.
-
-  Every Hermes node collects its machine statistics, but Master node also
-  requests this statistics of all nodes in cluster.
-  """
-  utc_timestamp = attr.ib()
-  private_ip = attr.ib()
-  cpu = attr.ib(metadata={Meta.ENTITY: NodeCPU})
-  memory = attr.ib(metadata={Meta.ENTITY: NodeMemory})
-  swap = attr.ib(metadata={Meta.ENTITY: NodeSwap})
-  disk_io = attr.ib(metadata={Meta.ENTITY: NodeDiskIO})
-  partitions_dict = attr.ib(metadata={Meta.ENTITY_DICT: NodePartition})
-  network = attr.ib(metadata={Meta.ENTITY: NodeNetwork})
-  loadavg = attr.ib(metadata={Meta.ENTITY: NodeLoadAvg})
+from appscale.hermes.stats.models import (
+  NodeCPU, NodeLoadAvg, NodeMemory, NodeSwap, NodeDiskIO, NodePartition,
+  NodeNetwork, NodeStatsSnapshot
+)
 
 
 class NodeStatsSource(object):

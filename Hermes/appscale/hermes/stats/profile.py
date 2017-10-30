@@ -7,16 +7,15 @@ from os import path, rename
 
 import attr
 
+from appscale.hermes.stats import models
 from appscale.hermes import helper
 from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import PROFILE_LOG_DIR
-from appscale.hermes.stats.producers import node_stats, process_stats, \
-  proxy_stats
 
 
 class NodesProfileLog(object):
 
-  def __init__(self, include_lists=None):
+  def __init__(self, include_lists=None, profile_log_dir=PROFILE_LOG_DIR):
     """ Initializes profile log for cluster node stats.
     Renders header according to include_lists in advance and
     creates base directory for node stats profile log.
@@ -27,10 +26,10 @@ class NodesProfileLog(object):
     """
     self._include_lists = include_lists
     self._header = (
-      converter.get_stats_header(node_stats.NodeStatsSnapshot,
-                                 self._include_lists)
+      converter.get_stats_header(models.NodeStatsSnapshot, self._include_lists)
     )
-    helper.ensure_directory(PROFILE_LOG_DIR)
+    self._profile_log_dir = profile_log_dir
+    helper.ensure_directory(self._profile_log_dir)
 
   def write(self, nodes_stats_dict):
     """ Saves newly produced cluster node stats
@@ -54,7 +53,7 @@ class NodesProfileLog(object):
     Returns:
       A file object opened for appending new data.
     """
-    node_dir = path.join(PROFILE_LOG_DIR, node_ip)
+    node_dir = path.join(self._profile_log_dir, node_ip)
     file_name = path.join(node_dir, 'node.csv')
     if not path.isfile(file_name):
       helper.ensure_directory(node_dir)
@@ -85,7 +84,8 @@ class ProcessesProfileLog(object):
     children_unique_mem = attr.ib(default=0)
     instances = attr.ib(default=0)
 
-  def __init__(self, include_lists=None):
+  def __init__(self, include_lists=None, profile_log_dir=PROFILE_LOG_DIR,
+               verbose=False):
     """ Initializes profile log for cluster processes stats.
     Renders header according to include_lists in advance and
     creates base directory for processes stats profile log.
@@ -99,11 +99,11 @@ class ProcessesProfileLog(object):
     self._include_lists = include_lists
     self._header = (
       ['utc_timestamp']
-      + converter.get_stats_header(process_stats.ProcessStats,
-                                   self._include_lists)
+      + converter.get_stats_header(models.ProcessStats, self._include_lists)
     )
-    self.write_detailed_stats = False
-    helper.ensure_directory(PROFILE_LOG_DIR)
+    self._profile_log_dir = profile_log_dir
+    self.write_detailed_stats = verbose
+    helper.ensure_directory(self._profile_log_dir)
     self._summary_file_name_template = 'summary-{resource}.csv'
     self._summary_columns = self._get_summary_columns()
 
@@ -171,7 +171,7 @@ class ProcessesProfileLog(object):
     Returns:
       A file object opened for appending new data.
     """
-    processes_dir = path.join(PROFILE_LOG_DIR, node_ip, 'processes')
+    processes_dir = path.join(self._profile_log_dir, node_ip, 'processes')
     file_name = path.join(processes_dir, '{}.csv'.format(monit_name))
     if not path.isfile(file_name):
       helper.ensure_directory(processes_dir)
@@ -245,7 +245,7 @@ class ProcessesProfileLog(object):
   def _get_summary_file_name(self, resource_name):
     name = self._summary_file_name_template.format(resource=resource_name)
     name = name.replace('_', '-')
-    return path.join(PROFILE_LOG_DIR, name)
+    return path.join(self._profile_log_dir, name)
 
 
 class ProxiesProfileLog(object):
@@ -261,7 +261,8 @@ class ProxiesProfileLog(object):
     bytes_in_out = attr.ib(default=0)
     errors = attr.ib(default=0)
 
-  def __init__(self, include_lists=None):
+  def __init__(self, include_lists=None, profile_log_dir=PROFILE_LOG_DIR,
+               verbose=False):
     """ Initializes profile log for cluster processes stats.
     Renders header according to include_lists in advance and
     creates base directory for processes stats profile log.
@@ -275,10 +276,11 @@ class ProxiesProfileLog(object):
     self._include_lists = include_lists
     self._header = (
       ['utc_timestamp']
-       + converter.get_stats_header(proxy_stats.ProxyStats, self._include_lists)
+       + converter.get_stats_header(models.ProxyStats, self._include_lists)
     )
-    self.write_detailed_stats = False
-    helper.ensure_directory(PROFILE_LOG_DIR)
+    self._profile_log_dir = profile_log_dir
+    self.write_detailed_stats = verbose
+    helper.ensure_directory(self._profile_log_dir)
     self._summary_file_name_template = 'summary-{property}.csv'
     self._summary_columns = self._get_summary_columns()
 
@@ -338,7 +340,7 @@ class ProxiesProfileLog(object):
     Returns:
       A file object opened for appending new data.
     """
-    proxies_dir = path.join(PROFILE_LOG_DIR, node_ip, 'proxies')
+    proxies_dir = path.join(self._profile_log_dir, node_ip, 'proxies')
     file_name = path.join(proxies_dir, '{}.csv'.format(pxname))
     if not path.isfile(file_name):
       helper.ensure_directory(proxies_dir)
@@ -411,4 +413,4 @@ class ProxiesProfileLog(object):
   def _get_summary_file_name(self, property_name):
     name = self._summary_file_name_template.format(property=property_name)
     name = name.replace('_', '-')
-    return path.join(PROFILE_LOG_DIR, name)
+    return path.join(self._profile_log_dir, name)

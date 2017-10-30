@@ -1,10 +1,10 @@
 """ Module responsible for configuring Stats API and stats profiling. """
 import json
+import logging
 import time
 from datetime import datetime
 
 import attr
-import logging
 from tornado.ioloop import PeriodicCallback, IOLoop
 
 from appscale.hermes.handlers import Respond404Handler
@@ -13,13 +13,7 @@ from appscale.hermes.stats.constants import (
   PROCESSES_STATS_CONFIGS_NODE,
   PROXIES_STATS_CONFIGS_NODE
 )
-from appscale.hermes.stats.profile import (
-  NodesProfileLog, ProcessesProfileLog, ProxiesProfileLog
-)
 from appscale.hermes.stats.converter import IncludeLists
-from appscale.hermes.stats.handlers import (
-  CurrentStatsHandler, CurrentClusterStatsHandler
-)
 from appscale.hermes.stats.producers.cluster_stats import (
   ClusterNodesStatsSource, ClusterProcessesStatsSource,
   ClusterProxiesStatsSource
@@ -27,7 +21,12 @@ from appscale.hermes.stats.producers.cluster_stats import (
 from appscale.hermes.stats.producers.node_stats import NodeStatsSource
 from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
 from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
-
+from appscale.hermes.stats.profile import (
+  NodesProfileLog, ProcessesProfileLog, ProxiesProfileLog
+)
+from appscale.hermes.stats.server.handlers import (
+  CurrentStatsHandler, CurrentClusterStatsHandler
+)
 
 DEFAULT_INCLUDE_LISTS = IncludeLists({
   # Node stats
