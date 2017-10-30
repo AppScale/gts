@@ -60,8 +60,13 @@ module Ejabberd
         return false
       end
     elsif runtime == "java"
-      appengine_web_xml_file = HelperFunctions.get_appengine_web_xml(
-        source_dir)
+      begin
+        appengine_web_xml_file = HelperFunctions.get_appengine_web_xml(
+          source_dir)
+      rescue InvalidSource => error
+        Djinn.log_warn(error.message)
+        return false
+      end
       xml_contents = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
 
       begin
