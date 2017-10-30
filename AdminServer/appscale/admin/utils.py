@@ -23,6 +23,7 @@ from . import constants
 from .constants import (
   CustomHTTPError,
   GO,
+  InvalidConfiguration,
   JAVA,
   SOURCES_DIRECTORY,
   Types,
@@ -426,6 +427,27 @@ def assign_ports(old_version, new_version, zk_client):
           'haproxyPort': haproxy_port}
 
 
+def validate_job(job):
+  """ Checks if a cron job configuration is valid.
+
+  Args:
+    job: A dictionary containing cron job configuration details.
+  Raises:
+    InvalidConfiguration if configuration is invalid.
+  """
+  required_fields = ('schedule', 'url')
+  supported_fields = ('description', 'schedule', 'url')
+
+  for field in required_fields:
+    if field not in job:
+      raise InvalidConfiguration(
+        'Cron job is missing {}: {}'.format(field, job))
+
+  for field in job:
+    if field not in supported_fields:
+      raise InvalidConfiguration('{} is not supported'.format(field))
+
+
 def validate_queue(queue):
   """ Checks if a queue configuration is valid.
 
@@ -474,6 +496,33 @@ def validate_queue(queue):
     elif not rule(value):
       raise InvalidQueueConfiguration(
         'Invalid {} value: {}'.format(field, value))
+
+
+def cron_from_dict(payload):
+  """ Validates and prepares a project's cron configuration.
+
+  Args:
+    payload: A dictionary containing cron configuration.
+  Returns:
+    A dictionary containing cron information.
+  Raises:
+    InvalidConfiguration if configuration is invalid.
+  """
+  try:
+    given_jobs = payload['cron']
+  except KeyError:
+    raise InvalidConfiguration('Payload must contain cron directive')
+
+  for directive in payload:
+    # There are no other directives in the GAE docs. This check is in case more
+    # are added later.
+    if directive != 'cron':
+      raise InvalidQueueConfiguration('{} is not supported'.format(directive))
+
+  for job in given_jobs:
+    validate_job(job)
+
+  return payload
 
 
 def queues_from_dict(payload):

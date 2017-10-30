@@ -32,6 +32,7 @@ from tornado.escape import json_encode
 from tornado.ioloop import IOLoop
 from . import utils
 from . import constants
+from .appengine_api import UpdateCronHandler
 from .appengine_api import UpdateQueuesHandler
 from .base_handler import BaseHandler
 from .constants import (
@@ -1003,6 +1004,7 @@ def main():
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
      VersionHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
+    ('/api/cron/update', UpdateCronHandler, {'zk_client': zk_client}),
     ('/api/queue/update', UpdateQueuesHandler, {'zk_client': zk_client})
   ])
   logger.info('Starting AdminServer')
