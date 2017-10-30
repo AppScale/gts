@@ -5,16 +5,21 @@ This API is not documented, but it is used by the Google Cloud SDK.
 
 import json
 import logging
+import sys
 import yaml
 from kazoo.exceptions import NoNodeError
 from yaml.parser import ParserError
 
 from appscale.common.constants import HTTPCodes
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .base_handler import BaseHandler
 from .constants import CustomHTTPError
 from .constants import InvalidConfiguration
 from .utils import cron_from_dict
 from .utils import queues_from_dict
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.api.appcontroller_client import AppControllerException
 
 logger = logging.getLogger('appscale-admin')
 
@@ -62,12 +67,14 @@ class UpdateQueuesHandler(BaseHandler):
 
 class UpdateCronHandler(BaseHandler):
   """ Handles UpdateCron operations. """
-  def initialize(self, zk_client):
+  def initialize(self, acc, zk_client):
     """ Defines required resources to handle requests.
 
     Args:
+      acc: An AppControllerClient.
       zk_client: A KazooClient.
     """
+    self.acc = acc
     self.zk_client = zk_client
 
   def post(self):
@@ -97,5 +104,11 @@ class UpdateCronHandler(BaseHandler):
       except NoNodeError:
         raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                               message='{} not found'.format(project_id))
+
+    try:
+      self.acc.update_cron(project_id)
+    except AppControllerException as error:
+      message = 'Error while stopping version: {}'.format(error)
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
     logger.info('Updated cron jobs for {}'.format(project_id))

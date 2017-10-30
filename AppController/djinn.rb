@@ -769,8 +769,7 @@ class Djinn
 
     if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
       CronHelper.update_cron(
-        get_load_balancer.public_ip, http_port, version_details['runtime'],
-        project_id)
+        get_load_balancer.public_ip, http_port, project_id)
     end
 
     return "OK"
@@ -1487,6 +1486,37 @@ class Djinn
     }
     # Act upon changes.
     enforce_options unless old_options == @options
+
+    return 'OK'
+  end
+
+  # Updates a project's cron jobs.
+  def update_cron(project_id, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless my_node.is_shadow?
+      Djinn.log_debug(
+        "Sending update_cron call for #{project_id} to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.update_cron(project_id)
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward update_cron call to shadow (#{get_shadow}).")
+        return NOT_READY
+      end
+    end
+
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound => error
+      return "false: #{error.message}"
+    end
+
+    CronHelper.update_cron(get_load_balancer.public_ip,
+                           version_details['appscaleExtensions']['httpPort'],
+                           project_id)
 
     return 'OK'
   end
@@ -2688,16 +2718,6 @@ class Djinn
         Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
       end
       @app_info_map[version_key]['appservers'] << "#{ip}:#{port}"
-
-
-      # Now that we have at least one AppServer running, we can start the
-      # cron job of the application.
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        CronHelper.update_cron(
-          get_load_balancer.public_ip,
-          version_details['appscaleExtensions']['httpPort'],
-          version_details['runtime'], project_id)
-      end
     }
 
     return "OK"

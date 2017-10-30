@@ -1004,7 +1004,8 @@ def main():
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
      VersionHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
-    ('/api/cron/update', UpdateCronHandler, {'zk_client': zk_client}),
+    ('/api/cron/update', UpdateCronHandler,
+     {'acc': acc, 'zk_client': zk_client}),
     ('/api/queue/update', UpdateQueuesHandler, {'zk_client': zk_client})
   ])
   logger.info('Starting AdminServer')
