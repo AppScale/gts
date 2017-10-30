@@ -57,7 +57,7 @@ module TaskQueue
   RABBITMQCTL = `which rabbitmqctl`.chomp
 
   # The longest we'll wait for RabbitMQ to come up in seconds.
-  MAX_WAIT_FOR_RABBITMQ = 30
+  MAX_WAIT_FOR_RABBITMQ = 60
 
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
@@ -124,7 +124,8 @@ module TaskQueue
     service_bin = `which service`.chomp
     start_cmd = "#{service_bin} rabbitmq-server start"
     stop_cmd = "#{service_bin} rabbitmq-server stop"
-    MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile)
+    MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile,
+                                MAX_WAIT_FOR_RABBITMQ)
   end
 
 
