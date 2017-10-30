@@ -1945,8 +1945,8 @@ class Djinn
       # restart apps, terminate non-responsive AppServers, and autoscale.
 
       # Every other node syncs its state with the login node state. The
-      # load_balancers needs to check the applications that got loaded
-      # this time, to setup the routining.
+      # load_balancers need to check the applications that got loaded
+      # this time, to setup the routing.
       my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
       if my_node.is_shadow?
         update_node_info_cache

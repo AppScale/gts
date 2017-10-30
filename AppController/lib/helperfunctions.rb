@@ -500,17 +500,18 @@ module HelperFunctions
     tar_dir = "#{meta_dir}/app"
     return if File.directory?(tar_dir)
 
-    # Make sure we have the applcation source. If not, we have to wait
+    # Make sure we have the application source. If not, we have to wait
     # till the AC populates it.
-    app_path = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
+    tar_path = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
     end_work = Time.now.to_i + SLEEP_TIME * RETRIES
     while Time.now.to_i < end_work
-      break if File.file?(app_path)
-      Djinn.log_debug("#{app_path} is not there yet. Waiting ...")
+      break if File.file?(tar_path)
+      Djinn.log_debug("#{tar_path} is not there yet. Waiting ...")
       Kernel.sleep(Djinn::SMALL_WAIT)
     end
-
-    tar_path = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
+    unless File.file?(tar_path)
+      raise AppScaleException.new("#{tar_path} is not available.")
+    end
 
     FileUtils.mkdir_p(tar_dir)
     FileUtils.mkdir_p("#{meta_dir}/log")
