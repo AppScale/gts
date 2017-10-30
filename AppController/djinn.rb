@@ -1734,8 +1734,9 @@ class Djinn
         begin
           HelperFunctions.parse_static_data(version_key, true)
         rescue => except
+          except_trace = except.backtrace.join("\n")
           Djinn.log_debug("restart_versions: parse_static_data exception" \
-            " from #{version_key}: #{except.backtrace}.")
+            " from #{version_key}: #{except_trace}.")
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for " +
                       "#{version_key}. Exception of #{except.class} with " +
@@ -4187,8 +4188,9 @@ HOSTS
           static_handlers = HelperFunctions.parse_static_data(
             version_key, false)
         rescue => except
+          except_trace = except.backtrace.join("\n")
           Djinn.log_debug("regenerate_routing_config: parse_static_data " \
-            "exception from #{version_key}: #{except.backtrace}.")
+            "exception from #{version_key}: #{except_trace}.")
           # This specific exception may be a JSON parse error.
           error_msg = "ERROR: Unable to parse app.yaml file for " +
                       "#{version_key}. Exception of #{except.class} with " +
@@ -5719,8 +5721,9 @@ HOSTS
       begin
         HelperFunctions.parse_static_data(version_key, true)
       rescue => except
+        except_trace = except.backtrace.join("\n")
         Djinn.log_debug("setup_app_dir: parse_static_data exception from" \
-          " #{version_key}: #{except.backtrace}.")
+          " #{version_key}: #{except_trace}.")
         # This specific exception may be a JSON parse error.
         error_msg = "ERROR: Unable to parse app.yaml file for " +
                     "#{version_key}. Exception of #{except.class} with " +
