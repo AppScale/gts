@@ -35,6 +35,8 @@ INCLUDE_LISTS = IncludeLists({
 
 APPSCALE_PORT = 17441
 
+requests.packages.urllib3.disable_warnings()
+
 
 class RemoteProfiler(object):
   def __init__(self, head_node_ip, secret, include_lists, output_dir,
@@ -69,7 +71,8 @@ class RemoteProfiler(object):
       json={
         'include_lists': INCLUDE_LISTS.asdict(),
         'newer_than': time.mktime(datetime.now().timetuple()),
-      }
+      },
+      verify=False
     )
     response.raise_for_status()
     result_dict = response.json()
@@ -151,11 +154,13 @@ def main():
     '-v', '--verbose', action='store_true',
     help='Output debug-level logging')
   parser.add_argument(
-    '--head-node-ip', help='IP address of head node')
+    '--head-node-ip', required=True,
+    help='IP address of head node')
   parser.add_argument(
-    '--secret', help='Path to file containing deployment secret')
+    '--secret', required=True,
+    help='Path to file containing deployment secret')
   parser.add_argument(
-    '--output-dir',
+    '--output-dir', required=True,
     help='Path to directory where profile log should be saved')
   parser.add_argument(
     '--detailed-processes-stats', action='store_true',
@@ -174,7 +179,7 @@ def main():
   try:
     with open(args.secret) as secret_file:
       secret = secret_file.read().strip()
-  except OSError as err:
+  except (OSError, IOError) as err:
     logging.error(u'Couldn\'t read secret file ({err})'.format(err=err))
     exit(1)
 
