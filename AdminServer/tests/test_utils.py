@@ -1,6 +1,6 @@
 import unittest
 
-from mock import patch
+from mock import patch, MagicMock
 from tornado import testing, gen
 
 from appscale.admin import utils
@@ -77,14 +77,17 @@ class TestRetryCoroutine(testing.AsyncTestCase):
     self.assertEqual(wait_mock.call_args_list, [])
     self.assertEqual(logger_mock.call_args_list, [])
 
+  @patch.object(utils.IOLoop, 'current')
   @patch.object(utils.locks.Condition, 'wait')
   @patch.object(utils.logger, 'exception')
   @patch.object(utils.random, 'random')
   @testing.gen_test
-  def test_backoff_and_logging(self, gauss_mock, logger_mock, wait_mock):
+  def test_backoff_and_logging(self, gauss_mock, logger_mock, wait_mock,
+                               current_io_loop_mock):
     random_value = 0.84
     gauss_mock.return_value = random_value
     wait_mock.side_effect = testing.gen.coroutine(lambda sec: False)
+    current_io_loop_mock.return_value = MagicMock(time=lambda: 100.0)
 
     def do_work():
       raise ValueError(u"Error \u26a0!")
@@ -101,10 +104,10 @@ class TestRetryCoroutine(testing.AsyncTestCase):
 
     # Check backoff sleep calls (0.1 * (3 ** attempt) * random_value).
     sleep_args = [args[0] for args, kwargs in wait_mock.call_args_list]
-    self.assertAlmostEqual(sleep_args[0], 0.33, 2)
-    self.assertAlmostEqual(sleep_args[1], 0.99, 2)
-    self.assertAlmostEqual(sleep_args[2], 2.2, 2)
-    self.assertAlmostEqual(sleep_args[3], 2.2, 2)
+    self.assertAlmostEqual(sleep_args[0], 100.33, 2)
+    self.assertAlmostEqual(sleep_args[1], 100.99, 2)
+    self.assertAlmostEqual(sleep_args[2], 102.2, 2)
+    self.assertAlmostEqual(sleep_args[3], 102.2, 2)
 
     # Verify logged errors.
     expected_logs = [

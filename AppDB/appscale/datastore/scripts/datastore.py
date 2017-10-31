@@ -161,7 +161,9 @@ class MainHandler(tornado.web.RequestHandler):
     app_id = clean_app_id(app_id)
 
     if pb_type == "Request":
-      yield self.remote_request(app_id, http_request_data)
+      yield self.remote_request(app_id, http_request_data,
+                                service_id=request.headers.get('Module'),
+                                version_id=request.headers.get('Version'))
     else:
       self.unknown_request(app_id, http_request_data, pb_type)
 
@@ -174,7 +176,7 @@ class MainHandler(tornado.web.RequestHandler):
     self.finish() 
 
   @gen.coroutine
-  def remote_request(self, app_id, http_request_data):
+  def remote_request(self, app_id, http_request_data, service_id, version_id):
     """ Receives a remote request to which it should give the correct 
         response. The http_request_data holds an encoded protocol buffer
         of a certain type. Each type has a particular response type. 
@@ -182,6 +184,8 @@ class MainHandler(tornado.web.RequestHandler):
     Args:
       app_id: The application ID that is sending this request.
       http_request_data: Encoded protocol buffer.
+      service_id: A string specifying the client's service ID.
+      version_id: A string specifying the client's version ID.
     """
     apirequest = remote_api_pb.Request()
     apirequest.ParseFromString(http_request_data)
@@ -247,7 +251,7 @@ class MainHandler(tornado.web.RequestHandler):
                                                        http_request_data)
     elif method == 'AddActions':
       response, errcode, errdetail = self.add_actions_request(
-        app_id, http_request_data)
+        app_id, http_request_data, service_id, version_id)
     elif method == 'datastore_v4.AllocateIds':
       response, errcode, errdetail = yield self.v4_allocate_ids_request(
         app_id, http_request_data)
@@ -735,12 +739,15 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete.")
 
-  def add_actions_request(self, app_id, http_request_data):
+  def add_actions_request(self, app_id, http_request_data, service_id,
+                          version_id):
     """ High level function for adding transactional tasks.
 
     Args:
       app_id: Name of the application.
       http_request_data: Stores the protocol buffer request from the AppServer.
+      service_id: A string specifying the client's service ID.
+      version_id: A string specifying the client's version ID.
     Returns:
       An encoded AddActions response.
     """
@@ -749,13 +756,22 @@ class MainHandler(tornado.web.RequestHandler):
     req_pb = taskqueue_service_pb.TaskQueueBulkAddRequest(http_request_data)
     resp_pb = taskqueue_service_pb.TaskQueueBulkAddResponse()
 
+    if service_id is None:
+      return (resp_pb.Encode(), datastore_pb.Error.BAD_REQUEST,
+              'Module header must be defined')
+
+    if version_id is None:
+      return (resp_pb.Encode(), datastore_pb.Error.BAD_REQUEST,
+              'Version header must be defined')
+
     if READ_ONLY:
       logger.warning('Unable to add transactional tasks in read-only mode')
       return (resp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
     try:
-      datastore_access.dynamic_add_actions(app_id, req_pb)
+      datastore_access.dynamic_add_actions(app_id, req_pb, service_id,
+                                           version_id)
       return resp_pb.Encode(), 0, ""
     except dbconstants.ExcessiveTasks as error:
       return (resp_pb.Encode(), datastore_pb.Error.BAD_REQUEST, str(error))

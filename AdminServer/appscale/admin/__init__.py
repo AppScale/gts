@@ -363,8 +363,9 @@ class ProjectHandler(BaseVersionHandler):
     ports = ports_to_close[:]
     while True:
       if time.time() > deadline:
-        message = 'Delete operation took too long.'
-        raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+        logger.error('Delete operation took too long (project_id: {}).'
+                     .format(project_id))
+        raise gen.Return()
       to_remove = []
       for http_port in ports:
         # If the port is open, continue to process other ports.

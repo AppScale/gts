@@ -1,7 +1,10 @@
 require 'digest/sha1'
 require 'rexml/document'
-require 'helperfunctions'
 require 'uri'
+
+require 'custom_exceptions'
+require 'helperfunctions'
+
 include REXML
 
 
@@ -96,7 +99,13 @@ CRON
       }
 
     elsif lang == "java"
-      web_inf_dir = HelperFunctions.get_web_inf_dir(source_dir)
+      begin
+        web_inf_dir = HelperFunctions.get_web_inf_dir(source_dir)
+      rescue InvalidSource => error
+        Djinn.log_warn(error.message)
+        Djinn.log_app_error(app, error.message)
+        return
+      end
       cron_file = "#{web_inf_dir}/cron.xml"
       return unless File.exists?(cron_file)
 

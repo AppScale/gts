@@ -57,7 +57,7 @@ module TaskQueue
   RABBITMQCTL = `which rabbitmqctl`.chomp
 
   # The longest we'll wait for RabbitMQ to come up in seconds.
-  MAX_WAIT_FOR_RABBITMQ = 30
+  MAX_WAIT_FOR_RABBITMQ = 60
 
   # Location where celery workers back up state to.
   CELERY_STATE_DIR = "/opt/appscale/celery"
@@ -103,11 +103,18 @@ module TaskQueue
 
     pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
                         "rabbit@#{Socket.gethostname}.pid")
+
+    var_run_pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+    if File.read('/proc/1/cgroup').include?('docker')
+      # In docker, the pid file is present at /var/run/rabbitmq/pid
+      pidfile = var_run_pidfile
+    end
+
     begin
       installed_version = Gem::Version.new(self.get_rabbitmq_version)
       new_location_version = Gem::Version.new('3.4')
       if installed_version < new_location_version
-        pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
+        pidfile = var_run_pidfile
       end
     rescue TaskQueue::UnknownVersion => error
       Djinn.log_warn("Error while getting rabbitmq version: #{error.message}")
@@ -117,7 +124,8 @@ module TaskQueue
     service_bin = `which service`.chomp
     start_cmd = "#{service_bin} rabbitmq-server start"
     stop_cmd = "#{service_bin} rabbitmq-server stop"
-    MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile)
+    MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile,
+                                MAX_WAIT_FOR_RABBITMQ)
   end
 
 
