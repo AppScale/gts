@@ -500,8 +500,18 @@ module HelperFunctions
     tar_dir = "#{meta_dir}/app"
     return if File.directory?(tar_dir)
 
-    Djinn.fetch_revision(revision_key)
+    # Make sure we have the application source. If not, we have to wait
+    # till the AC populates it.
     tar_path = "#{Djinn::PERSISTENT_MOUNT_POINT}/apps/#{revision_key}.tar.gz"
+    end_work = Time.now.to_i + SLEEP_TIME * RETRIES
+    while Time.now.to_i < end_work
+      break if File.file?(tar_path)
+      Djinn.log_debug("#{tar_path} is not there yet. Waiting ...")
+      Kernel.sleep(Djinn::SMALL_WAIT)
+    end
+    unless File.file?(tar_path)
+      raise AppScaleException.new("#{tar_path} is not available.")
+    end
 
     FileUtils.mkdir_p(tar_dir)
     FileUtils.mkdir_p("#{meta_dir}/log")
@@ -519,7 +529,7 @@ module HelperFunctions
     begin
       FileUtils.mv("#{tar_dir}/gopath", "#{meta_dir}/gopath")
     rescue Errno::ENOENT
-      Djinn.log_debug("#{app_name} does not have a gopath directory")
+      Djinn.log_debug("#{revision_key} does not have a gopath directory")
     end
 
     return true
