@@ -6,6 +6,7 @@ import requests
 import time
 import threading
 
+from appscale.hermes.stats import converter, models
 from appscale.hermes.stats.converter import IncludeLists
 from appscale.hermes.stats.profile import (
   NodesProfileLog, ProcessesProfileLog, ProxiesProfileLog
@@ -50,6 +51,11 @@ class RemoteProfiler(object):
       'processes': self.processes_log,
       'proxies': self.proxies_log,
     }
+    self.models_dict = {
+      'nodes': models.NodeStatsSnapshot,
+      'processes': models.ProcessesStatsSnapshot,
+      'proxies': models.ProxiesStatsSnapshot,
+    }
     self.running = False
 
   def fetch_stats(self, stats_type):
@@ -67,30 +73,54 @@ class RemoteProfiler(object):
     )
     response.raise_for_status()
     result_dict = response.json()
-    stats = result_dict['stats']
+    raw_stats = result_dict['stats']
     failures = result_dict['failures']
+    try:
+      stats_model = self.models_dict[stats_type]
+      stats = {
+        ip: converter.stats_from_dict(stats_model, snapshot)
+        for ip, snapshot in raw_stats.iteritems()
+      }
+    except TypeError as err:
+      msg = u"Can't parse stats snapshot ({})".format(err)
+      logging.error(msg)
+      stats = {ip: msg for ip in raw_stats}
     return stats, failures
 
   def pull_periodically(self, stats_type, period):
     def periodical_job():
       if self.running:
-        threading.Timer(period, periodical_job, period).start()
+        logging.info('Pulling {stats_type} stats now and in {period} seconds'
+                     .format(stats_type=stats_type, period=period))
+        threading.Timer(period, periodical_job).start()
+      else:
+        logging.info('Pulling {stats_type} stats now and stopping'
+                     .format(stats_type=stats_type, period=period))
 
       # Pull and process data
       try:
+        start_time = time.time()
         stats, failures = self.fetch_stats(stats_type)
+        logging.debug(
+          'Fetched {stats_type} stats from {ok} nodes in {elapsed:.1f}'
+          .format(stats_type=stats_type, ok=len(stats),
+                  elapsed=time.time()-start_time))
+
         # Report errors if there are any
         if failures:
           details = u'\n'.join(
             u'  {ip}: {msg}'.format(ip=ip, msg=msg)
-            for ip, msg in failures.iteritems()
-          )
-          logging.error(
+            for ip, msg in failures.iteritems())
+          logging.warning(
             u'Hermes master couldn\'t fetch {stats_type} stats from some nodes:'
-            u'\n{details}'.format(stats_type=stats_type, details=details)
-          )
+            u'\n{details}'.format(stats_type=stats_type, details=details))
         # Write profile logs
-        self.loggers_dict[stats_type].write(stats)
+        start_time = time.time()
+        profiler = self.loggers_dict[stats_type]
+        profiler.write(stats)
+        logging.debug(
+          'Saved latest {stats_type} stats snapshots in {elapsed:.1f}'
+          .format(stats_type=stats_type, elapsed=time.time()-start_time))
 
       except requests.HTTPError as err:
         logging.error(u'Failed to get nodes stats ({err})'.format(err=err))
@@ -102,6 +132,7 @@ class RemoteProfiler(object):
   def start(self, nodes_stats_period, processes_stats_period,
             proxies_stats_period):
     self.running = True
+    logging.info('Starting remote profiler...')
     if nodes_stats_period:
       self.pull_periodically('nodes', nodes_stats_period)
     if processes_stats_period:
@@ -110,15 +141,28 @@ class RemoteProfiler(object):
       self.pull_periodically('proxies', proxies_stats_period)
 
   def stop(self):
+    logging.info('Stopping remote profiler...')
     self.running = False
 
 
-if __name__ == '__main__':
-
+def main():
   parser = argparse.ArgumentParser()
   parser.add_argument(
     '-v', '--verbose', action='store_true',
     help='Output debug-level logging')
+  parser.add_argument(
+    '--head-node-ip', help='IP address of head node')
+  parser.add_argument(
+    '--secret', help='Path to file containing deployment secret')
+  parser.add_argument(
+    '--output-dir',
+    help='Path to directory where profile log should be saved')
+  parser.add_argument(
+    '--detailed-processes-stats', action='store_true',
+    help='Write detailed processes stats')
+  parser.add_argument(
+    '--detailed-proxies-stats', action='store_true',
+    help='Write detailed proxies stats')
   args = parser.parse_args()
 
   logging.basicConfig(
@@ -127,4 +171,23 @@ if __name__ == '__main__':
   if args.verbose:
     logging.getLogger().setLevel(logging.DEBUG)
 
-  # TODO
+  try:
+    with open(args.secret) as secret_file:
+      secret = secret_file.read().strip()
+  except OSError as err:
+    logging.error(u'Couldn\'t read secret file ({err})'.format(err=err))
+    exit(1)
+
+  remote_profiler = RemoteProfiler(
+    args.head_node_ip,
+    secret,
+    INCLUDE_LISTS,
+    args.output_dir,
+    args.detailed_processes_stats,
+    args.detailed_proxies_stats
+  )
+  remote_profiler.start(
+    nodes_stats_period=5,
+    processes_stats_period=30,
+    proxies_stats_period=10
+  )

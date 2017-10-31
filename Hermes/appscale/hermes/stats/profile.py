@@ -23,6 +23,7 @@ class NodesProfileLog(object):
     Args:
       include_lists: An instance of IncludeLists describing which fields
         of node stats should be written to CSV log.
+      profile_log_dir: A string representing path to profile logs directory.  
     """
     self._include_lists = include_lists
     self._header = (
@@ -95,6 +96,8 @@ class ProcessesProfileLog(object):
     Args:
       include_lists: An instance of IncludeLists describing which fields
         of processes stats should be written to CSV log.
+      profile_log_dir: A string representing path to profile logs directory.
+      verbose: A boolean determines if detailed statistics should be written. 
     """
     self._include_lists = include_lists
     self._header = (
@@ -272,6 +275,8 @@ class ProxiesProfileLog(object):
     Args:
       include_lists: An instance of IncludeLists describing which fields
         of processes stats should be written to CSV log.
+      profile_log_dir: A string representing path to profile logs directory.
+      verbose: A boolean determines if detailed statistics should be written.
     """
     self._include_lists = include_lists
     self._header = (
