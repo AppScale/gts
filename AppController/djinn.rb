@@ -4909,7 +4909,7 @@ HOSTS
 
     if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
       begin
-        start_xmpp_for_app(project_id, version_details['runtime'])
+        start_xmpp_for_app(project_id)
       rescue FailedNodeException
         Djinn.log_warn("Failed to start xmpp for application #{project_id}")
       end
@@ -5845,7 +5845,7 @@ HOSTS
   end
 
   # This function creates the xmpp account for 'app', as app@login_ip.
-  def start_xmpp_for_app(app, app_language)
+  def start_xmpp_for_app(app)
     watch_name = "xmpp-#{app}"
 
     # If we have it already running, nothing to do
@@ -5871,7 +5871,7 @@ HOSTS
 
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
-    if Ejabberd.does_app_need_receive?(app, app_language)
+    if Ejabberd.does_app_need_receive?(app)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       MonitInterface.start(watch_name, start_cmd)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
