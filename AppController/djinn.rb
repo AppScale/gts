@@ -6062,4 +6062,5 @@ HOSTS
 
     # Couldn't find the application.
     return INVALID_REQUEST
+  end
 end
