@@ -54,7 +54,7 @@ class _Retry(object):
                retrying_timeout=MISSED, retry_on_exception=MISSED):
     """ Wraps func with retry mechanism which runs up to max_retries attempts
     with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
-    Or just creates another instance of _Retry with custom parameters. 
+    Or just creates another instance of _Retry with custom parameters.
 
     Args:
       func: a callable to wrap.
