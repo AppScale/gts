@@ -163,18 +163,8 @@ class Djinn
 
 
   # An Array of Strings, each of which corresponding to the name of an App
-  # Engine app that should be loaded.
-  attr_accessor :app_names
-
-
-  # An Array of Strings, each of which corresponding to the name of an App
   # Engine app that has been loaded on this node.
   attr_accessor :versions_loaded
-
-
-  # An Array of Strings, each of which corresponding to the name of an App
-  # Engine app that should be restarted on this node.
-  attr_accessor :apps_to_restart
 
 
   # A boolean that is used to let remote callers know when this AppController
@@ -1729,22 +1719,20 @@ class Djinn
 
     Djinn.log_info("Restarting versions: #{versions_to_restart}.")
     # Self needs to update source code/cache.
-    if my_node.is_load_balancer?
-      versions_to_restart.each{ |version_key|
-        begin
-          HelperFunctions.parse_static_data(version_key, true)
-        rescue => except
-          except_trace = except.backtrace.join("\n")
-          Djinn.log_debug("restart_versions: parse_static_data exception" \
-            " from #{version_key}: #{except_trace}.")
-          # This specific exception may be a JSON parse error.
-          error_msg = "ERROR: Unable to parse app.yaml file for " +
-                      "#{version_key}. Exception of #{except.class} with " +
-                      "message #{except.message}"
-          place_error_app(version_key, error_msg)
-        end
-      }
-    end
+    versions_to_restart.each{ |version_key|
+      begin
+        HelperFunctions.parse_static_data(version_key, true)
+      rescue => except
+        except_trace = except.backtrace.join("\n")
+        Djinn.log_debug("restart_versions: parse_static_data exception" \
+          " from #{version_key}: #{except_trace}.")
+        # This specific exception may be a JSON parse error.
+        error_msg = "ERROR: Unable to parse app.yaml file for " +
+                    "#{version_key}. Exception of #{except.class} with " +
+                    "message #{except.message}"
+        place_error_app(version_key, error_msg)
+      end
+    }
 
     Djinn.log_info("Remove old AppServers for #{versions_to_restart}.")
     APPS_LOCK.synchronize {
@@ -1783,7 +1771,8 @@ class Djinn
     APPS_LOCK.synchronize {
       versions_to_restart = @versions_loaded & versions
     }
-    # Notify nodes, and remove any running AppServer of the application.
+
+    # Starts new AppServers (and stop the old ones) for the new versions.
     restart_versions(versions_to_restart)
 
     Djinn.log_info("Done updating #{versions}.")
@@ -4127,7 +4116,7 @@ HOSTS
   # applications hosted in this deployment. Callers should invoke this
   # method whenever there is a change in the number of machines hosting
   # App Engine apps.
-  def regenerate_routing_config()
+  def regenerate_routing_config
     Djinn.log_debug("Regenerating nginx and haproxy config files for apps.")
     my_public = my_node.public_ip
     my_private = my_node.private_ip
@@ -4185,6 +4174,12 @@ HOSTS
         HAProxy.remove_version(version_key)
       else
         begin
+          # Make sure we have the latest revision.
+          revision_key = [version_key,
+            version_details['revision'].to_s].join(VERSION_PATH_SEPARATOR)
+          fetch_revision(revision_key)
+
+          # And grab the application static data.
           static_handlers = HelperFunctions.parse_static_data(
             version_key, false)
         rescue => except
@@ -6040,7 +6035,31 @@ HOSTS
   #   An application cron info
   def get_application_cron_info(app_name, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-    content = CronHelper.get_application_cron_info(app_name)
-    return JSON.dump(content)
-  end
+
+    # Shadow has the latest version of the application code.
+    unless my_node.is_shadow?
+      Djinn.log_debug("Sending get_application_cron_info for " +
+        " #{app_name} to #{get_shadow}.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.get_application_cron_info(app_name)
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to forward get_application_cron_info " +
+          "call to #{get_shadow}.")
+        return NOT_READY
+      end
+    end
+
+    @versions_loaded.each { |version_key|
+      project_id, _service_id, _version_id = version_key.split(
+        VERSION_PATH_SEPARATOR)
+
+      if project_id == app_name
+        content = CronHelper.get_application_cron_info(app_name)
+        return JSON.dump(content)
+      end
+    }
+
+    # Couldn't find the application.
+    return INVALID_REQUEST
 end
