@@ -92,46 +92,46 @@ class RemoteProfiler(object):
     return stats, failures
 
   def pull_periodically(self, stats_type, period):
-    def periodical_job():
-      if self.running:
-        logging.info('Pulling {stats_type} stats now and in {period} seconds'
-                     .format(stats_type=stats_type, period=period))
-        threading.Timer(period, periodical_job).start()
-      else:
-        logging.info('Pulling {stats_type} stats now and stopping'
-                     .format(stats_type=stats_type, period=period))
+    if self.running:
+      logging.info('Pulling {stats_type} stats now and in {period} seconds'
+                   .format(stats_type=stats_type, period=period))
+      timer = threading.Timer(
+        period, self.pull_periodically, stats_type, period
+      )
+      timer.start()
+    else:
+      logging.info('Pulling {stats_type} stats now and stopping'
+                   .format(stats_type=stats_type, period=period))
 
-      # Pull and process data
-      try:
-        start_time = time.time()
-        stats, failures = self.fetch_stats(stats_type)
-        logging.debug(
-          'Fetched {stats_type} stats from {ok} nodes in {elapsed:.1f}'
-          .format(stats_type=stats_type, ok=len(stats),
-                  elapsed=time.time()-start_time))
+    # Pull and process data
+    try:
+      start_time = time.time()
+      stats, failures = self.fetch_stats(stats_type)
+      logging.debug(
+        'Fetched {stats_type} stats from {ok} nodes in {elapsed:.1f}'
+        .format(stats_type=stats_type, ok=len(stats),
+                elapsed=time.time()-start_time))
 
-        # Report errors if there are any
-        if failures:
-          details = u'\n'.join(
-            u'  {ip}: {msg}'.format(ip=ip, msg=msg)
-            for ip, msg in failures.iteritems())
-          logging.warning(
-            u'Hermes master couldn\'t fetch {stats_type} stats from some nodes:'
-            u'\n{details}'.format(stats_type=stats_type, details=details))
-        # Write profile logs
-        start_time = time.time()
-        profiler = self.loggers_dict[stats_type]
-        profiler.write(stats)
-        logging.debug(
-          'Saved latest {stats_type} stats snapshots in {elapsed:.1f}'
-          .format(stats_type=stats_type, elapsed=time.time()-start_time))
+      # Report errors if there are any
+      if failures:
+        details = u'\n'.join(
+          u'  {ip}: {msg}'.format(ip=ip, msg=msg)
+          for ip, msg in failures.iteritems())
+        logging.warning(
+          u'Hermes master couldn\'t fetch {stats_type} stats from some nodes:'
+          u'\n{details}'.format(stats_type=stats_type, details=details))
+      # Write profile logs
+      start_time = time.time()
+      profiler = self.loggers_dict[stats_type]
+      profiler.write(stats)
+      logging.debug(
+        'Saved latest {stats_type} stats snapshots in {elapsed:.1f}'
+        .format(stats_type=stats_type, elapsed=time.time()-start_time))
 
-      except requests.HTTPError as err:
-        logging.error(u'Failed to get nodes stats ({err})'.format(err=err))
-      except Exception as err:
-        logging.exception(err)
-
-    periodical_job()
+    except requests.HTTPError as err:
+      logging.error(u'Failed to get nodes stats ({err})'.format(err=err))
+    except Exception as err:
+      logging.exception(err)
 
   def start(self, nodes_stats_period, processes_stats_period,
             proxies_stats_period):
