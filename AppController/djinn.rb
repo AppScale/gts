@@ -6035,32 +6035,6 @@ HOSTS
   #   An application cron info
   def get_application_cron_info(app_name, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    # Shadow has the latest version of the application code.
-    unless my_node.is_shadow?
-      Djinn.log_debug("Sending get_application_cron_info for " +
-        " #{app_name} to #{get_shadow}.")
-      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
-      begin
-        return acc.get_application_cron_info(app_name)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to forward get_application_cron_info " +
-          "call to #{get_shadow}.")
-        return NOT_READY
-      end
-    end
-
-    @versions_loaded.each { |version_key|
-      project_id, _service_id, _version_id = version_key.split(
-        VERSION_PATH_SEPARATOR)
-
-      if project_id == app_name
-        content = CronHelper.get_application_cron_info(app_name)
-        return JSON.dump(content)
-      end
-    }
-
-    # Couldn't find the application.
-    return INVALID_REQUEST
+    content = CronHelper.get_application_cron_info(app_name)
+    return JSON.dump(content)
   end
-end
