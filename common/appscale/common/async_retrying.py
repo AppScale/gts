@@ -33,14 +33,7 @@ class _RetryCoroutine(_Retry):
     @functools.wraps(generator)
     @gen.coroutine
     def wrapped(*args, **kwargs):
-      # Allow runtime customization of retrying parameters.
-      base = kwargs.pop('backoff_base', self.backoff_base)
-      multiplier = kwargs.pop('backoff_multiplier', self.backoff_multiplier)
-      threshold = kwargs.pop('backoff_threshold', self.backoff_threshold)
-      retries_limit = kwargs.pop('max_retries', self.max_retries)
-      timeout = kwargs.pop('retrying_timeout', self.retrying_timeout)
-      check_exception = kwargs.pop('retry_on_exception',
-                                   self.retry_on_exception)
+      check_exception = self.retry_on_exception
 
       if isinstance(check_exception, (list, tuple)):
         orig_check_exception = check_exception
@@ -51,7 +44,7 @@ class _RetryCoroutine(_Retry):
           )
 
       retries = 0
-      backoff = multiplier
+      backoff = self.backoff_multiplier
       start_time = time.time()
       while True:
         # Start of retrying iteration
@@ -64,10 +57,11 @@ class _RetryCoroutine(_Retry):
           retries += 1
 
           # Check if need to retry
-          if retries_limit is not None and retries > retries_limit:
+          if self.max_retries is not None and retries > self.max_retries:
             logging.error("Giving up retrying after {} attempts during {:0.1f}s"
                           .format(retries,  - start_time))
             raise
+          timeout = self.retrying_timeout
           if timeout and time.time() - start_time > timeout:
             logging.error("Giving up retrying after {} attempts during {:0.1f}s"
                           .format(retries, time.time() - start_time))
@@ -76,7 +70,7 @@ class _RetryCoroutine(_Retry):
             raise
 
           # Proceed with exponential backoff
-          backoff = min(backoff * base, threshold)
+          backoff = min(backoff * self.backoff_base, self.backoff_threshold)
           sleep_time = backoff * (random.random() * 0.3 + 0.85)
           # Report problem to logs
           stacktrace = traceback.format_exc()

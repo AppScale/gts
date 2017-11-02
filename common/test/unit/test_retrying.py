@@ -129,8 +129,3 @@ class TestRetry(unittest.TestCase):
       self.fail("Exception was expected")
     except TypeError:
       pass
-
-    # Test retry with customized retry_on_exception.
-    result = func(TypeError, "Failed", {"counter": 3},
-                  retry_on_exception=[TypeError])
-    self.assertEqual(result, "Succeeded")

@@ -139,11 +139,6 @@ class TestRetryCoroutine(testing.AsyncTestCase):
     except TypeError:
       pass
 
-    # Test retry with customized retry_on_exception.
-    result = yield func(TypeError, "Failed", {"counter": 3},
-                        retry_on_exception=[TypeError])
-    self.assertEqual(result, "Succeeded")
-
 
 class TestRetryWatchCoroutine(testing.AsyncTestCase):
 
