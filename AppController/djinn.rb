@@ -6038,3 +6038,4 @@ HOSTS
     content = CronHelper.get_application_cron_info(app_name)
     return JSON.dump(content)
   end
+end
