@@ -1,5 +1,6 @@
 """ Stops an AppServer instance. """
 import argparse
+import errno
 import os
 import psutil
 import signal
@@ -38,7 +39,14 @@ def stop_instance(watch, timeout):
     # In most cases, the group will already be gone.
     pass
 
-  os.remove(pidfile_location)
+  try:
+    os.remove(pidfile_location)
+  except OSError as e:
+    # In case the pidfile has already been removed.
+    if e.errno == errno.ENOENT:
+      pass
+    else:
+      raise
 
 
 def main():
