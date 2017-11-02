@@ -26,21 +26,23 @@ logger = logging.getLogger('appscale-admin')
 
 class UpdateQueuesHandler(BaseHandler):
   """ Handles UpdateQueues operations. """
-  def initialize(self, zk_client):
+  def initialize(self, zk_client, ua_client):
     """ Defines required resources to handle requests.
 
     Args:
       zk_client: A KazooClient.
+      ua_client: A UAClient.
     """
     self.zk_client = zk_client
+    self.ua_client = ua_client
 
   def post(self):
     """ Handles UpdateQueues operations. """
-    self.authenticate()
     project_id = self.get_argument('app_id', None)
     if project_id is None:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='app_id parameter is required')
+    self.authenticate(project_id, self.ua_client)
 
     try:
       payload = yaml.safe_load(self.request.body)
@@ -67,7 +69,7 @@ class UpdateQueuesHandler(BaseHandler):
 
 class UpdateCronHandler(BaseHandler):
   """ Handles UpdateCron operations. """
-  def initialize(self, acc, zk_client):
+  def initialize(self, acc, zk_client, ua_client):
     """ Defines required resources to handle requests.
 
     Args:
@@ -76,14 +78,16 @@ class UpdateCronHandler(BaseHandler):
     """
     self.acc = acc
     self.zk_client = zk_client
+    self.ua_client = ua_client
 
   def post(self):
     """ Handles UpdateCron operations. """
-    self.authenticate()
     project_id = self.get_argument('app_id', None)
     if project_id is None:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='app_id parameter is required')
+
+    self.authenticate(project_id, self.ua_client)
 
     try:
       payload = yaml.safe_load(self.request.body)
