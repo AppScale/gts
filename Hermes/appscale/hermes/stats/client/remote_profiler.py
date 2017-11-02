@@ -96,7 +96,7 @@ class RemoteProfiler(object):
       logging.info('Pulling {stats_type} stats now and in {period} seconds'
                    .format(stats_type=stats_type, period=period))
       timer = threading.Timer(
-        period, self.pull_periodically, stats_type, period
+        period, self.pull_periodically, args=[stats_type, period]
       )
       timer.start()
     else:
