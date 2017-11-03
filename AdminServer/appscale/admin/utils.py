@@ -17,6 +17,7 @@ from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
 from tornado import gen, locks
+from tornado.ioloop import IOLoop
 
 from . import constants
 from .constants import (
@@ -587,7 +588,8 @@ class _PersistentWatch(object):
                              .format(retry=retries, sleep=sleep_time))
 
             # (*) Sleep with one eye open, give up if newer update wakes you
-            interrupted = yield node_lock.condition.wait(sleep_time)
+            now = IOLoop.current().time()
+            interrupted = yield node_lock.condition.wait(now + sleep_time)
             if interrupted or node_lock.waiters:
               logger.info("Giving up retrying because newer update came up")
               if not node_lock.waiters:
