@@ -277,7 +277,7 @@ class Djinn
   attr_accessor :app_upload_reservations
 
   # The port that the AppController runs on by default
-  SERVER_PORT = 17_443
+  SERVER_PORT = 17443
 
   # The port that SSH connections are hosted over, by default.
   SSH_PORT = 22
@@ -426,7 +426,7 @@ class Djinn
   VERSION_PATH_SEPARATOR = '_'.freeze
 
   # The port that the AdminServer listens on.
-  ADMIN_SERVER_PORT = 17_442
+  ADMIN_SERVER_PORT = 17442
 
   # List of parameters allowed in the set_parameter (and in AppScalefile
   # at this time). If a default value is specified, it will be used if the
@@ -1724,8 +1724,8 @@ class Djinn
     # previous start, or it comes from the tools. If the tools communicate
     # the deployment's data, then we are the headnode.
     unless restore_appcontroller_state
-      erase_old_data
       wait_for_data
+      erase_old_data
     end
     parse_options
 
@@ -2265,10 +2265,17 @@ class Djinn
   def erase_old_data
     Djinn.log_run("rm -f ~/.appscale_cookies")
 
-    Nginx.clear_sites_enabled
-    HAProxy.clear_sites_enabled
-    Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
-    CronHelper.clear_app_crontabs
+    # Delete (possibly old) mapping of IP <-> HostKey.
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        Djinn.log_run("ssh-keygen -R #{node.private_ip}")
+        Djinn.log_run("ssh-keygen -R #{node.public_ip}")
+      }
+    }
+
+    Nginx.clear_sites_enabled()
+    HAProxy.clear_sites_enabled()
+    CronHelper.clear_app_crontabs()
   end
 
   def wait_for_nodes_to_finish_loading(nodes)
@@ -3411,7 +3418,7 @@ class Djinn
     Djinn.log_info("Starting Hermes service.")
     HermesService.start(@options['verbose'].downcase == 'true')
     if my_node.is_shadow?
-      nginx_port = 17_441
+      nginx_port = 17441
       service_port = 4_378
       Nginx.add_service_location(
         'appscale-administration', my_node.private_ip,
@@ -3705,6 +3712,7 @@ class Djinn
 
     # Ensure we don't have an old host key for this host.
     Djinn.log_run("ssh-keygen -R #{ip}")
+    Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
 
     # Get the username to use for ssh (depends on environments).
     if ["ec2", "euca"].include?(@options['infrastructure'])
@@ -4297,8 +4305,8 @@ HOSTS
   def start_admin_server
     Djinn.log_info('Starting AdminServer')
     script = `which appscale-admin`.chomp
-    nginx_port = 17_441
-    service_port = 17_442
+    nginx_port = 17441
+    service_port = 17442
     start_cmd = "#{script} -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
@@ -5593,7 +5601,7 @@ HOSTS
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
-      app_manager.start_app(version_key, appserver_port)
+      app_manager.start_app(version_key, appserver_port, @options['login'])
       @pending_appservers["#{version_key}:#{appserver_port}"] = Time.new
       Djinn.log_info("Done adding AppServer for #{version_key}.")
     rescue FailedNodeException => error
