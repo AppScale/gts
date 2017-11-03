@@ -5765,7 +5765,7 @@ HOSTS
 
     app_manager = AppManagerClient.new(my_node.private_ip)
     begin
-      app_manager.start_app(version_key, appserver_port)
+      app_manager.start_app(version_key, appserver_port, @options['login'])
       @pending_appservers["#{version_key}:#{appserver_port}"] = Time.new
       Djinn.log_info("Done adding AppServer for #{version_key}.")
     rescue FailedNodeException => error
