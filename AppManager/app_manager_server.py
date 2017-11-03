@@ -724,7 +724,6 @@ if __name__ == "__main__":
   source_manager = SourceManager(zk_client, thread_pool)
 
   options.define('private_ip', appscale_info.get_private_ip())
-  options.define('login_ip', appscale_info.get_login_ip())
   options.define('syslog_server', appscale_info.get_headnode_ip())
   options.define('db_proxy', appscale_info.get_db_proxy())
   options.define('tq_proxy', appscale_info.get_tq_proxy())
