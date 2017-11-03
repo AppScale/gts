@@ -137,16 +137,8 @@ class Djinn
   attr_accessor :options
 
   # An Array of Strings, each of which corresponding to the name of an App
-  # Engine app that should be loaded.
-  attr_accessor :app_names
-
-  # An Array of Strings, each of which corresponding to the name of an App
   # Engine app that has been loaded on this node.
   attr_accessor :versions_loaded
-
-  # An Array of Strings, each of which corresponding to the name of an App
-  # Engine app that should be restarted on this node.
-  attr_accessor :apps_to_restart
 
   # A boolean that is used to let remote callers know when this AppController
   # is done initializing itself, but not necessarily done starting or
@@ -1621,25 +1613,6 @@ class Djinn
   def restart_versions(versions_to_restart)
     return if versions_to_restart.empty?
 
-    Djinn.log_info("Restarting versions: #{versions_to_restart}.")
-    # Self needs to update source code/cache.
-    if my_node.is_load_balancer?
-      versions_to_restart.each{ |version_key|
-        begin
-          HelperFunctions.parse_static_data(version_key, true)
-        rescue => except
-          except_trace = except.backtrace.join("\n")
-          Djinn.log_debug("restart_versions: parse_static_data exception" \
-            " from #{version_key}: #{except_trace}.")
-          # This specific exception may be a JSON parse error.
-          error_msg = "ERROR: Unable to parse app.yaml file for " \
-                      "#{version_key}. Exception of #{except.class} with " \
-                      "message #{except.message}"
-          place_error_app(version_key, error_msg)
-        end
-      }
-    end
-
     Djinn.log_info("Remove old AppServers for #{versions_to_restart}.")
     APPS_LOCK.synchronize {
       versions_to_restart.each{ |version_key|
@@ -1676,7 +1649,8 @@ class Djinn
     APPS_LOCK.synchronize {
       versions_to_restart = @versions_loaded & versions
     }
-    # Notify nodes, and remove any running AppServer of the application.
+
+    # Starts new AppServers (and stop the old ones) for the new versions.
     restart_versions(versions_to_restart)
 
     Djinn.log_info("Done updating #{versions}.")
@@ -4034,6 +4008,12 @@ HOSTS
         HAProxy.remove_version(version_key)
       else
         begin
+          # Make sure we have the latest revision.
+          revision_key = [version_key,
+            version_details['revision'].to_s].join(VERSION_PATH_SEPARATOR)
+          fetch_revision(revision_key)
+
+          # And grab the application static data.
           static_handlers = HelperFunctions.parse_static_data(
             version_key, false)
         rescue => except
@@ -4544,8 +4524,8 @@ HOSTS
   # or were terminated.
   def check_haproxy
     @versions_loaded.each{ |version_key|
-      _, failed = HAProxy.list_servers(version_key)
       if my_node.is_shadow?
+         _, failed = HAProxy.list_servers(version_key)
         failed.each{ |appserver|
           Djinn.log_warn(
             "Detected failed AppServer for #{version_key}: #{appserver}.")
