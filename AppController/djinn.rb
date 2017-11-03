@@ -1717,23 +1717,6 @@ class Djinn
   def restart_versions(versions_to_restart)
     return if versions_to_restart.empty?
 
-    Djinn.log_info("Restarting versions: #{versions_to_restart}.")
-    # Self needs to update source code/cache.
-    versions_to_restart.each{ |version_key|
-      begin
-        HelperFunctions.parse_static_data(version_key, true)
-      rescue => except
-        except_trace = except.backtrace.join("\n")
-        Djinn.log_debug("restart_versions: parse_static_data exception" \
-          " from #{version_key}: #{except_trace}.")
-        # This specific exception may be a JSON parse error.
-        error_msg = "ERROR: Unable to parse app.yaml file for " +
-                    "#{version_key}. Exception of #{except.class} with " +
-                    "message #{except.message}"
-        place_error_app(version_key, error_msg)
-      end
-    }
-
     Djinn.log_info("Remove old AppServers for #{versions_to_restart}.")
     APPS_LOCK.synchronize {
       versions_to_restart.each{ |version_key|
@@ -4691,8 +4674,8 @@ HOSTS
   # or were terminated.
   def check_haproxy
     @versions_loaded.each{ |version_key|
-      _, failed = HAProxy.list_servers(version_key)
       if my_node.is_shadow?
+         _, failed = HAProxy.list_servers(version_key)
         failed.each{ |appserver|
           Djinn.log_warn(
             "Detected failed AppServer for #{version_key}: #{appserver}.")
