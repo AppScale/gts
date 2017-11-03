@@ -580,7 +580,6 @@ class Djinn
     BAD_SECRET_MSG
   end
 
-
   # A SOAP-exposed method that callers use to determine if this node has
   # finished starting all the roles it should run when it initially starts.
   def is_done_loading(secret)
@@ -588,20 +587,15 @@ class Djinn
     BAD_SECRET_MSG
   end
 
-
   # A SOAP-exposed method that callers can use to get information about what
   # roles each node in the AppScale deployment are running.
   def get_role_info(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     all_nodes = []
-    @nodes.each { |node|
-      all_nodes << node.to_hash
-    }
-
-    return JSON.dump(all_nodes)
+    @nodes.each { |node| all_nodes << node.to_hash }
+    JSON.dump(all_nodes)
   end
-
 
   # A SOAP-exposed method that callers can use to get information about what
   # versions are running on this machine, as well as what ports they are bound
@@ -615,10 +609,8 @@ class Djinn
   #   versions on this machine is returned.
   def get_app_info_map(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    return JSON.dump(@app_info_map)
+    JSON.dump(@app_info_map)
   end
-
 
   # A SOAP-exposed method that callers can use to tell this AppController that
   # a version hosted in this cloud needs to have its nginx reverse proxy
@@ -636,19 +628,19 @@ class Djinn
   #   reason why the relocation failed in all other cases.
   def relocate_version(version_key, http_port, https_port, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-    Djinn.log_debug("Received relocate_version for #{version_key} for " +
+    Djinn.log_debug("Received relocate_version for #{version_key} for " \
                     "http port #{http_port} and https port #{https_port}.")
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
-      Djinn.log_debug(
-        "Sending relocate_version for #{version_key} to #{get_shadow}.")
+      Djinn.log_debug("Sending relocate_version for #{version_key} " \
+        "to #{get_shadow}.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.relocate_version(version_key, http_port, https_port)
       rescue FailedNodeException
-        Djinn.log_warn(
-          "Failed to forward relocate_version call to #{get_shadow}.")
+        Djinn.log_warn("Failed to forward relocate_version " \
+          "call to #{get_shadow}.")
         return NOT_READY
       end
     end
@@ -686,9 +678,8 @@ class Djinn
         project_id)
     end
 
-    return "OK"
+    'OK'
   end
-
 
   # A SOAP-exposed method that tells the AppController to terminate all services
   # in this AppScale deployment.
@@ -706,33 +697,32 @@ class Djinn
     rescue Errno::ENOENT
       # On appscale down, terminate may delete our secret key before we
       # can check it here.
-      Djinn.log_debug("kill(): didn't find secret file. Continuing.")
+      Djinn.log_debug('kill(): didn\'t find secret file. Continuing.')
     end
     @kill_sig_received = true
 
-    Djinn.log_info("Received a stop request.")
+    Djinn.log_info('Received a stop request.')
 
-    if my_node.is_shadow? and stop_deployment
-      Djinn.log_info("Stopping all other nodes.")
+    if my_node.is_shadow? && stop_deployment
+      Djinn.log_info('Stopping all other nodes.')
       # Let's stop all other nodes.
       Thread.new {
         @nodes.each { |node|
-          if node.private_ip != my_node.private_ip
-            acc = AppControllerClient.new(ip, @@secret)
-            begin
-              acc.kill(stop_deployment)
-              Djinn.log_info("kill: sent kill command to node at #{ip}.")
-            rescue FailedNodeException
-              Djinn.log_warn("kill: failed to talk to node at #{ip} while.")
-            end
+          next if node.private_ip == my_node.private_ip
+          acc = AppControllerClient.new(ip, @@secret)
+          begin
+            acc.kill(stop_deployment)
+            Djinn.log_info("kill: sent kill command to node at #{ip}.")
+          rescue FailedNodeException
+            Djinn.log_warn("kill: failed to talk to node at #{ip} while.")
           end
         }
       }
     end
 
-    Djinn.log_info("---- Stopping AppController ----")
+    Djinn.log_info('---- Stopping AppController ----')
 
-    return "OK"
+    'OK'
   end
 
   # This method validates that the layout received is correct (both
@@ -759,19 +749,19 @@ class Djinn
     begin
       locations = JSON.load(layout)
     rescue JSON::ParserError
-      msg = "Error: got exception parsing JSON structure layout."
+      msg = 'Error: got exception parsing JSON structure layout.'
       Djinn.log_error(msg)
       raise AppScaleException.new(msg)
     end
     if locations.class != Array
-      msg = "Error: layout is not an Array."
+      msg = 'Error: layout is not an Array.'
       Djinn.log_error(msg)
       raise AppScaleException.new(msg)
     end
     all_roles = []
     locations.each { |node|
       if node.class != Hash
-        msg = "Error: node structure is not a Hash."
+        msg = 'Error: node structure is not a Hash.'
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       end
@@ -833,7 +823,7 @@ class Djinn
         Djinn.log_warn("Received an invalid property name of class #{name.class}.")
         next
       end
-      key = name.gsub(NOT_EMAIL_REGEX, "")
+      key = name.gsub(NOT_EMAIL_REGEX, '')
 
       # Let's check if the property is a known one.
       unless PARAMETERS_AND_CLASS.has_key?(key)
@@ -912,9 +902,9 @@ class Djinn
           newval = val
         # Keys have a relaxed sanitization process.
         elsif key.include? "_key" or key.include? "EC2_SECRET_KEY"
-          newval = val.gsub(NOT_FQDN_OR_PLUS_REGEX, "")
+          newval = val.gsub(NOT_FQDN_OR_PLUS_REGEX, '')
         else
-          newval = val.gsub(NOT_FQDN_REGEX, "")
+          newval = val.gsub(NOT_FQDN_REGEX, '')
         end
       end
 
@@ -1032,9 +1022,8 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
-    return "OK"
+    'OK'
   end
-
 
   # Upload a Google App Engine application into this AppScale deployment.
   #
@@ -1067,9 +1056,8 @@ class Djinn
     reservation_id = HelperFunctions.get_random_alphanumeric
     @app_upload_reservations[reservation_id] = {'status' => 'starting'}
 
-    Djinn.log_debug(
-      "Received a request to upload app at #{archived_file}, with suffix " +
-      "#{file_suffix}")
+    Djinn.log_debug("Received a request to upload app at #{archived_file}" \
+      ", with suffix #{file_suffix}")
 
     Thread.new {
       # If the dashboard is on the same node as the shadow, the archive needs
@@ -1083,7 +1071,7 @@ class Djinn
 
       Djinn.log_debug("Uploading file at location #{archived_file}")
       keyname = @options['keyname']
-      command = "#{UPLOAD_APP_SCRIPT} --file '#{archived_file}' " +
+      command = "#{UPLOAD_APP_SCRIPT} --file '#{archived_file}' " \
         "--keyname #{keyname} 2>&1"
       output = Djinn.log_run(command)
       if output.include?("Your app can be reached at the following URL")
@@ -1158,9 +1146,8 @@ class Djinn
       end
     end
 
-    return JSON.dump(@cluster_stats)
+    JSON.dump(@cluster_stats)
   end
-
 
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
@@ -1177,7 +1164,7 @@ class Djinn
           begin
             node_stats = JSON.load(acc.get_node_stats_json)
           rescue FailedNodeException
-            Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
+            Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
               "not adding it to our cached info.")
             next
           end
@@ -1187,7 +1174,6 @@ class Djinn
       @cluster_stats = new_stats
     }
   end
-
 
   # Gets the database information of the AppScale deployment.
   #
@@ -1202,7 +1188,6 @@ class Djinn
       :keyname => @options['keyname'] }
     return JSON.dump(tree)
   end
-
 
   # Runs the Groomer service that the Datastore provides, which cleans up
   # deleted entries and generates statistics about the entities stored for each
@@ -1229,7 +1214,6 @@ class Djinn
 
     return 'OK'
   end
-
 
   # Queries the AppController for a list of instance variables whose names match
   # the given regular expression, as well as the values associated with each
@@ -1278,11 +1262,10 @@ class Djinn
       end
     }
 
-    Djinn.log_debug("Caller asked for instance variables matching regex " +
+    Djinn.log_debug("Caller asked for instance variables matching regex " \
       "#{property_regex}, returning response #{properties.inspect}")
     return JSON.dump(properties)
   end
-
 
   # Sets the named instance variable to the given value.
   #
@@ -1327,7 +1310,6 @@ class Djinn
       Djinn.log_info("Failed to set property '#{property_name}'.")
       return KEY_NOT_FOUND
     end
-
 
     # Let's keep an old copy of the options: we'll need them to check if
     # something changed and we need to act.
@@ -1422,7 +1404,7 @@ class Djinn
     begin
       return ZKInterface.get(DEPLOYMENT_ID_PATH)
     rescue FailedZooKeeperOperationException => e
-      Djinn.log_warn("(get_deployment_id) failed talking to zookeeper " +
+      Djinn.log_warn("(get_deployment_id) failed talking to zookeeper " \
         "with #{e.message}.")
       return
     end
@@ -1437,7 +1419,7 @@ class Djinn
     begin
       ZKInterface.set(DEPLOYMENT_ID_PATH, id, false)
     rescue FailedZooKeeperOperationException => e
-      Djinn.log_warn("(set_deployment_id) failed talking to zookeeper " +
+      Djinn.log_warn("(set_deployment_id) failed talking to zookeeper " \
         "with #{e.message}.")
     end
     return
@@ -1528,7 +1510,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       return uac.change_password(username, password)
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while resetting " +
+      Djinn.log_warn("Failed to talk to the UserAppServer while resetting " \
         "the user's password.")
     end
   end
@@ -1544,7 +1526,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       return uac.does_user_exist?(username)
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer to check if the " +
+      Djinn.log_warn("Failed to talk to the UserAppServer to check if the " \
         "the user #{username} exists.")
     end
   end
@@ -1563,7 +1545,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       return uac.commit_new_user(username, password, account_type)
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while committing " +
+      Djinn.log_warn("Failed to talk to the UserAppServer while committing " \
         "the user #{username}.")
     end
   end
@@ -1579,7 +1561,7 @@ class Djinn
       uac = UserAppClient.new(my_node.private_ip, @@secret)
       return uac.set_admin_role(username, is_cloud_admin, capabilities)
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while setting admin role " +
+      Djinn.log_warn("Failed to talk to the UserAppServer while setting admin role " \
         "for the user #{username}.")
     end
   end
@@ -1629,9 +1611,8 @@ class Djinn
       check_stopped_apps
     }
 
-    return "true"
+    'true'
   end
-
 
   # Clears version entries to make way for a new revision.
   #
@@ -1651,8 +1632,8 @@ class Djinn
           Djinn.log_debug("restart_versions: parse_static_data exception" \
             " from #{version_key}: #{except_trace}.")
           # This specific exception may be a JSON parse error.
-          error_msg = "ERROR: Unable to parse app.yaml file for " +
-                      "#{version_key}. Exception of #{except.class} with " +
+          error_msg = "ERROR: Unable to parse app.yaml file for " \
+                      "#{version_key}. Exception of #{except.class} with " \
                       "message #{except.message}"
           place_error_app(version_key, error_msg)
         end
@@ -1666,7 +1647,6 @@ class Djinn
       }
     }
   end
-
 
   # Start a new, or update an old version of applications. This method
   # assumes that the application tarball(s) have already been uploaded.
@@ -1710,7 +1690,7 @@ class Djinn
     @nodes.each { |node|
       public_ips << node.public_ip
     }
-    return JSON.dump(public_ips)
+    JSON.dump(public_ips)
   end
 
   def get_all_private_ips(secret)
@@ -1720,7 +1700,7 @@ class Djinn
     @nodes.each { |node|
       private_ips << node.private_ip
     }
-    return JSON.dump(private_ips)
+    JSON.dump(private_ips)
   end
 
   def job_start(secret)
@@ -1783,7 +1763,7 @@ class Djinn
       require "#{table}_helper"
     rescue => e
       backtrace = e.backtrace.join("\n")
-      HelperFunctions.log_and_crash("Unable to find #{table} helper." +
+      HelperFunctions.log_and_crash("Unable to find #{table} helper." \
         " Please verify datastore type: #{e}\n#{backtrace}")
     end
 
@@ -1913,8 +1893,8 @@ class Djinn
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
         stats = JSON.parse(get_node_stats_json(secret))
-        Djinn.log_info("--- Node at #{stats['public_ip']} has " +
-          "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " +
+        Djinn.log_info("--- Node at #{stats['public_ip']} has " \
+          "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " \
           "and knows about these apps #{stats['apps']}.")
         Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
         last_print = Time.now.to_i
@@ -1935,7 +1915,6 @@ class Djinn
     end
     return @done_terminating
   end
-
 
   def run_terminate(clean, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
@@ -1958,7 +1937,6 @@ class Djinn
       return SecureRandom.hex
     end
   end
-
 
   def terminate_appscale(node_to_terminate, clean)
     ip = node_to_terminate.private_ip
@@ -1993,7 +1971,6 @@ class Djinn
     return {'ip'=>ip, 'status'=> status, 'output'=>output}
   end
 
-
   def terminate_appscale_in_parallel(clean)
     # Let's stop all other nodes.
     threads = []
@@ -2010,9 +1987,8 @@ class Djinn
       yield t[:output]
     end
 
-    return "OK"
+    'OK'
   end
-
 
   # Adds message to queue so it can be received by client.
   def send_client_message(message)
@@ -2074,12 +2050,10 @@ class Djinn
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
 
-
   def stop_infrastructure_manager
     Djinn.log_info("Stopping InfrastructureManager")
     MonitInterface.stop(:iaas_manager)
   end
-
 
   def get_online_users_list(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
@@ -2096,7 +2070,6 @@ class Djinn
 
     return online_users
   end
-
 
   # This function removes this node from the list of possible sources for
   # a revision's source archive.
@@ -2118,7 +2091,7 @@ class Djinn
     rescue FailedZooKeeperOperationException => except
       # We just warn here and don't retry, since the shadow may have
       # already cleaned up the hosters.
-      Djinn.log_warn("stop_hosting_revision: got exception talking to " +
+      Djinn.log_warn("stop_hosting_revision: got exception talking to " \
         "zookeeper: #{except.message}.")
     end
 
@@ -2174,11 +2147,11 @@ class Djinn
     end
 
     if ips_hash.class != Hash
-      Djinn.log_warn("Was expecting ips_hash to be a Hash, not " +
+      Djinn.log_warn("Was expecting ips_hash to be a Hash, not " \
         "a #{ips_hash.class}.")
       return BAD_INPUT_MSG
     end
-    Djinn.log_debug("Received a request to start additional roles on " +
+    Djinn.log_debug("Received a request to start additional roles on " \
       "these machines: #{ips_hash}.")
 
     # ips_hash maps roles to IPs, but the internal format here maps
@@ -2191,7 +2164,7 @@ class Djinn
       elsif ip_or_ips.class == Array
         ips = ip_or_ips  # a list of IPs
       else
-        Djinn.log_warn("Was expecting an IP or list of IPs, got" +
+        Djinn.log_warn("Was expecting an IP or list of IPs, got" \
           " a #{ip_or_ips.class}.")
         return BAD_INPUT_MSG
       end
@@ -2242,8 +2215,8 @@ class Djinn
     new_nodes_info = []
     if new_nodes_roles.length > 0
       unless is_cloud?
-        Djinn.log_warn("Still need #{new_nodes_roles.length} more " +
-          "nodes, but we aren't in a cloud environment, so we can't " +
+        Djinn.log_warn("Still need #{new_nodes_roles.length} more " \
+          "nodes, but we aren't in a cloud environment, so we can't " \
           "aquire more nodes - failing the caller's request.")
         return NOT_ENOUGH_OPEN_NODES
       end
@@ -2256,7 +2229,7 @@ class Djinn
         new_nodes_info = imc.spawn_vms(new_nodes_roles.length, @options,
            new_nodes_roles.values, disks)
       rescue FailedNodeException, AppScaleException => exception
-        Djinn.log_error("Couldn't spawn #{new_nodes_roles.length} VMs " +
+        Djinn.log_error("Couldn't spawn #{new_nodes_roles.length} VMs " \
           "because: #{exception.message}")
         return exception.message
       end
@@ -2284,9 +2257,8 @@ class Djinn
     }
     add_nodes(new_nodes_info) unless new_nodes_info.empty?
 
-    return "OK"
+    'OK'
   end
-
 
   # Given an Array of Strings containing information about machines with
   # AppScale installed on them, copies over deployment-specific files
@@ -2314,7 +2286,6 @@ class Djinn
     update_hosts_info
   end
 
-
   # Cleans out temporary files that may have been written by a previous
   # AppScale deployment.
   def erase_old_data
@@ -2326,7 +2297,6 @@ class Djinn
     CronHelper.clear_app_crontabs
   end
 
-
   def wait_for_nodes_to_finish_loading(nodes)
     Djinn.log_info("Waiting for nodes to finish loading")
 
@@ -2335,7 +2305,7 @@ class Djinn
         Djinn.log_info("Node at #{node.private_ip} has finished loading.")
         next
       else
-        Djinn.log_info("Node at #{node.private_ip} has not yet finished " +
+        Djinn.log_info("Node at #{node.private_ip} has not yet finished " \
           "loading - will wait for it to finish.")
         Kernel.sleep(SMALL_WAIT)
         redo
@@ -2346,7 +2316,6 @@ class Djinn
     return
   end
 
-
   # This method logs a message that is useful to know when debugging AppScale,
   # but is too extraneous to know when AppScale normally runs.
   #
@@ -2355,7 +2324,6 @@ class Djinn
   def self.log_debug(message)
     @@log.debug(message)
   end
-
 
   # This method logs a message that is useful to know when AppScale normally
   # runs.
@@ -2366,7 +2334,6 @@ class Djinn
     @@log.info(message)
   end
 
-
   # This method logs a message that is useful to know when the AppController
   # experiences an unexpected event.
   #
@@ -2376,7 +2343,6 @@ class Djinn
     @@log.warn(message)
   end
 
-
   # This method logs a message that corresponds to an erroneous, but
   # recoverable, event.
   #
@@ -2385,7 +2351,6 @@ class Djinn
   def self.log_error(message)
     @@log.error(message)
   end
-
 
   # This method logs a message that immediately precedes the death of this
   # AppController.
@@ -2407,7 +2372,6 @@ class Djinn
     }
   end
 
-
   # Logs and runs the given command, which is assumed to be trusted and thus
   # needs no filtering on our part. Obviously this should not be executed by
   # anything that the user could inject input into. Returns the output of
@@ -2416,12 +2380,11 @@ class Djinn
     Djinn.log_debug("Running #{command}")
     output = `#{command}`
     if $?.exitstatus != 0
-      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" +
+      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" \
           " and output: #{output}.")
     end
     return output
   end
-
 
   # This method converts an Array of Strings (where each String contains all the
   # information about a single node) to an Array of DjinnJobData objects, which
@@ -2437,7 +2400,6 @@ class Djinn
     return array_of_nodes
   end
 
-
   # This method is the opposite of the previous method, and is needed when an
   # AppController wishes to pass node information to other AppControllers via
   # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
@@ -2451,7 +2413,7 @@ class Djinn
     layout.each { |location|
       layout_array << location.to_hash
     }
-    return JSON.dump(layout_array)
+    JSON.dump(layout_array)
   end
 
   def get_shadow
@@ -2541,7 +2503,7 @@ class Djinn
         @nodes.each { |node|
           this_nodes_logs = "#{local_log_dir}/#{node.private_ip}"
           FileUtils.mkdir_p(this_nodes_logs)
-          Djinn.log_run("scp -r -i #{node.ssh_key} -o StrictHostkeyChecking=no " +
+          Djinn.log_run("scp -r -i #{node.ssh_key} -o StrictHostkeyChecking=no " \
             "2>&1 root@#{node.private_ip}:#{remote_log_dir} #{this_nodes_logs}")
         }
       }
@@ -2559,7 +2521,6 @@ class Djinn
 
     return uuid
   end
-
 
   # Instructs Nginx and HAProxy to begin routing traffic for the named
   # version to a new AppServer.
@@ -2640,7 +2601,7 @@ class Djinn
       end
     }
 
-    return "OK"
+    'OK'
   end
 
   # Instruct HAProxy to begin routing traffic to the BlobServers.
@@ -2665,7 +2626,6 @@ class Djinn
     HAProxy.create_app_config(servers, my_node.private_ip,
       BlobServer::HAPROXY_PORT, BlobServer::NAME)
   end
-
 
   # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
   def configure_uaserver
@@ -2732,7 +2692,6 @@ class Djinn
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
   end
 
-
   def update_port_files
     ZKInterface.get_versions.each { |version_key|
       project_id, service_id, version_id = version_key.split(
@@ -2760,7 +2719,6 @@ class Djinn
     }
   end
 
-
   def update_firewall
     Djinn.log_debug("Resetting firewall.")
 
@@ -2771,7 +2729,6 @@ class Djinn
       Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
     end
   end
-
 
   def backup_appcontroller_state
     local_state = {}
@@ -2797,12 +2754,11 @@ class Djinn
     begin
       ZKInterface.write_appcontroller_state(local_state)
     rescue FailedZooKeeperOperationException => e
-      Djinn.log_warn("Couldn't talk to zookeeper whle backing up " +
+      Djinn.log_warn("Couldn't talk to zookeeper whle backing up " \
         "appcontroller state with #{e.message}.")
     end
     @appcontroller_state = local_state.to_s
   end
-
 
   # Takes actions if options or roles changed.
   #
@@ -2821,7 +2777,6 @@ class Djinn
     enforce_options unless old_options == @options
   end
 
-
   # Restores the state of each of the instance variables that the AppController
   # holds by pulling it from ZooKeeper (previously populated by the Shadow
   # node, who always has the most up-to-date version of this data).
@@ -2829,7 +2784,7 @@ class Djinn
   # Returns:
   #   A boolean indicating if the state is restored or current with the master.
   def restore_appcontroller_state
-    json_state=""
+    json_state=''
 
     unless File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("#{ZK_LOCATIONS_FILE} doesn't exist: not restoring data.")
@@ -2841,7 +2796,7 @@ class Djinn
         json_state = ZKInterface.get_appcontroller_state
       rescue => e
         Djinn.log_debug("Saw exception #{e.message} reading appcontroller state.")
-        json_state = ""
+        json_state = ''
         Kernel.sleep(SMALL_WAIT)
       end
       break unless json_state.empty?
@@ -2886,7 +2841,6 @@ class Djinn
 
     return true
   end
-
 
   # Updates all instance variables stored within the AppController with the new
   # public and private IP addreses of this machine.
@@ -2953,7 +2907,6 @@ class Djinn
     @my_public_ip = new_public_ip
     @my_private_ip = new_private_ip
   end
-
 
   # Writes any custom configuration data in /etc/appscale to ZooKeeper.
   def set_custom_config
@@ -3041,7 +2994,6 @@ class Djinn
     return
   end
 
-
   # Returns information about the AppServer processes hosting App Engine apps on
   # this machine.
   def get_instance_info(secret)
@@ -3075,7 +3027,6 @@ class Djinn
     }
   end
 
-
   # Removes information associated with the given IP address from our local
   # cache (@nodes) as well as the remote node storage mechanism (in ZooKeeper).
   def remove_node_from_local_and_zookeeper(ip)
@@ -3096,11 +3047,10 @@ class Djinn
       ZKInterface.remove_node_information(ip)
       @last_updated = ZKInterface.remove_ip_from_ip_list(ip)
     rescue FailedZooKeeperOperationException => e
-      Djinn.log_warn("(remove_node_from_local_and_zookeeper) issues " +
+      Djinn.log_warn("(remove_node_from_local_and_zookeeper) issues " \
         "talking to zookeeper with #{e.message}.")
     end
   end
-
 
   def wait_for_data
     loop {
@@ -3143,7 +3093,6 @@ class Djinn
     return true
   end
 
-
   # Searches through @nodes to try to find out which node is ours. Strictly
   # speaking, we assume that our node is identifiable by private IP, but
   # we also check our public IPs (for AWS and GCE) in case the user got it
@@ -3151,7 +3100,7 @@ class Djinn
   def find_me_in_locations
     @my_index = nil
     all_local_ips = HelperFunctions.get_all_local_ips
-    Djinn.log_debug("Searching for a node with any of these private IPs: " +
+    Djinn.log_debug("Searching for a node with any of these private IPs: " \
       "#{all_local_ips.join(', ')}")
     Djinn.log_debug("All nodes are: #{@nodes.join(', ')}")
 
@@ -3175,20 +3124,19 @@ class Djinn
     @state_change_lock.synchronize {
       @nodes.each { |node|
         if node.private_ip == public_ip
-          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
+          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
             "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
         end
         if node.public_ip == public_ip
-          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " +
+          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
             "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
         end
       }
     }
 
-    HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " +
+    HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " \
       "My local IPs are: #{all_local_ips.join(', ')}")
   end
-
 
   # Starts all of the services that this node has been assigned to run.
   # Also starts all services that all nodes run in an AppScale deployment.
@@ -3392,7 +3340,6 @@ class Djinn
     end
   end
 
-
   # Creates database tables in the underlying datastore to hold information
   # about the users that interact with AppScale clouds, and about the
   # applications that AppScale hosts (including data that the apps themselves
@@ -3408,7 +3355,7 @@ class Djinn
     retries = 10
     Djinn.log_info('Ensuring necessary tables have been created')
     loop {
-      prime_cmd = "#{prime_script} --replication #{replication} >> " +
+      prime_cmd = "#{prime_script} --replication #{replication} >> " \
         '/var/log/appscale/prime_db.log 2>&1'
       return if system(prime_cmd)
       retries -= 1
@@ -3460,7 +3407,6 @@ class Djinn
   def stop_taskqueue
     TaskQueue.stop
   end
-
 
   def start_taskqueue_slave
     # All slaves connect to the master to start
@@ -3586,12 +3532,10 @@ class Djinn
     Djinn.log_info("Started Log Server successfully!")
   end
 
-
   def stop_log_server
     Djinn.log_info("Stopping Log Server")
     MonitInterface.stop(:log_service)
   end
-
 
   # Stops the Backup/Recovery service.
   def stop_backup_service
@@ -3641,16 +3585,15 @@ class Djinn
     @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
-
   def build_taskqueue
     Djinn.log_info('Building uncommitted taskqueue changes')
     extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-    unless system('pip install --upgrade --no-deps ' +
+    unless system('pip install --upgrade --no-deps ' \
                   "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
       Djinn.log_error('Unable to build taskqueue (install failed).')
       return
     end
-    unless system('pip install ' +
+    unless system('pip install ' \
                   "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
       Djinn.log_error('Unable to build taskqueue (install dependencies failed).')
       return
@@ -3658,10 +3601,9 @@ class Djinn
     Djinn.log_info('Finished building taskqueue.')
   end
 
-
   def build_datastore
     Djinn.log_info('Building uncommitted datastore changes')
-    unless system('pip install --upgrade --no-deps ' +
+    unless system('pip install --upgrade --no-deps ' \
                   "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
       Djinn.log_error('Unable to build datastore (install failed).')
       return
@@ -3673,10 +3615,9 @@ class Djinn
     Djinn.log_info('Finished building datastore.')
   end
 
-
   def build_common
     Djinn.log_info('Building uncommitted common changes')
-    unless system('pip install --upgrade --no-deps ' +
+    unless system('pip install --upgrade --no-deps ' \
                   "#{APPSCALE_HOME}/common > /dev/null 2>&1")
       Djinn.log_error('Unable to build common (install failed).')
       return
@@ -3688,10 +3629,9 @@ class Djinn
     Djinn.log_info('Finished building common.')
   end
 
-
   def build_admin_server
     Djinn.log_info('Building uncommitted AdminServer changes')
-    unless system('pip install --upgrade --no-deps ' +
+    unless system('pip install --upgrade --no-deps ' \
                   "#{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
       Djinn.log_error('Unable to build AdminServer (install failed).')
       return
@@ -3702,7 +3642,6 @@ class Djinn
     end
     Djinn.log_info('Finished building AdminServer.')
   end
-
 
   def build_java_appserver
     Djinn.log_info('Building uncommitted Java AppServer changes')
@@ -3850,15 +3789,15 @@ class Djinn
   # root user to directly log in.
   def enable_root_login(ip, ssh_key, user_name)
     options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
-    backup_keys = 'sudo cp -p /root/.ssh/authorized_keys ' +
+    backup_keys = 'sudo cp -p /root/.ssh/authorized_keys ' \
         '/root/.ssh/authorized_keys.old'
-    Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
+    Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " \
                       "'#{backup_keys}'")
 
-    merge_keys = 'sudo sed -n ' +
-        '"/Please login/d; w/root/.ssh/authorized_keys" ' +
+    merge_keys = 'sudo sed -n ' \
+        '"/Please login/d; w/root/.ssh/authorized_keys" ' \
         "~#{user_name}/.ssh/authorized_keys /root/.ssh/authorized_keys.old"
-    Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " +
+    Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " \
                       "'#{merge_keys}'")
   end
 
@@ -3891,7 +3830,6 @@ class Djinn
       HelperFunctions.shell("rsync #{options} #{locations_json} root@#{ip}:#{locations_json}")
     end
   end
-
 
   # Writes locations (IP addresses) for the various nodes fulfilling
   # specific roles, in the local filesystems. These files will be updated
@@ -3997,7 +3935,6 @@ class Djinn
     end
   end
 
-
   # Updates files on this machine with information about our hostname
   # and a mapping of where other machines are located.
   def update_hosts_info
@@ -4006,7 +3943,7 @@ class Djinn
       return
     end
 
-    all_nodes = ""
+    all_nodes = ''
     @state_change_lock.synchronize {
       @nodes.each_with_index { |node, index|
         all_nodes << "#{node.private_ip} appscale-image#{index}\n"
@@ -4035,7 +3972,6 @@ HOSTS
     Djinn.log_run("/bin/hostname #{my_hostname}")
   end
 
-
   # Writes new nginx and haproxy configuration files for the App Engine
   # applications hosted in this deployment. Callers should invoke this
   # method whenever there is a change in the number of machines hosting
@@ -4053,7 +3989,7 @@ HOSTS
         version_details = ZKInterface.get_version_details(
           project_id, service_id, version_id)
       rescue VersionNotFound
-        Djinn.log_debug("Removing routing for #{version_key} since it " +
+        Djinn.log_debug("Removing routing for #{version_key} since it " \
                         "should not be running.")
         Nginx.remove_version(version_key)
         if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
@@ -4074,8 +4010,8 @@ HOSTS
       unless @app_info_map[version_key].nil? ||
           @app_info_map[version_key]['appservers'].nil?
         Djinn.log_debug(
-          "Regenerating nginx config for #{version_key} on http port " +
-          "#{http_port}, https port #{https_port}, and haproxy port " +
+          "Regenerating nginx config for #{version_key} on http port " \
+          "#{http_port}, https port #{https_port}, and haproxy port " \
           "#{proxy_port}.")
 
         # Let's see if we already have any AppServers running for this
@@ -4105,8 +4041,8 @@ HOSTS
           Djinn.log_debug("regenerate_routing_config: parse_static_data " \
             "exception from #{version_key}: #{except_trace}.")
           # This specific exception may be a JSON parse error.
-          error_msg = "ERROR: Unable to parse app.yaml file for " +
-                      "#{version_key}. Exception of #{except.class} with " +
+          error_msg = "ERROR: Unable to parse app.yaml file for " \
+                      "#{version_key}. Exception of #{except.class} with " \
                       "message #{except.message}"
           place_error_app(version_key, error_msg)
           static_handlers = []
@@ -4127,7 +4063,6 @@ HOSTS
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
   end
-
 
   def my_node
     if @my_index.nil?
@@ -4170,7 +4105,7 @@ HOSTS
         Djinn.log_info("Device #{device_name} exists - mounting it.")
         break
       else
-        Djinn.log_info("Device #{device_name} does not exist - waiting for " +
+        Djinn.log_info("Device #{device_name} does not exist - waiting for " \
           "it to exist.")
         Kernel.sleep(SMALL_WAIT)
       end
@@ -4185,16 +4120,16 @@ HOSTS
     end
 
     # We need to mount and possibly format the disk.
-    mount_output = Djinn.log_run("mount -t ext4 #{device_name} " +
+    mount_output = Djinn.log_run("mount -t ext4 #{device_name} " \
       "#{PERSISTENT_MOUNT_POINT} 2>&1")
     if mount_output.empty?
-      Djinn.log_info("Mounted persistent disk #{device_name}, without " +
+      Djinn.log_info("Mounted persistent disk #{device_name}, without " \
         "needing to format it.")
     else
       Djinn.log_info("Formatting persistent disk #{device_name}.")
       Djinn.log_run("mkfs.ext4 -F #{device_name}")
       Djinn.log_info("Mounting persistent disk #{device_name}.")
-      Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT}" +
+      Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT}" \
         " 2>&1")
     end
 
@@ -4430,7 +4365,7 @@ HOSTS
       result = uac.commit_new_user(APPSCALE_USER, password, "app")
       Djinn.log_info("Created/confirmed system user: (#{result})")
     rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while committing " +
+      Djinn.log_warn("Failed to talk to the UserAppServer while committing " \
         "the system user.")
     end
   end
@@ -4668,7 +4603,7 @@ HOSTS
         }
 
         if info['appservers'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-          Djinn.log_debug("Checking #{version_key} with " +
+          Djinn.log_debug("Checking #{version_key} with " \
                           "#{info['appservers'].length} AppServers.")
         else
           Djinn.log_debug(
@@ -4815,7 +4750,7 @@ HOSTS
     if @app_info_map[version_key]['appservers'].nil?
       @app_info_map[version_key]['appservers'] = []
     end
-    Djinn.log_debug("setup_appengine_version: info for #{version_key}: " +
+    Djinn.log_debug("setup_appengine_version: info for #{version_key}: " \
                     "#{@app_info_map[version_key]}.")
 
     version_details = ZKInterface.get_version_details(
@@ -4826,7 +4761,7 @@ HOSTS
 
     port_file = "#{APPSCALE_CONFIG_DIR}/port-#{version_key}.txt"
     HelperFunctions.write_file(port_file, nginx_port.to_s)
-    Djinn.log_debug("#{version_key} will be using nginx port #{nginx_port}, " +
+    Djinn.log_debug("#{version_key} will be using nginx port #{nginx_port}, " \
                     "https port #{https_port}, and haproxy port #{proxy_port}")
 
     # Setup rsyslog to store application logs.
@@ -4999,7 +4934,7 @@ HOSTS
       Integer(needed_appservers/3).downto(0) {
         vms_to_spawn += 1
         if vm_scaleup_capacity < vms_to_spawn
-          Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" +
+          Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" \
             " vms, so spawning only maximum allowable nodes.")
           break
         end
@@ -5021,7 +4956,7 @@ HOSTS
         Djinn.log_info("We need #{vms_to_spawn} more VMs.")
 
         if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
-          Djinn.log_info("Not scaling up right now, as we recently scaled " +
+          Djinn.log_info("Not scaling up right now, as we recently scaled " \
             "up or down.")
           return
         end
@@ -5047,7 +4982,7 @@ HOSTS
     # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_machines'])
     if max_scale_down_capacity <= 0
-      Djinn.log_debug("We are already at the minimum number of user specified machines," +
+      Djinn.log_debug("We are already at the minimum number of user specified machines," \
         "so will not be scaling down")
       return
     end
@@ -5055,7 +4990,7 @@ HOSTS
     # Also, don't scale down if we just scaled up or down.
     if Time.now.to_i - @last_scaling_time < (SCALEDOWN_THRESHOLD *
         SCALE_TIME_MULTIPLIER * DUTY_CYCLE)
-      Djinn.log_info("Not scaling down right now, as we recently scaled " +
+      Djinn.log_info("Not scaling down right now, as we recently scaled " \
         "up or down.")
       return
     end
@@ -5083,7 +5018,7 @@ HOSTS
           }
 
           unless hosted_apps.empty?
-            Djinn.log_debug("The node #{node.private_ip} has these AppServers " +
+            Djinn.log_debug("The node #{node.private_ip} has these AppServers " \
               "running: #{hosted_apps}")
             next
           end
@@ -5181,7 +5116,7 @@ HOSTS
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
     rescue VersionNotFound
-      Djinn.log_info("Not scaling app #{version_key} since we aren't " +
+      Djinn.log_info("Not scaling app #{version_key} since we aren't " \
                      'hosting it anymore.')
       return 0
     end
@@ -5228,8 +5163,8 @@ HOSTS
     if current_load >= MAX_LOAD_THRESHOLD
       appservers_to_scale = calculate_appservers_needed(
           num_appservers, current_sessions, allow_concurrency)
-      Djinn.log_debug("The deployment has reached its maximum load " +
-                      "threshold for #{version_key} - Advising that we " +
+      Djinn.log_debug("The deployment has reached its maximum load " \
+                      "threshold for #{version_key} - Advising that we " \
                       "scale up #{appservers_to_scale} AppServers.")
       return appservers_to_scale
 
@@ -5242,13 +5177,13 @@ HOSTS
       end
       appservers_to_scale = calculate_appservers_needed(
           num_appservers, current_sessions, allow_concurrency)
-      Djinn.log_debug("The deployment is below its minimum load threshold " +
-                      "for #{version_key} - Advising that we scale down " +
+      Djinn.log_debug("The deployment is below its minimum load threshold " \
+                      "for #{version_key} - Advising that we scale down " \
                       "#{appservers_to_scale.abs} AppServers.")
       return appservers_to_scale
     else
-      Djinn.log_debug("The deployment is within the desired range of load " +
-                      "for #{version_key} - Advising that there is no need " +
+      Djinn.log_debug("The deployment is within the desired range of load " \
+                      "for #{version_key} - Advising that there is no need " \
                       "to scale currently.")
       return 0
     end
@@ -5305,9 +5240,9 @@ HOSTS
   #     requests waiting to be served.
   def update_request_info(version_key, total_requests_seen,
                           time_requests_were_seen, total_req_in_queue)
-    Djinn.log_debug("Time now is #{time_requests_were_seen}, last " +
+    Djinn.log_debug("Time now is #{time_requests_were_seen}, last " \
       "time was #{@last_sampling_time[version_key]}")
-    Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " +
+    Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " \
       "time was #{@total_req_seen[version_key]}")
     Djinn.log_debug("Requests currently in the queue #{total_req_in_queue}")
     requests_since_last_sampling = total_requests_seen - @total_req_seen[version_key]
@@ -5318,13 +5253,13 @@ HOSTS
 
     average_request_rate = Float(requests_since_last_sampling) / Float(time_since_last_sampling)
     if average_request_rate < 0
-      Djinn.log_info("Saw negative request rate for #{version_key}, so " +
+      Djinn.log_info("Saw negative request rate for #{version_key}, so " \
                      "resetting our haproxy stats for this version.")
       initialize_scaling_info_for_version(version_key, true)
       return
     end
-    Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
-                    "for #{version_key}, with last sampling time " +
+    Djinn.log_debug("Total requests will be set to #{total_requests_seen} " \
+                    "for #{version_key}, with last sampling time " \
                     "#{time_requests_were_seen}")
     @average_req_rate[version_key] = average_request_rate
     @current_req_rate[version_key] = total_req_in_queue
@@ -5437,7 +5372,7 @@ HOSTS
         allocated_memory[host] = 0 if allocated_memory[host].nil?
         max_new_total = Integer(
           (total - allocated_memory[host] - SAFE_MEM) / max_app_mem)
-        Djinn.log_debug("Check for total memory usage: #{host} can run " +
+        Djinn.log_debug("Check for total memory usage: #{host} can run " \
                         "#{max_new_total} AppServers for #{version_key}.")
         break if max_new_total <= 0
 
@@ -5445,7 +5380,7 @@ HOSTS
         # available memory on this node. First convert bytes to MB
         host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
         max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
-        Djinn.log_debug("Check for free memory usage: #{host} can run " +
+        Djinn.log_debug("Check for free memory usage: #{host} can run " \
                         "#{max_new_free} AppServers for #{version_key}.")
         break if max_new_free <= 0
 
@@ -5484,7 +5419,7 @@ HOSTS
       appserver_to_use = nil
       available_hosts.each { |host|
         unless current_hosts.include?(host)
-          Djinn.log_debug("Prioritizing #{host} to run #{version_key} " +
+          Djinn.log_debug("Prioritizing #{host} to run #{version_key} " \
                           "since it has no running AppServers for it.")
           appserver_to_use = host
           current_hosts << host
@@ -5534,7 +5469,7 @@ HOSTS
     end
 
     if @app_info_map[version_key]['appservers'].length <= min
-      Djinn.log_debug("We are already at the minimum number of AppServers " +
+      Djinn.log_debug("We are already at the minimum number of AppServers " \
                       "for #{version_key}.")
       return false
     end
@@ -5582,7 +5517,7 @@ HOSTS
       return
     end
 
-    error_msg = ""
+    error_msg = ''
 
     # Make sure we have the application directory (only certain roles
     # needs it).
@@ -5627,7 +5562,7 @@ HOSTS
       fetch_revision(revision_key)
       HelperFunctions.setup_revision(revision_key)
     rescue AppScaleException => exception
-      error_msg = "ERROR: couldn't setup source for #{version_key} " +
+      error_msg = "ERROR: couldn't setup source for #{version_key} " \
                   "(#{exception.message})."
     end
     if remove_old && my_node.is_load_balancer?
@@ -5638,8 +5573,8 @@ HOSTS
         Djinn.log_debug("setup_app_dir: parse_static_data exception from" \
           " #{version_key}: #{except_trace}.")
         # This specific exception may be a JSON parse error.
-        error_msg = "ERROR: Unable to parse app.yaml file for " +
-                    "#{version_key}. Exception of #{except.class} with " +
+        error_msg = "ERROR: Unable to parse app.yaml file for " \
+                    "#{version_key}. Exception of #{except.class} with " \
                     "message #{except.message}"
       end
     end
@@ -5673,7 +5608,7 @@ HOSTS
         "Failed to get port for #{version_key} on #{@my_private_ip}")
       return false
     end
-    Djinn.log_info("Starting #{version_key} on " +
+    Djinn.log_info("Starting #{version_key} on " \
                    "#{@my_private_ip}:#{appserver_port}")
 
     app_manager = AppManagerClient.new(my_node.private_ip)
@@ -5686,7 +5621,7 @@ HOSTS
         "Error while starting instance for #{version_key}: #{error.message}")
     end
 
-    return true
+    true
   end
 
 
@@ -5717,7 +5652,7 @@ HOSTS
         "Error while stopping #{version_key}:#{port}: #{error.message}")
     end
 
-    return true
+    true
   end
 
 
@@ -5734,8 +5669,8 @@ HOSTS
   def get_request_info(version_key, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    Djinn.log_debug("Sending a log with request rate #{version_key}, " +
-                    "timestamp #{@last_sampling_time[version_key]}, request " +
+    Djinn.log_debug("Sending a log with request rate #{version_key}, " \
+                    "timestamp #{@last_sampling_time[version_key]}, request " \
                     "rate #{@average_req_rate[version_key]}")
     encoded_request_info = JSON.dump({
       'timestamp' => @last_sampling_time[version_key],
@@ -5821,10 +5756,12 @@ HOSTS
       Djinn.log_debug("Change password returned: #{result}")
     end
 
-    Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
+    Djinn.log_debug("Created user [#{xmpp_user}] with password " \
+      "[#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/" \
+        "xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       MonitInterface.start(watch_name, start_cmd)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
@@ -5843,11 +5780,9 @@ HOSTS
   end
 
   def start_open
-    return
   end
 
   def stop_open
-    return
   end
 
   # Gathers App Controller and System Manager stats for this node.
@@ -5863,11 +5798,11 @@ HOSTS
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
     system_stats = JSON.load(imc.get_system_stats)
-    Djinn.log_debug("get_node_stats_json: got system stats.")
+    Djinn.log_debug('get_node_stats_json: got system stats.')
 
     # Combine all useful stats and return.
     node_stats = system_stats
-    node_stats["apps"] = {}
+    node_stats['apps'] = {}
     if my_node.is_shadow?
       APPS_LOCK.synchronize {
         @versions_loaded.each { |version_key|
@@ -5892,7 +5827,8 @@ HOSTS
           haproxy_port = version_details['appscaleExtensions']['haproxyPort']
           total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(
             version_key, my_node.private_ip, haproxy_port)
-          # Create the apps hash with useful information containing HAProxy stats.
+          # Create the apps hash with useful information containing
+          # HAProxy stats.
           begin
             appservers = 0
             pending = 0
@@ -5902,7 +5838,7 @@ HOSTS
             else
 
               @app_info_map[version_key]['appservers'].each { |location|
-                _host, port = location.split(":")
+                _host, port = location.split(':')
                 if Integer(port) > 0
                   appservers += 1
                 else
@@ -5910,38 +5846,35 @@ HOSTS
                 end
               }
             end
-            node_stats["apps"][version_key] = {
-              "language" => version_details['runtime'].tr('^A-Za-z', ''),
-              "appservers" => appservers,
-              "pending_appservers" => pending,
-              "http" => version_details['appscaleExtensions']['httpPort'],
-              "https" => version_details['appscaleExtensions']['httpsPort'],
-              "total_reqs" => total_reqs,
-              "reqs_enqueued" => reqs_enqueued
+            node_stats['apps'][version_key] = {
+              'language' => version_details['runtime'].tr('^A-Za-z', ''),
+              'appservers' => appservers,
+              'pending_appservers' => pending,
+              'http' => version_details['appscaleExtensions']['httpPort'],
+              'https' => version_details['appscaleExtensions']['httpsPort'],
+              'total_reqs' => total_reqs,
+              'reqs_enqueued' => reqs_enqueued
             }
-          rescue => exception
-            backtrace = exception.backtrace.join("\n")
-            message = "Unforseen exception: #{exception} \nBacktrace: #{backtrace}"
+          rescue => except
+            backtrace = except.backtrace.join("\n")
+            message = "Unforseen exception: #{except} \nBacktrace: #{backtrace}"
             Djinn.log_warn("Unable to get application stats: #{message}")
           end
         }
       }
     end
 
-    node_stats["cloud"] = my_node.cloud
-    node_stats["state"] = @state
-    if @done_initializing
-      node_stats["db_location"] = get_db_master.public_ip
-    else
-      node_stats["db_location"] = NOT_UP_YET
-    end
-    node_stats["is_initialized"] = @done_initializing
-    node_stats["is_loaded"] = @done_loading
-    node_stats["public_ip"] = my_node.public_ip
-    node_stats["private_ip"] = my_node.private_ip
-    node_stats["roles"] = my_node.jobs or ["none"]
+    node_stats['cloud'] = my_node.cloud
+    node_stats['state'] = @state
+    node_stats['db_location'] = NOT_UP_YET
+    node_stats['db_location'] = get_db_master.public_ip if @done_initializing
+    node_stats['is_initialized'] = @done_initializing
+    node_stats['is_loaded'] = @done_loading
+    node_stats['public_ip'] = my_node.public_ip
+    node_stats['private_ip'] = my_node.private_ip
+    node_stats['roles'] = my_node.jobs || ['none']
 
-    return JSON.dump(node_stats)
+    JSON.dump(node_stats)
   end
 
   # Gets an application cron info.
@@ -5954,6 +5887,6 @@ HOSTS
   def get_application_cron_info(app_name, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     content = CronHelper.get_application_cron_info(app_name)
-    return JSON.dump(content)
+    JSON.dump(content)
   end
 end
