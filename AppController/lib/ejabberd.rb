@@ -1,32 +1,24 @@
 #!/usr/bin/ruby -w
 
-
 require 'fileutils'
-
 
 $:.unshift File.join(File.dirname(__FILE__))
 require 'djinn_job_data'
 require 'helperfunctions'
 require 'monit_interface'
 
-
 # Our implementation of the Google App Engine XMPP and Channel APIs uses the
 # open source ejabberd server. This module provides convenience methods to
 # start and stop ejabberd, and write its configuration files.
 module Ejabberd
-
   # Indicates an error when determining the version of ejabberd.
   class UnknownVersion < StandardError; end
 
+  EJABBERD_PATH = File.join('/', 'etc', 'ejabberd')
 
-  EJABBERD_PATH = File.join("/", "etc", "ejabberd")
-  
-  
-  AUTH_SCRIPT_LOCATION = "#{EJABBERD_PATH}/ejabberd_auth.py"
-  
-  
-  ONLINE_USERS_FILE = "/etc/appscale/online_xmpp_users"
+  AUTH_SCRIPT_LOCATION = "#{EJABBERD_PATH}/ejabberd_auth.py".freeze
 
+  ONLINE_USERS_FILE = '/etc/appscale/online_xmpp_users'.freeze
 
   def self.start
     service = `which service`.chomp
@@ -51,15 +43,12 @@ module Ejabberd
       return false
     end
 
-    if ["python27", "go", "php"].include?(runtime)
+    if ['python27', 'go', 'php'].include?(runtime)
       app_yaml_file = "#{source_dir}/app.yaml"
-      app_yaml = YAML.load_file(app_yaml_file)["inbound_services"]
-      if !app_yaml.nil? and app_yaml.include?("xmpp_message")
-        return true
-      else
-        return false
-      end
-    elsif runtime == "java"
+      app_yaml = YAML.load_file(app_yaml_file)['inbound_services']
+      return true if !app_yaml.nil? && app_yaml.include?('xmpp_message')
+      return false
+    elsif runtime == 'java'
       begin
         appengine_web_xml_file = HelperFunctions.get_appengine_web_xml(
           source_dir)
@@ -72,16 +61,16 @@ module Ejabberd
       begin
         if xml_contents =~ /<inbound-services>.*<service>xmpp.*<\/inbound-services>/m
           return true
-        else
-          return false
         end
+        return false
       rescue => exception
         backtrace = exception.backtrace.join("\n")
-        Djinn.log_warn("Exception while parsing xml contents: #{exception.message}. Backtrace: \n#{backtrace}")
+        Djinn.log_warn("Exception while parsing xml contents: " \
+          "#{exception.message}. Backtrace: \n#{backtrace}")
         return false
       end
     else
-      HelperFunctions.log_and_crash("xmpp: runtime was not " +
+      HelperFunctions.log_and_crash('xmpp: runtime was not ' \
         "python27, go, java, php but was [#{runtime}]")
     end
   end
@@ -95,10 +84,10 @@ module Ejabberd
       next if node.is_shadow? # don't copy the file to itself
       ip = node.private_ip
       ssh_key = node.ssh_key
-      HelperFunctions.scp_file(ONLINE_USERS_FILE, ONLINE_USERS_FILE, ip, ssh_key)
+      HelperFunctions.scp_file(ONLINE_USERS_FILE, ONLINE_USERS_FILE,
+                               ip, ssh_key)
     }
   end
-
 
   def self.get_ejabberd_version
     version_re = /Version: (\d+)\./
@@ -118,13 +107,13 @@ module Ejabberd
       raise Ejabberd::UnknownVersion.new('Invalid ejabberd version')
     end
 
-    return major_version
+    major_version
   end
 
   def self.write_config_file(my_private_ip)
     config_file = 'ejabberd.yml'
     begin
-      ejabberd_version = self.get_ejabberd_version
+      ejabberd_version = get_ejabberd_version
       config_file = 'ejabberd.cfg' if ejabberd_version < 14
     rescue Ejabberd::UnknownVersion => error
       Djinn.log_warn("Error while getting ejabberd version: #{error.message}")
