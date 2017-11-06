@@ -64,7 +64,7 @@ class UserAppClient
               "#{@ip}:#{SERVER_PORT}. Exception class: #{e.class}. Retrying...")
             retry
           else
-            trace = e.backtrace.join('\n')
+            trace = e.backtrace.join("\n")
             Djinn.log_warn('Exception encountered while talking to ' \
               "#{@ip}:#{SERVER_PORT}.\n#{trace}")
             raise FailedNodeException.new("Exception #{e.class}:#{e.message} encountered " +
@@ -86,9 +86,9 @@ class UserAppClient
     }
 
     if result == 'true'
-      puts '\nYour user account has been created successfully.'
+      puts "\nYour user account has been created successfully."
     elsif result == 'false'
-      HelperFunctions.log_and_crash('\nWe were unable to create your user ' \
+      HelperFunctions.log_and_crash("\nWe were unable to create your user " \
         'account. Please contact your cloud administrator for further details.')
     else
       puts "\n[unexpected] Commit new user returned: [#{result}]"

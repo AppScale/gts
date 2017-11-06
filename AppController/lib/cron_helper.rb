@@ -31,7 +31,7 @@ module CronHelper
   #   app: A String that names the appid of this application, used to find the
   #     cron configuration file on the local filesystem.
   def self.update_cron(ip, port, lang, app)
-    app_crontab = NO_EMAIL_CRON + '\n'
+    app_crontab = NO_EMAIL_CRON + "\n"
     parsing_log = "saw a cron request with args [#{ip}][#{lang}][#{app}]\n"
 
     begin

@@ -42,7 +42,7 @@ def setup_db_config_files(master_ip)
                  "--master-ip #{master_ip}"
   until system(setup_script)
     Djinn.log_warn('Error while setting up Cassandra configuration. Retrying.')
-    sleep(SMALL_WAIT)
+    sleep(Djinn::SMALL_WAIT)
   end
 end
 
@@ -79,7 +79,7 @@ def start_db_slave(clear_datastore, needed, desired)
       Djinn.log_warn(
           "Failed to check if Cassandra is up at #{seed_node}")
     end
-    sleep(SMALL_WAIT)
+    sleep(Djinn::SMALL_WAIT)
   end
 
   start_cassandra(clear_datastore, needed, desired)
@@ -87,12 +87,12 @@ end
 
 # Waits for enough database nodes to be up.
 def wait_for_desired_nodes(needed, desired)
-  sleep(SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
+  sleep(Djinn::SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
   loop do
     ready = nodes_ready
     Djinn.log_debug("#{ready} nodes are up. #{needed} are needed.")
     break if ready >= needed
-    sleep(SMALL_WAIT)
+    sleep(Djinn::SMALL_WAIT)
   end
 
   # Wait longer for all the nodes. This reduces errors during table creation.
@@ -102,7 +102,7 @@ def wait_for_desired_nodes(needed, desired)
         ready = nodes_ready
         Djinn.log_debug("#{ready} nodes are up. #{desired} are desired.")
         break if ready >= desired
-        sleep(SMALL_WAIT)
+        sleep(Djinn::SMALL_WAIT)
       end
     }
   rescue Timeout::Error
@@ -167,7 +167,7 @@ end
 def nodes_ready
   output = `"#{NODETOOL}" status`
   nodes_ready = 0
-  output.split('\n').each { |line|
+  output.split("\n").each { |line|
     nodes_ready += 1 if line.start_with?('UN')
   }
   nodes_ready

@@ -313,7 +313,7 @@ module HAProxy
   # Removes all the enabled sites
   def self.clear_sites_enabled
     [SITES_ENABLED_PATH, SERVICES_SITES_PATH].each { |path|
-      next if File.directory?(path)
+      next unless File.directory?(path)
       sites = Dir.entries(path)
       # Remove any files that are not configs
       sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }
