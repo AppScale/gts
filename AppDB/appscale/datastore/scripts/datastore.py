@@ -295,8 +295,10 @@ class MainHandler(tornado.web.RequestHandler):
     if begin_transaction_req_pb.has_allow_multiple_eg():
       multiple_eg = bool(begin_transaction_req_pb.allow_multiple_eg())
 
-    handle = None
     transaction_pb = datastore_pb.Transaction()
+    transaction_pb.set_app(app_id)
+    # Set required field to invalid handle in case of error.
+    transaction_pb.set_handle(0)
 
     if READ_ONLY:
       logger.warning('Unable to begin transaction in read-only mode: {}'.
@@ -312,7 +314,6 @@ class MainHandler(tornado.web.RequestHandler):
       return (transaction_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
               str(error))
 
-    transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
     return (transaction_pb.Encode(), 0, "")
 
