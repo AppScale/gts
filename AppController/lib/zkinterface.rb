@@ -165,7 +165,7 @@ class ZKInterface
     end
 
     info = run_zookeeper_operation {
-      @@zk.create(pathr: APPCONTROLLER_LOCK_PATH, ephemeral: EPHEMERAL,
+      @@zk.create(path: APPCONTROLLER_LOCK_PATH, ephemeral: EPHEMERAL,
                   data: @@client_ip)
     }
     return true if info[:rc].zero?
