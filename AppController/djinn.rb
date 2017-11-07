@@ -4507,12 +4507,20 @@ HOSTS
   def create_appscale_user
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     password = SecureRandom.base64
+
     begin
+      retries ||= 0
       result = uac.commit_new_user(APPSCALE_USER, password, "app")
       Djinn.log_info("Created/confirmed system user: (#{result})")
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to talk to the UserAppServer while committing " \
-        "the system user.")
+    rescue InternalError, FailedNodeException
+      Djinn.log_warn('Failed to create a new user')
+      retries += 1
+      if retries < 5
+        sleep(SMALL_WAIT)
+        retry
+      else
+        raise
+      end
     end
   end
 
@@ -5924,7 +5932,21 @@ HOSTS
     uac = UserAppClient.new(my_node.private_ip, @@secret)
     xmpp_user = "#{app}@#{login_ip}"
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
-    result = uac.commit_new_user(xmpp_user, xmpp_pass, "app")
+
+    begin
+      retries ||= 0
+      result = uac.commit_new_user(xmpp_user, xmpp_pass, "app")
+    rescue InternalError
+      Djinn.log_warn('Failed to create a new user')
+      retries += 1
+      if retries < 5
+        sleep(SMALL_WAIT)
+        retry
+      else
+        raise
+      end
+    end
+
     Djinn.log_debug("User creation returned: #{result}")
     if result.include?('Error: user already exists')
       # We need to update the password of the channel XMPP account for
