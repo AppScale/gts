@@ -151,7 +151,7 @@ module HAProxy
     config << "listen #{name}\n"
     config << "  bind #{my_private_ip}:#{listen_port}\n"
     servers.each do |server|
-      config << HAProxy.server_config(name, "#{server['ip']}:#{server['port']}") + '\n'
+      config << HAProxy.server_config(name, "#{server['ip']}:#{server['port']}") + "\n"
     end
 
     # If it is the dashboard app, increase the server timeout because uploading apps

@@ -19,7 +19,7 @@ CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra".freeze
 SETUP_CONFIG_SCRIPT = "#{APPSCALE_HOME}/scripts/setup_cassandra_config_files.py".freeze
 
 # The location of the nodetool binary.
-NODETOOL = '#{CASSANDRA_DIR}/cassandra/bin/nodetool'.freeze
+NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool".freeze
 
 # The location of the script that creates the initial tables.
 PRIME_SCRIPT = `which appscale-prime-cassandra`.chomp
