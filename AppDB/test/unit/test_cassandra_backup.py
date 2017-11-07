@@ -105,6 +105,11 @@ class TestCassandraBackup(unittest.TestCase):
 
     flexmock(time).should_receive('sleep')
 
+    flexmock(utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, re.compile('.*nodetool status'),
+      method=subprocess.check_output).\
+      and_return('UN 192.168.33.10\nUN 192.168.33.11')
+
     cassandra_backup.restore_data(path, keyname)
 
 
