@@ -685,57 +685,8 @@ class DatastoreDistributed():
       return self.get_root_key(app_id, entity_key.name_space(), element_list)
     else:
       raise TypeError("Unable to get root key from given type of %s" % \
-                      entity_key.__class__)  
+                      entity_key.__class__)
 
-  def acquire_locks_for_nontrans(self, app_id, entities, retries=0):
-    """ Acquires locks for non-transaction operations. 
-
-    Acquires locks and transaction handlers for each entity group in the set of 
-    entities.  It is possible that multiple entities share the same group, and 
-    hence they can use the same lock when being updated. The reason we get locks 
-    for puts in non-transactional puts is that it prevents race conditions of 
-    existing transactions that are on-going. It maintains ACID semantics.
-    Args:
-      app_id: The application ID.
-      entities: A list of entities (either entity_pb.EntityProto or a 
-                entity_pb.Reference) that we want to acquire locks for.
-    Returns:
-      A hash of root keys mapping to transaction IDs.
-    Raises:
-     TypeError: If args are the wrong type.
-    """
-    root_keys = []
-    txn_hash = {} 
-    if not isinstance(entities, list):
-      raise TypeError("Expected a list and got {0}".format(entities.__class__))
-    for ent in entities:
-      if isinstance(ent, entity_pb.Reference):
-        root_keys.append(self.get_root_key_from_entity_key(ent))
-      elif isinstance(ent, entity_pb.EntityProto):
-        root_keys.append(self.get_root_key_from_entity_key(ent.key()))
-      else:
-        raise TypeError("Excepted either a reference or an EntityProto, "\
-          "got {0}".format(ent.__class__))
-
-    # Remove all duplicate root keys.
-    root_keys = list(set(root_keys))
-    try:
-      for root_key in root_keys:
-        txnid = self.zookeeper.get_transaction_id(app_id, is_xg=False)
-        txn_hash[root_key] = txnid
-        self.zookeeper.acquire_lock(app_id, txnid, root_key)
-    except zktransaction.ZKTransactionException as zkte:
-      if retries > 0:
-        time.sleep(self.LOCK_RETRY_TIME)
-        self.logger.warning('Retrying to acquire lock. Retries left: {}'.
-          format(retries))
-        return self.acquire_locks_for_nontrans(app_id, entities, retries-1)
-      for key in txn_hash:
-        self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
-      raise zkte
-
-    return txn_hash
-      
   def get_root_key(self, app_id, ns, ancestor_list):
     """ Gets the root key string from an ancestor listing.
    
