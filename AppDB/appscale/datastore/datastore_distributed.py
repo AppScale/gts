@@ -32,6 +32,7 @@ from .utils import reference_property_to_reference
 from .utils import UnprocessedQueryCursor
 from .zkappscale import entity_lock
 from .zkappscale import zktransaction
+from .zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
@@ -110,7 +111,8 @@ class DatastoreDistributed():
   # The number of entities to fetch at a time when updating indices.
   BATCH_SIZE = 100
 
-  def __init__(self, datastore_batch, zookeeper=None, log_level=logging.INFO):
+  def __init__(self, datastore_batch, transaction_manager, zookeeper=None,
+               log_level=logging.INFO):
     """
        Constructor.
      
@@ -141,6 +143,7 @@ class DatastoreDistributed():
     # Maintain a sequential allocator for each project.
     self.sequential_allocators = {}
 
+    self.transaction_manager = transaction_manager
     self.zookeeper.handle.add_listener(self._zk_state_listener)
 
   def get_limit(self, query):
@@ -554,7 +557,7 @@ class DatastoreDistributed():
       group_key = entity_pb.Reference(encoded_group_key)
       lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key])
 
-      txid = self.zookeeper.get_transaction_id(app, False)
+      txid = self.transaction_manager.create_transaction_id(app, xg=False)
       try:
         with lock:
           batch = []
@@ -579,7 +582,7 @@ class DatastoreDistributed():
               {'key': entity.key(), 'old': current_value, 'new': entity})
           self.datastore_batch.batch_mutate(app, batch, entity_changes, txid)
       finally:
-        self.zookeeper.remove_tx_node(app, txid)
+        self.transaction_manager.delete_transaction_id(app, txid)
 
   def delete_entities(self, group, txid, keys, composite_indexes=()):
     """ Deletes the entities and the indexes associated with them.
@@ -941,7 +944,7 @@ class DatastoreDistributed():
         lock = entity_lock.EntityLock(
           self.zookeeper.handle, [group_key])
 
-        txid = self.zookeeper.get_transaction_id(app_id, False)
+        txid = self.transaction_manager.create_transaction_id(app_id, xg=False)
         try:
           with lock:
             self.delete_entities(
@@ -954,7 +957,7 @@ class DatastoreDistributed():
         except entity_lock.LockTimeout as timeout_error:
           raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
         finally:
-          self.zookeeper.remove_tx_node(app_id, txid)
+          self.transaction_manager.delete_transaction_id(app_id, txid)
 
   def generate_filter_info(self, filters):
     """Transform a list of filters into a more usable form.
@@ -3172,8 +3175,8 @@ class DatastoreDistributed():
     Returns:
       A long representing a unique transaction ID.
     """
-    txid = self.zookeeper.get_transaction_id(app_id, is_xg)
-    in_progress = self.zookeeper.get_current_transactions(app_id)
+    txid = self.transaction_manager.create_transaction_id(app_id, xg=is_xg)
+    in_progress = self.transaction_manager.get_open_transactions(app_id)
     self.datastore_batch.start_transaction(app_id, txid, is_xg, in_progress)
     return txid
 
@@ -3349,7 +3352,11 @@ class DatastoreDistributed():
       return (commitres_pb.Encode(), datastore_pb.Error.TIMEOUT,
               str(error))
 
-    self.zookeeper.remove_tx_node(app_id, txn_id)
+    try:
+      self.transaction_manager.delete_transaction_id(app_id, txn_id)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+
     return commitres_pb.Encode(), 0, ""
 
   def rollback_transaction(self, app_id, http_request_data):

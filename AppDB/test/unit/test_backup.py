@@ -128,8 +128,6 @@ class TestBackup(unittest.TestCase):
     flexmock(re).should_receive('match').at_least().times(2).and_return(None)
     flexmock(entity_utils).\
       should_receive('get_root_key_from_entity_key').and_return('root_key')
-    fake_backup.zoo_keeper.should_receive('get_transaction_id').\
-      and_return('txn_id')
 
     # Test successful operation.
     fake_backup.zoo_keeper.should_receive('acquire_lock').and_return(True)

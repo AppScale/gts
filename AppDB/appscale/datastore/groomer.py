@@ -21,6 +21,7 @@ from .datastore_distributed import DatastoreDistributed
 from .utils import get_composite_indexes_rows
 from .zkappscale import zktransaction as zk
 from .zkappscale.entity_lock import EntityLock
+from .zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
@@ -985,8 +986,9 @@ class DatastoreGroomer(threading.Thread):
     """
     self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
+    transaction_manager = TransactionManager(self.zoo_keeper.handle)
     self.ds_access = DatastoreDistributed(
-      datastore_batch=self.db_access, zookeeper=self.zoo_keeper)
+      self.db_access, transaction_manager, zookeeper=self.zoo_keeper)
 
     logging.info("Groomer started")
     start = time.time()
