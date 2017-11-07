@@ -238,4 +238,27 @@ def restore_data(path, keyname, force=False):
     utils.ssh(db_ip, keyname,
       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
 
+  logging.info('Waiting for Cassandra cluster to be ready')
+  db_ip = db_ips[0]
+  deadline = time.time() + 120
+  while True:
+    ready = True
+    try:
+      output = utils.ssh(db_ip, keyname, '{} status'.format(NODE_TOOL))
+      nodes_ready = len([line for line in output.split('\n')
+                         if line.startswith('UN')])
+      if nodes_ready < len(db_ips):
+        ready = False
+    except CalledProcessError:
+      ready = False
+
+    if ready:
+      break
+
+    if time.time() > deadline:
+      logging.warning('Cassandra cluster still not ready.')
+      break
+
+    time.sleep(3)
+
   logging.info("Done with db restore.")
