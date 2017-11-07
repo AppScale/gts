@@ -10,6 +10,7 @@ import time
 from appscale.common import appscale_info
 from appscale.common import monit_interface
 from appscale.common.constants import APPSCALE_DATA_DIR
+from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from subprocess import CalledProcessError
 from . import backup_recovery_helper
@@ -240,7 +241,7 @@ def restore_data(path, keyname, force=False):
 
   logging.info('Waiting for Cassandra cluster to be ready')
   db_ip = db_ips[0]
-  deadline = time.time() + 120
+  deadline = time.time() + SCHEMA_CHANGE_TIMEOUT
   while True:
     ready = True
     try:
