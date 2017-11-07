@@ -2380,12 +2380,14 @@ class Djinn
     Djinn.log_run("rm -f ~/.appscale_cookies")
 
     # Delete (possibly old) mapping of IP <-> HostKey.
-    @state_change_lock.synchronize {
-      @nodes.each { |node|
-        Djinn.log_run("ssh-keygen -R #{node.private_ip}")
-        Djinn.log_run("ssh-keygen -R #{node.public_ip}")
-      }
+    if File.exist?(File.expand_path("~/.ssh/known_hosts"))
+      @state_change_lock.synchronize {
+          @nodes.each { |node|
+          Djinn.log_run("ssh-keygen -R #{node.private_ip}")
+          Djinn.log_run("ssh-keygen -R #{node.public_ip}")
+        }
     }
+    end
 
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
@@ -3857,8 +3859,10 @@ class Djinn
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
 
     # Ensure we don't have an old host key for this host.
-    Djinn.log_run("ssh-keygen -R #{ip}")
-    Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
+    if File.exist?(File.expand_path("~/.ssh/known_hosts"))
+      Djinn.log_run("ssh-keygen -R #{ip}")
+      Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
+    end
 
     # Get the username to use for ssh (depends on environments).
     if ["ec2", "euca"].include?(@options['infrastructure'])
