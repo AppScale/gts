@@ -20,6 +20,7 @@ from .cassandra_env import cassandra_interface
 from .datastore_distributed import DatastoreDistributed
 from .utils import get_composite_indexes_rows
 from .zkappscale import zktransaction as zk
+from .zkappscale.entity_lock import EntityLock
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
@@ -235,73 +236,6 @@ class DatastoreGroomer(threading.Thread):
 
     return False
 
-  def acquire_lock_for_key(self, app_id, key, retries, retry_time):
-    """ Acquires a lock for a given entity key.
-
-    Args:
-      app_id: The application ID.
-      key: A string containing an entity key.
-      retries: An integer specifying the number of times to retry.
-      retry_time: How many seconds to wait before each retry.
-    Returns:
-      A transaction ID.
-    Raises:
-      ZKTransactionException if unable to acquire a lock from ZooKeeper.
-    """
-    root_key = key.split(dbconstants.KIND_SEPARATOR)[0]
-    root_key += dbconstants.KIND_SEPARATOR
-
-    txn_id = self.zoo_keeper.get_transaction_id(app_id, is_xg=False)
-    try:
-      self.zoo_keeper.acquire_lock(app_id, txn_id, root_key)
-    except zk.ZKTransactionException as zkte:
-      logging.warning('Concurrent transaction exception for app id {} with '
-        'info {}'.format(app_id, str(zkte)))
-      if retries > 0:
-        logging.info('Trying again to acquire lock info {} with retry #{}'
-          .format(str(zkte), retries))
-        time.sleep(retry_time)
-        return self.acquire_lock_for_key(
-          app_id=app_id,
-          key=key,
-          retries=retries-1,
-          retry_time=retry_time
-        )
-      self.zoo_keeper.notify_failed_transaction(app_id, txn_id)
-      raise zkte
-    return txn_id
-
-  def release_lock_for_key(self, app_id, key, txn_id, retries, retry_time):
-    """ Releases a lock for a given entity key.
-
-    Args:
-      app_id: The application ID.
-      key: A string containing an entity key.
-      txn_id: A transaction ID.
-      retries: An integer specifying the number of times to retry.
-      retry_time: How many seconds to wait before each retry.
-    """
-    root_key = key.split(dbconstants.KIND_SEPARATOR)[0]
-    root_key += dbconstants.KIND_SEPARATOR
-
-    try:
-      self.zoo_keeper.release_lock(app_id, txn_id)
-    except zk.ZKTransactionException as zkte:
-      logging.warning(str(zkte))
-      if retries > 0:
-        logging.info('Trying again to release lock {} with retry #{}'.
-          format(txn_id, retries))
-        time.sleep(retry_time)
-        self.release_lock_for_key(
-          app_id=app_id,
-          key=key,
-          txn_id=txn_id,
-          retries=retries-1,
-          retry_time=retry_time
-        )
-      else:
-        self.zoo_keeper.notify_failed_transaction(app_id, txn_id)
-
   def fetch_entity_dict_for_references(self, references):
     """ Fetches a dictionary of valid entities for a list of references.
 
@@ -337,6 +271,35 @@ class DatastoreGroomer(threading.Thread):
         entities[key] = app_entities[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     return entities
 
+  def guess_group_from_table_key(self, entity_key):
+    """ Construct a group reference based on an entity key.
+
+    Args:
+      entity_key: A string specifying an entity table key.
+    Returns:
+      An entity_pb.Reference object specifying the entity group.
+    """
+    project_id, namespace, path = entity_key.split(dbconstants.KEY_DELIMITER)
+
+    group = entity_pb.Reference()
+    group.set_app(project_id)
+    if namespace:
+      group.set_name_space(namespace)
+
+    mutable_path = group.mutable_path()
+    first_element = mutable_path.add_element()
+    kind, id_ = path.split(dbconstants.KIND_SEPARATOR)[0].split(':')
+    first_element.set_type(kind)
+
+    # At this point, there's no way to tell if the ID was originally a name,
+    # so this is a guess.
+    try:
+      first_element.set_id(int(id_))
+    except ValueError:
+      first_element.set_name(id_)
+
+    return group
+
   def lock_and_delete_indexes(self, references, direction, entity_key):
     """ For a list of index entries that have the same entity, lock the entity
     and delete the indexes.
@@ -355,45 +318,28 @@ class DatastoreGroomer(threading.Thread):
     else:
       table_name = dbconstants.DSC_PROPERTY_TABLE
 
-    app = entity_key.split(self.ds_access._SEPARATOR)[0]
-    try:
-      txn_id = self.acquire_lock_for_key(
-        app_id=app,
-        key=entity_key,
-        retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
-        retry_time=self.ds_access.LOCK_RETRY_TIME
-      )
-    except zk.ZKTransactionException:
-      self.index_entries_delete_failures += 1
-      return
+    group_key = self.guess_group_from_table_key(entity_key)
+    entity_lock = EntityLock(self.zoo_keeper.handle, [group_key])
+    with entity_lock:
+      entities = self.fetch_entity_dict_for_references(references)
 
-    entities = self.fetch_entity_dict_for_references(references)
+      refs_to_delete = []
+      for reference in references:
+        index_elements = reference.keys()[0].split(self.ds_access._SEPARATOR)
+        prop = index_elements[self.ds_access.PROP_NAME_IN_SINGLE_PROP_INDEX]
+        if not self.ds_access._DatastoreDistributed__valid_index_entry(
+          reference, entities, direction, prop):
+          refs_to_delete.append(reference.keys()[0])
 
-    refs_to_delete = []
-    for reference in references:
-      index_elements = reference.keys()[0].split(self.ds_access._SEPARATOR)
-      prop_name = index_elements[self.ds_access.PROP_NAME_IN_SINGLE_PROP_INDEX]
-      if not self.ds_access._DatastoreDistributed__valid_index_entry(
-        reference, entities, direction, prop_name):
-        refs_to_delete.append(reference.keys()[0])
-
-    logging.debug('Removing {} indexes starting with {}'.
-      format(len(refs_to_delete), [refs_to_delete[0]]))
-    try:
-      self.db_access.batch_delete(table_name, refs_to_delete,
-        column_names=dbconstants.PROPERTY_SCHEMA)
-      self.index_entries_cleaned += len(refs_to_delete)
-    except Exception:
-      logging.exception('Unable to delete indexes')
-      self.index_entries_delete_failures += 1
-
-    self.release_lock_for_key(
-      app_id=app,
-      key=entity_key,
-      txn_id=txn_id,
-      retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
-      retry_time=self.ds_access.LOCK_RETRY_TIME
-    )
+      logging.debug('Removing {} indexes starting with {}'.
+        format(len(refs_to_delete), [refs_to_delete[0]]))
+      try:
+        self.db_access.batch_delete(table_name, refs_to_delete,
+          column_names=dbconstants.PROPERTY_SCHEMA)
+        self.index_entries_cleaned += len(refs_to_delete)
+      except Exception:
+        logging.exception('Unable to delete indexes')
+        self.index_entries_delete_failures += 1
 
   def lock_and_delete_kind_index(self, reference):
     """ For a list of index entries that have the same entity, lock the entity
@@ -408,37 +354,21 @@ class DatastoreGroomer(threading.Thread):
     """
     table_name = dbconstants.APP_KIND_TABLE
     entity_key = reference.values()[0].values()[0]
-    app = entity_key.split(self.ds_access._SEPARATOR)[0]
-    try:
-      txn_id = self.acquire_lock_for_key(
-        app_id=app,
-        key=entity_key,
-        retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
-        retry_time=self.ds_access.LOCK_RETRY_TIME
-      )
-    except zk.ZKTransactionException:
-      self.index_entries_delete_failures += 1
-      return
 
-    entities = self.fetch_entity_dict_for_references([reference])
-    if entity_key not in entities:
-      index_to_delete = reference.keys()[0]
-      logging.debug('Removing {}'.format([index_to_delete]))
-      try:
-        self.db_access.batch_delete(table_name, [index_to_delete],
-          column_names=dbconstants.APP_KIND_SCHEMA)
-        self.index_entries_cleaned += 1
-      except dbconstants.AppScaleDBConnectionError:
-        logging.exception('Unable to delete index.')
-        self.index_entries_delete_failures += 1
-
-    self.release_lock_for_key(
-      app_id=app,
-      key=entity_key,
-      txn_id=txn_id,
-      retries=self.ds_access.NON_TRANS_LOCK_RETRY_COUNT,
-      retry_time=self.ds_access.LOCK_RETRY_TIME
-    )
+    group_key = self.guess_group_from_table_key(entity_key)
+    entity_lock = EntityLock(self.zoo_keeper.handle, [group_key])
+    with entity_lock:
+      entities = self.fetch_entity_dict_for_references([reference])
+      if entity_key not in entities:
+        index_to_delete = reference.keys()[0]
+        logging.debug('Removing {}'.format([index_to_delete]))
+        try:
+          self.db_access.batch_delete(table_name, [index_to_delete],
+            column_names=dbconstants.APP_KIND_SCHEMA)
+          self.index_entries_cleaned += 1
+        except dbconstants.AppScaleDBConnectionError:
+          logging.exception('Unable to delete index.')
+          self.index_entries_delete_failures += 1
 
   def clean_up_indexes(self, direction):
     """ Deletes invalid single property index entries.
