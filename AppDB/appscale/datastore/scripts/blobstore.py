@@ -39,6 +39,7 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api import datastore
+from google.appengine.api.appcontroller_client import AppControllerClient
 from google.appengine.api.blobstore import blobstore
 from google.appengine.api.blobstore import datastore_blob_storage
 from google.appengine.tools import dev_appserver_upload
@@ -435,8 +436,11 @@ def main():
 
   http_server.listen(args.port)
 
-  acc = appscale_info.get_appcontroller_client()
-  acc.add_routing_for_blob_server()
+  # Make sure this server is accessible from each of the load balancers.
+  secret = appscale_info.get_secret()
+  for load_balancer in appscale_info.get_load_balancer_ips():
+    acc = AppControllerClient(load_balancer, secret)
+    acc.add_routing_for_blob_server()
 
   logging.info('Starting BlobServer on {}'.format(args.port))
   tornado.ioloop.IOLoop.instance().start()
