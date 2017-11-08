@@ -2380,13 +2380,13 @@ class Djinn
     Djinn.log_run("rm -f ~/.appscale_cookies")
 
     # Delete (possibly old) mapping of IP <-> HostKey.
-    if File.exist?(File.expand_path("~/.ssh/known_hosts"))
+    if File.exist?(File.expand_path('~/.ssh/known_hosts'))
       @state_change_lock.synchronize {
-          @nodes.each { |node|
+        @nodes.each { |node|
           Djinn.log_run("ssh-keygen -R #{node.private_ip}")
           Djinn.log_run("ssh-keygen -R #{node.public_ip}")
         }
-    }
+      }
     end
 
     Nginx.clear_sites_enabled()

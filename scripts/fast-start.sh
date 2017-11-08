@@ -10,9 +10,10 @@
 # ssh -i <key> ubuntu@<public IP> 'curl -Lo - fast-start.appscale.com|sudo -i sh'
 #
 
-# On some system, when running this scipt from rc.local (ie at boot time)
-# there may not be any user set, which will cause ssh-copy-id to fail.
-# Forcing HOME to the default enables ssh-copy-id to operate normally.
+# On some systems, when running this script from rc.local (ie at boot
+# time) there may not be any user set, which will cause ssh-copy-id to
+# fail.  Forcing HOME to the default enables ssh-copy-id to operate
+# normally.
 export HOME="/root"
 
 PATH="${PATH}:/usr/local/bin"
