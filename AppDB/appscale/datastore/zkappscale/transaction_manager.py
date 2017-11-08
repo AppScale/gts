@@ -6,6 +6,7 @@ import time
 
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import NodeExistsError
+from kazoo.exceptions import NotEmptyError
 from tornado.ioloop import IOLoop
 
 from appscale.admin.utils import retry_children_watch_coroutine
@@ -160,10 +161,14 @@ class ProjectTransactionManager(object):
       path: A string specifying a ZooKeeper path.
     """
     try:
-      self.zk_client.delete(path)
+      try:
+        self.zk_client.delete(path)
+      except NotEmptyError:
+        # Cross-group transaction nodes have a child node.
+        self.zk_client.delete(path, recursive=True)
     except KazooException:
       # Let the transaction groomer clean it up.
-      pass
+      logger.exception('Unable to delete counter')
 
   def _active_containers(self):
     """ Determines the containers that need to be checked for transactions.
