@@ -66,7 +66,7 @@ class AppControllerClient
     @conn.add_method('remove_role', 'old_role', 'secret')
     @conn.add_method('get_queues_in_use', 'secret')
     @conn.add_method('set_node_read_only', 'read_only', 'secret')
-    @conn.add_method('primary_db_is_up", "secret')
+    @conn.add_method('primary_db_is_up', 'secret')
     @conn.add_method('get_app_upload_status', 'reservation_id', 'secret')
     @conn.add_method('get_cluster_stats_json', 'secret')
     @conn.add_method('get_node_stats_json', 'secret')
