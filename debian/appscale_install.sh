@@ -36,16 +36,10 @@ case "$1" in
         installgems
         postinstallhaproxy
         postinstallnginx
-        installPIL
-        installpythonmemcache
-        installlxml
-        installxmpppy
         installjavajdk
-        installphp54
         installappserverjava
         installtornado
         installpycrypto 
-        installflexmock
         installpycapnp
         installpyyaml
         installzookeeper
@@ -62,8 +56,6 @@ case "$1" in
         setulimits
         increaseconnections
         installVersion
-        installrequests
-        installpyopenssl
         postinstallrsyslog
         installpsutil
         installapiclient
