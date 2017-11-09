@@ -46,7 +46,8 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   # Proxies stats
   'proxy': ['name', 'unified_service_name', 'application_id',
             'frontend', 'backend', 'servers_count'],
-  'proxy.frontend': ['scur', 'smax', 'rate', 'req_rate', 'req_tot'],
+  'proxy.frontend': ['bin', 'bout', 'scur', 'smax', 'rate',
+                     'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
   'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
 })
 
