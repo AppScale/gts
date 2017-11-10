@@ -25,6 +25,8 @@ module Ejabberd
     start_cmd = "#{service} ejabberd start"
     stop_cmd = "#{service} ejabberd stop"
     pidfile = '/var/run/ejabberd/ejabberd.pid'
+
+    self.ensure_correct_epmd
     MonitInterface.start_daemon(:ejabberd, start_cmd, stop_cmd, pidfile)
   end
 
@@ -72,6 +74,28 @@ module Ejabberd
     else
       HelperFunctions.log_and_crash('xmpp: runtime was not ' \
         "python27, go, java, php but was [#{runtime}]")
+    end
+  end
+
+  def self.ensure_correct_epmd()
+    # On Xenial, an older epmd daemon can get started that doesn't play well
+    # with ejabberd. This makes sure that the compatible service is running.
+    begin
+      services = `systemctl list-unit-files`
+      if services.include?('epmd.service')
+        PosixPsutil::Process.processes.each { |process|
+          begin
+            next unless process.name == 'epmd'
+            process.terminate if process.cmdline.include?('-daemon')
+          rescue PosixPsutil::NoSuchProcess
+            next
+          end
+        }
+        `systemctl start epmd`
+      end
+    rescue Errno::ENOENT
+      # Distros without systemd don't have systemctl, and they do not exhibit
+      # the issue.
     end
   end
 
