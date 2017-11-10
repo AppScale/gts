@@ -23,6 +23,15 @@ class CustomHTTPError(HTTPError):
     self.kwargs = kwargs
 
 
+class AccessTokenErrors:
+  INVALID_REQUEST = 'invalid_request'
+  INVALID_CLIENT = 'invalid_client'
+  INVALID_GRANT = 'invalid_grant'
+  INVALID_SCOPE = 'invalid_scope'
+  UNAUTHORIZED_CLIENT = 'unauthorized_client'
+  UNSUPPORTED_GRANT_TYPE = 'unsupported_grant_type'
+
+
 class Methods(object):
   """ The methods handled by the Admin API. """
   DELETE_PROJECT = 'google.appengine.v1.Projects.DeleteProject'
