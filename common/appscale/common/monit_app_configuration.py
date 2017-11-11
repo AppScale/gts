@@ -18,7 +18,8 @@ MONIT_CONFIG_DIR = '/etc/monit/conf.d'
 
 
 def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
-                       max_memory=None, syslog_server=None, check_port=False):
+                       max_memory=None, syslog_server=None, check_port=False,
+                       kill_exceeded_memory=False):
   """ Writes a monit configuration file for a service.
 
   Args:
@@ -31,6 +32,8 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
       megabytes that the process should use.
     syslog_server: The IP address of the remote syslog server to use.
     check_port: A boolean specifying that monit should check host and port.
+    kill_exceeded_memory: A boolean indicating that a process should be killed
+      (instead of terminated) if its memory exceeds the limit.
   """
   if check_port:
     assert port is not None, 'When using check_port, port must be defined'
@@ -47,6 +50,15 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
 
   bash = find_executable('bash')
   start_stop_daemon = find_executable('start-stop-daemon')
+  stop_instance = find_executable('appscale-stop-instance')
+
+  # /usr/local/bin is not on the path in Trusty.
+  stop_instance_script = os.path.join('/', 'usr', 'local', 'bin',
+                                      'appscale-stop-instance')
+  if stop_instance is None and os.path.isfile(stop_instance_script):
+    stop_instance = stop_instance_script
+
+  assert stop_instance is not None, 'Unable to find appscale-stop-instance'
 
   logfile = os.path.join(
     '/', 'var', 'log', 'appscale', '{}.log'.format(process_name))
@@ -78,8 +90,13 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
       group=version_group, start_line=start_line, stop_line=stop_line)
 
   if max_memory is not None:
-    output += '  if totalmem > {} MB for 10 cycles then restart\n'.format(
-      max_memory)
+    if kill_exceeded_memory:
+      action = 'exec "{} --watch {} --force"'.format(stop_instance, process_name)
+    else:
+      action = 'restart'
+
+    output += '  if totalmem > {} MB for 10 cycles then {}\n'.format(
+      max_memory, action)
 
   if check_port:
     private_ip = appscale_info.get_private_ip()
