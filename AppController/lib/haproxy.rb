@@ -524,7 +524,7 @@ CONFIG
       next if parsed_info[SERVICE_NAME_INDEX] == 'FRONTEND'
       next if parsed_info[SERVICE_NAME_INDEX] == 'BACKEND'
 
-      if parsed_info[SERVER_STATUS_INDEX] == 'DOWN'
+      if parsed_info[SERVER_STATUS_INDEX].start_with?('DOWN')
         failed << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_version_name}-/, '')
       else
         running << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_version_name}-/, '')
