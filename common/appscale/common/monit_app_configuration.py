@@ -33,7 +33,8 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
     syslog_server: The IP address of the remote syslog server to use.
     check_port: A boolean specifying that monit should check host and port.
     kill_exceeded_memory: A boolean indicating that a process should be killed
-      (instead of terminated) if its memory exceeds the limit.
+      (instead of terminated). This is used when the process exceeds its memory
+      limit.
   """
   if check_port:
     assert port is not None, 'When using check_port, port must be defined'

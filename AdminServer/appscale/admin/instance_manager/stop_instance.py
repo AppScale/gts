@@ -16,6 +16,8 @@ def stop_instance(watch, timeout, force=False):
   Args:
     watch: A string specifying the Monit watch entry.
     timeout: An integer specifying the time to wait for requests to finish.
+    force: A boolean indicating that the instance should be killed immediately
+      instead of being allowed to finish ongoing requests.
   Raises:
     IOError if the pidfile does not exist.
     OSError if the process does not exist.
