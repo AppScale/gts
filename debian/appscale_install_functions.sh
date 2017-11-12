@@ -628,6 +628,12 @@ preplogserver()
     cp ${FILE_SRC} ${FILE_DEST}
 }
 
+installacc()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppControllerClient
+    pip install ${APPSCALE_HOME}/AppControllerClient
+}
+
 installcommon()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/common
@@ -666,6 +672,8 @@ prepdashboard()
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor wstools==0.4.3
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor SOAPpy
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor python-crontab
+    pip install -t ${APPSCALE_HOME}/AppDashboard/vendor \
+        ${APPSCALE_HOME}/AppControllerClient
 }
 
 upgradepip()
