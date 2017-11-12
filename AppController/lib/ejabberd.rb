@@ -16,6 +16,8 @@ module Ejabberd
 
   EJABBERD_PATH = File.join('/', 'etc', 'ejabberd')
 
+  CONFIG_FILE = File.join(EJABBERD_PATH, 'ejabberdctl.cfg')
+
   AUTH_SCRIPT_LOCATION = "#{EJABBERD_PATH}/ejabberd_auth.py".freeze
 
   ONLINE_USERS_FILE = '/etc/appscale/online_xmpp_users'.freeze
@@ -111,15 +113,13 @@ module Ejabberd
   end
 
   def self.update_ctl_config
-    config_path = '/etc/ejabberd/ejabberdctl.cfg'
-
     # Make sure ejabberd writes a pidfile.
     begin
-      config = File.read(config_path)
+      config = File.read(CONFIG_FILE)
       config.gsub!('#EJABBERD_PID_PATH=', 'EJABBERD_PID_PATH=')
-      File.open(config_path, 'w') { |file| file.write(config) }
+      File.open(CONFIG_FILE, 'w') { |file| file.write(config) }
     rescue Errno::ENOENT
-      Djinn.log_debug("#{config_path} does not exist")
+      Djinn.log_debug("#{CONFIG_FILE} does not exist")
     end
   end
 
