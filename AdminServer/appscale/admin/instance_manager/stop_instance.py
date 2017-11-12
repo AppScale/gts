@@ -28,6 +28,7 @@ def stop_instance(watch, timeout, force=False):
   if force:
     os.killpg(group, signal.SIGKILL)
     os.remove(pidfile_location)
+    return
 
   process = psutil.Process(pid)
   process.terminate()
