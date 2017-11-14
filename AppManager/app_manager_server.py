@@ -264,7 +264,8 @@ def start_app(version_key, config):
     env_vars,
     max_memory,
     options.syslog_server,
-    check_port=True)
+    check_port=True,
+    kill_exceeded_memory=True)
 
   # We want to tell monit to start the single process instead of the
   # group, since monit can get slow if there are quite a few processes in
