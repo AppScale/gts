@@ -15,6 +15,7 @@ import time
 import tornado.httpserver
 import tornado.web
 
+from appscale.admin.utils import retry_data_watch_coroutine
 from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
@@ -781,6 +782,20 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore connection error when adding transaction tasks.')
 
 
+def create_server_node():
+  """ Creates a server registration entry in ZooKeeper. """
+  server_id = ':'.join([options.private_ip, str(options.port)])
+  server_node = '/'.join([DATASTORE_SERVERS_NODE, server_id])
+  try:
+    zookeeper.handle.create(server_node, ephemeral=True)
+  except NodeExistsError:
+    # If the server gets restarted, the old node may exist for a short time.
+    zookeeper.handle.delete(server_node)
+    zookeeper.handle.create(server_node, ephemeral=True)
+
+  logger.info('Datastore registered at {}'.format(server_node))
+
+
 def zk_state_listener(state):
   """ Handles changes to ZooKeeper connection state.
 
@@ -790,12 +805,9 @@ def zk_state_listener(state):
   if state == KazooState.CONNECTED:
     server_id = ':'.join([options.private_ip, str(options.port)])
     server_node = '/'.join([DATASTORE_SERVERS_NODE, server_id])
-    try:
-      zookeeper.handle.create(server_node, ephemeral=True)
-    except NodeExistsError:
-      # If the server gets restarted, the old node may exist for a short time.
-      zookeeper.handle.delete(server_node)
-      zookeeper.handle.create(server_node, ephemeral=True)
+    persistent_create_server_node = retry_data_watch_coroutine(
+      server_node, create_server_node)
+    IOLoop.instance().add_callback(persistent_create_server_node)
 
 
 def update_servers(new_servers):
