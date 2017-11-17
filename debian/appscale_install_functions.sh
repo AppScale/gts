@@ -299,8 +299,15 @@ postinstallhaproxy()
 installgems()
 {
     GEMOPT="--no-rdoc --no-ri"
-    # Rake 10.0 depecates rake/rdoctask - upgrade later.
-    gem install rake ${GEMOPT}
+
+    # Rake >= 12.3.0 requires Ruby >= 2.
+    ruby_major_version=$(ruby --version | awk '{print $2}' | head -c 1)
+    if [ "${ruby_major_version}" -lt "2" ]; then
+        gem install rake ${GEMOPT} -v 12.2.1
+    else
+        gem install rake ${GEMOPT}
+    fi
+
     sleep 1
     if [ "${UNAME_MACHINE}" = "x86_64" ]; then
         gem install zookeeper
