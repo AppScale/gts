@@ -64,6 +64,10 @@ class ProjectTransactionManager(object):
 
     Args:
       xg: A boolean indicating a cross-group transaction.
+    Returns:
+      An integer specifying the created transaction ID.
+    Raises:
+      InternalError if unable to create a new transaction ID.
     """
     current_time = time.time()
     counter_path_prefix = '/'.join([self._counter_path, COUNTER_NODE_PREFIX])
@@ -127,6 +131,8 @@ class ProjectTransactionManager(object):
 
     Returns:
       A list of integers specifying transaction IDs.
+    Raises:
+      InternalError if unable to fetch list of transaction IDs.
     """
     txids = []
     active_containers = self._active_containers()
