@@ -227,7 +227,7 @@ class ProjectTransactionManager(object):
   def _update_project_sync(self, node_list):
     """ Updates the record of usable sequence containers. """
     counters = [int(node[len(CONTAINER_PREFIX):] or 1)
-                for node in node_list if node.startswith('txid')]
+                for node in node_list if node.startswith(CONTAINER_PREFIX)]
     counters.sort()
 
     container_suffix = '' if len(counters) == 1 else str(counters[-1])
