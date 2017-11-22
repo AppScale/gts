@@ -46,6 +46,7 @@ from appscale.common import (
   misc
 )
 from appscale.common.constants import HTTPCodes
+from appscale.common.constants import PID_DIR
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
@@ -53,6 +54,13 @@ from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from appscale.common.monit_interface import MonitOperator
 from appscale.common.monit_interface import ProcessNotFound
 
+
+# The location of the API server start script.
+API_SERVER_LOCATION = os.path.join('/', 'opt', 'appscale_api_server', 'bin',
+                                   'appscale-api-server')
+
+# The Monit watch prefix for API servers.
+API_SERVER_PREFIX = 'api-server_'
 
 # The amount of seconds to wait for an application to start up.
 START_APP_TIMEOUT = 180
@@ -84,11 +92,17 @@ GO_SDK = os.path.join('/', 'opt', 'go_appengine')
 
 HTTP_OK = 200
 
+# The highest available port to assign to an API server.
+MAX_API_SERVER_PORT = 19999
+
 # The amount of seconds to wait before retrying to add routing.
 ROUTING_RETRY_INTERVAL = 5
 
 PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
                                 'app___{revision}-{port}.pid')
+
+# A listing of active API servers.
+api_servers = {}
 
 # A DeploymentConfig accessor.
 deployment_config = None
@@ -158,6 +172,85 @@ def add_routing(version_key, port):
   logging.info(
     'Successfully established routing for {}:{}'.format(version_key, port))
 
+
+def ensure_api_server(project_id):
+  """ Make sure there is a running API server for a project.
+
+  Args:
+    project_id: A string specifying the project ID.
+  Returns:
+    An integer specifying the API server port.
+  """
+  global api_servers
+  logging.warning('api_servers: {}'.format(api_servers))
+  if project_id in api_servers:
+    return api_servers[project_id]
+
+  server_port = MAX_API_SERVER_PORT
+  for project, port in api_servers.items():
+    if port <= server_port:
+      server_port = port - 1
+
+  zk_locations = appscale_info.get_zk_node_ips()
+  start_cmd = ' '.join([API_SERVER_LOCATION,
+                        '--port', str(server_port),
+                        '--project-id', project_id,
+                        '--zookeeper-locations', ' '.join(zk_locations)])
+
+  watch = ''.join([API_SERVER_PREFIX, project_id])
+  full_watch = '-'.join([watch, str(server_port)])
+  pidfile = os.path.join(PID_DIR, '{}.pid'.format(full_watch))
+  monit_app_configuration.create_config_file(
+    watch,
+    start_cmd,
+    pidfile,
+    server_port,
+    max_memory=DEFAULT_MAX_APPSERVER_MEMORY,
+    check_port=True)
+
+  assert monit_interface.start(full_watch, is_group=False), (
+    'Monit was unable to start {}'.format(watch))
+
+  api_servers[project_id] = server_port
+  return server_port
+
+
+@gen.coroutine
+def stop_api_server(project_id):
+  """ Make sure there is not a running API server for a project.
+
+  Args:
+    project_id: A string specifying the project ID.
+  """
+  global api_servers
+  if project_id not in api_servers:
+    raise gen.Return()
+
+  port = api_servers[project_id]
+  watch = '{}{}-{}'.format(API_SERVER_PREFIX, project_id, port)
+  yield unmonitor_and_terminate(watch)
+  del api_servers[project_id]
+
+
+@gen.coroutine
+def populate_api_servers():
+  """ Find running API servers. """
+  def api_server_info(entry):
+    prefix, port = entry.rsplit('-', 1)
+    project_id = prefix[len(API_SERVER_PREFIX):]
+    return project_id, int(port)
+
+  global api_servers
+  monit_entries = yield monit_operator.get_entries()
+  server_entries = [api_server_info(entry) for entry in monit_entries
+                    if entry.startswith(API_SERVER_PREFIX)]
+
+  for project_id, port in server_entries:
+    api_servers[project_id] = port
+
+  logging.warning('api_servers: {}'.format(api_servers))
+
+
 @gen.coroutine
 def start_app(version_key, config):
   """ Starts a Google App Engine application on this machine. It
@@ -204,6 +297,7 @@ def start_app(version_key, config):
     [project_id, service_id, version_id, str(version_details['revision'])])
   source_archive = version_details['deployment']['zip']['sourceUrl']
 
+  api_server_port = ensure_api_server(project_id)
   yield source_manager.ensure_source(revision_key, source_archive, runtime)
 
   logging.info('Starting {} application {}'.format(runtime, project_id))
@@ -222,7 +316,8 @@ def start_app(version_key, config):
       login_server,
       config['app_port'],
       pidfile,
-      revision_key)
+      revision_key,
+      api_server_port)
     env_vars.update(create_python_app_env(
       login_server,
       project_id))
@@ -419,6 +514,13 @@ def stop_app_instance(version_key, port):
 
   yield unmonitor_and_terminate(watch)
 
+  project_prefix = ''.join([MONIT_INSTANCE_PREFIX, project_id])
+  remaining_instances = [entry for entry in monit_entries
+                         if entry.startswith(project_prefix)
+                         and not instance_key_re.match(entry)]
+  if not remaining_instances:
+    yield stop_api_server(project_id)
+
   yield monit_operator.reload()
   yield clean_old_sources()
 
@@ -445,6 +547,13 @@ def stop_app(version_key):
                      if entry.startswith(version_group)]
   for entry in version_entries:
     yield unmonitor_and_terminate(entry)
+
+  project_prefix = ''.join([MONIT_INSTANCE_PREFIX, project_id])
+  remaining_instances = [entry for entry in monit_entries
+                         if entry.startswith(project_prefix)
+                         and entry not in version_entries]
+  if not remaining_instances:
+    yield stop_api_server(project_id)
 
   if project_id not in projects_manager and not remove_logrotate(project_id):
     logging.error("Error while removing log rotation for application: {}".
@@ -543,7 +652,8 @@ def create_java_app_env(app_name):
 
   return env_vars
 
-def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key):
+def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
+                              api_server_port):
   """ Creates the start command to run the python application server.
 
   Args:
@@ -552,6 +662,7 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key):
     port: The local port the application server will bind to
     pidfile: A string specifying the pidfile location.
     revision_key: A string specifying the revision key.
+    api_server_port: An integer specifying the port of the external API server.
   Returns:
     A string of the start command.
   """
@@ -577,7 +688,8 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key):
     "--host " + options.private_ip,
     "--admin_host " + options.private_ip,
     "--automatic_restart", "no",
-    "--pidfile", pidfile]
+    "--pidfile", pidfile,
+    "--external_api_port", str(api_server_port)]
 
   if app_name in TRUSTED_APPS:
     cmd.extend([TRUSTED_FLAG])
@@ -714,6 +826,7 @@ if __name__ == "__main__":
   zk_ips = appscale_info.get_zk_node_ips()
   zk_client = KazooClient(hosts=','.join(zk_ips))
   zk_client.start()
+
   deployment_config = DeploymentConfig(zk_client)
   projects_manager = GlobalProjectsManager(zk_client)
   thread_pool = ThreadPoolExecutor(MAX_BACKGROUND_WORKERS)
@@ -731,4 +844,7 @@ if __name__ == "__main__":
 
   app.listen(constants.APP_MANAGER_PORT)
   logging.info('Starting AppManager on {}'.format(constants.APP_MANAGER_PORT))
-  IOLoop.current().start()
+
+  io_loop = IOLoop.current()
+  io_loop.run_sync(populate_api_servers)
+  io_loop.start()

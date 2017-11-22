@@ -74,6 +74,7 @@ case "$1" in
         installhermes
         installtaskqueue
         installdatastore
+        installapiserver
         preplogserver
         prepdashboard
         fetchclientjars
