@@ -269,6 +269,8 @@ class TransactionManager(object):
     Args:
       project_id: A string specifying a project ID.
       xg: A boolean indicating a cross-group transaction.
+    Returns:
+      An integer specifying the created transaction ID.
     Raises:
       BadRequest if the project does not exist.
       InternalError if unable to create a new transaction ID.
