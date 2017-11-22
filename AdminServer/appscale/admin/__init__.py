@@ -6,9 +6,9 @@ import hashlib
 import json
 import logging
 import re
-import sys
 import time
 
+from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
@@ -20,7 +20,6 @@ from appscale.common.monit_interface import MonitOperator
 from appscale.common.appscale_utils import get_md5
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from kazoo.client import KazooClient
@@ -52,9 +51,6 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerException
 
 
 logger = logging.getLogger('appscale-admin')

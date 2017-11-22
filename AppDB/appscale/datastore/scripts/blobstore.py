@@ -26,6 +26,7 @@ import tornado.web
 import urllib
 import urllib2
 
+from appscale.appcontroller_client import AppControllerClient
 from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.deployment_config import DeploymentConfig
@@ -39,7 +40,6 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api import datastore
-from google.appengine.api.appcontroller_client import AppControllerClient
 from google.appengine.api.blobstore import blobstore
 from google.appengine.api.blobstore import datastore_blob_storage
 from google.appengine.tools import dev_appserver_upload
