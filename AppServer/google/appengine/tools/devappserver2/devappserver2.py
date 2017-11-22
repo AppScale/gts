@@ -437,6 +437,9 @@ def create_command_line_parser():
   # AppScale
   appscale_group = parser.add_argument_group('AppScale')
   appscale_group.add_argument(
+    '--external_api_port', type=int,
+    help='The port of the external server that handles API calls')
+  appscale_group.add_argument(
     '--login_server',
     help='the FQDN or IP address where users should be redirected to when the '
     'app needs them to log in on a given URL.')
@@ -594,7 +597,8 @@ class DevelopmentServer(object):
         module_to_max_instances,
         options.use_mtime_file_watcher,
         options.automatic_restart,
-        options.allow_skipped_files)
+        options.allow_skipped_files,
+        options.external_api_port)
     request_data = wsgi_request_info.WSGIRequestInfo(self._dispatcher)
 
     storage_path = _get_storage_path(options.storage_path, configuration.app_id)

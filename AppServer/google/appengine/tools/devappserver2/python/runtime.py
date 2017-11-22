@@ -19,6 +19,7 @@
 
 import base64
 import os
+import struct
 import sys
 import time
 import traceback
@@ -54,12 +55,18 @@ _STARTUP_FAILURE_TEMPLATE = """
 </html>"""
 
 
-def setup_stubs(config):
+def setup_stubs(config, external_api_port=None):
   """Sets up API stubs using remote API."""
+  if external_api_port is None:
+    external_api_server = None
+  else:
+    external_api_server = 'localhost:{}'.format(external_api_port)
+
   remote_api_stub.ConfigureRemoteApi(config.app_id, '/', lambda: ('', ''),
                                      'localhost:%d' % config.api_port,
                                      use_remote_datastore=False,
-                                     use_async_rpc=True)
+                                     use_async_rpc=True,
+                                     external_api_server=external_api_server)
 
   if config.HasField('cloud_sql_config'):
     # Connect the RDBMS API to MySQL.
@@ -119,6 +126,13 @@ def expand_user(path):
 def main():
   config = runtime_config_pb2.Config()
   config.ParseFromString(base64.b64decode(sys.stdin.read()))
+
+  # AppScale: The external port is packed in the same field as the API port.
+  external_api_port = None
+  if config.api_port > 65535:
+    port_bytes = struct.pack('I', config.api_port)
+    config.api_port, external_api_port = struct.unpack('HH', port_bytes)
+
   debugging_app = None
   if config.python_config and config.python_config.startup_script:
     global_vars = {'config': config}
@@ -144,7 +158,7 @@ def main():
         ('localhost', 0),
         debugging_app)
   else:
-    setup_stubs(config)
+    setup_stubs(config, external_api_port)
     sandbox.enable_sandbox(config)
     os.path.expanduser = expand_user
     # This import needs to be after enabling the sandbox so the runtime
