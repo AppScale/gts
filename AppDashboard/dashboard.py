@@ -101,24 +101,27 @@ class AppDashboard(webapp2.RequestHandler):
       values = {}
 
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.helper.get_application_info()
-    if not is_cloud_admin:
-      apps_user_owns = self.helper.get_owned_apps()
-      new_app_dict = {}
-      for app_name in apps_user_owns:
-        if app_name in apps_user_is_admin_on:
-          new_app_dict[app_name] = apps_user_is_admin_on.get(app_name)
-      apps_user_is_admin_on = new_app_dict
+    all_versions = self.helper.get_version_info()
 
-    self.helper.update_cookie_app_list(apps_user_is_admin_on.keys(),
-                                       self.request, self.response)
+    if is_cloud_admin:
+      apps_user_owns = list({version.split('_')[0]
+                             for version in all_versions})
+    else:
+      apps_user_owns = self.helper.get_owned_apps()
+
+    versions_user_is_admin_on = {
+      version: all_versions[version] for version in all_versions
+      if version.split('_')[0] in apps_user_owns}
+
+    self.helper.update_cookie_app_list(apps_user_owns, self.request,
+                                       self.response)
     template = jinja_environment.get_template(template_file)
     sub_vars = {
       'logged_in': self.helper.is_user_logged_in(),
       'user_email': self.helper.get_user_email(),
       'is_user_cloud_admin': self.dstore.is_user_cloud_admin(),
       'can_upload_apps': self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on': apps_user_is_admin_on,
+      'versions_user_is_admin_on': versions_user_is_admin_on,
       'user_layout_pref': self.dstore.get_dash_layout_settings(),
       'flower_url': self.dstore.get_flower_url(),
       'monit_url': self.dstore.get_monit_url()
@@ -192,7 +195,7 @@ class DashPage(AppDashboard):
     self.render_page(page='dash', template_file=self.TEMPLATE, values={
       'server_info': self.helper.get_status_info(),
       'dbinfo': self.dstore.get_database_info(),
-      'apps': self.helper.get_application_info().keys(),
+      'apps': self.helper.get_version_info().keys(),
       'monitoring_url': self.dstore.get_monitoring_url(),
     })
 
@@ -236,7 +239,7 @@ class StatusPage(AppDashboard):
     self.render_app_page(page='status', values={
       'server_info': self.helper.get_status_info(),
       'dbinfo': self.dstore.get_database_info(),
-      'apps': self.helper.get_application_info(),
+      'apps': self.helper.get_version_info(),
       'monitoring_url': self.dstore.get_monitoring_url(),
       'page_content': self.TEMPLATE,
     })
@@ -761,15 +764,18 @@ class AppsAsJSONPage(webapp2.RequestHandler):
     """ Retrieves the cached information about applications running in this
     AppScale deployment as a JSON-encoded dict. """
     is_cloud_admin = AppDashboardHelper().is_user_cloud_admin()
-    apps_user_is_admin_on = AppDashboardHelper().get_application_info()
-    if not is_cloud_admin:
+    all_versions = AppDashboardHelper().get_version_info()
+
+    if is_cloud_admin:
+      apps_user_owns = {version.split('_')[0] for version in all_versions}
+    else:
       apps_user_owns = AppDashboardHelper().get_owned_apps()
-      new_app_dict = {}
-      for app_name in apps_user_owns:
-        if app_name in apps_user_is_admin_on:
-          new_app_dict[app_name] = apps_user_is_admin_on.get(app_name)
-      apps_user_is_admin_on = new_app_dict
-    self.response.out.write(json.dumps(apps_user_is_admin_on))
+
+    versions_user_is_admin_on = {
+      version: all_versions[version] for version in all_versions
+      if version.split('_')[0] in apps_user_owns}
+
+    self.response.out.write(json.dumps(versions_user_is_admin_on))
 
 
 class LogMainPage(AppDashboard):
@@ -915,8 +921,11 @@ class CronConsolePage(AppDashboard):
     """ Shows deployed user applications that contain cron.yaml
     """
     is_cloud_admin = self.helper.is_user_cloud_admin()
+    all_versions = self.helper.get_version_info()
+
     if is_cloud_admin:
-      apps_user_is_admin_on = self.helper.get_application_info().keys()
+      apps_user_is_admin_on = {version.split('_')[0]
+                               for version in all_versions}
     else:
       apps_user_is_admin_on = self.helper.get_owned_apps()
 
@@ -998,7 +1007,9 @@ class CronRun(AppDashboard):
     if not api_url or not app_id:
       return
 
-    app_url = self.helper.get_application_info()[app_id][1]
+    version_id = '_'.join([app_id, AppDashboardHelper.DEFAULT_SERVICE,
+                           AppDashboardHelper.DEFAULT_VERSION])
+    app_url = self.helper.get_version_info()[version_id][1]
     response = urllib.urlopen(app_url + api_url)
     self.redirect("/cron/view?" + urllib.urlencode({"appid": app_id}), response)
 
@@ -1110,8 +1121,8 @@ class RequestRefreshPage(AppDashboard):
 
   def get(self):
     """ Handler for GET request for the requests statistics. """
-    for app_id in self.helper.get_application_info().keys():
-      self.dstore.update_request_info(app_id=app_id)
+    for version_key in self.helper.get_version_info():
+      self.dstore.update_request_info(version_key)
 
     self.response.out.write('request info updated')
 
@@ -1160,9 +1171,11 @@ class StatsPage(AppDashboard):
     # Only let the cloud admin and users who own this app see this page.
     app_id = self.request.get('appid')
     is_cloud_admin = self.helper.is_user_cloud_admin()
+    all_versions = self.helper.get_version_info()
 
     if is_cloud_admin:
-      apps_user_is_admin_on = self.helper.get_application_info().keys()
+      apps_user_is_admin_on = list({version.split('_')[0]
+                                    for version in all_versions})
     else:
       apps_user_is_admin_on = self.helper.get_owned_apps()
 

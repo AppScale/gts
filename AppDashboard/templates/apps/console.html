@@ -14,16 +14,16 @@
             icomoon-icon-cube"></span>Applications Running:</h4>
             <!-- App Info Hook -->
             <ul class="unstyled">
-                {% if apps_user_is_admin_on|length == 0 %}
+                {% if versions_user_is_admin_on|length == 0 %}
                     <li><span class="icon16 icomoon-icon-arrow-right-2"></span><a class="disabled btn">None Deployed</a></li>
                 {% else %}
-                    {% for app_name in apps_user_is_admin_on|sort %}
+                    {% for version_key in versions_user_is_admin_on|sort %}
                         <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
-                            {% if apps_user_is_admin_on[app_name] %}
-                                <a class="btn" href="{{ apps_user_is_admin_on[app_name][0] }}" target="_blank">{{ app_name }}</a>
-                                <a class="btn" href="{{ apps_user_is_admin_on[app_name][1] }}" target="_blank">https-{{ app_name }}</a>
+                            {% if versions_user_is_admin_on[version_key] %}
+                                <a class="btn" href="{{ versions_user_is_admin_on[version_key][0] }}" target="_blank">{{ version_key }}</a>
+                                <a class="btn" href="{{ versions_user_is_admin_on[version_key][1] }}" target="_blank">https-{{ version_key }}</a>
                             {% else %}
-                                <a class="btn disabled">{{ app_name }} (loading)</a>
+                                <a class="btn disabled">{{ version_key }} (loading)</a>
                             {% endif %}
                         </li>
                     {% endfor %}
@@ -80,10 +80,10 @@
         <h4><span class="icon12
         icomoon-icon-cube"></span>Application Statistics:</h4>
         <ul class="unstyled" id="app_stats_page">
-      {% if apps_user_is_admin_on %}
-        {% for appid in apps_user_is_admin_on.keys() %}
+      {% if versions_user_is_admin_on %}
+        {% for version_key in versions_user_is_admin_on.keys() %}
           <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
-              <a class="btn btn-primary" href="/apps/stats?appid={{ appid }}">{{ appid }}</a>
+              <a class="btn btn-primary" href="/apps/stats?appid={{ version_key }}">{{ version_key }}</a>
           </li>
         {% endfor %}
       {% else %}
