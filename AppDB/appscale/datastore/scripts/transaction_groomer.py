@@ -207,7 +207,8 @@ class ProjectGroomer(object):
       tx_node: A string specifying the name of the ZooKeeper node.
       composite_indexes: A list of CompositeIndex objects.
     Returns:
-      The transaction start time if still valid, None if invalid.
+      The transaction start time if still valid, None if invalid because this
+      method will also delete it.
     """
     full_path = '/'.join([self._txids_path, tx_node])
     tx_data = yield self._tornado_zk.get(full_path)
