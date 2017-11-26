@@ -181,11 +181,11 @@ class ProjectGroomer(object):
     index = self._coordinator.index
     worker_count = self._coordinator.total_workers
 
-    oldest_valid_tx = yield self._fetch_and_clean(index, worker_count)
+    oldest_valid_tx_time = yield self._fetch_and_clean(index, worker_count)
 
     # Wait until there's a reasonable chance that some transactions have
     # timed out.
-    next_timeout_eta = oldest_valid_tx + MAX_TX_DURATION
+    next_timeout_eta = oldest_valid_tx_time + MAX_TX_DURATION
 
     # The oldest ignored transaction should still be valid, but ensure that
     # the timeout is not negative.
@@ -237,15 +237,18 @@ class ProjectGroomer(object):
     Args:
       worker_index: An integer specifying this worker's index.
       worker_count: An integer specifying the number of total workers.
+    Returns:
+      A float specifying the time of the oldest valid transaction as a unix
+      timestamp.
     """
-    oldest_valid_tx = time.time()
+    oldest_valid_tx_time = time.time()
     future = self._tornado_zk.get_children(self._txids_path)
     children = yield future
     logger.debug(
       'Found {} transaction IDs for {}'.format(len(children), self.project_id))
 
     if not children:
-      raise gen.Return(oldest_valid_tx)
+      raise gen.Return(oldest_valid_tx_time)
 
     # Refresh these each time so that the indexes are fresh.
     encoded_indexes = yield self._thread_pool.submit(
@@ -274,13 +277,13 @@ class ProjectGroomer(object):
       if tx_time is None:
         txids_cleaned += 1
 
-      if tx_time is not None and tx_time < oldest_valid_tx:
-        oldest_valid_tx = tx_time
+      if tx_time is not None and tx_time < oldest_valid_tx_time:
+        oldest_valid_tx_time = tx_time
 
     if txids_cleaned > 0:
       logger.info('Cleaned up {} expired txids for {}'.format(txids_cleaned,
                                                               self.project_id))
-    raise gen.Return(oldest_valid_tx)
+    raise gen.Return(oldest_valid_tx_time)
 
 
 class TransactionGroomer(object):
