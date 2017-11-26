@@ -243,8 +243,7 @@ class ProjectGroomer(object):
       timestamp.
     """
     oldest_valid_tx_time = time.time()
-    future = self._tornado_zk.get_children(self._txids_path)
-    children = yield future
+    children = yield self._tornado_zk.get_children(self._txids_path)
     logger.debug(
       'Found {} transaction IDs for {}'.format(len(children), self.project_id))
 
