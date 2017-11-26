@@ -364,12 +364,11 @@ class BatchResolver(object):
         old_entity = entity_pb.EntityProto(old_entity)
 
       new_entity = result.new_value
-      if new_entity is not None:
-        new_entity = entity_pb.EntityProto(new_entity)
 
       if new_entity is None:
         mutations = deletions_for_entity(old_entity, composite_indexes)
       else:
+        new_entity = entity_pb.EntityProto(new_entity)
         mutations = mutations_for_entity(new_entity, txid, old_entity,
                                          composite_indexes)
 
