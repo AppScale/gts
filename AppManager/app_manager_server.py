@@ -187,7 +187,7 @@ def ensure_api_server(project_id):
     return api_servers[project_id]
 
   server_port = MAX_API_SERVER_PORT
-  for project, port in api_servers.items():
+  for port in api_servers.values():
     if port <= server_port:
       server_port = port - 1
 
