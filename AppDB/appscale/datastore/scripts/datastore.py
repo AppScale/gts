@@ -46,6 +46,9 @@ datastore_access = None
 # A record of active datastore servers.
 datastore_servers = set()
 
+# The ZooKeeper path where this server registers its availability.
+server_node = None
+
 # ZooKeeper global variable for locking
 zookeeper = None
 
@@ -784,8 +787,6 @@ class MainHandler(tornado.web.RequestHandler):
 
 def create_server_node():
   """ Creates a server registration entry in ZooKeeper. """
-  server_id = ':'.join([options.private_ip, str(options.port)])
-  server_node = '/'.join([DATASTORE_SERVERS_NODE, server_id])
   try:
     zookeeper.handle.create(server_node, ephemeral=True)
   except NodeExistsError:
@@ -803,8 +804,6 @@ def zk_state_listener(state):
     state: A string specifying the new ZooKeeper connection state.
   """
   if state == KazooState.CONNECTED:
-    server_id = ':'.join([options.private_ip, str(options.port)])
-    server_node = '/'.join([DATASTORE_SERVERS_NODE, server_id])
     persistent_create_server_node = retry_data_watch_coroutine(
       server_node, create_server_node)
     IOLoop.instance().add_callback(persistent_create_server_node)
@@ -848,6 +847,7 @@ def main():
   """ Starts a web service for handing datastore requests. """
 
   global datastore_access
+  global server_node
   global zookeeper
   zookeeper_locations = appscale_info.get_zk_locations_string()
 
@@ -867,6 +867,9 @@ def main():
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('port', args.port)
+
+  server_node = '{}/{}:{}'.format(DATASTORE_SERVERS_NODE, options.private_ip,
+                                  options.port)
 
   datastore_batch = DatastoreFactory.getDatastore(
     args.type, log_level=logger.getEffectiveLevel())
