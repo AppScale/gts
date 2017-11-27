@@ -38,8 +38,8 @@ class AppManagerClient
   #   version_key: The AppServer instance's version key.
   #   app_port: The port to run the application server
   #
-  def start_app(version_key, app_port)
-    config = {'app_port' => app_port}
+  def start_app(version_key, app_port, login_server)
+    config = {'app_port' => app_port, 'login_server' => login_server}
 
     uri = URI("http://#{@ip}:#{SERVER_PORT}/versions/#{version_key}")
     headers = {'Content-Type' => 'application/json'}

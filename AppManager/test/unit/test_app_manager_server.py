@@ -65,6 +65,7 @@ class TestAppManager(AsyncTestCase):
   def test_start_app_goodconfig_python(self):
     configuration = {
       'app_port': 2000,
+      'login_server': 'public1',
       'service_id': 'default',
       'version_id': 'v1',
       'env_vars': {}
@@ -107,6 +108,7 @@ class TestAppManager(AsyncTestCase):
   def test_start_app_goodconfig_java(self):
     configuration = {
       'app_port': 20000,
+      'login_server': 'public1',
       'service_id': 'default',
       'version_id': 'v1',
       'env_vars': {}
@@ -159,6 +161,7 @@ class TestAppManager(AsyncTestCase):
   def test_start_app_failed_copy_java(self):
     configuration = {
       'app_port': 2000,
+      'login_server': 'public1',
       'service_id': 'default',
       'version_id': 'v1',
       'env_vars': {}

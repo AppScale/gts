@@ -1,12 +1,14 @@
 """ A server that handles application deployments. """
 
 import argparse
+import base64
+import hashlib
 import json
 import logging
 import re
-import sys
 import time
 
+from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
@@ -18,7 +20,6 @@ from appscale.common.monit_interface import MonitOperator
 from appscale.common.appscale_utils import get_md5
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from kazoo.client import KazooClient
@@ -35,6 +36,7 @@ from . import constants
 from .appengine_api import UpdateQueuesHandler
 from .base_handler import BaseHandler
 from .constants import (
+  AccessTokenErrors,
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,
@@ -49,9 +51,6 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerException
 
 
 logger = logging.getLogger('appscale-admin')
@@ -270,11 +269,35 @@ class ProjectsHandler(BaseVersionHandler):
   def get(self):
     """ List projects.
     """
-    self.authenticate()
-    try:
-      projects = self.zk_client.get_children('/appscale/projects')
-    except NoNodeError:
-      projects = []
+    if 'AppScale-Secret' not in self.request.headers:
+      # Run all the authenticate functions in authenticate_access_token but
+      # don't check if user is authenticated for a specific project,
+      # get projects user can access.
+      try:
+        token = self.request.headers['Authorization'].split()[1]
+      except IndexError:
+        message = 'A required header is missing: Authorization'
+        raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=message)
+      method_base64, metadata_base64, signature = token.split('.')
+      self.check_token_hash(method_base64, metadata_base64, signature)
+
+      metadata = json.loads(base64.urlsafe_b64decode(metadata_base64))
+      self.check_token_expiration(metadata)
+      self.check_token_scope(metadata)
+      user = metadata['user']
+      try:
+        is_user_cloud_admin = self.ua_client.is_user_cloud_admin(user)
+      except UAException:
+        message = 'Unable to determine user data for {}.'.format(user)
+        raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+
+      if is_user_cloud_admin:
+        projects = self.get_projects_from_zookeeper()
+      else:
+        projects = self.get_users_projects(user, self.ua_client)
+    else:
+      self.authenticate(project_id=None, ua_client=None)
+      projects = self.get_projects_from_zookeeper()
 
     project_dicts = []
     for project in projects:
@@ -287,6 +310,13 @@ class ProjectsHandler(BaseVersionHandler):
       project_dicts.append(project_dict)
 
     self.write(json.dumps({'projects': project_dicts}))
+
+  def get_projects_from_zookeeper(self):
+    """ Wrapper function for getting list of projects from zookeeper. """
+    try:
+      return self.zk_client.get_children('/appscale/projects')
+    except NoNodeError:
+      return []
 
 
 class ProjectHandler(BaseVersionHandler):
@@ -364,7 +394,7 @@ class ProjectHandler(BaseVersionHandler):
     Args:
       project_id: The id of the project to delete.
     """
-    self.authenticate()
+    self.authenticate(project_id, self.ua_client)
     project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
     update_project_state(self.zk_client, project_id,
                          LifecycleState.DELETE_REQUESTED)
@@ -409,7 +439,7 @@ class ServiceHandler(BaseVersionHandler):
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
     """
-    self.authenticate()
+    self.authenticate(project_id, self.ua_client)
     service_path = '/appscale/projects/{0}/services/{1}'.format(project_id,
                                                                 service_id)
     ports_to_close = []
@@ -672,7 +702,7 @@ class VersionsHandler(BaseHandler):
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
     """
-    self.authenticate()
+    self.authenticate(project_id, self.ua_client)
     version = self.version_from_payload()
 
     version_exists = self.version_exists(project_id, service_id, version['id'])
@@ -858,7 +888,7 @@ class VersionHandler(BaseVersionHandler):
       service_id: A string specifying a service ID.
       version_id: A string specifying a version ID.
     """
-    self.authenticate()
+    self.authenticate(project_id, self.ua_client)
 
     version_details = self.get_version(project_id, service_id, version_id)
 
@@ -885,7 +915,7 @@ class VersionHandler(BaseVersionHandler):
       service_id: A string specifying a service ID.
       version_id: A string specifying a version ID.
     """
-    self.authenticate()
+    self.authenticate(project_id, self.ua_client)
 
     if project_id in constants.IMMUTABLE_PROJECTS:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
@@ -914,7 +944,7 @@ class VersionHandler(BaseVersionHandler):
       service_id: A string specifying a service ID.
       version_id: A string specifying a version ID.
     """
-    self.authenticate()
+    self.authenticate(project_id, self.ua_client)
 
     if project_id in constants.IMMUTABLE_PROJECTS:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
@@ -935,6 +965,14 @@ class VersionHandler(BaseVersionHandler):
 
 class OperationsHandler(BaseHandler):
   """ Retrieves operations. """
+  def initialize(self, ua_client):
+    """ Defines required resources to handle requests.
+
+    Args:
+      ua_client: A UAClient.
+    """
+    self.ua_client = ua_client
+
   def get(self, project_id, operation_id):
     """ Retrieves operation status.
 
@@ -942,7 +980,7 @@ class OperationsHandler(BaseHandler):
       project_id: A string specifying a project ID.
       operation_id: A string specifying an operation ID.
     """
-    self.authenticate()
+    self.authenticate(project_id, self.ua_client)
 
     try:
       operation = operations[operation_id]
@@ -951,6 +989,119 @@ class OperationsHandler(BaseHandler):
                             message='Operation not found.')
 
     self.write(json_encode(operation.rest_repr()))
+
+
+class OAuthHandler(BaseHandler):
+  """ Authorize users and give them Access Tokens."""
+  def initialize(self, ua_client):
+    """ Defines required resources to handle requests.
+
+    Args:
+      ua_client: A UAClient.
+    """
+    self.ua_client = ua_client
+
+  def post(self):
+    """Grants users Access Tokens."""
+
+    # Format for error message.
+    error_msg = {
+      'error': '',
+      'error_description': ''
+    }
+
+    missing_arguments = []
+
+    grant_type = self.get_argument('grant_type', default=None, strip=True)
+    if not grant_type:
+      missing_arguments.append('grant_type')
+
+    username = self.get_argument('username', default=None, strip=True)
+    if not username:
+      missing_arguments.append('username')
+
+    password = self.get_argument('password', default=None, strip=True)
+    if not password:
+      missing_arguments.append('password')
+
+    scope = self.get_argument('scope', default=None, strip=True)
+    if not scope:
+      missing_arguments.append('scope')
+
+    if missing_arguments:
+      error_msg['error'] = constants.AccessTokenErrors.INVALID_REQUEST
+      error_msg['error_description'] = 'Required parameters(s) are missing: {}'\
+        .format(missing_arguments)
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
+
+    if grant_type != 'password':
+      error_msg['error'] = constants.AccessTokenErrors.UNSUPPORTED_GRANT_TYPE
+      error_msg['error_description'] = 'Grant type {} not supported.'.format(
+          grant_type)
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
+
+    if scope != self.AUTH_SCOPE:
+      error_msg['error'] = constants.AccessTokenErrors.INVALID_SCOPE
+      error_msg['error_description'] = 'Scope {} not supported.'.format(
+          grant_type)
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
+
+    # Get the user.
+    try:
+      user_data = self.ua_client.get_user_data(username)
+    except UAException:
+      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
+      error_msg['error_description'] = 'Unable to determine user data for {}'\
+        .format(username)
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=error_msg)
+
+    # Get the user's stored password.
+    server_re = re.search(self.ua_client.USER_DATA_PASSWORD_REGEX, user_data)
+    if not server_re:
+      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
+      error_msg['error_description'] = "Invalid user data for {}".format(
+          username)
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=error_msg)
+    server_pwd = server_re.group(1)
+
+    # Hash the given username and password.
+    encrypted_pass = hashlib.sha1("{0}{1}".format(username, password))\
+      .hexdigest()
+    if server_pwd != encrypted_pass:
+      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
+      error_msg['error_description'] = "Incorrect password for {}"\
+        .format(username)
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=error_msg)
+
+    # If we have gotten here, the user is granted an Access Token,
+    # so we create it.
+    metadata = {
+      'user': username,
+      'exp': int(time.time()) + 3600,
+      'scope': self.AUTH_SCOPE
+    }
+
+    metadata_base64 = base64.urlsafe_b64encode(json.dumps(metadata))
+
+    method = {'type': 'JWT', 'alg': 'SHA-1'}
+
+    method_base64 = base64.urlsafe_b64encode(json.dumps(method))
+
+    hasher = hashlib.sha1()
+    hasher.update(method_base64)
+    hasher.update(metadata_base64)
+    hasher.update(options.secret)
+    token = '{}.{}.{}'.format(method_base64, metadata_base64,
+                              hasher.hexdigest())
+
+    auth_response = {
+      'access_token': token,
+      'token_type': 'bearer',
+      'expires_in': 3600,
+      'scope': self.AUTH_SCOPE
+    }
+
+    self.write(json_encode(auth_response))
 
 
 def main():
@@ -994,6 +1145,7 @@ def main():
     GlobalPushWorkerManager(zk_client, monit_operator)
 
   app = web.Application([
+    ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
      all_resources),
     ('/v1/projects', ProjectsHandler, all_resources),
@@ -1002,8 +1154,10 @@ def main():
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
      VersionHandler, all_resources),
-    ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler),
-    ('/api/queue/update', UpdateQueuesHandler, {'zk_client': zk_client})
+    ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler,
+     {'ua_client': ua_client}),
+    ('/api/queue/update', UpdateQueuesHandler,
+     {'zk_client': zk_client, 'ua_client': ua_client})
   ])
   logger.info('Starting AdminServer')
   app.listen(args.port)
