@@ -30,6 +30,7 @@ from ..utils import (clean_app_id,
                      logger,
                      UnprocessedQueryResult)
 from ..zkappscale import zktransaction
+from ..zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
@@ -306,6 +307,10 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except (zktransaction.ZKInternalException,
             dbconstants.AppScaleDBConnectionError) as error:
       logger.exception('Unable to begin transaction')
@@ -634,6 +639,10 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
       return (putresp_pb.Encode(), 0, "")
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
@@ -717,6 +726,10 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
       return (delresp_pb.Encode(), 0, "")
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
@@ -869,8 +882,10 @@ def main():
   zk_state_listener(zookeeper.handle.state)
   zookeeper.handle.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
 
+  transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
-    datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
+    datastore_batch, transaction_manager, zookeeper=zookeeper,
+    log_level=logger.getEffectiveLevel())
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)
