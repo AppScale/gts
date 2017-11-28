@@ -101,41 +101,6 @@ class TestZookeeperTransaction(unittest.TestCase):
     self.assertEquals(None, transaction.create_node('/rootpath/' + self.appid,
       'now'))
 
-
-  def test_get_transaction_id(self):
-    # mock out getTransactionRootPath
-    flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
-      self.appid).and_return('/rootpath/' + self.appid)
-    path_to_create = "/rootpath/" + self.appid + "/" + zk.APP_TX_PREFIX
-    zk.ZKTransaction.should_receive('get_txn_path_before_getting_id') \
-      .with_args(self.appid).and_return(path_to_create)
-    
-    # mock out time.time
-    flexmock(time)
-    time.should_receive('time').and_return(1000)
-    
-    # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', connected=lambda: True)
-    fake_zookeeper.should_receive('start')
-    fake_zookeeper.should_receive('retry')
-
-    flexmock(kazoo.client)
-    kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
-
-    # mock out making the txn id
-    zk.ZKTransaction.should_receive('create_sequence_node').with_args(
-      path_to_create, '1000').and_return(1)
-
-    # mock out zookeeper.create for is_xg
-    xg_path = path_to_create + "/1/" + zk.XG_PREFIX
-    zk.ZKTransaction.should_receive('get_xg_path').and_return(xg_path)
-    zk.ZKTransaction.should_receive('create_node').with_args(xg_path, '1000')
-
-    # assert, make sure we got back our id
-    transaction = zk.ZKTransaction(host="something")
-    self.assertEquals(1, transaction.get_transaction_id(self.appid, is_xg=True))
-
   def test_get_txn_path_before_getting_id(self):
     # mock out initializing a ZK connection
     flexmock(zk.ZKTransaction)

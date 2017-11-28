@@ -21,7 +21,7 @@ from dashboard import StatusPage
 from dashboard import StatusRefreshPage
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../AppServer'))
-from google.appengine.api.appcontroller_client import AppControllerClient
+from appscale.appcontroller_client import AppControllerClient
 from google.appengine.ext import db
 from google.appengine.api import taskqueue
 from google.appengine.api import users

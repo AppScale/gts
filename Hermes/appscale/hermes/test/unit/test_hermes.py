@@ -2,15 +2,14 @@
 
 import json
 import socket
-import sys
 import tarfile
 import unittest
 
 import tornado.httpclient
+from appscale.appcontroller_client import AppControllerClient
 from appscale.common import appscale_info
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 from tornado.ioloop import IOLoop
 
@@ -20,9 +19,6 @@ from appscale.hermes import poll
 from appscale.hermes import SensorDeployer
 from appscale.hermes import shutdown
 from appscale.hermes import signal_handler
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerClient
 
 
 class TestHelper(unittest.TestCase):

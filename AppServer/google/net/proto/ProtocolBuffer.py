@@ -108,7 +108,8 @@ class ProtocolMessage:
     self.__init__(contents=contents_)
 
   def sendCommand(self, server, url, response, follow_redirects=1,
-                  secure=0, keyfile=None, certfile=None):
+                  secure=0, keyfile=None, certfile=None, service_id=None,
+                  version_id=None):
     data = self.Encode()
     if secure:
       if keyfile and certfile:
@@ -126,15 +127,22 @@ class ProtocolMessage:
     pb_type = str(self.__class__).split('.')[-1]
     conn.putheader("ProtocolBufferType" , pb_type)
     conn.putheader("AppData", url) # app id, user email, nick name, auth domain
-    try:
-      # AppScale: Set Version and Module headers to current version & module.
-      # CURRENT_VERSION_ID is formatted module:major_version.minor_version.
-      module_version_info = os.environ['CURRENT_VERSION_ID'].split(':')
-      conn.putheader("Version", module_version_info.pop().split('.')[0])
-      conn.putheader("Module", module_version_info.pop() if len(
-        module_version_info) > 1 else 'default')
-    except KeyError:
-      pass
+
+    # AppScale: Set Version and Module headers to current version & module.
+    # CURRENT_VERSION_ID is formatted module:major_version.minor_version.
+    version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
+    if ':' not in version_info:
+      version_info = 'default:' + version_info
+
+    if service_id is None:
+      service_id = version_info.split(':')[0]
+
+    if version_id is None:
+      version_id = version_info.split(':')[1]
+
+    conn.putheader('Module', service_id)
+    conn.putheader('Version', version_id)
+
     conn.endheaders()
     conn.send(data)
     resp = conn.getresponse()
