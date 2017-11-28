@@ -41,6 +41,7 @@ from .constants import (
   OperationTimeout,
   REDEPLOY_WAIT,
   ServingStatus,
+  SUPPORTED_INBOUND_SERVICES,
   VALID_RUNTIMES
 )
 from .operation import (
@@ -563,6 +564,11 @@ class VersionsHandler(BaseHandler):
     if 'basicScaling' in version or 'manualScaling' in version:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Only automaticScaling is supported')
+
+    for inbound_service in version.get('inboundServices', []):
+      if inbound_service not in SUPPORTED_INBOUND_SERVICES:
+        message = '{} is not supported'.format(inbound_service)
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
     # Create a revision ID to differentiate between deployments of the same
     # version.
