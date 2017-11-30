@@ -36,12 +36,14 @@ class _RetryCoroutine(_Retry):
       check_exception = self.retry_on_exception
 
       if isinstance(check_exception, (list, tuple)):
-        orig_check_exception = check_exception
+        exception_classes = check_exception
 
-        def check_exception(error):
+        def check_exception_in_list(error):
           return any(
-            isinstance(error, exception) for exception in orig_check_exception
+            isinstance(error, exception) for exception in exception_classes
           )
+
+        check_exception = check_exception_in_list
 
       retries = 0
       backoff = self.backoff_multiplier
