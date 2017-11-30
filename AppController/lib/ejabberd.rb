@@ -25,6 +25,8 @@ module Ejabberd
     start_cmd = "#{service} ejabberd start"
     stop_cmd = "#{service} ejabberd stop"
     pidfile = '/var/run/ejabberd/ejabberd.pid'
+
+    self.ensure_correct_epmd
     MonitInterface.start_daemon(:ejabberd, start_cmd, stop_cmd, pidfile)
   end
 
@@ -36,42 +38,38 @@ module Ejabberd
     Djinn.log_run("rm #{ONLINE_USERS_FILE}")
   end
 
-  def self.does_app_need_receive?(app, runtime)
+  def self.does_app_need_receive?(app)
     begin
-      source_dir = HelperFunctions.get_source_for_project(app)
-    rescue AppScaleException
+      version_details = ZKInterface.get_version_details(
+        app, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
+    rescue VersionNotFound
       return false
     end
 
-    if ['python27', 'go', 'php'].include?(runtime)
-      app_yaml_file = "#{source_dir}/app.yaml"
-      app_yaml = YAML.load_file(app_yaml_file)['inbound_services']
-      return true if !app_yaml.nil? && app_yaml.include?('xmpp_message')
-      return false
-    elsif runtime == 'java'
-      begin
-        appengine_web_xml_file = HelperFunctions.get_appengine_web_xml(
-          source_dir)
-      rescue InvalidSource => error
-        Djinn.log_warn(error.message)
-        return false
-      end
-      xml_contents = HelperFunctions.read_file(appengine_web_xml_file).force_encoding 'utf-8'
+    inbound_services = version_details.fetch('inboundServices', [])
+    return true if inbound_services.include?('INBOUND_SERVICE_XMPP_MESSAGE')
+    return inbound_services.include?('INBOUND_SERVICE_XMPP_PRESENCE')
+  end
 
-      begin
-        if xml_contents =~ /<inbound-services>.*<service>xmpp.*<\/inbound-services>/m
-          return true
-        end
-        return false
-      rescue => exception
-        backtrace = exception.backtrace.join("\n")
-        Djinn.log_warn("Exception while parsing xml contents: " \
-          "#{exception.message}. Backtrace: \n#{backtrace}")
-        return false
+  def self.ensure_correct_epmd()
+    # On Xenial, an older epmd daemon can get started that doesn't play well
+    # with ejabberd. This makes sure that the compatible service is running.
+    begin
+      services = `systemctl list-unit-files`
+      if services.include?('epmd.service')
+        PosixPsutil::Process.processes.each { |process|
+          begin
+            next unless process.name == 'epmd'
+            process.terminate if process.cmdline.include?('-daemon')
+          rescue PosixPsutil::NoSuchProcess
+            next
+          end
+        }
+        `systemctl start epmd`
       end
-    else
-      HelperFunctions.log_and_crash('xmpp: runtime was not ' \
-        "python27, go, java, php but was [#{runtime}]")
+    rescue Errno::ENOENT
+      # Distros without systemd don't have systemctl, and they do not exhibit
+      # the issue.
     end
   end
 

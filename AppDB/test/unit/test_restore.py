@@ -11,6 +11,8 @@ from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import datastore_distributed
 from appscale.datastore.backup.datastore_restore import DatastoreRestore
 from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
+from appscale.datastore.zkappscale.transaction_manager import (
+  TransactionManager)
 from flexmock import flexmock
 
 
@@ -84,6 +86,7 @@ class TestRestore(unittest.TestCase):
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
     flexmock(datastore_distributed).should_receive(
       'DatastoreDistributed').and_return()
+    flexmock(TransactionManager).should_receive('__new__')
     fake_restore = flexmock(DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
