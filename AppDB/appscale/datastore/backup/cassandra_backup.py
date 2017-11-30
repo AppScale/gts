@@ -249,8 +249,9 @@ def restore_data(path, keyname, force=False):
   while True:
     ready = True
     try:
-      output = utils.ssh(db_ip, keyname, '{} status'.format(NODE_TOOL),
-                         method=subprocess.check_output)
+      output = appscale_utils.ssh(
+        db_ip, keyname, '{} status'.format(NODE_TOOL),
+        method=subprocess.check_output)
       nodes_ready = len([line for line in output.split('\n')
                          if line.startswith('UN')])
       if nodes_ready < len(db_ips):
