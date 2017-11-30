@@ -241,7 +241,7 @@ class InfrastructureManagerClient
     parameters['autoscale_agent'] = true
     Djinn.log_debug('Calling attach_disk with parameters ' \
       "#{parameters.inspect}, with disk name #{disk_name} and instance id " +
-      instance_id_to_s)
+      instance_id.to_s)
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'attach_disk') {
       disk_info = @conn.attach_disk(parameters.to_json, disk_name, instance_id,

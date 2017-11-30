@@ -15,6 +15,7 @@ import time
 import tornado.httpserver
 import tornado.web
 
+from appscale.admin.utils import retry_data_watch_coroutine
 from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
@@ -30,6 +31,7 @@ from ..utils import (clean_app_id,
                      logger,
                      UnprocessedQueryResult)
 from ..zkappscale import zktransaction
+from ..zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
@@ -44,6 +46,9 @@ datastore_access = None
 
 # A record of active datastore servers.
 datastore_servers = set()
+
+# The ZooKeeper path where this server registers its availability.
+server_node = None
 
 # ZooKeeper global variable for locking
 zookeeper = None
@@ -306,6 +311,10 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except (zktransaction.ZKInternalException,
             dbconstants.AppScaleDBConnectionError) as error:
       logger.exception('Unable to begin transaction')
@@ -634,6 +643,10 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
       return (putresp_pb.Encode(), 0, "")
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
@@ -717,6 +730,10 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
       return (delresp_pb.Encode(), 0, "")
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
@@ -781,6 +798,18 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore connection error when adding transaction tasks.')
 
 
+def create_server_node():
+  """ Creates a server registration entry in ZooKeeper. """
+  try:
+    zookeeper.handle.create(server_node, ephemeral=True)
+  except NodeExistsError:
+    # If the server gets restarted, the old node may exist for a short time.
+    zookeeper.handle.delete(server_node)
+    zookeeper.handle.create(server_node, ephemeral=True)
+
+  logger.info('Datastore registered at {}'.format(server_node))
+
+
 def zk_state_listener(state):
   """ Handles changes to ZooKeeper connection state.
 
@@ -788,14 +817,9 @@ def zk_state_listener(state):
     state: A string specifying the new ZooKeeper connection state.
   """
   if state == KazooState.CONNECTED:
-    server_id = ':'.join([options.private_ip, str(options.port)])
-    server_node = '/'.join([DATASTORE_SERVERS_NODE, server_id])
-    try:
-      zookeeper.handle.create(server_node, ephemeral=True)
-    except NodeExistsError:
-      # If the server gets restarted, the old node may exist for a short time.
-      zookeeper.handle.delete(server_node)
-      zookeeper.handle.create(server_node, ephemeral=True)
+    persistent_create_server_node = retry_data_watch_coroutine(
+      server_node, create_server_node)
+    IOLoop.instance().add_callback(persistent_create_server_node)
 
 
 def update_servers(new_servers):
@@ -836,6 +860,7 @@ def main():
   """ Starts a web service for handing datastore requests. """
 
   global datastore_access
+  global server_node
   global zookeeper
   zookeeper_locations = appscale_info.get_zk_locations_string()
 
@@ -856,6 +881,9 @@ def main():
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('port', args.port)
 
+  server_node = '{}/{}:{}'.format(DATASTORE_SERVERS_NODE, options.private_ip,
+                                  options.port)
+
   datastore_batch = DatastoreFactory.getDatastore(
     args.type, log_level=logger.getEffectiveLevel())
   zookeeper = zktransaction.ZKTransaction(
@@ -869,8 +897,10 @@ def main():
   zk_state_listener(zookeeper.handle.state)
   zookeeper.handle.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
 
+  transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
-    datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
+    datastore_batch, transaction_manager, zookeeper=zookeeper,
+    log_level=logger.getEffectiveLevel())
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)

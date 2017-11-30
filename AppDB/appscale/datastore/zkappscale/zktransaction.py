@@ -519,32 +519,6 @@ class ZKTransaction:
     raise ZKTransactionException("Unable to create sequence node with path" \
       " {0}, value {1}".format(path, value))
 
-  def get_transaction_id(self, app_id, is_xg=False):
-    """Acquires a new id for an upcoming transaction.
-
-    Note that the caller must lock particular root entities using acquire_lock,
-    and that the transaction ID expires after a constant amount of time.
-
-    Args:
-      app_id: A str representing the application we want to perform a
-        transaction on.
-      is_xg: A bool that indicates if this transaction operates across multiple
-        entity groups.
-    Returns:
-      A long that represents the new transaction ID.
-    """
-    timestamp = str(time.time())
-
-    # First, make the ZK node for the actual transaction id.
-    app_path = self.get_txn_path_before_getting_id(app_id)
-    txn_id = self.create_sequence_node(app_path, timestamp)
-
-    # Next, make the ZK node that indicates if this a XG transaction.
-    if is_xg:
-      xg_path = self.get_xg_path(app_id, txn_id)
-      self.create_node(xg_path, timestamp)
-    return txn_id
-
   def check_transaction(self, app_id, txid):
     """ Gets the status of the given transaction.
 
@@ -738,7 +712,7 @@ class ZKTransaction:
     """ Acquire lock for transaction. It will acquire additional locks
     if the transactions is XG.
 
-    You must call get_transaction_id() first to obtain transaction ID.
+    You must call create_transaction_id() first to obtain transaction ID.
     You could call this method anytime if the root entity key is same, 
     or different in the case of it being XG.
 
@@ -814,23 +788,6 @@ class ZKTransaction:
       self.logger.exception(kazoo_exception)
       raise ZKTransactionException("Couldn't get updated key list for appid " \
         "{0}, txid {1}".format(app_id, txid))
-
-  def remove_tx_node(self, app_id, txid):
-    """ Remove a transaction's sequence node.
-
-    Args:
-      app_id: A string specifying an application ID.
-      txid: An integer specifying a transaction ID.
-    """
-    txpath = self.get_transaction_path(app_id, txid)
-    try:
-      self.run_with_retry(self.handle.delete, txpath, -1, True)
-    except NoNodeError:
-      return
-    except RetryFailedError:
-      raise ZKInternalException(
-        'Unable to remove transaction for {}'.format(txid))
-
 
   def release_lock(self, app_id, txid):
     """ Releases all locks acquired during this transaction.
@@ -1374,20 +1331,3 @@ class ZKTransaction:
         self.logger.exception('Unknown exception')
         return
     self.logger.debug('Lock GC took {} seconds.'.format(time.time() - start))
-
-  def get_current_transactions(self, project):
-    """ Fetch a list of open transactions for a given project.
-
-    Args:
-      project: A string containing a project ID.
-    Returns:
-      A list of integers specifying transaction IDs.
-    """
-    project_path = PATH_SEPARATOR.join([APPS_PATH, project])
-    txrootpath = PATH_SEPARATOR.join([project_path, APP_TX_PATH])
-    try:
-      txlist = self.run_with_retry(self.handle.get_children, txrootpath)
-    except kazoo.exceptions.NoNodeError:
-      # there is no transaction yet.
-      return []
-    return [int(txid.lstrip(APP_TX_PREFIX)) for txid in txlist]
