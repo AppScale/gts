@@ -24,8 +24,11 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..cassandra_env.cassandra_interface import DatastoreProxy
 from ..cassandra_env.large_batch import BatchResolver
 from ..dbconstants import MAX_TX_DURATION
+from ..zkappscale.constants import CONTAINER_PREFIX
+from ..zkappscale.constants import COUNTER_NODE_PREFIX
+from ..zkappscale.constants import MAX_SEQUENCE_COUNTER
+from ..zkappscale.constants import OFFSET_NODE
 from ..zkappscale.tornado_kazoo import TornadoKazoo
-from ..zkappscale.zktransaction import APP_TX_PREFIX
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore.entity_pb import CompositeIndex
@@ -141,13 +144,21 @@ class ProjectGroomer(object):
     self._tornado_zk = TornadoKazoo(self._zk_client)
     self._db_access = db_access
     self._thread_pool = thread_pool
-    self._txids_path = '/appscale/apps/{}/txids'.format(self.project_id)
+    self._project_node = '/appscale/apps/{}'.format(self.project_id)
+    self._containers = []
+    self._inactive_containers = set()
     self._batch_resolver = BatchResolver(self.project_id, self._db_access)
+
+    self._zk_client.ensure_path(self._project_node)
+    self._zk_client.ChildrenWatch(self._project_node, self._update_containers)
+
+    self._txid_manual_offset = 0
+    self._offset_node = '/'.join([self._project_node, OFFSET_NODE])
+    self._zk_client.DataWatch(self._offset_node, self._update_offset)
 
     self._stop_event = AsyncEvent()
     self._stopped_event = AsyncEvent()
 
-    self._zk_client.ensure_path(self._txids_path)
     IOLoop.current().spawn_callback(self.start)
 
   @gen.coroutine
@@ -175,6 +186,31 @@ class ProjectGroomer(object):
     self._stop_event.set()
     yield self._stopped_event.wait()
 
+  def _update_offset(self, new_offset, _):
+    """ Watches for updates to the manual offset node.
+
+    Args:
+      new_offset: A string specifying the new manual offset.
+    """
+    self._txid_manual_offset = int(new_offset or 0)
+
+  def _update_containers(self, nodes):
+    """ Updates the list of active txid containers.
+
+    Args:
+      nodes: A list of strings specifying ZooKeeper nodes.
+    """
+    counters = [int(node[len(CONTAINER_PREFIX):] or 1)
+                for node in nodes if node.startswith(CONTAINER_PREFIX)
+                and node not in self._inactive_containers]
+    counters.sort()
+
+    containers = [CONTAINER_PREFIX + str(counter) for counter in counters]
+    if containers and containers[0] == '{}1'.format(CONTAINER_PREFIX):
+      containers[0] = CONTAINER_PREFIX
+
+    self._containers = containers
+
   @gen.coroutine
   def _groom_project(self):
     """ Runs the grooming process. """
@@ -200,35 +236,55 @@ class ProjectGroomer(object):
       raise gen.Return()
 
   @gen.coroutine
-  def _resolve_txid(self, tx_node, composite_indexes):
+  def _remove_path(self, tx_path):
+    """ Removes a ZooKeeper node.
+
+    Args:
+      tx_path: A string specifying the path to delete.
+    """
+    try:
+      yield self._tornado_zk.delete(tx_path)
+    except NoNodeError:
+      pass
+    except NotEmptyError:
+      yield self._thread_pool.submit(self._zk_client.delete, tx_path,
+                                     recursive=True)
+
+  @gen.coroutine
+  def _resolve_txid(self, tx_path, composite_indexes):
     """ Cleans up a transaction if it has expired.
 
     Args:
-      tx_node: A string specifying the name of the ZooKeeper node.
+      tx_path: A string specifying the location of the ZooKeeper node.
       composite_indexes: A list of CompositeIndex objects.
     Returns:
       The transaction start time if still valid, None if invalid because this
       method will also delete it.
     """
-    full_path = '/'.join([self._txids_path, tx_node])
-    tx_data = yield self._tornado_zk.get(full_path)
+    tx_data = yield self._tornado_zk.get(tx_path)
     tx_time = float(tx_data[0])
-    txid = int(tx_node.lstrip(APP_TX_PREFIX))
+
+    _, container, tx_node = tx_path.rsplit('/', 2)
+    tx_node_id = int(tx_node.lstrip(COUNTER_NODE_PREFIX))
+    container_count = int(container[len(CONTAINER_PREFIX):] or 1)
+    if tx_node_id < 0:
+      yield self._remove_path(tx_path)
+      raise gen.Return()
+
+    container_size = MAX_SEQUENCE_COUNTER + 1
+    automatic_offset = (container_count - 1) * container_size
+    txid = self._txid_manual_offset + automatic_offset + tx_node_id
+
+    if txid < 1:
+      yield self._remove_path(tx_path)
+      raise gen.Return()
 
     # If the transaction is still valid, return the time it was created.
     if tx_time + MAX_TX_DURATION >= time.time():
       raise gen.Return(tx_time)
 
     yield self._batch_resolver.resolve(txid, composite_indexes)
-
-    try:
-      yield self._tornado_zk.delete(full_path)
-    except NoNodeError:
-      pass
-    except NotEmptyError:
-      yield self._thread_pool.submit(self._zk_client.delete, full_path,
-                                     recursive=True)
-
+    yield self._remove_path(tx_path)
     yield self._batch_resolver.cleanup(txid)
 
   @gen.coroutine
@@ -243,7 +299,17 @@ class ProjectGroomer(object):
       timestamp.
     """
     oldest_valid_tx_time = time.time()
-    children = yield self._tornado_zk.get_children(self._txids_path)
+    children = []
+    for index, container in enumerate(self._containers):
+      container_path = '/'.join([self._project_node, container])
+      new_children = yield self._tornado_zk.get_children(container_path)
+
+      if not new_children and index < len(self._containers) - 1:
+        self._inactive_containers.add(container)
+
+      children.extend(['/'.join([container_path, node])
+                       for node in new_children])
+
     logger.debug(
       'Found {} transaction IDs for {}'.format(len(children), self.project_id))
 
@@ -256,13 +322,13 @@ class ProjectGroomer(object):
     composite_indexes = [CompositeIndex(index) for index in encoded_indexes]
 
     futures = []
-    for tx_node in children:
-      txid = int(tx_node.lstrip(APP_TX_PREFIX))
+    for tx_path in children:
+      tx_node_id = int(tx_path.split('/')[-1].lstrip(COUNTER_NODE_PREFIX))
       # Only resolve transactions that this worker has been assigned.
-      if txid % worker_count != worker_index:
+      if tx_node_id % worker_count != worker_index:
         continue
 
-      futures.append(self._resolve_txid(tx_node, composite_indexes))
+      futures.append(self._resolve_txid(tx_path, composite_indexes))
 
     txids_cleaned = 0
     for future in futures:
@@ -303,6 +369,8 @@ class TransactionGroomer(object):
     self._thread_pool = thread_pool
 
     self._coordinator = GroomingCoordinator(self._zk_client)
+
+    self._zk_client.ensure_path('/appscale/projects')
     self.projects_watch = zk_client.ChildrenWatch(
       '/appscale/projects', self._update_projects)
 
