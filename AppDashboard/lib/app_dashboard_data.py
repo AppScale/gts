@@ -296,7 +296,8 @@ class AppDashboardData():
     version, storing it in the Datastore for later viewing.
 
     Args:
-      version_key: A string specifying the version key.
+      version_key: A string specifying the version key in the form
+        project-id_service-id_version-id.
     """
     app_id = version_key.split('_')[0]
     try:
