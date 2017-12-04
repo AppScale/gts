@@ -3416,19 +3416,18 @@ class Djinn
   def start_hermes
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    HermesService.start(@options['verbose'].downcase == 'true')
+    script = `which appscale-hermes`.chomp
+    start_cmd = "/usr/bin/python2 #{script}"
+    start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
+    MonitInterface.start(:hermes, start_cmd)
     if my_node.is_shadow?
       nginx_port = 17441
-      service_port = 4_378
+      service_port = 4378
       Nginx.add_service_location(
         'appscale-administration', my_node.private_ip,
         service_port, nginx_port, '/stats/cluster/')
     end
     Djinn.log_info("Done starting Hermes service.")
-  end
-
-  def stop_hermes
-    HermesService.stop
   end
 
   # Starts the groomer service on this node. The groomer cleans the datastore of deleted
@@ -3650,6 +3649,20 @@ class Djinn
     end
   end
 
+  def build_hermes
+    Djinn.log_info('Building uncommitted Hermes changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
+      Djinn.log_error('Unable to build Hermes (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
+      Djinn.log_error('Unable to build Hermes (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building Hermes.')
+  end
+
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
     status = `git -C #{APPSCALE_HOME} status`
@@ -3658,6 +3671,7 @@ class Djinn
     build_datastore if status.include?('AppDB')
     build_common if status.include?('common')
     build_java_appserver if status.include?('AppServer_Java')
+    build_hermes if status.include?('Hermes')
   end
 
   def configure_ejabberd_cert

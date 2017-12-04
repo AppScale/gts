@@ -14,10 +14,4 @@ module HermesService
     start_cmd << ' --verbose' if verbose
     MonitInterface.start(:hermes, start_cmd)
   end
-
-  # Stops the Hermes service running on this machine. Since it's
-  # managed by monit, just tell monit to shut it down.
-  def self.stop
-    MonitInterface.stop(:hermes)
-  end
 end
