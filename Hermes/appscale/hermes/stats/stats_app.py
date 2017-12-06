@@ -304,9 +304,7 @@ def _configure_profiling(stats_source, profiler, interval):
     """ Triggers asynchronous stats collection and schedules writing
     of the cluster stats (when it's collected) to the stats profile.
     """
-
-    newer_than = time.mktime(datetime.now().timetuple())
-    future_stats = stats_source.get_current_async(newer_than=newer_than)
+    future_stats = stats_source.get_current_async(max_age=0)
     IOLoop.current().add_future(future_stats, write_stats_callback)
 
   return PeriodicCallback(profiling_periodical_callback, interval*1000)

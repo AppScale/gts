@@ -167,7 +167,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     # Call method under test to get stats with filtered set of fields
     include_lists = IncludeLists(raw_include_lists)
     stats, failures = yield cluster_stats_source.get_current_async(
-      newer_than=1494241234.0, include_lists=include_lists
+      max_age=10, include_lists=include_lists
     )
 
     # ASSERTING EXPECTATIONS
@@ -175,7 +175,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     self.assertEqual(
       json.loads(request_to_slave.body),
       {
-        'newer_than': 1494241234.0,
+        'max_age': 10,
         'include_lists': raw_include_lists,
       })
     self.assertEqual(
@@ -293,7 +293,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
     # Call method under test to get stats with filtered set of fields
     include_lists = IncludeLists(raw_include_lists)
     stats, failures = yield cluster_stats_source.get_current_async(
-      newer_than=1494244321.0, include_lists=include_lists
+      max_age=15, include_lists=include_lists
     )
     self.assertEqual(failures, {})
 
@@ -302,7 +302,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
     self.assertEqual(
       json.loads(request_to_slave.body),
       {
-        'newer_than': 1494244321.0,
+        'max_age': 15,
         'include_lists': raw_include_lists,
       })
     self.assertEqual(
@@ -408,7 +408,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     # Call method under test to get stats with filtered set of fields
     include_lists = IncludeLists(raw_include_lists)
     stats, failures = yield cluster_stats_source.get_current_async(
-      newer_than=1494243333.0, include_lists=include_lists
+      max_age=18, include_lists=include_lists
     )
 
     # ASSERTING EXPECTATIONS
@@ -416,7 +416,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     self.assertEqual(
       json.loads(request_to_lb.body),
       {
-        'newer_than': 1494243333.0,
+        'max_age': 18,
         'include_lists': raw_include_lists,
       })
     self.assertEqual(

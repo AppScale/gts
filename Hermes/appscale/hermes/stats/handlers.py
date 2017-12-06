@@ -33,7 +33,7 @@ class CurrentStatsHandler(RequestHandler):
     else:
       payload = {}
     include_lists = payload.get('include_lists')
-    newer_than = payload.get('newer_than')
+    max_age = payload.get('max_age', ACCEPTABLE_STATS_AGE)
 
     if include_lists is not None:
       try:
@@ -47,13 +47,11 @@ class CurrentStatsHandler(RequestHandler):
     else:
       include_lists = self._default_include_lists
 
-    if not newer_than:
-      newer_than = (
-        time.mktime(datetime.now().timetuple()) - ACCEPTABLE_STATS_AGE
-      )
+    newer_than = time.mktime(datetime.now().timetuple()) - max_age
 
-    if not self._snapshot or self._snapshot.utc_timestamp <= newer_than:
-      self._snapshot = self._stats_source.get_current()
+    if max_age:
+      if not self._snapshot or self._snapshot.utc_timestamp <= newer_than:
+        self._snapshot = self._stats_source.get_current()
 
     json.dump(stats_to_dict(self._snapshot, include_lists), self)
 
@@ -78,7 +76,7 @@ class CurrentClusterStatsHandler(RequestHandler):
     else:
       payload = {}
     include_lists = payload.get('include_lists')
-    newer_than = payload.get('newer_than')
+    max_age = payload.get('max_age', ACCEPTABLE_STATS_AGE)
 
     if include_lists is not None:
       try:
@@ -92,10 +90,7 @@ class CurrentClusterStatsHandler(RequestHandler):
     else:
       include_lists = self._default_include_lists
 
-    if not newer_than:
-      newer_than = (
-        time.mktime(datetime.now().timetuple()) - ACCEPTABLE_STATS_AGE
-      )
+    newer_than = time.mktime(datetime.now().timetuple()) - max_age
 
     if (not self._default_include_lists or
         include_lists.is_subset_of(self._default_include_lists)):
@@ -109,7 +104,7 @@ class CurrentClusterStatsHandler(RequestHandler):
 
     new_snapshots_dict, failures = (
       yield self._current_cluster_stats_source.get_current_async(
-        newer_than=newer_than, include_lists=include_lists,
+        max_age=max_age, include_lists=include_lists,
         exclude_nodes=fresh_local_snapshots.keys()
       )
     )
