@@ -43,7 +43,8 @@ module HermesClient
   def self.get_proxies_stats(lb_ip, secret, fetch_servers=true)
     data = {
       'include_lists' => {
-        'proxy' => ['name', 'accurate_frontend_scur', 'frontend', 'servers'],
+        'proxy' => ['name', 'accurate_frontend_scur', 'backend',
+                    'frontend', 'servers'],
         'proxy.frontend' => ['req_tot'],
         'proxy.backend' => ['qcur']
       },
@@ -104,11 +105,11 @@ module HermesClient
     proxy = HermesClient.get_proxy_stats(lb_ip, secret, proxy_name, true)
 
     running = proxy['servers'] \
-      .select{|server| server['status'] != 'DOWN'} \
+      .select{|server| server['status'].start_with?('DOWN')} \
       .map{|server| "#{server['private_ip']}:#{server['port']}"}
 
     failed = proxy['servers'] \
-      .select{|server| server['status'] == 'DOWN'} \
+      .select{|server| server['status'].start_with?('DOWN')} \
       .map{|server| "#{server['private_ip']}:#{server['port']}"}
 
     if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
