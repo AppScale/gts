@@ -5145,7 +5145,6 @@ HOSTS
     # if austoscale is disabled.
     return 0 if @options['autoscale'].downcase != "true"
 
-    haproxy_port = version_details['appscaleExtensions']['haproxyPort']
     # We need the haproxy stats to decide upon what to do.
     total_requests_seen, total_req_in_queue, current_sessions,
       time_requests_were_seen = get_application_load_stats(version_key)
@@ -5825,7 +5824,6 @@ HOSTS
 
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for #{version_key}")
-          haproxy_port = version_details['appscaleExtensions']['haproxyPort']
           total_reqs, reqs_enqueued, _,
             collection_time = get_application_load_stats(version_key)
           # Create the apps hash with useful information containing
@@ -5882,7 +5880,7 @@ HOSTS
     total_requests, requests_in_queue, sessions = 0, 0, 0
     time = :no_stats
     @nodes.each{ |node|
-      next if node.is_load_balancer?
+      next if not node.is_load_balancer?
       begin
         ip = node.private_ip
         pxname = "gae_#{version_key}"
@@ -5901,7 +5899,7 @@ HOSTS
   def get_application_appservers(version_key)
     all_running, all_failed = [], []
     @nodes.each{ |node|
-      next if node.is_load_balancer?
+      next if not node.is_load_balancer?
       begin
         ip = node.private_ip
         pxname = "gae_#{version_key}"

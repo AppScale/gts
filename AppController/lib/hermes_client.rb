@@ -88,6 +88,9 @@ module HermesClient
     total_requests_seen = proxy['frontend']['req_tot']
     total_req_in_queue = proxy['backend']['qcur']
     current_sessions = proxy['accurate_frontend_scur']
+    Djinn.log_debug("HAProxy load stats for #{proxy_name}: " \
+      "req_tot=#{total_requests_seen}, qcur=#{total_req_in_queue}, " \
+      "scur=#{current_sessions}")
     return total_requests_seen, total_req_in_queue, current_sessions
   end
 
