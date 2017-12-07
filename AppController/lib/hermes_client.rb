@@ -28,7 +28,6 @@ module HermesClient
       return JSON.load(response.body)
     rescue Errno::ETIMEDOUT
       raise FailedNodeException.new("Failed to call Hermes: timed out")
-    end
     rescue Errno::ECONNREFUSED
       raise FailedNodeException.new("Failed to call Hermes: connection refused")
     end
@@ -50,7 +49,7 @@ module HermesClient
       },
       'max_age' => 0
     }
-    data['include_lists']['proxy.servers'] = [
+    data['include_lists']['proxy.server'] = [
       'private_ip', 'port', 'status'
     ]
     proxies_list = HermesClient.make_call(
