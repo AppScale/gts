@@ -276,6 +276,7 @@ class LogsBuffer(object):
   def _flush(self):
     """Internal version of flush() with no locking."""
     logs = self.parse_logs()
+    self._clear()
     first_iteration = True
     while logs or first_iteration:
       first_iteration = False
