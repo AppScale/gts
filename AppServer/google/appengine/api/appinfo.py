@@ -1315,6 +1315,10 @@ def NormalizeVmSettings(appyaml):
 
       appyaml.vm_settings['vm_runtime'] = appyaml.runtime
       appyaml.runtime = 'vm'
+
+  # AppScale: Ensure that each module has only one version.
+  appyaml.version = 'v1'
+
   return appyaml
 
 
