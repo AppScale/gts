@@ -55,7 +55,7 @@ module HermesClient
     proxies_list = HermesClient.make_call(
       lb_ip, secret, '/stats/local/proxies', data
     )
-    return proxies_list
+    return proxies_list['proxies_stats']
   end
 
   # Gets haproxy statistics for a specific proxy

@@ -49,9 +49,12 @@ class CurrentStatsHandler(RequestHandler):
 
     newer_than = time.mktime(datetime.now().timetuple()) - max_age
 
-    if max_age:
-      if not self._snapshot or self._snapshot.utc_timestamp <= newer_than:
-        self._snapshot = self._stats_source.get_current()
+    need_refresh = (
+      not self._snapshot or
+      (self._snapshot.utc_timestamp <= newer_than and max_age)
+    )
+    if need_refresh:
+      self._snapshot = self._stats_source.get_current()
 
     json.dump(stats_to_dict(self._snapshot, include_lists), self)
 
@@ -97,7 +100,7 @@ class CurrentClusterStatsHandler(RequestHandler):
       # If user didn't specify any non-default fields we can use local cache
       fresh_local_snapshots = {
         node_ip: snapshot for node_ip, snapshot in self._snapshots.iteritems()
-        if snapshot.utc_timestamp > newer_than
+        if max_age and snapshot.utc_timestamp > newer_than
       }
     else:
       fresh_local_snapshots = {}
