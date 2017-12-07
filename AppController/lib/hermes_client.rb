@@ -70,7 +70,9 @@ module HermesClient
   #
   def self.get_proxy_stats(lb_ip, secret, proxy_name, fetch_servers=true)
     proxies = HermesClient.get_proxies_stats(lb_ip, secret, fetch_servers)
-    return proxies.detect{|item| item['name'] == proxy_name}
+    proxy = proxies.detect{|item| item['name'] == proxy_name}
+    return proxy if not proxy.nil?
+    raise AppScaleException.new("Proxy #{proxy_name} was not found on #{lb_ip}")
   end
 
   # Gets total_requests, total_req_in_queue and current_sessions 
@@ -86,7 +88,7 @@ module HermesClient
     total_requests_seen = proxy['frontend']['req_tot']
     total_req_in_queue = proxy['backend']['qcur']
     current_sessions = proxy['accurate_frontend_scur']
-    return total_requests_seen, total_req_in_queue
+    return total_requests_seen, total_req_in_queue, current_sessions
   end
 
   # Gets running and failed backend servers for a specific proxy.
@@ -102,7 +104,7 @@ module HermesClient
     running = proxy['servers'] \
       .select{|server| server['status'] != 'DOWN'} \
       .map{|server| "#{server['private_ip']}:#{server['port']}"}
-      
+
     failed = proxy['servers'] \
       .select{|server| server['status'] == 'DOWN'} \
       .map{|server| "#{server['private_ip']}:#{server['port']}"}

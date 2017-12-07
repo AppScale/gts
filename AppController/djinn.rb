@@ -4547,7 +4547,7 @@ HOSTS
   def check_haproxy
     @versions_loaded.each{ |version_key|
       if my_node.is_shadow?
-         _, failed = HAProxy.list_servers(version_key)
+         _, failed = get_application_appservers(version_key)
         failed.each{ |appserver|
           Djinn.log_warn(
             "Detected failed AppServer for #{version_key}: #{appserver}.")
@@ -5148,10 +5148,9 @@ HOSTS
     haproxy_port = version_details['appscaleExtensions']['haproxyPort']
     # We need the haproxy stats to decide upon what to do.
     total_requests_seen, total_req_in_queue, current_sessions,
-      time_requests_were_seen = HAProxy.get_haproxy_stats(
-        version_key, my_node.private_ip, haproxy_port)
+      time_requests_were_seen = get_application_load_stats(version_key)
 
-    if time_requests_were_seen == :no_backend
+    if time_requests_were_seen == :no_stats
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
       return 0
     end
@@ -5827,8 +5826,8 @@ HOSTS
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for #{version_key}")
           haproxy_port = version_details['appscaleExtensions']['haproxyPort']
-          total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(
-            version_key, my_node.private_ip, haproxy_port)
+          total_reqs, reqs_enqueued, _,
+            collection_time = get_application_load_stats(version_key)
           # Create the apps hash with useful information containing
           # HAProxy stats.
           begin
@@ -5877,6 +5876,43 @@ HOSTS
     node_stats['roles'] = my_node.jobs || ['none']
 
     JSON.dump(node_stats)
+  end
+
+  def get_application_load_stats(version_key)
+    total_requests, requests_in_queue, sessions = 0, 0, 0
+    time = :no_stats
+    @nodes.each{ |node|
+      next if node.is_load_balancer?
+      begin
+        ip = node.private_ip
+        pxname = "gae_#{version_key}"
+        load_stats = HermesClient.get_proxy_load_stats(ip, @@secret, pxname)
+        total_requests += load_stats[0]
+        requests_in_queue += load_stats[1]
+        sessions += load_stats[2]
+        time = Time.now.to_i
+      rescue AppScaleException => error
+        Djinn.log_warn("Couldn't get proxy stats from Hermes: #{error.message}")
+      end
+    }
+    return total_requests, requests_in_queue, sessions, time
+  end
+
+  def get_application_appservers(version_key)
+    all_running, all_failed = [], []
+    @nodes.each{ |node|
+      next if node.is_load_balancer?
+      begin
+        ip = node.private_ip
+        pxname = "gae_#{version_key}"
+        running, failed = HermesClient.get_backend_servers(ip, @@secret, pxname)
+        all_running += running
+        all_failed += failed
+      rescue AppScaleException => error
+        Djinn.log_warn("Couldn't get proxy stats from Hermes: #{error.message}")
+      end
+    }
+    return all_running.uniq, all_failed.uniq
   end
 
   # Gets an application cron info.
