@@ -5876,14 +5876,20 @@ HOSTS
     JSON.dump(node_stats)
   end
 
+  # Gets summarized total_requests, total_req_in_queue and current_sessions 
+  # for a specific application version accross all LB nodes.
+  #
+  # Args:
+  #   version_key: A string specifying the version key.
+  #
   def get_application_load_stats(version_key)
     total_requests, requests_in_queue, sessions = 0, 0, 0
+    pxname = "gae_#{version_key}"
     time = :no_stats
     lb_nodes = @nodes.select{|node| node.is_load_balancer?}
     lb_nodes.each{ |node|
       begin
         ip = node.private_ip
-        pxname = "gae_#{version_key}"
         load_stats = HermesClient.get_proxy_load_stats(ip, @@secret, pxname)
         total_requests += load_stats[0]
         requests_in_queue += load_stats[1]
@@ -5895,19 +5901,25 @@ HOSTS
     }
     if lb_nodes.length > 1
       # Report total HAProxy stats if there are multiple LB nodes
-      Djinn.log_debug("Summarized HAProxy load stats for #{proxy_name}: " \
+      Djinn.log_debug("Summarized HAProxy load stats for #{pxname}: " \
         "req_tot=#{total_requests}, qcur=#{requests_in_queue}, scur=#{sessions}")
     end
     return total_requests, requests_in_queue, sessions, time
   end
 
+  # Gets united lists of running and failed AppServers
+  # for a specific application version accross all LB nodes.
+  #
+  # Args:
+  #   version_key: A string specifying the version key.
+  #
   def get_application_appservers(version_key)
     all_running, all_failed = [], []
+    pxname = "gae_#{version_key}"
     lb_nodes = @nodes.select{|node| node.is_load_balancer?}
     lb_nodes.each{ |node|
       begin
         ip = node.private_ip
-        pxname = "gae_#{version_key}"
         running, failed = HermesClient.get_backend_servers(ip, @@secret, pxname)
         all_running += running
         all_failed += failed
@@ -5920,19 +5932,19 @@ HOSTS
 
     if lb_nodes.length > 1
       # Report total HAProxy stats if there are multiple LB nodes
-      if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-        Djinn.log_debug("Deployment: found #{running.length} running " \
-                        "AppServers for #{proxy_name}.")
+      if all_running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+        Djinn.log_debug("Deployment: found #{all_running.length} running " \
+                        "AppServers for #{pxname}.")
       else
         Djinn.log_debug("Deployment: found these running " \
-                        "AppServers for #{proxy_name}: #{running}.")
+                        "AppServers for #{pxname}: #{all_running}.")
       end
-      if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-        Djinn.log_debug("Deployment: found #{failed.length} failed " \
-                        "AppServers for #{proxy_name}.")
+      if all_failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+        Djinn.log_debug("Deployment: found #{all_failed.length} failed " \
+                        "AppServers for #{pxname}.")
       else
         Djinn.log_debug("Deployment: found these failed " \
-                        "AppServers for #{proxy_name}: #{failed}.")
+                        "AppServers for #{pxname}: #{all_failed}.")
       end
     end
 

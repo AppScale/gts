@@ -7,7 +7,7 @@ require 'helperfunctions'
 
 module HermesClient
 
-  # The port that the Hermes binds to.
+  # The port that Hermes binds to.
   SERVER_PORT = 4378
 
   def self.make_call(node_ip, secret, endpoint, body_hash)
