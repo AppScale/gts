@@ -50,9 +50,11 @@ module HermesClient
       },
       'max_age' => 0
     }
-    data['include_lists']['proxy.server'] = [
-      'private_ip', 'port', 'status'
-    ]
+    if fetch_servers
+      data['include_lists']['proxy.server'] = [
+        'private_ip', 'port', 'status'
+      ]
+    end
     proxies_list = HermesClient.make_call(
       lb_ip, secret, '/stats/local/proxies', data
     )
@@ -71,7 +73,7 @@ module HermesClient
   def self.get_proxy_stats(lb_ip, secret, proxy_name, fetch_servers=true)
     proxies = HermesClient.get_proxies_stats(lb_ip, secret, fetch_servers)
     proxy = proxies.detect{|item| item['name'] == proxy_name}
-    return proxy if not proxy.nil?
+    return proxy unless proxy.nil?
     raise AppScaleException.new("Proxy #{proxy_name} was not found at #{lb_ip}")
   end
 
