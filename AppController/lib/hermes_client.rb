@@ -72,7 +72,7 @@ module HermesClient
     proxies = HermesClient.get_proxies_stats(lb_ip, secret, fetch_servers)
     proxy = proxies.detect{|item| item['name'] == proxy_name}
     return proxy if not proxy.nil?
-    raise AppScaleException.new("Proxy #{proxy_name} was not found on #{lb_ip}")
+    raise AppScaleException.new("Proxy #{proxy_name} was not found at #{lb_ip}")
   end
 
   # Gets total_requests, total_req_in_queue and current_sessions 
@@ -88,7 +88,7 @@ module HermesClient
     total_requests_seen = proxy['frontend']['req_tot']
     total_req_in_queue = proxy['backend']['qcur']
     current_sessions = proxy['accurate_frontend_scur']
-    Djinn.log_debug("HAProxy load stats for #{proxy_name}: " \
+    Djinn.log_debug("HAProxy load stats for #{proxy_name} at #{lb_ip}: " \
       "req_tot=#{total_requests_seen}, qcur=#{total_req_in_queue}, " \
       "scur=#{current_sessions}")
     return total_requests_seen, total_req_in_queue, current_sessions
@@ -105,7 +105,7 @@ module HermesClient
     proxy = HermesClient.get_proxy_stats(lb_ip, secret, proxy_name, true)
 
     running = proxy['servers'] \
-      .select{|server| server['status'].start_with?('DOWN')} \
+      .select{|server| not server['status'].start_with?('DOWN')} \
       .map{|server| "#{server['private_ip']}:#{server['port']}"}
 
     failed = proxy['servers'] \
@@ -113,18 +113,18 @@ module HermesClient
       .map{|server| "#{server['private_ip']}:#{server['port']}"}
 
     if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-      Djinn.log_debug("Haproxy: found #{running.length} running AppServers " \
-                      "for #{proxy_name}.")
+      Djinn.log_debug("Haproxy at #{lb_ip}: found #{running.length} running " \
+                      "AppServers for #{proxy_name}.")
     else
-      Djinn.log_debug('Haproxy: found these running AppServers for ' \
-                      "#{proxy_name}: #{running}.")
+      Djinn.log_debug("Haproxy at #{lb_ip}: found these running " \
+                      "AppServers for #{proxy_name}: #{running}.")
     end
     if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-      Djinn.log_debug("Haproxy: found #{failed.length} failed AppServers " \
-                      "for #{proxy_name}.")
+      Djinn.log_debug("Haproxy at #{lb_ip}: found #{failed.length} failed " \
+                      "AppServers for #{proxy_name}.")
     else
-      Djinn.log_debug('Haproxy: found these failed AppServers for ' \
-                      "#{proxy_name}: #{failed}.")
+      Djinn.log_debug("Haproxy at #{lb_ip}: found these failed " \
+                      "AppServers for #{proxy_name}: #{failed}.")
     end
     return running, failed
   end

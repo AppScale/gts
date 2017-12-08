@@ -5879,8 +5879,8 @@ HOSTS
   def get_application_load_stats(version_key)
     total_requests, requests_in_queue, sessions = 0, 0, 0
     time = :no_stats
-    @nodes.each{ |node|
-      next if not node.is_load_balancer?
+    lb_nodes = @nodes.select{|node| node.is_load_balancer?}
+    lb_nodes.each{ |node|
       begin
         ip = node.private_ip
         pxname = "gae_#{version_key}"
@@ -5893,13 +5893,18 @@ HOSTS
         Djinn.log_warn("Couldn't get proxy stats from Hermes: #{error.message}")
       end
     }
+    if lb_nodes.length > 1
+      # Report total HAProxy stats if there are multiple LB nodes
+      Djinn.log_debug("Summarized HAProxy load stats for #{proxy_name}: " \
+        "req_tot=#{total_requests}, qcur=#{requests_in_queue}, scur=#{sessions}")
+    end
     return total_requests, requests_in_queue, sessions, time
   end
 
   def get_application_appservers(version_key)
     all_running, all_failed = [], []
-    @nodes.each{ |node|
-      next if not node.is_load_balancer?
+    lb_nodes = @nodes.select{|node| node.is_load_balancer?}
+    lb_nodes.each{ |node|
       begin
         ip = node.private_ip
         pxname = "gae_#{version_key}"
@@ -5910,7 +5915,28 @@ HOSTS
         Djinn.log_warn("Couldn't get proxy stats from Hermes: #{error.message}")
       end
     }
-    return all_running.uniq, all_failed.uniq
+    all_running.uniq!
+    all_failed.uniq!
+
+    if lb_nodes.length > 1
+      # Report total HAProxy stats if there are multiple LB nodes
+      if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+        Djinn.log_debug("Deployment: found #{running.length} running " \
+                        "AppServers for #{proxy_name}.")
+      else
+        Djinn.log_debug("Deployment: found these running " \
+                        "AppServers for #{proxy_name}: #{running}.")
+      end
+      if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+        Djinn.log_debug("Deployment: found #{failed.length} failed " \
+                        "AppServers for #{proxy_name}.")
+      else
+        Djinn.log_debug("Deployment: found these failed " \
+                        "AppServers for #{proxy_name}: #{failed}.")
+      end
+    end
+
+    return all_running, all_failed
   end
 
   # Gets an application cron info.
