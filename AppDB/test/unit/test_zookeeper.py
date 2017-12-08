@@ -5,7 +5,6 @@ import kazoo.client
 import kazoo.exceptions
 import kazoo.protocol
 import kazoo.protocol.states
-import time
 import unittest
 
 from appscale.datastore.dbconstants import MAX_GROUPS_FOR_XG

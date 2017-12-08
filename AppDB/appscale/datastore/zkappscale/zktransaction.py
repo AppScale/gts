@@ -7,30 +7,17 @@ import kazoo.exceptions
 import logging
 import os
 import re
-import sys
-import threading
 import time
 import urllib
 
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .inspectable_counter import InspectableCounter
-from ..cassandra_env import cassandra_interface
-from ..cassandra_env.large_batch import (FailedBatch,
-                                         LargeBatch)
-from ..dbconstants import (AppScaleDBConnectionError,
-                           MAX_GROUPS_FOR_XG,
-                           MAX_TX_DURATION)
+from ..dbconstants import MAX_GROUPS_FOR_XG
 
 from cassandra.policies import FallthroughRetryPolicy
-from kazoo.exceptions import (NoNodeError,
-                              KazooException,
+from kazoo.exceptions import (KazooException,
                               ZookeeperError)
 from kazoo.retry import KazooRetry
-from kazoo.retry import RetryFailedError
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.datastore import entity_pb
 
 # A cassandra-driver policy that does not retry operations.
 NO_RETRIES = FallthroughRetryPolicy()
