@@ -4,16 +4,15 @@ import uuid
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from tornado import gen
-from .retry_policies import (BASIC_RETRIES,
-                             NO_RETRIES)
-from .utils import deletions_for_entity
-from .utils import mutations_for_entity
-from ..dbconstants import TRANSIENT_CASSANDRA_ERRORS
-from ..cassandra_env.tornado_cassandra import TornadoCassandra
-from ..utils import (logger,
-                     tx_partition)
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.cassandra_env.retry_policies import (
+  BASIC_RETRIES, NO_RETRIES)
+from appscale.datastore.cassandra_env.tornado_cassandra import TornadoCassandra
+from appscale.datastore.cassandra_env.utils import (
+  deletions_for_entity, mutations_for_entity)
+from appscale.datastore.dbconstants import TRANSIENT_CASSANDRA_ERRORS
+from appscale.datastore.utils import logger, tx_partition
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
