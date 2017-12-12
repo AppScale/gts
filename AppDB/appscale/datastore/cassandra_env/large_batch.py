@@ -376,8 +376,7 @@ class BatchResolver(object):
       for statement, params in statements_and_params:
         futures.append(self._tornado_cassandra.execute(statement, params))
 
-    for future in futures:
-      yield future
+    yield futures
 
   @gen.coroutine
   def _update_op_id(self, txid_hash, applied_status, old_op_id, new_op_id):
