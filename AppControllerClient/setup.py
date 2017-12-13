@@ -1,26 +1,22 @@
 from setuptools import setup
 
 setup(
-  name='appscale-common',
-  version='0.0.2',
-  description='Modules used by multiple AppScale packages',
+  name='appscale-controller-client',
+  version='0.0.1',
+  description='A client used for making AppController calls',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
   license='Apache License 2.0',
   keywords='appscale google-app-engine python',
   platforms='Posix',
-  install_requires=[
-    'kazoo',
-    'PyYAML'
-  ],
+  install_requires=['SOAPpy'],
   classifiers=[
-    'Development Status :: 5 - Production/Stable',
+    'Development Status :: 3 - Alpha',
     'Intended Audience :: Developers',
     'License :: OSI Approved :: Apache Software License',
     'Programming Language :: Python :: 2.7',
   ],
   namespace_packages=['appscale'],
   packages=['appscale',
-            'appscale.common'],
-  package_data={'appscale.common': ['templates/*']}
+            'appscale.appcontroller_client']
 )

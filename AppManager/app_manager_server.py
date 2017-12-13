@@ -1,17 +1,14 @@
 """ This service starts and stops application servers of a given application. """
 
-import errno
 import logging
 import math
 import os
 import re
-import sys
 import threading
 import time
 import urllib
 import urllib2
 
-import psutil
 import tornado.web
 from concurrent.futures import ThreadPoolExecutor
 from kazoo.client import KazooClient
@@ -39,6 +36,7 @@ from appscale.admin.instance_manager.projects_manager import (
 from appscale.admin.instance_manager.source_manager import SourceManager
 from appscale.admin.instance_manager.stop_instance import stop_instance
 from appscale.admin.instance_manager.utils import find_web_inf
+from appscale.appcontroller_client import AppControllerClient
 from appscale.common import (
   appscale_info,
   constants,
@@ -54,10 +52,7 @@ from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from appscale.common.monit_interface import MonitOperator
 from appscale.common.monit_interface import ProcessNotFound
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerClient
 
 # The amount of seconds to wait for an application to start up.
 START_APP_TIMEOUT = 180
@@ -264,7 +259,8 @@ def start_app(version_key, config):
     env_vars,
     max_memory,
     options.syslog_server,
-    check_port=True)
+    check_port=True,
+    kill_exceeded_memory=True)
 
   # We want to tell monit to start the single process instead of the
   # group, since monit can get slow if there are quite a few processes in
