@@ -97,24 +97,6 @@ class TestBackup(unittest.TestCase):
     fake_backup.db_access = FakeDatastore()
     self.assertEquals([], fake_backup.get_entity_batch('app_id', 100, True))
 
-  def test_verify_entity(self):
-    zookeeper = flexmock()
-    fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
-      "cassandra", False, []))
-
-    # Test with valid entity.
-    zookeeper.should_receive('is_blacklisted').and_return(False)
-    self.assertEquals(True, fake_backup.verify_entity('key', 'txn_id'))
-
-    # Test with blacklisted entity.
-    zookeeper.should_receive('is_blacklisted').and_return(True)
-    self.assertEquals(False, fake_backup.verify_entity('key', 'txn_id'))
-
-    # Test with exception tossed.
-    zookeeper.should_receive('is_blacklisted').and_raise(ZKTransactionException)
-    flexmock(time).should_receive('sleep').and_return()
-    fake_backup.verify_entity('key', 'txn_id')
-
   def test_dump_entity(self):
     zookeeper = flexmock()
     fake_backup = flexmock(DatastoreBackup('app_id', zookeeper,
@@ -128,20 +110,16 @@ class TestBackup(unittest.TestCase):
     flexmock(re).should_receive('match').at_least().times(2).and_return(None)
     flexmock(entity_utils).\
       should_receive('get_root_key_from_entity_key').and_return('root_key')
-    fake_backup.zoo_keeper.should_receive('get_transaction_id').\
-      and_return('txn_id')
 
     # Test successful operation.
     fake_backup.zoo_keeper.should_receive('acquire_lock').and_return(True)
 
     # ... with valid entity.
-    fake_backup.should_receive('verify_entity').and_return(True)
     fake_backup.should_receive('dump_entity').and_return(True)
     fake_backup.zoo_keeper.should_receive("release_lock").and_return()
     self.assertEquals(True, fake_backup.process_entity(FAKE_ENCODED_ENTITY))
 
     # ... with blacklisted entity.
-    fake_backup.should_receive('verify_entity').and_return(False)
     flexmock(entity_utils).should_receive('fetch_journal_entry').\
       and_return(FAKE_ENCODED_ENTITY)
     fake_backup.should_receive('dump_entity').and_return(True)

@@ -423,7 +423,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     """
     self._RemoteSend(request, response, "ModifyTaskLease", request_id)
 
-  def _RemoteSend(self, request, response, method, request_id=None):
+  def _RemoteSend(self, request, response, method, request_id=None,
+                  service_id=None, version_id=None):
     """Sends a request remotely to the taskqueue server.
 
     Args:
@@ -431,6 +432,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       response: A protocol buffer response.
       method: The function which is calling the remote server.
       request_id: A string specifying a request ID.
+      service_id: A string specifying the client service ID.
+      version_id: A string specifying the client version ID.
     Raises:
       taskqueue_service_pb.InternalError:
     """

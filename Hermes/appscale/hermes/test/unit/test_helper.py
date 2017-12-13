@@ -1,20 +1,17 @@
 #!/usr/bin/env python
 
 import Queue
-import sys
 import threading
 import unittest
 
 import tornado.httpclient
+from appscale.appcontroller_client import AppControllerClient
 from appscale.common import appscale_info
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from flexmock import flexmock
 
 from appscale.hermes import helper, constants
 from appscale.hermes.helper import MissingRequestArgs
 
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerClient
 
 class FakeAppControllerClient():
   def __init__(self, registered):

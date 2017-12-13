@@ -1110,13 +1110,15 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
-  def add_transactional_tasks(self, app, txid, tasks):
+  def add_transactional_tasks(self, app, txid, tasks, service_id, version_id):
     """ Add tasks to be enqueued upon the completion of a transaction.
 
     Args:
       app: A string specifying an application ID.
       txid: An integer specifying a transaction ID.
       tasks: A list of TaskQueueAddRequest objects.
+      service_id: A string specifying the client's service ID.
+      version_id: A string specifying the client's version ID.
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
                            retry_policy=BASIC_RETRIES)
@@ -1132,11 +1134,12 @@ class DatastoreProxy(AppDBInterface):
       # The path for the task entry doesn't matter as long as it's unique.
       path = bytearray(str(uuid.uuid4()))
 
+      task_payload = '_'.join([service_id, version_id, task.Encode()])
       args = (tx_partition(app, txid),
               TxnActions.ENQUEUE_TASK,
               '',
               path,
-              task.Encode())
+              task_payload)
       batch.add(insert, args)
 
     try:
@@ -1222,6 +1225,10 @@ class DatastoreProxy(AppDBInterface):
         group_key = create_key(app, result.namespace, result.path)
         metadata['reads'].add(group_key.Encode())
       if result.operation == TxnActions.ENQUEUE_TASK:
-        metadata['tasks'].append(
-          taskqueue_service_pb.TaskQueueAddRequest(result.task))
+        service_id, version_id, task_pb = result.task.split('_', 2)
+        task_metadata = {
+          'service_id': service_id,
+          'version_id': version_id,
+          'task': taskqueue_service_pb.TaskQueueAddRequest(task_pb)}
+        metadata['tasks'].append(task_metadata)
     return metadata

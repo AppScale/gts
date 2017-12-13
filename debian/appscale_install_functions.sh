@@ -521,6 +521,10 @@ postinstallrsyslog()
     sed -i 's/#module(load="imtcp")/module(load="imtcp")/' /etc/rsyslog.conf
     sed -i 's/#input(type="imtcp" port="514")/input(type="imtcp" port="514")/' /etc/rsyslog.conf
 
+    # Set up template for formatting combined application log messages.
+    cp ${APPSCALE_HOME}/common/appscale/common/templates/rsyslog-template.conf\
+        /etc/rsyslog.d/09-appscale.conf
+
     # Restart the service
     service rsyslog restart || true
 }
@@ -624,6 +628,12 @@ preplogserver()
     cp ${FILE_SRC} ${FILE_DEST}
 }
 
+installacc()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppControllerClient
+    pip install ${APPSCALE_HOME}/AppControllerClient
+}
+
 installcommon()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/common
@@ -662,6 +672,8 @@ prepdashboard()
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor wstools==0.4.3
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor SOAPpy
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor python-crontab
+    pip install -t ${APPSCALE_HOME}/AppDashboard/vendor \
+        ${APPSCALE_HOME}/AppControllerClient
 }
 
 upgradepip()
@@ -672,6 +684,11 @@ upgradepip()
         precise|wheezy|trusty)
             pipwrapper pip
             # Account for the change in the path to the pip binary.
+            hash -r
+            ;;
+        jessie)
+            # The system's pip does not allow updating itself.
+            easy_install --upgrade pip
             hash -r
             ;;
     esac

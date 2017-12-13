@@ -3,6 +3,7 @@
 import re
 import sys
 import subprocess
+import time
 import unittest
 from flexmock import flexmock
 
@@ -101,6 +102,13 @@ class TestCassandraBackup(unittest.TestCase):
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
     flexmock(rebalance).should_receive('get_status').and_return(
       [{'state': 'UN'} for _ in db_ips])
+
+    flexmock(time).should_receive('sleep')
+
+    flexmock(utils).should_receive('ssh').with_args(
+      re.compile('^192.*'), keyname, re.compile('.*nodetool status'),
+      method=subprocess.check_output).\
+      and_return('UN 192.168.33.10\nUN 192.168.33.11')
 
     cassandra_backup.restore_data(path, keyname)
 

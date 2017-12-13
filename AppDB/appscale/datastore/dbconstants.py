@@ -197,10 +197,15 @@ class AppScaleBadArg(Exception):
     return repr(self.value)
 
 class BadRequest(Exception):
-  """ Indicates that a client's request cannot be satisfied. """
+  """ Indicates that a client provided invalid parameters for a request. """
+  pass
 
 class ConcurrentModificationException(Exception):
   """ Indicates that an entity fetched during a transaction has changed. """
+  pass
+
+class InternalError(Exception):
+  """ Indicates that the datastore was unable to perform an operation. """
   pass
 
 class TooManyGroupsException(Exception):

@@ -109,7 +109,7 @@ def create_groups_table(session):
   create_table = """
     CREATE TABLE IF NOT EXISTS group_updates (
       group blob PRIMARY KEY,
-      last_update int
+      last_update bigint
     )
   """
   statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
