@@ -6,9 +6,9 @@ import hashlib
 import json
 import logging
 import re
-import sys
 import time
 
+from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
@@ -20,7 +20,6 @@ from appscale.common.monit_interface import MonitOperator
 from appscale.common.appscale_utils import get_md5
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from kazoo.client import KazooClient
@@ -43,6 +42,7 @@ from .constants import (
   OperationTimeout,
   REDEPLOY_WAIT,
   ServingStatus,
+  SUPPORTED_INBOUND_SERVICES,
   VALID_RUNTIMES
 )
 from .operation import (
@@ -53,9 +53,6 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerException
 
 
 logger = logging.getLogger('appscale-admin')
@@ -568,6 +565,11 @@ class VersionsHandler(BaseHandler):
     if 'basicScaling' in version or 'manualScaling' in version:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Only automaticScaling is supported')
+
+    for inbound_service in version.get('inboundServices', []):
+      if inbound_service not in SUPPORTED_INBOUND_SERVICES:
+        message = '{} is not supported'.format(inbound_service)
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
     # Create a revision ID to differentiate between deployments of the same
     # version.

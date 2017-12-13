@@ -8,17 +8,13 @@ require 'zkinterface'
 
 include REXML
 
-
 # A module that abstracts away interactions with our implementation of the
 # Google App Engine Cron API. It lets users write specifications for how
 # often URLs in their web app should be accessed, and turns that into
 # standard cron jobs.
 module CronHelper
-
-
   # A String that tells cron not to e-mail anyone about updates.
-  NO_EMAIL_CRON = 'MAILTO=\"\"'
-
+  NO_EMAIL_CRON = 'MAILTO=""'.freeze
 
   # Reads the cron configuration file for the given application, and converts
   # any YAML or XML-specified cron jobs to standard cron format.
@@ -42,7 +38,7 @@ module CronHelper
       return
     end
 
-    cron_routes = yaml_file["cron"]
+    cron_routes = yaml_file['cron']
     if cron_routes.nil?
       clear_app_crontab(app)
       return
@@ -50,18 +46,18 @@ module CronHelper
 
     cron_routes.each { |item|
       next if item['url'].nil?
-      description = item["description"]
+      description = item['description']
 
       begin
         # Parse URL to prevent malicious code from being appended.
-        url = URI.parse(item['url']).to_s()
+        url = URI.parse(item['url']).to_s
         parsing_log += "Parsed cron URL: #{url}\n"
       rescue URI::InvalidURIError
         Djinn.log_warn("Invalid cron URL: #{item['url']}. Skipping entry.")
         next
       end
 
-      schedule = item["schedule"]
+      schedule = item['schedule']
       cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
       parsing_log += "Schedule: #{schedule}\n"
       cron_scheds.each { |line|
@@ -79,12 +75,10 @@ CRON
     Djinn.log_debug(parsing_log) if write_app_crontab(app_crontab, app)
   end
 
-
   # Erases all cron jobs for all applications.
   def self.clear_app_crontabs
     Djinn.log_run('rm -f /etc/cron.d/appscale-*')
   end
-
 
   # Erases all cron jobs for application.
   #
@@ -95,7 +89,6 @@ CRON
     Djinn.log_run("rm -f #{cron_file}") if File.exists?(cron_file)
   end
 
-
   # Checks if a crontab line is valid.
   #
   # Args:
@@ -104,9 +97,7 @@ CRON
   #   A boolean that expresses the validity of the line.
   def self.valid_crontab_line(line)
     crontab_exists = system('crontab -l 2> /dev/null')
-    if crontab_exists
-      `crontab -l > crontab.backup`
-    end
+    `crontab -l > crontab.backup` if crontab_exists
 
     temp_cron_file = Tempfile.new('crontab')
     temp_cron_file.write(line + "\n")
@@ -121,9 +112,8 @@ CRON
       `crontab -r`
     end
 
-    return line_is_valid
+    line_is_valid
   end
-
 
   # Creates or overwrites an app's crontab.
   #
@@ -134,10 +124,10 @@ CRON
   #   A Boolean indicating if the crontab was written.
   def self.write_app_crontab(crontab, app)
     app_cron_file = "/etc/cron.d/appscale-#{app}"
-    current = ""
+    current = ''
     current = File.read(app_cron_file) if File.exists?(app_cron_file)
     if current != crontab
-      File.open(app_cron_file, 'w') { | file| file.write(crontab) }
+      File.open(app_cron_file, 'w') { |file| file.write(crontab) }
       Djinn.log_info("Written crontab for #{app}.")
       Djinn.log_debug("Crontab for #{app}:\n#{crontab}.")
     else
@@ -145,9 +135,8 @@ CRON
       return false
     end
 
-    return true
+    true
   end
-
 
   # Gets an application cron info.
   #
@@ -155,7 +144,7 @@ CRON
   #   app_name: A String that names the appid of this application.
   def self.get_application_cron_info(app_name)
     etc_crond_filename = "/etc/cron.d/appscale-#{app_name}"
-    etc_crond_file = File.exists?(etc_crond_filename) ? File.read(etc_crond_filename): ""
+    etc_crond_file = File.exists?(etc_crond_filename) ? File.read(etc_crond_filename) : ''
 
     begin
       cron_config = ZKInterface.get_cron_config(app_name)
@@ -163,9 +152,8 @@ CRON
       cron_config = ''
     end
 
-    return {"etc_crond_file" => etc_crond_file, "cron_yaml_file" => cron_config}
+    { 'etc_crond_file' => etc_crond_file, 'cron_yaml_file' => cron_config }
   end
-
 
   # Converts the frequency of how often a Google App Engine cron job should run
   # to a format that cron understands.
@@ -183,9 +171,8 @@ CRON
   # Returns:
   #   ords, since this method isn't actually implemented correctly.
   def self.fix_ords(ords)
-    return ords
+    ords
   end
-
 
   # Converts the list of days given in either the Google App Engine Python or
   # Java format to a format that cron understands.
@@ -197,17 +184,16 @@ CRON
   # Returns:
   #   An Array of Strings, where each String is now in cron format.
   def self.fix_days(days)
-    table = { "sunday" => "sun", "monday" => "mon", "tuesday" => "tue",
-              "wednesday" => "wed", "thursday" => "thu", "friday" => "fri",
-              "saturday" => "sat", "day" => "*" }
+    table = { 'sunday' => 'sun', 'monday' => 'mon', 'tuesday' => 'tue',
+              'wednesday' => 'wed', 'thursday' => 'thu', 'friday' => 'fri',
+              'saturday' => 'sat', 'day' => '*' }
     result = []
-    day_list = days.split(",")
-    day_list.each{ |day|
+    day_list = days.split(',')
+    day_list.each { |day|
       result << (table[day] || day)
     }
-    return result.join(',')
+    result.join(',')
   end
-
 
   # Converts the list of months given in either the Google App Engine Python or
   # Java format to a format that cron understands.
@@ -219,17 +205,17 @@ CRON
   # Returns:
   #   An Array of Strings, where each String is now in cron format.
   def self.fix_months(months)
-    table = { "january" => "jan", "february" => "feb", "march" => "mar",
-              "april" => "apr", "may" => "may", "june" => "jun",
-              "july" => "jul", "august" => "aug", "september" => "sep",
-              "october" => "oct", "november" => "nov",
-              "december" => "dec", "every" => "*", "month" => "*"}
+    table = { 'january' => 'jan', 'february' => 'feb', 'march' => 'mar',
+              'april' => 'apr', 'may' => 'may', 'june' => 'jun',
+              'july' => 'jul', 'august' => 'aug', 'september' => 'sep',
+              'october' => 'oct', 'november' => 'nov',
+              'december' => 'dec', 'every' => '*', 'month' => '*' }
     result = []
-    month_list = months.split(",")
-    month_list.each{ |month|
+    month_list = months.split(',')
+    month_list.each { |month|
       result << (table[month] || month)
     }
-    return result.join(',')
+    result.join(',')
   end
 
   # Takes a single cron line specified in the Google App Engine cron format
@@ -257,33 +243,33 @@ CRON
     # every 5 minutes from 10:00 to 14:00
     unless splitted.length == 3 || splitted.length == 4 || splitted.length == 5 || splitted.length == 7
       Djinn.log_error("bad format, length = #{splitted.length}")
-      return [""]
+      return ['']
     end
 
     ord = splitted[0]
     days_of_week = splitted[1]
-    day_of_month = "*"
+    day_of_month = '*'
 
     multiple_cron_entries = false
-    crons = Array.new
+    crons = []
 
     if splitted.length == 3
-      months_of_year = "every"
+      months_of_year = 'every'
       time = splitted[2]
       hour, min = time.split(":").map(&:to_i)
     elsif splitted.length == 4
-      days_of_week = "day"
+      days_of_week = 'day'
       day_of_month = ord
       months_of_year = splitted[2]
       time = splitted[3]
-      hour, min = time.split(":").map(&:to_i)
+      hour, min = time.split(':').map(&:to_i)
     elsif splitted.length == 5
       months_of_year = splitted[3]
       time = splitted[4]
       hour, min = time.split(":").map(&:to_i)
     else    # schedule length = 7, e.g. every 7 minutes from 10:00 to 14:00
-      months_of_year = "every"
-      days_of_week = "day"
+      months_of_year = 'every'
+      days_of_week = 'day'
 
       increment = splitted[1].to_i
       increment_type = splitted[2]
@@ -291,12 +277,12 @@ CRON
       # Split hour and minute and trim leading zeros.
       # Start time is represented as t1 = h1:m1.
       # End time is represented as t2 = h2:m2.
-      h1, m1 = splitted[4].split(":").map(&:to_i)
-      h2, m2 = splitted[6].split(":").map(&:to_i)
+      h1, m1 = splitted[4].split(':').map(&:to_i)
+      h2, m2 = splitted[6].split(':').map(&:to_i)
 
       if h1 == h2 && m1 == m2   # e.g. every 5 minutes from 12:05 to 12:05
         return []
-      elsif increment_type == "hours"
+      elsif increment_type == 'hours'
         if increment > 24       # Invalid increment for this type of schedule.
           return []
         elsif increment == 24   # e.g. every 24 hours from 01:30 to 01:29
@@ -404,12 +390,11 @@ CRON
     else    # Complex case, not implemented yet.
       Djinn.log_error("Cannot set up cron route with ordinals, as AppScale" +
         " does not support it. Ordinal was: #{ord}")
-      return [""]
+      return ['']
     end
 
-    return cron_lines
+    cron_lines
   end
-
 
   # Takes a single cron line specified in the Google App Engine cron format
   # and converts it to one or more cron lines in standard cron format.
@@ -438,25 +423,21 @@ CRON
 
     if simple_format.length.zero? &&
        !schedule.include?("from 00:00 to 23:59")    # not simple format
-      Djinn.log_debug("Messy format")
+      Djinn.log_debug('Messy format')
       cron_lines = convert_messy_format(schedule)
     else
       Djinn.log_debug("Simple format: #{simple_format}")
       num = $1
       time = $2
 
-      if time == "hours"
-        cron_lines = ["0 */#{num} * * *"]
-      else
-        cron_lines = ["*/#{num} * * * *"]
-      end
+      cron_lines = time == 'hours' ? ["0 */#{num} * * *"] : ["*/#{num} * * * *"] 
     end
     Djinn.log_debug(cron_lines)
-    Djinn.log_debug("----------------------")
+    Djinn.log_debug('----------------------')
 
     secret_hash = Digest::SHA1.hexdigest("#{app}/#{HelperFunctions.get_secret}")
     cron_lines.each { |cron|
-      cron << " root curl -sSH \"X-Appengine-Cron:true\" "\
+      cron << ' root curl -sSH "X-Appengine-Cron:true" '\
               "-H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k "\
               "-L \"http://#{ip}:#{port}#{url}\" "\
               "2>&1 >> /var/log/appscale/cron-#{app}.log"
@@ -467,16 +448,15 @@ CRON
       if valid_crontab_line(line)
         valid_cron_lines << line
       else
-        error = "Invalid cron line [#{line}] produced for schedule " +
+        error = "Invalid cron line [#{line}] produced for schedule " \
           "[#{schedule}]. Skipping..."
         Djinn.log_error(error)
         Djinn.log_app_error(app, error)
       end
     }
 
-    return valid_cron_lines
+    valid_cron_lines
   end
-
 
   # Searches through the given XML for the text associated with the named tag.
   #
