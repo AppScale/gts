@@ -2,17 +2,20 @@ import sys
 import uuid
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from .retry_policies import NO_RETRIES
-from ..dbconstants import (
-  AppScaleBadArg,
-  AppScaleDBConnectionError,
-  TRANSIENT_CASSANDRA_ERRORS
-)
-from ..utils import logger
 from cassandra.query import (
   ConsistencyLevel,
   SimpleStatement
 )
+from tornado import gen
+
+from appscale.datastore.cassandra_env.retry_policies import NO_RETRIES
+from appscale.datastore.cassandra_env.tornado_cassandra import TornadoCassandra
+from appscale.datastore.dbconstants import (
+  AppScaleBadArg,
+  AppScaleDBConnectionError,
+  TRANSIENT_CASSANDRA_ERRORS
+)
+from appscale.datastore.utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore.datastore_stub_util import (
@@ -42,6 +45,7 @@ class EntityIDAllocator(object):
     """
     self.project = project
     self.session = session
+    self.tornado_cassandra = TornadoCassandra(self.session)
     self.scattered = scattered
     if scattered:
       self.max_allowed = _MAX_SCATTERED_COUNTER
@@ -52,13 +56,14 @@ class EntityIDAllocator(object):
     # setting the minimum counter value.
     self._last_reserved_cache = None
 
+  @gen.coroutine
   def _ensure_entry(self, retries=5):
     """ Ensures an entry exists for a reservation.
 
     Args:
       retries: The number of times to retry the insert.
     Raises:
-      AllocationFailed if the insert is tried too many times.
+      AppScaleDBConnectionError if the insert is tried too many times.
     """
     if retries < 0:
       raise AppScaleDBConnectionError('Unable to create reserved_ids entry')
@@ -71,10 +76,11 @@ class EntityIDAllocator(object):
     """, retry_policy=NO_RETRIES)
     parameters = {'project': self.project, 'scattered': self.scattered}
     try:
-      self.session.execute(insert, parameters)
+      yield self.tornado_cassandra.execute(insert, parameters)
     except TRANSIENT_CASSANDRA_ERRORS:
-      return self._ensure_entry(retries=retries - 1)
+      yield self._ensure_entry(retries=retries-1)
 
+  @gen.coroutine
   def _get_last_reserved(self):
     """ Retrieves the last entity ID that was reserved.
 
@@ -89,14 +95,17 @@ class EntityIDAllocator(object):
     """, consistency_level=ConsistencyLevel.SERIAL)
     parameters = {'project': self.project, 'scattered': self.scattered}
     try:
-      result = self.session.execute(get_reserved, parameters)[0]
+      results = yield self.tornado_cassandra.execute(get_reserved, parameters)
+      result = results[0]
     except IndexError:
       self._ensure_entry()
-      return self._get_last_reserved()
+      last_reserved = yield self._get_last_reserved()
+      raise gen.Return(last_reserved)
 
     self._last_reserved_cache = result.last_reserved
-    return result.last_reserved
+    raise gen.Return(result.last_reserved)
 
+  @gen.coroutine
   def _get_last_op_id(self):
     """ Retrieve the op_id that was last written during a reservation.
 
@@ -110,8 +119,10 @@ class EntityIDAllocator(object):
       AND scattered = %(scattered)s
     """, consistency_level=ConsistencyLevel.SERIAL)
     parameters = {'project': self.project, 'scattered': self.scattered}
-    return self.session.execute(get_op_id, parameters)[0].op_id
+    results = yield self.tornado_cassandra.execute(get_op_id, parameters)
+    raise gen.Return(results[0].op_id)
 
+  @gen.coroutine
   def _set_reserved(self, last_reserved, new_reserved):
     """ Update the last reserved value to allocate that block.
 
@@ -134,9 +145,10 @@ class EntityIDAllocator(object):
       'last_reserved': last_reserved, 'new_reserved': new_reserved,
       'project': self.project, 'scattered': self.scattered, 'op_id': op_id}
     try:
-      result = self.session.execute(set_reserved, parameters)
+      result = yield self.tornado_cassandra.execute(set_reserved, parameters)
     except TRANSIENT_CASSANDRA_ERRORS as error:
-      if self._get_last_op_id() == op_id:
+      last_op_id = yield self._get_last_op_id()
+      if last_op_id == op_id:
         return
       raise ReservationFailed(str(error))
 
@@ -145,6 +157,7 @@ class EntityIDAllocator(object):
 
     self._last_reserved_cache = new_reserved
 
+  @gen.coroutine
   def allocate_size(self, size, retries=5, min_counter=None):
     """ Reserve a block of IDs for this project.
 
@@ -162,7 +175,7 @@ class EntityIDAllocator(object):
       raise AppScaleDBConnectionError('Unable to reserve new block')
 
     try:
-      last_reserved = self._get_last_reserved()
+      last_reserved = yield self._get_last_reserved()
     except TRANSIENT_CASSANDRA_ERRORS:
       raise AppScaleDBConnectionError('Unable to get last reserved ID')
 
@@ -175,14 +188,16 @@ class EntityIDAllocator(object):
       raise AppScaleBadArg('Exceeded maximum allocated IDs')
 
     try:
-      self._set_reserved(last_reserved, new_reserved)
+      yield self._set_reserved(last_reserved, new_reserved)
     except ReservationFailed:
-      return self.allocate_size(size, retries=retries - 1)
+      start_id, end_id = yield self.allocate_size(size, retries=retries-1)
+      raise gen.Return((start_id, end_id))
 
     start_id = last_reserved + 1
     end_id = new_reserved
-    return start_id, end_id
+    raise gen.Return((start_id, end_id))
 
+  @gen.coroutine
   def allocate_max(self, max_id, retries=5):
     """ Reserves all IDs up to the one given.
 
@@ -202,23 +217,25 @@ class EntityIDAllocator(object):
       raise AppScaleBadArg('Exceeded maximum allocated IDs')
 
     try:
-      last_reserved = self._get_last_reserved()
+      last_reserved = yield self._get_last_reserved()
     except TRANSIENT_CASSANDRA_ERRORS:
       raise AppScaleDBConnectionError('Unable to get last reserved ID')
 
     # Instead of returning an error, the API returns an invalid range.
     if last_reserved >= max_id:
-      return last_reserved + 1, last_reserved
+      raise gen.Return((last_reserved + 1, last_reserved))
 
     try:
-      self._set_reserved(last_reserved, max_id)
+      yield self._set_reserved(last_reserved, max_id)
     except ReservationFailed:
-      return self.allocate_max(max_id, retries=retries - 1)
+      start_id, end_id = yield self.allocate_max(max_id, retries=retries-1)
+      raise gen.Return((start_id, end_id))
 
     start_id = last_reserved + 1
     end_id = max_id
-    return start_id, end_id
+    raise gen.Return((start_id, end_id))
 
+  @gen.coroutine
   def set_min_counter(self, counter):
     """ Ensures the counter is at least as large as the given value.
 
@@ -227,9 +244,9 @@ class EntityIDAllocator(object):
     """
     if (self._last_reserved_cache is not None and
         self._last_reserved_cache >= counter):
-      return
+      raise gen.Return()
 
-    self.allocate_max(counter)
+    yield self.allocate_max(counter)
 
 
 class ScatteredAllocator(EntityIDAllocator):
@@ -252,6 +269,7 @@ class ScatteredAllocator(EntityIDAllocator):
     """ Returns a new iterator object. """
     return self
 
+  @gen.coroutine
   def next(self):
     """ Generates a new entity ID.
 
@@ -260,12 +278,14 @@ class ScatteredAllocator(EntityIDAllocator):
     """
     # This function will require a tornado lock when made asynchronous.
     if self.start_id is None or self.start_id > self.end_id:
-      self.start_id, self.end_id = self.allocate_size(DEFAULT_RESERVATION_SIZE)
+      size = DEFAULT_RESERVATION_SIZE
+      self.start_id, self.end_id = yield self.allocate_size(size)
 
     next_id = ToScatteredId(self.start_id)
     self.start_id += 1
-    return next_id
+    raise gen.Return(next_id)
 
+  @gen.coroutine
   def set_min_counter(self, counter):
     """ Ensures the counter is at least as large as the given value.
 
@@ -274,7 +294,7 @@ class ScatteredAllocator(EntityIDAllocator):
     """
     # If there's no chance the ID could be allocated, do nothing.
     if self.start_id is not None and self.start_id >= counter:
-      return
+      raise gen.Return()
 
     # If the ID is in the allocated block, adjust the block.
     if self.end_id is not None and self.end_id > counter:
@@ -285,12 +305,13 @@ class ScatteredAllocator(EntityIDAllocator):
     if self.start_id is None:
       if (self._last_reserved_cache is not None and
           self._last_reserved_cache >= counter):
-        return
+        raise gen.Return()
 
-      self.allocate_max(counter)
-      return
+      yield self.allocate_max(counter)
+      raise gen.Return()
 
     # If this server has allocated a block, but the relevant ID is greater than
     # the end ID, get a new block that starts at least as high as the ID.
-    self.start_id, self.end_id = self.allocate_size(DEFAULT_RESERVATION_SIZE,
-                                                    min_counter=counter)
+    self.start_id, self.end_id = yield self.allocate_size(
+      DEFAULT_RESERVATION_SIZE, min_counter=counter
+    )

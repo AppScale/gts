@@ -5,6 +5,7 @@ import time
 
 from appscale.datastore import appscale_datastore
 from appscale.datastore import helper_functions
+from appscale.datastore.utils import tornado_synchronous as sync
 
 hf = helper_functions
 if "LOCAL_DB_IP" not in os.environ:
@@ -35,7 +36,7 @@ def err(test_num, code):
   exit(1)
 
 def createRandomList(number_of_columns, column_name_len):
-  columns = [] 
+  columns = []
   for ii in range(0, number_of_columns):
     columns += [hf.random_string(column_name_len)]
   return columns
@@ -51,18 +52,18 @@ ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()
 VALID_DATASTORES = appscale_datastore.DatastoreFactory.valid_datastores()
 if datastore_type not in VALID_DATASTORES:
   print "Bad selection for datastore. Valid selections are:"
-  print app_datastore.valid_datastores()
+  print VALID_DATASTORES
   exit(1)
 ####################
 # Put on a new table
 ####################
 #print columns
-ret = app_datastore.put_entity(table_name, key, columns, data)
+ret = sync(app_datastore.put_entity)(table_name, key, columns, data)
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(),ret)
 
 # And do a partial put on only one column
-ret = app_datastore.put_entity(table_name, key, columns[:1], data[:1])
+ret = sync(app_datastore.put_entity)(table_name, key, columns[:1], data[:1])
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(),ret)
 #
@@ -70,7 +71,7 @@ if ret[0] not in ERROR_CODES or ret[1] != "0":
 # Get on all columns
 ####################
 print columns
-ret = app_datastore.get_entity(table_name, key, columns)
+ret = sync(app_datastore.get_entity)(table_name, key, columns)
 if ret[0] not in ERROR_CODES or ret[1:] != data:
   err(hf.lineno(),ret)
 
@@ -80,7 +81,7 @@ if ret[0] not in ERROR_CODES or ret[1:] != data:
 import random
 for ii in range(0, NUM_COLUMNS):
   rand = int((random.random() * 1000 ) % NUM_COLUMNS)
-  ret = app_datastore.get_entity(table_name, key, [columns[rand]])
+  ret = sync(app_datastore.get_entity)(table_name, key, [columns[rand]])
   if ret[0] not in ERROR_CODES or ret[1] != data[rand]:
     err(hf.lineno(),ret)
 #################################################
@@ -89,27 +90,27 @@ for ii in range(0, NUM_COLUMNS):
 for ii in range(0, NUM_COLUMNS):
   rand = int((random.random() * 1000) % NUM_COLUMNS)
   rand2 = int((random.random() * 1000) % NUM_COLUMNS)
-  ret = app_datastore.get_entity(table_name, key, \
+  ret = sync(app_datastore.get_entity)(table_name, key, \
     [columns[rand],columns[rand2]])
   if ret[0] not in ERROR_CODES or ret[1] != data[rand] \
     or ret[2] != data[rand2]:
-    err(hf.lineno(),ret) 
+    err(hf.lineno(),ret)
 #####################################
 # Get and a delete on invalid row key
 #####################################
 invalid_key = hf.random_string(10)
-ret = app_datastore.get_entity(table_name, invalid_key, \
+ret = sync(app_datastore.get_entity)(table_name, invalid_key, \
   columns)
 if ret[0] in ERROR_CODES:
   err(hf.lineno(),ret)
 
-ret = app_datastore.delete_row(table_name, invalid_key)
+ret = sync(app_datastore.delete_row)(table_name, invalid_key)
 if ret[0] not in ERROR_CODES:
   err(hf.lineno(),ret)
 ###########################
 # Get just the first column
 ###########################
-ret = app_datastore.get_entity(table_name, key, [columns[0]])
+ret = sync(app_datastore.get_entity)(table_name, key, [columns[0]])
 if ret[0] not in ERROR_CODES or ret[1] != data[0]:
   print ret
   err(hf.lineno(),ret)
@@ -118,22 +119,22 @@ if ret[0] not in ERROR_CODES or ret[1] != data[0]:
 ###########################
 data2 = createRandomList(NUM_COLUMNS, 100)
 key2 = hf.random_string(10)
-ret = app_datastore.put_entity(table_name, key2, columns, data2)
+ret = sync(app_datastore.put_entity)(table_name, key2, columns, data2)
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(),ret)
 ############################
 # Get on just added row
 ############################
-ret = app_datastore.get_entity(table_name, key2, columns)
+ret = sync(app_datastore.get_entity)(table_name, key2, columns)
 if ret[0] not in ERROR_CODES or ret[1:] != data2 or ret[1:] == data:
   err(hf.lineno(),ret)
 #########################################
 # Delete the new row once, and then again
 #########################################
-ret = app_datastore.delete_row(table_name, key2)
+ret = sync(app_datastore.delete_row)(table_name, key2)
 if ret[0] not in ERROR_CODES:
   err(hf.lineno(),ret)
-ret = app_datastore.delete_row(table_name, key2)
+ret = sync(app_datastore.delete_row)(table_name, key2)
 if ret[0] not in ERROR_CODES:
   err(hf.lineno(),ret)
 #################################################
@@ -142,45 +143,45 @@ if ret[0] not in ERROR_CODES:
 # There is too much overhead in checking to see if the table exists
 # for cassandra
 invalid_table = hf.random_string(10)
-#ret = app_datastore.delete_row(invalid_table, key)
+#ret = sync(app_datastore.delete_row)(invalid_table, key)
 #if ret[0] in ERROR_CODES:
 #  err(hf.lineno(), ret)
-ret = app_datastore.get_entity(invalid_table, key, columns)
+ret = sync(app_datastore.get_entity)(invalid_table, key, columns)
 if ret[0] in ERROR_CODES:
   err(hf.lineno(), ret)
 
 ######################
 # Delete a table twice
 ######################
-ret = app_datastore.delete_table(table_name)
+ret = sync(app_datastore.delete_table)(table_name)
 if ret[0] not in ERROR_CODES:
   err(hf.lineno(), ret)
-ret = app_datastore.delete_table(table_name)
+ret = sync(app_datastore.delete_table)(table_name)
 if ret[0] in ERROR_CODES:
   err(hf.lineno(), ret)
 #####################
 # Put on a new table
 #####################
-ret = app_datastore.put_entity(table_name, key, columns, data)
+ret = sync(app_datastore.put_entity)(table_name, key, columns, data)
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(),ret)
 ####################
 # Get on all columns
 ####################
-ret = app_datastore.get_entity(table_name, key, columns)
+ret = sync(app_datastore.get_entity)(table_name, key, columns)
 if ret[0] not in ERROR_CODES or ret[1:] != data:
   err(hf.lineno(),ret)
 ##########################
-# Put on same row new data 
+# Put on same row new data
 ##########################
 data = createRandomList(NUM_COLUMNS, 10000)
-ret = app_datastore.put_entity(table_name, key, columns, data)
+ret = sync(app_datastore.put_entity)(table_name, key, columns, data)
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(),ret)
 ####################
 # Get on all columns
 ####################
-ret = app_datastore.get_entity(table_name, key, columns)
+ret = sync(app_datastore.get_entity)(table_name, key, columns)
 if ret[0] not in ERROR_CODES or ret[1:] != data:
   err(hf.lineno(),ret)
 ####################################
@@ -188,30 +189,30 @@ if ret[0] not in ERROR_CODES or ret[1:] != data:
 ####################################
 data1 = hf.random_string(10)
 data2 = hf.random_string(10)
-ret = app_datastore.put_entity(table_name, key, [columns[0], \
+ret = sync(app_datastore.put_entity)(table_name, key, [columns[0], \
 columns[NUM_COLUMNS - 1]], [data1, data2])
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(), ret)
-ret = app_datastore.get_entity(table_name, key, [columns[0], \
+ret = sync(app_datastore.get_entity)(table_name, key, [columns[0], \
 columns[NUM_COLUMNS - 1]])
 if ret[0] not in ERROR_CODES or ret[1] != data1 or ret[2] != data2:
   err(hf.lineno(), ret)
 #######################################################
 # Get schema on a table that exist, and one that doesnt
 #######################################################
-ret = app_datastore.get_schema(table_name)
+ret = sync(app_datastore.get_schema)(table_name)
 if ret[0] not in ERROR_CODES or (ret[1:]).sort() != columns.sort():
   print "ret[1:]:",ret[1:].sort
   print "columns:",columns.sort
   err(hf.lineno(), ret)
-ret = app_datastore.get_schema(invalid_table)
+ret = sync(app_datastore.get_schema)(invalid_table)
 if ret[0] in ERROR_CODES:
   err(hf.lineno(), ret)
 ################################################
 # Get data from a table that does not exist
 # Should return an empty list
 ################################################
-ret = app_datastore.get_table(invalid_table, columns)
+ret = sync(app_datastore.get_table)(invalid_table, columns)
 if ret[0] not in ERROR_CODES and len(ret) != 1:
   err(hf.lineno(), ret)
 
@@ -221,13 +222,13 @@ if ret[0] not in ERROR_CODES and len(ret) != 1:
 ###############################################
 key1 = table_name + "1"
 key2 = table_name + "2"
-ret = app_datastore.put_entity(table_name, key1, columns, data)
+ret = sync(app_datastore.put_entity)(table_name, key1, columns, data)
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(),ret)
-ret = app_datastore.put_entity(table_name, key2, columns, data)
+ret = sync(app_datastore.put_entity)(table_name, key2, columns, data)
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(),ret)
-ret = app_datastore.get_table(table_name, columns)
+ret = sync(app_datastore.get_table)(table_name, columns)
 if ret[0] not in ERROR_CODES or len(ret) < (2 * len(columns)):
   err(hf.lineno(), ret)
 
@@ -250,7 +251,9 @@ class putThread(Thread):
     self.data = data
     self.status = "Bad"
   def run(self):
-    ret = app_datastore.put_entity(self.table, self.key, self.columns, self.data)
+    ret = sync(app_datastore.put_entity)(
+      self.table, self.key, self.columns, self.data
+    )
     if ret[0] not in ERROR_CODES or ret[1] != "0":
       self.status = "Bad"
     else:
@@ -266,7 +269,7 @@ for ii in range(0, 1000):
 import time
 start = time.time()
 for ii in allThreads:
-  ii.start() 
+  ii.start()
 
 good = 0
 bad = 0
@@ -284,4 +287,4 @@ if good != len(allThreads):
 else:
   print "SUCCESS"
 print "Time taken:",
-print stop - start  
+print stop - start

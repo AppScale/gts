@@ -3,7 +3,6 @@
 """
  Cassandra Interface for AppScale
 """
-import cassandra
 import datetime
 import logging
 import struct
@@ -14,25 +13,28 @@ import uuid
 from appscale.common import appscale_info
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+import cassandra
 from cassandra.cluster import Cluster
-from cassandra.concurrent import execute_concurrent
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
-from .constants import CURRENT_VERSION
-from .large_batch import (FailedBatch,
-                          LargeBatch)
-from .retry_policies import (BASIC_RETRIES,
-                             NO_RETRIES)
-from .. import dbconstants
-from ..dbconstants import AppScaleDBConnectionError
-from ..dbconstants import Operations
-from ..dbconstants import TxnActions
-from ..dbinterface import AppDBInterface
-from ..utils import create_key
-from ..utils import get_write_time
-from ..utils import tx_partition
+from tornado import gen
+
+from appscale.datastore import dbconstants
+from appscale.datastore.cassandra_env.constants import CURRENT_VERSION
+from appscale.datastore.cassandra_env.large_batch import (
+  FailedBatch, LargeBatch
+)
+from appscale.datastore.cassandra_env.retry_policies import (
+  BASIC_RETRIES, NO_RETRIES
+)
+from appscale.datastore.cassandra_env.tornado_cassandra import TornadoCassandra
+from appscale.datastore.dbconstants import (
+  AppScaleDBConnectionError, Operations, TxnActions
+)
+from appscale.datastore.dbinterface import AppDBInterface
+from appscale.datastore.utils import create_key, get_write_time, tx_partition
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
@@ -121,6 +123,7 @@ class DatastoreProxy(AppDBInterface):
       try:
         self.cluster = Cluster(self.hosts, default_retry_policy=BASIC_RETRIES)
         self.session = self.cluster.connect(KEYSPACE)
+        self.tornado_cassandra = TornadoCassandra(self.session)
         break
       except cassandra.cluster.NoHostAvailable as connection_error:
         remaining_retries -= 1
@@ -135,6 +138,7 @@ class DatastoreProxy(AppDBInterface):
     """ Close all sessions and connections to Cassandra. """
     self.cluster.shutdown()
 
+  @gen.coroutine
   def batch_get_entity(self, table_name, row_keys, column_names):
     """
     Takes in batches of keys and retrieves their corresponding rows.
@@ -167,7 +171,8 @@ class DatastoreProxy(AppDBInterface):
     parameters = (ValueSequence(row_keys_bytes), ValueSequence(column_names))
 
     try:
-      results = self.session.execute(query, parameters=parameters)
+      results = yield self.tornado_cassandra.execute(
+        query, parameters=parameters)
 
       results_dict = {row_key: {} for row_key in row_keys}
       for (key, column, value) in results:
@@ -175,12 +180,13 @@ class DatastoreProxy(AppDBInterface):
           results_dict[key] = {}
         results_dict[key][column] = value
 
-      return results_dict
+      raise gen.Return(results_dict)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during batch_get_entity'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def batch_put_entity(self, table_name, row_keys, column_names, cell_values,
                        ttl=None):
     """
@@ -229,8 +235,10 @@ class DatastoreProxy(AppDBInterface):
         statements_and_params.append((statement, params))
 
     try:
-      execute_concurrent(self.session, statements_and_params,
-                         raise_on_first_error=True)
+      yield [
+        self.tornado_cassandra.execute(statement, parameters=params)
+        for statement, params in statements_and_params
+      ]
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during batch_put_entity'
       logging.exception(message)
@@ -277,6 +285,7 @@ class DatastoreProxy(AppDBInterface):
 
     return self.prepared_statements[statement]
 
+  @gen.coroutine
   def _normal_batch(self, mutations, txid):
     """ Use Cassandra's native batch statement to apply mutations atomically.
 
@@ -322,7 +331,7 @@ class DatastoreProxy(AppDBInterface):
         )
 
     try:
-      self.session.execute(batch)
+      yield self.tornado_cassandra.execute(batch)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during batch_mutate'
       logging.exception(message)
@@ -372,6 +381,7 @@ class DatastoreProxy(AppDBInterface):
 
     return statements_and_params
 
+  @gen.coroutine
   def apply_mutations(self, mutations, txid):
     """ Apply mutations across tables.
 
@@ -380,9 +390,12 @@ class DatastoreProxy(AppDBInterface):
       txid: An integer specifying a transaction ID.
     """
     statements_and_params = self.statements_for_mutations(mutations, txid)
-    execute_concurrent(self.session, statements_and_params,
-                       raise_on_first_error=True)
+    yield [
+      self.tornado_cassandra.execute(statement, parameters=params)
+      for statement, params in statements_and_params
+    ]
 
+  @gen.coroutine
   def _large_batch(self, app, mutations, entity_changes, txn):
     """ Insert or delete multiple rows across tables in an atomic statement.
 
@@ -399,7 +412,7 @@ class DatastoreProxy(AppDBInterface):
                       format(txn, len(mutations)))
     large_batch = LargeBatch(self.session, app, txn)
     try:
-      large_batch.start()
+      yield large_batch.start()
     except FailedBatch as batch_error:
       raise AppScaleDBConnectionError(str(batch_error))
 
@@ -425,27 +438,29 @@ class DatastoreProxy(AppDBInterface):
       statements_and_params.append((insert_statement, parameters))
 
     try:
-      execute_concurrent(self.session, statements_and_params,
-                         raise_on_first_error=True)
+      yield [
+        self.tornado_cassandra.execute(statement, parameters=params)
+        for statement, params in statements_and_params
+      ]
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Unable to write large batch log'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
     try:
-      large_batch.set_applied()
+      yield large_batch.set_applied()
     except FailedBatch as batch_error:
       raise AppScaleDBConnectionError(str(batch_error))
 
     try:
-      self.apply_mutations(mutations, txn)
+      yield self.apply_mutations(mutations, txn)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during large batch'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
     try:
-      large_batch.cleanup()
+      yield large_batch.cleanup()
     except FailedBatch:
       # This should not raise an exception since the batch is already applied.
       logging.exception('Unable to clear batch status')
@@ -456,10 +471,11 @@ class DatastoreProxy(AppDBInterface):
     """
     parameters = {'app': app, 'transaction': txn}
     try:
-      self.session.execute(clear_batch, parameters)
+      yield self.tornado_cassandra.execute(clear_batch, parameters)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       logging.exception('Unable to clear batch log')
 
+  @gen.coroutine
   def batch_mutate(self, app, mutations, entity_changes, txn):
     """ Insert or delete multiple rows across tables in an atomic statement.
 
@@ -471,10 +487,11 @@ class DatastoreProxy(AppDBInterface):
     """
     size = batch_size(mutations)
     if size > LARGE_BATCH_THRESHOLD:
-      self._large_batch(app, mutations, entity_changes, txn)
+      yield self._large_batch(app, mutations, entity_changes, txn)
     else:
-      self._normal_batch(mutations, txn)
+      yield self._normal_batch(mutations, txn)
 
+  @gen.coroutine
   def batch_delete(self, table_name, row_keys, column_names=()):
     """
     Remove a set of rows corresponding to a set of keys.
@@ -487,7 +504,7 @@ class DatastoreProxy(AppDBInterface):
       TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the batch_delete could not be performed due
         to an error with Cassandra.
-    """ 
+    """
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(row_keys, list): raise TypeError("Expected a list")
 
@@ -502,12 +519,13 @@ class DatastoreProxy(AppDBInterface):
     parameters = (ValueSequence(row_keys_bytes),)
 
     try:
-      self.session.execute(query, parameters=parameters)
+      yield self.tornado_cassandra.execute(query, parameters=parameters)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during batch_delete'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def delete_table(self, table_name):
     """ 
     Drops a given table (aka column family in Cassandra)
@@ -525,12 +543,13 @@ class DatastoreProxy(AppDBInterface):
     query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
 
     try:
-      self.session.execute(query)
+      yield self.session.execute(query)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during delete_table'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def create_table(self, table_name, column_names):
     """ 
     Creates a table if it doesn't already exist.
@@ -560,7 +579,7 @@ class DatastoreProxy(AppDBInterface):
     query = SimpleStatement(statement, retry_policy=NO_RETRIES)
 
     try:
-      self.session.execute(query, timeout=SCHEMA_CHANGE_TIMEOUT)
+      yield self.tornado_cassandra.execute(query, timeout=SCHEMA_CHANGE_TIMEOUT)
     except cassandra.OperationTimedOut:
       logging.warning(
         'Encountered an operation timeout while creating a table. Waiting {} '
@@ -573,14 +592,15 @@ class DatastoreProxy(AppDBInterface):
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def range_query(self,
                   table_name,
-                  column_names, 
-                  start_key, 
-                  end_key, 
-                  limit, 
-                  offset=0, 
-                  start_inclusive=True, 
+                  column_names,
+                  start_key,
+                  end_key,
+                  limit,
+                  offset=0,
+                  start_inclusive=True,
                   end_inclusive=True,
                   keys_only=False):
     """ 
@@ -651,7 +671,8 @@ class DatastoreProxy(AppDBInterface):
                   ValueSequence(column_names))
 
     try:
-      results = self.session.execute(query, parameters=parameters)
+      results = yield self.tornado_cassandra.execute(
+        query, parameters=parameters)
 
       results_list = []
       current_item = {}
@@ -670,12 +691,13 @@ class DatastoreProxy(AppDBInterface):
         current_item[column] = value
       if current_item:
         results_list.append({current_key: current_item})
-      return results_list[offset:]
+      raise gen.Return(results_list[offset:])
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during range_query'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def get_metadata(self, key):
     """ Retrieve a value from the datastore metadata table.
 
@@ -695,17 +717,19 @@ class DatastoreProxy(AppDBInterface):
       column=ThriftColumn.COLUMN_NAME
     )
     try:
-      results = self.session.execute(statement, (bytearray(key), key))
+      results = yield self.tornado_cassandra.execute(
+        statement, (bytearray(key), key))
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Unable to fetch {} from datastore metadata'.format(key)
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
     try:
-      return results[0].value
+      raise gen.Return(results[0].value)
     except IndexError:
-      return None
+      raise gen.Return()
 
+  @gen.coroutine
   def set_metadata(self, key, value):
     """ Set a datastore metadata value.
 
@@ -732,16 +756,17 @@ class DatastoreProxy(AppDBInterface):
                   'column': key,
                   'value': bytearray(value)}
     try:
-      self.session.execute(statement, parameters)
+      yield self.tornado_cassandra.execute(statement, parameters)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Unable to set datastore metadata for {}'.format(key)
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
     except cassandra.InvalidRequest:
-      self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
-                        dbconstants.DATASTORE_METADATA_SCHEMA)
-      self.session.execute(statement, parameters)
+      yield self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
+                              dbconstants.DATASTORE_METADATA_SCHEMA)
+      yield self.tornado_cassandra.execute(statement, parameters)
 
+  @gen.coroutine
   def get_indices(self, app_id):
     """ Gets the indices of the given application.
 
@@ -753,7 +778,7 @@ class DatastoreProxy(AppDBInterface):
     start_key = dbconstants.KEY_DELIMITER.join([app_id, 'index', ''])
     end_key = dbconstants.KEY_DELIMITER.join(
       [app_id, 'index', dbconstants.TERMINATING_STRING])
-    result = self.range_query(
+    result = yield self.range_query(
       dbconstants.METADATA_TABLE,
       dbconstants.METADATA_SCHEMA,
       start_key,
@@ -766,8 +791,9 @@ class DatastoreProxy(AppDBInterface):
     for list_item in result:
       for key, value in list_item.iteritems():
         list_result.append(value['data'])
-    return list_result
+    raise gen.Return(list_result)
 
+  @gen.coroutine
   def valid_data_version(self):
     """ Checks whether or not the data layout can be used.
 
@@ -775,12 +801,17 @@ class DatastoreProxy(AppDBInterface):
       A boolean.
     """
     try:
-      version = self.get_metadata(VERSION_INFO_KEY)
+      version = yield self.get_metadata(VERSION_INFO_KEY)
     except cassandra.InvalidRequest:
-      return False
+      raise gen.Return(False)
 
-    return version is not None and float(version) == CURRENT_VERSION
+    is_expected_version = (
+      version is not None and
+      float(version) == CURRENT_VERSION
+    )
+    raise gen.Return(is_expected_version)
 
+  @gen.coroutine
   def group_updates(self, groups):
     """ Fetch the latest transaction IDs for each group.
 
@@ -789,23 +820,15 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       A set of integers specifying transaction IDs.
     """
-    futures = []
-    for group in groups:
-      query = 'SELECT * FROM group_updates WHERE group=%s'
-      futures.append(self.session.execute_async(query, [bytearray(group)]))
+    query = 'SELECT * FROM group_updates WHERE group=%s'
+    results = yield [
+      self.tornado_cassandra.execute(query, [bytearray(group)])
+      for group in groups
+    ]
+    updates = set(rows[0].last_update for rows in results if rows)
+    raise gen.Return(updates)
 
-    updates = set()
-    for future in futures:
-      rows = future.result()
-      try:
-        result = rows[0]
-      except IndexError:
-        continue
-
-      updates.add(result.last_update)
-
-    return updates
-
+  @gen.coroutine
   def start_transaction(self, app, txid, is_xg, in_progress):
     """ Persist transaction metadata.
 
@@ -837,12 +860,13 @@ class DatastoreProxy(AppDBInterface):
                   'in_progress': in_progress_bin}
 
     try:
-      self.session.execute(insert, parameters)
+      yield self.tornado_cassandra.execute(insert, parameters)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception while starting a transaction'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def put_entities_tx(self, app, txid, entities):
     """ Update transaction metadata with new put operations.
 
@@ -868,12 +892,13 @@ class DatastoreProxy(AppDBInterface):
       batch.add(insert, args)
 
     try:
-      self.session.execute(batch)
+      yield self.tornado_cassandra.execute(batch)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception while putting entities in a transaction'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def delete_entities_tx(self, app, txid, entity_keys):
     """ Update transaction metadata with new delete operations.
 
@@ -900,12 +925,13 @@ class DatastoreProxy(AppDBInterface):
       batch.add(insert, args)
 
     try:
-      self.session.execute(batch)
+      yield self.tornado_cassandra.execute(batch)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception while deleting entities in a transaction'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def transactional_tasks_count(self, app, txid):
     """ Count the number of existing tasks associated with the transaction.
 
@@ -923,12 +949,14 @@ class DatastoreProxy(AppDBInterface):
     parameters = {'txid_hash': tx_partition(app, txid),
                   'operation': TxnActions.ENQUEUE_TASK}
     try:
-      return self.session.execute(select, parameters)[0].count
+      result = yield self.tornado_cassandra.execute(select, parameters)
+      raise gen.Return(result[0].count)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception while fetching task count'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def add_transactional_tasks(self, app, txid, tasks, service_id, version_id):
     """ Add tasks to be enqueued upon the completion of a transaction.
 
@@ -962,12 +990,13 @@ class DatastoreProxy(AppDBInterface):
       batch.add(insert, args)
 
     try:
-      self.session.execute(batch)
+      yield self.tornado_cassandra.execute(batch)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception while adding tasks in a transaction'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def record_reads(self, app, txid, group_keys):
     """ Keep track of which entity groups were read in a transaction.
 
@@ -995,12 +1024,13 @@ class DatastoreProxy(AppDBInterface):
       batch.add(insert, args)
 
     try:
-      self.session.execute(batch)
+      yield self.tornado_cassandra.execute(batch)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception while recording reads in a transaction'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
+  @gen.coroutine
   def get_transaction_metadata(self, app, txid):
     """ Fetch transaction state.
 
@@ -1018,7 +1048,7 @@ class DatastoreProxy(AppDBInterface):
     """
     parameters = {'txid_hash': tx_partition(app, txid)}
     try:
-      results = self.session.execute(select, parameters)
+      results = yield self.tornado_cassandra.execute(select, parameters)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception while inserting entities in a transaction'
       logging.exception(message)
@@ -1050,4 +1080,4 @@ class DatastoreProxy(AppDBInterface):
           'version_id': version_id,
           'task': taskqueue_service_pb.TaskQueueAddRequest(task_pb)}
         metadata['tasks'].append(task_metadata)
-    return metadata
+    raise gen.Return(metadata)

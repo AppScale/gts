@@ -8,7 +8,6 @@ functions.
 # datastore API.
 
 import datetime
-import json
 import logging
 import SOAPpy
 import sys
@@ -16,10 +15,13 @@ import time
 
 from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT
-from .. import appscale_datastore
-from ..dbconstants import AppScaleDBConnectionError
-from ..dbconstants import USERS_SCHEMA
-from ..dbconstants import USERS_TABLE
+from tornado import gen
+
+from appscale.datastore import appscale_datastore
+from appscale.datastore.dbconstants import (
+  AppScaleDBConnectionError, USERS_SCHEMA, USERS_TABLE
+)
+from appscale.datastore.utils import tornado_synchronous
 
 # Name of the users table which stores information about AppScale users.
 USER_TABLE = USERS_TABLE
@@ -113,7 +115,7 @@ class Users:
       if ii == "applications":
         array.append(':'.join(getattr(self, ii + "_")))
       else:
-        array.append(str(getattr(self, ii+ "_")));
+        array.append(str(getattr(self, ii+ "_")))
 
     return array
 
@@ -130,86 +132,99 @@ class Users:
     return "true"
 
 
+@tornado_synchronous
+@gen.coroutine
 def does_user_exist(username, secret):
   global db
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
   try:
-    result = db.get_entity(USER_TABLE, username, ["email"])
+    result = yield db.get_entity(USER_TABLE, username, ["email"])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
   if result[0] in ERROR_CODES and len(result) == 2:
-    return "true"
+    raise gen.Return("true")
   else:
-    return "false"
+    raise gen.Return("false")
 
 
+@tornado_synchronous
+@gen.coroutine
 def get_user_apps(username, secret):
   global db
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
   try:
-    result = db.get_entity(USER_TABLE, username, ["applications"])
+    result = yield db.get_entity(USER_TABLE, username, ["applications"])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
   if result[0] in ERROR_CODES and len(result) == 2:
-    return result[1]
+    raise gen.Return(result[1])
   else:
     error = "Error: user not found"
-    return error
+    raise gen.Return(error)
 
 
+@tornado_synchronous
+@gen.coroutine
 def get_user_data(username, secret):
   global db
   global super_secret
   global user_schema
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
   try:
-    result = db.get_entity(USER_TABLE, username, user_schema)
+    result = yield db.get_entity(USER_TABLE, username, user_schema)
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] in ERROR_CODES or len(result) == 1:
     result = result[1:]
   else:
-    return "Error: " + result[0]
+    raise gen.Return("Error: " + result[0])
   if len(user_schema) != len(result):
-    return "Error: Bad length of user schema vs user result user schem:" + str(user_schema) + " result: " + str(result)
+    raise gen.Return(
+      "Error: Bad length of user schema vs user result "
+      "user schem:" + str(user_schema) + " result: " + str(result)
+    )
 
   user = Users("a","b", "c")
   user.unpackit(result)
-  return user.stringit()
+  raise gen.Return(user.stringit())
 
 
+@tornado_synchronous
+@gen.coroutine
 def commit_new_user(user, passwd, utype, secret):
   global db
   global super_secret
   global user_schema
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
   if utype not in VALID_USER_TYPES:
-    return "Error: Not a valid user type %s"%utype
+    raise gen.Return("Error: Not a valid user type %s"%utype)
   error =  "Error: username should be an email"
   # look for the @ and . in the email
   if user.find("@") == -1 or user.find(".") == -1:
-    return error
+    raise gen.Return(error)
 
   error = "Error: user already exists"
   ret = does_user_exist(user, secret)
   if ret == "true":
-    return error
+    raise gen.Return(error)
 
   n_user = Users(user, passwd, utype)
   array = n_user.arrayit()
-  result = db.put_entity(USER_TABLE, user, user_schema, array)
+  result = yield db.put_entity(USER_TABLE, user, user_schema, array)
   if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
+    raise gen.Return("false")
+  raise gen.Return("true")
 
 
+@tornado_synchronous
+@gen.coroutine
 def add_admin_for_app(user, app, secret):
   """ Grants admin role to a given application.
 
@@ -224,15 +239,15 @@ def add_admin_for_app(user, app, secret):
   global user_schema
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
   try:
-    user_result = db.get_entity(USER_TABLE, user, user_schema)
+    user_result = yield db.get_entity(USER_TABLE, user, user_schema)
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if user_result[0] not in ERROR_CODES or len(user_result) <= 1:
-    return user_result
+    raise gen.Return(user_result)
 
   user_result = user_result[1:]
   n_user = Users("a", "b", "c")
@@ -242,24 +257,26 @@ def add_admin_for_app(user, app, secret):
   n_user.date_change_ = str(time.mktime(t.timetuple()))
   array = n_user.arrayit()
 
-  result = db.put_entity(USER_TABLE, user, user_schema, array)
+  result = yield db.put_entity(USER_TABLE, user, user_schema, array)
   if result[0] in ERROR_CODES:
-    return "true"
+    raise gen.Return("true")
   else:
-    return "Error: Unable to update the user."
+    raise gen.Return("Error: Unable to update the user.")
 
 
+@tornado_synchronous
+@gen.coroutine
 def get_all_users(secret):
   global db
   global super_secret
   global user_schema
   users = []
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
-  result = db.get_table(USER_TABLE, user_schema)
+  result = yield db.get_table(USER_TABLE, user_schema)
   if result[0] not in ERROR_CODES:
-    return "Error:" + result[0]
+    raise gen.Return("Error:" + result[0])
   result = result[1:]
   for ii in range(0, (len(result)/len(user_schema))):
     partial = result[(ii * len(user_schema)): ((1 + ii) * len(user_schema))]
@@ -274,24 +291,26 @@ def get_all_users(secret):
   userstring = "____"
   for kk in users:
     userstring += ":" + kk.email_
-  return userstring
+  raise gen.Return(userstring)
 
 
+@tornado_synchronous
+@gen.coroutine
 def commit_new_token(user, token, token_exp, secret):
   global db
   global super_secret
   global user_schema
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
   columns = ['appdrop_rem_token', 'appdrop_rem_token_exp']
 
   try:
-    result = db.get_entity(USER_TABLE, user, columns)
+    result = yield db.get_entity(USER_TABLE, user, columns)
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] not in ERROR_CODES or len(result) == 1:
-    return "Error: User does not exist"
+    raise gen.Return("Error: User does not exist")
 
   result = result[1:]
   #appdrop_rem_token = result[0]
@@ -302,180 +321,198 @@ def commit_new_token(user, token, token_exp, secret):
   values = [token, token_exp, date_change]
   columns += ['date_change']
 
-  result = db.put_entity(USER_TABLE, user, columns, values)
+  result = yield db.put_entity(USER_TABLE, user, columns, values)
   if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
+    raise gen.Return("false")
+  raise gen.Return("true")
 
 
+@tornado_synchronous
+@gen.coroutine
 def change_password(user, password, secret):
   global db
   global super_secret
   global user_schema
 
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
   if not password:
-    return "Error: Null password"
+    raise gen.Return("Error: Null password")
 
   try:
-    result = db.get_entity(USER_TABLE, user, ['enabled'])
+    result = yield db.get_entity(USER_TABLE, user, ['enabled'])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] not in ERROR_CODES or len(result) == 1:
-    return "Error: user does not exist"
+    raise gen.Return("Error: user does not exist")
 
   if result[1] == "false":
-    return "Error: User must be enabled to change password"
+    raise gen.Return("Error: User must be enabled to change password")
 
-  result = db.put_entity(USER_TABLE, user, ['pw'], [password])
+  result = yield db.put_entity(USER_TABLE, user, ['pw'], [password])
   if result[0] not in ERROR_CODES:
-    return "Error:" + result[0]
-  return "true"
+    raise gen.Return("Error:" + result[0])
+  raise gen.Return("true")
 
 
+@tornado_synchronous
+@gen.coroutine
 def enable_user(user, secret):
   global db
   global super_secret
   global user_schema
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
   try:
-    result = db.get_entity(USER_TABLE, user, ['enabled'])
+    result = yield db.get_entity(USER_TABLE, user, ['enabled'])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] not in ERROR_CODES or len(result) != 2:
-    return "Error: " + result[0]
+    raise gen.Return("Error: " + result[0])
   if result[1] == "true":
-    return "Error: Trying to enable a user twice"
-  result = db.put_entity(USER_TABLE, user, ['enabled'], ['true'])
+    raise gen.Return("Error: Trying to enable a user twice")
+  result = yield db.put_entity(USER_TABLE, user, ['enabled'], ['true'])
   if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
+    raise gen.Return("false")
+  raise gen.Return("true")
 
 
+@tornado_synchronous
+@gen.coroutine
 def disable_user(user, secret):
   global db
   global user_schema
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
   try:
-    result = db.get_entity(USER_TABLE, user, ['enabled'])
+    result = yield db.get_entity(USER_TABLE, user, ['enabled'])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] not in ERROR_CODES or len(result) != 2:
-    return "Error: " + result[0]
+    raise gen.Return("Error: " + result[0])
   if result[1] == "false":
-    return "Error: Trying to disable a user twice"
+    raise gen.Return("Error: Trying to disable a user twice")
 
-  result = db.put_entity(USER_TABLE, user, ['enabled'], ['false'])
+  result = yield db.put_entity(USER_TABLE, user, ['enabled'], ['false'])
   if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
+    raise gen.Return("false")
+  raise gen.Return("true")
 
 
+@tornado_synchronous
+@gen.coroutine
 def delete_user(user, secret):
   global db
   global user_schema
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
   try:
-    result = db.get_entity(USER_TABLE, user, ['enabled'])
+    result = yield db.get_entity(USER_TABLE, user, ['enabled'])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] not in ERROR_CODES or len(result) != 2:
-    return "false"
+    raise gen.Return("false")
 
   if result[1] == 'true':
-    return "Error: unable to delete active user. Disable user first"
+    raise gen.Return("Error: unable to delete active user. Disable user first")
 
-  result = db.delete_row(USER_TABLE, user)
+  result = yield db.delete_row(USER_TABLE, user)
   if result[0] not in ERROR_CODES:
-    return "false"
-  return "true"
+    raise gen.Return("false")
+  raise gen.Return("true")
 
 
+@tornado_synchronous
+@gen.coroutine
 def is_user_enabled(user, secret):
   global db
   global super_secret
   global user_schema
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
   try:
-    result = db.get_entity(USER_TABLE, user, ['enabled'])
+    result = yield db.get_entity(USER_TABLE, user, ['enabled'])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] not in ERROR_CODES or len(result) == 1:
-    return "false"
-  return result[1]
+    raise gen.Return("false")
+  raise gen.Return(result[1])
 
 
+@tornado_synchronous
+@gen.coroutine
 def is_user_cloud_admin(username, secret):
   global db
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
   try:
-    result = db.get_entity(USER_TABLE, username, ["is_cloud_admin"])
+    result = yield db.get_entity(USER_TABLE, username, ["is_cloud_admin"])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] in ERROR_CODES and len(result) == 2:
-    return result[1]
+    raise gen.Return(result[1])
   else:
-    return "false"
+    raise gen.Return("false")
 
 
+@tornado_synchronous
+@gen.coroutine
 def set_cloud_admin_status(username, is_cloud_admin, secret):
   global db
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
-  result = db.put_entity(USER_TABLE, username, ['is_cloud_admin'], [is_cloud_admin])
+    raise gen.Return("Error: bad secret")
+  result = yield db.put_entity(USER_TABLE, username, ['is_cloud_admin'], [is_cloud_admin])
   if result[0] not in ERROR_CODES:
-    return "false:" + result[0]
-  return "true"
+    raise gen.Return("false:" + result[0])
+  raise gen.Return("true")
 
 
+@tornado_synchronous
+@gen.coroutine
 def get_capabilities(username, secret):
   global db
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
+    raise gen.Return("Error: bad secret")
 
   try:
-    result = db.get_entity(USER_TABLE, username, ["capabilities"])
+    result = yield db.get_entity(USER_TABLE, username, ["capabilities"])
   except AppScaleDBConnectionError as db_error:
-    return 'Error: {}'.format(db_error)
+    raise gen.Return('Error: {}'.format(db_error))
 
   if result[0] in ERROR_CODES and len(result) == 2:
-    return result[1]
+    raise gen.Return(result[1])
   else:
-    return [result[0]]
+    raise gen.Return([result[0]])
 
 
+@tornado_synchronous
+@gen.coroutine
 def set_capabilities(username, capabilities, secret):
   global db
   global super_secret
   if secret != super_secret:
-    return "Error: bad secret"
-  result = db.put_entity(USER_TABLE, username, ['capabilities'], [capabilities])
+    raise gen.Return("Error: bad secret")
+  result = yield db.put_entity(USER_TABLE, username, ['capabilities'], [capabilities])
   if result[0] not in ERROR_CODES:
-    return "false:" + result[0]
-  return "true"
+    raise gen.Return("false:" + result[0])
+  raise gen.Return("true")
 
 
 def usage():
@@ -521,8 +558,8 @@ def main():
   timeout = 5
   while 1:
     try:
-      user_schema = db.get_schema(USER_TABLE)
-    except AppScaleDBConnectionError as db_error:
+      user_schema = tornado_synchronous(db.get_schema)(USER_TABLE)
+    except AppScaleDBConnectionError:
       time.sleep(timeout)
       continue
 

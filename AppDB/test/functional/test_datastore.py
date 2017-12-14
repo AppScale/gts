@@ -7,6 +7,8 @@ import os
 import sys
 import unittest
 
+from tornado import testing
+
 from appscale.common.constants import APPSCALE_HOME
 from appscale.datastore import appscale_datastore
 from appscale.datastore import helper_functions as hf
@@ -16,201 +18,232 @@ from test import test_support
 from threading import Thread
 
 USERS_VALUES = ["suwanny@gmail.com", "11", "2009", "2009", "2009",
-    "bbs", "xxx", "xxx", "1", "yyy", 
+    "bbs", "xxx", "xxx", "1", "yyy",
     "0.0.0.0", "2009", "zzz", "yes"]
 
 APPS_VALUES = ["name",  "python", "version","owner","admins_list","host",
-    "port","creation_date", "last_time_updated_date", "yaml_file", "cksum", 
+    "port","creation_date", "last_time_updated_date", "yaml_file", "cksum",
     "num_entries", "xxxx", "yes", "class", "index"]
 
 ERROR_CODE = "DB_ERROR:"
 
 datastore_name = None
 
+
 def createRandomList(number_of_columns, column_name_len):
-  columns = [] 
+  columns = []
   for ii in range(0, number_of_columns):
     columns += [hf.random_string(column_name_len)]
   return columns
 
-class TestDatastoreFunctions(unittest.TestCase):
 
+class TestDatastoreFunctions(testing.AsyncTestCase):
+
+  @testing.gen_test
   def test_getput(self):
-    ret = self.db.put_entity(USERS_TABLE, "1", USERS_SCHEMA, USERS_VALUES)
+    ret = yield self.db.put_entity(USERS_TABLE, "1", USERS_SCHEMA, USERS_VALUES)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(USERS_TABLE, "1", USERS_SCHEMA)
+    ret = yield self.db.get_entity(USERS_TABLE, "1", USERS_SCHEMA)
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual(USERS_VALUES[0], ret[1])
     self.assertEqual(USERS_VALUES[1], ret[2])
-    ret = self.db.delete_row(USERS_TABLE, "1")
+    ret = yield self.db.delete_row(USERS_TABLE, "1")
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_getput_longkey(self):
-    longKey = "1111111111111111111111111111111111111111111111111111111111111111111111"
-    ret = self.db.put_entity(USERS_TABLE, longKey, USERS_SCHEMA, USERS_VALUES)
+    longKey = "11111111111111111111111111111111111" \
+              "11111111111111111111111111111111111"
+    ret = yield self.db.put_entity(
+      USERS_TABLE, longKey, USERS_SCHEMA, USERS_VALUES)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(USERS_TABLE, longKey, USERS_SCHEMA)
+    ret = yield self.db.get_entity(USERS_TABLE, longKey, USERS_SCHEMA)
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual(USERS_VALUES[0], ret[1])
     self.assertEqual(USERS_VALUES[1], ret[2])
-    ret = self.db.delete_row(USERS_TABLE, longKey)
+    ret = yield self.db.delete_row(USERS_TABLE, longKey)
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_getput_longkey2(self):
-    longKey = "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
-    ret = self.db.put_entity(USERS_TABLE, longKey, USERS_SCHEMA, USERS_VALUES)
+    longKey = (
+      "1111111111111111111111111111111111111111111111111111111111111111111111"
+      "1111111111111111111111111111111111111111111111111111111111111111111111"
+      "1111111111111111111111111111111111111111111111111111111111111111111111"
+      "1111111111111111111111111111111111111111111111111111111111111111111111"
+      "111111111111111111111111111111111111"
+    )
+    ret = yield self.db.put_entity(
+      USERS_TABLE, longKey, USERS_SCHEMA, USERS_VALUES)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(USERS_TABLE, longKey, USERS_SCHEMA)
+    ret = yield self.db.get_entity(USERS_TABLE, longKey, USERS_SCHEMA)
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual(USERS_VALUES[0], ret[1])
     self.assertEqual(USERS_VALUES[1], ret[2])
-    ret = self.db.delete_row(USERS_TABLE, longKey)
+    ret = yield self.db.delete_row(USERS_TABLE, longKey)
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_get_each_column(self):
     table = "eachcolumntest"
     key = "eachcolumntest"
     columns = ["1", "2", "3", "4", "5"]
     values = ["1", "2", "3", "4", "5"]
-    ret = self.db.put_entity(table, key, columns, values)
+    ret = yield self.db.put_entity(table, key, columns, values)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(table, key, columns)
+    ret = yield self.db.get_entity(table, key, columns)
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("1", ret[1])
     self.assertEqual("5", ret[5])
-    ret = self.db.get_entity(table, key, ["3"])
+    ret = yield self.db.get_entity(table, key, ["3"])
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("3", ret[1])
-    ret = self.db.get_entity(table, key, ["5"])
+    ret = yield self.db.get_entity(table, key, ["5"])
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("5", ret[1])
-    ret = self.db.get_entity(table, key, ["1", "2"])
+    ret = yield self.db.get_entity(table, key, ["1", "2"])
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("1", ret[1])
     self.assertEqual("2", ret[2])
-    ret = self.db.get_entity(table, key, ["4", "5"])
+    ret = yield self.db.get_entity(table, key, ["4", "5"])
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("4", ret[1])
     self.assertEqual("5", ret[2])
-    ret = self.db.delete_row(table, key)
+    ret = yield self.db.delete_row(table, key)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_table(table)
+    ret = yield self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def notest_delete_row_nonexisting_table(self):
-    ret = self.db.delete_row("dummytable", "dummyappname")
+    ret = yield self.db.delete_row("dummytable", "dummyappname")
     self.assertNotEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def notest_delete_table_nonexisting_table(self):
-    ret = self.db.delete_table("dummytable")
+    ret = yield self.db.delete_table("dummytable")
     self.assertNotEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def notest_delete_row_twice(self):
     table = "deletetest"
     key = "deletetest"
-    ret = self.db.put_entity(table, key, ["value"], ["value"])
+    ret = yield self.db.put_entity(table, key, ["value"], ["value"])
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_row(table, key)
+    ret = yield self.db.delete_row(table, key)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_row(table, key)
+    ret = yield self.db.delete_row(table, key)
     self.assertNotEqual(self.error_code, ret[0])
-    ret = self.db.delete_table(table)
+    ret = yield self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_update_column(self):
     table = "updatecolumntest"
     key = "updatecolumntest"
     columns = ["1", "2", "3", "4", "5"]
     values = ["1", "2", "3", "4", "5"]
-    ret = self.db.put_entity(table, key, columns, values)
+    ret = yield self.db.put_entity(table, key, columns, values)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(table, key, columns)
+    ret = yield self.db.get_entity(table, key, columns)
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("1", ret[1])
-    ret = self.db.put_entity(table, key, ["1"], ["one"])
+    ret = yield self.db.put_entity(table, key, ["1"], ["one"])
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity(table, key, columns)
+    ret = yield self.db.get_entity(table, key, columns)
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("one", ret[1])
-    ret = self.db.delete_row(table, key)
+    ret = yield self.db.delete_row(table, key)
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_table(table)
+    ret = yield self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_getschema(self):
-    user_schema = self.db.get_schema(USERS_TABLE)
+    user_schema = yield self.db.get_schema(USERS_TABLE)
     self.assertEqual(self.error_code, user_schema[0])
     self.assertEqual(1, user_schema.count("email"))
     self.assertEqual(1, user_schema.count("pw"))
     self.assertEqual(1, user_schema.count("enabled"))
 
+  @testing.gen_test
   def test_getschema_nonexisting_table(self):
-    ret = self.db.get_schema("dummytable")
+    ret = yield self.db.get_schema("dummytable")
     self.assertNotEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_getput_binary(self):
     f = open('%s/AppDB/test/guestbook.tar.gz' % APPSCALE_HOME, 'r')
     data = f.read()
-    ret = self.db.put_entity("binarytest", "binarytest", ["Encoded_Entity"], [data])
+    ret = yield self.db.put_entity(
+      "binarytest", "binarytest", ["Encoded_Entity"], [data])
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity("binarytest", "binarytest", ["Encoded_Entity"])
+    ret = yield self.db.get_entity(
+      "binarytest", "binarytest", ["Encoded_Entity"])
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual(data, ret[1])
-    ret = self.db.delete_row("binarytest", "binarytest")
+    ret = yield self.db.delete_row("binarytest", "binarytest")
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_table("binarytest")
+    ret = yield self.db.delete_table("binarytest")
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_getput_bigbinary(self):
     f = open('%s/AppDB/test/bigbinary' % APPSCALE_HOME, 'r')
     data = f.read()
-    ret = self.db.put_entity("binarytest", "binarytest", ["Encoded_Entity"], [data])
+    ret = yield self.db.put_entity(
+      "binarytest", "binarytest", ["Encoded_Entity"], [data])
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity("binarytest", "binarytest", ["Encoded_Entity"])
+    ret = yield self.db.get_entity(
+      "binarytest", "binarytest", ["Encoded_Entity"])
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual(data, ret[1])
-    ret = self.db.delete_row("binarytest", "binarytest")
+    ret = yield self.db.delete_row("binarytest", "binarytest")
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_table("binarytest")
+    ret = yield self.db.delete_table("binarytest")
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_gettable(self):
     table = "dummytable"
     schema = ["value1", "value2"]
-    ret = self.db.put_entity(table, "1", schema, ["1", "2"])
+    ret = yield self.db.put_entity(table, "1", schema, ["1", "2"])
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.put_entity(table, "2", schema, ["3", "4"])
+    ret = yield self.db.put_entity(table, "2", schema, ["3", "4"])
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_table(table, schema)
+    ret = yield self.db.get_table(table, schema)
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("1", ret[1])
     self.assertEqual("2", ret[2])
     self.assertEqual("3", ret[3])
     self.assertEqual("4", ret[4])
-    ret = self.db.delete_table(table)
+    ret = yield self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_delete_table(self):
     key = "11111111111111111111111111111"
-    ret = self.db.put_entity("deletetest", key, ["value"], ["value"])
+    ret = yield self.db.put_entity("deletetest", key, ["value"], ["value"])
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity("deletetest", key, ["value"])
+    ret = yield self.db.get_entity("deletetest", key, ["value"])
     self.assertEqual(self.error_code, ret[0])
     self.assertEqual("value", ret[1])
-    ret = self.db.delete_table("deletetest")
+    ret = yield self.db.delete_table("deletetest")
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.get_entity("deletetest", key, ["value"])
+    ret = yield self.db.get_entity("deletetest", key, ["value"])
     self.assertNotEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def notest_delete_table_twice(self):
     key = "11111111111111111111111111111"
-    ret = self.db.put_entity("deletetest", key, ["value"], ["value"])
+    ret = yield self.db.put_entity("deletetest", key, ["value"], ["value"])
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_table("deletetest")
+    ret = yield self.db.delete_table("deletetest")
     self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_table("deletetest")
+    ret = yield self.db.delete_table("deletetest")
     self.assertNotEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_200requests(self):
     table = "testmulti"
     prekey = "value"
@@ -218,28 +251,29 @@ class TestDatastoreFunctions(unittest.TestCase):
     value = "intervaltestvalue"
     for i in range(200):
       key = prekey + str(i)
-      ret = self.db.put_entity(table, key, [valuename], [value])
+      ret = yield self.db.put_entity(table, key, [valuename], [value])
       self.assertEqual(self.error_code, ret[0])
     for i in range(200):
       key = prekey + str(i)
-      ret = self.db.get_entity(table, key, [valuename])
+      ret = yield self.db.get_entity(table, key, [valuename])
       if len(ret) < 2:
         ret[1] = ""
       self.assertEqual(value, ret[1])
       self.assertEqual(self.error_code, ret[0])
-      ret = self.db.delete_row(table, key)
+      ret = yield self.db.delete_row(table, key)
       self.assertEqual(self.error_code, ret[0])
-    ret = self.db.delete_table(table)
+    ret = yield self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
   # 10 threads get/put/delete 100 requests
 
+  @testing.gen_test
   def test_10multi_requests(self):
     table = "testmulti"
     valuename = "value"
     value = "intervaltestvalue"
     # create table before testing
-    ret = self.db.put_entity(table, "dummykey", [valuename], [value])
+    ret = yield self.db.put_entity(table, "dummykey", [valuename], [value])
     self.assertEqual(self.error_code, ret[0])
 
     tlist = []
@@ -251,15 +285,16 @@ class TestDatastoreFunctions(unittest.TestCase):
 
     for t in tlist:
       t.join()
-    ret = self.db.delete_table(table)
+    ret = yield self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def test_20multi_requests(self):
     table = "testmulti"
     valuename = "value"
     value = "intervaltestvalue"
     # create table before testing
-    ret = self.db.put_entity(table, "dummykey", [valuename], [value])
+    ret = yield self.db.put_entity(table, "dummykey", [valuename], [value])
     self.assertEqual(self.error_code, ret[0])
 
     tlist = []
@@ -271,27 +306,28 @@ class TestDatastoreFunctions(unittest.TestCase):
 
     for t in tlist:
       t.join()
-    ret = self.db.delete_table(table)
+    ret = yield self.db.delete_table(table)
     self.assertEqual(self.error_code, ret[0])
 
+  @testing.gen_test
   def _multi50requests(self, prekey):
     table = "testmulti"
     valuename = "value"
     value = "intervaltestvalue"
     for i in range(50):
       key = prekey + str(i)
-      ret = self.db.put_entity(table, key, [valuename], [value])
+      ret = yield self.db.put_entity(table, key, [valuename], [value])
       self.assertEqual(self.error_code, ret[0])
     for i in range(50):
       key = prekey + str(i)
-      ret = self.db.get_entity(table, key, [valuename])
+      ret = yield self.db.get_entity(table, key, [valuename])
       if len(ret) < 2:
         ret[1] = ""
       self.assertEqual(value, ret[1])
       self.assertEqual(self.error_code, ret[0])
     for i in range(50):
       key = prekey + str(i)
-      ret = self.db.delete_row(table, key)
+      ret = yield self.db.delete_row(table, key)
       self.assertEqual(self.error_code, ret[0])
 
   def setUp(self):

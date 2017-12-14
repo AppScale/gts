@@ -6,16 +6,15 @@ import struct
 import sys
 import time
 
-import dbconstants
-import helper_functions
-
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from .appscale_datastore_batch import DatastoreFactory
-from .dbconstants import AppScaleDBConnectionError
-from .dbconstants import ID_KEY_LENGTH
-from .dbconstants import METADATA_TABLE
-from .dbconstants import TERMINATING_STRING
+from tornado import ioloop
+
+from appscale.datastore import dbconstants, helper_functions
+from appscale.datastore.appscale_datastore_batch import DatastoreFactory
+from appscale.datastore.dbconstants import (
+  AppScaleDBConnectionError, ID_KEY_LENGTH, METADATA_TABLE, TERMINATING_STRING
+)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import appscale_stub_util
@@ -657,3 +656,10 @@ def encode_path_from_filter(query_filter):
     path.add_element().MergeFrom(element)
 
   return str(encode_index_pb(path))
+
+
+def tornado_synchronous(coroutine):
+  def synchronous_coroutine(*args, **kwargs):
+    async = lambda: coroutine(*args, **kwargs)
+    return ioloop.IOLoop.current().run_sync(async)
+  return synchronous_coroutine
