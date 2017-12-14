@@ -10,10 +10,7 @@ Engine applications.
 # pylint: disable-msg=W0613
 
 import cgi
-from collections import defaultdict
-import crontab
 import datetime
-import jinja2
 import json
 import logging
 import os
@@ -21,23 +18,23 @@ import re
 import sys
 import time
 import urllib
+from collections import defaultdict
+
+import crontab
 import webapp2
 
 from google.appengine.api import memcache
 from google.appengine.api import taskqueue
-from google.appengine.ext.db.stats import KindStat
-from google.appengine.ext import ndb
 from google.appengine.datastore.datastore_query import Cursor
+from google.appengine.ext import ndb
+from google.appengine.ext.db.stats import KindStat
 
 sys.path.append(os.path.dirname(__file__) + '/lib')
 from app_dashboard import AppDashboard
 from app_dashboard import jinja_environment
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
-from app_dashboard_data import AppDashboardData
 from app_dashboard_data import RequestInfo
-
-from dashboard_logs import AppLogLine
 from dashboard_logs import RequestLogLine
 
 
