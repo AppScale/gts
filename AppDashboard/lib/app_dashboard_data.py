@@ -163,17 +163,12 @@ class AppDashboardData():
                                                {"manage_users": lookup_dict[
                                                    "manage_users"]}]}
       if user_info.owned_apps or user_info.is_user_cloud_admin:
-        lookup_dict["debugging_monitoring"] = {"Debugging/Monitoring":
-                                               [{"monit": lookup_dict[
-                                                 "monit"]},
-                                                {"taskqueue": lookup_dict[
-                                                  "taskqueue"]},
-                                                {"logging": lookup_dict[
-                                                  "logging"]},
-                                                {"app_console": lookup_dict[
-                                                    "app_console"]},
-                                                {"cron": lookup_dict[
-                                                  "cron"]}]}
+        sections = ['monit', 'taskqueue', 'logging', 'app_console', 'cron',
+                    'datastore_viewer']
+        lookup_dict["debugging_monitoring"] = {
+          "Debugging/Monitoring": [{section: lookup_dict[section]}
+                                   for section in sections]
+        }
       return lookup_dict
     else:
       return {}
