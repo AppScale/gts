@@ -36,6 +36,9 @@ from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 from app_dashboard_data import RequestInfo
 from dashboard_logs import RequestLogLine
+from datastore_viewer import DatastoreEditRequestHandler
+from datastore_viewer import DatastoreViewer
+from datastore_viewer import DatastoreViewerSelector
 
 
 # The maximum number of datapoints we send to be rendered in a graph
@@ -1166,6 +1169,10 @@ dashboard_pages = [
   ('/gather-logs', LogDownloader),
   ('/groomer', RunGroomer),
   ('/change-password', ChangePasswordPage),
+  ('/datastore_viewer', DatastoreViewerSelector),
+  ('/datastore_viewer/(.+)/edit/(.*)', DatastoreEditRequestHandler),
+  ('/datastore_viewer/(.+)/edit', DatastoreEditRequestHandler),
+  ('/datastore_viewer/(.+)', DatastoreViewer),
   ('/ajax/panel/render', AjaxRenderPanel),
   ('/ajax/layout/save', AjaxSaveLayoutSettings),
   ('/ajax/layout/reset', AjaxResetLayoutSettings)

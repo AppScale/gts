@@ -146,7 +146,9 @@ class AppDashboardData():
                  "template": "cron/console.html"},
         "app_console": {"title": "Application Statistics",
                         "template": "apps/console.html",
-                        "link": "/apps/"}
+                        "link": "/apps/"},
+        "datastore_viewer": {"title": "Datastore Viewer",
+                             "link": "/datastore_viewer"}
       }
       if user_info.can_upload_apps:
         lookup_dict["app_management"] = {"App Management":
