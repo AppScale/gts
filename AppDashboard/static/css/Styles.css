@@ -381,6 +381,17 @@ body.errorPage, body.loginPage {
 #datastore-viewer .ae-paginator {
   float: right;
 }
+#gqlForm {
+  margin-bottom: 15px;
+}
+#gqlForm textarea {
+  font-family: monospace;
+  font-size: 12px;
+}
+#gqlInput {
+  width: 100%;
+  min-height: 150px;
+}
 
 .ae-button {
   display: inline-block;
