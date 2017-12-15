@@ -3063,6 +3063,9 @@ class Djinn
       ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
       ENV['EC2_URL'] = @options['ec2_url']
     end
+
+    # Set the proper log level.
+    enforce_options
   end
 
   def got_all_data
