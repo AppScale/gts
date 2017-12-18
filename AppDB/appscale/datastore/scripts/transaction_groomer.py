@@ -16,6 +16,7 @@ from kazoo.retry import KazooRetry
 from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.locks import Event as AsyncEvent
+from tornado.queues import Queue as AsyncQueue
 
 from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT
@@ -32,6 +33,9 @@ from ..zkappscale.tornado_kazoo import TornadoKazoo
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore.entity_pb import CompositeIndex
+
+# The maximum number of transactions per project to clean up at the same time.
+MAX_CONCURRENCY = 10
 
 logger = logging.getLogger('appscale-transaction-groomer')
 
@@ -162,6 +166,14 @@ class ProjectGroomer(object):
     self._stop_event = AsyncEvent()
     self._stopped_event = AsyncEvent()
 
+    # Keeps track of cleanp results for each round of grooming.
+    self._txids_cleaned = 0
+    self._oldest_valid_tx_time = None
+
+    self._worker_queue = AsyncQueue(maxsize=MAX_CONCURRENCY)
+    for _ in range(MAX_CONCURRENCY):
+      IOLoop.current().spawn_callback(self._worker)
+
     IOLoop.current().spawn_callback(self.start)
 
   @gen.coroutine
@@ -188,6 +200,21 @@ class ProjectGroomer(object):
     logger.info('Stopping grooming process for {}'.format(self.project_id))
     self._stop_event.set()
     yield self._stopped_event.wait()
+
+  @gen.coroutine
+  def _worker(self):
+    """ Processes items in the worker queue. """
+    while True:
+      tx_path, composite_indexes = yield self._worker_queue.get()
+      try:
+        tx_time = yield self._resolve_txid(tx_path, composite_indexes)
+        if tx_time is None:
+          self._txids_cleaned += 1
+
+        if tx_time is not None and tx_time < self._oldest_valid_tx_time:
+          self._oldest_valid_tx_time = tx_time
+      finally:
+        self._worker_queue.task_done()
 
   def _update_offset(self, new_offset, _):
     """ Watches for updates to the manual offset node.
@@ -301,7 +328,9 @@ class ProjectGroomer(object):
       A float specifying the time of the oldest valid transaction as a unix
       timestamp.
     """
-    oldest_valid_tx_time = time.time()
+    self._txids_cleaned = 0
+    self._oldest_valid_tx_time = time.time()
+
     children = []
     for index, container in enumerate(self._containers):
       container_path = '/'.join([self._project_node, container])
@@ -317,42 +346,28 @@ class ProjectGroomer(object):
       'Found {} transaction IDs for {}'.format(len(children), self.project_id))
 
     if not children:
-      raise gen.Return(oldest_valid_tx_time)
+      raise gen.Return(self._oldest_valid_tx_time)
 
     # Refresh these each time so that the indexes are fresh.
     encoded_indexes = yield self._thread_pool.submit(
       self._db_access.get_indices, self.project_id)
     composite_indexes = [CompositeIndex(index) for index in encoded_indexes]
 
-    futures = []
     for tx_path in children:
       tx_node_id = int(tx_path.split('/')[-1].lstrip(COUNTER_NODE_PREFIX))
       # Only resolve transactions that this worker has been assigned.
       if tx_node_id % worker_count != worker_index:
         continue
 
-      futures.append(self._resolve_txid(tx_path, composite_indexes))
+      yield self._worker_queue.put((tx_path, composite_indexes))
 
-    txids_cleaned = 0
-    for future in futures:
-      try:
-        tx_time = yield future
-      except Exception:
-        # If the resolution process failed, try again the next time around.
-        logger.exception('Error while resolving transaction')
-        continue
+    yield self._worker_queue.join()
 
-      # 'None' indicates that the transaction was expired and cleaned up.
-      if tx_time is None:
-        txids_cleaned += 1
+    if self._txids_cleaned > 0:
+      logger.info('Cleaned up {} expired txids for {}'.format(
+        self._txids_cleaned, self.project_id))
 
-      if tx_time is not None and tx_time < oldest_valid_tx_time:
-        oldest_valid_tx_time = tx_time
-
-    if txids_cleaned > 0:
-      logger.info('Cleaned up {} expired txids for {}'.format(txids_cleaned,
-                                                              self.project_id))
-    raise gen.Return(oldest_valid_tx_time)
+    raise gen.Return(self._oldest_valid_tx_time)
 
 
 class TransactionGroomer(object):
