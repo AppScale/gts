@@ -48,7 +48,7 @@ def init_parser():
   return parser
 
 
-def app_is_deployed(app_id):
+def app_is_deployed(app_id, zk_client):
   """ Looks for the app directory in the deployed apps location.
 
   Args:
@@ -56,7 +56,7 @@ def app_is_deployed(app_id):
   Returns:
     True on success, False otherwise.
   """
-  if not os.path.exists('{0}{1}/'.format(_APPS_LOCATION, app_id)):
+  if not zk_client.exists('/appscale/projects/{}'.format(app_id)):
     logging.error("Seems that \"{0}\" is not deployed.".format(app_id))
     logging.info("Please deploy \"{0}\" and try again.".\
       format(app_id))
@@ -97,8 +97,11 @@ def main():
 
   logging.info(args)
 
+  zk_connection_locations = appscale_info.get_zk_locations_string()
+  zookeeper = zk.ZKTransaction(host=zk_connection_locations)
+
   # Verify app is deployed.
-  if not app_is_deployed(args.app_id):
+  if not app_is_deployed(args.app_id, zookeeper.handle):
     return
 
   # Verify backup dir exists.
@@ -125,8 +128,6 @@ def main():
       return
 
   # Initialize connection to Zookeeper and database related variables.
-  zk_connection_locations = appscale_info.get_zk_locations_string()
-  zookeeper = zk.ZKTransaction(host=zk_connection_locations)
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
 

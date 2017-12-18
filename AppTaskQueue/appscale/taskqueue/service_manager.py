@@ -86,7 +86,7 @@ class ProjectServiceManager(dict):
 
   def stop(self):
     """ Stops all watches associated with this service. """
-    for service_id in self:
+    for service_id in list(self):
       del self[service_id]
 
     self._stopped = True

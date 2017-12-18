@@ -6,6 +6,7 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .. import appscale_datastore_batch
 from ..datastore_distributed import DatastoreDistributed
 from ..zkappscale import zktransaction as zk
+from ..zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import datastore_pb
@@ -65,8 +66,9 @@ def main():
     getDatastore(db_type)
   zookeeper_locations = appscale_info.get_zk_locations_string()
   zookeeper = zk.ZKTransaction(host=zookeeper_locations)
-  datastore_access = DatastoreDistributed(datastore_batch,
-    zookeeper=zookeeper)
+  transaction_manager = TransactionManager(zookeeper.handle)
+  datastore_access = DatastoreDistributed(
+    datastore_batch, transaction_manager, zookeeper=zookeeper)
 
   pb_indices = datastore_access.datastore_batch.get_indices(app_id)
   indices = [datastore_pb.CompositeIndex(index) for index in pb_indices]

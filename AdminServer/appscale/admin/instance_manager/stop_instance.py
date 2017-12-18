@@ -10,12 +10,14 @@ from appscale.common.constants import PID_DIR
 DEFAULT_WAIT_TIME = 20
 
 
-def stop_instance(watch, timeout):
+def stop_instance(watch, timeout, force=False):
   """ Stops an AppServer process.
 
   Args:
     watch: A string specifying the Monit watch entry.
     timeout: An integer specifying the time to wait for requests to finish.
+    force: A boolean indicating that the instance should be killed immediately
+      instead of being allowed to finish ongoing requests.
   Raises:
     IOError if the pidfile does not exist.
     OSError if the process does not exist.
@@ -25,6 +27,11 @@ def stop_instance(watch, timeout):
     pid = int(pidfile.read().strip())
 
   group = os.getpgid(pid)
+  if force:
+    os.killpg(group, signal.SIGKILL)
+    os.remove(pidfile_location)
+    return
+
   process = psutil.Process(pid)
   process.terminate()
   try:
@@ -47,5 +54,7 @@ def main():
   parser.add_argument('--watch', required=True, help='The Monit watch entry')
   parser.add_argument('--timeout', default=20,
                       help='The seconds to wait before killing the instance')
+  parser.add_argument('--force', action='store_true',
+                      help='Stop the process immediately')
   args = parser.parse_args()
-  stop_instance(args.watch, args.timeout)
+  stop_instance(args.watch, args.timeout, args.force)

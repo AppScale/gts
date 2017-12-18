@@ -190,31 +190,6 @@ class DatastoreBackup(multiprocessing.Process):
 
     return batch
 
-  def verify_entity(self, key, txn_id):
-    """ Verify that the entity is not blacklisted.
-
-    Args:
-      key: The key to the entity table.
-      txn_id: An int, a transaction ID.
-    Returns:
-      True on success, False otherwise.
-    """
-    app_id = key.split(dbconstants.KEY_DELIMITER)[0]
-    try:
-      if self.zoo_keeper.is_blacklisted(app_id, txn_id):
-        logging.warn("Found a blacklisted item for version {0} on key {1}".\
-          format(txn_id, key))
-        return False
-    except zk.ZKTransactionException, zk_exception:
-      logging.error("Caught exception {0}, backing off!".format(zk_exception))
-      time.sleep(self.DB_ERROR_PERIOD)
-    except zk.ZKInternalException, zk_exception:
-      logging.error("Caught exception: {0}, backing off!".format(
-        zk_exception))
-      time.sleep(self.DB_ERROR_PERIOD)
-
-    return True
-
   def dump_entity(self, entity):
     """ Dumps the entity content into a backup file.
 
@@ -279,63 +254,18 @@ class DatastoreBackup(multiprocessing.Process):
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     if one_entity == dbconstants.TOMBSTONE:
       return False
-    app_id = key.split(dbconstants.KEY_DELIMITER)[0]
-    root_key = entity_utils.get_root_key_from_entity_key(key)
 
     success = True
     while True:
-      # Acquire lock.
-      txn_id = self.zoo_keeper.get_transaction_id(app_id)
       try:
-        if self.zoo_keeper.acquire_lock(app_id, txn_id, root_key):
-          version = entity[key][dbconstants.APP_ENTITY_SCHEMA[1]]
-          if not self.verify_entity(key, version):
-            # Fetch from the journal.
-            entity = entity_utils.fetch_journal_entry(self.db_access, key)
-            if not entity:
-              logging.error("Bad journal entry for key: {0} and result: {1}".
-                format(key, entity))
-              success = False
-            else:
-              one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
-
-          if self.dump_entity(one_entity):
-            logging.debug("Backed up key: {0}".format(key))
-            success = True
-          else:
-            success = False
+        if self.dump_entity(one_entity):
+          logging.debug("Backed up key: {0}".format(key))
+          success = True
         else:
-          logging.warn("Entity with key: {0} not found".format(key))
           success = False
-      except zk.ZKTransactionException, zk_exception:
-        logging.error("Zookeeper exception {0} while requesting entity lock".
-          format(zk_exception))
-        success = False
-      except zk.ZKInternalException, zk_exception:
-        logging.error("Zookeeper exception {0} while requesting entity lock".
-          format(zk_exception))
-        success = False
-      except dbconstants.AppScaleDBConnectionError, db_exception:
-        logging.error("Database exception {0} while requesting entity lock".
-          format(db_exception))
-        success = False
       finally:
         if not success:
-          if not self.zoo_keeper.notify_failed_transaction(app_id, txn_id):
-            logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
-              .format(app_id, txn_id))
           logging.error("Failed to backup entity. Retrying shortly...")
-
-        try:
-          self.zoo_keeper.release_lock(app_id, txn_id)
-        except zk.ZKTransactionException, zk_exception:
-          logging.error(
-            "Zookeeper exception {0} while releasing entity lock.".
-              format(zk_exception))
-        except zk.ZKInternalException, zk_exception:
-          logging.error(
-            "Zookeeper exception {0} while releasing entity lock.".
-              format(zk_exception))
 
       if success:
         break

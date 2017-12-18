@@ -3,19 +3,16 @@ import errno
 import json
 import logging
 import os
-import sys
 import threading
 import urllib
 
 import tornado.httpclient
+from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.backup.br_constants import StorageTypes
 
 from appscale.hermes import constants
 
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerException
 
 # The number of retries we should do to report the status of a completed task
 # to the AppScale Portal.

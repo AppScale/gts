@@ -8,7 +8,6 @@ import os
 import re
 import signal
 import socket
-import sys
 import tarfile
 import urllib
 
@@ -17,10 +16,10 @@ import tornado.httpclient
 import tornado.web
 from appscale.admin.constants import DEFAULT_SERVICE
 from appscale.admin.constants import DEFAULT_VERSION
+from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info, appscale_utils
 from appscale.common.constants import LOG_FORMAT, ZK_PERSISTENT_RECONNECTS
 from appscale.common.ua_client import UAClient, UAException
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooClient
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.options import options
@@ -29,9 +28,6 @@ from appscale.hermes import constants, helper
 from appscale.hermes.handlers import MainHandler, TaskHandler, Respond404Handler
 from appscale.hermes.helper import JSONTags
 from appscale.hermes.stats.server import stats_app
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerException
 
 # A KazooClient for detecting configuration changes.
 zk_client = None

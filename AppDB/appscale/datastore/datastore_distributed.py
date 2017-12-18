@@ -32,6 +32,7 @@ from .utils import reference_property_to_reference
 from .utils import UnprocessedQueryCursor
 from .zkappscale import entity_lock
 from .zkappscale import zktransaction
+from .zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
@@ -110,7 +111,8 @@ class DatastoreDistributed():
   # The number of entities to fetch at a time when updating indices.
   BATCH_SIZE = 100
 
-  def __init__(self, datastore_batch, zookeeper=None, log_level=logging.INFO):
+  def __init__(self, datastore_batch, transaction_manager, zookeeper=None,
+               log_level=logging.INFO):
     """
        Constructor.
      
@@ -141,6 +143,7 @@ class DatastoreDistributed():
     # Maintain a sequential allocator for each project.
     self.sequential_allocators = {}
 
+    self.transaction_manager = transaction_manager
     self.zookeeper.handle.add_listener(self._zk_state_listener)
 
   def get_limit(self, query):
@@ -554,7 +557,7 @@ class DatastoreDistributed():
       group_key = entity_pb.Reference(encoded_group_key)
       lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key])
 
-      txid = self.zookeeper.get_transaction_id(app, False)
+      txid = self.transaction_manager.create_transaction_id(app, xg=False)
       try:
         with lock:
           batch = []
@@ -579,7 +582,7 @@ class DatastoreDistributed():
               {'key': entity.key(), 'old': current_value, 'new': entity})
           self.datastore_batch.batch_mutate(app, batch, entity_changes, txid)
       finally:
-        self.zookeeper.remove_tx_node(app, txid)
+        self.transaction_manager.delete_transaction_id(app, txid)
 
   def delete_entities(self, group, txid, keys, composite_indexes=()):
     """ Deletes the entities and the indexes associated with them.
@@ -682,57 +685,8 @@ class DatastoreDistributed():
       return self.get_root_key(app_id, entity_key.name_space(), element_list)
     else:
       raise TypeError("Unable to get root key from given type of %s" % \
-                      entity_key.__class__)  
+                      entity_key.__class__)
 
-  def acquire_locks_for_nontrans(self, app_id, entities, retries=0):
-    """ Acquires locks for non-transaction operations. 
-
-    Acquires locks and transaction handlers for each entity group in the set of 
-    entities.  It is possible that multiple entities share the same group, and 
-    hence they can use the same lock when being updated. The reason we get locks 
-    for puts in non-transactional puts is that it prevents race conditions of 
-    existing transactions that are on-going. It maintains ACID semantics.
-    Args:
-      app_id: The application ID.
-      entities: A list of entities (either entity_pb.EntityProto or a 
-                entity_pb.Reference) that we want to acquire locks for.
-    Returns:
-      A hash of root keys mapping to transaction IDs.
-    Raises:
-     TypeError: If args are the wrong type.
-    """
-    root_keys = []
-    txn_hash = {} 
-    if not isinstance(entities, list):
-      raise TypeError("Expected a list and got {0}".format(entities.__class__))
-    for ent in entities:
-      if isinstance(ent, entity_pb.Reference):
-        root_keys.append(self.get_root_key_from_entity_key(ent))
-      elif isinstance(ent, entity_pb.EntityProto):
-        root_keys.append(self.get_root_key_from_entity_key(ent.key()))
-      else:
-        raise TypeError("Excepted either a reference or an EntityProto, "\
-          "got {0}".format(ent.__class__))
-
-    # Remove all duplicate root keys.
-    root_keys = list(set(root_keys))
-    try:
-      for root_key in root_keys:
-        txnid = self.zookeeper.get_transaction_id(app_id, is_xg=False)
-        txn_hash[root_key] = txnid
-        self.zookeeper.acquire_lock(app_id, txnid, root_key)
-    except zktransaction.ZKTransactionException as zkte:
-      if retries > 0:
-        time.sleep(self.LOCK_RETRY_TIME)
-        self.logger.warning('Retrying to acquire lock. Retries left: {}'.
-          format(retries))
-        return self.acquire_locks_for_nontrans(app_id, entities, retries-1)
-      for key in txn_hash:
-        self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
-      raise zkte
-
-    return txn_hash
-      
   def get_root_key(self, app_id, ns, ancestor_list):
     """ Gets the root key string from an ancestor listing.
    
@@ -941,7 +895,7 @@ class DatastoreDistributed():
         lock = entity_lock.EntityLock(
           self.zookeeper.handle, [group_key])
 
-        txid = self.zookeeper.get_transaction_id(app_id, False)
+        txid = self.transaction_manager.create_transaction_id(app_id, xg=False)
         try:
           with lock:
             self.delete_entities(
@@ -954,7 +908,7 @@ class DatastoreDistributed():
         except entity_lock.LockTimeout as timeout_error:
           raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
         finally:
-          self.zookeeper.remove_tx_node(app_id, txid)
+          self.transaction_manager.delete_transaction_id(app_id, txid)
 
   def generate_filter_info(self, filters):
     """Transform a list of filters into a more usable form.
@@ -3172,8 +3126,8 @@ class DatastoreDistributed():
     Returns:
       A long representing a unique transaction ID.
     """
-    txid = self.zookeeper.get_transaction_id(app_id, is_xg)
-    in_progress = self.zookeeper.get_current_transactions(app_id)
+    txid = self.transaction_manager.create_transaction_id(app_id, xg=is_xg)
+    in_progress = self.transaction_manager.get_open_transactions(app_id)
     self.datastore_batch.start_transaction(app_id, txid, is_xg, in_progress)
     return txid
 
@@ -3349,7 +3303,11 @@ class DatastoreDistributed():
       return (commitres_pb.Encode(), datastore_pb.Error.TIMEOUT,
               str(error))
 
-    self.zookeeper.remove_tx_node(app_id, txn_id)
+    try:
+      self.transaction_manager.delete_transaction_id(app_id, txn_id)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+
     return commitres_pb.Encode(), 0, ""
 
   def rollback_transaction(self, app_id, http_request_data):

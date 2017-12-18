@@ -1,14 +1,11 @@
 #!/usr/bin/ruby
 
-
 require 'rubygems'
 require 'json'
 
-
-$:.unshift File.join(File.dirname(__FILE__), "..")
+$:.unshift File.join(File.dirname(__FILE__), '..')
 require 'djinn'
 require 'helperfunctions'
-
 
 # A class that represents a single node running in AppScale. It provides methods
 # to easily see the IP address of a node, how to access it, and what roles
@@ -18,11 +15,10 @@ require 'helperfunctions'
 class DjinnJobData
   attr_accessor :public_ip, :private_ip, :jobs, :instance_id, :cloud, :ssh_key
   attr_accessor :disk
- 
 
   def initialize(json_data, keyname)
     if json_data.class != Hash
-      HelperFunctions.log_and_crash("Roles must be a Hash, not a " +
+      HelperFunctions.log_and_crash('Roles must be a Hash, not a ' \
         "#{json_data.class} containing #{json_data}")
     end
 
@@ -35,36 +31,32 @@ class DjinnJobData
     elsif jobs.class == String
       @jobs = [jobs]
     else
-      HelperFunctions.log_and_crash("Jobs must be an Array or String, not " +
+      HelperFunctions.log_and_crash('Jobs must be an Array or String, not ' \
         "a #{jobs.class} containing #{jobs}")
     end
 
-    @cloud = "cloud1"
+    @cloud = 'cloud1'
     @instance_id = 'i-APPSCALE'
     @instance_id = json_data['instance_id'] if json_data['instance_id']
     @disk = json_data['disk']
     @ssh_key = File.expand_path("/etc/appscale/keys/#{@cloud}/#{keyname}.key")
   end
 
-
   def add_roles(roles)
-    new_jobs = roles.split(":")
+    new_jobs = roles.split(':')
     @jobs = (@jobs + new_jobs).uniq
-    @jobs.delete("open")
+    @jobs.delete('open')
   end
-
 
   def remove_roles(roles)
-    new_jobs = roles.split(":")
+    new_jobs = roles.split(':')
     @jobs = (@jobs - new_jobs)
-    @jobs = ["open"] if @jobs.empty?
+    @jobs = ['open'] if @jobs.empty?
   end
-
 
   def set_roles(roles)
-    @jobs = roles.split(":")
+    @jobs = roles.split(':')
   end
-
 
   # Produces a Hash that contains all the information contained in this
   # object.
@@ -80,27 +72,21 @@ class DjinnJobData
     }
   end
 
-
   def to_s
-    if @jobs.empty?
-      jobs = "not doing anything"
-    else
-      jobs = @jobs.join(', ')
-    end
+    jobs = @jobs.empty? ? 'not doing anything' : @jobs.join(', ')
 
-    status = "Node in cloud #{@cloud} with instance id #{@instance_id}" +
-      " responds to ssh key #{@ssh_key}, has pub IP #{@public_ip}," +
+    status = "Node in cloud #{@cloud} with instance id #{@instance_id}" \
+      " responds to ssh key #{@ssh_key}, has pub IP #{@public_ip}," \
       " priv IP #{@private_ip}, and is currently #{jobs}. "
 
     if @disk.nil?
-      status += "It does not back up its data to a persistent disk."
+      status += 'It does not back up its data to a persistent disk.'
     else
       status += "It backs up data to a persistent disk with name #{@disk}."
     end
 
-    return status  
+    status
   end
-
 
   # method_missing: will intercept calls to is_load_balancer?, is_appengine?
   # and so on, without having all these methods to copy paste
@@ -108,11 +94,8 @@ class DjinnJobData
   # TODO: remove this and place dynamic method adds in initialize
   def method_missing(id, *args, &block)
     if id.to_s =~ /is_(.*)\?/
-      if @jobs.include?($1)
-        return true
-      else
-        return false
-      end
+      return true if @jobs.include?($1)
+      return false
     end
     super
   end
@@ -121,24 +104,23 @@ class DjinnJobData
   # db_master nodes. A node that is a database and is not the db_master is
   # now considered a db_slave.
   def is_db_slave?
-    return @jobs.include?('database') && !@jobs.include?('db_master')
+    @jobs.include?('database') && !@jobs.include?('db_master')
   end
 
   # In the process of removing roles, taskqueue_slave is no longer added to non
   # taskqueue_master nodes. A node that is a taskqueue and is not the
   # taskqueue_master is now considered a taskqueue_slave.
   def is_taskqueue_slave?
-    return @jobs.include?('taskqueue') && !@jobs.include?('taskqueue_master')
+    @jobs.include?('taskqueue') && !@jobs.include?('taskqueue_master')
   end
 
-  def eql?(other_node)
-    self.hash.eql?(other_node.hash)
+  def eql?(other)
+    hash.eql?(other.hash)
   end
 
   def hash
     # Consider two nodes to be the same if they have the same SSH key,
     # private IP, and public IP.
-    [@ssh_key, @private_ip, @public_ip].join().hash()
+    [@ssh_key, @private_ip, @public_ip].join.hash
   end
-
 end

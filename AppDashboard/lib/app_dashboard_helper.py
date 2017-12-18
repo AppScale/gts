@@ -12,7 +12,7 @@ import tempfile
 import time
 import urllib
 
-from google.appengine.api.appcontroller_client import AppControllerClient
+from appscale.appcontroller_client import AppControllerClient
 from google.appengine.api import urlfetch
 from google.appengine.api import users
 

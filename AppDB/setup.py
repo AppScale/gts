@@ -50,6 +50,7 @@ setup(
     'appscale-restore-data=appscale.datastore.scripts.restore_data:main',
     'appscale-uaserver=appscale.datastore.scripts.ua_server:main',
     'appscale-update-index=appscale.datastore.scripts.update_index:main',
+    'appscale-upgrade-schema=appscale.datastore.scripts.upgrade_schema:main',
     'appscale-view-all-records=appscale.datastore.scripts.view_records:main',
   ]},
   package_data={'appscale.datastore.cassandra_env': ['templates/*']}

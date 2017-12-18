@@ -26,13 +26,13 @@ class TestGodInterface(unittest.TestCase):
 
     flexmock(subprocess)\
       .should_receive('call')\
-      .and_return(0) 
+      .and_return(0)
 
     self.assertEqual(True, monit_interface.start("watch_name"))
 
     flexmock(subprocess)\
       .should_receive('call')\
-      .and_return(1) 
+      .and_return(1)
 
     self.assertEqual(False, monit_interface.start("watch_name"))
 
@@ -41,13 +41,13 @@ class TestGodInterface(unittest.TestCase):
 
     flexmock(subprocess)\
       .should_receive('call')\
-      .and_return(0) 
+      .and_return(0)
     self.assertEqual(True, monit_interface.stop("watch_name"))
 
     flexmock(subprocess)\
       .should_receive('call')\
-      .and_return(1) 
+      .and_return(1)
     self.assertEqual(False, monit_interface.stop("watch_name"))
-       
+
 if __name__ == "__main__":
   unittest.main()

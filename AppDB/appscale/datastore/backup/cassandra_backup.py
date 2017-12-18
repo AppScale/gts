@@ -10,6 +10,7 @@ import time
 from appscale.common import appscale_info
 from appscale.common import monit_interface
 from appscale.common.constants import APPSCALE_DATA_DIR
+from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from subprocess import CalledProcessError
 from . import backup_recovery_helper
@@ -237,5 +238,29 @@ def restore_data(path, keyname, force=False):
 
     utils.ssh(db_ip, keyname,
       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
+
+  logging.info('Waiting for Cassandra cluster to be ready')
+  db_ip = db_ips[0]
+  deadline = time.time() + SCHEMA_CHANGE_TIMEOUT
+  while True:
+    ready = True
+    try:
+      output = utils.ssh(db_ip, keyname, '{} status'.format(NODE_TOOL),
+                         method=subprocess.check_output)
+      nodes_ready = len([line for line in output.split('\n')
+                         if line.startswith('UN')])
+      if nodes_ready < len(db_ips):
+        ready = False
+    except CalledProcessError:
+      ready = False
+
+    if ready:
+      break
+
+    if time.time() > deadline:
+      logging.warning('Cassandra cluster still not ready.')
+      break
+
+    time.sleep(3)
 
   logging.info("Done with db restore.")

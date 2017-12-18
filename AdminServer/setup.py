@@ -16,7 +16,7 @@ if sys.version_info < (3,):
 
 setup(
   name='appscale-admin',
-  version='0.0.2',
+  version='0.0.3',
   description='An implementation of the Google App Engine Admin API',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',

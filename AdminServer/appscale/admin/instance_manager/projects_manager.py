@@ -6,10 +6,11 @@ import os
 
 from tornado.ioloop import IOLoop
 
+from appscale.common.async_retrying import (
+  retry_children_watch_coroutine, retry_data_watch_coroutine
+)
 from appscale.common.constants import CONFIG_DIR
 from appscale.common.constants import VERSION_PATH_SEPARATOR
-
-from appscale.admin import utils
 
 logger = logging.getLogger('appscale-admin')
 
@@ -78,7 +79,7 @@ class VersionManager(object):
       self._stopped = True
       return False
 
-    persistent_update_version = utils.retry_data_watch_coroutine(
+    persistent_update_version = retry_data_watch_coroutine(
       self.version_node, self.update_version
     )
     main_io_loop = IOLoop.instance()
@@ -148,7 +149,7 @@ class ServiceManager(dict):
     if self._stopped:
       return False
 
-    persistent_update_versions = utils.retry_children_watch_coroutine(
+    persistent_update_versions = retry_children_watch_coroutine(
       self.versions_node, self.update_versions
     )
     main_io_loop = IOLoop.instance()
@@ -214,7 +215,7 @@ class ProjectManager(dict):
     if self._stopped:
       return False
 
-    persistent_update_services = utils.retry_children_watch_coroutine(
+    persistent_update_services = retry_children_watch_coroutine(
       self.services_node, self.update_services
     )
     main_io_loop = IOLoop.instance()
@@ -263,7 +264,7 @@ class GlobalProjectsManager(dict):
     Args:
       new_projects_list: A fresh list of strings specifying existing projects.
     """
-    persistent_update_project = utils.retry_children_watch_coroutine(
+    persistent_update_project = retry_children_watch_coroutine(
       '/appscale/projects', self.update_projects
     )
     main_io_loop = IOLoop.instance()

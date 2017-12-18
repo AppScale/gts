@@ -338,20 +338,9 @@ class TestDjinn < Test::Unit::TestCase
       and_return({:rc => 0, :data => json_data,
           :stat => flexmock(:exists => true)})
 
-    flexmock(Time).should_receive(:now).and_return(
-      flexmock(:to_i => "NOW"))
-    new_data = '{"last_updated":"NOW","ips":["private_ip"]}'
-    flexmock(JSON).should_receive(:dump).with(
-      {"ips" => ["private_ip"], "last_updated" => "NOW"}).
-      and_return(new_data)
-    flexmock(JSON).should_receive(:dump).with(true).and_return('true')
-
-    baz.should_receive(:set).with(:path => ZKInterface::IP_LIST,
-      :data => new_data).and_return(all_ok)
+    baz.should_receive(:set).and_return(all_ok)
 
     # Mocks for the appcontroller lock
-    flexmock(JSON).should_receive(:dump).with("private_ip").
-      and_return('"private_ip"')
     baz.should_receive(:get).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
       and_return({:rc => 0, :data => JSON.dump("private_ip")})
@@ -380,8 +369,6 @@ class TestDjinn < Test::Unit::TestCase
       :path => node_path + "/job_data").and_return({
         :rc => 0, :stat => flexmock(:exists => false)})
 
-    flexmock(JSON).should_receive(:dump).with(Hash).
-      and_return('"{\"disk\":null,\"public_ip\":\"public_ip\",\"private_ip\":\"private_ip\",\"cloud\":\"cloud1\",\"instance_id\":\"instance_id\",\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"jobs\":\"shadow\"}"')
     baz.should_receive(:set).with(
       :path => node_path + "/job_data",
       :data => JSON.dump(my_node.to_hash())).and_return(all_ok)

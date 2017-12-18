@@ -4,10 +4,9 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'monit_interface'
 
-
 # To support the Google App Engine Blobstore API, we have a custom server that
 # handles Blobstore API requests, known as the Blobstore Server. This module
-# abstracts away interactions with our Blobstore Server, providing methods to 
+# abstracts away interactions with our Blobstore Server, providing methods to
 # start, stop, and monitor the Blobstore Server as needed.
 module BlobServer
 
@@ -19,11 +18,11 @@ module BlobServer
   HAPROXY_PORT = 6106
 
   # The server name used for HAProxy configuration.
-  NAME = 'as_blob_server'
+  NAME = 'as_blob_server'.freeze
 
   def self.start(db_local_ip, db_local_port)
     start_cmd = [
-      "#{self.scriptname}",
+      scriptname.to_s,
       "-d #{db_local_ip}:#{db_local_port}",
       "-p #{self::SERVER_PORT}"
     ].join(' ')
@@ -31,17 +30,17 @@ module BlobServer
     MonitInterface.start(:blobstore, start_cmd)
   end
 
-  def self.stop()
-     MonitInterface.stop(:blobstore)
+  def self.stop
+    MonitInterface.stop(:blobstore)
   end
 
   def self.is_running?
     output = MonitInterface.is_running?(:blobstore)
     Djinn.log_debug("Checking if blobstore is already monitored: #{output}")
-    return output
-  end 
+    output
+  end
 
-  def self.scriptname()
-    return `which appscale-blobstore-server`.chomp
+  def self.scriptname
+    `which appscale-blobstore-server`.chomp
   end
 end

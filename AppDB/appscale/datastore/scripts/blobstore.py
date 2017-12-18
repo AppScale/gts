@@ -26,6 +26,7 @@ import tornado.web
 import urllib
 import urllib2
 
+from appscale.appcontroller_client import AppControllerClient
 from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.deployment_config import DeploymentConfig
@@ -435,8 +436,11 @@ def main():
 
   http_server.listen(args.port)
 
-  acc = appscale_info.get_appcontroller_client()
-  acc.add_routing_for_blob_server()
+  # Make sure this server is accessible from each of the load balancers.
+  secret = appscale_info.get_secret()
+  for load_balancer in appscale_info.get_load_balancer_ips():
+    acc = AppControllerClient(load_balancer, secret)
+    acc.add_routing_for_blob_server()
 
   logging.info('Starting BlobServer on {}'.format(args.port))
   tornado.ioloop.IOLoop.instance().start()

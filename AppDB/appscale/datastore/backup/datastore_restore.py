@@ -8,7 +8,10 @@ import time
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.backup.datastore_backup import DatastoreBackup
 from appscale.datastore.datastore_distributed import DatastoreDistributed
+from appscale.datastore.dbconstants import InternalError
 from appscale.datastore.zkappscale import zktransaction as zk
+from appscale.datastore.zkappscale.transaction_manager import (
+  TransactionManager)
 
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
@@ -57,8 +60,9 @@ class DatastoreRestore(multiprocessing.Process):
     """ Starts the main loop of the restore thread. """
     datastore_batch = appscale_datastore_batch.\
       DatastoreFactory.getDatastore(self.table)
+    transaction_manager = TransactionManager(self.zoo_keeper.handle)
     self.ds_distributed = DatastoreDistributed(
-      datastore_batch, zookeeper=self.zoo_keeper)
+      datastore_batch, transaction_manager, zookeeper=self.zoo_keeper)
 
     while True:
       logging.debug("Trying to get restore lock.")
@@ -125,6 +129,9 @@ class DatastoreRestore(multiprocessing.Process):
     except zk.ZKTransactionException, zkte:
       logging.error("Concurrent transaction exception for app id {0}, " \
         "info {1}".format(self.app_id, str(zkte)))
+      return False
+    except InternalError:
+      logging.exception('Unable to write entity')
       return False
 
     return True
