@@ -74,6 +74,9 @@ class GroomingCoordinator(object):
                                       self._registration_path)
       return self._update_assignment(workers)
 
+    logger.info('Currently acting as worker {}/{}'.format(self.index + 1,
+                                                          self.total_workers))
+
   def _update_assignment_watch(self, children):
     """ Watches for new or lost groomers.
 
