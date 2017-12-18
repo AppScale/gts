@@ -1,5 +1,6 @@
 """ A wrapper that converts Cassandra futures to Tornado futures. """
 from tornado.concurrent import Future as TornadoFuture
+from tornado.ioloop import IOLoop
 
 
 class TornadoCassandra(object):
@@ -33,7 +34,7 @@ class TornadoCassandra(object):
       result_set: A Cassandra result set.
       tornado_future: A Tornado future.
     """
-    tornado_future.set_result(result_set)
+    IOLoop.instance().add_callback(tornado_future.set_result, result_set)
 
   @staticmethod
   def _handle_failure(error, tornado_future):
@@ -43,4 +44,4 @@ class TornadoCassandra(object):
       error: A Python exception.
       tornado_future: A Tornado future.
     """
-    tornado_future.set_exception(error)
+    IOLoop.instance().add_callback(tornado_future.set_exception, error)

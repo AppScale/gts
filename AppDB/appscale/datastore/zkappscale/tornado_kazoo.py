@@ -1,5 +1,6 @@
 """ A wrapper that converts Kazoo operations to Tornado futures. """
 from tornado.concurrent import Future as TornadoFuture
+from tornado.ioloop import IOLoop
 
 
 class IncompleteOperation(Exception):
@@ -15,15 +16,18 @@ class TornadoKazooFuture(TornadoFuture):
     Args:
       async_result: An IAsyncResult.
     """
+    io_loop = IOLoop.instance()
+
     # This method should not be called if the result is not ready.
     if not async_result.ready():
-      self.set_exception(IncompleteOperation('Kazoo operation is not ready'))
+      error = IncompleteOperation('Kazoo operation is not ready')
+      io_loop.add_callback(self.set_exception, error)
       return
 
     if async_result.successful():
-      self.set_result(async_result.value)
+      io_loop.add_callback(self.set_result, async_result.value)
     else:
-      self.set_exception(async_result.exception)
+      io_loop.add_callback(self.set_exception, async_result.exception)
 
 
 class TornadoKazoo(object):
