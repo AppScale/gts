@@ -115,7 +115,8 @@ module HermesClient
   #
   def self.get_backend_servers(lb_ip, secret, proxy_name)
     proxy = HermesClient.get_proxy_stats(lb_ip, secret, proxy_name, true)
-
+    
+    # TODO: do investigation about best way to detect failed servers.
     running = proxy['servers'] \
       .select{|server| not server['status'].start_with?('DOWN')} \
       .map{|server| "#{server['private_ip']}:#{server['port']}"}
