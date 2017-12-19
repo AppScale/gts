@@ -39,7 +39,7 @@ module HermesClient
   # Args:
   #   lb_ip: IP address of load balancer node.
   #   secret: Deployment secret.
-  #   fetch_servers: Determins if backend servers list should be fetched
+  #   fetch_servers: Determines if backend servers list should be fetched
   # Returns:
   #   a list of hashes describing proxy stats.
   #
