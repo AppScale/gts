@@ -2,6 +2,7 @@
 
 require 'json'
 require 'net/http'
+
 require 'helperfunctions'
 
 
@@ -39,6 +40,8 @@ module HermesClient
   #   lb_ip: IP address of load balancer node.
   #   secret: Deployment secret.
   #   fetch_servers: Determins if backend servers list should be fetched
+  # Returns:
+  #   a list of hashes describing proxy stats.
   #
   def self.get_proxies_stats(lb_ip, secret, fetch_servers=true)
     data = {
@@ -68,7 +71,9 @@ module HermesClient
   #   lb_ip: IP address of load balancer node.
   #   secret: Deployment secret.
   #   proxy_name: Name of proxy to return.
-  #   fetch_servers: Determins if backend servers list should be fetched
+  #   fetch_servers: Determines if backend servers list should be fetched
+  # Returns:
+  #   a hash containing proxy stats.
   #
   def self.get_proxy_stats(lb_ip, secret, proxy_name, fetch_servers=true)
     proxies = HermesClient.get_proxies_stats(lb_ip, secret, fetch_servers)
@@ -77,13 +82,15 @@ module HermesClient
     raise AppScaleException.new("Proxy #{proxy_name} was not found at #{lb_ip}")
   end
 
-  # Gets total_requests, total_req_in_queue and current_sessions 
+  # Gets total_requests, total_req_in_queue and current_sessions
   # for a specific proxy from Hermes located on load balancer node.
   #
   # Args:
   #   lb_ip: IP address of load balancer node.
   #   secret: Deployment secret.
   #   proxy_name: Name of proxy to return.
+  # Returns:
+  #   The total requests for the proxy, the requests enqueued and current sessions.
   #
   def self.get_proxy_load_stats(lb_ip, secret, proxy_name)
     proxy = HermesClient.get_proxy_stats(lb_ip, secret, proxy_name, false)
@@ -102,6 +109,9 @@ module HermesClient
   #   lb_ip: IP address of load balancer node.
   #   secret: Deployment secret.
   #   proxy_name: Name of proxy to return.
+  # Returns:
+  #   An Array of running AppServers (ip:port).
+  #   An Array of failed (marked as DOWN) AppServers (ip:port).
   #
   def self.get_backend_servers(lb_ip, secret, proxy_name)
     proxy = HermesClient.get_proxy_stats(lb_ip, secret, proxy_name, true)

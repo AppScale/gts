@@ -1615,7 +1615,7 @@ class Djinn
 
     Djinn.log_info("Remove old AppServers for #{versions_to_restart}.")
     APPS_LOCK.synchronize {
-      versions_to_restart.each{ |version_key|
+      versions_to_restart.each { |version_key|
         @app_info_map[version_key]['appservers'].clear
       }
     }
@@ -4545,10 +4545,10 @@ HOSTS
   # LoadBalancers need to do some extra work to detect when AppServers failed
   # or were terminated.
   def check_haproxy
-    @versions_loaded.each{ |version_key|
+    @versions_loaded.each { |version_key|
       if my_node.is_shadow?
          _, failed = get_application_appservers(version_key)
-        failed.each{ |appserver|
+        failed.each { |appserver|
           Djinn.log_warn(
             "Detected failed AppServer for #{version_key}: #{appserver}.")
           @app_info_map[version_key]['appservers'].delete(appserver)
@@ -5876,18 +5876,20 @@ HOSTS
     JSON.dump(node_stats)
   end
 
-  # Gets summarized total_requests, total_req_in_queue and current_sessions 
+  # Gets summarized total_requests, total_req_in_queue and current_sessions
   # for a specific application version accross all LB nodes.
   #
   # Args:
   #   version_key: A string specifying the version key.
+  # Returns:
+  #   The total requests for the proxy, the requests enqueued and current sessions.
   #
   def get_application_load_stats(version_key)
     total_requests, requests_in_queue, sessions = 0, 0, 0
     pxname = "gae_#{version_key}"
     time = :no_stats
     lb_nodes = @nodes.select{|node| node.is_load_balancer?}
-    lb_nodes.each{ |node|
+    lb_nodes.each { |node|
       begin
         ip = node.private_ip
         load_stats = HermesClient.get_proxy_load_stats(ip, @@secret, pxname)
@@ -5912,12 +5914,15 @@ HOSTS
   #
   # Args:
   #   version_key: A string specifying the version key.
+  # Returns:
+  #   An Array of running AppServers (ip:port).
+  #   An Array of failed (marked as DOWN) AppServers (ip:port).
   #
   def get_application_appservers(version_key)
     all_running, all_failed = [], []
     pxname = "gae_#{version_key}"
     lb_nodes = @nodes.select{|node| node.is_load_balancer?}
-    lb_nodes.each{ |node|
+    lb_nodes.each { |node|
       begin
         ip = node.private_ip
         running, failed = HermesClient.get_backend_servers(ip, @@secret, pxname)
