@@ -262,6 +262,9 @@ installappserverjava()
     JAVA_SDK_PACKAGE_MD5="f5750b0c836870a3089096fd537a1272"
     cachepackage ${JAVA_SDK_PACKAGE} ${JAVA_SDK_PACKAGE_MD5}
 
+    # Remove older build target to prevent jar conflicts.
+    (cd ${JAVA_SDK_DIR} && ant clean-all)
+
     echo "Extracting Java SDK"
     unzip -q "${PACKAGE_CACHE}/${JAVA_SDK_PACKAGE}" -d ${JAVA_SDK_DIR}
     EXTRACTED_SDK="${JAVA_SDK_DIR}/appengine-java-sdk-1.8.4"
