@@ -16,6 +16,8 @@ module Ejabberd
 
   EJABBERD_PATH = File.join('/', 'etc', 'ejabberd')
 
+  CONFIG_FILE = File.join(EJABBERD_PATH, 'ejabberdctl.cfg')
+
   AUTH_SCRIPT_LOCATION = "#{EJABBERD_PATH}/ejabberd_auth.py".freeze
 
   ONLINE_USERS_FILE = '/etc/appscale/online_xmpp_users'.freeze
@@ -108,6 +110,17 @@ module Ejabberd
     major_version
   end
 
+  def self.update_ctl_config
+    # Make sure ejabberd writes a pidfile.
+    begin
+      config = File.read(CONFIG_FILE)
+      config.gsub!('#EJABBERD_PID_PATH=', 'EJABBERD_PID_PATH=')
+      File.open(CONFIG_FILE, 'w') { |file| file.write(config) }
+    rescue Errno::ENOENT
+      Djinn.log_debug("#{CONFIG_FILE} does not exist")
+    end
+  end
+
   def self.write_config_file(my_private_ip)
     config_file = 'ejabberd.yml'
     begin
@@ -124,6 +137,23 @@ module Ejabberd
     config.gsub!('APPSCALE-CERTFILE',
                  "#{Djinn::APPSCALE_CONFIG_DIR}/ejabberd.pem")
     config.gsub!('APPSCALE-AUTH-SCRIPT', AUTH_SCRIPT_LOCATION)
+
+    # Not all packages include mod_client_state.
+    disable_mod_client_state = true
+    arch = `uname -m`
+    arch_dir = "/usr/lib/#{arch}-linux-gnu"
+    if File.directory?(arch_dir)
+      Dir.entries(arch_dir).each { |entry|
+        full_path = File.join(arch_dir, entry)
+        next unless entry.start_with?('ejabberd')
+        next unless File.directory?(full_path)
+        module_file = File.join(full_path, 'mod_client_state.beam')
+        disable_mod_client_state = false if File.file?(module_file)
+      }
+    end
+    if disable_mod_client_state
+      config.gsub!(' mod_client_state: {}', ' ## mod_client_state: {}')
+    end
 
     config_path = "/etc/ejabberd/#{config_file}"
     HelperFunctions.write_file(config_path, config)

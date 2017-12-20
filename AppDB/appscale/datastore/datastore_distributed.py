@@ -19,6 +19,8 @@ from .dbconstants import MAX_TX_DURATION
 from .cassandra_env import cassandra_interface
 from .cassandra_env.entity_id_allocator import EntityIDAllocator
 from .cassandra_env.entity_id_allocator import ScatteredAllocator
+from .cassandra_env.utils import deletions_for_entity
+from .cassandra_env.utils import mutations_for_entity
 from .utils import clean_app_id
 from .utils import encode_entity_table_key
 from .utils import encode_index_pb
@@ -571,8 +573,8 @@ class DatastoreDistributed():
               current_value = entity_pb.EntityProto(
                 current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
-            batch.extend(cassandra_interface.mutations_for_entity(
-              entity, txid, current_value, composite_indexes))
+            batch.extend(mutations_for_entity(entity, txid, current_value,
+                                              composite_indexes))
 
             batch.append({'table': 'group_updates',
                           'key': bytearray(encoded_group_key),
@@ -608,8 +610,7 @@ class DatastoreDistributed():
 
       current_value = entity_pb.EntityProto(
         current_values[key][APP_ENTITY_SCHEMA[0]])
-      batch = cassandra_interface.deletions_for_entity(
-        current_value, composite_indexes)
+      batch = deletions_for_entity(current_value, composite_indexes)
 
       batch.append({'table': 'group_updates',
                     'key': bytearray(group.Encode()),
@@ -3239,8 +3240,8 @@ class DatastoreDistributed():
             current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
 
         entity = entity_pb.EntityProto(encoded_entity)
-        mutations = cassandra_interface.mutations_for_entity(
-          entity, txn, current_value, composite_indices)
+        mutations = mutations_for_entity(entity, txn, current_value,
+                                         composite_indices)
         batch.extend(mutations)
 
         entity_changes.append({'key': key, 'old': current_value,
@@ -3254,8 +3255,7 @@ class DatastoreDistributed():
         current_value = entity_pb.EntityProto(
           current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
 
-        deletions = cassandra_interface.deletions_for_entity(
-          current_value, composite_indices)
+        deletions = deletions_for_entity(current_value, composite_indices)
         batch.extend(deletions)
 
         entity_changes.append({'key': key, 'old': current_value, 'new': None})

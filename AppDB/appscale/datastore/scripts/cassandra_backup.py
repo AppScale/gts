@@ -3,17 +3,13 @@
 import argparse
 import logging
 import os
-import sys
 
+from appscale.common.constants import KEY_DIRECTORY
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from ..backup.backup_exceptions import AmbiguousKeyException
 from ..backup.backup_exceptions import NoKeyException
 from ..backup.cassandra_backup import backup_data
 from ..backup.cassandra_backup import restore_data
-
-sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
-from utils.utils import KEY_DIRECTORY
 
 
 def main():

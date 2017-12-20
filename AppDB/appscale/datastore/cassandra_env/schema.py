@@ -58,11 +58,18 @@ def create_batch_tables(cluster, session):
     cluster: A cassandra-driver cluster.
     session: A cassandra-driver session.
   """
+  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
+  if 'batches' in keyspace_metadata.tables:
+    columns = keyspace_metadata.tables['batches'].columns
+    if ('transaction' in columns and
+        columns['transaction'].cql_type != 'bigint'):
+      session.execute('DROP TABLE batches', timeout=SCHEMA_CHANGE_TIMEOUT)
+
   logging.info('Trying to create batches')
   create_table = """
     CREATE TABLE IF NOT EXISTS batches (
       app text,
-      transaction int,
+      transaction bigint,
       namespace text,
       path blob,
       old_value blob,
@@ -81,7 +88,6 @@ def create_batch_tables(cluster, session):
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
-  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
   if ('batch_status' in keyspace_metadata.tables and
       'txid_hash' not in keyspace_metadata.tables['batch_status'].columns):
     session.execute('DROP TABLE batch_status', timeout=SCHEMA_CHANGE_TIMEOUT)

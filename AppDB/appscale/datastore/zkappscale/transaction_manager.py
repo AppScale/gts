@@ -9,23 +9,15 @@ from kazoo.exceptions import NodeExistsError
 from kazoo.exceptions import NotEmptyError
 from tornado.ioloop import IOLoop
 
-from appscale.admin.utils import retry_children_watch_coroutine
+from appscale.common.async_retrying import retry_children_watch_coroutine
+from .constants import CONTAINER_PREFIX
+from .constants import COUNTER_NODE_PREFIX
+from .constants import MAX_SEQUENCE_COUNTER
+from .constants import OFFSET_NODE
 from ..dbconstants import BadRequest
 from ..dbconstants import InternalError
 
 logger = logging.getLogger('appscale-datastore')
-
-# Containers for txid sequences start with this string.
-CONTAINER_PREFIX = 'txids'
-
-# Transaction ID sequence nodes start with this string.
-COUNTER_NODE_PREFIX = 'tx'
-
-# ZooKeeper stores the sequence counter as a signed 32-bit integer.
-MAX_SEQUENCE_COUNTER = 2 ** 31 - 1
-
-# The name of the node used for manually setting a txid offset.
-OFFSET_NODE = 'txid_offset'
 
 # Nodes that indicate a cross-group transaction start with this string.
 XG_PREFIX = 'xg'

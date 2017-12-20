@@ -3063,6 +3063,9 @@ class Djinn
       ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
       ENV['EC2_URL'] = @options['ec2_url']
     end
+
+    # Set the proper log level.
+    enforce_options
   end
 
   def got_all_data
@@ -3229,12 +3232,15 @@ class Djinn
       threads << Thread.new {
         if my_node.is_db_master? or my_node.is_db_slave?
           start_groomer_service
+          verbose = @options['verbose'].downcase == 'true'
+          GroomerService.start_transaction_groomer(verbose)
         end
 
         start_backup_service
       }
     else
       stop_groomer_service
+      GroomerService.stop_transaction_groomer
       stop_backup_service
     end
 
@@ -4347,6 +4353,7 @@ HOSTS
     my_public = my_node.public_ip
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
     Ejabberd.write_config_file(my_public)
+    Ejabberd.update_ctl_config
 
     # Monit does not have an entry for ejabberd yet. This allows a restart
     # with the new configuration if it is already running.

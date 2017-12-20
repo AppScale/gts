@@ -46,6 +46,9 @@ ALL_IPS_LOC = '/etc/appscale/all_ips'
 # The location of the file which specifies the public IP of the head node.
 HEADNODE_IP_LOC = '/etc/appscale/head_node_private_ip'
 
+# The directory that contains the deployment's private SSH key.
+KEY_DIRECTORY = os.path.join(CONFIG_DIR, 'keys', 'cloud1')
+
 # The location of the file which specifies the public IP of the head node.
 LOGIN_IP_LOC = '/etc/appscale/login_ip'
 
