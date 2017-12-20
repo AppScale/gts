@@ -166,7 +166,7 @@ class ProjectGroomer(object):
     self._stop_event = AsyncEvent()
     self._stopped_event = AsyncEvent()
 
-    # Keeps track of cleanp results for each round of grooming.
+    # Keeps track of cleanup results for each round of grooming.
     self._txids_cleaned = 0
     self._oldest_valid_tx_time = None
 
