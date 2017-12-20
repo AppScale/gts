@@ -3,6 +3,7 @@ import unittest
 
 from mock import patch, call
 
+from appscale.hermes.stats import models
 from appscale.hermes.stats.unified_service_names import ServicesEnum
 from appscale.hermes.stats.producers import process_stats
 
@@ -80,7 +81,7 @@ class TestCurrentProcessesStats(unittest.TestCase):
       call(8466, ServicesEnum.HAPROXY, 'haproxy', '1.1.1.1'),
       call(5045, ServicesEnum.APPLICATION, 'app___my-25app-20003', '1.1.1.1')
     ])
-    self.assertIsInstance(snapshot, process_stats.ProcessesStatsSnapshot)
+    self.assertIsInstance(snapshot, models.ProcessesStatsSnapshot)
 
   @patch.object(process_stats.appscale_info, 'get_private_ip')
   @patch.object(process_stats.subprocess, 'check_output')
@@ -108,7 +109,7 @@ class TestCurrentProcessesStats(unittest.TestCase):
     )
     self.assertEqual(len(processes_stats), 1)
     stats = processes_stats[0]
-    self.assertIsInstance(stats, process_stats.ProcessStats)
+    self.assertIsInstance(stats, models.ProcessStats)
     self.assertEqual(stats.pid, os.getpid())
     self.assertEqual(stats.monit_name, 'app___fakeapp-testprocess-321')
     self.assertEqual(stats.unified_service_name, 'application')
@@ -116,10 +117,10 @@ class TestCurrentProcessesStats(unittest.TestCase):
     self.assertEqual(stats.private_ip, '10.10.11.12')
     self.assertEqual(stats.port, 321)
     self.assertIsInstance(stats.cmdline, list)
-    self.assertIsInstance(stats.cpu, process_stats.ProcessCPU)
-    self.assertIsInstance(stats.memory, process_stats.ProcessMemory)
-    self.assertIsInstance(stats.disk_io, process_stats.ProcessDiskIO)
-    self.assertIsInstance(stats.network, process_stats.ProcessNetwork)
+    self.assertIsInstance(stats.cpu, models.ProcessCPU)
+    self.assertIsInstance(stats.memory, models.ProcessMemory)
+    self.assertIsInstance(stats.disk_io, models.ProcessDiskIO)
+    self.assertIsInstance(stats.network, models.ProcessNetwork)
     self.assertIsInstance(stats.threads_num, int)
-    self.assertIsInstance(stats.children_stats_sum, process_stats.ProcessChildrenSum)
+    self.assertIsInstance(stats.children_stats_sum, models.ProcessChildrenSum)
     self.assertIsInstance(stats.children_num, int)

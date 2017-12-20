@@ -3656,6 +3656,20 @@ class Djinn
     end
   end
 
+  def build_hermes
+    Djinn.log_info('Building uncommitted Hermes changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
+      Djinn.log_error('Unable to build Hermes (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
+      Djinn.log_error('Unable to build Hermes (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building Hermes.')
+  end
+
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
     status = `git -C #{APPSCALE_HOME} status`
@@ -3664,6 +3678,7 @@ class Djinn
     build_datastore if status.include?('AppDB')
     build_common if status.include?('common')
     build_java_appserver if status.include?('AppServer_Java')
+    build_hermes if status.include?('Hermes')
   end
 
   def configure_ejabberd_cert
