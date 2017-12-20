@@ -264,6 +264,15 @@ installappserverjava()
 
     echo "Extracting Java SDK"
     unzip -q "${PACKAGE_CACHE}/${JAVA_SDK_PACKAGE}" -d ${JAVA_SDK_DIR}
+    EXTRACTED_SDK="${JAVA_SDK_DIR}/appengine-java-sdk-1.8.4"
+
+    # The jar included in the 1.8.4 SDK cannot compile JSP files under Java 8.
+    JSP_JAR="repackaged-appengine-eclipse-jdt-ecj.jar"
+    JSP_JAR_MD5="e85db8329dccbd18b8174a3b99513393"
+    cachepackage ${JSP_JAR} ${JSP_JAR_MD5}
+    OLD_JAR="repackaged-appengine-jasper-jdt-6.0.29.jar"
+    rm ${EXTRACTED_SDK}/lib/tools/jsp/${OLD_JAR}
+    cp ${PACKAGE_CACHE}/${JSP_JAR} ${EXTRACTED_SDK}/lib/tools/jsp/${JSP_JAR}
 
     # Compile source file.
     (cd ${JAVA_SDK_DIR} && ant install && ant clean-build)
