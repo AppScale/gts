@@ -7,10 +7,21 @@ from collections import defaultdict
 from datetime import datetime
 
 import attr
+import os
+import psutil
 
-from appscale.hermes.stats.constants import HAPROXY_STATS_SOCKET_PATH, MISSED
+from appscale.hermes.stats.constants import (
+  HAPROXY_APPS_STATS_SOCKET_PATH,
+  HAPROXY_SERVICES_STATS_SOCKET_PATH,
+  HAPROXY_APPS_CONFIGS_DIR,
+  HAPROXY_SERVICES_CONFIGS_DIR, MISSED,
+)
 from appscale.hermes.stats.converter import include_list_name, Meta
 from appscale.hermes.stats.unified_service_names import find_service_by_pxname
+
+
+class BoundIpPortNotFound(Exception):
+  pass
 
 
 @include_list_name('proxy.listener')
@@ -224,6 +235,7 @@ class ProxyStats(object):
   name = attr.ib()
   unified_service_name = attr.ib()  # taskqueue, appserver, datastore, ...
   application_id = attr.ib()  # application ID for appserver and None for others
+  accurate_frontend_scur = attr.ib() # max of scur from haproxy and psutils
   frontend = attr.ib(metadata={Meta.ENTITY: HAProxyFrontendStats})
   backend = attr.ib(metadata={Meta.ENTITY: HAProxyBackendStats})
   servers = attr.ib(metadata={Meta.ENTITY_LIST: HAProxyServerStats})
@@ -250,9 +262,9 @@ def _get_field_value(row, field_name):
   return value
 
 
-def get_stats():
+def get_stats(socket_path):
   client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-  client.connect(HAPROXY_STATS_SOCKET_PATH)
+  client.connect(socket_path)
   try:
     stats_output = StringIO.StringIO()
     client.send('show stat\n')
@@ -264,6 +276,111 @@ def get_stats():
     return stats_output
   finally:
     client.close()
+
+
+def get_frontend_ip_port(configs_dir, proxy_name):
+  proxy_conf_path = os.path.join(configs_dir, '{}.cfg'.format(proxy_name))
+  with open(proxy_conf_path) as proxy_conf:
+    for line in proxy_conf:
+      line = line.strip()
+      if line.startswith('bind'):
+        return line.split(' ')[1].split(':')
+  raise BoundIpPortNotFound("Couldn't find bound IP and port for {} at {}"
+                            .format(proxy_name, configs_dir))
+
+
+def get_connections(ip, port):
+  return len([conn for conn in psutil.net_connections()
+             if conn.laddr == (ip, port)])
+
+
+def get_stats_from_one_haproxy(socket_path, configs_dir):
+  # Get CSV table with haproxy stats
+  csv_buf = get_stats(socket_path)
+  csv_buf.seek(2)  # Seek to the beginning but skip "# " in the first row
+  table = csv.DictReader(csv_buf, delimiter=',')
+  if ProxiesStatsSource.first_run:
+    missed = ALL_HAPROXY_FIELDS - set(table.fieldnames)
+    if missed:
+      logging.warn("HAProxy stats fields {} are missed. Old version of HAProxy "
+                   "is probably used (v1.5+ is expected)".format(list(missed)))
+    ProxiesStatsSource.first_run = False
+
+  # Parse haproxy stats output line by line
+  parsed_objects = defaultdict(list)
+  for row in table:
+    proxy_name = row['pxname']
+    service = find_service_by_pxname(proxy_name)
+    svname = row['svname']
+    extra_values = {}
+    if svname == 'FRONTEND':
+      stats_type = HAProxyFrontendStats
+    elif svname == 'BACKEND':
+      stats_type = HAProxyBackendStats
+    elif row['qcur']:
+      # Listener stats doesn't have "current queued requests" property
+      stats_type = HAProxyServerStats
+      private_ip, port = service.get_ip_port_by_svname(svname)
+      extra_values['private_ip'] = private_ip
+      extra_values['port'] = port
+    else:
+      stats_type = HAProxyListenerStats
+
+    stats_values = {
+      field: _get_field_value(row, field)
+      for field in stats_type.__slots__
+    }
+    stats_values.update(**extra_values)
+
+    stats = stats_type(**stats_values)
+    parsed_objects[proxy_name].append(stats)
+
+  # Attempt to merge separate stats object to ProxyStats instances
+  proxy_stats_list = []
+  for proxy_name, stats_objects in parsed_objects.iteritems():
+    service = find_service_by_pxname(proxy_name)
+    frontends = [stats for stats in stats_objects
+                 if isinstance(stats, HAProxyFrontendStats)]
+    backends = [stats for stats in stats_objects
+                if isinstance(stats, HAProxyBackendStats)]
+    servers = [stats for stats in stats_objects
+               if isinstance(stats, HAProxyServerStats)]
+    listeners = [stats for stats in stats_objects
+                 if isinstance(stats, HAProxyListenerStats)]
+    if len(frontends) != 1 or len(backends) != 1:
+      raise InvalidHAProxyStats(
+        "Exactly one FRONTEND and one BACKEND line should correspond to "
+        "a single proxy. Proxy '{}' has {} frontends and {} backends"
+          .format(proxy_name, len(frontends), len(backends))
+      )
+
+    # Create ProxyStats object which contains all stats related to the proxy
+    service_name = service.name
+    application_id = service.get_application_id_by_pxname(proxy_name)
+    try:
+      bound_ip, bound_port = get_frontend_ip_port(configs_dir, proxy_name)
+      psutil_connections = get_connections(bound_ip, bound_port)
+    except (OSError, IOError, BoundIpPortNotFound):
+      psutil_connections = 0
+    proxy_stats = ProxyStats(
+      name=proxy_name, unified_service_name=service_name,
+      application_id=application_id,
+      accurate_frontend_scur=max(psutil_connections, frontends[0].scur),
+      frontend=frontends[0], backend=backends[0],
+      servers=servers, listeners=listeners,
+      servers_count=len(servers), listeners_count=len(listeners)
+    )
+    proxy_stats_list.append(proxy_stats)
+
+  return proxy_stats_list
+
+
+HAPROXY_PROCESSES = {
+  'apps': {'socket': HAPROXY_APPS_STATS_SOCKET_PATH,
+           'configs': HAPROXY_APPS_CONFIGS_DIR},
+  'services': {'socket': HAPROXY_SERVICES_STATS_SOCKET_PATH,
+               'configs': HAPROXY_SERVICES_CONFIGS_DIR},
+}
 
 
 class ProxiesStatsSource(object):
@@ -279,75 +396,12 @@ class ProxiesStatsSource(object):
       An instance of ProxiesStatsSnapshot.
     """
     start = time.time()
-    # Get CSV table with haproxy stats
-    csv_buf = get_stats()
-    csv_buf.seek(2)  # Seek to the beginning but skip "# " in the first row
-    table = csv.DictReader(csv_buf, delimiter=',')
-    if ProxiesStatsSource.first_run:
-      missed = ALL_HAPROXY_FIELDS - set(table.fieldnames)
-      if missed:
-        logging.warn("HAProxy stats fields {} are missed. Old version of HAProxy "
-                     "is probably used (v1.5+ is expected)".format(list(missed)))
-      ProxiesStatsSource.first_run = False
 
-    # Parse haproxy stats output line by line
-    parsed_objects = defaultdict(list)
-    for row in table:
-      proxy_name = row['pxname']
-      service = find_service_by_pxname(proxy_name)
-      svname = row['svname']
-      extra_values = {}
-      if svname == 'FRONTEND':
-        stats_type = HAProxyFrontendStats
-      elif svname == 'BACKEND':
-        stats_type = HAProxyBackendStats
-      elif row['qcur']:
-        # Listener stats doesn't have "current queued requests" property
-        stats_type = HAProxyServerStats
-        private_ip, port = service.get_ip_port_by_svname(svname)
-        extra_values['private_ip'] = private_ip
-        extra_values['port'] = port
-      else:
-        stats_type = HAProxyListenerStats
-
-      stats_values = {
-        field: _get_field_value(row, field)
-        for field in stats_type.__slots__
-      }
-      stats_values.update(**extra_values)
-
-      stats = stats_type(**stats_values)
-      parsed_objects[proxy_name].append(stats)
-
-    # Attempt to merge separate stats object to ProxyStats instances
     proxy_stats_list = []
-    for proxy_name, stats_objects in parsed_objects.iteritems():
-      service = find_service_by_pxname(proxy_name)
-      frontends = [stats for stats in stats_objects
-                   if isinstance(stats, HAProxyFrontendStats)]
-      backends = [stats for stats in stats_objects
-                  if isinstance(stats, HAProxyBackendStats)]
-      servers = [stats for stats in stats_objects
-                 if isinstance(stats, HAProxyServerStats)]
-      listeners = [stats for stats in stats_objects
-                   if isinstance(stats, HAProxyListenerStats)]
-      if len(frontends) != 1 or len(backends) != 1:
-        raise InvalidHAProxyStats(
-          "Exactly one FRONTEND and one BACKEND line should correspond to "
-          "a single proxy. Proxy '{}' has {} frontends and {} backends"
-            .format(proxy_name, len(frontends), len(backends))
-        )
-
-      # Create ProxyStats object which contains all stats related to the proxy
-      service_name = service.name
-      application_id = service.get_application_id_by_pxname(proxy_name)
-      proxy_stats = ProxyStats(
-        name=proxy_name, unified_service_name=service_name,
-        application_id=application_id, frontend=frontends[0],
-        backend=backends[0], servers=servers, listeners=listeners,
-        servers_count=len(servers), listeners_count=len(listeners)
-      )
-      proxy_stats_list.append(proxy_stats)
+    for haproxy_process_name, info in HAPROXY_PROCESSES.iteritems():
+      logging.debug("Processing {} haproxy stats".format(haproxy_process_name))
+      proxy_stats_list += get_stats_from_one_haproxy(
+        info['socket'], info['configs'])
 
     stats = ProxiesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.now().timetuple()),
