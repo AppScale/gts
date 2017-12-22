@@ -47,7 +47,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
   env_vars_str = ''
   if env_vars is not None:
     for key in env_vars:
-      env_vars_str += '{}={} '.format(key, env_vars[key])
+      env_vars_str += '{}="{}" '.format(key, env_vars[key])
 
   bash = find_executable('bash')
   start_stop_daemon = find_executable('start-stop-daemon')
