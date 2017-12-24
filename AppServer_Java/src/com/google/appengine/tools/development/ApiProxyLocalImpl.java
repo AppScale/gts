@@ -87,7 +87,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
             apiConfig.setDeadlineInSeconds(deadline);
         }
 
-        Future<byte[]> future = this.doAsyncCall(environment, packageName, methodName, requestBytes, apiConfig);
+        Future<byte[]> future = this.makeAsyncCall(environment, packageName, methodName, requestBytes, apiConfig);
 
         try {
             return (byte[])future.get();
@@ -106,17 +106,8 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
         }
     }
 
-    public Future<byte[]> makeAsyncCall(Environment environment, String packageName, String methodName, byte[] requestBytes, ApiConfig apiConfig) {
-        return this.doAsyncCall(environment, packageName, methodName, requestBytes, apiConfig);
-    }
-
-    public List<Thread> getRequestThreads(Environment environment) {
-        return Arrays.asList(Thread.currentThread());
-    }
-
-    private Future<byte[]> doAsyncCall(Environment environment, final String packageName, final String methodName, byte[] requestBytes, ApiConfig apiConfig) {
+    public Future<byte[]> makeAsyncCall(Environment environment, final String packageName, final String methodName, byte[] requestBytes, ApiConfig apiConfig) {
         Semaphore semaphore = (Semaphore) environment.getAttributes().get(LocalEnvironment.API_CALL_SEMAPHORE);
-
         if (semaphore != null) {
             try {
                 semaphore.acquire();
@@ -152,6 +143,10 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
         }
 
         return result;
+    }
+
+    public List<Thread> getRequestThreads(Environment environment) {
+        return Arrays.asList(Thread.currentThread());
     }
 
     private double resolveDeadline(String packageName, ApiConfig apiConfig, boolean isOffline) {
@@ -310,8 +305,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     @SuppressWarnings( { "restriction", "unchecked" })
     private LocalRpcService startServices(String pkg) {
         // @SuppressWarnings( { "unchecked", "sunapi" })
-        for (LocalRpcService service : ServiceLoader.load(LocalRpcService.class, ApiProxyLocalImpl.class.getClassLoader()))
-        {
+        for (LocalRpcService service : ServiceLoader.load(LocalRpcService.class, ApiProxyLocalImpl.class.getClassLoader())) {
             if (service.getPackage().equals(pkg)) {
                 service.init(context, properties);
                 service.start();
