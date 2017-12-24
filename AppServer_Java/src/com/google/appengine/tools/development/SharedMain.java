@@ -1,6 +1,7 @@
 package com.google.appengine.tools.development;
 
 import com.google.appengine.repackaged.com.google.common.annotations.VisibleForTesting;
+import com.google.appengine.repackaged.com.google.common.base.Joiner;
 import com.google.appengine.repackaged.com.google.common.collect.ImmutableList;
 import com.google.appengine.tools.util.Logging;
 import com.google.appengine.tools.util.Option;
@@ -19,6 +20,8 @@ public abstract class SharedMain {
     private static String originalTimeZone;
     private boolean disableRestrictedCheck = false;
     private boolean noJavaAgent = false;
+    private String pathToPythonApiServer = null;
+    private List<String> apisUsingPythonStubs = null;
     private String externalResourceDir = null;
     private List<String> propertyOptions = null;
 
@@ -55,6 +58,19 @@ public abstract class SharedMain {
         }, new Option((String)null, "allow_remote_shutdown", true) {
             public void apply() {
                 System.setProperty("appengine.allowRemoteShutdown", "true");
+            }
+        }, new Option((String)null, "api_using_python_stub", false) {
+            public void apply() {
+                SharedMain.this.apisUsingPythonStubs = this.getValues();
+                if (!SharedMain.this.apisUsingPythonStubs.isEmpty()) {
+                    System.setProperty("appengine.apisUsingPythonStubs", Joiner.on(',').join((Iterable)SharedMain.this.apisUsingPythonStubs));
+                }
+
+            }
+        }, new Option((String)null, "path_to_python_api_server", false) {
+            public void apply() {
+                SharedMain.this.pathToPythonApiServer = this.getValue();
+                System.setProperty("appengine.pathToPythonApiServer", SharedMain.this.pathToPythonApiServer);
             }
         }, new Option((String)null, "no_java_agent", true) {
             public void apply() {

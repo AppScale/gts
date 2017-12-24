@@ -1,8 +1,6 @@
 package com.google.appengine.tools.development;
 
 import com.google.appengine.api.capabilities.CapabilityStatus;
-import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
-import com.google.appengine.repackaged.com.google.protobuf.Message;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.ApiConfig;
 import com.google.apphosting.api.ApiProxy.ApiDeadlineExceededException;
@@ -13,15 +11,18 @@ import com.google.apphosting.api.ApiProxy.Environment;
 import com.google.apphosting.api.ApiProxy.LogRecord;
 import com.google.apphosting.api.ApiProxy.RequestTooLargeException;
 import com.google.apphosting.api.ApiProxy.UnknownException;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,8 +45,6 @@ import java.util.logging.Logger;
  * 
  */
 class ApiProxyLocalImpl implements ApiProxyLocal {
-    private static final Class<?> BYTE_ARRAY_CLASS = byte[].class;
-
     // AppScale: Increased max size of all API requests from 1MB to 32MB.
     private static final int MAX_API_REQUEST_SIZE = 33554432;
 
@@ -58,6 +57,8 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     private final Map<String, String> properties = new HashMap<String, String>();
     private final ExecutorService apiExecutor = Executors.newCachedThreadPool(new ApiProxyLocalImpl.DaemonThreadFactory(Executors.defaultThreadFactory()));
     private final LocalServiceContext context;
+    private ApiServer apiServer;
+    private final Set<String> apisUsingPythonStubs;
     private Clock clock;
 
     /**
@@ -66,9 +67,26 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
      * @param environment
      *            the local server environment.
      */
-    protected ApiProxyLocalImpl(LocalServerEnvironment environment) {
+    public ApiProxyLocalImpl(LocalServerEnvironment environment) {
         this.clock = Clock.DEFAULT;
         this.context = new ApiProxyLocalImpl.LocalServiceContextImpl(environment);
+        this.apisUsingPythonStubs = new HashSet();
+    }
+
+    private ApiProxyLocalImpl(LocalServerEnvironment environment, Set<String> apisUsingPythonStubs, ApiServer apiServer) {
+        this.clock = Clock.DEFAULT;
+        this.context = new ApiProxyLocalImpl.LocalServiceContextImpl(environment);
+        this.apisUsingPythonStubs = apisUsingPythonStubs;
+        this.apiServer = apiServer;
+    }
+
+    static ApiProxyLocal getApiProxyLocal(LocalServerEnvironment environment, Set<String> apisUsingPythonStubs) {
+        if (!apisUsingPythonStubs.isEmpty()) {
+            ApiServer apiServer = ApiServerFactory.getApiServer(System.getProperty("appengine.pathToPythonApiServer"));
+            return new ApiProxyLocalImpl(environment, apisUsingPythonStubs, apiServer);
+        } else {
+            return new ApiProxyLocalImpl(environment);
+        }
     }
 
     public void log(Environment environment, LogRecord record) {
@@ -116,8 +134,9 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
             }
         }
 
+        boolean apiCallShouldUsePythonStub = this.apisUsingPythonStubs.contains(packageName);
+        ApiProxyLocalImpl.AsyncApiCall asyncApiCall = new ApiProxyLocalImpl.AsyncApiCall(environment, packageName, methodName, requestBytes, semaphore, apiCallShouldUsePythonStub);
         boolean offline = environment.getAttributes().get(IS_OFFLINE_REQUEST_KEY) != null;
-        ApiProxyLocalImpl.AsyncApiCall asyncApiCall = new ApiProxyLocalImpl.AsyncApiCall(environment, packageName, methodName, requestBytes, semaphore);
         boolean success = false;
 
         Future<byte[]> result;
@@ -174,45 +193,6 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
         }
 
         return Math.min(deadline, maxDeadline);
-    }
-
-    /**
-     * Convert the specified byte array to a protocol buffer representation of
-     * the specified type. This type can either be a subclass of
-     * {@link ProtocolMessage} (a legacy protocol buffer implementation), or
-     * {@link Message} (the open-sourced protocol buffer implementation).
-     */
-    private <T> T convertBytesToPb(byte[] bytes, Class<T> requestClass) throws IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchMethodException {
-        if (ProtocolMessage.class.isAssignableFrom(requestClass)) {
-            ProtocolMessage<?> proto = (ProtocolMessage<?>)requestClass.newInstance();
-            proto.mergeFrom(bytes);
-            return requestClass.cast(proto);
-        } else if (Message.class.isAssignableFrom(requestClass)) {
-            Method method = requestClass.getMethod("parseFrom", BYTE_ARRAY_CLASS);
-            return requestClass.cast(method.invoke((Object)null, bytes));
-        } else {
-            throw new UnsupportedOperationException(String.format("Cannot assign %s to either %s or %s", classDescription(requestClass), ProtocolMessage.class, Message.class));
-        }
-    }
-
-    /**
-     * Convert the protocol buffer representation to a byte array. The object
-     * can either be an instance of {@link ProtocolMessage} (a legacy protocol
-     * buffer implementation), or {@link Message} (the open-sourced protocol
-     * buffer implementation).
-     */
-    private byte[] convertPbToBytes(Object object) {
-        if (object instanceof ProtocolMessage<?>) {
-            return ((ProtocolMessage<?>)object).toByteArray();
-        } else if (object instanceof Message) {
-            return ((Message)object).toByteArray();
-        } else {
-            throw new UnsupportedOperationException(String.format("%s is neither %s nor %s", classDescription(object.getClass()), ProtocolMessage.class, Message.class));
-        }
-    }
-
-    private static String classDescription(Class<?> klass) {
-        return String.format("(%s extends %s loaded from %s)", klass, klass.getSuperclass(), klass.getProtectionDomain().getCodeSource().getLocation());
     }
 
     public void setProperty(String property, String value) {
@@ -362,13 +342,15 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
         private final byte[] requestBytes;
         private final Semaphore semaphore;
         private boolean released;
+        private final boolean apiCallShouldUsePythonStub;
 
-        public AsyncApiCall(Environment environment, String packageName, String methodName, byte[] requestBytes, Semaphore semaphore) {
+        public AsyncApiCall(Environment environment, String packageName, String methodName, byte[] requestBytes, Semaphore semaphore, boolean apiCallShouldUsePythonStub) {
             this.environment = environment;
             this.packageName = packageName;
             this.methodName = methodName;
             this.requestBytes = requestBytes;
             this.semaphore = semaphore;
+            this.apiCallShouldUsePythonStub = apiCallShouldUsePythonStub;
         }
 
         public byte[] call() {
@@ -387,31 +369,52 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
 
             byte[] response;
             try {
-                LocalRpcService service = ApiProxyLocalImpl.this.getService(this.packageName);
-                if (service == null) {
-                    throw new CallNotFoundException(this.packageName, this.methodName);
-                }
-
                 LocalCapabilitiesEnvironment capEnv = ApiProxyLocalImpl.this.context.getLocalCapabilitiesEnvironment();
                 CapabilityStatus capabilityStatus = capEnv.getStatusFromMethodName(this.packageName, this.methodName);
                 if (!CapabilityStatus.ENABLED.equals(capabilityStatus)) {
                     throw new CapabilityDisabledException("Setup in local configuration.", this.packageName, this.methodName);
                 }
 
-                if (this.requestBytes.length > ApiProxyLocalImpl.this.getMaxApiRequestSize(service)) {
-                    throw new RequestTooLargeException(this.packageName, this.methodName);
+                if (!this.apiCallShouldUsePythonStub) {
+                    response = this.invokeApiMethodJava(this.packageName, this.methodName, this.requestBytes);
+                    return response;
                 }
 
-                Method method = ApiProxyLocalImpl.this.getDispatchMethod(service, this.packageName, this.methodName);
+                response = this.invokeApiMethodPython(this.packageName, this.methodName, this.requestBytes);
+            } catch (InvocationTargetException e) {
+                if (e.getCause() instanceof RuntimeException) {
+                    throw (RuntimeException)e.getCause();
+                }
+
+                throw new UnknownException(this.packageName, this.methodName, e.getCause());
+            } catch (IOException | ReflectiveOperationException e) {
+                throw new UnknownException(this.packageName, this.methodName, e);
+            } finally {
+                ApiProxy.clearEnvironmentForCurrentThread();
+            }
+
+            return response;
+        }
+
+        public byte[] invokeApiMethodJava(String packageName, String methodName, byte[] requestBytes) throws IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchMethodException {
+            ApiProxyLocalImpl.logger.logp(Level.FINE, "com.google.appengine.tools.development.ApiProxyLocalImpl$AsyncApiCall", "invokeApiMethodJava", (new StringBuilder(46 + String.valueOf(packageName).length() + String.valueOf(methodName).length())).append("Making an API call to a Java implementation: ").append(packageName).append(".").append(methodName).toString());
+            LocalRpcService service = ApiProxyLocalImpl.this.getService(packageName);
+            if (service == null) {
+                throw new CallNotFoundException(packageName, methodName);
+            } else if (requestBytes.length > ApiProxyLocalImpl.this.getMaxApiRequestSize(service)) {
+                throw new RequestTooLargeException(packageName, methodName);
+            } else {
+                Method method = ApiProxyLocalImpl.this.getDispatchMethod(service, packageName, methodName);
                 LocalRpcService.Status status = new LocalRpcService.Status();
                 Class<?> requestClass = method.getParameterTypes()[1];
-                Object request = ApiProxyLocalImpl.this.convertBytesToPb(this.requestBytes, requestClass);
+                Object request = ApiUtils.convertBytesToPb(requestBytes, requestClass);
                 long start = ApiProxyLocalImpl.this.clock.getCurrentTime();
                 boolean callFailed = false;
 
+                byte[] response;
                 try {
                     callFailed = true;
-                    response = ApiProxyLocalImpl.this.convertPbToBytes(method.invoke(service, status, request));
+                    response = ApiUtils.convertPbToBytes(method.invoke(service, status, request));
                     callFailed = false;
                 } finally {
                     if (callFailed) {
@@ -427,20 +430,21 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
                 if (latencySimulatorx != null && ApiProxyLocalImpl.this.context.getLocalServerEnvironment().simulateProductionLatencies()) {
                     latencySimulatorx.simulateLatency(ApiProxyLocalImpl.this.clock.getCurrentTime() - start, service, request);
                 }
-            } catch (IllegalAccessException e) {
-                throw new UnknownException(this.packageName, this.methodName, e);
-            } catch (InstantiationException e) {
-                throw new UnknownException(this.packageName, this.methodName, e);
-            } catch (NoSuchMethodException e) {
-                throw new UnknownException(this.packageName, this.methodName, e);
-            } catch (InvocationTargetException e) {
-                if (e.getCause() instanceof RuntimeException) {
-                    throw (RuntimeException)e.getCause();
-                }
 
-                throw new UnknownException(this.packageName, this.methodName, e.getCause());
+                return response;
+            }
+        }
+
+        public byte[] invokeApiMethodPython(String packageName, String methodName, byte[] requestBytes) throws IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchMethodException, IOException {
+            ApiProxyLocalImpl.logger.logp(Level.FINE, "com.google.appengine.tools.development.ApiProxyLocalImpl$AsyncApiCall", "invokeApiMethodPython", (new StringBuilder(48 + String.valueOf(packageName).length() + String.valueOf(methodName).length())).append("Making an API call to a Python implementation: ").append(packageName).append(".").append(methodName).toString());
+            boolean oldNativeSocketMode = DevSocketImplFactory.isNativeSocketMode();
+            DevSocketImplFactory.setSocketNativeMode(true);
+
+            byte[] response;
+            try {
+                response = ApiProxyLocalImpl.this.apiServer.makeSyncCall(packageName, methodName, requestBytes);
             } finally {
-                ApiProxy.clearEnvironmentForCurrentThread();
+                DevSocketImplFactory.setSocketNativeMode(oldNativeSocketMode);
             }
 
             return response;

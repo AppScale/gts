@@ -2,6 +2,7 @@ package com.google.appengine.tools.development;
 
 import com.google.appengine.api.labs.modules.dev.LocalModulesService;
 import com.google.appengine.repackaged.com.google.common.base.Joiner;
+import com.google.appengine.repackaged.com.google.common.base.Splitter;
 import com.google.appengine.repackaged.com.google.common.collect.ImmutableMap;
 import com.google.appengine.repackaged.com.google.common.collect.ImmutableSet;
 import com.google.appengine.tools.info.SdkInfo;
@@ -18,7 +19,9 @@ import java.net.BindException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -128,8 +131,14 @@ class DevAppServerImpl implements DevAppServer {
       }
 
       ApiProxyLocalFactory factory = new ApiProxyLocalFactory();
+      Set<String> apisUsingPythonStubs = new HashSet();
+      if (System.getProperty("appengine.apisUsingPythonStubs") != null) {
+        for (String api : Splitter.on(',').split(System.getProperty("appengine.apisUsingPythonStubs"))) {
+          apisUsingPythonStubs.add(api);
+        }
+      }
 
-      this.apiProxyLocal = factory.create(this.modules.getLocalServerEnvironment());
+      this.apiProxyLocal = factory.create(this.modules.getLocalServerEnvironment(), apisUsingPythonStubs);
       this.setInboundServicesProperty();
       this.apiProxyLocal.setProperties(this.serviceProperties);
       ApiProxy.setDelegate(this.apiProxyLocal);
