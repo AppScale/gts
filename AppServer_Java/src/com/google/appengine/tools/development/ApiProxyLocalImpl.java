@@ -18,7 +18,6 @@ import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
-import java.util.Formatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -197,7 +196,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
             Method method = requestClass.getMethod("parseFrom", BYTE_ARRAY_CLASS);
             return requestClass.cast(method.invoke((Object)null, bytes));
         } else {
-            throw new UnsupportedOperationException(format("Cannot assign %s to either %s or %s", classDescription(requestClass), ProtocolMessage.class, Message.class));
+            throw new UnsupportedOperationException(String.format("Cannot assign %s to either %s or %s", classDescription(requestClass), ProtocolMessage.class, Message.class));
         }
     }
 
@@ -213,16 +212,12 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
         } else if (object instanceof Message) {
             return ((Message)object).toByteArray();
         } else {
-            throw new UnsupportedOperationException(format("%s is neither %s nor %s", classDescription(object.getClass()), ProtocolMessage.class, Message.class));
+            throw new UnsupportedOperationException(String.format("%s is neither %s nor %s", classDescription(object.getClass()), ProtocolMessage.class, Message.class));
         }
     }
 
     private static String classDescription(Class<?> klass) {
-        return format("(%s extends %s loaded from %s)", klass, klass.getSuperclass(), klass.getProtectionDomain().getCodeSource().getLocation());
-    }
-
-    private static String format(String format, Object... args) {
-        return (new Formatter()).format(format, args).toString();
+        return String.format("(%s extends %s loaded from %s)", klass, klass.getSuperclass(), klass.getProtectionDomain().getCodeSource().getLocation());
     }
 
     public void setProperty(String property, String value) {
