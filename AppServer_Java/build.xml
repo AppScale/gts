@@ -130,6 +130,7 @@
       <include name="com/google/apphosting/utils/config/*" />
       <include name="com/google/appengine/tools/development/DevAppServerMain*" />
       <include name="com/google/appengine/tools/development/DevAppServerFactory*" />
+      <include name="com/google/appengine/tools/development/SharedMain*" />
     </jar>
   </target>
 
