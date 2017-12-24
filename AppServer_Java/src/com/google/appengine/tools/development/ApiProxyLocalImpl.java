@@ -1,5 +1,6 @@
 package com.google.appengine.tools.development;
 
+import com.google.appengine.api.capabilities.CapabilityStatus;
 import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.appengine.repackaged.com.google.protobuf.Message;
 import com.google.apphosting.api.ApiProxy;
@@ -7,6 +8,7 @@ import com.google.apphosting.api.ApiProxy.ApiConfig;
 import com.google.apphosting.api.ApiProxy.ApiDeadlineExceededException;
 import com.google.apphosting.api.ApiProxy.CallNotFoundException;
 import com.google.apphosting.api.ApiProxy.CancelledException;
+import com.google.apphosting.api.ApiProxy.CapabilityDisabledException;
 import com.google.apphosting.api.ApiProxy.Environment;
 import com.google.apphosting.api.ApiProxy.LogRecord;
 import com.google.apphosting.api.ApiProxy.RequestTooLargeException;
@@ -390,6 +392,12 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
                 LocalRpcService service = ApiProxyLocalImpl.this.getService(this.packageName);
                 if (service == null) {
                     throw new CallNotFoundException(this.packageName, this.methodName);
+                }
+
+                LocalCapabilitiesEnvironment capEnv = ApiProxyLocalImpl.this.context.getLocalCapabilitiesEnvironment();
+                CapabilityStatus capabilityStatus = capEnv.getStatusFromMethodName(this.packageName, this.methodName);
+                if (!CapabilityStatus.ENABLED.equals(capabilityStatus)) {
+                    throw new CapabilityDisabledException("Setup in local configuration.", this.packageName, this.methodName);
                 }
 
                 if (this.requestBytes.length > ApiProxyLocalImpl.this.getMaxApiRequestSize(service)) {
