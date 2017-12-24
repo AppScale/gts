@@ -138,6 +138,10 @@ public class DevAppServerMain {
             public void apply() {
                 this.main.propertyOptions = this.getValues();
             }
+        }, new DevAppServerMain.DevAppServerOption(main, (String)null, "allow_remote_shutdown", true) {
+            public void apply() {
+                System.setProperty("appengine.allowRemoteShutdown", Boolean.TRUE.toString());
+            }
         }, new DevAppServerMain.DevAppServerOption(main, (String)null, "instance_port", false) {
             @Override
             public void apply() {
@@ -348,18 +352,15 @@ public class DevAppServerMain {
                 properties.putAll(DevAppServerMain.parsePropertiesList(DevAppServerMain.this.propertyOptions));
                 server.setServiceProperties(properties);
 
-                server.start();
                 try {
-                    while (true) {
-                        Thread.sleep(3600000L);
-                    }
+                    server.start().await();
+                } catch (InterruptedException var10) {
+                    ;
                 }
-                catch (InterruptedException e) {
-                    System.out.println("Shutting down.");
-                    System.exit(0);
-                }
-            }
-            catch (Exception ex) {
+
+                System.out.println("Shutting down.");
+                System.exit(0);
+            } catch (Exception ex) {
                 ex.printStackTrace();
                 System.exit(1);
             }
