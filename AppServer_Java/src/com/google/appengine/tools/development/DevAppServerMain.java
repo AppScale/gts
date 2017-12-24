@@ -150,6 +150,10 @@ public class DevAppServerMain extends SharedMain {
             public void apply() {
                 System.setProperty("PIDFILE", this.getValue());
             }
+        }, new Option((String)null, "external_api_port", false) {
+            public void apply() {
+                System.setProperty("appscale.externalApiPort", this.getValue());
+            }
         }));
         return options;
     }
