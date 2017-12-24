@@ -129,6 +129,7 @@
     <jar destfile="${gae_dist}/lib/appengine-tools-api.jar" basedir="${build}" update="true">
       <include name="com/google/apphosting/utils/config/*" />
       <include name="com/google/appengine/tools/development/ApiUtils*" />
+      <include name="com/google/appengine/tools/development/ApiServer*" />
       <include name="com/google/appengine/tools/development/DevAppServerMain*" />
       <include name="com/google/appengine/tools/development/DevAppServerFactory*" />
       <include name="com/google/appengine/tools/development/SharedMain*" />
