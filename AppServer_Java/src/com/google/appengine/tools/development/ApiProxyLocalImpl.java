@@ -4,6 +4,7 @@ import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.appengine.repackaged.com.google.protobuf.Message;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.ApiConfig;
+import com.google.apphosting.api.ApiProxy.ApiDeadlineExceededException;
 import com.google.apphosting.api.ApiProxy.CallNotFoundException;
 import com.google.apphosting.api.ApiProxy.CancelledException;
 import com.google.apphosting.api.ApiProxy.Environment;
@@ -46,6 +47,8 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     // AppScale: Increased max size of all API requests from 1MB to 32MB.
     private static final int MAX_API_REQUEST_SIZE = 33554432;
 
+    private static final String API_DEADLINE_KEY = "com.google.apphosting.api.ApiProxy.api_deadline_key";
+    static final String IS_OFFLINE_REQUEST_KEY = "com.google.appengine.request.offline";
     private static final Logger logger = Logger.getLogger(ApiProxyLocalImpl.class.getName());
     private final Map<String, LocalRpcService> serviceCache = new ConcurrentHashMap<String, LocalRpcService>();
     private final Map<String, String> properties = new HashMap<String, String>();
@@ -73,7 +76,14 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     }
 
     public byte[] makeSyncCall(Environment environment, String packageName, String methodName, byte[] requestBytes) {
-        Future<byte[]> future = this.doAsyncCall(environment, packageName, methodName, requestBytes, null);
+        ApiConfig apiConfig = null;
+        Double deadline = (Double)environment.getAttributes().get(API_DEADLINE_KEY);
+        if (deadline != null) {
+            apiConfig = new ApiConfig();
+            apiConfig.setDeadlineInSeconds(deadline);
+        }
+
+        Future<byte[]> future = this.doAsyncCall(environment, packageName, methodName, requestBytes, apiConfig);
 
         try {
             return (byte[])future.get();
@@ -93,14 +103,14 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     }
 
     public Future<byte[]> makeAsyncCall(Environment environment, String packageName, String methodName, byte[] requestBytes, ApiConfig apiConfig) {
-        return this.doAsyncCall(environment, packageName, methodName, requestBytes, null);
+        return this.doAsyncCall(environment, packageName, methodName, requestBytes, apiConfig);
     }
 
     public List<Thread> getRequestThreads(Environment environment) {
         return Arrays.asList(Thread.currentThread());
     }
 
-    private Future<byte[]> doAsyncCall(Environment environment, String packageName, String methodName, byte[] requestBytes, ApiConfig apiConfig) {
+    private Future<byte[]> doAsyncCall(Environment environment, final String packageName, final String methodName, byte[] requestBytes, ApiConfig apiConfig) {
         Semaphore semaphore = (Semaphore) environment.getAttributes().get(LocalEnvironment.API_CALL_SEMAPHORE);
 
         if (semaphore != null) {
@@ -111,14 +121,25 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
             }
         }
 
+        boolean offline = environment.getAttributes().get(IS_OFFLINE_REQUEST_KEY) != null;
         ApiProxyLocalImpl.AsyncApiCall asyncApiCall = new ApiProxyLocalImpl.AsyncApiCall(environment, packageName, methodName, requestBytes, semaphore);
         boolean success = false;
 
         Future<byte[]> result;
         try {
             Callable<byte[]> callable = Executors.privilegedCallable(asyncApiCall);
-            result = (Future)AccessController.doPrivileged(new ApiProxyLocalImpl.PrivilegedApiAction(callable, asyncApiCall));
+            Future<byte[]> resultFuture = (Future)AccessController.doPrivileged(new ApiProxyLocalImpl.PrivilegedApiAction(callable, asyncApiCall));
             success = true;
+            if (this.context.getLocalServerEnvironment().enforceApiDeadlines()) {
+                long deadlineMillis = (long)(1000.0D * this.resolveDeadline(packageName, apiConfig, offline));
+                resultFuture = new TimedFuture<byte[]>((Future)resultFuture, deadlineMillis, this.clock) {
+                    protected RuntimeException createDeadlineException() {
+                        throw new ApiDeadlineExceededException(packageName, methodName);
+                    }
+                };
+            }
+
+            result = resultFuture;
         } finally {
             if (!success) {
                 asyncApiCall.tryReleaseSemaphore();
@@ -127,6 +148,33 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
         }
 
         return result;
+    }
+
+    private double resolveDeadline(String packageName, ApiConfig apiConfig, boolean isOffline) {
+        LocalRpcService service = this.getService(packageName);
+        Double deadline = null;
+        if (apiConfig != null) {
+            deadline = apiConfig.getDeadlineInSeconds();
+        }
+
+        if (deadline == null && service != null) {
+            deadline = service.getDefaultDeadline(isOffline);
+        }
+
+        if (deadline == null) {
+            deadline = 5.0D;
+        }
+
+        Double maxDeadline = null;
+        if (service != null) {
+            maxDeadline = service.getMaximumDeadline(isOffline);
+        }
+
+        if (maxDeadline == null) {
+            maxDeadline = 10.0D;
+        }
+
+        return Math.min(deadline, maxDeadline);
     }
 
     /**
@@ -321,38 +369,41 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
         }
 
         private byte[] callInternal() {
-            LocalRpcService service = ApiProxyLocalImpl.this.getService(this.packageName);
-            if (service == null) {
-                throw new CallNotFoundException(this.packageName, this.methodName);
-            } else if (this.requestBytes.length > ApiProxyLocalImpl.this.getMaxApiRequestSize(this.packageName)) {
-                throw new RequestTooLargeException(this.packageName, this.methodName);
-            } else {
-                Method method = ApiProxyLocalImpl.this.getDispatchMethod(service, this.packageName, this.methodName);
-                LocalRpcService.Status status = new LocalRpcService.Status();
-                ApiProxy.setEnvironmentForCurrentThread(this.environment);
+            ApiProxy.setEnvironmentForCurrentThread(this.environment);
 
-                byte[] response;
-                try {
-                    Class<?> requestClass = method.getParameterTypes()[1];
-                    Object request = ApiProxyLocalImpl.this.convertBytesToPb(this.requestBytes, requestClass);
-                    response = ApiProxyLocalImpl.this.convertPbToBytes(method.invoke(service, new Object[] { status, request }));
-                } catch (IllegalAccessException e) {
-                    throw new UnknownException(this.packageName, this.methodName, e);
-                } catch (InstantiationException e) {
-                    throw new UnknownException(this.packageName, this.methodName, e);
-                } catch (NoSuchMethodException e) {
-                    throw new UnknownException(this.packageName, this.methodName, e);
-                } catch (InvocationTargetException e) {
-                    if (e.getCause() instanceof RuntimeException) {
-                        throw (RuntimeException)e.getCause();
-                    }
-                    throw new UnknownException(this.packageName, this.methodName, e.getCause());
-                } finally {
-                    ApiProxy.clearEnvironmentForCurrentThread();
+            byte[] response;
+            try {
+                LocalRpcService service = ApiProxyLocalImpl.this.getService(this.packageName);
+                if (service == null) {
+                    throw new CallNotFoundException(this.packageName, this.methodName);
                 }
 
-                return response;
+                if (this.requestBytes.length > ApiProxyLocalImpl.this.getMaxApiRequestSize(this.packageName)) {
+                    throw new RequestTooLargeException(this.packageName, this.methodName);
+                }
+
+                Method method = ApiProxyLocalImpl.this.getDispatchMethod(service, this.packageName, this.methodName);
+                LocalRpcService.Status status = new LocalRpcService.Status();
+                Class<?> requestClass = method.getParameterTypes()[1];
+                Object request = ApiProxyLocalImpl.this.convertBytesToPb(this.requestBytes, requestClass);
+                response = ApiProxyLocalImpl.this.convertPbToBytes(method.invoke(service, status, request));
+            } catch (IllegalAccessException e) {
+                throw new UnknownException(this.packageName, this.methodName, e);
+            } catch (InstantiationException e) {
+                throw new UnknownException(this.packageName, this.methodName, e);
+            } catch (NoSuchMethodException e) {
+                throw new UnknownException(this.packageName, this.methodName, e);
+            } catch (InvocationTargetException e) {
+                if (e.getCause() instanceof RuntimeException) {
+                    throw (RuntimeException)e.getCause();
+                }
+
+                throw new UnknownException(this.packageName, this.methodName, e.getCause());
+            } finally {
+                ApiProxy.clearEnvironmentForCurrentThread();
             }
+
+            return response;
         }
 
         /**
