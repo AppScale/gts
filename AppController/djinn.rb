@@ -3811,7 +3811,8 @@ class Djinn
 
     ["#{APPSCALE_HOME}/AdminServer", "#{APPSCALE_HOME}/AppDB",
      "#{APPSCALE_HOME}/AppManager", "#{APPSCALE_HOME}/AppTaskQueue",
-     "#{APPSCALE_HOME}/AppController", "#{APPSCALE_HOME}/common",
+     "#{APPSCALE_HOME}/AppController", "#{APPSCALE_HOME}/AppControllerClient",
+     "#{APPSCALE_HOME}/common", "#{APPSCALE_HOME}/Hermes",
      "#{APPSCALE_HOME}/InfrastructureManager", "#{APPSCALE_HOME}/AppDashboard",
      "#{APPSCALE_HOME}/scripts", "#{APPSCALE_HOME}/AppServer",
      "#{APPSCALE_HOME}/AppServer_Java", "#{APPSCALE_HOME}/XMPPReceiver",
