@@ -7,7 +7,7 @@ from kazoo.exceptions import NoNodeError
 from kazoo.exceptions import NodeExistsError
 from tornado.ioloop import IOLoop
 
-from appscale.admin.utils import retry_children_watch_coroutine
+from appscale.common.async_retrying import retry_children_watch_coroutine
 from . import app_identity_service_pb2 as service_pb
 from . import crypto
 from .base_service import BaseService

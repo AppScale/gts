@@ -604,7 +604,6 @@ installapiserver()
     set +u
     (source /opt/appscale_api_server/bin/activate && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
-     ${APPSCALE_HOME}/AppTaskQueue ${APPSCALE_HOME}/AdminServer \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}
 }

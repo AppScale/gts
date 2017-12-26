@@ -12,7 +12,6 @@ setup(
   keywords='appscale google-app-engine python',
   platforms='Posix',
   install_requires=[
-    'appscale-admin',
     'appscale-common',
     'cryptography',
     'kazoo',
