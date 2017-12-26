@@ -35,7 +35,7 @@ require 'error_app'
 require 'groomer_service'
 require 'haproxy'
 require 'helperfunctions'
-require 'hermes_service'
+require 'hermes_client'
 require 'infrastructure_manager_client'
 require 'monit_interface'
 require 'nginx'
@@ -1615,7 +1615,7 @@ class Djinn
 
     Djinn.log_info("Remove old AppServers for #{versions_to_restart}.")
     APPS_LOCK.synchronize {
-      versions_to_restart.each{ |version_key|
+      versions_to_restart.each { |version_key|
         @app_info_map[version_key]['appservers'].clear
       }
     }
@@ -3063,6 +3063,9 @@ class Djinn
       ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
       ENV['EC2_URL'] = @options['ec2_url']
     end
+
+    # Set the proper log level.
+    enforce_options
   end
 
   def got_all_data
@@ -3229,12 +3232,15 @@ class Djinn
       threads << Thread.new {
         if my_node.is_db_master? or my_node.is_db_slave?
           start_groomer_service
+          verbose = @options['verbose'].downcase == 'true'
+          GroomerService.start_transaction_groomer(verbose)
         end
 
         start_backup_service
       }
     else
       stop_groomer_service
+      GroomerService.stop_transaction_groomer
       stop_backup_service
     end
 
@@ -3416,19 +3422,18 @@ class Djinn
   def start_hermes
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    HermesService.start(@options['verbose'].downcase == 'true')
+    script = `which appscale-hermes`.chomp
+    start_cmd = "/usr/bin/python2 #{script}"
+    start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
+    MonitInterface.start(:hermes, start_cmd)
     if my_node.is_shadow?
       nginx_port = 17441
-      service_port = 4_378
+      service_port = 4378
       Nginx.add_service_location(
         'appscale-administration', my_node.private_ip,
         service_port, nginx_port, '/stats/cluster/')
     end
     Djinn.log_info("Done starting Hermes service.")
-  end
-
-  def stop_hermes
-    HermesService.stop
   end
 
   # Starts the groomer service on this node. The groomer cleans the datastore of deleted
@@ -3650,6 +3655,20 @@ class Djinn
     end
   end
 
+  def build_hermes
+    Djinn.log_info('Building uncommitted Hermes changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
+      Djinn.log_error('Unable to build Hermes (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
+      Djinn.log_error('Unable to build Hermes (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building Hermes.')
+  end
+
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
     status = `git -C #{APPSCALE_HOME} status`
@@ -3658,6 +3677,7 @@ class Djinn
     build_datastore if status.include?('AppDB')
     build_common if status.include?('common')
     build_java_appserver if status.include?('AppServer_Java')
+    build_hermes if status.include?('Hermes')
   end
 
   def configure_ejabberd_cert
@@ -4333,6 +4353,7 @@ HOSTS
     my_public = my_node.public_ip
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
     Ejabberd.write_config_file(my_public)
+    Ejabberd.update_ctl_config
 
     # Monit does not have an entry for ejabberd yet. This allows a restart
     # with the new configuration if it is already running.
@@ -4531,10 +4552,10 @@ HOSTS
   # LoadBalancers need to do some extra work to detect when AppServers failed
   # or were terminated.
   def check_haproxy
-    @versions_loaded.each{ |version_key|
+    @versions_loaded.each { |version_key|
       if my_node.is_shadow?
-         _, failed = HAProxy.list_servers(version_key)
-        failed.each{ |appserver|
+         _, failed = get_application_appservers(version_key)
+        failed.each { |appserver|
           Djinn.log_warn(
             "Detected failed AppServer for #{version_key}: #{appserver}.")
           @app_info_map[version_key]['appservers'].delete(appserver)
@@ -4775,7 +4796,7 @@ HOSTS
 
     if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
       begin
-        start_xmpp_for_app(project_id, version_details['runtime'])
+        start_xmpp_for_app(project_id)
       rescue FailedNodeException
         Djinn.log_warn("Failed to start xmpp for application #{project_id}")
       end
@@ -5131,13 +5152,11 @@ HOSTS
     # if austoscale is disabled.
     return 0 if @options['autoscale'].downcase != "true"
 
-    haproxy_port = version_details['appscaleExtensions']['haproxyPort']
     # We need the haproxy stats to decide upon what to do.
     total_requests_seen, total_req_in_queue, current_sessions,
-      time_requests_were_seen = HAProxy.get_haproxy_stats(
-        version_key, my_node.private_ip, haproxy_port)
+      time_requests_were_seen = get_application_load_stats(version_key)
 
-    if time_requests_were_seen == :no_backend
+    if time_requests_were_seen == :no_stats
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
       return 0
     end
@@ -5720,7 +5739,7 @@ HOSTS
   end
 
   # This function creates the xmpp account for 'app', as app@login_ip.
-  def start_xmpp_for_app(app, app_language)
+  def start_xmpp_for_app(app)
     watch_name = "xmpp-#{app}"
 
     # If we have it already running, nothing to do
@@ -5747,7 +5766,7 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password " \
       "[#{@@secret}] and hashed password [#{xmpp_pass}]")
 
-    if Ejabberd.does_app_need_receive?(app, app_language)
+    if Ejabberd.does_app_need_receive?(app)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/" \
         "xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       MonitInterface.start(watch_name, start_cmd)
@@ -5812,9 +5831,8 @@ HOSTS
 
           # Get HAProxy requests.
           Djinn.log_debug("Getting HAProxy stats for #{version_key}")
-          haproxy_port = version_details['appscaleExtensions']['haproxyPort']
-          total_reqs, reqs_enqueued, _, collection_time = HAProxy.get_haproxy_stats(
-            version_key, my_node.private_ip, haproxy_port)
+          total_reqs, reqs_enqueued, _,
+            collection_time = get_application_load_stats(version_key)
           # Create the apps hash with useful information containing
           # HAProxy stats.
           begin
@@ -5863,6 +5881,86 @@ HOSTS
     node_stats['roles'] = my_node.jobs || ['none']
 
     JSON.dump(node_stats)
+  end
+
+  # Gets summarized total_requests, total_req_in_queue and current_sessions
+  # for a specific application version accross all LB nodes.
+  #
+  # Args:
+  #   version_key: A string specifying the version key.
+  # Returns:
+  #   The total requests for the proxy, the requests enqueued and current sessions.
+  #
+  def get_application_load_stats(version_key)
+    total_requests, requests_in_queue, sessions = 0, 0, 0
+    pxname = "gae_#{version_key}"
+    time = :no_stats
+    lb_nodes = @nodes.select{|node| node.is_load_balancer?}
+    lb_nodes.each { |node|
+      begin
+        ip = node.private_ip
+        load_stats = HermesClient.get_proxy_load_stats(ip, @@secret, pxname)
+        total_requests += load_stats[0]
+        requests_in_queue += load_stats[1]
+        sessions += load_stats[2]
+        time = Time.now.to_i
+      rescue AppScaleException => error
+        Djinn.log_warn("Couldn't get proxy stats from Hermes: #{error.message}")
+      end
+    }
+    if lb_nodes.length > 1
+      # Report total HAProxy stats if there are multiple LB nodes
+      Djinn.log_debug("Summarized HAProxy load stats for #{pxname}: " \
+        "req_tot=#{total_requests}, qcur=#{requests_in_queue}, scur=#{sessions}")
+    end
+    return total_requests, requests_in_queue, sessions, time
+  end
+
+  # Gets united lists of running and failed AppServers
+  # for a specific application version accross all LB nodes.
+  #
+  # Args:
+  #   version_key: A string specifying the version key.
+  # Returns:
+  #   An Array of running AppServers (ip:port).
+  #   An Array of failed (marked as DOWN) AppServers (ip:port).
+  #
+  def get_application_appservers(version_key)
+    all_running, all_failed = [], []
+    pxname = "gae_#{version_key}"
+    lb_nodes = @nodes.select{|node| node.is_load_balancer?}
+    lb_nodes.each { |node|
+      begin
+        ip = node.private_ip
+        running, failed = HermesClient.get_backend_servers(ip, @@secret, pxname)
+        all_running += running
+        all_failed += failed
+      rescue AppScaleException => error
+        Djinn.log_warn("Couldn't get proxy stats from Hermes: #{error.message}")
+      end
+    }
+    all_running.uniq!
+    all_failed.uniq!
+
+    if lb_nodes.length > 1
+      # Report total HAProxy stats if there are multiple LB nodes
+      if all_running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+        Djinn.log_debug("Deployment: found #{all_running.length} running " \
+                        "AppServers for #{pxname}.")
+      else
+        Djinn.log_debug("Deployment: found these running " \
+                        "AppServers for #{pxname}: #{all_running}.")
+      end
+      if all_failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
+        Djinn.log_debug("Deployment: found #{all_failed.length} failed " \
+                        "AppServers for #{pxname}.")
+      else
+        Djinn.log_debug("Deployment: found these failed " \
+                        "AppServers for #{pxname}: #{all_failed}.")
+      end
+    end
+
+    return all_running, all_failed
   end
 
   # Gets an application cron info.

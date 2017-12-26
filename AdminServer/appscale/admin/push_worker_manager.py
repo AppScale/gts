@@ -10,6 +10,9 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.options import options
 
+from appscale.common.async_retrying import (
+  retry_children_watch_coroutine, retry_data_watch_coroutine
+)
 from appscale.common.constants import (
   LOG_DIR,
   MonitStates,
@@ -19,7 +22,6 @@ from appscale.common.constants import (
 from appscale.common.monit_app_configuration import create_config_file
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 
-from appscale.admin import utils
 from .utils import ensure_path
 
 # The number of tasks the Celery worker can handle at a time.
@@ -193,7 +195,7 @@ class ProjectPushWorkerManager(object):
         self._stopped = True
         return False
 
-    persistent_update_worker = utils.retry_data_watch_coroutine(
+    persistent_update_worker = retry_data_watch_coroutine(
       self.queues_node, self.update_worker
     )
     main_io_loop = IOLoop.instance()
@@ -245,7 +247,7 @@ class GlobalPushWorkerManager(object):
     Args:
       new_projects: A list of strings specifying all existing project IDs.
     """
-    persistent_update_project = utils.retry_children_watch_coroutine(
+    persistent_update_project = retry_children_watch_coroutine(
       '/appscale/projects', self.update_projects
     )
     main_io_loop = IOLoop.instance()

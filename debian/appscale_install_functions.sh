@@ -17,7 +17,7 @@ fi
 
 JAVA_VERSION="java-8-openjdk"
 case "${DIST}" in
-    precise|trusty|wheezy) JAVA_VERSION="java-7-openjdk" ;;
+    trusty|wheezy) JAVA_VERSION="java-7-openjdk" ;;
 esac
 
 export UNAME_MACHINE=$(uname -m)
@@ -149,30 +149,6 @@ EOF
     fi
 }
 
-installPIL()
-{
-    if [ "$DIST" = "precise" ]; then
-        pip uninstall -y PIL
-        # The behavior of the rotate function changed in pillow 3.0.0.
-        # The system package in trusty is version 2.3.0.
-        pipwrapper "pillow==2.3.0"
-    fi
-}
-
-installlxml()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper lxml
-    fi
-}
-
-installxmpppy()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper xmpppy
-    fi
-}
-
 setulimits()
 {
     cat <<EOF | tee /etc/security/limits.conf
@@ -279,13 +255,6 @@ installtornado()
     pipwrapper tornado==4.2.0
 }
 
-installflexmock()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper flexmock
-    fi
-}
-
 postinstallhaproxy()
 {
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg /etc/haproxy/
@@ -299,8 +268,15 @@ postinstallhaproxy()
 installgems()
 {
     GEMOPT="--no-rdoc --no-ri"
-    # Rake 10.0 depecates rake/rdoctask - upgrade later.
-    gem install rake ${GEMOPT}
+
+    # Rake >= 12.3.0 requires Ruby >= 2.
+    ruby_major_version=$(ruby --version | awk '{print $2}' | head -c 1)
+    if [ "${ruby_major_version}" -lt "2" ]; then
+        gem install rake ${GEMOPT} -v 12.2.1
+    else
+        gem install rake ${GEMOPT}
+    fi
+
     sleep 1
     if [ "${UNAME_MACHINE}" = "x86_64" ]; then
         gem install zookeeper
@@ -319,17 +295,6 @@ installgems()
     gem install posixpsutil ${GEMOPT}
     # This is for the unit testing framework.
     gem install simplecov ${GEMOPT}
-}
-
-installphp54()
-{
-    # In Precise we have a too old version of php. We need at least 5.4.
-    if [ "$DIST" = "precise" ]; then
-        LC_ALL=C.UTF-8 add-apt-repository ppa:ondrej/php
-        apt-get update
-        # php5-cgi is needed to ensure apache2 won't be installed.
-        apt-get install --force-yes -y php5-cgi php5.5
-    fi
 }
 
 postinstallnginx()
@@ -414,23 +379,8 @@ postinstallservice()
     disableservice ejabberd
 }
 
-installpythonmemcache()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper "python-memcached==1.53"
-    fi
-}
-
 installzookeeper()
 {
-    if [ "$DIST" = "precise" ]; then
-        ZK_REPO_PKG=cdh4-repository_1.0_all.deb
-        curl ${CURL_OPTS} -o /tmp/${ZK_REPO_PKG} http://archive.cloudera.com/cdh4/one-click-install/precise/amd64/${ZK_REPO_PKG}
-        dpkg -i /tmp/${ZK_REPO_PKG}
-        apt-get update
-        apt-get install -y zookeeper-server
-    fi
-
     # Use 2.4.0 to avoid NoNodeError for ChildrenWatches with no parents.
     pipwrapper "kazoo==2.4.0"
 }
@@ -442,13 +392,8 @@ installpycrypto()
 
 postinstallzookeeper()
 {
-    if [ "$DIST" = "precise" ]; then
-        service zookeeper-server stop || true
-        disableservice zookeeper-server
-    else
-        service zookeeper stop || true
-        disableservice zookeeper
-    fi
+    service zookeeper stop || true
+    disableservice zookeeper
     if [ ! -d /etc/zookeeper/conf ]; then
         echo "Cannot find zookeeper configuration!"
         exit 1
@@ -485,26 +430,6 @@ installVersion()
         mv ${CONFIG_DIR}/VERSION ${CONFIG_DIR}/VERSION-$(date --rfc-3339=date)
     fi
     cp ${APPSCALE_HOME}/VERSION ${CONFIG_DIR}
-}
-
-installrequests()
-{
-    if [ "$DIST" = "precise" ]; then
-        pipwrapper requests
-    fi
-}
-
-# pyOpenSSL is required for client SNI support on Python < 2.7.9.
-installpyopenssl()
-{
-    if [ "$DIST" = "precise" ]; then
-        # A pyOpenSSL dependency (cryptography) requires distribute. After that
-        # is upgraded, setuptools and pkg_resources need to be reinstalled.
-        pipwrapper distribute
-        apt-get install --reinstall python-setuptools
-        apt-get install --reinstall python-pkg-resources
-        pipwrapper pyopenssl
-    fi
 }
 
 postinstallrsyslog()
@@ -577,7 +502,7 @@ postinstallejabberd()
 installpsutil()
 {
     case ${DIST} in
-        precise|wheezy) pipwrapper psutil ;;
+        wheezy) pipwrapper psutil ;;
     esac
 }
 
@@ -699,9 +624,14 @@ upgradepip()
     # Versions older than Pip 7 did not correctly parse install commands for
     # local packages with optional dependencies.
     case "$DIST" in
-        precise|wheezy|trusty)
+        wheezy|trusty)
             pipwrapper pip
             # Account for the change in the path to the pip binary.
+            hash -r
+            ;;
+        jessie)
+            # The system's pip does not allow updating itself.
+            easy_install --upgrade pip
             hash -r
             ;;
     esac

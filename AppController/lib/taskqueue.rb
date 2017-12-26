@@ -76,26 +76,6 @@ module TaskQueue
       raise AppScaleException.new(msg)
     end
 
-    # On Xenial, rabbitmq starts an epmd daemon that doesn't play well with
-    # ejabberd. This makes sure that the compatible service is started first.
-    begin
-      services = `systemctl list-unit-files`
-      if services.include?('epmd.service')
-        PosixPsutil::Process.processes.each { |process|
-          begin
-            next unless process.name == 'epmd'
-            process.terminate if process.cmdline.include?('-daemon')
-          rescue PosixPsutil::NoSuchProcess
-            next
-          end
-        }
-        `systemctl start epmd`
-      end
-    rescue Errno::ENOENT
-      # Distros without systemd don't have systemctl, and they do not exhibit
-      # the issue.
-    end
-
     pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
                         "rabbit@#{Socket.gethostname}.pid")
 
@@ -119,6 +99,8 @@ module TaskQueue
     service_bin = `which service`.chomp
     start_cmd = "#{service_bin} rabbitmq-server start"
     stop_cmd = "#{service_bin} rabbitmq-server stop"
+
+    Ejabberd.ensure_correct_epmd
     MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile,
                                 MAX_WAIT_FOR_RABBITMQ)
   end
@@ -178,12 +160,13 @@ module TaskQueue
       Djinn.log_debug('Not erasing RabbitMQ state')
     end
 
-    # Wait for RabbitMQ on master node to come up, then start the local
-    # rabbitmq.
+    # Start the local RabbitMQ server, and then wait for RabbitMQ on the master
+    # node to come up. The RabbitMQ server on the taskqueue master may not be
+    # able to start without this one if it previously stopped first.
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
+    start_rabbitmq
     Djinn.log_debug('Waiting for RabbitMQ on master node to come up')
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
-    start_rabbitmq
 
     # we now reset it to join the head node. To do this we need the
     # hostname of the master node. We go through few options:
