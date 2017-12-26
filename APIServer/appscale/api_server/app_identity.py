@@ -7,14 +7,14 @@ from kazoo.exceptions import NoNodeError
 from kazoo.exceptions import NodeExistsError
 from tornado.ioloop import IOLoop
 
+from appscale.api_server import app_identity_service_pb2 as service_pb
+from appscale.api_server import crypto
+from appscale.api_server.base_service import BaseService
+from appscale.api_server.constants import ApplicationError
+from appscale.api_server.constants import CallNotFound
+from appscale.api_server.crypto import PrivateKey
+from appscale.api_server.crypto import PublicCertificate
 from appscale.common.async_retrying import retry_children_watch_coroutine
-from . import app_identity_service_pb2 as service_pb
-from . import crypto
-from .base_service import BaseService
-from .constants import ApplicationError
-from .constants import CallNotFound
-from .crypto import PrivateKey
-from .crypto import PublicCertificate
 
 logger = logging.getLogger('appscale-api-server')
 

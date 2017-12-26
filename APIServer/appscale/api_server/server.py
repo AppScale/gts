@@ -9,13 +9,13 @@ from kazoo.client import KazooClient
 from tornado import web
 from tornado.ioloop import IOLoop
 
+from appscale.api_server import remote_api_pb2
+from appscale.api_server.app_identity import AppIdentityService
+from appscale.api_server.base_service import BaseService
+from appscale.api_server.constants import ApplicationError
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.constants import PID_DIR
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
-from . import remote_api_pb2
-from .app_identity import AppIdentityService
-from .base_service import BaseService
-from .constants import ApplicationError
 
 logger = logging.getLogger('appscale-api-server')
 

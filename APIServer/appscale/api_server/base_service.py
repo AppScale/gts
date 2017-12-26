@@ -1,6 +1,6 @@
 """ A fallback service for when a requested one is not defined. """
 
-from .constants import CallNotFound
+from appscale.api_server.constants import CallNotFound
 
 
 class BaseService(object):
