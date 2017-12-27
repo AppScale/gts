@@ -3571,6 +3571,21 @@ class Djinn
     @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
+  def build_appcontroller_client
+    Djinn.log_info('Building uncommitted appcontroller client changes')
+    unless system('pip install --upgrade --no-deps ' \
+                  "#{APPSCALE_HOME}/AppControllerClient > /dev/null 2>&1")
+      Djinn.log_error('Unable to build appcontroller client (install failed).')
+      return
+    end
+    unless system('pip install ' \
+                  "#{APPSCALE_HOME}/AppControllerClient > /dev/null 2>&1")
+      Djinn.log_error('Unable to build appcontroller client (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building appcontroller client.')
+  end
+
   def build_taskqueue
     Djinn.log_info('Building uncommitted taskqueue changes')
     extras = TaskQueue::OPTIONAL_FEATURES.join(',')
@@ -3672,6 +3687,7 @@ class Djinn
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
     status = `git -C #{APPSCALE_HOME} status`
+    build_appcontroller_client if status.include?('AppControllerClient')
     build_admin_server if status.include?('AdminServer')
     build_taskqueue if status.include?('AppTaskQueue')
     build_datastore if status.include?('AppDB')
