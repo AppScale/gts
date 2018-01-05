@@ -75,6 +75,7 @@ class UpdateCronHandler(BaseHandler):
     Args:
       acc: An AppControllerClient.
       zk_client: A KazooClient.
+      ua_client: A UAClient.
     """
     self.acc = acc
     self.zk_client = zk_client
