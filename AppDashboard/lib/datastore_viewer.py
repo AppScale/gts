@@ -4,12 +4,12 @@ import urllib
 
 from app_dashboard import AppDashboard
 from datastore_location import DATASTORE_LOCATION
+
+from google.appengine.api import api_base_pb
 from google.appengine.api import datastore
 from google.appengine.api import memcache
 from google.appengine.api.datastore_distributed import DatastoreDistributed
-from google.appengine.api import api_base_pb
 from google.appengine.datastore import datastore_pb
-
 from google.appengine.tools.devappserver2.admin.datastore_viewer import (
   _property_name_to_value,
   DataType)
