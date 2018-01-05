@@ -363,7 +363,7 @@ class DatastoreViewer(DatastoreViewerPage):
                for prop in index.definition().property_list()]
       new_index = datastore.Index(index.id(), index.definition().entity_type(),
                                   index.definition().ancestor(), props)
-      indexes.append((new_index, None))
+      indexes.append(new_index)
 
     return indexes
 
@@ -402,7 +402,7 @@ class DatastoreViewer(DatastoreViewerPage):
     writes = 2 + cls._calculate_writes_for_built_in_indices(entity)
 
     # Account for composite indices.
-    for index, _ in cls._get_indexes(ds_access):
+    for index in cls._get_indexes(ds_access):
       if index.Kind() != entity.kind():
         continue
       writes += cls._calculate_writes_for_composite_index(entity, index)
