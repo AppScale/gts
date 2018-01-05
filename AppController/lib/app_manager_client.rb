@@ -27,7 +27,7 @@ class AppManagerClient
       if response.code != '200'
         raise FailedNodeException.new("AppManager error: #{response.body}")
       end
-    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT
+    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Net::ReadTimeout
       raise FailedNodeException.new("Call to AppManager timed out")
     end
   end
