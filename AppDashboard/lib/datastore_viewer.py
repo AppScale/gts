@@ -38,7 +38,7 @@ def _format_datastore_key(key):
 
 
 def _property_name_to_values(entities):
-  """Returns a a mapping of entity property names to a list of their values.
+  """Returns a mapping of entity property names to a list of their values.
 
   For example:
     _property_name_to_values([{'cat': 5, 'dog': 10},
@@ -62,7 +62,7 @@ def _property_name_to_values(entities):
 
 
 def _delete_entities(ds_access, entity_keys):
-  """ Deletes a list of datastre entities.
+  """ Deletes a list of datastore entities.
 
   Args:
     ds_access: A DatastoreDistributed client.
