@@ -182,7 +182,6 @@ def ensure_api_server(project_id):
     An integer specifying the API server port.
   """
   global api_servers
-  logging.warning('api_servers: {}'.format(api_servers))
   if project_id in api_servers:
     return api_servers[project_id]
 
@@ -247,8 +246,6 @@ def populate_api_servers():
 
   for project_id, port in server_entries:
     api_servers[project_id] = port
-
-  logging.warning('api_servers: {}'.format(api_servers))
 
 
 @gen.coroutine
