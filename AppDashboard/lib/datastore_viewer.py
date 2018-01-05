@@ -11,7 +11,6 @@ from google.appengine.api import memcache
 from google.appengine.api.datastore_distributed import DatastoreDistributed
 from google.appengine.datastore import datastore_pb
 from google.appengine.tools.devappserver2.admin.datastore_viewer import (
-  _property_name_to_value,
   DataType)
 
 
@@ -311,15 +310,15 @@ class DatastoreViewer(DatastoreViewerPage):
     entities, total_entities = _get_entities(
       ds_access, kind, namespace, order, start, cls.NUM_ENTITIES_PER_PAGE)
 
-    property_name_to_value = _property_name_to_value(entities)
+    prop_names = sorted({prop for entity in entities for prop in entity})
 
     headers = [{'name': property_name}
-               for property_name in sorted(property_name_to_value)]
+               for property_name in prop_names]
 
     template_entities = []
     for entity in entities:
       attributes = []
-      for property_name in sorted(property_name_to_value):
+      for property_name in prop_names:
         if property_name in entity:
           raw_value = entity[property_name]
           data_type = DataType.get(raw_value)
