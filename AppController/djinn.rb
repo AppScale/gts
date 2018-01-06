@@ -4577,6 +4577,12 @@ HOSTS
       return
     end
 
+    # Temporary arrays for AppServers housekeeping.
+    to_start = []
+    no_appservers = []
+    running_instances = []
+    to_end = []
+
     APPS_LOCK.synchronize {
       # Registered instances are no longer pending.
       @app_info_map.each { |version_key, info|
@@ -4600,10 +4606,6 @@ HOSTS
         @pending_appservers.delete(instance_key)
       }
 
-      to_start = []
-      no_appservers = []
-      running_instances = []
-      to_end = []
       @app_info_map.each { |version_key, info|
         # The remainder of this loop is for Compute nodes only, so we
         # need to do work only if we have AppServers.
