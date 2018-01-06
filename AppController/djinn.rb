@@ -349,10 +349,6 @@ class Djinn
   # This is the generic retries to do.
   RETRIES = 5
 
-  # A Float that determines how much CPU can be used before the autoscaler will
-  # stop adding AppServers on a node.
-  MAX_CPU_FOR_APPSERVERS = 90.00
-
   # We won't allow any AppServer to have 1 minute average load
   # (normalized on the number of CPUs) to be bigger than this constant.
   MAX_LOAD_AVG = 2.0
@@ -4581,30 +4577,33 @@ HOSTS
       return
     end
 
-    # Registered instances are no longer pending.
-    @app_info_map.each { |version_key, info|
-      info['appservers'].each { |location|
-        port = location.split(':')[1]
-        @pending_appservers.delete("#{version_key}:#{port}")
-      }
-    }
-
-    # If an instance has not been registered in time, allow it to be removed.
-    expired_appservers = []
-    @pending_appservers.each { |instance_key, start_time|
-      if Time.new > start_time + START_APP_TIMEOUT
-        expired_appservers << instance_key
-      end
-    }
-    expired_appservers.each { |instance_key|
-      @pending_appservers.delete(instance_key)
-    }
-
-    to_start = []
-    no_appservers = []
-    running_instances = []
-    to_end = []
     APPS_LOCK.synchronize {
+      # Registered instances are no longer pending.
+      @app_info_map.each { |version_key, info|
+        info['appservers'].each { |location|
+          host, port = location.split(":")
+          next if @my_private_ip != host
+          @pending_appservers.delete("#{version_key}:#{port}")
+        }
+      }
+
+      # If an instance has not been registered in time, allow it to be removed.
+      expired_appservers = []
+      @pending_appservers.each { |instance_key, start_time|
+        if Time.new > start_time + START_APP_TIMEOUT
+          expired_appservers << instance_key
+        end
+      }
+      expired_appservers.each { |instance_key|
+        Djinn.log_debug("Pending AppServer #{instance_key} didn't " \
+                        "register in time.")
+        @pending_appservers.delete(instance_key)
+      }
+
+      to_start = []
+      no_appservers = []
+      running_instances = []
+      to_end = []
       @app_info_map.each { |version_key, info|
         # The remainder of this loop is for Compute nodes only, so we
         # need to do work only if we have AppServers.
@@ -4617,7 +4616,8 @@ HOSTS
 
         if info['appservers'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
           Djinn.log_debug("Checking #{version_key} with " \
-                          "#{info['appservers'].length} AppServers.")
+                          "#{info['appservers'].length} AppServers " \
+                          "(#{pending_count} pending).")
         else
           Djinn.log_debug(
             "Checking #{version_key} running at #{info['appservers']}.")
@@ -4656,7 +4656,7 @@ HOSTS
       no_appservers.delete(version_key)
     }
     unless running_instances.empty?
-      Djinn.log_debug("Running AppServers on this node: #{running_instances}.")
+      Djinn.log_debug("Registered AppServers on this node: #{running_instances}.")
     end
 
     # Check that all the AppServers running are indeed known to the
@@ -4675,6 +4675,7 @@ HOSTS
       next if @pending_appservers.key?(instance_key)
 
       # If the unaccounted instance is not pending, stop it.
+      Djinn.log_info("AppServer #{instance_key} is unaccounted for.")
       to_end << instance_key
     }
 
@@ -5626,7 +5627,8 @@ HOSTS
     begin
       app_manager.start_app(version_key, appserver_port, @options['login'])
       @pending_appservers["#{version_key}:#{appserver_port}"] = Time.new
-      Djinn.log_info("Done adding AppServer for #{version_key}.")
+      Djinn.log_info("Done adding AppServer for " \
+                     "#{version_key}:#{appserver_port}.")
     rescue FailedNodeException => error
       Djinn.log_warn(
         "Error while starting instance for #{version_key}: #{error.message}")
