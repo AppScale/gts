@@ -5,21 +5,17 @@ This API is not documented, but it is used by the Google Cloud SDK.
 
 import json
 import logging
-import sys
 import yaml
 from kazoo.exceptions import NoNodeError
 from yaml.parser import ParserError
 
+from appscale.appcontroller_client import AppControllerException
 from appscale.common.constants import HTTPCodes
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .base_handler import BaseHandler
 from .constants import CustomHTTPError
 from .constants import InvalidConfiguration
 from .utils import cron_from_dict
 from .utils import queues_from_dict
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerException
 
 logger = logging.getLogger('appscale-admin')
 
