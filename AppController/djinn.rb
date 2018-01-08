@@ -4418,6 +4418,31 @@ HOSTS
         sleep(SMALL_WAIT)
       end
     end
+
+    # Update cron jobs for the dashboard.
+    endpoint = "api/cron/update?app_id=#{AppDashboard::APP_NAME}"
+    uri = URI("http://#{my_node.private_ip}:#{ADMIN_SERVER_PORT}/#{endpoint}")
+    cron_yaml = File.read(
+      File.join(APPSCALE_HOME, 'AppDashboard', 'cron.yaml'))
+    headers = {'AppScale-Secret' => @@secret}
+    request = Net::HTTP::Post.new("/#{endpoint}", headers)
+    request.body = cron_yaml
+    loop do
+      begin
+        response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+          http.request(request)
+        end
+        if response.code != '200'
+          HelperFunctions.log_and_crash(
+            "AdminServer failed to update dashboard cron: #{response.body}")
+        end
+        break
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
+        Djinn.log_warn(
+          "Error updating dashboard cron: #{error.message}. Trying again.")
+        sleep(SMALL_WAIT)
+      end
+    end
   end
 
   # Start the AppDashboard web service which allows users to login, upload
