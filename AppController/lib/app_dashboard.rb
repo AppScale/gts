@@ -41,7 +41,7 @@ module AppDashboard
       " #{lib_dir}/uaserver_host.py")
 
     File.open(File.join(lib_dir, 'datastore_location.py'), 'w') { |file|
-      file.write("LOAD_BALANCER_IP = '#{datastore_location}'")
+      file.write("DATASTORE_LOCATION = '#{datastore_location}'")
     }
 
     # TODO: tell the tools to disallow uploading apps called
