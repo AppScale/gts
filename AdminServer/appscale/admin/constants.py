@@ -98,10 +98,10 @@ IMMUTABLE_PROJECTS = [DASHBOARD_APP_ID]
 SOURCES_DIRECTORY = os.path.join('/', 'opt', 'appscale', 'apps')
 
 # The inbound services that are supported.
-SUPPORTED_INBOUND_SERVICES = ('INBOUND_SERVICE_XMPP_MESSAGE',
+SUPPORTED_INBOUND_SERVICES = ('INBOUND_SERVICE_WARMUP',
+                              'INBOUND_SERVICE_XMPP_MESSAGE',
                               'INBOUND_SERVICE_XMPP_SUBSCRIBE',
-                              'INBOUND_SERVICE_XMPP_PRESENCE',
-                              'INBOUND_SERVICE_WARMUP')
+                              'INBOUND_SERVICE_XMPP_PRESENCE')
 
 # The ZooKeeper location for storing project details.
 PROJECT_NODE_TEMPLATE = '/appscale/projects/{}'
