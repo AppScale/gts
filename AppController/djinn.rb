@@ -666,8 +666,7 @@ class Djinn
 
     if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
       CronHelper.update_cron(
-        get_load_balancer.public_ip, http_port, version_details['runtime'],
-        project_id)
+        get_load_balancer.public_ip, http_port, project_id)
     end
 
     'OK'
@@ -1374,6 +1373,37 @@ class Djinn
     }
     # Act upon changes.
     enforce_options unless old_options == @options
+
+    return 'OK'
+  end
+
+  # Updates a project's cron jobs.
+  def update_cron(project_id, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless my_node.is_shadow?
+      Djinn.log_debug(
+        "Sending update_cron call for #{project_id} to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.update_cron(project_id)
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward update_cron call to shadow (#{get_shadow}).")
+        return NOT_READY
+      end
+    end
+
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound => error
+      return "false: #{error.message}"
+    end
+
+    CronHelper.update_cron(get_load_balancer.public_ip,
+                           version_details['appscaleExtensions']['httpPort'],
+                           project_id)
 
     return 'OK'
   end
@@ -2572,16 +2602,6 @@ class Djinn
         Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
       end
       @app_info_map[version_key]['appservers'] << "#{ip}:#{port}"
-
-
-      # Now that we have at least one AppServer running, we can start the
-      # cron job of the application.
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        CronHelper.update_cron(
-          get_load_balancer.public_ip,
-          version_details['appscaleExtensions']['httpPort'],
-          version_details['runtime'], project_id)
-      end
     }
 
     'OK'
@@ -4034,9 +4054,6 @@ HOSTS
         Djinn.log_debug(
           "Removing routing for #{version_key} since no AppServer is running.")
         Nginx.remove_version(version_key)
-        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-          CronHelper.clear_app_crontab(project_id)
-        end
         HAProxy.remove_version(version_key)
       else
         begin
@@ -4419,6 +4436,31 @@ HOSTS
       rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
         Djinn.log_warn(
           "Error when deploying dashboard: #{error.message}. Trying again.")
+        sleep(SMALL_WAIT)
+      end
+    end
+
+    # Update cron jobs for the dashboard.
+    endpoint = "api/cron/update?app_id=#{AppDashboard::APP_NAME}"
+    uri = URI("http://#{my_node.private_ip}:#{ADMIN_SERVER_PORT}/#{endpoint}")
+    cron_yaml = File.read(
+      File.join(APPSCALE_HOME, 'AppDashboard', 'cron.yaml'))
+    headers = {'AppScale-Secret' => @@secret}
+    request = Net::HTTP::Post.new("/#{endpoint}", headers)
+    request.body = cron_yaml
+    loop do
+      begin
+        response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+          http.request(request)
+        end
+        if response.code != '200'
+          HelperFunctions.log_and_crash(
+            "AdminServer failed to update dashboard cron: #{response.body}")
+        end
+        break
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
+        Djinn.log_warn(
+          "Error updating dashboard cron: #{error.message}. Trying again.")
         sleep(SMALL_WAIT)
       end
     end
