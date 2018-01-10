@@ -12,6 +12,7 @@ setup(
   install_requires=[
     'kazoo',
     'PyYAML'
+    'future'
   ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
@@ -21,6 +22,7 @@ setup(
   ],
   namespace_packages=['appscale'],
   packages=['appscale',
-            'appscale.common'],
+            'appscale.common',
+            'appscale.common.service_stats'],
   package_data={'appscale.common': ['templates/*']}
 )

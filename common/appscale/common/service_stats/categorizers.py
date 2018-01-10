@@ -1,5 +1,12 @@
 class Categorizer(object):
-  """ An interface for request categorizer """
+  """
+  An interface for request categorizer. Any categorizer can
+  be used as a key in a metrics map (see stats_manager.py), in this case,
+  specified metrics will be counted for each category
+  """
+  def __init__(self, categorizer_name):
+    self._categorizer_name = categorizer_name
+
   def category_of(self, req_info):
     """ Lists categories which request belongs to.
     
@@ -10,9 +17,22 @@ class Categorizer(object):
     """
     raise NotImplemented
 
+  def __hash__(self):
+    """ Categorizer suppose to be used as a key in a metrics map,
+    so __hash__ and __eq__ methods have to be implemented """
+    return hash(self._categorizer_name)
+
+  def __eq__(self, other):
+    """ Categorizer suppose to be used as a key in a metrics map,
+    so __hash__ and __eq__ methods have to be implemented """
+    if isinstance(other, Categorizer):
+      return self._categorizer_name == other._categorizer_name
+    return self._categorizer_name == other
+
 
 class ExactValueCategorizer(Categorizer):
-  def __init__(self, field_name):
+  def __init__(self, categorizer_name, field_name):
+    super(ExactValueCategorizer, self).__init__(categorizer_name)
     self._field_name = field_name
 
   def category_of(self, req_info):

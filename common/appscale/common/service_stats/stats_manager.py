@@ -1,6 +1,10 @@
-from datetime import datetime
+from collections import defaultdict
 import logging
 import time
+
+from future.utils import iteritems
+
+from appscale.common.service_stats import matchers, metrics, categorizers
 
 
 class UnknownRequestField(AttributeError):
@@ -11,6 +15,83 @@ class ReservedRequestField(Exception):
   pass
 
 
+DEFAULT_REQUEST_FIELDS = [
+  "app", "module", "version", "method", "resource",
+  "status", "response_size"
+]
+
+DEFAULT_CUMULATIVE_COUNTERS = {
+  "all": matchers.ANY,
+  "4xx": matchers.CLIENT_ERRORS,
+  "5xx": matchers.SERVER_ERRORS,
+  categorizers.ExactValueCategorizer("by_app", field_name="app"): {
+    "all": matchers.ANY,
+    "4xx": matchers.CLIENT_ERRORS,
+    "5xx": matchers.SERVER_ERRORS
+  }
+}
+# This counters config corresponds to the following output:
+# {
+#   "from": 1515595829,
+#   "to": 1515735126,
+#   "all": 27365,
+#   "4xx": 97,
+#   "5xx": 15,
+#   "by_app": {
+#     "guestbook": {"all": 18321, "4xx": 90, "5xx": 13},
+#     "validity": {"all": 9044, "4xx": 7, "5xx": 2}
+#   }
+# }
+
+DEFAULT_METRICS_MAP = {
+  "all": metrics.CountOf(matchers.ANY),
+  "4xx": metrics.CountOf(matchers.CLIENT_ERRORS),
+  "5xx": metrics.CountOf(matchers.SERVER_ERRORS),
+  "avg_latency": metrics.AvgLatency(),
+  categorizers.ExactValueCategorizer("by_app", field_name="app"):{
+    categorizers.ExactValueCategorizer("by_resource", field_name="resource"): {
+      "all": metrics.CountOf(matchers.ANY),
+      "4xx": metrics.CountOf(matchers.CLIENT_ERRORS),
+      "5xx": metrics.CountOf(matchers.SERVER_ERRORS),
+      "avg_latency": metrics.AvgLatency(),
+    }
+  }
+}
+# This metrics map corresponds to following output:
+# {
+#   "from": 1515699718,
+#   "to": 1515735126,
+#   "all": 1225,
+#   "4xx": 11,
+#   "5xx": 3,
+#   "avg_latency": 325,
+#   "by_app": {
+#     "guestbook": {
+#       "by_resource": {
+#         "/get/user": {"all": 56, "4xx": 11, "5xx": 3, "avg_latency": 321},
+#         "/": {"all": 300, "4xx": 0, "5xx": 0, "avg_latency": 68}
+#       }
+#     },
+#     "validity": {
+#       "by_resource": {
+#         "/wait": {"all": 69, "4xx": 0, "5xx": 0, "avg_latency": 5021},
+#         "/version": {"all": 800, "4xx": 0, "5xx": 0, "avg_latency": 35}
+#       }
+#     }
+#   }
+# }
+
+
+class _DummyLock(object):
+  def __enter__(self):
+    pass
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    pass
+
+
+NO_LOCK = _DummyLock()
+
+
 class ServiceStats(object):
   DEFAULT_HISTORY_SIZE = 1000
 
@@ -18,24 +99,15 @@ class ServiceStats(object):
   AUTOCLEAN_INTERVAL = 60 * 60 * 4
 
   RESERVED_REQUEST_FIELDS = ["start_time", "end_time", "latency"]
-  DEFAULT_REQUEST_FIELDS = [
-    "app", "module", "version", "method", "resource",
-    "status", "response_size"
-  ]
-  DEFAULT_STATS_SCHEMA = {
-    "all": (),
-    "apps": (1, None),  # TODO
-    "versions": None,  # TODO
-    "resources": None
-  }
 
   def __init__(self, service_name, history_size=DEFAULT_HISTORY_SIZE,
                force_clean_after=DEFAULT_MAX_REQUEST_AGE,
-               lock_context_manager=None,
+               lock_context_manager=NO_LOCK,
                request_fields=DEFAULT_REQUEST_FIELDS,
-               stats_schema=DEFAULT_STATS_SCHEMA):
+               cumulative_counters=DEFAULT_CUMULATIVE_COUNTERS,
+               metrics_for_recent=DEFAULT_METRICS_MAP):
 
-    now = time.mktime(datetime.now().timetuple())
+    now = _now()
     self._service_name = service_name
 
     self._request_info_class = self._generate_request_model(request_fields)
@@ -51,13 +123,21 @@ class ServiceStats(object):
     self._force_clean_after = force_clean_after
     self._last_autoclean_time = now
 
-    # Initialize properties for global counters
+    # Configure cumulative counters
     self._start_time = now
-    # TODO global counter
+    self._cumulative_counters_config = cumulative_counters
+    self._cumulative_counters = defaultdict(int)
 
-    # Initialize statistics schema
-    self._stats_schema = stats_schema
-    # TODO schema
+    # Configure metrics for recent requests
+    self._metrics_for_recent_config = metrics_for_recent
+
+  @property
+  def service_name(self):
+    return self._service_name
+
+  @property
+  def current_requests(self):
+    return len(self._current_requests)
 
   def _generate_request_model(self, request_fields):
     """ Defines class describing request information.
@@ -83,9 +163,9 @@ class ServiceStats(object):
         self.update(fields_dict)
 
       def update(self, fields_dict):
-        for field in fields_dict:
+        for field, value in iteritems(fields_dict):
           try:
-            setattr(self, field, fields_dict[fields_dict])
+            setattr(self, field, value)
           except AttributeError as e:
             raise UnknownRequestField(str(e))
 
@@ -100,7 +180,7 @@ class ServiceStats(object):
       an internal request ID which should be used for finishing request.
     """
     with self._lock:
-      now = time.mktime(datetime.now().timetuple())
+      now = _now()
       # Instantiate a request_info object and fill its start_time
       new_request = self._request_info_class(request_info_dict)
       new_request.start_time = now
@@ -123,7 +203,7 @@ class ServiceStats(object):
       new_info_dict: a dictionary containing info about request result.
     """
     with self._lock:
-      now = time.mktime(datetime.now().timetuple())
+      now = _now()
       # Find request with the specified request_no
       request_info = self._current_requests.pop(request_no, None)
       if not request_info:
@@ -139,12 +219,17 @@ class ServiceStats(object):
       self._finished_requests.append(request_info)
       if len(self._finished_requests) > self._history_size:
         self._finished_requests.pop(0)
+      # Update cumulative counters
+      for counter_name, matcher in iteritems(self._cumulative_counters_config):
+        if matcher.matches(request_info):
+          self._cumulative_counters[counter_name] += 1
+          # TODO
 
   def _clean_outdated(self):
     """ Removes old requests which are unlikely to be finished ever as
     there were started longer than self._force_clean_after seconds ago.
     """
-    now = time.mktime(datetime.now().timetuple())
+    now = _now()
     outdated = []
     for request_no, request_info in self._current_requests.items():
       if now - request_info.start_time > self._force_clean_after:
@@ -157,34 +242,57 @@ class ServiceStats(object):
         del self._current_requests[request_no]
     self._last_autoclean_time = now
 
-  def get_stats(self, since=None):
-    """ TODO """
-    if since:
-      index = None  # TODO
-    else:
-      index = 0
+  def get_recent(self, for_last_seconds=None):
+    cursor = _now() - for_last_seconds if for_last_seconds else None
+    requests = self._get_requests(since=cursor)
+    # TODO
+
+  def scroll_recent(self, cursor=None):
+    """  """
+    requests = self._get_requests(since=cursor)
+
     return {
-      "service_name": self._service_name,
-      "running_since": self._start_time,
-      "current_requests": len(self._current_requests),
       "cumulative": {
+        "from": self._start_time,
+        "to": _now(),
         "all": 32,  # TODO
+        "4xx": 100,
+        "5xx": 500,
         "by_status": {"1xx": 5},
         "by_app": {"app1": 98},
         "by_resource": {""},
         "by_custom_category": {}
-      },
-      "recent": {
-        "avg_latency": 0.3,
-        "requests": 100500,
-        "4xx": 100,
-        "5xx": 500,
-        "by_resource": {
-
-        }
-      },
-
+      }
     }
+
+  def _render_recent(self, requests):
+    # TODO
+    return {
+      "from": requests[0].end_time,
+      "to": requests[-1].end_time,
+      "avg_latency": 0.3,
+      "requests": 100500,
+      "4xx": 100,
+      "5xx": 500,
+      "by_resource": {
+    }
+
+  def _get_requests(self, since=None):
+    if since is None:
+      return self._finished_requests
+    # Find the first element newer than 'since' using bisect
+    left, right = 0, len(self._finished_requests)
+    while left < right:
+      middle = (left + right) // 2
+      if since < self._finished_requests[middle].end_time:
+        right = middle
+      else:
+        left = middle + 1
+    return self._finished_requests[left:]
+
+
+def _now():
+  return int(time.time() * 1000)
 
 
 
