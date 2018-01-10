@@ -3,7 +3,6 @@
 import argparse
 import json
 import logging
-import os
 import sys
 
 import datastore_upgrade
@@ -16,13 +15,10 @@ from kazoo.client import KazooClient
 
 from appscale.datastore.dbconstants import AppScaleDBError
 
+from appscale.common.appscale_utils import ssh
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.constants import ZK_CASSANDRA_CONFIG
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
-
-sys.path.append\
-  (os.path.join(os.path.dirname(__file__), '../InfrastructureManager'))
-from utils import utils
 
 
 def init_parser():
@@ -58,7 +54,7 @@ if __name__ == "__main__":
     # Ensure monit is running.
     relevant_ips = set(args.zookeeper) | set(args.database)
     for ip in relevant_ips:
-      utils.ssh(ip, args.keyname, 'service monit start')
+      ssh(ip, args.keyname, 'service monit start')
 
     start_zookeeper(args.zookeeper, args.keyname)
     conn = KazooClient(hosts=",".join(args.zookeeper))

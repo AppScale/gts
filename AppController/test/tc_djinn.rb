@@ -80,7 +80,7 @@ class TestDjinn < Test::Unit::TestCase
     role2 = {
       "public_ip" => "public_ip2",
       "private_ip" => "private_ip2",
-      "roles" => ["appengine"],
+      "roles" => ["compute"],
       "instance_id" => "instance_id2"
     }
 
@@ -111,7 +111,7 @@ class TestDjinn < Test::Unit::TestCase
     # and make sure role2 got hashed fine
     assert_equal("public_ip2", role2_to_hash['public_ip'])
     assert_equal("private_ip2", role2_to_hash['private_ip'])
-    assert_equal(["appengine"], role2_to_hash['roles'])
+    assert_equal(["compute"], role2_to_hash['roles'])
     assert_equal("instance_id2", role2_to_hash['instance_id'])
     assert_equal("cloud1", role2_to_hash['cloud'])
   end
@@ -164,7 +164,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
-      'roles' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -196,7 +196,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'roles' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -338,20 +338,9 @@ class TestDjinn < Test::Unit::TestCase
       and_return({:rc => 0, :data => json_data,
           :stat => flexmock(:exists => true)})
 
-    flexmock(Time).should_receive(:now).and_return(
-      flexmock(:to_i => "NOW"))
-    new_data = '{"last_updated":"NOW","ips":["private_ip"]}'
-    flexmock(JSON).should_receive(:dump).with(
-      {"ips" => ["private_ip"], "last_updated" => "NOW"}).
-      and_return(new_data)
-    flexmock(JSON).should_receive(:dump).with(true).and_return('true')
-
-    baz.should_receive(:set).with(:path => ZKInterface::IP_LIST,
-      :data => new_data).and_return(all_ok)
+    baz.should_receive(:set).and_return(all_ok)
 
     # Mocks for the appcontroller lock
-    flexmock(JSON).should_receive(:dump).with("private_ip").
-      and_return('"private_ip"')
     baz.should_receive(:get).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
       and_return({:rc => 0, :data => JSON.dump("private_ip")})
@@ -380,8 +369,6 @@ class TestDjinn < Test::Unit::TestCase
       :path => node_path + "/job_data").and_return({
         :rc => 0, :stat => flexmock(:exists => false)})
 
-    flexmock(JSON).should_receive(:dump).with(Hash).
-      and_return('"{\"disk\":null,\"public_ip\":\"public_ip\",\"private_ip\":\"private_ip\",\"cloud\":\"cloud1\",\"instance_id\":\"instance_id\",\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"roles\":\"shadow\"}"')
     baz.should_receive(:set).with(
       :path => node_path + "/job_data",
       :data => JSON.dump(my_node.to_hash())).and_return(all_ok)
@@ -486,10 +473,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'appengine' => ["1.2.3.4:20001"]
+        'compute' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'appengine' => ["1.2.3.4:20000"]
+        'compute' => ["1.2.3.4:20000"]
       }
     }
 
@@ -522,10 +509,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'appengine' => ["1.2.3.4:20001"]
+        'compute' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'appengine' => ["1.2.3.4:20000"]
+        'compute' => ["1.2.3.4:20000"]
       }
     }
 
@@ -559,10 +546,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'appengine' => ["1.2.3.4:20001"]
+        'compute' => ["1.2.3.4:20001"]
       },
       'another-app' => {
-        'appengine' => ["1.2.3.4:20000"]
+        'compute' => ["1.2.3.4:20000"]
       }
     }
 
@@ -596,10 +583,10 @@ class TestDjinn < Test::Unit::TestCase
     djinn.nodes = [my_node]
     djinn.app_info_map = {
       'myapp' => {
-        'appengine' => ["1.2.3.4:20000"]
+        'compute' => ["1.2.3.4:20000"]
       },
       'another-app' => {
-        'appengine' => ["1.2.3.4:8080"]
+        'compute' => ["1.2.3.4:8080"]
       }
     }
 
@@ -632,7 +619,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'roles' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])
@@ -670,7 +657,7 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
-      'roles' => ['appengine', 'shadow', 'taskqueue_master', 'db_master',
+      'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id'
     }])

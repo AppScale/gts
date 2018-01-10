@@ -5,15 +5,12 @@ to AppScale and the current node/machine.
 import json
 import logging
 import multiprocessing
-import sys
 import yaml
 
 from . import constants
 from . import file_io
-from .unpackaged import APPSCALE_PYTHON_APPSERVER
 
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.appcontroller_client import AppControllerClient
+from appscale.appcontroller_client import AppControllerClient
 
 def read_file_contents(path):
   """ Reads the contents of the given file.

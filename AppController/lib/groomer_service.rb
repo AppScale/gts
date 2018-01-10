@@ -29,4 +29,13 @@ module GroomerService
     return `which appscale-groomer-service`.chomp
   end
 
+  def self.start_transaction_groomer(verbose)
+    start_cmd = `which appscale-transaction-groomer`.chomp
+    start_cmd << ' --verbose' if verbose
+    MonitInterface.start(:transaction_groomer, start_cmd, nil, nil, MAX_MEM)
+  end
+
+  def self.stop_transaction_groomer
+    MonitInterface.stop(:transaction_groomer)
+  end
 end

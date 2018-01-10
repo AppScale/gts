@@ -123,6 +123,7 @@ class TestEC2Agent(TestCase):
     reservation.instances = [instance]
     self.fake_ec2.should_receive('get_all_instances').and_return([reservation])
 
+    flexmock(i).should_receive('_InfrastructureManager__kill_vms')
     result = i.terminate_instances(params2, 'secret')
     if not blocking:
       time.sleep(.1)

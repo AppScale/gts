@@ -10,6 +10,12 @@
 # ssh -i <key> ubuntu@<public IP> 'curl -Lo - fast-start.appscale.com|sudo -i sh'
 #
 
+# On some systems, when running this script from rc.local (ie at boot
+# time) there may not be any user set, which will cause ssh-copy-id to
+# fail.  Forcing HOME to the default enables ssh-copy-id to operate
+# normally.
+export HOME="/root"
+
 PATH="${PATH}:/usr/local/bin"
 ADMIN_EMAIL=""
 ADMIN_PASSWD=""
@@ -20,16 +26,11 @@ APPSCALE_CMD="$(which appscale)"
 APPSCALE_UPLOAD="$(which appscale-upload-app)"
 GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
 GUESTBOOK_URL="https://www.appscale.com/wp-content/uploads/2017/09/guestbook.tar.gz"
-GUESTBOOK_APP="/root/guestbook.tar.gz"
-MD5_SUMS="/root/appscale/md5sums.txt"
+GUESTBOOK_APP="${HOME}/guestbook.tar.gz"
+MD5_SUMS="${HOME}/appscale/md5sums.txt"
 USE_DEMO_APP="Y"
 FORCE_PRIVATE="N"
 AZURE_METADATA="http://169.254.169.254/metadata/v1/InstanceInfo"
-
-# On some system, when running this scipt from rc.local (ie at boot time)
-# there may not be any user set, which will cause ssh-copy-id to fail.
-# Forcing HOME to the default enables ssh-copy-id to operate normally.
-export HOME="/root"
 
 # Print help screen.
 usage() {
@@ -40,6 +41,7 @@ usage() {
     echo "  --passwd <password>     administrator's password"
     echo "  --no-demo-app           don't start the demo application"
     echo "  --force-private         don't use public IP (needed for marketplace)"
+    echo "  --no-metadata-server    don't try to contact metadata servers"
     echo
 }
 
@@ -95,6 +97,11 @@ while [ $# -gt 0 ]; do
         FORCE_PRIVATE="Y"
         continue
     fi
+    if [ "$1" = "--no-metadata-server" ]; then
+        shift
+        PROVIDER="CLUSTER"
+        continue
+    fi
     usage
     exit 1
 done
@@ -110,36 +117,38 @@ fi
 PUBLIC_IP=""
 PRIVATE_IP=""
 
-if grep docker /proc/1/cgroup > /dev/null ; then
-    # We need to start sshd by hand.
-    /usr/sbin/sshd
-    # Force Start cron
-    /usr/sbin/cron
-    PROVIDER="Docker"
-elif lspci | grep VirtualBox > /dev/null ; then
-    PROVIDER="VirtualBox"
-elif ${CURL} -iLs metadata.google.internal |grep 'Metadata-Flavor: Google' > /dev/null ; then
-    # As per https://cloud.google.com/compute/docs/metadata.
-    PROVIDER="GCE"
-elif [ "$(${CURL} -s -o /dev/null -w "%{http_code}" $AZURE_METADATA)" = "200" ] ; then
-    PROVIDER="Azure"
-else
-    # Get the public and private IP of this instance.
-    PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
-    PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
-
-    if [ "$PUBLIC_IP" = "unavailable" ]; then
-        PUBLIC_IP=""
-    fi
-    if [ "$PRIVATE_IP" = "unavailable" ]; then
-        PRIVATE_IP=""
-    fi
-
-    if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
-        PROVIDER="AWS"
+if [ -z "${PROVIDER}" ]; then
+    if grep docker /proc/1/cgroup > /dev/null ; then
+        # We need to start sshd by hand.
+        /usr/sbin/sshd
+        # Force Start cron
+        /usr/sbin/cron
+        PROVIDER="Docker"
+    elif lspci | grep VirtualBox > /dev/null ; then
+        PROVIDER="VirtualBox"
+    elif ${CURL} -iLs metadata.google.internal |grep 'Metadata-Flavor: Google' > /dev/null ; then
+        # As per https://cloud.google.com/compute/docs/metadata.
+        PROVIDER="GCE"
+    elif [ "$(${CURL} -s -o /dev/null -w "%{http_code}" $AZURE_METADATA)" = "200" ] ; then
+        PROVIDER="Azure"
     else
-        # Let's assume virtualized cluster.
-        PROVIDER="CLUSTER"
+        # Get the public and private IP of this instance.
+        PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
+        PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
+
+        if [ "$PUBLIC_IP" = "unavailable" ]; then
+            PUBLIC_IP=""
+        fi
+        if [ "$PRIVATE_IP" = "unavailable" ]; then
+            PRIVATE_IP=""
+        fi
+
+        if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
+            PROVIDER="AWS"
+        else
+            # Let's assume virtualized cluster.
+            PROVIDER="CLUSTER"
+        fi
     fi
 fi
 
@@ -187,7 +196,9 @@ case "$PROVIDER" in
     ADMIN_EMAIL="a@a.com"
     ADMIN_PASSWD="$(cat /etc/hostname)"
     ;;
-* )
+"CLUSTER")
+    ADMIN_EMAIL="a@a.com"
+    ADMIN_PASSWD="appscale"
     # Let's discover the device used for external communication.
     DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/' | uniq)"
     [ -z "$DEFAULT_DEV" ] && { echo "error: cannot detect the default route"; exit 1; }
@@ -195,6 +206,10 @@ case "$PROVIDER" in
     PUBLIC_IP="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
     # There is no private/public IPs in this configuration.
     PRIVATE_IP="${PUBLIC_IP}"
+    ;;
+* )
+    echo "Couldn't detect infrastructure ($PROVIDER)"
+    exit 1
     ;;
 esac
 
@@ -234,15 +249,21 @@ if [ ! -e AppScalefile ]; then
     echo "done."
 
     # Let's allow root login (appscale will need it to come up).
-    mkdir -p /root/.ssh
-    chmod 700 /root/.ssh
+    mkdir -p "${HOME}/.ssh"
+    chmod 700 "${HOME}/.ssh"
 
-    # Create an SSH key if it does not exist.
-    test -e /root/.ssh/id_rsa.pub || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
+    # Create an SSH key if it does not exist, and allow for local ssh
+    # passwordless operations.
+    test -e "${HOME}/.ssh/id_rsa.pub" || ssh-keygen -q -t rsa -f "${HOME}/.ssh/id_rsa" -N ""
+    cat "${HOME}/.ssh/id_rsa.pub" >> "${HOME}/.ssh/authorized_keys"
+    chmod 600 "${HOME}/.ssh/authorized_keys"
 
-    cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
-    chmod 600 /root/.ssh/authorized_keys
-    ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> .ssh/known_hosts
+    # Make sure the localhost is known to ssh.
+    if [ -e "${HOME}/.ssh/known_hosts" ]; then
+      ssh-keygen -R $PUBLIC_IP
+      ssh-keygen -R $PRIVATE_IP
+    fi
+    ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> "${HOME}/.ssh/known_hosts"
 
     # Download sample app.
     if [ ! -e ${GUESTBOOK_APP} ]; then
@@ -274,7 +295,7 @@ if [ "${USE_DEMO_APP}" != "Y" ]; then
 fi
 
 # Get the keyname.
-KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
+KEYNAME=$(grep keyname "${HOME}/AppScalefile" | cut -f 2 -d ":")
 [ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
 
 # Deploy sample app.

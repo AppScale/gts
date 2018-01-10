@@ -16,6 +16,7 @@ import tornado.httpserver
 import tornado.web
 
 from appscale.common import appscale_info
+from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
 from kazoo.exceptions import NodeExistsError
@@ -30,6 +31,7 @@ from ..utils import (clean_app_id,
                      logger,
                      UnprocessedQueryResult)
 from ..zkappscale import zktransaction
+from ..zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
@@ -44,6 +46,9 @@ datastore_access = None
 
 # A record of active datastore servers.
 datastore_servers = set()
+
+# The ZooKeeper path where this server registers its availability.
+server_node = None
 
 # ZooKeeper global variable for locking
 zookeeper = None
@@ -129,10 +134,10 @@ class MainHandler(tornado.web.RequestHandler):
       http_request_data: Stores the protocol buffer request from the AppServer
     Raises:
       Raises exception.
-    """ 
+    """
     raise NotImplementedError("Unknown request of operation {0}" \
       .format(pb_type))
-  
+
   @gen.coroutine
   def post(self):
     """ Function which handles POST requests. Data of the request is
@@ -161,7 +166,9 @@ class MainHandler(tornado.web.RequestHandler):
     app_id = clean_app_id(app_id)
 
     if pb_type == "Request":
-      yield self.remote_request(app_id, http_request_data)
+      yield self.remote_request(app_id, http_request_data,
+                                service_id=request.headers.get('Module'),
+                                version_id=request.headers.get('Version'))
     else:
       self.unknown_request(app_id, http_request_data, pb_type)
 
@@ -171,10 +178,10 @@ class MainHandler(tornado.web.RequestHandler):
         up in json.
     """
     self.write(json.dumps(STATS))
-    self.finish() 
+    self.finish()
 
   @gen.coroutine
-  def remote_request(self, app_id, http_request_data):
+  def remote_request(self, app_id, http_request_data, service_id, version_id):
     """ Receives a remote request to which it should give the correct 
         response. The http_request_data holds an encoded protocol buffer
         of a certain type. Each type has a particular response type. 
@@ -182,6 +189,8 @@ class MainHandler(tornado.web.RequestHandler):
     Args:
       app_id: The application ID that is sending this request.
       http_request_data: Encoded protocol buffer.
+      service_id: A string specifying the client's service ID.
+      version_id: A string specifying the client's version ID.
     """
     apirequest = remote_api_pb.Request()
     apirequest.ParseFromString(http_request_data)
@@ -190,7 +199,7 @@ class MainHandler(tornado.web.RequestHandler):
     errcode = 0
     errdetail = ""
     apperror_pb = None
-    if not apirequest.has_method(): 
+    if not apirequest.has_method():
       errcode = datastore_pb.Error.BAD_REQUEST
       errdetail = "Method was not set in request"
       apirequest.set_method("NOT_FOUND")
@@ -209,13 +218,13 @@ class MainHandler(tornado.web.RequestHandler):
     logger.debug(request_log)
 
     if method == "Put":
-      response, errcode, errdetail = self.put_request(app_id, 
+      response, errcode, errdetail = self.put_request(app_id,
                                                  http_request_data)
     elif method == "Get":
-      response, errcode, errdetail = self.get_request(app_id, 
+      response, errcode, errdetail = self.get_request(app_id,
                                                  http_request_data)
-    elif method == "Delete": 
-      response, errcode, errdetail = self.delete_request(app_id, 
+    elif method == "Delete":
+      response, errcode, errdetail = self.delete_request(app_id,
                                                     http_request_data)
     elif method == "RunQuery":
       response, errcode, errdetail = self.run_query(http_request_data)
@@ -227,7 +236,7 @@ class MainHandler(tornado.web.RequestHandler):
                                                       app_id,
                                                       http_request_data)
     elif method == "Rollback":
-      response, errcode, errdetail = self.rollback_transaction_request( 
+      response, errcode, errdetail = self.rollback_transaction_request(
                                                         app_id,
                                                         http_request_data)
     elif method == "AllocateIds":
@@ -243,17 +252,17 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = self.update_index_request(app_id,
         http_request_data)
     elif method == "DeleteIndex":
-      response, errcode, errdetail = self.delete_index_request(app_id, 
+      response, errcode, errdetail = self.delete_index_request(app_id,
                                                        http_request_data)
     elif method == 'AddActions':
       response, errcode, errdetail = self.add_actions_request(
-        app_id, http_request_data)
+        app_id, http_request_data, service_id, version_id)
     elif method == 'datastore_v4.AllocateIds':
       response, errcode, errdetail = yield self.v4_allocate_ids_request(
         app_id, http_request_data)
     else:
-      errcode = datastore_pb.Error.BAD_REQUEST 
-      errdetail = "Unknown datastore message" 
+      errcode = datastore_pb.Error.BAD_REQUEST
+      errdetail = "Unknown datastore message"
 
     time_taken = time.time() - start
     if method in STATS:
@@ -302,6 +311,10 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       handle = datastore_access.setup_transaction(app_id, multiple_eg)
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except (zktransaction.ZKInternalException,
             dbconstants.AppScaleDBConnectionError) as error:
       logger.exception('Unable to begin transaction')
@@ -381,19 +394,19 @@ class MainHandler(tornado.web.RequestHandler):
       logger.exception('Illegal arguments in transaction during {}'.
         format(query))
       return (clone_qr_pb.Encode(),
-              datastore_pb.Error.BAD_REQUEST, 
+              datastore_pb.Error.BAD_REQUEST,
               "Illegal arguments for transaction. {0}".format(str(zkie)))
     except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(query))
       clone_qr_pb.set_more_results(False)
-      return (clone_qr_pb.Encode(), 
-              datastore_pb.Error.INTERNAL_ERROR, 
+      return (clone_qr_pb.Encode(),
+              datastore_pb.Error.INTERNAL_ERROR,
               "Internal error with ZooKeeper connection.")
     except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.format(query))
       clone_qr_pb.set_more_results(False)
-      return (clone_qr_pb.Encode(), 
-              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+      return (clone_qr_pb.Encode(),
+              datastore_pb.Error.CONCURRENT_TRANSACTION,
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error during query')
@@ -489,7 +502,7 @@ class MainHandler(tornado.web.RequestHandler):
       return (response.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
-    try: 
+    try:
       datastore_access.delete_composite_index_metadata(app_id, request)
     except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error during index deletion')
@@ -497,7 +510,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete index request.")
     return response.Encode(), 0, ""
-    
+
   def get_indices_request(self, app_id):
     """ Gets the indices of the given application.
 
@@ -615,7 +628,7 @@ class MainHandler(tornado.web.RequestHandler):
       http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
       Returns an encoded put response.
-    """ 
+    """
     global datastore_access
 
     putreq_pb = datastore_pb.PutRequest(http_request_data)
@@ -630,10 +643,14 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
       return (putresp_pb.Encode(), 0, "")
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(putreq_pb))
       return (putresp_pb.Encode(),
-            datastore_pb.Error.BAD_REQUEST, 
+            datastore_pb.Error.BAD_REQUEST,
             "Illegal arguments for transaction. {0}".format(str(zkie)))
     except zktransaction.ZKInternalException as error:
       logger.exception('ZKInternalException during put')
@@ -643,7 +660,7 @@ class MainHandler(tornado.web.RequestHandler):
       logger.exception('Concurrent transaction during {}'.
         format(putreq_pb))
       return (putresp_pb.Encode(),
-              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              datastore_pb.Error.CONCURRENT_TRANSACTION,
               "Concurrent transaction exception on put.")
     except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error during put')
@@ -651,7 +668,7 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on put.")
 
-    
+
   def get_request(self, app_id, http_request_data):
     """ High level function for doing gets.
 
@@ -660,7 +677,7 @@ class MainHandler(tornado.web.RequestHandler):
       http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
       An encoded get response.
-    """ 
+    """
     global datastore_access
     getreq_pb = datastore_pb.GetRequest(http_request_data)
     getresp_pb = datastore_pb.GetResponse()
@@ -669,18 +686,18 @@ class MainHandler(tornado.web.RequestHandler):
     except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
-              datastore_pb.Error.BAD_REQUEST, 
+              datastore_pb.Error.BAD_REQUEST,
               "Illegal arguments for transaction. {0}".format(str(zkie)))
     except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(getreq_pb))
       return (getresp_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
+              datastore_pb.Error.INTERNAL_ERROR,
               "Internal error with ZooKeeper connection.")
     except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(getreq_pb))
       return (getresp_pb.Encode(),
-              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              datastore_pb.Error.CONCURRENT_TRANSACTION,
               "Concurrent transaction exception on get.")
     except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error during get')
@@ -698,11 +715,11 @@ class MainHandler(tornado.web.RequestHandler):
       http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
       An encoded delete response.
-    """ 
+    """
     global datastore_access
 
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
-    delresp_pb = api_base_pb.VoidProto() 
+    delresp_pb = api_base_pb.VoidProto()
 
     if READ_ONLY:
       logger.warning('Unable to delete in read-only mode: {}'.
@@ -713,21 +730,25 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
       return (delresp_pb.Encode(), 0, "")
+    except dbconstants.InternalError as error:
+      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.BadRequest as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except zktransaction.ZKBadRequest as zkie:
       logger.exception('Illegal argument during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
-              datastore_pb.Error.BAD_REQUEST, 
+              datastore_pb.Error.BAD_REQUEST,
               "Illegal arguments for transaction. {0}".format(str(zkie)))
     except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(delreq_pb))
       return (delresp_pb.Encode(),
-              datastore_pb.Error.INTERNAL_ERROR, 
+              datastore_pb.Error.INTERNAL_ERROR,
               "Internal error with ZooKeeper connection.")
     except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.
         format(delreq_pb))
       return (delresp_pb.Encode(),
-              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              datastore_pb.Error.CONCURRENT_TRANSACTION,
               "Concurrent transaction exception on delete.")
     except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error during delete')
@@ -735,12 +756,15 @@ class MainHandler(tornado.web.RequestHandler):
               datastore_pb.Error.INTERNAL_ERROR,
               "Datastore connection error on delete.")
 
-  def add_actions_request(self, app_id, http_request_data):
+  def add_actions_request(self, app_id, http_request_data, service_id,
+                          version_id):
     """ High level function for adding transactional tasks.
 
     Args:
       app_id: Name of the application.
       http_request_data: Stores the protocol buffer request from the AppServer.
+      service_id: A string specifying the client's service ID.
+      version_id: A string specifying the client's version ID.
     Returns:
       An encoded AddActions response.
     """
@@ -749,13 +773,22 @@ class MainHandler(tornado.web.RequestHandler):
     req_pb = taskqueue_service_pb.TaskQueueBulkAddRequest(http_request_data)
     resp_pb = taskqueue_service_pb.TaskQueueBulkAddResponse()
 
+    if service_id is None:
+      return (resp_pb.Encode(), datastore_pb.Error.BAD_REQUEST,
+              'Module header must be defined')
+
+    if version_id is None:
+      return (resp_pb.Encode(), datastore_pb.Error.BAD_REQUEST,
+              'Version header must be defined')
+
     if READ_ONLY:
       logger.warning('Unable to add transactional tasks in read-only mode')
       return (resp_pb.Encode(), datastore_pb.Error.CAPABILITY_DISABLED,
         'Datastore is in read-only mode.')
 
     try:
-      datastore_access.dynamic_add_actions(app_id, req_pb)
+      datastore_access.dynamic_add_actions(app_id, req_pb, service_id,
+                                           version_id)
       return resp_pb.Encode(), 0, ""
     except dbconstants.ExcessiveTasks as error:
       return (resp_pb.Encode(), datastore_pb.Error.BAD_REQUEST, str(error))
@@ -765,6 +798,18 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore connection error when adding transaction tasks.')
 
 
+def create_server_node():
+  """ Creates a server registration entry in ZooKeeper. """
+  try:
+    zookeeper.handle.create(server_node, ephemeral=True)
+  except NodeExistsError:
+    # If the server gets restarted, the old node may exist for a short time.
+    zookeeper.handle.delete(server_node)
+    zookeeper.handle.create(server_node, ephemeral=True)
+
+  logger.info('Datastore registered at {}'.format(server_node))
+
+
 def zk_state_listener(state):
   """ Handles changes to ZooKeeper connection state.
 
@@ -772,14 +817,9 @@ def zk_state_listener(state):
     state: A string specifying the new ZooKeeper connection state.
   """
   if state == KazooState.CONNECTED:
-    server_id = ':'.join([options.private_ip, str(options.port)])
-    server_node = '/'.join([DATASTORE_SERVERS_NODE, server_id])
-    try:
-      zookeeper.handle.create(server_node, ephemeral=True)
-    except NodeExistsError:
-      # If the server gets restarted, the old node may exist for a short time.
-      zookeeper.handle.delete(server_node)
-      zookeeper.handle.create(server_node, ephemeral=True)
+    persistent_create_server_node = retry_data_watch_coroutine(
+      server_node, create_server_node)
+    IOLoop.instance().add_callback(persistent_create_server_node)
 
 
 def update_servers(new_servers):
@@ -820,6 +860,7 @@ def main():
   """ Starts a web service for handing datastore requests. """
 
   global datastore_access
+  global server_node
   global zookeeper
   zookeeper_locations = appscale_info.get_zk_locations_string()
 
@@ -840,10 +881,13 @@ def main():
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('port', args.port)
 
+  server_node = '{}/{}:{}'.format(DATASTORE_SERVERS_NODE, options.private_ip,
+                                  options.port)
+
   datastore_batch = DatastoreFactory.getDatastore(
     args.type, log_level=logger.getEffectiveLevel())
   zookeeper = zktransaction.ZKTransaction(
-    host=zookeeper_locations, start_gc=True, db_access=datastore_batch,
+    host=zookeeper_locations, db_access=datastore_batch,
     log_level=logger.getEffectiveLevel())
 
   zookeeper.handle.add_listener(zk_state_listener)
@@ -853,8 +897,10 @@ def main():
   zk_state_listener(zookeeper.handle.state)
   zookeeper.handle.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
 
+  transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
-    datastore_batch, zookeeper=zookeeper, log_level=logger.getEffectiveLevel())
+    datastore_batch, transaction_manager, zookeeper=zookeeper,
+    log_level=logger.getEffectiveLevel())
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)

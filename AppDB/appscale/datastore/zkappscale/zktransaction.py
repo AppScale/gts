@@ -7,30 +7,17 @@ import kazoo.exceptions
 import logging
 import os
 import re
-import sys
-import threading
 import time
 import urllib
 
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from .inspectable_counter import InspectableCounter
-from ..cassandra_env import cassandra_interface
-from ..cassandra_env.large_batch import (FailedBatch,
-                                         LargeBatch)
-from ..dbconstants import (AppScaleDBConnectionError,
-                           MAX_GROUPS_FOR_XG,
-                           MAX_TX_DURATION)
+from ..dbconstants import MAX_GROUPS_FOR_XG
 
 from cassandra.policies import FallthroughRetryPolicy
-from kazoo.exceptions import (NoNodeError,
-                              KazooException,
+from kazoo.exceptions import (KazooException,
                               ZookeeperError)
 from kazoo.retry import KazooRetry
-from kazoo.retry import RetryFailedError
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.datastore import entity_pb
 
 # A cassandra-driver policy that does not retry operations.
 NO_RETRIES = FallthroughRetryPolicy()
@@ -46,10 +33,6 @@ class ZKTimeoutException(Exception):
 # A list that indicates that the Zookeeper node to create should be readable
 # and writable by anyone.
 ZOO_ACL_OPEN = None
-
-# The number of seconds to wait between invocations of the transaction
-# garbage collector.
-GC_INTERVAL = 30
 
 # The default port that ZooKeeper runs on.
 DEFAULT_PORT = 2181
@@ -145,15 +128,13 @@ class ZKTransaction:
   # How long to wait before retrying an operation.
   ZK_RETRY_TIME = .5
 
-  def __init__(self, host=DEFAULT_HOST, start_gc=False, db_access=None,
+  def __init__(self, host=DEFAULT_HOST, db_access=None,
                log_level=logging.INFO):
     """ Creates a new ZKTransaction, which will communicate with Zookeeper
     on the given host.
 
     Args:
       host: A str that indicates which machine runs the Zookeeper service.
-      start_gc: A bool that indicates if we should start the garbage collector
-        for timed out transactions.
       db_access: A DatastoreProxy instance.
       log_level: A logging constant that specifies the instance logging level.
     """
@@ -174,47 +155,13 @@ class ZKTransaction:
 
     self.__counter_cache = {}
 
-    # for gc
-    self.gc_running = False
-    self.gc_cv = threading.Condition()
-    if start_gc:
-      self.start_gc()
-
     self.db_access = db_access
-
-  def start_gc(self):
-    """ Starts a new thread that cleans up failed transactions.
-
-    If called when the GC thread is already started, this causes the GC thread
-    to reload its GC settings.
-    """
-    self.logger.info("Starting GC thread")
-    with self.gc_cv:
-      if self.gc_running:
-        self.gc_cv.notifyAll()
-      else:
-        self.gc_running = True
-        self.gcthread = threading.Thread(target=self.gc_runner)
-        self.gcthread.daemon = True
-        self.gcthread.start()
-
-  def stop_gc(self):
-    """ Stops the thread that cleans up failed transactions.
-    """
-    self.logger.info("Stopping GC thread")
-    if self.gc_running:
-      with self.gc_cv:
-        self.gc_running = False
-        self.gc_cv.notifyAll()
-      self.gcthread.join()
-      self.logger.info("GC is done")
 
   def close(self):
     """ Stops the thread that cleans up failed transactions and closes its
     connection to Zookeeper.
     """
     self.logger.info("Closing ZK connection")
-    self.stop_gc()
     self.handle.stop()
     self.handle.close()
 
@@ -310,22 +257,6 @@ class ZKTransaction:
       self.run_with_retry(self.handle.delete, path)
     except kazoo.exceptions.NoNodeError:
       pass
-
-  def dump_tree(self, path):
-    """ Prints information about the given ZooKeeper node and its children.
-
-    Args:
-      path: A PATH_SEPARATOR-separated str that represents the node to print
-        info about.
-    """
-    try:
-      value = self.run_with_retry(self.handle.get, path)[0]
-      self.logger.info("{0} = \"{1}\"".format(path, value))
-      children = self.run_with_retry(self.handle.get_children, path)
-      for child in children:
-        self.dump_tree(PATH_SEPARATOR.join([path, child]))
-    except kazoo.exceptions.NoNodeError:
-      self.logger.info("{0} does not exist.".format(path))
 
   def get_app_root_path(self, app_id):
     """ Returns the ZooKeeper path that holds all information for the given
@@ -518,32 +449,6 @@ class ZKTransaction:
 
     raise ZKTransactionException("Unable to create sequence node with path" \
       " {0}, value {1}".format(path, value))
-
-  def get_transaction_id(self, app_id, is_xg=False):
-    """Acquires a new id for an upcoming transaction.
-
-    Note that the caller must lock particular root entities using acquire_lock,
-    and that the transaction ID expires after a constant amount of time.
-
-    Args:
-      app_id: A str representing the application we want to perform a
-        transaction on.
-      is_xg: A bool that indicates if this transaction operates across multiple
-        entity groups.
-    Returns:
-      A long that represents the new transaction ID.
-    """
-    timestamp = str(time.time())
-
-    # First, make the ZK node for the actual transaction id.
-    app_path = self.get_txn_path_before_getting_id(app_id)
-    txn_id = self.create_sequence_node(app_path, timestamp)
-
-    # Next, make the ZK node that indicates if this a XG transaction.
-    if is_xg:
-      xg_path = self.get_xg_path(app_id, txn_id)
-      self.create_node(xg_path, timestamp)
-    return txn_id
 
   def check_transaction(self, app_id, txid):
     """ Gets the status of the given transaction.
@@ -738,7 +643,7 @@ class ZKTransaction:
     """ Acquire lock for transaction. It will acquire additional locks
     if the transactions is XG.
 
-    You must call get_transaction_id() first to obtain transaction ID.
+    You must call create_transaction_id() first to obtain transaction ID.
     You could call this method anytime if the root entity key is same, 
     or different in the case of it being XG.
 
@@ -814,23 +719,6 @@ class ZKTransaction:
       self.logger.exception(kazoo_exception)
       raise ZKTransactionException("Couldn't get updated key list for appid " \
         "{0}, txid {1}".format(app_id, txid))
-
-  def remove_tx_node(self, app_id, txid):
-    """ Remove a transaction's sequence node.
-
-    Args:
-      app_id: A string specifying an application ID.
-      txid: An integer specifying a transaction ID.
-    """
-    txpath = self.get_transaction_path(app_id, txid)
-    try:
-      self.run_with_retry(self.handle.delete, txpath, -1, True)
-    except NoNodeError:
-      return
-    except RetryFailedError:
-      raise ZKInternalException(
-        'Unable to remove transaction for {}'.format(txid))
-
 
   def release_lock(self, app_id, txid):
     """ Releases all locks acquired during this transaction.
@@ -971,49 +859,6 @@ class ZKTransaction:
     # The given target ID is not blacklisted or in an ongoing transaction.
     return target_txid
 
-  def register_updated_key(self, app_id, current_txid, target_txid, entity_key):
-    """ Registers a key which is a part of a transaction. This is to know
-    what journal version we must rollback to upon failure.
-
-    Args:
-      app_id: A str representing the application ID.
-      current_txid: The current transaction ID for which we'll rollback to upon 
-        failure.
-      target_txid: A long transaction ID we are rolling forward to.
-      entity_key: A str key we are registering.
-    Returns:
-      True on success.
-    Raises:
-      ZKTransactionException: If the transaction is not valid.
-      ZKInternalException: If we were unable to register the key.
-    """
-    vtxpath = self.get_valid_transaction_path(app_id, entity_key)
-
-    try:
-      if self.run_with_retry(self.handle.exists, vtxpath):
-        # Update the transaction ID for entity if there is valid transaction.
-        self.run_with_retry(self.handle.set_async, vtxpath, str(target_txid))
-      else:
-        # Store the updated key info into the current transaction node.
-        value = PATH_SEPARATOR.join([urllib.quote_plus(entity_key),
-          str(target_txid)])
-        txpath = self.get_transaction_path(app_id, current_txid)
-
-        if self.run_with_retry(self.handle.exists, txpath):
-          self.handle.create_async(PATH_SEPARATOR.join([txpath,
-            TX_UPDATEDKEY_PREFIX]), value=str(value), acl=ZOO_ACL_OPEN,
-            ephemeral=False, sequence=True, makepath=False)
-        else:
-          raise ZKTransactionException("Transaction {0} is not valid.".format(
-            current_txid))
-    except kazoo.exceptions.KazooException as kazoo_exception:
-      self.logger.exception(kazoo_exception)
-      raise ZKInternalException("Couldn't register updated key for app " \
-        "{0}, current txid {1}, target txid {2}, entity_key {3}".format(app_id,
-        current_txid, target_txid, entity_key))
-
-    return True
-
   def notify_failed_transaction(self, app_id, txid):
     """ Marks the given transaction as failed, invalidating its use by future
     callers.
@@ -1114,93 +959,6 @@ class ZKTransaction:
       
     return True
 
-  def gc_runner(self):
-    """ Transaction ID garbage collection (GC) runner.
-
-    Note: This must be running as separate thread.
-    """
-    self.logger.debug('Starting GC thread.')
-
-    while self.gc_running:
-      # Scan each application's last GC time.
-      try:
-        app_list = self.run_with_retry(self.handle.get_children, APPS_PATH)
-
-        for app in app_list:
-          app_id = urllib.unquote_plus(app)
-          # App is already encoded, so we should not use
-          # self.get_app_root_path.
-          app_path = PATH_SEPARATOR.join([APPS_PATH, app])
-          self.try_garbage_collection(app_id, app_path)
-      except kazoo.exceptions.NoNodeError:
-        # There were no nodes for this application.
-        pass
-      except kazoo.exceptions.OperationTimeoutError:
-        self.logger.exception('GC timeout when fetching {}'.format(APPS_PATH))
-      except (ZookeeperError, KazooException):
-        self.logger.exception('Error when trying garbage collection')
-      except Exception:
-        self.logger.exception('Unknown exception')
-
-      with self.gc_cv:
-        self.gc_cv.wait(GC_INTERVAL)
-
-    self.logger.debug('Stopping GC thread.')
-
-  def try_garbage_collection(self, app_id, app_path):
-    """ Try to garbage collect timed out transactions.
-  
-    Args:
-      app_id: The application ID.
-      app_path: The application path for which we're garbage collecting.
-    Returns:
-      True if the garbage collector ran, False otherwise.
-    """
-    last_time = 0
-    gc_time_path = PATH_SEPARATOR.join([app_path, GC_TIME_PATH])
-    try:
-      val = self.run_with_retry(self.handle.get, gc_time_path)[0]
-      last_time = float(val)
-    except kazoo.exceptions.NoNodeError:
-      last_time = 0
-    except (ZookeeperError, KazooException):
-      self.logger.exception('Error when fetching {}'.format(gc_time_path))
-      return False
-    except Exception:
-      self.logger.exception('Unknown exception')
-      return False
- 
-    # If the last time plus our GC interval is less than the current time,
-    # that means its time to run the GC again.
-    if last_time + GC_INTERVAL < time.time():
-      gc_path = PATH_SEPARATOR.join([app_path, GC_LOCK_PATH])
-      try:
-        now = str(time.time())
-        # Get the global GC lock.
-        self.run_with_retry(self.handle.create, gc_path, value=now, 
-          acl=ZOO_ACL_OPEN, ephemeral=True)
-        try:
-          self.execute_garbage_collection(app_id, app_path)
-          # Update the last time when the GC was successful.
-          now = str(time.time())
-          self.update_node(PATH_SEPARATOR.join([app_path, GC_TIME_PATH]), now)
-        except Exception as exception:
-          self.logger.exception(exception)
-        # Release the lock.
-        self.run_with_retry(self.handle.delete, gc_path)
-      except kazoo.exceptions.NodeExistsError:
-        # Failed to obtain the GC lock. Try again later.
-        pass
-      except (ZookeeperError, KazooException):
-        self.logger.exception('Error while executing garbage collection')
-        return False
-      except Exception:
-        self.logger.exception('Unknown exception')
-        return False
- 
-      return True
-    return False
-
   def get_lock_with_path(self, path):
     """ Tries to get the lock based on path.
 
@@ -1250,144 +1008,3 @@ class ZKTransaction:
       self.logger.exception('Unknown exception')
       return False
     return True
-
-  def clean_up_batch(self, app, transaction):
-    """ Clean up temporary batch data.
-
-    Args:
-      app: A string containing the application ID.
-      transaction: An integer containing the transaction ID.
-    """
-    self.logger.debug(
-      'Cleaning up batch: app={}, transaction={}'.format(app, transaction))
-    clear_batch = """
-      DELETE FROM batches
-      WHERE app = %(app)s AND transaction = %(transaction)s
-    """
-    parameters = {'app': app, 'transaction': transaction}
-    self.db_access.session.execute(clear_batch, parameters)
-
-  def _write_batch(self, app, txid):
-    """ Write the batch to the entities table.
-
-    Args:
-      app: a string specifying the application ID.
-      txid: An integer specifying the transaction ID.
-    """
-    composite_indices = [entity_pb.CompositeIndex(index)
-                         for index in self.db_access.get_indices(str(app))]
-
-    self.logger.debug(
-      'Applying batch: app={}, transaction={}'.format(app, txid))
-    select_mutations = """
-      SELECT old_value, new_value FROM batches
-      WHERE app = %(app)s AND transaction = %(transaction)s
-    """
-    parameters = {'app': app, 'transaction': txid}
-    results = self.db_access.session.execute(select_mutations, parameters)
-    for result in results:
-      old_entity = result.old_value
-      if old_entity is not None:
-        old_entity = entity_pb.EntityProto(old_entity)
-
-      new_entity = result.new_value
-      if new_entity is not None:
-        new_entity = entity_pb.EntityProto(new_entity)
-
-      if new_entity is None:
-        mutations = cassandra_interface.deletions_for_entity(
-          old_entity, composite_indices)
-      else:
-        mutations = cassandra_interface.mutations_for_entity(
-          new_entity, txid, old_entity, composite_indices)
-      self.db_access.apply_mutations(mutations, txid)
-
-  def resolve_batch(self, app, transaction):
-    """ Check if batch completed and apply mutations if necessary.
-
-    Args:
-      app: A string containing the application ID.
-      transaction: An integer containing the transaction ID.
-    """
-    session = self.db_access.session
-    large_batch = LargeBatch(session, app, transaction)
-
-    large_batch.claim()
-
-    if large_batch.applied:
-      self._write_batch(app, transaction)
-
-    self.clean_up_batch(app, transaction)
-    large_batch.cleanup()
-
-  def execute_garbage_collection(self, app_id, app_path):
-    """ Execute garbage collection for an application.
-    
-    Args:
-      app_id: The application ID.
-      app_path: The application path. 
-    """
-    start = time.time()
-    # Get the transaction ID list.
-    txrootpath = PATH_SEPARATOR.join([app_path, APP_TX_PATH])
-    try:
-      txlist = self.run_with_retry(self.handle.get_children, txrootpath)
-    except kazoo.exceptions.NoNodeError:
-      # there is no transaction yet.
-      return
-    except (ZookeeperError, KazooException):
-      self.logger.exception('Unable to get children of {}'.format(txrootpath))
-      return
-    except Exception:
-      self.logger.exception('Unknown exception')
-      return
-    # Verify the time stamp of each transaction.
-    for txid in txlist:
-      if not re.match("^" + APP_TX_PREFIX + '\d', txid):
-        self.logger.debug(
-          'Skipping {} because it is not a transaction'.format(txid))
-        continue
-
-      txpath = PATH_SEPARATOR.join([txrootpath, txid])
-
-      try:
-        txtime = float(self.run_with_retry(self.handle.get, txpath)[0])
-        # If the timeout plus our current time is in the future, then
-        # we have not timed out yet.
-        if txtime + MAX_TX_DURATION < time.time():
-          transaction = long(txid.lstrip(APP_TX_PREFIX))
-          try:
-            self.resolve_batch(app_id, transaction)
-            self.notify_failed_transaction(app_id, transaction)
-          except (AppScaleDBConnectionError, FailedBatch):
-            self.logger.exception(
-              'Failed to clean up lock for {}:{}'.format(app_id, transaction))
-      except kazoo.exceptions.NoNodeError:
-        # Transaction id disappeared during garbage collection.
-        # The transaction may have finished successfully.
-        pass
-      except (ZookeeperError, KazooException):
-        self.logger.exception(
-          'Error while running GC for {}:{}'.format(app_id, txid))
-        return
-      except Exception:
-        self.logger.exception('Unknown exception')
-        return
-    self.logger.debug('Lock GC took {} seconds.'.format(time.time() - start))
-
-  def get_current_transactions(self, project):
-    """ Fetch a list of open transactions for a given project.
-
-    Args:
-      project: A string containing a project ID.
-    Returns:
-      A list of integers specifying transaction IDs.
-    """
-    project_path = PATH_SEPARATOR.join([APPS_PATH, project])
-    txrootpath = PATH_SEPARATOR.join([project_path, APP_TX_PATH])
-    try:
-      txlist = self.run_with_retry(self.handle.get_children, txrootpath)
-    except kazoo.exceptions.NoNodeError:
-      # there is no transaction yet.
-      return []
-    return [int(txid.lstrip(APP_TX_PREFIX)) for txid in txlist]

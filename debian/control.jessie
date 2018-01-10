@@ -28,26 +28,26 @@ Homepage: https://github.com/AppScale/appscale
 Package: appscale-core
 Architecture: any
 Depends: appscale-tools,
-         appscale-tools,
          bzip2,
-         capnproto,
-         curl, lsof, wget,
+         cron,
+         curl,
          dnsutils,
          ejabberd,
          haproxy,
-         iptables, cron,
-         libevent-2.0-5,
-         libffi-dev,
-         libjline-java,
-         libjpeg8-dev,
-         liblog4j1.2-java,
+         iptables,
          libpcre3,
+         libevent-2.0-5,
+         libev-dev,
+         libjline-java,
+         libjpeg-dev,
+         liblog4j1.2-java,
          libpcre++-dev,
          libprotobuf-java,
          libssl-dev,
          libxml2-dev,
          libxslt-dev,
          lsb-release,
+         lsof,
          make,
          memcached,
          monit,
@@ -55,44 +55,45 @@ Depends: appscale-tools,
          net-tools,
          nginx,
          ntp,
-         openjdk-7-jdk,
-         openjdk-8-jre,
          openssl,
          php5,
          php5-cgi,
+         python-celery,
          python-django,
+         python-flexmock,
          python-imaging,
+         python-lxml,
          python-m2crypto,
+         python-memcache,
          python-numpy,
+         python-openssl,
          python-pika,
+         python-pillow,
          python-pip,
+         python-psutil,
+         python-requests,
          python-setuptools,
          python-soappy,
          python-software-properties,
+         python-tornado,
+         python-twisted,
+         python-xmpp,
          python-yaml,
          rabbitmq-server,
          rsync,
          rsyslog,
+         ruby,
          ruby-flexmock,
+         ruby-dev,
          socat,
          ssh,
          unzip,
-         zlib1g-dev
-Conflicts: python-protobuf,
-           apache2.2-common,
-           apache2.2-bin,
-           apache2-utils
-Description: An open-source framework for execution of GAE applications
- An open-source research framework for execution of
- Google AppEngine applications and investigation of
- scalable cloud computing fabrics.
+         wget,
+         zlib1g-dev,
+         zookeeper,
+         zookeeper-bin,
+         zookeeperd
+Conflicts: apache2-utils,
+           python-protobuf
+Description: An open-source implementation of Google App Engine
 
-
-Package: appscale-cassandra
-Architecture: any
-Depends: appscale-core,
-         python-sqlalchemy
-Description: An open-source framework for execution of GAE applications
- An open-source research framework for execution of
- Google AppEngine applications and investigation of
- scalable cloud computing fabrics.

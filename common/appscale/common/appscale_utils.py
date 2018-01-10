@@ -4,6 +4,9 @@ import constants
 import hashlib
 import random
 import string
+import subprocess
+
+from .constants import KEY_DIRECTORY
 
 
 def random_password_generator():
@@ -43,3 +46,20 @@ def get_md5(location):
       chunk = source.read(chunk_size)
 
   return md5.hexdigest()
+
+
+def ssh(ip_address, keyname, cmd, method=subprocess.check_call):
+  """ Runs a command on a given machine.
+
+  Args:
+    ip_address: A string containing the IP address of the remote machine.
+    keyname: A string containing the deployment's keyname.
+    cmd: The command to run on the remote machine.
+    method: The function to run the command with.
+  Returns:
+    The output of the function defined by method.
+  """
+  key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
+  ssh_cmd = ['ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
+             ip_address, cmd]
+  return method(ssh_cmd)

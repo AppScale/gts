@@ -83,9 +83,9 @@ if ! which apt-add-repository > /dev/null ; then
     echo "done."
 fi
 
-# Trusty, Precise, and Wheezy do not have Java 8.
+# Trusty and Wheezy do not have Java 8.
 case "$DIST" in
-    precise|trusty)
+    trusty)
         apt-add-repository -y ppa:openjdk-r/ppa
         echo -n "Updating package list and cache ..."
         ${PKG_CMD} update > /dev/null
@@ -122,9 +122,20 @@ if ! ${PKG_CMD} remove --purge -y --force-yes ${PACKAGES}; then
     exit 1
 fi
 
+# Java 8 and capnproto require the backports repository.
+if [ "${DIST}" = "jessie" ]; then
+    backports_line="deb http://ftp.debian.org/debian jessie-backports main"
+    if ! grep $backports_line /etc/apt/sources.list; then
+        echo $backports_line >> /etc/apt/sources.list
+    fi
+    apt-get update
+    apt-get -t jessie-backports -y install capnproto
+    apt-get -t jessie-backports -y install openjdk-8-jdk
+fi
+
 # Let's make sure we use ruby 1.9.
 case ${DIST} in
-    precise|wheezy)
+    wheezy)
         ${PKG_CMD} install -y ruby1.9.1 ruby1.9.1-dev rubygems1.9.1 irb1.9.1 \
             ri1.9.1 rdoc1.9.1 build-essential libopenssl-ruby1.9.1 libssl-dev \
             zlib1g-dev
