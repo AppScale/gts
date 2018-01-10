@@ -4,11 +4,13 @@ import logging
 import math
 import os
 import re
+import signal
 import threading
 import time
 import urllib
 import urllib2
 
+import psutil
 import tornado.web
 from concurrent.futures import ThreadPoolExecutor
 from kazoo.client import KazooClient
@@ -26,10 +28,12 @@ from appscale.admin.instance_manager.constants import (
   DASHBOARD_PROJECT_ID,
   DEFAULT_MAX_APPSERVER_MEMORY,
   INSTANCE_CLASSES,
+  JAVA_APPSERVER_CLASS,
   LOGROTATE_CONFIG_DIR,
   MAX_BACKGROUND_WORKERS,
   MAX_INSTANCE_RESPONSE_TIME,
-  MONIT_INSTANCE_PREFIX
+  MONIT_INSTANCE_PREFIX,
+  PYTHON_APPSERVER
 )
 from appscale.admin.instance_manager.projects_manager import (
   GlobalProjectsManager)
@@ -47,6 +51,7 @@ from appscale.common import (
 )
 from appscale.common.constants import HTTPCodes
 from appscale.common.constants import PID_DIR
+from appscale.common.constants import MonitStates
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
@@ -781,6 +786,76 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
   return ' '.join(cmd)
 
 
+def clean_up_instances(monit_entries):
+  """ Terminates instances that aren't accounted for.
+
+  Args:
+    monit_entries: A list of dictionaries containing instance details.
+  """
+  monitored = {(entry['revision'], entry['port']) for entry in monit_entries}
+  to_stop = []
+  for process in psutil.process_iter():
+    cmd = process.cmdline()
+    if len(cmd) < 2:
+      continue
+
+    if JAVA_APPSERVER_CLASS in cmd:
+      revision = cmd[-1].split(os.sep)[-2]
+      port_arg = next(arg for arg in cmd if arg.startswith('--port='))
+      port = int(port_arg.split('=')[-1])
+    elif cmd[1] == PYTHON_APPSERVER:
+      source_arg = next(arg for arg in cmd
+                        if arg.startswith(constants.APPS_PATH))
+      revision = source_arg.split(os.sep)[-2]
+      port = int(cmd[cmd.index('--port') + 1])
+    else:
+      continue
+
+    if (revision, port) not in monitored:
+      to_stop.append(process)
+
+  if not to_stop:
+    return
+
+  logging.info('Killing {} unmonitored instances'.format(len(to_stop)))
+  for process in to_stop:
+    group = os.getpgid(process.pid)
+    os.killpg(group, signal.SIGKILL)
+
+
+def recover_state(zk_client):
+  """ Establishes current state from Monit entries.
+
+  Args:
+    zk_client: A KazooClient.
+  """
+  logging.info('Getting current state')
+  monit_entries = monit_operator.get_entries_sync()
+  instance_entries = {entry: state for entry, state in monit_entries.items()
+                      if entry.startswith(MONIT_INSTANCE_PREFIX)}
+
+  # Remove all unmonitored entries.
+  removed = []
+  for entry, state in instance_entries.items():
+    if state == MonitStates.UNMONITORED:
+      monit_operator.remove_configuration(entry)
+      removed.append(entry)
+
+  for entry in removed:
+    del instance_entries[entry]
+
+  if removed:
+    monit_operator.reload_sync()
+
+  instance_details = []
+  for entry, state in instance_entries.items():
+    revision, port = entry[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)
+    instance_details.append(
+      {'revision': revision, 'port': int(port), 'state': state})
+
+  clean_up_instances(instance_details)
+
+
 class VersionHandler(tornado.web.RequestHandler):
   """ Handles requests to start and stop instances for a project. """
   @gen.coroutine
@@ -847,6 +922,8 @@ if __name__ == "__main__":
   options.define('syslog_server', appscale_info.get_headnode_ip())
   options.define('db_proxy', appscale_info.get_db_proxy())
   options.define('tq_proxy', appscale_info.get_tq_proxy())
+
+  recover_state(zk_client)
 
   app = tornado.web.Application([
     ('/versions/([a-z0-9-_]+)', VersionHandler),
