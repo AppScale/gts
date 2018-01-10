@@ -4473,8 +4473,10 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
+    datastore_location = [get_load_balancer.private_ip,
+                          DatastoreServer::PROXY_PORT].join(':')
     source_archive = AppDashboard.prep(
-      my_public, my_private, PERSISTENT_MOUNT_POINT)
+      my_public, my_private, PERSISTENT_MOUNT_POINT, datastore_location)
 
     begin
       ZKInterface.get_version_details(
