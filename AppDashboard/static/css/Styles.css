@@ -359,3 +359,280 @@ body.errorPage, body.loginPage {
 .errorContainer h1 {font-size: 10em; line-height: 1em;}
 .errorContainer.offline h1 {font-size: 5em;}
 .errorContainer h1 small {font-weight: 700; font-size: 0.3em;}
+
+/*Datastore Viewer*/
+#datastore-viewer #entity-manager table {
+  margin: 10px 0px;
+}
+#datastore-viewer #entity-manager table td {
+  vertical-align: bottom;
+}
+#datastore-viewer #entity-manager th {
+  font-weight: bold;
+  padding: 5px 0px;
+}
+#datastore-viewer select#kind_input {
+  text-align: left;
+}
+#datastore-viewer .ae-result-count {
+  float: left;
+  color: #999;
+}
+#datastore-viewer .ae-paginator {
+  float: right;
+}
+
+.ae-button {
+  display: inline-block;
+  min-width: 54px;
+  border:1px solid #DCDCDC;
+  border: 1px solid rgba(0,0,0,0.1);
+  text-align: center;
+  color: #444;
+  font-size: 11px;
+  font-weight: bold;
+  height: 27px;
+  padding: 0 8px;
+  line-height: 27px;
+  -webkit-border-radius:2px;
+  -moz-border-radius: 2px;
+  border-radius: 2px;
+  -webkit-transition: all 0.218s;
+  -moz-transition: all 0.218s;
+  -o-transition: all 0.218s;
+  transition: all 0.218s;
+  background-color: #f5f5f5;
+  background-image: -webkit-gradient(linear,left top,left bottom,from(#f5f5f5),to(#f1f1f1));
+  background-image: -webkit-linear-gradient(top,#f5f5f5,#f1f1f1);
+  background-image: -moz-linear-gradient(top,#f5f5f5,#f1f1f1);
+  background-image: -ms-linear-gradient(top,#f5f5f5,#f1f1f1);
+  background-image: -o-linear-gradient(top,#f5f5f5,#f1f1f1);
+  background-image: linear-gradient(top,#f5f5f5,#f1f1f1);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorStr='#f5f5f5',EndColorStr='#f1f1f1');
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  cursor:default;
+}
+.ae-button:hover, .ae-button.hover {
+  border: 1px solid #C6C6C6;
+  color: #222;
+  -webkit-transition: all 0.0s;
+  -moz-transition: all 0.0s;
+  -o-transition: all 0.0s;
+  transition: all 0.0s;
+  background-color: #f8f8f8;
+  background-image: -webkit-gradient(linear,left top,left bottom,from(#f8f8f8),to(#f1f1f1));
+  background-image: -webkit-linear-gradient(top,#f8f8f8,#f1f1f1);
+  background-image: -moz-linear-gradient(top,#f8f8f8,#f1f1f1);
+  background-image: -ms-linear-gradient(top,#f8f8f8,#f1f1f1);
+  background-image: -o-linear-gradient(top,#f8f8f8,#f1f1f1);
+  background-image: linear-gradient(top,#f8f8f8,#f1f1f1);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorStr='#f8f8f8',EndColorStr='#f1f1f1');
+  -webkit-box-shadow: 0px 1px 1px rgba(0,0,0,0.1);
+  -moz-box-shadow: 0px 1px 1px rgba(0,0,0,0.1);
+  box-shadow: 0px 1px 1px rgba(0,0,0,0.1);
+}
+.ae-button:active, .ae-button.active {
+  background-color: #f6f6f6;
+  background-image: -webkit-gradient(linear,left top,left bottom,from(#f6f6f6),to(#f1f1f1));
+  background-image: -webkit-linear-gradient(top,#f6f6f6,#f1f1f1);
+  background-image: -moz-linear-gradient(top,#f6f6f6,#f1f1f1);
+  background-image: -ms-linear-gradient(top,#f6f6f6,#f1f1f1);
+  background-image: -o-linear-gradient(top,#f6f6f6,#f1f1f1);
+  background-image: linear-gradient(top,#f6f6f6,#f1f1f1);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorStr='#f6f6f6',EndColorStr='#f1f1f1');
+  -webkit-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+  -moz-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+  box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+}
+.ae-button.active{
+  border: 1px solid #C6C6C6;
+  color: #333;
+}
+
+.ae-button:visited {
+  color: #666;
+}
+.ae-button.focus, .ae-button.right.focus, .ae-button.mid.focus, .ae-button.left.focus{
+  outline: none;
+  border: 1px solid #4d90fe;
+  z-index:4 !important;
+}
+
+.ae-button.selected {
+  background-color: #EEEEEE;
+  background-image: -webkit-gradient(linear,left top,left bottom,from(#EEEEEE),to(#E0E0E0));
+  background-image: -webkit-linear-gradient(top,#EEEEEE,#E0E0E0);
+  background-image: -moz-linear-gradient(top,#EEEEEE,#E0E0E0);
+  background-image: -ms-linear-gradient(top,#EEEEEE,#E0E0E0);
+  background-image: -o-linear-gradient(top,#EEEEEE,#E0E0E0);
+  background-image: linear-gradient(top,#EEEEEE,#E0E0E0);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorStr='#EEEEEE',EndColorStr='#E0E0E0');
+  -webkit-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+  -moz-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+  box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+  border: 1px solid #CCC;
+  color: #333;
+}
+/* Disabled buttons */
+.ae-button.disabled, .ae-button.disabled:hover, .ae-button.disabled:active {
+  background: none;
+  color: #b8b8b8;
+  border: 1px solid #f3f3f3;
+  border: 1px solid rgba(0,0,0,0.05);
+  cursor: default;
+  pointer-events: none;
+}
+.ae-button.disabled.active{
+  -webkit-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+  -moz-box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+  box-shadow: inset 0px 1px 2px rgba(0,0,0,0.1);
+}
+
+.ae-button-submit {
+  color: #FFF;
+  border-color: #3079ed;
+  background-color: #4d90fe;
+  background-image: -webkit-gradient(linear,left top,left bottom,from(#4d90fe),to(#4787ed));
+  background-image: -webkit-linear-gradient(top,#4d90fe,#4787ed);
+  background-image: -moz-linear-gradient(top,#4d90fe,#4787ed);
+  background-image: -ms-linear-gradient(top,#4d90fe,#4787ed);
+  background-image: -o-linear-gradient(top,#4d90fe,#4787ed);
+  background-image: linear-gradient(top,#4d90fe,#4787ed);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorStr='#4d90fe',EndColorStr='#4787ed');
+}
+.ae-button-submit:hover {
+  color: #FFF;
+  border-color: #2f5bb7;
+  background-color: #357ae8;
+  background-image: -webkit-gradient(linear,left top,left bottom,from(#4d90fe),to(#357ae8));
+  background-image: -webkit-linear-gradient(top,#4d90fe,#357ae8);
+  background-image: -moz-linear-gradient(top,#4d90fe,#357ae8);
+  background-image: -ms-linear-gradient(top,#4d90fe,#357ae8);
+  background-image: -o-linear-gradient(top,#4d90fe,#357ae8);
+  background-image: linear-gradient(top,#4d90fe,#357ae8);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorStr='#4d90fe',EndColorStr='#357ae8');
+}
+
+.ae-table-plain {
+  border-collapse: collapse;
+  width: 100%;
+}
+.ae-table {
+  border: 1px solid #c5d7ef;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+#bd h2.ae-table-title {
+  background: #e5ecf9;
+  margin: 0;
+  color: #000;
+  font-size: 1em;
+  padding: 3px 0 3px 5px;
+  border-left: 1px solid #c5d7ef;
+  border-right: 1px solid #c5d7ef;
+  border-top: 1px solid #c5d7ef;
+}
+.ae-table-caption,
+.ae-table caption {
+  border: 1px solid #c5d7ef;
+  background: #e5ecf9;
+  /**
+   * Fixes the caption margin ff display bug.
+   * see www.aurora-il.org/table_test.htm
+   * this is a slight variation to specifically target FF since Safari
+   * was shifting the caption over in an ugly fashion with margin-left: -1px
+   */
+  -moz-margin-start: -1px;
+}
+.ae-table caption {
+  padding: 3px 5px;
+  text-align: left;
+}
+.ae-table th,
+.ae-table td {
+  background-color: #fff;
+  padding: .35em 1em .25em .35em;
+  margin: 0;
+}
+.ae-table thead th {
+  font-weight: bold;
+  text-align: left;
+  background: #c5d7ef;
+  vertical-align: bottom;
+}
+.ae-table tfoot tr td {
+  border-top: 1px solid #c5d7ef;
+  background-color: #e5ecf9;
+}
+.ae-table td {
+  border-top: 1px solid #c5d7ef;
+  border-bottom: 1px solid #c5d7ef;
+}
+.ae-even td,
+.ae-even th,
+.ae-even-top td,
+.ae-even-tween td,
+.ae-even-bottom td,
+ol.ae-even {
+  background-color: #e9e9e9;
+  border-top: 1px solid #c5d7ef;
+  border-bottom: 1px solid #c5d7ef;
+}
+.ae-even-top td {
+  border-bottom: 0;
+}
+.ae-even-bottom td {
+  border-top: 0;
+}
+.ae-even-tween td {
+  border: 0;
+}
+.ae-table .ae-tween td {
+  border: 0;
+}
+.ae-table .ae-tween-top td {
+  border-bottom: 0;
+}
+.ae-table .ae-tween-bottom td {
+  border-top: 0;
+}
+.ae-table #ae-live td {
+  background-color: #ffeac0;
+}
+.ae-table-fixed {
+  table-layout: fixed;
+}
+.ae-table-fixed td,
+.ae-table-nowrap {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ae-new-usr td {
+  border-top: 1px solid #ccccce;
+  background-color: #ffe;
+}
+.ae-error-td td {
+  border: 2px solid #f00;
+  background-color: #fee;
+}
+.ae-table .ae-pager {
+  background-color: #c5d7ef;
+}
+
+.ae-errorbox {
+  border: 1px solid #f00;
+  background-color: #fee;
+  margin-bottom: 1em;
+  padding: 1em;
+  display: inline-block;
+}
+
+.ae-message {
+  border: 1px solid #e5ecf9;
+  background-color: #f6f9ff;
+  margin-bottom: 1em;
+  padding: 1em;
+  display: inline-block;
+}
