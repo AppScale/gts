@@ -2,6 +2,7 @@ from collections import defaultdict
 import logging
 import time
 
+import copy
 from future.utils import iteritems
 
 from appscale.common.service_stats import matchers, metrics, categorizers
@@ -48,7 +49,7 @@ DEFAULT_METRICS_MAP = {
   "4xx": metrics.CountOf(matchers.CLIENT_ERRORS),
   "5xx": metrics.CountOf(matchers.SERVER_ERRORS),
   "avg_latency": metrics.AvgLatency(),
-  categorizers.ExactValueCategorizer("by_app", field_name="app"):{
+  categorizers.ExactValueCategorizer("by_app", field_name="app"): {
     categorizers.ExactValueCategorizer("by_resource", field_name="resource"): {
       "all": metrics.CountOf(matchers.ANY),
       "4xx": metrics.CountOf(matchers.CLIENT_ERRORS),
@@ -90,6 +91,24 @@ class _DummyLock(object):
 
 
 NO_LOCK = _DummyLock()
+
+
+import random
+
+def random_start():
+  return {
+    "app": random.choice(["app1", "app2"]),
+    "module": "m1",
+    "version": "v1",
+    "method": "GET",
+    "resource": random.choice(["/hello", "/path/v2", "/different"])
+  }
+
+def random_finish():
+  return {
+    "status": random.choice([200, 200, 200, 200, 200, 401, 402, 503]),
+    "response_size": 500
+  }
 
 
 class ServiceStats(object):
@@ -214,16 +233,119 @@ class ServiceStats(object):
       # Fill request_info object with a new information
       request_info.update(new_info_dict)
       request_info.end_time = now
-      request_info.latency = int((now - request_info.start_time) * 1000)
+      request_info.latency = now - request_info.start_time
       # Add finished request to circular list of finished requests
       self._finished_requests.append(request_info)
       if len(self._finished_requests) > self._history_size:
         self._finished_requests.pop(0)
       # Update cumulative counters
-      for counter_name, matcher in iteritems(self._cumulative_counters_config):
-        if matcher.matches(request_info):
-          self._cumulative_counters[counter_name] += 1
-          # TODO
+      self._increment_counters(self._cumulative_counters_config,
+                               self._cumulative_counters, request_info)
+
+  def _increment_counters(self, counters_config, counters_dict, request_info):
+    for counter_pair in iteritems(counters_config):
+      # Counters config can contain following types of items:
+      #  - str->Matcher
+      #  - Categorizer->Matcher
+      #  - Categorizer->nested config
+
+      if isinstance(counter_pair[1], matchers.RequestMatcher):
+        # Stop as soon as possible if we know that matcher doesn't match
+        matcher = counter_pair[1]
+        if not matcher.matches(request_info):
+          continue
+
+      if isinstance(counter_pair[0], str):
+        # Increment single counter if key is str
+        counter_name = counter_pair[0]
+        counters_dict[counter_name] += 1
+        continue
+
+      # counter_pair[0] is instance of categorizers.Categorizer
+      categorizer = counter_pair[0]
+      category = categorizer.category_of(request_info)
+      category_counters = _get_nested_dict(counters_dict, categorizer.name)
+      if isinstance(counter_pair[1], dict):
+        # Update nested counters
+        nested_config = counter_pair[1]
+        nested_counters = _get_nested_dict(category_counters, category)
+        self._increment_counters(nested_config, nested_counters, request_info)
+      else:
+        # Update category counter
+        category_counters[category] += 1
+
+  def get_cumulative_counters(self):
+    return copy.deepcopy(self._cumulative_counters)
+
+  def get_recent(self, for_last_seconds=None):
+    """  """
+    cursor = _now() - for_last_seconds if for_last_seconds else None
+    return self.scroll_recent(cursor=cursor)
+
+  def scroll_recent(self, cursor=None):
+    """  """
+    requests = self._get_requests(since=cursor)
+    stats = self._render_recent(self._metrics_for_recent_config, requests)
+    if not requests:
+      now = _now()
+      stats["from"] = now
+      stats["to"] = now
+    else:
+      stats["from"] = requests[0].end_time
+      stats["to"] = requests[-1].end_time
+    return stats
+
+  def _render_recent(self, metrics_config, requests):
+    stats_dict = {}
+    for metric_pair in iteritems(metrics_config):
+      # Metrics config can contain following types of items:
+      #  - str->Metric
+      #  - Categorizer->Metric
+      #  - Categorizer->nested config
+
+      if isinstance(metric_pair[0], str):
+        # Compute single metric if key is str
+        metric_name = metric_pair[0]
+        metric = metric_pair[1]
+        stats_dict[metric_name] = metric.compute(requests)
+        continue
+
+      # metric_pair[0] is instance of categorizers.Categorizer
+      categorizer = metric_pair[0]
+      stats_dict[categorizer.name] = categories_stats = {}
+
+      # Grouping requests by category
+      grouped_by_category = defaultdict(list)
+      for request_info in requests:
+        category = categorizer.category_of(request_info)
+        grouped_by_category[category].append(request_info)
+
+      if isinstance(metric_pair[1], metrics.Metric):
+        # Compute single metric for each category
+        metric = metric_pair[1]
+        for category, requests_group in iteritems(grouped_by_category):
+          categories_stats[category] = metric.compute(requests_group)
+      else:
+        # Render nested stats for each category
+        nested_config = metric_pair[1]
+        for category, requests_group in iteritems(grouped_by_category):
+          categories_stats[category] = self._render_recent(
+            nested_config, requests_group
+          )
+    return stats_dict
+
+  def _get_requests(self, since=None):
+    if since is None:
+      return self._finished_requests
+    # Find the first element newer than 'since' using bisect
+    left, right = 0, len(self._finished_requests)
+    while left < right:
+      middle = (left + right) // 2
+      if since < self._finished_requests[middle].end_time:
+        right = middle
+      else:
+        left = middle + 1
+    return self._finished_requests[left:]
 
   def _clean_outdated(self):
     """ Removes old requests which are unlikely to be finished ever as
@@ -242,57 +364,18 @@ class ServiceStats(object):
         del self._current_requests[request_no]
     self._last_autoclean_time = now
 
-  def get_recent(self, for_last_seconds=None):
-    cursor = _now() - for_last_seconds if for_last_seconds else None
-    requests = self._get_requests(since=cursor)
-    # TODO
-
-  def scroll_recent(self, cursor=None):
-    """  """
-    requests = self._get_requests(since=cursor)
-
-    return {
-      "cumulative": {
-        "from": self._start_time,
-        "to": _now(),
-        "all": 32,  # TODO
-        "4xx": 100,
-        "5xx": 500,
-        "by_status": {"1xx": 5},
-        "by_app": {"app1": 98},
-        "by_resource": {""},
-        "by_custom_category": {}
-      }
-    }
-
-  def _render_recent(self, requests):
-    # TODO
-    return {
-      "from": requests[0].end_time,
-      "to": requests[-1].end_time,
-      "avg_latency": 0.3,
-      "requests": 100500,
-      "4xx": 100,
-      "5xx": 500,
-      "by_resource": {
-    }
-
-  def _get_requests(self, since=None):
-    if since is None:
-      return self._finished_requests
-    # Find the first element newer than 'since' using bisect
-    left, right = 0, len(self._finished_requests)
-    while left < right:
-      middle = (left + right) // 2
-      if since < self._finished_requests[middle].end_time:
-        right = middle
-      else:
-        left = middle + 1
-    return self._finished_requests[left:]
-
 
 def _now():
   return int(time.time() * 1000)
+
+
+def _get_nested_dict(dictionary, key):
+  if key not in dictionary:
+    nested = defaultdict(int)
+    dictionary[key] = nested
+    return nested
+  return dictionary[key]
+
 
 
 

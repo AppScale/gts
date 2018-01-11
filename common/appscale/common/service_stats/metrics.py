@@ -10,7 +10,7 @@ class AvgLatency(Metric):
   def compute(self, requests):
     if not requests:
       return None
-    return sum(request.latency for request in requests) * 1000 / len(requests)
+    return sum(request.latency for request in requests) / len(requests)
 
 
 class AvgResponseSize(Metric):

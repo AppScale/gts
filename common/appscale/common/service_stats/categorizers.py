@@ -7,6 +7,10 @@ class Categorizer(object):
   def __init__(self, categorizer_name):
     self._categorizer_name = categorizer_name
 
+  @property
+  def name(self):
+    return self._categorizer_name
+
   def category_of(self, req_info):
     """ Lists categories which request belongs to.
     
