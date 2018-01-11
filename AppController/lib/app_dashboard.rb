@@ -28,15 +28,21 @@ module AppDashboard
   #   public_ip: This machine's public IP address or FQDN.
   #   private_ip: This machine's private IP address or FQDN.
   #   persistent_storage: Where we store the application tarball.
+  #   datastore_location: The location of a datastore load balancer.
   # Returns:
   #   A string specifying the location of the prepared archive.
-  def self.prep(public_ip, private_ip, persistent_storage)
+  def self.prep(public_ip, private_ip, persistent_storage, datastore_location)
     # Pass our public IP address (needed to connect to the AppController)
     # to the app.
+    lib_dir = File.join(APPSCALE_HOME, 'AppDashboard', 'lib')
     Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > " \
-      "#{APPSCALE_HOME}/AppDashboard/lib/local_host.py")
+      "#{lib_dir}/local_host.py")
     Djinn.log_run("echo \"UA_SERVER_IP = '#{private_ip}'\" >" \
-      " #{APPSCALE_HOME}/AppDashboard/lib/uaserver_host.py")
+      " #{lib_dir}/uaserver_host.py")
+
+    File.open(File.join(lib_dir, 'datastore_location.py'), 'w') { |file|
+      file.write("DATASTORE_LOCATION = '#{datastore_location}'")
+    }
 
     # TODO: tell the tools to disallow uploading apps called
     # APP_NAME, and have start_appengine to do the same.
