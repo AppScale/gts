@@ -182,10 +182,9 @@ class DatastoreViewerPage(AppDashboard):
       owned_projects = self.helper.get_owned_apps()
 
     if project_id not in owned_projects:
-      self.response.set_status(403)
       self.response.write(
         'You do not have permission to view data for {}.'.format(project_id))
-      return
+      self.abort(403)
 
 
 class DatastoreViewerSelector(AppDashboard):
