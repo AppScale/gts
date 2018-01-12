@@ -70,6 +70,16 @@ calculate_heap_sizes()
     else
         max_heap_size_in_mb="$quarter_system_memory_in_mb"
     fi
+
+    # AppScale: Adjust max heap size to make room for other services. Padding
+    # should be defined as a decimal. For example, ".2" would set max heap to
+    # 80% of what it normally would be.
+    if [ -n "${HEAP_REDUCTION}" ]
+    then
+        max_heap_size_in_mb=$(awk \
+          "BEGIN { print int(${max_heap_size_in_mb}*(1-${HEAP_REDUCTION})) }")
+    fi
+
     MAX_HEAP_SIZE="${max_heap_size_in_mb}M"
 
     # Young gen: min(max_sensible_per_modern_cpu_core * num_cores, 1/4 * heap size)

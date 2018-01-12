@@ -3190,11 +3190,20 @@ class Djinn
         }
         needed_nodes = needed_for_quorum(db_nodes,
                                          Integer(@options['replication']))
+
+        # If this machine is running other services, decrease Cassandra's max
+        # heap size.
+        heap_reduction = 0
+        heap_reduction += 0.2 if my_node.is_compute?
+        if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
+          heap_reduction += 0.1
+        end
+
         if my_node.is_db_master?
-          start_db_master(false, needed_nodes, db_nodes)
+          start_db_master(false, needed_nodes, db_nodes, heap_reduction)
           prime_database
         else
-          start_db_slave(false, needed_nodes, db_nodes)
+          start_db_slave(false, needed_nodes, db_nodes, heap_reduction)
         end
       }
     else
