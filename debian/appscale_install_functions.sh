@@ -429,6 +429,9 @@ postinstallrabbitmq()
         echo ${RMQ_CONFIG} > /etc/rabbitmq/rabbitmq.config
     fi
 
+    # Enable the management API.
+    echo "[rabbitmq_management]." > /etc/rabbitmq/enabled_plugins
+
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
     disableservice rabbitmq-server

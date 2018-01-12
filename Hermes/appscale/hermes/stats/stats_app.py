@@ -27,6 +27,7 @@ from appscale.hermes.stats.producers.cluster_stats import (
 from appscale.hermes.stats.producers.node_stats import NodeStatsSource
 from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
 from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
+from appscale.hermes.stats.producers.rabbitmq import RabbitMQStatus
 
 
 DEFAULT_INCLUDE_LISTS = IncludeLists({
@@ -146,10 +147,12 @@ def get_cluster_stats_api_routes(is_master):
     '/stats/cluster/processes': cluster_processes_stats_handler,
     '/stats/cluster/proxies': cluster_proxies_stats_handler,
   }
-  return [
+  urls = [
     (route, handler.handler_class, handler.init_kwargs)
     for route, handler in routes.iteritems()
   ]
+  urls.append(('/stats/cluster/rabbitmq', RabbitMQStatus))
+  return urls
 
 
 class ProfilingManager(object):
