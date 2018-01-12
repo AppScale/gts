@@ -109,7 +109,7 @@ class UpdateCronHandler(BaseHandler):
     try:
       self.acc.update_cron(project_id)
     except AppControllerException as error:
-      message = 'Error while stopping version: {}'.format(error)
+      message = 'Error while updating cron: {}'.format(error)
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
     logger.info('Updated cron jobs for {}'.format(project_id))
