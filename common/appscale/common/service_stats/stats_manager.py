@@ -17,7 +17,7 @@ class ReservedRequestField(Exception):
 
 
 DEFAULT_REQUEST_FIELDS = [
-  "app", "module", "version", "method", "resource",
+  "app", "service", "version", "method", "resource",
   "status", "response_size"
 ]
 
@@ -98,7 +98,7 @@ import random
 def random_start():
   return {
     "app": random.choice(["app1", "app2"]),
-    "module": "m1",
+    "service": "default",
     "version": "v1",
     "method": "GET",
     "resource": random.choice(["/hello", "/path/v2", "/different"])
@@ -216,6 +216,12 @@ class ServiceStats(object):
             setattr(self, field, value)
           except AttributeError as e:
             raise UnknownRequestField(str(e))
+
+      def __getattr__(self, field):
+        try:
+          getattr(self, field)
+        except AttributeError as e:
+          raise UnknownRequestField(str(e))
 
     return RequestInfo
 

@@ -45,7 +45,7 @@ class ExactValueCategorizer(Categorizer):
 
 class VersionCategorizer(Categorizer):
   def category_of(self, req_info):
-    return "{}.{}.{}".format(req_info.app, req_info.module, req_info.version)
+    return "{}.{}.{}".format(req_info.app, req_info.service, req_info.version)
 
 
 class StatusCategorizer(Categorizer):
