@@ -4449,11 +4449,10 @@ HOSTS
         response = Net::HTTP.start(uri.hostname, uri.port) do |http|
           http.request(request)
         end
-        if response.code != '200'
-          HelperFunctions.log_and_crash(
-            "AdminServer failed to update dashboard cron: #{response.body}")
-        end
-        break
+        break if response.code == '200'
+        Djinn.log_warn(
+          "Error updating dashboard cron: #{response.body}. Trying again.")
+        sleep(SMALL_WAIT)
       rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
         Djinn.log_warn(
           "Error updating dashboard cron: #{error.message}. Trying again.")
