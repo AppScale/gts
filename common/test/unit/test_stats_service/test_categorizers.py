@@ -1,17 +1,13 @@
 import unittest
+import re
 
 from appscale.common.service_stats import categorizers
-from appscale.common.service_stats.stats_manager import UnknownRequestField
+from appscale.common.service_stats.stats_manager import (
+  ServiceStats, UnknownRequestField, DEFAULT_REQUEST_FIELDS
+)
 
 
-class RequestInfo(object):
-  __slots__ = ["app", "service", "version", "method", "resource",
-               "status", "response_size"]
-
-  def __init__(self, **fields_dict):
-    for field in self.__slots__:
-      value = fields_dict.get(field)
-      setattr(self, field, value)
+RequestInfo = ServiceStats.generate_request_model(DEFAULT_REQUEST_FIELDS)
 
 
 class TestExactValueCategorizer(unittest.TestCase):
@@ -76,3 +72,35 @@ class TestStatusCategorizer(unittest.TestCase):
     self.assertEqual(c.category_of(RequestInfo(status="")), "other_xx")
 
 
+class TestCustomCategorizer(unittest.TestCase):
+
+  CustomRequest = ServiceStats.generate_request_model([
+    'action', 'status'
+  ])
+
+  class CustomCategorizer(categorizers.Categorizer):
+    action_groups = [
+      (re.compile("\w+_user"), "user"),
+      (re.compile("\w+_transaction"), "transaction"),
+      (re.compile("\w+_product"), "product")
+    ]
+    def category_of(self, req_info):
+      for pattern, group in self.action_groups:
+        if pattern.match(req_info.action):
+          return group
+      else:
+        return None
+
+  def test_known_groups(self):
+    c = self.CustomCategorizer("custom_categorizer")
+    create_user = self.CustomRequest(action="create_user")
+    get_user = self.CustomRequest(action="get_user")
+    list_product = self.CustomRequest(action="list_product")
+    self.assertEqual(c.category_of(create_user), "user")
+    self.assertEqual(c.category_of(get_user), "user")
+    self.assertEqual(c.category_of(list_product), "product")
+
+  def test_unknown(self):
+    c = self.CustomCategorizer("custom_categorizer")
+    not_tracked = self.CustomRequest(action="drop_db")
+    self.assertEqual(c.category_of(not_tracked), None)

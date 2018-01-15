@@ -23,12 +23,12 @@ DEFAULT_REQUEST_FIELDS = [
 
 DEFAULT_CUMULATIVE_COUNTERS = {
   "all": matchers.ANY,
-  "4xx": matchers.CLIENT_ERRORS,
-  "5xx": matchers.SERVER_ERRORS,
+  "4xx": matchers.CLIENT_ERROR,
+  "5xx": matchers.SERVER_ERROR,
   categorizers.ExactValueCategorizer("by_app", field_name="app"): {
     "all": matchers.ANY,
-    "4xx": matchers.CLIENT_ERRORS,
-    "5xx": matchers.SERVER_ERRORS
+    "4xx": matchers.CLIENT_ERROR,
+    "5xx": matchers.SERVER_ERROR
   }
 }
 # This counters config corresponds to the following output:
@@ -46,14 +46,14 @@ DEFAULT_CUMULATIVE_COUNTERS = {
 
 DEFAULT_METRICS_MAP = {
   "all": metrics.CountOf(matchers.ANY),
-  "4xx": metrics.CountOf(matchers.CLIENT_ERRORS),
-  "5xx": metrics.CountOf(matchers.SERVER_ERRORS),
+  "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
+  "5xx": metrics.CountOf(matchers.SERVER_ERROR),
   "avg_latency": metrics.AvgLatency(),
   categorizers.ExactValueCategorizer("by_app", field_name="app"): {
     categorizers.ExactValueCategorizer("by_resource", field_name="resource"): {
       "all": metrics.CountOf(matchers.ANY),
-      "4xx": metrics.CountOf(matchers.CLIENT_ERRORS),
-      "5xx": metrics.CountOf(matchers.SERVER_ERRORS),
+      "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
+      "5xx": metrics.CountOf(matchers.SERVER_ERROR),
       "avg_latency": metrics.AvgLatency(),
     }
   }
@@ -156,7 +156,7 @@ class ServiceStats(object):
 
     now = _now()
     self._service_name = service_name
-    self._request_info_class = self._generate_request_model(request_fields)
+    self._request_info_class = self.generate_request_model(request_fields)
 
     # Initialize properties for tracking latest N requests
     self._lock = lock_context_manager
@@ -187,7 +187,8 @@ class ServiceStats(object):
     """ Number of currently running requests """
     return len(self._current_requests)
 
-  def _generate_request_model(self, request_fields):
+  @staticmethod
+  def generate_request_model(request_fields):
     """ Defines class describing request information.
 
     Args:
@@ -195,16 +196,16 @@ class ServiceStats(object):
     Returns:
       a python class having request fields as instance attributes.
     """
-    for request_field in self.RESERVED_REQUEST_FIELDS:
+    for request_field in ServiceStats.RESERVED_REQUEST_FIELDS:
       if request_field in request_fields:
         raise ReservedRequestField(
           "custom_request_fields or request_fields list contains "
           "reserved name '{}'", format(request_field))
 
     class RequestInfo(object):
-      __slots__ = set(request_fields + self.RESERVED_REQUEST_FIELDS)
+      __slots__ = set(request_fields + ServiceStats.RESERVED_REQUEST_FIELDS)
 
-      def __init__(self, fields_dict):
+      def __init__(self, **fields_dict):
         # Make sure that new object has all request fields
         for field in self.__slots__:
           setattr(self, field, None)
@@ -219,13 +220,13 @@ class ServiceStats(object):
 
       def __getattr__(self, field):
         try:
-          getattr(self, field)
+          object.__getattribute__(self, field)
         except AttributeError as e:
           raise UnknownRequestField(str(e))
 
     return RequestInfo
 
-  def start_request(self, request_info_dict):
+  def start_request(self, **request_info_dict):
     """ Adds request to a collection of currently running requests.
 
     Args:
@@ -248,7 +249,7 @@ class ServiceStats(object):
 
       return self._last_request_no
 
-  def finalize_request(self, request_no, new_info_dict):
+  def finalize_request(self, request_no, **new_info_dict):
     """ Finalizes previously started request. Moves request from currently
     running to finished.
 

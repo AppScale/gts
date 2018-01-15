@@ -18,6 +18,6 @@ class _StatusMatcher(RequestMatcher):
 
 
 ANY = _AnyRequestMatcher()
-CLIENT_ERRORS = _StatusMatcher(400, 499)
-SERVER_ERRORS = _StatusMatcher(500, 599)
+CLIENT_ERROR = _StatusMatcher(400, 499)
+SERVER_ERROR = _StatusMatcher(500, 599)
 
