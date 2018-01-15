@@ -8,7 +8,7 @@ import time
 import attr
 from tornado.httpclient import HTTPClient
 
-from appscale.hermes.stats.converter import include_list_name, Meta
+from appscale.hermes.stats.converter import include_list_name
 
 # The port used by the RabbitMQ management plugin.
 API_PORT = 15672
@@ -28,18 +28,12 @@ class APICallFailed(Exception):
 
 @include_list_name('rabbitmq')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class RabbitMQNodeStats(object):
+class RabbitMQStatsSnapshot(object):
   """ The fields reported for each RabbitMQ node. """
+  utc_timestamp = attr.ib()
   disk_free_alarm = attr.ib()
   mem_alarm = attr.ib()
   name = attr.ib()
-
-
-@attr.s(cmp=False, hash=False, slots=True, frozen=True)
-class RabbitMQStatsSnapshot(object):
-  """ A container for holding RabbitMQ node stats. """
-  utc_timestamp = attr.ib()
-  rabbitmq_node_stats = attr.ib(metadata={Meta.ENTITY_LIST: RabbitMQNodeStats})
 
 
 class RabbitMQStatsSource(object):
@@ -72,16 +66,12 @@ class RabbitMQStatsSource(object):
       raise APICallFailed('Invalid response from '
                           '{}: {}'.format(url, response.body))
 
-    node_stats = RabbitMQNodeStats(
+    snapshot = RabbitMQStatsSnapshot(
+      utc_timestamp=int(time.time()),
       disk_free_alarm=node_info['disk_free_alarm'],
       mem_alarm=node_info['mem_alarm'],
       name=node_info['name']
     )
-
-    stats = RabbitMQStatsSnapshot(
-      utc_timestamp=int(time.time()),
-      rabbitmq_node_stats=node_stats
-    )
     logging.info('Prepared RabbitMQ node stats in '
                  '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
-    return stats
+    return snapshot

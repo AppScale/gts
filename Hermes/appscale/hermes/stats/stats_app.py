@@ -50,7 +50,7 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'proxy.frontend': ['bin', 'bout', 'scur', 'smax', 'rate',
                      'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
   'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
-  'rabbitmq': ['disk_free_alarm', 'mem_alarm', 'name'],
+  'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name'],
 })
 
 
