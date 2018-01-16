@@ -6,25 +6,34 @@ class Metric(object):
     raise NotImplemented
 
 
-class AvgLatency(Metric):
+class Avg(Metric):
+  def __init__(self, field):
+    self._field_name = field
+
   def compute(self, requests):
     if not requests:
       return None
-    return sum(request.latency for request in requests) / len(requests)
+    return sum(getattr(r, self._field_name) for r in requests) / len(requests)
 
 
-class MaxLatency(Metric):
+class Max(Metric):
+  def __init__(self, field):
+    self._field_name = field
+
   def compute(self, requests):
     if not requests:
       return None
-    return max(request.latency for request in requests)
+    return max(getattr(r, self._field_name) for r in requests)
 
 
-class AvgResponseSize(Metric):
+class Min(Metric):
+  def __init__(self, field):
+    self._field_name = field
+
   def compute(self, requests):
     if not requests:
       return None
-    return sum(request.response_size for request in requests) / len(requests)
+    return min(getattr(r, self._field_name) for r in requests)
 
 
 class CountOf(Metric):

@@ -18,7 +18,7 @@ class TestBuiltinMetrics(unittest.TestCase):
     req_b.latency = 1000
     req_c.latency = 500
     req_d.latency = 602
-    self.assertEqual(metrics.AvgLatency().compute(requests), 600)
+    self.assertEqual(metrics.Avg("latency").compute(requests), 600)
 
   def test_max_latency(self):
     requests = [RequestInfo(), RequestInfo(), RequestInfo(), RequestInfo()]
@@ -28,7 +28,7 @@ class TestBuiltinMetrics(unittest.TestCase):
     req_b.latency = 1000
     req_c.latency = 500
     req_d.latency = 602
-    self.assertEqual(metrics.MaxLatency().compute(requests), 1000)
+    self.assertEqual(metrics.Max("latency").compute(requests), 1000)
 
   def test_avg_respsize(self):
     requests = [
@@ -37,7 +37,7 @@ class TestBuiltinMetrics(unittest.TestCase):
       RequestInfo(response_size=20000),
       RequestInfo(response_size=2)
     ]
-    self.assertEqual(metrics.AvgResponseSize().compute(requests), 10000)
+    self.assertEqual(metrics.Avg("response_size").compute(requests), 10000)
 
   def test_count_of(self):
     requests = [

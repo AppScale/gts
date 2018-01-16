@@ -35,9 +35,9 @@ class Categorizer(object):
 
 
 class ExactValueCategorizer(Categorizer):
-  def __init__(self, categorizer_name, field_name):
+  def __init__(self, categorizer_name, field):
     super(ExactValueCategorizer, self).__init__(categorizer_name)
-    self._field_name = field_name
+    self._field_name = field
 
   def category_of(self, req_info):
     return getattr(req_info, self._field_name)

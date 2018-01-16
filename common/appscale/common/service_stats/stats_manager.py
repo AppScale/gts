@@ -25,7 +25,7 @@ DEFAULT_CUMULATIVE_COUNTERS = {
   "all": matchers.ANY,
   "4xx": matchers.CLIENT_ERROR,
   "5xx": matchers.SERVER_ERROR,
-  categorizers.ExactValueCategorizer("by_app", field_name="app"): {
+  categorizers.ExactValueCategorizer("by_app", field="app"): {
     "all": matchers.ANY,
     "4xx": matchers.CLIENT_ERROR,
     "5xx": matchers.SERVER_ERROR
@@ -33,8 +33,8 @@ DEFAULT_CUMULATIVE_COUNTERS = {
 }
 # This counters config corresponds to the following output:
 # {
-#   "from": 1515595829,
-#   "to": 1515735126,
+#   "from": 1515595829789,
+#   "to": 1515735126987,
 #   "all": 27365,
 #   "4xx": 97,
 #   "5xx": 15,
@@ -48,20 +48,20 @@ DEFAULT_METRICS_MAP = {
   "all": metrics.CountOf(matchers.ANY),
   "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
   "5xx": metrics.CountOf(matchers.SERVER_ERROR),
-  "avg_latency": metrics.AvgLatency(),
-  categorizers.ExactValueCategorizer("by_app", field_name="app"): {
-    categorizers.ExactValueCategorizer("by_resource", field_name="resource"): {
+  "avg_latency": metrics.Avg("latency"),
+  categorizers.ExactValueCategorizer("by_app", field="app"): {
+    categorizers.ExactValueCategorizer("by_resource", field="resource"): {
       "all": metrics.CountOf(matchers.ANY),
       "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
       "5xx": metrics.CountOf(matchers.SERVER_ERROR),
-      "avg_latency": metrics.AvgLatency(),
+      "avg_latency": metrics.Avg("latency")
     }
   }
 }
 # This metrics map corresponds to following output:
 # {
-#   "from": 1515699718,
-#   "to": 1515735126,
+#   "from": 1515699718987,
+#   "to": 1515735126789,
 #   "all": 1225,
 #   "4xx": 11,
 #   "5xx": 3,
@@ -91,24 +91,6 @@ class _DummyLock(object):
 
 
 NO_LOCK = _DummyLock()
-
-
-import random
-
-def random_start():
-  return {
-    "app": random.choice(["app1", "app2"]),
-    "service": "default",
-    "version": "v1",
-    "method": "GET",
-    "resource": random.choice(["/hello", "/path/v2", "/different"])
-  }
-
-def random_finish():
-  return {
-    "status": random.choice([200, 200, 200, 200, 200, 401, 402, 503]),
-    "response_size": 500
-  }
 
 
 class ServiceStats(object):
@@ -172,7 +154,8 @@ class ServiceStats(object):
     # Configure cumulative counters
     self._start_time = now
     self._cumulative_counters_config = cumulative_counters
-    self._cumulative_counters = defaultdict(int)
+    self._cumulative_counters = {}
+    _fill_zero_counters_dict(cumulative_counters, self._cumulative_counters)
 
     # Configure metrics for recent requests
     self._metrics_for_recent_config = metrics_for_recent
@@ -237,7 +220,7 @@ class ServiceStats(object):
     with self._lock:
       now = _now()
       # Instantiate a request_info object and fill its start_time
-      new_request = self._request_info_class(request_info_dict)
+      new_request = self._request_info_class(**request_info_dict)
       new_request.start_time = now
       # Add currently running request
       self._last_request_no += 1
@@ -304,18 +287,21 @@ class ServiceStats(object):
       if isinstance(counter_pair[1], dict):
         # Update nested counters
         nested_config = counter_pair[1]
-        nested_counters = _get_nested_dict(category_counters, category)
+        nested_counters = _get_nested_dict(category_counters, category, nested_config)
         self._increment_counters(nested_config, nested_counters, request_info)
       else:
         # Update category counter
-        category_counters[category] += 1
+        category_counters[category] = category_counters.get(category, 0) + 1
 
   def get_cumulative_counters(self):
     """
     Returns:
       A dictionary containing current value of cumulative counters.
     """
-    return copy.deepcopy(self._cumulative_counters)
+    counter_stats = copy.deepcopy(self._cumulative_counters)
+    counter_stats["from"] = self._start_time
+    counter_stats["to"] = _now()
+    return counter_stats
 
   def get_recent(self, for_last_seconds=None):
     """ Provides value of metrics for recent requests which were finished
@@ -442,17 +428,47 @@ def _now():
   return int(time.time() * 1000)
 
 
-def _get_nested_dict(dictionary, key):
+def _get_nested_dict(dictionary, key, nested_config=None):
   """ A util function for getting (and putting if missed) nested dictionary.
   
   Args:
     dictionary: an instance of dict. 
     key: a key.
+    nested_config: a dictionary containing counters config.
+      It's used for initialization of new counters dict.
   Returns:
-    a dictionary gotten by key (newly created dict if it was missed). 
+    a dictionary got by key (newly created dict if it was missed). 
   """
   if key not in dictionary:
-    nested = defaultdict(int)
+    nested = {}
+    if nested_config:
+      _fill_zero_counters_dict(nested_config, nested)
     dictionary[key] = nested
     return nested
   return dictionary[key]
+
+
+def _fill_zero_counters_dict(counters_config, counters_dict):
+  """ A util function for filling counters dict with all counters set to 0.
+  
+  Args: 
+    counters_config: a dict containing cumulative counters configuration.
+    counters_dict: an empty dict to fill with zero counters.
+  Returns:
+    a filled dictionary with zero counters.
+  """
+  for counter_pair in iteritems(counters_config):
+    # Counters config can contain following types of items:
+    #  - str->Matcher
+    #  - Categorizer->Matcher
+    #  - Categorizer->nested config with the same structure
+    if isinstance(counter_pair[0], str):
+      # Increment single counter if key is str
+      counter_name = counter_pair[0]
+      counters_dict[counter_name] = 0
+    else:
+      # counter_pair[0] is instance of categorizers.Categorizer
+      categorizer = counter_pair[0]
+      counters_dict[categorizer.name] = {}
+  return counters_dict
+
