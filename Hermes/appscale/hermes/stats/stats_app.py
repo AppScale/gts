@@ -22,11 +22,13 @@ from appscale.hermes.stats.handlers import (
 )
 from appscale.hermes.stats.producers.cluster_stats import (
   ClusterNodesStatsSource, ClusterProcessesStatsSource,
-  ClusterProxiesStatsSource, ClusterRabbitMQStatsSource
+  ClusterPushQueueStatsSource, ClusterProxiesStatsSource,
+  ClusterRabbitMQStatsSource
 )
 from appscale.hermes.stats.producers.node_stats import NodeStatsSource
 from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
 from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
+from appscale.hermes.stats.producers.rabbitmq_stats import PushQueueStatsSource
 from appscale.hermes.stats.producers.rabbitmq_stats import RabbitMQStatsSource
 
 
@@ -51,6 +53,7 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
                      'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
   'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
   'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name'],
+  'queue': ['name', 'messages'],
 })
 
 
@@ -103,11 +106,20 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
       init_kwargs={'source': RabbitMQStatsSource,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
+    local_push_queue_stats_handler = HandlerInfo(
+      handler_class=CurrentStatsHandler,
+      init_kwargs={'source': PushQueueStatsSource,
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+    )
   else:
     # Stub handler for non-TQ nodes
     local_rabbitmq_stats_handler = HandlerInfo(
       handler_class=Respond404Handler,
       init_kwargs={'reason': 'Only TQ nodes provide RabbitMQ stats'}
+    )
+    local_push_queue_stats_handler = HandlerInfo(
+      handler_class=Respond404Handler,
+      init_kwargs={'reason': 'Only TQ nodes provide push queue stats'}
     )
 
   routes = {
@@ -115,6 +127,7 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
     '/stats/local/processes': local_processes_stats_handler,
     '/stats/local/proxies': local_proxies_stats_handler,
     '/stats/local/rabbitmq': local_rabbitmq_stats_handler,
+    '/stats/local/push_queues': local_push_queue_stats_handler,
   }
   return [
     (route, handler.handler_class, handler.init_kwargs)
@@ -154,6 +167,11 @@ def get_cluster_stats_api_routes(is_master):
       init_kwargs={'source': ClusterRabbitMQStatsSource(),
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
+    cluster_push_queue_stats_handler = HandlerInfo(
+      handler_class=CurrentClusterStatsHandler,
+      init_kwargs={'source': ClusterPushQueueStatsSource(),
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+    )
   else:
     # Stub handler for slave nodes
     cluster_stub_handler = HandlerInfo(
@@ -170,6 +188,7 @@ def get_cluster_stats_api_routes(is_master):
     '/stats/cluster/processes': cluster_processes_stats_handler,
     '/stats/cluster/proxies': cluster_proxies_stats_handler,
     '/stats/cluster/rabbitmq': cluster_rabbitmq_stats_handler,
+    '/stats/cluster/push_queues': cluster_push_queue_stats_handler,
   }
   return [
     (route, handler.handler_class, handler.init_kwargs)
