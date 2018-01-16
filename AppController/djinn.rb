@@ -3841,6 +3841,7 @@ class Djinn
       AdminServer
       APIServer
       AppController
+      AppControllerClient
       AppDashboard
       AppDB
       AppManager
@@ -3848,9 +3849,11 @@ class Djinn
       AppServer_Java
       AppTaskQueue
       common
+      Hermes
       InfrastructureManager
       LogService
       scripts
+      SearchService
       XMPPReceiver
     ).map { |path| File.join(APPSCALE_HOME, path) }
     to_copy.each { |dir|
