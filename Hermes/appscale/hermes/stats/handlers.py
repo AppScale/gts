@@ -22,6 +22,9 @@ class CurrentStatsHandler(RequestHandler):
     self._default_include_lists = default_include_lists
     self._snapshot = None
 
+  def post(self):
+    self.get()
+
   def get(self):
     if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
@@ -66,6 +69,10 @@ class CurrentClusterStatsHandler(RequestHandler):
     self._current_cluster_stats_source = source
     self._default_include_lists = default_include_lists
     self._snapshots = {}
+
+  @gen.coroutine
+  def post(self):
+    yield self.get()
 
   @gen.coroutine
   def get(self):
