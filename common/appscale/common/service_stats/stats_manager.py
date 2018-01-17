@@ -44,7 +44,23 @@ DEFAULT_CUMULATIVE_COUNTERS = {
 #   }
 # }
 
-DEFAULT_METRICS_MAP = {
+SINGLE_APP_METRICS_MAP = {
+  "all": metrics.CountOf(matchers.ANY),
+  "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
+  "5xx": metrics.CountOf(matchers.SERVER_ERROR),
+  "avg_latency": metrics.Avg("latency")
+}
+# This metrics map corresponds to following output:
+# {
+#   "from": 1515699718987,
+#   "to": 1515735126789,
+#   "all": 1225,
+#   "4xx": 11,
+#   "5xx": 3,
+#   "avg_latency": 325
+# }
+
+PER_APP_DETAILED_METRICS_MAP = {
   "all": metrics.CountOf(matchers.ANY),
   "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
   "5xx": metrics.CountOf(matchers.SERVER_ERROR),
@@ -55,7 +71,11 @@ DEFAULT_METRICS_MAP = {
       "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
       "5xx": metrics.CountOf(matchers.SERVER_ERROR),
       "avg_latency": metrics.Avg("latency")
-    }
+    },
+    "all": metrics.CountOf(matchers.ANY),
+    "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
+    "5xx": metrics.CountOf(matchers.SERVER_ERROR),
+    "avg_latency": metrics.Avg("latency")
   }
 }
 # This metrics map corresponds to following output:
@@ -71,13 +91,21 @@ DEFAULT_METRICS_MAP = {
 #       "by_resource": {
 #         "/get/user": {"all": 56, "4xx": 11, "5xx": 3, "avg_latency": 321},
 #         "/": {"all": 300, "4xx": 0, "5xx": 0, "avg_latency": 68}
-#       }
+#       },
+#       "all": 356,
+#       "4xx": 11,
+#       "5xx": 3,
+#       "avg_latency": 107
 #     },
 #     "validity": {
 #       "by_resource": {
 #         "/wait": {"all": 69, "4xx": 0, "5xx": 0, "avg_latency": 5021},
 #         "/version": {"all": 800, "4xx": 0, "5xx": 0, "avg_latency": 35}
-#       }
+#       },
+#       "all": 869,
+#       "4xx": 0,
+#       "5xx": 0,
+#       "avg_latency": 430
 #     }
 #   }
 # }
@@ -121,7 +149,7 @@ class ServiceStats(object):
                lock_context_manager=NO_LOCK,
                request_fields=DEFAULT_REQUEST_FIELDS,
                cumulative_counters=DEFAULT_CUMULATIVE_COUNTERS,
-               metrics_for_recent=DEFAULT_METRICS_MAP):
+               default_metrics_for_recent=SINGLE_APP_METRICS_MAP):
     """ Initialises an instance of ServiceStats.
     
     Args:
@@ -132,8 +160,8 @@ class ServiceStats(object):
         concurrent execution of requests.
       request_fields: a list of request property names.
       cumulative_counters: a dictionary describing cumulative counters config.
-      metrics_for_recent: a dictionary containing metrics 
-        which should be computed for recent requests.
+      default_metrics_for_recent: a dictionary containing metrics 
+        which should be computed for recent requests by default.
     """
 
     now = _now()
@@ -158,7 +186,7 @@ class ServiceStats(object):
     _fill_zero_counters_dict(cumulative_counters, self._cumulative_counters)
 
     # Configure metrics for recent requests
-    self._metrics_for_recent_config = metrics_for_recent
+    self._metrics_for_recent_config = default_metrics_for_recent
 
   @property
   def service_name(self):
@@ -303,29 +331,33 @@ class ServiceStats(object):
     counter_stats["to"] = _now()
     return counter_stats
 
-  def get_recent(self, for_last_seconds=None):
+  def get_recent(self, for_last_milliseconds=None, metrics_map=None):
     """ Provides value of metrics for recent requests which were finished
     not earlier than for_last_seconds seconds ago.
     
     Args:
-      for_last_seconds: a number of seconds.
+      for_last_milliseconds: a number of seconds.
+      metrics_map: a dict describing metrics config.
     Returns:
       a dictionary containing value of metrics for recent requests.
     """
-    cursor = _now() - for_last_seconds if for_last_seconds else None
-    return self.scroll_recent(cursor=cursor)
+    cursor = (_now() - for_last_milliseconds) if for_last_milliseconds else None
+    return self.scroll_recent(cursor, metrics_map)
 
-  def scroll_recent(self, cursor=None):
+  def scroll_recent(self, cursor=None, metrics_map=None):
     """ Provides value of metrics for recent requests which were finished
     after specified timestamp (cursor).
     
     Args:
-      cursor: a unix timestamp (in ms)
+      cursor: a unix timestamp (in ms).
+      metrics_map: a dict describing metrics config.
     Returns:
       a dictionary containing value of metrics for recent requests.
     """
     requests = self._get_requests(since=cursor)
-    stats = self._render_recent(self._metrics_for_recent_config, requests)
+    if not metrics_map:
+      metrics_map = self._metrics_for_recent_config
+    stats = self._render_recent(metrics_map, requests)
     if not requests:
       now = _now()
       stats["from"] = now
@@ -396,11 +428,12 @@ class ServiceStats(object):
     left, right = 0, len(self._finished_requests)
     while left < right:
       middle = (left + right) // 2
-      if since < self._finished_requests[middle].end_time:
+      if since <= self._finished_requests[middle].end_time:
         right = middle
       else:
         left = middle + 1
-    return self._finished_requests[left:]
+    result = self._finished_requests[left:]
+    return result
 
   def _clean_outdated(self):
     """ Removes old requests which are unlikely to be finished ever as
