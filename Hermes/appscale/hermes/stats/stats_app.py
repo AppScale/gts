@@ -182,6 +182,7 @@ def get_cluster_stats_api_routes(is_master):
     cluster_processes_stats_handler = cluster_stub_handler
     cluster_proxies_stats_handler = cluster_stub_handler
     cluster_rabbitmq_stats_handler = cluster_stub_handler
+    cluster_push_queue_stats_handler = cluster_stub_handler
 
   routes = {
     '/stats/cluster/nodes': cluster_node_stats_handler,
