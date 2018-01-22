@@ -88,8 +88,7 @@ class TestCustomCategorizer(unittest.TestCase):
       for pattern, group in self.action_groups:
         if pattern.match(req_info.action):
           return group
-      else:
-        return None
+      return None
 
   def test_known_groups(self):
     c = self.CustomCategorizer("custom_categorizer")

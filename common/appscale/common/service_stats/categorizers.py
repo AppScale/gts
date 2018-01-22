@@ -13,13 +13,13 @@ class Categorizer(object):
 
   def category_of(self, req_info):
     """ Lists categories which request belongs to.
-    
+
     Args:
       req_info: an object containing request info.
     Returns:
       A string or a list of strings representing name of category.
     """
-    raise NotImplemented
+    raise NotImplementedError()
 
   def __hash__(self):
     """ Categorizer suppose to be used as a key in a metrics map,

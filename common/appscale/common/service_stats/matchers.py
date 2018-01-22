@@ -1,6 +1,6 @@
 class RequestMatcher(object):
   def matches(self, request_info):
-    raise NotImplemented
+    raise NotImplementedError()
 
 
 class _AnyRequestMatcher(RequestMatcher):

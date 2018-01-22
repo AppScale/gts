@@ -3,7 +3,7 @@ from appscale.common.service_stats import matchers
 
 class Metric(object):
   def compute(self, requests):
-    raise NotImplemented
+    raise NotImplementedError()
 
 
 class Avg(Metric):

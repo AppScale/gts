@@ -62,8 +62,8 @@ class TestCustomMatcher(unittest.TestCase):
     def __init__(self, pattern):
       self.pattern = re.compile(pattern)
 
-    def matches(self, req_info):
-      return bool(self.pattern.match(req_info.action))
+    def matches(self, request_info):
+      return bool(self.pattern.match(request_info.action))
 
   def test_custom_matcher(self):
     user_request = self.CustomMatcher("\w+_user")

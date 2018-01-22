@@ -16,10 +16,10 @@ class ReservedRequestField(Exception):
   pass
 
 
-DEFAULT_REQUEST_FIELDS = [
+DEFAULT_REQUEST_FIELDS = (
   "app", "service", "version", "method", "resource",
   "status", "response_size"
-]
+)
 
 DEFAULT_CUMULATIVE_COUNTERS = {
   "all": matchers.ANY,
@@ -119,7 +119,7 @@ class ServiceStats(object):
   After finishing request service should call:
     finalize_request(request_no, result_info_dict)
   (its recommended to do this in finally section of try-except statement).
-   
+
   To retrieve cumulative stats call:
     get_cumulative_stats()
   To retrieve statistics for recent requests use one of:
@@ -140,14 +140,14 @@ class ServiceStats(object):
                cumulative_counters=DEFAULT_CUMULATIVE_COUNTERS,
                default_metrics_for_recent=SINGLE_APP_METRICS_MAP):
     """ Initialises an instance of ServiceStats.
-    
+
     Args:
       service_name: a str representing name of service.
       history_size: a number of recent requests to store.
       force_clean_after: seconds to wait before removing started requests.
       request_fields: a list of request property names.
       cumulative_counters: a dictionary describing cumulative counters config.
-      default_metrics_for_recent: a dictionary containing metrics 
+      default_metrics_for_recent: a dictionary containing metrics
         which should be computed for recent requests by default.
     """
 
@@ -318,7 +318,7 @@ class ServiceStats(object):
   def get_recent(self, for_last_milliseconds=None, metrics_map=None):
     """ Provides value of metrics for recent requests which were finished
     not earlier than for_last_seconds seconds ago.
-    
+
     Args:
       for_last_milliseconds: a number of seconds.
       metrics_map: a dict describing metrics config.
@@ -331,7 +331,7 @@ class ServiceStats(object):
   def scroll_recent(self, cursor=None, metrics_map=None):
     """ Provides value of metrics for recent requests which were finished
     after specified timestamp (cursor).
-    
+
     Args:
       cursor: a unix timestamp (in ms).
       metrics_map: a dict describing metrics config.
@@ -353,7 +353,7 @@ class ServiceStats(object):
 
   def _render_recent(self, metrics_config, requests):
     """ Computes configured metrics according to metrics_config for requests.
-    
+
     Args:
       metrics_config: a dictionary describing what metrics should be computed.
       requests: a list of requests to compute metrics for.
@@ -400,7 +400,7 @@ class ServiceStats(object):
 
   def _get_requests(self, since=None):
     """ Selects requests which were finished since specified timestamp (in ms).
-    
+
     Args:
       since: a unix timestamp in ms.
     Returns:
@@ -447,14 +447,14 @@ def _now():
 
 def _get_nested_dict(dictionary, key, nested_config=None):
   """ A util function for getting (and putting if missed) nested dictionary.
-  
+
   Args:
-    dictionary: an instance of dict. 
+    dictionary: an instance of dict.
     key: a key.
     nested_config: a dictionary containing counters config.
       It's used for initialization of new counters dict.
   Returns:
-    a dictionary got by key (newly created dict if it was missed). 
+    a dictionary got by key (newly created dict if it was missed).
   """
   if key not in dictionary:
     nested = {}
@@ -467,8 +467,8 @@ def _get_nested_dict(dictionary, key, nested_config=None):
 
 def _fill_zero_counters_dict(counters_config, counters_dict):
   """ A util function for filling counters dict with all counters set to 0.
-  
-  Args: 
+
+  Args:
     counters_config: a dict containing cumulative counters configuration.
     counters_dict: an empty dict to fill with zero counters.
   Returns:
