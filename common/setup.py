@@ -11,7 +11,7 @@ setup(
   platforms='Posix',
   install_requires=[
     'kazoo',
-    'PyYAML'
+    'PyYAML',
     'future'
   ],
   classifiers=[

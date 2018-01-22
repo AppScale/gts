@@ -9,7 +9,7 @@ from appscale.common.service_stats import matchers, metrics, stats_manager, \
 def request_simulator(service_stats, time_mock=None):
   """ Builds quick request reported for simulating
   start and finalization of request with optionally specified latency.
-  
+
   Args:
     service_stats: an instance of stats_manager.ServiceStats
     time_mock: a mock of time.time() function
@@ -19,7 +19,7 @@ def request_simulator(service_stats, time_mock=None):
   def parametrized(latency=None, end_time=None, start_kwargs=None,
                    **finish_kwargs):
     """ Util function for quick reporting request with wanted latency.
-    
+
     Args:
       latency: an integer number representing wanted latency in ms.
       end_time: unix epoch time in ms.
