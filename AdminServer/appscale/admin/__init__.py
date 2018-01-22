@@ -691,7 +691,16 @@ class VersionsHandler(BaseHandler):
       raise CustomHTTPError(
         HTTPCodes.INTERNAL_ERROR, message='Revision already exists')
 
-    # Remove old revision nodes.
+  def clean_up_revision_nodes(self, project_id, service_id, version):
+    """ Removes old revision nodes.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version: A dictionary containing version details.
+    """
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
     version_prefix = VERSION_PATH_SEPARATOR.join(
       [project_id, service_id, version['id']])
     old_revisions = [node for node in self.zk_client.get_children('/apps')
@@ -729,7 +738,6 @@ class VersionsHandler(BaseHandler):
     new_path = utils.rename_source_archive(project_id, service_id, version)
     version['deployment']['zip']['sourceUrl'] = new_path
     yield self.identify_as_hoster(project_id, service_id, version)
-    utils.remove_old_archives(project_id, service_id, version)
 
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
@@ -737,6 +745,8 @@ class VersionsHandler(BaseHandler):
     finally:
       self.version_update_lock.release()
 
+    self.clean_up_revision_nodes(project_id, service_id, version)
+    utils.remove_old_archives(project_id, service_id, version)
     self.begin_deploy(project_id, service_id, version['id'])
 
     operation = CreateVersionOperation(project_id, service_id, version)
