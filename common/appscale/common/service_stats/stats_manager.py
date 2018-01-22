@@ -111,16 +111,6 @@ PER_APP_DETAILED_METRICS_MAP = {
 # }
 
 
-class _DummyLock(object):
-  def __enter__(self):
-    pass
-  def __exit__(self, exc_type, exc_val, exc_tb):
-    pass
-
-
-NO_LOCK = _DummyLock()
-
-
 class ServiceStats(object):
   """
   Collects stats about requests handled by a service.
@@ -146,7 +136,6 @@ class ServiceStats(object):
 
   def __init__(self, service_name, history_size=DEFAULT_HISTORY_SIZE,
                force_clean_after=DEFAULT_MAX_REQUEST_AGE,
-               lock_context_manager=NO_LOCK,
                request_fields=DEFAULT_REQUEST_FIELDS,
                cumulative_counters=DEFAULT_CUMULATIVE_COUNTERS,
                default_metrics_for_recent=SINGLE_APP_METRICS_MAP):
@@ -156,8 +145,6 @@ class ServiceStats(object):
       service_name: a str representing name of service.
       history_size: a number of recent requests to store.
       force_clean_after: seconds to wait before removing started requests.
-      lock_context_manager: an instance of context manager to use for managing
-        concurrent execution of requests.
       request_fields: a list of request property names.
       cumulative_counters: a dictionary describing cumulative counters config.
       default_metrics_for_recent: a dictionary containing metrics 
@@ -169,7 +156,6 @@ class ServiceStats(object):
     self._request_info_class = self.generate_request_model(request_fields)
 
     # Initialize properties for tracking latest N requests
-    self._lock = lock_context_manager
     self._last_request_no = 0
     self._current_requests = {}  # {request_no: RequestInfo()}
     self._finished_requests = []  # circular list containing recent N requests
@@ -245,20 +231,19 @@ class ServiceStats(object):
     Returns:
       an internal request ID which should be used for finishing request.
     """
-    with self._lock:
-      now = _now()
-      # Instantiate a request_info object and fill its start_time
-      new_request = self._request_info_class(**request_info_dict)
-      new_request.start_time = now
-      # Add currently running request
-      self._last_request_no += 1
-      self._current_requests[self._last_request_no] = new_request
+    now = _now()
+    # Instantiate a request_info object and fill its start_time
+    new_request = self._request_info_class(**request_info_dict)
+    new_request.start_time = now
+    # Add currently running request
+    self._last_request_no += 1
+    self._current_requests[self._last_request_no] = new_request
 
-      if now - self._last_autoclean_time > self.AUTOCLEAN_INTERVAL:
-        # Avoid memory leak even if client sometimes don't finish requests
-        self._clean_outdated()
+    if now - self._last_autoclean_time > self.AUTOCLEAN_INTERVAL:
+      # Avoid memory leak even if client sometimes don't finish requests
+      self._clean_outdated()
 
-      return self._last_request_no
+    return self._last_request_no
 
   def finalize_request(self, request_no, **new_info_dict):
     """ Finalizes previously started request. Moves request from currently
@@ -268,26 +253,25 @@ class ServiceStats(object):
       request_no: an internal request ID provided by start_request method.
       new_info_dict: a dictionary containing info about request result.
     """
-    with self._lock:
-      now = _now()
-      # Find request with the specified request_no
-      request_info = self._current_requests.pop(request_no, None)
-      if not request_info:
-        logging.error("Couldn't finalize request #{} as it wasn't started "
-                      "or it was started longer than {}s ago"
-                      .format(request_no, self._force_clean_after))
-        return
-      # Fill request_info object with a new information
-      request_info.update(new_info_dict)
-      request_info.end_time = now
-      request_info.latency = now - request_info.start_time
-      # Add finished request to circular list of finished requests
-      self._finished_requests.append(request_info)
-      if len(self._finished_requests) > self._history_size:
-        self._finished_requests.pop(0)
-      # Update cumulative counters
-      self._increment_counters(self._cumulative_counters_config,
-                               self._cumulative_counters, request_info)
+    now = _now()
+    # Find request with the specified request_no
+    request_info = self._current_requests.pop(request_no, None)
+    if not request_info:
+      logging.error("Couldn't finalize request #{} as it wasn't started "
+                    "or it was started longer than {}s ago"
+                    .format(request_no, self._force_clean_after))
+      return
+    # Fill request_info object with a new information
+    request_info.update(new_info_dict)
+    request_info.end_time = now
+    request_info.latency = now - request_info.start_time
+    # Add finished request to circular list of finished requests
+    self._finished_requests.append(request_info)
+    if len(self._finished_requests) > self._history_size:
+      self._finished_requests.pop(0)
+    # Update cumulative counters
+    self._increment_counters(self._cumulative_counters_config,
+                             self._cumulative_counters, request_info)
 
   def _increment_counters(self, counters_config, counters_dict, request_info):
     for counter_pair in iteritems(counters_config):

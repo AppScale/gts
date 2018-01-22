@@ -449,14 +449,3 @@ class TestProperties(unittest.TestCase):
     stats.start_request()
 
     self.assertEqual(stats.current_requests, 4)
-
-
-class TestConcurrencyLocks(unittest.TestCase):
-
-  def test_tornado_lock(self):
-    # TODO
-    pass
-
-  def test_multithreading_lock(self):
-    # TODO
-    pass
