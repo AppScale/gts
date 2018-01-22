@@ -1,6 +1,6 @@
 # Path to haproxy stats sockets
 HAPROXY_APPS_STATS_SOCKET_PATH = '/etc/haproxy/stats'
-HAPROXY_SERVICES_STATS_SOCKET_PATH = '/etc/haproxy/service-stats'
+HAPROXY_SERVICES_STATS_SOCKET_PATH = '/etc/haproxy/services-stats'
 # Path to haproxy stats sockets
 HAPROXY_APPS_CONFIGS_DIR = '/etc/haproxy/apps-sites-enabled/'
 HAPROXY_SERVICES_CONFIGS_DIR = '/etc/haproxy/services-sites-enabled/'

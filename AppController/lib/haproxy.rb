@@ -147,8 +147,24 @@ module HAProxy
   #   listen_port : the port to listen to
   #   name        : the name of the server
   def self.create_app_config(servers, my_private_ip, listen_port, name)
-    config = "# Create a load balancer for the #{name} application\n"
-    config << "listen #{name}\n"
+    if servers.length <= 0
+      Djinn.log_warn('create_app_config called with no available servers.')
+      return false
+    end
+
+    # Internal services uses a different haproxy. Normal application gets
+    # prepended with 'gae_' to avoid possible collisions.
+    if [TaskQueue::NAME, DatastoreServer::NAME,
+        UserAppClient::NAME, BlobServer::NAME].include?(name)
+      full_version_name = "#{name}"
+      config_path = File.join(SERVICES_SITES_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    else
+      full_version_name = "#{HelperFunctions::GAE_PREFIX}#{name}"
+      config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    end
+
+    config = "# Create a load balancer for #{name}.\n"
+    config << "listen #{full_version_name}\n"
     config << "  bind #{my_private_ip}:#{listen_port}\n"
     servers.each do |server|
       config << HAProxy.server_config(name, "#{server['ip']}:#{server['port']}") + "\n"
@@ -160,16 +176,17 @@ module HAProxy
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
 
-    # Internal services uses a different haproxy.
-    if [TaskQueue::NAME, DatastoreServer::NAME,
-        UserAppClient::NAME].include?(name)
-      config_path = File.join(SERVICES_SITES_PATH, "#{name}.#{CONFIG_EXTENSION}")
+    # Let's reload and overwrite only if something changed.
+    current = ''
+    current = File.read(config_path) if File.exists?(config_path)
+    if current != config
+      File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
+      HAProxy.regenerate_config
     else
-      config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
+      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
     end
-    File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
 
-    HAProxy.regenerate_config
+    true
   end
 
   # Generates a load balancer configuration file. Since HAProxy doesn't provide
@@ -262,46 +279,6 @@ module HAProxy
 
     max_conn = threadsafe ? THREADED_SERVER_OPTIONS : SERVER_OPTIONS
     "  server #{server_name}-#{location} #{location} #{max_conn}"
-  end
-
-  # Updates the HAProxy config file for a version to point to all the
-  # ports currently used by the version.
-  def self.update_version_config(private_ip, version_key, listen_port,
-                                 appservers)
-    # Add a prefix to the app name to avoid collisions with non-GAE apps
-    full_version_name = "gae_#{version_key}"
-
-    servers = []
-    appservers.each { |location|
-      # Ignore not-yet started appservers.
-      _, port = location.split(':')
-      next if Integer(port) < 0
-      servers << HAProxy.server_config(full_version_name, location)
-    }
-    if servers.length <= 0
-      Djinn.log_warn('update_version_config called but no servers found.')
-      return false
-    end
-
-    config = "# Create a load balancer for #{version_key}\n"
-    config << "listen #{full_version_name}\n"
-    config << "  bind #{private_ip}:#{listen_port}\n"
-    config << servers.join("\n")
-
-    config_path = File.join(
-      SITES_ENABLED_PATH, "#{full_version_name}.#{CONFIG_EXTENSION}")
-
-    # Let's reload and overwrite only if something changed.
-    current = ''
-    current = File.read(config_path) if File.exists?(config_path)
-    if current != config
-      File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
-      HAProxy.regenerate_config
-    else
-      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
-    end
-
-    true
   end
 
   def self.remove_version(version_key)
@@ -404,7 +381,7 @@ CONFIG
     # parameters for both haproxies.
     File.open(BASE_CONFIG_FILE, 'w+') { |dest_file| dest_file.write(base_config) }
     File.open(SERVICES_BASE_FILE, 'w+') { |dest_file|
-      dest_file.write(base_config.sub('/stats', '/service-stats'))
+      dest_file.write(base_config.sub('/stats', '/services-stats'))
     }
   end
 end
