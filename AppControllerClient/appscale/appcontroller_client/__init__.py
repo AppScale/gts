@@ -396,3 +396,16 @@ class AppControllerClient():
       return json.loads(response)
     except ValueError:
       raise AppControllerException(response)
+
+  def update_cron(self, project_id):
+    """ Updates a project's cron configuration.
+
+    Args:
+      project_id: A string specifying a project ID.
+    Raises:
+      AppControllerException if unable to update cron jobs.
+    """
+    response = self.call(self.MAX_RETRIES, self.server.update_cron, project_id,
+                         self.secret)
+    if response != 'OK':
+      raise AppControllerException(response)

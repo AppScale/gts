@@ -99,6 +99,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "create_user", "username", "password", "account_type" ,"secret")
     add_method(@djinn, "set_admin_role", "username", "is_cloud_admin", "capabilities" ,"secret")
     add_method(@djinn, "primary_db_is_up", "secret")
+    add_method(@djinn, "update_cron", "project_id", "secret")
   end
 end
 

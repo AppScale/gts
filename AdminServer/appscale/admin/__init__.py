@@ -33,6 +33,7 @@ from tornado.escape import json_encode
 from tornado.ioloop import IOLoop
 from . import utils
 from . import constants
+from .appengine_api import UpdateCronHandler
 from .appengine_api import UpdateQueuesHandler
 from .base_handler import BaseHandler
 from .constants import (
@@ -1162,6 +1163,8 @@ def main():
      VersionHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
+    ('/api/cron/update', UpdateCronHandler,
+     {'acc': acc, 'zk_client': zk_client, 'ua_client': ua_client}),
     ('/api/queue/update', UpdateQueuesHandler,
      {'zk_client': zk_client, 'ua_client': ua_client})
   ])
