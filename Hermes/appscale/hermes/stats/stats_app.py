@@ -22,11 +22,12 @@ from appscale.hermes.stats.handlers import (
 )
 from appscale.hermes.stats.producers.cluster_stats import (
   ClusterNodesStatsSource, ClusterProcessesStatsSource,
-  ClusterProxiesStatsSource
+  ClusterProxiesStatsSource, ClusterRabbitMQStatsSource
 )
 from appscale.hermes.stats.producers.node_stats import NodeStatsSource
 from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
 from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
+from appscale.hermes.stats.producers.rabbitmq_stats import RabbitMQStatsSource
 
 
 DEFAULT_INCLUDE_LISTS = IncludeLists({
@@ -49,6 +50,7 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'proxy.frontend': ['bin', 'bout', 'scur', 'smax', 'rate',
                      'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
   'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
+  'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name'],
 })
 
 
@@ -59,12 +61,13 @@ class HandlerInfo(object):
   init_kwargs = attr.ib()
 
 
-def get_local_stats_api_routes(is_lb_node):
+def get_local_stats_api_routes(is_lb_node, is_tq_node):
   """ Creates stats sources and API handlers for providing local
   node, processes and proxies (only on LB nodes) stats.
 
   Args:
     is_lb_node: A boolean indicating whether this node is load balancer.
+    is_tq_node: A boolean indicating whether this node runs taskqueue services.
   Returns:
     A list of route-handler tuples.
   """
@@ -93,10 +96,25 @@ def get_local_stats_api_routes(is_lb_node):
       init_kwargs={'reason': 'Only LB node provides proxies stats'}
     )
 
+  if is_tq_node:
+    # Only TQ nodes provide RabbitMQ stats.
+    local_rabbitmq_stats_handler = HandlerInfo(
+      handler_class=CurrentStatsHandler,
+      init_kwargs={'source': RabbitMQStatsSource,
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+    )
+  else:
+    # Stub handler for non-TQ nodes
+    local_rabbitmq_stats_handler = HandlerInfo(
+      handler_class=Respond404Handler,
+      init_kwargs={'reason': 'Only TQ nodes provide RabbitMQ stats'}
+    )
+
   routes = {
     '/stats/local/node': local_node_stats_handler,
     '/stats/local/processes': local_processes_stats_handler,
     '/stats/local/proxies': local_proxies_stats_handler,
+    '/stats/local/rabbitmq': local_rabbitmq_stats_handler,
   }
   return [
     (route, handler.handler_class, handler.init_kwargs)
@@ -131,6 +149,11 @@ def get_cluster_stats_api_routes(is_master):
       init_kwargs={'source': ClusterProxiesStatsSource(),
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
+    cluster_rabbitmq_stats_handler = HandlerInfo(
+      handler_class=CurrentClusterStatsHandler,
+      init_kwargs={'source': ClusterRabbitMQStatsSource(),
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+    )
   else:
     # Stub handler for slave nodes
     cluster_stub_handler = HandlerInfo(
@@ -140,11 +163,13 @@ def get_cluster_stats_api_routes(is_master):
     cluster_node_stats_handler = cluster_stub_handler
     cluster_processes_stats_handler = cluster_stub_handler
     cluster_proxies_stats_handler = cluster_stub_handler
+    cluster_rabbitmq_stats_handler = cluster_stub_handler
 
   routes = {
     '/stats/cluster/nodes': cluster_node_stats_handler,
     '/stats/cluster/processes': cluster_processes_stats_handler,
     '/stats/cluster/proxies': cluster_proxies_stats_handler,
+    '/stats/cluster/rabbitmq': cluster_rabbitmq_stats_handler,
   }
   return [
     (route, handler.handler_class, handler.init_kwargs)

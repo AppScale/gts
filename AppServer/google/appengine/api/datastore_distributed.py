@@ -184,7 +184,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     # TODO lock any use of these global variables
     assert isinstance(app_id, basestring) and app_id != ''
-    self.__app_id = app_id
+    self.project_id = app_id
     self.__datastore_location = datastore_location
     self.__index_cache = {}
     self.__is_encrypted = True
@@ -242,9 +242,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       datastore_errors.BadRequestError: if this is not the stub for app_id.
     """
     assert app_id
-    if not self.__trusted and app_id != self.__app_id:
+    if not self.__trusted and app_id != self.project_id:
       raise datastore_errors.BadRequestError(
-          'app %s cannot access app %s\'s data' % (self.__app_id, app_id))
+          'app %s cannot access app %s\'s data' % (self.project_id, app_id))
 
   def __ValidateKey(self, key):
     """Validate this key.
@@ -331,7 +331,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _RemoteSend(self, request, response, method, request_id=None):
     """Sends a request remotely to the datstore server. """
-    tag = self.__app_id
+    tag = self.project_id
     self._maybeSetDefaultAuthDomain() 
     user = users.GetCurrentUser()
     if user != None:
@@ -453,7 +453,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     old_datastore_stub_util.FillUsersInQuery(filters)
 
     if not query.has_app():
-      query.set_app(self.__app_id)
+      query.set_app(self.project_id)
     self.__ValidateAppId(query.app())
 
     # Set the composite index if it applies.
@@ -481,7 +481,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       new_cursor = InternalCursor(query, last_cursor, len(results))
       cursor_id = self.__getCursorID()
       cursor = query_result.mutable_cursor()
-      cursor.set_app(self.__app_id)
+      cursor.set_app(self.project_id)
       cursor.set_cursor(cursor_id)
       self.__queries[cursor_id] = new_cursor
 
@@ -564,7 +564,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       del self.__queries[cursor_handle]
     else:
       cursor = query_result.mutable_cursor()                                    
-      cursor.set_app(self.__app_id)                                                  
+      cursor.set_app(self.project_id)
       cursor.set_cursor(cursor_handle)
 
   def _Dynamic_Count(self, query, integer64proto, request_id=None):
@@ -576,7 +576,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _Dynamic_BeginTransaction(self, request, transaction, request_id=None):
     """Send a begin transaction request from the datastore server. """
-    request.set_app(self.__app_id)
+    request.set_app(self.project_id)
     self._RemoteSend(request, transaction, "BeginTransaction", request_id)
     self.__tx_actions[transaction.handle()] = []
     return transaction
@@ -615,7 +615,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
                       request_id=None):
     """ Send a transaction request to commit a transaction to the 
         datastore server. """
-    transaction.set_app(self.__app_id)
+    transaction.set_app(self.project_id)
 
     self._RemoteSend(transaction, transaction_response, "Commit", request_id)
 
@@ -638,7 +638,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
   def _Dynamic_Rollback(self, transaction, transaction_response,
                         request_id=None):
     """ Send a rollback request to the datastore server. """
-    transaction.set_app(self.__app_id)
+    transaction.set_app(self.project_id)
 
     try:
       del self.__tx_actions[transaction.handle()]
@@ -744,14 +744,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         index_defs = datastore_index.ParseIndexDefinitions(index_yaml_data)
         if index_defs is not None and index_defs.indexes is not None:
           requested_indexes = datastore_index.IndexDefinitionsToProtos(
-              self.__app_id,
+              self.project_id,
               index_defs.indexes)
           self.__cached_yaml = (index_yaml_file, index_yaml_mtime,
                                requested_indexes)
      
     existing_indexes = datastore_pb.CompositeIndices()
     app_str = api_base_pb.StringProto()
-    app_str.set_value(self.__app_id)
+    app_str.set_value(self.project_id)
     self._Dynamic_GetIndices(app_str, existing_indexes)
 
     requested = dict((x.definition().Encode(), x) for x in requested_indexes)

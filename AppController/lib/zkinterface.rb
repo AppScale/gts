@@ -20,6 +20,10 @@ end
 class VersionNotFound < StandardError
 end
 
+# Indicates that the requested configuration was not found.
+class ConfigNotFound < StandardError
+end
+
 # The AppController employs the open source software ZooKeeper as a highly
 # available naming service, to store and retrieve information about the status
 # of applications hosted within AppScale. This class provides methods to
@@ -427,6 +431,16 @@ class ZKInterface
             "#{project_id}/#{service_id}/#{version_id} does not exist"
     end
     JSON.load(version_details_json)
+  end
+
+  def self.get_cron_config(project_id)
+    cron_node = "/appscale/projects/#{project_id}/cron"
+    begin
+      cron_config_json = self.get(cron_node)
+    rescue FailedZooKeeperOperationException
+      raise ConfigNotFound, "Cron configuration not found for #{project_id}"
+    end
+    return JSON.load(cron_config_json)
   end
 
   # Defines deployment-wide defaults for runtime parameters.
