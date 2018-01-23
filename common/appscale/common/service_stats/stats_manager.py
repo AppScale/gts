@@ -200,7 +200,8 @@ class ServiceStats(object):
           "reserved name '{}'", format(request_field))
 
     class RequestInfo(object):
-      __slots__ = set(request_fields + ServiceStats.RESERVED_REQUEST_FIELDS)
+      __slots__ = set(list(request_fields) +
+                      list(ServiceStats.RESERVED_REQUEST_FIELDS))
 
       def __init__(self, **fields_dict):
         # Make sure that new object has all request fields
