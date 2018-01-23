@@ -41,7 +41,12 @@ module AppDashboard
     }
     lib_contents.each {|lib_file, contents|
       lib_file = File.join(lib_dir, lib_file)
-      if File.read(lib_file) != contents
+      begin
+        contents_differ = File.read(lib_file) != contents
+      rescue Errno::ENOENT
+        contents_differ = true
+      end
+      if contents_differ
         File.open(lib_file, 'w') { |file| file.write(contents) }
       end
     }
