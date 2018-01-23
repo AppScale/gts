@@ -349,10 +349,6 @@ class Djinn
   # This is the generic retries to do.
   RETRIES = 5
 
-  # A Float that determines how much CPU can be used before the autoscaler will
-  # stop adding AppServers on a node.
-  MAX_CPU_FOR_APPSERVERS = 90.00
-
   # We won't allow any AppServer to have 1 minute average load
   # (normalized on the number of CPUs) to be bigger than this constant.
   MAX_LOAD_AVG = 2.0
@@ -666,8 +662,7 @@ class Djinn
 
     if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
       CronHelper.update_cron(
-        get_load_balancer.public_ip, http_port, version_details['runtime'],
-        project_id)
+        get_load_balancer.public_ip, http_port, project_id)
     end
 
     'OK'
@@ -1374,6 +1369,37 @@ class Djinn
     }
     # Act upon changes.
     enforce_options unless old_options == @options
+
+    return 'OK'
+  end
+
+  # Updates a project's cron jobs.
+  def update_cron(project_id, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    unless my_node.is_shadow?
+      Djinn.log_debug(
+        "Sending update_cron call for #{project_id} to shadow.")
+      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
+      begin
+        return acc.update_cron(project_id)
+      rescue FailedNodeException
+        Djinn.log_warn(
+          "Failed to forward update_cron call to shadow (#{get_shadow}).")
+        return NOT_READY
+      end
+    end
+
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+    rescue VersionNotFound => error
+      return "false: #{error.message}"
+    end
+
+    CronHelper.update_cron(get_load_balancer.public_ip,
+                           version_details['appscaleExtensions']['httpPort'],
+                           project_id)
 
     return 'OK'
   end
@@ -2572,16 +2598,6 @@ class Djinn
         Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
       end
       @app_info_map[version_key]['appservers'] << "#{ip}:#{port}"
-
-
-      # Now that we have at least one AppServer running, we can start the
-      # cron job of the application.
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        CronHelper.update_cron(
-          get_load_balancer.public_ip,
-          version_details['appscaleExtensions']['httpPort'],
-          version_details['runtime'], project_id)
-      end
     }
 
     'OK'
@@ -4034,9 +4050,6 @@ HOSTS
         Djinn.log_debug(
           "Removing routing for #{version_key} since no AppServer is running.")
         Nginx.remove_version(version_key)
-        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-          CronHelper.clear_app_crontab(project_id)
-        end
         HAProxy.remove_version(version_key)
       else
         begin
@@ -4422,6 +4435,30 @@ HOSTS
         sleep(SMALL_WAIT)
       end
     end
+
+    # Update cron jobs for the dashboard.
+    endpoint = "api/cron/update?app_id=#{AppDashboard::APP_NAME}"
+    uri = URI("http://#{my_node.private_ip}:#{ADMIN_SERVER_PORT}/#{endpoint}")
+    cron_yaml = File.read(
+      File.join(APPSCALE_HOME, 'AppDashboard', 'cron.yaml'))
+    headers = {'AppScale-Secret' => @@secret}
+    request = Net::HTTP::Post.new("/#{endpoint}", headers)
+    request.body = cron_yaml
+    loop do
+      begin
+        response = Net::HTTP.start(uri.hostname, uri.port) do |http|
+          http.request(request)
+        end
+        break if response.code == '200'
+        Djinn.log_warn(
+          "Error updating dashboard cron: #{response.body}. Trying again.")
+        sleep(SMALL_WAIT)
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
+        Djinn.log_warn(
+          "Error updating dashboard cron: #{error.message}. Trying again.")
+        sleep(SMALL_WAIT)
+      end
+    end
   end
 
   # Start the AppDashboard web service which allows users to login, upload
@@ -4435,8 +4472,10 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
+    datastore_location = [get_load_balancer.private_ip,
+                          DatastoreServer::PROXY_PORT].join(':')
     source_archive = AppDashboard.prep(
-      my_public, my_private, PERSISTENT_MOUNT_POINT)
+      my_public, my_private, PERSISTENT_MOUNT_POINT, datastore_location)
 
     begin
       ZKInterface.get_version_details(
@@ -4581,30 +4620,35 @@ HOSTS
       return
     end
 
-    # Registered instances are no longer pending.
-    @app_info_map.each { |version_key, info|
-      info['appservers'].each { |location|
-        port = location.split(':')[1]
-        @pending_appservers.delete("#{version_key}:#{port}")
-      }
-    }
-
-    # If an instance has not been registered in time, allow it to be removed.
-    expired_appservers = []
-    @pending_appservers.each { |instance_key, start_time|
-      if Time.new > start_time + START_APP_TIMEOUT
-        expired_appservers << instance_key
-      end
-    }
-    expired_appservers.each { |instance_key|
-      @pending_appservers.delete(instance_key)
-    }
-
+    # Temporary arrays for AppServers housekeeping.
     to_start = []
     no_appservers = []
     running_instances = []
     to_end = []
+
     APPS_LOCK.synchronize {
+      # Registered instances are no longer pending.
+      @app_info_map.each { |version_key, info|
+        info['appservers'].each { |location|
+          host, port = location.split(":")
+          next if @my_private_ip != host
+          @pending_appservers.delete("#{version_key}:#{port}")
+        }
+      }
+
+      # If an instance has not been registered in time, allow it to be removed.
+      expired_appservers = []
+      @pending_appservers.each { |instance_key, start_time|
+        if Time.new > start_time + START_APP_TIMEOUT
+          expired_appservers << instance_key
+        end
+      }
+      expired_appservers.each { |instance_key|
+        Djinn.log_debug("Pending AppServer #{instance_key} didn't " \
+                        "register in time.")
+        @pending_appservers.delete(instance_key)
+      }
+
       @app_info_map.each { |version_key, info|
         # The remainder of this loop is for Compute nodes only, so we
         # need to do work only if we have AppServers.
@@ -4617,7 +4661,8 @@ HOSTS
 
         if info['appservers'].length > HelperFunctions::NUM_ENTRIES_TO_PRINT
           Djinn.log_debug("Checking #{version_key} with " \
-                          "#{info['appservers'].length} AppServers.")
+                          "#{info['appservers'].length} AppServers " \
+                          "(#{pending_count} pending).")
         else
           Djinn.log_debug(
             "Checking #{version_key} running at #{info['appservers']}.")
@@ -4656,7 +4701,7 @@ HOSTS
       no_appservers.delete(version_key)
     }
     unless running_instances.empty?
-      Djinn.log_debug("Running AppServers on this node: #{running_instances}.")
+      Djinn.log_debug("Registered AppServers on this node: #{running_instances}.")
     end
 
     # Check that all the AppServers running are indeed known to the
@@ -4675,6 +4720,7 @@ HOSTS
       next if @pending_appservers.key?(instance_key)
 
       # If the unaccounted instance is not pending, stop it.
+      Djinn.log_info("AppServer #{instance_key} is unaccounted for.")
       to_end << instance_key
     }
 
@@ -5626,7 +5672,8 @@ HOSTS
     begin
       app_manager.start_app(version_key, appserver_port, @options['login'])
       @pending_appservers["#{version_key}:#{appserver_port}"] = Time.new
-      Djinn.log_info("Done adding AppServer for #{version_key}.")
+      Djinn.log_info("Done adding AppServer for " \
+                     "#{version_key}:#{appserver_port}.")
     rescue FailedNodeException => error
       Djinn.log_warn(
         "Error while starting instance for #{version_key}: #{error.message}")

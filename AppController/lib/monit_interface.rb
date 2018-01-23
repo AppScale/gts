@@ -226,7 +226,7 @@ BOO
       }
     end
 
-    Djinn.log_debug("Found these appservers processes running: #{appservers}.")
+    Djinn.log_debug("Found these AppServers processes running: #{appservers}.")
     appservers
   end
 
