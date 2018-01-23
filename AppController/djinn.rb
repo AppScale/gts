@@ -4077,7 +4077,7 @@ HOSTS
         # nginx routing is enabled. We need to get the appservers in a
         # hash with ip, port for the haproxy call.
         servers = {}
-        appserver.each { |location|
+        appservers.each { |location|
           host, port = location.split(":")
           next if Integer(port) < 0
           servers[host] = port
