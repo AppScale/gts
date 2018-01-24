@@ -193,7 +193,7 @@ module HAProxy
     if current == config
       Djinn.log_debug("No need to restart haproxy for #{config_file}:" \
                       " configuration didn't change.")
-      false
+      return false
     end
 
     # Update config file.
@@ -280,7 +280,7 @@ module HAProxy
     }
     if servers.length <= 0
       Djinn.log_warn('update_version_config called but no servers found.')
-      false
+      return false
     end
 
     config = "# Create a load balancer for #{version_key}\n"

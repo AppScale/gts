@@ -73,7 +73,7 @@
                             <div align="center" class="list-group-item">
                               <div class="btn-group">
                               {% if page_name=="dash" %}
-                                {% if dict_key=="taskqueue" or dict_key=="monit" %}
+                                {% if dict_key in panel_blacklist %}
                                   <a class="btn btn-info" href="{{menuitem.link}}"
                                      style="width:100%;">{{ menuitem.title }}</a>
                                 {% else %}

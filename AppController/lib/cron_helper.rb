@@ -4,6 +4,7 @@ require 'uri'
 
 require 'custom_exceptions'
 require 'helperfunctions'
+require 'zkinterface'
 
 include REXML
 
@@ -25,132 +26,51 @@ module CronHelper
   #   port: An Integer that indicates what port number the given Google App
   #     Engine application runs on, so that we send cron web requests to the
   #     correct application.
-  #   lang: A String that indicates if this Google App Engine application's
-  #     runtime is Python 2.7, Java, PHP, or Go, which indicates which
-  #     cron configuration file to look for.
-  #   app: A String that names the appid of this application, used to find the
-  #     cron configuration file on the local filesystem.
-  def self.update_cron(ip, port, lang, app)
+  #   app: A String that names the appid of this application.
+  def self.update_cron(ip, port, app)
     app_crontab = NO_EMAIL_CRON + "\n"
-    parsing_log = "saw a cron request with args [#{ip}][#{lang}][#{app}]\n"
+    parsing_log = "saw a cron request with args [#{ip}][#{port}][#{app}]\n"
 
     begin
-      source_dir = HelperFunctions.get_source_for_project(app)
-    rescue AppScaleException
+      yaml_file = ZKInterface.get_cron_config(app)
+    rescue ConfigNotFound
       clear_app_crontab(app)
       return
     end
 
-    if %w(python27 go php).include?(lang)
-      cron_file = "#{source_dir}/cron.yaml"
-
-      begin
-        yaml_file = YAML.load_file(cron_file)
-        unless yaml_file
-          clear_app_crontab(app)
-          return
-        end
-      rescue ArgumentError
-        Djinn.log_error("Was not able to update cron for app #{app}")
-        return
-      rescue Errno::ENOENT
-        clear_app_crontab(app)
-        return
-      end
-
-      cron_routes = yaml_file['cron']
-      if cron_routes.nil?
-        clear_app_crontab(app)
-        return
-      end
-
-      cron_routes.each { |item|
-        next if item['url'].nil?
-        description = item['description']
-
-        begin
-          # Parse URL to prevent malicious code from being appended.
-          url = URI.parse(item['url']).to_s
-          parsing_log += "Parsed cron URL: #{url}\n"
-        rescue URI::InvalidURIError
-          Djinn.log_warn("Invalid cron URL: #{item['url']}. Skipping entry.")
-          next
-        end
-
-        schedule = item['schedule']
-        timezone = item['timezone'] # will add support later for this
-        cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
-        parsing_log += "Schedule: #{schedule}\n"
-        cron_scheds.each { |line|
-          cron_info = <<CRON
-          Description: #{description}
-          URL: #{url}
-          Schedule: #{schedule}
-          Timezone: #{timezone}
-          Cron Schedule: #{line}
-CRON
-          parsing_log += "#{cron_info}\n"
-          app_crontab << line + "\n"
-        }
-      }
-
-    elsif lang == 'java'
-      begin
-        web_inf_dir = HelperFunctions.get_web_inf_dir(source_dir)
-      rescue InvalidSource => error
-        Djinn.log_warn(error.message)
-        Djinn.log_app_error(app, error.message)
-        return
-      end
-      cron_file = "#{web_inf_dir}/cron.xml"
-      return unless File.exists?(cron_file)
-
-      begin
-        cron_xml = Document.new(File.new(cron_file)).root
-      rescue REXML::ParseException => parse_exception
-        Djinn.log_warn(parse_exception.message)
-        Djinn.log_app_error(app,
-          'The AppController was unable to parse cron.xml. ' \
-          'This application\'s cron jobs will not run.')
-        return
-      end
-
-      return if cron_xml.nil?
-
-      cron_xml.each_element('//cron') { |item|
-        description = get_from_xml(item, 'description')
-        raw_url = get_from_xml(item, 'url')
-
-        begin
-          # Parse URL to prevent malicious code from being appended.
-          url = URI.parse(raw_url).to_s
-          parsing_log += "Parsed cron URL: #{url}\n"
-        rescue URI::InvalidURIError
-          Djinn.log_warn("Invalid cron URL: #{raw_url}. Skipping entry.")
-          Djinn.log_app_error(app,
-            "Invalid cron URL: #{raw_url}. Skipping entry.")
-          next
-        end
-
-        schedule = get_from_xml(item, 'schedule')
-        timezone = get_from_xml(item, 'timezone') # will add support later for this
-        cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
-        parsing_log += "Schedule: #{schedule}\n"
-        cron_scheds.each { |line|
-          cron_info = <<CRON
-          Description: #{description}
-          URL: #{url}
-          Schedule: #{schedule}
-          Timezone: #{timezone}
-          Cron Schedule: #{line}
-CRON
-          parsing_log += "#{cron_info}\n"
-          app_crontab << line + "\n"
-        }
-      }
-    else
-      Djinn.log_error("ERROR: lang was neither python27, go, php, nor java but was [#{lang}] (cron)")
+    cron_routes = yaml_file['cron']
+    if cron_routes.nil?
+      clear_app_crontab(app)
+      return
     end
+
+    cron_routes.each { |item|
+      next if item['url'].nil?
+      description = item['description']
+
+      begin
+        # Parse URL to prevent malicious code from being appended.
+        url = URI.parse(item['url']).to_s
+        parsing_log += "Parsed cron URL: #{url}\n"
+      rescue URI::InvalidURIError
+        Djinn.log_warn("Invalid cron URL: #{item['url']}. Skipping entry.")
+        next
+      end
+
+      schedule = item['schedule']
+      cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
+      parsing_log += "Schedule: #{schedule}\n"
+      cron_scheds.each { |line|
+        cron_info = <<CRON
+        Description: #{description}
+        URL: #{url}
+        Schedule: #{schedule}
+        Cron Schedule: #{line}
+CRON
+        parsing_log += "#{cron_info}\n"
+        app_crontab << line + "\n"
+      }
+    }
 
     Djinn.log_debug(parsing_log) if write_app_crontab(app_crontab, app)
   end
@@ -227,15 +147,12 @@ CRON
     etc_crond_file = File.exists?(etc_crond_filename) ? File.read(etc_crond_filename) : ''
 
     begin
-      source_dir = HelperFunctions.get_source_for_project(app_name)
-      cron_yaml_filename = "#{source_dir}/cron.yaml"
-      cron_yaml_file = YAML.load_file(cron_yaml_filename)
-      cron_yaml_file = cron_yaml_file ? cron_yaml_file : ''
-    rescue AppScaleException
-      cron_yaml_file = ''
+      cron_config = ZKInterface.get_cron_config(app_name)
+    rescue ConfigNotFound
+      cron_config = ''
     end
 
-    { 'etc_crond_file' => etc_crond_file, 'cron_yaml_file' => cron_yaml_file }
+    { 'etc_crond_file' => etc_crond_file, 'cron_yaml_file' => cron_config }
   end
 
   # Converts the frequency of how often a Google App Engine cron job should run

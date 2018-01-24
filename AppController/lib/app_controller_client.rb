@@ -74,6 +74,7 @@ class AppControllerClient
     @conn.add_method('get_request_info', 'version_key', 'secret')
     @conn.add_method('add_routing_for_appserver', 'version_key', 'ip', 'port',
                      'secret')
+    @conn.add_method('update_cron', 'project_id', 'secret')
   end
 
   # Provides automatic retry logic for transient SOAP errors. This code is
@@ -224,4 +225,12 @@ class AppControllerClient
       @conn.add_routing_for_appserver(version_key, ip, port, @secret)
     }
   end
+
+  # Gets the statistics of this node
+  def update_cron(project_id)
+    make_call(10, RETRY_ON_FAIL, 'update_cron') {
+      @conn.update_cron(project_id, @secret)
+    }
+  end
+
 end
