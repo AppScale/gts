@@ -5034,9 +5034,6 @@ HOSTS
         @last_scaling_time = Time.now.to_i
         Djinn.log_info("Added the following nodes: #{roles_needed}.")
       }
-
-      # Make sure we have the proper list of blobservers configured.
-      update_blob_servers
     }
   end
 
