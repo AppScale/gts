@@ -4,11 +4,11 @@ import logging
 import math
 import os
 import re
-import threading
-import time
+import signal
 import urllib
 import urllib2
 
+import psutil
 import tornado.web
 from concurrent.futures import ThreadPoolExecutor
 from kazoo.client import KazooClient
@@ -26,17 +26,18 @@ from appscale.admin.instance_manager.constants import (
   DASHBOARD_PROJECT_ID,
   DEFAULT_MAX_APPSERVER_MEMORY,
   INSTANCE_CLASSES,
+  JAVA_APPSERVER_CLASS,
   LOGROTATE_CONFIG_DIR,
   MAX_BACKGROUND_WORKERS,
   MAX_INSTANCE_RESPONSE_TIME,
-  MONIT_INSTANCE_PREFIX
+  MONIT_INSTANCE_PREFIX,
+  PYTHON_APPSERVER
 )
 from appscale.admin.instance_manager.projects_manager import (
   GlobalProjectsManager)
 from appscale.admin.instance_manager.source_manager import SourceManager
 from appscale.admin.instance_manager.stop_instance import stop_instance
 from appscale.admin.instance_manager.utils import find_web_inf
-from appscale.appcontroller_client import AppControllerClient
 from appscale.common import (
   appscale_info,
   constants,
@@ -46,10 +47,10 @@ from appscale.common import (
   misc
 )
 from appscale.common.constants import HTTPCodes
+from appscale.common.constants import MonitStates
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
-from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from appscale.common.monit_interface import MonitOperator
 from appscale.common.monit_interface import ProcessNotFound
 
@@ -93,6 +94,9 @@ PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
 # A DeploymentConfig accessor.
 deployment_config = None
 
+# The ZooKeeper node where this machine registers its running instances.
+machine_instances_node = None
+
 # A GlobalProjectsManager watch.
 projects_manager = None
 
@@ -105,6 +109,9 @@ source_manager = None
 # Allows synchronous code to be executed in the background.
 thread_pool = None
 
+# A KazooClient.
+zk_client = None
+
 
 class BadConfigurationException(Exception):
   """ An application is configured incorrectly. """
@@ -114,6 +121,7 @@ class BadConfigurationException(Exception):
 
   def __str__(self):
     return repr(self.value)
+
 
 class NoRedirection(urllib2.HTTPErrorProcessor):
   """ A url opener that does not automatically redirect. """
@@ -130,33 +138,24 @@ class NoRedirection(urllib2.HTTPErrorProcessor):
   https_response = http_response
 
 
-def add_routing(version_key, port):
+@gen.coroutine
+def add_routing(revision_key, port):
   """ Tells the AppController to begin routing traffic to an AppServer.
 
   Args:
-    version_key: A string that contains the version key.
+    revision_key: A string that contains the revision key.
     port: A string that contains the port that the AppServer listens on.
   """
-  logging.info('Waiting for {}:{}'.format(version_key, port))
-  if not wait_on_app(port):
+  logging.info('Waiting for {}:{}'.format(revision_key, port))
+  start_successful = yield wait_on_app(port)
+  if not start_successful:
     # In case the AppServer fails we let the AppController to detect it
     # and remove it if it still show in monit.
-    logging.warning('{}:{} did not come up in time'.format(version_key, port))
-    return
+    logging.warning('{}:{} did not come up in time'.format(revision_key, port))
+    raise gen.Return()
 
-  acc = appscale_info.get_appcontroller_client()
+  register_instance(revision_key, port)
 
-  while True:
-    result = acc.add_routing_for_appserver(version_key, options.private_ip,
-                                           port)
-    if result == AppControllerClient.NOT_READY:
-      logging.info('AppController not yet ready to add routing.')
-      time.sleep(ROUTING_RETRY_INTERVAL)
-    else:
-      break
-
-  logging.info(
-    'Successfully established routing for {}:{}'.format(version_key, port))
 
 @gen.coroutine
 def start_app(version_key, config):
@@ -198,8 +197,6 @@ def start_app(version_key, config):
     max_memory = INSTANCE_CLASSES.get(version_details['instanceClass'],
                                       max_memory)
 
-  version_key = VERSION_PATH_SEPARATOR.join(
-    [project_id, service_id, version_id])
   revision_key = VERSION_PATH_SEPARATOR.join(
     [project_id, service_id, version_id, str(version_details['revision'])])
   source_archive = version_details['deployment']['zip']['sourceUrl']
@@ -269,10 +266,14 @@ def start_app(version_key, config):
   assert monit_interface.start(full_watch, is_group=False), (
     'Monit was unable to start {}:{}'.format(project_id, config['app_port']))
 
+  # Make sure the version node exists.
+  zk_client.ensure_path(
+    '/appscale/instances_by_version/{}'.format(version_key))
+
   # Since we are going to wait, possibly for a long time for the
-  # application to be ready, we do it in a thread.
-  threading.Thread(target=add_routing,
-    args=(version_key, config['app_port'])).start()
+  # application to be ready, we do it later.
+  IOLoop.current().spawn_callback(add_routing, revision_key,
+                                  config['app_port'])
 
   if project_id == DASHBOARD_PROJECT_ID:
     log_size = DASHBOARD_LOG_SIZE
@@ -282,6 +283,7 @@ def start_app(version_key, config):
   if not setup_logrotate(project_id, log_size):
     logging.error("Error while setting up log rotation for application: {}".
       format(project_id))
+
 
 def setup_logrotate(app_name, log_size):
   """ Creates a logrotate script for the logs that the given application
@@ -319,6 +321,7 @@ def setup_logrotate(app_name, log_size):
 
   return True
 
+
 def unmonitor(process_name, retries=5):
   """ Unmonitors a process.
 
@@ -344,6 +347,7 @@ def unmonitor(process_name, retries=5):
 
     raise
 
+
 @gen.coroutine
 def clean_old_sources():
   """ Removes source code for obsolete revisions. """
@@ -363,6 +367,7 @@ def clean_old_sources():
 
   source_manager.clean_old_revisions(active_revisions=active_revisions)
 
+
 @gen.coroutine
 def unmonitor_and_terminate(watch):
   """ Unmonitors an instance and terminates it.
@@ -378,14 +383,11 @@ def unmonitor_and_terminate(watch):
 
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.
-  monit_config_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, watch)
-  try:
-    os.remove(monit_config_file)
-  except OSError:
-    logging.error("Error deleting {0}".format(monit_config_file))
+  monit_operator.remove_configuration(watch)
 
   IOLoop.current().spawn_callback(stop_instance, watch,
                                   MAX_INSTANCE_RESPONSE_TIME)
+
 
 @gen.coroutine
 def stop_app_instance(version_key, port):
@@ -417,10 +419,14 @@ def stop_app_instance(version_key, port):
     message = 'No entries exist for {}:{}'.format(version_key, port)
     raise HTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
+  revision_key, port = watch[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)
+  port = int(port)
+  unregister_instance(revision_key, port)
   yield unmonitor_and_terminate(watch)
 
   yield monit_operator.reload()
   yield clean_old_sources()
+
 
 @gen.coroutine
 def stop_app(version_key):
@@ -444,6 +450,9 @@ def stop_app(version_key):
   version_entries = [entry for entry in monit_entries
                      if entry.startswith(version_group)]
   for entry in version_entries:
+    revision_key, port = entry[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)
+    port = int(port)
+    unregister_instance(revision_key, port)
     yield unmonitor_and_terminate(entry)
 
   if project_id not in projects_manager and not remove_logrotate(project_id):
@@ -452,6 +461,7 @@ def stop_app(version_key):
 
   yield monit_operator.reload()
   yield clean_old_sources()
+
 
 def remove_logrotate(app_name):
   """ Removes logrotate script for the given application.
@@ -473,9 +483,11 @@ def remove_logrotate(app_name):
 
   return True
 
+
 ############################################
 # Private Functions (but public for testing)
 ############################################
+@gen.coroutine
 def wait_on_app(port):
   """ Waits for the application hosted on this machine, on the given port,
       to respond to HTTP requests.
@@ -495,15 +507,16 @@ def wait_on_app(port):
       if response.code != HTTP_OK:
         logging.warning('{} returned {}. Headers: {}'.
           format(url, response.code, response.headers.headers))
-      return True
+      raise gen.Return(True)
     except IOError:
       retries -= 1
 
-    time.sleep(BACKOFF_TIME)
+    yield gen.sleep(BACKOFF_TIME)
 
   logging.error('Application did not come up on {} after {} seconds'.
     format(url, START_APP_TIMEOUT))
-  return False
+  raise gen.Return(False)
+
 
 def create_python_app_env(public_ip, app_name):
   """ Returns the environment variables the python application server uses.
@@ -521,6 +534,7 @@ def create_python_app_env(public_ip, app_name):
   env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
   env_vars['PYTHON_LIB'] = "{0}/AppServer/".format(constants.APPSCALE_HOME)
   return env_vars
+
 
 def create_java_app_env(app_name):
   """ Returns the environment variables Java application servers uses.
@@ -542,6 +556,7 @@ def create_java_app_env(app_name):
     env_vars['GCS_HOST'] = '{scheme}://{host}:{port}'.format(**gcs_config)
 
   return env_vars
+
 
 def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key):
   """ Creates the start command to run the python application server.
@@ -584,6 +599,7 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key):
 
   return ' '.join(cmd)
 
+
 def locate_dir(path, dir_name):
   """ Locates a directory inside the given path.
 
@@ -613,6 +629,7 @@ def locate_dir(path, dir_name):
     return sorted_paths[0]
   else:
     return None
+
 
 def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
                           pidfile, revision_key):
@@ -656,6 +673,168 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
   ]
 
   return ' '.join(cmd)
+
+
+def get_instance_nodes(instance_key):
+  """ Fetches the ZooKeeper nodes for a given instance key.
+
+  Args:
+    instance_key: A string specifying the revision key and port of an instance.
+  Returns:
+    A tuple of strings specifying the instances nodes.
+  """
+  # Instances are indexed both by version and by machine.
+  instance_node_by_machine = '/'.join([machine_instances_node, instance_key])
+
+  revision_key, port = instance_key.split(':')
+  revision_parts = revision_key.split(VERSION_PATH_SEPARATOR)
+  version_key = VERSION_PATH_SEPARATOR.join(revision_parts[:3])
+  instance_node_by_version = '/appscale/instances_by_version/{}/{}'.format(
+    version_key, '{}:{}'.format(options.private_ip, port))
+
+  return instance_node_by_machine, instance_node_by_version
+
+
+def unregister_instance(revision_key, port):
+  """ Removes a registration entry for an instance.
+
+  Args:
+    revision_key: A string specifying a revision key.
+    port: An integer specifying the instance's port.
+  """
+  instance_key = ':'.join([revision_key, str(port)])
+  transaction = zk_client.transaction()
+  for node in get_instance_nodes(instance_key):
+    transaction.delete(node)
+  response = transaction.commit()
+
+  for action in response:
+    if isinstance(action, Exception):
+      raise action
+
+
+def register_instance(revision_key, port):
+  """ Adds a registration entry for an instance.
+
+  Args:
+    revision_key: A string specifying a revision key.
+    port: An integer specifying the instance's port.
+  """
+  instance_key = ':'.join([revision_key, str(port)])
+  transaction = zk_client.transaction()
+  for node in get_instance_nodes(instance_key):
+    transaction.create(node)
+  response = transaction.commit()
+
+  for action in response:
+    if isinstance(action, Exception):
+      raise action
+
+
+def declare_instance_nodes(running_instances, zk_client):
+  """ Removes dead ZooKeeper instance entries and adds running ones.
+
+  Args:
+    running_instances: An iterable of strings specifying running instances.
+    zk_client: A KazooClient.
+  """
+  registered_instances = zk_client.get_children(machine_instances_node)
+
+  # Remove outdated nodes.
+  for instance in registered_instances:
+    if instance in running_instances:
+      continue
+
+    unregister_instance(*instance.split(':'))
+
+  # Add nodes for running instances.
+  for instance in running_instances:
+    if instance in registered_instances:
+      continue
+
+    register_instance(*instance.split(':'))
+
+
+def clean_up_instances(monit_entries):
+  """ Terminates instances that aren't accounted for.
+
+  Args:
+    monit_entries: A list of dictionaries containing instance details.
+  """
+  monitored = {(entry['revision'], entry['port']) for entry in monit_entries}
+  to_stop = []
+  for process in psutil.process_iter():
+    cmd = process.cmdline()
+    if len(cmd) < 2:
+      continue
+
+    if JAVA_APPSERVER_CLASS in cmd:
+      revision = cmd[-1].split(os.sep)[-2]
+      port_arg = next(arg for arg in cmd if arg.startswith('--port='))
+      port = int(port_arg.split('=')[-1])
+    elif cmd[1] == PYTHON_APPSERVER:
+      source_arg = next(arg for arg in cmd
+                        if arg.startswith(constants.APPS_PATH))
+      revision = source_arg.split(os.sep)[-2]
+      port = int(cmd[cmd.index('--port') + 1])
+    else:
+      continue
+
+    if (revision, port) not in monitored:
+      to_stop.append(process)
+
+  if not to_stop:
+    return
+
+  logging.info('Killing {} unmonitored instances'.format(len(to_stop)))
+  for process in to_stop:
+    group = os.getpgid(process.pid)
+    os.killpg(group, signal.SIGKILL)
+
+
+def recover_state(zk_client):
+  """ Establishes current state from Monit entries.
+
+  Args:
+    zk_client: A KazooClient.
+  """
+  logging.info('Getting current state')
+  monit_entries = monit_operator.get_entries_sync()
+  instance_entries = {entry: state for entry, state in monit_entries.items()
+                      if entry.startswith(MONIT_INSTANCE_PREFIX)}
+
+  # Remove all unmonitored entries.
+  removed = []
+  for entry, state in instance_entries.items():
+    if state == MonitStates.UNMONITORED:
+      monit_operator.remove_configuration(entry)
+      removed.append(entry)
+
+  for entry in removed:
+    del instance_entries[entry]
+
+  if removed:
+    monit_operator.reload_sync()
+
+  instance_details = []
+  for entry, state in instance_entries.items():
+    revision, port = entry[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)
+    instance_details.append(
+      {'revision': revision, 'port': int(port), 'state': state})
+
+  clean_up_instances(instance_details)
+
+  # Ensure version nodes exist.
+  running_versions = {'_'.join(instance['revision'].split('_')[:3])
+                      for instance in instance_details}
+  for version_key in running_versions:
+    zk_client.ensure_path(
+      '/appscale/instances_by_version/{}'.format(version_key))
+
+  # Account for monitored instances.
+  running_instances = {':'.join([instance['revision'], str(instance['port'])])
+                       for instance in instance_details}
+  declare_instance_nodes(running_instances, zk_client)
 
 
 class VersionHandler(tornado.web.RequestHandler):
@@ -723,6 +902,11 @@ if __name__ == "__main__":
   options.define('syslog_server', appscale_info.get_headnode_ip())
   options.define('db_proxy', appscale_info.get_db_proxy())
   options.define('tq_proxy', appscale_info.get_tq_proxy())
+
+  machine_instances_node = '/appscale/instances_by_machine/{}'.format(
+    options.private_ip)
+  zk_client.ensure_path(machine_instances_node)
+  recover_state(zk_client)
 
   app = tornado.web.Application([
     ('/versions/([a-z0-9-_]+)', VersionHandler),

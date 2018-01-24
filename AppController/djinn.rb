@@ -2531,78 +2531,6 @@ class Djinn
     return uuid
   end
 
-  # Instructs Nginx and HAProxy to begin routing traffic for the named
-  # version to a new AppServer.
-  #
-  # This method should be called at the AppController running the login role,
-  # as it is the node that receives application traffic from the outside.
-  #
-  # Args:
-  #   version_key: A String that identifies the version that runs the new
-  #     AppServer.
-  #   ip: A String that identifies the private IP address where the new
-  #     AppServer runs.
-  #   port: A Fixnum that identifies the port where the new AppServer runs at
-  #     ip.
-  #   secret: A String that is used to authenticate the caller.
-  #
-  # Returns:
-  #   "OK" if the addition was successful. In case of failures, the following
-  #   Strings may be returned:
-  #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
-  #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy (and thus cannot
-  #     add AppServers to HAProxy config files).
-  #   - NOT_READY: If this node runs HAProxy, but hasn't allocated ports for
-  #     it and nginx yet. Callers should retry at a later time.
-  def add_routing_for_appserver(version_key, ip, port, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    unless my_node.is_shadow?
-       # We need to send the call to the shadow.
-       Djinn.log_debug("Sending routing call for #{version_key} to shadow.")
-       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
-       begin
-         return acc.add_routing_for_appserver(version_key, ip, port)
-       rescue FailedNodeException
-         Djinn.log_warn("Failed to forward routing call to shadow (#{get_shadow}).")
-         return NOT_READY
-       end
-    end
-
-    project_id, service_id, version_id = version_key.split(
-      VERSION_PATH_SEPARATOR)
-    begin
-      version_details = ZKInterface.get_version_details(
-        project_id, service_id, version_id)
-    rescue VersionNotFound => error
-      return "false: #{error.message}"
-    end
-
-    APPS_LOCK.synchronize {
-      if @app_info_map[version_key].nil? ||
-          @app_info_map[version_key]['appservers'].nil?
-        return NOT_READY
-      elsif @app_info_map[version_key]['appservers'].include?("#{ip}:#{port}")
-        Djinn.log_warn(
-          "Already registered AppServer for #{version_key} at #{ip}:#{port}.")
-        return INVALID_REQUEST
-      end
-
-      Djinn.log_debug("Add routing for #{version_key} at #{ip}:#{port}.")
-
-      # Find and remove an entry for this AppServer node and app.
-      match = @app_info_map[version_key]['appservers'].index("#{ip}:-1")
-      if match
-        @app_info_map[version_key]['appservers'].delete_at(match)
-      else
-        Djinn.log_warn("Received a no matching request for: #{ip}:#{port}.")
-      end
-      @app_info_map[version_key]['appservers'] << "#{ip}:#{port}"
-    }
-
-    'OK'
-  end
-
   # Instruct HAProxy to begin routing traffic to the BlobServers.
   #
   # Args:
@@ -4945,6 +4873,40 @@ HOSTS
   end
 
 
+  # Updates @app_info_map with registered instances.
+  def update_registered_instances(version_key)
+    begin
+      zk_instances = ZKInterface.get_children(
+        "/appscale/instances_by_version/#{version_key}")
+    rescue FailedZooKeeperOperationException
+      Djinn.log_error('Unable to update registered instances.')
+      return
+    end
+
+    unless zk_instances.empty?
+      @app_info_map[version_key] = {} unless @app_info_map.key?(version_key)
+      unless @app_info_map[version_key].key?('appservers')
+        @app_info_map[version_key]['appservers'] = []
+      end
+    end
+    known_instances = @app_info_map[version_key]['appservers']
+
+    zk_instances.each { |instance_key|
+      next if known_instances.include?(instance_key)
+
+      # Find and remove an entry for this AppServer node and app.
+      ip = instance_key.split(':')[0]
+      match = known_instances.index("#{ip}:-1")
+      if match
+        known_instances.delete_at(match)
+      else
+        Djinn.log_warn("Adding an unassigned instance: #{instance_key}.")
+      end
+      known_instances << instance_key
+    }
+  end
+
+
   # Scale AppServers up/down for each application depending on the current
   # queued requests and load of the application.
   #
@@ -4956,6 +4918,7 @@ HOSTS
     ZKInterface.get_versions.each { |version_key|
       next unless @versions_loaded.include?(version_key)
 
+      update_registered_instances(version_key)
       initialize_scaling_info_for_version(version_key)
 
       # Get the desired changes in the number of AppServers.
