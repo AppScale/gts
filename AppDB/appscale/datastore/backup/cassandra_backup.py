@@ -8,6 +8,7 @@ import sys
 import time
 
 from appscale.common import appscale_info
+from appscale.common import appscale_utils
 from appscale.common import monit_interface
 from appscale.common.constants import APPSCALE_DATA_DIR
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
@@ -133,19 +134,19 @@ def backup_data(path, keyname):
     raise BRException('Unable to find any Cassandra machines.')
 
   for db_ip in db_ips:
-    utils.ssh(db_ip, keyname, '{} clearsnapshot'.format(NODE_TOOL))
-    utils.ssh(db_ip, keyname, '{} snapshot'.format(NODE_TOOL))
+    appscale_utils.ssh(db_ip, keyname, '{} clearsnapshot'.format(NODE_TOOL))
+    appscale_utils.ssh(db_ip, keyname, '{} snapshot'.format(NODE_TOOL))
 
     get_snapshot_size = 'find {0} -name "snapshots" -exec du -s {{}} \;'.\
       format(APPSCALE_DATA_DIR)
-    du_output = utils.ssh(db_ip, keyname, get_snapshot_size,
-      method=subprocess.check_output)
+    du_output = appscale_utils.ssh(db_ip, keyname, get_snapshot_size,
+                                   method=subprocess.check_output)
     backup_size = sum(int(line.split()[0])
                       for line in du_output.split('\n') if line)
 
     output_dir = '/'.join(path.split('/')[:-1]) + '/'
-    df_output = utils.ssh(db_ip, keyname, 'df {}'.format(output_dir),
-      method=subprocess.check_output)
+    df_output = appscale_utils.ssh(db_ip, keyname, 'df {}'.format(output_dir),
+                                   method=subprocess.check_output)
     available = int(df_output.split('\n')[1].split()[3])
 
     if backup_size > available * PADDING_PERCENTAGE:
@@ -156,7 +157,8 @@ def backup_data(path, keyname):
   for db_ip in db_ips:
     create_tar = 'find . -regex ".*/snapshots/[0-9]*/.*" -exec tar '\
       '--transform="s/snapshots\/[0-9]*\///" -cf {0} {{}} +'.format(path)
-    utils.ssh(db_ip, keyname, 'cd {} && {}'.format(cassandra_dir, create_tar))
+    appscale_utils.ssh(db_ip, keyname,
+                       'cd {} && {}'.format(cassandra_dir, create_tar))
 
   logging.info("Done with db backup.")
 
@@ -180,8 +182,8 @@ def restore_data(path, keyname, force=False):
 
   machines_without_restore = []
   for db_ip in db_ips:
-    exit_code = utils.ssh(db_ip, keyname, 'ls {}'.format(path),
-      method=subprocess.call)
+    exit_code = appscale_utils.ssh(db_ip, keyname, 'ls {}'.format(path),
+                                   method=subprocess.call)
     if exit_code != ExitCodes.SUCCESS:
       machines_without_restore.append(db_ip)
 
@@ -194,17 +196,17 @@ def restore_data(path, keyname, force=False):
 
   for db_ip in db_ips:
     logging.info('Stopping Cassandra on {}'.format(db_ip))
-    summary = utils.ssh(db_ip, keyname, 'monit summary',
-      method=subprocess.check_output)
+    summary = appscale_utils.ssh(db_ip, keyname, 'monit summary',
+                                 method=subprocess.check_output)
     status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
     retries = SERVICE_RETRIES
     while status != MonitStates.UNMONITORED:
-      utils.ssh(db_ip, keyname,
-                'monit stop {}'.format(CASSANDRA_MONIT_WATCH_NAME),
-                method=subprocess.call)
+      appscale_utils.ssh(db_ip, keyname,
+                         'monit stop {}'.format(CASSANDRA_MONIT_WATCH_NAME),
+                         method=subprocess.call)
       time.sleep(3)
-      summary = utils.ssh(db_ip, keyname, 'monit summary',
-        method=subprocess.check_output)
+      summary = appscale_utils.ssh(db_ip, keyname, 'monit summary',
+                                   method=subprocess.check_output)
       status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
       retries -= 1
       if retries < 0:
@@ -215,29 +217,31 @@ def restore_data(path, keyname, force=False):
     logging.info('Restoring Cassandra data on {}'.format(db_ip))
     clear_db = 'find {0} -regex ".*\.\(db\|txt\|log\)$" -exec rm {{}} \;'.\
       format(cassandra_dir)
-    utils.ssh(db_ip, keyname, clear_db)
+    appscale_utils.ssh(db_ip, keyname, clear_db)
 
     if db_ip not in machines_without_restore:
-      utils.ssh(db_ip, keyname, 'tar xf {} -C {}'.format(path, cassandra_dir))
-      utils.ssh(db_ip, keyname, 'chown -R cassandra {}'.format(cassandra_dir))
+      appscale_utils.ssh(db_ip, keyname,
+                         'tar xf {} -C {}'.format(path, cassandra_dir))
+      appscale_utils.ssh(db_ip, keyname,
+                         'chown -R cassandra {}'.format(cassandra_dir))
 
     logging.info('Starting Cassandra on {}'.format(db_ip))
     retries = SERVICE_RETRIES
     status = MonitStates.UNMONITORED
     while status != MonitStates.RUNNING:
-      utils.ssh(db_ip, keyname,
-                'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME),
-                method=subprocess.call)
+      appscale_utils.ssh(db_ip, keyname,
+                         'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME),
+                         method=subprocess.call)
       time.sleep(3)
-      summary = utils.ssh(db_ip, keyname, 'monit summary',
-                          method=subprocess.check_output)
+      summary = appscale_utils.ssh(db_ip, keyname, 'monit summary',
+                                   method=subprocess.check_output)
       status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
       retries -= 1
       if retries < 0:
         raise BRException('Unable to start Cassandra')
 
-    utils.ssh(db_ip, keyname,
-      'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
+    appscale_utils.ssh(db_ip, keyname,
+                       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
 
   logging.info('Waiting for Cassandra cluster to be ready')
   db_ip = db_ips[0]
@@ -245,8 +249,9 @@ def restore_data(path, keyname, force=False):
   while True:
     ready = True
     try:
-      output = utils.ssh(db_ip, keyname, '{} status'.format(NODE_TOOL),
-                         method=subprocess.check_output)
+      output = appscale_utils.ssh(
+        db_ip, keyname, '{} status'.format(NODE_TOOL),
+        method=subprocess.check_output)
       nodes_ready = len([line for line in output.split('\n')
                          if line.startswith('UN')])
       if nodes_ready < len(db_ips):

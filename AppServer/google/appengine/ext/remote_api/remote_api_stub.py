@@ -592,7 +592,8 @@ def GetRemoteAppIdFromServer(server, path, remote_token=None):
 def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
                                  default_auth_domain=None,
                                  use_remote_datastore=True,
-                                 use_async_rpc=False):
+                                 use_async_rpc=False,
+                                 external_server=None):
   """Does necessary setup to allow easy remote access to App Engine APIs.
 
   Args:
@@ -609,6 +610,8 @@ def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
       a single request.
     use_async_rpc: A boolean indicating whether or not to make RPC calls in a
       separate thread.
+    external_server: An AbstractRpcServer specifying the location of an
+      external API server.
 
   Raises:
     urllib2.HTTPError: if app_id is not provided and there is an error while
@@ -636,11 +639,20 @@ def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', datastore_stub)
 
   if use_async_rpc:
-    stub = RuntimeRemoteStub(server, path)
+    stub_type = RuntimeRemoteStub
   else:
-    stub = RemoteStub(server, path)
+    stub_type = RemoteStub
+
+  stub = stub_type(server, path)
+  external_stub = None
+  if external_server is not None:
+    external_stub = stub_type(external_server, path)
+
   for service in services:
-    apiproxy_stub_map.apiproxy.RegisterStub(service, stub)
+    if service == 'app_identity_service' and external_stub is not None:
+      apiproxy_stub_map.apiproxy.RegisterStub(service, external_stub)
+    else:
+      apiproxy_stub_map.apiproxy.RegisterStub(service, stub)
 
 
 def GetRemoteAppId(servername,
@@ -691,7 +703,8 @@ def ConfigureRemoteApi(app_id,
                        default_auth_domain=None,
                        save_cookies=False,
                        use_remote_datastore=True,
-                       use_async_rpc=False):
+                       use_async_rpc=False,
+                       external_api_server=None):
   """Does necessary setup to allow easy remote access to App Engine APIs.
 
   Either servername must be provided or app_id must not be None.  If app_id
@@ -727,6 +740,8 @@ def ConfigureRemoteApi(app_id,
       a single request.
     use_async_rpc: A boolean indicating whether or not to make RPC calls in a
       separate thread.
+    external_api_server: A string specifying the location of an external API
+      server.
 
   Returns:
     server, the server created by rpc_server_factory, which may be useful for
@@ -744,12 +759,20 @@ def ConfigureRemoteApi(app_id,
   server = rpc_server_factory(servername, auth_func, GetUserAgent(),
                               GetSourceName(), save_cookies=save_cookies,
                               debug_data=False, secure=secure)
+
+  if external_api_server is None:
+    external_server = server
+  else:
+    external_server = rpc_server_factory(
+      external_api_server, auth_func, GetUserAgent(), GetSourceName(),
+      save_cookies=save_cookies, debug_data=False, secure=secure)
+
   if not app_id:
     app_id = GetRemoteAppIdFromServer(server, path, rtok)
 
   ConfigureRemoteApiFromServer(server, path, app_id, services,
                                default_auth_domain, use_remote_datastore,
-                               use_async_rpc)
+                               use_async_rpc, external_server)
   return server
 
 

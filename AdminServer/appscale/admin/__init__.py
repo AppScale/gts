@@ -33,6 +33,7 @@ from tornado.escape import json_encode
 from tornado.ioloop import IOLoop
 from . import utils
 from . import constants
+from .appengine_api import UpdateCronHandler
 from .appengine_api import UpdateQueuesHandler
 from .base_handler import BaseHandler
 from .constants import (
@@ -41,6 +42,7 @@ from .constants import (
   OperationTimeout,
   REDEPLOY_WAIT,
   ServingStatus,
+  SUPPORTED_INBOUND_SERVICES,
   VALID_RUNTIMES
 )
 from .operation import (
@@ -563,6 +565,11 @@ class VersionsHandler(BaseHandler):
     if 'basicScaling' in version or 'manualScaling' in version:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Only automaticScaling is supported')
+
+    for inbound_service in version.get('inboundServices', []):
+      if inbound_service not in SUPPORTED_INBOUND_SERVICES:
+        message = '{} is not supported'.format(inbound_service)
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
     # Create a revision ID to differentiate between deployments of the same
     # version.
@@ -1156,6 +1163,8 @@ def main():
      VersionHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
+    ('/api/cron/update', UpdateCronHandler,
+     {'acc': acc, 'zk_client': zk_client, 'ua_client': ua_client}),
     ('/api/queue/update', UpdateQueuesHandler,
      {'zk_client': zk_client, 'ua_client': ua_client})
   ])

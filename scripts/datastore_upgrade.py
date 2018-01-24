@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 
-from appscale.datastore import appscale_datastore_batch
+from appscale.common.appscale_utils import ssh
 from appscale.datastore import dbconstants
 from appscale.datastore.dbconstants import APP_ENTITY_SCHEMA
 from appscale.datastore.dbconstants import APP_ENTITY_TABLE
@@ -21,15 +21,12 @@ from appscale.datastore.zkappscale.zktransaction import ZKInternalException
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 
-from appscale.common import appscale_info
 from appscale.common.constants import (
   APPSCALE_HOME,
   CONTROLLER_SERVICE,
+  KEY_DIRECTORY,
   LOG_DIR
 )
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../InfrastructureManager"))
-from utils import utils
 
 # The number of entities retrieved in a datastore request.
 BATCH_SIZE = 100
@@ -95,7 +92,7 @@ def start_cassandra(db_ips, db_master, keyname, zookeeper_ips):
                   script=SETUP_CASSANDRA_SCRIPT, ip=ip, db_master=db_master,
                   zk_locations=get_zk_locations_string(zookeeper_ips))
     try:
-      utils.ssh(ip, keyname, init_config)
+      ssh(ip, keyname, init_config)
     except subprocess.CalledProcessError:
       message = 'Unable to configure Cassandra on {}'.format(ip)
       logging.exception(message)
@@ -103,7 +100,7 @@ def start_cassandra(db_ips, db_master, keyname, zookeeper_ips):
 
     try:
       start_service_cmd = START_SERVICE_SCRIPT + CASSANDRA_WATCH_NAME
-      utils.ssh(ip, keyname, start_service_cmd)
+      ssh(ip, keyname, start_service_cmd)
     except subprocess.CalledProcessError:
       message = 'Unable to start Cassandra on {}'.format(ip)
       logging.exception(message)
@@ -111,8 +108,7 @@ def start_cassandra(db_ips, db_master, keyname, zookeeper_ips):
 
   logging.info('Waiting for Cassandra to be ready')
   status_cmd = '{} status'.format(cassandra_interface.NODE_TOOL)
-  while (utils.ssh(db_master, keyname, status_cmd,
-                   method=subprocess.call) != 0):
+  while ssh(db_master, keyname, status_cmd, method=subprocess.call) != 0:
     time.sleep(5)
 
   logging.info("Successfully started Cassandra.")
@@ -128,7 +124,7 @@ def start_zookeeper(zk_ips, keyname):
   for ip in zk_ips:
     start_service_cmd = START_SERVICE_SCRIPT + ZK_WATCH_NAME
     try:
-      utils.ssh(ip, keyname, start_service_cmd)
+      ssh(ip, keyname, start_service_cmd)
     except subprocess.CalledProcessError:
       message = 'Unable to start ZooKeeper on {}'.format(ip)
       logging.exception(message)
@@ -144,8 +140,7 @@ def start_zookeeper(zk_ips, keyname):
     raise ZKInternalException('Unable to find zkServer.sh')
 
   status_cmd = '{} status'.format(zk_server_cmd)
-  while (utils.ssh(zk_ips[0], keyname, status_cmd,
-                   method=subprocess.call) != 0):
+  while ssh(zk_ips[0], keyname, status_cmd, method=subprocess.call) != 0:
     time.sleep(5)
 
   logging.info("Successfully started ZooKeeper.")
@@ -157,7 +152,7 @@ def get_zookeeper(zk_location_ips):
     zk_location_ips: A list of ZooKeeper location ips.
   """
   zookeeper_locations = get_zk_locations_string(zk_location_ips)
-  zookeeper = zk.ZKTransaction(host=zookeeper_locations, start_gc=False)
+  zookeeper = zk.ZKTransaction(host=zookeeper_locations)
   return zookeeper
 
 
@@ -327,7 +322,7 @@ def stop_cassandra(db_ips, keyname):
   for ip in db_ips:
     stop_service_cmd = STOP_SERVICE_SCRIPT + CASSANDRA_WATCH_NAME
     try:
-      utils.ssh(ip, keyname, stop_service_cmd)
+      ssh(ip, keyname, stop_service_cmd)
     except subprocess.CalledProcessError:
       logging.error('Unable to stop Cassandra on {}'.format(ip))
 
@@ -342,7 +337,7 @@ def stop_zookeeper(zk_ips, keyname):
   for ip in zk_ips:
     stop_service_cmd = STOP_SERVICE_SCRIPT + ZK_WATCH_NAME
     try:
-      utils.ssh(ip, keyname, stop_service_cmd)
+      ssh(ip, keyname, stop_service_cmd)
     except subprocess.CalledProcessError:
       logging.error('Unable to stop ZooKeeper on {}'.format(ip))
 
@@ -357,7 +352,7 @@ def wait_for_quorum(keyname, db_master, db_nodes, replication):
     replication: An integer specifying the keyspace replication factor.
   """
   command = cassandra_interface.NODE_TOOL + " " + 'status'
-  key_file = '{}/{}.key'.format(utils.KEY_DIRECTORY, keyname)
+  key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
   ssh_cmd = ['ssh', '-i', key_file, db_master, command]
 
   # Determine the number of nodes needed for a quorum.
@@ -403,8 +398,7 @@ def estimate_total_entities(session, db_master, keyname):
       nodetool=cassandra_interface.NODE_TOOL,
       keyspace=cassandra_interface.KEYSPACE,
       table=dbconstants.APP_ENTITY_TABLE)
-    stats = utils.ssh(db_master, keyname, stats_cmd,
-                      method=subprocess.check_output)
+    stats = ssh(db_master, keyname, stats_cmd, method=subprocess.check_output)
     for line in stats.splitlines():
       if 'Number of keys (estimate)' in line:
         return '{} (estimate)'.format(line.split()[-1])

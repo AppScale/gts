@@ -14,7 +14,7 @@ from appscale.hermes.constants import SECRET_HEADER
 from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.stats.producers import (
-  proxy_stats, node_stats, process_stats
+  proxy_stats, node_stats, process_stats, rabbitmq_stats
 )
 
 
@@ -34,13 +34,13 @@ class ClusterStatsSource(object):
   local_stats_source = None
 
   @gen.coroutine
-  def get_current_async(self, newer_than=None, include_lists=None,
+  def get_current_async(self, max_age=None, include_lists=None,
                         exclude_nodes=None):
     """ Makes concurrent asynchronous http calls to cluster nodes
     and collects current stats. Local stats is got from local stats source.
 
     Args:
-      newer_than: UTC timestamp, allow to use cached snapshot if it's newer.
+      max_age: UTC timestamp, allow to use cached snapshot if it's newer.
       include_lists: An instance of IncludeLists.
       exclude_nodes: A list of node IPs to ignore when fetching stats.
     Returns:
@@ -52,7 +52,7 @@ class ClusterStatsSource(object):
 
     # Do multiple requests asynchronously and wait for all results
     stats_or_error_per_node = yield {
-      node_ip: self._stats_from_node_async(node_ip, newer_than, include_lists)
+      node_ip: self._stats_from_node_async(node_ip, max_age, include_lists)
       for node_ip in self.ips_getter() if node_ip not in exclude_nodes
     }
     stats_per_node = {
@@ -72,24 +72,24 @@ class ClusterStatsSource(object):
     raise gen.Return((stats_per_node, failures))
 
   @gen.coroutine
-  def _stats_from_node_async(self, node_ip, newer_than, include_lists):
+  def _stats_from_node_async(self, node_ip, max_age, include_lists):
     if node_ip == appscale_info.get_private_ip():
       snapshot = self.local_stats_source.get_current()
     else:
       snapshot = yield self._fetch_remote_stats_async(
-        node_ip, newer_than, include_lists)
+        node_ip, max_age, include_lists)
     raise gen.Return(snapshot)
 
   @gen.coroutine
-  def _fetch_remote_stats_async(self, node_ip, newer_than, include_lists):
+  def _fetch_remote_stats_async(self, node_ip, max_age, include_lists):
     # Security header
     headers = {SECRET_HEADER: options.secret}
     # Build query arguments
     arguments = {}
     if include_lists is not None:
       arguments['include_lists'] = include_lists.asdict()
-    if newer_than:
-      arguments['newer_than'] = newer_than
+    if max_age is not None:
+      arguments['max_age'] = max_age
 
     url = "http://{ip}:{port}/{path}".format(
       ip=node_ip, port=constants.HERMES_PORT, path=self.method_path)
@@ -142,3 +142,10 @@ class ClusterProxiesStatsSource(ClusterStatsSource):
   method_path = 'stats/local/proxies'
   stats_model = proxy_stats.ProxiesStatsSnapshot
   local_stats_source = proxy_stats.ProxiesStatsSource
+
+
+class ClusterRabbitMQStatsSource(ClusterStatsSource):
+  ips_getter = staticmethod(appscale_info.get_taskqueue_nodes)
+  method_path = 'stats/local/rabbitmq'
+  stats_model = rabbitmq_stats.RabbitMQStatsSnapshot
+  local_stats_source = rabbitmq_stats.RabbitMQStatsSource

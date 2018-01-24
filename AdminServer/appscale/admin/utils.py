@@ -8,21 +8,17 @@ import shutil
 import socket
 import tarfile
 
-import random
-
-import collections
 from appscale.common.constants import HTTPCodes
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
-from tornado import gen, locks
-from tornado.ioloop import IOLoop
 
 from . import constants
 from .constants import (
   CustomHTTPError,
   GO,
+  InvalidConfiguration,
   JAVA,
   SOURCES_DIRECTORY,
   Types,
@@ -426,6 +422,27 @@ def assign_ports(old_version, new_version, zk_client):
           'haproxyPort': haproxy_port}
 
 
+def validate_job(job):
+  """ Checks if a cron job configuration is valid.
+
+  Args:
+    job: A dictionary containing cron job configuration details.
+  Raises:
+    InvalidConfiguration if configuration is invalid.
+  """
+  required_fields = ('schedule', 'url')
+  supported_fields = ('description', 'schedule', 'url')
+
+  for field in required_fields:
+    if field not in job:
+      raise InvalidConfiguration(
+        'Cron job is missing {}: {}'.format(field, job))
+
+  for field in job:
+    if field not in supported_fields:
+      raise InvalidConfiguration('{} is not supported'.format(field))
+
+
 def validate_queue(queue):
   """ Checks if a queue configuration is valid.
 
@@ -476,6 +493,33 @@ def validate_queue(queue):
         'Invalid {} value: {}'.format(field, value))
 
 
+def cron_from_dict(payload):
+  """ Validates and prepares a project's cron configuration.
+
+  Args:
+    payload: A dictionary containing cron configuration.
+  Returns:
+    A dictionary containing cron information.
+  Raises:
+    InvalidConfiguration if configuration is invalid.
+  """
+  try:
+    given_jobs = payload['cron']
+  except KeyError:
+    raise InvalidConfiguration('Payload must contain cron directive')
+
+  for directive in payload:
+    # There are no other directives in the GAE docs. This check is in case more
+    # are added later.
+    if directive != 'cron':
+      raise InvalidQueueConfiguration('{} is not supported'.format(directive))
+
+  for job in given_jobs:
+    validate_job(job)
+
+  return payload
+
+
 def queues_from_dict(payload):
   """ Validates and prepares a project's queue configuration.
 
@@ -503,106 +547,3 @@ def queues_from_dict(payload):
     queues[name] = queue
 
   return {'queue': queues}
-
-
-class _PersistentWatch(object):
-
-  def __init__(self):
-
-    class CompliantLock(object):
-      """
-      A container which allows to organize compliant locking
-      of zk_node by making sure:
-       - update function won't be interrupted by another;
-       - sleep between retries can be interrupted by newer update;
-       - _PersistentWatch is able to identify and remove unused locks.
-      """
-      def __init__(self):
-        self.waiters = 0
-        self.lock = locks.Lock()
-        self.condition = locks.Condition()
-
-    # Dict of locks for zk_nodes (shared between all functions decorated
-    # by an instance of _PersistentWatch)
-    self._locks = collections.defaultdict(CompliantLock)
-
-  def __call__(self, node, func, backoff_base=2, backoff_multiplier=0.2,
-               backoff_threshold=300, max_retries=None,
-               retry_on_exception=None):
-    """ Wraps func with retry mechanism which runs up to max_retries attempts
-    with exponential backoff (sleep = backoff_multiplier * backoff_base**X).
-  
-    Args:
-      node: a string representing path to zookeeper node.
-      func: function or coroutine to wrap.
-      backoff_base: a number to use in backoff calculation.
-      backoff_multiplier: a number indicating initial backoff.
-      backoff_threshold: a number indicating maximum backoff.
-      max_retries: an integer indicating maximum number of retries.
-      retry_on_exception: a function receiving one argument: exception object
-        and returning True if retry makes sense for such exception.
-    Returns:
-      A tornado coroutine wrapping function with retry mechanism.
-    """
-    @gen.coroutine
-    def persistent_execute(*args, **kwargs):
-      retries = 0
-      backoff = backoff_multiplier
-      node_lock = self._locks[node]
-      result = None
-
-      # Wake older update calls (*)
-      node_lock.condition.notify_all()
-      node_lock.waiters += 1
-      with (yield node_lock.lock.acquire()):
-        node_lock.waiters -= 1
-
-        while True:
-          try:
-            result = func(*args, **kwargs)
-            if isinstance(result, gen.Future):
-              result = yield result
-            break
-
-          except Exception as e:
-
-            # Decide if retry is needed
-            if max_retries is not None and retries >= max_retries:
-              if not node_lock.waiters:
-                del self._locks[node]
-              raise
-            if retry_on_exception is not None and not retry_on_exception(e):
-              if not node_lock.waiters:
-                del self._locks[node]
-              raise
-
-            retries += 1
-
-            # Proceed with exponential backoff
-            backoff = backoff * backoff_base
-            if backoff > backoff_threshold:
-              backoff = backoff_threshold
-            sleep_time = backoff * (random.random() * 0.3 + 0.85)
-            # Report error to logs
-            logger.exception(u"Retry #{retry} in {sleep:0.1f}s"
-                             .format(retry=retries, sleep=sleep_time))
-
-            # (*) Sleep with one eye open, give up if newer update wakes you
-            now = IOLoop.current().time()
-            interrupted = yield node_lock.condition.wait(now + sleep_time)
-            if interrupted or node_lock.waiters:
-              logger.info("Giving up retrying because newer update came up")
-              if not node_lock.waiters:
-                del self._locks[node]
-              raise gen.Return()
-
-      if not node_lock.waiters:
-        del self._locks[node]
-      raise gen.Return(result)
-
-    return persistent_execute
-
-
-# Two different instances for having two locks namespaces
-retry_data_watch_coroutine = _PersistentWatch()
-retry_children_watch_coroutine = _PersistentWatch()

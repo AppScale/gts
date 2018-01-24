@@ -193,7 +193,7 @@ module HAProxy
     if current == config
       Djinn.log_debug("No need to restart haproxy for #{config_file}:" \
                       " configuration didn't change.")
-      false
+      return false
     end
 
     # Update config file.
@@ -280,7 +280,7 @@ module HAProxy
     }
     if servers.length <= 0
       Djinn.log_warn('update_version_config called but no servers found.')
-      false
+      return false
     end
 
     config = "# Create a load balancer for #{version_key}\n"
@@ -406,144 +406,5 @@ CONFIG
     File.open(SERVICES_BASE_FILE, 'w+') { |dest_file|
       dest_file.write(base_config.sub('/stats', '/service-stats'))
     }
-  end
-
-  # Counts the current established HAProxy connections for a version's port.
-  #
-  # Args:
-  #   ip_address: The current machine's IP address.
-  #   port: The HAProxy port that the version listens to.
-  # Returns:
-  #   The total number of active connections for a version.
-  def self.count_connections(ip_address, port)
-    current_sessions = 0
-    PosixPsutil::Process.process_iter.each { |process|
-      begin
-        next unless process.name == 'haproxy'
-        process.connections.each { |connection|
-          if connection.status == 'ESTABLISHED' &&
-              connection.laddr == [ip_address, port]
-            current_sessions += 1
-          end
-        }
-      rescue PosixPsutil::NoSuchProcess
-        next
-      end
-    }
-    current_sessions
-  end
-
-  # Retrieves HAProxy stats for the given app.
-  #
-  # Args:
-  #   version_key: The version key to get HAProxy stats for.
-  #   ip_address: The current machine's IP address.
-  #   port: The HAProxy port that the version listens to.
-  # Returns:
-  #   The total requests for the app, the requests enqueued and the
-  #   timestamp of stat collection.
-  def self.get_haproxy_stats(version_key, ip_address, port)
-    full_app_name = "gae_#{version_key}"
-    Djinn.log_debug("Getting scaling info for application #{full_app_name}")
-
-    total_requests_seen = 0
-    total_req_in_queue = 0
-    time_requests_were_seen = 0
-    current_sessions = 0
-
-    # Retrieve total and enqueued requests for the given app.
-    monitoring_info = Djinn.log_run("echo \"show stat\" | " \
-      "socat stdio unix-connect:#{HAPROXY_PATH}/stats | grep #{full_app_name}")
-
-    if monitoring_info.empty?
-      Djinn.log_warn("Didn't see any monitoring info - #{full_app_name} may not " \
-        "be running.")
-      return :no_change, :no_change, :no_change, :no_backend
-    end
-
-    monitoring_info.each_line { |line|
-      parsed_info = line.split(',')
-      # If we get short lines, are not part of the statistics returned by
-      # haproxy, so we skip them.
-      next if parsed_info.length < TOTAL_REQUEST_RATE_INDEX
-
-      # Make sure the application name is correct (application name can be
-      # prefix of others application names).
-      next if parsed_info[APP_NAME_INDEX] != full_app_name
-
-      service_name = parsed_info[SERVICE_NAME_INDEX]
-
-      if service_name == "FRONTEND"
-        total_requests_seen = parsed_info[TOTAL_REQUEST_RATE_INDEX].to_i
-        time_requests_were_seen = Time.now.to_i
-        Djinn.log_debug("#{full_app_name} #{service_name} Requests Seen " \
-          "#{total_requests_seen}")
-      end
-
-      if service_name == "BACKEND"
-        total_req_in_queue = parsed_info[REQ_IN_QUEUE_INDEX].to_i
-        current_sessions = parsed_info[CURRENT_SESSIONS_INDEX].to_i
-        Djinn.log_debug("#{full_app_name} #{service_name} Queued Currently " \
-          "#{total_req_in_queue}")
-      end
-    }
-
-    # Every time HAProxy loads a new configuration file, the statistics
-    # from the old process are lost. Asking the system can give us a more
-    # accurate count.
-    active_connections = count_connections(ip_address, port)
-
-    # If for some reason there is a problem finding the HAProxy processes,
-    # use the stats.
-    current_sessions = [active_connections, current_sessions].max
-    Djinn.log_debug("#{version_key} current sessions: #{current_sessions}")
-
-    return total_requests_seen, total_req_in_queue, current_sessions, time_requests_were_seen
-  end
-
-  # This method returns the list of running and failed AppServers
-  # associated with a specific version.
-  #
-  # Args:
-  #   version_key: A String containing the version key.
-  # Returns:
-  #   An Array of running AppServers (ip:port).
-  #   An Array of failed (marked as DOWN) AppServers (ip:port).
-  def self.list_servers(version_key)
-    full_version_name = "gae_#{version_key}"
-    running = []
-    failed = []
-    servers = Djinn.log_run("echo \"show stat\" | socat stdio " \
-      "unix-connect:#{HAPROXY_PATH}/stats | grep \"#{full_version_name}\"")
-    servers.each_line { |line|
-      parsed_info = line.split(',')
-      # Make sure the application name is correct (application name can be
-      # prefix of others application names), and ignore the service
-      # summary lines.
-      next if parsed_info[APP_NAME_INDEX] != full_version_name
-      next if parsed_info[SERVICE_NAME_INDEX] == 'FRONTEND'
-      next if parsed_info[SERVICE_NAME_INDEX] == 'BACKEND'
-
-      if parsed_info[SERVER_STATUS_INDEX].start_with?('DOWN')
-        failed << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_version_name}-/, '')
-      else
-        running << parsed_info[SERVICE_NAME_INDEX].sub(/^#{full_version_name}-/, '')
-      end
-    }
-    if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-      Djinn.log_debug("Haproxy: found #{running.length} running AppServers " \
-                      "for #{version_key}.")
-    else
-      Djinn.log_debug('Haproxy: found these running AppServers for ' \
-                      "#{version_key}: #{running}.")
-    end
-    if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-      Djinn.log_debug("Haproxy: found #{failed.length} failed AppServers " \
-                      "for #{version_key}.")
-    else
-      Djinn.log_debug('Haproxy: found these failed AppServers for ' \
-                      "#{version_key}: #{failed}.")
-    end
-    return running, failed
   end
 end

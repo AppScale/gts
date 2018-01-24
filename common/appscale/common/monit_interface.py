@@ -10,14 +10,16 @@ from tornado.httpclient import AsyncHTTPClient
 from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 
+from appscale.common.async_retrying import retry_coroutine
+from appscale.common.retrying import retry
 from . import constants
 from . import misc
 from .constants import MonitStates
 
-""" 
-This file contains top level functions for starting and stopping 
+"""
+This file contains top level functions for starting and stopping
 monitoring of processes using monit. Each component is in
-charge of creating configuration files for the process they want started. 
+charge of creating configuration files for the process they want started.
 """
 
 MONIT = "/usr/bin/monit"
@@ -25,6 +27,7 @@ MONIT = "/usr/bin/monit"
 NUM_RETRIES = 10
 
 SMALL_WAIT = 3
+RETRYING_TIMEOUT = 60
 
 
 class ProcessNotFound(Exception):
@@ -32,35 +35,47 @@ class ProcessNotFound(Exception):
   pass
 
 
-def run_with_retry(args):
+class NotMonitCommand(Exception):
+  """ Indicates that wrong command was asked to be run """
+  pass
+
+
+class NonZeroReturnStatus(Exception):
+  """ Indicates that command returned non-zero return status """
+  pass
+
+
+@retry(retrying_timeout=RETRYING_TIMEOUT, backoff_multiplier=0.5,
+       retry_on_exception=lambda err: not isinstance(err, NotMonitCommand))
+def monit_run(args):
   """ Runs the given monit command, retrying it if it fails (which can occur if
   monit is busy servicing other requests).
 
   Args:
-    args: A list of strs, where each str is a command-line argument composing
-      the command to execute.
-  Returns:
-    True on success, and False otherwise.
+    args: A list of strs, where each str is a command-line argument for monit.
+  Raises:
+    NonZeroReturnStatus if command returned status different from 0.
   """
-  if args[0] != MONIT:
-    logging.error("Cannot execute command {0}, as it is not a monit command." \
-      .format(args))
+  return_status = subprocess.call([MONIT] + args)
+  if return_status != 0:
+    raise NonZeroReturnStatus("Command `{}` return non-zero status: {}"
+                              .format(' '.join(args), return_status))
+
+
+def safe_monit_run(args):
+  """ Runs the given monit command, retrying it if it fails.
+
+  Args:
+    args: A list of strs, where each str is a command-line argument for monit.
+  Returns:
+    True if command succeeded, False otherwise.
+  """
+  try:
+    monit_run(args)
+    return True
+  except NonZeroReturnStatus as err:
+    logging.error(err)
     return False
-
-  retries_left = NUM_RETRIES
-  while retries_left:
-    return_status = subprocess.call(args)
-    if return_status == 0:
-      logging.info("Monit command {0} returned successfully!".format(args))
-      return True
-
-    retries_left -= 1
-
-    logging.warning("Monit command {0} returned with status {1}, {2} retries " \
-      "left.".format(args, return_status, retries_left))
-    time.sleep(SMALL_WAIT)
-
-  return False
 
 
 def start(watch, is_group=True):
@@ -82,21 +97,21 @@ def start(watch, is_group=True):
     return False
 
   logging.info("Reloading monit.")
-  if not run_with_retry([MONIT, 'reload']):
+  if not safe_monit_run(['reload']):
     return False
 
   logging.info("Starting watch {0}".format(watch))
   if is_group:
-    run_with_retry([MONIT, 'monitor', '-g', watch])
-    return run_with_retry([MONIT, 'start', '-g', watch])
+    safe_monit_run(['monitor', '-g', watch])
+    return safe_monit_run(['start', '-g', watch])
   else:
-    run_with_retry([MONIT, 'monitor',  watch])
-    return run_with_retry([MONIT, 'start', watch])
+    safe_monit_run(['monitor', watch])
+    return safe_monit_run(['start', watch])
 
 
 def stop(watch, is_group=True):
   """ Shut down the named programs monit is watching, and stop monitoring it.
- 
+
   Args:
     watch: The name of the group of programs that monit is watching, that should
       no longer be watched.
@@ -110,14 +125,14 @@ def stop(watch, is_group=True):
   if not misc.is_string_secure(watch):
     logging.error("Watch string (%s) is a possible security violation" % watch)
     return False
-  
+
   logging.info("Stopping watch {0}".format(watch))
   if is_group:
-    stop_command = [MONIT, 'stop', '-g', watch]
+    stop_command = ['stop', '-g', watch]
   else:
-    stop_command = [MONIT, 'stop', watch]
+    stop_command = ['stop', watch]
 
-  return run_with_retry(stop_command)
+  return safe_monit_run(stop_command)
 
 
 def restart(watch):
@@ -135,7 +150,7 @@ def restart(watch):
     return False
 
   logging.info("Restarting watch {0}".format(watch))
-  return run_with_retry([MONIT, 'restart', '-g', watch])
+  return safe_monit_run(['restart', '-g', watch])
 
 
 def parse_entries(response):
@@ -188,31 +203,21 @@ class MonitOperator(object):
 
     yield self.reload_future
 
-  @gen.coroutine
-  def get_entries(self, retries=5):
+  @retry_coroutine(retrying_timeout=RETRYING_TIMEOUT)
+  def get_entries(self):
     """ Retrieves the status for each Monit entry.
 
-    Args:
-      retries: An integer specifying the number of times to retry failures.
     Returns:
       A dictionary mapping Monit entries to their state.
     """
     status_url = '{}/_status?format=xml'.format(self.LOCATION)
-    try:
-      response = yield self.client.fetch(status_url)
-    except HTTPError:
-      retries -= 1
-      if retries < 0:
-        raise
-
-      yield gen.sleep(.5)
-      entries = yield self.get_entries(retries=retries)
-      raise gen.Return(entries)
-
+    response = yield self.client.fetch(status_url)
     monit_entries = parse_entries(response.body)
     raise gen.Return(monit_entries)
 
-  @gen.coroutine
+  @retry_coroutine(
+    retrying_timeout=RETRYING_TIMEOUT,
+    retry_on_exception=lambda err: not isinstance(err, ProcessNotFound))
   def send_command(self, process_name, command):
     """ Sends a command to the Monit API.
 
@@ -222,19 +227,12 @@ class MonitOperator(object):
     """
     process_url = '{}/{}'.format(self.LOCATION, process_name)
     payload = urllib.urlencode({'action': command})
-    while True:
-      try:
-        yield self.client.fetch(process_url, method='POST', body=payload)
-        return
-      except HTTPError as error:
-        if error.code == 503:
-          yield gen.sleep(.2)
-          continue
-
-        if error.code == 404:
-          raise ProcessNotFound('{} is not monitored'.format(process_name))
-
-        raise
+    try:
+      yield self.client.fetch(process_url, method='POST', body=payload)
+    except HTTPError as error:
+      if error.code == 404:
+        raise ProcessNotFound('{} is not monitored'.format(process_name))
+      raise
 
   @gen.coroutine
   def wait_for_status(self, process_name, acceptable_states):
@@ -244,12 +242,31 @@ class MonitOperator(object):
       process_name: A string specifying a monit watch.
       acceptable_states: An iterable of strings specifying states.
     """
+    logging.info(
+      "Waiting until process '{}' gets to one of acceptable states: {}"
+       .format(process_name, acceptable_states)
+    )
+    start_time = time.time()
+    backoff = 0.1
+
     while True:
       entries = yield self.get_entries()
       status = entries.get(process_name, MonitStates.MISSING)
+      elapsed = time.time() - start_time
+
       if status in acceptable_states:
+        logging.info("Status of '{}' became '{}' after {:0.1f}s"
+                     .format(process_name, status, elapsed))
         raise gen.Return(status)
-      yield gen.sleep(.2)
+
+      if elapsed > 1:
+        # Keep logs informative and don't report too early
+        logging.info("Status of '{}' is not acceptable ('{}') after {:0.1f}s."
+                     "Checking again in {:0.1f}s."
+                     .format(process_name, status, elapsed, backoff))
+
+      yield gen.sleep(backoff)
+      backoff = min(backoff * 1.5, 5)  # Increase backoff slowly up to 5 sec.
 
   @gen.coroutine
   def ensure_running(self, process_name):
@@ -274,18 +291,13 @@ class MonitOperator(object):
 
       yield gen.sleep(1)
 
-  @gen.coroutine
-  def _reload(self, retries=3):
+  @retry_coroutine(
+    retrying_timeout=RETRYING_TIMEOUT,
+    retry_on_exception=[subprocess.CalledProcessError])
+  def _reload(self):
     """ Reloads Monit. """
     time_since_reload = time.time() - self.last_reload
     wait_time = max(self.RELOAD_COOLDOWN - time_since_reload, 0)
     yield gen.sleep(wait_time)
     self.last_reload = time.time()
-    try:
-      subprocess.check_call(['monit', 'reload'])
-    except subprocess.CalledProcessError:
-      retries -= 1
-      if retries < 0:
-        raise
-
-      yield self._reload(retries)
+    subprocess.check_call(['monit', 'reload'])

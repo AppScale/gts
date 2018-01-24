@@ -1,18 +1,15 @@
 from __future__ import division
 import logging
 import os
-import sys
 
+from appscale.common.appscale_utils import ssh
+from appscale.common.constants import KEY_DIRECTORY
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from subprocess import (CalledProcessError,
                         check_output)
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import KEYSPACE
 
-sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
-from utils.utils import KEY_DIRECTORY
-from utils.utils import ssh
 
 # The percentage difference allowed between an actual and ideal load.
 MAX_DRIFT = .3

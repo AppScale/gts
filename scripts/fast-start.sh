@@ -10,6 +10,12 @@
 # ssh -i <key> ubuntu@<public IP> 'curl -Lo - fast-start.appscale.com|sudo -i sh'
 #
 
+# On some systems, when running this script from rc.local (ie at boot
+# time) there may not be any user set, which will cause ssh-copy-id to
+# fail.  Forcing HOME to the default enables ssh-copy-id to operate
+# normally.
+export HOME="/root"
+
 PATH="${PATH}:/usr/local/bin"
 ADMIN_EMAIL=""
 ADMIN_PASSWD=""
@@ -20,16 +26,11 @@ APPSCALE_CMD="$(which appscale)"
 APPSCALE_UPLOAD="$(which appscale-upload-app)"
 GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
 GUESTBOOK_URL="https://www.appscale.com/wp-content/uploads/2017/09/guestbook.tar.gz"
-GUESTBOOK_APP="/root/guestbook.tar.gz"
-MD5_SUMS="/root/appscale/md5sums.txt"
+GUESTBOOK_APP="${HOME}/guestbook.tar.gz"
+MD5_SUMS="${HOME}/appscale/md5sums.txt"
 USE_DEMO_APP="Y"
 FORCE_PRIVATE="N"
 AZURE_METADATA="http://169.254.169.254/metadata/v1/InstanceInfo"
-
-# On some system, when running this scipt from rc.local (ie at boot time)
-# there may not be any user set, which will cause ssh-copy-id to fail.
-# Forcing HOME to the default enables ssh-copy-id to operate normally.
-export HOME="/root"
 
 # Print help screen.
 usage() {
@@ -248,19 +249,21 @@ if [ ! -e AppScalefile ]; then
     echo "done."
 
     # Let's allow root login (appscale will need it to come up).
-    mkdir -p /root/.ssh
-    chmod 700 /root/.ssh
+    mkdir -p "${HOME}/.ssh"
+    chmod 700 "${HOME}/.ssh"
 
     # Create an SSH key if it does not exist, and allow for local ssh
     # passwordless operations.
-    test -e /root/.ssh/id_rsa.pub || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
-    cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
-    chmod 600 /root/.ssh/authorized_keys
+    test -e "${HOME}/.ssh/id_rsa.pub" || ssh-keygen -q -t rsa -f "${HOME}/.ssh/id_rsa" -N ""
+    cat "${HOME}/.ssh/id_rsa.pub" >> "${HOME}/.ssh/authorized_keys"
+    chmod 600 "${HOME}/.ssh/authorized_keys"
 
     # Make sure the localhost is known to ssh.
-    ssh-keygen -R $PUBLIC_IP
-    ssh-keygen -R $PRIVATE_IP
-    ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> /root/.ssh/known_hosts
+    if [ -e "${HOME}/.ssh/known_hosts" ]; then
+      ssh-keygen -R $PUBLIC_IP
+      ssh-keygen -R $PRIVATE_IP
+    fi
+    ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> "${HOME}/.ssh/known_hosts"
 
     # Download sample app.
     if [ ! -e ${GUESTBOOK_APP} ]; then
@@ -292,7 +295,7 @@ if [ "${USE_DEMO_APP}" != "Y" ]; then
 fi
 
 # Get the keyname.
-KEYNAME=$(grep keyname /root/AppScalefile | cut -f 2 -d ":")
+KEYNAME=$(grep keyname "${HOME}/AppScalefile" | cut -f 2 -d ":")
 [ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
 
 # Deploy sample app.
