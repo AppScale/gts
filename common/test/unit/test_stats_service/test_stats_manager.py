@@ -34,12 +34,12 @@ def request_simulator(service_stats, time_mock=None):
         start_time = time()
         end_time_s = start_time + float(latency)/1000
       time_mock.return_value = start_time
-      request_no = service_stats.start_request(**(start_kwargs or {}))
+      request_info = service_stats.start_request(**(start_kwargs or {}))
       time_mock.return_value = end_time_s
-      service_stats.finalize_request(request_no, **finish_kwargs)
+      request_info.finalize(**finish_kwargs)
     else:
-      request_no = service_stats.start_request(**(start_kwargs or {}))
-      service_stats.finalize_request(request_no, **finish_kwargs)
+      request_info = service_stats.start_request(**(start_kwargs or {}))
+      request_info.finalize(**finish_kwargs)
 
   return parametrized
 
@@ -73,7 +73,7 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
     })
 
     # Starting new request shouldn't affect counters
-    req_no = self.stats.start_request(app="guestbook")
+    req_info = self.stats.start_request(app="guestbook")
     self.assertEqual(self.stats.get_cumulative_counters(), {
       "from": self.start_time,
       "to": int(in_mock_time * 1000),
@@ -85,7 +85,7 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
     })
 
     # Only finishing request should change things
-    self.stats.finalize_request(req_no, status=200)
+    req_info.finalize(status=200)
     self.time_mock.return_value = in_mock_time = int(time() * 1000)
     self.assertEqual(self.stats.get_cumulative_counters(), {
       "from": self.start_time,
@@ -99,8 +99,9 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
     })
 
     # Reporting client error in guestbook
-    req_no = self.stats.start_request(app="guestbook")
-    self.stats.finalize_request(req_no, status=401)
+    req_info = self.stats.start_request(app="guestbook")
+    req_info.status = 401  # You can fill request fields manually
+    req_info.finalize()
     self.time_mock.return_value = in_mock_time = int(time() * 1000)
     self.assertEqual(self.stats.get_cumulative_counters(), {
       "from": self.start_time,
@@ -114,10 +115,8 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
     })
 
     # Reporting client and then server errors in new application ghostbook
-    req_no = self.stats.start_request(app="ghostbook")
-    self.stats.finalize_request(req_no, status=404)
-    req_no = self.stats.start_request(app="ghostbook")
-    self.stats.finalize_request(req_no, status=503)
+    self.stats.start_request(app="ghostbook").finalize(status=404)
+    self.stats.start_request(app="ghostbook").finalize(status=503)
     self.time_mock.return_value = in_mock_time = int(time() * 1000)
     self.assertEqual(self.stats.get_cumulative_counters(), {
       "from": self.start_time,
@@ -176,24 +175,24 @@ class TestCustomCumulativeCounters(unittest.TestCase):
     })
 
     # Report requests
-    req_no = self.stats.start_request(app="guestbook", namespace="friends")
-    self.stats.finalize_request(req_no, status=500)
-    req_no = self.stats.start_request(app="guestbook", namespace="friends")
-    self.stats.finalize_request(req_no, status=200)
-    req_no = self.stats.start_request(app="guestbook", namespace="default")
-    self.stats.finalize_request(req_no, status=400)
-    req_no = self.stats.start_request(app="guestbook", namespace="default")
-    self.stats.finalize_request(req_no, status=201)
-    req_no = self.stats.start_request(app="guestbook", namespace="default")
-    self.stats.finalize_request(req_no, status=201)
-    req_no = self.stats.start_request(app="other", namespace="ghosts")
-    self.stats.finalize_request(req_no, status=200)
-    req_no = self.stats.start_request(app="other", namespace="ghosts")
-    self.stats.finalize_request(req_no, status=200)
-    req_no = self.stats.start_request(app="other", namespace="ghosts")
-    self.stats.finalize_request(req_no, status=200)
-    req_no = self.stats.start_request(app="guestbook", namespace="friends")
-    self.stats.finalize_request(req_no, status=200)
+    self.stats.start_request(app="guestbook", namespace="friends")\
+      .finalize(status=500)
+    self.stats.start_request(app="guestbook", namespace="friends")\
+      .finalize(status=200)
+    self.stats.start_request(app="guestbook", namespace="default")\
+      .finalize(status=400)
+    self.stats.start_request(app="guestbook", namespace="default")\
+      .finalize(status=201)
+    self.stats.start_request(app="guestbook", namespace="default")\
+      .finalize(status=201)
+    self.stats.start_request(app="other", namespace="ghosts")\
+      .finalize(status=200)
+    self.stats.start_request(app="other", namespace="ghosts")\
+      .finalize(status=200)
+    self.stats.start_request(app="other", namespace="ghosts")\
+      .finalize(status=200)
+    self.stats.start_request(app="guestbook", namespace="friends")\
+      .finalize(status=200)
 
     # Check counters
     counters = self.stats.get_cumulative_counters()
@@ -367,28 +366,21 @@ class TestScrollingRecent(unittest.TestCase):
     # First two are finished in the same time,
     # but one with status 500 was reported first
     cls.time_mock.return_value = 151550002
-    req_no = cls.stats.start_request(app="my_app")
-    cls.stats.finalize_request(req_no, status=500)
+    cls.stats.start_request(app="my_app").finalize(status=500)
     cls.time_mock.return_value = 151550002
-    req_no = cls.stats.start_request(app="my_app")
-    cls.stats.finalize_request(req_no, status=400)
+    cls.stats.start_request(app="my_app").finalize(status=400)
 
     # Then one request every second (only 2 latest has status 200)
     cls.time_mock.return_value = 151550003
-    req_no = cls.stats.start_request(app="my_app")
-    cls.stats.finalize_request(req_no, status=400)
+    cls.stats.start_request(app="my_app").finalize(status=400)
     cls.time_mock.return_value = 151550004
-    req_no = cls.stats.start_request(app="my_app")
-    cls.stats.finalize_request(req_no, status=400)
+    cls.stats.start_request(app="my_app").finalize(status=400)
     cls.time_mock.return_value = 151550005
-    req_no = cls.stats.start_request(app="my_app")
-    cls.stats.finalize_request(req_no, status=400)
+    cls.stats.start_request(app="my_app").finalize(status=400)
     cls.time_mock.return_value = 151550006
-    req_no = cls.stats.start_request(app="my_app")
-    cls.stats.finalize_request(req_no, status=200)
+    cls.stats.start_request(app="my_app").finalize(status=200)
     cls.time_mock.return_value = 151550007
-    req_no = cls.stats.start_request(app="my_app")
-    cls.stats.finalize_request(req_no, status=200)
+    cls.stats.start_request(app="my_app").finalize(status=200)
 
   @classmethod
   def tearDownClass(cls):
@@ -435,12 +427,9 @@ class TestProperties(unittest.TestCase):
     stats = stats_manager.ServiceStats("my_service")
 
     # Start and finalize 3 requests
-    req_no = stats.start_request()
-    stats.finalize_request(req_no)
-    req_no = stats.start_request()
-    stats.finalize_request(req_no)
-    req_no = stats.start_request()
-    stats.finalize_request(req_no)
+    stats.start_request().finalize()
+    stats.start_request().finalize()
+    stats.start_request().finalize()
 
     # Start without finalization 4 requests
     stats.start_request()

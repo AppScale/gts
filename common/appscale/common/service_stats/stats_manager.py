@@ -132,7 +132,8 @@ class ServiceStats(object):
   DEFAULT_MAX_REQUEST_AGE = 60 * 60 * 2  # Force clean requests older than 2h
   AUTOCLEAN_INTERVAL = 60 * 60 * 4
 
-  RESERVED_REQUEST_FIELDS = ["start_time", "end_time", "latency"]
+  RESERVED_REQUEST_FIELDS = ["request_no", "start_time", "end_time", "latency",
+                             "_service_stats", "_request_finalizer"]
 
   def __init__(self, service_name, history_size=DEFAULT_HISTORY_SIZE,
                force_clean_after=DEFAULT_MAX_REQUEST_AGE,
@@ -207,9 +208,9 @@ class ServiceStats(object):
         # Make sure that new object has all request fields
         for field in self.__slots__:
           setattr(self, field, None)
-        self.update(fields_dict)
+        self._update(fields_dict)
 
-      def update(self, fields_dict):
+      def _update(self, fields_dict):
         for field, value in iteritems(fields_dict):
           try:
             setattr(self, field, value)
@@ -222,6 +223,14 @@ class ServiceStats(object):
         except AttributeError as e:
           raise UnknownRequestField(str(e))
 
+      @property
+      def is_finalized(self):
+        return self.latency is not None
+
+      def finalize(self, **new_properties):
+        self._update(new_properties)
+        self._request_finalizer(self.request_no)
+
     return RequestInfo
 
   def start_request(self, **request_info_dict):
@@ -230,40 +239,40 @@ class ServiceStats(object):
     Args:
       request_info_dict: a dictionary containing initial request info.
     Returns:
-      an internal request ID which should be used for finishing request.
+      an instance of self._request_info_class
     """
     now = _now()
-    # Instantiate a request_info object and fill its start_time
-    new_request = self._request_info_class(**request_info_dict)
-    new_request.start_time = now
-    # Add currently running request
     self._last_request_no += 1
+    # Instantiate a request_info object and fill its start_time
+    new_request = self._request_info_class(
+      request_no=self._last_request_no, start_time=now,
+      _request_finalizer=self._finalize_request, **request_info_dict
+    )
+    # Add currently running request
     self._current_requests[self._last_request_no] = new_request
 
     if now - self._last_autoclean_time > self.AUTOCLEAN_INTERVAL:
       # Avoid memory leak even if client sometimes don't finish requests
       self._clean_outdated()
 
-    return self._last_request_no
+    return new_request
 
-  def finalize_request(self, request_no, **new_info_dict):
+  def _finalize_request(self, request_no):
     """ Finalizes previously started request. Moves request from currently
     running to finished.
 
     Args:
       request_no: an internal request ID provided by start_request method.
-      new_info_dict: a dictionary containing info about request result.
     """
     now = _now()
-    # Find request with the specified request_no
+    # Find request info in current requests
     request_info = self._current_requests.pop(request_no, None)
     if not request_info:
       logging.error("Couldn't finalize request #{} as it wasn't started "
                     "or it was started longer than {}s ago"
                     .format(request_no, self._force_clean_after))
       return
-    # Fill request_info object with a new information
-    request_info.update(new_info_dict)
+    # Set end_time and latency of request
     request_info.end_time = now
     request_info.latency = now - request_info.start_time
     # Add finished request to circular list of finished requests
