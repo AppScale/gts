@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+package apphosting.ext.remote_api;
+
+message Request {
+  required string service_name = 2;
+  required string method = 3;
+  required bytes request = 4;
+  optional string request_id = 5;
+}
+
+message ApplicationError {
+  required int32 code = 1;
+  required string detail = 2;
+}
+
+message Response {
+  optional bytes response = 1;
+  optional bytes exception = 2;
+  optional ApplicationError application_error = 3;
+  optional bytes java_exception = 4;
+}

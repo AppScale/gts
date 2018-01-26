@@ -58,24 +58,27 @@ class AppDashboard(webapp2.RequestHandler):
       values = {}
 
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.helper.get_application_info()
-    if not is_cloud_admin:
-      apps_user_owns = self.helper.get_owned_apps()
-      new_app_dict = {}
-      for app_name in apps_user_owns:
-        if app_name in apps_user_is_admin_on:
-          new_app_dict[app_name] = apps_user_is_admin_on.get(app_name)
-      apps_user_is_admin_on = new_app_dict
+    all_versions = self.helper.get_version_info()
 
-    self.helper.update_cookie_app_list(apps_user_is_admin_on.keys(),
-                                       self.request, self.response)
+    if is_cloud_admin:
+      apps_user_owns = list({version.split('_')[0]
+                             for version in all_versions})
+    else:
+      apps_user_owns = self.helper.get_owned_apps()
+
+    versions_user_is_admin_on = {
+      version: all_versions[version] for version in all_versions
+      if version.split('_')[0] in apps_user_owns}
+
+    self.helper.update_cookie_app_list(apps_user_owns, self.request,
+                                       self.response)
     template = jinja_environment.get_template(template_file)
     sub_vars = {
       'logged_in': self.helper.is_user_logged_in(),
       'user_email': self.helper.get_user_email(),
       'is_user_cloud_admin': self.dstore.is_user_cloud_admin(),
       'can_upload_apps': self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on': apps_user_is_admin_on,
+      'versions_user_is_admin_on': versions_user_is_admin_on,
       'user_layout_pref': self.dstore.get_dash_layout_settings(),
       'flower_url': self.dstore.get_flower_url(),
       'monit_url': self.dstore.get_monit_url()

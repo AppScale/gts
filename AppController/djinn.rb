@@ -3589,6 +3589,21 @@ class Djinn
     @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
+  def build_appcontroller_client
+    Djinn.log_info('Building uncommitted appcontroller client changes')
+    unless system('pip install --upgrade --no-deps ' \
+                  "#{APPSCALE_HOME}/AppControllerClient > /dev/null 2>&1")
+      Djinn.log_error('Unable to build appcontroller client (install failed).')
+      return
+    end
+    unless system('pip install ' \
+                  "#{APPSCALE_HOME}/AppControllerClient > /dev/null 2>&1")
+      Djinn.log_error('Unable to build appcontroller client (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building appcontroller client.')
+  end
+
   def build_taskqueue
     Djinn.log_info('Building uncommitted taskqueue changes')
     extras = TaskQueue::OPTIONAL_FEATURES.join(',')
@@ -3687,15 +3702,44 @@ class Djinn
     Djinn.log_info('Finished building Hermes.')
   end
 
+  def build_api_server
+    Djinn.log_info('Building uncommitted APIServer changes')
+    src = File.join(APPSCALE_HOME, 'APIServer')
+    proto_dest = File.join(src, 'appscale', 'api_server')
+    unless system("protoc --proto_path=#{src} --python_out=#{proto_dest} " \
+                  "#{src}/*.proto")
+      Djinn.log_error('Unable to compile APIServer proto files')
+      return
+    end
+
+    api_server_venv = File.join('/', 'opt', 'appscale_api_server')
+    upgrade_package = "source #{api_server_venv}/bin/activate && " \
+      "pip install --upgrade --no-deps #{src} > /dev/null 2>&1"
+    unless system("bash -c '#{upgrade_package}'")
+      Djinn.log_error('Unable to build APIServer (install failed).')
+      return
+    end
+    upgrade_deps = "source #{api_server_venv}/bin/activate && " \
+      "pip install #{src} > /dev/null 2>&1"
+    unless system("bash -c '#{upgrade_deps}'")
+      Djinn.log_error(
+        'Unable to build APIServer (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building APIServer.')
+  end
+
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
     status = `git -C #{APPSCALE_HOME} status`
+    build_appcontroller_client if status.include?('AppControllerClient')
     build_admin_server if status.include?('AdminServer')
     build_taskqueue if status.include?('AppTaskQueue')
     build_datastore if status.include?('AppDB')
     build_common if status.include?('common')
     build_java_appserver if status.include?('AppServer_Java')
     build_hermes if status.include?('Hermes')
+    build_api_server if status.include?('APIServer')
   end
 
   def configure_ejabberd_cert
@@ -3829,13 +3873,26 @@ class Djinn
     ip = dest_node.private_ip
     options = "-e 'ssh -i #{ssh_key}' -a --filter '- *.pyc'"
 
-    ["#{APPSCALE_HOME}/AdminServer", "#{APPSCALE_HOME}/AppDB",
-     "#{APPSCALE_HOME}/AppManager", "#{APPSCALE_HOME}/AppTaskQueue",
-     "#{APPSCALE_HOME}/AppController", "#{APPSCALE_HOME}/common",
-     "#{APPSCALE_HOME}/InfrastructureManager", "#{APPSCALE_HOME}/AppDashboard",
-     "#{APPSCALE_HOME}/scripts", "#{APPSCALE_HOME}/AppServer",
-     "#{APPSCALE_HOME}/AppServer_Java", "#{APPSCALE_HOME}/XMPPReceiver",
-     "#{APPSCALE_HOME}/LogService"].each { |dir|
+    to_copy = %w(
+      AdminServer
+      APIServer
+      AppController
+      AppControllerClient
+      AppDashboard
+      AppDB
+      AppManager
+      AppServer
+      AppServer_Java
+      AppTaskQueue
+      common
+      Hermes
+      InfrastructureManager
+      LogService
+      scripts
+      SearchService
+      XMPPReceiver
+    ).map { |path| File.join(APPSCALE_HOME, path) }
+    to_copy.each { |dir|
       if system("rsync #{options} #{dir}/* root@#{ip}:#{dir}") != true
         Djinn.log_warn("Rsync of #{dir} to #{ip} failed!")
       end
