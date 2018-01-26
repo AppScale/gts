@@ -7,20 +7,23 @@ import logging
 import signal
 import sys
 import time
-import tornado.httpserver
-import tornado.web
+
 from kazoo.client import KazooClient
-from tornado.ioloop import IOLoop
+from tornado import gen, httpserver, ioloop
+from tornado.web import RequestHandler
 
 from appscale.common import appscale_info
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
+from appscale.taskqueue.statistics import PROTOBUFFER_API
+
 from . import distributed_tq
 from .rest_api import RESTLease
 from .rest_api import RESTQueue
 from .rest_api import RESTTask
 from .rest_api import RESTTasks
+from .statistics import service_stats, stats_lock
 from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -37,11 +40,8 @@ task_queue = None
 # A KazooClient for watching queue configuration.
 zk_client = None
 
-# Global stats.
-STATS = {}
 
-
-class MainHandler(tornado.web.RequestHandler):
+class ProtobufferHandler(RequestHandler):
   """ Defines what to do when the webserver receives different types of HTTP
   requests. """
   def unknown_request(self, app_id, http_request_data, pb_type):
@@ -55,11 +55,24 @@ class MainHandler(tornado.web.RequestHandler):
     """
     raise NotImplementedError("Unknown request of operation %s" % pb_type)
 
-  @tornado.web.asynchronous
+  @gen.coroutine
+  def prepare(self):
+    with (yield stats_lock.acquire()):
+      self.stats_info = service_stats.start_request(api=PROTOBUFFER_API)
+
+  @gen.coroutine
+  def on_finish(self):
+    if self.stats_info.pb_status is None:
+      self.stats_info.pb_status = "UNKNOWN_ERROR"
+    with (yield stats_lock.acquire()):
+      self.stats_info.finalize()
+
+  @gen.coroutine
   def post(self):
     """ Function which handles POST requests. Data of the request is the
     request from the AppServer in an encoded protocol buffer format. """
-    global task_queue    
+    global task_queue
+
     request = self.request
     http_request_data = request.body
     pb_type = request.headers['protocolbuffertype']
@@ -70,21 +83,14 @@ class MainHandler(tornado.web.RequestHandler):
     module = request.headers['Module']
     app_info = {'app_id': app_id, 'version_id': version, 'module_id': module}
     if pb_type == "Request":
-      self.remote_request(app_info, http_request_data)
+      method, status = self.remote_request(app_info, http_request_data)
+      # Fill request stats info
+      self.stats_info.pb_method = method
+      self.stats_info.pb_status = status
     else:
       self.unknown_request(app_id, http_request_data, pb_type)
-
-    self.finish()
-
-  @tornado.web.asynchronous
-  def get(self):
-    """ Handles get request for the web server. Returns that it is currently
-    up in JSON. """
-    global task_queue
-    tq_stats = {"status": "up",
-                "details": STATS}
-    self.write(json.dumps(tq_stats))
-    self.finish()
+      # Fill request stats info
+      self.stats_info.pb_status = "NOT_A_PROTOBUFFER_REQUEST"
 
   def remote_request(self, app_info, http_request_data):
     """ Receives a remote request to which it should give the correct
@@ -96,7 +102,7 @@ class MainHandler(tornado.web.RequestHandler):
         of the app that is sending this request.
       http_request_data: Encoded protocol buffer.
     """
-    global task_queue    
+    global task_queue
     apirequest = remote_api_pb.Request()
     apirequest.ParseFromString(http_request_data)
     apiresponse = remote_api_pb.Response()
@@ -180,14 +186,6 @@ class MainHandler(tornado.web.RequestHandler):
                                                  http_request_data)
     elapsed_time = round(time.time() - start_time, 3)
     timing_log = 'Elapsed: {}'.format(elapsed_time)
-    if method in STATS:
-      if errcode in STATS[method]:
-        STATS[method][errcode] = elapsed_time
-      else:
-        STATS[method][errcode] = (1, elapsed_time)
-    else:
-      STATS[method] = {}
-      STATS[method][errcode] = (1, elapsed_time)
     if apirequest.has_request_id():
       timing_log += ' ({})'.format(apirequest.request_id())
     logger.debug(timing_log)
@@ -202,6 +200,36 @@ class MainHandler(tornado.web.RequestHandler):
       apperror_pb.set_detail(errdetail)
 
     self.write(apiresponse.Encode())
+    status = taskqueue_service_pb.TaskQueueServiceError.ErrorCode_Name(errcode)
+    return method, status
+
+
+class StatsHandler(RequestHandler):
+  """ Defines what to do when the webserver receives different types of HTTP
+  requests. """
+  @gen.coroutine
+  def get(self):
+    """ Handles get request for the web server. Returns that it is currently
+    up in JSON. """
+    cursor = self.request.get("cursor")
+    last_milliseconds = self.request.get("last_milliseconds")
+    if cursor:
+      recent_stats = service_stats.scroll_recent(cursor)
+    elif last_milliseconds:
+      recent_stats = service_stats.get_recent(last_milliseconds)
+    else:
+      recent_stats = service_stats.get_recent()
+
+    with (yield stats_lock.acquire()):
+      cumulative_counters = service_stats.get_cumulative_counters()
+
+    tq_stats = {
+      "current_requests": service_stats.current_requests,
+      "cumulative_counters": cumulative_counters,
+      "recent_stats": recent_stats
+    }
+    self.write(json.dumps(tq_stats))
+    self.finish()
 
 
 def graceful_shutdown(*_):
@@ -213,7 +241,7 @@ def graceful_shutdown(*_):
   logger.info('Stopping server')
   zk_client.stop()
   server.stop()
-  io_loop = IOLoop.instance()
+  io_loop = ioloop.IOLoop.current()
   io_loop.add_callback_from_signal(io_loop.stop)
 
 
@@ -239,28 +267,29 @@ def main():
   db_access = DatastoreProxy()
   task_queue = distributed_tq.DistributedTaskQueue(db_access, zk_client)
   handlers = [
+    # Responds with service statistic
+    ("/service-stats", StatsHandler),
     # Takes protocol buffers from the AppServers.
-    (r"/*", MainHandler)
+    (r"/*", ProtobufferHandler)
   ]
 
   # Provides compatibility with the v1beta2 REST API.
-  handlers.extend([
+  handlers += [
     (RESTQueue.PATH, RESTQueue, {'queue_handler': task_queue}),
     (RESTTasks.PATH, RESTTasks, {'queue_handler': task_queue}),
     (RESTLease.PATH, RESTLease, {'queue_handler': task_queue}),
     (RESTTask.PATH, RESTTask, {'queue_handler': task_queue})
-  ])
+  ]
 
-  tq_application = tornado.web.Application(handlers)
+  tq_application = web.Application(handlers)
 
   global server
-  server = tornado.httpserver.HTTPServer(
-    tq_application,
-    decompress_request=True)   # Automatically decompress incoming requests.
+  # Automatically decompress incoming requests.
+  server = httpserver.HTTPServer(tq_application, decompress_request=True)
   server.listen(args.port)
 
   signal.signal(signal.SIGTERM, graceful_shutdown)
   signal.signal(signal.SIGINT, graceful_shutdown)
 
   logger.info('Starting TaskQueue server on port {}'.format(args.port))
-  IOLoop.current().start()
+  ioloop.IOLoop.current().start()
