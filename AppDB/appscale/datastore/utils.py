@@ -643,16 +643,16 @@ def get_write_time(txid):
   return int(usec_offset + txid)
 
 
-def encode_path_from_filter(filter):
+def encode_path_from_filter(query_filter):
   """ Encode a reference path from a query filter.
 
   Args:
-    filter: A datastore_pb.Query_Filter.
+    query_filter: A datastore_pb.Query_Filter.
   Returns:
     A string containing an encoded reference path.
   """
   path = entity_pb.Path()
-  ref_value = filter.property(0).value().referencevalue()
+  ref_value = query_filter.property(0).value().referencevalue()
   for element in ref_value.pathelement_list():
     path.add_element().MergeFrom(element)
 
