@@ -23,48 +23,18 @@ class RestRequestMatcher(matchers.RequestMatcher):
     return request_info.api == REST_API
 
 
-# Define categorizers for grouping requests
-class PBMethodCategorizer(categorizers.Categorizer):
-  def category_of(self, req_info):
-    if req_info.api != PROTOBUFFER_API:
-      return categorizers.HIDDEN_CATEGORY
-    return req_info.pb_method
-
-
-class RestMethodCategorizer(categorizers.Categorizer):
-  def category_of(self, req_info):
-    if req_info.api != REST_API:
-      return categorizers.HIDDEN_CATEGORY
-    return req_info.rest_method
-
-
-class PBStatusCategorizer(categorizers.Categorizer):
-  def category_of(self, req_info):
-    if req_info.api != PROTOBUFFER_API:
-      return categorizers.HIDDEN_CATEGORY
-    return req_info.pb_status
-
-class RestStatusCategorizer(categorizers.Categorizer):
-  def category_of(self, req_info):
-    if req_info.api != REST_API:
-      return categorizers.HIDDEN_CATEGORY
-    return req_info.rest_status
-
-
 # Instantiate request matchers
 FAILED_REQUEST = FailedRequestMatcher()
 PROTOBUFF_REQUEST = ProtobufferRequestMatcher()
 REST_REQUEST = RestRequestMatcher()
 
 # Instantiate request categorizers
-PB_METHOD_CATEGORIZER = PBMethodCategorizer(
-  categorizer_name="by_pb_method")
-REST_METHOD_CATEGORIZER = RestMethodCategorizer(
-  categorizer_name="by_rest_method")
-PB_STATUS_CATEGORIZER = PBStatusCategorizer(
-  categorizer_name="by_pb_status")
-REST_STATUS_CATEGORIZER = RestStatusCategorizer(
-  categorizer_name="by_rest_status")
+PB_METHOD_CATEGORIZER = categorizers.ExactValueCategorizer(
+  categorizer_name="by_pb_method", field="pb_method"
+)
+REST_METHOD_CATEGORIZER = categorizers.ExactValueCategorizer(
+  categorizer_name="by_rest_method", field="rest_method"
+)
 
 
 # Configure ServiceStats
@@ -84,14 +54,11 @@ METRICS_CONFIG = {
   "pb_reqs": metrics.CountOf(PROTOBUFF_REQUEST),
   "rest_reqs": metrics.CountOf(REST_REQUEST),
   PB_METHOD_CATEGORIZER: metrics.CountOf(matchers.ANY),
-  REST_METHOD_CATEGORIZER: metrics.CountOf(matchers.ANY),
-  PB_STATUS_CATEGORIZER: metrics.CountOf(matchers.ANY),
-  REST_STATUS_CATEGORIZER: metrics.CountOf(matchers.ANY)
+  REST_METHOD_CATEGORIZER: metrics.CountOf(matchers.ANY)
 }
 # Instantiate singleton ServiceStats
 service_stats = stats_manager.ServiceStats(
-  "taskqueue", request_fields=REQUEST_STATS_FIELDS,
-  cumulative_counters=CUMULATIVE_COUNTERS,
+  "taskqueue", cumulative_counters=CUMULATIVE_COUNTERS,
   default_metrics_for_recent=METRICS_CONFIG
 )
 # Create tornado lock for tracking concurrent requests
