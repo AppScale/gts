@@ -1901,19 +1901,11 @@ class DatastoreDistributed():
       if direction == datastore_pb.Query_Order.DESCENDING: 
         value = helper_functions.reverse_lex(value)
       if oper == datastore_pb.Query_Filter.EQUAL:
-        if value == "" and ancestor:
-          start_value = self._SEPARATOR + ancestor_filter
-          end_value = self._SEPARATOR + ancestor_filter + self._TERM_STRING
-        elif value == "":
-          start_value = value + self._SEPARATOR
-          end_value = self.MIN_INDEX_VALUE + self._TERM_STRING
-        elif ancestor:
-          start_value = value + self._SEPARATOR + ancestor_filter
-          end_value = value + self._SEPARATOR + ancestor_filter + \
-            self._TERM_STRING
-        else:
-          start_value = value  + self._SEPARATOR
-          end_value = value + self._SEPARATOR + self._TERM_STRING
+        if ancestor:  # Keep range within ancestor key.
+          start_value = ''.join([value, self._SEPARATOR, ancestor_filter])
+        else:  # Keep range within property value.
+          start_value = ''.join([value, self._SEPARATOR])
+        end_value = ''.join([start_value, self._TERM_STRING])
       elif oper == datastore_pb.Query_Filter.LESS_THAN:
         start_value = ""
         end_value = value
