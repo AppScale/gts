@@ -641,3 +641,19 @@ def get_write_time(txid):
   offset = datetime.datetime(2022, 2, 1) - epoch
   usec_offset = offset.total_seconds() * 1000000
   return int(usec_offset + txid)
+
+
+def encode_path_from_filter(filter):
+  """ Encode a reference path from a query filter.
+
+  Args:
+    filter: A datastore_pb.Query_Filter.
+  Returns:
+    A string containing an encoded reference path.
+  """
+  path = entity_pb.Path()
+  ref_value = filter.property(0).value().referencevalue()
+  for element in ref_value.pathelement_list():
+    path.add_element().MergeFrom(element)
+
+  return str(encode_index_pb(path))
