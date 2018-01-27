@@ -10,7 +10,7 @@ import time
 
 from kazoo.client import KazooClient
 from tornado import gen, httpserver, ioloop
-from tornado.web import RequestHandler
+from tornado.web import Application, RequestHandler
 
 from appscale.common import appscale_info
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
@@ -211,12 +211,12 @@ class StatsHandler(RequestHandler):
   def get(self):
     """ Handles get request for the web server. Returns that it is currently
     up in JSON. """
-    cursor = self.request.get("cursor")
-    last_milliseconds = self.request.get("last_milliseconds")
+    cursor = self.get_argument("cursor", None)
+    last_milliseconds = self.get_argument("last_milliseconds", None)
     if cursor:
-      recent_stats = service_stats.scroll_recent(cursor)
+      recent_stats = service_stats.scroll_recent(int(cursor))
     elif last_milliseconds:
-      recent_stats = service_stats.get_recent(last_milliseconds)
+      recent_stats = service_stats.get_recent(int(last_milliseconds))
     else:
       recent_stats = service_stats.get_recent()
 
@@ -281,7 +281,7 @@ def main():
     (RESTTask.PATH, RESTTask, {'queue_handler': task_queue})
   ]
 
-  tq_application = web.Application(handlers)
+  tq_application = Application(handlers)
 
   global server
   # Automatically decompress incoming requests.

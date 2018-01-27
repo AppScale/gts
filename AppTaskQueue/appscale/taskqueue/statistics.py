@@ -58,7 +58,8 @@ METRICS_CONFIG = {
 }
 # Instantiate singleton ServiceStats
 service_stats = stats_manager.ServiceStats(
-  "taskqueue", cumulative_counters=CUMULATIVE_COUNTERS,
+  "taskqueue", request_fields=REQUEST_STATS_FIELDS,
+  cumulative_counters=CUMULATIVE_COUNTERS,
   default_metrics_for_recent=METRICS_CONFIG
 )
 # Create tornado lock for tracking concurrent requests
