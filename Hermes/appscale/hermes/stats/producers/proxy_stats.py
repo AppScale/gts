@@ -5,6 +5,7 @@ import socket
 import time
 from collections import defaultdict
 from datetime import datetime
+from typing import re
 
 import attr
 import os
@@ -410,3 +411,14 @@ class ProxiesStatsSource(object):
     logging.info("Prepared stats about {prox} proxies in {elapsed:.1f}s."
                  .format(prox=len(proxy_stats_list), elapsed=time.time()-start))
     return stats
+
+
+def get_service_instances(stats_socket_path, pxname):
+  ip_port_list = []
+  ip_port_pattern = re.compile(
+    "${proxy},{proxy}-(?P<port_ip>[.\w]+:\d+)".format(proxy=pxname)
+  )
+  stats_csv = get_stats(stats_socket_path)
+  for match in re.finditer(ip_port_pattern, stats_csv):
+    ip_port_list.append(match.group("port_ip"))
+  return ip_port_list
