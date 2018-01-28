@@ -23,17 +23,32 @@ class RestRequestMatcher(matchers.RequestMatcher):
     return request_info.api == REST_API
 
 
+# Define categorizers for grouping requests
+class ProtobufferRequestsCategorizer(categorizers.Categorizer):
+  def category_of(self, req_info):
+    if req_info.api != PROTOBUFFER_API:
+      return categorizers.HIDDEN_CATEGORY
+    return req_info.pb_method
+
+
+class RestRequestsCategorizer(categorizers.Categorizer):
+  def category_of(self, req_info):
+    if req_info.api != REST_API:
+      return categorizers.HIDDEN_CATEGORY
+    return req_info.rest_method
+
+
 # Instantiate request matchers
 FAILED_REQUEST = FailedRequestMatcher()
 PROTOBUFF_REQUEST = ProtobufferRequestMatcher()
 REST_REQUEST = RestRequestMatcher()
 
 # Instantiate request categorizers
-PB_METHOD_CATEGORIZER = categorizers.ExactValueCategorizer(
-  categorizer_name="by_pb_method", field="pb_method"
+PB_METHOD_CATEGORIZER = ProtobufferRequestsCategorizer(
+  categorizer_name="by_pb_method"
 )
-REST_METHOD_CATEGORIZER = categorizers.ExactValueCategorizer(
-  categorizer_name="by_rest_method", field="rest_method"
+REST_METHOD_CATEGORIZER = RestRequestsCategorizer(
+  categorizer_name="by_rest_method"
 )
 
 
