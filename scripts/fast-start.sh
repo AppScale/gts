@@ -1,13 +1,11 @@
 #!/bin/bash
 #
-# Get a single AppScale node on AWS: read more at
-# www.appscale.com/get-started.
+# Get a single AppScale node (ideal for dev/test) on various public (and
+# private) clouds: read more at www.appscale.com/get-started.
 #
-# It needs to be ran on an official AppScale image. For more information
-# on the supported platform look at https://github.com/AppScale/appscale/wiki.
-# Once you have the IP of the instance you can do something like:
-#
-# ssh -i <key> ubuntu@<public IP> 'curl -Lo - fast-start.appscale.com|sudo -i sh'
+# It needs to be ran on an official AppScale image. Follow instructions at
+# https://www.appscale.com/try-appscale for supported platform or source
+# install, to run this script and have a dev/test instances running.
 #
 
 # On some systems, when running this script from rc.local (ie at boot
