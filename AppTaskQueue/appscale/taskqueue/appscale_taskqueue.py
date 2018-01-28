@@ -213,12 +213,17 @@ class StatsHandler(RequestHandler):
     up in JSON. """
     cursor = self.get_argument("cursor", None)
     last_milliseconds = self.get_argument("last_milliseconds", None)
-    if cursor:
-      recent_stats = service_stats.scroll_recent(int(cursor))
-    elif last_milliseconds:
-      recent_stats = service_stats.get_recent(int(last_milliseconds))
-    else:
-      recent_stats = service_stats.get_recent()
+    try:
+      if cursor:
+        recent_stats = service_stats.scroll_recent(int(cursor))
+      elif last_milliseconds:
+        recent_stats = service_stats.get_recent(int(last_milliseconds))
+      else:
+        recent_stats = service_stats.get_recent()
+    except ValueError:
+      self.set_status(400, "cursor and last_milliseconds "
+                           "arguments should be integers")
+      return
 
     with (yield stats_lock.acquire()):
       cumulative_counters = service_stats.get_cumulative_counters()
