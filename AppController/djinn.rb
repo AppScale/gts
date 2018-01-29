@@ -1,6 +1,7 @@
 #!/usr/bin/ruby -w
 
 # Imports within Ruby's standard libraries
+require 'digest'
 require 'logger'
 require 'monitor'
 require 'net/http'
@@ -4458,6 +4459,8 @@ HOSTS
     # Allow fewer dashboard instances for small deployments.
     min_dashboards = [3, get_all_compute_nodes.length].min
 
+    archive_md5 = Digest::MD5.file(source_archive).hexdigest
+
     version = {:deployment => {:zip => {:sourceUrl => source_archive}},
                :id => DEFAULT_VERSION,
                :instanceClass => 'F4',
@@ -4466,7 +4469,8 @@ HOSTS
                :automaticScaling => {:minTotalInstances => min_dashboards},
                :appscaleExtensions => {
                  :httpPort => AppDashboard::LISTEN_PORT,
-                 :httpsPort => AppDashboard::LISTEN_SSL_PORT
+                 :httpsPort => AppDashboard::LISTEN_SSL_PORT,
+                 :md5 => archive_md5
                }}
     endpoint = ['v1', 'apps', AppDashboard::APP_NAME,
                 'services', DEFAULT_SERVICE, 'versions'].join('/')
@@ -4534,14 +4538,7 @@ HOSTS
     source_archive = AppDashboard.prep(
       my_public, my_private, PERSISTENT_MOUNT_POINT, datastore_location)
 
-    begin
-      ZKInterface.get_version_details(
-        AppDashboard::APP_NAME, DEFAULT_SERVICE, DEFAULT_VERSION)
-      # If the version node exists, skip the AdminServer call.
-      return
-    rescue VersionNotFound
-      self.deploy_dashboard(source_archive)
-    end
+    self.deploy_dashboard(source_archive)
   end
 
   # Stop the AppDashboard web service.
