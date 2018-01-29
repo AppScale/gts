@@ -24,18 +24,31 @@ class RestRequestMatcher(matchers.RequestMatcher):
 
 
 # Define categorizers for grouping requests
-class ProtobufferRequestsCategorizer(categorizers.Categorizer):
+class PBMethodCategorizer(categorizers.Categorizer):
   def category_of(self, req_info):
     if req_info.api != PROTOBUFFER_API:
       return categorizers.HIDDEN_CATEGORY
     return req_info.pb_method
 
 
-class RestRequestsCategorizer(categorizers.Categorizer):
+class RestMethodCategorizer(categorizers.Categorizer):
   def category_of(self, req_info):
     if req_info.api != REST_API:
       return categorizers.HIDDEN_CATEGORY
     return req_info.rest_method
+
+
+class PBStatusCategorizer(categorizers.Categorizer):
+  def category_of(self, req_info):
+    if req_info.api != PROTOBUFFER_API:
+      return categorizers.HIDDEN_CATEGORY
+    return req_info.pb_status
+
+class RestStatusCategorizer(categorizers.Categorizer):
+  def category_of(self, req_info):
+    if req_info.api != REST_API:
+      return categorizers.HIDDEN_CATEGORY
+    return req_info.rest_status
 
 
 # Instantiate request matchers
@@ -44,12 +57,14 @@ PROTOBUFF_REQUEST = ProtobufferRequestMatcher()
 REST_REQUEST = RestRequestMatcher()
 
 # Instantiate request categorizers
-PB_METHOD_CATEGORIZER = ProtobufferRequestsCategorizer(
-  categorizer_name="by_pb_method"
-)
-REST_METHOD_CATEGORIZER = RestRequestsCategorizer(
-  categorizer_name="by_rest_method"
-)
+PB_METHOD_CATEGORIZER = PBMethodCategorizer(
+  categorizer_name="by_pb_method")
+REST_METHOD_CATEGORIZER = RestMethodCategorizer(
+  categorizer_name="by_rest_method")
+PB_STATUS_CATEGORIZER = PBStatusCategorizer(
+  categorizer_name="by_pb_status")
+REST_STATUS_CATEGORIZER = RestStatusCategorizer(
+  categorizer_name="by_rest_status")
 
 
 # Configure ServiceStats
@@ -69,7 +84,9 @@ METRICS_CONFIG = {
   "pb_reqs": metrics.CountOf(PROTOBUFF_REQUEST),
   "rest_reqs": metrics.CountOf(REST_REQUEST),
   PB_METHOD_CATEGORIZER: metrics.CountOf(matchers.ANY),
-  REST_METHOD_CATEGORIZER: metrics.CountOf(matchers.ANY)
+  REST_METHOD_CATEGORIZER: metrics.CountOf(matchers.ANY),
+  PB_STATUS_CATEGORIZER: metrics.CountOf(matchers.ANY),
+  REST_STATUS_CATEGORIZER: metrics.CountOf(matchers.ANY)
 }
 # Instantiate singleton ServiceStats
 service_stats = stats_manager.ServiceStats(
