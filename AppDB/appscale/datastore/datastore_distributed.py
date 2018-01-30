@@ -1909,7 +1909,8 @@ class DatastoreDistributed():
           start_value = ''.join([value, self._SEPARATOR])
         end_value = ''.join([start_value, self._TERM_STRING])
 
-        # Single prop indexes can handle key inequality within a given value.
+        # Single prop indexes can handle key inequality within a given value
+        # (eg. color='blue', __key__<Key('Bike', 5)).
         key_comparison = (query.filter_size() == 2 and
                           query.filter(1).property(0).name() == '__key__')
         if key_comparison:
