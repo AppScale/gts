@@ -277,16 +277,12 @@ class AppDashboardHelper(object):
     except Exception as err:
       logging.exception(err)
 
-  def get_application_info(self):
-    """ Queries the AppController for information about which Google App Engine
-    applications are currently running, and if they are done loading, the URL
-    that they can be accessed at.
+  def get_version_info(self):
+    """ Queries the AppController for information about active versions.
 
     Returns:
-      A dict, where each key is a str indicating the name of a Google App Engine
-      application running in this deployment, and each value is either a str
-      indicating the URL that the app can be found at, or None, if the
-      application is still loading.
+      A dictionary mapping version keys to serving URLs. A None value indicates
+      that the version is still loading.
     """
     try:
       status_on_all_nodes = self.get_appcontroller_client().get_cluster_stats()

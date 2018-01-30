@@ -2,7 +2,7 @@
 <!--Body content-->
 <div id="content" class="clearfix">
     <div class="contentwrapper"><!--Content wrapper-->
-        {% set apps=apps_user_is_admin_on %}
+        {% set versions=versions_user_is_admin_on %}
         <!-- Build page from here: -->
         <div class="row-fluid">
           {% set app_page_title="Relocate an Application" %}
@@ -32,9 +32,9 @@
                   <br />
                   <p>
                   <select name="app_id">
-                    {% for app_name in apps.keys()|sort %}
+                    {% for version_key in versions.keys()|sort %}
                     <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
-                      <option value="{{ app_name }}">{{ app_name }}</option>
+                      <option value="{{ version_key }}">{{ version_key }}</option>
                     </li>
                     {% endfor %}
                   </select>
