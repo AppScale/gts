@@ -214,22 +214,11 @@ class InfrastructureManager:
     self.reservations.put(reservation_id, status_info)
     utils.log('Generated reservation id {0} for this request.'.format(
       reservation_id))
-    try:
-      if self.blocking:
-        self.__spawn_vms(agent, num_vms, parameters, reservation_id)
-      else:
-        thread.start_new_thread(self.__spawn_vms,
-          (agent, num_vms, parameters, reservation_id))
-    except AgentConfigurationException as exception:
-      status_info = {
-        'success' : False,
-        'reason' : str(exception),
-        'state' : self.STATE_FAILED,
-        'vm_info' : None
-      }
-      self.reservations.put(reservation_id, status_info)
-      utils.log('Updated reservation id {0} with failed status because: {1}' \
-        .format(reservation_id, str(exception)))
+    if self.blocking:
+      self.__spawn_vms(agent, num_vms, parameters, reservation_id)
+    else:
+      thread.start_new_thread(self.__spawn_vms,
+        (agent, num_vms, parameters, reservation_id))
 
     utils.log('Successfully started request {0}.'.format(reservation_id))
     return self.__generate_response(True,
@@ -325,6 +314,9 @@ class InfrastructureManager:
       reservation_id  Reservation ID of the current run request
     """
     status_info = self.reservations.get(reservation_id)
+    active_public_ips, active_private_ips, active_instances = \
+      agent.describe_instances(parameters)
+
     try:
       security_configured = agent.configure_instance_security(parameters)
       instance_info = agent.run_instances(num_vms, parameters,
@@ -339,9 +331,30 @@ class InfrastructureManager:
         'instance_ids': ids
       }
       utils.log('Successfully finished request {0}.'.format(reservation_id))
-    except AgentRuntimeException as exception:
-      status_info['state'] = self.STATE_FAILED
+    except (AgentConfigurationException, AgentRuntimeException) as exception:
+      # Check if we have had partial success starting instances.
+      public_ips, private_ips, instance_ids = agent.describe_instances(
+        parameters)
+      public_ips = agent.diff(public_ips, active_public_ips)
+      if public_ips:
+        private_ips = agent.diff(private_ips, active_private_ips)
+        instance_ids = agent.diff(instance_ids, active_instances)
+        status_info['state'] = self.STATE_RUNNING
+        status_info['vm_info'] = {
+          'public_ips': public_ips,
+          'private_ips': private_ips,
+          'instance_ids': instance_ids
+        }
+      else:
+        status_info['state'] = self.STATE_FAILED
+
+      # Mark it as failed either way since the AppController never checks
+      # 'success' and it technically failed.
+      status_info['success'] = False
       status_info['reason'] = str(exception)
+      utils.log('Updating reservation id {0} with failed status because: {1}' \
+        .format(reservation_id, str(exception)))
+
     self.reservations.put(reservation_id, status_info)
 
 
