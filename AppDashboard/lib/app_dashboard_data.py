@@ -288,15 +288,15 @@ class AppDashboardData():
       logging.exception(err)
       return None
 
-  def update_request_info(self, app_id):
+  def update_request_info(self, version_key):
     """ Queries the AppController to get request information for the given
-    application, storing it in the Datastore for later viewing.
+    version, storing it in the Datastore for later viewing.
 
     Args:
-      app_id: A string, the application identifier.
+      version_key: A string specifying the version key in the form
+        project-id_service-id_version-id.
     """
-    version_key = '_'.join([app_id, AppDashboardHelper.DEFAULT_SERVICE,
-                            AppDashboardHelper.DEFAULT_VERSION])
+    app_id = version_key.split('_')[0]
     try:
       acc = self.helper.get_appcontroller_client()
       request_info = acc.get_request_info(version_key)
