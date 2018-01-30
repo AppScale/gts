@@ -176,7 +176,7 @@ class DatastoreViewerPage(AppDashboard):
       project_id: A string specifying a project ID.
     """
     if self.helper.is_user_cloud_admin():
-      version_keys = self.helper.get_application_info().keys()
+      version_keys = self.helper.get_version_info().keys()
       owned_projects = [version.split('_')[0] for version in version_keys]
     else:
       owned_projects = self.helper.get_owned_apps()
@@ -194,7 +194,7 @@ class DatastoreViewerSelector(AppDashboard):
   def get(self):
     """ Presents a list of projects to view data for. """
     if self.helper.is_user_cloud_admin():
-      version_keys = self.helper.get_application_info().keys()
+      version_keys = self.helper.get_version_info().keys()
       owned_projects = [version.split('_')[0] for version in version_keys
                         if version.split('_')[0] != self.PROJECT_ID]
     else:
