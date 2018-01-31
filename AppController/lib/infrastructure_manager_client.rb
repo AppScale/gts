@@ -161,7 +161,21 @@ class InfrastructureManagerClient
       'terminate_instances') {
       @conn.terminate_instances(parameters.to_json, @secret)
     }
-    Djinn.log_debug("Terminate instances says [#{terminate_result}]")
+    Djinn.log_debug("[IM] Terminate instances says [#{terminate_result}]")
+    reservation_id = terminate_result['reservation_id']
+
+    vm_info = {}
+    loop {
+      describe_result = describe_instances('reservation_id' => reservation_id)
+      Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']}.")
+
+      if describe_result['state'] == 'success'
+        break
+      elsif describe_result['state'] == 'failed'
+        raise AppScaleException.new(describe_result['reason'])
+      end
+      Kernel.sleep(SMALL_WAIT)
+    }
   end
 
   # Create new VMs.
@@ -195,7 +209,7 @@ class InfrastructureManagerClient
       Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']} " \
         "and vm_info is #{describe_result['vm_info'].inspect}.")
 
-      if describe_result['state'] == 'running'
+      if describe_result['state'] == 'success'
         vm_info = describe_result['vm_info']
         break
       elsif describe_result['state'] == 'failed'

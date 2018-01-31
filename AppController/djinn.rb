@@ -5164,6 +5164,17 @@ HOSTS
       return 0
     end
 
+    imc = InfrastructureManagerClient.new(@@secret)
+    begin
+      imc.terminate_instances(@options, node_to_remove.instance_id)
+    rescue FailedNodeException
+      Djinn.log_warn("Failed to call terminate_instances")
+      return 0
+    rescue AppScaleException
+      Djinn.log_warn("Failed to terminate #{node_to_remove}. Not removing it.")
+      return 0
+    end
+
     remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
 
     to_remove = {}
@@ -5183,14 +5194,6 @@ HOSTS
         @app_info_map[version_key]['appservers'].delete(location)
       }
     }
-
-    imc = InfrastructureManagerClient.new(@@secret)
-    begin
-      imc.terminate_instances(@options, node_to_remove.instance_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to call terminate_instances")
-      return 0
-    end
 
     @last_scaling_time = Time.now.to_i
     return 1
