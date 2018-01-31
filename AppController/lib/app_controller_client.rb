@@ -72,8 +72,6 @@ class AppControllerClient
     @conn.add_method('get_node_stats_json', 'secret')
     @conn.add_method('get_instance_info', 'secret')
     @conn.add_method('get_request_info', 'version_key', 'secret')
-    @conn.add_method('add_routing_for_appserver', 'version_key', 'ip', 'port',
-                     'secret')
     @conn.add_method('update_cron', 'project_id', 'secret')
   end
 
@@ -216,13 +214,6 @@ class AppControllerClient
   def get_node_stats_json
     make_call(10, RETRY_ON_FAIL, 'get_node_stats_json') {
       @conn.get_node_stats_json(@secret)
-    }
-  end
-
-  # Adds routing for appserver.
-  def add_routing_for_appserver(version_key, ip, port)
-    make_call(10, RETRY_ON_FAIL, 'add_routing_for_appserver') {
-      @conn.add_routing_for_appserver(version_key, ip, port, @secret)
     }
   end
 

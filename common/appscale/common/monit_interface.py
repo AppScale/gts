@@ -211,7 +211,8 @@ class MonitOperator(object):
 
     yield self.reload_future
 
-  def reload_sync(self):
+  @staticmethod
+  def reload_sync():
     """ Reloads Monit. """
     subprocess.check_call(['monit', 'reload'])
 
@@ -312,7 +313,8 @@ class MonitOperator(object):
 
       yield gen.sleep(1)
 
-  def remove_configuration(self, entry):
+  @staticmethod
+  def remove_configuration(entry):
     """ Removes the configuration file for an entry.
 
     Args:
