@@ -11,6 +11,7 @@ from appscale.hermes.stats.constants import (
   PROCESSES_STATS_CONFIGS_NODE,
   PROXIES_STATS_CONFIGS_NODE
 )
+from appscale.hermes.stats.producers.taskqueue_stats import TaskqueueStatsSource
 from appscale.hermes.stats.profile import (
   NodesProfileLog, ProcessesProfileLog, ProxiesProfileLog
 )
@@ -20,8 +21,8 @@ from appscale.hermes.stats.handlers import (
 )
 from appscale.hermes.stats.producers.cluster_stats import (
   cluster_nodes_stats, cluster_processes_stats, cluster_proxies_stats,
-  cluster_rabbitmq_stats
-)
+  cluster_rabbitmq_stats,
+  cluster_taskqueue_stats)
 from appscale.hermes.stats.producers.node_stats import NodeStatsSource
 from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
 from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
@@ -81,17 +82,26 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
                  'default_include_lists': DEFAULT_INCLUDE_LISTS})
 
   if is_lb_node:
-    # Only LB nodes provide proxies stats
+    # Only LB nodes provide proxies and services stats
     local_proxies_stats_handler = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs={'source': ProxiesStatsSource,
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+    )
+    local_taskqueue_stats_handler = HandlerInfo(
+      handler_class=CurrentStatsHandler,
+      init_kwargs={'source': TaskqueueStatsSource(),
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
   else:
     # Stub handler for non-LB nodes
     local_proxies_stats_handler = HandlerInfo(
       handler_class=Respond404Handler,
-      init_kwargs={'reason': 'Only LB node provides proxies stats'}
+      init_kwargs={'reason': 'Only LB nodes provides proxies stats'}
+    )
+    local_taskqueue_stats_handler = HandlerInfo(
+      handler_class=Respond404Handler,
+      init_kwargs={'reason': 'Only LB nodes provide taskqueue service stats'}
     )
 
   if is_tq_node:
@@ -112,6 +122,7 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
     '/stats/local/node': local_node_stats_handler,
     '/stats/local/processes': local_processes_stats_handler,
     '/stats/local/proxies': local_proxies_stats_handler,
+    '/stats/local/taskqueue': local_taskqueue_stats_handler,
     '/stats/local/rabbitmq': local_rabbitmq_stats_handler,
   }
   return [
@@ -131,7 +142,7 @@ def get_cluster_stats_api_routes(is_lb):
     A list of route-handler tuples.
   """
   if is_lb:
-    # Only LB nodes provides cluster stats
+    # Only LB nodes provide cluster stats
     cluster_node_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
       init_kwargs={'source': cluster_nodes_stats,
@@ -147,6 +158,11 @@ def get_cluster_stats_api_routes(is_lb):
       init_kwargs={'source': cluster_proxies_stats,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
+    cluster_taskqueue_stats_handler = HandlerInfo(
+      handler_class=CurrentClusterStatsHandler,
+      init_kwargs={'source': cluster_taskqueue_stats,
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+    )
     cluster_rabbitmq_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
       init_kwargs={'source': cluster_rabbitmq_stats,
@@ -156,17 +172,19 @@ def get_cluster_stats_api_routes(is_lb):
     # Stub handler for slave nodes
     cluster_stub_handler = HandlerInfo(
       handler_class=Respond404Handler,
-      init_kwargs={'reason': 'Only master node provides cluster stats'}
+      init_kwargs={'reason': 'Only LB nodes provide cluster stats'}
     )
     cluster_node_stats_handler = cluster_stub_handler
     cluster_processes_stats_handler = cluster_stub_handler
     cluster_proxies_stats_handler = cluster_stub_handler
+    cluster_taskqueue_stats_handler = cluster_stub_handler
     cluster_rabbitmq_stats_handler = cluster_stub_handler
 
   routes = {
     '/stats/cluster/nodes': cluster_node_stats_handler,
     '/stats/cluster/processes': cluster_processes_stats_handler,
     '/stats/cluster/proxies': cluster_proxies_stats_handler,
+    '/stats/cluster/taskqueue': cluster_taskqueue_stats_handler,
     '/stats/cluster/rabbitmq': cluster_rabbitmq_stats_handler,
   }
   return [

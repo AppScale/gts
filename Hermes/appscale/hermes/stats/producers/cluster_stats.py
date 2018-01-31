@@ -4,6 +4,8 @@ import logging
 import sys
 import time
 
+import random
+
 from appscale.common import appscale_info
 from tornado import gen, httpclient
 from tornado.options import options
@@ -13,8 +15,8 @@ from appscale.hermes.constants import SECRET_HEADER
 from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.stats.producers import (
-  proxy_stats, node_stats, process_stats, rabbitmq_stats
-)
+  proxy_stats, node_stats, process_stats, rabbitmq_stats,
+  taskqueue_stats)
 
 
 class BadStatsListFormat(ValueError):
@@ -123,29 +125,40 @@ class ClusterStatsSource(object):
       raise BadStatsListFormat(msg), None, sys.exc_info()[2]
 
 
+def get_random_lb_node():
+  return random.choice(appscale_info.get_load_balancer_ips())
+
+
 cluster_nodes_stats = ClusterStatsSource(
-  ips_getter=staticmethod(appscale_info.get_all_ips),
+  ips_getter=appscale_info.get_all_ips,
   method_path='stats/local/node',
   stats_model=node_stats.NodeStatsSnapshot,
   local_stats_source=node_stats.NodeStatsSource
 )
 
 cluster_processes_stats = ClusterStatsSource(
-  ips_getter=staticmethod(appscale_info.get_all_ips),
+  ips_getter=appscale_info.get_all_ips,
   method_path='stats/local/processes',
   stats_model=process_stats.ProcessesStatsSnapshot,
   local_stats_source=process_stats.ProcessesStatsSource
 )
 
 cluster_proxies_stats = ClusterStatsSource(
-  ips_getter=staticmethod(appscale_info.get_load_balancer_ips),
+  ips_getter=appscale_info.get_load_balancer_ips,
   method_path='stats/local/proxies',
   stats_model=proxy_stats.ProxiesStatsSnapshot,
   local_stats_source=proxy_stats.ProxiesStatsSource
 )
 
+cluster_taskqueue_stats = ClusterStatsSource(
+  ips_getter=get_random_lb_node,
+  method_path='stats/local/taskqueue',
+  stats_model=taskqueue_stats.TaskqueueServiceStatsSnapshot,
+  local_stats_source=taskqueue_stats.TaskqueueStatsSource
+)
+
 cluster_rabbitmq_stats = ClusterStatsSource(
-  ips_getter=staticmethod(appscale_info.get_taskqueue_nodes),
+  ips_getter=appscale_info.get_taskqueue_nodes,
   method_path='stats/local/rabbitmq',
   stats_model=rabbitmq_stats.RabbitMQStatsSnapshot,
   local_stats_source=rabbitmq_stats.RabbitMQStatsSource
