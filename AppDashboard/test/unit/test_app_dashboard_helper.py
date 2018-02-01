@@ -248,25 +248,21 @@ class TestAppDashboardHelper(unittest.TestCase):
     ]
     self.assertEqual(instance_info, test1_instance_stats)
 
-  def get_application_info(self):
-    """ Queries the AppController for information about which Google App Engine
-    applications are currently running, and if they are done loading, the URL
-    that they can be accessed at.
+  def get_version_info(self):
+    """ Queries the AppController for information about active versions.
 
     Returns:
-      A dict, where each key is a str indicating the name of a Google App Engine
-      application running in this deployment, and each value is either a str
-      indicating the URL that the app can be found at, or None, if the
-      application is still loading.
+      A dictionary mapping version keys to serving URLs. A None value indicates
+      that the version is still loading.
     """
-    application_info = {
-      "test1": ["http://1.1.1.1:1", "https://1.1.1.1:1"],
-      "test2": ["http://1.1.1.1:2", "https://1.1.1.1:2"]
+    version_info = {
+      'test1_default_v1': ['http://1.1.1.1:1', 'https://1.1.1.1:1'],
+      'test2_default_v1': ['http://1.1.1.1:2', 'https://1.1.1.1:2']
     }
     flexmock(AppDashboardHelper)
     AppDashboardHelper.should_receive('get_login_host').and_return('1.1.1.1')
     AppDashboardHelper.should_receive('get_version_ports').and_return([1, 1])\
       .and_return([2, 2])
     self.setUpClusterStats()
-    app_info = AppDashboardHelper().get_application_info()
-    self.assertEqual(app_info, application_info)
+    app_info = AppDashboardHelper().get_version_info()
+    self.assertEqual(app_info, version_info)
