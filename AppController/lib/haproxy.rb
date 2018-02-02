@@ -147,6 +147,11 @@ module HAProxy
   #   listen_port : the port to listen to
   #   name        : the name of the server
   def self.create_app_config(servers, my_private_ip, listen_port, name)
+    if servers.empty?
+      Djinn.log_warn("create_app_config called with empty servers list.")
+      return
+    end
+
     config = "# Create a load balancer for the #{name} application\n"
     config << "listen #{name}\n"
     config << "  bind #{my_private_ip}:#{listen_port}\n"

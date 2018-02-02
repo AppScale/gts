@@ -2604,6 +2604,16 @@ class Djinn
     'OK'
   end
 
+  # Updates the list of blob_server in haproxy.
+  def update_blob_servers
+    servers = []
+    get_all_compute_nodes.each { |ip|
+      servers << {'ip' => ip, 'port' => BlobServer::SERVER_PORT}
+    }
+    HAProxy.create_app_config(servers, my_node.private_ip,
+      BlobServer::HAPROXY_PORT, BlobServer::NAME)
+  end
+
   # Instruct HAProxy to begin routing traffic to the BlobServers.
   #
   # Args:
@@ -2619,12 +2629,7 @@ class Djinn
     return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
 
     Djinn.log_debug('Adding BlobServer routing.')
-    servers = []
-    get_all_compute_nodes.each { |ip|
-      servers << {'ip' => ip, 'port' => BlobServer::SERVER_PORT}
-    }
-    HAProxy.create_app_config(servers, my_node.private_ip,
-      BlobServer::HAPROXY_PORT, BlobServer::NAME)
+    update_blob_servers
   end
 
   # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
@@ -5149,6 +5154,9 @@ HOSTS
           num_scaled_down += num_terminated
         }
       }
+
+      # Make sure we have the proper list of blobservers configured.
+      update_blob_servers
     }
   end
 
