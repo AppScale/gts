@@ -4139,11 +4139,11 @@ HOSTS
         # Reload haproxy first, to ensure we have the backend ready when
         # nginx routing is enabled. We need to get the appservers in a
         # hash with ip, port for the haproxy call.
-        servers = {}
+        servers = []
         appservers.each { |location|
-          host, port = location.split(":")
+          host, port = location.split(':')
           next if Integer(port) < 0
-          servers[host] = port
+          servers << { 'ip' => host, 'port' => port }
         }
         unless HAProxy.create_app_config(servers, my_private, proxy_port,
                                          version_key)

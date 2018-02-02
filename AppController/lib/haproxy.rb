@@ -148,7 +148,7 @@ module HAProxy
   #   name        : the name of the server
   def self.create_app_config(servers, my_private_ip, listen_port, name)
     if servers.empty?
-      Djinn.log_warn('create_app_config called with no available servers.')
+      Djinn.log_warn('create_app_config called with no running servers.')
       return false
     end
 
