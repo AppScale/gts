@@ -5,11 +5,11 @@ import socket
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import re
-
-import attr
+import re
 import os
 import psutil
+
+import attr
 
 from appscale.hermes.stats.constants import (
   HAPROXY_APPS_STATS_SOCKET_PATH,
@@ -418,7 +418,7 @@ def get_service_instances(stats_socket_path, pxname):
   ip_port_pattern = re.compile(
     "${proxy},{proxy}-(?P<port_ip>[.\w]+:\d+)".format(proxy=pxname)
   )
-  stats_csv = get_stats(stats_socket_path)
+  stats_csv = get_stats(stats_socket_path).read()
   for match in re.finditer(ip_port_pattern, stats_csv):
     ip_port_list.append(match.group("port_ip"))
   return ip_port_list
