@@ -4909,6 +4909,9 @@ HOSTS
 
   # Updates @app_info_map with registered instances. This must be called under
   # APPS_LOCK.
+  #
+  # Args:
+  #   version_key: A string specifying the version key to update.
   def update_registered_instances(version_key)
     begin
       zk_instances = ZKInterface.get_children(
