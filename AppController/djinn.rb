@@ -4917,7 +4917,7 @@ HOSTS
       zk_instances = ZKInterface.get_children(
         "/appscale/instances_by_version/#{version_key}")
     rescue FailedZooKeeperOperationException
-      Djinn.log_warn('Unable to update registered instances.')
+      Djinn.log_warn('Unable to fetch list of registered instances.')
       return
     end
 
