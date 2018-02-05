@@ -2532,6 +2532,16 @@ class Djinn
     return uuid
   end
 
+  # Updates the list of blob_server in haproxy.
+  def update_blob_servers
+    servers = []
+    get_all_compute_nodes.each { |ip|
+      servers << {'ip' => ip, 'port' => BlobServer::SERVER_PORT}
+    }
+    HAProxy.create_app_config(servers, my_node.private_ip,
+      BlobServer::HAPROXY_PORT, BlobServer::NAME)
+  end
+
   # Instruct HAProxy to begin routing traffic to the BlobServers.
   #
   # Args:
@@ -2547,12 +2557,7 @@ class Djinn
     return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
 
     Djinn.log_debug('Adding BlobServer routing.')
-    servers = []
-    get_all_compute_nodes.each { |ip|
-      servers << {'ip' => ip, 'port' => BlobServer::SERVER_PORT}
-    }
-    HAProxy.create_app_config(servers, my_node.private_ip,
-      BlobServer::HAPROXY_PORT, BlobServer::NAME)
+    update_blob_servers
   end
 
   # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
@@ -3119,11 +3124,20 @@ class Djinn
         }
         needed_nodes = needed_for_quorum(db_nodes,
                                          Integer(@options['replication']))
+
+        # If this machine is running other services, decrease Cassandra's max
+        # heap size.
+        heap_reduction = 0
+        heap_reduction += 0.2 if my_node.is_compute?
+        if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
+          heap_reduction += 0.1
+        end
+
         if my_node.is_db_master?
-          start_db_master(false, needed_nodes, db_nodes)
+          start_db_master(false, needed_nodes, db_nodes, heap_reduction)
           prime_database
         else
-          start_db_slave(false, needed_nodes, db_nodes)
+          start_db_slave(false, needed_nodes, db_nodes, heap_reduction)
         end
       }
     else
@@ -5104,6 +5118,9 @@ HOSTS
           num_scaled_down += num_terminated
         }
       }
+
+      # Make sure we have the proper list of blobservers configured.
+      update_blob_servers
     }
   end
 

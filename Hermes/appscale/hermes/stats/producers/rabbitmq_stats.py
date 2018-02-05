@@ -8,7 +8,7 @@ import time
 import attr
 from tornado.httpclient import HTTPClient
 
-from appscale.hermes.stats.converter import include_list_name
+from appscale.hermes.stats.converter import Meta, include_list_name
 
 # The port used by the RabbitMQ management plugin.
 API_PORT = 15672
@@ -19,6 +19,9 @@ PASS = 'guest'
 
 # The endpoint used for retrieving node stats.
 NODES_API = '/api/nodes'
+
+# The endpoint used for retrieving queue stats.
+QUEUES_API = '/api/queues'
 
 
 class APICallFailed(Exception):
@@ -34,6 +37,21 @@ class RabbitMQStatsSnapshot(object):
   disk_free_alarm = attr.ib()
   mem_alarm = attr.ib()
   name = attr.ib()
+
+
+@include_list_name('queue')
+@attr.s(cmp=False, hash=False, slots=True, frozen=True)
+class PushQueueStats(object):
+  """ The fields reported for each push queue. """
+  messages = attr.ib()
+  name = attr.ib()
+
+
+@attr.s(cmp=False, hash=False, slots=True, frozen=True)
+class PushQueueStatsSnapshot(object):
+  """ A stats container for all existing push queues. """
+  utc_timestamp = attr.ib()
+  queues = attr.ib(metadata={Meta.ENTITY_LIST: PushQueueStats})
 
 
 class RabbitMQStatsSource(object):
@@ -73,5 +91,46 @@ class RabbitMQStatsSource(object):
       name=node_info['name']
     )
     logging.info('Prepared RabbitMQ node stats in '
+                 '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
+    return snapshot
+
+
+class PushQueueStatsSource(object):
+  """ Fetches push queue stats. """
+
+  first_run = True
+
+  @staticmethod
+  def get_current():
+    """ Retrieves push queue stats.
+
+    Returns:
+      An instance of PushQueueStatsSnapshot.
+    """
+    start = time.time()
+
+    url = 'http://localhost:{}{}'.format(API_PORT, QUEUES_API)
+    creds = base64.b64encode(':'.join([USER, PASS]))
+    headers = {'Authorization': 'Basic {}'.format(creds)}
+    client = HTTPClient()
+    try:
+      response = client.fetch(url, headers=headers)
+    except Exception as error:
+      raise APICallFailed('Call to {} failed: {}'.format(url, error))
+
+    try:
+      queues_info = json.loads(response.body)
+    except ValueError:
+      raise APICallFailed('Invalid response from '
+                          '{}: {}'.format(url, response.body))
+
+    queue_stats = [
+      PushQueueStats(name=queue['name'], messages=queue['messages'])
+      for queue in queues_info if '___' in queue['name']]
+    snapshot = PushQueueStatsSnapshot(
+      utc_timestamp=int(time.time()),
+      queues=queue_stats
+    )
+    logging.info('Prepared push queue stats in '
                  '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
     return snapshot
