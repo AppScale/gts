@@ -865,11 +865,11 @@ def declare_instance_nodes(running_instances, zk_client):
   for version_key in zk_client.get_children(VERSION_REGISTRATION_NODE):
     version_node = '/'.join([VERSION_REGISTRATION_NODE, version_key])
     for instance_entry in zk_client.get_children(version_node):
-      machine_ip, port = instance_entry.split(':')
-      port = int(port)
+      machine_ip = instance_entry.split(':')[0]
       if machine_ip != options.private_ip:
         continue
 
+      port = int(instance_entry.split(':')[-1])
       instance_node = '/'.join([version_node, instance_entry])
       revision = zk_client.get(instance_node)[0]
       revision_key = VERSION_PATH_SEPARATOR.join([version_key, revision])
