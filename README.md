@@ -3,9 +3,11 @@
 [![GitHub version](https://badge.fury.io/gh/AppScale%2Fappscale.svg)](http://badge.fury.io/gh/AppScale%2Fappscale)
 [![AppScale license](https://img.shields.io/badge/license-Apache%202-blue.svg)](https://github.com/AppScale/appscale/blob/master/LICENSE)
 
-AppScale is an open-source cloud computing platform that automatically deploys and scales unmodified Google App Engine applications over public and private cloud systems and on-premise clusters. AppScale is modeled on the App Engine APIs and has support for Python, Go, PHP and Java applications.
+AppScale is an easy-to-manage serverless platform for building and running scalable web and mobile applications on any infrastructure. 
 
-AppScale is developed and maintained by AppScale Systems, Inc., based in Santa Barbara, California, and Google.
+The platform enables developers to focus solely on business logic in order to rapidly build scalable apps, cleanly separating it from deployment and scaling logic. It allows operations to provide a consistent, tunable environment that can simplify running and maintaining apps on multiple infrastructures. The business will benefit from faster time-to-market, reduced operational costs, maximized application lifetime, and the flexibility to integrate with new or existing technologies.
+
+AppScale is open source and based on the original serverless platform, Google App Engine. It supports Python, Go, PHP and Java applications. The software is developed and maintained by AppScale Systems, Inc., based in Santa Barbara, California, and Google.
 
 
 ## Why Use AppScale?
