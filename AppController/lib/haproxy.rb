@@ -172,9 +172,9 @@ module HAProxy
                                       "\n"
     end
 
-    # If it is the dashboard app, increase the server timeout because uploading apps
-    # can take some time.
-    if name == AppDashboard::APP_NAME
+    # If it is the dashboard app, increase the server timeout because
+    # uploading apps can take some time.
+    if name.split(Djinn::VERSION_PATH_SEPARATOR)[0] == AppDashboard::APP_NAME
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
 
