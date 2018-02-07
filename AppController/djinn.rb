@@ -754,12 +754,13 @@ class Djinn
         raise AppScaleException.new(msg)
       end
       if !node['public_ip'] || !node['private_ip'] || !node['jobs'] ||
-        !node['instance_id']
+        !node['instance_id'] || !node['instance_type']
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       elsif node['public_ip'].empty? || node['private_ip'].empty? ||
-         node['jobs'].empty? || node['instance_id'].empty?
+         node['jobs'].empty? || node['instance_id'].empty? ||
+         node['instance_type'].empty?
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
@@ -1009,6 +1010,13 @@ class Djinn
       @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
       @options['ec2_url'] = @options['EC2_URL']
     end
+
+    @nodes.each { |node|
+      if node.jobs.include? 'compute'
+        @options['compute_instance_type'] = node.instance_type
+        break
+      end
+    }
 
     'OK'
   end
