@@ -274,7 +274,7 @@ def get_stats(socket_path):
       if not data:
         break
       stats_output.write(data)
-      stats_output.seek(0)
+    stats_output.seek(0)
     return stats_output
   finally:
     client.close()

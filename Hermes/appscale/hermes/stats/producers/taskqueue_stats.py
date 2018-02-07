@@ -77,7 +77,7 @@ class TaskqueueStatsSource(object):
 
   @gen.coroutine
   def fetch_stats_from_instance(self, ip_port):
-    url = "http://{ip_port}/{path}?last_milliseconds={max_age}".format(
+    url = "http://{ip_port}{path}?last_milliseconds={max_age}".format(
       ip_port=ip_port, path=STATS_ENDPOINT,
       max_age=self.IGNORE_RECENT_OLDER_THAN
     )
@@ -136,7 +136,7 @@ class TaskqueueStatsSource(object):
 
   @staticmethod
   def summarise_cumulative(instances_stats):
-    cumulative_stats = (server.cumulative for server in instances_stats)
+    cumulative_stats = [server.cumulative for server in instances_stats]
     return CumulativeStatsSnapshot(
       total=sum(cumulative.total for cumulative in cumulative_stats),
       failed=sum(cumulative.failed for cumulative in cumulative_stats),
@@ -146,27 +146,29 @@ class TaskqueueStatsSource(object):
 
   @staticmethod
   def summarise_recent(instances_stats):
-    recent_stats = (server.recent for server in instances_stats)
-    avg_latency_sum = sum(recent.avg_latency for recent in recent_stats)
+    recent_stats = [server.recent for server in instances_stats]
+    avg_latency_sum = sum(recent.avg_latency for recent in recent_stats
+                          if recent.avg_latency is not None)
     # Compute sums for nested dictionaries
     by_pb_method_sum = collections.defaultdict(int)
     by_rest_method_sum = collections.defaultdict(int)
     by_pb_status_sum = collections.defaultdict(int)
     by_rest_status_sum = collections.defaultdict(int)
     for recent in recent_stats:
-      for pb_method, calls in recent.by_pb_method:
+      for pb_method, calls in recent.by_pb_method.iteritems():
         by_pb_method_sum[pb_method] += calls
-      for rest_method, calls in recent.by_rest_method:
+      for rest_method, calls in recent.by_rest_method.iteritems():
         by_rest_method_sum[rest_method] += calls
-      for pb_status, calls in recent.by_pb_status:
+      for pb_status, calls in recent.by_pb_status.iteritems():
         by_pb_status_sum[pb_status] += calls
-      for rest_status, calls in recent.by_rest_status:
+      for rest_status, calls in recent.by_rest_status.iteritems():
         by_rest_status_sum[rest_status] += calls
     # Return snapshot
     return RecentStatsSnapshot(
       total=sum(recent.total for recent in recent_stats),
       failed=sum(recent.failed for recent in recent_stats),
-      avg_latency=(avg_latency_sum / len(instances_stats)) if instances_stats else None,
+      avg_latency=(avg_latency_sum / len(instances_stats))
+                  if instances_stats else None,
       pb_reqs=sum(recent.pb_reqs for recent in recent_stats),
       rest_reqs=sum(recent.rest_reqs for recent in recent_stats),
       by_pb_method=by_pb_method_sum,
