@@ -126,7 +126,7 @@ class ClusterStatsSource(object):
 
 
 def get_random_lb_node():
-  return random.choice(appscale_info.get_load_balancer_ips())
+  return [random.choice(appscale_info.get_load_balancer_ips())]
 
 
 cluster_nodes_stats = ClusterStatsSource(
