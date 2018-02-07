@@ -274,6 +274,7 @@ def get_stats(socket_path):
       if not data:
         break
       stats_output.write(data)
+      stats_output.seek(0)
     return stats_output
   finally:
     client.close()
@@ -416,7 +417,7 @@ class ProxiesStatsSource(object):
 def get_service_instances(stats_socket_path, pxname):
   ip_port_list = []
   ip_port_pattern = re.compile(
-    "${proxy},{proxy}-(?P<port_ip>[.\w]+:\d+)".format(proxy=pxname)
+    "\n{proxy},{proxy}-(?P<port_ip>[.\w]+:\d+)".format(proxy=pxname)
   )
   stats_csv = get_stats(stats_socket_path).read()
   for match in re.finditer(ip_port_pattern, stats_csv):
