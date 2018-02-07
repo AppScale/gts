@@ -77,6 +77,8 @@ class ClusterStatsSource(object):
   def _stats_from_node_async(self, node_ip, max_age, include_lists):
     if node_ip == appscale_info.get_private_ip():
       snapshot = self.local_stats_source.get_current()
+      if isinstance(snapshot, gen.Future):
+        snapshot = yield snapshot
     else:
       snapshot = yield self._fetch_remote_stats_async(
         node_ip, max_age, include_lists)
@@ -154,7 +156,7 @@ cluster_taskqueue_stats = ClusterStatsSource(
   ips_getter=get_random_lb_node,
   method_path='stats/local/taskqueue',
   stats_model=taskqueue_stats.TaskqueueServiceStatsSnapshot,
-  local_stats_source=taskqueue_stats.TaskqueueStatsSource
+  local_stats_source=taskqueue_stats.taskqueue_stats_source
 )
 
 cluster_rabbitmq_stats = ClusterStatsSource(

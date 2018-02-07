@@ -49,7 +49,16 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'proxy.frontend': ['bin', 'bout', 'scur', 'smax', 'rate',
                      'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
   'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
+  # RabbitMQ stats
   'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name'],
+  # Taskqueue service stats
+  'taskqueue': ['utc_timestamp', 'current_requests', 'cumulative', 'recent',
+                'instances_count', 'failures'],
+  'taskqueue.instance': ['start_timestamp_ms', 'current_requests',
+                         'cumulative', 'recent'],
+  'taskqueue.cumulative': ['total', 'failed', 'pb_reqs', 'rest_reqs'],
+  'taskqueue.recent': ['total', 'failed', 'avg_latency',
+                       'pb_reqs', 'rest_reqs'],
 })
 
 

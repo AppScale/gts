@@ -61,6 +61,7 @@ class InstanceStatsSnapshot(object):
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class TaskqueueServiceStatsSnapshot(object):
   """ Stats reported for TaskQueue service. """
+  utc_timestamp = attr.ib()
   current_requests = attr.ib()
   cumulative = attr.ib(metadata={Meta.ENTITY: CumulativeStatsSnapshot})
   recent = attr.ib(metadata={Meta.ENTITY: RecentStatsSnapshot})
@@ -202,6 +203,7 @@ class TaskqueueStatsSource(object):
     total_recent = self.summarise_recent(instances_stats)
     instances_count = len(instances_stats)
     stats = TaskqueueServiceStatsSnapshot(
+      utc_timestamp=int(time.time()),
       current_requests=current_reqs,
       cumulative=total_cumulative,
       recent=total_recent,
@@ -214,3 +216,6 @@ class TaskqueueStatsSource(object):
       .format(nodes=len(instances_stats), elapsed=time.time() - start_time)
     )
     raise gen.Return(stats)
+
+
+taskqueue_stats_source = TaskqueueStatsSource()
