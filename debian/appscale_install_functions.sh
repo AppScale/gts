@@ -121,7 +121,6 @@ increaseconnections()
         cat << EOF > ${SYSCTL_CONFIG}
 net.netfilter.nf_conntrack_max = 262144
 net.core.somaxconn = 20240
-net.ipv4.tcp_tw_recycle = 0
 net.ipv4.tcp_tw_reuse = 0
 net.ipv4.tcp_orphan_retries = 1
 net.ipv4.tcp_fin_timeout = 25
