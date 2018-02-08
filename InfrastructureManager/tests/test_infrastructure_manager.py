@@ -53,7 +53,7 @@ class TestInfrastructureManager(TestCase):
     status_info = {
       'success': True,
       'reason': 'received run request',
-      'state': InfrastructureManager.STATE_RUNNING,
+      'state': InfrastructureManager.STATE_SUCCESS,
       'vm_info': vm_info
     }
     i.reservations.put(id, status_info)

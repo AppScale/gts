@@ -131,13 +131,17 @@ class TestGCEAgent(TestCase):
 
     fake_list_instance_request = flexmock(name='fake_list_instance_request')
     fake_list_instance_request.should_receive('execute').with_args(
-      http=fake_authorized_http).and_return(no_instance_info).and_return(list_instance_info)
+      http=fake_authorized_http).and_return(no_instance_info)\
+      .and_return(no_instance_info)\
+      .and_return(list_instance_info)
 
     fake_instances = flexmock(name='fake_instances')
     fake_gce = flexmock(name='fake_gce')
-    fake_gce.should_receive('instances').and_return(fake_instances)
+    fake_gce.should_receive('instances').and_return(fake_instances)\
+      .and_return(fake_instances).and_return(fake_instances)
     fake_instances.should_receive('list').with_args(project=self.project,
       filter="name eq boogroup-.*", zone='my-zone-1b') \
+      .and_return(fake_list_instance_request)\
       .and_return(fake_list_instance_request)
 
     # we only need to create one node, so set up mocks for that
@@ -213,7 +217,7 @@ class TestGCEAgent(TestCase):
 
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
-    self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations.get(
+    self.assertEquals(InfrastructureManager.STATE_SUCCESS, i.reservations.get(
       self.reservation_id)['state'])
     vm_info = i.reservations.get(self.reservation_id)['vm_info']
     self.assertEquals(['public-ip'], vm_info['public_ips'])

@@ -28,7 +28,8 @@ class TestEucaAgent(TestCase):
     new_reservation = Reservation()
     new_reservation.instances = [instance, new_instance]
     flexmock(EC2Connection).should_receive('get_all_instances').and_return([]) \
-      .and_return([reservation]).and_return([new_reservation])
+      .and_return([reservation]).and_return([reservation]) \
+      .and_return([new_reservation]).and_return([new_reservation])
 
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
@@ -58,7 +59,7 @@ class TestEucaAgent(TestCase):
 
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
-    self.assertEquals(InfrastructureManager.STATE_RUNNING,
+    self.assertEquals(InfrastructureManager.STATE_SUCCESS,
       i.reservations.get(id)['state'])
     vm_info = i.reservations.get(id)['vm_info']
     self.assertEquals(['new-public-ip'], vm_info['public_ips'])

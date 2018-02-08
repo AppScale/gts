@@ -45,7 +45,7 @@ class TestEC2Agent(TestCase):
 
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
-    self.assertEquals(InfrastructureManager.STATE_RUNNING,
+    self.assertEquals(InfrastructureManager.STATE_SUCCESS,
       i.reservations.get(id)['state'])
     vm_info = i.reservations.get(id)['vm_info']
     self.assertEquals(['new-public-ip'], vm_info['public_ips'])
@@ -76,7 +76,8 @@ class TestEC2Agent(TestCase):
     new_reservation = Reservation()
     new_reservation.instances = [instance, new_instance]
     fake_ec2.should_receive('get_all_instances').and_return([]) \
-      .and_return([reservation]).and_return([new_reservation])
+      .and_return([reservation]).and_return([reservation]) \
+      .and_return([new_reservation]).and_return([new_reservation])
 
     fake_ec2.should_receive('terminate_instances').and_return([instance])
     fake_ec2.should_receive('request_spot_instances')

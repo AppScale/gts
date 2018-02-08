@@ -22,8 +22,7 @@ class TestEC2Agent(TestCase):
   def test_ec2_run_instances(self):
     self.run_instances('ec2', True)
     self.run_instances('ec2', False)
-    e = EC2ResponseError('Error', 'Mock error')
-    e.error_message = 'Mock error'
+    e = AgentRuntimeException('Mock error')
     self.fake_ec2.should_receive('run_instances').and_raise(e)
     self.run_instances('ec2', True, False)
     self.run_instances('ec2', False, False)
@@ -54,8 +53,13 @@ class TestEC2Agent(TestCase):
     reservation.instances = [instance]
     new_reservation = Reservation()
     new_reservation.instances = [instance, new_instance]
-    self.fake_ec2.should_receive('get_all_instances').and_return([]) \
-      .and_return([reservation]).and_return([new_reservation])
+    if success:
+      self.fake_ec2.should_receive('get_all_instances').and_return([]) \
+        .and_return([reservation]).and_return([reservation]) \
+        .and_return([new_reservation]).and_return([new_reservation])
+    else:
+      self.fake_ec2.should_receive('get_all_instances') \
+        .and_return([reservation])
 
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
@@ -89,7 +93,7 @@ class TestEC2Agent(TestCase):
     if not blocking:
       time.sleep(.1)
     if success:
-      self.assertEquals(InfrastructureManager.STATE_RUNNING,
+      self.assertEquals(InfrastructureManager.STATE_SUCCESS,
         i.reservations.get(id)['state'])
       vm_info = i.reservations.get(id)['vm_info']
       self.assertEquals(['new-public-ip'], vm_info['public_ips'])
@@ -98,12 +102,16 @@ class TestEC2Agent(TestCase):
     else:
       if blocking:
         self.assertRaises(AgentRuntimeException, i.run_instances, full_params, 'secret')
+        self.assertEquals(InfrastructureManager.STATE_FAILED,
+                          i.reservations.get(id)['state'])
+        self.assertEquals(i.reservations.get(id)['vm_info'], None)
 
   def terminate_instances(self, prefix, blocking):
     i = InfrastructureManager(blocking=blocking)
 
     params1 = {'infrastructure': prefix}
-    self.assertRaises(AgentConfigurationException, i.terminate_instances, params1, 'secret')
+    result = i.terminate_instances(params1, 'secret')
+    self.assertFalse(result['success'])
 
     params2 = {
       'credentials': {
