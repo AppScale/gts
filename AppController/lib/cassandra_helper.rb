@@ -53,10 +53,12 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 #   desired: The total number of database nodes.
-def start_db_master(clear_datastore, needed, desired)
+#   heap_reduction: A decimal representing a reduction factor for max heap
+#     (eg. .2 = 80% of normal calculation).
+def start_db_master(clear_datastore, needed, desired, heap_reduction)
   @state = 'Starting up Cassandra seed node'
   Djinn.log_info(@state)
-  start_cassandra(clear_datastore, needed, desired)
+  start_cassandra(clear_datastore, needed, desired, heap_reduction)
 end
 
 # Starts Cassandra on this machine. This is identical to starting Cassandra as a
@@ -67,7 +69,9 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 #   desired: The total number of database nodes.
-def start_db_slave(clear_datastore, needed, desired)
+#   heap_reduction: A decimal representing a reduction factor for max heap
+#     (eg. .2 = 80% of normal calculation).
+def start_db_slave(clear_datastore, needed, desired, heap_reduction)
   seed_node = get_db_master.private_ip
   @state = "Waiting for Cassandra seed node at #{seed_node} to start"
   Djinn.log_info(@state)
@@ -82,7 +86,7 @@ def start_db_slave(clear_datastore, needed, desired)
     sleep(Djinn::SMALL_WAIT)
   end
 
-  start_cassandra(clear_datastore, needed, desired)
+  start_cassandra(clear_datastore, needed, desired, heap_reduction)
 end
 
 # Waits for enough database nodes to be up.
@@ -117,7 +121,9 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 #   desired: The total number of database nodes.
-def start_cassandra(clear_datastore, needed, desired)
+#   heap_reduction: A decimal representing a reduction factor for max heap
+#     (eg. .2 = 80% of normal calculation).
+def start_cassandra(clear_datastore, needed, desired, heap_reduction)
   if clear_datastore
     Djinn.log_info('Erasing datastore contents')
     Djinn.log_run("rm -rf #{CASSANDRA_DATA_DIR}")
@@ -128,7 +134,12 @@ def start_cassandra(clear_datastore, needed, desired)
   Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
 
   su = `which su`.chomp
-  start_cmd = "#{su} -c '#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}' cassandra"
+  cmd = "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}"
+  if heap_reduction > 0
+    cmd = "HEAP_REDUCTION=#{heap_reduction} #{cmd}"
+  end
+
+  start_cmd = "#{su} -c '#{cmd}' cassandra"
   stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
   MonitInterface.start_daemon(:cassandra, start_cmd, stop_cmd, PID_FILE)
 
