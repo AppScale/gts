@@ -1,10 +1,10 @@
 import json
 import thread
 
-from agents.base_agent import AgentConfigurationException
-from agents.base_agent import AgentRuntimeException
-from agents.base_agent import BaseAgent
-from agents.factory import InfrastructureAgentFactory
+from appscale.tools.agents.base_agent import AgentConfigurationException
+from appscale.tools.agents.base_agent import AgentRuntimeException
+from appscale.tools.agents.base_agent import BaseAgent
+from appscale.tools.agents.factory import InfrastructureAgentFactory
 
 from utils import utils
 from utils.persistent_dictionary import PersistentDictionary
