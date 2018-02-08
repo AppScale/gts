@@ -101,7 +101,6 @@ class TestEC2Agent(TestCase):
       self.assertEquals(['new-i-id'], vm_info['instance_ids'])
     else:
       if blocking:
-        self.assertRaises(AgentRuntimeException, i.run_instances, full_params, 'secret')
         self.assertEquals(InfrastructureManager.STATE_FAILED,
                           i.reservations.get(id)['state'])
         self.assertEquals(i.reservations.get(id)['vm_info'], None)
