@@ -149,3 +149,10 @@ class ClusterRabbitMQStatsSource(ClusterStatsSource):
   method_path = 'stats/local/rabbitmq'
   stats_model = rabbitmq_stats.RabbitMQStatsSnapshot
   local_stats_source = rabbitmq_stats.RabbitMQStatsSource
+
+
+class ClusterPushQueueStatsSource(ClusterStatsSource):
+  ips_getter = staticmethod(lambda: [appscale_info.get_taskqueue_nodes()[0]])
+  method_path = 'stats/local/push_queues'
+  stats_model = rabbitmq_stats.PushQueueStatsSnapshot
+  local_stats_source = rabbitmq_stats.PushQueueStatsSource

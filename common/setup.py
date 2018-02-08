@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name='appscale-common',
-  version='0.0.2',
+  version='0.0.3',
   description='Modules used by multiple AppScale packages',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
@@ -11,7 +11,8 @@ setup(
   platforms='Posix',
   install_requires=[
     'kazoo',
-    'PyYAML'
+    'PyYAML',
+    'future'
   ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
@@ -21,6 +22,7 @@ setup(
   ],
   namespace_packages=['appscale'],
   packages=['appscale',
-            'appscale.common'],
+            'appscale.common',
+            'appscale.common.service_stats'],
   package_data={'appscale.common': ['templates/*']}
 )
