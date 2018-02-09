@@ -429,6 +429,9 @@ postinstallrabbitmq()
         echo ${RMQ_CONFIG} > /etc/rabbitmq/rabbitmq.config
     fi
 
+    # Enable the management API.
+    echo "[rabbitmq_management]." > /etc/rabbitmq/enabled_plugins
+
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
     disableservice rabbitmq-server
@@ -601,6 +604,23 @@ installdatastore()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AppDB
     pip install ${APPSCALE_HOME}/AppDB
+}
+
+installapiserver()
+{
+    (cd APIServer && protoc --python_out=./appscale/api_server *.proto)
+    # This package needs to be installed in a virtualenv because the protobuf
+    # library conflicts with the google namespace in the SDK.
+    rm -rf /opt/appscale_api_server
+    virtualenv /opt/appscale_api_server
+
+    # The activate script fails under `set -u`.
+    unset_opt=$(shopt -po nounset)
+    set +u
+    (source /opt/appscale_api_server/bin/activate && \
+     pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
+     ${APPSCALE_HOME}/APIServer)
+    eval ${unset_opt}
 }
 
 prepdashboard()

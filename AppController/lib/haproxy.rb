@@ -147,6 +147,11 @@ module HAProxy
   #   listen_port : the port to listen to
   #   name        : the name of the server
   def self.create_app_config(servers, my_private_ip, listen_port, name)
+    if servers.empty?
+      Djinn.log_warn("create_app_config called with empty servers list.")
+      return
+    end
+
     config = "# Create a load balancer for the #{name} application\n"
     config << "listen #{name}\n"
     config << "  bind #{my_private_ip}:#{listen_port}\n"
@@ -193,7 +198,7 @@ module HAProxy
     if current == config
       Djinn.log_debug("No need to restart haproxy for #{config_file}:" \
                       " configuration didn't change.")
-      false
+      return false
     end
 
     # Update config file.
@@ -280,7 +285,7 @@ module HAProxy
     }
     if servers.length <= 0
       Djinn.log_warn('update_version_config called but no servers found.')
-      false
+      return false
     end
 
     config = "# Create a load balancer for #{version_key}\n"

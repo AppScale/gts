@@ -56,6 +56,11 @@ class InvalidSource(Exception):
   pass
 
 
+class VersionNotChanged(Exception):
+  """ Indicates that the version node was not updated. """
+  pass
+
+
 class ServingStatus(object):
   """ The possible serving states for a project or version. """
   SERVING = 'SERVING'

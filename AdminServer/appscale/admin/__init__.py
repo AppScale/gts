@@ -2,9 +2,11 @@
 
 import argparse
 import base64
+import errno
 import hashlib
 import json
 import logging
+import os
 import re
 import time
 
@@ -25,6 +27,7 @@ from datetime import datetime
 from kazoo.client import KazooClient
 from kazoo.exceptions import NodeExistsError
 from kazoo.exceptions import NoNodeError
+from kazoo.exceptions import NotEmptyError
 from tornado import gen
 from tornado.options import options
 from tornado import web
@@ -43,7 +46,8 @@ from .constants import (
   REDEPLOY_WAIT,
   ServingStatus,
   SUPPORTED_INBOUND_SERVICES,
-  VALID_RUNTIMES
+  VALID_RUNTIMES,
+  VersionNotChanged
 )
 from .operation import (
   DeleteServiceOperation,
@@ -644,8 +648,13 @@ class VersionsHandler(BaseHandler):
                             makepath=True)
     except NodeExistsError:
       if project_id in constants.IMMUTABLE_PROJECTS:
-        message = '{} cannot be modified'.format(project_id)
-        raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=message)
+        if 'md5' not in new_version['appscaleExtensions']:
+          message = '{} cannot be modified'.format(project_id)
+          raise CustomHTTPError(HTTPCodes.FORBIDDEN, message=message)
+
+        old_md5 = old_version.get('appscaleExtensions', {}).get('md5')
+        if new_version['appscaleExtensions']['md5'] == old_md5:
+          raise VersionNotChanged('Proposed revision matches the previous one')
 
       self.zk_client.set(version_node, json.dumps(new_version))
 
@@ -691,7 +700,47 @@ class VersionsHandler(BaseHandler):
       raise CustomHTTPError(
         HTTPCodes.INTERNAL_ERROR, message='Revision already exists')
 
-    # Remove old revision nodes.
+  def stop_hosting_revision(self, project_id, service_id, version):
+    """ Removes a revision and its hosting entry.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version: A dictionary containing version details.
+    """
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
+    revision_node = '/apps/{}'.format(revision_key)
+    hoster_node = '/'.join([revision_node, options.private_ip])
+
+    try:
+      self.zk_client.delete(hoster_node)
+    except NoNodeError:
+      pass
+
+    # Clean up revision container since it's probably empty.
+    try:
+      self.zk_client.delete(revision_node)
+    except (NotEmptyError, NoNodeError):
+      pass
+
+    source_location = version['deployment']['zip']['sourceUrl']
+    try:
+      os.remove(source_location)
+    except OSError as error:
+      if error.errno != errno.ENOENT:
+        raise
+
+  def clean_up_revision_nodes(self, project_id, service_id, version):
+    """ Removes old revision nodes.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version: A dictionary containing version details.
+    """
+    revision_key = VERSION_PATH_SEPARATOR.join(
+      [project_id, service_id, version['id'], str(version['revision'])])
     version_prefix = VERSION_PATH_SEPARATOR.join(
       [project_id, service_id, version['id']])
     old_revisions = [node for node in self.zk_client.get_children('/apps')
@@ -729,14 +778,19 @@ class VersionsHandler(BaseHandler):
     new_path = utils.rename_source_archive(project_id, service_id, version)
     version['deployment']['zip']['sourceUrl'] = new_path
     yield self.identify_as_hoster(project_id, service_id, version)
-    utils.remove_old_archives(project_id, service_id, version)
 
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
       version = self.put_version(project_id, service_id, version)
+    except VersionNotChanged as warning:
+      logger.info(str(warning))
+      self.stop_hosting_revision(project_id, service_id, version)
+      return
     finally:
       self.version_update_lock.release()
 
+    self.clean_up_revision_nodes(project_id, service_id, version)
+    utils.remove_old_archives(project_id, service_id, version)
     self.begin_deploy(project_id, service_id, version['id'])
 
     operation = CreateVersionOperation(project_id, service_id, version)

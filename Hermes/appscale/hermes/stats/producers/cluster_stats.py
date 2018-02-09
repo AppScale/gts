@@ -14,7 +14,7 @@ from appscale.hermes.constants import SECRET_HEADER
 from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.stats.producers import (
-  proxy_stats, node_stats, process_stats
+  proxy_stats, node_stats, process_stats, rabbitmq_stats
 )
 
 
@@ -142,3 +142,17 @@ class ClusterProxiesStatsSource(ClusterStatsSource):
   method_path = 'stats/local/proxies'
   stats_model = proxy_stats.ProxiesStatsSnapshot
   local_stats_source = proxy_stats.ProxiesStatsSource
+
+
+class ClusterRabbitMQStatsSource(ClusterStatsSource):
+  ips_getter = staticmethod(appscale_info.get_taskqueue_nodes)
+  method_path = 'stats/local/rabbitmq'
+  stats_model = rabbitmq_stats.RabbitMQStatsSnapshot
+  local_stats_source = rabbitmq_stats.RabbitMQStatsSource
+
+
+class ClusterPushQueueStatsSource(ClusterStatsSource):
+  ips_getter = staticmethod(lambda: [appscale_info.get_taskqueue_nodes()[0]])
+  method_path = 'stats/local/push_queues'
+  stats_model = rabbitmq_stats.PushQueueStatsSnapshot
+  local_stats_source = rabbitmq_stats.PushQueueStatsSource

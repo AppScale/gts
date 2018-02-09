@@ -228,8 +228,8 @@ class AppControllerClient
 
   # Gets the statistics of this node
   def update_cron(project_id)
-    make_call(10, RETRY_ON_FAIL, 'update_project') {
-      @conn.get_node_stats_json(project_id, @secret)
+    make_call(10, RETRY_ON_FAIL, 'update_cron') {
+      @conn.update_cron(project_id, @secret)
     }
   end
 
