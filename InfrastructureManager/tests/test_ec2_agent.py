@@ -85,8 +85,9 @@ class TestEC2Agent(TestCase):
       'reservation_id': id,
       'reason': 'none'
     }
+    result = i.run_instances(full_params, 'secret')
     if success:
-      self.assertEquals(full_result, i.run_instances(full_params, 'secret'))
+      self.assertEquals(full_result, result)
 
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
