@@ -56,3 +56,5 @@ SUPPORTED_PUSH_QUEUE_FIELDS = {
     'max_doublings': non_negative_int
   }
 }
+
+SHUTTING_DOWN_TIMEOUT = 10  # Give up to 30s for finishing request
