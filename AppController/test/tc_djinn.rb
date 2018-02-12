@@ -343,7 +343,7 @@ class TestDjinn < Test::Unit::TestCase
     # Mocks for the appcontroller lock
     baz.should_receive(:get).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return({:rc => 0, :data => JSON.dump("private_ip")})
+      and_return({:rc => 0, :data => 'private_ip'})
 
     # Mocks for writing node information
     baz.should_receive(:get).with(
@@ -379,7 +379,7 @@ class TestDjinn < Test::Unit::TestCase
 
     baz.should_receive(:set).with(
       :path => node_path + "/done_loading",
-      :data => JSON.dump(true)).and_return(all_ok)
+      :data => 'true').and_return(all_ok)
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
