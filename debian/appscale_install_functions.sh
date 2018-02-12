@@ -618,6 +618,7 @@ installapiserver()
     unset_opt=$(shopt -po nounset)
     set +u
     (source /opt/appscale_api_server/bin/activate && \
+     pip install -U pip && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}
