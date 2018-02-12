@@ -24,6 +24,7 @@ from .cassandra_env.utils import mutations_for_entity
 from .utils import clean_app_id
 from .utils import encode_entity_table_key
 from .utils import encode_index_pb
+from .utils import encode_path_from_filter
 from .utils import get_composite_index_keys
 from .utils import get_entity_key
 from .utils import get_entity_kind
@@ -1895,25 +1896,33 @@ class DatastoreDistributed():
     # This query has a value it bases the query on for a property name
     # The difference between operators is what the end and start key are.
     if len(filter_ops) == 1:
+      key_comparison = False
       oper = filter_ops[0][0]
       value = str(filter_ops[0][1])
 
       if direction == datastore_pb.Query_Order.DESCENDING: 
         value = helper_functions.reverse_lex(value)
       if oper == datastore_pb.Query_Filter.EQUAL:
-        if value == "" and ancestor:
-          start_value = self._SEPARATOR + ancestor_filter
-          end_value = self._SEPARATOR + ancestor_filter + self._TERM_STRING
-        elif value == "":
-          start_value = value + self._SEPARATOR
-          end_value = self.MIN_INDEX_VALUE + self._TERM_STRING
-        elif ancestor:
-          start_value = value + self._SEPARATOR + ancestor_filter
-          end_value = value + self._SEPARATOR + ancestor_filter + \
-            self._TERM_STRING
-        else:
-          start_value = value  + self._SEPARATOR
-          end_value = value + self._SEPARATOR + self._TERM_STRING
+        if ancestor:  # Keep range within ancestor key.
+          start_value = ''.join([value, self._SEPARATOR, ancestor_filter])
+        else:  # Keep range within property value.
+          start_value = ''.join([value, self._SEPARATOR])
+        end_value = ''.join([start_value, self._TERM_STRING])
+
+        # Single prop indexes can handle key inequality within a given value
+        # (eg. color='blue', __key__<Key('Bike', 5)).
+        key_comparison = (query.filter_size() == 2 and
+                          query.filter(1).property(0).name() == '__key__')
+        if key_comparison:
+          encoded_path = encode_path_from_filter(query.filter(1))
+          ops = datastore_pb.Query_Filter
+          key_op = query.filter(1).op()
+          if key_op in (ops.LESS_THAN, ops.LESS_THAN_OR_EQUAL):
+            end_value = ''.join([value, self._SEPARATOR, encoded_path])
+            end_inclusive = key_op == ops.LESS_THAN_OR_EQUAL
+          elif key_op in (ops.GREATER_THAN, ops.GREATER_THAN_OR_EQUAL):
+            start_value = ''.join([value, self._SEPARATOR, encoded_path])
+            start_inclusive = key_op == ops.GREATER_THAN_OR_EQUAL
       elif oper == datastore_pb.Query_Filter.LESS_THAN:
         start_value = ""
         end_value = value
@@ -1948,7 +1957,8 @@ class DatastoreDistributed():
       if not startrow:
         params = [prefix, kind, property_name, start_value]
         startrow = get_index_key_from_params(params)
-        start_inclusive = self._DISABLE_INCLUSIVITY
+        if not key_comparison:
+          start_inclusive = self._DISABLE_INCLUSIVITY
       if not endrow:
         params = [prefix, kind, property_name, end_value]
         endrow = get_index_key_from_params(params)
@@ -2199,7 +2209,8 @@ class DatastoreDistributed():
           0, 
           startrow,
           force_start_key_exclusive=force_exclusive,
-          ancestor=ancestor)
+          ancestor=ancestor,
+          query=query)
 
       # We do reference counting and consider any reference which matches the
       # number of properties to be a match. Any others are discarded but it 
