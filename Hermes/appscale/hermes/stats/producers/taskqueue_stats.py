@@ -51,10 +51,19 @@ class RecentStatsSnapshot(object):
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
 class InstanceStatsSnapshot(object):
   """ Stats reported for each TaskQueue instance. """
+  ip_port = attr.ib()
   start_timestamp_ms = attr.ib()
   current_requests = attr.ib()
   cumulative = attr.ib(metadata={Meta.ENTITY: CumulativeStatsSnapshot})
   recent = attr.ib(metadata={Meta.ENTITY: RecentStatsSnapshot})
+
+
+@include_list_name('taskqueue.failure')
+@attr.s(cmp=False, hash=False, slots=True, frozen=True)
+class FailureSnapshot(object):
+  """ Failure reported for a TaskQueue instance. """
+  ip_port = attr.ib()
+  error = attr.ib()
 
 
 @include_list_name('taskqueue')
@@ -67,7 +76,7 @@ class TaskqueueServiceStatsSnapshot(object):
   recent = attr.ib(metadata={Meta.ENTITY: RecentStatsSnapshot})
   instances = attr.ib(metadata={Meta.ENTITY_LIST: InstanceStatsSnapshot})
   instances_count = attr.ib()
-  failures = attr.ib()
+  failures = attr.ib(metadata={Meta.ENTITY_LIST: FailureSnapshot})
 
 
 class TaskqueueStatsSource(object):
@@ -100,7 +109,11 @@ class TaskqueueStatsSource(object):
           "Failed to get stats from {url} ({code} {reason})"
           .format(url=url, code=response.code, reason=response.reason)
         )
-      raise gen.Return("{} {}".format(response.code, response.reason))
+      failure = FailureSnapshot(
+        ip_port=ip_port,
+        error="{} {}".format(response.code, response.reason)
+      )
+      raise gen.Return(failure)
 
     try:
       stats_body = json.loads(response.body)
@@ -124,6 +137,7 @@ class TaskqueueStatsSource(object):
         by_rest_status=recent_dict["by_rest_status"]
       )
       instance_stats_snapshot = InstanceStatsSnapshot(
+        ip_port=ip_port,
         start_timestamp_ms=cumulative_dict["from"],
         current_requests=stats_body["current_requests"],
         cumulative=cumulative,
@@ -147,8 +161,11 @@ class TaskqueueStatsSource(object):
   @staticmethod
   def summarise_recent(instances_stats):
     recent_stats = [server.recent for server in instances_stats]
-    avg_latency_sum = sum(recent.avg_latency for recent in recent_stats
-                          if recent.avg_latency is not None)
+    weighted_avg_latency_sum = sum(
+      recent.avg_latency * recent.total for recent in recent_stats
+      if recent.avg_latency is not None
+    )
+    total_recent_reqs = sum(recent.total for recent in recent_stats)
     # Compute sums for nested dictionaries
     by_pb_method_sum = collections.defaultdict(int)
     by_rest_method_sum = collections.defaultdict(int)
@@ -165,9 +182,9 @@ class TaskqueueStatsSource(object):
         by_rest_status_sum[rest_status] += calls
     # Return snapshot
     return RecentStatsSnapshot(
-      total=sum(recent.total for recent in recent_stats),
+      total=total_recent_reqs,
       failed=sum(recent.failed for recent in recent_stats),
-      avg_latency=(avg_latency_sum / len(instances_stats))
+      avg_latency=(weighted_avg_latency_sum / total_recent_reqs)
                   if instances_stats else None,
       pb_reqs=sum(recent.pb_reqs for recent in recent_stats),
       rest_reqs=sum(recent.rest_reqs for recent in recent_stats),
@@ -197,7 +214,7 @@ class TaskqueueStatsSource(object):
     # Select failures
     failures = [
       stats_or_err for stats_or_err in instances_responses
-      if not isinstance(stats_or_err, InstanceStatsSnapshot)
+      if isinstance(stats_or_err, FailureSnapshot)
     ]
     # Prepare service stats
     current_reqs = sum(server.current_requests for server in instances_stats)

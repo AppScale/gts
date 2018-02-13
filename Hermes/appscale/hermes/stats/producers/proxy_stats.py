@@ -415,9 +415,10 @@ class ProxiesStatsSource(object):
 
 
 def get_service_instances(stats_socket_path, pxname):
+  safe_pxname = re.escape(pxname)
   ip_port_list = []
   ip_port_pattern = re.compile(
-    "\n{proxy},{proxy}-(?P<port_ip>[.\w]+:\d+)".format(proxy=pxname)
+    "\n{proxy},{proxy}-(?P<port_ip>[.\w]+:\d+)".format(proxy=safe_pxname)
   )
   stats_csv = get_stats(stats_socket_path).read()
   for match in re.finditer(ip_port_pattern, stats_csv):

@@ -140,3 +140,50 @@ class TestCurrentProxiesStats(unittest.TestCase):
 
     # We don't have listeners on stats
     self.assertEqual(dashboard.listeners, [])
+
+
+class TestGetServiceInstances(unittest.TestCase):
+  def setUp(self):
+    stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.5.csv'))
+    fake_socket = MagicMock(recv=stats_file.read)
+    self.socket_patcher = patch.object(proxy_stats.socket, 'socket')
+    socket_mock = self.socket_patcher.start()
+    socket_mock.return_value = fake_socket
+
+  def tearDown(self):
+    self.socket_patcher.stop()
+
+  def test_taskqueue_instances(self):
+    taskqueue = proxy_stats.get_service_instances('mocked', 'TaskQueue')
+    self.assertEqual(taskqueue, [
+      '10.10.7.86:17447',
+      '10.10.7.86:17448',
+      '10.10.7.86:17449',
+      '10.10.7.86:17450'
+    ])
+
+  def test_datastore_instances(self):
+    datastore = proxy_stats.get_service_instances(
+      'mocked', 'appscale-datastore_server'
+    )
+    self.assertEqual(datastore, [
+      '10.10.7.86:4000',
+      '10.10.7.86:4001',
+      '10.10.7.86:4002',
+      '10.10.7.86:4003'
+    ])
+
+  def test_dashboard_instances(self):
+    dashboard = proxy_stats.get_service_instances(
+      'mocked', 'gae_appscaledashboard'
+    )
+    self.assertEqual(dashboard, [
+      '10.10.9.111:20000',
+      '10.10.9.111:20001',
+      '10.10.9.111:20002'
+    ])
+
+  def test_unknown_proxy(self):
+    unknown = proxy_stats.get_service_instances('mocked', 'gae_not_running')
+    self.assertEqual(unknown, [])
+
