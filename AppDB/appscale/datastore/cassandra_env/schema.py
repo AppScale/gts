@@ -17,6 +17,7 @@ from .cassandra_interface import IndexStates
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ThriftColumn
+from .constants import LB_POLICY
 from .. import dbconstants
 
 # The data layout version to set after removing the journal table.
@@ -202,7 +203,7 @@ def prime_cassandra(replication):
   remaining_retries = INITIAL_CONNECT_RETRIES
   while True:
     try:
-      cluster = Cluster(hosts)
+      cluster = Cluster(hosts, load_balancing_policy=LB_POLICY)
       session = cluster.connect()
       break
     except cassandra.cluster.NoHostAvailable as connection_error:
