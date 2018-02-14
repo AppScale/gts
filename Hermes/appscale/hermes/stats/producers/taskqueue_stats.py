@@ -185,7 +185,7 @@ class TaskqueueStatsSource(object):
       total=total_recent_reqs,
       failed=sum(recent.failed for recent in recent_stats),
       avg_latency=(weighted_avg_latency_sum / total_recent_reqs)
-                  if instances_stats else None,
+                  if total_recent_reqs else None,
       pb_reqs=sum(recent.pb_reqs for recent in recent_stats),
       rest_reqs=sum(recent.rest_reqs for recent in recent_stats),
       by_pb_method=by_pb_method_sum,
