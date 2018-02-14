@@ -2304,7 +2304,6 @@ class Djinn
 
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
-    CronHelper.clear_app_crontabs()
   end
 
   def wait_for_nodes_to_finish_loading(nodes)
@@ -4146,9 +4145,16 @@ HOSTS
         end
 
         # Reload haproxy first, to ensure we have the backend ready when
-        # nginx routing is enabled.
-        unless HAProxy.update_version_config(my_private, version_key,
-                                             proxy_port, appservers)
+        # nginx routing is enabled. We need to get the appservers in a
+        # hash with ip, port for the haproxy call.
+        servers = []
+        appservers.each { |location|
+          host, port = location.split(':')
+          next if Integer(port) < 0
+          servers << { 'ip' => host, 'port' => port }
+        }
+        unless HAProxy.create_app_config(servers, my_private, proxy_port,
+                                         version_key)
           Djinn.log_warn("No AppServer in haproxy for #{version_key}.")
           next
         end
@@ -4263,7 +4269,7 @@ HOSTS
     configure_uaserver
 
     # HAProxy must be running so that the UAServer can be accessed.
-    if HAProxy.valid_config?(HAProxy::SERVICES_MAIN_FILE) &&
+    if HAProxy.valid_config?(HAProxy::SERVICE_MAIN_FILE) &&
         !MonitInterface.is_running?(:service_haproxy)
       HAProxy.services_start
     end

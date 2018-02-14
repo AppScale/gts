@@ -70,7 +70,26 @@ else:
 
     # we need to import the same constants we used to...
     from _ssl import SSLError as sslerror
-    from _ssl import RAND_add, RAND_egd, RAND_status, SSL_ERROR_ZERO_RETURN, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE, SSL_ERROR_WANT_X509_LOOKUP, SSL_ERROR_SYSCALL, SSL_ERROR_SSL, SSL_ERROR_WANT_CONNECT, SSL_ERROR_EOF, SSL_ERROR_INVALID_ERROR_CODE
+    from _ssl import \
+         RAND_add, \
+         RAND_status, \
+         SSL_ERROR_ZERO_RETURN, \
+         SSL_ERROR_WANT_READ, \
+         SSL_ERROR_WANT_WRITE, \
+         SSL_ERROR_WANT_X509_LOOKUP, \
+         SSL_ERROR_SYSCALL, \
+         SSL_ERROR_SSL, \
+         SSL_ERROR_WANT_CONNECT, \
+         SSL_ERROR_EOF, \
+         SSL_ERROR_INVALID_ERROR_CODE
+
+    # GOOGLE NOTE:
+    # RAND_egd is not available on some platforms (Windows, etc.)
+    # See python issue 21356 (https://bugs.python.org/issue21356)
+    try:
+        from _ssl import RAND_egd
+    except ImportError:
+        pass
 
 import os, sys, warnings
 
@@ -92,7 +111,7 @@ __all__.extend(os._get_exports_list(_socket))
 _realsocket = socket
 
 # WSA error codes
-if sys.platform.lower().startswith("win"):
+if os.name == 'nt':
     errorTab = {}
     errorTab[10004] = "The operation was interrupted."
     errorTab[10009] = "A bad file handle was passed."
