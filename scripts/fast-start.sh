@@ -230,7 +230,7 @@ if [ ! -e AppScalefile ]; then
     echo "  -" >> AppScalefile
     echo "    roles:" >> AppScalefile
     echo "      - master" >> AppScalefile
-    echo "      - appengine" >> AppScalefile
+    echo "      - compute" >> AppScalefile
     echo "      - database" >> AppScalefile
     echo "      - zookeeper" >> AppScalefile
     echo "    nodes: ${PRIVATE_IP}" >> AppScalefile

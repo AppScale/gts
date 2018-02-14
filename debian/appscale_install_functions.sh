@@ -117,16 +117,18 @@ increaseconnections()
         # the modprobe command fails.
         modprobe ip_conntrack || true
 
-        echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
-        echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
-        echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
+        SYSCTL_CONFIG="/etc/sysctl.d/10-appscale.conf"
+        cat << EOF > ${SYSCTL_CONFIG}
+net.netfilter.nf_conntrack_max = 262144
+net.core.somaxconn = 20240
+net.ipv4.tcp_tw_reuse = 0
+net.ipv4.tcp_orphan_retries = 1
+net.ipv4.tcp_fin_timeout = 25
+net.ipv4.tcp_max_orphans = 8192
+net.ipv4.ip_local_port_range = 32768 61000
+EOF
 
-        /sbin/sysctl -p /etc/sysctl.conf
+        sysctl -p ${SYSCTL_CONFIG}
     fi
 }
 
@@ -618,6 +620,7 @@ installapiserver()
     unset_opt=$(shopt -po nounset)
     set +u
     (source /opt/appscale_api_server/bin/activate && \
+     pip install -U pip && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}

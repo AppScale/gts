@@ -54,8 +54,10 @@ module AppDashboard
     # TODO: tell the tools to disallow uploading apps called
     # APP_NAME, and have start_appengine to do the same.
     app_location = "#{persistent_storage}/apps/#{APP_NAME}.tar.gz"
-    Djinn.log_run(
-      "GZIP=-n tar -czf #{app_location} -C #{APPSCALE_HOME}/AppDashboard .")
+    FileUtils.mkdir_p "#{persistent_storage}/apps"
+    Djinn.log_info("Creating #{app_location}")
+    system({'GZIP' => '-n'},
+           "tar -czf #{app_location} -C #{APPSCALE_HOME}/AppDashboard .")
 
     # Tell the app what nginx port sits in front of it.
     version_key = [APP_NAME, Djinn::DEFAULT_SERVICE,
