@@ -10,7 +10,7 @@ CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')
 
 
-class TestClusterNodeStatsProducer(testing.AsyncTestCase):
+class TestTaskqueueStatsSource(testing.AsyncTestCase):
 
   @patch.object(proxy_stats, 'get_service_instances')
   @patch.object(taskqueue_stats.httpclient.AsyncHTTPClient, 'fetch')
@@ -79,17 +79,61 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     })
 
     # Check instances
+    self.assertEqual(len(stats_snapshot.instances), 2)
     tq_17447 = next(instance for instance in stats_snapshot.instances
                     if instance.ip_port == '10.10.7.86:17447')
     tq_17448 = next(instance for instance in stats_snapshot.instances
                     if instance.ip_port == '10.10.7.86:17448')
+
     # TaskQueue on port 17447
     self.assertEqual(tq_17447.start_timestamp_ms, 1494240000000)
     self.assertEqual(tq_17447.current_requests, 3)
+    self.assertEqual(tq_17447.cumulative.total, 15)
+    self.assertEqual(tq_17447.cumulative.failed, 5)
+    self.assertEqual(tq_17447.cumulative.pb_reqs, 6)
+    self.assertEqual(tq_17447.cumulative.rest_reqs, 9)
+    self.assertEqual(tq_17447.recent.total, 13)
+    self.assertEqual(tq_17447.recent.failed, 5)
+    self.assertEqual(tq_17447.recent.avg_latency, 64)
+    self.assertEqual(tq_17447.recent.pb_reqs, 6)
+    self.assertEqual(tq_17447.recent.rest_reqs, 7)
+    self.assertEqual(tq_17447.recent.by_pb_method, {
+      "BulkAdd": 4, "PauseQueue": 2
+    })
+    self.assertEqual(tq_17447.recent.by_rest_method, {
+      "get_tasks": 2, "post_tasks": 5
+    })
+    self.assertEqual(tq_17447.recent.by_pb_status, {
+      "OK": 4, "UNKNOWN_TASK": 2
+    })
+    self.assertEqual(tq_17447.recent.by_rest_status, {
+      "200": 4, "404": 3
+    })
 
     # TaskQueue on port 17448
     self.assertEqual(tq_17448.start_timestamp_ms, 1494240000250)
     self.assertEqual(tq_17448.current_requests, 1)
+    self.assertEqual(tq_17448.cumulative.total, 25)
+    self.assertEqual(tq_17448.cumulative.failed, 4)
+    self.assertEqual(tq_17448.cumulative.pb_reqs, 16)
+    self.assertEqual(tq_17448.cumulative.rest_reqs, 9)
+    self.assertEqual(tq_17448.recent.total, 20)
+    self.assertEqual(tq_17448.recent.failed, 3)
+    self.assertEqual(tq_17448.recent.avg_latency, 96)
+    self.assertEqual(tq_17448.recent.pb_reqs, 13)
+    self.assertEqual(tq_17448.recent.rest_reqs, 7)
+    self.assertEqual(tq_17448.recent.by_pb_method, {
+      "PauseQueue": 2, "FetchTask": 11
+    })
+    self.assertEqual(tq_17448.recent.by_rest_method, {
+      "post_tasks": 1, "patch_task": 6
+    })
+    self.assertEqual(tq_17448.recent.by_pb_status, {
+      "OK": 12, "UNKNOWN_QUEUE": 1
+    })
+    self.assertEqual(tq_17448.recent.by_rest_status, {
+      "200": 5, "500": 2
+    })
 
     self.assertEqual(stats_snapshot.instances_count, 2)
 
