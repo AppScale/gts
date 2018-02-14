@@ -4261,7 +4261,7 @@ HOSTS
     configure_uaserver
 
     # HAProxy must be running so that the UAServer can be accessed.
-    if HAProxy.valid_config?(HAProxy::SERVICES_MAIN_FILE) &&
+    if HAProxy.valid_config?(HAProxy::SERVICE_MAIN_FILE) &&
         !MonitInterface.is_running?(:service_haproxy)
       HAProxy.services_start
     end
