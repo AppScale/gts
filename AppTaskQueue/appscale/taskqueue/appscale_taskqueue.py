@@ -268,7 +268,7 @@ def prepare_graceful_shutdown(zk_client, tornado_server):
         zk_client.stop()
         logger.info("IOLoop stopped")
 
-    io_loop.PeriodicCallback(stop_on_signal, 200).start()
+    ioloop.PeriodicCallback(stop_on_signal, 200).start()
 
   return graceful_shutdown
 
