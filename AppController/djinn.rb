@@ -2304,7 +2304,6 @@ class Djinn
 
     Nginx.clear_sites_enabled()
     HAProxy.clear_sites_enabled()
-    CronHelper.clear_app_crontabs()
   end
 
   def wait_for_nodes_to_finish_loading(nodes)
