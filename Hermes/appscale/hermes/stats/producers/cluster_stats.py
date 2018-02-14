@@ -165,3 +165,10 @@ cluster_rabbitmq_stats = ClusterStatsSource(
   stats_model=rabbitmq_stats.RabbitMQStatsSnapshot,
   local_stats_source=rabbitmq_stats.RabbitMQStatsSource
 )
+
+cluster_push_queues_stats = ClusterStatsSource(
+  ips_getter=lambda: [appscale_info.get_taskqueue_nodes()[0]],
+  method_path='stats/local/push_queues',
+  stats_model=rabbitmq_stats.PushQueueStatsSnapshot,
+  local_stats_source=rabbitmq_stats.PushQueueStatsSource
+)
