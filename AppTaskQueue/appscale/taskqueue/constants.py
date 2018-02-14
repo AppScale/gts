@@ -57,4 +57,4 @@ SUPPORTED_PUSH_QUEUE_FIELDS = {
   }
 }
 
-SHUTTING_DOWN_TIMEOUT = 10  # Give up to 30s for finishing request
+SHUTTING_DOWN_TIMEOUT = 10  # Limit time for finishing request

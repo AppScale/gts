@@ -206,7 +206,7 @@ class StatsHandler(RequestHandler):
     except ValueError:
       self.set_status(400, "cursor and last_milliseconds "
                            "arguments should be integers")
-      return
+      raise gen.Return()
 
     with (yield stats_lock.acquire()):
       cumulative_counters = service_stats.get_cumulative_counters()
@@ -217,7 +217,6 @@ class StatsHandler(RequestHandler):
       "recent_stats": recent_stats
     }
     self.write(json.dumps(tq_stats))
-    self.finish()
 
 
 def prepare_taskqueue_application(task_queue):
@@ -249,9 +248,6 @@ def prepare_graceful_shutdown(zk_client, tornado_server):
   def graceful_shutdown(*_):
     """ Stop accepting new requests and exit when all requests are finished
     or timeout is exceeded.
-
-    This is safe as long as the server is synchronous. It will stop in the middle
-    of requests as soon as the server has asynchronous handlers.
     """
     signal_time = time.time()
     logger.info('Stopping server')
@@ -267,8 +263,9 @@ def prepare_graceful_shutdown(zk_client, tornado_server):
         if current_requests:
           logger.error("Shutting down server despite {reqs} requests "
                        "in progress".format(reqs=current_requests))
-        io_loop.stop()     # As all requests are
-        zk_client.stop()   # The latest thing to stop is ZK client
+        # Stop tornado IO loop and zookeeper client
+        io_loop.stop()
+        zk_client.stop()
         logger.info("IOLoop stopped")
 
     io_loop.PeriodicCallback(stop_on_signal, 200).start()
