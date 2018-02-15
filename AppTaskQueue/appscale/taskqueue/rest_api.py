@@ -1,14 +1,15 @@
 """ Handlers for implementing v1beta2 of the taskqueue REST API. """
 import json
 import re
+
 import tornado.escape
+from tornado import gen
+from tornado.web import MissingArgumentError, RequestHandler
 
 from appscale.common.constants import HTTPCodes
-from task import InvalidTaskInfo
-from task import Task
-from task import TASK_FIELDS
-from tornado.web import MissingArgumentError
-from tornado.web import RequestHandler
+from appscale.taskqueue.statistics import service_stats, stats_lock, REST_API
+
+from .task import InvalidTaskInfo, Task, TASK_FIELDS
 from .queue import (InvalidLeaseRequest,
                     LONG_QUEUE_FORM,
                     PullQueue,
@@ -59,8 +60,25 @@ def write_error(request, code, message):
   request.write(json.dumps(error))
 
 
-class RESTQueue(RequestHandler):
+class TrackedRequestHandler(RequestHandler):
+  AREA = None
+
+  @gen.coroutine
+  def prepare(self):
+    rest_method = "{}_{}".format(self.request.method, self.AREA).lower()
+    with (yield stats_lock.acquire()):
+      self.stats_info = service_stats.start_request(
+        api=REST_API, rest_method=rest_method)
+
+  @gen.coroutine
+  def on_finish(self):
+    with (yield stats_lock.acquire()):
+      self.stats_info.finalize(rest_status=self.get_status())
+
+
+class RESTQueue(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)'.format(REST_PREFIX)
+  AREA = 'queue'  # Area name is used in stats
 
   def initialize(self, queue_handler):
     """ Provide access to the queue handler. """
@@ -94,8 +112,9 @@ class RESTQueue(RequestHandler):
     self.write(queue.to_json(include_stats=get_stats, fields=fields))
 
 
-class RESTTasks(RequestHandler):
+class RESTTasks(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)/tasks'.format(REST_PREFIX)
+  AREA = 'tasks'  # Area name is used in stats
 
   def initialize(self, queue_handler):
     """ Provide access to the queue handler. """
@@ -182,8 +201,9 @@ class RESTTasks(RequestHandler):
     self.write(json.dumps(task.json_safe_dict(fields=fields)))
 
 
-class RESTLease(RequestHandler):
+class RESTLease(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)/tasks/lease'.format(REST_PREFIX)
+  AREA = 'lease'  # Area name is used in stats
 
   def initialize(self, queue_handler):
     """ Provide access to the queue handler. """
@@ -261,8 +281,9 @@ class RESTLease(RequestHandler):
     self.write(json.dumps(task_list))
 
 
-class RESTTask(RequestHandler):
+class RESTTask(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)/tasks/([a-zA-Z0-9_-]+)'.format(REST_PREFIX)
+  AREA = 'task'  # Area name is used in stats
 
   def initialize(self, queue_handler):
     """ Provide access to the queue handler. """
