@@ -1,3 +1,7 @@
+# This category doesn't appear in stats returned by ServiceStats
+HIDDEN_CATEGORY = object()
+
+
 class Categorizer(object):
   """
   An interface for request categorizer. Any categorizer can
