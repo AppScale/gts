@@ -28,6 +28,7 @@ Homepage: https://github.com/AppScale/appscale
 Package: appscale-core
 Architecture: any
 Depends: appscale-tools,
+         autoconf,
          bzip2,
          capnproto,
          cron,
