@@ -10,7 +10,6 @@ import time
 
 from kazoo.client import KazooClient
 from tornado import gen, httpserver, ioloop
-from tornado.platform.epoll import EPollIOLoop
 from tornado.web import Application, RequestHandler
 
 from appscale.common import appscale_info

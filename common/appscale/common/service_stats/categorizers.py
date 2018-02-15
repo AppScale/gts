@@ -1,4 +1,4 @@
-# This category doesn't appear is stats returned by ServiceStats
+# This category doesn't appear in stats returned by ServiceStats
 HIDDEN_CATEGORY = object()
 
 
