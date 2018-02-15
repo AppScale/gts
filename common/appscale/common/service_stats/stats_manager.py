@@ -305,6 +305,8 @@ class ServiceStats(object):
       # counter_pair[0] is instance of categorizers.Categorizer
       categorizer = counter_pair[0]
       category = categorizer.category_of(request_info)
+      if category is categorizers.HIDDEN_CATEGORY:
+        continue
       category_counters = _get_nested_dict(counters_dict, categorizer.name)
       if isinstance(counter_pair[1], dict):
         # Update nested counters
@@ -392,6 +394,8 @@ class ServiceStats(object):
       grouped_by_category = defaultdict(list)
       for request_info in requests:
         category = categorizer.category_of(request_info)
+        if category is categorizers.HIDDEN_CATEGORY:
+          continue
         grouped_by_category[category].append(request_info)
 
       if isinstance(metric_pair[1], metrics.Metric):
