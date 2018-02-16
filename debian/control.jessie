@@ -28,6 +28,7 @@ Homepage: https://github.com/AppScale/appscale
 Package: appscale-core
 Architecture: any
 Depends: appscale-tools,
+         autoconf,
          bzip2,
          cron,
          curl,
@@ -44,6 +45,7 @@ Depends: appscale-tools,
          libpcre++-dev,
          libprotobuf-java,
          libssl-dev,
+         libtool,
          libxml2-dev,
          libxslt-dev,
          lsb-release,

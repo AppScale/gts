@@ -27,7 +27,7 @@ module HermesClient
            "#{response.code} #{response.msg}\n#{response.body}")
       end
       return JSON.load(response.body)
-    rescue Errno::ETIMEDOUT
+    rescue Errno::ETIMEDOUT, Timeout::Error
       raise FailedNodeException.new("Failed to call Hermes: timed out")
     rescue Errno::ECONNREFUSED
       raise FailedNodeException.new("Failed to call Hermes: connection refused")
