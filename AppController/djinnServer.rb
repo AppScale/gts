@@ -73,7 +73,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "get_database_information", "secret")
     add_method(@djinn, "get_instance_info", "app_id", "secret")
     add_method(@djinn, "get_request_info", "version_key", "secret")
-    add_method(@djinn, "stop_version", "version_key", "secret")
     add_method(@djinn, "update", "versions", "secret")
     add_method(@djinn, "get_all_public_ips", "secret")
     add_method(@djinn, "get_all_private_ips", "secret")

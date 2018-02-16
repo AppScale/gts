@@ -1585,54 +1585,6 @@ class Djinn
     end
   end
 
-  # Removes a version and stops all AppServers hosting it.
-  #
-  # Args:
-  #   version_key: The version to stop
-  #   secret: Shared key for authentication
-  #
-  def stop_version(version_key, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    unless my_node.is_shadow?
-      Djinn.log_debug(
-        "Sending stop_version call for #{version_key} to shadow.")
-      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
-      begin
-        return acc.stop_version(version_key)
-      rescue FailedNodeException
-        Djinn.log_warn(
-          "Failed to forward stop_version call to shadow (#{get_shadow}).")
-        return NOT_READY
-      end
-    end
-
-    project_id, _service_id, _version_id = version_key.split(
-      VERSION_PATH_SEPARATOR)
-    if RESERVED_APPS.include?(project_id)
-      return "false: #{project_id} is a reserved app."
-    end
-    Djinn.log_info("Shutting down #{version_key}")
-
-    # Since stopping an application can take some time, we do it in a
-    # thread.
-    Thread.new {
-      # If this node has any information about AppServers for this version,
-      # clear that information out.
-      APPS_LOCK.synchronize {
-        @app_info_map.delete(version_key)
-        @versions_loaded = @versions_loaded - [version_key]
-      }
-
-      # To prevent future deploys from using the old application code, we
-      # force a removal of the application status on disk (for example the
-      # code and cronjob) right now.
-      check_stopped_apps
-    }
-
-    'true'
-  end
-
   # Clears version entries to make way for a new revision.
   #
   # Args:
@@ -1876,12 +1828,10 @@ class Djinn
       # Check the running, terminated, pending AppServers.
       check_running_appservers
 
-      # Detect applications that have been undeployed and terminate all
-      # running AppServers.
-      check_stopped_apps
-
-      # Load balancers and shadow need to check/update nginx/haproxy.
+      # Load balancers and shadow need to check/update applications that have
+      # been undeployed and nginx/haproxy.
       if my_node.is_load_balancer?
+        check_stopped_apps
         APPS_LOCK.synchronize {
           check_haproxy
         }
@@ -4603,58 +4553,49 @@ HOSTS
   # they are not accounted for) will be terminated and, potentially old
   # sources, will be removed.
   def check_stopped_apps
-    # The running AppServers on this node must match the login node view.
-    # Only one thread talking to the AppManagerServer at a time.
-    if AMS_LOCK.locked?
-      Djinn.log_debug("Another thread already working with AppManager.")
-      return
-    end
-
     Djinn.log_debug("Checking applications that have been stopped.")
-    version_list = HelperFunctions.get_loaded_versions
-    version_list.each { |version_key|
-      project_id, service_id, version_id = version_key.split(
-        VERSION_PATH_SEPARATOR)
-      next if ZKInterface.get_versions.include?(version_key)
-      next if RESERVED_APPS.include?(project_id)
+    removed_versions = []
+    APPS_LOCK.synchronize {
+      @versions_loaded.each { |version_key|
+        next if ZKInterface.get_versions.include?(version_key)
+        project_id, service_id, version_id = version_key.split(
+          VERSION_PATH_SEPARATOR)
+        next if RESERVED_APPS.include?(project_id)
 
-      Djinn.log_info(
-        "#{version_key} is no longer running: removing old states.")
+        Djinn.log_info(
+          "#{version_key} is no longer running: removing old states.")
 
-      if my_node.is_load_balancer?
-        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-          stop_xmpp_for_app(project_id)
-        end
-        Nginx.remove_version(version_key)
-
-        # Since the removal of an app from HAProxy can cause a reset of
-        # the drain flags, let's set them again.
-        HAProxy.remove_version(version_key)
-      end
-
-      if my_node.is_compute?
-        AMS_LOCK.synchronize {
-          Djinn.log_debug("Calling AppManager to stop #{version_key}.")
-          app_manager = AppManagerClient.new(my_node.private_ip)
-          begin
-            app_manager.stop_app(version_key)
-            Djinn.log_info("Asked AppManager to shut down #{version_key}.")
-          rescue FailedNodeException => error
-            Djinn.log_warn("Error stopping #{version_key}: #{error.message}")
+        # Remove version from Nginx and HAProxy.
+        if my_node.is_load_balancer?
+          if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
+            stop_xmpp_for_app(project_id)
           end
-        }
-      end
+          Nginx.remove_version(version_key)
 
-      if my_node.is_shadow?
-        Djinn.log_info("Removing log configuration for #{version_key}.")
-        FileUtils.rm_f(get_rsyslog_conf(version_key))
-        HelperFunctions.shell("service rsyslog restart")
-      end
+          # Since the removal of an app from HAProxy can cause a reset of
+          # the drain flags, let's set them again.
+          HAProxy.remove_version(version_key)
+        end
 
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        CronHelper.clear_app_crontab(project_id)
-      end
-      Djinn.log_debug("Done cleaning up after stopped version #{version_key}.")
+        if my_node.is_shadow?
+          Djinn.log_info("Removing log configuration for #{version_key}.")
+          FileUtils.rm_f(get_rsyslog_conf(version_key))
+          HelperFunctions.shell("service rsyslog restart")
+          # If this node has any information about AppServers for this version,
+          # clear that information out.
+          @app_info_map.delete(version_key)
+        end
+
+        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
+          CronHelper.clear_app_crontab(project_id)
+        end
+
+        Djinn.log_debug("Done cleaning up after stopped version #{version_key}.")
+
+        removed_versions << version_key
+      }
+      # Remove versions from versions_loaded.
+      @versions_loaded = @versions_loaded - removed_versions
     }
   end
 

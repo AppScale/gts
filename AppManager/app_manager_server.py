@@ -455,6 +455,23 @@ def clean_old_sources():
 
   source_manager.clean_old_revisions(active_revisions=active_revisions)
 
+
+def remove_logrotate(project_id):
+  """ Removes logrotate script for the given project.
+
+  Args:
+    project_id: A string, the name of the project to remove logrotate for.
+  """
+  app_logrotate_script = "{0}/appscale-{1}".\
+    format(LOGROTATE_CONFIG_DIR, project_id)
+  logging.debug("Removing script: {}".format(app_logrotate_script))
+
+  try:
+    os.remove(app_logrotate_script)
+  except OSError:
+    logging.error("Error while removing log rotation for application: {}".
+                  format(project_id))
+
 @gen.coroutine
 def unmonitor_and_terminate(watch):
   """ Unmonitors an instance and terminates it.
@@ -517,67 +534,11 @@ def stop_app_instance(version_key, port):
                          and not instance_key_re.match(entry)]
   if not remaining_instances:
     yield stop_api_server(project_id)
+    remove_logrotate(project_id)
 
   yield monit_operator.reload()
   yield clean_old_sources()
 
-@gen.coroutine
-def stop_app(version_key):
-  """ Stops all process instances of a version on this machine.
-
-  Args:
-    version_key: Name of version to stop
-  Returns:
-    True on success, False otherwise
-  """
-  project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
-
-  if not misc.is_app_name_valid(project_id):
-    raise BadConfigurationException(
-      'Invalid project ID: {}'.format(project_id))
-
-  logging.info('Stopping {}'.format(version_key))
-
-  version_group = ''.join([MONIT_INSTANCE_PREFIX, version_key])
-  monit_entries = yield monit_operator.get_entries()
-  version_entries = [entry for entry in monit_entries
-                     if entry.startswith(version_group)]
-  for entry in version_entries:
-    yield unmonitor_and_terminate(entry)
-
-  project_prefix = ''.join([MONIT_INSTANCE_PREFIX, project_id])
-  remaining_instances = [entry for entry in monit_entries
-                         if entry.startswith(project_prefix)
-                         and entry not in version_entries]
-  if not remaining_instances:
-    yield stop_api_server(project_id)
-
-  if project_id not in projects_manager and not remove_logrotate(project_id):
-    logging.error("Error while removing log rotation for application: {}".
-                  format(project_id))
-
-  yield monit_operator.reload()
-  yield clean_old_sources()
-
-def remove_logrotate(app_name):
-  """ Removes logrotate script for the given application.
-
-  Args:
-    app_name: A string, the name of the application to remove logrotate for.
-  Returns:
-    True on success, False otherwise.
-  """
-  app_logrotate_script = "{0}/appscale-{1}".\
-    format(LOGROTATE_CONFIG_DIR, app_name)
-  logging.debug("Removing script: {}".format(app_logrotate_script))
-
-  try:
-    os.remove(app_logrotate_script)
-  except OSError:
-    logging.error("Error deleting {0}".format(app_logrotate_script))
-    return False
-
-  return True
 
 ############################################
 # Private Functions (but public for testing)
