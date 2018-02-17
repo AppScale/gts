@@ -47,6 +47,9 @@ require 'user_app_client'
 require 'zkinterface'
 require 'zookeeper_helper'
 
+# This ensure that exceptions in a thread are not ignored.
+Thread.abort_on_exception=true
+
 NO_OUTPUT = false
 
 # This lock makes it so that global variables related to apps are not updated
