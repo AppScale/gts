@@ -5094,17 +5094,15 @@ HOSTS
         if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
           Djinn.log_info("Not scaling up right now, as we recently scaled " \
             "up or down.")
-          return
+        else
+          result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
+          if result != "OK"
+            Djinn.log_error("Was not able to add nodes because: #{result}.")
+          else
+            @last_scaling_time = Time.now.to_i
+            Djinn.log_info("Added the following nodes: #{roles_needed}.")
+          end
         end
-
-        result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
-        if result != "OK"
-          Djinn.log_error("Was not able to add nodes because: #{result}.")
-          return
-        end
-
-        @last_scaling_time = Time.now.to_i
-        Djinn.log_info("Added the following nodes: #{roles_needed}.")
       }
     }
   end
