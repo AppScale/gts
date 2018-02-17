@@ -215,7 +215,8 @@ class InfrastructureManagerClient
         'private_ip' => vm_info['private_ips'][index],
         'jobs' => tmp_jobs,
         'instance_id' => vm_info['instance_ids'][index],
-        'disk' => disks[index]
+        'disk' => disks[index],
+        'instance_type' => parameters['instance_type']
       }
     }
 
