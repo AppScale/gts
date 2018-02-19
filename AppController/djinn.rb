@@ -50,6 +50,7 @@ require 'zookeeper_helper'
 # This ensure that exceptions in a thread are not ignored.
 Thread.abort_on_exception=true
 
+# By default don't trace remote commands execution.
 NO_OUTPUT = false
 
 # This lock makes it so that global variables related to apps are not updated
@@ -1818,6 +1819,9 @@ class Djinn
     last_print = Time.now.to_i
 
     until @kill_sig_received do
+      # Mark the beginning of the duty cycle.
+      start_work_time = Time.now.to_i
+
       # We want to ensure monit stays up all the time, since we rely on
       # it for services and AppServers.
       unless MonitInterface.start_monit
@@ -1904,7 +1908,11 @@ class Djinn
         last_print = Time.now.to_i
       end
 
-      Kernel.sleep(DUTY_CYCLE)
+      # Let's make sure we don't drift the duty cycle too much.
+      duty_cycle_duration = Time.now.to_i - start_work_time
+      if duty_cycle_duration < DUTY_CYCLE
+        Kernel.sleep(DUTY_CYCLE - duty_cycle_duration)
+      end
     end
   end
 
@@ -2765,6 +2773,7 @@ class Djinn
         "appcontroller state with #{e.message}.")
     end
     @appcontroller_state = local_state.to_s
+    Djinn.log_debug("backup_appcontroller_state: updated state.")
   end
 
   # Takes actions if options or roles changed.
