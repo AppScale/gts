@@ -72,7 +72,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'vm_info' => {
           'public_ips' => ['public-ip'],
           'private_ips' => ['private-ip'],
-          'instance_ids' => ['i-id']
+          'instance_ids' => ['i-id'],
+          'instance_type' => ['boocomputeinstancetype']
         }
       }
 
@@ -166,7 +167,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'vm_info' => {
           'public_ips' => ['public-ip1', 'public-ip2', 'public-ip3'],
           'private_ips' => ['private-ip1', 'private-ip2', 'private-ip3'],
-          'instance_ids' => ['i-id1', 'i-id2', 'i-id3']
+          'instance_ids' => ['i-id1', 'i-id2', 'i-id3'],
+          'instance_type' => ['boocomputeinstancetype', 'boocomputeinstancetype', 'boocomputeinstancetype']
         }
       }
 
@@ -274,7 +276,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'vm_info' => {
           'public_ips' => ['public-ip1', 'public-ip2', 'public-ip3'],
           'private_ips' => ['private-ip1', 'private-ip2', 'private-ip3'],
-          'instance_ids' => ['i-id1', 'i-id2', 'i-id3']
+          'instance_ids' => ['i-id1', 'i-id2', 'i-id3'],
+          'instance_type' => ['boocomputeinstancetype', 'boocomputeinstancetype', 'boocomputeinstancetype']
         }
       }
 
@@ -379,7 +382,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'vm_info' => {
           'public_ips' => ['public_ip'],
           'private_ips' => ['private_ip'],
-          'instance_ids' => ['i-id']
+          'instance_ids' => ['i-id'],
+          'instance_type' => ['boocomputeinstancetype']
         }
       }
 
