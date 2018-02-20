@@ -107,7 +107,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       "private_ip" => "private-ip",
       "jobs" => "open",
       "instance_id" => "i-id",
-      "disk" => nil
+      "disk" => nil,
+      "instance_type" => "boocomputeinstancetype"
     }]
     actual = imc.spawn_vms(1, options, ["open"], [nil])
     assert_equal(expected, actual)
@@ -203,20 +204,23 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'private_ip' => 'private-ip1',
       'jobs' => 'a',
       'instance_id' => 'i-id1',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }, {
       'public_ip' => 'public-ip2',
       'private_ip' => 'private-ip2',
       'jobs' => 'b',
       'instance_id' => 'i-id2',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
 
     }, {
       'public_ip' => 'public-ip3',
       'private_ip' => 'private-ip3',
       'jobs' => 'c',
       'instance_id' => 'i-id3',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }]
     actual = imc.spawn_vms(3, options, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
@@ -310,20 +314,23 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'private_ip' => 'private-ip1',
       'jobs' => 'a',
       'instance_id' => 'i-id1',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }, {
       'public_ip' => 'public-ip2',
       'private_ip' => 'private-ip2',
       'jobs' => 'b',
       'instance_id' => 'i-id2',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
 
     }, {
       'public_ip' => 'public-ip3',
       'private_ip' => 'private-ip3',
       'jobs' => 'c',
       'instance_id' => 'i-id3',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }]
     actual = imc.spawn_vms(3, options, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
@@ -417,7 +424,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'private_ip' => 'private_ip',
       'jobs' => 'open',
       'instance_id' => 'i-id',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }]
     actual = imc.spawn_vms(1, options, ['open'], [nil])
     assert_equal(expected, actual)
