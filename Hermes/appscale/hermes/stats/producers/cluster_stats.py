@@ -1,9 +1,10 @@
-""" Implementation of stats sources for cluster stats
-(node, processes, proxies). """
+""" Implementation of stats sources for cluster stats. """
 import json
 import logging
 import sys
 import time
+
+import random
 
 from appscale.common import appscale_info
 from tornado import gen, httpclient
@@ -14,8 +15,8 @@ from appscale.hermes.constants import SECRET_HEADER
 from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.stats.producers import (
-  proxy_stats, node_stats, process_stats, rabbitmq_stats
-)
+  proxy_stats, node_stats, process_stats, rabbitmq_stats,
+  taskqueue_stats)
 
 
 class BadStatsListFormat(ValueError):
@@ -25,17 +26,18 @@ class BadStatsListFormat(ValueError):
 
 class ClusterStatsSource(object):
   """
-  Base class for current cluster stats sources.
-  Gets new node/processes/proxies stats from all nodes in the cluster.
+  Cluster stats sources. 
+  Gets new local stats from all nodes in the cluster.
   """
-  ips_getter = None
-  method_path = None
-  stats_model = None
-  local_stats_source = None
+  def __init__(self, ips_getter, method_path, stats_model, local_stats_source):
+    self.ips_getter = ips_getter
+    self.method_path = method_path
+    self.stats_model = stats_model
+    self.local_stats_source = local_stats_source
 
   @gen.coroutine
-  def get_current_async(self, max_age=None, include_lists=None,
-                        exclude_nodes=None):
+  def get_current(self, max_age=None, include_lists=None,
+                  exclude_nodes=None):
     """ Makes concurrent asynchronous http calls to cluster nodes
     and collects current stats. Local stats is got from local stats source.
 
@@ -75,6 +77,8 @@ class ClusterStatsSource(object):
   def _stats_from_node_async(self, node_ip, max_age, include_lists):
     if node_ip == appscale_info.get_private_ip():
       snapshot = self.local_stats_source.get_current()
+      if isinstance(snapshot, gen.Future):
+        snapshot = yield snapshot
     else:
       snapshot = yield self._fetch_remote_stats_async(
         node_ip, max_age, include_lists)
@@ -123,36 +127,48 @@ class ClusterStatsSource(object):
       raise BadStatsListFormat(msg), None, sys.exc_info()[2]
 
 
-class ClusterNodesStatsSource(ClusterStatsSource):
-  ips_getter = staticmethod(appscale_info.get_all_ips)
-  method_path = 'stats/local/node'
-  stats_model = node_stats.NodeStatsSnapshot
-  local_stats_source = node_stats.NodeStatsSource
+def get_random_lb_node():
+  return [random.choice(appscale_info.get_load_balancer_ips())]
 
 
-class ClusterProcessesStatsSource(ClusterStatsSource):
-  ips_getter = staticmethod(appscale_info.get_all_ips)
-  method_path = 'stats/local/processes'
-  stats_model = process_stats.ProcessesStatsSnapshot
-  local_stats_source = process_stats.ProcessesStatsSource
+cluster_nodes_stats = ClusterStatsSource(
+  ips_getter=appscale_info.get_all_ips,
+  method_path='stats/local/node',
+  stats_model=node_stats.NodeStatsSnapshot,
+  local_stats_source=node_stats.NodeStatsSource
+)
 
+cluster_processes_stats = ClusterStatsSource(
+  ips_getter=appscale_info.get_all_ips,
+  method_path='stats/local/processes',
+  stats_model=process_stats.ProcessesStatsSnapshot,
+  local_stats_source=process_stats.ProcessesStatsSource
+)
 
-class ClusterProxiesStatsSource(ClusterStatsSource):
-  ips_getter = staticmethod(appscale_info.get_load_balancer_ips)
-  method_path = 'stats/local/proxies'
-  stats_model = proxy_stats.ProxiesStatsSnapshot
-  local_stats_source = proxy_stats.ProxiesStatsSource
+cluster_proxies_stats = ClusterStatsSource(
+  ips_getter=appscale_info.get_load_balancer_ips,
+  method_path='stats/local/proxies',
+  stats_model=proxy_stats.ProxiesStatsSnapshot,
+  local_stats_source=proxy_stats.ProxiesStatsSource
+)
 
+cluster_taskqueue_stats = ClusterStatsSource(
+  ips_getter=get_random_lb_node,
+  method_path='stats/local/taskqueue',
+  stats_model=taskqueue_stats.TaskqueueServiceStatsSnapshot,
+  local_stats_source=taskqueue_stats.taskqueue_stats_source
+)
 
-class ClusterRabbitMQStatsSource(ClusterStatsSource):
-  ips_getter = staticmethod(appscale_info.get_taskqueue_nodes)
-  method_path = 'stats/local/rabbitmq'
-  stats_model = rabbitmq_stats.RabbitMQStatsSnapshot
-  local_stats_source = rabbitmq_stats.RabbitMQStatsSource
+cluster_rabbitmq_stats = ClusterStatsSource(
+  ips_getter=appscale_info.get_taskqueue_nodes,
+  method_path='stats/local/rabbitmq',
+  stats_model=rabbitmq_stats.RabbitMQStatsSnapshot,
+  local_stats_source=rabbitmq_stats.RabbitMQStatsSource
+)
 
-
-class ClusterPushQueueStatsSource(ClusterStatsSource):
-  ips_getter = staticmethod(lambda: [appscale_info.get_taskqueue_nodes()[0]])
-  method_path = 'stats/local/push_queues'
-  stats_model = rabbitmq_stats.PushQueueStatsSnapshot
-  local_stats_source = rabbitmq_stats.PushQueueStatsSource
+cluster_push_queues_stats = ClusterStatsSource(
+  ips_getter=lambda: [appscale_info.get_taskqueue_nodes()[0]],
+  method_path='stats/local/push_queues',
+  stats_model=rabbitmq_stats.PushQueueStatsSnapshot,
+  local_stats_source=rabbitmq_stats.PushQueueStatsSource
+)
