@@ -213,6 +213,8 @@ class ProjectGroomer(object):
 
         if tx_time is not None and tx_time < self._oldest_valid_tx_time:
           self._oldest_valid_tx_time = tx_time
+      except Exception:
+        logger.exception('Unexpected error while resolving {}'.format(tx_path))
       finally:
         self._worker_queue.task_done()
 
