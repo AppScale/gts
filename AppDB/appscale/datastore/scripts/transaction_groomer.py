@@ -293,7 +293,11 @@ class ProjectGroomer(object):
       The transaction start time if still valid, None if invalid because this
       method will also delete it.
     """
-    tx_data = yield self._tornado_zk.get(tx_path)
+    try:
+      tx_data = yield self._tornado_zk.get(tx_path)
+    except NoNodeError:
+      raise gen.Return()
+
     tx_time = float(tx_data[0])
 
     _, container, tx_node = tx_path.rsplit('/', 2)
