@@ -1011,7 +1011,6 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
-    Djinn.log_warn("OPTIONS #{@options}")
     @nodes.each { |node|
       if node.jobs.include? 'compute'
         if not node.instance_type.nil?
