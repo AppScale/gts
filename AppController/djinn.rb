@@ -2706,7 +2706,7 @@ class Djinn
     ["#{@options['keyname']}.secret",
         "locations-#{@options['keyname']}.json"].each { |config|
       # Read the current config file for the deployment
-      current = File.read("#{APPSCALE_CONFIG_DIR}/config")
+      current = File.read("#{APPSCALE_CONFIG_DIR}/#{config}")
 
       # Compare it with what the tools have and override if needed.
       config_file = "#{APPSCALE_TOOLS_CONFIG_DIR}/#{config}"
