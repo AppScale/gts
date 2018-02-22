@@ -213,6 +213,8 @@ class ProjectGroomer(object):
 
         if tx_time is not None and tx_time < self._oldest_valid_tx_time:
           self._oldest_valid_tx_time = tx_time
+      except Exception:
+        logger.exception('Unexpected error while resolving {}'.format(tx_path))
       finally:
         self._worker_queue.task_done()
 
@@ -291,7 +293,11 @@ class ProjectGroomer(object):
       The transaction start time if still valid, None if invalid because this
       method will also delete it.
     """
-    tx_data = yield self._tornado_zk.get(tx_path)
+    try:
+      tx_data = yield self._tornado_zk.get(tx_path)
+    except NoNodeError:
+      raise gen.Return()
+
     tx_time = float(tx_data[0])
 
     _, container, tx_node = tx_path.rsplit('/', 2)
