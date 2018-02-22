@@ -1501,7 +1501,7 @@ class AppInfoExternal(validation.Validated):
   ATTRIBUTES = {
 
 
-      APPLICATION: APPLICATION_RE_STRING,
+      APPLICATION: validation.Optional(APPLICATION_RE_STRING),
       MODULE: validation.Optional(MODULE_ID_RE_STRING),
       VERSION: validation.Optional(MODULE_VERSION_ID_RE_STRING),
       RUNTIME: RUNTIME_RE_STRING,
