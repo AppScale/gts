@@ -297,6 +297,10 @@ class Djinn
   # files are written to.
   APPSCALE_CONFIG_DIR = '/etc/appscale'.freeze
 
+  # The tools uses this location to find deployments info. TODO: to remove
+  # this dependency.
+  APPSCALE_TOOLS_CONFIG_DIR = '~/.appscale'.freeze
+
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
   TASKQUEUE_FILE = "#{APPSCALE_CONFIG_DIR}/taskqueue_nodes".freeze
@@ -1830,6 +1834,7 @@ class Djinn
       update_port_files
       update_firewall
       write_zookeeper_locations
+      write_tools_config
 
       # This call will block if we cannot reach a zookeeper node, but will
       # be very fast if we have an available connection. The function sets
@@ -2693,6 +2698,24 @@ class Djinn
 
   def remove_tq_endpoints
     HAProxy.remove_tq_endpoints
+  end
+
+  # TODO: this is a temporary. The dependency to the tools should be
+  # removed.
+  def write_tools_config
+    ["#{@options['keyname']}.secret",
+        "locations-#{@options['keyname']}.json"].each { |config|
+      # Read the current config file for the deployment
+      current = File.read("#{APPSCALE_CONFIG_DIR}/config")
+
+      # Compare it with what the tools have and override if needed.
+      config_file = "#{APPSCALE_TOOLS_CONFIG_DIR}/#{config}"
+      tools_current = ''
+      tools_current = File.read(config_file) if File.exists?(config_file)
+      if tools_current != current
+        File.open(config_path, 'w+') { |dest_file| dest_file.write(current) }
+      end
+    }
   end
 
   def write_database_info
@@ -4042,9 +4065,7 @@ class Djinn
   # and a mapping of where other machines are located.
   def update_hosts_info
     # If we are running in Docker, don't try to set the hostname.
-    if system("grep docker /proc/1/cgroup > /dev/null")
-      return
-    end
+    return if system("grep docker /proc/1/cgroup > /dev/null")
 
     all_nodes = ''
     @state_change_lock.synchronize {
