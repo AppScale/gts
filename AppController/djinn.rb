@@ -299,7 +299,7 @@ class Djinn
 
   # The tools uses this location to find deployments info. TODO: to remove
   # this dependency.
-  APPSCALE_TOOLS_CONFIG_DIR = '~/.appscale'.freeze
+  APPSCALE_TOOLS_CONFIG_DIR = '/root/.appscale'.freeze
 
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
@@ -2715,6 +2715,7 @@ class Djinn
       if tools_current != current
         FileUtils.mkdir_p(APPSCALE_TOOLS_CONFIG_DIR)
         File.open(config_file, 'w+') { |dest_file| dest_file.write(current) }
+        Djinn.log_info("Updated tools config #{config_file}.")
       end
     }
   end
