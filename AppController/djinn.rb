@@ -2713,7 +2713,7 @@ class Djinn
       tools_current = ''
       tools_current = File.read(config_file) if File.exists?(config_file)
       if tools_current != current
-        File.open(config_path, 'w+') { |dest_file| dest_file.write(current) }
+        File.open(config_file, 'w+') { |dest_file| dest_file.write(current) }
       end
     }
   end
