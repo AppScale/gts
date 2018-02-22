@@ -1,7 +1,5 @@
 """ Module responsible for configuring Stats API and stats profiling. """
 import json
-import time
-from datetime import datetime
 
 import attr
 import logging
@@ -21,9 +19,8 @@ from appscale.hermes.stats.handlers import (
   CurrentStatsHandler, CurrentClusterStatsHandler
 )
 from appscale.hermes.stats.producers.cluster_stats import (
-  ClusterNodesStatsSource, ClusterProcessesStatsSource,
-  ClusterPushQueueStatsSource, ClusterProxiesStatsSource,
-  ClusterRabbitMQStatsSource
+  cluster_nodes_stats, cluster_processes_stats, cluster_proxies_stats,
+  cluster_rabbitmq_stats, cluster_push_queues_stats
 )
 from appscale.hermes.stats.producers.node_stats import NodeStatsSource
 from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
@@ -52,7 +49,17 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'proxy.frontend': ['bin', 'bout', 'scur', 'smax', 'rate',
                      'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
   'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
+  # Taskqueue service stats
+  'taskqueue': ['utc_timestamp', 'current_requests', 'cumulative', 'recent',
+                'instances_count', 'failures'],
+  'taskqueue.instance': ['start_timestamp_ms', 'current_requests',
+                         'cumulative', 'recent'],
+  'taskqueue.cumulative': ['total', 'failed', 'pb_reqs', 'rest_reqs'],
+  'taskqueue.recent': ['total', 'failed', 'avg_latency',
+                       'pb_reqs', 'rest_reqs'],
+  # RabbitMQ stats
   'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name'],
+  # Push queue stats
   'queue': ['name', 'messages'],
 })
 
@@ -135,48 +142,48 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
   ]
 
 
-def get_cluster_stats_api_routes(is_master):
+def get_cluster_stats_api_routes(is_lb):
   """ Creates stats sources and API handlers for providing cluster
   node, processes and proxies stats (on master node only).
   If this node is slave, it creates stub handlers for cluster stats routes.
 
   Args:
-    is_master: A boolean indicating whether this node is master.
+    is_lb: A boolean indicating whether this node is load balancer.
   Returns:
     A list of route-handler tuples.
   """
-  if is_master:
-    # Only master node provides cluster stats
+  if is_lb:
+    # Only LB nodes provide cluster stats
     cluster_node_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
-      init_kwargs={'source': ClusterNodesStatsSource(),
+      init_kwargs={'source': cluster_nodes_stats,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
     cluster_processes_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
-      init_kwargs={'source': ClusterProcessesStatsSource(),
+      init_kwargs={'source': cluster_processes_stats,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
     cluster_proxies_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
-      init_kwargs={'source': ClusterProxiesStatsSource(),
+      init_kwargs={'source': cluster_proxies_stats,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
     cluster_rabbitmq_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
-      init_kwargs={'source': ClusterRabbitMQStatsSource(),
+      init_kwargs={'source': cluster_rabbitmq_stats,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
     cluster_push_queue_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
-      init_kwargs={'source': ClusterPushQueueStatsSource(),
+      init_kwargs={'source': cluster_push_queues_stats,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
   else:
     # Stub handler for slave nodes
     cluster_stub_handler = HandlerInfo(
       handler_class=Respond404Handler,
-      init_kwargs={'reason': 'Only master node provides cluster stats'}
+      init_kwargs={'reason': 'Only LB nodes provide cluster stats'}
     )
     cluster_node_stats_handler = cluster_stub_handler
     cluster_processes_stats_handler = cluster_stub_handler
@@ -259,7 +266,7 @@ class ProfilingManager(object):
       if self.nodes_profile_task:
         self.nodes_profile_task.stop()
       self.nodes_profile_task = _configure_profiling(
-        stats_source=ClusterNodesStatsSource(),
+        stats_source=cluster_nodes_stats,
         profiler=self.nodes_profile_log,
         interval=interval
       )
@@ -291,7 +298,7 @@ class ProfilingManager(object):
       if self.processes_profile_task:
         self.processes_profile_task.stop()
       self.processes_profile_task = _configure_profiling(
-        stats_source=ClusterProcessesStatsSource(),
+        stats_source=cluster_processes_stats,
         profiler=self.processes_profile_log,
         interval=interval
       )
@@ -323,7 +330,7 @@ class ProfilingManager(object):
       if self.proxies_profile_task:
         self.proxies_profile_task.stop()
       self.proxies_profile_task = _configure_profiling(
-        stats_source=ClusterProxiesStatsSource(),
+        stats_source=cluster_proxies_stats,
         profiler=self.proxies_profile_log,
         interval=interval
       )
@@ -349,7 +356,7 @@ def _configure_profiling(stats_source, profiler, interval):
     """ Triggers asynchronous stats collection and schedules writing
     of the cluster stats (when it's collected) to the stats profile.
     """
-    future_stats = stats_source.get_current_async(max_age=0)
+    future_stats = stats_source.get_current(max_age=0)
     IOLoop.current().add_future(future_stats, write_stats_callback)
 
   return PeriodicCallback(profiling_periodical_callback, interval*1000)

@@ -28,7 +28,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
   @patch.object(cluster_stats, 'options')
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
-  @patch.object(cluster_stats.ClusterNodesStatsSource, 'ips_getter')
+  @patch.object(cluster_stats.cluster_nodes_stats, 'ips_getter')
   @patch.object(cluster_stats.httpclient.AsyncHTTPClient, 'fetch')
   @patch.object(node_stats.NodeStatsSource, 'get_current')
   @testing.gen_test
@@ -53,12 +53,9 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     future_response.set_result(response)
     mock_fetch.return_value = future_response
 
-    # Initialize cluster stats source
-    cluster_stats_source = cluster_stats.ClusterNodesStatsSource()
-
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test
-    stats, failures = yield cluster_stats_source.get_current_async()
+    stats, failures = yield cluster_stats.cluster_nodes_stats.get_current()
 
     # ASSERTING EXPECTATIONS
     request_to_slave = mock_fetch.call_args[0][0]
@@ -80,7 +77,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
   @patch.object(cluster_stats, 'options')
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
-  @patch.object(cluster_stats.ClusterNodesStatsSource, 'ips_getter')
+  @patch.object(cluster_stats.cluster_nodes_stats, 'ips_getter')
   @patch.object(cluster_stats.httpclient.AsyncHTTPClient, 'fetch')
   @patch.object(node_stats.NodeStatsSource, 'get_current')
   @testing.gen_test
@@ -103,12 +100,9 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     future_response.set_result(response)
     mock_fetch.return_value = future_response
 
-    # Initialize cluster stats source
-    cluster_stats_source = cluster_stats.ClusterNodesStatsSource()
-
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test
-    stats, failures = yield cluster_stats_source.get_current_async()
+    stats, failures = yield cluster_stats.cluster_nodes_stats.get_current()
 
     # ASSERTING EXPECTATIONS
     request_to_slave = mock_fetch.call_args[0][0]
@@ -129,7 +123,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
   @patch.object(cluster_stats, 'options')
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
-  @patch.object(cluster_stats.ClusterNodesStatsSource, 'ips_getter')
+  @patch.object(cluster_stats.cluster_nodes_stats, 'ips_getter')
   @patch.object(cluster_stats.httpclient.AsyncHTTPClient, 'fetch')
   @patch.object(node_stats.NodeStatsSource, 'get_current')
   @testing.gen_test
@@ -160,13 +154,10 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
       'node.memory': ['available']
     }
 
-    # Initialize cluster stats source with include lists
-    cluster_stats_source = cluster_stats.ClusterNodesStatsSource()
-
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test to get stats with filtered set of fields
     include_lists = IncludeLists(raw_include_lists)
-    stats, failures = yield cluster_stats_source.get_current_async(
+    stats, failures = yield cluster_stats.cluster_nodes_stats.get_current(
       max_age=10, include_lists=include_lists
     )
 
@@ -198,7 +189,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
   @patch.object(cluster_stats, 'options')
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
-  @patch.object(cluster_stats.ClusterProcessesStatsSource, 'ips_getter')
+  @patch.object(cluster_stats.cluster_processes_stats, 'ips_getter')
   @patch.object(cluster_stats.httpclient.AsyncHTTPClient, 'fetch')
   @patch.object(process_stats.ProcessesStatsSource, 'get_current')
   @testing.gen_test
@@ -223,12 +214,9 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
     future_response.set_result(response)
     mock_fetch.return_value = future_response
 
-    # Initialize stats source
-    cluster_stats_source = cluster_stats.ClusterProcessesStatsSource()
-
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test to get the latest stats
-    stats, failures = yield cluster_stats_source.get_current_async()
+    stats, failures = yield cluster_stats.cluster_processes_stats.get_current()
 
     # ASSERTING EXPECTATIONS
     request_to_slave = mock_fetch.call_args[0][0]
@@ -253,7 +241,7 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
 
   @patch.object(cluster_stats, 'options')
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
-  @patch.object(cluster_stats.ClusterProcessesStatsSource, 'ips_getter')
+  @patch.object(cluster_stats.cluster_processes_stats, 'ips_getter')
   @patch.object(cluster_stats.httpclient.AsyncHTTPClient, 'fetch')
   @patch.object(process_stats.ProcessesStatsSource, 'get_current')
   @testing.gen_test
@@ -286,13 +274,10 @@ class TestClusterProcessesStatsProducer(testing.AsyncTestCase):
       'process.children_stats_sum': ['cpu', 'memory'],
     }
 
-    # Initialize stats source
-    cluster_stats_source = cluster_stats.ClusterProcessesStatsSource()
-
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test to get stats with filtered set of fields
     include_lists = IncludeLists(raw_include_lists)
-    stats, failures = yield cluster_stats_source.get_current_async(
+    stats, failures = yield cluster_stats.cluster_processes_stats.get_current(
       max_age=15, include_lists=include_lists
     )
     self.assertEqual(failures, {})
@@ -327,7 +312,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
 
   @patch.object(cluster_stats, 'options')
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
-  @patch.object(cluster_stats.ClusterProxiesStatsSource, 'ips_getter')
+  @patch.object(cluster_stats.cluster_proxies_stats, 'ips_getter')
   @patch.object(cluster_stats.httpclient.AsyncHTTPClient, 'fetch')
   @testing.gen_test
   def test_verbose_cluster_proxies_stats(self, mock_fetch, mock_ips_getter,
@@ -348,12 +333,9 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     future_response.set_result(response)
     mock_fetch.return_value = future_response
 
-    # Initialize stats source
-    cluster_stats_source = cluster_stats.ClusterProxiesStatsSource()
-
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test to get the latest stats
-    stats, failures = yield cluster_stats_source.get_current_async()
+    stats, failures = yield cluster_stats.cluster_proxies_stats.get_current()
 
     # ASSERTING EXPECTATIONS
     request_to_lb = mock_fetch.call_args[0][0]
@@ -373,7 +355,7 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
 
   @patch.object(cluster_stats, 'options')
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
-  @patch.object(cluster_stats.ClusterProxiesStatsSource, 'ips_getter')
+  @patch.object(cluster_stats.cluster_proxies_stats, 'ips_getter')
   @patch.object(cluster_stats.httpclient.AsyncHTTPClient, 'fetch')
   @testing.gen_test
   def test_filtered_cluster_proxies_stats(self, mock_fetch, mock_ips_getter,
@@ -401,13 +383,10 @@ class TestClusterProxiesStatsProducer(testing.AsyncTestCase):
     future_response.set_result(response)
     mock_fetch.return_value = future_response
 
-    # Initialize stats source
-    cluster_stats_source = cluster_stats.ClusterProxiesStatsSource()
-
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test to get stats with filtered set of fields
     include_lists = IncludeLists(raw_include_lists)
-    stats, failures = yield cluster_stats_source.get_current_async(
+    stats, failures = yield cluster_stats.cluster_proxies_stats.get_current(
       max_age=18, include_lists=include_lists
     )
 
