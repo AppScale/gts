@@ -2713,6 +2713,7 @@ class Djinn
       tools_current = ''
       tools_current = File.read(config_file) if File.exists?(config_file)
       if tools_current != current
+        FileUtils.mkdir_p(APPSCALE_TOOLS_CONFIG_DIR)
         File.open(config_file, 'w+') { |dest_file| dest_file.write(current) }
       end
     }
