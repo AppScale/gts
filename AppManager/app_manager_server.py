@@ -668,6 +668,7 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
   cmd = [
     "/usr/bin/python2",
     constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+    "--application", app_name,
     "--port " + str(port),
     "--admin_port " + str(port + 10000),
     "--login_server " + login_ip,
