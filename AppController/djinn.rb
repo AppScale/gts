@@ -1013,11 +1013,11 @@ class Djinn
 
     @nodes.each { |node|
       if node.jobs.include? 'compute'
-        if not node.instance_type.nil?
-            @options['compute_instance_type'] = node.instance_type
-             break
+        if node.instance_type.nil?
+          @options['compute_instance_type'] = @options['instance_type']
+        else
+          @options['compute_instance_type'] = node.instance_type
         end
-        @options['compute_instance_type'] = @options['instance_type']
         break
       end
     }
