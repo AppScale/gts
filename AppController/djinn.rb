@@ -2700,21 +2700,29 @@ class Djinn
     HAProxy.remove_tq_endpoints
   end
 
-  # TODO: this is a temporary. The dependency to the tools should be
+  # TODO: this is a temporary fix. The dependency on the tools should be
   # removed.
   def write_tools_config
     ["#{@options['keyname']}.secret",
-        "locations-#{@options['keyname']}.json"].each { |config|
+     "locations-#{@options['keyname']}.json"].each { |config|
       # Read the current config file for the deployment
-      current = File.read("#{APPSCALE_CONFIG_DIR}/#{config}")
+      begin
+        current = File.read("#{APPSCALE_CONFIG_DIR}/#{config}")
+      rescue Errno::ENOENT
+        Djinn.log_warn("Didn't find #{APPSCALE_CONFIG_DIR}/#{config}.")
+        next
+      end
 
       # Compare it with what the tools have and override if needed.
       config_file = "#{APPSCALE_TOOLS_CONFIG_DIR}/#{config}"
-      tools_current = ''
-      tools_current = File.read(config_file) if File.exists?(config_file)
+      begin
+        tools_current = File.read(config_file)
+      rescue Errno::ENOENT
+        tools_current = ''
+      end
       if tools_current != current
         FileUtils.mkdir_p(APPSCALE_TOOLS_CONFIG_DIR)
-        File.open(config_file, 'w+') { |dest_file| dest_file.write(current) }
+        File.open(config_file, 'w') { |dest_file| dest_file.write(current) }
         Djinn.log_info("Updated tools config #{config_file}.")
       end
     }
