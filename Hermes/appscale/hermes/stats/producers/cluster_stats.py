@@ -4,6 +4,8 @@ import logging
 import sys
 import time
 
+import random
+
 from appscale.common import appscale_info
 from tornado import gen, httpclient
 from tornado.options import options
@@ -13,8 +15,8 @@ from appscale.hermes.constants import SECRET_HEADER
 from appscale.hermes.stats import converter
 from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.stats.producers import (
-  proxy_stats, node_stats, process_stats, rabbitmq_stats
-)
+  proxy_stats, node_stats, process_stats, rabbitmq_stats,
+  taskqueue_stats)
 
 
 class BadStatsListFormat(ValueError):
@@ -24,7 +26,7 @@ class BadStatsListFormat(ValueError):
 
 class ClusterStatsSource(object):
   """
-  Cluster stats sources. 
+  Cluster stats sources.
   Gets new local stats from all nodes in the cluster.
   """
   def __init__(self, ips_getter, method_path, stats_model, local_stats_source):
@@ -125,6 +127,10 @@ class ClusterStatsSource(object):
       raise BadStatsListFormat(msg), None, sys.exc_info()[2]
 
 
+def get_random_lb_node():
+  return [random.choice(appscale_info.get_load_balancer_ips())]
+
+
 cluster_nodes_stats = ClusterStatsSource(
   ips_getter=appscale_info.get_all_ips,
   method_path='stats/local/node',
@@ -144,6 +150,13 @@ cluster_proxies_stats = ClusterStatsSource(
   method_path='stats/local/proxies',
   stats_model=proxy_stats.ProxiesStatsSnapshot,
   local_stats_source=proxy_stats.ProxiesStatsSource
+)
+
+cluster_taskqueue_stats = ClusterStatsSource(
+  ips_getter=get_random_lb_node,
+  method_path='stats/local/taskqueue',
+  stats_model=taskqueue_stats.TaskqueueServiceStatsSnapshot,
+  local_stats_source=taskqueue_stats.taskqueue_stats_source
 )
 
 cluster_rabbitmq_stats = ClusterStatsSource(
