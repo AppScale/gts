@@ -1834,7 +1834,6 @@ class Djinn
       update_port_files
       update_firewall
       write_zookeeper_locations
-      write_tools_config
 
       # This call will block if we cannot reach a zookeeper node, but will
       # be very fast if we have an available connection. The function sets
@@ -1854,6 +1853,7 @@ class Djinn
       # this time, to setup the routing.
       my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
       if my_node.is_shadow?
+        write_tools_config
         update_node_info_cache
         backup_appcontroller_state
       elsif !restore_appcontroller_state
