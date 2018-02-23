@@ -297,6 +297,10 @@ class Djinn
   # files are written to.
   APPSCALE_CONFIG_DIR = '/etc/appscale'.freeze
 
+  # The tools uses this location to find deployments info. TODO: to remove
+  # this dependency.
+  APPSCALE_TOOLS_CONFIG_DIR = '/root/.appscale'.freeze
+
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
   TASKQUEUE_FILE = "#{APPSCALE_CONFIG_DIR}/taskqueue_nodes".freeze
@@ -698,6 +702,7 @@ class Djinn
       Thread.new {
         @nodes.each { |node|
           next if node.private_ip == my_node.private_ip
+          ip = node.private_ip
           acc = AppControllerClient.new(ip, @@secret)
           begin
             acc.kill(stop_deployment)
@@ -1232,7 +1237,7 @@ class Djinn
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
-      Djinn.log_debug("Sending get_property for #{appid} to #{get_shadow}.")
+      Djinn.log_debug("Sending get_property for #{property_regex} to #{get_shadow}.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.get_property(property_regex)
@@ -1290,7 +1295,7 @@ class Djinn
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
-      Djinn.log_debug("Sending set_property for #{appid} to #{get_shadow}.")
+      Djinn.log_debug("Sending set_property for #{property_name} to #{get_shadow}.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.set_property(property_name, property_value)
@@ -1859,6 +1864,7 @@ class Djinn
       # this time, to setup the routing.
       my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
       if my_node.is_shadow?
+        write_tools_config
         update_node_info_cache
         backup_appcontroller_state
       elsif !restore_appcontroller_state
@@ -2703,6 +2709,34 @@ class Djinn
 
   def remove_tq_endpoints
     HAProxy.remove_tq_endpoints
+  end
+
+  # TODO: this is a temporary fix. The dependency on the tools should be
+  # removed.
+  def write_tools_config
+    ["#{@options['keyname']}.secret",
+     "locations-#{@options['keyname']}.json"].each { |config|
+      # Read the current config file for the deployment
+      begin
+        current = File.read("#{APPSCALE_CONFIG_DIR}/#{config}")
+      rescue Errno::ENOENT
+        Djinn.log_warn("Didn't find #{APPSCALE_CONFIG_DIR}/#{config}.")
+        next
+      end
+
+      # Compare it with what the tools have and override if needed.
+      config_file = "#{APPSCALE_TOOLS_CONFIG_DIR}/#{config}"
+      begin
+        tools_current = File.read(config_file)
+      rescue Errno::ENOENT
+        tools_current = ''
+      end
+      if tools_current != current
+        FileUtils.mkdir_p(APPSCALE_TOOLS_CONFIG_DIR)
+        File.open(config_file, 'w') { |dest_file| dest_file.write(current) }
+        Djinn.log_info("Updated tools config #{config_file}.")
+      end
+    }
   end
 
   def write_database_info
@@ -4052,9 +4086,7 @@ class Djinn
   # and a mapping of where other machines are located.
   def update_hosts_info
     # If we are running in Docker, don't try to set the hostname.
-    if system("grep docker /proc/1/cgroup > /dev/null")
-      return
-    end
+    return if system("grep docker /proc/1/cgroup > /dev/null")
 
     all_nodes = ''
     @state_change_lock.synchronize {
