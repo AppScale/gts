@@ -157,10 +157,12 @@ module HAProxy
     if [TaskQueue::NAME, DatastoreServer::NAME,
         UserAppClient::NAME, BlobServer::NAME].include?(name)
       full_version_name = "#{name}"
-      config_path = File.join(SERVICE_SITES_PATH, "#{name}.#{CONFIG_EXTENSION}")
+      config_path = File.join(SERVICE_SITES_PATH,
+                              "#{full_version_name}.#{CONFIG_EXTENSION}")
     else
       full_version_name = "#{HelperFunctions::GAE_PREFIX}#{name}"
-      config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
+      config_path = File.join(SITES_ENABLED_PATH,
+                              "#{full_version_name}.#{CONFIG_EXTENSION}")
     end
 
     config = "# Create a load balancer for #{name}.\n"
@@ -284,7 +286,7 @@ module HAProxy
   end
 
   def self.remove_version(version_key)
-    config_name = "gae_#{version_key}.#{CONFIG_EXTENSION}"
+    config_name = "#{HelperFunctions::GAE_PREFIX}#{version_key}.#{CONFIG_EXTENSION}"
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     HAProxy.regenerate_config
   end
