@@ -558,9 +558,9 @@ class DatastoreDistributed():
 
     for encoded_group_key, entity_list in by_group.iteritems():
       group_key = entity_pb.Reference(encoded_group_key)
-      lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key])
 
       txid = self.transaction_manager.create_transaction_id(app, xg=False)
+      lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key], txid)
       try:
         with lock:
           batch = []
@@ -894,10 +894,9 @@ class DatastoreDistributed():
 
       for encoded_group_key, key_list in by_group.iteritems():
         group_key = entity_pb.Reference(encoded_group_key)
-        lock = entity_lock.EntityLock(
-          self.zookeeper.handle, [group_key])
 
         txid = self.transaction_manager.create_transaction_id(app_id, xg=False)
+        lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key], txid)
         try:
           with lock:
             self.delete_entities(
@@ -3217,13 +3216,8 @@ class DatastoreDistributed():
     composite_indices = [entity_pb.CompositeIndex(index)
                          for index in self.datastore_batch.get_indices(app)]
 
-    # Give multi-group entity locks a transaction ID for deadlock resolution.
-    lock_id = None
-    if len(tx_groups) > 1:
-      lock_id = txn
     decoded_groups = (entity_pb.Reference(group) for group in tx_groups)
-    lock = entity_lock.EntityLock(
-      self.zookeeper.handle, decoded_groups, lock_id)
+    lock = entity_lock.EntityLock(self.zookeeper.handle, decoded_groups, txn)
 
     with lock:
       group_txids = self.datastore_batch.group_updates(metadata['reads'])
