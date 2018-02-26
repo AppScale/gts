@@ -187,6 +187,10 @@ def create_command_line_parser():
 
   common_group = parser.add_argument_group('Common')
   common_group.add_argument(
+      '-A', '--application', action='store', dest='app_id',
+      help='Set the application, overriding the application value from the '
+      'app.yaml file.')
+  common_group.add_argument(
       '--host', default='localhost',
       help='host name to which application modules should bind')
   common_group.add_argument(
@@ -547,7 +551,7 @@ class DevelopmentServer(object):
         _LOG_LEVEL_TO_PYTHON_CONSTANT[options.dev_appserver_log_level])
 
     configuration = application_configuration.ApplicationConfiguration(
-        options.yaml_files)
+        options.yaml_files, options.app_id)
 
     if options.skip_sdk_update_check:
       logging.info('Skipping SDK update check.')
