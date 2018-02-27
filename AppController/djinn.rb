@@ -47,6 +47,7 @@ require 'user_app_client'
 require 'zkinterface'
 require 'zookeeper_helper'
 
+# By default don't trace remote commands execution.
 NO_OUTPUT = false
 
 # This lock makes it so that global variables related to apps are not updated
@@ -295,6 +296,10 @@ class Djinn
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
   APPSCALE_CONFIG_DIR = '/etc/appscale'.freeze
+
+  # The tools uses this location to find deployments info. TODO: to remove
+  # this dependency.
+  APPSCALE_TOOLS_CONFIG_DIR = '/root/.appscale'.freeze
 
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
@@ -697,6 +702,7 @@ class Djinn
       Thread.new {
         @nodes.each { |node|
           next if node.private_ip == my_node.private_ip
+          ip = node.private_ip
           acc = AppControllerClient.new(ip, @@secret)
           begin
             acc.kill(stop_deployment)
@@ -1220,7 +1226,7 @@ class Djinn
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
-      Djinn.log_debug("Sending get_property for #{appid} to #{get_shadow}.")
+      Djinn.log_debug("Sending get_property for #{property_regex} to #{get_shadow}.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.get_property(property_regex)
@@ -1278,7 +1284,7 @@ class Djinn
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
-      Djinn.log_debug("Sending set_property for #{appid} to #{get_shadow}.")
+      Djinn.log_debug("Sending set_property for #{property_name} to #{get_shadow}.")
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.set_property(property_name, property_value)
@@ -1767,6 +1773,9 @@ class Djinn
     last_print = Time.now.to_i
 
     until @kill_sig_received do
+      # Mark the beginning of the duty cycle.
+      start_work_time = Time.now.to_i
+
       # We want to ensure monit stays up all the time, since we rely on
       # it for services and AppServers.
       unless MonitInterface.start_monit
@@ -1796,6 +1805,7 @@ class Djinn
       # this time, to setup the routing.
       my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
       if my_node.is_shadow?
+        write_tools_config
         update_node_info_cache
         backup_appcontroller_state
       elsif !restore_appcontroller_state
@@ -1851,7 +1861,11 @@ class Djinn
         last_print = Time.now.to_i
       end
 
-      Kernel.sleep(DUTY_CYCLE)
+      # Let's make sure we don't drift the duty cycle too much.
+      duty_cycle_duration = Time.now.to_i - start_work_time
+      if duty_cycle_duration < DUTY_CYCLE
+        Kernel.sleep(DUTY_CYCLE - duty_cycle_duration)
+      end
     end
   end
 
@@ -2636,6 +2650,34 @@ class Djinn
     HAProxy.remove_tq_endpoints
   end
 
+  # TODO: this is a temporary fix. The dependency on the tools should be
+  # removed.
+  def write_tools_config
+    ["#{@options['keyname']}.secret",
+     "locations-#{@options['keyname']}.json"].each { |config|
+      # Read the current config file for the deployment
+      begin
+        current = File.read("#{APPSCALE_CONFIG_DIR}/#{config}")
+      rescue Errno::ENOENT
+        Djinn.log_warn("Didn't find #{APPSCALE_CONFIG_DIR}/#{config}.")
+        next
+      end
+
+      # Compare it with what the tools have and override if needed.
+      config_file = "#{APPSCALE_TOOLS_CONFIG_DIR}/#{config}"
+      begin
+        tools_current = File.read(config_file)
+      rescue Errno::ENOENT
+        tools_current = ''
+      end
+      if tools_current != current
+        FileUtils.mkdir_p(APPSCALE_TOOLS_CONFIG_DIR)
+        File.open(config_file, 'w') { |dest_file| dest_file.write(current) }
+        Djinn.log_info("Updated tools config #{config_file}.")
+      end
+    }
+  end
+
   def write_database_info
     table = @options['table']
     replication = @options['replication']
@@ -2712,6 +2754,7 @@ class Djinn
         "appcontroller state with #{e.message}.")
     end
     @appcontroller_state = local_state.to_s
+    Djinn.log_debug("backup_appcontroller_state: updated state.")
   end
 
   # Takes actions if options or roles changed.
@@ -3982,9 +4025,7 @@ class Djinn
   # and a mapping of where other machines are located.
   def update_hosts_info
     # If we are running in Docker, don't try to set the hostname.
-    if system("grep docker /proc/1/cgroup > /dev/null")
-      return
-    end
+    return if system("grep docker /proc/1/cgroup > /dev/null")
 
     all_nodes = ''
     @state_change_lock.synchronize {
@@ -4095,9 +4136,16 @@ HOSTS
         end
 
         # Reload haproxy first, to ensure we have the backend ready when
-        # nginx routing is enabled.
-        unless HAProxy.update_version_config(my_private, version_key,
-                                             proxy_port, appservers)
+        # nginx routing is enabled. We need to get the appservers in a
+        # hash with ip, port for the haproxy call.
+        servers = []
+        appservers.each { |location|
+          host, port = location.split(':')
+          next if Integer(port) < 0
+          servers << { 'ip' => host, 'port' => port }
+        }
+        unless HAProxy.create_app_config(servers, my_private, proxy_port,
+                                         version_key)
           Djinn.log_warn("No AppServer in haproxy for #{version_key}.")
           next
         end
@@ -4212,7 +4260,7 @@ HOSTS
     configure_uaserver
 
     # HAProxy must be running so that the UAServer can be accessed.
-    if HAProxy.valid_config?(HAProxy::SERVICES_MAIN_FILE) &&
+    if HAProxy.valid_config?(HAProxy::SERVICE_MAIN_FILE) &&
         !MonitInterface.is_running?(:service_haproxy)
       HAProxy.services_start
     end
