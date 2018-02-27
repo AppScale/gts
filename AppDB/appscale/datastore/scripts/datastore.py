@@ -645,6 +645,8 @@ class MainHandler(tornado.web.RequestHandler):
       return (putresp_pb.Encode(), 0, "")
     except dbconstants.InternalError as error:
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.TimeoutError as error:
+      return '', datastore_pb.Error.TIMEOUT, str(error)
     except dbconstants.BadRequest as error:
       return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except zktransaction.ZKBadRequest as zkie:
@@ -732,6 +734,8 @@ class MainHandler(tornado.web.RequestHandler):
       return (delresp_pb.Encode(), 0, "")
     except dbconstants.InternalError as error:
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+    except dbconstants.TimeoutError as error:
+      return '', datastore_pb.Error.TIMEOUT, str(error)
     except dbconstants.BadRequest as error:
       return '', datastore_pb.Error.BAD_REQUEST, str(error)
     except zktransaction.ZKBadRequest as zkie:

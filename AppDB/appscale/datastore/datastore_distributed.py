@@ -16,6 +16,7 @@ from kazoo.client import KazooState
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import MAX_TX_DURATION
+from .dbconstants import TimeoutError
 from .cassandra_env import cassandra_interface
 from .cassandra_env.entity_id_allocator import EntityIDAllocator
 from .cassandra_env.entity_id_allocator import ScatteredAllocator
@@ -561,32 +562,38 @@ class DatastoreDistributed():
 
       txid = self.transaction_manager.create_transaction_id(app, xg=False)
       self.transaction_manager.set_groups(app, txid, [group_key])
+
+      # Allow the lock to stick around if there is an issue applying the batch.
       lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key], txid)
       try:
-        with lock:
-          batch = []
-          entity_changes = []
-          for entity in entity_list:
-            prefix = self.get_table_prefix(entity)
-            entity_key = get_entity_key(prefix, entity.key().path())
+        lock.acquire()
+      except entity_lock.LockTimeout:
+        raise TimeoutError('Unable to acquire entity group lock')
 
-            current_value = None
-            if current_values[entity_key]:
-              current_value = entity_pb.EntityProto(
-                current_values[entity_key][APP_ENTITY_SCHEMA[0]])
+      batch = []
+      entity_changes = []
+      for entity in entity_list:
+        prefix = self.get_table_prefix(entity)
+        entity_key = get_entity_key(prefix, entity.key().path())
 
-            batch.extend(mutations_for_entity(entity, txid, current_value,
-                                              composite_indexes))
+        current_value = None
+        if current_values[entity_key]:
+          current_value = entity_pb.EntityProto(
+            current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
-            batch.append({'table': 'group_updates',
-                          'key': bytearray(encoded_group_key),
-                          'last_update': txid})
+        batch.extend(mutations_for_entity(entity, txid, current_value,
+                                          composite_indexes))
 
-            entity_changes.append(
-              {'key': entity.key(), 'old': current_value, 'new': entity})
-          self.datastore_batch.batch_mutate(app, batch, entity_changes, txid)
-      finally:
-        self.transaction_manager.delete_transaction_id(app, txid)
+        batch.append({'table': 'group_updates',
+                      'key': bytearray(encoded_group_key),
+                      'last_update': txid})
+
+        entity_changes.append(
+          {'key': entity.key(), 'old': current_value, 'new': entity})
+      self.datastore_batch.batch_mutate(app, batch, entity_changes, txid)
+
+      lock.release()
+      self.transaction_manager.delete_transaction_id(app, txid)
 
   def delete_entities(self, group, txid, keys, composite_indexes=()):
     """ Deletes the entities and the indexes associated with them.
@@ -658,10 +665,7 @@ class DatastoreDistributed():
       self.datastore_batch.put_entities_tx(
         app_id, put_request.transaction().handle(), entities)
     else:
-      try:
-        self.put_entities(app_id, entities, put_request.composite_index_list())
-      except entity_lock.LockTimeout as timeout_error:
-        raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
+      self.put_entities(app_id, entities, put_request.composite_index_list())
       self.logger.debug('Updated {} entities'.format(len(entities)))
 
     put_response.key_list().extend([e.key() for e in entities])
@@ -898,20 +902,25 @@ class DatastoreDistributed():
 
         txid = self.transaction_manager.create_transaction_id(app_id, xg=False)
         self.transaction_manager.set_groups(app_id, txid, [group_key])
+
+        # Allow the lock to stick around if there is an issue applying the batch.
         lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key], txid)
         try:
-          with lock:
-            self.delete_entities(
-              group_key,
-              txid,
-              key_list,
-              composite_indexes=filtered_indexes
-            )
-          self.logger.debug('Removed {} entities'.format(len(key_list)))
-        except entity_lock.LockTimeout as timeout_error:
-          raise dbconstants.AppScaleDBConnectionError(str(timeout_error))
-        finally:
-          self.transaction_manager.delete_transaction_id(app_id, txid)
+          lock.acquire()
+        except entity_lock.LockTimeout:
+          raise TimeoutError('Unable to acquire entity group lock')
+
+        self.delete_entities(
+          group_key,
+          txid,
+          key_list,
+          composite_indexes=filtered_indexes
+        )
+
+        lock.release()
+        self.logger.debug('Removed {} entities'.format(len(key_list)))
+
+        self.transaction_manager.delete_transaction_id(app_id, txid)
 
   def generate_filter_info(self, filters):
     """Transform a list of filters into a more usable form.
@@ -3220,60 +3229,70 @@ class DatastoreDistributed():
 
     decoded_groups = (entity_pb.Reference(group) for group in tx_groups)
     self.transaction_manager.set_groups(app, txn, decoded_groups)
+
+    # Allow the lock to stick around if there is an issue applying the batch.
     lock = entity_lock.EntityLock(self.zookeeper.handle, decoded_groups, txn)
+    try:
+      lock.acquire()
+    except entity_lock.LockTimeout:
+      raise TimeoutError('Unable to acquire entity group locks')
 
-    with lock:
-      group_txids = self.datastore_batch.group_updates(metadata['reads'])
-      for group_txid in group_txids:
-        if group_txid in metadata['in_progress'] or group_txid > txn:
-          raise dbconstants.ConcurrentModificationException(
-            'A group was modified after this transaction was started.')
+    group_txids = self.datastore_batch.group_updates(metadata['reads'])
+    for group_txid in group_txids:
+      if group_txid in metadata['in_progress'] or group_txid > txn:
+        lock.release()
+        self.transaction_manager.delete_transaction_id(app, txn)
+        raise dbconstants.ConcurrentModificationException(
+          'A group was modified after this transaction was started.')
 
-      # Fetch current values so we can remove old indices.
-      entity_table_keys = [encode_entity_table_key(key)
-                           for key, _ in metadata['puts'].iteritems()]
-      entity_table_keys.extend([encode_entity_table_key(key)
-                                for key in metadata['deletes']])
-      current_values = self.datastore_batch.batch_get_entity(
-        dbconstants.APP_ENTITY_TABLE, entity_table_keys, APP_ENTITY_SCHEMA)
+    # Fetch current values so we can remove old indices.
+    entity_table_keys = [encode_entity_table_key(key)
+                         for key, _ in metadata['puts'].iteritems()]
+    entity_table_keys.extend([encode_entity_table_key(key)
+                              for key in metadata['deletes']])
+    current_values = self.datastore_batch.batch_get_entity(
+      dbconstants.APP_ENTITY_TABLE, entity_table_keys, APP_ENTITY_SCHEMA)
 
-      batch = []
-      entity_changes = []
-      for encoded_key, encoded_entity in metadata['puts'].iteritems():
-        key = entity_pb.Reference(encoded_key)
-        entity_table_key = encode_entity_table_key(key)
-        current_value = None
-        if current_values[entity_table_key]:
-          current_value = entity_pb.EntityProto(
-            current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
-
-        entity = entity_pb.EntityProto(encoded_entity)
-        mutations = mutations_for_entity(entity, txn, current_value,
-                                         composite_indices)
-        batch.extend(mutations)
-
-        entity_changes.append({'key': key, 'old': current_value,
-                               'new': entity})
-
-      for key in metadata['deletes']:
-        entity_table_key = encode_entity_table_key(key)
-        if not current_values[entity_table_key]:
-          continue
-
+    batch = []
+    entity_changes = []
+    for encoded_key, encoded_entity in metadata['puts'].iteritems():
+      key = entity_pb.Reference(encoded_key)
+      entity_table_key = encode_entity_table_key(key)
+      current_value = None
+      if current_values[entity_table_key]:
         current_value = entity_pb.EntityProto(
           current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
 
-        deletions = deletions_for_entity(current_value, composite_indices)
-        batch.extend(deletions)
+      entity = entity_pb.EntityProto(encoded_entity)
+      mutations = mutations_for_entity(entity, txn, current_value,
+                                       composite_indices)
+      batch.extend(mutations)
 
-        entity_changes.append({'key': key, 'old': current_value, 'new': None})
+      entity_changes.append({'key': key, 'old': current_value,
+                             'new': entity})
 
-      for group in groups_mutated:
-        batch.append(
-          {'table': 'group_updates', 'key': bytearray(group),
-           'last_update': txn})
+    for key in metadata['deletes']:
+      entity_table_key = encode_entity_table_key(key)
+      if not current_values[entity_table_key]:
+        continue
 
-      self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
+      current_value = entity_pb.EntityProto(
+        current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
+
+      deletions = deletions_for_entity(current_value, composite_indices)
+      batch.extend(deletions)
+
+      entity_changes.append({'key': key, 'old': current_value, 'new': None})
+
+    for group in groups_mutated:
+      batch.append(
+        {'table': 'group_updates', 'key': bytearray(group),
+         'last_update': txn})
+
+    self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
+
+    lock.release()
+    self.transaction_manager.delete_transaction_id(app, txn)
 
     # Process transactional tasks.
     if metadata['tasks']:
@@ -3295,7 +3314,8 @@ class DatastoreDistributed():
 
     try:
       self.apply_txn_changes(app_id, txn_id)
-    except dbconstants.TxTimeoutException as timeout:
+    except (dbconstants.TxTimeoutException,
+            dbconstants.TimeoutError) as timeout:
       return commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)
     except dbconstants.AppScaleDBConnectionError:
       self.logger.exception('DB connection error during commit')
@@ -3304,17 +3324,10 @@ class DatastoreDistributed():
     except dbconstants.ConcurrentModificationException as error:
       return (commitres_pb.Encode(), datastore_pb.Error.CONCURRENT_TRANSACTION,
               str(error))
-    except dbconstants.TooManyGroupsException as error:
+    except (dbconstants.TooManyGroupsException,
+            dbconstants.BadRequest) as error:
       return (commitres_pb.Encode(), datastore_pb.Error.BAD_REQUEST,
               str(error))
-    except entity_lock.LockTimeout as error:
-      return (commitres_pb.Encode(), datastore_pb.Error.TIMEOUT,
-              str(error))
-
-    try:
-      self.transaction_manager.delete_transaction_id(app_id, txn_id)
-    except dbconstants.BadRequest as error:
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
 
     return commitres_pb.Encode(), 0, ""
 

@@ -211,8 +211,7 @@ class EntityLock(object):
       while True:
         try:
           node = self.client.create(
-            self.create_paths[index], self.data, ephemeral=True,
-            sequence=True)
+            self.create_paths[index], self.data, sequence=True)
           break
         except NoNodeError:
           self.client.ensure_path(self.paths[index])
