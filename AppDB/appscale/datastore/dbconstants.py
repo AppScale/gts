@@ -197,7 +197,7 @@ class InternalError(Exception):
   """ Indicates that the datastore was unable to perform an operation. """
   pass
 
-class TimeoutError(Exception):
+class Timeout(Exception):
   """ Indicates that the datastore timed out while performing an operation. """
   pass
 

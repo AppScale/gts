@@ -16,7 +16,7 @@ from kazoo.client import KazooState
 from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import MAX_TX_DURATION
-from .dbconstants import TimeoutError
+from .dbconstants import Timeout
 from .cassandra_env import cassandra_interface
 from .cassandra_env.entity_id_allocator import EntityIDAllocator
 from .cassandra_env.entity_id_allocator import ScatteredAllocator
@@ -561,7 +561,7 @@ class DatastoreDistributed():
       try:
         lock.acquire()
       except entity_lock.LockTimeout:
-        raise TimeoutError('Unable to acquire entity group lock')
+        raise Timeout('Unable to acquire entity group lock')
 
       entity_keys = [
         get_entity_key(self.get_table_prefix(entity), entity.key().path())
@@ -907,7 +907,7 @@ class DatastoreDistributed():
         try:
           lock.acquire()
         except entity_lock.LockTimeout:
-          raise TimeoutError('Unable to acquire entity group lock')
+          raise Timeout('Unable to acquire entity group lock')
 
         self.delete_entities(
           group_key,
@@ -3234,7 +3234,7 @@ class DatastoreDistributed():
     try:
       lock.acquire()
     except entity_lock.LockTimeout:
-      raise TimeoutError('Unable to acquire entity group locks')
+      raise Timeout('Unable to acquire entity group locks')
 
     group_txids = self.datastore_batch.group_updates(metadata['reads'])
     for group_txid in group_txids:
@@ -3313,8 +3313,7 @@ class DatastoreDistributed():
 
     try:
       self.apply_txn_changes(app_id, txn_id)
-    except (dbconstants.TxTimeoutException,
-            dbconstants.TimeoutError) as timeout:
+    except (dbconstants.TxTimeoutException, dbconstants.Timeout) as timeout:
       return commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)
     except dbconstants.AppScaleDBConnectionError:
       self.logger.exception('DB connection error during commit')
