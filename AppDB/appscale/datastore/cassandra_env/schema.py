@@ -19,8 +19,8 @@ from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ThriftColumn
 from .. import dbconstants
 
-# The data layout version to set after removing the journal table.
-POST_JOURNAL_VERSION = 1.0
+# The current data layout version.
+CURRENT_VERSION = 2.0
 
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
@@ -110,6 +110,7 @@ def create_batch_tables(cluster, session):
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
+
 def create_groups_table(session):
   create_table = """
     CREATE TABLE IF NOT EXISTS group_updates (
@@ -178,6 +179,32 @@ def create_entity_ids_table(session):
       'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
+
+
+def current_datastore_version(session):
+  """ Retrieves the existing datastore version value.
+
+  Args:
+    session: A cassandra-driver session.
+  Returns:
+    A float specifying the existing datastore version or None.
+  """
+  key = cassandra_interface.INDEX_STATE_KEY
+  statement = """
+    SELECT {value} FROM "{table}"
+    WHERE {key} = %s
+    AND {column} = %s
+  """.format(
+    value=ThriftColumn.VALUE,
+    table=dbconstants.DATASTORE_METADATA_TABLE,
+    key=ThriftColumn.KEY,
+    column=ThriftColumn.COLUMN_NAME
+  )
+  results = session.execute(statement, (bytearray(key), key))
+  try:
+    return float(results[0].value)
+  except IndexError:
+    return None
 
 
 def prime_cassandra(replication):
@@ -268,10 +295,23 @@ def prime_cassandra(replication):
     value=ThriftColumn.VALUE
   )
 
-  if not existing_entities:
+  if existing_entities:
+    current_version = current_datastore_version(session)
+    if current_version == 1.0:
+      # Instruct the groomer to reclean the indexes.
+      parameters = {'key': bytearray(cassandra_interface.INDEX_STATE_KEY),
+                    'column': cassandra_interface.INDEX_STATE_KEY,
+                    'value': bytearray(str(IndexStates.DIRTY))}
+      session.execute(metadata_insert, parameters)
+
+      parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
+                    'column': cassandra_interface.VERSION_INFO_KEY,
+                    'value': bytearray(str(CURRENT_VERSION))}
+      session.execute(metadata_insert, parameters)
+  else:
     parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
                   'column': cassandra_interface.VERSION_INFO_KEY,
-                  'value': bytearray(str(POST_JOURNAL_VERSION))}
+                  'value': bytearray(str(CURRENT_VERSION))}
     session.execute(metadata_insert, parameters)
 
     # Mark the newly created indexes as clean.

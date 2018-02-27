@@ -96,6 +96,7 @@ class ThriftColumn(object):
 class IndexStates(object):
   """ Possible states for datastore indexes. """
   CLEAN = 'clean'
+  DIRTY = 'dirty'
   SCRUB_IN_PROGRESS = 'scrub_in_progress'
 
 
