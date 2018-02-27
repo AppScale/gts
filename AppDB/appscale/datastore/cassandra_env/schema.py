@@ -17,10 +17,8 @@ from .cassandra_interface import IndexStates
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ThriftColumn
+from .constants import CURRENT_VERSION
 from .. import dbconstants
-
-# The current data layout version.
-CURRENT_VERSION = 2.0
 
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
@@ -189,7 +187,7 @@ def current_datastore_version(session):
   Returns:
     A float specifying the existing datastore version or None.
   """
-  key = cassandra_interface.INDEX_STATE_KEY
+  key = cassandra_interface.VERSION_INFO_KEY
   statement = """
     SELECT {value} FROM "{table}"
     WHERE {key} = %s

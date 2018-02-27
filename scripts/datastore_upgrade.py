@@ -15,6 +15,7 @@ from appscale.datastore.dbconstants import APP_ENTITY_TABLE
 from appscale.datastore.dbconstants import ID_KEY_LENGTH
 from appscale.datastore.dbconstants import TOMBSTONE
 from appscale.datastore.cassandra_env import cassandra_interface
+from appscale.datastore.cassandra_env.constants import CURRENT_VERSION
 from appscale.datastore.zkappscale import zktransaction as zk
 from appscale.datastore.zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
 from appscale.datastore.zkappscale.zktransaction import ZKInternalException
@@ -427,7 +428,7 @@ def run_datastore_upgrade(db_access, zookeeper, log_postfix, total_entities):
 
   # Update the data version.
   db_access.set_metadata(cassandra_interface.VERSION_INFO_KEY,
-                         str(cassandra_interface.EXPECTED_DATA_VERSION))
+                         str(CURRENT_VERSION))
   logging.info('Stored the data version successfully.')
 
   db_access.delete_table(dbconstants.JOURNAL_TABLE)

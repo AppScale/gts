@@ -20,6 +20,7 @@ from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
+from .constants import CURRENT_VERSION
 from .large_batch import (FailedBatch,
                           LargeBatch)
 from .retry_policies import (BASIC_RETRIES,
@@ -52,9 +53,6 @@ CASSANDRA_MONIT_WATCH_NAME = "cassandra"
 
 # The number of times to retry connecting to Cassandra.
 INITIAL_CONNECT_RETRIES = 20
-
-# The data layout version that the datastore expects.
-EXPECTED_DATA_VERSION = 1.0
 
 # The metadata key for the data layout version.
 VERSION_INFO_KEY = 'version'
@@ -781,7 +779,7 @@ class DatastoreProxy(AppDBInterface):
     except cassandra.InvalidRequest:
       return False
 
-    return version is not None and float(version) == EXPECTED_DATA_VERSION
+    return version is not None and float(version) == CURRENT_VERSION
 
   def group_updates(self, groups):
     """ Fetch the latest transaction IDs for each group.
