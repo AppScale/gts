@@ -560,6 +560,7 @@ class DatastoreDistributed():
       group_key = entity_pb.Reference(encoded_group_key)
 
       txid = self.transaction_manager.create_transaction_id(app, xg=False)
+      self.transaction_manager.set_groups(app, txid, [group_key])
       lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key], txid)
       try:
         with lock:
@@ -896,6 +897,7 @@ class DatastoreDistributed():
         group_key = entity_pb.Reference(encoded_group_key)
 
         txid = self.transaction_manager.create_transaction_id(app_id, xg=False)
+        self.transaction_manager.set_groups(app_id, txid, [group_key])
         lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key], txid)
         try:
           with lock:
@@ -3217,6 +3219,7 @@ class DatastoreDistributed():
                          for index in self.datastore_batch.get_indices(app)]
 
     decoded_groups = (entity_pb.Reference(group) for group in tx_groups)
+    self.transaction_manager.set_groups(app, txn, decoded_groups)
     lock = entity_lock.EntityLock(self.zookeeper.handle, decoded_groups, txn)
 
     with lock:
