@@ -17,7 +17,6 @@ from .dbconstants import APP_ENTITY_SCHEMA
 from .dbconstants import ID_KEY_LENGTH
 from .dbconstants import MAX_TX_DURATION
 from .dbconstants import Timeout
-from .cassandra_env import cassandra_interface
 from .cassandra_env.entity_id_allocator import EntityIDAllocator
 from .cassandra_env.entity_id_allocator import ScatteredAllocator
 from .cassandra_env.utils import deletions_for_entity
@@ -36,7 +35,6 @@ from .utils import reference_property_to_reference
 from .utils import UnprocessedQueryCursor
 from .zkappscale import entity_lock
 from .zkappscale import zktransaction
-from .zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb

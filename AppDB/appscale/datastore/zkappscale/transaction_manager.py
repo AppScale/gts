@@ -7,7 +7,6 @@ import time
 
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import NodeExistsError
-from kazoo.exceptions import NotEmptyError
 from tornado.ioloop import IOLoop
 
 from appscale.common.async_retrying import retry_children_watch_coroutine
