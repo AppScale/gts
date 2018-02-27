@@ -542,13 +542,6 @@ class DatastoreDistributed():
       composite_indexes: A list or tuple of CompositeIndex objects.
     """
     self.logger.debug('Inserting {} entities'.format(len(entities)))
-    entity_keys = []
-    for entity in entities:
-      prefix = self.get_table_prefix(entity)
-      entity_keys.append(get_entity_key(prefix, entity.key().path()))
-
-    current_values = self.datastore_batch.batch_get_entity(
-      dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
     by_group = {}
     for entity in entities:
@@ -569,6 +562,12 @@ class DatastoreDistributed():
         lock.acquire()
       except entity_lock.LockTimeout:
         raise TimeoutError('Unable to acquire entity group lock')
+
+      entity_keys = [
+        get_entity_key(self.get_table_prefix(entity), entity.key().path())
+        for entity in entity_list]
+      current_values = self.datastore_batch.batch_get_entity(
+        dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
       batch = []
       entity_changes = []
