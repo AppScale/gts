@@ -258,13 +258,6 @@ class TestAppManager(AsyncTestCase):
 
     yield app_manager_server.stop_app_instance(version_key, port)
 
-  def test_stop_app(self):
-    flexmock(monit_interface).should_receive('stop').\
-      and_return(True)
-    flexmock(os).should_receive('system').\
-      and_return(0)
-    app_manager_server.stop_app('test')
-
   def test_remove_logrotate(self):
     flexmock(os).should_receive("remove").and_return()
     app_manager_server.remove_logrotate("test")
