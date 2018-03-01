@@ -321,7 +321,7 @@ def prime_cassandra(replication):
   # Indicate that the database has been successfully primed.
   parameters = {'key': bytearray(cassandra_interface.PRIMED_KEY),
                 'column': cassandra_interface.PRIMED_KEY,
-                'value': bytearray('true')}
+                'value': bytearray(str(CURRENT_VERSION))}
   session.execute(metadata_insert, parameters)
   logging.info('Cassandra is primed.')
 
@@ -338,6 +338,7 @@ def primed():
     return False
 
   try:
-    return db_access.get_metadata(cassandra_interface.PRIMED_KEY) == 'true'
+    primed_version = db_access.get_metadata(cassandra_interface.PRIMED_KEY)
+    return primed_version == str(CURRENT_VERSION)
   finally:
     db_access.close()
