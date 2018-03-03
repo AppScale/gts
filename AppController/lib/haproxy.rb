@@ -180,17 +180,13 @@ module HAProxy
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
 
-    # Let's reload and overwrite only if something changed.
+    # Let's overwrite configuration for 'name' only if anything changed.
     current = ''
     current = File.read(config_path) if File.exists?(config_path)
-    if current != config
-      File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
-      HAProxy.regenerate_config
-    else
-      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
-    end
+    File.open(config_path, 'w+') { |f| f.write(config) } if current != config
 
-    true
+    # This will reload haproxy if anything changed.
+    HAProxy.regenerate_config
   end
 
   # Generates a load balancer configuration file. Since HAProxy doesn't provide
