@@ -8,14 +8,10 @@
 AppScale version 3.5.0, released March 2018
 Highlights of features/bugs in this release:
 
- - Add a datastore viewer to the dashboard
+ - Add datastore viewer to the dashboard
  - Improve lb responsiveness
  - Transaction groomer
- - Add GQL query to datastore viewer
- - Service statistics
- - Taskqueue service stats
  - Add push queue stats to Hermes
- - Don't allow editing entities with datastore viewer
  - Allow group locks to persist when commits fail
  - Allow different instance type per role
  - Handle key inequality filter within property value
@@ -36,7 +32,6 @@ Highlights of features/bugs in this release:
  - Differentiate between project IDs and version keys
  - Encode entity names when acquiring lock
  - Add external API server
- - Rsync appcontroller client
  - Allow Hermes to check RabbitMQ status
  - Fix JSP compilation under Java 8
  - Handle missing WEB-INF directory
@@ -49,7 +44,7 @@ Highlights of features/bugs in this release:
  - Clear logs when flushing
  - Add support for Jessie
  - Remove support for precise
- - Sync & Async Retrying python decorators in appscale-common
+ - Use tornado coroutines when performing retries. 
  - Add bin, bout, hrsp_4xx, hrsp_5xx to proxy.frontend include list
  - Retrieve inbound services from ZooKeeper
  - Start proper epmd service even without RabbitMQ
@@ -62,7 +57,6 @@ Highlights of features/bugs in this release:
  - Access Tokens for Admin API
  - Forward add_routing_for_appserver
  - Include version headers when making TQ requests
- - Pass deadline to wait function instead of seconds to sleep
  - Do not raise HttpError outside context of HTTP request
  - Use custom template for combined app log messages
  - Define property name based on rsyslog version
