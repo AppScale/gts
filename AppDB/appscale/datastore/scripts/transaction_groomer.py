@@ -1,6 +1,7 @@
 """ A daemon that cleans up expired transactions. """
 import argparse
 import datetime
+import json
 import logging
 import sys
 import time
@@ -268,6 +269,39 @@ class ProjectGroomer(object):
       raise gen.Return()
 
   @gen.coroutine
+  def _remove_locks(self, txid, tx_path):
+    """ Removes entity locks involved with the transaction.
+
+    Args:
+      txid: An integer specifying the transaction ID.
+      tx_path: A string specifying the location of the transaction node.
+    """
+    groups_path = '/'.join([tx_path, 'groups'])
+    try:
+      groups_data = yield self._tornado_zk.get(groups_path)
+    except NoNodeError:
+      # If the group list does not exist, the locks have not been acquired.
+      raise gen.Return()
+
+    group_paths = json.loads(groups_data[0])
+    for group_path in group_paths:
+      try:
+        contenders = yield self._tornado_zk.get_children(group_path)
+      except NoNodeError:
+        # The lock may have been cleaned up or not acquired in the first place.
+        continue
+
+      for contender in contenders:
+        contender_path = '/'.join([group_path, contender])
+        contender_data = yield self._tornado_zk.get(contender_path)
+        contender_txid = int(contender_data[0])
+        if contender_txid != txid:
+          continue
+
+        yield self._tornado_zk.delete(contender_path)
+        break
+
+  @gen.coroutine
   def _remove_path(self, tx_path):
     """ Removes a ZooKeeper node.
 
@@ -320,6 +354,7 @@ class ProjectGroomer(object):
       raise gen.Return(tx_time)
 
     yield self._batch_resolver.resolve(txid, composite_indexes)
+    yield self._remove_locks(txid, tx_path)
     yield self._remove_path(tx_path)
     yield self._batch_resolver.cleanup(txid)
 
