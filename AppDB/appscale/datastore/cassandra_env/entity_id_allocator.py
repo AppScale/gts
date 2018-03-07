@@ -98,7 +98,7 @@ class EntityIDAllocator(object):
       results = yield self.tornado_cassandra.execute(get_reserved, parameters)
       result = results[0]
     except IndexError:
-      self._ensure_entry()
+      yield self._ensure_entry()
       last_reserved = yield self._get_last_reserved()
       raise gen.Return(last_reserved)
 

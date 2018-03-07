@@ -14,6 +14,7 @@ import time
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
+from appscale.datastore.utils import tornado_synchronous
 from appscale.datastore.zkappscale import zktransaction as zk
 
 # The location to look at in order to verify that an app is deployed.
@@ -180,9 +181,9 @@ class DatastoreBackup(multiprocessing.Process):
     Returns:
       A list of entities.
     """
-    batch =  self.db_access.range_query(dbconstants.APP_ENTITY_TABLE,
-      dbconstants.APP_ENTITY_SCHEMA, first_key, self.last_key,
-      batch_size, start_inclusive=start_inclusive)
+    batch =  tornado_synchronous(self.db_access.range_query)(
+      dbconstants.APP_ENTITY_TABLE, dbconstants.APP_ENTITY_SCHEMA,
+      first_key, self.last_key, batch_size, start_inclusive=start_inclusive)
 
     if batch:
       logging.debug("Retrieved entities from {0} to {1}".
@@ -309,7 +310,7 @@ class DatastoreBackup(multiprocessing.Process):
               skip = True
               first_key = first_key[:first_key.find(skip_kind)+
                  len(skip_kind)+1] + dbconstants.TERMINATING_STRING
- 
+
               self.skip_kinds = self.skip_kinds[index:]
               break
             index += 1

@@ -5,6 +5,8 @@
 import sys
 import unittest
 
+from tornado import gen
+
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore import entity_utils
 from flexmock import flexmock
@@ -16,8 +18,10 @@ from google.appengine.datastore import entity_pb
 class FakeDatastore(object):
   def __init__(self):
     pass
+
+  @gen.coroutine
   def batch_get_entity(self, table, keys, schema):
-    return {}
+    raise gen.Return({})
 
 FAKE_SERIALIZED_ENTITY = \
   {'guestbook27\x00\x00Guestbook:default_guestbook\x01Greeting:1\x01':

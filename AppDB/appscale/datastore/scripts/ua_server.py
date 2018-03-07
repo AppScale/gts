@@ -151,24 +151,6 @@ def does_user_exist(username, secret):
 
 @tornado_synchronous
 @gen.coroutine
-def get_user_apps(username, secret):
-  global db
-  global super_secret
-  if secret != super_secret:
-    raise gen.Return("Error: bad secret")
-  try:
-    result = yield db.get_entity(USER_TABLE, username, ["applications"])
-  except AppScaleDBConnectionError as db_error:
-    raise gen.Return('Error: {}'.format(db_error))
-  if result[0] in ERROR_CODES and len(result) == 2:
-    raise gen.Return(result[1])
-  else:
-    error = "Error: user not found"
-    raise gen.Return(error)
-
-
-@tornado_synchronous
-@gen.coroutine
 def get_user_data(username, secret):
   global db
   global super_secret

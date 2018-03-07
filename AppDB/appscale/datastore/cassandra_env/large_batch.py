@@ -206,40 +206,6 @@ class LargeBatch(object):
       raise FailedBatch(
         'Unable to clean up batch for {}:{}'.format(self.project, self.txid))
 
-  @gen.coroutine
-  def claim(self):
-    """ Claim a batch so that other processes don't work on it.
-
-    Raises:
-      FailedBatch if the batch cannot be claimed.
-    """
-    try:
-      self.applied = yield self.is_applied()
-    except TRANSIENT_CASSANDRA_ERRORS as error:
-      raise FailedBatch(str(error))
-    except BatchNotOwned:
-      # This process does not own the batch yet.
-      pass
-    except BatchNotFound:
-      # Make sure another process doesn't try to start.
-      yield self.start()
-      raise gen.Return()
-
-    update_id = SimpleStatement("""
-      UPDATE batch_status
-      SET op_id = %(new_op_id)s
-      WHERE txid_hash = %(txid_hash)s
-      IF op_id = %(old_op_id)s
-    """, retry_policy=NO_RETRIES)
-    parameters = {'txid_hash': tx_partition(self.project, self.txid),
-                  'new_op_id': self.op_id, 'old_op_id': self.read_op_id}
-
-    try:
-      result = yield self.tornado_cassandra.execute(update_id, parameters)
-      assert result.was_applied
-    except (TRANSIENT_CASSANDRA_ERRORS, AssertionError):
-      raise FailedBatch('Unable to claim batch')
-
 
 class BatchResolver(object):
   """ Resolves large batches. """

@@ -217,7 +217,7 @@ def fetch_and_delete_entities(database, table, schema, first_key,
   start_inclusive = True
   while True:
     try:
-      entities = db.range_query(
+      entities = tornado_synchronous(db.range_query)(
         table, schema, first_key, last_key, batch_size,
         start_inclusive=start_inclusive)
       if not entities:

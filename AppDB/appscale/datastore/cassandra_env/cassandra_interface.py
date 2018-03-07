@@ -214,10 +214,10 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(cell_values, dict):
       raise TypeError("Expected a dict")
 
-    insert_str = """
-      INSERT INTO "{table}" ({key}, {column}, {value})
-      VALUES (?, ?, ?)
-    """.format(table=table_name,
+    insert_str = (
+      'INSERT INTO "{table}" ({key}, {column}, {value}) '
+      'VALUES (?, ?, ?)'
+    ).format(table=table_name,
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
@@ -252,11 +252,11 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       A PreparedStatement object.
     """
-    statement = """
-      INSERT INTO "{table}" ({key}, {column}, {value})
-      VALUES (?, ?, ?)
-      USING TIMESTAMP ?
-    """.format(table=table,
+    statement = (
+      'INSERT INTO "{table}" ({key}, {column}, {value}) '
+      'VALUES (?, ?, ?) '
+      'USING TIMESTAMP ?'
+    ).format(table=table,
                key=ThriftColumn.KEY,
                column=ThriftColumn.COLUMN_NAME,
                value=ThriftColumn.VALUE)
@@ -274,11 +274,11 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       A PreparedStatement object.
     """
-    statement = """
-      DELETE FROM "{table}"
-      USING TIMESTAMP ?
-      WHERE {key} = ?
-    """.format(table=table, key=ThriftColumn.KEY)
+    statement = (
+      'DELETE FROM "{table}" '
+      'USING TIMESTAMP ? '
+      'WHERE {key} = ?'
+    ).format(table=table, key=ThriftColumn.KEY)
 
     if statement not in self.prepared_statements:
       self.prepared_statements[statement] = self.session.prepare(statement)
@@ -302,11 +302,11 @@ class DatastoreProxy(AppDBInterface):
 
       if table == 'group_updates':
         key = mutation['key']
-        insert = """
-          INSERT INTO group_updates (group, last_update)
-          VALUES (%(group)s, %(last_update)s)
-          USING TIMESTAMP %(timestamp)s
-        """
+        insert = (
+          'INSERT INTO group_updates (group, last_update) '
+          'VALUES (%(group)s, %(last_update)s) '
+          'USING TIMESTAMP %(timestamp)s'
+        )
         parameters = {'group': key, 'last_update': mutation['last_update'],
                       'timestamp': get_write_time(txid)}
         batch.add(insert, parameters)
@@ -353,11 +353,11 @@ class DatastoreProxy(AppDBInterface):
 
       if table == 'group_updates':
         key = mutation['key']
-        insert = """
-          INSERT INTO group_updates (group, last_update)
-          VALUES (%(group)s, %(last_update)s)
-          USING TIMESTAMP %(timestamp)s
-        """
+        insert = (
+          'INSERT INTO group_updates (group, last_update) '
+          'VALUES (%(group)s, %(last_update)s) '
+          'USING TIMESTAMP %(timestamp)s'
+        )
         parameters = {'group': key, 'last_update': mutation['last_update'],
                       'timestamp': get_write_time(txid)}
         statements_and_params.append((SimpleStatement(insert), parameters))
@@ -416,11 +416,11 @@ class DatastoreProxy(AppDBInterface):
     except FailedBatch as batch_error:
       raise AppScaleDBConnectionError(str(batch_error))
 
-    insert_item = """
-      INSERT INTO batches (app, transaction, namespace, path,
-                           old_value, new_value)
-      VALUES (?, ?, ?, ?, ?, ?)
-    """
+    insert_item = (
+      'INSERT INTO batches (app, transaction, namespace, '
+      '                     path, old_value, new_value) '
+      'VALUES (?, ?, ?, ?, ?, ?)'
+    )
     insert_statement = self.session.prepare(insert_item)
 
     statements_and_params = []
@@ -465,10 +465,10 @@ class DatastoreProxy(AppDBInterface):
       # This should not raise an exception since the batch is already applied.
       logging.exception('Unable to clear batch status')
 
-    clear_batch = """
-      DELETE FROM batches
-      WHERE app = %(app)s AND transaction = %(transaction)s
-    """
+    clear_batch = (
+      'DELETE FROM batches '
+      'WHERE app = %(app)s AND transaction = %(transaction)s'
+    )
     parameters = {'app': app, 'transaction': txn}
     try:
       yield self.tornado_cassandra.execute(clear_batch, parameters)
@@ -543,7 +543,7 @@ class DatastoreProxy(AppDBInterface):
     query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
 
     try:
-      yield self.session.execute(query)
+      yield self.tornado_cassandra.execute(query)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during delete_table'
       logging.exception(message)
@@ -565,17 +565,19 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
-    statement = 'CREATE TABLE IF NOT EXISTS "{table}" ('\
-        '{key} blob,'\
-        '{column} text,'\
-        '{value} blob,'\
-        'PRIMARY KEY ({key}, {column})'\
-      ') WITH COMPACT STORAGE'.format(
-        table=table_name,
-        key=ThriftColumn.KEY,
-        column=ThriftColumn.COLUMN_NAME,
-        value=ThriftColumn.VALUE
-      )
+    statement = (
+      'CREATE TABLE IF NOT EXISTS "{table}" ('
+      '{key} blob,'
+      '{column} text,'
+      '{value} blob,'
+      'PRIMARY KEY ({key}, {column})'
+      ') WITH COMPACT STORAGE'
+    ).format(
+      table=table_name,
+      key=ThriftColumn.KEY,
+      column=ThriftColumn.COLUMN_NAME,
+      value=ThriftColumn.VALUE
+    )
     query = SimpleStatement(statement, retry_policy=NO_RETRIES)
 
     try:
@@ -652,14 +654,14 @@ class DatastoreProxy(AppDBInterface):
     if limit is not None:
       query_limit = 'LIMIT {}'.format(len(column_names) * limit)
 
-    statement = """
-      SELECT * FROM "{table}" WHERE
-      token({key}) {gt_compare} %s AND
-      token({key}) {lt_compare} %s AND
-      {column} IN %s
-      {limit}
-      ALLOW FILTERING
-    """.format(table=table_name,
+    statement = (
+      'SELECT * FROM "{table}" WHERE '
+      'token({key}) {gt_compare} %s AND '
+      'token({key}) {lt_compare} %s AND '
+      '{column} IN %s '
+      '{limit} '
+      'ALLOW FILTERING'
+    ).format(table=table_name,
                key=ThriftColumn.KEY,
                gt_compare=gt_compare,
                lt_compare=lt_compare,
@@ -706,11 +708,11 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       A string containing the value or None if the key is not present.
     """
-    statement = """
-      SELECT {value} FROM "{table}"
-      WHERE {key} = %s
-      AND {column} = %s
-    """.format(
+    statement = (
+      'SELECT {value} FROM "{table}" '
+      'WHERE {key} = %s '
+      'AND {column} = %s'
+    ).format(
       value=ThriftColumn.VALUE,
       table=dbconstants.DATASTORE_METADATA_TABLE,
       key=ThriftColumn.KEY,
@@ -743,10 +745,10 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(value, str):
       raise TypeError('value should be a string')
 
-    statement = """
-      INSERT INTO "{table}" ({key}, {column}, {value})
-      VALUES (%(key)s, %(column)s, %(value)s)
-    """.format(
+    statement = (
+      'INSERT INTO "{table}" ({key}, {column}, {value}) '
+      'VALUES (%(key)s, %(column)s, %(value)s)'
+    ).format(
       table=dbconstants.DATASTORE_METADATA_TABLE,
       key=ThriftColumn.KEY,
       column=ThriftColumn.COLUMN_NAME,
@@ -844,13 +846,13 @@ class DatastoreProxy(AppDBInterface):
     else:
       in_progress_bin = None
 
-    insert = """
-      INSERT INTO transactions (txid_hash, operation, namespace, path,
-                                start_time, is_xg, in_progress)
-      VALUES (%(txid_hash)s, %(operation)s, %(namespace)s, %(path)s,
-              %(start_time)s, %(is_xg)s, %(in_progress)s)
-      USING TTL {ttl}
-    """.format(ttl=dbconstants.MAX_TX_DURATION * 2)
+    insert = (
+      'INSERT INTO transactions (txid_hash, operation, namespace, path,'
+      '                          start_time, is_xg, in_progress)'
+      'VALUES (%(txid_hash)s, %(operation)s, %(namespace)s, %(path)s,'
+      '        %(start_time)s, %(is_xg)s, %(in_progress)s)'
+      'USING TTL {ttl}'
+    ).format(ttl=dbconstants.MAX_TX_DURATION * 2)
     parameters = {'txid_hash': tx_partition(app, txid),
                   'operation': TxnActions.START,
                   'namespace': '',
@@ -941,11 +943,11 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       An integer specifying the number of existing tasks.
     """
-    select = """
-      SELECT count(*) FROM transactions
-      WHERE txid_hash = %(txid_hash)s
-      AND operation = %(operation)s
-    """
+    select = (
+      'SELECT count(*) FROM transactions '
+      'WHERE txid_hash = %(txid_hash)s '
+      'AND operation = %(operation)s'
+    )
     parameters = {'txid_hash': tx_partition(app, txid),
                   'operation': TxnActions.ENQUEUE_TASK}
     try:
@@ -969,11 +971,12 @@ class DatastoreProxy(AppDBInterface):
     """
     batch = BatchStatement(consistency_level=ConsistencyLevel.QUORUM,
                            retry_policy=BASIC_RETRIES)
-    insert = self.session.prepare("""
-      INSERT INTO transactions (txid_hash, operation, namespace, path, task)
-      VALUES (?, ?, ?, ?, ?)
-      USING TTL {ttl}
-    """.format(ttl=dbconstants.MAX_TX_DURATION * 2))
+    query_str = (
+      'INSERT INTO transactions (txid_hash, operation, namespace, path, task) '
+      'VALUES (?, ?, ?, ?, ?) '
+      'USING TTL {ttl}'
+    ).format(ttl=dbconstants.MAX_TX_DURATION * 2)
+    insert = self.session.prepare(query_str)
 
     for task in tasks:
       task.clear_transaction()
@@ -1040,12 +1043,12 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       A dictionary containing transaction state.
     """
-    select = """
-      SELECT namespace, operation, path, start_time, is_xg, in_progress,
-             entity, task
-      FROM transactions
-      WHERE txid_hash = %(txid_hash)s
-    """
+    select = (
+      'SELECT namespace, operation, path, start_time, is_xg, in_progress, '
+      '       entity, task '
+      'FROM transactions '
+      'WHERE txid_hash = %(txid_hash)s '
+    )
     parameters = {'txid_hash': tx_partition(app, txid)}
     try:
       results = yield self.tornado_cassandra.execute(select, parameters)

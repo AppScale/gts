@@ -109,12 +109,13 @@ class ReadOnlyHandler(tornado.web.RequestHandler):
 
 class ReserveKeysHandler(tornado.web.RequestHandler):
   """ Handles v4 AllocateIds requests from other servers. """
+  @gen.coroutine
   def post(self):
     """ Prevents the provided IDs from being re-allocated. """
     project_id = self.request.headers['appdata']
     request = datastore_v4_pb.AllocateIdsRequest(self.request.body)
     ids = [key.path_element_list()[-1].id() for key in request.reserve_list()]
-    datastore_access.reserve_ids(project_id, ids)
+    yield datastore_access.reserve_ids(project_id, ids)
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -536,6 +537,7 @@ class MainHandler(tornado.web.RequestHandler):
       new_index.ParseFromString(index)
     return response.Encode(), 0, ""
 
+  @gen.coroutine
   def allocate_ids_request(self, app_id, http_request_data):
     """ High level function for getting unique identifiers for entities.
 
@@ -552,30 +554,37 @@ class MainHandler(tornado.web.RequestHandler):
     response = datastore_pb.AllocateIdsResponse()
 
     if request.has_max() and request.has_size():
-      return (response.Encode(), datastore_pb.Error.BAD_REQUEST,
-              'Both size and max cannot be set.')
+      raise gen.Return(
+        (response.Encode(), datastore_pb.Error.BAD_REQUEST,
+         'Both size and max cannot be set.'))
     if not (request.has_max() or request.has_size()):
-      return (response.Encode(), datastore_pb.Error.BAD_REQUEST,
-              'Either size or max must be set.')
+      raise gen.Return(
+        (response.Encode(), datastore_pb.Error.BAD_REQUEST,
+         'Either size or max must be set.'))
 
     if request.has_size():
       try:
-        start, end = datastore_access.allocate_size(app_id, request.size())
+        start, end = yield datastore_access.allocate_size(
+          app_id, request.size())
       except dbconstants.AppScaleBadArg as error:
-        return response.Encode(), datastore_pb.Error.BAD_REQUEST, str(error)
+        raise gen.Return(
+          (response.Encode(), datastore_pb.Error.BAD_REQUEST, str(error)))
       except dbconstants.AppScaleDBConnectionError as error:
-        return response.Encode(), datastore_pb.Error.INTERNAL_ERROR, str(error)
+        raise gen.Return(
+          (response.Encode(), datastore_pb.Error.INTERNAL_ERROR, str(error)))
     else:
       try:
-        start, end = datastore_access.allocate_max(app_id, request.max())
+        start, end = yield datastore_access.allocate_max(app_id, request.max())
       except dbconstants.AppScaleBadArg as error:
-        return response.Encode(), datastore_pb.Error.BAD_REQUEST, str(error)
+        raise gen.Return(
+          (response.Encode(), datastore_pb.Error.BAD_REQUEST, str(error)))
       except dbconstants.AppScaleDBConnectionError as error:
-        return response.Encode(), datastore_pb.Error.INTERNAL_ERROR, str(error)
+        raise gen.Return(
+          (response.Encode(), datastore_pb.Error.INTERNAL_ERROR, str(error)))
 
     response.set_start(start)
     response.set_end(end)
-    return response.Encode(), 0, ""
+    raise gen.Return((response.Encode(), 0, ""))
 
   @staticmethod
   @gen.coroutine
@@ -596,7 +605,7 @@ class MainHandler(tornado.web.RequestHandler):
                         'Request must include reserve list'))
 
     ids = [key.path_element_list()[-1].id() for key in request.reserve_list()]
-    datastore_access.reserve_ids(app_id, ids)
+    yield datastore_access.reserve_ids(app_id, ids)
 
     # Forward request to other datastore servers in order to adjust any blocks
     # they've already allocated.
@@ -620,6 +629,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     raise gen.Return((response.Encode(), 0, ''))
 
+  @gen.coroutine
   def put_request(self, app_id, http_request_data):
     """ High level function for doing puts.
 

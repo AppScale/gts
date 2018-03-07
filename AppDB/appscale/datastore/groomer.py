@@ -15,6 +15,7 @@ from appscale.common import appscale_info
 from appscale.common import constants
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.common.unpackaged import DASHBOARD_DIR
+from appscale.datastore.utils import tornado_synchronous
 from appscale.taskqueue.distributed_tq import TaskName
 from .cassandra_env import cassandra_interface
 from .datastore_distributed import DatastoreDistributed
@@ -249,8 +250,8 @@ class DatastoreGroomer(threading.Thread):
     for item in references:
       keys.append(item.values()[0][self.ds_access.INDEX_REFERENCE_COLUMN])
     keys = list(set(keys))
-    entities = self.db_access.batch_get_entity(dbconstants.APP_ENTITY_TABLE,
-      keys, dbconstants.APP_ENTITY_SCHEMA)
+    entities = tornado_synchronous(self.db_access.batch_get_entity)(
+      dbconstants.APP_ENTITY_TABLE, keys, dbconstants.APP_ENTITY_SCHEMA)
 
     # The datastore needs to know the app ID. The indices could be scattered
     # across apps.
