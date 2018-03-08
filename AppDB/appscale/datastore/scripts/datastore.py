@@ -499,11 +499,9 @@ class MainHandler(tornado.web.RequestHandler):
       return response.Encode(), datastore_pb.Error.PERMISSION_DENIED,\
         error_message
     else:
-      # Updating index asynchronously so we can return a response quickly.
-      threading.Thread(
-        target=datastore_access.update_composite_index,  # TODO THREAD need help
-        args=(app_id, index)
-      ).start()
+      # Updating index in background so we can return a response quickly.
+      IOLoop.current().spawn_callback(
+        datastore_access.update_composite_index, app_id, index)
 
     return response.Encode(), 0, ""
 

@@ -390,8 +390,7 @@ class ProjectGroomer(object):
       raise gen.Return(self._oldest_valid_tx_time)
 
     # Refresh these each time so that the indexes are fresh.
-    encoded_indexes = yield self._thread_pool.submit(
-      self._db_access.get_indices, self.project_id)  # TODO THREAD need help
+    encoded_indexes = yield self._db_access.get_indices(self.project_id)
     composite_indexes = [CompositeIndex(index) for index in encoded_indexes]
 
     for tx_path in children:
