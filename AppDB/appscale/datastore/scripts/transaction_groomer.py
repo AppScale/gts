@@ -391,7 +391,7 @@ class ProjectGroomer(object):
 
     # Refresh these each time so that the indexes are fresh.
     encoded_indexes = yield self._thread_pool.submit(
-      self._db_access.get_indices, self.project_id)
+      self._db_access.get_indices, self.project_id)  # TODO THREAD need help
     composite_indexes = [CompositeIndex(index) for index in encoded_indexes]
 
     for tx_path in children:

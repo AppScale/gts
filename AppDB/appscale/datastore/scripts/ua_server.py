@@ -540,7 +540,7 @@ def main():
   timeout = 5
   while 1:
     try:
-      user_schema = tornado_synchronous(db.get_schema)(USER_TABLE)
+      user_schema = db.get_schema_sync(USER_TABLE)
     except AppScaleDBConnectionError:
       time.sleep(timeout)
       continue

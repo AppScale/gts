@@ -2,7 +2,6 @@
 
 import sys
 
-from appscale.datastore.utils import tornado_synchronous
 from .. import appscale_datastore_batch
 from ..dbconstants import APP_ENTITY_SCHEMA
 from ..dbconstants import APP_ENTITY_TABLE
@@ -34,7 +33,7 @@ def get_entities(table, schema, db, first_key, last_key):
   Returns: 
     The entire table up to _MAX_ENTITIES.
   """
-  return tornado_synchronous(db.range_query)(
+  return db.range_query_sync(
     table, schema, first_key, last_key, _MAX_ENTITIES)
 
 

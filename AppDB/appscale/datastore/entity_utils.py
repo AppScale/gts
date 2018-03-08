@@ -7,8 +7,6 @@ from appscale.datastore.dbconstants import KEY_DELIMITER
 from appscale.datastore.dbconstants import KIND_SEPARATOR
 from google.appengine.datastore import entity_pb
 
-from appscale.datastore.utils import tornado_synchronous
-
 
 def get_root_key_from_entity_key(key):
   """ Extracts the root key from an entity key. We
@@ -45,7 +43,7 @@ def fetch_journal_entry(db_access, key):
   Returns:
     The entity fetched from the datastore, or None if it was deleted.
   """
-  result = tornado_synchronous(db_access.batch_get_entity)(
+  result = db_access.batch_get_entity_sync(
     JOURNAL_TABLE, [key], JOURNAL_SCHEMA)
   if len(result.keys()) == 0:
     return None

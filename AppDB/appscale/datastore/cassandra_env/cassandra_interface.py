@@ -34,7 +34,8 @@ from appscale.datastore.dbconstants import (
   AppScaleDBConnectionError, Operations, TxnActions
 )
 from appscale.datastore.dbinterface import AppDBInterface
-from appscale.datastore.utils import create_key, get_write_time, tx_partition
+from appscale.datastore.utils import create_key, get_write_time, tx_partition, \
+  tornado_synchronous
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api.taskqueue import taskqueue_service_pb
@@ -133,6 +134,17 @@ class DatastoreProxy(AppDBInterface):
 
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
     self.prepared_statements = {}
+
+    # Provide synchronous version of some async methods
+    self.batch_get_entity_sync = tornado_synchronous(self.batch_get_entity)
+    self.batch_put_entity_sync = tornado_synchronous(self.batch_put_entity)
+    self.batch_delete_sync = tornado_synchronous(self.batch_delete)
+    self.valid_data_version_sync = tornado_synchronous(self.valid_data_version)
+    self.range_query_sync = tornado_synchronous(self.range_query)
+    self.get_schema_sync = tornado_synchronous(self.get_schema)
+    self.get_metadata_sync = tornado_synchronous(self.get_metadata)
+    self.set_metadata_sync = tornado_synchronous(self.set_metadata)
+    self.get_indices_sync = tornado_synchronous(self.get_indices)
 
   def close(self):
     """ Close all sessions and connections to Cassandra. """

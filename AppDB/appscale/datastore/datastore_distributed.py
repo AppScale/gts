@@ -21,8 +21,7 @@ from appscale.datastore.cassandra_env.entity_id_allocator import EntityIDAllocat
 from appscale.datastore.cassandra_env.entity_id_allocator import ScatteredAllocator
 from appscale.datastore.cassandra_env.utils import deletions_for_entity
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
-from appscale.datastore.utils import clean_app_id, tornado_synchronous, \
-  encode_path_from_filter
+from appscale.datastore.utils import clean_app_id
 from appscale.datastore.utils import encode_entity_table_key
 from appscale.datastore.utils import encode_index_pb
 from appscale.datastore.utils import encode_path_from_filter
@@ -127,7 +126,7 @@ class DatastoreDistributed():
     self.logger = logging.getLogger(class_name)
     self.logger.setLevel(log_level)
 
-    assert tornado_synchronous(datastore_batch.valid_data_version)()
+    assert datastore_batch.valid_data_version_sync()
 
     self.logger.info('Starting {}'.format(class_name))
 
@@ -573,7 +572,7 @@ class DatastoreDistributed():
       entity_keys = [
         get_entity_key(self.get_table_prefix(entity), entity.key().path())
         for entity in entity_list]
-      current_values = self.datastore_batch.batch_get_entity(
+      current_values = yield self.datastore_batch.batch_get_entity(
         dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
       batch = []
@@ -3309,7 +3308,7 @@ class DatastoreDistributed():
       yield self.apply_txn_changes(app_id, txn_id)
     except (dbconstants.TxTimeoutException, dbconstants.Timeout) as timeout:
       raise gen.Return(
-        (commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout))
+        (commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)))
     except dbconstants.AppScaleDBConnectionError:
       self.logger.exception('DB connection error during commit')
       raise gen.Return(

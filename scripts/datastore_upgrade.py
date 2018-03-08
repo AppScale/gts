@@ -297,8 +297,8 @@ def update_entity_in_table(key, validated_entity, datastore):
     AppScaleDBConnectionError: If the batch_put could not be performed due to
       an error with Cassandra.
   """
-  datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA,
-                             validated_entity)
+  datastore.batch_put_entity_sync(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA,
+                                  validated_entity)
 
 
 def delete_entity_from_table(key, datastore):
