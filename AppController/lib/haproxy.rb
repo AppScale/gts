@@ -146,6 +146,9 @@ module HAProxy
   #   listen_ip   : the IP HAProxy should listen for
   #   listen_port : the port to listen to
   #   name        : the name of the server
+  # Returns:
+  #   Boolean     : true if config was good, false if parameters were
+  #                 incorrect
   def self.create_app_config(servers, my_private_ip, listen_port, name)
     if servers.empty?
       Djinn.log_warn('create_app_config called with no running servers.')
@@ -187,6 +190,7 @@ module HAProxy
 
     # This will reload haproxy if anything changed.
     HAProxy.regenerate_config
+    true
   end
 
   # Generates a load balancer configuration file. Since HAProxy doesn't provide
