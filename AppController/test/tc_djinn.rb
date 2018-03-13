@@ -165,7 +165,8 @@ class TestDjinn < Test::Unit::TestCase
       'private_ip' => 'private_ip',
       'jobs' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
-      'instance_id' => 'instance_id'
+      'instance_id' => 'instance_id',
+      'instance_type' => 'instance_type'
     }])
 
     djinn = Djinn.new
@@ -197,7 +198,8 @@ class TestDjinn < Test::Unit::TestCase
       'private_ip' => '1.2.3.4',
       'jobs' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
-      'instance_id' => 'instance_id'
+      'instance_id' => 'instance_id',
+      'instance_type' => 'instance_type'
     }])
 
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
@@ -620,7 +622,8 @@ class TestDjinn < Test::Unit::TestCase
       'private_ip' => '1.2.3.4',
       'jobs' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
-      'instance_id' => 'instance_id'
+      'instance_id' => 'instance_id',
+      'instance_type' => 'instance_type'
     }])
     flexmock(Djinn).should_receive(:log_run).with(
       "mkdir -p /opt/appscale/apps")
@@ -658,7 +661,8 @@ class TestDjinn < Test::Unit::TestCase
       'private_ip' => '1.2.3.4',
       'jobs' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
-      'instance_id' => 'instance_id'
+      'instance_id' => 'instance_id',
+      'instance_type' => 'instance_type'
     }])
     flexmock(Djinn).should_receive(:log_run).with(
       "mkdir -p /opt/appscale/apps")

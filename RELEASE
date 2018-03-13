@@ -5,6 +5,69 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.5.0, released March 2018
+Highlights of features/bugs in this release:
+
+ - Add datastore viewer to the dashboard
+ - Improve lb responsiveness
+ - Transaction groomer
+ - Add push queue stats to Hermes
+ - Allow group locks to persist when commits fail
+ - Allow different instance type per role
+ - Handle key inequality filter within property value
+ - Change appengine role to compute
+ - Whitelist inbound service warmup
+ - Run apps without application element in app.yaml
+ - Use prefix for the haproxy app config file
+ - Prevent ProjectGroomer worker from stopping
+ - Stick to the duty cycle length
+ - Capture Net::ReadTimeout when using Net::HTTP
+ - Haproxy consolidate apps
+ - Patch for GAE Issue # 12783 - Conditional import of RAND_egd from _ssl
+ - Don't clear cron jobs during an up
+ - Remove tcp_tw_recycle option
+ - Replace reference to deprecated role
+ - Reduce Cassandra memory if running other services
+ - Allow the dashboard to be updated
+ - Differentiate between project IDs and version keys
+ - Encode entity names when acquiring lock
+ - Add external API server
+ - Allow Hermes to check RabbitMQ status
+ - Fix JSP compilation under Java 8
+ - Handle missing WEB-INF directory
+ - Account properly for pending AppServer.
+ - Handle UpdateCron requests
+ - Quote environment variables
+ - Don't wait for taskqueue master to start rabbitmq
+ - Autoscale with N load balancer nodes
+ - Set log after restart
+ - Clear logs when flushing
+ - Add support for Jessie
+ - Remove support for precise
+ - Use tornado coroutines when performing retries. 
+ - Add bin, bout, hrsp_4xx, hrsp_5xx to proxy.frontend include list
+ - Retrieve inbound services from ZooKeeper
+ - Start proper epmd service even without RabbitMQ
+ - Perform ZK operations off of the Kazoo thread
+ - Keep track of ZooKeeper state with TransactionManager
+ - Move AppControllerClient to separate package
+ - Kill instances when they exceed memory limit
+ - Set up blobstore routing on each load balancer
+ - Wait after a restore for cluster to be ready
+ - Access Tokens for Admin API
+ - Forward add_routing_for_appserver
+ - Include version headers when making TQ requests
+ - Do not raise HttpError outside context of HTTP request
+ - Use custom template for combined app log messages
+ - Define property name based on rsyslog version
+ - Return appropriate error when a queue is not found
+ - Fix pidfile for RabbitMQ in Docker
+ - Add sandbox function for expanduser.
+
+
+Known Issues:
+
+
 AppScale version 3.4.0, released Oct, 2017
 Highlights of features/bugs in this release:
 - Upgraded Appscale images to Xenial

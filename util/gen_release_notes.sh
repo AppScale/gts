@@ -24,7 +24,8 @@ echo "Highlights of features/bugs in this release:" >> t_release
 
 echo -n "Gathering git logs"
 # Git logs from last tag (eg 3.4.0)
-git log $(git describe --tags --abbrev=0)..HEAD --pretty=format:"- %s" >> t_release
+git log $(git describe --tags --abbrev=0)..HEAD  | grep -A5 'Merge pull request' | grep -v 'commit ' | grep -v Author: | grep -v -- '--' | grep -v "Merge" | grep -v -e '^[[:space:]]*$' | sed 's/[[:space:]]*/ - /' >> t_release
+
 echo "" >> t_release
 echo "" >> t_release
 echo "...done"

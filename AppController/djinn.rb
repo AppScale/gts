@@ -1016,6 +1016,17 @@ class Djinn
       @options['ec2_url'] = @options['EC2_URL']
     end
 
+    @nodes.each { |node|
+      if node.jobs.include? 'compute'
+        if node.instance_type.nil?
+          @options['compute_instance_type'] = @options['instance_type']
+        else
+          @options['compute_instance_type'] = node.instance_type
+        end
+        break
+      end
+    }
+
     'OK'
   end
 
