@@ -1468,10 +1468,8 @@ class Djinn
   def set_node_read_only(read_only, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
-    read_only = read_only == 'true'
 
-    DatastoreServer.set_read_only_mode(read_only)
-    if read_only
+    if read_only == 'true'
       GroomerService.stop
     else
       GroomerService.start
@@ -1487,6 +1485,13 @@ class Djinn
   def set_read_only(read_only, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
+
+    ZKInterface.get_datastore_servers.each { |machine_ip, port|
+      http = Net::HTTP.new(machine_ip, port)
+      request = Net::HTTP::Post.new('/read-only')
+      request.body = { 'readOnly' => read_only == 'true' }.to_json
+      http.request(request)
+    }
 
     @nodes.each { | node |
       if node.is_db_master? or node.is_db_slave?

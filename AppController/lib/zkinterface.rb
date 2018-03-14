@@ -443,6 +443,14 @@ class ZKInterface
     return JSON.load(cron_config_json)
   end
 
+  def self.get_datastore_servers()
+    return get_children('/appscale/datastore/servers').map { |server|
+      server = server.split(':')
+      server[1] = server[1].to_i
+      server
+    }
+  end
+
   # Defines deployment-wide defaults for runtime parameters.
   def self.set_runtime_params(parameters)
     runtime_params_node = '/appscale/config/runtime_parameters'
