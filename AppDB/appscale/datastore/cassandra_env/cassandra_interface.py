@@ -145,6 +145,7 @@ class DatastoreProxy(AppDBInterface):
     self.get_metadata_sync = tornado_synchronous(self.get_metadata)
     self.set_metadata_sync = tornado_synchronous(self.set_metadata)
     self.get_indices_sync = tornado_synchronous(self.get_indices)
+    self.delete_table_sync = tornado_synchronous(self.delete_table)
 
   def close(self):
     """ Close all sessions and connections to Cassandra. """

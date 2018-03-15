@@ -68,7 +68,7 @@ if __name__ == "__main__":
     db_access = DatastoreProxy(hosts=args.database)
 
     # Exit early if a data layout upgrade is not needed.
-    if db_access.valid_data_version():
+    if db_access.valid_data_version_sync():
       status = {'status': 'complete', 'message': 'The data layout is valid'}
       sys.exit()
 
