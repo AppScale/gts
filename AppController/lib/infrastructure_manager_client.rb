@@ -164,7 +164,6 @@ class InfrastructureManagerClient
     Djinn.log_debug("[IM] Terminate instances says [#{terminate_result}]")
     reservation_id = terminate_result['reservation_id']
 
-    vm_info = {}
     loop {
       describe_result = describe_instances('reservation_id' => reservation_id)
       Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']}.")
