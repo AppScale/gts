@@ -47,7 +47,6 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
 
     assert_equal(BAD_SECRET_MSG, djinn.is_done_initializing(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.is_done_loading(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_role_info(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
