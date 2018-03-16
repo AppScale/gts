@@ -396,14 +396,11 @@ class DatastoreGroomer(threading.Thread):
       start_key = ''
     end_key = dbconstants.TERMINATING_STRING
 
-    # Indicate that an index scrub has started after the journal was removed.
+    # Indicate that an index scrub has started.
     if direction == datastore_pb.Query_Order.ASCENDING and not start_key:
-      index_state = self.db_access.get_metadata(
-        cassandra_interface.INDEX_STATE_KEY)
-      if index_state is None:
-        self.db_access.set_metadata(
-          cassandra_interface.INDEX_STATE_KEY,
-          cassandra_interface.IndexStates.SCRUB_IN_PROGRESS)
+      self.db_access.set_metadata(
+        cassandra_interface.INDEX_STATE_KEY,
+        cassandra_interface.IndexStates.SCRUB_IN_PROGRESS)
 
     while True:
       references = self.db_access.range_query(
