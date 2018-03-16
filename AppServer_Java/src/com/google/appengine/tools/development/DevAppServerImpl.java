@@ -62,6 +62,8 @@ class DevAppServerImpl
     }
     DevSocketImplFactory.install();
 
+    System.setProperty("https.protocols", "TLSv1.1,TLSv1.2");
+
     this.backendContainer = BackendServers.getInstance();
     this.requestedPort = port;
     ApplicationConfigurationManager tempManager = null;
