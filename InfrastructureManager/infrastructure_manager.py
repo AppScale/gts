@@ -41,7 +41,7 @@ class InfrastructureManager:
   PARAM_INFRASTRUCTURE = 'infrastructure'
   PARAM_NUM_VMS = 'num_vms'
 
-  # States a particular VM deployment could be in
+  # States a particular request could be in.
   STATE_PENDING = 'pending'
   STATE_SUCCESS = 'success'
   STATE_FAILED  = 'failed'
@@ -94,7 +94,8 @@ class InfrastructureManager:
     a reservation for running or terminating instances. This method accepts
     a dictionary of parameters and a secret for authentication purposes.
     The dictionary of parameters must include a 'reservation_id' parameter
-    which is used to reference past virtual machine deployments.
+    which is used to lookup calls that have been made to run or terminate
+    instances.
 
     Args:
       parameters  A dictionary of parameters which contains a valid
@@ -106,27 +107,28 @@ class InfrastructureManager:
       secret      A previously established secret
 
     Returns:
+      invalid key or an invalid 'reservation_id':
+       'success': False
+       'reason': is set to an error message describing the cause.
+
       If the provided secret key is valid and the parameters map contains
       a valid 'reservation_id' parameter, this method will return a
-      dictionary containing information regarding the requested past
-      virtual machine deployment. This returned map contains several
-      keys including 'success', 'state', 'reason' and 'vm_info' (for run
-      instance reservations). The value of 'success' could be True of False
-      depending on the outcome of the virtual machine deployment process. If
-      the value of 'success' happens to be False, the 'reason' key would
-      contain more details as to what caused the deployment to fail. The
-      'state' key could contain a 'pending' value or a 'running' value
-      depending on the current state of the virtual machine deployment. And
-      finally the 'vm_info' key is only present in run instance reservations
-      and would point to a another dictionary containing the IP addresses of
-      the spawned virtual machines. If the virtual machine deployment had
-      failed or still in the 'pending' state, this key would contain the
-      value None.
+      dictionary containing the following keys for the specified cases.
 
-      If this method receives an invalid key or an invalid 'reservation_id'
-      parameter, it will return a dictionary containing the keys 'success'
-      and 'reason' where 'success' would be set to False, and 'reason' is
-      set to a simple error message describing the cause of the error.
+      For a run_instances reservation_id:
+        'success': True or False depending on the outcome of the virtual
+          machine deployment process.
+        'state': pending, failed, or success
+        'reason': set only in a failed case.
+        'vm_info': a dictionary containing the IP addresses of the spawned
+          virtual machines or None if the virtual machine deployment had
+          failed or still in the 'pending' state.
+      For a terminate_instances reservation_id:
+        'success': True or False depending on the outcome of the virtual
+          machine deployment process.
+        'state': pending, failed, or success
+        'reason': set only in a failed case.
+        * note that this dictionary does not contain 'vm_info'.
 
     Raises:
       TypeError   If the inputs are not of the expected types
