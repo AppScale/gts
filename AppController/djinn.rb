@@ -1345,13 +1345,13 @@ class Djinn
         end
       elsif key == 'default_min_appservers'
         if Integer(val) < 0 || Integer(val) > Integer(@options['default_max_appservers'])
-          Djinn.log_warn('Invalid input: default_min_appservers needs to be '
+          Djinn.log_warn('Invalid input: default_min_appservers needs to be ' \
                          'non-negative and smaller or equal to default_max_appservers.')
           return 'invalid input for default_min_appservers'
         end
       elsif key == 'default_max_appservers'
         if Integer(val) <= 0 || Integer(val) < Integer(@options['default_min_appservers'])
-          Djinn.log_warn('Invalid input: default_max_appservers needs to be '
+          Djinn.log_warn('Invalid input: default_max_appservers needs to be ' \
                          'positive and bigger or equal to default_min_appservers.')
           return 'invalid input for default_max_appservers'
         end
