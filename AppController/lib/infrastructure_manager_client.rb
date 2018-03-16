@@ -197,6 +197,7 @@ class InfrastructureManagerClient
     parameters['zone'] = options['zone']
     parameters['region'] = options['region']
     parameters['IS_VERBOSE'] = options['verbose']
+    parameters['instance_type'] = options ['compute_instance_type']
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
@@ -227,7 +228,8 @@ class InfrastructureManagerClient
         'private_ip' => vm_info['private_ips'][index],
         'jobs' => tmp_jobs,
         'instance_id' => vm_info['instance_ids'][index],
-        'disk' => disks[index]
+        'disk' => disks[index],
+        'instance_type' => parameters['instance_type']
       }
     }
 

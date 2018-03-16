@@ -14,7 +14,7 @@ require 'helperfunctions'
 # costs, which may charge on an hourly basis).
 class DjinnJobData
   attr_accessor :public_ip, :private_ip, :jobs, :instance_id, :cloud, :ssh_key
-  attr_accessor :disk
+  attr_accessor :disk, :instance_type
 
   def initialize(json_data, keyname)
     if json_data.class != Hash
@@ -39,6 +39,7 @@ class DjinnJobData
     @instance_id = 'i-APPSCALE'
     @instance_id = json_data['instance_id'] if json_data['instance_id']
     @disk = json_data['disk']
+    @instance_type = json_data['instance_type']
     @ssh_key = File.expand_path("/etc/appscale/keys/#{@cloud}/#{keyname}.key")
   end
 
@@ -68,7 +69,8 @@ class DjinnJobData
       'instance_id' => @instance_id,
       'cloud' => @cloud,
       'ssh_key' => @ssh_key,
-      'disk' => @disk
+      'disk' => @disk,
+      'instance_type' => @instance_type
     }
   end
 
