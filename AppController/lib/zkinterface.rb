@@ -443,7 +443,7 @@ class ZKInterface
     return JSON.load(cron_config_json)
   end
 
-  def self.get_datastore_servers()
+  def self.get_datastore_servers
     return get_children('/appscale/datastore/servers').map { |server|
       server = server.split(':')
       server[1] = server[1].to_i
