@@ -50,6 +50,9 @@ class ZKInterface
   # ports that each AppServer binds to).
   APPSERVER_STATE_PATH = "#{APPCONTROLLER_PATH}/appservers".freeze
 
+  # The ZooKeeper node where datastore servers register themselves.
+  DATASTORE_REGISTRY_PATH = '/appscale/datastore/servers'
+
   # The location in ZooKeeper that contains a list of the IP addresses that
   # are currently running within AppScale.
   IP_LIST = "#{APPCONTROLLER_PATH}/ips".freeze
@@ -444,7 +447,7 @@ class ZKInterface
   end
 
   def self.get_datastore_servers
-    return get_children('/appscale/datastore/servers').map { |server|
+    return get_children(DATASTORE_REGISTRY_PATH).map { |server|
       server = server.split(':')
       server[1] = server[1].to_i
       server
