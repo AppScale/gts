@@ -22,6 +22,7 @@ from appscale.datastore.dbconstants import (
   AppScaleDBConnectionError, SCHEMA_TABLE, SCHEMA_TABLE_SCHEMA
 )
 from appscale.datastore.dbinterface import AppDBInterface
+from appscale.datastore.utils import tornado_synchronous
 
 ERROR_DEFAULT = "DB_ERROR:" # ERROR_CASSANDRA
 
@@ -49,6 +50,9 @@ class DatastoreProxy(AppDBInterface):
         time.sleep(3)
 
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
+
+    # Provide synchronous version of get_schema method
+    self.get_schema_sync = tornado_synchronous(self.get_schema)
 
   @gen.coroutine
   def get_entity(self, table_name, row_key, column_names):
