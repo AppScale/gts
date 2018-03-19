@@ -59,6 +59,11 @@ class TestDatastoreServer(testing.AsyncTestCase):
   """
   BASIC_ENTITY = ['guestbook', 'Greeting', 'foo', 'content', 'hello world']
 
+  def setUp(self, *args, **kwargs):
+    super(TestDatastoreServer, self).setUp(*args, **kwargs)
+
+
+
   def get_zookeeper(self):
     zk_handle = flexmock(handler=flexmock(event_object=lambda: None,
                                           sleep_func=lambda: None,
@@ -298,7 +303,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     transaction_manager = flexmock(
       delete_transaction_id=lambda project, txid: None)
     dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
-    flexmock(dd).should_receive('apply_txn_changes')
+    flexmock(dd).should_receive('apply_txn_changes').and_return(ASYNC_NONE)
     commit_request = datastore_pb.Transaction()
     commit_request.set_handle(123)
     commit_request.set_app("aaa")
@@ -366,7 +371,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key1: {}, entity_key2: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate')
+    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
       delete_transaction_id=lambda project, txid: None,
@@ -408,7 +413,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key1: {}, entity_key2: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate')
+    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
       delete_transaction_id=lambda project, txid: None,
@@ -490,8 +495,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version_sync').and_return(True)
     db_batch.should_receive("batch_get_entity").and_return(async_result)
-    db_batch.should_receive('batch_mutate')
-    db_batch.should_receive('_normal_batch')
+    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
+    db_batch.should_receive('_normal_batch').and_return(ASYNC_NONE)
 
     transaction_manager = flexmock()
     dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
@@ -566,7 +571,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version_sync').and_return(True)
     db_batch.should_receive("batch_get_entity").and_return(async_result)
-    db_batch.should_receive('record_reads')
+    db_batch.should_receive('record_reads').and_return(ASYNC_NONE)
 
     transaction_manager = flexmock()
     dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
@@ -609,7 +614,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     filter_info = []
     tombstone1 = {'key': {APP_ENTITY_SCHEMA[0]:TOMBSTONE, APP_ENTITY_SCHEMA[1]: 1}}
     db_batch = flexmock()
-    db_batch.should_receive('record_reads')
+    db_batch.should_receive('record_reads').and_return(ASYNC_NONE)
     db_batch.should_receive('valid_data_version_sync').and_return(True)
     db_batch.should_receive("batch_get_entity").and_return(async_result)
 
@@ -668,7 +673,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version_sync').and_return(True)
     db_batch.should_receive("batch_get_entity").and_return(async_result)
-    db_batch.should_receive('record_reads')
+    db_batch.should_receive('record_reads').and_return(ASYNC_NONE)
 
     entity_proto1 = {
       'test\x00blah\x00test_kind:nancy\x01': {
@@ -787,7 +792,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
     flexmock(utils).should_receive("get_entity_kind").and_return("kind")
-    db_batch.should_receive('delete_entities_tx')
+    db_batch.should_receive('delete_entities_tx').and_return(ASYNC_NONE)
     yield dd.dynamic_delete("appid", del_request)
 
     del_request = flexmock()
@@ -796,7 +801,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     del_request.should_receive("has_mark_changes").and_return(False)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
-    flexmock(dd).should_receive("delete_entities").once()
+    flexmock(dd).should_receive("delete_entities").and_return(ASYNC_NONE).once()
     yield dd.dynamic_delete("appid", del_request)
 
   def test_reverse_path(self):
@@ -1082,7 +1087,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate')
+    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
 
     entity_lock = flexmock(EntityLock)
     entity_lock.should_receive('acquire')
