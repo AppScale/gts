@@ -17,7 +17,6 @@ begin
   # Add remote sevice methods.
   driver.add_method('status', 'secret')
   driver.add_method('is_done_initializing','secret')
-  driver.add_method('is_done_loading','secret')
   driver.add_method('get_role_info','secret')
   loop do
     choose do |menu|
@@ -32,8 +31,6 @@ begin
       menu.choice(:done, "Done") do | command |
         say("Invoking is_done_initializing")
         puts driver.is_done_initializing(secret)
-        say("Invoking is_done_loading")
-        puts driver.is_done_loading(secret)
       end
       menu.choice(:role,"Role") do | command |
         say("Invoking get_role_info")
