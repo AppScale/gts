@@ -60,7 +60,6 @@ class AppControllerClient
     @conn.add_method('update', 'versions', 'secret')
     @conn.add_method('stop_version', 'version_key', 'secret')
     @conn.add_method('get_all_public_ips', 'secret')
-    @conn.add_method('is_done_loading', 'secret')
     @conn.add_method('is_done_initializing', 'secret')
     @conn.add_method('add_role', 'new_role', 'secret')
     @conn.add_method('remove_role', 'old_role', 'secret')
@@ -159,10 +158,6 @@ class AppControllerClient
 
   def is_done_initializing?
     make_call(30, RETRY_ON_FAIL, 'is_done_initializing') { @conn.is_done_initializing(@secret) }
-  end
-
-  def is_done_loading?
-    make_call(30, RETRY_ON_FAIL, 'is_done_loading') { @conn.is_done_loading(@secret) }
   end
 
   def get_all_public_ips

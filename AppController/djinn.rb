@@ -235,11 +235,6 @@ class Djinn
   # ]
   attr_accessor :cluster_stats
 
-  # An integer timestamp that corresponds to the last time this AppController
-  # has updated @nodes, which we use to compare with a similar timestamp in
-  # ZooKeeper to see when data in @nodes has changed on other nodes.
-  attr_accessor :last_updated
-
   # A Hash that contains information about each Google App Engine application
   # running in this deployment. It includes information about the nginx and
   # haproxy ports the app uses, as well as the language the app is written
@@ -529,7 +524,6 @@ class Djinn
     @done_loading = false
     @state = 'AppController just started'
     @cluster_stats = []
-    @last_updated = 0
     @state_change_lock = Monitor.new
 
     # Keeps track of started instances that have not been registered yet.
@@ -571,13 +565,6 @@ class Djinn
   # has received information from another node and is starting up.
   def is_done_initializing(secret)
     return @done_initializing if valid_secret?(secret)
-    BAD_SECRET_MSG
-  end
-
-  # A SOAP-exposed method that callers use to determine if this node has
-  # finished starting all the roles it should run when it initially starts.
-  def is_done_loading(secret)
-    return @done_loading if valid_secret?(secret)
     BAD_SECRET_MSG
   end
 
@@ -2847,7 +2834,7 @@ class Djinn
   # Returns:
   #   A boolean indicating if the state is restored or current with the master.
   def restore_appcontroller_state
-    json_state=''
+    json_state = ''
 
     unless File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("#{ZK_LOCATIONS_FILE} doesn't exist: not restoring data.")
@@ -2997,7 +2984,7 @@ class Djinn
   # located so that this node has the most up-to-date info if it needs to
   # restore the data down the line.
   def write_zookeeper_locations
-    zookeeper_data = { 'last_updated_at' => @last_updated,
+    zookeeper_data = { 'last_updated_at' => Time.now.to_i,
       'locations' => []
     }
 
@@ -3047,7 +3034,6 @@ class Djinn
     # time, get a lock before we write to it.
     begin
       ZKInterface.lock_and_run {
-        @last_updated = ZKInterface.add_ip_to_ip_list(my_node.private_ip)
         ZKInterface.write_node_information(my_node, @done_loading)
       }
     rescue => e
@@ -3108,7 +3094,6 @@ class Djinn
     # Then remove the remote copy
     begin
       ZKInterface.remove_node_information(ip)
-      @last_updated = ZKInterface.remove_ip_from_ip_list(ip)
     rescue FailedZooKeeperOperationException => e
       Djinn.log_warn("(remove_node_from_local_and_zookeeper) issues " \
         "talking to zookeeper with #{e.message}.")
