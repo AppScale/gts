@@ -88,7 +88,7 @@ DEFAULT_VERSION = 'v1'
 DEFAULT_SERVICE = 'default'
 
 # The number of seconds to wait before giving up on an operation.
-MAX_OPERATION_TIME = 100
+MAX_OPERATION_TIME = 120
 
 # Supported runtimes.
 VALID_RUNTIMES = {PYTHON27, JAVA, GO, PHP}
