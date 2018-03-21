@@ -24,21 +24,22 @@ class TornadoCassandra(object):
     cassandra_future = self._session.execute_async(*args, **kwargs)
     cassandra_future.add_callbacks(
       self._handle_success, self._handle_failure,
-      callback_args=(io_loop, tornado_future),
+      callback_args=(io_loop, tornado_future, cassandra_future),
       errback_args=(io_loop, tornado_future)
     )
     return tornado_future
 
   @staticmethod
-  def _handle_success(result_set, io_loop, tornado_future):
+  def _handle_success(results, io_loop, tornado_future, cassandra_future):
     """ Assigns the Cassandra result to the Tornado future.
 
     Args:
-      result_set: A Cassandra result set.
+      results: A list of result rows (limited version of ResultSet).
       io_loop: An instance of tornado IOLoop where execute was initially called.
       tornado_future: A Tornado future.
+      cassandra_future: A Cassandra future containing ResultSet
     """
-    io_loop.add_callback(tornado_future.set_result, result_set)
+    io_loop.add_callback(tornado_future.set_result, cassandra_future.result())
 
   @staticmethod
   def _handle_failure(error, io_loop, tornado_future):
