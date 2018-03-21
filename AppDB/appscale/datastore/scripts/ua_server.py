@@ -561,24 +561,24 @@ def main():
   #server.config.dumpSOAPIn = 1
 
   # Register soap functions.
-  server.registerFunction(does_user_exist)
-  server.registerFunction(get_all_users)
-  server.registerFunction(get_user_data)
-  server.registerFunction(add_admin_for_app)
-  server.registerFunction(commit_new_user)
-  server.registerFunction(commit_new_token)
-  server.registerFunction(delete_user)
+  server.registerFunction(does_user_exist, funcName='does_user_exist')
+  server.registerFunction(get_all_users, funcName='get_all_users')
+  server.registerFunction(get_user_data, funcName='get_user_data')
+  server.registerFunction(add_admin_for_app, funcName='add_admin_for_app')
+  server.registerFunction(commit_new_user, funcName='commit_new_user')
+  server.registerFunction(commit_new_token, funcName='commit_new_token')
+  server.registerFunction(delete_user, funcName='delete_user')
 
-  server.registerFunction(change_password)
+  server.registerFunction(change_password, funcName='change_password')
 
-  server.registerFunction(disable_user)
-  server.registerFunction(enable_user)
-  server.registerFunction(is_user_enabled)
+  server.registerFunction(disable_user, funcName='disable_user')
+  server.registerFunction(enable_user, funcName='enable_user')
+  server.registerFunction(is_user_enabled, funcName='is_user_enabled')
 
-  server.registerFunction(is_user_cloud_admin)
-  server.registerFunction(set_cloud_admin_status)
-  server.registerFunction(get_capabilities)
-  server.registerFunction(set_capabilities)
+  server.registerFunction(is_user_cloud_admin, funcName='is_user_cloud_admin')
+  server.registerFunction(set_cloud_admin_status, funcName='set_cloud_admin_status')
+  server.registerFunction(get_capabilities, funcName='get_capabilities')
+  server.registerFunction(set_capabilities, funcName='set_capabilities')
 
   while 1:
     server.serve_forever()

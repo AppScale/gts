@@ -661,5 +661,10 @@ def encode_path_from_filter(query_filter):
 def tornado_synchronous(coroutine):
   def synchronous_coroutine(*args, **kwargs):
     async = lambda: coroutine(*args, **kwargs)
-    return ioloop.IOLoop.current().run_sync(async)
+    # Like synchronous HTTPClient, create separate IOLoop for sync code
+    io_loop = ioloop.IOLoop(make_current=False)
+    try:
+      return io_loop.run_sync(async)
+    finally:
+      io_loop.close()
   return synchronous_coroutine
