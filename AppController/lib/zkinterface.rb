@@ -45,6 +45,9 @@ class ZKInterface
   # and where other nodes will recover that state from.
   APPCONTROLLER_STATE_PATH = "#{APPCONTROLLER_PATH}/state".freeze
 
+  # The ZooKeeper node where datastore servers register themselves.
+  DATASTORE_REGISTRY_PATH = '/appscale/datastore/servers'
+
   # The location in ZooKeeper that AppControllers write information about their
   # node to, so that others can poll to see if they are alive and what roles
   # they've taken on.
@@ -361,6 +364,14 @@ class ZKInterface
       raise ConfigNotFound, "Cron configuration not found for #{project_id}"
     end
     return JSON.load(cron_config_json)
+  end
+
+  def self.get_datastore_servers
+    return get_children(DATASTORE_REGISTRY_PATH).map { |server|
+      server = server.split(':')
+      server[1] = server[1].to_i
+      server
+    }
   end
 
   # Defines deployment-wide defaults for runtime parameters.
