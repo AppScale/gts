@@ -107,11 +107,23 @@ module Nginx
 
     secure_handlers = HelperFunctions.get_secure_handlers(version_key)
     parsing_log += "Secure handlers: #{secure_handlers}.\n"
+
+    default_location_urls = []
+    secure_handlers[:default].map { |handler|
+      handler['url'].slice!(0)
+      url = handler['url']
+      default_location_urls.push(url)
+    }
+
+    concat_location_urls = default_location_urls.map { |k| "#{k}" }.join("|")
+
     always_secure_locations = secure_handlers[:always].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, https_port)
+      HelperFunctions.generate_secure_location_config(handler, https_port,
+                                                      concat_location_urls)
     }.join
     never_secure_locations = secure_handlers[:never].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, http_port)
+      HelperFunctions.generate_secure_location_config(handler, http_port,
+                                                      concat_location_urls)
     }.join
 
     secure_static_handlers = []

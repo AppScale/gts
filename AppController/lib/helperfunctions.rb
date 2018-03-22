@@ -843,9 +843,10 @@ module HelperFunctions
   #   port - Port to which the secured traffic should be redirected
   # Returns:
   #   A Nginx location configuration as a string
-  def self.generate_secure_location_config(handler, port)
+  def self.generate_secure_location_config(handler, port, default_location_urls)
     result = "\n    location ~ #{handler['url']} {"
     if handler["secure"] == "always"
+      result = "\n    location ~ ^/(?!(#{default_location_urls})) {"
       result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$uri redirect;"
     elsif handler["secure"] == "never"
       result << "\n\t" << "rewrite #{handler['url']}(.*) http://$host:#{port}$uri? redirect;"
@@ -1128,7 +1129,8 @@ module HelperFunctions
 
     secure_handlers = {
         always:  [],
-        never:  []
+        never:  [],
+        default: []
     }
 
     begin
@@ -1155,6 +1157,9 @@ module HelperFunctions
     handlers = tree['handlers']
 
     handlers.map! do |handler|
+      if !handler.key?("static_dir") && !handler.key?("static_files") && !handler.key?('secure')
+        secure_handlers[:default] << handler
+      end
       next unless handler.key?('secure')
 
       if handler['secure'] == 'always'
