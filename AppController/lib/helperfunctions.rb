@@ -846,6 +846,7 @@ module HelperFunctions
   def self.generate_secure_location_config(handler, port, default_location_urls)
     result = "\n    location ~ #{handler['url']} {"
     if handler["secure"] == "always"
+      # A negation regex to redirect all but the default_location_urls
       result = "\n    location ~ ^/(?!(#{default_location_urls})) {"
       result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$uri redirect;"
     elsif handler["secure"] == "never"

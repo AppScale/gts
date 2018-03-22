@@ -108,6 +108,10 @@ module Nginx
     secure_handlers = HelperFunctions.get_secure_handlers(version_key)
     parsing_log += "Secure handlers: #{secure_handlers}.\n"
 
+    # Here we find all those handlers specified in the app.yaml without a
+    # 'secure:' field and concat them. We then use the concatenated string
+    # to generate a location block which redirects all the handlers with
+    # 'secure:always' field excluding the ones without that field specified.
     default_location_urls = []
     secure_handlers[:default].map { |handler|
       handler['url'].slice!(0)
