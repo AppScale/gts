@@ -37,10 +37,12 @@ module HAProxy
 
   # Options to used to configure servers.
   # For more information see http://haproxy.1wt.eu/download/1.3/doc/configuration.txt
-  SERVER_OPTIONS = 'maxconn 1 check'.freeze
-
-  # HAProxy Configuration to use for a thread safe gae app.
-  THREADED_SERVER_OPTIONS = 'maxconn 7 check'.freeze
+  SERVICE_CONCURRENCY = {
+    TaskQueue::NAME => 1,
+    DatastoreServer::NAME => 10,
+    UserAppClient::NAME => 1,
+    BlobServer::NAME => 1
+  }
 
   # Maximum AppServer threaded connections
   MAX_APPSERVER_CONN = 7
@@ -276,13 +278,13 @@ module HAProxy
     if server_name.start_with?(HelperFunctions::GAE_PREFIX)
       version_key = server_name[HelperFunctions::GAE_PREFIX.length..-1]
       threadsafe = HelperFunctions.get_version_thread_safe(version_key)
+      maxconn = threadsafe ? MAX_APPSERVER_CONN : 1
     else
       # Allow only one connection at a time for services.
-      threadsafe = false
+      maxconn = SERVICE_CONCURRENCY[server_name]
     end
 
-    max_conn = threadsafe ? THREADED_SERVER_OPTIONS : SERVER_OPTIONS
-    "  server #{server_name}-#{location} #{location} #{max_conn}"
+    "  server #{server_name}-#{location} #{location} maxconn #{maxconn} check"
   end
 
   def self.remove_version(version_key)
