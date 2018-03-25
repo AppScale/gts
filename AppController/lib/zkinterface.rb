@@ -374,6 +374,13 @@ class ZKInterface
     }
   end
 
+  def self.set_machine_assignments(machine_ip, assignments)
+    assignments_node = '/appscale/assignments'
+    ensure_path(assignments_node)
+    machine_node = [assignments_node, machine_ip].join('/')
+    set(machine_node, JSON.dump(assignments), NOT_EPHEMERAL)
+  end
+
   # Defines deployment-wide defaults for runtime parameters.
   def self.set_runtime_params(parameters)
     runtime_params_node = '/appscale/config/runtime_parameters'
