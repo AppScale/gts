@@ -269,9 +269,9 @@ class ServiceManager(object):
       A list of Server objects.
     """
     state = []
-    for service_name, details in cls.SERVICE_MAP.items():
-      server_class = details['server']
-      path = [CGROUP_DIR] + details['cgroup'] + ['cgroup.procs']
+    for service_details in cls.SERVICE_MAP.values():
+      server_class = service_details['server']
+      path = [CGROUP_DIR] + service_details['cgroup'] + ['cgroup.procs']
       try:
         with open(os.path.join(*path)) as pid_list:
           for line in pid_list:
@@ -293,8 +293,8 @@ class ServiceManager(object):
     logger.info('Starting ServiceManager')
 
     # Ensure cgroup process containers exist.
-    for service_name, details in self.SERVICE_MAP.items():
-      cgroup_path = [CGROUP_DIR] + details['cgroup']
+    for service_details in self.SERVICE_MAP.values():
+      cgroup_path = [CGROUP_DIR] + service_details['cgroup']
       try:
         os.makedirs(os.path.join(*cgroup_path))
       except OSError as error:
