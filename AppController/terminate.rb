@@ -41,6 +41,9 @@ module TerminateHelper
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
 
+    # Stop datastore servers.
+    `cat /sys/fs/cgroup/memory/appscale-datastore/cgroup.procs | xargs kill`
+
     `rm -f /etc/logrotate.d/appscale-*`
 
     # Let's make sure we restart any non-appscale service.
