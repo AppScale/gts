@@ -57,7 +57,7 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
-
+from .service_manager import ServiceManager
 
 logger = logging.getLogger('appscale-admin')
 
@@ -1218,6 +1218,9 @@ def main():
   if options.private_ip in appscale_info.get_taskqueue_nodes():
     logger.info('Starting push worker manager')
     GlobalPushWorkerManager(zk_client, monit_operator)
+
+  service_manager = ServiceManager(zk_client)
+  service_manager.start()
 
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),

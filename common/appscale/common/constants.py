@@ -25,6 +25,9 @@ class MonitStates(object):
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
+# The ZooKeeper path for keeping track of assignments by machine.
+ASSIGNMENTS_PATH = '/appscale/assignments'
+
 # Directory where configuration files are stored.
 CONFIG_DIR = os.path.join('/', 'etc', 'appscale')
 
@@ -132,6 +135,9 @@ SERVICES_DIR = '/etc/init.d'
 
 # The AppController's service name.
 CONTROLLER_SERVICE = 'appscale-controller'
+
+# The system's cgroup directory.
+CGROUP_DIR = os.path.join('/', 'sys', 'fs', 'cgroup')
 
 # The default log directory for AppScale services.
 LOG_DIR = os.path.join('/var', 'log', 'appscale')
