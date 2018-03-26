@@ -8,10 +8,8 @@ import sys
 import time
 import uuid
 
+from appscale.common.constants import KEY_DIRECTORY
 from appscale.common.constants import SERVICES_DIR
-
-# The directory that contains the deployment's private SSH key.
-KEY_DIRECTORY = '/etc/appscale/keys/cloud1'
 
 
 class ExitCodes(object):
@@ -206,23 +204,6 @@ def get_public_key(keyname):
   private_key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
   return subprocess.check_output(
     ['ssh-keygen', '-y', '-f', private_key_file]).strip()
-
-
-def ssh(ip_address, keyname, cmd, method=subprocess.check_call):
-  """ Runs a command on a given machine.
-
-  Args:
-    ip_address: A string containing the IP address of the remote machine.
-    keyname: A string containing the deployment's keyname.
-    cmd: The command to run on the remote machine.
-    method: The function to run the command with.
-  Returns:
-    The output of the function defined by method.
-  """
-  key_file = '{}/{}.key'.format(KEY_DIRECTORY, keyname)
-  ssh_cmd = ['ssh', '-i', key_file, '-o', 'StrictHostKeyChecking=no',
-             ip_address, cmd]
-  return method(ssh_cmd)
 
 
 def scp_to(ip_address, keyname, local_file, remote_file):

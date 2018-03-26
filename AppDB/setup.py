@@ -48,6 +48,8 @@ setup(
     'appscale-prime-cassandra=appscale.datastore.scripts.prime_cassandra:main',
     'appscale-rebalance=appscale.datastore.cassandra_env.rebalance:main',
     'appscale-restore-data=appscale.datastore.scripts.restore_data:main',
+    'appscale-transaction-groomer='
+      'appscale.datastore.scripts.transaction_groomer:main',
     'appscale-uaserver=appscale.datastore.scripts.ua_server:main',
     'appscale-update-index=appscale.datastore.scripts.update_index:main',
     'appscale-upgrade-schema=appscale.datastore.scripts.upgrade_schema:main',

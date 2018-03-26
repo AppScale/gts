@@ -187,6 +187,10 @@ def create_command_line_parser():
 
   common_group = parser.add_argument_group('Common')
   common_group.add_argument(
+      '-A', '--application', action='store', dest='app_id',
+      help='Set the application, overriding the application value from the '
+      'app.yaml file.')
+  common_group.add_argument(
       '--host', default='localhost',
       help='host name to which application modules should bind')
   common_group.add_argument(
@@ -437,6 +441,9 @@ def create_command_line_parser():
   # AppScale
   appscale_group = parser.add_argument_group('AppScale')
   appscale_group.add_argument(
+    '--external_api_port', type=int,
+    help='The port of the external server that handles API calls')
+  appscale_group.add_argument(
     '--login_server',
     help='the FQDN or IP address where users should be redirected to when the '
     'app needs them to log in on a given URL.')
@@ -544,7 +551,7 @@ class DevelopmentServer(object):
         _LOG_LEVEL_TO_PYTHON_CONSTANT[options.dev_appserver_log_level])
 
     configuration = application_configuration.ApplicationConfiguration(
-        options.yaml_files)
+        options.yaml_files, options.app_id)
 
     if options.skip_sdk_update_check:
       logging.info('Skipping SDK update check.')
@@ -594,7 +601,8 @@ class DevelopmentServer(object):
         module_to_max_instances,
         options.use_mtime_file_watcher,
         options.automatic_restart,
-        options.allow_skipped_files)
+        options.allow_skipped_files,
+        options.external_api_port)
     request_data = wsgi_request_info.WSGIRequestInfo(self._dispatcher)
 
     storage_path = _get_storage_path(options.storage_path, configuration.app_id)

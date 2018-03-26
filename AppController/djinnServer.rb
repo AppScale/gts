@@ -59,7 +59,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "receive_server_message", "timeout", "secret")
     add_method(@djinn, "is_appscale_terminated", "secret")
     add_method(@djinn, "run_terminate", "clean", "secret")
-    add_method(@djinn, "is_done_loading", "secret")
     add_method(@djinn, "get_role_info", "secret")
     add_method(@djinn, "get_app_info_map", "secret")
     add_method(@djinn, "relocate_version", "version_key", "http_port",
@@ -99,6 +98,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "create_user", "username", "password", "account_type" ,"secret")
     add_method(@djinn, "set_admin_role", "username", "is_cloud_admin", "capabilities" ,"secret")
     add_method(@djinn, "primary_db_is_up", "secret")
+    add_method(@djinn, "update_cron", "project_id", "secret")
   end
 end
 

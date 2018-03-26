@@ -184,7 +184,7 @@ class DataType(object):
   def input_field(self, name, value, sample_values, back_uri):
     string_value = self.format(value) if value else ''
     return (
-        '<input class="%s" name="%s" type="text" size="%d" value="%s" %s/>' % (
+        '<input disabled class="%s" name="%s" type="text" size="%d" value="%s" %s/>' % (
             cgi.escape(self.name()),
             cgi.escape(name),
             self.input_field_size(),

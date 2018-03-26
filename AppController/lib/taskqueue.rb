@@ -160,12 +160,13 @@ module TaskQueue
       Djinn.log_debug('Not erasing RabbitMQ state')
     end
 
-    # Wait for RabbitMQ on master node to come up, then start the local
-    # rabbitmq.
+    # Start the local RabbitMQ server, and then wait for RabbitMQ on the master
+    # node to come up. The RabbitMQ server on the taskqueue master may not be
+    # able to start without this one if it previously stopped first.
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
+    start_rabbitmq
     Djinn.log_debug('Waiting for RabbitMQ on master node to come up')
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
-    start_rabbitmq
 
     # we now reset it to join the head node. To do this we need the
     # hostname of the master node. We go through few options:

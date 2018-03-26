@@ -1,3 +1,4 @@
+import base64
 import uuid
 
 from kazoo.exceptions import (
@@ -42,7 +43,10 @@ def zk_group_path(key):
   if first_element.has_id():
     group = u'{}:{}'.format(kind, first_element.id())
   else:
-    group = u'{}::{}'.format(kind, first_element.name().decode('utf-8'))
+    # Kazoo does not accept certain characters (eg. newlines) that Cloud
+    # Datastore allows.
+    encoded_id = base64.b64encode(first_element.name())
+    group = u'{}::{}'.format(kind, encoded_id.decode('utf-8').rstrip('='))
 
   return LOCK_PATH_TEMPLATE.format(project=project, namespace=namespace,
                                    group=group)
@@ -207,8 +211,7 @@ class EntityLock(object):
       while True:
         try:
           node = self.client.create(
-            self.create_paths[index], self.data, ephemeral=True,
-            sequence=True)
+            self.create_paths[index], self.data, sequence=True)
           break
         except NoNodeError:
           self.client.ensure_path(self.paths[index])

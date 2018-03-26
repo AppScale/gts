@@ -216,6 +216,7 @@ def main():
   my_ip = appscale_info.get_private_ip()
   is_master = (my_ip == appscale_info.get_headnode_ip())
   is_lb = (my_ip in appscale_info.get_load_balancer_ips())
+  is_tq = (my_ip in appscale_info.get_taskqueue_nodes())
 
   if is_master:
     # Periodically check with the portal for new tasks.
@@ -247,7 +248,7 @@ def main():
       ("/", MainHandler),
       task_route,
     ]
-    + stats_app.get_local_stats_api_routes(is_lb)
+    + stats_app.get_local_stats_api_routes(is_lb, is_tq)
     + stats_app.get_cluster_stats_api_routes(is_master),
     debug=False
   )

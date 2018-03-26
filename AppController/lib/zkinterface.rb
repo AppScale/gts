@@ -20,6 +20,10 @@ end
 class VersionNotFound < StandardError
 end
 
+# Indicates that the requested configuration was not found.
+class ConfigNotFound < StandardError
+end
+
 # The AppController employs the open source software ZooKeeper as a highly
 # available naming service, to store and retrieve information about the status
 # of applications hosted within AppScale. This class provides methods to
@@ -41,14 +45,8 @@ class ZKInterface
   # and where other nodes will recover that state from.
   APPCONTROLLER_STATE_PATH = "#{APPCONTROLLER_PATH}/state".freeze
 
-  # The location in ZooKeeper where the AppServer nodes will back up information
-  # about each AppServer they host (e.g., the nginx, haproxy, and dev_appserver
-  # ports that each AppServer binds to).
-  APPSERVER_STATE_PATH = "#{APPCONTROLLER_PATH}/appservers".freeze
-
-  # The location in ZooKeeper that contains a list of the IP addresses that
-  # are currently running within AppScale.
-  IP_LIST = "#{APPCONTROLLER_PATH}/ips".freeze
+  # The ZooKeeper node where datastore servers register themselves.
+  DATASTORE_REGISTRY_PATH = '/appscale/datastore/servers'
 
   # The location in ZooKeeper that AppControllers write information about their
   # node to, so that others can poll to see if they are alive and what roles
@@ -228,89 +226,18 @@ class ZKInterface
     end
   end
 
-  # Returns a Hash containing the list of the IPs that are currently running
-  # within AppScale as well as a timestamp corresponding to the time when the
-  # latest node updated this information.
-  def self.get_ip_info
-    JSON.load(get(IP_LIST))
-  end
-
-  # Add the given IP to the list of IPs that we store in ZooKeeper. If the IPs
-  # file doesn't exist in ZooKeeper, create it and add in the given IP address.
-  # We also update the timestamp associated with this list so that others know
-  # to update it as needed.
-  def self.add_ip_to_ip_list(ip)
-    new_timestamp = Time.now.to_i
-
-    if exists?(IP_LIST)
-      # See if our IP is in the list of IPs that are up, and if not,
-      # append it to the list and update the timestamp so that everyone
-      # else will update their local copies.
-      data = JSON.load(get(IP_LIST))
-      if !data['ips'].include?(ip)
-        Djinn.log_debug('IPs file does not include our IP - adding it in')
-        data['ips'] << ip
-        data['last_updated'] = new_timestamp
-        set(IP_LIST, JSON.dump(data), NOT_EPHEMERAL)
-        Djinn.log_debug('Updated timestamp in ips list to ' \
-          "#{data['last_updated']}")
-      else
-        Djinn.log_debug('IPs file already includes our IP - skipping')
-      end
-    else
-      Djinn.log_debug('IPs file does not exist - creating it')
-      data = { 'ips' => [ip], 'last_updated' => new_timestamp }
-      set(IP_LIST, JSON.dump(data), NOT_EPHEMERAL)
-      Djinn.log_debug('Updated timestamp in ips list to ' \
-        "#{data['last_updated']}")
-    end
-
-    new_timestamp
-  end
-
-  # Accesses the list of IP addresses stored in ZooKeeper and removes the
-  # given IP address from that list.
-  def self.remove_ip_from_ip_list(ip)
-    return unless exists?(IP_LIST)
-
-    data = JSON.load(get(IP_LIST))
-    data['ips'].delete(ip)
-    new_timestamp = Time.now.to_i
-    data['last_updated'] = new_timestamp
-    set(IP_LIST, JSON.dump(data), NOT_EPHEMERAL)
-    new_timestamp
-  end
-
-  # Updates the timestamp in the IP_LIST file, to let other nodes know that
-  # an update has been made and that they should update their local @nodes
-  def self.update_ips_timestamp
-    data = JSON.load(get(IP_LIST))
-    new_timestamp = Time.now.to_i
-    data['last_updated'] = new_timestamp
-    set(IP_LIST, JSON.dump(data), NOT_EPHEMERAL)
-    Djinn.log_debug("Updated timestamp in ips list to #{data['last_updated']}")
-    new_timestamp
-  end
-
   # Queries ZooKeeper for a list of all IPs that are currently up, and then
   # checks if each of those IPs has an ephemeral link indicating that they
   # are alive. Returns an Array of IPs corresponding to failed nodes.
   def self.get_failed_nodes
     failed_nodes = []
 
-    ips = get_ip_info['ips']
-    Djinn.log_debug("All IPs are [#{ips.join(', ')}]")
-
-    ips.each { |ip|
-      if exists?("#{APPCONTROLLER_NODE_PATH}/#{ip}/live")
-        Djinn.log_debug("Node at #{ip} is alive")
-      else
+    get_children(APPCONTROLLER_NODE_PATH).each { |ip|
+      unless exists?("#{APPCONTROLLER_NODE_PATH}/#{ip}/live")
         Djinn.log_debug("Node at #{ip} has failed")
         failed_nodes << ip
       end
     }
-
-    Djinn.log_debug("Failed nodes are [#{failed_nodes.join(', ')}]")
     failed_nodes
   end
 
@@ -427,6 +354,24 @@ class ZKInterface
             "#{project_id}/#{service_id}/#{version_id} does not exist"
     end
     JSON.load(version_details_json)
+  end
+
+  def self.get_cron_config(project_id)
+    cron_node = "/appscale/projects/#{project_id}/cron"
+    begin
+      cron_config_json = self.get(cron_node)
+    rescue FailedZooKeeperOperationException
+      raise ConfigNotFound, "Cron configuration not found for #{project_id}"
+    end
+    return JSON.load(cron_config_json)
+  end
+
+  def self.get_datastore_servers
+    return get_children(DATASTORE_REGISTRY_PATH).map { |server|
+      server = server.split(':')
+      server[1] = server[1].to_i
+      server
+    }
   end
 
   # Defines deployment-wide defaults for runtime parameters.

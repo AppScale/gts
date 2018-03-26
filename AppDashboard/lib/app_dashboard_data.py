@@ -146,7 +146,9 @@ class AppDashboardData():
                  "template": "cron/console.html"},
         "app_console": {"title": "Application Statistics",
                         "template": "apps/console.html",
-                        "link": "/apps/"}
+                        "link": "/apps/"},
+        "datastore_viewer": {"title": "Datastore Viewer",
+                             "link": "/datastore_viewer"}
       }
       if user_info.can_upload_apps:
         lookup_dict["app_management"] = {"App Management":
@@ -163,17 +165,12 @@ class AppDashboardData():
                                                {"manage_users": lookup_dict[
                                                    "manage_users"]}]}
       if user_info.owned_apps or user_info.is_user_cloud_admin:
-        lookup_dict["debugging_monitoring"] = {"Debugging/Monitoring":
-                                               [{"monit": lookup_dict[
-                                                 "monit"]},
-                                                {"taskqueue": lookup_dict[
-                                                  "taskqueue"]},
-                                                {"logging": lookup_dict[
-                                                  "logging"]},
-                                                {"app_console": lookup_dict[
-                                                    "app_console"]},
-                                                {"cron": lookup_dict[
-                                                  "cron"]}]}
+        sections = ['monit', 'taskqueue', 'logging', 'app_console', 'cron',
+                    'datastore_viewer']
+        lookup_dict["debugging_monitoring"] = {
+          "Debugging/Monitoring": [{section: lookup_dict[section]}
+                                   for section in sections]
+        }
       return lookup_dict
     else:
       return {}
@@ -291,15 +288,15 @@ class AppDashboardData():
       logging.exception(err)
       return None
 
-  def update_request_info(self, app_id):
+  def update_request_info(self, version_key):
     """ Queries the AppController to get request information for the given
-    application, storing it in the Datastore for later viewing.
+    version, storing it in the Datastore for later viewing.
 
     Args:
-      app_id: A string, the application identifier.
+      version_key: A string specifying the version key in the form
+        project-id_service-id_version-id.
     """
-    version_key = '_'.join([app_id, AppDashboardHelper.DEFAULT_SERVICE,
-                            AppDashboardHelper.DEFAULT_VERSION])
+    app_id = version_key.split('_')[0]
     try:
       acc = self.helper.get_appcontroller_client()
       request_info = acc.get_request_info(version_key)

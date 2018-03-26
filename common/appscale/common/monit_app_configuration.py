@@ -47,7 +47,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
   env_vars_str = ''
   if env_vars is not None:
     for key in env_vars:
-      env_vars_str += '{}={} '.format(key, env_vars[key])
+      env_vars_str += '{}="{}" '.format(key, env_vars[key])
 
   bash = find_executable('bash')
   start_stop_daemon = find_executable('start-stop-daemon')
@@ -64,7 +64,6 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
   logfile = os.path.join(
     '/', 'var', 'log', 'appscale', '{}.log'.format(process_name))
 
-  stop = 'appscale-stop-instance --watch {}'.format(process_name)
   if syslog_server is None:
     bash_exec = 'exec env {vars} {start_cmd} >> {log} 2>&1'.format(
       vars=env_vars_str, start_cmd=start_cmd, log=logfile)
@@ -82,7 +81,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
     '--pidfile', pidfile,
     '--startas', "{} -- -c '{}'".format(bash, bash_exec)
   ])
-  stop_line = "{} -c '{}'".format(bash, stop)
+  stop_line = '{} --watch {}'.format(stop_instance, process_name)
 
   with open(TEMPLATE_LOCATION) as template:
     output = template.read()

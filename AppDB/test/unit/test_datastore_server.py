@@ -18,11 +18,10 @@ from appscale.datastore.cassandra_env.entity_id_allocator import\
   ScatteredAllocator
 
 from appscale.datastore.cassandra_env.cassandra_interface import (
-  DatastoreProxy,
-  deletions_for_entity,
-  index_deletions,
-  mutations_for_entity
-)
+  DatastoreProxy)
+from appscale.datastore.cassandra_env.utils import deletions_for_entity
+from appscale.datastore.cassandra_env.utils import index_deletions
+from appscale.datastore.cassandra_env.utils import mutations_for_entity
 
 from appscale.datastore.utils import (
   get_entity_key,
@@ -372,7 +371,8 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive('batch_mutate')
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
-      delete_transaction_id=lambda project, txid: None)
+      delete_transaction_id=lambda project, txid: None,
+      set_groups=lambda project, txid, groups: None)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
     putreq_pb = datastore_pb.PutRequest()
@@ -411,7 +411,8 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive('batch_mutate')
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
-      delete_transaction_id=lambda project, txid: None)
+      delete_transaction_id=lambda project, txid: None,
+      set_groups=lambda project, txid, groups: None)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
 
@@ -483,7 +484,6 @@ class TestDatastoreServer(unittest.TestCase):
 
     zookeeper = flexmock(handle=zk_client)
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(1)
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version').and_return(True)
     db_batch.should_receive("batch_get_entity").and_return(row_values)
@@ -503,7 +503,6 @@ class TestDatastoreServer(unittest.TestCase):
 
     zookeeper = flexmock(handle=zk_client)
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(1)
     zookeeper.should_receive("release_lock").and_return(True)
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version').and_return(True)
@@ -548,7 +547,6 @@ class TestDatastoreServer(unittest.TestCase):
 
     zookeeper = flexmock(handle=zk_client)
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(1)
     zookeeper.should_receive("acquire_lock").and_return(True)
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version').and_return(True)
@@ -722,7 +720,8 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive('valid_data_version').and_return(True)
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
-      delete_transaction_id=lambda project, txid: None)
+      delete_transaction_id=lambda project, txid: None,
+      set_groups=lambda project_id, txid, groups: None)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
     dd.dynamic_delete("appid", del_request)
@@ -763,7 +762,6 @@ class TestDatastoreServer(unittest.TestCase):
 
     zookeeper = flexmock(handle=zk_client)
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(1)
     zookeeper.should_receive("acquire_lock").and_return(True)
     zookeeper.should_receive("release_lock").and_return(True)
     db_batch = flexmock()
@@ -783,7 +781,6 @@ class TestDatastoreServer(unittest.TestCase):
 
     zookeeper = flexmock(handle=zk_client)
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(1)
     zookeeper.should_receive("acquire_lock").and_return(True)
     zookeeper.should_receive("release_lock").and_return(True)
     db_batch = flexmock()
@@ -810,7 +807,6 @@ class TestDatastoreServer(unittest.TestCase):
 
     zookeeper = flexmock(handle=zk_client)
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(1)
     zookeeper.should_receive("acquire_lock").and_return(True)
     zookeeper.should_receive("release_lock").and_return(True)
     db_batch = flexmock()
@@ -840,7 +836,6 @@ class TestDatastoreServer(unittest.TestCase):
 
     zookeeper = flexmock(handle=zk_client)
     zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(1)
     zookeeper.should_receive("acquire_lock").and_return(True)
     zookeeper.should_receive("release_lock").and_return(True)
     db_batch = flexmock()
@@ -1064,7 +1059,9 @@ class TestDatastoreServer(unittest.TestCase):
 
     db_batch.should_receive('get_indices').and_return([])
 
-    transaction_manager = flexmock()
+    transaction_manager = flexmock(
+      delete_transaction_id=lambda project_id, txid: None,
+      set_groups=lambda project_id, txid, groups: None)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
     prefix = dd.get_table_prefix(entity)
