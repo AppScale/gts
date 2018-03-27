@@ -4515,7 +4515,7 @@ HOSTS
     rescue InternalError, FailedNodeException
       Djinn.log_warn('Failed to create a new user')
       retries += 1
-      if retries < 5
+      if retries < RETRIES
         sleep(SMALL_WAIT)
         retry
       else
@@ -5939,7 +5939,7 @@ HOSTS
     rescue InternalError
       Djinn.log_warn('Failed to create a new user')
       retries += 1
-      if retries < 5
+      if retries < RETRIES
         sleep(SMALL_WAIT)
         retry
       else
