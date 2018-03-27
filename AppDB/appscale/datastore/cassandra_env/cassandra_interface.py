@@ -63,6 +63,10 @@ VERSION_INFO_KEY = 'version'
 # The metadata key used to indicate the state of the indexes.
 INDEX_STATE_KEY = 'index_state'
 
+# The metadata key used to indicate whether or not some entities are missing
+# the scatter property.
+SCATTER_PROP_KEY = 'scatter_prop'
+
 # The metadata key indicating that the database has been primed.
 PRIMED_KEY = 'primed'
 
@@ -99,6 +103,12 @@ class IndexStates(object):
   CLEAN = 'clean'
   DIRTY = 'dirty'
   SCRUB_IN_PROGRESS = 'scrub_in_progress'
+
+
+class ScatterPropStates(object):
+  """ Possible states for indexing the scatter property. """
+  POPULATED = 'populated'
+  POPULATION_IN_PROGRESS = 'population_in_progress'
 
 
 class DatastoreProxy(AppDBInterface):

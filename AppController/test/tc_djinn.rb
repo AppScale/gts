@@ -47,7 +47,6 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
 
     assert_equal(BAD_SECRET_MSG, djinn.is_done_initializing(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.is_done_loading(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_role_info(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
@@ -332,15 +331,6 @@ class TestDjinn < Test::Unit::TestCase
     baz.should_receive(:get).with(:path => ZKInterface::APPCONTROLLER_PATH).
       and_return({:rc => 0, :data => ZKInterface::DUMMY_DATA,
         :stat => flexmock(:exists => true)})
-
-    # Mocks for writing the IP list
-    json_data = '{"ips":[],"last_updated":1331849005}'
-    baz.should_receive(:get).
-      with(:path => ZKInterface::IP_LIST).
-      and_return({:rc => 0, :data => json_data,
-          :stat => flexmock(:exists => true)})
-
-    baz.should_receive(:set).and_return(all_ok)
 
     # Mocks for the appcontroller lock
     baz.should_receive(:get).with(
@@ -748,7 +738,6 @@ class TestDjinn < Test::Unit::TestCase
     djinn = flexmock(Djinn.new())
     djinn.my_index = 0
     djinn.nodes = [DjinnJobData.new(role, "appscale")]
-    djinn.last_updated = 0
     djinn.done_loading = true
     djinn
   end

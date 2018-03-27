@@ -401,6 +401,12 @@ class MainHandler(tornado.web.RequestHandler):
     clone_qr_pb = UnprocessedQueryResult()
     try:
       yield datastore_access._dynamic_run_query(query, clone_qr_pb)
+    except dbconstants.BadRequest as error:
+      raise gen.Return(
+        ('',
+         datastore_pb.Error.BAD_REQUEST,
+         str(error))
+      )
     except zktransaction.ZKBadRequest, zkie:
       logger.exception('Illegal arguments in transaction during {}'.
                        format(query))
