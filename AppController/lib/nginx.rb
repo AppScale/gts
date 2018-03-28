@@ -108,27 +108,42 @@ module Nginx
     secure_handlers = HelperFunctions.get_secure_handlers(version_key)
     parsing_log += "Secure handlers: #{secure_handlers}.\n"
 
-    # Here we find all those handlers specified in the app.yaml without a
-    # 'secure:' field and concat them. We then use the concatenated string
-    # to generate a location block which redirects all the handlers with
-    # 'secure:always' field excluding the ones without that field specified.
-    default_location_urls = []
-    secure_handlers[:default].map { |handler|
-      handler['url'].slice!(0)
-      url = handler['url']
-      default_location_urls.push(url)
-    }
-
-    concat_location_urls = default_location_urls.map { |k| "#{k}" }.join("|")
-
     always_secure_locations = secure_handlers[:always].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, https_port,
-                                                      concat_location_urls)
+      HelperFunctions.generate_secure_location_config(handler, https_port)
     }.join
     never_secure_locations = secure_handlers[:never].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, http_port,
-                                                      concat_location_urls)
+      HelperFunctions.generate_secure_location_config(handler, http_port)
     }.join
+
+    if secure_handlers[:non_secure]
+      location_urls = []
+      secure_handlers[:non_secure].map { |handler|
+        handler['url'].slice!(0)
+        url = handler['url']
+        location_urls.push(url)
+      }
+      non_secure_location_urls = location_urls.map { |k| "#{k}" }.join("|")
+      non_secure_http_location = <<NON_SECURE_HTTP_LOCATION
+location ~ ^/(#{non_secure_location_urls}) {
+      proxy_set_header      X-Real-IP $remote_addr;
+      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header      X-Forwarded-Proto $scheme;
+      proxy_set_header      X-Forwarded-Ssl $ssl;
+      proxy_set_header      Host $http_host;
+      proxy_redirect        off;
+      proxy_pass            http://gae_ssl_#{version_key};
+      proxy_connect_timeout 600;
+      proxy_read_timeout    600;
+      client_body_timeout   600;
+      client_max_body_size  2G;
+    }
+NON_SECURE_HTTP_LOCATION
+      non_secure_https_location = <<NON_SECURE_HTTPS_LOCATION
+location ~ ^/(#{non_secure_location_urls}) {
+      rewrite /(#{non_secure_location_urls}) http://$host:#{http_port}$uri redirect;
+    }
+NON_SECURE_HTTPS_LOCATION
+    end
 
     secure_static_handlers = []
     non_secure_static_handlers = []
@@ -241,6 +256,7 @@ server {
     # If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
 
+    #{non_secure_http_location}
     #{always_secure_locations}
     #{non_secure_static_locations}
     #{non_secure_default_location}
@@ -280,6 +296,7 @@ server {
 
     error_page 404 = /404.html;
 
+    #{non_secure_https_location}
     #{never_secure_locations}
     #{secure_static_locations}
     #{secure_default_location}
