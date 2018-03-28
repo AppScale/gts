@@ -1873,7 +1873,11 @@ class Djinn
         APPS_LOCK.synchronize {
           # Starts apps that are not running yet but they should.
           if my_node.is_shadow?
-            versions_to_load = ZKInterface.get_versions - @versions_loaded
+            begin
+              versions_to_load = ZKInterface.get_versions - @versions_loaded
+            rescue FailedZooKeeperOperationException
+              versions_to_load = []
+            end
           else
             versions_to_load = @versions_loaded - my_versions_loaded
           end
@@ -2742,7 +2746,15 @@ class Djinn
   end
 
   def update_port_files
-    ZKInterface.get_versions.each { |version_key|
+    begin
+      configured_versions = ZKInterface.get_versions
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn(
+        'Failed to get configured versions when updating port files')
+      return
+    end
+
+    configured_versions.each { |version_key|
       project_id, service_id, version_id = version_key.split(
         VERSION_PATH_SEPARATOR)
       begin
@@ -4661,10 +4673,18 @@ HOSTS
 
     Djinn.log_debug("Checking applications that have been stopped.")
     version_list = HelperFunctions.get_loaded_versions
+    begin
+      configured_versions = ZKInterface.get_versions
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn(
+        'Failed to fetch configured versions when checking stopped apps')
+      return
+    end
+
     version_list.each { |version_key|
       project_id, service_id, version_id = version_key.split(
         VERSION_PATH_SEPARATOR)
-      next if ZKInterface.get_versions.include?(version_key)
+      next if configured_versions.include?(version_key)
       next if RESERVED_APPS.include?(project_id)
 
       Djinn.log_info(
@@ -5052,7 +5072,15 @@ HOSTS
   #   start for lack of resources.
   def scale_appservers
     needed_appservers = 0
-    ZKInterface.get_versions.each { |version_key|
+    begin
+      configured_versions = ZKInterface.get_versions
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn(
+        'Unable to fetch configured versions when scaling appservers')
+      return
+    end
+
+    configured_versions.each { |version_key|
       next unless @versions_loaded.include?(version_key)
 
       initialize_scaling_info_for_version(version_key)
@@ -5818,7 +5846,15 @@ HOSTS
 
     app_manager = AppManagerClient.new(my_node.private_ip)
 
-    version_is_enabled = ZKInterface.get_versions.include?(version_key)
+    begin
+      configured_versions = ZKInterface.get_versions
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn(
+        'Failed to fetch configured versions when removing AppServer')
+      return false
+    end
+
+    version_is_enabled = configured_versions.include?(version_key)
     Djinn.log_debug("is version #{version_key} enabled? #{version_is_enabled}")
     return false unless version_is_enabled
 
@@ -5870,8 +5906,13 @@ HOSTS
     Djinn.log_debug("Fetching #{app_path}")
 
     RETRIES.downto(0) { ||
-      remote_machine = ZKInterface.get_revision_hosters(
-        revision_key, @options['keyname']).sample
+      begin
+        remote_machine = ZKInterface.get_revision_hosters(
+          revision_key, @options['keyname']).sample
+      rescue FailedZooKeeperOperationException
+        sleep(SMALL_WAIT)
+        next
+      end
 
       if remote_machine.nil?
         Djinn.log_info("Waiting for a machine to have a copy of #{app_path}")

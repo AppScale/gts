@@ -455,10 +455,15 @@ class ZKInterface
         'been initialized yet.')
     end
 
-    children = run_zookeeper_operation {
-      @@zk.get_children(:path => key)[:children]
+    response = run_zookeeper_operation {
+      @@zk.get_children(:path => key)
     }
+    if response[:rc] != Zookeeper::Constants::ZOK
+      raise FailedZooKeeperOperationException.new(
+        "Failed to get children for #{key}, response: #{response.inspect}")
+    end
 
+    children = response[:children]
     if children.nil?
       return []
     else
