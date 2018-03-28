@@ -226,21 +226,6 @@ class ZKInterface
     end
   end
 
-  # Queries ZooKeeper for a list of all IPs that are currently up, and then
-  # checks if each of those IPs has an ephemeral link indicating that they
-  # are alive. Returns an Array of IPs corresponding to failed nodes.
-  def self.get_failed_nodes
-    failed_nodes = []
-
-    get_children(APPCONTROLLER_NODE_PATH).each { |ip|
-      unless exists?("#{APPCONTROLLER_NODE_PATH}/#{ip}/live")
-        Djinn.log_debug("Node at #{ip} has failed")
-        failed_nodes << ip
-      end
-    }
-    failed_nodes
-  end
-
   # Creates files in ZooKeeper that relate to a given AppController's
   # role information, so that other AppControllers can detect if it has
   # failed, and if so, what functionality it was providing at the time.
