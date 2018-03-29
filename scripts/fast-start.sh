@@ -196,7 +196,7 @@ case "$PROVIDER" in
     ADMIN_EMAIL="a@a.com"
     ADMIN_PASSWD="$(cat /etc/hostname)"
     ;;
-"CLUSTER")
+"CLUSTER"|"Docker")
     ADMIN_EMAIL="a@a.com"
     ADMIN_PASSWD="appscale"
     # Let's discover the device used for external communication.
