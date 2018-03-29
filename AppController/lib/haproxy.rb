@@ -8,6 +8,9 @@ require 'helperfunctions'
 require 'app_dashboard'
 require 'monit_interface'
 require 'user_app_client'
+require 'datastore_server'
+require 'taskqueue'
+require 'blobstore'
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
 # copies of them and load balance traffic to them. Since nginx (our first
@@ -34,15 +37,6 @@ module HAProxy
   MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "app-haproxy.#{CONFIG_EXTENSION}")
   BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "app-base.#{CONFIG_EXTENSION}")
   PIDFILE = '/var/run/app-haproxy.pid'.freeze
-
-  # Options to used to configure servers.
-  # For more information see http://haproxy.1wt.eu/download/1.3/doc/configuration.txt
-  SERVICE_CONCURRENCY = {
-    TaskQueue::NAME => 1,
-    DatastoreServer::NAME => 10,
-    UserAppClient::NAME => 1,
-    BlobServer::NAME => 1
-  }
 
   # Maximum AppServer threaded connections
   MAX_APPSERVER_CONN = 7
@@ -279,9 +273,12 @@ module HAProxy
       version_key = server_name[HelperFunctions::GAE_PREFIX.length..-1]
       threadsafe = HelperFunctions.get_version_thread_safe(version_key)
       maxconn = threadsafe ? MAX_APPSERVER_CONN : 1
+    elsif server_name == DatastoreServer::NAME
+      # Allow custom number of connections at a time for datastore.
+      maxconn = DatastoreServer::MAXCONN
     else
-      # Allow only one connection at a time for services.
-      maxconn = SERVICE_CONCURRENCY[server_name]
+      # Allow only one connection at a time for other services.
+      maxconn = 1
     end
 
     "  server #{server_name}-#{location} #{location} maxconn #{maxconn} check"

@@ -26,8 +26,12 @@ module DatastoreServer
   # datastore servers to this value.
   DEFAULT_NUM_SERVERS = 3
 
+  # Maximum number of concurrent requests that can be served
+  # by instance of datastore
+  MAXCONN = 2
+
   # Datastore server processes to core multiplier.
-  MULTIPLIER = 0.5
+  MULTIPLIER = 1
 
   # Starts a Datastore Server on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
