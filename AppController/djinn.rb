@@ -1358,7 +1358,6 @@ class Djinn
         end
         Djinn.log_info('Reload haproxy with new connect timeout.')
         HAProxy.initialize_config(val)
-        HAProxy.regenerate_config
       end
 
       @options[key] = val
