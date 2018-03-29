@@ -115,13 +115,31 @@ module Nginx
       HelperFunctions.generate_secure_location_config(handler, http_port)
     }.join
 
-    if secure_handlers[:non_secure]
+    # Here we find all the handlers specified in the app.yaml without a 'secure:'
+    # and with a 'secure: never' field and concat them. We then use the
+    # concatenated string to generate a single location block of the form
+    # 'location ~ ^/(url1|url2)' instead of multiple ones.
+    if !secure_handlers[:non_secure].empty? || !secure_handlers[:never].empty?
       location_urls = []
-      secure_handlers[:non_secure].map { |handler|
-        handler['url'].slice!(0)
-        url = handler['url']
-        location_urls.push(url)
-      }
+
+      # Concatenating all urls for the handlers not specifying a secure field.
+      if !secure_handlers[:non_secure].empty?
+        secure_handlers[:non_secure].map { |handler|
+          handler['url'].slice!(0)
+          url = handler['url']
+          location_urls.push(url)
+        }
+      end
+
+      # Concatenating all urls for the handlers with 'secure: never' field.
+      if !secure_handlers[:never].empty?
+        secure_handlers[:never].map { |handler|
+          handler['url'].slice!(0)
+          url = handler['url']
+          location_urls.push(url)
+        }
+      end
+
       non_secure_location_urls = location_urls.map { |k| "#{k}" }.join("|")
       non_secure_http_location = <<NON_SECURE_HTTP_LOCATION
 location ~ ^/(#{non_secure_location_urls}) {
@@ -138,11 +156,6 @@ location ~ ^/(#{non_secure_location_urls}) {
       client_max_body_size  2G;
     }
 NON_SECURE_HTTP_LOCATION
-      non_secure_https_location = <<NON_SECURE_HTTPS_LOCATION
-location ~ ^/(#{non_secure_location_urls}) {
-      rewrite /(#{non_secure_location_urls}) http://$host:#{http_port}$uri redirect;
-    }
-NON_SECURE_HTTPS_LOCATION
     end
 
     secure_static_handlers = []
@@ -296,7 +309,6 @@ server {
 
     error_page 404 = /404.html;
 
-    #{non_secure_https_location}
     #{never_secure_locations}
     #{secure_static_locations}
     #{secure_default_location}
