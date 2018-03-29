@@ -684,11 +684,11 @@ class DatastoreProxy(AppDBInterface):
       '{limit} '
       'ALLOW FILTERING'
     ).format(table=table_name,
-               key=ThriftColumn.KEY,
-               gt_compare=gt_compare,
-               lt_compare=lt_compare,
-               column=ThriftColumn.COLUMN_NAME,
-               limit=query_limit)
+             key=ThriftColumn.KEY,
+             gt_compare=gt_compare,
+             lt_compare=lt_compare,
+             column=ThriftColumn.COLUMN_NAME,
+             limit=query_limit)
 
     query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
     parameters = (bytearray(start_key), bytearray(end_key),
