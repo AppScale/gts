@@ -446,6 +446,7 @@ class Djinn
     'controller_logs_to_dashboard' => [TrueClass, 'False', false],
     'default_max_appserver_memory' => [Fixnum, "#{DEFAULT_MEMORY}", true],
     'default_min_appservers' => [Fixnum, '2', true],
+    'default_max_appservers' => [Fixnum, '999999', true],
     'disks' => [String, nil, true],
     'ec2_access_key' => [String, nil, false],
     'ec2_secret_key' => [String, nil, false],
@@ -1308,65 +1309,77 @@ class Djinn
     old_options = @options.clone
     newopts.each { |key, val|
       # We give some extra information to the user about some properties.
-      if key == "keyname"
-        Djinn.log_warn("Changing keyname can break your deployment!")
-      elsif key == "default_max_appserver_memory"
-        Djinn.log_warn("default_max_appserver_memory will be enforced on new AppServers only.")
+      if key == 'keyname'
+        Djinn.log_warn('Changing keyname can break your deployment!')
+      elsif key == 'default_max_appserver_memory'
+        Djinn.log_warn('default_max_appserver_memory will be enforced on new AppServers only.')
         ZKInterface.set_runtime_params({:default_max_appserver_memory => Integer(val)})
-      elsif key == "min_machines"
+      elsif key == 'min_machines'
         unless is_cloud?
-          Djinn.log_warn("min_machines is not used in non-cloud infrastructures.")
+          Djinn.log_warn('min_machines is not used in non-cloud infrastructures.')
         end
         if Integer(val) < Integer(@options['min_machines'])
-          Djinn.log_warn("Invalid input: cannot lower min_machines!")
-          return "min_machines cannot be less than the nodes defined in ips_layout"
+          Djinn.log_warn('Invalid input: cannot lower min_machines!')
+          return 'min_machines cannot be less than the nodes defined in ips_layout'
         end
-      elsif key == "max_machines"
+      elsif key == 'max_machines'
         unless is_cloud?
-          Djinn.log_warn("max_machines is not used in non-cloud infrastructures.")
+          Djinn.log_warn('max_machines is not used in non-cloud infrastructures.')
         end
         if Integer(val) < Integer(@options['min_machines'])
-          Djinn.log_warn("Invalid input: max_machines is smaller than min_machines!")
-          return "max_machines is smaller than min_machines."
+          Djinn.log_warn('Invalid input: max_machines is smaller than min_machines!')
+          return 'max_machines is smaller than min_machines.'
         end
-      elsif key == "flower_password"
+      elsif key == 'default_min_appservers'
+        if Integer(val) < 0 || Integer(val) > Integer(@options['default_max_appservers'])
+          Djinn.log_warn('Invalid input: default_min_appservers needs to be ' \
+                         'non-negative and smaller or equal to default_max_appservers.')
+          return 'invalid input for default_min_appservers'
+        end
+      elsif key == 'default_max_appservers'
+        if Integer(val) <= 0 || Integer(val) < Integer(@options['default_min_appservers'])
+          Djinn.log_warn('Invalid input: default_max_appservers needs to be ' \
+                         'positive and bigger or equal to default_min_appservers.')
+          return 'invalid input for default_max_appservers'
+        end
+      elsif key == 'flower_password'
         TaskQueue.stop_flower
         TaskQueue.start_flower(@options['flower_password'])
-      elsif key == "replication"
-        Djinn.log_warn("replication cannot be changed at runtime.")
+      elsif key == 'replication'
+        Djinn.log_warn('replication cannot be changed at runtime.')
         next
       elsif key == "login"
-        Djinn.log_info("Restarting applications since public IP changed.")
+        Djinn.log_info('Restarting applications since public IP changed.')
         restart_versions(@versions_loaded)
-      elsif key == "lb_connect_timeout"
+      elsif key == 'lb_connect_timeout'
         unless Integer(val) > 0
-          Djinn.log_warn("Cannot set a negative timeout.")
+          Djinn.log_warn('Cannot set a negative timeout.')
           next
         end
-        Djinn.log_info("Reload haproxy with new connect timeout.")
+        Djinn.log_info('Reload haproxy with new connect timeout.')
         HAProxy.initialize_config(val)
         HAProxy.regenerate_config
       end
 
       @options[key] = val
 
-      if key.include? "stats_log"
-        if key.include? "nodes"
+      if key.include? 'stats_log'
+        if key.include? 'nodes'
           ZKInterface.update_hermes_nodes_profiling_conf(
-            @options["write_nodes_stats_log"].downcase == "true",
-            @options["nodes_stats_log_interval"].to_i
+            @options['write_nodes_stats_log'].downcase == 'true',
+            @options['nodes_stats_log_interval'].to_i
           )
-        elsif key.include? "processes"
+        elsif key.include? 'processes'
           ZKInterface.update_hermes_processes_profiling_conf(
-            @options["write_processes_stats_log"].downcase == "true",
-            @options["processes_stats_log_interval"].to_i,
-            @options["write_detailed_processes_stats_log"].downcase == "true"
+            @options['write_processes_stats_log'].downcase == 'true',
+            @options['processes_stats_log_interval'].to_i,
+            @options['write_detailed_processes_stats_log'].downcase == 'true'
           )
-        elsif key.include? "proxies"
+        elsif key.include? 'proxies'
           ZKInterface.update_hermes_proxies_profiling_conf(
-            @options["write_proxies_stats_log"].downcase == "true",
-            @options["proxies_stats_log_interval"].to_i,
-            @options["write_detailed_proxies_stats_log"].downcase == "true"
+            @options['write_proxies_stats_log'].downcase == 'true',
+            @options['proxies_stats_log_interval'].to_i,
+            @options['write_detailed_proxies_stats_log'].downcase == 'true'
           )
         end
       end
@@ -5310,6 +5323,8 @@ HOSTS
     scaling_params = version_details.fetch('automaticScaling', {})
     min = scaling_params.fetch('minTotalInstances',
                                Integer(@options['default_min_appservers']))
+    max = scaling_params.fetch('maxTotalInstances',
+                               Integer(@options['default_max_appservers']))
     if num_appservers < min
       Djinn.log_info(
         "#{version_key} needs #{min - num_appservers} more AppServers.")
@@ -5333,12 +5348,30 @@ HOSTS
     update_request_info(version_key, total_requests_seen,
                         time_requests_were_seen, total_req_in_queue)
 
+    # Check if we are already at the maximum allowed.
+    if num_appservers > max
+      Djinn.log_info("Enforcing maximum number of AppServers (#{max})" \
+                     " for #{version_key}.")
+      return max - num_appservers
+    end
+
     allow_concurrency = version_details.fetch('threadsafe', true)
     current_load = calculate_current_load(num_appservers, current_sessions,
                                           allow_concurrency)
     if current_load >= MAX_LOAD_THRESHOLD
+      if num_appservers == max
+        Djinn.log_info("Reached maximum allowed number of AppServers " \
+                       "for #{version_key}.")
+        return 0
+      end
       appservers_to_scale = calculate_appservers_needed(
           num_appservers, current_sessions, allow_concurrency)
+
+      # Let's make sure we don't get over the user define maximum.
+      if num_appservers + appservers_to_scale > max
+        appservers_to_scale = max - num_appservers
+      end
+
       Djinn.log_debug("The deployment has reached its maximum load " \
                       "threshold for #{version_key} - Advising that we " \
                       "scale up #{appservers_to_scale} AppServers.")
