@@ -142,6 +142,9 @@ module HAProxy
   #   listen_ip   : the IP HAProxy should listen for
   #   listen_port : the port to listen to
   #   name        : the name of the server
+  # Returns:
+  #   Boolean     : true if config was good, false if parameters were
+  #                 incorrect
   def self.create_app_config(servers, my_private_ip, listen_port, name)
     if servers.empty?
       Djinn.log_warn('create_app_config called with no running servers.')
@@ -176,16 +179,13 @@ module HAProxy
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
 
-    # Let's reload and overwrite only if something changed.
+    # Let's overwrite configuration for 'name' only if anything changed.
     current = ''
     current = File.read(config_path) if File.exists?(config_path)
-    if current != config
-      File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
-      HAProxy.regenerate_config
-    else
-      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
-    end
+    File.open(config_path, 'w+') { |f| f.write(config) } if current != config
 
+    # This will reload haproxy if anything changed.
+    HAProxy.regenerate_config
     true
   end
 
