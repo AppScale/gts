@@ -182,7 +182,10 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     }
 
     private double resolveDeadline(String packageName, ApiConfig apiConfig, boolean isOffline) {
-        LocalRpcService service = this.getService(packageName);
+        // AppScale: Avoid using getService here. If the datastore is the first to be initialized, the setupIndexes
+        // will try to initialize the remote_socket service. Trying to get the remote_socket service while the datastore
+        // is being initialized will block since getService is synchronized.
+        LocalRpcService service = this.serviceCache.getOrDefault(packageName, null);
         Double deadline = null;
         if (apiConfig != null) {
             deadline = apiConfig.getDeadlineInSeconds();
