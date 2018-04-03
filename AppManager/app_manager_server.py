@@ -455,23 +455,6 @@ def clean_old_sources():
 
   source_manager.clean_old_revisions(active_revisions=active_revisions)
 
-
-def remove_logrotate(project_id):
-  """ Removes logrotate script for the given project.
-
-  Args:
-    project_id: A string, the name of the project to remove logrotate for.
-  """
-  app_logrotate_script = "{0}/appscale-{1}".\
-    format(LOGROTATE_CONFIG_DIR, project_id)
-  logging.debug("Removing script: {}".format(app_logrotate_script))
-
-  try:
-    os.remove(app_logrotate_script)
-  except OSError:
-    logging.error("Error while removing log rotation for application: {}".
-                  format(project_id))
-
 @gen.coroutine
 def unmonitor_and_terminate(watch):
   """ Unmonitors an instance and terminates it.
@@ -539,6 +522,21 @@ def stop_app_instance(version_key, port):
   yield monit_operator.reload()
   yield clean_old_sources()
 
+def remove_logrotate(project_id):
+  """ Removes logrotate script for the given project.
+
+  Args:
+    project_id: A string, the name of the project to remove logrotate for.
+  """
+  app_logrotate_script = "{0}/appscale-{1}".\
+    format(LOGROTATE_CONFIG_DIR, project_id)
+  logging.debug("Removing script: {}".format(app_logrotate_script))
+
+  try:
+    os.remove(app_logrotate_script)
+  except OSError:
+    logging.error("Error while removing log rotation for application: {}".
+                  format(project_id))
 
 ############################################
 # Private Functions (but public for testing)
