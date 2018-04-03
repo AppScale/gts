@@ -2773,6 +2773,10 @@ class DatastoreDistributed():
     Raises:
       AppScaleDBError: The given property name is not in the matching entity.
     """
+    # Skip validating reserved properties.
+    if dbconstants.RESERVED_PROPERTY_NAME.match(prop_name):
+      return True
+
     reference = entry[entry.keys()[0]]['reference']
 
     # Reference may be absent from entities if the entity was deleted or part
@@ -3052,6 +3056,11 @@ class DatastoreDistributed():
           ('query is too large. may not have more than {0} filters'
            ' + sort orders ancestor total'.format(self._MAX_QUERY_COMPONENTS)))
 
+    for prop_name in query.property_name_list():
+      if dbconstants.RESERVED_PROPERTY_NAME.match(prop_name):
+        raise dbconstants.BadRequest('projections are not supported for the '
+                                     'property: {}'.format(prop_name))
+
     app_id = clean_app_id(query.app())
 
     self.validate_app_id(app_id)
@@ -3305,27 +3314,26 @@ class DatastoreDistributed():
     Returns:
       An encoded protocol buffer commit response.
     """
-    commitres_pb = datastore_pb.CommitResponse()
     transaction_pb = datastore_pb.Transaction(http_request_data)
     txn_id = transaction_pb.handle()
 
     try:
       self.apply_txn_changes(app_id, txn_id)
-    except (dbconstants.TxTimeoutException, dbconstants.Timeout) as timeout:
-      return commitres_pb.Encode(), datastore_pb.Error.TIMEOUT, str(timeout)
+    except (dbconstants.TxTimeoutException, dbconstants.Timeout,
+            entity_lock.LockTimeout) as timeout:
+      return '', datastore_pb.Error.TIMEOUT, str(timeout)
     except dbconstants.AppScaleDBConnectionError:
       self.logger.exception('DB connection error during commit')
-      return (commitres_pb.Encode(), datastore_pb.Error.INTERNAL_ERROR,
+      return ('', datastore_pb.Error.INTERNAL_ERROR,
               'Datastore connection error on Commit request.')
     except dbconstants.ConcurrentModificationException as error:
-      return (commitres_pb.Encode(), datastore_pb.Error.CONCURRENT_TRANSACTION,
-              str(error))
+      return '', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)
     except (dbconstants.TooManyGroupsException,
             dbconstants.BadRequest) as error:
-      return (commitres_pb.Encode(), datastore_pb.Error.BAD_REQUEST,
-              str(error))
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
 
-    return commitres_pb.Encode(), 0, ""
+    commitres_pb = datastore_pb.CommitResponse()
+    return commitres_pb.Encode(), 0, ''
 
   def rollback_transaction(self, app_id, http_request_data):
     """ Handles the rollback phase of a transaction.
@@ -3341,13 +3349,11 @@ class DatastoreDistributed():
       'Doing a rollback on transaction {} for {}'.format(txn.handle(), app_id))
     try:
       self.zookeeper.notify_failed_transaction(app_id, txn.handle())
-      return (api_base_pb.VoidProto().Encode(), 0, "")
+      return api_base_pb.VoidProto().Encode(), 0, ''
     except zktransaction.ZKTransactionException as zkte:
       self.logger.exception('Unable to rollback {} for {}'.
         format(txn, app_id))
-      return (api_base_pb.VoidProto().Encode(),
-              datastore_pb.Error.PERMISSION_DENIED, 
-              "Unable to rollback for this transaction: {0}".format(str(zkte)))
+      return '', datastore_pb.Error.PERMISSION_DENIED, str(zkte)
 
   def _zk_state_listener(self, state):
     """ Handles changes to the ZooKeeper connection state.

@@ -93,6 +93,20 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
 
     yield gen.sleep(1)
 
+  for load_balancer in appscale_info.get_load_balancer_ips():
+    while True:
+      if time.time() > deadline:
+        # The version is reachable from the login IP, but it's not reachable
+        # from every registered load balancer. It makes more sense to mark the
+        # operation as a success than a failure because the lagging load
+        # balancers should eventually reflect the registered instances.
+        break
+
+      if utils.port_is_open(load_balancer, http_port):
+        break
+
+      yield gen.sleep(1)
+
 
 @gen.coroutine
 def wait_for_deploy(operation_id, acc):

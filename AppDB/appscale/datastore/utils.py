@@ -319,6 +319,41 @@ def get_index_key_from_params(params):
   return key
 
 
+def get_scatter_prop(element_list):
+  """ Gets the scatter property for an entity's key path.
+
+  This will return a property for only a small percentage of entities.
+
+  Args:
+    element_list: A list of entity_pb.Path_Element objects.
+  Returns:
+    An entity_pb.Property object or None.
+  """
+  def id_from_element(element):
+    if element.has_name():
+      return element.name()
+    elif element.has_id():
+      return str(element.id())
+    else:
+      return ''
+
+  to_hash = ''.join([id_from_element(element) for element in element_list])
+  full_hash = mmh3.hash(to_hash)
+  hash_bytes = struct.pack('i', full_hash)[0:2]
+  hash_int = struct.unpack('H', hash_bytes)[0]
+  if hash_int >= dbconstants.SCATTER_PROPORTION:
+    return None
+
+  scatter_property = entity_pb.Property()
+  scatter_property.set_name('__scatter__')
+  scatter_property.set_meaning(entity_pb.Property.BYTESTRING)
+  scatter_property.set_multiple(False)
+  property_value = scatter_property.mutable_value()
+  property_value.set_stringvalue(hash_bytes)
+
+  return scatter_property
+
+
 def get_index_kv_from_tuple(tuple_list, reverse=False):
   """ Returns keys/value of indexes for a set of entities.
 
@@ -329,25 +364,33 @@ def get_index_kv_from_tuple(tuple_list, reverse=False):
      A list of keys and values of indexes
   """
   all_rows = []
-  for prefix, e in tuple_list:
-    for p in e.property_list():
-      val = str(encode_index_pb(p.value()))
+  for prefix, entity in tuple_list:
+    # Give some entities a property that makes it easy to sample keys.
+    scatter_prop = get_scatter_prop(entity.key().path().element_list())
+    if scatter_prop is not None:
+      # Prevent the original entity from being modified.
+      prop_list = [prop for prop in entity.property_list()] + [scatter_prop]
+    else:
+      prop_list = entity.property_list()
+
+    for prop in prop_list:
+      val = str(encode_index_pb(prop.value()))
 
       if reverse:
         val = helper_functions.reverse_lex(val)
 
       params = [prefix,
-                get_entity_kind(e),
-                p.name(),
+                get_entity_kind(entity),
+                prop.name(),
                 val,
-                str(encode_index_pb(e.key().path()))]
+                str(encode_index_pb(entity.key().path()))]
 
       index_key = get_index_key_from_params(params)
       p_vals = [index_key,
                 buffer(prefix + dbconstants.KEY_DELIMITER) + \
-                encode_index_pb(e.key().path())]
+                encode_index_pb(entity.key().path())]
       all_rows.append(p_vals)
-  return tuple(ii for ii in all_rows)
+  return tuple(all_rows)
 
 
 def get_ancestor_paths_from_ent_key(ent_key):
