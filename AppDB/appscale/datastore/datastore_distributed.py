@@ -57,8 +57,8 @@ from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 
 class DatastoreDistributed():
-  """ AppScale persistent layer for the datastore API. It is the 
-      replacement for the AppServers to persist their data into 
+  """ AppScale persistent layer for the datastore API. It is the
+      replacement for the AppServers to persist their data into
       a distributed datastore instead of a flat file.
   """
   # Max number of results for a query
@@ -117,7 +117,7 @@ class DatastoreDistributed():
                log_level=logging.INFO):
     """
        Constructor.
-     
+
      Args:
        datastore_batch: A reference to the batch datastore interface.
        zookeeper: A reference to the zookeeper interface.
@@ -150,7 +150,7 @@ class DatastoreDistributed():
 
   def get_limit(self, query):
     """ Returns the limit that should be used for the given query.
-  
+
     Args:
       query: A datastore_pb.Query.
     Returns:
@@ -259,12 +259,12 @@ class DatastoreDistributed():
     """ Creates a key to the composite index table for a given entity
     for a composite cursor.
 
-    Keys are built as such: 
+    Keys are built as such:
       app_id/ns/composite_id/ancestor/valuevaluevalue..../entity_key
     Components explained:
     ns: The namespace of the entity.
     composite_id: The composite ID assigned to this index upon creation.
-    ancestor: The root ancestor path (only if the query this index is for 
+    ancestor: The root ancestor path (only if the query this index is for
       has an ancestor)
     value(s): The string representation of mulitiple properties.
     entity_key: The entity key (full path) used as a means of having a unique
@@ -389,7 +389,7 @@ class DatastoreDistributed():
   @gen.coroutine
   def delete_composite_index_metadata(self, app_id, index):
     """ Deletes a index for the given application identifier.
-  
+
     Args:
       app_id: A string representing the application identifier.
       index: A entity_pb.CompositeIndex object.
@@ -405,7 +405,7 @@ class DatastoreDistributed():
   @gen.coroutine
   def create_composite_index(self, app_id, index):
     """ Stores a new index for the given application identifier.
-  
+
     Args:
       app_id: A string representing the application identifier.
       index: A entity_pb.CompositeIndex object.
@@ -539,7 +539,7 @@ class DatastoreDistributed():
 
   @gen.coroutine
   def put_entities(self, app, entities, composite_indexes=()):
-    """ Updates indexes of existing entities, inserts new entities and 
+    """ Updates indexes of existing entities, inserts new entities and
         indexes for them.
 
     Args:
@@ -636,7 +636,7 @@ class DatastoreDistributed():
   @gen.coroutine
   def dynamic_put(self, app_id, put_request, put_response):
     """ Stores and entity and its indexes in the datastore.
-    
+
     Args:
       app_id: Application ID.
       put_request: Request with entities to store.
@@ -680,10 +680,10 @@ class DatastoreDistributed():
     put_response.key_list().extend([e.key() for e in entities])
 
   def get_root_key_from_entity_key(self, entity_key):
-    """ Extract the root key from an entity key. We 
+    """ Extract the root key from an entity key. We
         remove any excess children from a string to get to
         the root key.
-    
+
     Args:
       entity_key: A string or Key object representing a row key.
     Returns:
@@ -705,7 +705,7 @@ class DatastoreDistributed():
 
   def get_root_key(self, app_id, ns, ancestor_list):
     """ Gets the root key string from an ancestor listing.
-   
+
     Args:
       app_id: The app ID of the listing.
       ns: The namespace of the entity.
@@ -725,7 +725,7 @@ class DatastoreDistributed():
       first_ent.type(), key_id, dbconstants.KIND_SEPARATOR)
 
   def is_instance_wrapper(self, obj, expected_type):
-    """ A wrapper for isinstance for mocking purposes. 
+    """ A wrapper for isinstance for mocking purposes.
 
     Return whether an object is an instance of a class or of a subclass thereof.
     With a type as second argument, return whether that is the object's type.
@@ -733,14 +733,14 @@ class DatastoreDistributed():
     Args:
       obj: The object to check.
       expected_type: A instance type we are comparing obj's type to.
-    Returns: 
-      True if obj is of type expected_type, False otherwise. 
+    Returns:
+      True if obj is of type expected_type, False otherwise.
     """
     return isinstance(obj, expected_type)
 
   def acquire_locks_for_trans(self, entities, txnid):
-    """ Acquires locks for entities for one particular entity group. 
- 
+    """ Acquires locks for entities for one particular entity group.
+
     Args:
       entities: A list of entities (entity_pb.EntityProto or entity_pb.Reference)
                 for which are are getting a lock for.
@@ -789,7 +789,7 @@ class DatastoreDistributed():
 
   def release_locks_for_nontrans(self, app_id, entities, txn_hash):
     """  Releases locks for non-transactional puts.
-  
+
     Args:
       entities: List of entities for which we are releasing locks. Can
                 be either entity_pb.EntityProto or entity_pb.Reference.
@@ -812,7 +812,7 @@ class DatastoreDistributed():
   @gen.coroutine
   def fetch_keys(self, key_list):
     """ Given a list of keys fetch the entities.
-    
+
     Args:
       key_list: A list of keys to fetch.
     Returns:
@@ -831,8 +831,8 @@ class DatastoreDistributed():
   @gen.coroutine
   def dynamic_get(self, app_id, get_request, get_response):
     """ Fetch keys from the datastore.
-    
-    Args: 
+
+    Args:
        app_id: The application ID.
        get_request: Request with list of keys.
        get_response: Response to application server.
@@ -865,8 +865,8 @@ class DatastoreDistributed():
   @gen.coroutine
   def dynamic_delete(self, app_id, delete_request):
     """ Deletes a set of rows.
-    
-    Args: 
+
+    Args:
       app_id: The application ID.
       delete_request: Request with a list of keys.
     """
@@ -952,7 +952,7 @@ class DatastoreDistributed():
     return filter_info
 
   def generate_order_info(self, orders):
-    """Transform a list of orders into a more usable form which 
+    """Transform a list of orders into a more usable form which
        is a tuple of properties and ordering directions.
 
     Args:
@@ -969,7 +969,7 @@ class DatastoreDistributed():
   def __get_start_key(self, prefix, prop_name, order, last_result, query=None):
     """ Builds the start key for cursor query.
 
-    Args: 
+    Args:
       prefix: The start key prefix (app id and namespace).
       prop_name: Property name of the filter.
       order: Sort order the query requires.
@@ -1029,7 +1029,7 @@ class DatastoreDistributed():
 
     Args:
       query: A datastore_pb.Query.
-      filter_info: dict of property names mapping to tuples of filter 
+      filter_info: dict of property names mapping to tuples of filter
         operators and values.
       order_info: tuple with property name and the sort order.
     Returns:
@@ -1061,7 +1061,7 @@ class DatastoreDistributed():
   @gen.coroutine
   def __fetch_entities_from_row_list(self, rowkeys):
     """ Given a list of keys fetch the entities from the entity table.
-    
+
     Args:
       rowkeys: A list of strings which are keys to the entitiy table.
     Returns:
@@ -1206,7 +1206,7 @@ class DatastoreDistributed():
         added_padding = True
 
   def __extract_entities(self, kv):
-    """ Given a result from a range query on the Entity table return a 
+    """ Given a result from a range query on the Entity table return a
         list of encoded entities.
 
     Args:
@@ -1225,9 +1225,9 @@ class DatastoreDistributed():
 
   @gen.coroutine
   def ordered_ancestor_query(self, query, filter_info, order_info):
-    """ Performs an ordered ancestor query. It grabs all entities of a 
+    """ Performs an ordered ancestor query. It grabs all entities of a
         given ancestor and then orders in memory.
-    
+
     Args:
       query: The query to run.
       filter_info: Tuple with filter operators and values
@@ -1274,10 +1274,10 @@ class DatastoreDistributed():
 
   @gen.coroutine
   def ancestor_query(self, query, filter_info, order_info):
-    """ Performs ancestor queries which is where you select 
-        entities based on a particular root entitiy. 
-      
-    Args: 
+    """ Performs ancestor queries which is where you select
+        entities based on a particular root entitiy.
+
+    Args:
       query: The query to run.
       filter_info: Tuple with filter operators and values.
       order_info: Tuple with property name and the sort order.
@@ -1353,15 +1353,15 @@ class DatastoreDistributed():
                               txn_id):
     """
     Fetches entities from the entity table given a query and a set of parameters.
-    It will validate the results and remove tombstoned items. 
-     
+    It will validate the results and remove tombstoned items.
+
     Args:
        startrow: The key from which we start a range query.
        endrow: The end key that terminates a range query.
        limit: The maximum number of items to return from a query.
        offset: The number of entities we want removed from the front of the result.
        start_inclusive: Boolean if we should include the start key in the result.
-       end_inclusive: Boolean if we should include the end key in the result. 
+       end_inclusive: Boolean if we should include the end key in the result.
        query: The query we are currently running.
        txn_id: The current transaction ID if there is one, it is 0 if there is not.
     Returns:
@@ -1400,10 +1400,10 @@ class DatastoreDistributed():
 
   @gen.coroutine
   def kindless_query(self, query, filter_info):
-    """ Performs kindless queries where queries are performed 
+    """ Performs kindless queries where queries are performed
         on the entity table and go across kinds.
-      
-    Args: 
+
+    Args:
       query: The query to run.
       filter_info: Tuple with filter operators and values.
     Returns:
@@ -1454,9 +1454,9 @@ class DatastoreDistributed():
     raise gen.Return(result)
 
   def reverse_path(self, key):
-    """ Use this function for reversing the key ancestry order. 
+    """ Use this function for reversing the key ancestry order.
         Needed for kind queries.
-   
+
     Args:
       key: A string key which needs reversing.
     Returns:
@@ -1471,11 +1471,11 @@ class DatastoreDistributed():
   def kind_query_range(self, query, filter_info, order_info):
     """ Gets start and end keys for kind queries, along with
         inclusivity of those keys.
-      
-    Args: 
+
+    Args:
       query: The query to run.
       filter_info: __key__ filter.
-      order_info: ordering for __key__. 
+      order_info: ordering for __key__.
     Returns:
       A tuple of the start row, end row, if its start inclusive,
       and if its end inclusive
@@ -1524,7 +1524,7 @@ class DatastoreDistributed():
   def default_namespace(self):
     """ Returns the default namespace entry because the groomer does not
     generate it for each application.
- 
+
     Returns:
       A entity proto of the default metadata.Namespace.
     """
@@ -1651,9 +1651,9 @@ class DatastoreDistributed():
 
   def remove_exists_filters(self, filter_info):
     """ Remove any filters that have EXISTS filters.
-  
+
     Args:
-      filter_info: dict of property names mapping to tuples of filter 
+      filter_info: dict of property names mapping to tuples of filter
         operators and values.
     Returns:
       A filter info dictionary without any EXIST filters.
@@ -2123,20 +2123,20 @@ class DatastoreDistributed():
 
   @gen.coroutine
   def zigzag_merge_join(self, query, filter_info, order_info):
-    """ Performs a composite query for queries which have multiple 
+    """ Performs a composite query for queries which have multiple
     equality filters. Uses a varient of the zigzag join merge algorithm.
 
-    This method is used if there are only equality filters present. 
-    If there are inequality filters, orders on properties which are not also 
-    apart of a filter, or ancestors, this method does 
-    not apply.  Existing single property indexes are used and it does not 
+    This method is used if there are only equality filters present.
+    If there are inequality filters, orders on properties which are not also
+    apart of a filter, or ancestors, this method does
+    not apply.  Existing single property indexes are used and it does not
     require the user to establish composite indexes ahead of time.
-    See http://www.youtube.com/watch?v=AgaL6NGpkB8 for Google's 
+    See http://www.youtube.com/watch?v=AgaL6NGpkB8 for Google's
     implementation.
 
     Args:
       query: A datastore_pb.Query.
-      filter_info: dict of property names mapping to tuples of filter 
+      filter_info: dict of property names mapping to tuples of filter
         operators and values.
       order_info: tuple with property name and the sort order.
     Returns:
@@ -2320,7 +2320,7 @@ class DatastoreDistributed():
 
   def does_composite_index_exist(self, query):
     """ Checks to see if the query has a composite index that can implement
-    the given query. 
+    the given query.
 
     Args:
       query: A datastore_pb.Query.
@@ -2330,12 +2330,12 @@ class DatastoreDistributed():
     return query.composite_index_size() > 0
 
   def get_range_composite_query(self, query, filter_info):
-    """ Gets the start and end key of a composite query. 
+    """ Gets the start and end key of a composite query.
 
     Args:
       query: A datastore_pb.Query object.
       filter_info: A dictionary mapping property names to tuples of filter
-        operators and values. 
+        operators and values.
       composite_id: An int, the composite index ID,
     Returns:
       A tuple of strings, the start and end key for the composite table.
@@ -2462,8 +2462,8 @@ class DatastoreDistributed():
        filters for a single property, and potentially multiple equality
        filters.
 
-    Args:  
-      filter_ops: dictionary mapping the inequality filter to operators and 
+    Args:
+      filter_ops: dictionary mapping the inequality filter to operators and
         values.
       equality_value: A string used for the start and end key which is derived
         from equality filter values.
@@ -2541,7 +2541,7 @@ class DatastoreDistributed():
 
     Args:
       query: The query to run.
-      filter_info: dictionary mapping property names to tuples of 
+      filter_info: dictionary mapping property names to tuples of
         filter operators and values.
     Returns:
       List of entities retrieved from the given query.
@@ -2831,12 +2831,12 @@ class DatastoreDistributed():
 
   def __extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
- 
+
     This is required for projection queries where the query specifies certain
     properties which should be returned. Distinct queries are also handled here.
-    A distinct query removes entities with duplicate index values. This will 
-    only return the first result for entities which have the same values for 
-    the properties that are being projected. 
+    A distinct query removes entities with duplicate index values. This will
+    only return the first result for entities which have the same values for
+    the properties that are being projected.
 
     Args:
       query: A datastore_pb.Query object.
@@ -2936,12 +2936,12 @@ class DatastoreDistributed():
 
   @gen.coroutine
   def __composite_query(self, query, filter_info, _):
-    """Performs Composite queries which is a combination of 
+    """Performs Composite queries which is a combination of
        multiple properties to query on.
 
     Args:
       query: The query to run.
-      filter_info: dictionary mapping property names to tuples of 
+      filter_info: dictionary mapping property names to tuples of
         filter operators and values.
     Returns:
       List of entities retrieved from the given query.
@@ -2957,11 +2957,11 @@ class DatastoreDistributed():
       'No composite index provided')
 
   def __multiorder_results(self, result, order_info, kind):
-    """ Takes results and applies ordering based on properties and 
-        whether it should be ascending or decending. Filters out 
+    """ Takes results and applies ordering based on properties and
+        whether it should be ascending or decending. Filters out
         any entities which do not match the given kind, if given.
 
-      Args: 
+      Args:
         result: unordered results.
         order_info: given ordering of properties.
         kind: The kind to filter on if given.
@@ -3026,7 +3026,7 @@ class DatastoreDistributed():
   def __get_query_results(self, query):
     """Applies the strategy for the provided query.
 
-    Args:    
+    Args:
       query: A datastore_pb.Query protocol buffer.
     Returns:
       Result set.
@@ -3073,7 +3073,7 @@ class DatastoreDistributed():
 
   @gen.coroutine
   def _dynamic_run_query(self, query, query_result):
-    """Populates the query result and use that query result to 
+    """Populates the query result and use that query result to
        encode a cursor.
 
     Args:

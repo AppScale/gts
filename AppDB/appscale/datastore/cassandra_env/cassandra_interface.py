@@ -112,7 +112,7 @@ class ScatterPropStates(object):
 
 
 class DatastoreProxy(AppDBInterface):
-  """ 
+  """
     Cassandra implementation of the AppDBInterface
   """
   def __init__(self, log_level=logging.INFO, hosts=None):
@@ -164,13 +164,13 @@ class DatastoreProxy(AppDBInterface):
   def batch_get_entity(self, table_name, row_keys, column_names):
     """
     Takes in batches of keys and retrieves their corresponding rows.
-    
+
     Args:
       table_name: The table to access
       row_keys: A list of keys to access
       column_names: A list of columns to access
     Returns:
-      A dictionary of rows and columns/values of those rows. The format 
+      A dictionary of rows and columns/values of those rows. The format
       looks like such: {key:{column_name:value,...}}
     Raises:
       TypeError: If an argument passed in was not of the expected type.
@@ -212,11 +212,11 @@ class DatastoreProxy(AppDBInterface):
   def batch_put_entity(self, table_name, row_keys, column_names, cell_values,
                        ttl=None):
     """
-    Allows callers to store multiple rows with a single call. A row can 
-    have multiple columns and values with them. We refer to each row as 
+    Allows callers to store multiple rows with a single call. A row can
+    have multiple columns and values with them. We refer to each row as
     an entity.
-   
-    Args: 
+
+    Args:
       table_name: The table to mutate
       row_keys: A list of keys to store on
       column_names: A list of columns to mutate
@@ -517,7 +517,7 @@ class DatastoreProxy(AppDBInterface):
   def batch_delete(self, table_name, row_keys, column_names=()):
     """
     Remove a set of rows corresponding to a set of keys.
-     
+
     Args:
       table_name: Table to delete rows from
       row_keys: A list of keys to remove
@@ -549,9 +549,9 @@ class DatastoreProxy(AppDBInterface):
 
   @gen.coroutine
   def delete_table(self, table_name):
-    """ 
+    """
     Drops a given table (aka column family in Cassandra)
-  
+
     Args:
       table_name: A string name of the table to drop
     Raises:
@@ -573,9 +573,9 @@ class DatastoreProxy(AppDBInterface):
 
   @gen.coroutine
   def create_table(self, table_name, column_names):
-    """ 
+    """
     Creates a table if it doesn't already exist.
-    
+
     Args:
       table_name: The column family name
       column_names: Not used but here to match the interface
@@ -627,11 +627,11 @@ class DatastoreProxy(AppDBInterface):
                   start_inclusive=True,
                   end_inclusive=True,
                   keys_only=False):
-    """ 
-    Gets a dense range ordered by keys. Returns an ordered list of 
+    """
+    Gets a dense range ordered by keys. Returns an ordered list of
     a dictionary of [key:{column1:value1, column2:value2},...]
     or a list of keys if keys only.
-     
+
     Args:
       table_name: Name of table to access
       column_names: Columns which get returned within the key range

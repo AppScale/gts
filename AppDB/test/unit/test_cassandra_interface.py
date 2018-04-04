@@ -1,12 +1,10 @@
 import unittest
 
-from flexmock import flexmock
 from mock import mock
-from tornado import testing, gen
+from tornado import testing
 from tornado.concurrent import Future
 
 from appscale.common import file_io
-from appscale.datastore import dbconstants
 from appscale.datastore.cassandra_env import cassandra_interface
 
 

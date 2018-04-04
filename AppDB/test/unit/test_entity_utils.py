@@ -22,7 +22,8 @@ class FakeDatastore(object):
   def batch_get_entity(self, table, keys, schema):
     raise gen.Return({})
 
-  def batch_get_entity_sync(self, table, keys, schema):
+  @staticmethod
+  def batch_get_entity_sync(table, keys, schema):
     return {}
 
 FAKE_SERIALIZED_ENTITY = \
