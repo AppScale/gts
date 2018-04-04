@@ -6,6 +6,7 @@ from tornado.ioloop import IOLoop
 
 class TornadoCassandra(object):
   """ A wrapper that converts Cassandra futures to Tornado futures. """
+
   def __init__(self, session):
     """ Create a new TornadoCassandra manager.
 
@@ -42,13 +43,19 @@ class TornadoCassandra(object):
       cassandra_future: A Cassandra future containing ResultSet.
       query: An instance of Cassandra query.
     """
-    if cassandra_future.has_more_pages:
-      logging.debug(
-        u"Ignoring an intermediate results page for query: {}"
-        .format(query)
-      )
-      return
-    io_loop.add_callback(tornado_future.set_result, cassandra_future.result())
+    # At this moment final result can be not ready yet,
+    # but we don't have a documented way to check if it's ready and
+    # we're not sure if _handle_page will be called again.
+    # So we wait for result here.
+    result = cassandra_future.result()
+
+    def set_result():
+      if tornado_future.done():
+        logging.debug("_handle_page is called more than once. Ignoring.")
+        return
+      tornado_future.set_result(result)
+
+    io_loop.add_callback(set_result)
 
   @staticmethod
   def _handle_failure(error, io_loop, tornado_future, query):
