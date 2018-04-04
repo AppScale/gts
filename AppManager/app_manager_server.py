@@ -223,7 +223,7 @@ def stop_api_server(project_id):
   """
   global api_servers
   if project_id not in api_servers:
-    raise gen.Return()
+    return
 
   port = api_servers[project_id]
   watch = '{}{}-{}'.format(API_SERVER_PREFIX, project_id, port)
@@ -466,7 +466,7 @@ def unmonitor_and_terminate(watch):
     unmonitor(watch)
   except ProcessNotFound:
     # If Monit does not know about a process, assume it is already stopped.
-    raise gen.Return()
+    return
 
   # Now that the AppServer is stopped, remove its monit config file so that
   # monit doesn't pick it up and restart it.

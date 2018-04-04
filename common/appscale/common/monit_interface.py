@@ -284,7 +284,7 @@ class MonitOperator(object):
                                       IOLoop.current())
 
       if status == constants.MonitStates.RUNNING:
-        raise gen.Return()
+        return
 
       if status == constants.MonitStates.UNMONITORED:
         yield self.send_command(process_name, 'start')
