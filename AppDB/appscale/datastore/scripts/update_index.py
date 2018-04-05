@@ -1,4 +1,4 @@
-import getopt
+import argparse
 import sys
 
 from appscale.common import appscale_info
@@ -10,15 +10,6 @@ from ..zkappscale.transaction_manager import TransactionManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import datastore_pb
-
-
-def usage():
-  """ Prints the usage of this script. """
-  print('Usage: appscale-update-index OPTION')
-  print('Updates a composite index.\n')
-  print('Options:')
-  print('  -t, --type=DATASTORE_TYPE    e.g. cassandra')
-  print('  -a, --app_ID=APPLICATION_ID  e.g. guestbook')
 
 
 def prettify_index(index, initial_indent=3):
@@ -43,39 +34,34 @@ def prettify_index(index, initial_indent=3):
 
 def main():
   """ Updates a composite index after prompting the user. """
-  try:
-    opts, remainder = getopt.getopt(
-      sys.argv[1:], 't:a:', ['type=', 'app_id='])
-  except getopt.GetoptError:
-    usage()
-    sys.exit(1)
-
-  db_type = None
-  app_id = None
-  for opt, arg in opts:
-    if opt in ('-t', '--type'):
-      db_type = arg
-    elif opt in ('-a', '--app_id'):
-      app_id = arg
-
-  if not db_type or not app_id:
-    usage()
-    sys.exit(1)
+  parser = argparse.ArgumentParser(description='Updates composite indexes')
+  parser.add_argument('--type', '-t', default='cassandra',
+                      help='The datastore backend type')
+  parser.add_argument('--app_id', '-a', required=True, help='The project ID')
+  parser.add_argument('--all', action='store_true',
+                      help='Updates all composite indexes')
+  args = parser.parse_args()
 
   datastore_batch = appscale_datastore_batch.DatastoreFactory.\
-    getDatastore(db_type)
+    getDatastore(args.type)
   zookeeper_locations = appscale_info.get_zk_locations_string()
   zookeeper = zk.ZKTransaction(host=zookeeper_locations)
   transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
     datastore_batch, transaction_manager, zookeeper=zookeeper)
 
-  pb_indices = datastore_access.datastore_batch.get_indices(app_id)
+  pb_indices = datastore_access.datastore_batch.get_indices(args.app_id)
   indices = [datastore_pb.CompositeIndex(index) for index in pb_indices]
   if len(indices) == 0:
-    print('No composite indices found for app {}'.format(app_id))
+    print('No composite indices found for app {}'.format(args.app_id))
     zookeeper.close()
-    sys.exit(1)
+    return
+
+  if args.all:
+    for index in indices:
+      datastore_access.update_composite_index(args.app_id, index)
+    print('Successfully updated all composite indexes')
+    return
 
   selection = -1
   selection_range = range(1, len(indices) + 1)
@@ -92,6 +78,7 @@ def main():
       sys.exit()
 
   selected_index = indices[selection - 1]
-  datastore_access.update_composite_index(app_id, selected_index)
+  datastore_access.update_composite_index(args.app_id, selected_index)
 
   zookeeper.close()
+  print('Index successfully updated')

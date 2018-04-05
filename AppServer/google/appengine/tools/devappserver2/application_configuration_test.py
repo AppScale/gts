@@ -91,6 +91,24 @@ class TestModuleConfiguration(unittest.TestCase):
     self.assertEqual(env_variables, config.env_variables)
     self.assertEqual({'/appdir/app.yaml': 10}, config._mtimes)
 
+  def test_override_app_id(self):
+    info = appinfo.AppInfoExternal(
+        application='ignored-app',
+        module='default',
+        version='version',
+        runtime='python27',
+        threadsafe=False)
+    application_configuration.ModuleConfiguration._parse_configuration(
+        '/appdir/app.yaml').AndReturn((info, ['/appdir/app.yaml']))
+    os.path.getmtime('/appdir/app.yaml').AndReturn(10)
+
+    self.mox.ReplayAll()
+    config = application_configuration.ModuleConfiguration(
+        '/appdir/app.yaml', 'overriding-app')
+    self.mox.VerifyAll()
+    self.assertEqual('overriding-app', config.application_external_name)
+    self.assertEqual('dev~overriding-app', config.application)
+
   def test_check_for_updates_unchanged_mtime(self):
     info = appinfo.AppInfoExternal(
         application='app',
@@ -282,7 +300,7 @@ class TestBackendsConfiguration(unittest.TestCase):
         backends=[static_backend_entry, dynamic_backend_entry])
     module_config = object()
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(module_config)
+        '/appdir/app.yaml', None).AndReturn(module_config)
     application_configuration.BackendsConfiguration._parse_configuration(
         '/appdir/backends.yaml').AndReturn(backend_info)
     static_configuration = object()
@@ -309,7 +327,7 @@ class TestBackendsConfiguration(unittest.TestCase):
     backend_info = backendinfo.BackendInfoExternal()
     module_config = object()
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(module_config)
+        '/appdir/app.yaml', None).AndReturn(module_config)
     application_configuration.BackendsConfiguration._parse_configuration(
         '/appdir/backends.yaml').AndReturn(backend_info)
 
@@ -329,7 +347,7 @@ class TestBackendsConfiguration(unittest.TestCase):
         application_configuration.ModuleConfiguration)
     self.mox.StubOutWithMock(application_configuration, 'ModuleConfiguration')
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(module_config)
+        '/appdir/app.yaml', None).AndReturn(module_config)
     application_configuration.BackendsConfiguration._parse_configuration(
         '/appdir/backends.yaml').AndReturn(backend_info)
     module_config.check_for_updates().AndReturn(set())
@@ -641,12 +659,12 @@ class TestApplicationConfiguration(unittest.TestCase):
     os.path.isdir('/appdir/app.yaml').AndReturn(False)
     module_config1 = ModuleConfigurationStub()
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(module_config1)
+        '/appdir/app.yaml', None).AndReturn(module_config1)
 
     os.path.isdir('/appdir/other.yaml').AndReturn(False)
     module_config2 = ModuleConfigurationStub(module_name='other')
     application_configuration.ModuleConfiguration(
-        '/appdir/other.yaml').AndReturn(module_config2)
+        '/appdir/other.yaml', None).AndReturn(module_config2)
 
     self.mox.ReplayAll()
     config = application_configuration.ApplicationConfiguration(
@@ -659,13 +677,13 @@ class TestApplicationConfiguration(unittest.TestCase):
     os.path.isdir('/appdir/app.yaml').AndReturn(False)
     module_config1 = ModuleConfigurationStub()
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(module_config1)
+        '/appdir/app.yaml', None).AndReturn(module_config1)
 
     os.path.isdir('/appdir/other.yaml').AndReturn(False)
     module_config2 = ModuleConfigurationStub(application='other_app',
                                              module_name='other')
     application_configuration.ModuleConfiguration(
-        '/appdir/other.yaml').AndReturn(module_config2)
+        '/appdir/other.yaml', None).AndReturn(module_config2)
 
     self.mox.ReplayAll()
     self.assertRaises(errors.InvalidAppConfigError,
@@ -676,11 +694,11 @@ class TestApplicationConfiguration(unittest.TestCase):
   def test_yaml_files_with_duplicate_module_names(self):
     os.path.isdir('/appdir/app.yaml').AndReturn(False)
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(ModuleConfigurationStub())
+        '/appdir/app.yaml', None).AndReturn(ModuleConfigurationStub())
 
     os.path.isdir('/appdir/other.yaml').AndReturn(False)
     application_configuration.ModuleConfiguration(
-        '/appdir/other.yaml').AndReturn(ModuleConfigurationStub())
+        '/appdir/other.yaml', None).AndReturn(ModuleConfigurationStub())
 
     self.mox.ReplayAll()
     self.assertRaises(errors.InvalidAppConfigError,
@@ -697,7 +715,7 @@ class TestApplicationConfiguration(unittest.TestCase):
 
     module_config = ModuleConfigurationStub()
     application_configuration.ModuleConfiguration(
-        os.path.join('/appdir', 'app.yaml')).AndReturn(module_config)
+        os.path.join('/appdir', 'app.yaml'), None).AndReturn(module_config)
 
     self.mox.ReplayAll()
     config = application_configuration.ApplicationConfiguration(['/appdir'])
@@ -715,7 +733,7 @@ class TestApplicationConfiguration(unittest.TestCase):
 
     module_config = ModuleConfigurationStub()
     application_configuration.ModuleConfiguration(
-        os.path.join('/appdir', 'app.yml')).AndReturn(module_config)
+        os.path.join('/appdir', 'app.yml'), None).AndReturn(module_config)
 
     self.mox.ReplayAll()
     config = application_configuration.ApplicationConfiguration(['/appdir'])
@@ -743,7 +761,7 @@ class TestApplicationConfiguration(unittest.TestCase):
 
     self.mox.ReplayAll()
     config = application_configuration.ApplicationConfiguration(
-        ['/appdir/app.yaml'])
+        ['/appdir/app.yaml'], None)
     self.mox.VerifyAll()
     self.assertEqual('myapp', config.app_id)
     self.assertSequenceEqual([module_config], config.modules)
@@ -757,14 +775,14 @@ class TestApplicationConfiguration(unittest.TestCase):
 
     module_config = ModuleConfigurationStub()
     application_configuration.ModuleConfiguration(
-        os.path.join('/appdir', 'app.yaml')).AndReturn(module_config)
+        os.path.join('/appdir', 'app.yaml'), None).AndReturn(module_config)
     backend_config = ModuleConfigurationStub(module_name='backend')
     backends_config = self.mox.CreateMock(
         application_configuration.BackendsConfiguration)
     backends_config.get_backend_configurations().AndReturn([backend_config])
     application_configuration.BackendsConfiguration(
         os.path.join('/appdir', 'app.yaml'),
-        os.path.join('/appdir', 'backends.yaml')).AndReturn(backends_config)
+        os.path.join('/appdir', 'backends.yaml'), None).AndReturn(backends_config)
 
     self.mox.ReplayAll()
     config = application_configuration.ApplicationConfiguration(['/appdir'])
@@ -776,7 +794,7 @@ class TestApplicationConfiguration(unittest.TestCase):
     os.path.isdir('/appdir/app.yaml').AndReturn(False)
     module_config = ModuleConfigurationStub()
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(module_config)
+        '/appdir/app.yaml', None).AndReturn(module_config)
 
     os.path.isdir('/appdir/backends.yaml').AndReturn(False)
     backend_config = ModuleConfigurationStub(module_name='backend')
@@ -785,7 +803,7 @@ class TestApplicationConfiguration(unittest.TestCase):
     backends_config.get_backend_configurations().AndReturn([backend_config])
     application_configuration.BackendsConfiguration(
         '/appdir/app.yaml',
-        '/appdir/backends.yaml').AndReturn(backends_config)
+        '/appdir/backends.yaml', None).AndReturn(backends_config)
 
     self.mox.ReplayAll()
     config = application_configuration.ApplicationConfiguration(
@@ -798,7 +816,7 @@ class TestApplicationConfiguration(unittest.TestCase):
     os.path.isdir('/appdir/app.yaml').AndReturn(False)
     module_config = ModuleConfigurationStub(module_name='default')
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(module_config)
+        '/appdir/app.yaml', None).AndReturn(module_config)
 
     os.path.isdir('/appdir/backends.yaml').AndReturn(False)
     backend_config = ModuleConfigurationStub(module_name='backend')
@@ -807,7 +825,7 @@ class TestApplicationConfiguration(unittest.TestCase):
     backends_config.get_backend_configurations().AndReturn([backend_config])
     application_configuration.BackendsConfiguration(
         os.path.join('/appdir', 'app.yaml'),
-        os.path.join('/appdir', 'backends.yaml')).AndReturn(backends_config)
+        os.path.join('/appdir', 'backends.yaml'), None).AndReturn(backends_config)
     os.path.isdir('/appdir/dispatch.yaml').AndReturn(False)
     dispatch_config = DispatchConfigurationStub(
         [(None, 'default'), (None, 'backend')])
@@ -826,7 +844,7 @@ class TestApplicationConfiguration(unittest.TestCase):
     os.path.isdir('/appdir/app.yaml').AndReturn(False)
     module_config = ModuleConfigurationStub(module_name='not-default')
     application_configuration.ModuleConfiguration(
-        '/appdir/app.yaml').AndReturn(module_config)
+        '/appdir/app.yaml', None).AndReturn(module_config)
 
     os.path.isdir('/appdir/dispatch.yaml').AndReturn(False)
     dispatch_config = DispatchConfigurationStub([(None, 'default')])

@@ -16,11 +16,10 @@ from cassandra.policies import FallthroughRetryPolicy
 from .cassandra_interface import IndexStates
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
+from .cassandra_interface import ScatterPropStates
 from .cassandra_interface import ThriftColumn
+from .constants import CURRENT_VERSION
 from .. import dbconstants
-
-# The data layout version to set after removing the journal table.
-POST_JOURNAL_VERSION = 1.0
 
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
@@ -110,6 +109,7 @@ def create_batch_tables(cluster, session):
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
+
 def create_groups_table(session):
   create_table = """
     CREATE TABLE IF NOT EXISTS group_updates (
@@ -178,6 +178,32 @@ def create_entity_ids_table(session):
       'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
+
+
+def current_datastore_version(session):
+  """ Retrieves the existing datastore version value.
+
+  Args:
+    session: A cassandra-driver session.
+  Returns:
+    A float specifying the existing datastore version or None.
+  """
+  key = cassandra_interface.VERSION_INFO_KEY
+  statement = """
+    SELECT {value} FROM "{table}"
+    WHERE {key} = %s
+    AND {column} = %s
+  """.format(
+    value=ThriftColumn.VALUE,
+    table=dbconstants.DATASTORE_METADATA_TABLE,
+    key=ThriftColumn.KEY,
+    column=ThriftColumn.COLUMN_NAME
+  )
+  results = session.execute(statement, (bytearray(key), key))
+  try:
+    return float(results[0].value)
+  except IndexError:
+    return None
 
 
 def prime_cassandra(replication):
@@ -268,10 +294,23 @@ def prime_cassandra(replication):
     value=ThriftColumn.VALUE
   )
 
-  if not existing_entities:
+  if existing_entities:
+    current_version = current_datastore_version(session)
+    if current_version == 1.0:
+      # Instruct the groomer to reclean the indexes.
+      parameters = {'key': bytearray(cassandra_interface.INDEX_STATE_KEY),
+                    'column': cassandra_interface.INDEX_STATE_KEY,
+                    'value': bytearray(str(IndexStates.DIRTY))}
+      session.execute(metadata_insert, parameters)
+
+      parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
+                    'column': cassandra_interface.VERSION_INFO_KEY,
+                    'value': bytearray(str(CURRENT_VERSION))}
+      session.execute(metadata_insert, parameters)
+  else:
     parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
                   'column': cassandra_interface.VERSION_INFO_KEY,
-                  'value': bytearray(str(POST_JOURNAL_VERSION))}
+                  'value': bytearray(str(CURRENT_VERSION))}
     session.execute(metadata_insert, parameters)
 
     # Mark the newly created indexes as clean.
@@ -280,10 +319,16 @@ def prime_cassandra(replication):
                   'value': bytearray(str(IndexStates.CLEAN))}
     session.execute(metadata_insert, parameters)
 
+    # Indicate that scatter property values do not need to be populated.
+    parameters = {'key': bytearray(cassandra_interface.SCATTER_PROP_KEY),
+                  'column': cassandra_interface.SCATTER_PROP_KEY,
+                  'value': bytearray(ScatterPropStates.POPULATED)}
+    session.execute(metadata_insert, parameters)
+
   # Indicate that the database has been successfully primed.
   parameters = {'key': bytearray(cassandra_interface.PRIMED_KEY),
                 'column': cassandra_interface.PRIMED_KEY,
-                'value': bytearray('true')}
+                'value': bytearray(str(CURRENT_VERSION))}
   session.execute(metadata_insert, parameters)
   logging.info('Cassandra is primed.')
 
@@ -300,6 +345,7 @@ def primed():
     return False
 
   try:
-    return db_access.get_metadata(cassandra_interface.PRIMED_KEY) == 'true'
+    primed_version = db_access.get_metadata(cassandra_interface.PRIMED_KEY)
+    return primed_version == str(CURRENT_VERSION)
   finally:
     db_access.close()
