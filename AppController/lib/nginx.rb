@@ -115,48 +115,26 @@ module Nginx
       HelperFunctions.generate_secure_location_config(handler, http_port)
     }.join
 
-    # Here we find all the handlers specified in the app.yaml without a 'secure:'
-    # and with a 'secure: never' field and concat them. We then use the
-    # concatenated string to generate a single location block of the form
-    # 'location ~ ^/(url1|url2)' instead of multiple ones.
-    if !secure_handlers[:non_secure].empty? || !secure_handlers[:never].empty?
-      location_urls = []
+    http_location_params = \
+        "\n\tproxy_set_header      X-Real-IP $remote_addr;" \
+        "\n\tproxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;" \
+        "\n\tproxy_set_header      X-Forwarded-Proto $scheme;" \
+        "\n\tproxy_set_header      X-Forwarded-Ssl $ssl;" \
+        "\n\tproxy_set_header      Host $http_host;\n\tproxy_redirect        off;" \
+        "\n\tproxy_pass            http://gae_ssl_#{version_key};" \
+        "\n\tproxy_connect_timeout 600;\n\tproxy_read_timeout    600;" \
+        "\n\tclient_body_timeout   600;\n\tclient_max_body_size  2G;" \
+        "\n    }\n"
 
-      # Concatenating all urls for the handlers not specifying a secure field.
-      if !secure_handlers[:non_secure].empty?
-        secure_handlers[:non_secure].map { |handler|
-          handler['url'].slice!(0)
-          url = handler['url']
-          location_urls.push(url)
-        }
-      end
+    non_secure_http_locations = secure_handlers[:non_secure].map { |handler|
+      result = "\n    location ~ #{handler['url']} {"
+      result << http_location_params
+    }.join
 
-      # Concatenating all urls for the handlers with 'secure: never' field.
-      if !secure_handlers[:never].empty?
-        secure_handlers[:never].map { |handler|
-          handler['url'].slice!(0)
-          url = handler['url']
-          location_urls.push(url)
-        }
-      end
-
-      non_secure_location_urls = location_urls.map { |k| "#{k}" }.join("|")
-      non_secure_http_location = <<NON_SECURE_HTTP_LOCATION
-location ~ ^/(#{non_secure_location_urls}) {
-      proxy_set_header      X-Real-IP $remote_addr;
-      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header      X-Forwarded-Proto $scheme;
-      proxy_set_header      X-Forwarded-Ssl $ssl;
-      proxy_set_header      Host $http_host;
-      proxy_redirect        off;
-      proxy_pass            http://gae_ssl_#{version_key};
-      proxy_connect_timeout 600;
-      proxy_read_timeout    600;
-      client_body_timeout   600;
-      client_max_body_size  2G;
-    }
-NON_SECURE_HTTP_LOCATION
-    end
+    never_secure_http_locations = secure_handlers[:never].map { |handler|
+      result = "\n    location ~ #{handler['url']} {"
+      result << http_location_params
+    }.join
 
     secure_static_handlers = []
     non_secure_static_handlers = []
@@ -269,7 +247,8 @@ server {
     # If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
 
-    #{non_secure_http_location}
+    #{non_secure_http_locations}
+    #{never_secure_http_locations}
     #{always_secure_locations}
     #{non_secure_static_locations}
     #{non_secure_default_location}
