@@ -1855,9 +1855,13 @@ class Djinn
 
       # Load balancers and shadow need to check/update applications that have
       # been undeployed and nginx/haproxy.
-      if my_node.is_load_balancer?
+      if my_node.is_shadow? or my_node.is_load_balancer?
         APPS_LOCK.synchronize {
           check_stopped_apps
+        }
+      end
+      if my_node.is_load_balancer?
+        APPS_LOCK.synchronize {
           check_haproxy
         }
       end
@@ -4634,13 +4638,15 @@ HOSTS
         @app_info_map.delete(version_key)
       end
 
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        stop_xmpp_for_app(project_id)
-        CronHelper.clear_app_crontab(project_id)
-      end
+      if my_node.is_load_balancer?
+        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
+          stop_xmpp_for_app(project_id)
+          CronHelper.clear_app_crontab(project_id)
+        end
 
-      Nginx.remove_version(version_key)
-      HAProxy.remove_version(version_key)
+        Nginx.remove_version(version_key)
+        HAProxy.remove_version(version_key)
+      end
 
       Djinn.log_debug("Done cleaning up after stopped version #{version_key}.")
 
