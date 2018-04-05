@@ -79,7 +79,7 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
 
   Args:
     is_lb_node: A boolean indicating whether this node is load balancer.
-    is_tq_node: A boolean indicating whether this node runs taskqueue services.
+    is_tq_node: A boolean indicating whether this node runs taskqueue service.
   Returns:
     A list of route-handler tuples.
   """
@@ -95,7 +95,7 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
                  'default_include_lists': DEFAULT_INCLUDE_LISTS})
 
   if is_lb_node:
-    # Only LB nodes provide proxies and services stats
+    # Only LB nodes provide proxies and service stats
     local_proxies_stats_handler = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs={'source': ProxiesStatsSource,
