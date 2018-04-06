@@ -332,7 +332,8 @@ def start_app(version_key, config):
       login_server,
       max_heap,
       pidfile,
-      revision_key
+      revision_key,
+      api_server_port
     )
 
     env_vars.update(create_java_app_env(project_id))
@@ -725,7 +726,7 @@ def locate_dir(path, dir_name):
     return None
 
 def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
-                          pidfile, revision_key):
+                          pidfile, revision_key, api_server_port):
   """ Creates the start command to run the java application server.
 
   Args:
@@ -735,6 +736,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     max_heap: An integer specifying the max heap size in MB.
     pidfile: A string specifying the pidfile location.
     revision_key: A string specifying the revision key.
+    api_server_port: An integer specifying the port of the external API server.
   Returns:
     A string of the start command.
   """
@@ -762,6 +764,8 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     "--NGINX_ADDRESS=" + load_balancer_host,
     "--TQ_PROXY=" + options.tq_proxy,
     "--pidfile={}".format(pidfile),
+    "--external_api_port={}".format(api_server_port),
+    "--api_using_python_stub=app_identity_service",
     os.path.dirname(web_inf_directory)
   ]
 
