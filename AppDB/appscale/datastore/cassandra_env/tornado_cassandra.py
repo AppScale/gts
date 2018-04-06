@@ -27,13 +27,13 @@ class TornadoCassandra(object):
       query, parameters, *args, **kwargs)
     cassandra_future.add_callbacks(
       self._handle_page, self._handle_failure,
-      callback_args=(io_loop, tornado_future, cassandra_future, query),
+      callback_args=(io_loop, tornado_future, cassandra_future),
       errback_args=(io_loop, tornado_future, query)
     )
     return tornado_future
 
   @staticmethod
-  def _handle_page(results, io_loop, tornado_future, cassandra_future, query):
+  def _handle_page(results, io_loop, tornado_future, cassandra_future):
     """ Assigns the Cassandra result to the Tornado future.
 
     Args:
@@ -43,19 +43,13 @@ class TornadoCassandra(object):
       cassandra_future: A Cassandra future containing ResultSet.
       query: An instance of Cassandra query.
     """
-    # At this moment final result can be not ready yet,
-    # but we don't have a documented way to check if it's ready and
-    # we're not sure if _handle_page will be called again.
-    # So we wait for result here.
+    if cassandra_future.has_more_pages:
+      cassandra_future.start_fetching_next_page()
+      logging.debug("Fetching next page of cassandra response")
+      return
+
     result = cassandra_future.result()
-
-    def set_result():
-      if tornado_future.done():
-        logging.debug("_handle_page is called more than once. Ignoring.")
-        return
-      tornado_future.set_result(result)
-
-    io_loop.add_callback(set_result)
+    io_loop.add_callback(tornado_future.set_result, result)
 
   @staticmethod
   def _handle_failure(error, io_loop, tornado_future, query):
