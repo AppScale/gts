@@ -4921,11 +4921,9 @@ HOSTS
       return
     end
 
-    unless zk_instances.empty?
-      @app_info_map[version_key] = {} unless @app_info_map.key?(version_key)
-      unless @app_info_map[version_key].key?('appservers')
-        @app_info_map[version_key]['appservers'] = []
-      end
+    @app_info_map[version_key] = {} unless @app_info_map.key?(version_key)
+    unless @app_info_map[version_key].key?('appservers')
+      @app_info_map[version_key]['appservers'] = []
     end
     known_instances = @app_info_map[version_key]['appservers']
 
