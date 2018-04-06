@@ -374,6 +374,7 @@ public class JettyContainerService extends AbstractContainerService {
             String nginxPort = ResourceLoader.getNginxPort();
             String defaultVersionHostname = System.getProperty("NGINX_ADDR") + ":" + nginxPort;
             env.getAttributes().put("com.google.appengine.runtime.default_version_hostname", defaultVersionHostname);
+            // End AppScale
 
             ApiProxy.setEnvironmentForCurrentThread(env);
             JettyContainerService.RecordingResponseWrapper wrappedResponse = JettyContainerService.this.new RecordingResponseWrapper(response);
