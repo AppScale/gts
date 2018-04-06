@@ -16,6 +16,7 @@ from cassandra.policies import FallthroughRetryPolicy
 from .cassandra_interface import IndexStates
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
+from .cassandra_interface import ScatterPropStates
 from .cassandra_interface import ThriftColumn
 from .constants import CURRENT_VERSION
 from .. import dbconstants
@@ -316,6 +317,12 @@ def prime_cassandra(replication):
     parameters = {'key': bytearray(cassandra_interface.INDEX_STATE_KEY),
                   'column': cassandra_interface.INDEX_STATE_KEY,
                   'value': bytearray(str(IndexStates.CLEAN))}
+    session.execute(metadata_insert, parameters)
+
+    # Indicate that scatter property values do not need to be populated.
+    parameters = {'key': bytearray(cassandra_interface.SCATTER_PROP_KEY),
+                  'column': cassandra_interface.SCATTER_PROP_KEY,
+                  'value': bytearray(ScatterPropStates.POPULATED)}
     session.execute(metadata_insert, parameters)
 
   # Indicate that the database has been successfully primed.
