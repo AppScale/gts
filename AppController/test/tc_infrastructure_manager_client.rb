@@ -33,7 +33,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
-        'instance_type' => 'booinstancetype',
+        'instance_type' => 'boocomputeinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '1',
         'cloud' => 'cloud1',
@@ -72,7 +72,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'vm_info' => {
           'public_ips' => ['public-ip'],
           'private_ips' => ['private-ip'],
-          'instance_ids' => ['i-id']
+          'instance_ids' => ['i-id'],
+          'instance_type' => ['boocomputeinstancetype']
         }
       }
 
@@ -90,6 +91,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'machine' => 'booid',
       'infrastructure' => 'booinfrastructure',
       'instance_type' => 'booinstancetype',
+      'compute_instance_type' => 'boocomputeinstancetype',
       'keyname' => 'bookeyname',
       'ec2_access_key' => 'booaccess',
       'ec2_secret_key' => 'boosecret',
@@ -105,7 +107,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       "private_ip" => "private-ip",
       "jobs" => "open",
       "instance_id" => "i-id",
-      "disk" => nil
+      "disk" => nil,
+      "instance_type" => "boocomputeinstancetype"
     }]
     actual = imc.spawn_vms(1, options, ["open"], [nil])
     assert_equal(expected, actual)
@@ -126,7 +129,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
-        'instance_type' => 'booinstancetype',
+        'instance_type' => 'boocomputeinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '3',
         'cloud' => 'cloud1',
@@ -165,7 +168,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'vm_info' => {
           'public_ips' => ['public-ip1', 'public-ip2', 'public-ip3'],
           'private_ips' => ['private-ip1', 'private-ip2', 'private-ip3'],
-          'instance_ids' => ['i-id1', 'i-id2', 'i-id3']
+          'instance_ids' => ['i-id1', 'i-id2', 'i-id3'],
+          'instance_type' => ['boocomputeinstancetype', 'boocomputeinstancetype', 'boocomputeinstancetype']
         }
       }
 
@@ -183,6 +187,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'machine' => 'booid',
       'infrastructure' => 'booinfrastructure',
       'instance_type' => 'booinstancetype',
+      'compute_instance_type' => 'boocomputeinstancetype',
       'keyname' => 'bookeyname',
       'ec2_access_key' => 'booaccess',
       'ec2_secret_key' => 'boosecret',
@@ -199,20 +204,23 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'private_ip' => 'private-ip1',
       'jobs' => 'a',
       'instance_id' => 'i-id1',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }, {
       'public_ip' => 'public-ip2',
       'private_ip' => 'private-ip2',
       'jobs' => 'b',
       'instance_id' => 'i-id2',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
 
     }, {
       'public_ip' => 'public-ip3',
       'private_ip' => 'private-ip3',
       'jobs' => 'c',
       'instance_id' => 'i-id3',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }]
     actual = imc.spawn_vms(3, options, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
@@ -233,7 +241,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
-        'instance_type' => 'booinstancetype',
+        'instance_type' => 'boocomputeinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '3',
         'cloud' => 'cloud1',
@@ -272,7 +280,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'vm_info' => {
           'public_ips' => ['public-ip1', 'public-ip2', 'public-ip3'],
           'private_ips' => ['private-ip1', 'private-ip2', 'private-ip3'],
-          'instance_ids' => ['i-id1', 'i-id2', 'i-id3']
+          'instance_ids' => ['i-id1', 'i-id2', 'i-id3'],
+          'instance_type' => ['boocomputeinstancetype', 'boocomputeinstancetype', 'boocomputeinstancetype']
         }
       }
 
@@ -290,6 +299,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'machine' => 'booid',
       'infrastructure' => 'booinfrastructure',
       'instance_type' => 'booinstancetype',
+      'compute_instance_type' => 'boocomputeinstancetype',
       'keyname' => 'bookeyname',
       'ec2_access_key' => nil,
       'ec2_secret_key' => nil,
@@ -304,20 +314,23 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'private_ip' => 'private-ip1',
       'jobs' => 'a',
       'instance_id' => 'i-id1',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }, {
       'public_ip' => 'public-ip2',
       'private_ip' => 'private-ip2',
       'jobs' => 'b',
       'instance_id' => 'i-id2',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
 
     }, {
       'public_ip' => 'public-ip3',
       'private_ip' => 'private-ip3',
       'jobs' => 'c',
       'instance_id' => 'i-id3',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }]
     actual = imc.spawn_vms(3, options, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
@@ -337,7 +350,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'group' => nil,
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
-        'instance_type' => 'booinstancetype',
+        'instance_type' => 'boocomputeinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '1',
         'cloud' => 'cloud1',
@@ -376,7 +389,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'vm_info' => {
           'public_ips' => ['public_ip'],
           'private_ips' => ['private_ip'],
-          'instance_ids' => ['i-id']
+          'instance_ids' => ['i-id'],
+          'instance_type' => ['boocomputeinstancetype']
         }
       }
 
@@ -393,6 +407,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'infrastructure' => 'booinfrastructure',
       'machine' => 'booid',
       'instance_type' => 'booinstancetype',
+      'compute_instance_type' => 'boocomputeinstancetype',
       'keyname' => 'bookeyname',
       'zone' => 'my-zone-1b',
       'azure_subscription_id' => 'boosubscriptionid',
@@ -409,7 +424,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'private_ip' => 'private_ip',
       'jobs' => 'open',
       'instance_id' => 'i-id',
-      'disk' => nil
+      'disk' => nil,
+      'instance_type' => 'boocomputeinstancetype'
     }]
     actual = imc.spawn_vms(1, options, ['open'], [nil])
     assert_equal(expected, actual)

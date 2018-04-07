@@ -5,12 +5,12 @@ import sys
 import uuid
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from cassandra.concurrent import execute_concurrent
 from appscale.datastore.cassandra_env.retry_policies import (
   BASIC_RETRIES,
   NO_RETRIES
 )
 from appscale.datastore.dbconstants import TRANSIENT_CASSANDRA_ERRORS
+from cassandra import DriverException
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
@@ -909,12 +909,10 @@ class PullQueue(Queue):
     lease_task.retry_policy = NO_RETRIES
     current_time = datetime.datetime.utcnow()
 
-    statements_and_params = []
+    update_futures = []
     for index in indexes:
       params = (new_eta, op_id, self.app, self.name, index.id, current_time)
-      statements_and_params.append((lease_task, params))
-    results = execute_concurrent(session, statements_and_params,
-                                 raise_on_first_error=False)
+      update_futures.append(session.execute_async(lease_task, params))
 
     # Check which lease operations succeeded.
     statement = """
@@ -927,7 +925,14 @@ class PullQueue(Queue):
     select = self.prepared_statements[statement]
 
     futures = {}
-    for result_num, (success, result) in enumerate(results):
+    for result_num, update_future in enumerate(update_futures):
+      try:
+        result = update_future.result()
+        success = True
+      except DriverException:
+        result = None
+        success = False
+
       if success and not result.was_applied:
         # The lease operation failed, so keep this index as None.
         continue
