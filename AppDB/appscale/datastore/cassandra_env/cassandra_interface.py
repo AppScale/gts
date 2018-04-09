@@ -19,7 +19,7 @@ from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
 from cassandra.query import ValueSequence
-from .constants import CURRENT_VERSION
+from .constants import CURRENT_VERSION, LB_POLICY
 from .large_batch import (FailedBatch,
                           LargeBatch)
 from .retry_policies import (BASIC_RETRIES,
@@ -128,7 +128,8 @@ class DatastoreProxy(AppDBInterface):
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
       try:
-        self.cluster = Cluster(self.hosts, default_retry_policy=BASIC_RETRIES)
+        self.cluster = Cluster(self.hosts, default_retry_policy=BASIC_RETRIES,
+                               load_balancing_policy=LB_POLICY)
         self.session = self.cluster.connect(KEYSPACE)
         break
       except cassandra.cluster.NoHostAvailable as connection_error:
