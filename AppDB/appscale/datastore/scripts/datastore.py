@@ -160,7 +160,7 @@ class MainHandler(tornado.web.RequestHandler):
       app_id = app_data[0]
       os.environ['APPLICATION_ID'] = app_id
     else:
-      raise gen.Return()
+      return
 
     # If the application identifier has the HRD string prepened, remove it.
     app_id = clean_app_id(app_id)

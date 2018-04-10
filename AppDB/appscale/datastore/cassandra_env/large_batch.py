@@ -238,7 +238,7 @@ class BatchResolver(object):
     except BatchNotFound:
       # Make sure another process doesn't try to commit the transaction.
       yield self._insert(txid_hash, new_op_id)
-      raise gen.Return()
+      return
 
     old_op_id = batch_status.op_id
     yield self._update_op_id(txid_hash, batch_status.applied, old_op_id,

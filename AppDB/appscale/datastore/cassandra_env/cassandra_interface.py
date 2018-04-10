@@ -22,7 +22,9 @@ from cassandra.query import ValueSequence
 from tornado import gen
 
 from appscale.datastore import dbconstants
-from appscale.datastore.cassandra_env.constants import CURRENT_VERSION
+from appscale.datastore.cassandra_env.constants import (
+  CURRENT_VERSION, LB_POLICY
+)
 from appscale.datastore.cassandra_env.large_batch import (
   FailedBatch, LargeBatch
 )
@@ -132,7 +134,8 @@ class DatastoreProxy(AppDBInterface):
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
       try:
-        self.cluster = Cluster(self.hosts, default_retry_policy=BASIC_RETRIES)
+        self.cluster = Cluster(self.hosts, default_retry_policy=BASIC_RETRIES,
+                               load_balancing_policy=LB_POLICY)
         self.session = self.cluster.connect(KEYSPACE)
         self.tornado_cassandra = TornadoCassandra(self.session)
         break

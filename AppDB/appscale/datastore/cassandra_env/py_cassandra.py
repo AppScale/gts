@@ -13,6 +13,7 @@ from cassandra.query import ValueSequence
 from tornado import gen
 
 from appscale.datastore import dbconstants
+from appscale.datastore.cassandra_env.constants import LB_POLICY
 from appscale.datastore.cassandra_env.cassandra_interface import (
   INITIAL_CONNECT_RETRIES, KEYSPACE, ThriftColumn
 )
@@ -39,7 +40,7 @@ class DatastoreProxy(AppDBInterface):
     remaining_retries = INITIAL_CONNECT_RETRIES
     while True:
       try:
-        cluster = Cluster(hosts)
+        cluster = Cluster(hosts, load_balancing_policy=LB_POLICY)
         self.session = cluster.connect(keyspace=KEYSPACE)
         self.tornado_cassandra = TornadoCassandra(self.session)
         break
