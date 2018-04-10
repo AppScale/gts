@@ -565,7 +565,7 @@ class DatastoreDistributed():
       # Allow the lock to stick around if there is an issue applying the batch.
       lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key], txid)
       try:
-        lock.acquire()
+        yield lock.acquire()
       except entity_lock.LockTimeout:
         raise Timeout('Unable to acquire entity group lock')
 
@@ -916,7 +916,7 @@ class DatastoreDistributed():
         # Allow the lock to stick around if there is an issue applying the batch.
         lock = entity_lock.EntityLock(self.zookeeper.handle, [group_key], txid)
         try:
-          lock.acquire()
+          yield lock.acquire()
         except entity_lock.LockTimeout:
           raise Timeout('Unable to acquire entity group lock')
 
@@ -3233,7 +3233,7 @@ class DatastoreDistributed():
     # Allow the lock to stick around if there is an issue applying the batch.
     lock = entity_lock.EntityLock(self.zookeeper.handle, decoded_groups, txn)
     try:
-      lock.acquire()
+      yield lock.acquire()
     except entity_lock.LockTimeout:
       raise Timeout('Unable to acquire entity group locks')
 

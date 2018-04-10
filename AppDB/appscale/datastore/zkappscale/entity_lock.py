@@ -8,12 +8,13 @@ from kazoo.exceptions import (
   NoNodeError,
   NotEmptyError
 )
-
 from kazoo.retry import (
   ForceRetryError,
   KazooRetry,
   RetryFailedError
 )
+from tornado import gen
+from tornado.locks import Lock as TornadoLock
 
 # The ZooKeeper node that contains lock entries for an entity group.
 LOCK_PATH_TEMPLATE = u'/appscale/apps/{project}/locks/{namespace}/{group}'
@@ -89,6 +90,7 @@ class EntityLock(object):
     self._retry = KazooRetry(max_tries=None,
                              sleep_func=client.handler.sleep_func)
     self._lock = client.handler.lock_object()
+    self._tornado_lock = TornadoLock()
 
   def _ensure_path(self):
     """ Make sure the ZooKeeper lock paths have been created. """
@@ -100,7 +102,17 @@ class EntityLock(object):
     self.cancelled = True
     self.wake_event.set()
 
+  @gen.coroutine
   def acquire(self):
+    yield self._tornado_lock.acquire(LOCK_TIMEOUT)
+    try:
+      locked = self.unsafe_acquire()
+      raise gen.Return(locked)
+    finally:
+      if not self.is_acquired:
+        self._tornado_lock.release()
+
+  def unsafe_acquire(self):
     """ Acquire the lock. By default blocks and waits forever.
 
     Returns:
@@ -334,15 +346,19 @@ class EntityLock(object):
 
   def release(self):
     """ Release the lock immediately. """
-    self.client.retry(self._inner_release)
+    try:
+      self.client.retry(self._inner_release)
 
-    # Try to clean up the group lock path.
-    for path in self.paths:
-      try:
-        self.client.delete(path)
-      except (NotEmptyError, NoNodeError):
-        pass
-    return
+      # Try to clean up the group lock path.
+      for path in self.paths:
+        try:
+          self.client.delete(path)
+        except (NotEmptyError, NoNodeError):
+          pass
+      return
+    finally:
+      if not self.is_acquired:
+        self._tornado_lock.release()
 
   def _inner_release(self):
     """ Release the lock by removing created nodes. """
@@ -359,7 +375,7 @@ class EntityLock(object):
     return True
 
   def __enter__(self):
-    self.acquire()
+    self.unsafe_acquire()
 
   def __exit__(self, exc_type, exc_value, traceback):
     self.release()

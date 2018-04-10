@@ -386,8 +386,10 @@ class TestDatastoreServer(testing.AsyncTestCase):
 
     putresp_pb = datastore_pb.PutResponse()
 
+    async_true = gen.Future()
+    async_true.set_result(True)
     entity_lock = flexmock(EntityLock)
-    entity_lock.should_receive('acquire')
+    entity_lock.should_receive('acquire').and_return(async_true)
     entity_lock.should_receive('release')
 
     flexmock(ScatteredAllocator).should_receive('next').\
@@ -421,7 +423,10 @@ class TestDatastoreServer(testing.AsyncTestCase):
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
 
+    async_true = gen.Future()
+    async_true.set_result(True)
     entity_lock = flexmock(EntityLock)
+    entity_lock.should_receive('acquire').and_return(async_true)
     entity_lock.should_receive('acquire')
     entity_lock.should_receive('release')
 
@@ -757,8 +762,10 @@ class TestDatastoreServer(testing.AsyncTestCase):
 
   @testing.gen_test
   def test_dynamic_delete(self):
+    async_true = gen.Future()
+    async_true.set_result(True)
     entity_lock = flexmock(EntityLock)
-    entity_lock.should_receive('acquire')
+    entity_lock.should_receive('acquire').and_return(async_true)
     entity_lock.should_receive('release')
 
     del_request = flexmock()
@@ -1089,8 +1096,10 @@ class TestDatastoreServer(testing.AsyncTestCase):
     db_batch.should_receive('batch_get_entity').and_return(async_result)
     db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
 
+    async_true = gen.Future()
+    async_true.set_result(True)
     entity_lock = flexmock(EntityLock)
-    entity_lock.should_receive('acquire')
+    entity_lock.should_receive('acquire').and_return(async_true)
     entity_lock.should_receive('release')
 
     yield dd.apply_txn_changes(app, txn)

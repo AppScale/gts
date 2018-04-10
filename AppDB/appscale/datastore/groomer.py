@@ -7,6 +7,10 @@ import sys
 import threading
 import time
 
+from tornado import gen
+
+from appscale.datastore.utils import tornado_synchronous
+
 import appscale_datastore_batch
 import dbconstants
 import utils
@@ -305,6 +309,8 @@ class DatastoreGroomer(threading.Thread):
 
     return group
 
+  @tornado_synchronous
+  @gen.coroutine
   def lock_and_delete_indexes(self, references, direction, entity_key):
     """ For a list of index entries that have the same entity, lock the entity
     and delete the indexes.
@@ -346,6 +352,8 @@ class DatastoreGroomer(threading.Thread):
         logging.exception('Unable to delete indexes')
         self.index_entries_delete_failures += 1
 
+  @tornado_synchronous
+  @gen.coroutine
   def lock_and_delete_kind_index(self, reference):
     """ For a list of index entries that have the same entity, lock the entity
     and delete the indexes.
