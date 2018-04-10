@@ -13,7 +13,7 @@ from kazoo.retry import (
   KazooRetry,
   RetryFailedError
 )
-from tornado import gen
+from tornado import gen, ioloop
 from tornado.locks import Lock as TornadoLock
 
 # The ZooKeeper node that contains lock entries for an entity group.
@@ -61,6 +61,7 @@ class EntityLock(object):
   acquired will block.
   """
   _NODE_NAME = '__lock__'
+  _tornado_lock = TornadoLock()
 
   def __init__(self, client, keys, txid=None):
     """ Create an entity lock.
@@ -90,7 +91,6 @@ class EntityLock(object):
     self._retry = KazooRetry(max_tries=None,
                              sleep_func=client.handler.sleep_func)
     self._lock = client.handler.lock_object()
-    self._tornado_lock = TornadoLock()
 
   def _ensure_path(self):
     """ Make sure the ZooKeeper lock paths have been created. """
@@ -104,13 +104,14 @@ class EntityLock(object):
 
   @gen.coroutine
   def acquire(self):
-    yield self._tornado_lock.acquire(LOCK_TIMEOUT)
+    now = ioloop.IOLoop.current().time()
+    yield EntityLock._tornado_lock.acquire(now + LOCK_TIMEOUT)
     try:
       locked = self.unsafe_acquire()
       raise gen.Return(locked)
     finally:
       if not self.is_acquired:
-        self._tornado_lock.release()
+        EntityLock._tornado_lock.release()
 
   def unsafe_acquire(self):
     """ Acquire the lock. By default blocks and waits forever.
@@ -358,7 +359,7 @@ class EntityLock(object):
       return
     finally:
       if not self.is_acquired:
-        self._tornado_lock.release()
+        EntityLock._tornado_lock.release()
 
   def _inner_release(self):
     """ Release the lock by removing created nodes. """
