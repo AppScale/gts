@@ -754,7 +754,7 @@ class DatastoreProxy(AppDBInterface):
     try:
       raise gen.Return(results[0].value)
     except IndexError:
-      raise gen.Return()
+      return
 
   @gen.coroutine
   def set_metadata(self, key, value):

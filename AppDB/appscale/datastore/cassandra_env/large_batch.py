@@ -124,10 +124,10 @@ class LargeBatch(object):
       result = yield self.tornado_cassandra.execute(insert, parameters)
     except TRANSIENT_CASSANDRA_ERRORS:
       yield self.start(retries=retries-1)
-      raise gen.Return()
+      return
 
     if result.was_applied:
-      raise gen.Return()
+      return
 
     # Make sure this process was responsible for the insert.
     try:
@@ -136,7 +136,7 @@ class LargeBatch(object):
       raise FailedBatch(str(batch_failure))
     except BatchNotFound:
       yield self.start(retries=retries-1)
-      raise gen.Return()
+      return
 
   @gen.coroutine
   def set_applied(self, retries=5):
@@ -163,16 +163,16 @@ class LargeBatch(object):
       result = yield self.tornado_cassandra.execute(update_status, parameters)
       if result.was_applied:
         self.applied = True
-        raise gen.Return()
+        return
     except TRANSIENT_CASSANDRA_ERRORS:
       pass  # Application is confirmed below.
 
     try:
       self.applied = yield self.is_applied()
       if self.applied:
-        raise gen.Return()
+        return
       yield self.set_applied(retries=retries-1)
-      raise gen.Return()
+      return
     except (BatchNotFound, BatchNotOwned, TRANSIENT_CASSANDRA_ERRORS) as error:
       raise FailedBatch(str(error))
 
@@ -200,7 +200,7 @@ class LargeBatch(object):
       result = yield self.tornado_cassandra.execute(clear_status, parameters)
     except TRANSIENT_CASSANDRA_ERRORS:
       yield self.cleanup(retries=retries-1)
-      raise gen.Return()
+      return
 
     if not result.was_applied:
       raise FailedBatch(

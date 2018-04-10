@@ -342,7 +342,7 @@ class DatastoreDistributed():
       composite_indexes: A list of datastore_pb.CompositeIndex.
     """
     if not composite_indexes:
-      raise gen.Return()
+      return
     row_keys = []
     row_values = {}
     # Create default composite index for all entities. Here we take each
@@ -872,7 +872,7 @@ class DatastoreDistributed():
     """
     keys = delete_request.key_list()
     if not keys:
-      raise gen.Return()
+      return
 
     ent_kinds = []
     for key in delete_request.key_list():
@@ -1553,7 +1553,7 @@ class DatastoreDistributed():
     # Detect quickly if this is a kind query or not.
     for fi in filter_info:
       if fi != "__key__":
-        raise gen.Return()
+        return
 
     if query.has_ancestor() and len(order_info) > 0:
       result = yield self.ordered_ancestor_query(query, filter_info, order_info)
@@ -1572,7 +1572,7 @@ class DatastoreDistributed():
     startrow, endrow, start_inclusive, end_inclusive = \
       self.kind_query_range(query, filter_info, order_info)
     if startrow is None or endrow is None:
-      raise gen.Return()
+      return
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
@@ -1710,7 +1710,7 @@ class DatastoreDistributed():
     property_names.update(x[0] for x in order_info)
     property_names.discard('__key__')
     if len(property_names) != 1:
-      raise gen.Return()
+      return
 
     property_name = property_names.pop()
     potential_filter_ops = filter_info.get(property_name, [])
@@ -1722,20 +1722,20 @@ class DatastoreDistributed():
       query.filter_list())
 
     if len(order_info) > 1 or (order_info and order_info[0][0] == '__key__'):
-      raise gen.Return()
+      return
 
     # If there is an ancestor in the query, it can only have a single
     # equality filter, otherwise there is no way to build the start
     # and end key.
     if query.has_ancestor() and len(filter_ops) > 0 and \
       filter_ops[0][0] != datastore_pb.Query_Filter.EQUAL:
-      raise gen.Return()
+      return
 
     if query.has_ancestor():
       ancestor = query.ancestor()
 
     if not query.has_kind():
-      raise gen.Return()
+      return
 
     if order_info and order_info[0][0] == property_name:
       direction = order_info[0][1]
@@ -2144,7 +2144,7 @@ class DatastoreDistributed():
     """
     self.logger.debug('ZigZag Merge Join Query:\n{}'.format(query))
     if not self.is_zigzag_merge_join(query, filter_info, order_info):
-      raise gen.Return()
+      return
     kind = query.kind()
     prefix = self.get_table_prefix(query)
     limit = self.get_limit(query)
@@ -3212,7 +3212,7 @@ class DatastoreDistributed():
     # If there were no changes, the transaction is complete.
     if (len(metadata['puts']) + len(metadata['deletes']) +
         len(metadata['tasks']) == 0):
-      raise gen.Return()
+      return
 
     # Fail if there are too many groups involved in the transaction.
     groups_put = {group_for_key(key).Encode() for key in metadata['puts']}

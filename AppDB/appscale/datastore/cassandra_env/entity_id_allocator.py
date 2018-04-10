@@ -244,7 +244,7 @@ class EntityIDAllocator(object):
     """
     if (self._last_reserved_cache is not None and
         self._last_reserved_cache >= counter):
-      raise gen.Return()
+      return
 
     yield self.allocate_max(counter)
 
@@ -294,7 +294,7 @@ class ScatteredAllocator(EntityIDAllocator):
     """
     # If there's no chance the ID could be allocated, do nothing.
     if self.start_id is not None and self.start_id >= counter:
-      raise gen.Return()
+      return
 
     # If the ID is in the allocated block, adjust the block.
     if self.end_id is not None and self.end_id > counter:
@@ -305,10 +305,10 @@ class ScatteredAllocator(EntityIDAllocator):
     if self.start_id is None:
       if (self._last_reserved_cache is not None and
           self._last_reserved_cache >= counter):
-        raise gen.Return()
+        return
 
       yield self.allocate_max(counter)
-      raise gen.Return()
+      return
 
     # If this server has allocated a block, but the relevant ID is greater than
     # the end ID, get a new block that starts at least as high as the ID.

@@ -427,7 +427,6 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_true.set_result(True)
     entity_lock = flexmock(EntityLock)
     entity_lock.should_receive('acquire').and_return(async_true)
-    entity_lock.should_receive('acquire')
     entity_lock.should_receive('release')
 
     yield dd.put_entities(app_id, entity_list)
