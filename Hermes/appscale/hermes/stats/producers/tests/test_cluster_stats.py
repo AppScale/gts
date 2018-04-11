@@ -121,7 +121,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     self.assertEqual(failures, {'192.168.33.11': '500 Timeout error'})
 
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
-  @patch.object(cluster_stats.ClusterNodesStatsSource, 'ips_getter')
+  @patch.object(cluster_stats.cluster_nodes_stats, 'ips_getter')
   @patch.object(node_stats.NodeStatsSource, 'get_current')
   @testing.gen_test
   def test_local_failure(self, mock_get_current, mock_ips_getter,
@@ -131,12 +131,10 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     mock_ips_getter.return_value = ['192.168.33.10']
     # Mock local source
     mock_get_current.side_effect = ValueError(u"Something strange \u2234")
-    # Initialize cluster stats source
-    cluster_stats_source = cluster_stats.ClusterNodesStatsSource()
 
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test
-    stats, failures = yield cluster_stats_source.get_current_async()
+    stats, failures = yield cluster_stats.cluster_nodes_stats.get_current()
 
     # ASSERTING EXPECTATIONS
     self.assertEqual(stats, {})
