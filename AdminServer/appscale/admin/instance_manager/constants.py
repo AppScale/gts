@@ -28,6 +28,10 @@ DASHBOARD_LOG_SIZE = 10 * 1024 * 1024
 # The default amount of memory in MB to allow an instance.
 DEFAULT_MAX_APPSERVER_MEMORY = 400
 
+# The Java class that runs AppServer instances.
+JAVA_APPSERVER_CLASS = ('com.google.appengine.tools.development.'
+                        'DevAppServerMain')
+
 # Default logrotate configuration directory.
 LOGROTATE_CONFIG_DIR = os.path.join('/', 'etc', 'logrotate.d')
 
@@ -51,6 +55,10 @@ MODIFIED_JARS = [
 
 # A prefix added to instance entries to distinguish them from services.
 MONIT_INSTANCE_PREFIX = 'app___'
+
+# The script used for starting Python AppServer instances.
+PYTHON_APPSERVER = os.path.join(APPSCALE_HOME, 'AppServer',
+                                'dev_appserver.py')
 
 # A mapping of instance classes to memory limits in MB.
 INSTANCE_CLASSES = {'F1': 128,

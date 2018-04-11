@@ -1,4 +1,6 @@
+import errno
 import logging
+import os
 import subprocess
 import time
 import urllib
@@ -7,10 +9,12 @@ from xml.etree import ElementTree
 
 from tornado import gen
 from tornado.httpclient import AsyncHTTPClient
+from tornado.httpclient import HTTPClient
 from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 
 from appscale.common.async_retrying import retry_coroutine
+from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from appscale.common.retrying import retry
 from . import constants
 from . import misc
@@ -189,11 +193,15 @@ class MonitOperator(object):
   # The number of seconds to wait between each reload operation.
   RELOAD_COOLDOWN = 1
 
+  # Monit's endpoint for fetching the status of each service.
+  STATUS_URL = '{}/_status?format=xml'.format(LOCATION)
+
   def __init__(self):
     """ Creates a new MonitOperator. There should only be one. """
     self.reload_future = None
-    self.client = AsyncHTTPClient()
     self.last_reload = time.time()
+    self._async_client = AsyncHTTPClient()
+    self._client = HTTPClient()
 
   @gen.coroutine
   def reload(self):
@@ -203,6 +211,11 @@ class MonitOperator(object):
 
     yield self.reload_future
 
+  @staticmethod
+  def reload_sync():
+    """ Reloads Monit. """
+    subprocess.check_call(['monit', 'reload'])
+
   @retry_coroutine(retrying_timeout=RETRYING_TIMEOUT)
   def get_entries(self):
     """ Retrieves the status for each Monit entry.
@@ -210,10 +223,19 @@ class MonitOperator(object):
     Returns:
       A dictionary mapping Monit entries to their state.
     """
-    status_url = '{}/_status?format=xml'.format(self.LOCATION)
-    response = yield self.client.fetch(status_url)
+    response = yield self._async_client.fetch(self.STATUS_URL)
     monit_entries = parse_entries(response.body)
     raise gen.Return(monit_entries)
+
+  def get_entries_sync(self):
+    """ Retrieves the status for each Monit entry.
+
+    Returns:
+      A dictionary mapping Monit entries to their state.
+    """
+    response = self._client.fetch(self.STATUS_URL)
+    monit_entries = parse_entries(response.body)
+    return monit_entries
 
   @retry_coroutine(
     retrying_timeout=RETRYING_TIMEOUT,
@@ -228,7 +250,7 @@ class MonitOperator(object):
     process_url = '{}/{}'.format(self.LOCATION, process_name)
     payload = urllib.urlencode({'action': command})
     try:
-      yield self.client.fetch(process_url, method='POST', body=payload)
+      yield self._async_client.fetch(process_url, method='POST', body=payload)
     except HTTPError as error:
       if error.code == 404:
         raise ProcessNotFound('{} is not monitored'.format(process_name))
@@ -284,12 +306,28 @@ class MonitOperator(object):
                                       IOLoop.current())
 
       if status == constants.MonitStates.RUNNING:
-        raise gen.Return()
+        return
 
       if status == constants.MonitStates.UNMONITORED:
         yield self.send_command(process_name, 'start')
 
       yield gen.sleep(1)
+
+  @staticmethod
+  def remove_configuration(entry):
+    """ Removes the configuration file for an entry.
+
+    Args:
+      entry: A string specifying a Monit entry.
+    """
+    monit_config_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, entry)
+    try:
+      os.remove(monit_config_file)
+    except OSError as error:
+      if error.errno != errno.ENOENT:
+        raise
+
+      logging.error('Error deleting {}'.format(monit_config_file))
 
   @retry_coroutine(
     retrying_timeout=RETRYING_TIMEOUT,

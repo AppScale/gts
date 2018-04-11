@@ -381,7 +381,7 @@ class ProjectHandler(BaseVersionHandler):
       if time.time() > deadline:
         logger.error('Delete operation took too long (project_id: {}).'
                      .format(project_id))
-        raise gen.Return()
+        return
       to_remove = []
       for http_port in ports:
         # If the port is open, continue to process other ports.
