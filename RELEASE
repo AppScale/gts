@@ -5,6 +5,13 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.5.1, released April 2018
+Highlights of features/bugs in this release:
+ - Upgrade to Cassandra 3.11.2
+
+Known Issues:
+
+
 AppScale version 3.5.0, released March 2018
 Highlights of features/bugs in this release:
 
