@@ -138,7 +138,7 @@ class DatastoreServer(Server):
   def start(self):
     """ Starts a new datastore server. """
     if self.state in (ServerStates.STARTING, ServerStates.RUNNING):
-      raise gen.Return()
+      return
 
     self.state = ServerStates.STARTING
     start_cmd = ['appscale-datastore',
@@ -163,7 +163,7 @@ class DatastoreServer(Server):
   def stop(self):
     """ Stops an existing datastore server. """
     if self.state in (ServerStates.STOPPING, ServerStates.STOPPED):
-      raise gen.Return()
+      return
 
     self.state = ServerStates.STOPPING
     try:
@@ -369,7 +369,7 @@ class ServiceManager(object):
         IOLoop.current().spawn_callback(server.stop)
         stopped += 1
 
-      raise gen.Return()
+      return
 
     for _ in range(to_start):
       port = yield self._get_open_port()
