@@ -1,3 +1,5 @@
+require 'pty'
+
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'fileutils'
 
@@ -18,7 +20,17 @@ module TerminateHelper
     `rm -f /etc/haproxy/sites-enabled/*.cfg`
     `service nginx reload`
 
-    `appscale-stop-services`
+    begin
+      PTY.spawn('appscale-stop-services') do |stdout, _, _|
+        begin
+          stdout.each { |line| print line }
+        rescue Errno::EIO
+          # The process has likely finished giving output.
+        end
+      end
+    rescue PTY::ChildExited
+      # The process has finished.
+    end
 
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`

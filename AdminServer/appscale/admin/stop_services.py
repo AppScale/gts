@@ -12,24 +12,27 @@ def main():
   hostname = socket.gethostname()
 
   print('Waiting for monit to stop services')
+  stopped_count = 0
   while True:
-    monit_entries = monit_operator.get_entries_sync()
-    all_stopped = True
-    for service in sorted(monit_entries.keys()):
-      state = monit_entries[service]
-      if 'cron' in service or service == hostname:
-        continue
+    entries = monit_operator.get_entries_sync()
+    services = {service: state for service, state in entries.items()
+                if 'cron' not in service and service != hostname}
+    running = {service: state for service, state in services.items()
+               if state not in (MonitStates.STOPPED, MonitStates.UNMONITORED)}
+    if not running:
+      print('Finished stopping services')
+      break
 
-      if state in (MonitStates.STOPPED, MonitStates.UNMONITORED):
-        continue
+    if len(services) - len(running) != stopped_count:
+      stopped_count = len(services) - len(running)
+      print('Stopped {}/{} services'.format(stopped_count, len(services)))
 
-      all_stopped = False
-      if state == MonitStates.PENDING:
-        continue
-
+    try:
+      service = next((service for service in sorted(running.keys())
+                      if services[service] != MonitStates.PENDING))
       subprocess.Popen(['monit', 'stop', service])
-      time.sleep(.3)
-      break
+    except StopIteration:
+      # If all running services are pending, just wait until they are not.
+      pass
 
-    if all_stopped:
-      break
+    time.sleep(.3)
