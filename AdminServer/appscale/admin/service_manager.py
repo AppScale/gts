@@ -117,8 +117,8 @@ class DatastoreServer(Server):
     """ Checks to make sure the server is still running. """
     yield self._wait_for_service(timeout=self.STATUS_TIMEOUT)
 
-  @classmethod
-  def from_pid(cls, pid, http_client):
+  @staticmethod
+  def from_pid(pid, http_client):
     """ Creates a new DatastoreServer from an existing process.
 
     Args:
@@ -129,7 +129,7 @@ class DatastoreServer(Server):
     args = process.cmdline()
     port = int(args[args.index('--port') + 1])
     verbose = '--verbose' in args
-    server = cls(port, http_client, verbose)
+    server = DatastoreServer(port, http_client, verbose)
     server.process = process
     server.state = ServerStates.RUNNING
     return server
