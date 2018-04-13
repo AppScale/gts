@@ -330,7 +330,6 @@ class ServiceManager(object):
 
       IOLoop.current().spawn_callback(server.ensure_running)
 
-  @gen.coroutine
   def _get_open_port(self):
     """ Selects an available port for a server to use.
 
@@ -345,7 +344,7 @@ class ServiceManager(object):
         port += 1
         continue
 
-      raise gen.Return(port)
+      return port
 
   @gen.coroutine
   def _schedule_service(self, service_type, options):
@@ -372,7 +371,7 @@ class ServiceManager(object):
       return
 
     for _ in range(to_start):
-      port = yield self._get_open_port()
+      port = self._get_open_port()
       server_class = self.SERVICE_MAP[service_type]['server']
       server = server_class(port, self._http_client, options['verbose'])
       self.state.append(server)
