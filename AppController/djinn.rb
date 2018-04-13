@@ -3289,19 +3289,13 @@ class Djinn
       }
     end
 
-    if !my_node.is_open?
-      threads << Thread.new {
-        start_app_manager_server
-      }
-    else
-      stop_app_manager_server
-    end
-
     if my_node.is_compute?
       threads << Thread.new {
+        start_app_manager_server
         start_blobstore_server
       }
     else
+      stop_app_manager_server
       stop_blobstore_server
     end
 
