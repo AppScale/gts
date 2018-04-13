@@ -50,7 +50,7 @@ class SourceManager(object):
     """ Ensures that SourceManager watches zookeeper nodes describing
     application archives and fetches it as soon as new archive
     is available.
-    
+
     Args:
       project_manager: an instance of GlobalProjectManager.
     """
@@ -65,9 +65,9 @@ class SourceManager(object):
 
   def _update_apps_watch(self, new_apps_list):
     """ Schedules fetch of new sources if there are any available.
-    
+
     Args:
-      new_apps_list: a list of revisions with archive 
+      new_apps_list: a list of revisions with archive
         available somewhere in deployment.
     """
     persistent_update_apps = retry_children_watch_coroutine(
@@ -78,18 +78,20 @@ class SourceManager(object):
 
   @gen.coroutine
   def _handle_apps_update(self, new_apps_list):
-    """ Fetches new available sources if there are any. 
-    
+    """ Fetches new available sources if there are any.
+
     Args:
-      new_apps_list: a list of revisions with archive 
+      new_apps_list: a list of revisions with archive
         available somewhere in deployment.
     """
     for revision_key in new_apps_list:
       if revision_key in self.fetched_revisions:
         continue
-      project_id, service_id, version_id, revision_id = (
-        revision_key.split(VERSION_PATH_SEPARATOR)
-      )
+      revision_key_parts = revision_key.split(VERSION_PATH_SEPARATOR)
+      project_id = revision_key_parts[0]
+      service_id = revision_key_parts[1]
+      version_id = revision_key_parts[2]
+
       service_manager = self.projects_manager[project_id][service_id]
       version_details = service_manager[version_id].version_details
       runtime = version_details['runtime']
