@@ -27,7 +27,7 @@ from ..utils import extract_source
 logger = logging.getLogger('appscale-admin')
 
 
-class AlredyHoster(Exception):
+class AlreadyHoster(Exception):
   pass
 
 
@@ -91,13 +91,16 @@ class SourceManager(object):
       project_id = revision_key_parts[0]
       service_id = revision_key_parts[1]
       version_id = revision_key_parts[2]
+      revision_id = revision_key_parts[3]
 
       service_manager = self.projects_manager[project_id][service_id]
       version_details = service_manager[version_id].version_details
       runtime = version_details['runtime']
       source_archive = version_details['deployment']['zip']['sourceUrl']
-      yield self.ensure_source(revision_key, source_archive, runtime)
-      self.fetched_revisions.add(revision_key)
+      last_revision_id = version_details['revision']
+      if revision_id == last_revision_id:
+        yield self.ensure_source(revision_key, source_archive, runtime)
+        self.fetched_revisions.add(revision_key)
 
   @gen.coroutine
   def fetch_archive(self, revision_key, source_location, try_existing=True):
@@ -117,7 +120,7 @@ class SourceManager(object):
     assert hosts_with_archive, '{} has no hosters'.format(revision_key)
 
     if try_existing and options.private_ip in hosts_with_archive:
-      raise AlredyHoster('{} is already a hoster of {}'
+      raise AlreadyHoster('{} is already a hoster of {}'
                          .format(options.private_ip, revision_key))
 
     host = random.choice(hosts_with_archive)
@@ -154,7 +157,7 @@ class SourceManager(object):
     except InvalidSource:
       md5 = yield self.fetch_archive(
         revision_key, location, try_existing=False)
-    except AlredyHoster as already_hoster_err:
+    except AlreadyHoster as already_hoster_err:
       logger.info(already_hoster_err)
       return
 
