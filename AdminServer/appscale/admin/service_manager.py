@@ -398,12 +398,6 @@ class ServiceManager(object):
     """
     persistent_update_services = retry_data_watch_coroutine(
       self._assignments_path, self._update_services)
-    try:
-      assignments = json.loads(encoded_assignments)
-    except (TypeError, ValueError):
-      if encoded_assignments:
-        raise
-
-      assignments = {}
+    assignments = json.loads(encoded_assignments) if encoded_assignments else {}
 
     IOLoop.instance().add_callback(persistent_update_services, assignments)
