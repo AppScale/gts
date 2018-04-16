@@ -12,14 +12,25 @@ from appscale.admin.service_manager import (
 
 FakeHTTPResponse = namedtuple('Response', ['code'])
 
-# Skip sleep calls.
-sleep_response = Future()
-sleep_response.set_result(None)
-gen.sleep = MagicMock(return_value=sleep_response)
-
 
 class FakeProcess(object):
   pass
+
+
+# Skip sleep calls.
+patchers = []
+def setUpModule():
+  patcher = patch.object(gen, 'sleep')
+  patchers.append(patcher)
+  sleep_response = Future()
+  sleep_response.set_result(None)
+  sleep_mock = patcher.start()
+  sleep_mock.return_value = sleep_response
+
+
+def tearDownModule():
+  for patcher in patchers:
+    patcher.stop()
 
 
 class TestDatastoreServer(AsyncTestCase):
