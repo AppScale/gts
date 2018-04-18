@@ -577,11 +577,6 @@ class AppDeletePage(AppDashboard):
     if self.dstore.is_user_cloud_admin() or \
             appname in self.dstore.get_owned_apps():
       message = self.helper.delete_app(appname)
-      try:
-        taskqueue.add(url='/status/refresh')
-        taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAIT_TIME)
-      except Exception as err:
-        logging.exception(err)
     else:
       message = "You do not have permission to delete the application: " \
                 "{0}".format(appname)
