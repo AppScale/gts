@@ -586,9 +586,18 @@ class AppDeletePage(AppDashboard):
       message = "You do not have permission to delete the application: " \
                 "{0}".format(appname)
 
+    # Get the list of project ids the user has access to.
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    all_versions = self.helper.get_version_info()
+    if is_cloud_admin:
+      apps_user_owns = list({version.split('_')[0]
+                             for version in all_versions})
+    else:
+      apps_user_owns = self.helper.get_owned_apps()
     self.render_app_page(page='apps', values={
       'flash_message': message,
       'page_content': self.TEMPLATE,
+      'apps_user_owns': apps_user_owns,
     })
 
   def get(self):
