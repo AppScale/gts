@@ -96,20 +96,23 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
       request: A ChannelServiceRequest.
       response: A ChannelServiceResponse
     """
-    application_key = request.application_key()
-    if not application_key:
+
+    client_id = request.application_key()
+    if not client_id:
       raise apiproxy_errors.ApplicationError(
           channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY)
 
-    client_id = 'channel-%s-%s' % (random.randint(0, 2 ** 32),
-                                   application_key)
-    self._log('Creating channel id %s with application key %s',
-              client_id, request.application_key())
+    token = 'channel-%s-%s' % (random.randint(0, 2 ** 32),
+                               client_id)
+    self._log('Creating channel token %s with client id %s',
+              token, request.application_key())
 
-    if application_key not in self._channel_messages:
-      self._channel_messages[application_key] = []
+    if client_id not in self._channel_messages:
+      self._channel_messages[client_id] = []
 
-    response.set_client_id(client_id)
+
+    response.set_client_id(token)
+
 
   def _Dynamic_SendChannelMessage(self, request, response):
     """Implementation of channel.send_message.
