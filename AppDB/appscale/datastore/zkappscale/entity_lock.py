@@ -61,6 +61,9 @@ class EntityLock(object):
   acquired will block.
   """
   _NODE_NAME = '__lock__'
+
+  # Tornado lock which allows tornado to switch to different coroutine
+  # if current one is waiting for entity group lock
   _tornado_lock = TornadoLock()
 
   def __init__(self, client, keys, txid=None):
@@ -360,6 +363,15 @@ class EntityLock(object):
     finally:
       if not self.is_acquired:
         EntityLock._tornado_lock.release()
+
+  def ensure_release_tornado_lock(self):
+    """ Ensures that tornado lock (which is global for datastore server)
+    is released.
+    It MUST BE CALLED any time when lock is acquired
+    even if entity group lock in zookeeper left acquired after failure.
+    """
+    if self.is_acquired:
+      EntityLock._tornado_lock.release()
 
   def _inner_release(self):
     """ Release the lock by removing created nodes. """

@@ -569,35 +569,43 @@ class DatastoreDistributed():
       except entity_lock.LockTimeout:
         raise Timeout('Unable to acquire entity group lock')
 
-      entity_keys = [
-        get_entity_key(self.get_table_prefix(entity), entity.key().path())
-        for entity in entity_list]
-      current_values = yield self.datastore_batch.batch_get_entity(
-        dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
+      try:
+        entity_keys = [
+          get_entity_key(self.get_table_prefix(entity), entity.key().path())
+          for entity in entity_list]
+        current_values = yield self.datastore_batch.batch_get_entity(
+          dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
 
-      batch = []
-      entity_changes = []
-      for entity in entity_list:
-        prefix = self.get_table_prefix(entity)
-        entity_key = get_entity_key(prefix, entity.key().path())
+        batch = []
+        entity_changes = []
+        for entity in entity_list:
+          prefix = self.get_table_prefix(entity)
+          entity_key = get_entity_key(prefix, entity.key().path())
 
-        current_value = None
-        if current_values[entity_key]:
-          current_value = entity_pb.EntityProto(
-            current_values[entity_key][APP_ENTITY_SCHEMA[0]])
+          current_value = None
+          if current_values[entity_key]:
+            current_value = entity_pb.EntityProto(
+              current_values[entity_key][APP_ENTITY_SCHEMA[0]])
 
-        batch.extend(mutations_for_entity(entity, txid, current_value,
-                                          composite_indexes))
+          batch.extend(mutations_for_entity(entity, txid, current_value,
+                                            composite_indexes))
 
-        batch.append({'table': 'group_updates',
-                      'key': bytearray(encoded_group_key),
-                      'last_update': txid})
+          batch.append({'table': 'group_updates',
+                        'key': bytearray(encoded_group_key),
+                        'last_update': txid})
 
-        entity_changes.append(
-          {'key': entity.key(), 'old': current_value, 'new': entity})
-      yield self.datastore_batch.batch_mutate(app, batch, entity_changes, txid)
+          entity_changes.append(
+            {'key': entity.key(), 'old': current_value, 'new': entity})
+        yield self.datastore_batch.batch_mutate(
+          app, batch, entity_changes, txid)
+        lock.release()
 
-      lock.release()
+      finally:
+        # In case of failure entity group lock should stay acquired
+        # as transaction groomer will handle it later.
+        # But tornado lock must be released.
+        lock.ensure_release_tornado_lock()
+
       self.transaction_manager.delete_transaction_id(app, txid)
 
   @gen.coroutine
@@ -920,16 +928,21 @@ class DatastoreDistributed():
         except entity_lock.LockTimeout:
           raise Timeout('Unable to acquire entity group lock')
 
-        yield self.delete_entities(
-          group_key,
-          txid,
-          key_list,
-          composite_indexes=filtered_indexes
-        )
+        try:
+          yield self.delete_entities(
+            group_key,
+            txid,
+            key_list,
+            composite_indexes=filtered_indexes
+          )
+          lock.release()
+        finally:
+          # In case of failure entity group lock should stay acquired
+          # as transaction groomer will handle it later.
+          # But tornado lock must be released.
+          lock.ensure_release_tornado_lock()
 
-        lock.release()
         self.logger.debug('Removed {} entities'.format(len(key_list)))
-
         self.transaction_manager.delete_transaction_id(app_id, txid)
 
   def generate_filter_info(self, filters):
@@ -3237,61 +3250,68 @@ class DatastoreDistributed():
     except entity_lock.LockTimeout:
       raise Timeout('Unable to acquire entity group locks')
 
-    group_txids = yield self.datastore_batch.group_updates(metadata['reads'])
-    for group_txid in group_txids:
-      if group_txid in metadata['in_progress'] or group_txid > txn:
-        lock.release()
-        self.transaction_manager.delete_transaction_id(app, txn)
-        raise dbconstants.ConcurrentModificationException(
-          'A group was modified after this transaction was started.')
+    try:
+      group_txids = yield self.datastore_batch.group_updates(metadata['reads'])
+      for group_txid in group_txids:
+        if group_txid in metadata['in_progress'] or group_txid > txn:
+          lock.release()
+          self.transaction_manager.delete_transaction_id(app, txn)
+          raise dbconstants.ConcurrentModificationException(
+            'A group was modified after this transaction was started.')
 
-    # Fetch current values so we can remove old indices.
-    entity_table_keys = [encode_entity_table_key(key)
-                         for key, _ in metadata['puts'].iteritems()]
-    entity_table_keys.extend([encode_entity_table_key(key)
-                              for key in metadata['deletes']])
-    current_values = yield self.datastore_batch.batch_get_entity(
-      dbconstants.APP_ENTITY_TABLE, entity_table_keys, APP_ENTITY_SCHEMA)
+      # Fetch current values so we can remove old indices.
+      entity_table_keys = [encode_entity_table_key(key)
+                           for key, _ in metadata['puts'].iteritems()]
+      entity_table_keys.extend([encode_entity_table_key(key)
+                                for key in metadata['deletes']])
+      current_values = yield self.datastore_batch.batch_get_entity(
+        dbconstants.APP_ENTITY_TABLE, entity_table_keys, APP_ENTITY_SCHEMA)
 
-    batch = []
-    entity_changes = []
-    for encoded_key, encoded_entity in metadata['puts'].iteritems():
-      key = entity_pb.Reference(encoded_key)
-      entity_table_key = encode_entity_table_key(key)
-      current_value = None
-      if current_values[entity_table_key]:
+      batch = []
+      entity_changes = []
+      for encoded_key, encoded_entity in metadata['puts'].iteritems():
+        key = entity_pb.Reference(encoded_key)
+        entity_table_key = encode_entity_table_key(key)
+        current_value = None
+        if current_values[entity_table_key]:
+          current_value = entity_pb.EntityProto(
+            current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
+
+        entity = entity_pb.EntityProto(encoded_entity)
+        mutations = mutations_for_entity(entity, txn, current_value,
+                                         composite_indices)
+        batch.extend(mutations)
+
+        entity_changes.append({'key': key, 'old': current_value,
+                               'new': entity})
+
+      for key in metadata['deletes']:
+        entity_table_key = encode_entity_table_key(key)
+        if not current_values[entity_table_key]:
+          continue
+
         current_value = entity_pb.EntityProto(
           current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
 
-      entity = entity_pb.EntityProto(encoded_entity)
-      mutations = mutations_for_entity(entity, txn, current_value,
-                                       composite_indices)
-      batch.extend(mutations)
+        deletions = deletions_for_entity(current_value, composite_indices)
+        batch.extend(deletions)
 
-      entity_changes.append({'key': key, 'old': current_value,
-                             'new': entity})
+        entity_changes.append({'key': key, 'old': current_value, 'new': None})
 
-    for key in metadata['deletes']:
-      entity_table_key = encode_entity_table_key(key)
-      if not current_values[entity_table_key]:
-        continue
+      for group in groups_mutated:
+        batch.append(
+          {'table': 'group_updates', 'key': bytearray(group),
+           'last_update': txn})
 
-      current_value = entity_pb.EntityProto(
-        current_values[entity_table_key][APP_ENTITY_SCHEMA[0]])
+      yield self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
+      lock.release()
 
-      deletions = deletions_for_entity(current_value, composite_indices)
-      batch.extend(deletions)
+    finally:
+      # In case of failure entity group lock should stay acquired
+      # as transaction groomer will handle it later.
+      # But tornado lock must be released.
+      lock.ensure_release_tornado_lock()
 
-      entity_changes.append({'key': key, 'old': current_value, 'new': None})
-
-    for group in groups_mutated:
-      batch.append(
-        {'table': 'group_updates', 'key': bytearray(group),
-         'last_update': txn})
-
-    yield self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
-
-    lock.release()
     self.transaction_manager.delete_transaction_id(app, txn)
 
     # Process transactional tasks.
