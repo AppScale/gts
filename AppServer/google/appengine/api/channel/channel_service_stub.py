@@ -107,9 +107,6 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     self._log('Creating channel token %s with client id %s',
               token, request.application_key())
 
-    if client_id not in self._channel_messages:
-      self._channel_messages[client_id] = []
-
 
     response.set_client_id(token)
 
