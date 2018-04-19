@@ -54,6 +54,12 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
 
   XMPP_PUBLIC_IP = '0.1.0.10'
 
+
+  CHANNEL_TOKEN_DEFAULT_DURATION = 120
+
+
+  CHANNEL_TOKEN_IDENTIFIER = 'channel'
+
   XMPP_PUBLIC_PORT = 80
 
   def __init__(self, log=logging.debug, service_name='channel',
@@ -102,13 +108,23 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
       raise apiproxy_errors.ApplicationError(
           channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY)
 
-    token = 'channel-%s-%s' % (random.randint(0, 2 ** 32),
-                               client_id)
-    self._log('Creating channel token %s with client id %s',
-              token, request.application_key())
+    if request.has_duration_minutes():
+      duration = request.duration_minutes()
+    else:
+      duration = ChannelServiceStub.CHANNEL_TOKEN_DEFAULT_DURATION
 
 
-    response.set_client_id(token)
+    expiration_sec = long(self._time_func() + duration * 60) + 1
+
+    token = '-'.join([ChannelServiceStub.CHANNEL_TOKEN_IDENTIFIER,
+                      str(random.randint(0, 2 ** 32)),
+                      str(expiration_sec),
+                      client_id])
+
+    self._log('Creating channel token %s with client id %s and duration %s',
+              token, request.application_key(), duration)
+
+    response.set_token(token)
 
 
   def _Dynamic_SendChannelMessage(self, request, response):
@@ -149,11 +165,30 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
        or None if this token is incorrectly formed and doesn't map to a
        client id.
     """
-    pieces = token.split('-', 2)
-    if len(pieces) == 3:
-      return pieces[2]
+    pieces = token.split('-', 3)
+    if len(pieces) == 4:
+      return pieces[3]
     else:
       return None
+
+  def is_valid_token(self, token):
+    """Checks if a token is valid and not expired.
+
+    Args:
+      token: a token returned by CreateChannel.
+
+    Returns:
+      True if the token is well-formed and not expired. False otherwise.
+    """
+    pieces = token.split('-', 3)
+    if len(pieces) != 4:
+      return False
+
+    (constant_identifier, token_id, expiration_sec, clientid) = pieces
+
+    return (constant_identifier == ChannelServiceStub.CHANNEL_TOKEN_IDENTIFIER
+            and all(c.isdigit() for c in expiration_sec)
+            and long(expiration_sec) > self._time_func())
 
   def get_channel_messages(self, token):
     """Returns the pending messages for a given channel.
