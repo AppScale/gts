@@ -126,13 +126,17 @@ def _ValidateClientId(client_id):
     InvalidChannelClientIdError: if client id is not an instance of str or
         unicode, or if the (utf-8 encoded) string is longer than 64 characters.
   """
+  if not isinstance(client_id, basestring):
+    raise InvalidChannelClientIdError('"%s" is not a string.' % client_id)
+
   if isinstance(client_id, unicode):
     client_id = client_id.encode('utf-8')
-  elif not isinstance(client_id, str):
-    raise InvalidChannelClientIdError
+
 
   if len(client_id) > MAXIMUM_CLIENT_ID_LENGTH:
-    raise InvalidChannelClientIdError
+    msg = 'Client id length %d is greater than max length %d' % (
+         len(client_id), MAXIMUM_CLIENT_ID_LENGTH)
+    raise InvalidChannelClientIdError(msg)
 
   return client_id
 
@@ -160,11 +164,18 @@ def create_channel(client_id, duration_minutes=None):
 
   client_id = _ValidateClientId(client_id)
 
-  if (not duration_minutes is None and
-      (not isinstance(duration_minutes, (int, long)) or
-       duration_minutes < 1 or
-       duration_minutes > MAXIMUM_TOKEN_DURATION_MINUTES)):
-    raise InvalidChannelTokenDurationError
+  if not duration_minutes is None:
+    if not isinstance(duration_minutes, (int, long)):
+      raise InvalidChannelTokenDurationError(
+         'Argument duration_minutes must be integral')
+    elif duration_minutes < 1:
+      raise InvalidChannelTokenDurationError(
+         'Argument duration_minutes must not be less than 1')
+    elif duration_minutes > MAXIMUM_TOKEN_DURATION_MINUTES:
+      msg = ('Argument duration_minutes must be less than %d'
+             % (MAXIMUM_TOKEN_DURATION_MINUTES + 1))
+      raise InvalidChannelTokenDurationError(msg)
+
 
   request = channel_service_pb.CreateChannelRequest()
   response = channel_service_pb.CreateChannelResponse()
@@ -208,7 +219,7 @@ def send_message(client_id, message):
 
   if len(message) > MAXIMUM_MESSAGE_LENGTH:
     raise InvalidMessageError(
-      'Message must be no longer than %d chars' % MAXIMUM_MESSAGE_LENGTH)
+        'Message must be no longer than %d chars' % MAXIMUM_MESSAGE_LENGTH)
 
   request = channel_service_pb.SendMessageRequest()
   response = api_base_pb.VoidProto()
