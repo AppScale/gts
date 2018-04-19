@@ -106,7 +106,11 @@ def _ToChannelError(error):
 
 def _GetService():
   """Gets the service name to use, based on if we're on the dev server."""
-  if os.environ.get('SERVER_SOFTWARE', '').startswith('Devel'):
+  server_software = os.environ.get('SERVER_SOFTWARE', '')
+  if (server_software.startswith('Devel') or
+      server_software.startswith('test')):
+
+
     return 'channel'
   else:
     return 'xmpp'
