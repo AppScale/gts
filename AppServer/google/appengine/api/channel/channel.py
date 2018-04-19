@@ -75,6 +75,10 @@ class InvalidMessageError(Error):
   """Error that indicates a message is malformed."""
 
 
+class AppIdAliasRequired(Error):
+  """Error that indicates you must assign an application alias to your app."""
+
+
 def _ToChannelError(error):
   """Translate an application error to a channel Error, if possible.
 
@@ -87,9 +91,11 @@ def _ToChannelError(error):
   """
   error_map = {
       channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY:
-      InvalidChannelClientIdError,
+        InvalidChannelClientIdError,
       channel_service_pb.ChannelServiceError.BAD_MESSAGE:
-      InvalidMessageError,
+        InvalidMessageError,
+      channel_service_pb.ChannelServiceError.APPID_ALIAS_REQUIRED:
+        AppIdAliasRequired
       }
 
   if error.application_error in error_map:
