@@ -73,8 +73,6 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
 
   CHANNEL_TOKEN_IDENTIFIER = 'channel'
 
-  XMPP_PUBLIC_PORT = 80
-
   def __init__(self, log=logging.debug, service_name='channel',
                time_func=time.time, request_data=None):
     """Initializer.
@@ -274,8 +272,7 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
         'POST', '/_ah/channel/connected/',
         [('Content-Type', 'application/x-www-form-urlencoded')],
         'from=%s' % client_id,
-        ChannelServiceStub.XMPP_PUBLIC_IP,
-        ChannelServiceStub.XMPP_PUBLIC_PORT)
+        ChannelServiceStub.XMPP_PUBLIC_IP)
 
   @apiproxy_stub.Synchronized
   def disconnect_channel_event(self, client_id):
@@ -287,8 +284,7 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
         'POST', '/_ah/channel/disconnected/',
         [('Content-Type', 'application/x-www-form-urlencoded')],
         'from=%s' % client_id,
-        ChannelServiceStub.XMPP_PUBLIC_IP,
-        ChannelServiceStub.XMPP_PUBLIC_PORT)
+        ChannelServiceStub.XMPP_PUBLIC_IP)
 
   def add_disconnect_event(self, client_id):
     """Add an event to notify the app if a client has disconnected.
