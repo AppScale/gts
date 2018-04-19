@@ -29,12 +29,25 @@
 
 import logging
 import random
-import StringIO
 import time
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.channel import channel_service_pb
 from google.appengine.runtime import apiproxy_errors
+
+
+class Error(Exception):
+  pass
+
+
+class InvalidTokenError(Error):
+  """A stub method was called with a syntactically invalid token."""
+  pass
+
+
+class TokenTimedOutError(Error):
+  """A stub method was called with a token that has expired or never existed."""
+  pass
 
 
 class ChannelServiceStub(apiproxy_stub.APIProxyStub):
@@ -81,21 +94,6 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
 
 
     self._connected_channel_messages = {}
-
-
-
-
-
-
-
-
-
-
-    self._add_event = None
-
-
-
-    self._update_event = None
 
 
   def _Dynamic_CreateChannel(self, request, response):
@@ -161,11 +159,11 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     """Returns the client id from a given token.
 
     Args:
-       token: String representing an instance of a client connection to a
+       token: A string representing an instance of a client connection to a
        client id, returned by CreateChannel.
 
     Returns:
-       String representing the client id used to create this token,
+       A string representing the client id used to create this token,
        or None if this token is incorrectly formed and doesn't map to a
        client id.
     """
@@ -203,7 +201,7 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     """Returns the pending messages for a given channel.
 
     Args:
-      token: String representing the channel. Note that this is the token
+      token: A string representing the channel. Note that this is the token
         returned by CreateChannel, not the client id.
 
     Returns:
@@ -222,7 +220,7 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     """Checks to see if the given channel has any pending messages.
 
     Args:
-      token: String representing the channel. Note that this is the token
+      token: A string representing the channel. Note that this is the token
         returned by CreateChannel, not the client id.
 
     Returns:
@@ -240,11 +238,11 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     """Returns and clears the first message from the message queue.
 
     Args:
-      token: String representing the channel. Note that this is the token
+      token: A string representing the channel. Note that this is the token
         returned by CreateChannel, not the client id.
 
     Returns:
-      The first message in the queue, or None if no messages.
+      The first message in the queue (a string), or None if no messages.
     """
     if self.has_channel_messages(token):
       client_id = self.client_id_from_token(token)
@@ -258,7 +256,7 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     """Clears all messages from the channel.
 
     Args:
-      token: String representing the channel. Note that this is the token
+      token: A string representing the channel. Note that this is the token
         returned by CreateChannel, not the client id.
     """
     client_id = self.client_id_from_token(token)
@@ -270,66 +268,14 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
       self._log('Ignoring clear messages for nonexistent token (' +
                 token + ')')
 
-  class ChannelPresenceSocket(object):
-    """A socket object to update channel client presence."""
-
-    def __init__(self, path, client_id):
-      payload = StringIO.StringIO()
-      body = 'from=%s' % client_id
-      payload.write('%s %s HTTP/1.1\r\n' % ('POST', '/_ah/channel/' + path))
-      payload.write('Content-Length: %d\r\n' % len(body))
-      payload.write('Content-Type: application/x-www-form-urlencoded\r\n')
-      payload.write('\r\n')
-      payload.write(body)
-      self.rfile = StringIO.StringIO(payload.getvalue())
-      self.wfile = StringIO.StringIO()
-      self.wfile_close = self.wfile.close
-      self.wfile.close = self.connection_done
-
-    def connection_done(self):
-      self.wfile_close()
-
-    def makefile(self, mode, buffsize):
-      if mode.startswith('w'):
-        return self.wfile
-      else:
-        return self.rfile
-
-    def close(self):
-      pass
-
-    def shutdown(self, how):
-      pass
-
-  def connect_channel_event(self, client_id):
-    """Tell the application that the client has connected."""
-    return (self.ChannelPresenceSocket('connected/', client_id),
-            (ChannelServiceStub.XMPP_PUBLIC_IP,
-             ChannelServiceStub.XMPP_PUBLIC_PORT))
-
   def add_connect_event(self, client_id):
-    """Add an event to make a POST to the /_ah/channel/connect path.
-
-    Args:
-      client_id:  A client ID used for a particular channel.
-
-    In production, the BuzzBot will make an HttpOverRpc call to the above path
-    when it receives a presence stanza. We simulate the same thing here by using
-    the dev_appserver's eventing architecture to make a request. Note that this
-    request will be blocked in the dev_appserver if the app.yaml file doesn't
-    contain a channel_presence entry in inbound_services (in production, this is
-    blocked by the reserved_path_prefix_map flag used in
-    ReservedUrls::ShouldBlock, called by AppServerImpl::HandleHttpRequest).
-
-    """
-
-
-    def DefineSendConnectPresenceCallback(client_id):
-      return lambda: self.connect_channel_event(client_id)
-
-
-    self._add_event(0, DefineSendConnectPresenceCallback(client_id),
-                    'channel-connect', client_id)
+    """Tell the application that the client has connected."""
+    self.request_data.get_dispatcher().add_async_request(
+        'POST', '/_ah/channel/connected/',
+        [('Content-Type', 'application/x-www-form-urlencoded')],
+        'from=%s' % client_id,
+        ChannelServiceStub.XMPP_PUBLIC_IP,
+        ChannelServiceStub.XMPP_PUBLIC_PORT)
 
   @apiproxy_stub.Synchronized
   def disconnect_channel_event(self, client_id):
@@ -337,17 +283,18 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     self._log('Removing channel %s', client_id)
     if client_id in self._connected_channel_messages:
       del self._connected_channel_messages[client_id]
-    return (self.ChannelPresenceSocket('disconnected/', client_id),
-            (ChannelServiceStub.XMPP_PUBLIC_IP,
-             ChannelServiceStub.XMPP_PUBLIC_PORT))
+    self.request_data.get_dispatcher().add_async_request(
+        'POST', '/_ah/channel/disconnected/',
+        [('Content-Type', 'application/x-www-form-urlencoded')],
+        'from=%s' % client_id,
+        ChannelServiceStub.XMPP_PUBLIC_IP,
+        ChannelServiceStub.XMPP_PUBLIC_PORT)
 
   def add_disconnect_event(self, client_id):
     """Add an event to notify the app if a client has disconnected.
 
     Args:
       client_id:  A client ID used for a particular channel.
-
-    See the comments in add_connect_event above.
     """
     timeout = self._time_func() + ChannelServiceStub.CHANNEL_TIMEOUT_SECONDS
 
@@ -356,23 +303,70 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
       return lambda: self.disconnect_channel_event(client_id)
 
 
-    self._add_event(timeout, DefineDisconnectCallback(client_id),
-                    'channel-disconnect', client_id)
+    self.request_data.get_dispatcher().add_event(
+        DefineDisconnectCallback(client_id), timeout, 'channel-disconnect',
+        client_id)
 
   @apiproxy_stub.Synchronized
   def connect_channel(self, token):
-    """Marks the channel identified by the token (token) as connected."""
+    """Marks the channel identified by the token (token) as connected.
+
+    If the channel has not yet been connected, this triggers a connection event
+    to let the application know that the channel has been connected to.
+
+    If the channel has already been connected, this refreshes the channel's
+    timeout so that it will not disconnect. This should be done at regular
+    intervals to avoid automatic disconnection.
+
+    Args:
+      token: A string representing the channel. Note that this is the token
+        returned by CreateChannel, not the client id.
+
+    Raises:
+      InvalidTokenError: The token is syntactically invalid.
+      TokenTimedOutError: The token expired or does not exist.
+    """
+    syntax_valid, time_valid = self.check_token_validity(token)
+    if not syntax_valid:
+      raise InvalidTokenError()
+    elif not time_valid:
+      raise TokenTimedOutError()
+
     client_id = self.client_id_from_token(token)
 
-    if client_id in self._connected_channel_messages:
-      if self._update_event:
-        timeout = self._time_func() + ChannelServiceStub.CHANNEL_TIMEOUT_SECONDS
 
-        self._update_event('channel-disconnect', client_id, timeout)
+
+    if client_id in self._connected_channel_messages:
+      timeout = self._time_func() + ChannelServiceStub.CHANNEL_TIMEOUT_SECONDS
+
+      self.request_data.get_dispatcher().update_event(
+          timeout, 'channel-disconnect', client_id)
       return
 
-    self._connected_channel_messages[client_id] = []
-    if self._add_event:
 
-      self.add_connect_event(client_id)
-      self.add_disconnect_event(client_id)
+
+    self._connected_channel_messages[client_id] = []
+    self.add_connect_event(client_id)
+    self.add_disconnect_event(client_id)
+
+  @apiproxy_stub.Synchronized
+  def connect_and_pop_first_message(self, token):
+    """Atomically performs a connect_channel and a pop_first_message.
+
+    This is designed to be called after the channel has already been connected,
+    so that it refreshes the channel's timeout, and retrieves a message, in a
+    single atomic operation.
+
+    Args:
+      token: A string representing the channel. Note that this is the token
+        returned by CreateChannel, not the client id.
+
+    Returns:
+      The first message in the queue (a string), or None if no messages.
+
+    Raises:
+      InvalidTokenError: The token is syntactically invalid.
+      TokenTimedOutError: The token expired or does not exist.
+    """
+    self.connect_channel(token)
+    return self.pop_first_message(token)
