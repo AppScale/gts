@@ -277,6 +277,7 @@ class LogsBuffer(object):
     """Internal version of flush() with no locking."""
     logs = self.parse_logs()
     self._clear()
+
     first_iteration = True
     while logs or first_iteration:
       first_iteration = False
@@ -767,6 +768,18 @@ class RequestLog(object):
                              message=line.log_message())
                       for line in self.__pb.line_list()]
     return self.__lines
+
+  @property
+  def app_engine_release(self):
+    """App Engine Infrastructure release that served this request.
+
+    Returns:
+       A string containing App Engine version that served this request, or None
+       if not available.
+    """
+    if self.__pb.has_app_engine_release():
+      return self.__pb.app_engine_release()
+    return None
 
 
 class AppLog(object):
