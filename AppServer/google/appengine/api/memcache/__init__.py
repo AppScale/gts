@@ -266,7 +266,7 @@ def _decode_value(stored_value, flags, do_unpickle):
   if type_number == TYPE_STR:
     return value
   elif type_number == TYPE_UNICODE:
-    return value.decode('utf-8')
+    return unicode(value, 'utf-8')
   elif type_number == TYPE_PICKLED:
     return do_unpickle(value)
   elif type_number == TYPE_BOOL:
