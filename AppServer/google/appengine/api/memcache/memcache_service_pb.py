@@ -39,6 +39,7 @@ class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
   NAMESPACE_NOT_SET =    2
   PERMISSION_DENIED =    3
   NUM_BACKENDS_UNSPECIFIED =    4
+  MEMCACHE_POOL_HINT_UNSPECIFIED =    5
 
   _ErrorCode_NAMES = {
     0: "OK",
@@ -46,6 +47,7 @@ class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
     2: "NAMESPACE_NOT_SET",
     3: "PERMISSION_DENIED",
     4: "NUM_BACKENDS_UNSPECIFIED",
+    5: "MEMCACHE_POOL_HINT_UNSPECIFIED",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
@@ -120,6 +122,10 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
   app_id_ = ""
   has_num_memcacheg_backends_ = 0
   num_memcacheg_backends_ = 0
+  has_ignore_shardlock_ = 0
+  ignore_shardlock_ = 0
+  has_memcache_pool_hint_ = 0
+  memcache_pool_hint_ = ""
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -150,11 +156,39 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
 
   def has_num_memcacheg_backends(self): return self.has_num_memcacheg_backends_
 
+  def ignore_shardlock(self): return self.ignore_shardlock_
+
+  def set_ignore_shardlock(self, x):
+    self.has_ignore_shardlock_ = 1
+    self.ignore_shardlock_ = x
+
+  def clear_ignore_shardlock(self):
+    if self.has_ignore_shardlock_:
+      self.has_ignore_shardlock_ = 0
+      self.ignore_shardlock_ = 0
+
+  def has_ignore_shardlock(self): return self.has_ignore_shardlock_
+
+  def memcache_pool_hint(self): return self.memcache_pool_hint_
+
+  def set_memcache_pool_hint(self, x):
+    self.has_memcache_pool_hint_ = 1
+    self.memcache_pool_hint_ = x
+
+  def clear_memcache_pool_hint(self):
+    if self.has_memcache_pool_hint_:
+      self.has_memcache_pool_hint_ = 0
+      self.memcache_pool_hint_ = ""
+
+  def has_memcache_pool_hint(self): return self.has_memcache_pool_hint_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_app_id()): self.set_app_id(x.app_id())
     if (x.has_num_memcacheg_backends()): self.set_num_memcacheg_backends(x.num_memcacheg_backends())
+    if (x.has_ignore_shardlock()): self.set_ignore_shardlock(x.ignore_shardlock())
+    if (x.has_memcache_pool_hint()): self.set_memcache_pool_hint(x.memcache_pool_hint())
 
   def Equals(self, x):
     if x is self: return 1
@@ -162,6 +196,10 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
     if self.has_app_id_ and self.app_id_ != x.app_id_: return 0
     if self.has_num_memcacheg_backends_ != x.has_num_memcacheg_backends_: return 0
     if self.has_num_memcacheg_backends_ and self.num_memcacheg_backends_ != x.num_memcacheg_backends_: return 0
+    if self.has_ignore_shardlock_ != x.has_ignore_shardlock_: return 0
+    if self.has_ignore_shardlock_ and self.ignore_shardlock_ != x.ignore_shardlock_: return 0
+    if self.has_memcache_pool_hint_ != x.has_memcache_pool_hint_: return 0
+    if self.has_memcache_pool_hint_ and self.memcache_pool_hint_ != x.memcache_pool_hint_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -180,6 +218,8 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
     n = 0
     n += self.lengthString(len(self.app_id_))
     n += self.lengthVarInt64(self.num_memcacheg_backends_)
+    if (self.has_ignore_shardlock_): n += 2
+    if (self.has_memcache_pool_hint_): n += 1 + self.lengthString(len(self.memcache_pool_hint_))
     return n + 2
 
   def ByteSizePartial(self):
@@ -190,17 +230,27 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
     if (self.has_num_memcacheg_backends_):
       n += 1
       n += self.lengthVarInt64(self.num_memcacheg_backends_)
+    if (self.has_ignore_shardlock_): n += 2
+    if (self.has_memcache_pool_hint_): n += 1 + self.lengthString(len(self.memcache_pool_hint_))
     return n
 
   def Clear(self):
     self.clear_app_id()
     self.clear_num_memcacheg_backends()
+    self.clear_ignore_shardlock()
+    self.clear_memcache_pool_hint()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.app_id_)
     out.putVarInt32(16)
     out.putVarInt32(self.num_memcacheg_backends_)
+    if (self.has_ignore_shardlock_):
+      out.putVarInt32(24)
+      out.putBoolean(self.ignore_shardlock_)
+    if (self.has_memcache_pool_hint_):
+      out.putVarInt32(34)
+      out.putPrefixedString(self.memcache_pool_hint_)
 
   def OutputPartial(self, out):
     if (self.has_app_id_):
@@ -209,6 +259,12 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
     if (self.has_num_memcacheg_backends_):
       out.putVarInt32(16)
       out.putVarInt32(self.num_memcacheg_backends_)
+    if (self.has_ignore_shardlock_):
+      out.putVarInt32(24)
+      out.putBoolean(self.ignore_shardlock_)
+    if (self.has_memcache_pool_hint_):
+      out.putVarInt32(34)
+      out.putPrefixedString(self.memcache_pool_hint_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -218,6 +274,12 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 16:
         self.set_num_memcacheg_backends(d.getVarInt32())
+        continue
+      if tt == 24:
+        self.set_ignore_shardlock(d.getBoolean())
+        continue
+      if tt == 34:
+        self.set_memcache_pool_hint(d.getPrefixedString())
         continue
 
 
@@ -229,6 +291,8 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
     res=""
     if self.has_app_id_: res+=prefix+("app_id: %s\n" % self.DebugFormatString(self.app_id_))
     if self.has_num_memcacheg_backends_: res+=prefix+("num_memcacheg_backends: %s\n" % self.DebugFormatInt32(self.num_memcacheg_backends_))
+    if self.has_ignore_shardlock_: res+=prefix+("ignore_shardlock: %s\n" % self.DebugFormatBool(self.ignore_shardlock_))
+    if self.has_memcache_pool_hint_: res+=prefix+("memcache_pool_hint: %s\n" % self.DebugFormatString(self.memcache_pool_hint_))
     return res
 
 
@@ -237,18 +301,24 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
 
   kapp_id = 1
   knum_memcacheg_backends = 2
+  kignore_shardlock = 3
+  kmemcache_pool_hint = 4
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "app_id",
     2: "num_memcacheg_backends",
-  }, 2)
+    3: "ignore_shardlock",
+    4: "memcache_pool_hint",
+  }, 4)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.NUMERIC,
-  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+    3: ProtocolBuffer.Encoder.NUMERIC,
+    4: ProtocolBuffer.Encoder.STRING,
+  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
