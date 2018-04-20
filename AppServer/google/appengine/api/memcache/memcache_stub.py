@@ -282,7 +282,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
     """
     key = request.key()
     entry = self._GetKey(namespace, key)
-    if entry is None:
+    if entry is None or entry.CheckLocked():
       if not request.has_initial_value():
         return None
       if namespace not in self._the_cache:
