@@ -154,8 +154,7 @@ def get_presence(jid, from_jid=None, get_show=False):
     valid.
 
   Raises:
-    InvalidJidError: Raised if the JID passed is invalid.  Only raised by the
-      single-jid version.
+    InvalidJidError: Raised if no JID passed in is valid.
     Error: if an unspecified error happens processing the request.
   """
   if not jid:
@@ -192,12 +191,7 @@ def get_presence(jid, from_jid=None, get_show=False):
 
 
 
-      if single_jid:
-
-        raise InvalidJidError()
-      else:
-
-        return [(None, None, False) for _ in xrange(len(jidlist))]
+      raise InvalidJidError()
     else:
       raise Error()
 
@@ -206,22 +200,25 @@ def get_presence(jid, from_jid=None, get_show=False):
       if subresponse.has_presence():
         presence = subresponse.presence()
         show = _PRESENCE_SHOW_MAPPING.get(presence, None)
-      result = bool(subresponse.is_available()), show
+      else:
+        show = None
+      return bool(subresponse.is_available()), show, subresponse.valid()
     else:
-      result = bool(subresponse.is_available())
+      return bool(subresponse.is_available()), subresponse.valid()
 
-    if single_jid:
-      return result
-    else:
-      return result + (subresponse.valid(),)
+  results = [HandleSubresponse(s) for s in response.presence_response_list()]
+
+
+  if not any(t[-1] for t in results):
+    raise InvalidJidError()
 
   if single_jid:
-    subresponse = response.presence_response(0)
-    if not subresponse.valid():
-      raise InvalidJidError(jid)
-    return HandleSubresponse(response.presence_response(0))
+    if get_show:
+      return results[0][:-1]
+    else:
+      return results[0][0]
   else:
-    return [HandleSubresponse(s) for s in response.presence_response_list()]
+    return results
 
 
 def send_invite(jid, from_jid=None):
