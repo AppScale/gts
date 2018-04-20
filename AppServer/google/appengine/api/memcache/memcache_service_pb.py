@@ -40,20 +40,14 @@ class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
   UNSPECIFIED_ERROR =    1
   NAMESPACE_NOT_SET =    2
   PERMISSION_DENIED =    3
-  NUM_BACKENDS_UNSPECIFIED =    4
-  MEMCACHE_POOL_HINT_UNSPECIFIED =    5
   INVALID_VALUE =    6
-  MEMCACHE_SHARDING_STRATEGY_UNSPECIFIED =    7
 
   _ErrorCode_NAMES = {
     0: "OK",
     1: "UNSPECIFIED_ERROR",
     2: "NAMESPACE_NOT_SET",
     3: "PERMISSION_DENIED",
-    4: "NUM_BACKENDS_UNSPECIFIED",
-    5: "MEMCACHE_POOL_HINT_UNSPECIFIED",
     6: "INVALID_VALUE",
-    7: "MEMCACHE_SHARDING_STRATEGY_UNSPECIFIED",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
