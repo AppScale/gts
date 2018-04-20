@@ -209,7 +209,10 @@ def create_login_url(dest_url=None, _auth_domain=None,
   """
   req = user_service_pb.CreateLoginURLRequest()
   resp = user_service_pb.CreateLoginURLResponse()
-  req.set_destination_url(dest_url)
+  if dest_url:
+    req.set_destination_url(dest_url)
+  else:
+    req.set_destination_url('')
   if _auth_domain:
     req.set_auth_domain(_auth_domain)
   if federated_identity:
