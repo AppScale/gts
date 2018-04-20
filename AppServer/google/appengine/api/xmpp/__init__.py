@@ -88,6 +88,13 @@ PRESENCE_SHOW_XA = "xa"
 _VALID_PRESENCE_SHOWS = frozenset([PRESENCE_SHOW_NONE, PRESENCE_SHOW_AWAY,
                                    PRESENCE_SHOW_CHAT, PRESENCE_SHOW_DND,
                                    PRESENCE_SHOW_XA])
+_PRESENCE_SHOW_MAPPING = {
+    xmpp_service_pb.PresenceResponse.NORMAL: PRESENCE_SHOW_NONE,
+    xmpp_service_pb.PresenceResponse.AWAY: PRESENCE_SHOW_AWAY,
+    xmpp_service_pb.PresenceResponse.DO_NOT_DISTURB: PRESENCE_SHOW_DND,
+    xmpp_service_pb.PresenceResponse.CHAT: PRESENCE_SHOW_CHAT,
+    xmpp_service_pb.PresenceResponse.EXTENDED_AWAY: PRESENCE_SHOW_XA,
+}
 
 
 MAX_STATUS_MESSAGE_SIZE = 1024
@@ -128,60 +135,93 @@ def get_presence(jid, from_jid=None, get_show=False):
   """Gets the presence for a JID.
 
   Args:
-    jid: The JID of the contact whose presence is requested.
+    jid: The JID of the contact whose presence is requested. This may also be a
+      list of JIDs, which also implies get_show (below).
     from_jid: The optional custom JID to use for sending. Currently, the default
       is <appid>@appspot.com. This is supported as a value. Custom JIDs can be
       of the form <anything>@<appid>.appspotchat.com.
-    get_show: if True, return a tuple of (is_available, show).
+    get_show: if True, return a tuple of (is_available, show). If a list of jids
+      is given, this will always be True.
 
   Returns:
-    bool, if get_show is False: Whether the user is online.
-    (bool, string), if get_show is True: whether the user is online, and a
-      string indicating the PRESENCE_SHOW of the user's presence.
+    At minimum, a boolean is_available representing whether the requested JID
+    is available.
+
+    If get_show is specified, a tuple (is_available, show) will be given.
+
+    If a list of JIDs is given, a list of tuples will be returned, including
+    is_available, show, and an additional boolean indicating if that JID was
+    valid.
 
   Raises:
-    InvalidJidError if any of the JIDs passed are invalid.
-    Error if an unspecified error happens processing the request.
+    InvalidJidError: Raised if the JID passed is invalid.  Only raised by the
+      single-jid version.
+    Error: if an unspecified error happens processing the request.
   """
   if not jid:
     raise InvalidJidError()
 
-  request = xmpp_service_pb.PresenceRequest()
-  response = xmpp_service_pb.PresenceResponse()
+  request = xmpp_service_pb.BulkPresenceRequest()
+  response = xmpp_service_pb.BulkPresenceResponse()
 
-  request.set_jid(_to_str(jid))
+  if isinstance(jid, basestring):
+    single_jid = True
+    jidlist = [jid]
+  else:
+
+    single_jid = False
+    get_show = True
+    jidlist = jid
+
+  for given_jid in jidlist:
+    request.add_jid(_to_str(given_jid))
+
   if from_jid:
     request.set_from_jid(_to_str(from_jid))
 
   try:
     apiproxy_stub_map.MakeSyncCall("xmpp",
-                                   "GetPresence",
+                                   "BulkGetPresence",
                                    request,
                                    response)
   except apiproxy_errors.ApplicationError, e:
     if (e.application_error ==
         xmpp_service_pb.XmppServiceError.INVALID_JID):
-      raise InvalidJidError()
+
+
+
+
+
+      if single_jid:
+
+        raise InvalidJidError()
+      else:
+
+        return [(None, None, False) for _ in xrange(len(jidlist))]
     else:
       raise Error()
 
-  if get_show:
-    show = None
-    if response.has_presence():
-      presence = response.presence()
-      if presence == xmpp_service_pb.PresenceResponse.NORMAL:
-        show = PRESENCE_SHOW_NONE
-      elif presence == xmpp_service_pb.PresenceResponse.AWAY:
-        show = PRESENCE_SHOW_AWAY
-      elif presence == xmpp_service_pb.PresenceResponse.DO_NOT_DISTURB:
-        show = PRESENCE_SHOW_DND
-      elif presence == xmpp_service_pb.PresenceResponse.CHAT:
-        show = PRESENCE_SHOW_CHAT
-      elif presence == xmpp_service_pb.PresenceResponse.EXTENDED_AWAY:
-        show = PRESENCE_SHOW_XA
-    return (bool(response.is_available()), show)
+  def HandleSubresponse(subresponse):
+    if get_show:
+      if subresponse.has_presence():
+        presence = subresponse.presence()
+        show = _PRESENCE_SHOW_MAPPING.get(presence, None)
+      result = bool(subresponse.is_available()), show
+    else:
+      result = bool(subresponse.is_available())
+
+    if single_jid:
+      return result
+    else:
+      return result + (subresponse.valid(),)
+
+  if single_jid:
+    subresponse = response.presence_response(0)
+    if not subresponse.valid():
+      raise InvalidJidError(jid)
+    return HandleSubresponse(response.presence_response(0))
   else:
-    return bool(response.is_available())
+    return [HandleSubresponse(s) for s in response.presence_response_list()]
 
 
 def send_invite(jid, from_jid=None):
