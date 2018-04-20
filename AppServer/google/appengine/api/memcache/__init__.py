@@ -311,6 +311,12 @@ class Client(object):
   string (unicode or not), int, long, or pickle-able Python object, including
   all native types.  You'll get back from the cache the same type that you
   originally put in.
+
+  The Client class is not thread-safe with respect to the gets(), cas() and
+  cas_multi() methods (and other compare-and-set-related methods). Therefore,
+  Client objects should not be used by more than one thread for CAS purposes.
+  Note that the global Client for the module-level functions is okay because it
+  does not expose any of the CAS methods.
   """
 
   def __init__(self, servers=None, debug=0,
