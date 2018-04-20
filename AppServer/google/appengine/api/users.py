@@ -102,6 +102,9 @@ class User(object):
       federated_provider = os.environ.get('FEDERATED_PROVIDER',
                                           federated_provider)
 
+    if email is None:
+      email = ''
+
     if not email and not federated_identity and _strict_mode:
       raise UserNotFoundError
 
