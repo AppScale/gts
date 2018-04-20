@@ -40,6 +40,7 @@ class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
   PERMISSION_DENIED =    3
   NUM_BACKENDS_UNSPECIFIED =    4
   MEMCACHE_POOL_HINT_UNSPECIFIED =    5
+  INVALID_VALUE =    6
 
   _ErrorCode_NAMES = {
     0: "OK",
@@ -48,6 +49,7 @@ class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
     3: "PERMISSION_DENIED",
     4: "NUM_BACKENDS_UNSPECIFIED",
     5: "MEMCACHE_POOL_HINT_UNSPECIFIED",
+    6: "INVALID_VALUE",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
