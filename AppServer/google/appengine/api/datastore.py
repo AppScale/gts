@@ -748,7 +748,7 @@ class Entity(dict):
     if namespace is None:
       namespace = _namespace
     elif _namespace is not None:
-      raise datastore_errors.BadArgumentError(
+        raise datastore_errors.BadArgumentError(
             "Must not set both _namespace and namespace parameters.")
 
     datastore_types.ValidateString(kind, 'kind',

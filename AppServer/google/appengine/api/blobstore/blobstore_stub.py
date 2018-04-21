@@ -65,7 +65,6 @@ class ConfigurationError(Error):
 
 
 _UPLOAD_SESSION_KIND = '__BlobUploadSession__'
-
 _GS_INFO_KIND = '__GsFileInfo__'
 
 
@@ -343,20 +342,25 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
           MAX_BLOB_FRAGMENT_SIZE.
         BLOB_NOT_FOUND: If invalid blob-key is provided or is not found.
     """
+
     start_index = request.start_index()
     if start_index < 0:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.DATA_INDEX_OUT_OF_RANGE)
+
 
     end_index = request.end_index()
     if end_index < start_index:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.DATA_INDEX_OUT_OF_RANGE)
 
+
     fetch_size = end_index - start_index + 1
     if fetch_size > blobstore.MAX_BLOB_FETCH_SIZE:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.BLOB_FETCH_SIZE_TOO_LARGE)
+
+
     blob_key = request.blob_key()
 
     # AppScale: Access the blob data from BlobChunk entities.

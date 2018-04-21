@@ -72,6 +72,7 @@ class RPC(object):
     self.callback = callback
     self.deadline = deadline
     self.stub = stub
+    self.cpu_usage_mcycles = 0
 
   def Clone(self):
     """Make a shallow copy of this instances attributes, excluding methods.
