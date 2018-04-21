@@ -79,6 +79,7 @@ def _parse_range_header(range_header):
     return None, None
 
 
+# AppScale: Get blob metadata from datastore.
 def _get_blob_metadata(blob_key):
   """Retrieve the metadata about a blob from the blob_key.
 

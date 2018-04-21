@@ -27,6 +27,7 @@
 
 
 
+# AppScale: os and threading are needed to implement async-capable RPC.
 import os
 import sys
 import threading
@@ -170,6 +171,8 @@ class RPC(object):
         self._exception._appengine_apiproxy_rpc = self
         raise
 
+# AppScale: Use thread to start RPC during _MakeCallImpl instead of during
+# _WaitImpl.
 class RealRPC(RPC):
   """ Overrides the RPC class to implement real asynchronous RPC calls using 
       Threads.
