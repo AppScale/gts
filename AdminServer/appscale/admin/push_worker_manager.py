@@ -11,7 +11,7 @@ from tornado.ioloop import IOLoop
 from tornado.options import options
 
 from appscale.common.async_retrying import (
-  retry_children_watch_coroutine, retry_data_watch_coroutine
+  retry_children_watch_coroutine, retry_coroutine, retry_data_watch_coroutine
 )
 from appscale.common.constants import (
   LOG_DIR,
@@ -107,21 +107,25 @@ class ProjectPushWorkerManager(object):
     yield gen.with_timeout(timedelta(seconds=60), start_future,
                            IOLoop.current())
 
-    # Wait for the worker to write its new PID.
-    yield gen.sleep(1)
+    try:
+      yield self.ensure_pid_changed(old_pid, pid_location)
+    except AssertionError:
+      # Occasionally, Monit will get interrupted during a restart. Retry the
+      # restart if the Celery worker PID is the same.
+      logger.warning(
+        '{} worker PID did not change. Restarting it.'.format(self.project_id))
+      yield self.update_worker(queue_config)
+
+  @staticmethod
+  @retry_coroutine(retrying_timeout=10, retry_on_exception=[AssertionError])
+  def ensure_pid_changed(old_pid, pid_location):
     try:
       with open(pid_location) as pidfile:
         new_pid = int(pidfile.read().strip())
     except IOError:
       new_pid = None
 
-    # Occasionally, Monit will get interrupted during a restart. Retry the
-    # restart if the Celery worker PID is the same.
-    if new_pid == old_pid:
-      logger.warning(
-        '{} worker PID did not change. Restarting it.'.format(self.project_id))
-      yield gen.sleep(1)
-      yield self.update_worker(queue_config)
+    assert new_pid != old_pid
 
   @gen.coroutine
   def stop_worker(self):
