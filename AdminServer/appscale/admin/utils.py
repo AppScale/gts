@@ -386,8 +386,8 @@ def assign_ports(old_version, new_version, zk_client):
   taken_locations = assigned_locations(zk_client)
 
   # Consider the version's old ports as available.
-  taken_locations.remove(old_http_port)
-  taken_locations.remove(old_https_port)
+  taken_locations.discard(old_http_port)
+  taken_locations.discard(old_https_port)
 
   # If ports were requested, make sure they are available.
   if new_http_port is not None and new_http_port in taken_locations:
