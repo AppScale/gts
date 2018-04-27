@@ -125,7 +125,8 @@ class ProjectPushWorkerManager(object):
     except IOError:
       new_pid = None
 
-    assert new_pid != old_pid
+    if new_pid == old_pid:
+      raise AssertionError
 
   @gen.coroutine
   def stop_worker(self):
