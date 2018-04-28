@@ -8,6 +8,7 @@ import time
 from appscale.common import appscale_info
 from tornado import gen, httpclient
 from tornado.options import options
+from tornado.simple_httpclient import SimpleAsyncHTTPClient
 
 from appscale.hermes import constants
 from appscale.hermes.constants import SECRET_HEADER
@@ -16,6 +17,9 @@ from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats, rabbitmq_stats
 )
+
+# Allow tornado to fetch up to 100 concurrent requests
+httpclient.AsyncHTTPClient.configure(SimpleAsyncHTTPClient, max_clients=100)
 
 
 class BadStatsListFormat(ValueError):
@@ -58,12 +62,12 @@ class ClusterStatsSource(object):
     stats_per_node = {
       ip: snapshot_or_err
       for ip, snapshot_or_err in stats_or_error_per_node.iteritems()
-      if not isinstance(snapshot_or_err, str)
+      if not isinstance(snapshot_or_err, (str, unicode))
     }
     failures = {
       ip: snapshot_or_err
       for ip, snapshot_or_err in stats_or_error_per_node.iteritems()
-      if isinstance(snapshot_or_err, str)
+      if isinstance(snapshot_or_err, (str, unicode))
     }
     logging.info("Fetched {stats} from {nodes} nodes in {elapsed:.1f}s."
                  .format(stats=self.stats_model.__name__,
@@ -74,7 +78,12 @@ class ClusterStatsSource(object):
   @gen.coroutine
   def _stats_from_node_async(self, node_ip, max_age, include_lists):
     if node_ip == appscale_info.get_private_ip():
-      snapshot = self.local_stats_source.get_current()
+      try:
+        snapshot = self.local_stats_source.get_current()
+      except Exception as err:
+        snapshot = unicode(err)
+        logging.exception(
+          u"Failed to prepare local stats: {err}".format(err=err))
     else:
       snapshot = yield self._fetch_remote_stats_async(
         node_ip, max_age, include_lists)
@@ -104,16 +113,16 @@ class ClusterStatsSource(object):
     if response.code >= 400:
       if response.body:
         logging.error(
-          "Failed to get stats from {url} ({code} {reason}, BODY: {body})"
+          u"Failed to get stats from {url} ({code} {reason}, BODY: {body})"
           .format(url=url, code=response.code, reason=response.reason,
                   body=response.body)
         )
       else:
         logging.error(
-          "Failed to get stats from {url} ({code} {reason})"
+          u"Failed to get stats from {url} ({code} {reason})"
           .format(url=url, code=response.code, reason=response.reason)
         )
-      raise gen.Return("{} {}".format(response.code, response.reason))
+      raise gen.Return(u"{} {}".format(response.code, response.reason))
 
     try:
       snapshot = json.loads(response.body)

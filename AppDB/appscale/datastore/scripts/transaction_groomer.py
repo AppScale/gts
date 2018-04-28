@@ -1,6 +1,7 @@
 """ A daemon that cleans up expired transactions. """
 import argparse
 import datetime
+import json
 import logging
 import sys
 import time
@@ -213,6 +214,8 @@ class ProjectGroomer(object):
 
         if tx_time is not None and tx_time < self._oldest_valid_tx_time:
           self._oldest_valid_tx_time = tx_time
+      except Exception:
+        logger.exception('Unexpected error while resolving {}'.format(tx_path))
       finally:
         self._worker_queue.task_done()
 
@@ -263,7 +266,40 @@ class ProjectGroomer(object):
     try:
       yield self._stop_event.wait(timeout=time_to_wait)
     except gen.TimeoutError:
-      raise gen.Return()
+      return
+
+  @gen.coroutine
+  def _remove_locks(self, txid, tx_path):
+    """ Removes entity locks involved with the transaction.
+
+    Args:
+      txid: An integer specifying the transaction ID.
+      tx_path: A string specifying the location of the transaction node.
+    """
+    groups_path = '/'.join([tx_path, 'groups'])
+    try:
+      groups_data = yield self._tornado_zk.get(groups_path)
+    except NoNodeError:
+      # If the group list does not exist, the locks have not been acquired.
+      return
+
+    group_paths = json.loads(groups_data[0])
+    for group_path in group_paths:
+      try:
+        contenders = yield self._tornado_zk.get_children(group_path)
+      except NoNodeError:
+        # The lock may have been cleaned up or not acquired in the first place.
+        continue
+
+      for contender in contenders:
+        contender_path = '/'.join([group_path, contender])
+        contender_data = yield self._tornado_zk.get(contender_path)
+        contender_txid = int(contender_data[0])
+        if contender_txid != txid:
+          continue
+
+        yield self._tornado_zk.delete(contender_path)
+        break
 
   @gen.coroutine
   def _remove_path(self, tx_path):
@@ -291,7 +327,11 @@ class ProjectGroomer(object):
       The transaction start time if still valid, None if invalid because this
       method will also delete it.
     """
-    tx_data = yield self._tornado_zk.get(tx_path)
+    try:
+      tx_data = yield self._tornado_zk.get(tx_path)
+    except NoNodeError:
+      return
+
     tx_time = float(tx_data[0])
 
     _, container, tx_node = tx_path.rsplit('/', 2)
@@ -299,7 +339,7 @@ class ProjectGroomer(object):
     container_count = int(container[len(CONTAINER_PREFIX):] or 1)
     if tx_node_id < 0:
       yield self._remove_path(tx_path)
-      raise gen.Return()
+      return
 
     container_size = MAX_SEQUENCE_COUNTER + 1
     automatic_offset = (container_count - 1) * container_size
@@ -307,13 +347,14 @@ class ProjectGroomer(object):
 
     if txid < 1:
       yield self._remove_path(tx_path)
-      raise gen.Return()
+      return
 
     # If the transaction is still valid, return the time it was created.
     if tx_time + MAX_TX_DURATION >= time.time():
       raise gen.Return(tx_time)
 
     yield self._batch_resolver.resolve(txid, composite_indexes)
+    yield self._remove_locks(txid, tx_path)
     yield self._remove_path(tx_path)
     yield self._batch_resolver.cleanup(txid)
 

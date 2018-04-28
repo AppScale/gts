@@ -6,9 +6,6 @@ import logging
 from appscale.common.constants import LOG_FORMAT
 from ..cassandra_env import schema
 
-# The data layout version to set after removing the journal table.
-POST_JOURNAL_VERSION = 1.0
-
 
 def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)

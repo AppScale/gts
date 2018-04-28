@@ -60,10 +60,11 @@ class AppControllerClient
     @conn.add_method('update', 'versions', 'secret')
     @conn.add_method('stop_version', 'version_key', 'secret')
     @conn.add_method('get_all_public_ips', 'secret')
-    @conn.add_method('is_done_loading', 'secret')
     @conn.add_method('is_done_initializing', 'secret')
     @conn.add_method('add_role', 'new_role', 'secret')
     @conn.add_method('remove_role', 'old_role', 'secret')
+    @conn.add_method('get_property', 'property_regex', 'secret')
+    @conn.add_method('set_property', 'property_name', 'property_value', 'secret')
     @conn.add_method('get_queues_in_use', 'secret')
     @conn.add_method('set_node_read_only', 'read_only', 'secret')
     @conn.add_method('primary_db_is_up', 'secret')
@@ -72,8 +73,6 @@ class AppControllerClient
     @conn.add_method('get_node_stats_json', 'secret')
     @conn.add_method('get_instance_info', 'secret')
     @conn.add_method('get_request_info', 'version_key', 'secret')
-    @conn.add_method('add_routing_for_appserver', 'version_key', 'ip', 'port',
-                     'secret')
     @conn.add_method('update_cron', 'project_id', 'secret')
   end
 
@@ -159,10 +158,6 @@ class AppControllerClient
     make_call(30, RETRY_ON_FAIL, 'is_done_initializing') { @conn.is_done_initializing(@secret) }
   end
 
-  def is_done_loading?
-    make_call(30, RETRY_ON_FAIL, 'is_done_loading') { @conn.is_done_loading(@secret) }
-  end
-
   def get_all_public_ips
     make_call(30, RETRY_ON_FAIL, 'get_all_public_ips') { @conn.get_all_public_ips(@secret) }
   end
@@ -176,6 +171,18 @@ class AppControllerClient
   # case
   def remove_role(role)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'remove_role') { @conn.remove_role(role, @secret) }
+  end
+
+  def get_property(property_regex)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'get_property') {
+      @conn.get_queues_in_use(property_regex, @secret)
+    }
+  end
+
+  def set_property(property_name, property_value)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'set_property') {
+      @conn.get_queues_in_use(property_name, property_value, @secret)
+    }
   end
 
   def get_queues_in_use
@@ -216,13 +223,6 @@ class AppControllerClient
   def get_node_stats_json
     make_call(10, RETRY_ON_FAIL, 'get_node_stats_json') {
       @conn.get_node_stats_json(@secret)
-    }
-  end
-
-  # Adds routing for appserver.
-  def add_routing_for_appserver(version_key, ip, port)
-    make_call(10, RETRY_ON_FAIL, 'add_routing_for_appserver') {
-      @conn.add_routing_for_appserver(version_key, ip, port, @secret)
     }
   end
 

@@ -88,7 +88,7 @@ DEFAULT_VERSION = 'v1'
 DEFAULT_SERVICE = 'default'
 
 # The number of seconds to wait before giving up on an operation.
-MAX_OPERATION_TIME = 100
+MAX_OPERATION_TIME = 120
 
 # Supported runtimes.
 VALID_RUNTIMES = {PYTHON27, JAVA, GO, PHP}
@@ -103,7 +103,8 @@ IMMUTABLE_PROJECTS = [DASHBOARD_APP_ID]
 SOURCES_DIRECTORY = os.path.join('/', 'opt', 'appscale', 'apps')
 
 # The inbound services that are supported.
-SUPPORTED_INBOUND_SERVICES = ('INBOUND_SERVICE_XMPP_MESSAGE',
+SUPPORTED_INBOUND_SERVICES = ('INBOUND_SERVICE_WARMUP',
+                              'INBOUND_SERVICE_XMPP_MESSAGE',
                               'INBOUND_SERVICE_XMPP_SUBSCRIBE',
                               'INBOUND_SERVICE_XMPP_PRESENCE')
 
