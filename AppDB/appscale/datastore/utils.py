@@ -700,3 +700,34 @@ def encode_path_from_filter(query_filter):
     path.add_element().MergeFrom(element)
 
   return str(encode_index_pb(path))
+
+
+def decode_path(encoded_path):
+  """ Parse a Cassandra-encoded reference path.
+
+  Args:
+    encoded_path: A string specifying the encoded path.
+  Returns:
+    An entity_pb.Path object.
+  """
+  path = entity_pb.Path()
+
+  for element in encoded_path.split(dbconstants.KIND_SEPARATOR):
+    # For some reason, encoded keys have a trailing separator, so ignore the
+    # last empty element.
+    if not element:
+      continue
+
+    kind, identifier = element.split(dbconstants.ID_SEPARATOR)
+
+    new_element = path.add_element()
+    new_element.set_type(kind)
+
+    # We don't know for sure if an encoded key is an ID or a name, so we guess.
+    # IDs often exceed the ID_KEY_LENGTH.
+    if len(identifier) >= ID_KEY_LENGTH and identifier.isdigit():
+      new_element.set_id(int(identifier))
+    else:
+      new_element.set_name(identifier)
+
+  return path
