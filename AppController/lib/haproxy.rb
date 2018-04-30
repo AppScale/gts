@@ -8,6 +8,9 @@ require 'helperfunctions'
 require 'app_dashboard'
 require 'monit_interface'
 require 'user_app_client'
+require 'datastore_server'
+require 'taskqueue'
+require 'blobstore'
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
 # copies of them and load balance traffic to them. Since nginx (our first
@@ -34,13 +37,6 @@ module HAProxy
   MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "app-haproxy.#{CONFIG_EXTENSION}")
   BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "app-base.#{CONFIG_EXTENSION}")
   PIDFILE = '/var/run/app-haproxy.pid'.freeze
-
-  # Options to used to configure servers.
-  # For more information see http://haproxy.1wt.eu/download/1.3/doc/configuration.txt
-  SERVER_OPTIONS = 'maxconn 1 check'.freeze
-
-  # HAProxy Configuration to use for a thread safe gae app.
-  THREADED_SERVER_OPTIONS = 'maxconn 7 check'.freeze
 
   # Maximum AppServer threaded connections
   MAX_APPSERVER_CONN = 7
@@ -133,6 +129,9 @@ module HAProxy
   #   listen_ip   : the IP HAProxy should listen for
   #   listen_port : the port to listen to
   #   name        : the name of the server
+  # Returns:
+  #   Boolean     : true if config was good, false if parameters were
+  #                 incorrect
   def self.create_app_config(servers, my_private_ip, listen_port, name)
     if servers.empty?
       Djinn.log_warn('create_app_config called with no running servers.')
@@ -167,16 +166,13 @@ module HAProxy
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
 
-    # Let's reload and overwrite only if something changed.
+    # Let's overwrite configuration for 'name' only if anything changed.
     current = ''
     current = File.read(config_path) if File.exists?(config_path)
-    if current != config
-      File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
-      HAProxy.regenerate_config
-    else
-      Djinn.log_debug("No need to restart haproxy: configuration didn't change.")
-    end
+    File.open(config_path, 'w+') { |f| f.write(config) } if current != config
 
+    # This will reload haproxy if anything changed.
+    HAProxy.regenerate_config
     true
   end
 
@@ -263,13 +259,16 @@ module HAProxy
     if server_name.start_with?(HelperFunctions::GAE_PREFIX)
       version_key = server_name[HelperFunctions::GAE_PREFIX.length..-1]
       threadsafe = HelperFunctions.get_version_thread_safe(version_key)
+      maxconn = threadsafe ? MAX_APPSERVER_CONN : 1
+    elsif server_name == DatastoreServer::NAME
+      # Allow custom number of connections at a time for datastore.
+      maxconn = DatastoreServer::MAXCONN
     else
-      # Allow only one connection at a time for services.
-      threadsafe = false
+      # Allow only one connection at a time for other services.
+      maxconn = 1
     end
 
-    max_conn = threadsafe ? THREADED_SERVER_OPTIONS : SERVER_OPTIONS
-    "  server #{server_name}-#{location} #{location} #{max_conn}"
+    "  server #{server_name}-#{location} #{location} maxconn #{maxconn} check"
   end
 
   def self.remove_version(version_key)

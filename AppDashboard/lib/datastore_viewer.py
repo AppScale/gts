@@ -427,12 +427,23 @@ class DatastoreViewer(DatastoreViewerPage):
 
     if gql_string is not None:
       start = (page - 1) * self.NUM_ENTITIES_PER_PAGE
-      gql_query = gql.GQL(gql_string, _app=project_id, namespace=namespace)
-      kind = gql_query.kind()
-      query = gql_query.Bind([], {})
-      total_entities = query.Count()
-      entities = list(
-        query.Run(limit=self.NUM_ENTITIES_PER_PAGE, offset=start))
+
+      total_entities = 0
+      entities = []
+      try:
+        gql_query = gql.GQL(gql_string, _app=project_id, namespace=namespace)
+        kind = gql_query.kind()
+        query = gql_query.Bind([], {})
+
+        total_entities = query.Count()
+        entities = list(
+          query.Run(limit=self.NUM_ENTITIES_PER_PAGE, offset=start))
+      except datastore.datastore_errors.NeedIndexError as error:
+        message = ('Error during GQL query: <pre>{}</pre> Note: Queries '
+                   'requiring a composite index are not yet supported by the '
+                   'AppScale datastore viewer.'.format(error))
+      except datastore.datastore_errors.Error as error:
+        message = 'Error during GQL query: <pre>{}</pre>'.format(error)
 
       headers, template_entities, total_entities = (
         self._format_entity_template_data(ds_access, self.request.uri,

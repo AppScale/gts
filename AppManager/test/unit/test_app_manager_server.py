@@ -4,11 +4,11 @@ import os
 import subprocess
 import sys
 import threading
-import time
 import unittest
 import urllib2
 
 from flexmock import flexmock
+from tornado import gen
 from tornado.gen import Future
 from tornado.httpclient import HTTPError
 from tornado.options import options
@@ -102,6 +102,8 @@ class TestAppManager(AsyncTestCase):
       and_return(flexmock(start=lambda: None))
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
 
+    app_manager_server.zk_client = flexmock()
+    app_manager_server.zk_client.should_receive('ensure_path')
     yield app_manager_server.start_app('test_default_v1', configuration)
 
   @gen_test
@@ -155,6 +157,8 @@ class TestAppManager(AsyncTestCase):
     flexmock(app_manager_server).should_receive("setup_logrotate").and_return()
     flexmock(os).should_receive('listdir').and_return([])
 
+    app_manager_server.zk_client = flexmock()
+    app_manager_server.zk_client.should_receive('ensure_path')
     yield app_manager_server.start_app('test_default_v1', configuration)
 
   @gen_test
@@ -226,6 +230,7 @@ class TestAppManager(AsyncTestCase):
       yield app_manager_server.stop_app_instance(version_key, port)
 
     flexmock(misc).should_receive('is_app_name_valid').and_return(True)
+    flexmock(app_manager_server).should_receive('unregister_instance')
     flexmock(app_manager_server).should_receive('unmonitor').\
       and_raise(HTTPError)
 
@@ -269,6 +274,7 @@ class TestAppManager(AsyncTestCase):
     flexmock(os).should_receive("remove").and_return()
     app_manager_server.remove_logrotate("test")
 
+  @gen_test
   def test_wait_on_app(self):
     port = 20000
     ip = '127.0.0.1'
@@ -277,11 +283,15 @@ class TestAppManager(AsyncTestCase):
       open=lambda opener: flexmock(code=200, headers=flexmock(headers=[])))
     flexmock(urllib2).should_receive('build_opener').and_return(fake_opener)
     flexmock(appscale_info).should_receive('get_private_ip').and_return(ip)
-    self.assertEqual(True, app_manager_server.wait_on_app(port))
+    instance_started = yield app_manager_server.wait_on_app(port)
+    self.assertEqual(True, instance_started)
 
-    flexmock(time).should_receive('sleep').and_return()
+    response = Future()
+    response.set_result(None)
+    flexmock(gen).should_receive('sleep').and_return(response)
     fake_opener.should_receive('open').and_raise(IOError)
-    self.assertEqual(False, app_manager_server.wait_on_app(port))
+    instance_started = yield app_manager_server.wait_on_app(port)
+    self.assertEqual(False, instance_started)
 
 if __name__ == "__main__":
   unittest.main()

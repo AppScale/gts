@@ -129,16 +129,16 @@ class CreateVersionOperation(Operation):
 class DeleteVersionOperation(Operation):
   """ A container that keeps track of DeleteVersion operations. """
 
-  def __init__(self, project_id, service_id, version):
+  def __init__(self, project_id, service_id, version_id):
     """ Creates a new CreateVersionOperation.
 
     Args:
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
-      version: A dictionary containing verision details.
+      version_id: A string specifying a version ID.
     """
     super(DeleteVersionOperation, self).__init__(
-      project_id, service_id, version)
+      project_id, service_id, {'id': version_id})
     self.method = Methods.DELETE_VERSION
 
   def finish(self):

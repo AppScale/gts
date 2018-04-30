@@ -266,7 +266,7 @@ class ProjectGroomer(object):
     try:
       yield self._stop_event.wait(timeout=time_to_wait)
     except gen.TimeoutError:
-      raise gen.Return()
+      return
 
   @gen.coroutine
   def _remove_locks(self, txid, tx_path):
@@ -281,7 +281,7 @@ class ProjectGroomer(object):
       groups_data = yield self._tornado_zk.get(groups_path)
     except NoNodeError:
       # If the group list does not exist, the locks have not been acquired.
-      raise gen.Return()
+      return
 
     group_paths = json.loads(groups_data[0])
     for group_path in group_paths:
@@ -330,7 +330,7 @@ class ProjectGroomer(object):
     try:
       tx_data = yield self._tornado_zk.get(tx_path)
     except NoNodeError:
-      raise gen.Return()
+      return
 
     tx_time = float(tx_data[0])
 
@@ -339,7 +339,7 @@ class ProjectGroomer(object):
     container_count = int(container[len(CONTAINER_PREFIX):] or 1)
     if tx_node_id < 0:
       yield self._remove_path(tx_path)
-      raise gen.Return()
+      return
 
     container_size = MAX_SEQUENCE_COUNTER + 1
     automatic_offset = (container_count - 1) * container_size
@@ -347,7 +347,7 @@ class ProjectGroomer(object):
 
     if txid < 1:
       yield self._remove_path(tx_path)
-      raise gen.Return()
+      return
 
     # If the transaction is still valid, return the time it was created.
     if tx_time + MAX_TX_DURATION >= time.time():
@@ -390,8 +390,7 @@ class ProjectGroomer(object):
       raise gen.Return(self._oldest_valid_tx_time)
 
     # Refresh these each time so that the indexes are fresh.
-    encoded_indexes = yield self._thread_pool.submit(
-      self._db_access.get_indices, self.project_id)
+    encoded_indexes = yield self._db_access.get_indices(self.project_id)
     composite_indexes = [CompositeIndex(index) for index in encoded_indexes]
 
     for tx_path in children:

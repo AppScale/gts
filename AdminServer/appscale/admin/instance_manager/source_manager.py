@@ -118,11 +118,12 @@ class SourceManager(object):
       location: A string specifying the location of the source archive.
       runtime: A string specifying the revision's runtime.
     """
-    if revision_key not in self.source_futures:
-      self.source_futures[revision_key] = self.prepare_source(
-        revision_key, location, runtime)
+    future = self.source_futures.get(revision_key)
+    if future is None or (future.done() and future.exception() is not None):
+      future = self.prepare_source(revision_key, location, runtime)
+      self.source_futures[revision_key] = future
 
-    yield self.source_futures[revision_key]
+    yield future
 
   def clean_old_revisions(self, active_revisions):
     """ Cleans up the source code for old revisions.

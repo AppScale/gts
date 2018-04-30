@@ -107,44 +107,4 @@ module HermesClient
       "scur=#{current_sessions}")
     return total_requests_seen, total_req_in_queue, current_sessions
   end
-
-  # Gets running and failed backend servers for a specific proxy.
-  #
-  # Args:
-  #   lb_ip: IP address of load balancer node.
-  #   secret: Deployment secret.
-  #   proxy_name: Name of proxy to return.
-  # Returns:
-  #   An Array of running AppServers (ip:port).
-  #   An Array of failed (marked as DOWN) AppServers (ip:port).
-  #
-  def self.get_backend_servers(lb_ip, secret, proxy_name)
-    proxy = HermesClient.get_proxy_stats(lb_ip, secret, proxy_name, true)
-    
-    # TODO: do investigation about best way to detect failed servers.
-    running = proxy['servers'] \
-      .select{|server| not server['status'].start_with?('DOWN')} \
-      .map{|server| "#{server['private_ip']}:#{server['port']}"}
-
-    failed = proxy['servers'] \
-      .select{|server| server['status'].start_with?('DOWN')} \
-      .map{|server| "#{server['private_ip']}:#{server['port']}"}
-
-    if running.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-      Djinn.log_debug("Haproxy at #{lb_ip}: found #{running.length} running " \
-                      "AppServers for #{proxy_name}.")
-    else
-      Djinn.log_debug("Haproxy at #{lb_ip}: found these running " \
-                      "AppServers for #{proxy_name}: #{running}.")
-    end
-    if failed.length > HelperFunctions::NUM_ENTRIES_TO_PRINT
-      Djinn.log_debug("Haproxy at #{lb_ip}: found #{failed.length} failed " \
-                      "AppServers for #{proxy_name}.")
-    else
-      Djinn.log_debug("Haproxy at #{lb_ip}: found these failed " \
-                      "AppServers for #{proxy_name}: #{failed}.")
-    end
-    return running, failed
-  end
-
 end

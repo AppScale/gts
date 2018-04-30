@@ -8,12 +8,13 @@ from kazoo.exceptions import (
   NoNodeError,
   NotEmptyError
 )
-
 from kazoo.retry import (
   ForceRetryError,
   KazooRetry,
   RetryFailedError
 )
+from tornado import gen, ioloop
+from tornado.locks import Lock as TornadoLock
 
 # The ZooKeeper node that contains lock entries for an entity group.
 LOCK_PATH_TEMPLATE = u'/appscale/apps/{project}/locks/{namespace}/{group}'
@@ -61,6 +62,10 @@ class EntityLock(object):
   """
   _NODE_NAME = '__lock__'
 
+  # Tornado lock which allows tornado to switch to different coroutine
+  # if current one is waiting for entity group lock
+  _tornado_lock = TornadoLock()
+
   def __init__(self, client, keys, txid=None):
     """ Create an entity lock.
 
@@ -100,7 +105,18 @@ class EntityLock(object):
     self.cancelled = True
     self.wake_event.set()
 
+  @gen.coroutine
   def acquire(self):
+    now = ioloop.IOLoop.current().time()
+    yield EntityLock._tornado_lock.acquire(now + LOCK_TIMEOUT)
+    try:
+      locked = self.unsafe_acquire()
+      raise gen.Return(locked)
+    finally:
+      if not self.is_acquired:
+        EntityLock._tornado_lock.release()
+
+  def unsafe_acquire(self):
     """ Acquire the lock. By default blocks and waits forever.
 
     Returns:
@@ -334,15 +350,28 @@ class EntityLock(object):
 
   def release(self):
     """ Release the lock immediately. """
-    self.client.retry(self._inner_release)
+    try:
+      self.client.retry(self._inner_release)
 
-    # Try to clean up the group lock path.
-    for path in self.paths:
-      try:
-        self.client.delete(path)
-      except (NotEmptyError, NoNodeError):
-        pass
-    return
+      # Try to clean up the group lock path.
+      for path in self.paths:
+        try:
+          self.client.delete(path)
+        except (NotEmptyError, NoNodeError):
+          pass
+      return
+    finally:
+      if not self.is_acquired:
+        EntityLock._tornado_lock.release()
+
+  def ensure_release_tornado_lock(self):
+    """ Ensures that tornado lock (which is global for datastore server)
+    is released.
+    It MUST BE CALLED any time when lock is acquired
+    even if entity group lock in zookeeper left acquired after failure.
+    """
+    if self.is_acquired:
+      EntityLock._tornado_lock.release()
 
   def _inner_release(self):
     """ Release the lock by removing created nodes. """
@@ -359,7 +388,7 @@ class EntityLock(object):
     return True
 
   def __enter__(self):
-    self.acquire()
+    self.unsafe_acquire()
 
   def __exit__(self, exc_type, exc_value, traceback):
     self.release()

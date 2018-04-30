@@ -9,6 +9,7 @@ from subprocess import check_output
 from ..cassandra_env.cassandra_interface import KEYSPACE
 from ..cassandra_env.cassandra_interface import NODE_TOOL
 from ..cassandra_env.cassandra_interface import ThriftColumn
+from ..cassandra_env.constants import LB_POLICY
 from ..cassandra_env.retry_policies import BASIC_RETRIES
 from ..dbconstants import APP_ENTITY_TABLE
 from ..dbconstants import APP_ENTITY_SCHEMA
@@ -53,7 +54,8 @@ def get_kind_averages(keys):
     A dictionary listing the average size of each kind.
   """
   hosts = appscale_info.get_db_ips()
-  cluster = Cluster(hosts, default_retry_policy=BASIC_RETRIES)
+  cluster = Cluster(hosts, default_retry_policy=BASIC_RETRIES,
+                    load_balancing_policy=LB_POLICY)
   session = cluster.connect(KEYSPACE)
 
   entities_by_kind = {}

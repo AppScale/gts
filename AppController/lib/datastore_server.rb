@@ -17,6 +17,10 @@ module DatastoreServer
   # datastore servers to this value.
   DEFAULT_NUM_SERVERS = 3
 
+  # Maximum number of concurrent requests that can be served
+  # by instance of datastore
+  MAXCONN = 2
+
   # Datastore server processes to core multiplier.
-  MULTIPLIER = 2
+  MULTIPLIER = 1
 end
