@@ -26,8 +26,12 @@ module DatastoreServer
   # datastore servers to this value.
   DEFAULT_NUM_SERVERS = 3
 
+  # Maximum number of concurrent requests that can be served
+  # by instance of datastore
+  MAXCONN = 2
+
   # Datastore server processes to core multiplier.
-  MULTIPLIER = 2
+  MULTIPLIER = 1
 
   # Starts a Datastore Server on this machine. We don't want to monitor
   # it ourselves, so just tell monit to start it and watch it.
@@ -64,7 +68,9 @@ module DatastoreServer
     # If this is NaN then it returns 0
     num_procs = `cat /proc/cpuinfo | grep processor | wc -l`.to_i
     return DEFAULT_NUM_SERVERS if num_procs.zero?
-    num_procs * MULTIPLIER
+    servers = num_procs * MULTIPLIER
+    return 1 if servers.zero?
+    return servers
   end
 
   # Returns a list of ports that should be used to host DatastoreServers.

@@ -32,7 +32,7 @@ class FakeDatastore(object):
     start_inclusive=True, end_inclusive=True):
     return []
 
-  def valid_data_version(self):
+  def valid_data_version_sync(self):
     return True
 
 
@@ -129,8 +129,6 @@ class TestRestore(unittest.TestCase):
     fake_restore = flexmock(DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
-    flexmock(fake_restore.ds_distributed).should_receive(
-      'get_indices').and_return([])
     flexmock(glob).should_receive('glob').and_return(['some/file.backup'])
     fake_restore.should_receive('read_from_file_and_restore').and_return()
 

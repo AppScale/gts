@@ -5,18 +5,25 @@
 import sys
 import unittest
 
+from tornado import gen, testing
+
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore import entity_utils
 from flexmock import flexmock
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.datastore import entity_pb
 
 
 class FakeDatastore(object):
   def __init__(self):
     pass
+
+  @gen.coroutine
   def batch_get_entity(self, table, keys, schema):
+    raise gen.Return({})
+
+  @staticmethod
+  def batch_get_entity_sync(table, keys, schema):
     return {}
 
 FAKE_SERIALIZED_ENTITY = \
@@ -28,7 +35,7 @@ FAKE_SERIALIZED_ENTITY = \
   }
 
 
-class TestEntityUtils(unittest.TestCase):
+class TestEntityUtils(testing.AsyncTestCase):
   """
   A set of test cases for the datastore backup thread.
   """
@@ -48,14 +55,13 @@ class TestEntityUtils(unittest.TestCase):
       get_kind_from_entity_key("hi\x00\x00some\x00other\x00stuff"))
 
   def test_fetch_journal_entry(self):
-    flexmock(FakeDatastore()).should_receive('batch_get_entity').and_return({})
-    self.assertEquals(None,
-      entity_utils.fetch_journal_entry(FakeDatastore(), 'key'))
-
+    future_response = gen.Future()
+    future_response.set_result({})
     flexmock(FakeDatastore()).should_receive('batch_get_entity').\
-      and_return(FAKE_SERIALIZED_ENTITY)
-    flexmock(entity_pb).should_receive('EntityProto').\
-      and_return()
+      and_return(future_response)
+
+    result = entity_utils.fetch_journal_entry(FakeDatastore(), 'key')
+    self.assertEquals(result, None)
 
 
 if __name__ == "__main__":
