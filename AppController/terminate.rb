@@ -83,6 +83,7 @@ module TerminateHelper
     `rm -rf #{APPSCALE_CONFIG_DIR}/*.pid`
     `rm -rf /tmp/ec2/*`
     `rm -rf /tmp/*started`
+    `rm -rf /etc/cron.d/appscale-*`
 
     # Delete stored data.
     `rm -rf /opt/appscale/cassandra`
