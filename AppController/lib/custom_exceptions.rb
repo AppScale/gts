@@ -15,6 +15,10 @@ end
 class InvalidSource < StandardError
 end
 
+# Indicates that a service was unable to complete a correctly-formed request.
+class InternalError < StandardError
+end
+
 # A class of exceptions that can be thrown if the AppController believes that
 # the node it is talking to has failed.
 class FailedNodeException < AppScaleException
