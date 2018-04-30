@@ -7,6 +7,10 @@ import sys
 import threading
 import time
 
+from tornado import gen
+
+from appscale.datastore.utils import tornado_synchronous
+
 import appscale_datastore_batch
 import dbconstants
 import utils
@@ -173,9 +177,9 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       A list of entities.
     """
-    return self.db_access.range_query(dbconstants.APP_ENTITY_TABLE,
-      dbconstants.APP_ENTITY_SCHEMA, last_key, "", self.BATCH_SIZE,
-      start_inclusive=False)
+    return self.db_access.range_query_sync(
+      dbconstants.APP_ENTITY_TABLE, dbconstants.APP_ENTITY_SCHEMA,
+      last_key, "", self.BATCH_SIZE, start_inclusive=False)
 
   def reset_statistics(self):
     """ Reinitializes statistics. """
@@ -194,8 +198,7 @@ class DatastoreGroomer(threading.Thread):
       True on success, False otherwise.
     """
     try:
-      self.db_access.batch_delete(dbconstants.APP_ENTITY_TABLE,
-        [row_key])
+      self.db_access.batch_delete_sync(dbconstants.APP_ENTITY_TABLE, [row_key])
     except dbconstants.AppScaleDBConnectionError, db_error:
       logging.error("Error hard deleting key {0}-->{1}".format(
         row_key, db_error))
@@ -218,9 +221,9 @@ class DatastoreGroomer(threading.Thread):
     end_key = dbconstants.KEY_DELIMITER.join(
       [app_id, 'index', dbconstants.TERMINATING_STRING])
 
-    results = self.db_access.range_query(dbconstants.METADATA_TABLE,
-      dbconstants.METADATA_TABLE, start_key, end_key,
-      dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES)
+    results = self.db_access.range_query_sync(
+      dbconstants.METADATA_TABLE, dbconstants.METADATA_TABLE,
+      start_key, end_key, dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES)
     list_result = []
     for list_item in results:
       for _, value in list_item.iteritems():
@@ -254,8 +257,8 @@ class DatastoreGroomer(threading.Thread):
     for item in references:
       keys.append(item.values()[0][self.ds_access.INDEX_REFERENCE_COLUMN])
     keys = list(set(keys))
-    entities = self.db_access.batch_get_entity(dbconstants.APP_ENTITY_TABLE,
-      keys, dbconstants.APP_ENTITY_SCHEMA)
+    entities = self.db_access.batch_get_entity_sync(
+      dbconstants.APP_ENTITY_TABLE, keys, dbconstants.APP_ENTITY_SCHEMA)
 
     # The datastore needs to know the app ID. The indices could be scattered
     # across apps.
@@ -306,6 +309,8 @@ class DatastoreGroomer(threading.Thread):
 
     return group
 
+  @tornado_synchronous
+  @gen.coroutine
   def lock_and_delete_indexes(self, references, direction, entity_key):
     """ For a list of index entries that have the same entity, lock the entity
     and delete the indexes.
@@ -340,13 +345,15 @@ class DatastoreGroomer(threading.Thread):
       logging.debug('Removing {} indexes starting with {}'.
         format(len(refs_to_delete), [refs_to_delete[0]]))
       try:
-        self.db_access.batch_delete(table_name, refs_to_delete,
-          column_names=dbconstants.PROPERTY_SCHEMA)
+        self.db_access.batch_delete_sync(
+          table_name, refs_to_delete, column_names=dbconstants.PROPERTY_SCHEMA)
         self.index_entries_cleaned += len(refs_to_delete)
       except Exception:
         logging.exception('Unable to delete indexes')
         self.index_entries_delete_failures += 1
 
+  @tornado_synchronous
+  @gen.coroutine
   def lock_and_delete_kind_index(self, reference):
     """ For a list of index entries that have the same entity, lock the entity
     and delete the indexes.
@@ -369,7 +376,8 @@ class DatastoreGroomer(threading.Thread):
         index_to_delete = reference.keys()[0]
         logging.debug('Removing {}'.format([index_to_delete]))
         try:
-          self.db_access.batch_delete(table_name, [index_to_delete],
+          self.db_access.batch_delete_sync(
+            table_name, [index_to_delete],
             column_names=dbconstants.APP_KIND_SCHEMA)
           self.index_entries_cleaned += 1
         except dbconstants.AppScaleDBConnectionError:
@@ -500,12 +508,12 @@ class DatastoreGroomer(threading.Thread):
 
     # Indicate that an index scrub has started.
     if direction == datastore_pb.Query_Order.ASCENDING and not start_key:
-      self.db_access.set_metadata(
+      self.db_access.set_metadata_sync(
         cassandra_interface.INDEX_STATE_KEY,
         cassandra_interface.IndexStates.SCRUB_IN_PROGRESS)
 
     while True:
-      references = self.db_access.range_query(
+      references = self.db_access.range_query_sync(
         table_name=table_name,
         column_names=dbconstants.PROPERTY_SCHEMA,
         start_key=start_key,
@@ -563,7 +571,7 @@ class DatastoreGroomer(threading.Thread):
       start_key = self.groomer_state[1]
 
     while True:
-      references = self.db_access.range_query(
+      references = self.db_access.range_query_sync(
         table_name=table_name,
         column_names=dbconstants.APP_KIND_SCHEMA,
         start_key=start_key,
@@ -599,11 +607,11 @@ class DatastoreGroomer(threading.Thread):
       self.update_groomer_state([task_id, start_key])
 
     # Indicate that the index has been scrubbed after the journal was removed.
-    index_state = self.db_access.get_metadata(
+    index_state = self.db_access.get_metadata_sync(
       cassandra_interface.INDEX_STATE_KEY)
     if index_state == cassandra_interface.IndexStates.SCRUB_IN_PROGRESS:
-      self.db_access.set_metadata(cassandra_interface.INDEX_STATE_KEY,
-                                  cassandra_interface.IndexStates.CLEAN)
+      self.db_access.set_metadata_sync(cassandra_interface.INDEX_STATE_KEY,
+                                       cassandra_interface.IndexStates.CLEAN)
 
   def clean_up_composite_indexes(self):
     """ Deletes old composite indexes and bad references.
@@ -654,8 +662,9 @@ class DatastoreGroomer(threading.Thread):
       composites: A list of datastore_pb.CompositeIndexes composite indexes.
     """
     row_keys = get_composite_indexes_rows([entity], composites)
-    self.db_access.batch_delete(dbconstants.COMPOSITE_TABLE,
-      row_keys, column_names=dbconstants.COMPOSITE_SCHEMA)
+    self.db_access.batch_delete_sync(
+      dbconstants.COMPOSITE_TABLE, row_keys,
+      column_names=dbconstants.COMPOSITE_SCHEMA)
 
   def initialize_kind(self, app_id, kind):
     """ Puts a kind into the statistics object if
@@ -1144,7 +1153,7 @@ class DatastoreGroomer(threading.Thread):
       }
     ]
 
-    index_state = self.db_access.get_metadata(
+    index_state = self.db_access.get_metadata_sync(
       cassandra_interface.INDEX_STATE_KEY)
     if index_state != cassandra_interface.IndexStates.CLEAN:
       tasks.extend(clean_indexes)

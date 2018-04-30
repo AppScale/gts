@@ -42,6 +42,7 @@ class LargeBatch(object):
       txid: An integer specifying a transaction ID.
     """
     self.session = session
+    self.tornado_cassandra = TornadoCassandra(self.session)
     self.project = project
     self.txid = txid
 
@@ -55,6 +56,7 @@ class LargeBatch(object):
     # Indicates if the batch has been applied.
     self.applied = False
 
+  @gen.coroutine
   def is_applied(self, retries=5):
     """ Fetch the status of the batch.
 
@@ -66,6 +68,9 @@ class LargeBatch(object):
       BatchNotFound if the batch cannot be found.
       BatchNotOwned if a different process owns the batch.
     """
+    if self.applied:
+      raise gen.Return(True)
+
     get_status = """
       SELECT applied, op_id FROM batch_status
       WHERE txid_hash = %(txid_hash)s
@@ -75,23 +80,27 @@ class LargeBatch(object):
     parameters = {'txid_hash': tx_partition(self.project, self.txid)}
 
     try:
-      result = self.session.execute(query, parameters=parameters)[0]
+      results = yield self.tornado_cassandra.execute(
+        query, parameters=parameters)
+      result = results[0]
       if result.op_id != self.op_id:
         self.read_op_id = result.op_id
         raise BatchNotOwned(
           '{} does not match {}'.format(self.op_id, result.op_id))
-      return result.applied
+      raise gen.Return(result.applied)
     except TRANSIENT_CASSANDRA_ERRORS:
       retries_left = retries - 1
       if retries_left < 0:
         raise
 
       logger.debug('Unable to read batch status. Retrying.')
-      return self.is_applied(retries=retries_left)
+      is_applied = yield self.is_applied(retries=retries_left)
+      raise gen.Return(is_applied)
     except IndexError:
       raise BatchNotFound(
         'Batch for {}:{} not found'.format(self.project, self.txid))
 
+  @gen.coroutine
   def start(self, retries=5):
     """ Mark the batch as being in progress.
 
@@ -112,21 +121,24 @@ class LargeBatch(object):
                   'op_id': self.op_id}
 
     try:
-      result = self.session.execute(insert, parameters)
+      result = yield self.tornado_cassandra.execute(insert, parameters)
     except TRANSIENT_CASSANDRA_ERRORS:
-      return self.start(retries=retries - 1)
+      yield self.start(retries=retries-1)
+      return
 
     if result.was_applied:
       return
 
     # Make sure this process was responsible for the insert.
     try:
-      self.is_applied()
+      yield self.is_applied()
     except (BatchNotOwned, TRANSIENT_CASSANDRA_ERRORS) as batch_failure:
       raise FailedBatch(str(batch_failure))
     except BatchNotFound:
-      return self.start(retries=retries - 1)
+      yield self.start(retries=retries-1)
+      return
 
+  @gen.coroutine
   def set_applied(self, retries=5):
     """ Mark the batch as being applied.
 
@@ -148,7 +160,7 @@ class LargeBatch(object):
                   'op_id': self.op_id}
 
     try:
-      result = self.session.execute(update_status, parameters)
+      result = yield self.tornado_cassandra.execute(update_status, parameters)
       if result.was_applied:
         self.applied = True
         return
@@ -156,13 +168,15 @@ class LargeBatch(object):
       pass  # Application is confirmed below.
 
     try:
-      if self.is_applied():
-        self.applied = True
+      self.applied = yield self.is_applied()
+      if self.applied:
         return
-      return self.set_applied(retries=retries - 1)
+      yield self.set_applied(retries=retries-1)
+      return
     except (BatchNotFound, BatchNotOwned, TRANSIENT_CASSANDRA_ERRORS) as error:
       raise FailedBatch(str(error))
 
+  @gen.coroutine
   def cleanup(self, retries=5):
     """ Clean up the batch status entry.
 
@@ -183,46 +197,14 @@ class LargeBatch(object):
                   'op_id': self.op_id}
 
     try:
-      result = self.session.execute(clear_status, parameters)
+      result = yield self.tornado_cassandra.execute(clear_status, parameters)
     except TRANSIENT_CASSANDRA_ERRORS:
-      return self.cleanup(retries=retries - 1)
+      yield self.cleanup(retries=retries-1)
+      return
 
     if not result.was_applied:
       raise FailedBatch(
         'Unable to clean up batch for {}:{}'.format(self.project, self.txid))
-
-  def claim(self):
-    """ Claim a batch so that other processes don't work on it.
-
-    Raises:
-      FailedBatch if the batch cannot be claimed.
-    """
-    try:
-      if self.is_applied():
-        self.applied = True
-    except TRANSIENT_CASSANDRA_ERRORS as error:
-      raise FailedBatch(str(error))
-    except BatchNotOwned:
-      # This process does not own the batch yet.
-      pass
-    except BatchNotFound:
-      # Make sure another process doesn't try to start.
-      return self.start()
-
-    update_id = SimpleStatement("""
-      UPDATE batch_status
-      SET op_id = %(new_op_id)s
-      WHERE txid_hash = %(txid_hash)s
-      IF op_id = %(old_op_id)s
-    """, retry_policy=NO_RETRIES)
-    parameters = {'txid_hash': tx_partition(self.project, self.txid),
-                  'new_op_id': self.op_id, 'old_op_id': self.read_op_id}
-
-    try:
-      result = self.session.execute(update_id, parameters)
-      assert result.was_applied
-    except (TRANSIENT_CASSANDRA_ERRORS, AssertionError):
-      raise FailedBatch('Unable to claim batch')
 
 
 class BatchResolver(object):

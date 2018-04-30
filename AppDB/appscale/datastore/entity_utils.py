@@ -43,8 +43,8 @@ def fetch_journal_entry(db_access, key):
   Returns:
     The entity fetched from the datastore, or None if it was deleted.
   """
-  result = db_access.batch_get_entity(JOURNAL_TABLE, [key],
-    JOURNAL_SCHEMA)
+  result = db_access.batch_get_entity_sync(
+    JOURNAL_TABLE, [key], JOURNAL_SCHEMA)
   if len(result.keys()) == 0:
     return None
 

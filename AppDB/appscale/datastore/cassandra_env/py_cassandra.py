@@ -1,25 +1,29 @@
 """
 Cassandra Interface for AppScale
 """
-import cassandra
 import time
 
 from appscale.common import appscale_info
+import cassandra
 from cassandra.cluster import BatchStatement
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import ValueSequence
-from .cassandra_interface import INITIAL_CONNECT_RETRIES
-from .cassandra_interface import KEYSPACE
-from .cassandra_interface import ThriftColumn
-from .constants import LB_POLICY
-from .retry_policies import BASIC_RETRIES
-from .. import dbconstants
-from ..dbconstants import AppScaleDBConnectionError
-from ..dbconstants import SCHEMA_TABLE
-from ..dbconstants import SCHEMA_TABLE_SCHEMA
-from ..dbinterface import AppDBInterface
+from tornado import gen
+
+from appscale.datastore import dbconstants
+from appscale.datastore.cassandra_env.constants import LB_POLICY
+from appscale.datastore.cassandra_env.cassandra_interface import (
+  INITIAL_CONNECT_RETRIES, KEYSPACE, ThriftColumn
+)
+from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
+from appscale.datastore.cassandra_env.tornado_cassandra import TornadoCassandra
+from appscale.datastore.dbconstants import (
+  AppScaleDBConnectionError, SCHEMA_TABLE, SCHEMA_TABLE_SCHEMA
+)
+from appscale.datastore.dbinterface import AppDBInterface
+from appscale.datastore.utils import tornado_synchronous
 
 ERROR_DEFAULT = "DB_ERROR:" # ERROR_CASSANDRA
 
@@ -38,6 +42,7 @@ class DatastoreProxy(AppDBInterface):
       try:
         cluster = Cluster(hosts, load_balancing_policy=LB_POLICY)
         self.session = cluster.connect(keyspace=KEYSPACE)
+        self.tornado_cassandra = TornadoCassandra(self.session)
         break
       except cassandra.cluster.NoHostAvailable as connection_error:
         remaining_retries -= 1
@@ -47,9 +52,13 @@ class DatastoreProxy(AppDBInterface):
 
     self.session.default_consistency_level = ConsistencyLevel.QUORUM
 
+    # Provide synchronous version of get_schema method
+    self.get_schema_sync = tornado_synchronous(self.get_schema)
+
+  @gen.coroutine
   def get_entity(self, table_name, row_key, column_names):
     error = [ERROR_DEFAULT]
-    list = error
+    list_ = error
     row_key = bytearray('/'.join([table_name, row_key]))
     statement = """
       SELECT * FROM "{table}"
@@ -62,7 +71,7 @@ class DatastoreProxy(AppDBInterface):
     parameters = {'key': row_key,
                   'columns': ValueSequence(column_names)}
     try:
-      results = self.session.execute(query, parameters)
+      results = yield self.tornado_cassandra.execute(query, parameters)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       raise AppScaleDBConnectionError('Unable to fetch entity')
 
@@ -71,16 +80,17 @@ class DatastoreProxy(AppDBInterface):
       results_dict[column] = value
 
     if not results_dict:
-      list[0] += 'Not found'
-      return list
+      list_[0] += 'Not found'
+      raise gen.Return(list_)
 
     for column in column_names:
-      list.append(results_dict[column])
-    return list
+      list_.append(results_dict[column])
+    raise gen.Return(list_)
 
+  @gen.coroutine
   def put_entity(self, table_name, row_key, column_names, cell_values):
     error = [ERROR_DEFAULT]
-    list = error
+    list_ = error
 
     row_key = bytearray('/'.join([table_name, row_key]))
     values = {}
@@ -102,18 +112,18 @@ class DatastoreProxy(AppDBInterface):
       batch.add(statement, parameters)
 
     try:
-      self.session.execute(batch)
+      yield self.tornado_cassandra.execute(batch)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
-      list[0] += 'Unable to insert entity'
-      return list
+      list_[0] += 'Unable to insert entity'
+      raise gen.Return(list_)
 
-    list.append("0")
-    return list
+    list_.append("0")
+    raise gen.Return(list_)
 
   def put_entity_dict(self, table_name, row_key, value_dict):
     raise NotImplementedError("put_entity_dict is not implemented in %s." % self.__class__)
 
-
+  @gen.coroutine
   def get_table(self, table_name, column_names):
     """ Fetch a list of values for the given columns in a table.
 
@@ -130,10 +140,10 @@ class DatastoreProxy(AppDBInterface):
     query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
 
     try:
-      results = self.session.execute(query)
+      results = yield self.tornado_cassandra.execute(query)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       response[0] += 'Unable to fetch table contents'
-      return response
+      raise gen.Return(response)
 
     results_list = []
     current_item = {}
@@ -156,10 +166,11 @@ class DatastoreProxy(AppDBInterface):
           response.append(result_columns[column])
         except KeyError:
           response[0] += 'Table contents did not match schema'
-          return response
+          raise gen.Return(response)
 
-    return response
+    raise gen.Return(response)
 
+  @gen.coroutine
   def delete_row(self, table_name, row_key):
     response = [ERROR_DEFAULT]
     row_key = bytearray('/'.join([table_name, row_key]))
@@ -169,25 +180,24 @@ class DatastoreProxy(AppDBInterface):
     delete = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
 
     try:
-      self.session.execute(delete, (row_key,))
+      yield self.tornado_cassandra.execute(delete, (row_key,))
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       response[0] += 'Unable to delete row'
-      return response
+      raise gen.Return(response)
 
     response.append('0')
-    return response
+    raise gen.Return(response)
 
+  @gen.coroutine
   def get_schema(self, table_name):
     error = [ERROR_DEFAULT]
-    result = error  
-    ret = self.get_entity(SCHEMA_TABLE, 
-                          table_name, 
-                          SCHEMA_TABLE_SCHEMA)
+    result = error
+    ret = yield self.get_entity(SCHEMA_TABLE, table_name, SCHEMA_TABLE_SCHEMA)
     if len(ret) > 1:
       schema = ret[1]
     else:
       error[0] = ret[0] + "--unable to get schema"
-      return error
+      raise gen.Return(error)
     schema = schema.split(':')
     result = result + schema
-    return result
+    raise gen.Return(result)

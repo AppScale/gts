@@ -345,7 +345,7 @@ def primed():
     return False
 
   try:
-    primed_version = db_access.get_metadata(cassandra_interface.PRIMED_KEY)
+    primed_version = db_access.get_metadata_sync(cassandra_interface.PRIMED_KEY)
     return primed_version == str(CURRENT_VERSION)
   finally:
     db_access.close()
