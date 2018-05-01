@@ -381,7 +381,7 @@ class ProjectHandler(BaseVersionHandler):
       if time.time() > deadline:
         logger.error('Delete operation took too long (project_id: {}).'
                      .format(project_id))
-        raise gen.Return()
+        return
       to_remove = []
       for http_port in ports:
         # If the port is open, continue to process other ports.
@@ -1008,7 +1008,7 @@ class VersionHandler(BaseVersionHandler):
     IOLoop.current().spawn_callback(wait_for_delete,
                                     del_operation.id, ports_to_close)
 
-    self.write(json_encode(del_operation))
+    self.write(json_encode(del_operation.rest_repr()))
 
   @gen.coroutine
   def patch(self, project_id, service_id, version_id):

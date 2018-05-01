@@ -9,6 +9,7 @@ from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.backup.datastore_backup import DatastoreBackup
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.dbconstants import InternalError
+from appscale.datastore.utils import tornado_synchronous
 from appscale.datastore.zkappscale import zktransaction as zk
 from appscale.datastore.zkappscale.transaction_manager import (
   TransactionManager)
@@ -51,6 +52,7 @@ class DatastoreRestore(multiprocessing.Process):
     self.entities_restored = 0
     self.indexes = []
     self.ds_distributed = None
+    self.dynamic_put_sync = None
 
   def stop(self):
     """ Stops the restore process. """
@@ -63,6 +65,8 @@ class DatastoreRestore(multiprocessing.Process):
     transaction_manager = TransactionManager(self.zoo_keeper.handle)
     self.ds_distributed = DatastoreDistributed(
       datastore_batch, transaction_manager, zookeeper=self.zoo_keeper)
+    self.dynamic_put_sync = tornado_synchronous(
+      self.ds_distributed.dynamic_put)
 
     while True:
       logging.debug("Trying to get restore lock.")
@@ -120,7 +124,7 @@ class DatastoreRestore(multiprocessing.Process):
     logging.debug("Put request: {0}".format(put_request))
 
     try:
-      self.ds_distributed.dynamic_put(self.app_id, put_request, put_response)
+      self.dynamic_put_sync(self.app_id, put_request, put_response)
       self.entities_restored += len(ent_protos)
     except zk.ZKInternalException, zkie:
       logging.error("ZK internal exception for app id {0}, " \

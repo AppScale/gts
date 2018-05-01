@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name='appscale-datastore',
-  version='0.0.1',
+  version='0.1.0',
   description='An implementation of the Google Cloud Datastore API',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',

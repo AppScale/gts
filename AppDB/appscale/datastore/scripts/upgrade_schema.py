@@ -7,6 +7,7 @@ from cassandra.cluster import Cluster
 
 from appscale.common import appscale_info
 from ..cassandra_env.cassandra_interface import KEYSPACE
+from ..cassandra_env.constants import LB_POLICY
 
 # The number of rows to copy at a time.
 BATCH_SIZE = 100
@@ -69,7 +70,7 @@ def copy_column(session, table, key_column, old_column, new_column):
 def main():
   """ Performs schema upgrades. """
   hosts = appscale_info.get_db_ips()
-  cluster = Cluster(hosts)
+  cluster = Cluster(hosts, load_balancing_policy=LB_POLICY)
   session = cluster.connect(KEYSPACE)
 
   table = 'group_updates'

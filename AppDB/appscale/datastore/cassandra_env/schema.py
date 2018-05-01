@@ -18,7 +18,7 @@ from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
 from .cassandra_interface import ScatterPropStates
 from .cassandra_interface import ThriftColumn
-from .constants import CURRENT_VERSION
+from .constants import CURRENT_VERSION, LB_POLICY
 from .. import dbconstants
 
 # A policy that does not retry statements.
@@ -228,7 +228,7 @@ def prime_cassandra(replication):
   remaining_retries = INITIAL_CONNECT_RETRIES
   while True:
     try:
-      cluster = Cluster(hosts)
+      cluster = Cluster(hosts, load_balancing_policy=LB_POLICY)
       session = cluster.connect()
       break
     except cassandra.cluster.NoHostAvailable as connection_error:
@@ -345,7 +345,7 @@ def primed():
     return False
 
   try:
-    primed_version = db_access.get_metadata(cassandra_interface.PRIMED_KEY)
+    primed_version = db_access.get_metadata_sync(cassandra_interface.PRIMED_KEY)
     return primed_version == str(CURRENT_VERSION)
   finally:
     db_access.close()
