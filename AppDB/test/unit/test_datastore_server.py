@@ -26,6 +26,7 @@ from appscale.datastore.cassandra_env.utils import index_deletions
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
 
 from appscale.datastore.utils import (
+  encode_index_pb,
   get_entity_key,
   get_entity_kind,
   get_index_key_from_params,
@@ -1102,6 +1103,46 @@ class TestDatastoreServer(testing.AsyncTestCase):
     entity_lock.should_receive('release')
 
     yield dd.apply_txn_changes(app, txn)
+
+  def test_extract_entities_from_composite_indexes(self):
+    project_id = 'guestbook'
+    props = ['prop1', 'prop2']
+    db_batch = flexmock()
+    db_batch.should_receive('valid_data_version_sync').and_return(True)
+    transaction_manager = flexmock()
+    dd = DatastoreDistributed(db_batch, transaction_manager,
+                              self.get_zookeeper())
+    query = datastore_pb.Query()
+    for prop_name in props:
+      query.add_property_name(prop_name)
+
+    index = query.add_composite_index()
+    definition = index.mutable_definition()
+    for prop_name in props:
+      prop = definition.add_property()
+      prop.set_name(prop_name)
+
+    entity_id = 1524699263329044
+    val1 = entity_pb.PropertyValue()
+    val1.set_int64value(5)
+    val2 = entity_pb.PropertyValue()
+    val2.set_stringvalue('test')
+    index_key = '\x00'.join(
+      [project_id, 'namespace', 'index1', str(encode_index_pb(val1)),
+       str(encode_index_pb(val2)), 'Greeting:{}\x01'.format(entity_id)])
+
+    index_results = [{index_key: {'reference': 'ignored-ref'}}]
+    entities = dd._extract_entities_from_composite_indexes(
+      query, index_results)
+    self.assertEqual(len(entities), 1)
+    returned_entity = entity_pb.EntityProto(entities[0])
+    self.assertEqual(returned_entity.property_size(), 2)
+    self.assertEqual(returned_entity.key().path().element(0).type(), 'Greeting')
+    self.assertEqual(returned_entity.key().path().element(0).id(), entity_id)
+    self.assertEqual(returned_entity.property(0).name(), 'prop1')
+    self.assertEqual(returned_entity.property(0).value().int64value(), 5)
+    self.assertEqual(returned_entity.property(1).name(), 'prop2')
+    self.assertEqual(returned_entity.property(1).value().stringvalue(), 'test')
 
 if __name__ == "__main__":
   unittest.main()

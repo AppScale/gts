@@ -22,6 +22,7 @@ from appscale.datastore.cassandra_env.entity_id_allocator import ScatteredAlloca
 from appscale.datastore.cassandra_env.utils import deletions_for_entity
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
 from appscale.datastore.utils import clean_app_id
+from appscale.datastore.utils import decode_path
 from appscale.datastore.utils import encode_entity_table_key
 from appscale.datastore.utils import encode_index_pb
 from appscale.datastore.utils import encode_path_from_filter
@@ -2604,7 +2605,7 @@ class DatastoreDistributed():
 
       # This is a projection query.
       if query.property_name_size() > 0:
-        potential_entities = self.__extract_entities_from_composite_indexes(
+        potential_entities = self._extract_entities_from_composite_indexes(
           query, references)
       else:
         potential_entities = yield self.__fetch_entities(references)
@@ -2842,7 +2843,7 @@ class DatastoreDistributed():
 
     return cleaned_results
 
-  def __extract_entities_from_composite_indexes(self, query, index_result):
+  def _extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
 
     This is required for projection queries where the query specifies certain
@@ -2908,35 +2909,20 @@ class DatastoreDistributed():
         self.__decode_index_str(value, prop_value)
 
       key_string = tokens[-1]
-      elements = key_string.split(dbconstants.KIND_SEPARATOR)
+      path = decode_path(key_string)
 
       # Set the entity group.
-      element = elements[0]
-      kind, identifier = element.split(dbconstants.ID_SEPARATOR)
       ent_group = entity.mutable_entity_group()
       new_element = ent_group.add_element()
-      new_element.set_type(kind)
-      if len(identifier) == ID_KEY_LENGTH and identifier.isdigit():
-        new_element.set_id(int(identifier))
-      else:
-        new_element.set_name(identifier)
+      new_element.MergeFrom(path.element(0))
 
       # Set the key path.
       key = entity.mutable_key()
       key.set_app(clean_app_id(app_id))
-      path = key.mutable_path()
       if namespace:
         key.set_name_space(namespace)
-      for element in elements:
-        if not element:
-          continue
-        kind, identifier = element.split(dbconstants.ID_SEPARATOR)
-        new_element = path.add_element()
-        new_element.set_type(kind)
-        if len(identifier) == ID_KEY_LENGTH and identifier.isdigit():
-          new_element.set_id(int(identifier))
-        else:
-          new_element.set_name(identifier)
+
+      key.mutable_path().MergeFrom(path)
 
       # Filter entities if this is a distinct query.
       if query.group_by_property_name_size() == 0:
