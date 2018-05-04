@@ -288,7 +288,7 @@ module TaskQueue
   # Number of servers is based on the number of CPUs.
   def self.number_of_servers
     # If this is NaN then it returns 0
-    num_procs = `cat /proc/cpuinfo | grep processor | wc -l`.to_i
+    num_procs = `grep -c processor /proc/cpuinfo`.to_i
     return DEFAULT_NUM_SERVERS if num_procs.zero?
     (num_procs * MULTIPLIER)
   end
