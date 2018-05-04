@@ -21,6 +21,7 @@ from appscale.datastore.cassandra_env.entity_id_allocator import EntityIDAllocat
 from appscale.datastore.cassandra_env.entity_id_allocator import ScatteredAllocator
 from appscale.datastore.cassandra_env.utils import deletions_for_entity
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
+from appscale.datastore.taskqueue_client import EnqueueError, TaskQueueClient
 from appscale.datastore.utils import clean_app_id
 from appscale.datastore.utils import encode_entity_table_key
 from appscale.datastore.utils import encode_index_pb
@@ -41,8 +42,6 @@ from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
 from google.appengine.api.datastore_distributed import _MAX_ACTIONS_PER_TXN
 from google.appengine.api.taskqueue import taskqueue_service_pb
-from google.appengine.api.taskqueue.taskqueue_distributed import\
-  TaskQueueServiceStub
 from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
@@ -114,7 +113,7 @@ class DatastoreDistributed():
   BATCH_SIZE = 100
 
   def __init__(self, datastore_batch, transaction_manager, zookeeper=None,
-               log_level=logging.INFO):
+               log_level=logging.INFO, taskqueue_locations=()):
     """
        Constructor.
 
@@ -136,15 +135,13 @@ class DatastoreDistributed():
     # zookeeper instance for accesing ZK functionality.
     self.zookeeper = zookeeper
 
-    # Maintain a stub object for each project using transactional tasks.
-    self.taskqueue_stubs = {}
-
     # Maintain a scattered allocator for each project.
     self.scattered_allocators = {}
 
     # Maintain a sequential allocator for each project.
     self.sequential_allocators = {}
 
+    self.taskqueue_client = TaskQueueClient(taskqueue_locations)
     self.transaction_manager = transaction_manager
     self.zookeeper.handle.add_listener(self._zk_state_listener)
 
@@ -3172,37 +3169,21 @@ class DatastoreDistributed():
       app: A string specifying an application ID.
       task_ops: A list of tasks.
     """
-    if app not in self.taskqueue_stubs:
-      # The host is used only for generating URLs, which have already been
-      # generated for the tasks.
-      self.taskqueue_stubs[app] = TaskQueueServiceStub(app, '')
-
-    bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
-    bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-
     # Assume all tasks have the same client version.
     service_id = tasks[0]['service_id']
     version_id = tasks[0]['version_id']
 
-    for task in tasks:
-      bulk_request.add_add_request().CopyFrom(task['task'])
-
-    self.logger.debug(
-      'Enqueuing {} tasks'.format(bulk_request.add_request_size()))
-    self.taskqueue_stubs[app]._RemoteSend(
-      bulk_request, bulk_response, 'BulkAdd', service_id=service_id,
-      version_id=version_id)
+    add_requests = [task['task'] for task in tasks]
+    self.logger.debug('Enqueuing {} tasks'.format(len(add_requests)))
 
     # The transaction has already been committed, but enqueuing the tasks may
     # fail. We need a way to enqueue the task with the condition that it
     # executes only upon successful commit. For now, we just log the error.
-    if bulk_response.taskresult_size() != bulk_request.add_request_size():
-      self.logger.error('Unexpected number of task results: {} != {}'.format(
-        bulk_response.taskresult_size(), bulk_request.add_request_size()))
-
-    for task_result in bulk_response.taskresult_list():
-      if task_result.result() != taskqueue_service_pb.TaskQueueServiceError.OK:
-        self.logger.error(task_result)
+    try:
+      self.taskqueue_client.add_tasks(app, service_id, version_id,
+                                      add_requests)
+    except EnqueueError as error:
+      self.logger.error('Unable to enqueue tasks: {}'.format(error))
 
   @gen.coroutine
   def apply_txn_changes(self, app, txn):

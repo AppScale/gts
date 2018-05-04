@@ -15,6 +15,7 @@ import tornado.httpserver
 import tornado.web
 
 from appscale.common import appscale_info
+from appscale.common.appscale_info import get_load_balancer_ips
 from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
@@ -849,6 +850,7 @@ def main():
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('port', args.port)
+  taskqueue_locations = get_load_balancer_ips()
 
   server_node = '{}/{}:{}'.format(DATASTORE_SERVERS_NODE, options.private_ip,
                                   options.port)
@@ -869,7 +871,8 @@ def main():
   transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
     datastore_batch, transaction_manager, zookeeper=zookeeper,
-    log_level=logger.getEffectiveLevel())
+    log_level=logger.getEffectiveLevel(),
+    taskqueue_locations=taskqueue_locations)
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)

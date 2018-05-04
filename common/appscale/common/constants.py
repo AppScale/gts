@@ -82,6 +82,9 @@ UA_SERVER_PORT = 4343
 # The port of the application manager soap server.
 APP_MANAGER_PORT = 17445
 
+# The HAProxy port for the TaskQueue service.
+TASKQUEUE_SERVICE_PORT = 17446
+
 # Python programs.
 PYTHON = "python"
 
