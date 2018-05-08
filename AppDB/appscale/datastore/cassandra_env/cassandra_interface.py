@@ -11,6 +11,9 @@ import time
 import uuid
 
 from appscale.common import appscale_info
+from appscale.common.async_retrying import (
+  _RetryCoroutine, DEFAULT_BACKOFF_BASE, DEFAULT_BACKOFF_MULTIPLIER,
+  DEFAULT_MAX_RETRIES)
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 import cassandra
@@ -26,7 +29,7 @@ from appscale.datastore.cassandra_env.constants import (
   CURRENT_VERSION, LB_POLICY
 )
 from appscale.datastore.cassandra_env.large_batch import (
-  FailedBatch, LargeBatch
+  BatchNotApplied, FailedBatch, LargeBatch
 )
 from appscale.datastore.cassandra_env.retry_policies import (
   BASIC_RETRIES, NO_RETRIES
@@ -311,7 +314,7 @@ class DatastoreProxy(AppDBInterface):
     return self.prepared_statements[statement]
 
   @gen.coroutine
-  def _normal_batch(self, mutations, txid):
+  def normal_batch(self, mutations, txid):
     """ Use Cassandra's native batch statement to apply mutations atomically.
 
     Args:
@@ -358,7 +361,7 @@ class DatastoreProxy(AppDBInterface):
     try:
       yield self.tornado_cassandra.execute(batch)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
-      message = 'Exception during batch_mutate'
+      message = 'Unable to apply batch'
       logging.exception(message)
       raise AppScaleDBConnectionError(message)
 
@@ -421,7 +424,7 @@ class DatastoreProxy(AppDBInterface):
     ]
 
   @gen.coroutine
-  def _large_batch(self, app, mutations, entity_changes, txn):
+  def large_batch(self, app, mutations, entity_changes, txn):
     """ Insert or delete multiple rows across tables in an atomic statement.
 
     Args:
@@ -439,7 +442,7 @@ class DatastoreProxy(AppDBInterface):
     try:
       yield large_batch.start()
     except FailedBatch as batch_error:
-      raise AppScaleDBConnectionError(str(batch_error))
+      raise BatchNotApplied(str(batch_error))
 
     insert_item = (
       'INSERT INTO batches (app, transaction, namespace, '
@@ -470,15 +473,24 @@ class DatastoreProxy(AppDBInterface):
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Unable to write large batch log'
       logging.exception(message)
-      raise AppScaleDBConnectionError(message)
+      raise BatchNotApplied(message)
 
+    # Since failing after this point is expensive and time consuming, retry
+    # operations to make a failure less likely.
+    retry_coroutine = _RetryCoroutine(
+      DEFAULT_BACKOFF_BASE, DEFAULT_BACKOFF_MULTIPLIER, backoff_threshold=5,
+      max_retries=DEFAULT_MAX_RETRIES, retrying_timeout=10,
+      retry_on_exception=dbconstants.TRANSIENT_CASSANDRA_ERRORS)
+
+    persistent_apply_batch = retry_coroutine(large_batch.set_applied)
     try:
-      yield large_batch.set_applied()
+      yield persistent_apply_batch()
     except FailedBatch as batch_error:
       raise AppScaleDBConnectionError(str(batch_error))
 
+    persistent_apply_mutations = retry_coroutine(self.apply_mutations)
     try:
-      yield self.apply_mutations(mutations, txn)
+      yield persistent_apply_mutations(mutations, txn)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       message = 'Exception during large batch'
       logging.exception(message)
@@ -499,22 +511,6 @@ class DatastoreProxy(AppDBInterface):
       yield self.tornado_cassandra.execute(clear_batch, parameters)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
       logging.exception('Unable to clear batch log')
-
-  @gen.coroutine
-  def batch_mutate(self, app, mutations, entity_changes, txn):
-    """ Insert or delete multiple rows across tables in an atomic statement.
-
-    Args:
-      app: A string containing the application ID.
-      mutations: A list of dictionaries representing mutations.
-      entity_changes: A list of changes at the entity level.
-      txn: A transaction ID handler.
-    """
-    size = batch_size(mutations)
-    if size > LARGE_BATCH_THRESHOLD:
-      yield self._large_batch(app, mutations, entity_changes, txn)
-    else:
-      yield self._normal_batch(mutations, txn)
 
   @gen.coroutine
   def batch_delete(self, table_name, row_keys, column_names=()):
