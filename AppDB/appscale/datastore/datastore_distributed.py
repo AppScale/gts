@@ -21,8 +21,7 @@ from appscale.datastore.cassandra_env.cassandra_interface import (
   batch_size, LARGE_BATCH_THRESHOLD)
 from appscale.datastore.cassandra_env.entity_id_allocator import EntityIDAllocator
 from appscale.datastore.cassandra_env.entity_id_allocator import ScatteredAllocator
-from appscale.datastore.cassandra_env.large_batch import (
-  BatchNotApplied, FailedBatch)
+from appscale.datastore.cassandra_env.large_batch import BatchNotApplied
 from appscale.datastore.cassandra_env.utils import deletions_for_entity
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
 from appscale.datastore.utils import clean_app_id
