@@ -2611,9 +2611,15 @@ class Djinn
   end
 
   def update_db_haproxy
-    servers = ZKInterface.get_datastore_servers.map { |machine_ip, port|
-      {'ip' => machine_ip, 'port' => port}
-    }
+    begin
+      servers = ZKInterface.get_datastore_servers.map { |machine_ip, port|
+        {'ip' => machine_ip, 'port' => port}
+      }
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn('Unable to fetch list of datastore servers')
+      return
+    end
+
     HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
                               DatastoreServer::NAME)
   end
