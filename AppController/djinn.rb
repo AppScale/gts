@@ -4846,6 +4846,8 @@ HOSTS
             version_key, port = instance_key.split(":")
             ret = remove_appserver_process(version_key, port)
             Djinn.log_debug("remove_appserver_process returned: #{ret}.")
+          else
+            break
           end
         end
       }
