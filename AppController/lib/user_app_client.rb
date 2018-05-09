@@ -89,6 +89,8 @@ class UserAppClient
       puts "\nYour user account has been created successfully."
     elsif result == 'false'
       raise InternalError.new('Unable to create user')
+    elsif result == 'Error: user already exists'
+      raise UserExists.new(result)
     else
       raise InternalError.new(result)
     end

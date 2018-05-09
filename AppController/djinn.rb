@@ -4467,6 +4467,8 @@ HOSTS
       retries ||= 0
       result = uac.commit_new_user(APPSCALE_USER, password, "app")
       Djinn.log_info("Created/confirmed system user: (#{result})")
+    rescue UserExists
+      Djinn.log_info('System user already exists')
     rescue InternalError, FailedNodeException
       Djinn.log_warn('Failed to create a new user')
       retries += 1
@@ -5968,6 +5970,12 @@ HOSTS
     begin
       retries ||= 0
       result = uac.commit_new_user(xmpp_user, xmpp_pass, "app")
+    rescue UserExists
+      Djinn.log_info("User #{xmpp_user} already exists")
+      # We need to update the password of the channel XMPP account for
+      # authorization.
+      result = uac.change_password(xmpp_user, xmpp_pass)
+      Djinn.log_debug("Change password returned: #{result}")
     rescue InternalError
       Djinn.log_warn('Failed to create a new user')
       retries += 1
@@ -5977,14 +5985,6 @@ HOSTS
       else
         raise
       end
-    end
-
-    Djinn.log_debug("User creation returned: #{result}")
-    if result.include?('Error: user already exists')
-      # We need to update the password of the channel XMPP account for
-      # authorization.
-      result = uac.change_password(xmpp_user, xmpp_pass)
-      Djinn.log_debug("Change password returned: #{result}")
     end
 
     Djinn.log_debug("Created user [#{xmpp_user}] with password " \
