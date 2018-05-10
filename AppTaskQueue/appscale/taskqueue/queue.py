@@ -235,7 +235,428 @@ class PushQueue(Queue):
     return '<PushQueue {}: {}>'.format(self.name, attr_str)
 
 
+class PostgresPullQueue(Queue):
+
+  """
+  Before using Postgres implementation, make sure that
+  connection using appscale user can be created:
+  /etc/postgresql/9.5/main/pg_hba.conf
+  """
+
+  def __init__(self, queue_info, app, pg_connection=None):
+    """ Create a PostgresPullQueue object.
+
+    Args:
+      queue_info: A dictionary containing queue info.
+      app: A string containing the application ID.
+      pg_connection: A psycopg2 connection to PostgreSQL.
+    """
+    super(PostgresPullQueue, self).__init__(queue_info, app)
+    self.pg_connection = pg_connection
+    self.pg_cursor = pg_connection.cursor()
+    self.ensure_tables_created()
+
+  @property
+  def tasks_table_name(self):
+    return 'pullqueue-{}'.format(self.name)
+
+  def ensure_tables_created(self):
+    try:
+      self.pg_cursor.execute(
+        'CREATE TABLE IF NOT EXISTS "{table_name}" ('
+        '  task_name varchar(500) NOT NULL,'
+        '  time_enqueued timestamp NOT NULL,'
+        '  retry_count integer NOT NULL,'
+        '  lease_expires timestamp NOT NULL,'
+        '  time_leased timestamp,'
+        '  payload text,'
+        '  tag varchar(500),'
+        '  PRIMARY KEY (task_name)'
+        ')'.format(table_name=self.tasks_table_name)
+      )
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+  def add_task(self, task):
+    """ Adds a task to the queue.
+
+    Args:
+      task: A Task object.
+    Raises:
+      InvalidTaskInfo if the task ID already exists in the queue
+        or it doesn't have payloadBase64 attribute.
+    """
+    if not hasattr(task, 'payloadBase64'):
+      raise InvalidTaskInfo('{} is missing a payload.'.format(task))
+
+    enqueue_time = datetime.datetime.utcnow()
+    try:
+      lease_expires = task.leaseTimestamp
+    except AttributeError:
+      lease_expires = datetime.datetime.utcfromtimestamp(0)
+
+    try:
+      task.queueName = self.name
+      task.enqueueTimestamp = enqueue_time
+      task.leaseTimestamp = lease_expires
+
+      self.pg_cursor.execute(
+        'INSERT INTO "{table}" ( '
+        '  task_name, payload, time_enqueued, '
+        '  lease_expires, retry_count, tag '
+        ')'
+        'VALUES ( '
+        '  %(task_name)s, %(payload)s, %(time_enqueued)s, '
+        '  %(lease_expires)s, %(retry_count)s, %(tag)s '
+        ') '
+        'ON CONFLICT (task_name) DO UPDATE '    # IGNORE DUPLICATES FOR NOW
+        '  SET payload = EXCLUDED.payload, '    # TO KEEP CASSANDRA BEHAVIOUR
+        '      time_enqueued = EXCLUDED.time_enqueued, '
+        '      lease_expires = EXCLUDED.lease_expires, '
+        '      retry_count = EXCLUDED.retry_count, '
+        '      tag = EXCLUDED.tag'.format(table=self.tasks_table_name),
+        vars={
+          'task_name': task.id,
+          'payload': task.payloadBase64,
+          'time_enqueued': enqueue_time,
+          'lease_expires': lease_expires,
+          'retry_count': 0,
+          'tag': getattr(task, 'tag', None)
+        }
+      )
+
+      self.pg_connection.commit()
+      logger.debug('Added task: {}'.format(task))
+
+    # except IntegrityError as err:
+    #   raise class TaskQueueServiceError TASK_ALREADY_EXISTS = 10
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+  def get_task(self, task, omit_payload=False):
+    """ Gets a task from the queue.
+
+    Args:
+      task: A Task object.
+      omit_payload: A boolean indicating that the payload should not be
+        fetched.
+    Returns:
+      A task object or None.
+    """
+    if omit_payload:
+      columns = ['task_name', 'time_enqueued',
+                 'lease_expires', 'retry_count', 'tag']
+    else:
+      columns = ['payload', 'task_name', 'time_enqueued',
+                 'lease_expires', 'retry_count', 'tag']
+    try:
+      self.pg_cursor.execute(
+        'SELECT {columns} FROM "{tasks_table}" '
+        'WHERE task_name = %(task_name)s'
+        .format(columns=', '.join(columns),
+                tasks_table=self.tasks_table_name),
+        vars={
+          'task_name': task.id,
+        }
+      )
+      row = self.pg_cursor.fetchone()
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+    if not row:
+      return None
+    return self._task_from_row(columns, row, id=task.id)
+
+  def delete_task(self, task):
+    """ Deletes a task from the queue.
+
+    Args:
+      task: A Task object.
+    """
+    try:
+      self.pg_cursor.execute(
+        'DELETE FROM "{tasks_table}" '
+        'WHERE "{tasks_table}".task_name = %(task_name)s'
+        .format(tasks_table=self.tasks_table_name),
+        vars={
+          'task_name': task.id,
+        }
+      )
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+  def update_lease(self, task, new_lease_seconds):
+    """ Updates the duration of a task lease.
+
+    Args:
+      task: A Task object.
+      new_lease_seconds: An integer specifying when to set the new ETA. It
+        represents the number of seconds from now.
+    Returns:
+      A Task object.
+    """
+    new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
+    try:
+      self.pg_cursor.execute(
+        'UPDATE "{tasks_table}" '
+        'SET lease_expires = %(new_eta)s '
+        'WHERE task_name = %(task_name)s '
+        '  AND lease_expires > %(current_time)s '
+        '  AND lease_expires = %(old_eta)s'
+        .format(tasks_table=self.tasks_table_name),
+        vars={
+          'task_name': task.id,
+          'old_eta': task.get_eta(),
+          'new_eta': new_eta,
+          'current_time': datetime.datetime.utcnow()
+        }
+      )
+      if self.pg_cursor.statusmessage != 'UPDATE 1':
+        logger.info('Expected to get status "UPDATE 1", got: "{}"'
+                    .format(self.pg_cursor.statusmessage))
+        raise InvalidLeaseRequest('The task lease has expired')
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+    task.leaseTimestamp = new_eta
+    return task
+
+  def update_task(self, task, new_lease_seconds):
+    """ Updates leased tasks.
+
+    Args:
+      task: A task object.
+      new_lease_seconds: An integer specifying when to set the new ETA. It
+        represents the number of seconds from now.
+    """
+    new_eta = current_time_ms() + datetime.timedelta(seconds=new_lease_seconds)
+
+    statement = (
+      'UPDATE "{tasks_table}" '
+      'SET lease_expires = %(new_eta)s '
+      'WHERE task_name = %(task_name)s '
+      '  AND lease_expires > %(current_time)s'
+    )
+    parameters = {
+      'task_name': task.id,
+      'new_eta': new_eta,
+      'current_time': datetime.datetime.utcnow()
+    }
+
+    # Make sure we don't override
+    try:
+      old_eta = task.leaseTimestamp
+    except AttributeError:
+      old_eta = None
+    if old_eta == datetime.datetime.utcfromtimestamp(0):
+      old_eta = None
+
+    if old_eta is not None:
+      statement += ' AND lease_expires = %(old_eta)s'
+      parameters['old_eta'] = old_eta
+
+    try:
+      self.pg_cursor.execute(
+        statement.format(tasks_table=self.tasks_table_name),
+        vars=parameters
+      )
+      if self.pg_cursor.statusmessage != 'UPDATE 1':
+        logger.info('Expected to get status "UPDATE 1", got: "{}"'
+                    .format(self.pg_cursor.statusmessage))
+        raise InvalidLeaseRequest('The task lease has expired')
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+    task.leaseTimestamp = new_eta
+    return task
+
+  def list_tasks(self, limit=100):
+    """ List all non-deleted tasks in the queue.
+
+    Args:
+      limit: An integer specifying the maximum number of tasks to list.
+    Returns:
+      A list of Task objects.
+    """
+    columns = ['task_name', 'time_enqueued',
+               'lease_expires', 'retry_count', 'tag']
+    try:
+      self.pg_cursor.execute(
+        'SELECT {columns} FROM "{tasks_table}" '
+        'ORDER BY lease_expires'
+        .format(columns=', '.join(columns),
+                tasks_table=self.tasks_table_name)
+      )
+      rows = self.pg_cursor.fetchmany(size=limit)
+      tasks = [self._task_from_row(columns, row) for row in rows]
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+    return tasks
+
+  def lease_tasks(self, num_tasks, lease_seconds, group_by_tag=False,
+                  tag=None):
+    """ Acquires a lease on tasks from the queue.
+
+    Args:
+      num_tasks: An integer specifying the number of tasks to lease.
+      lease_seconds: An integer specifying how long to lease the tasks.
+      group_by_tag: A boolean indicating that only tasks of one tag should
+        be leased.
+      tag: A string containing the tag for the task.
+    Returns:
+      A list of Task objects.
+    """
+    if num_tasks > PullQueue.MAX_LEASE_AMOUNT:
+      raise InvalidLeaseRequest('Only {} tasks can be leased at a time'
+                                .format(PullQueue.MAX_LEASE_AMOUNT))
+
+    if lease_seconds > PullQueue.MAX_LEASE_TIME:
+      raise InvalidLeaseRequest('Tasks can only be leased for up to {} seconds'
+                                .format(PullQueue.MAX_LEASE_TIME))
+
+    start_time = datetime.datetime.utcnow()
+    logger.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
+                 format(num_tasks, lease_seconds, group_by_tag, tag))
+    new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
+    # If not specified, the tag is assumed to be that of the oldest task.
+    if group_by_tag and tag is None:
+      tag = self._get_earliest_tag()
+      if tag is None:
+        return []
+
+    # Determine tag condition for the query
+    tag_condition = ''
+    if group_by_tag:
+      tag_condition = ' AND tag = %(tag)s'
+
+    # Determine max retries condition for the query
+    max_retries_condition = ''
+    if self.task_retry_limit:
+      max_retries_condition = ' AND retry_count < %(max_retries)s'
+
+    columns = ['task_name', 'payload', 'time_enqueued',
+               'lease_expires', 'retry_count', 'tag']
+    full_column_names = [
+      '"{table}".{col}'.format(table=self.tasks_table_name, col=column)
+      for column in columns
+    ]
+    try:
+      self.pg_cursor.execute(
+        'UPDATE "{tasks_table}" '
+        'SET lease_expires = %(new_lease_expires)s, '
+        '    retry_count = retry_count + 1, '
+        '    time_leased = %(current_time)s '
+        'FROM ( '
+        '  SELECT task_name FROM "{tasks_table}" '
+        '  WHERE lease_expires < %(current_time)s '
+        '        {retry_limit} '
+        '        {tag_filter} '
+        '  ORDER BY lease_expires '
+        '  FOR UPDATE SKIP LOCKED '
+        '  LIMIT {num_tasks} '
+        ') as tasks_to_update '
+        'WHERE "{tasks_table}".task_name = tasks_to_update.task_name '
+        'RETURNING {columns}'
+        .format(columns=', '.join(full_column_names),
+                retry_limit=max_retries_condition, tag_filter=tag_condition,
+                num_tasks=num_tasks, tasks_table=self.tasks_table_name),
+        vars={
+          'new_lease_expires': new_eta,
+          'current_time': start_time,
+          'max_retries': self.task_retry_limit,
+          'tag': tag
+        }
+      )
+      rows = self.pg_cursor.fetchall()
+      leased = [self._task_from_row(columns, row) for row in rows]
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+    time_elapsed = datetime.datetime.utcnow() - start_time
+    logger.debug('Leased {} tasks [time elapsed: {}]'
+                 .format(len(leased), str(time_elapsed)))
+    return leased
+
+  def purge(self):
+    """ Remove all tasks from queue.
+    """
+    try:
+      self.pg_cursor.execute(
+        'TRUNCATE TABLE "{tasks_table}"'
+        .format(tasks_table=self.tasks_table_name)
+      )
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+  COLUMN_ATTR_MAPPING = {
+    'task_name': 'id',
+    'payload': 'payloadBase64',
+    'time_enqueued': 'enqueueTimestamp',
+    'lease_expires': 'leaseTimestamp',
+    'retry_count': 'retry_count',
+    'tag': 'tag'
+  }
+
+  def _task_from_row(self, columns, row, **other_attrs):
+    task_info = {
+      self.COLUMN_ATTR_MAPPING[column]: value
+      for column, value in zip(columns, row)
+    }
+    task_info.update(other_attrs)
+    task_info['queueName'] = self.name
+    return Task(task_info)
+
+  def _get_earliest_tag(self):
+    """ Get the tag with the earliest ETA.
+
+    Returns:
+      A string containing a tag or None.
+    """
+    try:
+      self.pg_cursor.execute(
+        'SELECT tag FROM "{tasks_table}" '
+        'ORDER BY lease_expires'
+        .format(tasks_table=self.tasks_table_name)
+      )
+      row = self.pg_cursor.fetchone()
+      tag = row[0] if row else None
+      self.pg_connection.commit()
+      return tag
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+
+
 class PullQueue(Queue):
+
   # The maximum number of tasks that can be leased at a time.
   MAX_LEASE_AMOUNT = 1000
 

@@ -2,9 +2,11 @@
 
 import json
 
-from kazoo.exceptions import ZookeeperError
+import psycopg2
+from kazoo.exceptions import ZookeeperError, NoNodeError
 from tornado.ioloop import IOLoop
 
+from appscale.taskqueue.queue import PostgresPullQueue
 from appscale.taskqueue.utils import create_celery_for_app
 from .queue import PullQueue
 from .queue import PushQueue
@@ -25,6 +27,15 @@ class ProjectQueueManager(dict):
     self.zk_client = zk_client
     self.project_id = project_id
     self.db_access = db_access
+
+    pg_dns_node = '/appscale/projects/{}/postgres_dsn'.format(project_id)
+    try:
+      pg_dsn = self.zk_client.get(pg_dns_node)
+      logger.info('Using PostgreSQL as a backend for Pull Queues')
+      self.pg_connection = psycopg2.connect(pg_dsn[0])
+    except NoNodeError:
+      logger.info('Using Cassandra as a backend for Pull Queues')
+      self.pg_connection = None
     self.queues_node = '/appscale/projects/{}/queues'.format(project_id)
     self.watch = zk_client.DataWatch(self.queues_node,
                                      self._update_queues_watch)
@@ -58,6 +69,9 @@ class ProjectQueueManager(dict):
       queue_info['name'] = queue_name
       if 'mode' not in queue_info or queue_info['mode'] == 'push':
         self[queue_name] = PushQueue(queue_info, self.project_id)
+      elif self.pg_connection:
+        self[queue_name] = PostgresPullQueue(queue_info, self.project_id,
+                                             self.pg_connection)
       else:
         self[queue_name] = PullQueue(queue_info, self.project_id,
                                      self.db_access)
