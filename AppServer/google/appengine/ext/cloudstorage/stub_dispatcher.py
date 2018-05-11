@@ -333,12 +333,13 @@ class _ContentType(_Header):
 class _ContentRange(_Header):
   """Content-Range header.
 
-  Used by resumable upload. Possible formats:
-    Content-Range: bytes 2-4/5 or Content-Range: bytes 1-3/*
+  Used by resumable upload of unknown size. Possible formats:
+    Content-Range: bytes 1-3/* (for uploading of unknown size)
+    Content-Range: bytes */5 (for finalizing with no data)
   """
 
   HEADER = 'Content-Range'
-  RE_PATTERN = re.compile(r'^bytes ([0-9]+)-([0-9]+)/([0-9]+|\*)$')
+  RE_PATTERN = re.compile(r'^bytes (([0-9]+)-([0-9]+)|\*)/([0-9]+|\*)$')
 
   def __init__(self, headers):
     super(_ContentRange, self).__init__(headers)
@@ -346,9 +347,15 @@ class _ContentRange(_Header):
       result = self.RE_PATTERN.match(self.value)
       if not result:
         raise ValueError('Invalid content-range header %s' % self.value)
-      self.start = long(result.group(1))
-      self.end = long(result.group(2))
-      self.finished = result.group(3) != '*'
+
+      self.no_data = result.group(1) == '*'
+      self.last = result.group(4) != '*'
+      if self.no_data and not self.last:
+        raise ValueError('Invalid content-range header %s' % self.value)
+
+      self.range = None
+      if not self.no_data:
+        self.range = (long(result.group(2)), long(result.group(3)))
 
 
 class _Range(_Header):
