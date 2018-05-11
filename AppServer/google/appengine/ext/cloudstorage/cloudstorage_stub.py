@@ -25,6 +25,8 @@ import hashlib
 import StringIO
 import time
 
+from google.appengine.api import datastore
+from google.appengine.api import namespace_manager
 from google.appengine.api.blobstore import blobstore_stub
 from google.appengine.ext import db
 from google.appengine.ext.cloudstorage import common
@@ -162,7 +164,9 @@ class CloudStorageStub(object):
         db.delete(_AE_GCSPartialFile_.all().ancestor(gcs_file))
       gcs_file.delete()
 
-  def put_continue_creation(self, token, content, content_range, last=False):
+  def put_continue_creation(self, token, content, content_range,
+                            last=False,
+                            _upload_filename=None):
     """Continue object upload with PUTs.
 
     This implements the resumable upload XML API.
@@ -173,32 +177,47 @@ class CloudStorageStub(object):
       content_range: a (start, end) tuple specifying the content range of this
         chunk. Both are inclusive according to XML API.
       last: True if this is the last chunk of file content.
+      _upload_filename: internal use. Might be removed any time! This is
+        used by blobstore to pass in the upload filename from user.
+
+    Returns:
+      _AE_GCSFileInfo entity for this file if the file is finalized.
 
     Raises:
       ValueError: if token is invalid.
     """
-    gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
-    if not gcs_file:
-      raise ValueError('Invalid token')
-    if content:
-      start, end = content_range
-      if len(content) != (end - start + 1):
-        raise ValueError('Invalid content range %d-%d' % content_range)
-      blobkey = '%s-%d-%d' % (token, content_range[0], content_range[1])
-      self.blob_storage.StoreBlob(blobkey, StringIO.StringIO(content))
-      new_content = _AE_GCSPartialFile_(parent=gcs_file,
-                                        partial_content=blobkey,
-                                        start=start,
-                                        end=end + 1)
-      new_content.put()
-    if last:
-      self._end_creation(token)
+    ns = namespace_manager.get_namespace()
+    try:
+      namespace_manager.set_namespace('')
+      gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
+      if not gcs_file:
+        raise ValueError('Invalid token')
+      if content:
+        start, end = content_range
+        if len(content) != (end - start + 1):
+          raise ValueError('Invalid content range %d-%d' % content_range)
+        blobkey = '%s-%d-%d' % (token, content_range[0], content_range[1])
+        self.blob_storage.StoreBlob(blobkey, StringIO.StringIO(content))
+        new_content = _AE_GCSPartialFile_(parent=gcs_file,
 
-  def _end_creation(self, token):
+                                          key_name='{:020}'.format(start),
+                                          partial_content=blobkey,
+                                          start=start,
+                                          end=end + 1)
+        new_content.put()
+      if last:
+        return self._end_creation(token, _upload_filename)
+    finally:
+      namespace_manager.set_namespace(ns)
+
+  def _end_creation(self, token, _upload_filename):
     """End object upload.
 
     Args:
       token: upload token returned by post_start_creation.
+
+    Returns:
+      _AE_GCSFileInfo Entity for this file.
 
     Raises:
       ValueError: if token is invalid. Or file is corrupted during upload.
@@ -217,10 +236,21 @@ class CloudStorageStub(object):
     gcs_file.creation = datetime.datetime.utcnow()
     gcs_file.size = len(content)
 
+
+
+    blob_info = datastore.Entity('__BlobInfo__', name=str(token), namespace='')
+    blob_info['content_type'] = gcs_file.content_type
+    blob_info['creation'] = gcs_file.creation
+    blob_info['filename'] = _upload_filename
+    blob_info['md5_hash'] = gcs_file.etag
+    blob_info['size'] = gcs_file.size
+    datastore.Put(blob_info)
+
     self.blob_storage.StoreBlob(token, StringIO.StringIO(content))
 
     gcs_file.finalized = True
     gcs_file.put()
+    return gcs_file
 
   @db.transactional
   def _get_content(self, gcs_file):
