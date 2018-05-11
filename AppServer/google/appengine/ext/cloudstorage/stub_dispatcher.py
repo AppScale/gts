@@ -24,6 +24,7 @@
 
 
 
+import httplib
 import re
 import urllib
 import urlparse
@@ -158,37 +159,28 @@ def _handle_post(gs_stub, filename, headers):
   return _FakeUrlFetchResult(201, response_headers, '')
 
 
-def _handle_put(gs_stub, filename, param_dict, headers, payload):
+def _handle_put(gcs_stub, filename, param_dict, headers, payload):
   """Handle PUT that continues object creation."""
   token = _get_param('upload_id', param_dict)
   content_range = _ContentRange(headers)
 
-  if content_range.value and not content_range.finished:
-    gs_stub.put_continue_creation(token,
-                                  payload,
-                                  (content_range.start, content_range.end))
+  if not content_range.value:
+    raise ValueError('Missing header content-range.')
+
+  gcs_stub.put_continue_creation(token,
+                                payload,
+                                content_range.range,
+                                content_range.last)
+  if content_range.last:
+    filestat = gcs_stub.head_object(filename)
+    response_headers = {
+        'content-length': filestat.st_size,
+    }
+    response_status = httplib.OK
+  else:
     response_headers = {}
     response_status = 308
-  elif content_range.value and content_range.finished:
-    gs_stub.put_continue_creation(token,
-                                  payload,
-                                  (content_range.start, content_range.end),
-                                  last=True)
-    filestat = gs_stub.head_object(filename)
-    response_headers = {
-        'content-length': filestat.st_size,
-    }
-    response_status = 200
-  elif not payload:
 
-    gs_stub.put_continue_creation(token, '', None, True)
-    filestat = gs_stub.head_object(filename)
-    response_headers = {
-        'content-length': filestat.st_size,
-    }
-    response_status = 200
-  else:
-    raise ValueError('Missing header content-range but has payload')
   return _FakeUrlFetchResult(response_status, response_headers, '')
 
 
