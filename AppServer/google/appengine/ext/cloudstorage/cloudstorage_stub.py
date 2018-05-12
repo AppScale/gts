@@ -45,12 +45,14 @@ class _AE_GCSFileInfo_(db.Model):
 
 
 
+
   raw_options = db.StringListProperty()
 
 
   size = db.IntegerProperty()
 
   creation = db.DateTimeProperty()
+
   content_type = db.StringProperty()
   etag = db.ByteStringProperty()
 
@@ -120,6 +122,7 @@ class CloudStorageStub(object):
     return blobstore_stub.BlobstoreServiceStub.CreateEncodedGoogleStorageKey(
         filename[1:])
 
+  @db.non_transactional
   def post_start_creation(self, filename, options):
     """Start object creation with a POST.
 
@@ -151,6 +154,7 @@ class CloudStorageStub(object):
       namespace_manager.set_namespace(ns)
 
 
+  @db.non_transactional
   def _cleanup_old_file(self, gcs_file):
     """Clean up the old version of a file.
 
@@ -169,6 +173,7 @@ class CloudStorageStub(object):
         db.delete(_AE_GCSPartialFile_.all().ancestor(gcs_file))
       gcs_file.delete()
 
+  @db.non_transactional
   def put_continue_creation(self, token, content, content_range,
                             last=False,
                             _upload_filename=None):
@@ -205,7 +210,7 @@ class CloudStorageStub(object):
         self.blob_storage.StoreBlob(blobkey, StringIO.StringIO(content))
         new_content = _AE_GCSPartialFile_(parent=gcs_file,
 
-                                          key_name='{:020}'.format(start),
+                                          key_name='%020d' % start,
                                           partial_content=blobkey,
                                           start=start,
                                           end=end + 1)
@@ -215,6 +220,7 @@ class CloudStorageStub(object):
     finally:
       namespace_manager.set_namespace(ns)
 
+  @db.non_transactional
   def _end_creation(self, token, _upload_filename):
     """End object upload.
 
@@ -257,7 +263,7 @@ class CloudStorageStub(object):
     gcs_file.put()
     return gcs_file
 
-  @db.transactional
+  @db.transactional(propagation=db.INDEPENDENT)
   def _get_content(self, gcs_file):
     """Aggregate all partial content of the gcs_file.
 
@@ -289,6 +295,7 @@ class CloudStorageStub(object):
       content = ''
     return error_msg, content
 
+  @db.non_transactional
   def get_bucket(self,
                  bucketpath,
                  prefix,
@@ -329,6 +336,7 @@ class CloudStorageStub(object):
             etag=info.etag))
     return result
 
+  @db.non_transactional
   def get_object(self, filename, start=0, end=None):
     """Get file content with a GET.
 
@@ -356,6 +364,7 @@ class CloudStorageStub(object):
     else:
       return local_file.read()
 
+  @db.non_transactional
   def head_object(self, filename):
     """Get file stat with a HEAD.
 
@@ -381,6 +390,7 @@ class CloudStorageStub(object):
       return filestat
     return None
 
+  @db.non_transactional
   def delete_object(self, filename):
     """Delete file with a DELETE.
 
