@@ -304,8 +304,12 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       blobkey: blobkey in str.
       storage: blobstore storage stub.
     """
-    # We need blobinfo to tell us how big the blob is. The delete happens
-    # within DeleteBlob.
+    datastore.Delete(cls.ToDatastoreBlobKey(blobkey))
+
+    blobinfo = datastore_types.Key.from_path(blobstore.BLOB_INFO_KIND,
+                                             blobkey,
+                                             namespace='')
+    datastore.Delete(blobinfo)
     storage.DeleteBlob(blobkey)
 
   def _Dynamic_DeleteBlob(self, request, response, unused_request_id):
