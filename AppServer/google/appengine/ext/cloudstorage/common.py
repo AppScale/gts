@@ -75,6 +75,7 @@ except ImportError:
 _GCS_BUCKET_REGEX_BASE = r'[a-z0-9\.\-_]{3,63}'
 _GCS_BUCKET_REGEX = re.compile(_GCS_BUCKET_REGEX_BASE + r'$')
 _GCS_BUCKET_PATH_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'$')
+_GCS_PATH_PREFIX_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'.*')
 _GCS_FULLPATH_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'/.*')
 
 _GCS_METADATA = ['x-goog-meta-',
@@ -89,6 +90,10 @@ CS_XML_NS = 'http://doc.s3.amazonaws.com/2006-03-01'
 LOCAL_API_HOST = 'gcs-magicstring.appspot.com'
 
 _access_token = ''
+
+
+
+_MAX_GET_BUCKET_RESULT = 1000
 
 
 def set_access_token(access_token):
@@ -124,8 +129,12 @@ class GCSFileStat(object):
                etag,
                st_ctime,
                content_type=None,
-               metadata=None):
+               metadata=None,
+               is_dir=False):
     """Initialize.
+
+    For files, the non optional arguments are always set.
+    For directories, only filename and is_dir is set.
 
     Args:
       filename: a Google Cloud Storage filename of form '/bucket/filename'.
@@ -136,17 +145,27 @@ class GCSFileStat(object):
       metadata: a str->str dict of user specified options when creating
         the file. Possible keys are x-goog-meta-, content-disposition,
         content-encoding, and cache-control.
+      is_dir: True if this represents a directory. False if this is a real file.
     """
     self.filename = filename
-    self.st_size = long(st_size)
-    self.st_ctime = float(st_ctime)
-    if etag[0] == '"' and etag[-1] == '"':
-      etag = etag[1:-1]
-    self.etag = etag
+    self.is_dir = is_dir
+    self.st_size = None
+    self.st_ctime = None
+    self.etag = None
     self.content_type = content_type
     self.metadata = metadata
 
+    if not is_dir:
+      self.st_size = long(st_size)
+      self.st_ctime = float(st_ctime)
+      if etag[0] == '"' and etag[-1] == '"':
+        etag = etag[1:-1]
+      self.etag = etag
+
   def __repr__(self):
+    if self.is_dir:
+      return '(directory: %s)' % self.filename
+
     return (
         '(filename: %(filename)s, st_size: %(st_size)s, '
         'st_ctime: %(st_ctime)s, etag: %(etag)s, '
@@ -158,6 +177,22 @@ class GCSFileStat(object):
              etag=self.etag,
              content_type=self.content_type,
              metadata=self.metadata))
+
+  def __cmp__(self, other):
+    if not isinstance(other, self.__class__):
+      raise ValueError('Argument to cmp must have the same type. '
+                       'Expect %s, got %s', self.__class__.__name__,
+                       other.__class__.__name__)
+    if self.filename > other.filename:
+      return 1
+    elif self.filename < other.filename:
+      return -1
+    return 0
+
+  def __hash__(self):
+    if self.etag:
+      return hash(self.etag)
+    return hash(self.filename)
 
 
 
@@ -213,6 +248,32 @@ def validate_file_path(path):
   if not _GCS_FULLPATH_REGEX.match(path):
     raise ValueError('Path should have format /bucket/filename '
                      'but got %s' % path)
+
+
+def _process_path_prefix(path_prefix):
+  """Validate and process a Google Cloud Stoarge path prefix.
+
+  Args:
+    path_prefix: a Google Cloud Storage path prefix of format '/bucket/prefix'
+      or '/bucket/' or '/bucket'.
+
+  Raises:
+    ValueError: if path is invalid.
+
+  Returns:
+    a tuple of /bucket and prefix. prefix can be None.
+  """
+  _validate_path(path_prefix)
+  if not _GCS_PATH_PREFIX_REGEX.match(path_prefix):
+    raise ValueError('Path prefix should have format /bucket, /bucket/, '
+                     'or /bucket/prefix but got %s.' % path_prefix)
+  bucket_name_end = path_prefix.find('/', 1)
+  bucket = path_prefix
+  prefix = None
+  if bucket_name_end != -1:
+    bucket = path_prefix[:bucket_name_end]
+    prefix = path_prefix[bucket_name_end + 1:] or None
+  return bucket, prefix
 
 
 def _validate_path(path):
@@ -332,9 +393,15 @@ def posix_to_dt_str(posix):
 
 
 def local_run():
-  """Whether running in dev appserver."""
-  return ('SERVER_SOFTWARE' not in os.environ or
-          os.environ['SERVER_SOFTWARE'].startswith('Development'))
+  """Whether we should hit GCS dev appserver stub."""
+  server_software = os.environ.get('SERVER_SOFTWARE')
+  if server_software is None:
+    return True
+  if 'remote_api' in server_software:
+    return False
+  if server_software.startswith('Development'):
+    return True
+  return False
 
 
 def memory_usage(method):
@@ -347,3 +414,20 @@ def memory_usage(method):
                  method.__name__, runtime.memory_usage().current())
     return result
   return wrapper
+
+
+def _add_ns(tagname):
+  return '{%(ns)s}%(tag)s' % {'ns': CS_XML_NS,
+                              'tag': tagname}
+
+
+
+_T_CONTENTS = _add_ns('Contents')
+_T_LAST_MODIFIED = _add_ns('LastModified')
+_T_ETAG = _add_ns('ETag')
+_T_KEY = _add_ns('Key')
+_T_SIZE = _add_ns('Size')
+_T_PREFIX = _add_ns('Prefix')
+_T_COMMON_PREFIXES = _add_ns('CommonPrefixes')
+_T_NEXT_MARKER = _add_ns('NextMarker')
+_T_IS_TRUNCATED = _add_ns('IsTruncated')

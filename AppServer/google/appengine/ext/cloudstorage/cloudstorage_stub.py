@@ -338,20 +338,38 @@ class CloudStorageStub(object):
                  bucketpath,
                  prefix,
                  marker,
-                 max_keys):
+                 max_keys,
+                 delimiter):
     """Get bucket listing with a GET.
+
+    How GCS listbucket work in production:
+    GCS tries to return as many items as possible in a single response. If
+    there are more items satisfying user's query and the current request
+    took too long (e.g spent on skipping files in a subdir) or items to return
+    gets too big (> max_keys), it returns fast and sets IsTruncated
+    and NextMarker for continuation. They serve redundant purpose: if
+    NextMarker is set, IsTruncated is True.
+
+    Note NextMarker is not where GCS scan left off. It is
+    only valid for the exact same type of query the marker was generated from.
+    For example, if a marker is generated from query with delimiter, the marker
+    is the name of a subdir (instead of the last file within the subdir). Thus
+    you can't use this marker to issue a query without delimiter.
 
     Args:
       bucketpath: gcs bucket path of form '/bucket'
       prefix: prefix to limit listing.
-      marker: a str after which to start listing.
-      max_keys: max size of listing.
+      marker: a str after which to start listing. Exclusive.
+      max_keys: max items we scan & return.
+      delimiter: delimiter for directory.
 
     See https://developers.google.com/storage/docs/reference-methods#getbucket
     for details.
 
     Returns:
-      A list of GCSFileStat sorted by filename.
+      A tuple of (a list of GCSFileStat for files or directories sorted by
+      filename, next_marker to use as next marker, is_truncated boolean to
+      indicate if there are more results satisfying query).
     """
     common.validate_bucket_path(bucketpath)
     q = _AE_GCSFileInfo_.all(namespace='')
@@ -360,19 +378,75 @@ class CloudStorageStub(object):
       q.filter('filename >', '/'.join([bucketpath, marker]))
     else:
       q.filter('filename >=', fully_qualified_prefix)
-    result = []
-    for info in q.run(limit=max_keys):
+
+    result = set()
+    name = None
+    first = True
+    first_dir = None
+    for info in q.run():
+
       if not info.filename.startswith(fully_qualified_prefix):
         break
+      if len(result) == max_keys:
+        break
+
 
       info = db.get(info.key())
-      if info:
-        result.append(common.GCSFileStat(
-            filename=info.filename,
-            st_size=info.size,
-            st_ctime=calendar.timegm(info.creation.utctimetuple()),
-            etag=info.etag))
-    return result
+      if not info:
+        continue
+
+      name = info.filename
+      if delimiter:
+
+        start_index = name.find(delimiter, len(fully_qualified_prefix))
+        if start_index != -1:
+          name = name[:start_index + len(delimiter)]
+
+
+          if marker and (first or name == first_dir):
+            first = False
+            first_dir = name
+
+          else:
+            result.add(common.GCSFileStat(name, st_size=None,
+                                          st_ctime=None, etag=None,
+                                          is_dir=True))
+          continue
+
+      first = False
+      result.add(common.GCSFileStat(
+          filename=name,
+          st_size=info.size,
+          st_ctime=calendar.timegm(info.creation.utctimetuple()),
+          etag=info.etag))
+
+    def is_truncated():
+      """Check if there are more results satisfying the query."""
+      if not result:
+        return False
+      q = _AE_GCSFileInfo_.all(namespace='')
+      q.filter('filename >', name)
+      info = None
+
+      if delimiter and name.endswith(delimiter):
+
+        for info in q.run():
+          if not info.filename.startswith(name):
+            break
+        if info.filename.startswith(name):
+          info = None
+      else:
+        info = q.get()
+      if info is None or not info.filename.startswith(fully_qualified_prefix):
+        return False
+      return True
+
+    result = list(result)
+    result.sort()
+    truncated = is_truncated()
+    next_marker = name if truncated else None
+
+    return result, next_marker, truncated
 
   @db.non_transactional
   def get_object(self, filename, start=0, end=None):

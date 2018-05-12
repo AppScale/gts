@@ -38,8 +38,6 @@ from google.appengine.ext.cloudstorage import common
 
 
 
-_MAX_GET_BUCKET_RESULT = 1000
-
 
 
 def _urlfetch_to_gcs_stub(url, payload, method, headers, request, response,
@@ -251,43 +249,52 @@ def _handle_get(gcs_stub, filename, param_dict, headers):
 def _handle_get_bucket(gcs_stub, bucketpath, param_dict):
   """Handle get bucket request."""
   prefix = _get_param('prefix', param_dict, '')
-  max_keys = _get_param('max-keys', param_dict, _MAX_GET_BUCKET_RESULT)
+  max_keys = _get_param('max-keys', param_dict, common._MAX_GET_BUCKET_RESULT)
   marker = _get_param('marker', param_dict, '')
+  delimiter = _get_param('delimiter', param_dict, '')
 
-  stats = gcs_stub.get_bucket(bucketpath,
-                              prefix,
-                              marker,
-                              max_keys)
+  stats, last_filename, is_truncated = gcs_stub.get_bucket(
+      bucketpath, prefix, marker, max_keys, delimiter)
 
   builder = ET.TreeBuilder()
   builder.start('ListBucketResult', {'xmlns': common.CS_XML_NS})
-  last_object_name = ''
   for stat in stats:
-    builder.start('Contents', {})
+    filename = stat.filename[len(bucketpath) + 1:]
+    if stat.is_dir:
+      builder.start('CommonPrefixes', {})
+      builder.start('Prefix', {})
+      builder.data(filename)
+      builder.end('Prefix')
+      builder.end('CommonPrefixes')
+    else:
+      builder.start('Contents', {})
 
-    builder.start('Key', {})
-    last_object_name = stat.filename[len(bucketpath) + 1:]
-    builder.data(last_object_name)
-    builder.end('Key')
+      builder.start('Key', {})
+      builder.data(filename)
+      builder.end('Key')
 
-    builder.start('LastModified', {})
-    builder.data(common.posix_to_dt_str(stat.st_ctime))
-    builder.end('LastModified')
+      builder.start('LastModified', {})
+      builder.data(common.posix_to_dt_str(stat.st_ctime))
+      builder.end('LastModified')
 
-    builder.start('ETag', {})
-    builder.data(stat.etag)
-    builder.end('ETag')
+      builder.start('ETag', {})
+      builder.data(stat.etag)
+      builder.end('ETag')
 
-    builder.start('Size', {})
-    builder.data(str(stat.st_size))
-    builder.end('Size')
+      builder.start('Size', {})
+      builder.data(str(stat.st_size))
+      builder.end('Size')
 
-    builder.end('Contents')
+      builder.end('Contents')
 
-  if last_object_name:
+  if last_filename:
     builder.start('NextMarker', {})
-    builder.data(last_object_name)
+    builder.data(last_filename[len(bucketpath) + 1:])
     builder.end('NextMarker')
+
+  builder.start('IsTruncated', {})
+  builder.data(str(is_truncated))
+  builder.end('IsTruncated')
 
   max_keys = _get_param('max-keys', param_dict)
   if max_keys is not None:
