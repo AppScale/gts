@@ -40,6 +40,7 @@ class _AE_GCSFileInfo_(db.Model):
 
   Key name is blobkey.
   """
+
   filename = db.StringProperty(required=True)
   finalized = db.BooleanProperty(required=True)
 
@@ -85,12 +86,12 @@ class _AE_GCSPartialFile_(db.Model):
 
 
 class CloudStorageStub(object):
-  """Cloud Storage stub implementation.
+  """Google Cloud Storage stub implementation.
 
   We use blobstore stub to store files. All metadata are stored
   in _AE_GCSFileInfo_.
 
-  Note: this Cloud Storage stub is designed to work with
+  Note: this Google Cloud Storage stub is designed to work with
   apphosting.ext.cloudstorage.storage_api.py.
   It only implements the part of GCS storage_api.py uses, and its interface
   maps to GCS XML APIs.
@@ -109,7 +110,7 @@ class CloudStorageStub(object):
     """Get blobkey for filename.
 
     Args:
-      filename: gs filename of form /bucket/filename.
+      filename: gcs filename of form /bucket/filename.
 
     Returns:
       blobinfo's datastore's key name, aka, blobkey.
@@ -125,7 +126,7 @@ class CloudStorageStub(object):
     This implements the resumable upload XML API.
 
     Args:
-      filename: gs filename of form /bucket/filename.
+      filename: gcs filename of form /bucket/filename.
       options: a dict containing all user specified request headers.
         e.g. {'content-type': 'foo', 'x-goog-meta-bar': 'bar'}.
 
@@ -290,7 +291,7 @@ class CloudStorageStub(object):
     """Get bucket listing with a GET.
 
     Args:
-      bucketpath: gs bucket path of form '/bucket'
+      bucketpath: gcs bucket path of form '/bucket'
       prefix: prefix to limit listing.
       marker: a str after which to start listing.
       max_keys: max size of listing.
@@ -299,7 +300,7 @@ class CloudStorageStub(object):
     for details.
 
     Returns:
-      A list of CSFileStat sorted by filename.
+      A list of GCSFileStat sorted by filename.
     """
     common.validate_bucket_path(bucketpath)
     q = _AE_GCSFileInfo_.all(namespace='')
@@ -312,7 +313,7 @@ class CloudStorageStub(object):
     for info in q.run(limit=max_keys):
       if not info.filename.startswith(fully_qualified_prefix):
         break
-      result.append(common.CSFileStat(
+      result.append(common.GCSFileStat(
           filename=info.filename,
           st_size=info.size,
           st_ctime=calendar.timegm(info.creation.utctimetuple()),
@@ -323,7 +324,7 @@ class CloudStorageStub(object):
     """Get file content with a GET.
 
     Args:
-      filename: gs filename of form '/bucket/filename'.
+      filename: gcs filename of form '/bucket/filename'.
       start: start offset to request. Inclusive.
       end: end offset to request. Inclusive.
 
@@ -335,8 +336,8 @@ class CloudStorageStub(object):
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
-    gsfileinfo = _AE_GCSFileInfo_.get_by_key_name(blobkey)
-    if not gsfileinfo or not gsfileinfo.finalized:
+    gcsfileinfo = _AE_GCSFileInfo_.get_by_key_name(blobkey)
+    if not gcsfileinfo or not gcsfileinfo.finalized:
       raise ValueError('File does not exist.')
     local_file = self.blob_storage.OpenBlob(blobkey)
     local_file.seek(start)
@@ -349,17 +350,17 @@ class CloudStorageStub(object):
     """Get file stat with a HEAD.
 
     Args:
-      filename: gs filename of form '/bucket/filename'
+      filename: gcs filename of form '/bucket/filename'
 
     Returns:
-      A CSFileStat object containing file stat. None if file doesn't exist.
+      A GCSFileStat object containing file stat. None if file doesn't exist.
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
     info = _AE_GCSFileInfo_.get_by_key_name(blobkey)
     if info and info.finalized:
       metadata = common.get_metadata(info.options)
-      filestat = common.CSFileStat(
+      filestat = common.GCSFileStat(
           filename=info.filename,
           st_size=info.size,
           etag=info.etag,
@@ -373,15 +374,15 @@ class CloudStorageStub(object):
     """Delete file with a DELETE.
 
     Args:
-      filename: gs filename of form '/bucket/filename'
+      filename: gcs filename of form '/bucket/filename'
 
     Returns:
       True if file is deleted. False if file doesn't exist.
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
-    gsfileinfo = _AE_GCSFileInfo_.get_by_key_name(blobkey)
-    if not gsfileinfo:
+    gcsfileinfo = _AE_GCSFileInfo_.get_by_key_name(blobkey)
+    if not gcsfileinfo:
       return False
     gsfileinfo.delete()
     self.blob_storage.DeleteBlob(blobkey)
