@@ -24,6 +24,7 @@
 
 
 
+import cgi
 import httplib
 import re
 import urllib
@@ -137,6 +138,8 @@ def _preprocess(method, headers, url):
     param_dict: a dict of query parameters.
   """
   _, _, filename, query, _ = urlparse.urlsplit(url)
+
+
   param_dict = urlparse.parse_qs(query, True)
   for k in param_dict:
     param_dict[k] = urllib.unquote(param_dict[k][0])
@@ -156,11 +159,15 @@ def _handle_post(gcs_stub, filename, headers):
       'content-type': content_type.value,
       'content-length': 0
   }
-  return _FakeUrlFetchResult(201, response_headers, '')
+  return _FakeUrlFetchResult(httplib.CREATED, response_headers, '')
 
 
 def _handle_put(gcs_stub, filename, param_dict, headers, payload):
-  """Handle PUT that continues object creation."""
+  """Handle PUT."""
+  if _iscopy(headers):
+    return _copy(gcs_stub, filename, headers)
+
+
   token = _get_param('upload_id', param_dict)
   content_range = _ContentRange(headers)
 
@@ -168,9 +175,9 @@ def _handle_put(gcs_stub, filename, param_dict, headers, payload):
     raise ValueError('Missing header content-range.')
 
   gcs_stub.put_continue_creation(token,
-                                payload,
-                                content_range.range,
-                                content_range.last)
+                                 payload,
+                                 content_range.range,
+                                 content_range.last)
   if content_range.last:
     filestat = gcs_stub.head_object(filename)
     response_headers = {
@@ -184,6 +191,30 @@ def _handle_put(gcs_stub, filename, param_dict, headers, payload):
   return _FakeUrlFetchResult(response_status, response_headers, '')
 
 
+def _iscopy(headers):
+  copysource = _XGoogCopySource(headers)
+  return copysource.value is not None
+
+
+def _copy(gcs_stub, filename, headers):
+  """Copy file.
+
+  Args:
+    gcs_stub: an instance of gcs stub.
+    filename: dst filename of format /bucket/filename
+    headers: a dict of request headers. Must contain _XGoogCopySource header.
+
+  Returns:
+    An _FakeUrlFetchResult instance.
+  """
+  source = _XGoogCopySource(headers).value
+  result = _handle_head(gcs_stub, source)
+  if result.status_code == httplib.NOT_FOUND:
+    return result
+  gcs_stub.put_copy(source, filename)
+  return _FakeUrlFetchResult(httplib.OK, {}, '')
+
+
 def _handle_get(gcs_stub, filename, param_dict, headers):
   """Handle GET object and GET bucket."""
   if filename.rfind('/') == 0:
@@ -192,7 +223,7 @@ def _handle_get(gcs_stub, filename, param_dict, headers):
   else:
 
     result = _handle_head(gcs_stub, filename)
-    if result.status_code == 404:
+    if result.status_code == httplib.NOT_FOUND:
       return result
     start, end = _Range(headers).value
     st_size = result.headers['content-length']
@@ -258,14 +289,14 @@ def _handle_get_bucket(gcs_stub, bucketpath, param_dict):
   body = ET.tostring(root)
   response_headers = {'content-length': len(body),
                       'content-type': 'application/xml'}
-  return _FakeUrlFetchResult(200, response_headers, body)
+  return _FakeUrlFetchResult(httplib.OK, response_headers, body)
 
 
 def _handle_head(gcs_stub, filename):
   """Handle HEAD request."""
   filestat = gcs_stub.head_object(filename)
   if not filestat:
-    return _FakeUrlFetchResult(404, {}, '')
+    return _FakeUrlFetchResult(httplib.NOT_FOUND, {}, '')
 
   http_time = common.posix_time_to_http(filestat.st_ctime)
 
@@ -279,15 +310,15 @@ def _handle_head(gcs_stub, filename):
   if filestat.metadata:
     response_headers.update(filestat.metadata)
 
-  return _FakeUrlFetchResult(200, response_headers, '')
+  return _FakeUrlFetchResult(httplib.OK, response_headers, '')
 
 
 def _handle_delete(gcs_stub, filename):
   """Handle DELETE object."""
   if gcs_stub.delete_object(filename):
-    return _FakeUrlFetchResult(204, {}, '')
+    return _FakeUrlFetchResult(httplib.NO_CONTENT, {}, '')
   else:
-    return _FakeUrlFetchResult(404, {}, '')
+    return _FakeUrlFetchResult(httplib.NOT_FOUND, {}, '')
 
 
 class _Header(object):
@@ -313,6 +344,12 @@ class _Header(object):
       if k.lower() == self.HEADER.lower():
         self.value = headers[k]
         break
+
+
+class _XGoogCopySource(_Header):
+  """x-goog-copy-source: /bucket/filename."""
+
+  HEADER = 'x-goog-copy-source'
 
 
 class _ContentType(_Header):
