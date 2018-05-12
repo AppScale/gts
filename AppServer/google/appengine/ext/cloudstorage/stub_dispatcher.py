@@ -145,7 +145,7 @@ def _preprocess(method, headers, url):
     param_dict[k] = urllib.unquote(param_dict[k][0])
 
   headers = dict((k.lower(), v) for k, v in headers.iteritems())
-  return method, headers, filename, param_dict
+  return method, headers, urllib.unquote(filename), param_dict
 
 
 def _handle_post(gcs_stub, filename, headers):
@@ -173,6 +173,18 @@ def _handle_put(gcs_stub, filename, param_dict, headers, payload):
 
   if not content_range.value:
     raise ValueError('Missing header content-range.')
+
+
+
+  if not token:
+
+    if not content_range.last:
+      raise ValueError('Content-Range must have a final length.')
+    elif not content_range.no_data and content_range.range[0] != 0:
+      raise ValueError('Content-Range must specify complete object.')
+    else:
+
+      token = gcs_stub.post_start_creation(filename, headers)
 
   gcs_stub.put_continue_creation(token,
                                  payload,

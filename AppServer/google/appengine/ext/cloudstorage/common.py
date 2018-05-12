@@ -76,8 +76,13 @@ _GCS_BUCKET_REGEX_BASE = r'[a-z0-9\.\-_]{3,63}'
 _GCS_BUCKET_REGEX = re.compile(_GCS_BUCKET_REGEX_BASE + r'$')
 _GCS_BUCKET_PATH_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'$')
 _GCS_FULLPATH_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'/.*')
-_GCS_OPTIONS = ('x-goog-acl',
-                'x-goog-meta-')
+
+_GCS_METADATA = ['x-goog-meta-',
+                 'content-disposition',
+                 'cache-control',
+                 'content-encoding']
+
+_GCS_OPTIONS = _GCS_METADATA + ['x-goog-acl']
 
 CS_XML_NS = 'http://doc.s3.amazonaws.com/2006-03-01'
 
@@ -128,8 +133,9 @@ class GCSFileStat(object):
       etag: hex digest of the md5 hash of the file's content. str.
       st_ctime: posix file creation time. float compatible.
       content_type: content type. str.
-      metadata: a str->str dict of user specified metadata from the
-        x-goog-meta header, e.g. {'x-goog-meta-foo': 'foo'}.
+      metadata: a str->str dict of user specified options when creating
+        the file. Possible keys are x-goog-meta-, content-disposition,
+        content-encoding, and cache-control.
     """
     self.filename = filename
     self.st_size = long(st_size)
@@ -159,9 +165,9 @@ CSFileStat = GCSFileStat
 
 
 def get_metadata(headers):
-  """Get user defined metadata from HTTP response headers."""
+  """Get user defined options from HTTP response headers."""
   return dict((k, v) for k, v in headers.iteritems()
-              if k.startswith('x-goog-meta-'))
+              if any(k.lower().startswith(valid) for valid in _GCS_METADATA))
 
 
 def validate_bucket_name(name):
@@ -244,7 +250,7 @@ def validate_options(options):
   for k, v in options.iteritems():
     if not isinstance(k, str):
       raise TypeError('option %r should be a str.' % k)
-    if not any(k.startswith(valid) for valid in _GCS_OPTIONS):
+    if not any(k.lower().startswith(valid) for valid in _GCS_OPTIONS):
       raise ValueError('option %s is not supported.' % k)
     if not isinstance(v, basestring):
       raise TypeError('value %r for option %s should be of type basestring.' %

@@ -31,6 +31,9 @@ from google.appengine.ext import db
 from google.appengine.ext.cloudstorage import common
 
 
+_GCS_DEFAULT_CONTENT_TYPE = 'binary/octet-stream'
+
+
 class _AE_GCSFileInfo_(db.Model):
   """Store GCS specific info.
 
@@ -53,7 +56,7 @@ class _AE_GCSFileInfo_(db.Model):
 
   creation = db.DateTimeProperty()
 
-  content_type = db.StringProperty()
+  content_type = db.StringProperty(default=_GCS_DEFAULT_CONTENT_TYPE)
   etag = db.ByteStringProperty()
 
   def get_options(self):
@@ -234,11 +237,11 @@ class CloudStorageStub(object):
     common.validate_file_path(dst)
 
 
-    src_blobkey = self._filename_to_blobkey(src)
-    source = _AE_GCSFileInfo_.get_by_key_name(src_blobkey)
     ns = namespace_manager.get_namespace()
     try:
       namespace_manager.set_namespace('')
+      src_blobkey = self._filename_to_blobkey(src)
+      source = _AE_GCSFileInfo_.get_by_key_name(src_blobkey)
       token = self._filename_to_blobkey(dst)
       new_file = _AE_GCSFileInfo_(key_name=token,
                                   filename=dst,
