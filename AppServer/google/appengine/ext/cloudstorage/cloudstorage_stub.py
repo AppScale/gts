@@ -23,7 +23,6 @@ import calendar
 import datetime
 import hashlib
 import StringIO
-import time
 
 from google.appengine.api import datastore
 from google.appengine.api import namespace_manager
@@ -52,7 +51,7 @@ class _AE_GCSFileInfo_(db.Model):
   size = db.IntegerProperty()
 
   creation = db.DateTimeProperty()
-  content_type = db.ByteStringProperty()
+  content_type = db.StringProperty()
   etag = db.ByteStringProperty()
 
   def get_options(self):
@@ -76,11 +75,12 @@ class _AE_GCSFileInfo_(db.Model):
 class _AE_GCSPartialFile_(db.Model):
   """Store partial content for uploading files."""
 
-  start = db.IntegerProperty(required=True)
+
+
+
+
 
   end = db.IntegerProperty(required=True)
-
-
 
   partial_content = db.TextProperty(required=True)
 
@@ -118,7 +118,7 @@ class CloudStorageStub(object):
     common.validate_file_path(filename)
 
     return blobstore_stub.BlobstoreServiceStub.CreateEncodedGoogleStorageKey(
-        filename)
+        filename[1:])
 
   def post_start_creation(self, filename, options):
     """Start object creation with a POST.
@@ -131,20 +131,24 @@ class CloudStorageStub(object):
         e.g. {'content-type': 'foo', 'x-goog-meta-bar': 'bar'}.
 
     Returns:
-      a token used for continuing upload. Also used as blobkey to store
-    the content.
+      a token (blobkey) used for continuing upload.
     """
-    common.validate_file_path(filename)
-    token = self._filename_to_blobkey(filename)
-    gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
+    ns = namespace_manager.get_namespace()
+    try:
+      namespace_manager.set_namespace('')
+      common.validate_file_path(filename)
+      token = self._filename_to_blobkey(filename)
+      gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
 
-    self._cleanup_old_file(gcs_file)
-    new_file = _AE_GCSFileInfo_(key_name=token,
-                                filename=filename,
-                                finalized=False)
-    new_file.options = options
-    new_file.put()
-    return token
+      self._cleanup_old_file(gcs_file)
+      new_file = _AE_GCSFileInfo_(key_name=token,
+                                  filename=filename,
+                                  finalized=False)
+      new_file.options = options
+      new_file.put()
+      return token
+    finally:
+      namespace_manager.set_namespace(ns)
 
 
   def _cleanup_old_file(self, gcs_file):
@@ -268,11 +272,13 @@ class CloudStorageStub(object):
     content = ''
     previous_end = 0
     error_msg = ''
-    for partial in _AE_GCSPartialFile_.all().ancestor(gcs_file).order('start'):
+    for partial in (_AE_GCSPartialFile_.all(namespace='').ancestor(gcs_file).
+                    order('__key__')):
+      start = int(partial.key().name())
       if not error_msg:
-        if partial.start < previous_end:
+        if start < previous_end:
           error_msg = 'File is corrupted due to missing chunks.'
-        elif partial.start > previous_end:
+        elif start > previous_end:
           error_msg = 'File is corrupted due to overlapping chunks'
         previous_end = partial.end
         content += self.blob_storage.OpenBlob(partial.partial_content).read()
@@ -313,11 +319,14 @@ class CloudStorageStub(object):
     for info in q.run(limit=max_keys):
       if not info.filename.startswith(fully_qualified_prefix):
         break
-      result.append(common.GCSFileStat(
-          filename=info.filename,
-          st_size=info.size,
-          st_ctime=calendar.timegm(info.creation.utctimetuple()),
-          etag=info.etag))
+
+      info = db.get(info.key())
+      if info:
+        result.append(common.GCSFileStat(
+            filename=info.filename,
+            st_size=info.size,
+            st_ctime=calendar.timegm(info.creation.utctimetuple()),
+            etag=info.etag))
     return result
 
   def get_object(self, filename, start=0, end=None):
@@ -336,7 +345,8 @@ class CloudStorageStub(object):
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
-    gcsfileinfo = _AE_GCSFileInfo_.get_by_key_name(blobkey)
+    key = blobstore_stub.BlobstoreServiceStub.ToDatastoreBlobKey(blobkey)
+    gcsfileinfo = db.get(key)
     if not gcsfileinfo or not gcsfileinfo.finalized:
       raise ValueError('File does not exist.')
     local_file = self.blob_storage.OpenBlob(blobkey)
@@ -357,7 +367,8 @@ class CloudStorageStub(object):
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
-    info = _AE_GCSFileInfo_.get_by_key_name(blobkey)
+    key = blobstore_stub.BlobstoreServiceStub.ToDatastoreBlobKey(blobkey)
+    info = db.get(key)
     if info and info.finalized:
       metadata = common.get_metadata(info.options)
       filestat = common.GCSFileStat(
@@ -381,9 +392,10 @@ class CloudStorageStub(object):
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
-    gcsfileinfo = _AE_GCSFileInfo_.get_by_key_name(blobkey)
+    key = blobstore_stub.BlobstoreServiceStub.ToDatastoreBlobKey(blobkey)
+    gcsfileinfo = db.get(key)
     if not gcsfileinfo:
       return False
-    gsfileinfo.delete()
-    self.blob_storage.DeleteBlob(blobkey)
+
+    blobstore_stub.BlobstoreServiceStub.DeleteBlob(blobkey, self.blob_storage)
     return True
