@@ -22,6 +22,7 @@
 import calendar
 import datetime
 import hashlib
+import httplib
 import StringIO
 
 from google.appengine.api import datastore
@@ -53,6 +54,9 @@ class _AE_GCSFileInfo_(db.Model):
 
 
   size = db.IntegerProperty()
+
+
+  next_offset = db.IntegerProperty(default=0)
 
   creation = db.DateTimeProperty()
 
@@ -131,6 +135,12 @@ class CloudStorageStub(object):
 
     This implements the resumable upload XML API.
 
+    Only major limitation of current implementation is that we don't
+    support multiple upload sessions for the same GCS file. Previous
+    _AE_GCSFileInfo (which represents either a finalized file, or
+    an upload session) will be removed when a new upload session is
+    created.
+
     Args:
       filename: gcs filename of form /bucket/filename.
       options: a dict containing all user specified request headers.
@@ -178,7 +188,7 @@ class CloudStorageStub(object):
 
   @db.non_transactional
   def put_continue_creation(self, token, content, content_range,
-                            last=False,
+                            length=None,
                             _upload_filename=None):
     """Continue object upload with PUTs.
 
@@ -186,10 +196,11 @@ class CloudStorageStub(object):
 
     Args:
       token: upload token returned by post_start_creation.
-      content: object content.
+      content: object content. None if no content was provided with this
+        PUT request.
       content_range: a (start, end) tuple specifying the content range of this
-        chunk. Both are inclusive according to XML API.
-      last: True if this is the last chunk of file content.
+        chunk. Both are inclusive according to XML API. None is content is None.
+      length: file length, if this is the last chunk of file content.
       _upload_filename: internal use. Might be removed any time! This is
         used by blobstore to pass in the upload filename from user.
 
@@ -197,28 +208,56 @@ class CloudStorageStub(object):
       _AE_GCSFileInfo entity for this file if the file is finalized.
 
     Raises:
-      ValueError: if token is invalid.
+      ValueError: if something is invalid. The exception.args is a tuple of
+      (msg, http status code).
     """
+
+
     ns = namespace_manager.get_namespace()
     try:
       namespace_manager.set_namespace('')
       gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
       if not gcs_file:
-        raise ValueError('Invalid token')
+        raise ValueError('Invalid token', httplib.BAD_REQUEST)
+      if gcs_file.next_offset == -1:
+        raise ValueError('Received more uploads after file %s '
+                         'was finalized.' % gcs_file.filename,
+                         httplib.OK)
       if content:
         start, end = content_range
         if len(content) != (end - start + 1):
-          raise ValueError('Invalid content range %d-%d' % content_range)
-        blobkey = '%s-%d-%d' % (token, content_range[0], content_range[1])
-        self.blob_storage.StoreBlob(blobkey, StringIO.StringIO(content))
-        new_content = _AE_GCSPartialFile_(parent=gcs_file,
+          raise ValueError('Invalid content range %d-%d' % content_range,
+                           httplib.REQUESTED_RANGE_NOT_SATISFIABLE)
 
-                                          key_name='%020d' % start,
-                                          partial_content=blobkey,
-                                          start=start,
-                                          end=end + 1)
-        new_content.put()
-      if last:
+        if start > gcs_file.next_offset:
+          raise ValueError('Expect start offset %s, got %s' %
+                           (gcs_file.next_offset, start),
+                           httplib.REQUESTED_RANGE_NOT_SATISFIABLE)
+
+        elif end < gcs_file.next_offset:
+          return
+        else:
+
+          content = content[gcs_file.next_offset - start:]
+          start = gcs_file.next_offset
+          blobkey = '%s-%d-%d' % (token, start, end)
+          self.blob_storage.StoreBlob(blobkey, StringIO.StringIO(content))
+          new_content = _AE_GCSPartialFile_(
+              parent=gcs_file,
+
+              key_name='%020d' % start,
+              partial_content=blobkey,
+              start=start,
+              end=end + 1)
+          new_content.put()
+          gcs_file.next_offset = end + 1
+          gcs_file.put()
+      if length is not None and length != gcs_file.next_offset:
+        raise ValueError(
+            'Got finalization request with wrong file length. '
+            'Expecting %s, got %s' % (gcs_file.next_offset, length),
+            httplib.REQUESTED_RANGE_NOT_SATISFIABLE)
+      elif length is not None:
         return self._end_creation(token, _upload_filename)
     finally:
       namespace_manager.set_namespace(ns)
@@ -276,6 +315,8 @@ class CloudStorageStub(object):
     gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
     if not gcs_file:
       raise ValueError('Invalid token')
+    if gcs_file.finalized:
+      return gcs_file
 
     error_msg, content = self._get_content(gcs_file)
     if error_msg:
@@ -298,6 +339,8 @@ class CloudStorageStub(object):
     self.blob_storage.StoreBlob(token, StringIO.StringIO(content))
 
     gcs_file.finalized = True
+
+    gcs_file.next_offset = -1
     gcs_file.put()
     return gcs_file
 

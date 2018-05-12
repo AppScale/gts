@@ -399,7 +399,7 @@ def local_run():
     return True
   if 'remote_api' in server_software:
     return False
-  if server_software.startswith('Development'):
+  if server_software.startswith(('Development', 'testutil')):
     return True
   return False
 

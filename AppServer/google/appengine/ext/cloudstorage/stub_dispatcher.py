@@ -176,7 +176,7 @@ def _handle_put(gcs_stub, filename, param_dict, headers, payload):
 
   if not token:
 
-    if not content_range.last:
+    if not content_range.length:
       raise ValueError('Content-Range must have a final length.')
     elif not content_range.no_data and content_range.range[0] != 0:
       raise ValueError('Content-Range must specify complete object.')
@@ -184,11 +184,15 @@ def _handle_put(gcs_stub, filename, param_dict, headers, payload):
 
       token = gcs_stub.post_start_creation(filename, headers)
 
-  gcs_stub.put_continue_creation(token,
-                                 payload,
-                                 content_range.range,
-                                 content_range.last)
-  if content_range.last:
+  try:
+    gcs_stub.put_continue_creation(token,
+                                   payload,
+                                   content_range.range,
+                                   content_range.length)
+  except ValueError, e:
+    return _FakeUrlFetchResult(e.args[1], {}, e.args[0])
+
+  if content_range.length is not None:
     filestat = gcs_stub.head_object(filename)
     response_headers = {
         'content-length': filestat.st_size,
@@ -397,8 +401,11 @@ class _ContentRange(_Header):
         raise ValueError('Invalid content-range header %s' % self.value)
 
       self.no_data = result.group(1) == '*'
-      self.last = result.group(4) != '*'
-      if self.no_data and not self.last:
+      last = result.group(4) != '*'
+      self.length = None
+      if last:
+        self.length = long(result.group(4))
+      if self.no_data and not last:
         raise ValueError('Invalid content-range header %s' % self.value)
 
       self.range = None
