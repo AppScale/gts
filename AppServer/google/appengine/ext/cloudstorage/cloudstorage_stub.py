@@ -221,6 +221,41 @@ class CloudStorageStub(object):
       namespace_manager.set_namespace(ns)
 
   @db.non_transactional
+  def put_copy(self, src, dst):
+    """Copy file from src to dst.
+
+    Metadata is copied.
+
+    Args:
+      src: /bucket/filename. This file must exist.
+      dst: /bucket/filename
+    """
+    common.validate_file_path(src)
+    common.validate_file_path(dst)
+
+
+    src_blobkey = self._filename_to_blobkey(src)
+    source = _AE_GCSFileInfo_.get_by_key_name(src_blobkey)
+    ns = namespace_manager.get_namespace()
+    try:
+      namespace_manager.set_namespace('')
+      token = self._filename_to_blobkey(dst)
+      new_file = _AE_GCSFileInfo_(key_name=token,
+                                  filename=dst,
+                                  finalized=True)
+      new_file.options = source.options
+      new_file.etag = source.etag
+      new_file.size = source.size
+      new_file.creation = datetime.datetime.utcnow()
+      new_file.put()
+    finally:
+      namespace_manager.set_namespace(ns)
+
+
+    local_file = self.blob_storage.OpenBlob(src_blobkey)
+    self.blob_storage.StoreBlob(token, local_file)
+
+  @db.non_transactional
   def _end_creation(self, token, _upload_filename):
     """End object upload.
 
