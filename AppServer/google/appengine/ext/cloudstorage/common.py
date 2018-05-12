@@ -52,6 +52,7 @@ __all__ = ['CS_XML_NS',
            'posix_to_dt_str',
            'set_access_token',
            'validate_options',
+           'validate_bucket_name',
            'validate_bucket_path',
            'validate_file_path',
           ]
@@ -71,8 +72,10 @@ except ImportError:
   from google.appengine.api import runtime
 
 
-_GCS_BUCKET_REGEX = re.compile(r'/[a-z0-9\.\-_]{3,}$')
-_GCS_FULLPATH_REGEX = re.compile(r'/[a-z0-9\.\-_]{3,}/.*')
+_GCS_BUCKET_REGEX_BASE = r'[a-z0-9\.\-_]{3,63}'
+_GCS_BUCKET_REGEX = re.compile(_GCS_BUCKET_REGEX_BASE + r'$')
+_GCS_BUCKET_PATH_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'$')
+_GCS_FULLPATH_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'/.*')
 _GCS_OPTIONS = ('x-goog-acl',
                 'x-goog-meta-')
 
@@ -161,6 +164,21 @@ def get_metadata(headers):
               if k.startswith('x-goog-meta-'))
 
 
+def validate_bucket_name(name):
+  """Validate a Google Storage bucket name.
+
+  Args:
+    name: a Google Storage bucket name with no prefix or suffix.
+
+  Raises:
+    ValueError: if name is invalid.
+  """
+  _validate_path(name)
+  if not _GCS_BUCKET_REGEX.match(name):
+    raise ValueError('Bucket should be 3-63 characters long using only a-z,'
+                     '0-9, underscore, dash or dot but got %s' % name)
+
+
 def validate_bucket_path(path):
   """Validate a Google Cloud Storage bucket path.
 
@@ -171,7 +189,7 @@ def validate_bucket_path(path):
     ValueError: if path is invalid.
   """
   _validate_path(path)
-  if not _GCS_BUCKET_REGEX.match(path):
+  if not _GCS_BUCKET_PATH_REGEX.match(path):
     raise ValueError('Bucket should have format /bucket '
                      'but got %s' % path)
 
