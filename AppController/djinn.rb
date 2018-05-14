@@ -1914,6 +1914,7 @@ class Djinn
 
       # Load balancers and shadow need to check/update nginx/haproxy.
       if my_node.is_load_balancer?
+        update_db_haproxy
         APPS_LOCK.synchronize {
           regenerate_routing_config
         }
@@ -2612,17 +2613,18 @@ class Djinn
       UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
   end
 
-  def configure_db_haproxy
-    all_db_private_ips = []
-    @state_change_lock.synchronize {
-      @nodes.each { | node |
-        if node.is_db_master? or node.is_db_slave?
-          all_db_private_ips.push(node.private_ip)
-        end
+  def update_db_haproxy
+    begin
+      servers = ZKInterface.get_datastore_servers.map { |machine_ip, port|
+        {'ip' => machine_ip, 'port' => port}
       }
-    }
-    HAProxy.create_datastore_server_config(all_db_private_ips,
-      DatastoreServer::PROXY_PORT)
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn('Unable to fetch list of datastore servers')
+      return
+    end
+
+    HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
+                              DatastoreServer::NAME)
   end
 
   # Creates HAProxy configuration for TaskQueue.
@@ -3230,16 +3232,12 @@ class Djinn
     end
 
     if my_node.is_db_master? or my_node.is_db_slave?
-      # Always colocate the Datastore Server and UserAppServer (soap_server).
-      @state = "Starting up SOAP Server and Datastore Server"
-      start_datastore_server
-
+      @state = "Starting UAServer"
       # Start the UserAppServer and wait till it's ready.
       start_soap_server
       Djinn.log_info("Done starting database services.")
     else
       stop_soap_server
-      stop_datastore_server
     end
 
     # All nodes wait for the UserAppServer now. The call here is just to
@@ -3342,6 +3340,11 @@ class Djinn
 
     # Start Hermes with integrated stats service
     start_hermes
+
+    if my_node.is_shadow?
+      @state = "Starting Datastore"
+      start_datastore
+    end
 
     # Leader node starts additional services.
     if my_node.is_shadow?
@@ -3499,24 +3502,38 @@ class Djinn
     MonitInterface.start(:uaserver, start_cmd, nil, env_vars)
   end
 
-  def start_datastore_server
-    db_master_ip = nil
-    db_proxy = nil
+  def start_datastore
     verbose = @options['verbose'].downcase == 'true'
+    db_proxy = nil
+    db_nodes = []
     @state_change_lock.synchronize {
       @nodes.each { |node|
-        db_master_ip = node.private_ip if node.is_db_master?
         db_proxy = node.private_ip if node.is_load_balancer?
+        db_nodes << node if node.is_db_master? || node.is_db_slave?
       }
     }
-    HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
-    HelperFunctions.log_and_crash("db proxy ip was nil") if db_proxy.nil?
 
-    table = @options['table']
-    DatastoreServer.start(db_master_ip, my_node.private_ip, table, verbose)
+    HelperFunctions.log_and_crash('db proxy ip was nil') if db_proxy.nil?
+
+    assignments = {}
+    @nodes.each { |node|
+      begin
+        cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
+        server_count = cpu_count * DatastoreServer::MULTIPLIER
+      rescue FailedNodeException
+        server_count = DatastoreServer::DEFAULT_NUM_SERVERS
+      end
+
+      assignments['datastore'] = {'count' => server_count,
+                                  'verbose' => verbose}
+    }
+    ZKInterface.set_machine_assignments(my_node.private_ip, assignments)
 
     # Let's wait for at least one datastore server to be active.
-    HelperFunctions.sleep_until_port_is_open(db_proxy, DatastoreServer::PROXY_PORT)
+    until HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
+      update_db_haproxy if my_node.is_load_balancer?
+      sleep(SMALL_WAIT)
+    end
   end
 
   # Starts the Log Server service on this machine
@@ -3573,11 +3590,6 @@ class Djinn
     Djinn.log_info("Stopping groomer service.")
     GroomerService.stop
     Djinn.log_info("Done stopping groomer service.")
-  end
-
-  # Stops the datastore server.
-  def stop_datastore_server
-    DatastoreServer.stop
   end
 
   def is_hybrid_cloud?
@@ -4272,9 +4284,6 @@ HOSTS
     end
 
     if my_node.is_load_balancer?
-      configure_db_haproxy
-      Djinn.log_info("DB HAProxy configured")
-
       # Make HAProxy instance stats accessible after a reboot.
       if HAProxy.valid_config?(HAProxy::MAIN_CONFIG_FILE) &&
           !MonitInterface.is_running?(:apps_haproxy)
@@ -4413,7 +4422,7 @@ HOSTS
     script = `which appscale-admin`.chomp
     nginx_port = 17441
     service_port = 17442
-    start_cmd = "#{script} -p #{service_port}"
+    start_cmd = "#{script} serve -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd)
     if my_node.is_shadow?
@@ -4461,6 +4470,8 @@ HOSTS
       retries ||= 0
       result = uac.commit_new_user(APPSCALE_USER, password, "app")
       Djinn.log_info("Created/confirmed system user: (#{result})")
+    rescue UserExists
+      Djinn.log_info('System user already exists')
     rescue InternalError, FailedNodeException
       Djinn.log_warn('Failed to create a new user')
       retries += 1
@@ -5960,6 +5971,12 @@ HOSTS
     begin
       retries ||= 0
       result = uac.commit_new_user(xmpp_user, xmpp_pass, "app")
+    rescue UserExists
+      Djinn.log_info("User #{xmpp_user} already exists")
+      # We need to update the password of the channel XMPP account for
+      # authorization.
+      result = uac.change_password(xmpp_user, xmpp_pass)
+      Djinn.log_debug("Change password returned: #{result}")
     rescue InternalError
       Djinn.log_warn('Failed to create a new user')
       retries += 1
@@ -5969,14 +5986,6 @@ HOSTS
       else
         raise
       end
-    end
-
-    Djinn.log_debug("User creation returned: #{result}")
-    if result.include?('Error: user already exists')
-      # We need to update the password of the channel XMPP account for
-      # authorization.
-      result = uac.change_password(xmpp_user, xmpp_pass)
-      Djinn.log_debug("Change password returned: #{result}")
     end
 
     Djinn.log_debug("Created user [#{xmpp_user}] with password " \

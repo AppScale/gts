@@ -3,6 +3,8 @@ import logging
 import psutil
 import subprocess
 
+from appscale.admin.service_manager import ServiceManager
+
 from infrastructure_manager import InfrastructureManager
 from utils import utils
 
@@ -154,6 +156,11 @@ class SystemManager():
         process_status = ' '.join(tokens[2:]).lower()
         monit_stats_dict[process_name] = process_status
     logging.debug("Monit stats: {}".format(monit_stats_dict))
+
+    # Get status of processes managed by the ServiceManager.
+    monit_stats_dict.update(
+      {'-'.join([server.type, str(server.port)]): server.state
+       for server in ServiceManager.get_state()})
 
     return json.dumps(monit_stats_dict)
 
