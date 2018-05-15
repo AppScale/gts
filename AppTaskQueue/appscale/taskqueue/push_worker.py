@@ -10,7 +10,7 @@ from appscale.common import constants
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from celery.utils.log import get_task_logger
 from eventlet.green import httplib
-from httplib import BadStatusLine
+from eventlet.green.httplib import BadStatusLine
 from socket import error as SocketError
 from urlparse import urlparse
 from .distributed_tq import TaskName

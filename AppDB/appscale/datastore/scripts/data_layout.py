@@ -11,6 +11,6 @@ def main():
 
   datastore_batch = DatastoreFactory.getDatastore(args.db_type)
   try:
-    assert datastore_batch.valid_data_version()
+    assert datastore_batch.valid_data_version_sync()
   finally:
     datastore_batch.close()

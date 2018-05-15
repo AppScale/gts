@@ -6,6 +6,7 @@ from datetime import datetime
 
 import attr
 import psutil
+from appscale.admin.service_manager import ServiceManager
 from appscale.common import appscale_info
 
 from appscale.hermes.stats.converter import Meta, include_list_name
@@ -117,17 +118,29 @@ class ProcessesStatsSource(object):
     start = time.time()
     monit_status = subprocess.check_output('monit status', shell=True)
     processes_stats = []
+    private_ip = appscale_info.get_private_ip()
     for match in MONIT_PROCESS_PATTERN.finditer(monit_status):
       monit_name = match.group('name')
       pid = int(match.group('pid'))
       service = find_service_by_monit_name(monit_name)
-      private_ip = appscale_info.get_private_ip()
       try:
         stats = _process_stats(pid, service, monit_name, private_ip)
         processes_stats.append(stats)
       except psutil.Error as err:
         logging.warn(u"Unable to get process stats for {monit_name} ({err})"
                      .format(monit_name=monit_name, err=err))
+
+    # Add processes managed by the ServiceManager.
+    for server in ServiceManager.get_state():
+      service = find_service_by_monit_name(server.monit_name)
+      try:
+        stats = _process_stats(server.process.pid, service, server.monit_name,
+                               private_ip)
+        processes_stats.append(stats)
+      except psutil.Error as error:
+        logging.warning(u'Unable to get process stats for '
+                        u'{} ({})'.format(server, error))
+
     stats = ProcessesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.now().timetuple()),
       processes_stats=processes_stats

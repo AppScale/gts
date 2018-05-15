@@ -196,7 +196,7 @@ case "$PROVIDER" in
     ADMIN_EMAIL="a@a.com"
     ADMIN_PASSWD="$(cat /etc/hostname)"
     ;;
-"CLUSTER")
+"CLUSTER"|"Docker")
     ADMIN_EMAIL="a@a.com"
     ADMIN_PASSWD="appscale"
     # Let's discover the device used for external communication.
@@ -230,7 +230,7 @@ if [ ! -e AppScalefile ]; then
     echo "  -" >> AppScalefile
     echo "    roles:" >> AppScalefile
     echo "      - master" >> AppScalefile
-    echo "      - appengine" >> AppScalefile
+    echo "      - compute" >> AppScalefile
     echo "      - database" >> AppScalefile
     echo "      - zookeeper" >> AppScalefile
     echo "    nodes: ${PRIVATE_IP}" >> AppScalefile

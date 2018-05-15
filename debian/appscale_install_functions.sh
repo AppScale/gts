@@ -117,16 +117,18 @@ increaseconnections()
         # the modprobe command fails.
         modprobe ip_conntrack || true
 
-        echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
-        echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
-        echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
+        SYSCTL_CONFIG="/etc/sysctl.d/10-appscale.conf"
+        cat << EOF > ${SYSCTL_CONFIG}
+net.netfilter.nf_conntrack_max = 262144
+net.core.somaxconn = 20240
+net.ipv4.tcp_tw_reuse = 0
+net.ipv4.tcp_orphan_retries = 1
+net.ipv4.tcp_fin_timeout = 25
+net.ipv4.tcp_max_orphans = 8192
+net.ipv4.ip_local_port_range = 32768 61000
+EOF
 
-        /sbin/sysctl -p /etc/sysctl.conf
+        sysctl -p ${SYSCTL_CONFIG}
     fi
 }
 
@@ -331,10 +333,10 @@ installsolr()
 
 installcassandra()
 {
-    CASSANDRA_VER=3.11.0
+    CASSANDRA_VER=3.11.2
 
     CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    CASSANDRA_PACKAGE_MD5="96c72922df1170b4b5dec81b27d451fa"
+    CASSANDRA_PACKAGE_MD5="1c1bc0b216f308500e219968acbd625e"
     cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
     # Remove old Cassandra environment directory.
@@ -530,20 +532,23 @@ installapiclient()
 installgosdk()
 {
     if [ ${UNAME_MACHINE} = "x86_64" ]; then
-        GO_SDK_PACKAGE="go_appengine_sdk_linux_amd64-1.9.48.zip"
-        GO_SDK_PACKAGE_MD5="b5c1a3eab1ba69993c3a35661ec3043d"
+        GO_SDK_PACKAGE="appscale-go-runtime-1.9.48.zip"
+        GO_SDK_PACKAGE_MD5="3af8c4f6b3a147f99590862d2815025b"
+
+        GO_RUNTIME_DIR="/opt/go_appengine"
+        cachepackage ${GO_SDK_PACKAGE} ${GO_SDK_PACKAGE_MD5}
+
+        echo "Extracting Go SDK"
+        # Remove existing SDK directory in case it's old.
+        rm -rf ${GO_RUNTIME_DIR}
+        mkdir -p ${GO_RUNTIME_DIR}/gopath
+        unzip -q ${PACKAGE_CACHE}/${GO_SDK_PACKAGE} -d ${GO_RUNTIME_DIR}
     else
-        GO_SDK_PACKAGE="go_appengine_sdk_linux_386-1.9.48.zip"
-        GO_SDK_PACKAGE_MD5="b6aad6a3cb2506dfe1067e06fb93f9fb"
+        echo "Warning: There is no binary appscale-go-runtime package"
+        echo "available for ${UNAME_MACHINE}. If you need support for Go"
+        echo "applications, compile github.com/AppScale/appscale-go-runtime"
+        echo "and install in ${GO_RUNTIME_DIR}/goroot."
     fi
-
-    EXTRAS_DIR="/opt"
-    cachepackage ${GO_SDK_PACKAGE} ${GO_SDK_PACKAGE_MD5}
-
-    echo "Extracting Go SDK"
-    # Remove existing SDK directory in case it's old.
-    rm -rf ${EXTRAS_DIR}/go_appengine
-    unzip -q ${PACKAGE_CACHE}/${GO_SDK_PACKAGE} -d ${EXTRAS_DIR}
 }
 
 installpycapnp()
@@ -618,6 +623,7 @@ installapiserver()
     unset_opt=$(shopt -po nounset)
     set +u
     (source /opt/appscale_api_server/bin/activate && \
+     pip install -U pip && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}

@@ -70,6 +70,16 @@ calculate_heap_sizes()
     else
         max_heap_size_in_mb="$quarter_system_memory_in_mb"
     fi
+
+    # AppScale: Adjust max heap size to make room for other services. Padding
+    # should be defined as a decimal. For example, ".2" would set max heap to
+    # 80% of what it normally would be.
+    if [ -n "${HEAP_REDUCTION}" ]
+    then
+        max_heap_size_in_mb=$(awk \
+          "BEGIN { print int(${max_heap_size_in_mb}*(1-${HEAP_REDUCTION})) }")
+    fi
+
     MAX_HEAP_SIZE="${max_heap_size_in_mb}M"
 
     # Young gen: min(max_sensible_per_modern_cpu_core * num_cores, 1/4 * heap size)
@@ -216,6 +226,18 @@ JVM_OPTS="$JVM_OPTS -XX:ErrorFile=$CASSANDRA_HOME/logs/cassandra-hs-err-pid$$.lo
 if [ "x$CASSANDRA_HEAPDUMP_DIR" != "x" ]; then
     JVM_OPTS="$JVM_OPTS -XX:HeapDumpPath=$CASSANDRA_HEAPDUMP_DIR/cassandra-`date +%s`-pid$$.hprof"
 fi
+
+# stop the jvm on OutOfMemoryError as it can result in some data corruption
+# uncomment the preferred option
+# ExitOnOutOfMemoryError and CrashOnOutOfMemoryError require a JRE greater or equals to 1.7 update 101 or 1.8 update 92
+# For OnOutOfMemoryError we cannot use the JVM_OPTS variables because bash commands split words
+# on white spaces without taking quotes into account
+# JVM_OPTS="$JVM_OPTS -XX:+ExitOnOutOfMemoryError"
+# JVM_OPTS="$JVM_OPTS -XX:+CrashOnOutOfMemoryError"
+JVM_ON_OUT_OF_MEMORY_ERROR_OPT="-XX:OnOutOfMemoryError=kill -9 %p"
+
+# print an heap histogram on OutOfMemoryError
+# JVM_OPTS="$JVM_OPTS -Dcassandra.printHeapHistogramOnOutOfMemoryError=true"
 
 # jmx: metrics and administration interface
 #

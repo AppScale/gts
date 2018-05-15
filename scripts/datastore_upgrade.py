@@ -15,6 +15,7 @@ from appscale.datastore.dbconstants import APP_ENTITY_TABLE
 from appscale.datastore.dbconstants import ID_KEY_LENGTH
 from appscale.datastore.dbconstants import TOMBSTONE
 from appscale.datastore.cassandra_env import cassandra_interface
+from appscale.datastore.cassandra_env.constants import CURRENT_VERSION
 from appscale.datastore.zkappscale import zktransaction as zk
 from appscale.datastore.zkappscale.zktransaction import ZK_SERVER_CMD_LOCATIONS
 from appscale.datastore.zkappscale.zktransaction import ZKInternalException
@@ -213,7 +214,8 @@ def get_entity_batch(last_key, datastore, batch_size):
   Returns:
     A list of entities with a limit of batch_size.
   """
-  return datastore.range_query(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA, last_key,
+  return datastore.range_query_sync(
+    APP_ENTITY_TABLE, APP_ENTITY_SCHEMA, last_key,
     "", batch_size, start_inclusive=False)
 
 
@@ -248,7 +250,7 @@ def validate_row(app_id, row, zookeeper, db_access):
 
   padded_version = str(valid_txn).zfill(ID_KEY_LENGTH)
   journal_key = dbconstants.KEY_DELIMITER.join([row_key, padded_version])
-  journal_results = db_access.batch_get_entity(
+  journal_results = db_access.batch_get_entity_sync(
     dbconstants.JOURNAL_TABLE, [journal_key], dbconstants.JOURNAL_SCHEMA)
   journal_row = journal_results[journal_key]
 
@@ -296,8 +298,8 @@ def update_entity_in_table(key, validated_entity, datastore):
     AppScaleDBConnectionError: If the batch_put could not be performed due to
       an error with Cassandra.
   """
-  datastore.batch_put_entity(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA,
-                             validated_entity)
+  datastore.batch_put_entity_sync(APP_ENTITY_TABLE, [key], APP_ENTITY_SCHEMA,
+                                  validated_entity)
 
 
 def delete_entity_from_table(key, datastore):
@@ -309,7 +311,7 @@ def delete_entity_from_table(key, datastore):
     AppScaleDBConnectionError: If the batch_delete could not be performed due to
       an error with Cassandra.
   """
-  datastore.batch_delete(APP_ENTITY_TABLE, [key])
+  datastore.batch_delete_sync(APP_ENTITY_TABLE, [key])
 
 
 def stop_cassandra(db_ips, keyname):
@@ -426,9 +428,9 @@ def run_datastore_upgrade(db_access, zookeeper, log_postfix, total_entities):
   logging.info("Updated invalid entities and deleted tombstoned entities.")
 
   # Update the data version.
-  db_access.set_metadata(cassandra_interface.VERSION_INFO_KEY,
-                         str(cassandra_interface.EXPECTED_DATA_VERSION))
+  db_access.set_metadata_sync(
+    cassandra_interface.VERSION_INFO_KEY, str(CURRENT_VERSION))
   logging.info('Stored the data version successfully.')
 
-  db_access.delete_table(dbconstants.JOURNAL_TABLE)
+  db_access.delete_table_sync(dbconstants.JOURNAL_TABLE)
   logging.info("Deleted Journal Table sucessfully.")
