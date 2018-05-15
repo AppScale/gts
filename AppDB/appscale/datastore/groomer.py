@@ -883,8 +883,6 @@ class DatastoreGroomer(threading.Thread):
     Args:
       timestamp: A datetime time stamp to know which stat items belong
         together.
-    Returns:
-      True if there were no errors, False otherwise.
     """
     for app_id in self.namespace_info.keys():
       ds_distributed = self.register_db_accessor(app_id)
@@ -902,9 +900,6 @@ class DatastoreGroomer(threading.Thread):
         .format(app_id, self.namespace_info[app_id]))
       del ds_distributed
 
-    return True
-
-
   def update_statistics(self, timestamp):
     """ Puts the statistics into the datastore for applications
         to access.
@@ -912,8 +907,6 @@ class DatastoreGroomer(threading.Thread):
     Args:
       timestamp: A datetime time stamp to know which stat items belong
         together.
-    Returns:
-      True if there were no errors, False otherwise.
     """
     for app_id in self.stats.keys():
       ds_distributed = self.register_db_accessor(app_id)
@@ -944,8 +937,6 @@ class DatastoreGroomer(threading.Thread):
         "{2} entities".format(app_id, total_size, total_number))
       logging.info("Number of hard deletes: {0}".format(self.num_deletes))
       del ds_distributed
-
-    return True
 
   def update_groomer_state(self, state):
     """ Updates the groomer's internal state and persists the state to
@@ -1053,11 +1044,8 @@ class DatastoreGroomer(threading.Thread):
 
     timestamp = datetime.datetime.utcnow()
 
-    if not self.update_statistics(timestamp):
-      logging.error("There was an error updating the statistics")
-
-    if not self.update_namespaces(timestamp):
-      logging.error("There was an error updating the namespaces")
+    self.update_statistics(timestamp)
+    self.update_namespaces(timestamp)
 
     del self.db_access
     del self.ds_access

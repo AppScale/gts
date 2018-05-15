@@ -11,12 +11,12 @@ from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
 from appscale.datastore import groomer
 from appscale.datastore import utils
-from appscale.datastore.datastore_distributed import DatastoreDistributed
 from flexmock import flexmock
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
+from google.appengine.api import datastore_errors
 from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
 
@@ -173,13 +173,17 @@ class TestGroomer(unittest.TestCase):
     dsg = flexmock(dsg)
     dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
     dsg.should_receive("create_global_stat_entry").and_return(True)
-    dsg.should_receive("create_kind_stat_entry").and_return(True)
+    dsg.should_receive("create_kind_stat_entry")
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
     dsg.stats['app_id1'] = {'kind': {'size': 0, 'number': 0}}
-    # Should loop twice and on the second raise an exception.
-    self.assertEquals(True, dsg.update_statistics(datetime.datetime.now()))
-    dsg.should_receive("create_kind_stat_entry").and_return(False)
-    self.assertEquals(False, dsg.update_statistics(datetime.datetime.now()))
+
+    dsg.update_statistics(datetime.datetime.now())
+    dsg.should_receive("create_kind_stat_entry").\
+      and_raise(datastore_errors.BadRequestError)
+    # BadRequestErrors should be ignored when generating stats because they are
+    # expected for undeployed projects and it's better to continue generating
+    # stats for other projects rather than stopping altogether.
+    dsg.update_statistics(datetime.datetime.now())
 
   def test_reset_statistics(self):
     zookeeper = flexmock()
