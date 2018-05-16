@@ -61,15 +61,15 @@ class TaskQueueClient(object):
     for location in self._locations:
       url = 'http://{}'.format(location)
       try:
-        response = yield self._client.fetch(url, body=encoded_api_request,
-                                            headers=headers)
+        response = yield self._client.fetch(
+          url, method='POST', body=encoded_api_request, headers=headers)
       except socket_error:
         # Try a different location if the load balancer is not available.
         continue
       except HTTPError as error:
         raise EnqueueError(str(error))
 
-      api_response = remote_api_pb.Response(response.content)
+      api_response = remote_api_pb.Response(response.body)
       break
 
     if api_response is None:
