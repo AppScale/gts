@@ -9,6 +9,7 @@ import threading
 import time
 
 from tornado import gen
+from tornado.ioloop import IOLoop
 
 from appscale.datastore import dbconstants, helper_functions
 
@@ -41,7 +42,6 @@ sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
 from google.appengine.api.datastore_distributed import _MAX_ACTIONS_PER_TXN
-from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
@@ -3162,6 +3162,7 @@ class DatastoreDistributed():
       app_id, txid, is_xg, in_progress)
     raise gen.Return(txid)
 
+  @gen.coroutine
   def enqueue_transactional_tasks(self, app, tasks):
     """ Send a BulkAdd request to the taskqueue service.
 
@@ -3180,8 +3181,8 @@ class DatastoreDistributed():
     # fail. We need a way to enqueue the task with the condition that it
     # executes only upon successful commit. For now, we just log the error.
     try:
-      self.taskqueue_client.add_tasks(app, service_id, version_id,
-                                      add_requests)
+      yield self.taskqueue_client.add_tasks(app, service_id, version_id,
+                                            add_requests)
     except EnqueueError as error:
       self.logger.error('Unable to enqueue tasks: {}'.format(error))
 
@@ -3297,8 +3298,8 @@ class DatastoreDistributed():
 
     # Process transactional tasks.
     if metadata['tasks']:
-      threading.Thread(target=self.enqueue_transactional_tasks,
-                       args=(app, metadata['tasks'])).start()
+      IOLoop.current().spawn_callback(self.enqueue_transactional_tasks, app,
+                                      metadata['tasks'])
 
   @gen.coroutine
   def commit_transaction(self, app_id, http_request_data):

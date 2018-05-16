@@ -2,8 +2,9 @@
 
 import sys
 
-import requests
-from requests.exceptions import ConnectionError, HTTPError
+from socket import error as socket_error
+from tornado import gen
+from tornado.httpclient import AsyncHTTPClient, HTTPError
 
 from appscale.common.constants import TASKQUEUE_SERVICE_PORT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -26,9 +27,11 @@ class TaskQueueClient(object):
     Args:
       locations: A list of IP addresses specifying TaskQueue service locations.
     """
+    self._client = AsyncHTTPClient()
     self._locations = [':'.join([ip, str(TASKQUEUE_SERVICE_PORT)])
                        for ip in locations]
 
+  @gen.coroutine
   def add_tasks(self, project_id, service_id, version_id, add_requests):
     """ Makes a call to the TaskQueue service to enqueue tasks.
 
@@ -58,10 +61,9 @@ class TaskQueueClient(object):
     for location in self._locations:
       url = 'http://{}'.format(location)
       try:
-        response = requests.post(url, data=encoded_api_request,
-                                 headers=headers)
-        response.raise_for_status()
-      except ConnectionError:
+        response = yield self._client.fetch(url, body=encoded_api_request,
+                                            headers=headers)
+      except socket_error:
         # Try a different location if the load balancer is not available.
         continue
       except HTTPError as error:
