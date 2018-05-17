@@ -31,10 +31,12 @@ class ProjectQueueManager(dict):
     pg_dns_node = '/appscale/projects/{}/postgres_dsn'.format(project_id)
     try:
       pg_dsn = self.zk_client.get(pg_dns_node)
-      logger.info('Using PostgreSQL as a backend for Pull Queues')
+      logger.info('Using PostgreSQL as a backend for Pull Queues of "{}"'
+                  .format(project_id))
       self.pg_connection = psycopg2.connect(pg_dsn[0])
     except NoNodeError:
-      logger.info('Using Cassandra as a backend for Pull Queues')
+      logger.info('Using Cassandra as a backend for Pull Queues of "{}"'
+                  .format(project_id))
       self.pg_connection = None
     self.queues_node = '/appscale/projects/{}/queues'.format(project_id)
     self.watch = zk_client.DataWatch(self.queues_node,

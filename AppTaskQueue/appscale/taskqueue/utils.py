@@ -12,7 +12,7 @@ from .brokers import rabbitmq
 
 logging.basicConfig(format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # The directory where Celery configuration files are stored.
 CELERY_CONFIG_DIR = os.path.join('/etc', 'appscale', 'celery', 'configuration')

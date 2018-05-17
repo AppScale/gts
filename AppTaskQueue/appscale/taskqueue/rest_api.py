@@ -12,7 +12,7 @@ from appscale.taskqueue.statistics import service_stats, stats_lock, REST_API
 from .task import InvalidTaskInfo, Task, TASK_FIELDS
 from .queue import (InvalidLeaseRequest,
                     LONG_QUEUE_FORM,
-                    PullQueue,
+                    PullQueue, PostgresPullQueue,
                     QUEUE_FIELDS,
                     TransientError)
 
@@ -96,7 +96,7 @@ class RESTQueue(TrackedRequestHandler):
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
-    if not isinstance(queue, PullQueue):
+    if not isinstance(queue, (PullQueue, PostgresPullQueue)):
       write_error(self, HTTPCodes.BAD_REQUEST,
                   'The REST API is only applicable to pull queues.')
       return

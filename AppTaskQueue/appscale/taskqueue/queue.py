@@ -4,6 +4,8 @@ import re
 import sys
 import uuid
 
+import psycopg2
+
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.retry_policies import (
   BASIC_RETRIES,
@@ -268,7 +270,6 @@ class PostgresPullQueue(Queue):
         '  time_enqueued timestamp NOT NULL,'
         '  retry_count integer NOT NULL,'
         '  lease_expires timestamp NOT NULL,'
-        '  time_leased timestamp,'
         '  payload text,'
         '  tag varchar(500),'
         '  PRIMARY KEY (task_name)'
@@ -311,13 +312,7 @@ class PostgresPullQueue(Queue):
         'VALUES ( '
         '  %(task_name)s, %(payload)s, %(time_enqueued)s, '
         '  %(lease_expires)s, %(retry_count)s, %(tag)s '
-        ') '
-        'ON CONFLICT (task_name) DO UPDATE '    # IGNORE DUPLICATES FOR NOW
-        '  SET payload = EXCLUDED.payload, '    # TO KEEP CASSANDRA BEHAVIOUR
-        '      time_enqueued = EXCLUDED.time_enqueued, '
-        '      lease_expires = EXCLUDED.lease_expires, '
-        '      retry_count = EXCLUDED.retry_count, '
-        '      tag = EXCLUDED.tag'.format(table=self.tasks_table_name),
+        ')'.format(table=self.tasks_table_name),
         vars={
           'task_name': task.id,
           'payload': task.payloadBase64,
@@ -331,8 +326,12 @@ class PostgresPullQueue(Queue):
       self.pg_connection.commit()
       logger.debug('Added task: {}'.format(task))
 
-    # except IntegrityError as err:
-    #   raise class TaskQueueServiceError TASK_ALREADY_EXISTS = 10
+    except psycopg2.IntegrityError as err:
+      name_taken_msg = 'Task name already taken: {}'.format(task.id)
+      logger.warning('{msg}. Rolling back transaction({err})'
+                     .format(msg=name_taken_msg, err=err))
+      self.pg_connection.rollback()
+      raise InvalidTaskInfo(name_taken_msg)
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
       self.pg_connection.rollback()
@@ -565,8 +564,7 @@ class PostgresPullQueue(Queue):
       self.pg_cursor.execute(
         'UPDATE "{tasks_table}" '
         'SET lease_expires = %(new_lease_expires)s, '
-        '    retry_count = retry_count + 1, '
-        '    time_leased = %(current_time)s '
+        '    retry_count = retry_count + 1 '
         'FROM ( '
         '  SELECT task_name FROM "{tasks_table}" '
         '  WHERE lease_expires < %(current_time)s '
@@ -615,6 +613,77 @@ class PostgresPullQueue(Queue):
       self.pg_connection.rollback()
       raise
 
+  def to_json(self, include_stats=False, fields=None):
+    """ Generate a JSON representation of the queue.
+
+    Args:
+      include_stats: A boolean indicating whether or not to include stats.
+      fields: A tuple of fields to include in the output.
+    Returns:
+      A string in JSON format representing the queue.
+    """
+    if fields is None:
+      fields = QUEUE_FIELDS
+
+    queue = {}
+    if 'kind' in fields:
+      queue['kind'] = 'taskqueues#taskqueue'
+
+    if 'id' in fields:
+      queue['id'] = self.name
+
+    if 'maxLeases' in fields:
+      queue['maxLeases'] = self.task_retry_limit
+
+    stat_fields = ()
+    for field in fields:
+      if isinstance(field, dict) and 'stats' in field:
+        stat_fields = field['stats']
+
+    if stat_fields and include_stats:
+      queue['stats'] = self._get_stats(stat_fields)
+
+    return json.dumps(queue)
+
+  def total_tasks(self):
+    """ Get the total number of tasks in the queue.
+
+    Returns:
+      An integer specifying the number of tasks in the queue.
+    """
+    try:
+      self.pg_cursor.execute(
+        'SELECT count(*) FROM "{tasks_table}"'
+        .format(tasks_table=self.tasks_table_name)
+      )
+      tasks_count = self.pg_cursor.fetchone()[0]
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+    return tasks_count
+
+  def oldest_eta(self):
+    """ Get the ETA of the oldest task
+
+    Returns:
+      A datetime object specifying the oldest ETA or None if there are no
+      tasks.
+    """
+    try:
+      self.pg_cursor.execute(
+        'SELECT min(lease_expires) FROM "{tasks_table}"'
+        .format(tasks_table=self.tasks_table_name)
+      )
+      oldest_eta = self.pg_cursor.fetchone()[0]
+      self.pg_connection.commit()
+    except Exception as err:
+      logger.error('Rolling back transaction ({err})'.format(err=err))
+      self.pg_connection.rollback()
+      raise
+    return oldest_eta
+
   COLUMN_ATTR_MAPPING = {
     'task_name': 'id',
     'payload': 'payloadBase64',
@@ -653,6 +722,43 @@ class PostgresPullQueue(Queue):
       logger.error('Rolling back transaction ({err})'.format(err=err))
       self.pg_connection.rollback()
       raise
+
+  def _get_stats(self, fields):
+    """ Fetch queue statistics.
+
+    Args:
+      fields: A tuple of fields to include in the results.
+    Returns:
+      A dictionary containing queue statistics.
+    """
+    stats = {}
+
+    if 'totalTasks' in fields:
+      stats['totalTasks'] = self.total_tasks()
+
+    if 'oldestTask' in fields:
+      epoch = datetime.datetime.utcfromtimestamp(0)
+      oldest_eta = self.oldest_eta() or epoch
+      stats['oldestTask'] = int((oldest_eta - epoch).total_seconds())
+
+    if 'leasedLastMinute' in fields:
+      logger.warning('leasedLastMinute can\'t be provided')
+      stats['leasedLastMinute'] = None
+
+    if 'leasedLastHour' in fields:
+      logger.warning('leasedLastHour can\'t be provided')
+      stats['leasedLastHour'] = None
+
+    return stats
+
+  def __repr__(self):
+    """ Generates a string representation of the queue.
+
+    Returns:
+      A string representing the PullQueue.
+    """
+    return '<PostgresPullQueue {}: app={}, task_retry_limit={}>'.format(
+      self.name, self.app, self.task_retry_limit)
 
 
 class PullQueue(Queue):
