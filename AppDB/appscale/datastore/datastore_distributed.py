@@ -3216,11 +3216,11 @@ class DatastoreDistributed():
 
     # If too much time has passed, the transaction cannot be committed.
     if 'start' not in metadata:
-      raise dbconstants.TxTimeoutException('Unable to find transaction')
+      raise dbconstants.BadRequest('Unable to find transaction')
 
     tx_duration = datetime.datetime.utcnow() - metadata['start']
     if (tx_duration > datetime.timedelta(seconds=MAX_TX_DURATION)):
-      raise dbconstants.TxTimeoutException('Transaction timed out')
+      raise dbconstants.BadRequest('The referenced transaction has expired')
 
     # If there were no changes, the transaction is complete.
     if (len(metadata['puts']) + len(metadata['deletes']) +
