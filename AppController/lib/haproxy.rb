@@ -8,6 +8,9 @@ require 'helperfunctions'
 require 'app_dashboard'
 require 'monit_interface'
 require 'user_app_client'
+require 'datastore_server'
+require 'taskqueue'
+require 'blobstore'
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
 # copies of them and load balance traffic to them. Since nginx (our first
@@ -34,13 +37,6 @@ module HAProxy
   MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "app-haproxy.#{CONFIG_EXTENSION}")
   BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "app-base.#{CONFIG_EXTENSION}")
   PIDFILE = '/var/run/app-haproxy.pid'.freeze
-
-  # Options to used to configure servers.
-  # For more information see http://haproxy.1wt.eu/download/1.3/doc/configuration.txt
-  SERVER_OPTIONS = 'maxconn 1 check'.freeze
-
-  # HAProxy Configuration to use for a thread safe gae app.
-  THREADED_SERVER_OPTIONS = 'maxconn 7 check'.freeze
 
   # Maximum AppServer threaded connections
   MAX_APPSERVER_CONN = 7
@@ -113,19 +109,6 @@ module HAProxy
   def self.remove_tq_endpoints
     FileUtils.rm_f(File.join(SERVICE_SITES_PATH, TaskQueue::NAME))
     HAProxy.regenerate_config
-  end
-
-  # Create the config file for Datastore Server.
-  def self.create_datastore_server_config(server_ips, listen_port)
-    # For the Datastore servers we have a list of local ports the servers
-    # are listening to, and we need to create the list of local IPs.
-    servers = []
-    server_ips.each { |server|
-      DatastoreServer.get_server_ports.each { |port|
-        servers << { 'ip' => server, 'port' => port }
-      }
-    }
-    create_app_config(servers, '*', listen_port, DatastoreServer::NAME)
   end
 
   # Create the config file for TaskQueue servers.
@@ -276,13 +259,16 @@ module HAProxy
     if server_name.start_with?(HelperFunctions::GAE_PREFIX)
       version_key = server_name[HelperFunctions::GAE_PREFIX.length..-1]
       threadsafe = HelperFunctions.get_version_thread_safe(version_key)
+      maxconn = threadsafe ? MAX_APPSERVER_CONN : 1
+    elsif server_name == DatastoreServer::NAME
+      # Allow custom number of connections at a time for datastore.
+      maxconn = DatastoreServer::MAXCONN
     else
-      # Allow only one connection at a time for services.
-      threadsafe = false
+      # Allow only one connection at a time for other services.
+      maxconn = 1
     end
 
-    max_conn = threadsafe ? THREADED_SERVER_OPTIONS : SERVER_OPTIONS
-    "  server #{server_name}-#{location} #{location} #{max_conn}"
+    "  server #{server_name}-#{location} #{location} maxconn #{maxconn} check"
   end
 
   def self.remove_version(version_key)

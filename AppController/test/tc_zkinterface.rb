@@ -61,7 +61,8 @@ class TestZKInterface < Test::Unit::TestCase
     # getting a list of the IPs hosting the app should return both
     # IPs the first time around, and no IPs the second time around
     zk.should_receive(:get_children).with(:path => revision_path).
-      and_return({:children => ["ip1", "ip2"]}, {:children => []})
+      and_return({:children => ["ip1", "ip2"], :rc => 0},
+                 {:children => [], :rc => 0})
 
     ip1_data = {
       'public_ip' => 'ip1',

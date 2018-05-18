@@ -9,6 +9,7 @@ import random
 from appscale.common import appscale_info
 from tornado import gen, httpclient
 from tornado.options import options
+from tornado.simple_httpclient import SimpleAsyncHTTPClient
 
 from appscale.hermes import constants
 from appscale.hermes.constants import SECRET_HEADER
@@ -17,6 +18,9 @@ from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.stats.producers import (
   proxy_stats, node_stats, process_stats, rabbitmq_stats,
   taskqueue_stats)
+
+# Allow tornado to fetch up to 100 concurrent requests
+httpclient.AsyncHTTPClient.configure(SimpleAsyncHTTPClient, max_clients=100)
 
 
 class BadStatsListFormat(ValueError):

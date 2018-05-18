@@ -35,36 +35,3 @@ class AppDBInterface:
     raise NotImplementedError("rollback is not implemented in %s." % self.__class__)
   def setup_transaction(self, txnid):
     raise NotImplementedError("rollback is not implemented in %s." % self.__class__)
-    
-
-  def get_local_ip(self):
-    try:
-      local_ip = self.__local_ip
-    except AttributeError:
-      local_ip = None
-
-    if local_ip is None:
-      local_ip = os.environ.get("LOCAL_DB_IP")
-
-      if local_ip is None:
-        raise Exception("Env var LOCAL_DB_IP was not set.")
-      else:
-        self.__local_ip = local_ip
-
-    return self.__local_ip
-
-  def get_master_ip(self):
-    try:
-      master_ip = self.__master_ip
-    except AttributeError:
-      master_ip = None
-
-    if master_ip is None:
-      master_ip = os.environ.get("MASTER_IP")
-
-      if master_ip is None:
-        raise Exception("Env var MASTER_IP was not set.")
-      else:
-        self.__master_ip = master_ip
-
-    return self.__master_ip

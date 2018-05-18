@@ -88,10 +88,11 @@ class UserAppClient
     if result == 'true'
       puts "\nYour user account has been created successfully."
     elsif result == 'false'
-      HelperFunctions.log_and_crash("\nWe were unable to create your user " \
-        'account. Please contact your cloud administrator for further details.')
+      raise InternalError.new('Unable to create user')
+    elsif result == 'Error: user already exists'
+      raise UserExists.new(result)
     else
-      puts "\n[unexpected] Commit new user returned: [#{result}]"
+      raise InternalError.new(result)
     end
     result
   end
