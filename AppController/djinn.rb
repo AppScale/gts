@@ -47,6 +47,9 @@ require 'user_app_client'
 require 'zkinterface'
 require 'zookeeper_helper'
 
+# This ensure that exceptions in a thread are not ignored.
+Thread.abort_on_exception=true
+
 # By default don't trace remote commands execution.
 NO_OUTPUT = false
 
@@ -1151,12 +1154,17 @@ class Djinn
       @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
-          node_stats = JSON.load(get_node_stats_json(@@secret))
+          begin
+            node_stats = JSON.load(get_node_stats_json(@@secret))
+          rescue SOAP::FaultError
+            Djinn.log_warn("Failed to get local status update.")
+            next
+          end
         else
           acc = AppControllerClient.new(ip, @@secret)
           begin
             node_stats = JSON.load(acc.get_node_stats_json)
-          rescue FailedNodeException
+          rescue FailedNodeException, SOAP::FaultError
             Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
               "not adding it to our cached info.")
             next
@@ -1923,12 +1931,16 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        stats = JSON.parse(get_node_stats_json(secret))
-        Djinn.log_info("--- Node at #{stats['public_ip']} has " \
-          "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " \
-          "and knows about these apps #{stats['apps']}.")
-        Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
-        last_print = Time.now.to_i
+        begin
+          stats = JSON.parse(get_node_stats_json(secret))
+          Djinn.log_info("--- Node at #{stats['public_ip']} has " \
+            "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " \
+            "and knows about these apps #{stats['apps']}.")
+          Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
+          last_print = Time.now.to_i
+        rescue SOAP::FaultError
+          Djinn.log_warn("Failed to get local node stats: skipping stats")
+        end
       end
 
       # Let's make sure we don't drift the duty cycle too much.
@@ -5144,17 +5156,15 @@ HOSTS
         if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
           Djinn.log_info("Not scaling up right now, as we recently scaled " \
             "up or down.")
-          return
+        else
+          result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
+          if result != "OK"
+            Djinn.log_error("Was not able to add nodes because: #{result}.")
+          else
+            @last_scaling_time = Time.now.to_i
+            Djinn.log_info("Added the following nodes: #{roles_needed}.")
+          end
         end
-
-        result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
-        if result != "OK"
-          Djinn.log_error("Was not able to add nodes because: #{result}.")
-          return
-        end
-
-        @last_scaling_time = Time.now.to_i
-        Djinn.log_info("Added the following nodes: #{roles_needed}.")
       }
     }
   end
