@@ -246,14 +246,13 @@ class RemoteStub(object):
     return apiproxy_rpc.RPC(stub=self)
 
 
+# AppScale: If the runtime is importing a module, fall back to the
+# non-threaded RPC. This prevents a deadlock in cases when the RealRPC thread
+# tries to acquire the import lock.
 class RuntimeRemoteStub(RemoteStub):
   """ A RemoteStub that uses a separate thread for RPCs. """
-
   def CreateRPC(self):
     """ Create an RPC that can be used asynchronously. """
-    # If the runtime is importing a module, fall back to the non-threaded RPC.
-    # This prevents a deadlock in cases when the RealRPC thread tries to
-    # acquire the import lock.
     if imp.lock_held():
       return apiproxy_rpc.RPC(stub=self)
     else:
@@ -540,14 +539,14 @@ class RemoteDatastoreStub(RemoteStub):
         'The remote datastore does not support index manipulation.')
 
 
+# AppScale: If the runtime is importing a module, fall back to the
+# non-threaded RPC. This prevents a deadlock in cases when the RealRPC thread
+# tries to acquire the import lock.
 class RuntimeDatastoreStub(RemoteDatastoreStub):
   """ A datastore stub that uses a separate thread for RPCs. """
 
   def CreateRPC(self):
     """ Create an RPC that can be used asynchronously. """
-    # If the runtime is importing a module, fall back to the non-threaded RPC.
-    # This prevents a deadlock in cases when the RealRPC thread tries to
-    # acquire the import lock.
     if imp.lock_held():
       return apiproxy_rpc.RPC(stub=self)
     else:
@@ -589,6 +588,7 @@ def GetRemoteAppIdFromServer(server, path, remote_token=None):
   return app_info['app_id']
 
 
+# AppScale: Add support for an async RPCs and an external API server.
 def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
                                  default_auth_domain=None,
                                  use_remote_datastore=True,
@@ -692,6 +692,7 @@ def GetRemoteAppId(servername,
   return app_id, server
 
 
+# AppScale: Add support for an async RPCs and an external API server.
 def ConfigureRemoteApi(app_id,
                        path,
                        auth_func,
