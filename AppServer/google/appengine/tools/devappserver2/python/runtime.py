@@ -55,6 +55,7 @@ _STARTUP_FAILURE_TEMPLATE = """
 </html>"""
 
 
+# AppScale: Support using an external API server.
 def setup_stubs(config, external_api_port=None):
   """Sets up API stubs using remote API."""
   if external_api_port is None:

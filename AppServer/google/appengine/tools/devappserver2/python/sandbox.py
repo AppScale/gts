@@ -122,13 +122,11 @@ def enable_sandbox(config):
   for path in sys.path:
     if any(module_path.startswith(path) for module_path in module_paths):
       python_lib_paths.append(path)
-
   python_lib_paths.extend(_enable_libraries(config.libraries))
   for name in list(sys.modules):
     if not _should_keep_module(name):
       _removed_modules.append(sys.modules[name])
       del sys.modules[name]
-
   path_override_hook = PathOverrideImportHook(
       set(_THIRD_PARTY_LIBRARY_NAME_OVERRIDES.get(lib.name, lib.name)
           for lib in config.libraries).intersection(_C_MODULES))
