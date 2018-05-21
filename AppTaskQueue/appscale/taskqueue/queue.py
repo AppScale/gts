@@ -273,7 +273,12 @@ class PostgresPullQueue(Queue):
         '  payload text,'
         '  tag varchar(500),'
         '  PRIMARY KEY (task_name)'
-        ')'.format(table_name=self.tasks_table_name)
+        ');'
+        'CREATE INDEX "{table_name}-eta-retry-tag-index" '
+        '  ON "{table_name}" USING BTREE (lease_expires, retry_count, tag);'
+        'CREATE INDEX "{table_name}-retry-eta-tag-index" '
+        '  ON "{table_name}" (retry_count, lease_expires, tag);'
+        .format(table_name=self.tasks_table_name)
       )
       self.pg_connection.commit()
     except Exception as err:
