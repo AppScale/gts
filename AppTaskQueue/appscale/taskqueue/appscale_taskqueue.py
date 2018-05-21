@@ -8,9 +8,7 @@ import signal
 import sys
 import time
 
-import psycopg2
 from kazoo.client import KazooClient
-from kazoo.exceptions import NoNodeError
 from tornado import gen, httpserver, ioloop
 from tornado.web import Application, RequestHandler
 

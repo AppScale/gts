@@ -19,7 +19,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
   def tearDown(self):
     self._read_patcher.stop()
 
-  def test_distributed_tq_initialization(self):
+  @staticmethod
+  def test_distributed_tq_initialization():
     db_access = MagicMock()
     zk_client = MagicMock()
     distributed_tq.DistributedTaskQueue(db_access, zk_client)

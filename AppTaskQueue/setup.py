@@ -16,6 +16,7 @@ setup(
     'celery>=3.1,<4.0.0',
     'eventlet==0.22',
     'kazoo',
+    'mock',
     'psycopg2-binary',
     'PyYaml',
     'tornado==4.2.0'

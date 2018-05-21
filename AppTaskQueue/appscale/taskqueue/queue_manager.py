@@ -2,7 +2,6 @@
 
 import json
 
-import psycopg2
 from kazoo.exceptions import ZookeeperError, NoNodeError
 from tornado.ioloop import IOLoop
 
@@ -33,6 +32,7 @@ class ProjectQueueManager(dict):
       pg_dsn = self.zk_client.get(pg_dns_node)
       logger.info('Using PostgreSQL as a backend for Pull Queues of "{}"'
                   .format(project_id))
+      import psycopg2
       self.pg_connection = psycopg2.connect(pg_dsn[0])
     except NoNodeError:
       logger.info('Using Cassandra as a backend for Pull Queues of "{}"'

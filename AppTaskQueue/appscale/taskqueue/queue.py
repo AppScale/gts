@@ -4,8 +4,6 @@ import re
 import sys
 import uuid
 
-import psycopg2
-
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.retry_policies import (
   BASIC_RETRIES,
@@ -295,6 +293,7 @@ class PostgresPullQueue(Queue):
       InvalidTaskInfo if the task ID already exists in the queue
         or it doesn't have payloadBase64 attribute.
     """
+    import psycopg2
     if not hasattr(task, 'payloadBase64'):
       raise InvalidTaskInfo('{} is missing a payload.'.format(task))
 
