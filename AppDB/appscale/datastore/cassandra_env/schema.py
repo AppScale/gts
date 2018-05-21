@@ -250,6 +250,8 @@ def prime_cassandra(replication):
   deadline = time.time() + SCHEMA_CHANGE_TIMEOUT
   while True:
     if time.time() > deadline:
+      logging.warning('Timeout when waiting for hosts to join. Continuing '
+                      'with connected hosts.')
       break
 
     if len(session.get_pool_state()) == len(hosts):
