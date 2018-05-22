@@ -82,6 +82,7 @@ class APIProxyStub(object):
     Returns:
       a instance of RPC.
     """
+    # AppScale: Use custom thread-based RPC.
     return apiproxy_rpc.RealRPC(stub=self)
 
   def MakeSyncCall(self, service, call, request, response, request_id=None):

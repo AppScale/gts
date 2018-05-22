@@ -30,6 +30,7 @@ Architecture: any
 Depends: appscale-tools,
          autoconf,
          bzip2,
+         cgroup-tools,
          cron,
          curl,
          dnsutils,
