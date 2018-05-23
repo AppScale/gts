@@ -11,9 +11,7 @@ import time
 import uuid
 
 from appscale.common import appscale_info
-from appscale.common.async_retrying import (
-  _RetryCoroutine, DEFAULT_BACKOFF_BASE, DEFAULT_BACKOFF_MULTIPLIER,
-  DEFAULT_MAX_RETRIES)
+from appscale.common.async_retrying import retry_coroutine
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 import cassandra
@@ -477,18 +475,17 @@ class DatastoreProxy(AppDBInterface):
 
     # Since failing after this point is expensive and time consuming, retry
     # operations to make a failure less likely.
-    retry_coroutine = _RetryCoroutine(
-      DEFAULT_BACKOFF_BASE, DEFAULT_BACKOFF_MULTIPLIER, backoff_threshold=5,
-      max_retries=DEFAULT_MAX_RETRIES, retrying_timeout=10,
+    custom_retry_coroutine = retry_coroutine(
+      backoff_threshold=5, retrying_timeout=10,
       retry_on_exception=dbconstants.TRANSIENT_CASSANDRA_ERRORS)
 
-    persistent_apply_batch = retry_coroutine(large_batch.set_applied)
+    persistent_apply_batch = custom_retry_coroutine(large_batch.set_applied)
     try:
       yield persistent_apply_batch()
     except FailedBatch as batch_error:
       raise AppScaleDBConnectionError(str(batch_error))
 
-    persistent_apply_mutations = retry_coroutine(self.apply_mutations)
+    persistent_apply_mutations = custom_retry_coroutine(self.apply_mutations)
     try:
       yield persistent_apply_mutations(mutations, txn)
     except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
