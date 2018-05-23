@@ -119,14 +119,14 @@ def get_secret():
     String containing the secret key.
   """
   return file_io.read(constants.SECRET_LOC).rstrip()
- 
+
 def get_num_cpus():
   """ Get the number of CPU processes on the current machine.
   
   Returns:
     Integer of the number of CPUs on the current machine
   """
-  return multiprocessing.cpu_count() 
+  return multiprocessing.cpu_count()
 
 def get_db_info():
   """ Get information on the database being used.
@@ -134,8 +134,8 @@ def get_db_info():
   Returns:
     A dictionary with database info
   """
-  info = file_io.read(constants.DB_INFO_LOC) 
-  return yaml.load(info) 
+  info = file_io.read(constants.DB_INFO_LOC)
+  return yaml.load(info)
 
 def get_taskqueue_nodes():
   """ Returns a list of all the taskqueue nodes (including the master). 
@@ -168,8 +168,8 @@ def get_zk_locations_string():
     None is returned if there was a problem getting the location string.
   """
   try:
-    info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE) 
-    zk_json = json.loads(info) 
+    info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE)
+    zk_json = json.loads(info)
     return ":2181,".join(zk_json['locations']) + ":2181"
   except IOError, io_error:
     logging.exception(io_error)
