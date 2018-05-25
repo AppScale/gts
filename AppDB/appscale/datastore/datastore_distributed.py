@@ -3224,7 +3224,7 @@ class DatastoreDistributed():
     composite_indices = [entity_pb.CompositeIndex(index)
                          for index in self.datastore_batch.get_indices(app)]
 
-    decoded_groups = (entity_pb.Reference(group) for group in tx_groups)
+    decoded_groups = [entity_pb.Reference(group) for group in tx_groups]
     self.transaction_manager.set_groups(app, txn, decoded_groups)
 
     # Allow the lock to stick around if there is an issue applying the batch.
