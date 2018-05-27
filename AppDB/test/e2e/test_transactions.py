@@ -98,7 +98,7 @@ class Datastore(object):
 
 
 @gen.coroutine
-def increment_counter(datastore, counter_id, retries=10):
+def increment_counter(datastore, counter_id, retries):
   txid = yield datastore.begin_transaction()
   key = Key.from_path('Counter', counter_id, _app=PROJECT_ID)
   entity = yield datastore.get(key, txid=txid)
@@ -134,8 +134,8 @@ def test_concurrent_counter(locations):
   datastore = Datastore(locations)
 
   counter_id = uuid.uuid4().hex
-  expected_count = 10
-  yield [increment_counter(datastore, counter_id)
+  expected_count = 20
+  yield [increment_counter(datastore, counter_id, expected_count)
          for _ in range(expected_count)]
   count = yield get_count(datastore, counter_id)
   if count != expected_count:
