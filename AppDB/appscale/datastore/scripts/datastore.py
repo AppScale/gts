@@ -358,15 +358,17 @@ class MainHandler(tornado.web.RequestHandler):
       return ('', datastore_pb.Error.CAPABILITY_DISABLED,
               'Datastore is in read-only mode.')
 
+    txn = datastore_pb.Transaction(http_request_data)
     try:
-      return datastore_access.rollback_transaction(app_id, http_request_data)
-    except zktransaction.ZKInternalException as error:
-      logger.exception('ZKInternalException during {} for {}'.
-        format(http_request_data, app_id))
+      datastore_access.rollback_transaction(app_id, txn.handle())
+    except dbconstants.InternalError as error:
+      logger.exception('Unable to rollback transaction')
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
     except Exception as error:
       logger.exception('Unable to rollback transaction')
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+
+    return api_base_pb.VoidProto().Encode(), 0, ''
 
   @gen.coroutine
   def run_query(self, http_request_data):
