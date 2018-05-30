@@ -3,7 +3,7 @@
 import json
 
 from kazoo.exceptions import ZookeeperError, NoNodeError
-from tornado.ioloop import IOLoop
+from tornado.ioloop import IOLoop, PeriodicCallback
 
 from appscale.taskqueue.queue import PostgresPullQueue
 from appscale.taskqueue.utils import create_celery_for_app
@@ -14,6 +14,9 @@ from .utils import logger
 
 class ProjectQueueManager(dict):
   """ Keeps track of queue configuration details for a single project. """
+
+  FLUSH_DELETED_INTERVAL = 3 * 60 * 60  # 3h
+
   def __init__(self, zk_client, db_access, project_id):
     """ Creates a new ProjectQueueManager.
 
@@ -32,8 +35,9 @@ class ProjectQueueManager(dict):
       pg_dsn = self.zk_client.get(pg_dns_node)
       logger.info('Using PostgreSQL as a backend for Pull Queues of "{}"'
                   .format(project_id))
-      import psycopg2
+      import psycopg2  # Import psycopg2 lazily
       self.pg_connection = psycopg2.connect(pg_dsn[0])
+      self._configure_periodical_flush()
     except NoNodeError:
       logger.info('Using Cassandra as a backend for Pull Queues of "{}"'
                   .format(project_id))
@@ -130,6 +134,19 @@ class ProjectQueueManager(dict):
         return False
 
     main_io_loop.add_callback(self.update_queues, queue_config)
+
+  def _configure_periodical_flush(self):
+    """ Creates and starts periodical callback to clear old deleted tasks.
+    """
+    def flush_deleted():
+      """ Calls flush_deleted method for all PostgresPullQueues.
+      """
+      postgres_pull_queues = (q for q in self.values()
+                              if isinstance(q, PostgresPullQueue))
+      for q in postgres_pull_queues:
+        q.flush_deleted()
+
+    PeriodicCallback(flush_deleted, self.FLUSH_DELETED_INTERVAL * 1000).start()
 
 
 class GlobalQueueManager(dict):
