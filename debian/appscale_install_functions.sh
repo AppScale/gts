@@ -163,9 +163,9 @@ EOF
 
     # On distros with systemd, the open file limit must be adjusted for each
     # service.
-    if which systemctl; then
+    if which systemctl > /dev/null; then
         mkdir -p /etc/systemd/system/nginx.service.d
-        cat <<EOF | tee /etc/systemd/system/nginx.service.d/override.conf
+        cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
 [Service]
 LimitNOFILE=200000
 EOF
