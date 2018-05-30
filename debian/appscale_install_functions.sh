@@ -160,6 +160,17 @@ root            soft    nofile           200000
 *               soft    nofile           200000
 *               -       nproc            32768
 EOF
+
+    # On distros with systemd, the open file limit must be adjusted for each
+    # service.
+    if which systemctl > /dev/null; then
+        mkdir -p /etc/systemd/system/nginx.service.d
+        cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
+[Service]
+LimitNOFILE=200000
+EOF
+        systemctl daemon-reload
+    fi
 }
 
 installappscaleprofile()
