@@ -3514,7 +3514,7 @@ class Djinn
   def start_datastore
     # Shadow is the only node to call this method, and is called upon
     # startup.
-    return unless my_node.is_shadow
+    return unless my_node.is_shadow?
 
     verbose = @options['verbose'].downcase == 'true'
     db_proxies = []
