@@ -3511,16 +3511,22 @@ class Djinn
     MonitInterface.start(:uaserver, start_cmd, nil, env_vars)
   end
 
-  # Shadow is the only node to call this method, and is called upon
-  # startup.
   def start_datastore
+    # Shadow is the only node to call this method, and is called upon
+    # startup.
+    return unless my_node.is_shadow
+
     verbose = @options['verbose'].downcase == 'true'
+    db_proxies = []
     db_nodes = []
     @state_change_lock.synchronize {
       @nodes.each { |node|
+        db_proxies << node.private_ip if node.is_load_balancer?
         db_nodes << node if node.is_db_master? || node.is_db_slave?
       }
     }
+
+    HelperFunctions.log_and_crash('db proxy was empty') if db_proxiex.empty?
 
     # Assign the proper number of Datastore processes on each database
     # machine.
@@ -3538,12 +3544,13 @@ class Djinn
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
     }
 
-    # Let's wait for at least one datastore server to be active. Since
-    # only the Shadow assigns Datastore, we can safely check locally when
-    # haproxy is setup.
-    until HelperFunctions.is_port_open?(@my__private_ip, DatastoreServer::PROXY_PORT)
-      update_db_haproxy
-      sleep(SMALL_WAIT)
+    # Let's wait for at least one datastore server to be active.
+    loop do
+      db_proxies.each { |db_proxy|
+        break if HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
+        Djinn.log_debug("Waiting for datastore to be active...")
+        sleep(SMALL_WAIT)
+      }
     end
   end
 
