@@ -3524,7 +3524,7 @@ class Djinn
 
     # Assign the proper number of Datastore processes on each database
     # machine.
-    @nodes.each { |node|
+    db_nodes.each { |node|
       assignments = {}
       begin
         cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
