@@ -838,7 +838,10 @@ def unregister_instance(instance):
   except NoNodeError:
     pass
 
-  running_instances.remove(instance)
+  try:
+    running_instances.remove(instance)
+  except KeyError:
+    logging.debug('unregister_instance: non-existent instance {}'.format(instance))
 
 
 def register_instance(instance):
