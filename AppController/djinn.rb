@@ -3539,7 +3539,7 @@ class Djinn
     }
 
     # Let's wait for at least one datastore server to be active. Since
-    # only the Shadow assign Datastore, we can safely check locally when
+    # only the Shadow assigns Datastore, we can safely check locally when
     # haproxy is setup.
     until HelperFunctions.is_port_open?(@my__private_ip, DatastoreServer::PROXY_PORT)
       update_db_haproxy
