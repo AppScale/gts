@@ -3526,7 +3526,7 @@ class Djinn
       }
     }
 
-    HelperFunctions.log_and_crash('db proxy was empty') if db_proxiex.empty?
+    HelperFunctions.log_and_crash('db proxy was empty') if db_proxies.empty?
 
     # Assign the proper number of Datastore processes on each database
     # machine.
@@ -3548,9 +3548,9 @@ class Djinn
     loop do
       db_proxies.each { |db_proxy|
         break if HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
-        Djinn.log_debug("Waiting for datastore to be active...")
-        sleep(SMALL_WAIT)
       }
+      Djinn.log_debug("Waiting for datastore to be active...")
+      sleep(SMALL_WAIT)
     end
   end
 
