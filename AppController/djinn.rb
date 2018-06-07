@@ -3351,7 +3351,7 @@ class Djinn
     start_hermes
 
     if my_node.is_shadow?
-      @state = "Starting Datastore"
+      @state = "Assigning Datastore processes"
       start_datastore
     end
 
@@ -3511,21 +3511,21 @@ class Djinn
     MonitInterface.start(:uaserver, start_cmd, nil, env_vars)
   end
 
+  # Shadow is the only node to call this method, and is called upon
+  # startup.
   def start_datastore
     verbose = @options['verbose'].downcase == 'true'
-    db_proxy = nil
     db_nodes = []
     @state_change_lock.synchronize {
       @nodes.each { |node|
-        db_proxy = node.private_ip if node.is_load_balancer?
         db_nodes << node if node.is_db_master? || node.is_db_slave?
       }
     }
 
-    HelperFunctions.log_and_crash('db proxy ip was nil') if db_proxy.nil?
-
-    assignments = {}
+    # Assign the proper number of Datastore processes on each database
+    # machine.
     @nodes.each { |node|
+      assignments = {}
       begin
         cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
         server_count = cpu_count * DatastoreServer::MULTIPLIER
@@ -3535,12 +3535,14 @@ class Djinn
 
       assignments['datastore'] = {'count' => server_count,
                                   'verbose' => verbose}
+      ZKInterface.set_machine_assignments(node.private_ip, assignments)
     }
-    ZKInterface.set_machine_assignments(my_node.private_ip, assignments)
 
-    # Let's wait for at least one datastore server to be active.
-    until HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
-      update_db_haproxy if my_node.is_load_balancer?
+    # Let's wait for at least one datastore server to be active. Since
+    # only the Shadow assign Datastore, we can safely check locally when
+    # haproxy is setup.
+    until HelperFunctions.is_port_open?(@my__private_ip, DatastoreServer::PROXY_PORT)
+      update_db_haproxy
       sleep(SMALL_WAIT)
     end
   end
