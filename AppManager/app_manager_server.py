@@ -841,7 +841,7 @@ def unregister_instance(instance):
   try:
     running_instances.remove(instance)
   except KeyError:
-    logging.debug('unregister_instance: non-existent instance {}'.format(instance))
+    logging.info('unregister_instance: non-existent instance {}'.format(instance))
 
 
 def register_instance(instance):
