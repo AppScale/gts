@@ -527,8 +527,11 @@ class PullQueue(Queue):
       if tasks_needed < 1:
         break
 
-      index_results = self._query_available_tasks(
-        tasks_needed, group_by_tag, tag)
+      try:
+        index_results = self._query_available_tasks(
+          tasks_needed, group_by_tag, tag)
+      except TRANSIENT_CASSANDRA_ERRORS:
+        raise TransientError('Unable to query available tasks')
 
       # The following prevents any task from being leased multiple times in the
       # same request. If the lease time is very small, it's possible for the

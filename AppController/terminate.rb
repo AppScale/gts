@@ -41,6 +41,16 @@ module TerminateHelper
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
 
+    # Stop datastore servers.
+    datastore_cgroup = '/sys/fs/cgroup/memory/appscale-datastore/cgroup.procs'
+    begin
+      File.readlines(datastore_cgroup).each do |pid|
+        `kill #{pid}`
+      end
+    rescue Errno::ENOENT
+      # If there are no processes running, there is no need to stop them.
+    end
+
     `rm -f /etc/logrotate.d/appscale-*`
 
     # Let's make sure we restart any non-appscale service.
@@ -83,6 +93,7 @@ module TerminateHelper
     `rm -rf #{APPSCALE_CONFIG_DIR}/*.pid`
     `rm -rf /tmp/ec2/*`
     `rm -rf /tmp/*started`
+    `rm -rf /etc/cron.d/appscale-*`
 
     # Delete stored data.
     `rm -rf /opt/appscale/cassandra`

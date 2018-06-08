@@ -8,6 +8,7 @@ install_requires = [
   'psutil',
   'PyYaml',
   'SOAPpy',
+  'tabulate',
   'tornado',
   'mock',
 ]

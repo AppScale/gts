@@ -160,6 +160,17 @@ root            soft    nofile           200000
 *               soft    nofile           200000
 *               -       nproc            32768
 EOF
+
+    # On distros with systemd, the open file limit must be adjusted for each
+    # service.
+    if which systemctl > /dev/null; then
+        mkdir -p /etc/systemd/system/nginx.service.d
+        cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
+[Service]
+LimitNOFILE=200000
+EOF
+        systemctl daemon-reload
+    fi
 }
 
 installappscaleprofile()
@@ -532,20 +543,23 @@ installapiclient()
 installgosdk()
 {
     if [ ${UNAME_MACHINE} = "x86_64" ]; then
-        GO_SDK_PACKAGE="go_appengine_sdk_linux_amd64-1.9.48.zip"
-        GO_SDK_PACKAGE_MD5="b5c1a3eab1ba69993c3a35661ec3043d"
+        GO_SDK_PACKAGE="appscale-go-runtime-1.9.48.zip"
+        GO_SDK_PACKAGE_MD5="3af8c4f6b3a147f99590862d2815025b"
+
+        GO_RUNTIME_DIR="/opt/go_appengine"
+        cachepackage ${GO_SDK_PACKAGE} ${GO_SDK_PACKAGE_MD5}
+
+        echo "Extracting Go SDK"
+        # Remove existing SDK directory in case it's old.
+        rm -rf ${GO_RUNTIME_DIR}
+        mkdir -p ${GO_RUNTIME_DIR}/gopath
+        unzip -q ${PACKAGE_CACHE}/${GO_SDK_PACKAGE} -d ${GO_RUNTIME_DIR}
     else
-        GO_SDK_PACKAGE="go_appengine_sdk_linux_386-1.9.48.zip"
-        GO_SDK_PACKAGE_MD5="b6aad6a3cb2506dfe1067e06fb93f9fb"
+        echo "Warning: There is no binary appscale-go-runtime package"
+        echo "available for ${UNAME_MACHINE}. If you need support for Go"
+        echo "applications, compile github.com/AppScale/appscale-go-runtime"
+        echo "and install in ${GO_RUNTIME_DIR}/goroot."
     fi
-
-    EXTRAS_DIR="/opt"
-    cachepackage ${GO_SDK_PACKAGE} ${GO_SDK_PACKAGE_MD5}
-
-    echo "Extracting Go SDK"
-    # Remove existing SDK directory in case it's old.
-    rm -rf ${EXTRAS_DIR}/go_appengine
-    unzip -q ${PACKAGE_CACHE}/${GO_SDK_PACKAGE} -d ${EXTRAS_DIR}
 }
 
 installpycapnp()

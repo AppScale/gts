@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 
 from appscale.appcontroller_client import AppControllerException
@@ -28,6 +29,7 @@ from kazoo.client import KazooClient
 from kazoo.exceptions import NodeExistsError
 from kazoo.exceptions import NoNodeError
 from kazoo.exceptions import NotEmptyError
+from tabulate import tabulate
 from tornado import gen
 from tornado.options import options
 from tornado import web
@@ -57,7 +59,8 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
-
+from .service_manager import ServiceManager
+from .summary import get_combined_services
 
 logger = logging.getLogger('appscale-admin')
 
@@ -1008,7 +1011,7 @@ class VersionHandler(BaseVersionHandler):
     IOLoop.current().spawn_callback(wait_for_delete,
                                     del_operation.id, ports_to_close)
 
-    self.write(json_encode(del_operation))
+    self.write(json_encode(del_operation.rest_repr()))
 
   @gen.coroutine
   def patch(self, project_id, service_id, version_id):
@@ -1183,12 +1186,27 @@ def main():
   """ Starts the AdminServer. """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
-  parser = argparse.ArgumentParser()
-  parser.add_argument('-p', '--port', type=int, default=constants.DEFAULT_PORT,
-                      help='The port to listen on')
-  parser.add_argument('-v', '--verbose', action='store_true',
-                      help='Output debug-level logging')
+  parser = argparse.ArgumentParser(
+    prog='appscale-admin', description='Manages AppScale-related processes')
+  subparsers = parser.add_subparsers(dest='command')
+  subparsers.required = True
+
+  serve_parser = subparsers.add_parser(
+    'serve', description='Starts the server that manages AppScale processes')
+  serve_parser.add_argument(
+    '-p', '--port', type=int, default=constants.DEFAULT_PORT,
+    help='The port to listen on')
+  serve_parser.add_argument(
+    '-v', '--verbose', action='store_true', help='Output debug-level logging')
+
+  subparsers.add_parser(
+    'summary', description='Lists AppScale processes running on this machine')
+
   args = parser.parse_args()
+  if args.command == 'summary':
+    table = sorted(list(get_combined_services().items()))
+    print(tabulate(table, headers=['Service', 'State']))
+    sys.exit(0)
 
   if args.verbose:
     logger.setLevel(logging.DEBUG)
@@ -1218,6 +1236,9 @@ def main():
   if options.private_ip in appscale_info.get_taskqueue_nodes():
     logger.info('Starting push worker manager')
     GlobalPushWorkerManager(zk_client, monit_operator)
+
+  service_manager = ServiceManager(zk_client)
+  service_manager.start()
 
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),

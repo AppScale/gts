@@ -223,8 +223,6 @@ def prime_cassandra(replication):
 
   hosts = appscale_info.get_db_ips()
 
-  cluster = None
-  session = None
   remaining_retries = INITIAL_CONNECT_RETRIES
   while True:
     try:
@@ -247,6 +245,19 @@ def prime_cassandra(replication):
   session.execute(create_keyspace, {'replication': keyspace_replication},
                   timeout=SCHEMA_CHANGE_TIMEOUT)
   session.set_keyspace(KEYSPACE)
+
+  logging.info('Waiting for all hosts to be connected')
+  deadline = time.time() + SCHEMA_CHANGE_TIMEOUT
+  while True:
+    if time.time() > deadline:
+      logging.warning('Timeout when waiting for hosts to join. Continuing '
+                      'with connected hosts.')
+      break
+
+    if len(session.get_pool_state()) == len(hosts):
+      break
+
+    time.sleep(1)
 
   for table in dbconstants.INITIAL_TABLES:
     create_table = """
@@ -345,7 +356,7 @@ def primed():
     return False
 
   try:
-    primed_version = db_access.get_metadata(cassandra_interface.PRIMED_KEY)
+    primed_version = db_access.get_metadata_sync(cassandra_interface.PRIMED_KEY)
     return primed_version == str(CURRENT_VERSION)
   finally:
     db_access.close()

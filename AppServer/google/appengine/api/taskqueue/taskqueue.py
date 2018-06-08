@@ -785,6 +785,10 @@ class Task(object):
       InvalidTaskError: If the task is invalid.
     """
 
+
+
+
+
     if 'HTTP_HOST' not in os.environ:
       logging.warning(
           'The HTTP_HOST environment variable was not set, but is required '
@@ -860,7 +864,11 @@ class Task(object):
     """
     default_hostname = app_identity.get_default_version_hostname()
     if default_hostname is None:
+
+
+
       return None
+
     # AppScale: We do not support the instance parameter.
     target_info = target.split('.')
     if len(target_info) > 2:
