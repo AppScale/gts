@@ -12,7 +12,12 @@ APPSCALE_BRANCH="master"
 APPSCALE_TOOLS_BRANCH="master"
 FORCE_UPGRADE="N"
 UNIT_TEST="n"
-GIT_TAG=""
+GIT_TAG="last"
+
+# Options for tag/branches
+OPT_APPSCALE_BRANCH=""
+OPT_APPSCALE_TOOLS_BRANCH=""
+OPT_GIT_TAG=""
 
 usage() {
     echo "Usage: ${0} [--repo <repo>][--tools-repo <repo>][-t]"
@@ -59,7 +64,7 @@ while [ $# -gt 0 ]; do
         if [ -z "${1}" ]; then
             usage
         fi
-        APPSCALE_BRANCH="${1}"
+        OPT_APPSCALE_BRANCH="${1}"
         shift
         continue
     fi
@@ -68,7 +73,7 @@ while [ $# -gt 0 ]; do
         if [ -z "${1}" ]; then
             usage
         fi
-        GIT_TAG="${1}"
+        OPT_GIT_TAG="${1}"
         shift
         continue
     fi
@@ -86,7 +91,7 @@ while [ $# -gt 0 ]; do
         if [ -z "${1}" ]; then
             usage
         fi
-        APPSCALE_TOOLS_BRANCH="${1}"
+        OPT_APPSCALE_TOOLS_BRANCH="${1}"
         shift
         continue
     fi
@@ -103,20 +108,20 @@ while [ $# -gt 0 ]; do
     usage
 done
 
-# Empty tag means we use the latest available.
-if [ -z "${GIT_TAG}" ]; then
-    GIT_TAG="last"
-else
-    # We don't use Tag and Branch at the same time.
-    if [ "${FORCE_UPGRADE}" = "N"  ] && [  "${APPSCALE_BRANCH}" != "master" ]; then
-        echo "--branch cannot be specified with --tag"
-        exit 1
-    fi
-fi
-
-# A tag of 'dev' means don't use tag.
-if [ "${GIT_TAG}" = "dev" ]; then
+# Verify options
+if [ -z "${OPT_GIT_TAG}" ]; then
+  if [ -n "${OPT_APPSCALE_BRANCH}" ] || [ -n "${OPT_APPSCALE_TOOLS_BRANCH}" ] ; then
     GIT_TAG=""
+    APPSCALE_BRANCH="${OPT_APPSCALE_BRANCH:-${APPSCALE_BRANCH}}"
+    APPSCALE_TOOLS_BRANCH="${OPT_APPSCALE_TOOLS_BRANCH:-${APPSCALE_TOOLS_BRANCH}}"
+  fi
+elif [ -n "${OPT_APPSCALE_BRANCH}" ] || [ -n "${OPT_APPSCALE_TOOLS_BRANCH}" ]; then
+  echo "--branch/--tools-branch cannot be specified with --tag"
+  exit 1
+elif [ "${OPT_GIT_TAG}" = "dev" ]; then
+  GIT_TAG=""
+else
+  GIT_TAG="${OPT_GIT_TAG}"
 fi
 
 # At this time we expect to be installed in $HOME.
@@ -125,8 +130,13 @@ cd $HOME
 # Let's pull the github repositories.
 echo
 echo "Will be using the following github repo:"
-echo "Repo: ${APPSCALE_REPO} Branch: ${APPSCALE_BRANCH}"
-echo "Repo: ${APPSCALE_TOOLS_REPO} Branch: ${APPSCALE_TOOLS_BRANCH}"
+if [ -n "${GIT_TAG}" ]; then
+  echo "Repo: ${APPSCALE_REPO} Tag: ${GIT_TAG}"
+  echo "Repo: ${APPSCALE_TOOLS_REPO} Tag: ${GIT_TAG}"
+else
+  echo "Repo: ${APPSCALE_REPO} Branch: ${APPSCALE_BRANCH}"
+  echo "Repo: ${APPSCALE_TOOLS_REPO} Branch: ${APPSCALE_TOOLS_BRANCH}"
+fi
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
 
@@ -170,7 +180,7 @@ if [ ! -d appscale ]; then
     (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
 
     # Use tags if we specified it.
-    if [ -n "$GIT_TAG"  ] && [  "${APPSCALE_BRANCH}" = "master" ]; then
+    if [ -n "$GIT_TAG"  ]; then
         if [ "$GIT_TAG" = "last" ]; then
             GIT_TAG="$(cd appscale; git tag | tail -n 1)"
         fi
