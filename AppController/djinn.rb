@@ -1733,6 +1733,32 @@ class Djinn
     JSON.dump(private_ips)
   end
 
+  def check_api_services
+    # LoadBalancers needs to setup the routing for the datastore before
+    # proceeding.
+    while my_node.is_load_balancer? && !update_db_haproxy
+      Djinn.log_info("Waiting for Datastore assignements ...")
+      sleep(SMALL_WAIT)
+    end
+
+    # Wait till the Datastore is functional.
+    db_proxies = []
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        db_proxies << node.private_ip if node.is_load_balancer?
+      }
+    }
+    HelperFunctions.log_and_crash('db proxy was empty') if db_proxies.empty?
+    loop do
+      db_proxies.each { |db_proxy|
+        break if HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
+      }
+      Djinn.log_debug("Waiting for Datastore to be active...")
+      sleep(SMALL_WAIT)
+    end
+    Djinn.log_info("Datastore service is active.")
+  end
+
   def job_start(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
@@ -1838,6 +1864,9 @@ class Djinn
     pick_zookeeper(@zookeeper_data)
     write_our_node_info
     wait_for_nodes_to_finish_loading(@nodes)
+
+    # Check that services are up before proceeding into the duty cycle.
+    check_api_services
 
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
@@ -2629,11 +2658,12 @@ class Djinn
       }
     rescue FailedZooKeeperOperationException
       Djinn.log_warn('Unable to fetch list of datastore servers')
-      return
+      return false
     end
 
     HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
                               DatastoreServer::NAME)
+    return true
   end
 
   # Creates HAProxy configuration for TaskQueue.
@@ -3350,13 +3380,10 @@ class Djinn
     # Start Hermes with integrated stats service
     start_hermes
 
+    # Leader node starts additional services.
     if my_node.is_shadow?
       @state = "Assigning Datastore processes"
       start_datastore
-    end
-
-    # Leader node starts additional services.
-    if my_node.is_shadow?
       update_node_info_cache
       TaskQueue.start_flower(@options['flower_password'])
     else
@@ -3516,17 +3543,14 @@ class Djinn
     # startup.
     return unless my_node.is_shadow?
 
+    Djinn.log_info("Assigning datastore processes.")
     verbose = @options['verbose'].downcase == 'true'
-    db_proxies = []
     db_nodes = []
     @state_change_lock.synchronize {
       @nodes.each { |node|
-        db_proxies << node.private_ip if node.is_load_balancer?
         db_nodes << node if node.is_db_master? || node.is_db_slave?
       }
     }
-
-    HelperFunctions.log_and_crash('db proxy was empty') if db_proxies.empty?
 
     # Assign the proper number of Datastore processes on each database
     # machine.
@@ -3542,16 +3566,8 @@ class Djinn
       assignments['datastore'] = {'count' => server_count,
                                   'verbose' => verbose}
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
+      Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
-
-    # Let's wait for at least one datastore server to be active.
-    loop do
-      db_proxies.each { |db_proxy|
-        break if HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
-      }
-      Djinn.log_debug("Waiting for datastore to be active...")
-      sleep(SMALL_WAIT)
-    end
   end
 
   # Starts the Log Server service on this machine
