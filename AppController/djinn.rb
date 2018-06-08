@@ -1749,6 +1749,11 @@ class Djinn
       sleep(SMALL_WAIT)
     end
     Djinn.log_info("Datastore service is active.")
+
+    # At this point all nodes are fully functional, so the Shadow will do
+    # another assignments of the datastore processes to ensure we got the
+    # accurate CPU count.
+    assign_datastore_process if my_node.is_shadow?
   end
 
   def job_start(secret)
@@ -3375,7 +3380,7 @@ class Djinn
     # Leader node starts additional services.
     if my_node.is_shadow?
       @state = "Assigning Datastore processes"
-      start_datastore
+      assign_datastore_processes
       update_node_info_cache
       TaskQueue.start_flower(@options['flower_password'])
     else
@@ -3530,7 +3535,7 @@ class Djinn
     MonitInterface.start(:uaserver, start_cmd, nil, env_vars)
   end
 
-  def start_datastore
+  def assign_datastore_processes
     # Shadow is the only node to call this method, and is called upon
     # startup.
     return unless my_node.is_shadow?
