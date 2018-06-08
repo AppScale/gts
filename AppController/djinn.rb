@@ -1742,17 +1742,9 @@ class Djinn
     end
 
     # Wait till the Datastore is functional.
-    db_proxies = []
-    @state_change_lock.synchronize {
-      @nodes.each { |node|
-        db_proxies << node.private_ip if node.is_load_balancer?
-      }
-    }
-    HelperFunctions.log_and_crash('db proxy was empty') if db_proxies.empty?
     loop do
-      db_proxies.each { |db_proxy|
-        break if HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
-      }
+      break if HelperFunctions.is_port_open?(get_load_balancer.private_ip,
+                                             DatastoreServer::PROXY_PORT)
       Djinn.log_debug("Waiting for Datastore to be active...")
       sleep(SMALL_WAIT)
     end
