@@ -1753,7 +1753,7 @@ class Djinn
     # At this point all nodes are fully functional, so the Shadow will do
     # another assignments of the datastore processes to ensure we got the
     # accurate CPU count.
-    assign_datastore_process if my_node.is_shadow?
+    assign_datastore_processes if my_node.is_shadow?
   end
 
   def job_start(secret)
