@@ -86,7 +86,7 @@ class UnverifiedTransport(HTTPTransport):
     # attempt to extract integer message size
     try:
       message_len = int(content_length)
-    except:
+    except (TypeError, ValueError):
       message_len = -1
 
     f = r.getfile()
