@@ -130,7 +130,7 @@ if [ "${DIST}" = "jessie" ]; then
     fi
     apt-get update
     apt-get -t jessie-backports -y install capnproto
-    apt-get -t jessie-backports -y install openjdk-8-jdk
+    apt-get -t jessie-backports -y install openjdk-8-jdk-headless
 fi
 
 # Let's make sure we use ruby 1.9.
