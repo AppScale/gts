@@ -144,6 +144,12 @@ class SourceManager(object):
 
   @gen.coroutine
   def register_as_hoster(self, revision_key, md5):
+    """ Adds an entry to indicate that the local machine has the archive.
+
+    Args:
+      revision_key: A string specifying a revision key.
+      md5: A string specifying the source archive's MD5 hex digest.
+    """
     new_hoster_node = '/apps/{}/{}'.format(revision_key, options.private_ip)
     try:
       yield self.thread_pool.submit(self.zk_client.create, new_hoster_node,
