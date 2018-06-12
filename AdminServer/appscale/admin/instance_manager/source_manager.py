@@ -103,23 +103,23 @@ class SourceManager(object):
         self.fetched_revisions.add(revision_key)
 
   @gen.coroutine
-  def fetch_archive(self, revision_key, source_location, try_existing=True):
+  def fetch_archive(self, revision_key, source_location):
     """ Copies the source archive from a machine that has it.
 
     Args:
       revision_key: A string specifying a revision key.
       source_location: A string specifying the location of the version's
         source archive.
-      try_existing: A boolean specifying that the local file system should be
-        searched before copying from another machine.
     Returns:
       A string specifying the source archive's MD5 hex digest.
+    Raises:
+      AlreadyHoster if local machine is hosting archive.
     """
     hosts_with_archive = yield self.thread_pool.submit(
       self.zk_client.get_children, '/apps/{}'.format(revision_key))
     assert hosts_with_archive, '{} has no hosters'.format(revision_key)
 
-    if try_existing and options.private_ip in hosts_with_archive:
+    if options.private_ip in hosts_with_archive:
       raise AlreadyHoster('{} is already a hoster of {}'
                          .format(options.private_ip, revision_key))
 
@@ -128,12 +128,12 @@ class SourceManager(object):
     original_md5, _ = yield self.thread_pool.submit(
       self.zk_client.get, host_node)
 
-    if try_existing and os.path.isfile(source_location):
+    if os.path.isfile(source_location):
       md5 = yield self.thread_pool.submit(get_md5, source_location)
       if md5 == original_md5:
         raise gen.Return(md5)
 
-      raise InvalidSource('Source MD5 does not match')
+      logger.warning('Source MD5 does not match. Re-fetching archive.')
 
     yield self.thread_pool.submit(fetch_file, host, source_location)
     md5 = yield self.thread_pool.submit(get_md5, source_location)
@@ -141,6 +141,15 @@ class SourceManager(object):
       raise InvalidSource('Source MD5 does not match')
 
     raise gen.Return(md5)
+
+  @gen.coroutine
+  def register_as_hoster(self, revision_key, md5):
+    new_hoster_node = '/apps/{}/{}'.format(revision_key, options.private_ip)
+    try:
+      yield self.thread_pool.submit(self.zk_client.create, new_hoster_node,
+                                    md5, makepath=True)
+    except NodeExistsError:
+      logger.debug('{} is already a hoster'.format(options.private_ip))
 
   @gen.coroutine
   def prepare_source(self, revision_key, location, runtime):
@@ -154,20 +163,10 @@ class SourceManager(object):
     """
     try:
       md5 = yield self.fetch_archive(revision_key, location)
-    except InvalidSource:
-      md5 = yield self.fetch_archive(
-        revision_key, location, try_existing=False)
     except AlreadyHoster as already_hoster_err:
       logger.info(already_hoster_err)
-      return
-
-    # Register as a hoster.
-    new_hoster_node = '/apps/{}/{}'.format(revision_key, options.private_ip)
-    try:
-      yield self.thread_pool.submit(self.zk_client.create, new_hoster_node,
-                                    md5, makepath=True)
-    except NodeExistsError:
-      logger.debug('{} is already a hoster'.format(options.private_ip))
+    else:
+      yield self.register_as_hoster(revision_key, md5)
 
     yield self.thread_pool.submit(extract_source, revision_key, location,
                                   runtime)
