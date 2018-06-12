@@ -17,7 +17,7 @@ fi
 
 JAVA_VERSION="java-8-openjdk"
 case "${DIST}" in
-    trusty|wheezy) JAVA_VERSION="java-7-openjdk" ;;
+    wheezy) JAVA_VERSION="java-7-openjdk" ;;
 esac
 
 export UNAME_MACHINE=$(uname -m)
