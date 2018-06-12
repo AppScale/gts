@@ -1,3 +1,5 @@
+require 'pty'
+
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'fileutils'
 
@@ -18,24 +20,16 @@ module TerminateHelper
     `rm -f /etc/haproxy/sites-enabled/*.cfg`
     `service nginx reload`
 
-    puts "Waiting for monit to stop services ..."
-    loop do
-      monit_output = `monit summary`
-      all_stopped = true
-      monit_output.each_line do |line|
-        # Leave cron-related entries alone.
-        next if line.include?('cron')
-        next if line.start_with?('System')
-        next unless line.include?('Running')
-
-        all_stopped = false
-        next if line.include?('stop pending')
-        entry = line.split[1][1..-2]
-        `monit stop #{entry} 2>&1`
-        sleep(0.5)
-        break
+    begin
+      PTY.spawn('appscale-stop-services') do |stdout, _, _|
+        begin
+          stdout.each { |line| print line }
+        rescue Errno::EIO
+          # The process has likely finished giving output.
+        end
       end
-      break if all_stopped
+    rescue PTY::ChildExited
+      # The process has finished.
     end
 
     `rm -f /etc/monit/conf.d/appscale*.cfg`
