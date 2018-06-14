@@ -3756,8 +3756,9 @@ class Djinn
     Djinn.log_info('Building uncommitted APIServer changes')
     src = File.join(APPSCALE_HOME, 'APIServer')
     proto_dest = File.join(src, 'appscale', 'api_server')
-    unless system("protoc --proto_path=#{src} --python_out=#{proto_dest} " \
-                  "#{src}/*.proto")
+    unless system("protoc --proto_path=#{src}/proto " \
+                  "--python_out=#{proto_dest} " \
+                  "#{src}/proto/*/*.proto")
       Djinn.log_error('Unable to compile APIServer proto files')
       return
     end

@@ -9,5 +9,5 @@ class CallNotFound(Exception):
 class ApplicationError(Exception):
     """ Used to communicate API-specific errors. """
     def __init__(self, code, detail):
+        super(ApplicationError, self).__init__(detail)
         self.code = code
-        self.detail = detail

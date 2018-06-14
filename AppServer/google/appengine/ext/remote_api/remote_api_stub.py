@@ -648,8 +648,9 @@ def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
   if external_server is not None:
     external_stub = stub_type(external_server, path)
 
+  remote_services = ('app_identity_service', 'logservice')
   for service in services:
-    if service == 'app_identity_service' and external_stub is not None:
+    if service in remote_services and external_stub is not None:
       apiproxy_stub_map.apiproxy.RegisterStub(service, external_stub)
     else:
       apiproxy_stub_map.apiproxy.RegisterStub(service, stub)

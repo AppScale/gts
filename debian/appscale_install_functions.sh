@@ -624,7 +624,9 @@ installdatastore()
 
 installapiserver()
 {
-    (cd APIServer && protoc --python_out=./appscale/api_server *.proto)
+    protoc --proto_path=APIServer/proto \
+           --python_out=APIServer/appscale/api_server \
+           APIServer/proto/*/*.proto
     # This package needs to be installed in a virtualenv because the protobuf
     # library conflicts with the google namespace in the SDK.
     rm -rf /opt/appscale_api_server

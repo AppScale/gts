@@ -146,6 +146,14 @@ namespace :adminserver do
 
 end
 
+namespace :apiserver do
+
+  task :test do
+    sh '/opt/appscale_api_server/bin/python -m unittest discover -b -v -s APIServer/tests/unit'
+  end
+
+end
+
 python_tests = [
   'appdashboard:test',
   'appdb:test',
@@ -158,7 +166,8 @@ python_tests = [
   'searchservice:test',
   'xmppreceiver:test',
   'apps:test',
-  'adminserver:test'
+  'adminserver:test',
+  'apiserver:test'
 ]
 ruby_tests = ['appcontroller:test']
 

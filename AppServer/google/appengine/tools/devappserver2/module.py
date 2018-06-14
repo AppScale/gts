@@ -27,6 +27,8 @@ import os
 import os.path
 import random
 import re
+import requests
+import requests.exceptions
 import string
 import struct
 import threading
@@ -89,6 +91,8 @@ _REQUEST_LOGGING_BLACKLIST_RE = re.compile(
 _EMPTY_MATCH = re.match('', '')
 _DUMMY_URLMAP = appinfo.URLMap(script='/')
 _SHUTDOWN_TIMEOUT = 30
+
+requests_session = requests.Session()
 
 
 def _static_files_regex_from_handlers(handlers):
@@ -618,19 +622,35 @@ class Module(object):
         method = environ.get('REQUEST_METHOD', 'GET')
         http_version = environ.get('SERVER_PROTOCOL', 'HTTP/1.0')
 
-        logservice = apiproxy_stub_map.apiproxy.GetStub('logservice')
-        logservice.start_request(
-            request_id=request_id,
-            user_request_id=environ['REQUEST_LOG_ID'],
-            ip=environ.get('REMOTE_ADDR', ''),
-            app_id=self._module_configuration.application,
-            version_id=self._module_configuration.version_id,
-            nickname=email.split('@', 1)[0],
-            user_agent=environ.get('HTTP_USER_AGENT', ''),
-            host=hostname,
-            method=method,
-            resource=resource,
-            http_version=http_version)
+        # AppScale: Use external API server to start request.
+        args = {'request_id': request_id,
+                'ip': environ.get('REMOTE_ADDR', ''),
+                'nickname': email.split('@', 1)[0],
+                'user_agent': environ.get('HTTP_USER_AGENT', ''),
+                'host': hostname,
+                'method': method,
+                'resource': resource,
+                'http_version': http_version}
+        external_api_port = self._external_api_port
+        module_runtime = self._module_configuration.runtime
+        if external_api_port is not None and module_runtime == 'python27':
+          args['project_id'] = self._module_configuration.application
+          args['service_id'] = self._module_configuration.module_name
+          args['version_id'] = self._module_configuration.major_version
+          start_request_url = 'http://localhost:{}/start_request'.format(
+            self._external_api_port)
+          try:
+            requests_session.post(start_request_url, json=args)
+          except requests.exceptions.RequestException as error:
+            start_response('503 Service Unavailable',
+                           [('Content-Type', 'text/plain')])
+            return ['Unable to start request: {}'.format(error)]
+        else:
+          args['user_request_id'] = environ['REQUEST_LOG_ID']
+          args['app_id'] = self._module_configuration.application
+          args['version_id'] = self._module_configuration.version_id
+          logservice = apiproxy_stub_map.apiproxy.GetStub('logservice')
+          logservice.start_request(**args)
 
       def wrapped_start_response(status, response_headers, exc_info=None):
         response_headers.append(('Server',
@@ -639,7 +659,32 @@ class Module(object):
           headers = wsgiref.headers.Headers(response_headers)
           status_code = int(status.split(' ', 1)[0])
           content_length = int(headers.get('Content-Length', 0))
-          logservice.end_request(request_id, status_code, content_length)
+
+          # AppScale: Use external API server to end request.
+          if external_api_port is not None and module_runtime == 'python27':
+            end_request_url = 'http://localhost:{}/end_request'.format(
+              self._external_api_port)
+            end_request_payload = {'request_id': request_id,
+                                   'status': status_code,
+                                   'response_size': content_length}
+            retry_num = 0
+            while True:
+              try:
+                requests_session.post(end_request_url,
+                                      json=end_request_payload)
+                break
+              except requests.exceptions.RequestException as request_error:
+                if retry_num > 5:
+                  logging.warning(
+                    'Unable to finalize request: {}'.format(request_error))
+                  break
+
+                time.sleep(.5)
+                retry_num += 1
+                continue
+          else:
+            logservice.end_request(request_id, status_code, content_length)
+
           logging.info('%(module_name)s: '
                        '"%(method)s %(resource)s %(http_version)s" '
                        '%(status)d %(content_length)s',
@@ -729,8 +774,17 @@ class Module(object):
     request = log_service_pb.FlushRequest()
     request.set_logs(logs_group.Encode())
     response = api_base_pb.VoidProto()
-    logservice = apiproxy_stub_map.apiproxy.GetStub('logservice')
-    logservice._Dynamic_Flush(request, response, request_id)
+
+    if (self._external_api_port is not None and
+        self._module_configuration.runtime == 'python27'):
+      url = 'http://localhost:{}'.format(self._external_api_port)
+      try:
+        requests_session.post(url, data=request.Encode())
+      except requests.exceptions.RequestException as error:
+        logging.warning('Unable to insert log message: {}'.format(error))
+    else:
+      logservice = apiproxy_stub_map.apiproxy.GetStub('logservice')
+      logservice._Dynamic_Flush(request, response, request_id)
 
   @staticmethod
   def generate_request_log_id():
