@@ -380,6 +380,8 @@ class PullQueue(Queue):
     if task is not None:
       self._delete_task_and_index(task)
 
+    logger.debug('Deleted task: {}'.format(task))
+
   def update_lease(self, task, new_lease_seconds, retries=5):
     """ Updates the duration of a task lease.
 
@@ -560,6 +562,7 @@ class PullQueue(Queue):
 
     time_elapsed = datetime.datetime.utcnow() - start_time
     logger.debug('Leased {} tasks [time elapsed: {}]'.format(len(leased), str(time_elapsed)))
+    logger.debug('IDs leased: {}'.format([task.id for task in leased]))
     return leased
 
   def total_tasks(self):
