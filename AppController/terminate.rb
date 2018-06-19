@@ -78,6 +78,10 @@ module TerminateHelper
   def self.erase_appscale_full_state
     # Delete logs.
     `rm -rf /var/log/appscale/*`
+
+    # Restart rsyslog so that the combined app logs can be recreated.
+    `service rsyslog restart`
+
     `rm -rf /var/log/rabbitmq/*`
     `rm -rf /var/log/zookeeper/*`
     `rm -rf /var/log/nginx/appscale-*`
