@@ -102,6 +102,7 @@ Depends: appscale-tools,
          zookeeper-bin,
          zookeeperd
 Conflicts: apache2-utils,
-           python-protobuf
+           python-protobuf,
+           sshguard
 Description: An open-source implementation of Google App Engine
 
