@@ -181,14 +181,14 @@ class RangeIterator(object):
     """
     range_start, range_end = self._range
     cursor = Cursor(
-      KEY_DELIMITER.join([range_start, str(encode_index_pb(path))]), inclusive)
+      KEY_DELIMITER.join([self.prefix, str(encode_index_pb(path))]), inclusive)
 
     if cursor.key < self._cursor.key:
       raise BadRequest(
         'Cursor cannot be moved backwards '
         '({} < {})'.format(repr(cursor.key), repr(self._cursor.key)))
 
-    if cursor.key > range_end:
+    if cursor.key < range_start or cursor.key > range_end:
       raise BadRequest('Cursor outside range: {}'.format(self._range))
 
     self._cursor = cursor
