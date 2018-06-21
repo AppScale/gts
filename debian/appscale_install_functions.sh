@@ -314,7 +314,7 @@ installgems()
     sleep 1
     gem install json ${GEMOPT} -v 1.8.3
     sleep 1
-    gem install soap4r-ng ${GEMOPT}
+    gem install soap4r-ng ${GEMOPT} -v 2.0.3
     gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
     gem install posixpsutil ${GEMOPT}
