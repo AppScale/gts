@@ -237,7 +237,7 @@ def get_remote_appid(remote_url, extra_headers=None):
     logging.info('Response unparasable: %s', response)
     raise ConfigurationError(
         'Invalid response recieved from server: %s' % response)
-  app_info = yaml.load(response)
+  app_info = yaml.safe_load(response)
   if not app_info or 'rtok' not in app_info or 'app_id' not in app_info:
     logging.info('Response unparsable: %s', response)
     raise ConfigurationError('Error parsing app_id lookup response')
