@@ -2225,7 +2225,7 @@ class DatastoreDistributed():
 
     if query.has_ancestor():
       for range_ in ranges:
-        range_.restrict_to_path(query.ancestor())
+        range_.restrict_to_path(query.ancestor().path())
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
