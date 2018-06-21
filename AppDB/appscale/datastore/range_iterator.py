@@ -19,7 +19,19 @@ IndexEntry = namedtuple('IndexEntry',
                         ['encoded_path', 'entity_reference', 'key', 'path'])
 
 
-Cursor = namedtuple('Cursor', ['key', 'inclusive'])
+class Cursor(object):
+  """ Represents a position within a range. """
+  __slots__ = ['key', 'inclusive']
+
+  def __init__(self, key, inclusive):
+    """ Creates a new Cursor.
+
+    Args:
+      key: A string specifying an encoded entity key.
+      inclusive: A boolean indicating that the next value can include the key.
+    """
+    self.key = key
+    self.inclusive = inclusive
 
 
 class RangeExhausted(Exception):
