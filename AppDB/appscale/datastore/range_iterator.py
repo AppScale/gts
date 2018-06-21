@@ -35,7 +35,7 @@ class RangeIterator(object):
   CHUNK_SIZE = 1000
 
   def __init__(self, db, project_id, namespace, kind, prop_name, value):
-    """ Creates a new IndexReader.
+    """ Creates a new RangeIterator.
 
     Args:
       db: A database interface object.
