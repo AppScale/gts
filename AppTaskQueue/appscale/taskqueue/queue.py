@@ -512,7 +512,6 @@ class PullQueue(Queue):
     start_time = datetime.datetime.utcnow()
     logger.debug('Leasing {} tasks for {} sec. group_by_tag={}, tag={}'.
                  format(num_tasks, lease_seconds, group_by_tag, tag))
-    new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
     # If not specified, the tag is assumed to be that of the oldest task.
     if group_by_tag and tag is None:
       tag = self._get_earliest_tag()
@@ -524,6 +523,7 @@ class PullQueue(Queue):
     leased = []
     leased_ids = set()
     indices_seen = set()
+    new_eta = None
     while True:
       tasks_needed = num_tasks - len(leased)
       if tasks_needed < 1:
@@ -544,6 +544,10 @@ class PullQueue(Queue):
       # If there are no more available tasks, return whatever has been leased.
       if not index_results:
         break
+
+      # Determine new_eta when the first index_results are received
+      if new_eta is None:
+        new_eta = current_time_ms() + datetime.timedelta(seconds=lease_seconds)
 
       lease_results = self._lease_batch(index_results, new_eta)
       for index_num, index_result in enumerate(index_results):
