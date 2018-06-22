@@ -40,6 +40,7 @@ from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_v4_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
+from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 # Global for accessing the datastore. An instance of DatastoreDistributed.
 datastore_access = None
@@ -358,7 +359,11 @@ class MainHandler(tornado.web.RequestHandler):
       return ('', datastore_pb.Error.CAPABILITY_DISABLED,
               'Datastore is in read-only mode.')
 
-    txn = datastore_pb.Transaction(http_request_data)
+    try:
+      txn = datastore_pb.Transaction(http_request_data)
+    except ProtocolBufferDecodeError as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+
     try:
       datastore_access.rollback_transaction(app_id, txn.handle())
     except dbconstants.InternalError as error:
