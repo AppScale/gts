@@ -562,8 +562,10 @@ class DistributedTaskQueue():
         raise apiproxy_errors.ApplicationError(
           TaskQueueServiceError.TASK_ALREADY_EXISTS)
       else:
+        # If a task with the same name has already been processed, it should
+        # be tombstoned for some time to prevent a duplicate task.
         raise apiproxy_errors.ApplicationError(
-          TaskQueueServiceError.INVALID_TASK_NAME)
+          TaskQueueServiceError.TOMBSTONED_TASK)
 
     new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
       queue=request.queue_name(), app_id=request.app_id())
