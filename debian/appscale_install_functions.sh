@@ -663,7 +663,7 @@ upgradepip()
             ;;
         jessie)
             # The system's pip does not allow updating itself.
-            easy_install --upgrade 'pip<10'
+            easy_install --upgrade 'pip<10.0.0b1'
             hash -r
             ;;
     esac
