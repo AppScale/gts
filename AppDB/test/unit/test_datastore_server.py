@@ -326,9 +326,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
     commit_request = datastore_pb.Transaction()
     commit_request.set_handle(123)
     commit_request.set_app("aaa")
-    http_request = commit_request.Encode()
-    self.assertEquals(dd.rollback_transaction("app_id", http_request),
-                      (api_base_pb.VoidProto().Encode(), 0, ""))
+    self.assertEquals(
+      dd.rollback_transaction("app_id", commit_request.handle()), None)
 
   @staticmethod
   def get_new_entity_proto(app_id, kind, entity_name, prop_name, prop_value, ns=""):

@@ -5,7 +5,6 @@ import logging
 import md5
 import random
 import sys
-import threading
 import time
 
 from tornado import gen
@@ -16,7 +15,8 @@ from appscale.datastore import dbconstants, helper_functions
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
 from appscale.datastore.dbconstants import (
-  APP_ENTITY_SCHEMA, ID_KEY_LENGTH, MAX_TX_DURATION, Timeout
+  APP_ENTITY_SCHEMA, ID_KEY_LENGTH, InternalError,
+  MAX_TX_DURATION, Timeout
 )
 from appscale.datastore.cassandra_env.cassandra_interface import (
   batch_size, LARGE_BATCH_THRESHOLD)
@@ -42,7 +42,6 @@ from appscale.datastore.zkappscale import entity_lock
 from appscale.datastore.zkappscale import zktransaction
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
 from google.appengine.api.datastore_distributed import _MAX_ACTIONS_PER_TXN
 from google.appengine.datastore import appscale_stub_util
@@ -3392,24 +3391,21 @@ class DatastoreDistributed():
     commitres_pb = datastore_pb.CommitResponse()
     raise gen.Return((commitres_pb.Encode(), 0, ''))
 
-  def rollback_transaction(self, app_id, http_request_data):
+  def rollback_transaction(self, app_id, txid):
     """ Handles the rollback phase of a transaction.
 
     Args:
       app_id: The application ID requesting the rollback.
-      http_request_data: The encoded request, a datstore_pb.Transaction.
-    Returns:
-      An encoded protocol buffer void response.
+      txid: An integer specifying a transaction ID.
+    Raises:
+      InternalError if unable to roll back transaction.
     """
-    txn = datastore_pb.Transaction(http_request_data)
     self.logger.info(
-      'Doing a rollback on transaction {} for {}'.format(txn.handle(), app_id))
+      'Doing a rollback on transaction {} for {}'.format(txid, app_id))
     try:
-      self.zookeeper.notify_failed_transaction(app_id, txn.handle())
-      return api_base_pb.VoidProto().Encode(), 0, ''
-    except zktransaction.ZKTransactionException as zkte:
-      self.logger.exception('Unable to rollback {} for {}'.format(txn, app_id))
-      return '', datastore_pb.Error.PERMISSION_DENIED, str(zkte)
+      self.zookeeper.notify_failed_transaction(app_id, txid)
+    except zktransaction.ZKTransactionException as error:
+      raise InternalError(str(error))
 
   def _zk_state_listener(self, state):
     """ Handles changes to the ZooKeeper connection state.
