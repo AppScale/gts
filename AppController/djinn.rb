@@ -26,7 +26,6 @@ require 'zookeeper'
 $:.unshift File.join(File.dirname(__FILE__), 'lib')
 require 'app_controller_client'
 require 'app_manager_client'
-require 'backup_restore_service'
 require 'blobstore'
 require 'cron_helper'
 require 'custom_exceptions'
@@ -3300,13 +3299,10 @@ class Djinn
           verbose = @options['verbose'].downcase == 'true'
           GroomerService.start_transaction_groomer(verbose)
         end
-
-        start_backup_service
       }
     else
       stop_groomer_service
       GroomerService.stop_transaction_groomer
-      stop_backup_service
     end
 
     start_admin_server
@@ -3424,10 +3420,6 @@ class Djinn
 
     @state = "Failed to prime #{table}."
     HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
-  end
-
-  def start_backup_service
-    BackupRecoveryService.start
   end
 
   def start_blobstore_server
@@ -3594,11 +3586,6 @@ class Djinn
   def stop_log_server
     Djinn.log_info("Stopping Log Server")
     MonitInterface.stop(:log_service)
-  end
-
-  # Stops the Backup/Recovery service.
-  def stop_backup_service
-    BackupRecoveryService.stop
   end
 
   # Stops the blobstore server.
