@@ -6,7 +6,7 @@
     <div>
        <form action="/users/verify" method="post"><div style="margin:0;padding:0;display:inline">
        {% if continue %}
-       <input type="hidden" name="continue" value="{{ continue }}">
+       <input type="hidden" name="continue" value="{{ continue|e }}">
        {% endif %}
        </div>
         <p>Everything looks good. Continue?</p>

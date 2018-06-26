@@ -9,7 +9,6 @@ Engine applications.
 # pylint: disable-msg=E1101
 # pylint: disable-msg=W0613
 
-import cgi
 import datetime
 import json
 import logging
@@ -226,10 +225,10 @@ class NewUserPage(AppDashboard):
       err_msgs['email'] = str(err)
 
     users = {}
-    users['email'] = cgi.escape(self.request.get('user_email'), True)
-    users['password'] = cgi.escape(self.request.get('user_password'), True)
-    users['password_confirmation'] = cgi.escape(
-      self.request.get('user_password_confirmation'), True)
+    users['email'] = self.request.get('user_email')
+    users['password'] = self.request.get('user_password')
+    users['password_confirmation'] = \
+        self.request.get('user_password_confirmation')
 
     self.render_page(page='users', template_file=self.TEMPLATE, values={
       'continue': self.request.get('continue'),
