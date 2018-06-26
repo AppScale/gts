@@ -326,9 +326,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
     commit_request = datastore_pb.Transaction()
     commit_request.set_handle(123)
     commit_request.set_app("aaa")
-    http_request = commit_request.Encode()
-    self.assertEquals(dd.rollback_transaction("app_id", http_request),
-                      (api_base_pb.VoidProto().Encode(), 0, ""))
+    self.assertEquals(
+      dd.rollback_transaction("app_id", commit_request.handle()), None)
 
   @staticmethod
   def get_new_entity_proto(app_id, kind, entity_name, prop_name, prop_value, ns=""):
@@ -371,7 +370,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key1: {}, entity_key2: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
+    db_batch.should_receive('normal_batch').and_return(ASYNC_NONE)
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
       delete_transaction_id=lambda project, txid: None,
@@ -415,7 +414,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key1: {}, entity_key2: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
+    db_batch.should_receive('normal_batch').and_return(ASYNC_NONE)
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
       delete_transaction_id=lambda project, txid: None,
@@ -499,8 +498,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version_sync').and_return(True)
     db_batch.should_receive("batch_get_entity").and_return(async_result)
-    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
-    db_batch.should_receive('_normal_batch').and_return(ASYNC_NONE)
+    db_batch.should_receive('normal_batch').and_return(ASYNC_NONE)
 
     transaction_manager = flexmock()
     dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
@@ -1093,7 +1091,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
+    db_batch.should_receive('normal_batch').and_return(ASYNC_NONE)
 
     async_true = gen.Future()
     async_true.set_result(True)

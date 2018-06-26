@@ -47,6 +47,9 @@ require 'user_app_client'
 require 'zkinterface'
 require 'zookeeper_helper'
 
+# This ensure that exceptions in a thread are not ignored.
+Thread.abort_on_exception=true
+
 # By default don't trace remote commands execution.
 NO_OUTPUT = false
 
@@ -1151,12 +1154,17 @@ class Djinn
       @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
-          node_stats = JSON.load(get_node_stats_json(@@secret))
+          begin
+            node_stats = JSON.load(get_node_stats_json(@@secret))
+          rescue SOAP::FaultError
+            Djinn.log_warn("Failed to get local status update.")
+            next
+          end
         else
           acc = AppControllerClient.new(ip, @@secret)
           begin
             node_stats = JSON.load(acc.get_node_stats_json)
-          rescue FailedNodeException
+          rescue FailedNodeException, SOAP::FaultError
             Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
               "not adding it to our cached info.")
             next
@@ -1725,6 +1733,29 @@ class Djinn
     JSON.dump(private_ips)
   end
 
+  def check_api_services
+    # LoadBalancers needs to setup the routing for the datastore before
+    # proceeding.
+    while my_node.is_load_balancer? && !update_db_haproxy
+      Djinn.log_info("Waiting for Datastore assignements ...")
+      sleep(SMALL_WAIT)
+    end
+
+    # Wait till the Datastore is functional.
+    loop do
+      break if HelperFunctions.is_port_open?(get_load_balancer.private_ip,
+                                             DatastoreServer::PROXY_PORT)
+      Djinn.log_debug("Waiting for Datastore to be active...")
+      sleep(SMALL_WAIT)
+    end
+    Djinn.log_info("Datastore service is active.")
+
+    # At this point all nodes are fully functional, so the Shadow will do
+    # another assignments of the datastore processes to ensure we got the
+    # accurate CPU count.
+    assign_datastore_processes if my_node.is_shadow?
+  end
+
   def job_start(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
@@ -1831,6 +1862,9 @@ class Djinn
     write_our_node_info
     wait_for_nodes_to_finish_loading(@nodes)
 
+    # Check that services are up before proceeding into the duty cycle.
+    check_api_services
+
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
     last_print = Time.now.to_i
@@ -1923,12 +1957,16 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        stats = JSON.parse(get_node_stats_json(secret))
-        Djinn.log_info("--- Node at #{stats['public_ip']} has " \
-          "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " \
-          "and knows about these apps #{stats['apps']}.")
-        Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
-        last_print = Time.now.to_i
+        begin
+          stats = JSON.parse(get_node_stats_json(secret))
+          Djinn.log_info("--- Node at #{stats['public_ip']} has " \
+            "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " \
+            "and knows about these apps #{stats['apps']}.")
+          Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
+          last_print = Time.now.to_i
+        rescue SOAP::FaultError
+          Djinn.log_warn("Failed to get local node stats: skipping stats")
+        end
       end
 
       # Let's make sure we don't drift the duty cycle too much.
@@ -2617,11 +2655,12 @@ class Djinn
       }
     rescue FailedZooKeeperOperationException
       Djinn.log_warn('Unable to fetch list of datastore servers')
-      return
+      return false
     end
 
     HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
                               DatastoreServer::NAME)
+    return true
   end
 
   # Creates HAProxy configuration for TaskQueue.
@@ -3338,13 +3377,10 @@ class Djinn
     # Start Hermes with integrated stats service
     start_hermes
 
-    if my_node.is_shadow?
-      @state = "Starting Datastore"
-      start_datastore
-    end
-
     # Leader node starts additional services.
     if my_node.is_shadow?
+      @state = "Assigning Datastore processes"
+      assign_datastore_processes
       update_node_info_cache
       TaskQueue.start_flower(@options['flower_password'])
     else
@@ -3499,21 +3535,24 @@ class Djinn
     MonitInterface.start(:uaserver, start_cmd, nil, env_vars)
   end
 
-  def start_datastore
+  def assign_datastore_processes
+    # Shadow is the only node to call this method, and is called upon
+    # startup.
+    return unless my_node.is_shadow?
+
+    Djinn.log_info("Assigning datastore processes.")
     verbose = @options['verbose'].downcase == 'true'
-    db_proxy = nil
     db_nodes = []
     @state_change_lock.synchronize {
       @nodes.each { |node|
-        db_proxy = node.private_ip if node.is_load_balancer?
         db_nodes << node if node.is_db_master? || node.is_db_slave?
       }
     }
 
-    HelperFunctions.log_and_crash('db proxy ip was nil') if db_proxy.nil?
-
-    assignments = {}
-    @nodes.each { |node|
+    # Assign the proper number of Datastore processes on each database
+    # machine.
+    db_nodes.each { |node|
+      assignments = {}
       begin
         cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
         server_count = cpu_count * DatastoreServer::MULTIPLIER
@@ -3523,14 +3562,9 @@ class Djinn
 
       assignments['datastore'] = {'count' => server_count,
                                   'verbose' => verbose}
+      ZKInterface.set_machine_assignments(node.private_ip, assignments)
+      Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
-    ZKInterface.set_machine_assignments(my_node.private_ip, assignments)
-
-    # Let's wait for at least one datastore server to be active.
-    until HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
-      update_db_haproxy if my_node.is_load_balancer?
-      sleep(SMALL_WAIT)
-    end
   end
 
   # Starts the Log Server service on this machine
@@ -4846,6 +4880,8 @@ HOSTS
             version_key, port = instance_key.split(":")
             ret = remove_appserver_process(version_key, port)
             Djinn.log_debug("remove_appserver_process returned: #{ret}.")
+          else
+            break
           end
         end
       }
@@ -5142,17 +5178,15 @@ HOSTS
         if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
           Djinn.log_info("Not scaling up right now, as we recently scaled " \
             "up or down.")
-          return
+        else
+          result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
+          if result != "OK"
+            Djinn.log_error("Was not able to add nodes because: #{result}.")
+          else
+            @last_scaling_time = Time.now.to_i
+            Djinn.log_info("Added the following nodes: #{roles_needed}.")
+          end
         end
-
-        result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
-        if result != "OK"
-          Djinn.log_error("Was not able to add nodes because: #{result}.")
-          return
-        end
-
-        @last_scaling_time = Time.now.to_i
-        Djinn.log_info("Added the following nodes: #{roles_needed}.")
       }
     }
   end

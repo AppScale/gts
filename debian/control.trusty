@@ -59,8 +59,7 @@ Depends: appscale-tools,
          net-tools,
          nginx,
          ntp,
-         openjdk-7-jdk,
-         openjdk-8-jre,
+         openjdk-8-jdk-headless,
          openssl,
          php5,
          php5-cgi,
@@ -105,7 +104,8 @@ Conflicts: apache2.2-bin,
            apache2-utils,
            python-librabbitmq,
            python-protobuf,
-           python-tornado
+           python-tornado,
+           sshguard
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
  Google AppEngine applications and investigation of

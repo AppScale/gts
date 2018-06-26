@@ -430,9 +430,9 @@ class _File(object):
       if method == 'Open':
         _make_call(method, request, response)
         return
-      #if self._exclusive_lock:
+      if self._exclusive_lock:
 
-      #  raise
+        raise
 
       self._open()
       _make_call(method, request, response)

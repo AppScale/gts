@@ -162,21 +162,6 @@ class TestCassandra(testing.AsyncTestCase):
       {'keyC': {'c1': '7', 'c2': '8'}}
     ])
 
-  @testing.gen_test
-  def test_batch_mutate(self):
-    app_id = 'guestbook'
-    transaction = 1
-    # Mock cassandra response
-    async_response = Future()
-    async_response.set_result(None)
-    self.execute_mock.return_value = async_response
-
-    # Call function under test making sure it doesn't through exception
-    result = yield self.db.batch_mutate(app_id, [], [], transaction)
-
-    # Simple check for now
-    self.assertEqual(result, None)
-
 
 if __name__ == "__main__":
   unittest.main()

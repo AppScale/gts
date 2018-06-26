@@ -171,7 +171,7 @@ class AppIdentityServiceError(ProtocolBuffer.ProtocolMessage):
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.AppIdentityServiceError'
   _SERIALIZED_DESCRIPTOR = array.array('B')
-  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KImFwcGhvc3RpbmcuQXBwSWRlbnRpdHlTZXJ2aWNlRXJyb3JzeglFcnJvckNvZGWLAZIBB1NVQ0NFU1OYAQCMAYsBkgENVU5LTk9XTl9TQ09QRZgBCYwBiwGSAQ5CTE9CX1RPT19MQVJHRZgB6AeMAYsBkgERREVBRExJTkVfRVhDRUVERUSYAekHjAGLAZIBD05PVF9BX1ZBTElEX0FQUJgB6geMAYsBkgENVU5LTk9XTl9FUlJPUpgB6weMAYsBkgEZR0FJQU1JTlRfTk9UX0lOSVRJQUlMSVpFRJgB7AeMAYsBkgELTk9UX0FMTE9XRUSYAe0HjAGLAZIBD05PVF9JTVBMRU1FTlRFRJgB7geMAXS6Ae8KCjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8SCmFwcGhvc3Rpbmci5gEKF0FwcElkZW50aXR5U2VydmljZUVycm9yIsoBCglFcnJvckNvZGUSCwoHU1VDQ0VTUxAAEhEKDVVOS05PV05fU0NPUEUQCRITCg5CTE9CX1RPT19MQVJHRRDoBxIWChFERUFETElORV9FWENFRURFRBDpBxIUCg9OT1RfQV9WQUxJRF9BUFAQ6gcSEgoNVU5LTk9XTl9FUlJPUhDrBxIeChlHQUlBTUlOVF9OT1RfSU5JVElBSUxJWkVEEOwHEhAKC05PVF9BTExPV0VEEO0HEhQKD05PVF9JTVBMRU1FTlRFRBDuByIqChFTaWduRm9yQXBwUmVxdWVzdBIVCg1ieXRlc190b19zaWduGAEgASgMIj8KElNpZ25Gb3JBcHBSZXNwb25zZRIQCghrZXlfbmFtZRgBIAEoCRIXCg9zaWduYXR1cmVfYnl0ZXMYAiABKAwiIwohR2V0UHVibGljQ2VydGlmaWNhdGVGb3JBcHBSZXF1ZXN0IkMKEVB1YmxpY0NlcnRpZmljYXRlEhAKCGtleV9uYW1lGAEgASgJEhwKFHg1MDlfY2VydGlmaWNhdGVfcGVtGAIgASgJIo0BCiJHZXRQdWJsaWNDZXJ0aWZpY2F0ZUZvckFwcFJlc3BvbnNlEj4KF3B1YmxpY19jZXJ0aWZpY2F0ZV9saXN0GAEgAygLMh0uYXBwaG9zdGluZy5QdWJsaWNDZXJ0aWZpY2F0ZRInCh9tYXhfY2xpZW50X2NhY2hlX3RpbWVfaW5fc2Vjb25kGAIgASgDIh4KHEdldFNlcnZpY2VBY2NvdW50TmFtZVJlcXVlc3QiPQodR2V0U2VydmljZUFjY291bnROYW1lUmVzcG9uc2USHAoUc2VydmljZV9hY2NvdW50X25hbWUYASABKAkiQgoVR2V0QWNjZXNzVG9rZW5SZXF1ZXN0Eg0KBXNjb3BlGAEgAygJEhoKEnNlcnZpY2VfYWNjb3VudF9pZBgCIAEoAyJHChZHZXRBY2Nlc3NUb2tlblJlc3BvbnNlEhQKDGFjY2Vzc190b2tlbhgBIAEoCRIXCg9leHBpcmF0aW9uX3RpbWUYAiABKAMyqgMKDlNpZ25pbmdTZXJ2aWNlEk0KClNpZ25Gb3JBcHASHS5hcHBob3N0aW5nLlNpZ25Gb3JBcHBSZXF1ZXN0Gh4uYXBwaG9zdGluZy5TaWduRm9yQXBwUmVzcG9uc2UiABJ+ChtHZXRQdWJsaWNDZXJ0aWZpY2F0ZXNGb3JBcHASLS5hcHBob3N0aW5nLkdldFB1YmxpY0NlcnRpZmljYXRlRm9yQXBwUmVxdWVzdBouLmFwcGhvc3RpbmcuR2V0UHVibGljQ2VydGlmaWNhdGVGb3JBcHBSZXNwb25zZSIAEm4KFUdldFNlcnZpY2VBY2NvdW50TmFtZRIoLmFwcGhvc3RpbmcuR2V0U2VydmljZUFjY291bnROYW1lUmVxdWVzdBopLmFwcGhvc3RpbmcuR2V0U2VydmljZUFjY291bnROYW1lUmVzcG9uc2UiABJZCg5HZXRBY2Nlc3NUb2tlbhIhLmFwcGhvc3RpbmcuR2V0QWNjZXNzVG9rZW5SZXF1ZXN0GiIuYXBwaG9zdGluZy5HZXRBY2Nlc3NUb2tlblJlc3BvbnNlIgBCQAokY29tLmdvb2dsZS5hcHBlbmdpbmUuYXBpLmFwcGlkZW50aXR5IAEoAkIUQXBwSWRlbnRpdHlTZXJ2aWNlUGI="))
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KImFwcGhvc3RpbmcuQXBwSWRlbnRpdHlTZXJ2aWNlRXJyb3JzeglFcnJvckNvZGWLAZIBB1NVQ0NFU1OYAQCMAYsBkgENVU5LTk9XTl9TQ09QRZgBCYwBiwGSAQ5CTE9CX1RPT19MQVJHRZgB6AeMAYsBkgERREVBRExJTkVfRVhDRUVERUSYAekHjAGLAZIBD05PVF9BX1ZBTElEX0FQUJgB6geMAYsBkgENVU5LTk9XTl9FUlJPUpgB6weMAYsBkgEZR0FJQU1JTlRfTk9UX0lOSVRJQUlMSVpFRJgB7AeMAYsBkgELTk9UX0FMTE9XRUSYAe0HjAGLAZIBD05PVF9JTVBMRU1FTlRFRJgB7geMAXS6AekMCjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8SCmFwcGhvc3Rpbmci5gEKF0FwcElkZW50aXR5U2VydmljZUVycm9yIsoBCglFcnJvckNvZGUSCwoHU1VDQ0VTUxAAEhEKDVVOS05PV05fU0NPUEUQCRITCg5CTE9CX1RPT19MQVJHRRDoBxIWChFERUFETElORV9FWENFRURFRBDpBxIUCg9OT1RfQV9WQUxJRF9BUFAQ6gcSEgoNVU5LTk9XTl9FUlJPUhDrBxIeChlHQUlBTUlOVF9OT1RfSU5JVElBSUxJWkVEEOwHEhAKC05PVF9BTExPV0VEEO0HEhQKD05PVF9JTVBMRU1FTlRFRBDuByIqChFTaWduRm9yQXBwUmVxdWVzdBIVCg1ieXRlc190b19zaWduGAEgASgMIj8KElNpZ25Gb3JBcHBSZXNwb25zZRIQCghrZXlfbmFtZRgBIAEoCRIXCg9zaWduYXR1cmVfYnl0ZXMYAiABKAwiIwohR2V0UHVibGljQ2VydGlmaWNhdGVGb3JBcHBSZXF1ZXN0IkMKEVB1YmxpY0NlcnRpZmljYXRlEhAKCGtleV9uYW1lGAEgASgJEhwKFHg1MDlfY2VydGlmaWNhdGVfcGVtGAIgASgJIo0BCiJHZXRQdWJsaWNDZXJ0aWZpY2F0ZUZvckFwcFJlc3BvbnNlEj4KF3B1YmxpY19jZXJ0aWZpY2F0ZV9saXN0GAEgAygLMh0uYXBwaG9zdGluZy5QdWJsaWNDZXJ0aWZpY2F0ZRInCh9tYXhfY2xpZW50X2NhY2hlX3RpbWVfaW5fc2Vjb25kGAIgASgDIh4KHEdldFNlcnZpY2VBY2NvdW50TmFtZVJlcXVlc3QiPQodR2V0U2VydmljZUFjY291bnROYW1lUmVzcG9uc2USHAoUc2VydmljZV9hY2NvdW50X25hbWUYASABKAkiYAoVR2V0QWNjZXNzVG9rZW5SZXF1ZXN0Eg0KBXNjb3BlGAEgAygJEhoKEnNlcnZpY2VfYWNjb3VudF9pZBgCIAEoAxIcChRzZXJ2aWNlX2FjY291bnRfbmFtZRgDIAEoCSJHChZHZXRBY2Nlc3NUb2tlblJlc3BvbnNlEhQKDGFjY2Vzc190b2tlbhgBIAEoCRIXCg9leHBpcmF0aW9uX3RpbWUYAiABKAMiIAoeR2V0RGVmYXVsdEdjc0J1Y2tldE5hbWVSZXF1ZXN0IkIKH0dldERlZmF1bHRHY3NCdWNrZXROYW1lUmVzcG9uc2USHwoXZGVmYXVsdF9nY3NfYnVja2V0X25hbWUYASABKAkyoAQKDlNpZ25pbmdTZXJ2aWNlEk0KClNpZ25Gb3JBcHASHS5hcHBob3N0aW5nLlNpZ25Gb3JBcHBSZXF1ZXN0Gh4uYXBwaG9zdGluZy5TaWduRm9yQXBwUmVzcG9uc2UiABJ+ChtHZXRQdWJsaWNDZXJ0aWZpY2F0ZXNGb3JBcHASLS5hcHBob3N0aW5nLkdldFB1YmxpY0NlcnRpZmljYXRlRm9yQXBwUmVxdWVzdBouLmFwcGhvc3RpbmcuR2V0UHVibGljQ2VydGlmaWNhdGVGb3JBcHBSZXNwb25zZSIAEm4KFUdldFNlcnZpY2VBY2NvdW50TmFtZRIoLmFwcGhvc3RpbmcuR2V0U2VydmljZUFjY291bnROYW1lUmVxdWVzdBopLmFwcGhvc3RpbmcuR2V0U2VydmljZUFjY291bnROYW1lUmVzcG9uc2UiABJZCg5HZXRBY2Nlc3NUb2tlbhIhLmFwcGhvc3RpbmcuR2V0QWNjZXNzVG9rZW5SZXF1ZXN0GiIuYXBwaG9zdGluZy5HZXRBY2Nlc3NUb2tlblJlc3BvbnNlIgASdAoXR2V0RGVmYXVsdEdjc0J1Y2tldE5hbWUSKi5hcHBob3N0aW5nLkdldERlZmF1bHRHY3NCdWNrZXROYW1lUmVxdWVzdBorLmFwcGhvc3RpbmcuR2V0RGVmYXVsdEdjc0J1Y2tldE5hbWVSZXNwb25zZSIAQkAKJGNvbS5nb29nbGUuYXBwZW5naW5lLmFwaS5hcHBpZGVudGl0eSABKAJCFEFwcElkZW50aXR5U2VydmljZVBi"))
   if _net_proto___parse__python is not None:
     _net_proto___parse__python.RegisterType(
         _SERIALIZED_DESCRIPTOR.tostring())
@@ -1466,6 +1466,232 @@ class GetAccessTokenResponse(ProtocolBuffer.ProtocolMessage):
     _net_proto___parse__python.RegisterType(
         _SERIALIZED_DESCRIPTOR.tostring())
 
+class GetDefaultGcsBucketNameRequest(ProtocolBuffer.ProtocolMessage):
+
+  def __init__(self, contents=None):
+    pass
+    if contents is not None: self.MergeFromString(contents)
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+
+  if _net_proto___parse__python is not None:
+    def _CMergeFromString(self, s):
+      _net_proto___parse__python.MergeFromString(self, 'apphosting.GetDefaultGcsBucketNameRequest', s)
+
+  if _net_proto___parse__python is not None:
+    def _CEncode(self):
+      return _net_proto___parse__python.Encode(self, 'apphosting.GetDefaultGcsBucketNameRequest')
+
+  if _net_proto___parse__python is not None:
+    def _CEncodePartial(self):
+      return _net_proto___parse__python.EncodePartial(self, 'apphosting.GetDefaultGcsBucketNameRequest')
+
+  if _net_proto___parse__python is not None:
+    def _CToASCII(self, output_format):
+      return _net_proto___parse__python.ToASCII(self, 'apphosting.GetDefaultGcsBucketNameRequest', output_format)
+
+
+  if _net_proto___parse__python is not None:
+    def ParseASCII(self, s):
+      _net_proto___parse__python.ParseASCII(self, 'apphosting.GetDefaultGcsBucketNameRequest', s)
+
+
+  if _net_proto___parse__python is not None:
+    def ParseASCIIIgnoreUnknown(self, s):
+      _net_proto___parse__python.ParseASCIIIgnoreUnknown(self, 'apphosting.GetDefaultGcsBucketNameRequest', s)
+
+
+  def Equals(self, x):
+    if x is self: return 1
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    return n
+
+  def Clear(self):
+    pass
+
+  def OutputUnchecked(self, out):
+    pass
+
+  def OutputPartial(self, out):
+    pass
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+  }, 0)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+  }, 0, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.GetDefaultGcsBucketNameRequest'
+  _SERIALIZED_DESCRIPTOR = array.array('B')
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KKWFwcGhvc3RpbmcuR2V0RGVmYXVsdEdjc0J1Y2tldE5hbWVSZXF1ZXN0wgEiYXBwaG9zdGluZy5BcHBJZGVudGl0eVNlcnZpY2VFcnJvcg=="))
+  if _net_proto___parse__python is not None:
+    _net_proto___parse__python.RegisterType(
+        _SERIALIZED_DESCRIPTOR.tostring())
+
+class GetDefaultGcsBucketNameResponse(ProtocolBuffer.ProtocolMessage):
+  has_default_gcs_bucket_name_ = 0
+  default_gcs_bucket_name_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def default_gcs_bucket_name(self): return self.default_gcs_bucket_name_
+
+  def set_default_gcs_bucket_name(self, x):
+    self.has_default_gcs_bucket_name_ = 1
+    self.default_gcs_bucket_name_ = x
+
+  def clear_default_gcs_bucket_name(self):
+    if self.has_default_gcs_bucket_name_:
+      self.has_default_gcs_bucket_name_ = 0
+      self.default_gcs_bucket_name_ = ""
+
+  def has_default_gcs_bucket_name(self): return self.has_default_gcs_bucket_name_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_default_gcs_bucket_name()): self.set_default_gcs_bucket_name(x.default_gcs_bucket_name())
+
+  if _net_proto___parse__python is not None:
+    def _CMergeFromString(self, s):
+      _net_proto___parse__python.MergeFromString(self, 'apphosting.GetDefaultGcsBucketNameResponse', s)
+
+  if _net_proto___parse__python is not None:
+    def _CEncode(self):
+      return _net_proto___parse__python.Encode(self, 'apphosting.GetDefaultGcsBucketNameResponse')
+
+  if _net_proto___parse__python is not None:
+    def _CEncodePartial(self):
+      return _net_proto___parse__python.EncodePartial(self, 'apphosting.GetDefaultGcsBucketNameResponse')
+
+  if _net_proto___parse__python is not None:
+    def _CToASCII(self, output_format):
+      return _net_proto___parse__python.ToASCII(self, 'apphosting.GetDefaultGcsBucketNameResponse', output_format)
+
+
+  if _net_proto___parse__python is not None:
+    def ParseASCII(self, s):
+      _net_proto___parse__python.ParseASCII(self, 'apphosting.GetDefaultGcsBucketNameResponse', s)
+
+
+  if _net_proto___parse__python is not None:
+    def ParseASCIIIgnoreUnknown(self, s):
+      _net_proto___parse__python.ParseASCIIIgnoreUnknown(self, 'apphosting.GetDefaultGcsBucketNameResponse', s)
+
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_default_gcs_bucket_name_ != x.has_default_gcs_bucket_name_: return 0
+    if self.has_default_gcs_bucket_name_ and self.default_gcs_bucket_name_ != x.default_gcs_bucket_name_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    if (self.has_default_gcs_bucket_name_): n += 1 + self.lengthString(len(self.default_gcs_bucket_name_))
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_default_gcs_bucket_name_): n += 1 + self.lengthString(len(self.default_gcs_bucket_name_))
+    return n
+
+  def Clear(self):
+    self.clear_default_gcs_bucket_name()
+
+  def OutputUnchecked(self, out):
+    if (self.has_default_gcs_bucket_name_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.default_gcs_bucket_name_)
+
+  def OutputPartial(self, out):
+    if (self.has_default_gcs_bucket_name_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.default_gcs_bucket_name_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_default_gcs_bucket_name(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_default_gcs_bucket_name_: res+=prefix+("default_gcs_bucket_name: %s\n" % self.DebugFormatString(self.default_gcs_bucket_name_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kdefault_gcs_bucket_name = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "default_gcs_bucket_name",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.GetDefaultGcsBucketNameResponse'
+  _SERIALIZED_DESCRIPTOR = array.array('B')
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KKmFwcGhvc3RpbmcuR2V0RGVmYXVsdEdjc0J1Y2tldE5hbWVSZXNwb25zZRMaF2RlZmF1bHRfZ2NzX2J1Y2tldF9uYW1lIAEoAjAJOAEUwgEiYXBwaG9zdGluZy5BcHBJZGVudGl0eVNlcnZpY2VFcnJvcg=="))
+  if _net_proto___parse__python is not None:
+    _net_proto___parse__python.RegisterType(
+        _SERIALIZED_DESCRIPTOR.tostring())
+
 
 
 class _SigningService_ClientBaseStub(_client_stub_base_class):
@@ -1476,6 +1702,7 @@ class _SigningService_ClientBaseStub(_client_stub_base_class):
       '_protorpc_GetPublicCertificatesForApp', '_full_name_GetPublicCertificatesForApp',
       '_protorpc_GetServiceAccountName', '_full_name_GetServiceAccountName',
       '_protorpc_GetAccessToken', '_full_name_GetAccessToken',
+      '_protorpc_GetDefaultGcsBucketName', '_full_name_GetDefaultGcsBucketName',
   )
 
   def __init__(self, rpc_stub):
@@ -1496,6 +1723,10 @@ class _SigningService_ClientBaseStub(_client_stub_base_class):
     self._protorpc_GetAccessToken = pywraprpc.RPC()
     self._full_name_GetAccessToken = self._stub.GetFullMethodName(
         'GetAccessToken')
+
+    self._protorpc_GetDefaultGcsBucketName = pywraprpc.RPC()
+    self._full_name_GetDefaultGcsBucketName = self._stub.GetFullMethodName(
+        'GetDefaultGcsBucketName')
 
   def SignForApp(self, request, rpc=None, callback=None, response=None):
     """Make a SignForApp RPC call.
@@ -1597,6 +1828,31 @@ class _SigningService_ClientBaseStub(_client_stub_base_class):
                           callback,
                           self._protorpc_GetAccessToken)
 
+  def GetDefaultGcsBucketName(self, request, rpc=None, callback=None, response=None):
+    """Make a GetDefaultGcsBucketName RPC call.
+
+    Args:
+      request: a GetDefaultGcsBucketNameRequest instance.
+      rpc: Optional RPC instance to use for the call.
+      callback: Optional final callback. Will be called as
+          callback(rpc, result) when the rpc completes. If None, the
+          call is synchronous.
+      response: Optional ProtocolMessage to be filled in with response.
+
+    Returns:
+      The GetDefaultGcsBucketNameResponse if callback is None. Otherwise, returns None.
+    """
+
+    if response is None:
+      response = GetDefaultGcsBucketNameResponse
+    return self._MakeCall(rpc,
+                          self._full_name_GetDefaultGcsBucketName,
+                          'GetDefaultGcsBucketName',
+                          request,
+                          response,
+                          callback,
+                          self._protorpc_GetDefaultGcsBucketName)
+
 
 class _SigningService_ClientStub(_SigningService_ClientBaseStub):
   __slots__ = ('_params',)
@@ -1632,6 +1888,7 @@ class SigningService(_server_stub_base_class):
       'GetPublicCertificatesForApp': (GetPublicCertificateForAppRequest, GetPublicCertificateForAppResponse),
       'GetServiceAccountName': (GetServiceAccountNameRequest, GetServiceAccountNameResponse),
       'GetAccessToken': (GetAccessTokenRequest, GetAccessTokenResponse),
+      'GetDefaultGcsBucketName': (GetDefaultGcsBucketNameRequest, GetDefaultGcsBucketNameResponse),
       }
 
   def __init__(self, *args, **kwargs):
@@ -1715,6 +1972,17 @@ class SigningService(_server_stub_base_class):
     """
     raise NotImplementedError
 
+
+  def GetDefaultGcsBucketName(self, rpc, request, response):
+    """Handles a GetDefaultGcsBucketName RPC call. You should override this.
+
+    Args:
+      rpc: a Stubby RPC object
+      request: a GetDefaultGcsBucketNameRequest that contains the client request
+      response: a GetDefaultGcsBucketNameResponse that should be modified to send the response
+    """
+    raise NotImplementedError
+
   def _AddMethodAttributes(self):
     """Sets attributes on Python RPC handlers.
 
@@ -1744,8 +2012,14 @@ class SigningService(_server_stub_base_class):
         GetAccessTokenResponse,
         None,
         'none')
+    rpcserver._GetHandlerDecorator(
+        self.GetDefaultGcsBucketName.im_func,
+        GetDefaultGcsBucketNameRequest,
+        GetDefaultGcsBucketNameResponse,
+        None,
+        'none')
 
 if _extension_runtime:
   pass
 
-__all__ = ['AppIdentityServiceError','SignForAppRequest','SignForAppResponse','GetPublicCertificateForAppRequest','PublicCertificate','GetPublicCertificateForAppResponse','GetServiceAccountNameRequest','GetServiceAccountNameResponse','GetAccessTokenRequest','GetAccessTokenResponse','SigningService']
+__all__ = ['AppIdentityServiceError','SignForAppRequest','SignForAppResponse','GetPublicCertificateForAppRequest','PublicCertificate','GetPublicCertificateForAppResponse','GetServiceAccountNameRequest','GetServiceAccountNameResponse','GetAccessTokenRequest','GetAccessTokenResponse','GetDefaultGcsBucketNameRequest','GetDefaultGcsBucketNameResponse','SigningService']

@@ -775,8 +775,6 @@ class DatastoreGroomer(threading.Thread):
       size: An int representing the number of bytes taken by a namespace.
       number: The total number of entities in a namespace.
       timestamp: A datetime.datetime object.
-    Returns:
-      True on success, False otherwise.
     """
     entities_to_write = []
     namespace_stat = stats.NamespaceStat(subject_namespace=namespace,
@@ -789,15 +787,9 @@ class DatastoreGroomer(threading.Thread):
     if namespace != "":
       namespace_entry = metadata.Namespace(key_name=namespace)
       entities_to_write.append(namespace_entry)
-    try:
-      db.put(entities_to_write)
-    except datastore_errors.InternalError, internal_error:
-      logging.error("Error inserting namespace info: {0}.".\
-        format(internal_error))
-      return False
-    logging.debug("Done creating namespace stats")
-    return True
 
+    db.put(entities_to_write)
+    logging.debug("Done creating namespace stats")
 
   def create_kind_stat_entry(self, kind, size, number, timestamp):
     """ Puts a kind statistic into the datastore.
@@ -807,8 +799,6 @@ class DatastoreGroomer(threading.Thread):
       size: An int representing the number of bytes taken by entity kind.
       number: The total number of entities.
       timestamp: A datetime.datetime object.
-    Returns:
-      True on success, False otherwise.
     """
     kind_stat = stats.KindStat(kind_name=kind,
                                bytes=size,
@@ -816,13 +806,8 @@ class DatastoreGroomer(threading.Thread):
                                timestamp=timestamp)
     kind_entry = metadata.Kind(key_name=kind)
     entities_to_write = [kind_stat, kind_entry]
-    try:
-      db.put(entities_to_write)
-    except datastore_errors.InternalError, internal_error:
-      logging.error("Error inserting kind stat: {0}.".format(internal_error))
-      return False
+    db.put(entities_to_write)
     logging.debug("Done creating kind stat")
-    return True
 
   def create_global_stat_entry(self, app_id, size, number, timestamp):
     """ Puts a global statistic into the datastore.
@@ -832,20 +817,13 @@ class DatastoreGroomer(threading.Thread):
       size: The number of bytes of all entities.
       number: The total number of entities of an application.
       timestamp: A datetime.datetime object.
-    Returns:
-      True on success, False otherwise.
     """
     global_stat = stats.GlobalStat(key_name=app_id,
                                    bytes=size,
                                    count=number,
                                    timestamp=timestamp)
-    try:
-      db.put(global_stat)
-    except datastore_errors.InternalError, internal_error:
-      logging.error("Error inserting global stat: {0}.".format(internal_error))
-      return False
+    db.put(global_stat)
     logging.debug("Done creating global stat")
-    return True
 
   def remove_old_tasks_entities(self):
     """ Queries for old tasks and removes the entity which tells
@@ -1016,8 +994,6 @@ class DatastoreGroomer(threading.Thread):
     Args:
       timestamp: A datetime time stamp to know which stat items belong
         together.
-    Returns:
-      True if there were no errors, False otherwise.
     """
     for app_id in self.namespace_info.keys():
       ds_distributed = self.register_db_accessor(app_id)
@@ -1025,15 +1001,15 @@ class DatastoreGroomer(threading.Thread):
       for namespace in namespaces:
         size = self.namespace_info[app_id][namespace]['size']
         number = self.namespace_info[app_id][namespace]['number']
-        if not self.create_namespace_entry(namespace, size, number, timestamp):
-          return False
+        try:
+          self.create_namespace_entry(namespace, size, number, timestamp)
+        except (datastore_errors.BadRequestError,
+                datastore_errors.InternalError) as error:
+          logging.error('Unable to insert namespace info: {}'.format(error))
 
       logging.info("Namespace for {0} are {1}"\
         .format(app_id, self.namespace_info[app_id]))
       del ds_distributed
-
-    return True
-
 
   def update_statistics(self, timestamp):
     """ Puts the statistics into the datastore for applications
@@ -1042,8 +1018,6 @@ class DatastoreGroomer(threading.Thread):
     Args:
       timestamp: A datetime time stamp to know which stat items belong
         together.
-    Returns:
-      True if there were no errors, False otherwise.
     """
     for app_id in self.stats.keys():
       ds_distributed = self.register_db_accessor(app_id)
@@ -1055,12 +1029,18 @@ class DatastoreGroomer(threading.Thread):
         number = self.stats[app_id][kind]['number']
         total_size += size
         total_number += number
-        if not self.create_kind_stat_entry(kind, size, number, timestamp):
-          return False
+        try:
+          self.create_kind_stat_entry(kind, size, number, timestamp)
+        except (datastore_errors.BadRequestError,
+                datastore_errors.InternalError) as error:
+          logging.error('Unable to insert kind stat: {}'.format(error))
 
-      if not self.create_global_stat_entry(app_id, total_size, total_number,
-                                           timestamp):
-        return False
+      try:
+        self.create_global_stat_entry(app_id, total_size, total_number,
+                                      timestamp)
+      except (datastore_errors.BadRequestError,
+              datastore_errors.InternalError) as error:
+        logging.error('Unable to insert global stat: {}'.format(error))
 
       logging.info("Kind stats for {0} are {1}"\
         .format(app_id, self.stats[app_id]))
@@ -1068,8 +1048,6 @@ class DatastoreGroomer(threading.Thread):
         "{2} entities".format(app_id, total_size, total_number))
       logging.info("Number of hard deletes: {0}".format(self.num_deletes))
       del ds_distributed
-
-    return True
 
   def update_groomer_state(self, state):
     """ Updates the groomer's internal state and persists the state to
@@ -1189,11 +1167,8 @@ class DatastoreGroomer(threading.Thread):
 
     timestamp = datetime.datetime.utcnow()
 
-    if not self.update_statistics(timestamp):
-      logging.error("There was an error updating the statistics")
-
-    if not self.update_namespaces(timestamp):
-      logging.error("There was an error updating the namespaces")
+    self.update_statistics(timestamp)
+    self.update_namespaces(timestamp)
 
     del self.db_access
     del self.ds_access

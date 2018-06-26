@@ -142,7 +142,11 @@ class SystemManager():
       return self.__generate_response(False,
         InfrastructureManager.REASON_BAD_SECRET)
 
-    monit_stats = subprocess.check_output(["monit", "summary"])
+    try:
+      monit_stats = subprocess.check_output(["monit", "summary"])
+    except CalledProcessError:
+      logging.warn("get_service_summary: failed to query monit.")
+      raise ServiceException('Failed to query monit.')
 
     monit_stats_dict = {}
     for line in monit_stats.split("\n"):

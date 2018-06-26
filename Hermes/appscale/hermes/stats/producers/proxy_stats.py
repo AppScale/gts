@@ -5,10 +5,11 @@ import socket
 import time
 from collections import defaultdict
 from datetime import datetime
-
-import attr
+import re
 import os
 import psutil
+
+import attr
 
 from appscale.hermes.stats.constants import (
   HAPROXY_APPS_STATS_SOCKET_PATH,
@@ -273,6 +274,7 @@ def get_stats(socket_path):
       if not data:
         break
       stats_output.write(data)
+    stats_output.seek(0)
     return stats_output
   finally:
     client.close()
@@ -410,3 +412,15 @@ class ProxiesStatsSource(object):
     logging.info("Prepared stats about {prox} proxies in {elapsed:.1f}s."
                  .format(prox=len(proxy_stats_list), elapsed=time.time()-start))
     return stats
+
+
+def get_service_instances(stats_socket_path, pxname):
+  safe_pxname = re.escape(pxname)
+  ip_port_list = []
+  ip_port_pattern = re.compile(
+    "\n{proxy},{proxy}-(?P<port_ip>[.\w]+:\d+)".format(proxy=safe_pxname)
+  )
+  stats_csv = get_stats(stats_socket_path).read()
+  for match in re.finditer(ip_port_pattern, stats_csv):
+    ip_port_list.append(match.group("port_ip"))
+  return ip_port_list

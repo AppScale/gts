@@ -9,6 +9,7 @@ import socket
 import subprocess
 import time
 
+from psutil import NoSuchProcess
 from tornado import gen
 from tornado.httpclient import AsyncHTTPClient
 from tornado.ioloop import IOLoop, PeriodicCallback
@@ -175,7 +176,13 @@ class DatastoreServer(Server):
   def _cleanup(self):
     """ Cleans up process and file descriptor. """
     if self.process is not None:
-      self.process.terminate()
+      try:
+        self.process.terminate()
+      except NoSuchProcess:
+        logger.info('Can\'t terminate process {pid} as it no longer exists'
+                    .format(pid=self.process.pid))
+        return
+
       initial_stop_time = time.time()
       while True:
         if time.time() > initial_stop_time + self.STOP_TIMEOUT:

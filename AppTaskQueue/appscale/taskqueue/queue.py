@@ -380,6 +380,8 @@ class PullQueue(Queue):
     if task is not None:
       self._delete_task_and_index(task)
 
+    logger.debug('Deleted task: {}'.format(task))
+
   def update_lease(self, task, new_lease_seconds, retries=5):
     """ Updates the duration of a task lease.
 
@@ -527,8 +529,11 @@ class PullQueue(Queue):
       if tasks_needed < 1:
         break
 
-      index_results = self._query_available_tasks(
-        tasks_needed, group_by_tag, tag)
+      try:
+        index_results = self._query_available_tasks(
+          tasks_needed, group_by_tag, tag)
+      except TRANSIENT_CASSANDRA_ERRORS:
+        raise TransientError('Unable to query available tasks')
 
       # The following prevents any task from being leased multiple times in the
       # same request. If the lease time is very small, it's possible for the
@@ -557,6 +562,7 @@ class PullQueue(Queue):
 
     time_elapsed = datetime.datetime.utcnow() - start_time
     logger.debug('Leased {} tasks [time elapsed: {}]'.format(len(leased), str(time_elapsed)))
+    logger.debug('IDs leased: {}'.format([task.id for task in leased]))
     return leased
 
   def total_tasks(self):
