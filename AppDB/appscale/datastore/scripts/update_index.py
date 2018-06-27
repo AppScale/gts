@@ -3,6 +3,7 @@ import sys
 
 from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.utils import tornado_synchronous
 from .. import appscale_datastore_batch
 from ..datastore_distributed import DatastoreDistributed
 from ..zkappscale import zktransaction as zk
@@ -50,7 +51,7 @@ def main():
   datastore_access = DatastoreDistributed(
     datastore_batch, transaction_manager, zookeeper=zookeeper)
 
-  pb_indices = datastore_access.datastore_batch.get_indices(args.app_id)
+  pb_indices = datastore_access.datastore_batch.get_indices_sync(args.app_id)
   indices = [datastore_pb.CompositeIndex(index) for index in pb_indices]
   if len(indices) == 0:
     print('No composite indices found for app {}'.format(args.app_id))
@@ -78,7 +79,9 @@ def main():
       sys.exit()
 
   selected_index = indices[selection - 1]
-  datastore_access.update_composite_index(args.app_id, selected_index)
+  update_composite_index_sync = tornado_synchronous(
+    datastore_access.update_composite_index)
+  update_composite_index_sync(args.app_id, selected_index)
 
   zookeeper.close()
   print('Index successfully updated')

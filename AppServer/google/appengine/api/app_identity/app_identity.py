@@ -55,6 +55,8 @@ __all__ = ['BackendDeadlineExceeded',
            'get_access_token',
            'get_access_token_uncached',
            'make_get_access_token_call',
+           'get_default_gcs_bucket_name',
+           'make_get_default_gcs_bucket_name_call',
           ]
 
 
@@ -62,6 +64,7 @@ _APP_IDENTITY_SERVICE_NAME = 'app_identity_service'
 _SIGN_FOR_APP_METHOD_NAME = 'SignForApp'
 _GET_CERTS_METHOD_NAME = 'GetPublicCertificatesForApp'
 _GET_SERVICE_ACCOUNT_NAME_METHOD_NAME = 'GetServiceAccountName'
+_GET_DEFAULT_GCS_BUCKET_NAME_METHOD_NAME = 'GetDefaultGcsBucketName'
 _GET_ACCESS_TOKEN_METHOD_NAME = 'GetAccessToken'
 _PARTITION_SEPARATOR = '~'
 _DOMAIN_SEPARATOR = ':'
@@ -285,6 +288,51 @@ def make_get_service_account_name_call(rpc):
                 response, get_service_account_name_result)
 
 
+def make_get_default_gcs_bucket_name_call(rpc):
+  """Get default google storage bucket name for the app.
+
+  Args:
+    rpc: A UserRPC object.
+
+  Returns:
+    Default Google Storage Bucket name of the app.
+  """
+  request = app_identity_service_pb.GetDefaultGcsBucketNameRequest()
+  response = app_identity_service_pb.GetDefaultGcsBucketNameResponse()
+
+  if rpc.deadline is not None:
+    request.set_deadline(rpc.deadline)
+
+  def get_default_gcs_bucket_name_result(rpc):
+    """Check success, handle exceptions, and return converted RPC result.
+
+    This method waits for the RPC if it has not yet finished, and calls the
+    post-call hooks on the first invocation.
+
+    Args:
+      rpc: A UserRPC object.
+
+    Returns:
+      A string which is the name of the app's default google storage bucket.
+    """
+    assert rpc.service == _APP_IDENTITY_SERVICE_NAME, repr(rpc.service)
+    assert rpc.method == _GET_DEFAULT_GCS_BUCKET_NAME_METHOD_NAME, (
+        repr(rpc.method))
+    try:
+      rpc.check_success()
+    except apiproxy_errors.ApplicationError, err:
+      raise _to_app_identity_error(err)
+
+    if response.has_default_gcs_bucket_name():
+      return response.default_gcs_bucket_name()
+    else:
+      return None
+
+
+  rpc.make_call(_GET_DEFAULT_GCS_BUCKET_NAME_METHOD_NAME, request,
+                response, get_default_gcs_bucket_name_result)
+
+
 def sign_blob(bytes_to_sign, deadline=None):
   """Signs a blob.
 
@@ -330,6 +378,22 @@ def get_service_account_name(deadline=None):
   """
   rpc = create_rpc(deadline)
   make_get_service_account_name_call(rpc)
+  rpc.wait()
+  return rpc.get_result()
+
+
+def get_default_gcs_bucket_name(deadline=None):
+  """Gets the default gs bucket name for the app.
+
+  Args:
+    deadline: Optional deadline in seconds for the operation; the default
+      is a system-specific deadline (typically 5 seconds).
+
+  Returns:
+    Default bucket name for the app.
+  """
+  rpc = create_rpc(deadline)
+  make_get_default_gcs_bucket_name_call(rpc)
   rpc.wait()
   return rpc.get_result()
 

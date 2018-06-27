@@ -17,8 +17,8 @@ from flexmock import flexmock
 class FakeDatastore(object):
   def __init__(self):
     pass
-  def range_query(self, table, schema, start, end, batch_size,
-    start_inclusive=True, end_inclusive=True):
+  def range_query_sync(self, table, schema, start, end, batch_size,
+                       start_inclusive=True, end_inclusive=True):
     return []
 
 FAKE_ENCODED_ENTITY = \

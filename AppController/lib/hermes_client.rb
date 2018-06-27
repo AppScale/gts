@@ -34,6 +34,11 @@ module HermesClient
     end
   end
 
+  def self.get_cpu_count(node_ip, secret)
+    node_info = HermesClient.make_call(node_ip, secret, '/stats/local/node', {})
+    return node_info['cpu']['count']
+  end
+
   # Gets haproxy statistics from Hermes located on load balancer node.
   #
   # Args:

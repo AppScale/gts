@@ -11,12 +11,12 @@ from appscale.datastore import dbconstants
 from appscale.datastore import entity_utils
 from appscale.datastore import groomer
 from appscale.datastore import utils
-from appscale.datastore.datastore_distributed import DatastoreDistributed
 from flexmock import flexmock
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
+from google.appengine.api import datastore_errors
 from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
 
@@ -33,7 +33,7 @@ class FakeQuery():
 class FakeDatastore():
   def __init__(self):
     pass
-  def range_query(self, table, schema, start, end, batch_size, 
+  def range_query(self, table, schema, start, end, batch_size,
     start_inclusive=True, end_inclusive=True):
     return []
   def batch_delete(self, table, row_keys):
@@ -81,7 +81,7 @@ class TestGroomer(unittest.TestCase):
   """
   def test_init(self):
     zookeeper = flexmock()
-    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888") 
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
 
   def test_get_groomer_lock(self):
     zookeeper = flexmock()
@@ -93,7 +93,7 @@ class TestGroomer(unittest.TestCase):
     zookeeper = flexmock()
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
-    dsg.db_access = FakeDatastore()    
+    dsg.db_access = FakeDatastore()
     self.assertEquals(False, dsg.hard_delete_row("some_key"))
 
   def test_get_root_key_from_entity_key(self):
@@ -126,36 +126,36 @@ class TestGroomer(unittest.TestCase):
     self.assertEquals(True,
       dsg.process_entity({'key':{dbconstants.APP_ENTITY_SCHEMA[0]:'ent',
       dbconstants.APP_ENTITY_SCHEMA[1]:'version'}}))
- 
+
   def test_process_statistics(self):
     zookeeper = flexmock()
     flexmock(utils).should_receive("get_entity_kind").and_return("kind")
-    
+
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
-     
-    # This one gets ignored 
+
+    # This one gets ignored
     dsg.should_receive("initialize_kind")
     self.assertEquals(True, dsg.process_statistics("key", FakeEntity(), 1))
     self.assertEquals(dsg.stats, {'app_id':{'kind':{'size':1, 'number':1}}})
     self.assertEquals(True, dsg.process_statistics("key", FakeEntity(), 1))
     self.assertEquals(dsg.stats, {'app_id':{'kind':{'size':2, 'number':2}}})
- 
+
   def test_initialize_kind(self):
     zookeeper = flexmock()
     flexmock(entity_pb).should_receive('EntityProto').and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
     dsg.initialize_kind('app_id', 'kind')
-    self.assertEquals(dsg.stats, {'app_id': {'kind': {'size': 0, 'number': 0}}}) 
- 
+    self.assertEquals(dsg.stats, {'app_id': {'kind': {'size': 0, 'number': 0}}})
+
   def test_txn_blacklist_cleanup(self):
-    #TODO 
+    #TODO
     pass
 
   def test_stop(self):
-    #TODO 
+    #TODO
     pass
 
   def test_remove_old_statistics(self):
@@ -173,13 +173,17 @@ class TestGroomer(unittest.TestCase):
     dsg = flexmock(dsg)
     dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
     dsg.should_receive("create_global_stat_entry").and_return(True)
-    dsg.should_receive("create_kind_stat_entry").and_return(True)
+    dsg.should_receive("create_kind_stat_entry")
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
     dsg.stats['app_id1'] = {'kind': {'size': 0, 'number': 0}}
-    # Should loop twice and on the second raise an exception.
-    self.assertEquals(True, dsg.update_statistics(datetime.datetime.now()))
-    dsg.should_receive("create_kind_stat_entry").and_return(False)
-    self.assertEquals(False, dsg.update_statistics(datetime.datetime.now()))
+
+    dsg.update_statistics(datetime.datetime.now())
+    dsg.should_receive("create_kind_stat_entry").\
+      and_raise(datastore_errors.BadRequestError)
+    # BadRequestErrors should be ignored when generating stats because they are
+    # expected for undeployed projects and it's better to continue generating
+    # stats for other projects rather than stopping altogether.
+    dsg.update_statistics(datetime.datetime.now())
 
   def test_reset_statistics(self):
     zookeeper = flexmock()
@@ -199,11 +203,11 @@ class TestGroomer(unittest.TestCase):
 
   def test_create_kind_stat_entry(self):
     zookeeper = flexmock()
-    stats = flexmock(db.stats)    
+    stats = flexmock(db.stats)
     stats.should_receive("GlobalStat").and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     self.assertRaises(Exception, dsg.create_kind_stat_entry, "kind", 0, 0, 0)
-     
+
   def test_create_global_stat_entry(self):
     zookeeper = flexmock()
     stats = flexmock(db.stats)
@@ -213,4 +217,4 @@ class TestGroomer(unittest.TestCase):
 
 
 if __name__ == "__main__":
-  unittest.main()    
+  unittest.main()

@@ -81,7 +81,7 @@ class AdminApplication(webapp2.WSGIApplication):
          ('/instances', modules_handler.ModulesHandler),
          webapp2.Route('/',
                        webapp2.RedirectHandler,
-                       defaults={'_uri': '/datastore'})],
+                       defaults={'_uri': '/instances'})],
         debug=True)
     self.dispatcher = dispatch
     self.configuration = configuration

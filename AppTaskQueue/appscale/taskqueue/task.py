@@ -157,7 +157,13 @@ class Task(object):
     Returns:
       A string representing the task.
     """
-    return '<Task: {}>'.format(self.id)
+    attributes = {'id': self.id}
+    if hasattr(self, 'queueName'):
+      attributes['queue'] = self.queueName
+
+    values = ', '.join(['='.join([attr, val])
+                        for attr, val in attributes.items()])
+    return '<Task: {}>'.format(values)
 
   def json_safe_dict(self, fields=TASK_FIELDS):
     """ Generate a JSON-safe dictionary representation of the task.

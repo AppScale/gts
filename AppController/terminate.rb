@@ -1,3 +1,5 @@
+require 'pty'
+
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'fileutils'
 
@@ -18,28 +20,30 @@ module TerminateHelper
     `rm -f /etc/haproxy/sites-enabled/*.cfg`
     `service nginx reload`
 
-    puts "Waiting for monit to stop services ..."
-    loop do
-      monit_output = `monit summary`
-      all_stopped = true
-      monit_output.each_line do |line|
-        # Leave cron-related entries alone.
-        next if line.include?('cron')
-        next if line.start_with?('System')
-        next unless line.include?('Running')
-
-        all_stopped = false
-        next if line.include?('stop pending')
-        entry = line.split[1][1..-2]
-        `monit stop #{entry} 2>&1`
-        sleep(0.5)
-        break
+    begin
+      PTY.spawn('appscale-stop-services') do |stdout, _, _|
+        begin
+          stdout.each { |line| print line }
+        rescue Errno::EIO
+          # The process has likely finished giving output.
+        end
       end
-      break if all_stopped
+    rescue PTY::ChildExited
+      # The process has finished.
     end
 
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
+
+    # Stop datastore servers.
+    datastore_cgroup = '/sys/fs/cgroup/memory/appscale-datastore/cgroup.procs'
+    begin
+      File.readlines(datastore_cgroup).each do |pid|
+        `kill #{pid}`
+      end
+    rescue Errno::ENOENT
+      # If there are no processes running, there is no need to stop them.
+    end
 
     `rm -f /etc/logrotate.d/appscale-*`
 
@@ -74,6 +78,10 @@ module TerminateHelper
   def self.erase_appscale_full_state
     # Delete logs.
     `rm -rf /var/log/appscale/*`
+
+    # Restart rsyslog so that the combined app logs can be recreated.
+    `service rsyslog restart`
+
     `rm -rf /var/log/rabbitmq/*`
     `rm -rf /var/log/zookeeper/*`
     `rm -rf /var/log/nginx/appscale-*`
@@ -83,6 +91,7 @@ module TerminateHelper
     `rm -rf #{APPSCALE_CONFIG_DIR}/*.pid`
     `rm -rf /tmp/ec2/*`
     `rm -rf /tmp/*started`
+    `rm -rf /etc/cron.d/appscale-*`
 
     # Delete stored data.
     `rm -rf /opt/appscale/cassandra`

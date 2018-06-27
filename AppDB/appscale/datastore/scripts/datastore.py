@@ -10,12 +10,12 @@ import json
 import logging
 import os
 import sys
-import threading
 import time
 import tornado.httpserver
 import tornado.web
 
 from appscale.common import appscale_info
+from appscale.common.appscale_info import get_load_balancer_ips
 from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
@@ -40,6 +40,7 @@ from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_v4_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
+from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 # Global for accessing the datastore. An instance of DatastoreDistributed.
 datastore_access = None
@@ -109,12 +110,13 @@ class ReadOnlyHandler(tornado.web.RequestHandler):
 
 class ReserveKeysHandler(tornado.web.RequestHandler):
   """ Handles v4 AllocateIds requests from other servers. """
+  @gen.coroutine
   def post(self):
     """ Prevents the provided IDs from being re-allocated. """
     project_id = self.request.headers['appdata']
     request = datastore_v4_pb.AllocateIdsRequest(self.request.body)
     ids = [key.path_element_list()[-1].id() for key in request.reserve_list()]
-    datastore_access.reserve_ids(project_id, ids)
+    yield datastore_access.reserve_ids(project_id, ids)
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -211,44 +213,41 @@ class MainHandler(tornado.web.RequestHandler):
     logger.debug(request_log)
 
     if method == "Put":
-      response, errcode, errdetail = self.put_request(app_id,
-                                                 http_request_data)
+      response, errcode, errdetail = yield self.put_request(
+        app_id, http_request_data)
     elif method == "Get":
-      response, errcode, errdetail = self.get_request(app_id,
-                                                 http_request_data)
+      response, errcode, errdetail = yield self.get_request(
+        app_id, http_request_data)
     elif method == "Delete":
-      response, errcode, errdetail = self.delete_request(app_id,
-                                                    http_request_data)
+      response, errcode, errdetail = yield self.delete_request(
+        app_id, http_request_data)
     elif method == "RunQuery":
-      response, errcode, errdetail = self.run_query(http_request_data)
+      response, errcode, errdetail = yield self.run_query(http_request_data)
     elif method == "BeginTransaction":
-      response, errcode, errdetail = self.begin_transaction_request(
-                                                      app_id, http_request_data)
+      response, errcode, errdetail = yield self.begin_transaction_request(
+        app_id, http_request_data)
     elif method == "Commit":
-      response, errcode, errdetail = self.commit_transaction_request(
-                                                      app_id,
-                                                      http_request_data)
+      response, errcode, errdetail = yield self.commit_transaction_request(
+        app_id, http_request_data)
     elif method == "Rollback":
       response, errcode, errdetail = self.rollback_transaction_request(
-                                                        app_id,
-                                                        http_request_data)
+        app_id, http_request_data)
     elif method == "AllocateIds":
-      response, errcode, errdetail = self.allocate_ids_request(
-                                                        app_id,
-                                                        http_request_data)
+      response, errcode, errdetail = yield self.allocate_ids_request(
+        app_id, http_request_data)
     elif method == "CreateIndex":
-      response, errcode, errdetail = self.create_index_request(app_id,
-                                                        http_request_data)
+      response, errcode, errdetail = yield self.create_index_request(
+        app_id, http_request_data)
     elif method == "GetIndices":
-      response, errcode, errdetail = self.get_indices_request(app_id)
+      response, errcode, errdetail = yield self.get_indices_request(app_id)
     elif method == "UpdateIndex":
-      response, errcode, errdetail = self.update_index_request(app_id,
-        http_request_data)
+      response, errcode, errdetail = self.update_index_request(
+        app_id, http_request_data)
     elif method == "DeleteIndex":
-      response, errcode, errdetail = self.delete_index_request(app_id,
-                                                       http_request_data)
+      response, errcode, errdetail = yield self.delete_index_request(
+        app_id, http_request_data)
     elif method == 'AddActions':
-      response, errcode, errdetail = self.add_actions_request(
+      response, errcode, errdetail = yield self.add_actions_request(
         app_id, http_request_data, service_id, version_id)
     elif method == 'datastore_v4.AllocateIds':
       response, errcode, errdetail = yield self.v4_allocate_ids_request(
@@ -276,6 +275,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     self.write(apiresponse.Encode())
 
+  @gen.coroutine
   def begin_transaction_request(self, app_id, http_request_data):
     """ Handles the intial request to start a transaction. Replies with 
         a unique identifier to handle this transaction in future requests.
@@ -295,26 +295,30 @@ class MainHandler(tornado.web.RequestHandler):
 
     if READ_ONLY:
       logger.warning('Unable to begin transaction in read-only mode: {}'.
-        format(begin_transaction_req_pb))
-      return ('', datastore_pb.Error.CAPABILITY_DISABLED,
-              'Datastore is in read-only mode.')
+                     format(begin_transaction_req_pb))
+      raise gen.Return(
+        ('', datastore_pb.Error.CAPABILITY_DISABLED,
+         'Datastore is in read-only mode.'))
 
     try:
-      handle = datastore_access.setup_transaction(app_id, multiple_eg)
+      handle = yield datastore_access.setup_transaction(app_id, multiple_eg)
     except dbconstants.InternalError as error:
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
     except dbconstants.BadRequest as error:
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except (zktransaction.ZKInternalException,
             dbconstants.AppScaleDBConnectionError) as error:
       logger.exception('Unable to begin transaction')
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(
+        ('', datastore_pb.Error.INTERNAL_ERROR,
+         str(error)))
 
     transaction_pb = datastore_pb.Transaction()
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
-    return transaction_pb.Encode(), 0, ''
+    raise gen.Return((transaction_pb.Encode(), 0, ''))
 
+  @gen.coroutine
   def commit_transaction_request(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.
 
@@ -330,10 +334,13 @@ class MainHandler(tornado.web.RequestHandler):
       transaction_pb = datastore_pb.Transaction(http_request_data)
       logger.warning('Unable to commit in read-only mode: {}'.
         format(transaction_pb))
-      return ('', datastore_pb.Error.CAPABILITY_DISABLED,
-              'Datastore is in read-only mode.')
+      raise gen.Return(
+        ('', datastore_pb.Error.CAPABILITY_DISABLED,
+         'Datastore is in read-only mode.'))
 
-    return datastore_access.commit_transaction(app_id, http_request_data)
+    result = yield datastore_access.commit_transaction(
+      app_id, http_request_data)
+    raise gen.Return(result)
 
   def rollback_transaction_request(self, app_id, http_request_data):
     """ Handles the rollback phase of a transaction.
@@ -353,15 +360,22 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore is in read-only mode.')
 
     try:
-      return datastore_access.rollback_transaction(app_id, http_request_data)
-    except zktransaction.ZKInternalException as error:
-      logger.exception('ZKInternalException during {} for {}'.
-        format(http_request_data, app_id))
+      txn = datastore_pb.Transaction(http_request_data)
+    except ProtocolBufferDecodeError as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+
+    try:
+      datastore_access.rollback_transaction(app_id, txn.handle())
+    except dbconstants.InternalError as error:
+      logger.exception('Unable to rollback transaction')
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
     except Exception as error:
       logger.exception('Unable to rollback transaction')
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
 
+    return api_base_pb.VoidProto().Encode(), 0, ''
+
+  @gen.coroutine
   def run_query(self, http_request_data):
     """ High level function for running queries.
 
@@ -374,25 +388,26 @@ class MainHandler(tornado.web.RequestHandler):
     query = datastore_pb.Query(http_request_data)
     clone_qr_pb = UnprocessedQueryResult()
     try:
-      datastore_access._dynamic_run_query(query, clone_qr_pb)
+      yield datastore_access._dynamic_run_query(query, clone_qr_pb)
     except dbconstants.BadRequest as error:
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      raise gen.Return( ('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except zktransaction.ZKBadRequest as error:
-      logger.exception('Illegal arguments in transaction during {}'.
-        format(query))
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      logger.exception(
+        'Illegal arguments in transaction during {}'.format(query))
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except zktransaction.ZKInternalException as error:
       logger.exception('ZKInternalException during {}'.format(query))
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
     except zktransaction.ZKTransactionException as error:
       logger.exception('Concurrent transaction during {}'.format(query))
-      return '', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)
+      raise gen.Return(
+        ('', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)))
     except dbconstants.AppScaleDBConnectionError as error:
       logger.exception('DB connection error during query')
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
+    raise gen.Return((clone_qr_pb.Encode(), 0, ''))
 
-    return clone_qr_pb.Encode(), 0, ''
-
+  @gen.coroutine
   def create_index_request(self, app_id, http_request_data):
     """ High level function for creating composite indexes.
 
@@ -408,19 +423,18 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.Integer64Proto()
 
     if READ_ONLY:
-      logger.warning('Unable to create in read-only mode: {}'.
-        format(request))
-      return ('', datastore_pb.Error.CAPABILITY_DISABLED,
-              'Datastore is in read-only mode.')
+      logger.warning('Unable to create in read-only mode: {}'.format(request))
+      raise gen.Return(
+        ('', datastore_pb.Error.CAPABILITY_DISABLED,
+         'Datastore is in read-only mode.'))
 
     try:
-      index_id = datastore_access.create_composite_index(app_id, request)
+      index_id = yield datastore_access.create_composite_index(app_id, request)
       response.set_value(index_id)
     except dbconstants.AppScaleDBConnectionError as error:
       logger.exception('DB connection error during index creation')
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
-
-    return response.Encode(), 0, ''
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
+    raise gen.Return((response.Encode(), 0, ''))
 
   def update_index_request(self, app_id, http_request_data):
     """ High level function for updating a composite index.
@@ -437,8 +451,7 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.VoidProto()
 
     if READ_ONLY:
-      logger.warning('Unable to update in read-only mode: {}'.
-        format(index))
+      logger.warning('Unable to update in read-only mode: {}'.format(index))
       return ('', datastore_pb.Error.CAPABILITY_DISABLED,
               'Datastore is in read-only mode.')
 
@@ -450,12 +463,13 @@ class MainHandler(tornado.web.RequestHandler):
       logger.error(error_message)
       return '', datastore_pb.Error.PERMISSION_DENIED, error_message
     else:
-      # Updating index asynchronously so we can return a response quickly.
-      threading.Thread(target=datastore_access.update_composite_index,
-        args=(app_id, index)).start()
+      # Updating index in background so we can return a response quickly.
+      IOLoop.current().spawn_callback(
+        datastore_access.update_composite_index, app_id, index)
 
     return response.Encode(), 0, ''
 
+  @gen.coroutine
   def delete_index_request(self, app_id, http_request_data):
     """ Deletes a composite index for a given application.
   
@@ -471,44 +485,44 @@ class MainHandler(tornado.web.RequestHandler):
     response = api_base_pb.VoidProto()
 
     if READ_ONLY:
-      logger.warning('Unable to delete in read-only mode: {}'.
-        format(request))
-      return ('', datastore_pb.Error.CAPABILITY_DISABLED,
-              'Datastore is in read-only mode.')
+      logger.warning('Unable to delete in read-only mode: {}'.format(request))
+      raise gen.Return(
+        ('', datastore_pb.Error.CAPABILITY_DISABLED,
+         'Datastore is in read-only mode.'))
 
     try:
-      datastore_access.delete_composite_index_metadata(app_id, request)
+      yield datastore_access.delete_composite_index_metadata(app_id, request)
     except dbconstants.AppScaleDBConnectionError as error:
       logger.exception('DB connection error during index deletion')
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
 
-    return response.Encode(), 0, ''
+    raise gen.Return((response.Encode(), 0, ''))
 
+  @gen.coroutine
   def get_indices_request(self, app_id):
     """ Gets the indices of the given application.
 
     Args:
       app_id: Name of the application.
-      http_request_data: Stores the protocol buffer request from the 
-               AppServer.
     Returns: 
       A Tuple of an encoded response, error code, and error explanation.
     """
     global datastore_access
     response = datastore_pb.CompositeIndices()
     try:
-      indices = datastore_access.datastore_batch.get_indices(app_id)
+      indices = yield datastore_access.datastore_batch.get_indices(app_id)
     except dbconstants.AppScaleDBConnectionError as error:
-      logger.exception('DB connection error while fetching indices for '
-        '{}'.format(app_id))
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      logger.exception(
+        'DB connection error while fetching indices for {}'.format(app_id))
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
 
     for index in indices:
       new_index = response.add_index()
       new_index.ParseFromString(index)
 
-    return response.Encode(), 0, ''
+    raise gen.Return((response.Encode(), 0, ''))
 
+  @gen.coroutine
   def allocate_ids_request(self, app_id, http_request_data):
     """ High level function for getting unique identifiers for entities.
 
@@ -524,31 +538,32 @@ class MainHandler(tornado.web.RequestHandler):
     request = datastore_pb.AllocateIdsRequest(http_request_data)
 
     if request.has_max() and request.has_size():
-      return ('', datastore_pb.Error.BAD_REQUEST,
-              'Both size and max cannot be set.')
-
+      raise gen.Return(
+        ('', datastore_pb.Error.BAD_REQUEST,
+         'Both size and max cannot be set.'))
     if not (request.has_max() or request.has_size()):
-      return ('', datastore_pb.Error.BAD_REQUEST,
-              'Either size or max must be set.')
+      raise gen.Return(
+        ('', datastore_pb.Error.BAD_REQUEST,
+         'Either size or max must be set.'))
 
     if request.has_size():
-      method = datastore_access.allocate_size
+      coroutine = datastore_access.allocate_size
       args = (app_id, request.size())
     else:
-      method = datastore_access.allocate_max
+      coroutine = datastore_access.allocate_max
       args = (app_id, request.max())
 
     try:
-      start, end = method(*args)
+      start, end = yield coroutine(*args)
     except dbconstants.AppScaleBadArg as error:
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except dbconstants.AppScaleDBConnectionError as error:
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
 
     response = datastore_pb.AllocateIdsResponse()
     response.set_start(start)
     response.set_end(end)
-    return response.Encode(), 0, ''
+    raise gen.Return((response.Encode(), 0, ''))
 
   @staticmethod
   @gen.coroutine
@@ -569,7 +584,7 @@ class MainHandler(tornado.web.RequestHandler):
                         'Request must include reserve list'))
 
     ids = [key.path_element_list()[-1].id() for key in request.reserve_list()]
-    datastore_access.reserve_ids(app_id, ids)
+    yield datastore_access.reserve_ids(app_id, ids)
 
     # Forward request to other datastore servers in order to adjust any blocks
     # they've already allocated.
@@ -593,6 +608,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     raise gen.Return((response.Encode(), 0, ''))
 
+  @gen.coroutine
   def put_request(self, app_id, http_request_data):
     """ High level function for doing puts.
 
@@ -608,26 +624,28 @@ class MainHandler(tornado.web.RequestHandler):
     putresp_pb = datastore_pb.PutResponse()
 
     if READ_ONLY:
-      logger.warning('Unable to put in read-only mode: {}'.
-        format(putreq_pb))
-      return ('', datastore_pb.Error.CAPABILITY_DISABLED,
-              'Datastore is in read-only mode.')
+      logger.warning(
+        'Unable to put in read-only mode: {}'.format(putreq_pb))
+      raise gen.Return(
+        ('', datastore_pb.Error.CAPABILITY_DISABLED,
+         'Datastore is in read-only mode.'))
 
     try:
-      datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
-      return putresp_pb.Encode(), 0, ''
+      yield datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
+      raise gen.Return((putresp_pb.Encode(), 0, ''))
     except (dbconstants.InternalError, zktransaction.ZKInternalException,
             dbconstants.AppScaleDBConnectionError) as error:
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
     except dbconstants.Timeout as error:
-      return '', datastore_pb.Error.TIMEOUT, str(error)
+      raise gen.Return(('', datastore_pb.Error.TIMEOUT, str(error)))
     except (dbconstants.BadRequest, zktransaction.ZKBadRequest) as error:
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except zktransaction.ZKTransactionException as error:
-      logger.exception('Concurrent transaction during {}'.
-        format(putreq_pb))
-      return '', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)
+      logger.exception('Concurrent transaction during {}'.format(putreq_pb))
+      raise gen.Return(
+        ('', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)))
 
+  @gen.coroutine
   def get_request(self, app_id, http_request_data):
     """ High level function for doing gets.
 
@@ -641,23 +659,26 @@ class MainHandler(tornado.web.RequestHandler):
     getreq_pb = datastore_pb.GetRequest(http_request_data)
     getresp_pb = datastore_pb.GetResponse()
     try:
-      datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
+      yield datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
     except zktransaction.ZKBadRequest as error:
       logger.exception('Illegal argument during {}'.format(getreq_pb))
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except zktransaction.ZKInternalException as error:
       logger.exception('ZKInternalException during {}'.format(getreq_pb))
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
     except zktransaction.ZKTransactionException as error:
       logger.exception('Concurrent transaction during {}'.format(getreq_pb))
-      return '', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)
+      raise gen.Return(
+        ('', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)))
     except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error during get')
-      return ('', datastore_pb.Error.INTERNAL_ERROR,
-              'Datastore connection error on get.')
+      raise gen.Return(
+        ('', datastore_pb.Error.INTERNAL_ERROR,
+         'Datastore connection error on get.'))
 
-    return getresp_pb.Encode(), 0, ''
+    raise gen.Return((getresp_pb.Encode(), 0, ''))
 
+  @gen.coroutine
   def delete_request(self, app_id, http_request_data):
     """ High level function for doing deletes.
 
@@ -673,36 +694,41 @@ class MainHandler(tornado.web.RequestHandler):
     delresp_pb = api_base_pb.VoidProto()
 
     if READ_ONLY:
-      logger.warning('Unable to delete in read-only mode: {}'.
-        format(delreq_pb))
-      return ('', datastore_pb.Error.CAPABILITY_DISABLED,
-              'Datastore is in read-only mode.')
+      logger.warning(
+        'Unable to delete in read-only mode: {}'.format(delreq_pb))
+      raise gen.Return(
+        ('', datastore_pb.Error.CAPABILITY_DISABLED,
+         'Datastore is in read-only mode.'))
 
     try:
-      datastore_access.dynamic_delete(app_id, delreq_pb)
-      return delresp_pb.Encode(), 0, ''
+      yield datastore_access.dynamic_delete(app_id, delreq_pb)
+      raise gen.Return((delresp_pb.Encode(), 0, ''))
     except dbconstants.InternalError as error:
-      return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+      raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
     except dbconstants.Timeout as error:
-      return '', datastore_pb.Error.TIMEOUT, str(error)
+      raise gen.Return(('', datastore_pb.Error.TIMEOUT, str(error)))
     except dbconstants.BadRequest as error:
-        return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except zktransaction.ZKBadRequest as error:
       logger.exception('Illegal argument during {}'.format(delreq_pb))
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except zktransaction.ZKInternalException:
       logger.exception('ZKInternalException during {}'.format(delreq_pb))
-      return ('', datastore_pb.Error.INTERNAL_ERROR,
-              'Internal error with ZooKeeper connection.')
+      raise gen.Return(
+        ('', datastore_pb.Error.INTERNAL_ERROR,
+         'Internal error with ZooKeeper connection.'))
     except zktransaction.ZKTransactionException:
       logger.exception('Concurrent transaction during {}'.format(delreq_pb))
-      return ('', datastore_pb.Error.CONCURRENT_TRANSACTION,
-              'Concurrent transaction exception on delete.')
+      raise gen.Return(
+        ('', datastore_pb.Error.CONCURRENT_TRANSACTION,
+         'Concurrent transaction exception on delete.'))
     except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error during delete')
-      return ('', datastore_pb.Error.INTERNAL_ERROR,
-              'Datastore connection error on delete.')
+      raise gen.Return(
+        ('', datastore_pb.Error.INTERNAL_ERROR,
+         'Datastore connection error on delete.'))
 
+  @gen.coroutine
   def add_actions_request(self, app_id, http_request_data, service_id,
                           version_id):
     """ High level function for adding transactional tasks.
@@ -721,28 +747,32 @@ class MainHandler(tornado.web.RequestHandler):
     resp_pb = taskqueue_service_pb.TaskQueueBulkAddResponse()
 
     if service_id is None:
-      return ('', datastore_pb.Error.BAD_REQUEST,
-              'Module header must be defined')
+      raise gen.Return(
+        ('', datastore_pb.Error.BAD_REQUEST,
+         'Module header must be defined'))
 
     if version_id is None:
-      return ('', datastore_pb.Error.BAD_REQUEST,
-              'Version header must be defined')
+      raise gen.Return(
+        ('', datastore_pb.Error.BAD_REQUEST,
+         'Version header must be defined'))
 
     if READ_ONLY:
       logger.warning('Unable to add transactional tasks in read-only mode')
-      return ('', datastore_pb.Error.CAPABILITY_DISABLED,
-              'Datastore is in read-only mode.')
+      raise gen.Return(
+        ('', datastore_pb.Error.CAPABILITY_DISABLED,
+         'Datastore is in read-only mode.'))
 
     try:
-      datastore_access.dynamic_add_actions(app_id, req_pb, service_id,
-                                           version_id)
-      return resp_pb.Encode(), 0, ''
+      yield datastore_access.dynamic_add_actions(
+        app_id, req_pb, service_id, version_id)
+      raise gen.Return((resp_pb.Encode(), 0, ''))
     except dbconstants.ExcessiveTasks as error:
-      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
     except dbconstants.AppScaleDBConnectionError:
       logger.exception('DB connection error')
-      return ('', datastore_pb.Error.INTERNAL_ERROR,
-              'Datastore connection error when adding transaction tasks.')
+      raise gen.Return(
+        ('', datastore_pb.Error.INTERNAL_ERROR,
+         'Datastore connection error when adding transaction tasks.'))
 
 
 def create_server_node():
@@ -827,6 +857,7 @@ def main():
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('port', args.port)
+  taskqueue_locations = get_load_balancer_ips()
 
   server_node = '{}/{}:{}'.format(DATASTORE_SERVERS_NODE, options.private_ip,
                                   options.port)
@@ -847,7 +878,8 @@ def main():
   transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
     datastore_batch, transaction_manager, zookeeper=zookeeper,
-    log_level=logger.getEffectiveLevel())
+    log_level=logger.getEffectiveLevel(),
+    taskqueue_locations=taskqueue_locations)
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)

@@ -372,6 +372,7 @@ class ShibbolethLoginPage(AppDashboard):
       self.redirect("{1}/users/shibboleth?continue={0}".format(
         self.request.get('continue'),
         AppDashboardHelper.SHIBBOLETH_CONNECTOR))
+      return
 
     target = '{0}/users/shibboleth?continue={1}'.format(
       AppDashboardHelper.SHIBBOLETH_CONNECTOR,
@@ -577,24 +578,38 @@ class AppDeletePage(AppDashboard):
     if self.dstore.is_user_cloud_admin() or \
             appname in self.dstore.get_owned_apps():
       message = self.helper.delete_app(appname)
-      try:
-        taskqueue.add(url='/status/refresh')
-        taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAIT_TIME)
-      except Exception as err:
-        logging.exception(err)
     else:
       message = "You do not have permission to delete the application: " \
                 "{0}".format(appname)
 
+    # Get the list of project ids the user has access to.
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    all_versions = self.helper.get_version_info()
+    if is_cloud_admin:
+      apps_user_owns = list({version.split('_')[0]
+                             for version in all_versions})
+    else:
+      apps_user_owns = self.helper.get_owned_apps()
     self.render_app_page(page='apps', values={
       'flash_message': message,
       'page_content': self.TEMPLATE,
+      'apps_user_owns': apps_user_owns,
     })
 
   def get(self):
     """ Handler for GET requests. """
+    # Recover the list of project ids the user can delete.
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    all_versions = self.helper.get_version_info()
+    if is_cloud_admin:
+      apps_user_owns = list({version.split('_')[0]
+                             for version in all_versions})
+    else:
+      apps_user_owns = self.helper.get_owned_apps()
+
     self.render_app_page(page='apps', values={
       'page_content': self.TEMPLATE,
+      'apps_user_owns': apps_user_owns,
     })
 
 
@@ -686,6 +701,7 @@ class LogMainPage(AppDashboard):
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (not apps_user_is_admin_on):
       self.redirect(DashPage.PATH, self.response)
+      return
 
     query = ndb.gql('SELECT * FROM LoggedService')
     all_services = []
@@ -716,6 +732,7 @@ class LogServicePage(AppDashboard):
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
       self.redirect(DashPage.PATH, self.response)
+      return
 
     service = LoggedService.get_by_id(service_name)
     if service:
@@ -751,6 +768,7 @@ class LogServiceHostPage(AppDashboard):
     apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
       self.redirect(DashPage.PATH, self.response)
+      return
 
     encoded_cursor = self.request.get('next_cursor')
     if encoded_cursor and encoded_cursor != "None":
@@ -801,6 +819,7 @@ class LogDownloader(AppDashboard):
     is_cloud_admin = self.helper.is_user_cloud_admin()
     if not is_cloud_admin:
       self.redirect(DashPage.PATH)
+      return
 
     success, uuid = self.helper.gather_logs()
     self.render_app_page(page='logs', values={
@@ -1077,9 +1096,11 @@ class StatsPage(AppDashboard):
 
     if not apps_user_is_admin_on:
       self.redirect(DashPage.PATH, self.response)
+      return
 
     if app_id not in apps_user_is_admin_on:
       self.redirect(DashPage.PATH, self.response)
+      return
 
     self.render_app_page(page='stats', values={
       'appid': app_id,

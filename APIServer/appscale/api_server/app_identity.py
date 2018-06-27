@@ -28,6 +28,9 @@ class AppIdentityService(BaseService):
     """ Implements the App Identity API. """
     SERVICE_NAME = 'app_identity_service'
 
+    # A dummy bucket name for satisfying calls.
+    DEFAULT_GCS_BUCKET_NAME = 'app_default_bucket'
+
     # The appropriate messages for each API call.
     METHODS = {'SignForApp': (service_pb.SignForAppRequest,
                               service_pb.SignForAppResponse),
@@ -38,7 +41,10 @@ class AppIdentityService(BaseService):
                    service_pb.GetServiceAccountNameRequest,
                    service_pb.GetServiceAccountNameResponse),
                'GetAccessToken': (service_pb.GetAccessTokenRequest,
-                                  service_pb.GetAccessTokenResponse)}
+                                  service_pb.GetAccessTokenResponse),
+               'GetDefaultGcsBucketName': (
+                   service_pb.GetDefaultGcsBucketNameRequest,
+                   service_pb.GetDefaultGcsBucketNameResponse)}
 
     def __init__(self, project_id, zk_client):
         """ Creates a new AppIdentityService.
@@ -203,6 +209,8 @@ class AppIdentityService(BaseService):
 
             response.access_token = token.token
             response.expiration_time = token.expiration_time
+        elif method == 'GetDefaultGcsBucketName':
+            response.default_gcs_bucket_name = self.DEFAULT_GCS_BUCKET_NAME
 
         return response.SerializeToString()
 

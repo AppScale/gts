@@ -6,16 +6,15 @@ import struct
 import sys
 import time
 
-import dbconstants
-import helper_functions
-
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from .appscale_datastore_batch import DatastoreFactory
-from .dbconstants import AppScaleDBConnectionError
-from .dbconstants import ID_KEY_LENGTH
-from .dbconstants import METADATA_TABLE
-from .dbconstants import TERMINATING_STRING
+from tornado import ioloop
+
+from appscale.datastore import dbconstants, helper_functions
+from appscale.datastore.appscale_datastore_batch import DatastoreFactory
+from appscale.datastore.dbconstants import (
+  AppScaleDBConnectionError, ID_KEY_LENGTH, METADATA_TABLE, TERMINATING_STRING
+)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import appscale_stub_util
@@ -218,7 +217,7 @@ def fetch_and_delete_entities(database, table, schema, first_key,
   start_inclusive = True
   while True:
     try:
-      entities = db.range_query(
+      entities = db.range_query_sync(
         table, schema, first_key, last_key, batch_size,
         start_inclusive=start_inclusive)
       if not entities:
@@ -226,7 +225,7 @@ def fetch_and_delete_entities(database, table, schema, first_key,
         break
 
       for ii in entities:
-        db.batch_delete(table, ii.keys())
+        db.batch_delete_sync(table, ii.keys())
       logging.info("Deleted {0} entities".format(len(entities)))
 
       first_key = entities[-1].keys()[0]
@@ -700,3 +699,15 @@ def encode_path_from_filter(query_filter):
     path.add_element().MergeFrom(element)
 
   return str(encode_index_pb(path))
+
+
+def tornado_synchronous(coroutine):
+  def synchronous_coroutine(*args, **kwargs):
+    async = lambda: coroutine(*args, **kwargs)
+    # Like synchronous HTTPClient, create separate IOLoop for sync code
+    io_loop = ioloop.IOLoop(make_current=False)
+    try:
+      return io_loop.run_sync(async)
+    finally:
+      io_loop.close()
+  return synchronous_coroutine

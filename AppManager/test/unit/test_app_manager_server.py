@@ -217,7 +217,7 @@ class TestAppManager(AsyncTestCase):
     max_heap = 260
     pidfile = 'testpid'
     cmd = app_manager_server.create_java_start_cmd(
-      app_id, '20000', '127.0.0.2', max_heap, pidfile, revision_key)
+      app_id, '20000', '127.0.0.2', max_heap, pidfile, revision_key, 19999)
     assert app_id in cmd
 
   @gen_test

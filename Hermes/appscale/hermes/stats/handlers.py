@@ -14,7 +14,7 @@ from appscale.hermes.stats.converter import stats_to_dict, \
 
 
 class CurrentStatsHandler(RequestHandler):
-  """ Handler for getting current node/processes/proxies stats.
+  """ Handler for getting current local stats of specific kind.
   """
 
   def initialize(self, source, default_include_lists):
@@ -22,6 +22,7 @@ class CurrentStatsHandler(RequestHandler):
     self._default_include_lists = default_include_lists
     self._snapshot = None
 
+  @gen.coroutine
   def get(self):
     if self.request.headers.get(SECRET_HEADER) != options.secret:
       logging.warn("Received bad secret from {client}"
@@ -55,12 +56,14 @@ class CurrentStatsHandler(RequestHandler):
     )
     if need_refresh:
       self._snapshot = self._stats_source.get_current()
+      if isinstance(self._snapshot, gen.Future):
+        self._snapshot = yield self._snapshot
 
     json.dump(stats_to_dict(self._snapshot, include_lists), self)
 
 
 class CurrentClusterStatsHandler(RequestHandler):
-  """ Handler for getting current node/processes/proxies stats.
+  """ Handler for getting current stats of specific kind.
   """
   def initialize(self, source, default_include_lists):
     self._current_cluster_stats_source = source
@@ -106,7 +109,7 @@ class CurrentClusterStatsHandler(RequestHandler):
       fresh_local_snapshots = {}
 
     new_snapshots_dict, failures = (
-      yield self._current_cluster_stats_source.get_current_async(
+      yield self._current_cluster_stats_source.get_current(
         max_age=max_age, include_lists=include_lists,
         exclude_nodes=fresh_local_snapshots.keys()
       )
