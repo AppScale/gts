@@ -1073,7 +1073,7 @@ class Djinn
       if output.include?("Your app can be reached at the following URL")
         result = "true"
       else
-        result = output
+        result = output.dump
       end
 
       @app_upload_reservations[reservation_id]['status'] = result
