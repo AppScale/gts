@@ -5,6 +5,13 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.5.3, released June 2018
+Highlights of features/bugs in this release:
+ - Issue-2813 - Controller won't start with latest version of soap4r-ng (2.0.4) 
+
+Known Issues:
+
+
 AppScale version 3.5.2, released May 2018
 Highlights of features/bugs in this release:
 
