@@ -167,14 +167,17 @@ class SourceManager(object):
         archive.
       runtime: A string specifying the revision's runtime.
     """
+    source_extracted = False
     try:
       md5 = yield self.fetch_archive(revision_key, location)
     except AlreadyHoster as already_hoster_err:
       logger.info(already_hoster_err)
+      source_extracted = os.path.isdir(os.path.join(UNPACK_ROOT, revision_key))
     else:
       yield self.register_as_hoster(revision_key, md5)
 
-    yield self.thread_pool.submit(extract_source, revision_key, location,
+    if not source_extracted:
+      yield self.thread_pool.submit(extract_source, revision_key, location,
                                   runtime)
 
     project_id = revision_key.split(VERSION_PATH_SEPARATOR)[0]
