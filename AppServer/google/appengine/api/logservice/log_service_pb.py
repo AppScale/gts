@@ -936,6 +936,8 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
   clone_key_ = ""
   has_lines_incomplete_ = 0
   lines_incomplete_ = 0
+  has_app_engine_release_ = 0
+  app_engine_release_ = ""
   has_exit_reason_ = 0
   exit_reason_ = 0
   has_was_throttled_for_time_ = 0
@@ -1377,6 +1379,19 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
 
   def has_lines_incomplete(self): return self.has_lines_incomplete_
 
+  def app_engine_release(self): return self.app_engine_release_
+
+  def set_app_engine_release(self, x):
+    self.has_app_engine_release_ = 1
+    self.app_engine_release_ = x
+
+  def clear_app_engine_release(self):
+    if self.has_app_engine_release_:
+      self.has_app_engine_release_ = 0
+      self.app_engine_release_ = ""
+
+  def has_app_engine_release(self): return self.has_app_engine_release_
+
   def exit_reason(self): return self.exit_reason_
 
   def set_exit_reason(self, x):
@@ -1477,6 +1492,7 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
     if (x.has_clone_key()): self.set_clone_key(x.clone_key())
     for i in xrange(x.line_size()): self.add_line().CopyFrom(x.line(i))
     if (x.has_lines_incomplete()): self.set_lines_incomplete(x.lines_incomplete())
+    if (x.has_app_engine_release()): self.set_app_engine_release(x.app_engine_release())
     if (x.has_exit_reason()): self.set_exit_reason(x.exit_reason())
     if (x.has_was_throttled_for_time()): self.set_was_throttled_for_time(x.was_throttled_for_time())
     if (x.has_was_throttled_for_requests()): self.set_was_throttled_for_requests(x.was_throttled_for_requests())
@@ -1550,6 +1566,8 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
       if e1 != e2: return 0
     if self.has_lines_incomplete_ != x.has_lines_incomplete_: return 0
     if self.has_lines_incomplete_ and self.lines_incomplete_ != x.lines_incomplete_: return 0
+    if self.has_app_engine_release_ != x.has_app_engine_release_: return 0
+    if self.has_app_engine_release_ and self.app_engine_release_ != x.app_engine_release_: return 0
     if self.has_exit_reason_ != x.has_exit_reason_: return 0
     if self.has_exit_reason_ and self.exit_reason_ != x.exit_reason_: return 0
     if self.has_was_throttled_for_time_ != x.has_was_throttled_for_time_: return 0
@@ -1664,6 +1682,7 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
     n += 2 * len(self.line_)
     for i in xrange(len(self.line_)): n += self.lengthString(self.line_[i].ByteSize())
     if (self.has_lines_incomplete_): n += 3
+    if (self.has_app_engine_release_): n += 2 + self.lengthString(len(self.app_engine_release_))
     if (self.has_exit_reason_): n += 2 + self.lengthVarInt64(self.exit_reason_)
     if (self.has_was_throttled_for_time_): n += 3
     if (self.has_was_throttled_for_requests_): n += 3
@@ -1736,6 +1755,7 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
     n += 2 * len(self.line_)
     for i in xrange(len(self.line_)): n += self.lengthString(self.line_[i].ByteSizePartial())
     if (self.has_lines_incomplete_): n += 3
+    if (self.has_app_engine_release_): n += 2 + self.lengthString(len(self.app_engine_release_))
     if (self.has_exit_reason_): n += 2 + self.lengthVarInt64(self.exit_reason_)
     if (self.has_was_throttled_for_time_): n += 3
     if (self.has_was_throttled_for_requests_): n += 3
@@ -1776,6 +1796,7 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
     self.clear_clone_key()
     self.clear_line()
     self.clear_lines_incomplete()
+    self.clear_app_engine_release()
     self.clear_exit_reason()
     self.clear_was_throttled_for_time()
     self.clear_was_throttled_for_requests()
@@ -1881,6 +1902,9 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
     if (self.has_module_id_):
       out.putVarInt32(298)
       out.putPrefixedString(self.module_id_)
+    if (self.has_app_engine_release_):
+      out.putVarInt32(306)
+      out.putPrefixedString(self.app_engine_release_)
 
   def OutputPartial(self, out):
     if (self.has_app_id_):
@@ -1996,6 +2020,9 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
     if (self.has_module_id_):
       out.putVarInt32(298)
       out.putPrefixedString(self.module_id_)
+    if (self.has_app_engine_release_):
+      out.putVarInt32(306)
+      out.putPrefixedString(self.app_engine_release_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -2117,6 +2144,9 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
       if tt == 298:
         self.set_module_id(d.getPrefixedString())
         continue
+      if tt == 306:
+        self.set_app_engine_release(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -2167,6 +2197,7 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
       res+=prefix+">\n"
       cnt+=1
     if self.has_lines_incomplete_: res+=prefix+("lines_incomplete: %s\n" % self.DebugFormatBool(self.lines_incomplete_))
+    if self.has_app_engine_release_: res+=prefix+("app_engine_release: %s\n" % self.DebugFormatString(self.app_engine_release_))
     if self.has_exit_reason_: res+=prefix+("exit_reason: %s\n" % self.DebugFormatInt32(self.exit_reason_))
     if self.has_was_throttled_for_time_: res+=prefix+("was_throttled_for_time: %s\n" % self.DebugFormatBool(self.was_throttled_for_time_))
     if self.has_was_throttled_for_requests_: res+=prefix+("was_throttled_for_requests: %s\n" % self.DebugFormatBool(self.was_throttled_for_requests_))
@@ -2210,6 +2241,7 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
   kclone_key = 28
   kline = 29
   klines_incomplete = 36
+  kapp_engine_release = 38
   kexit_reason = 30
   kwas_throttled_for_time = 31
   kwas_throttled_for_requests = 32
@@ -2255,7 +2287,8 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
     35: "offset",
     36: "lines_incomplete",
     37: "module_id",
-  }, 37)
+    38: "app_engine_release",
+  }, 38)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -2296,7 +2329,8 @@ class RequestLog(ProtocolBuffer.ProtocolMessage):
     35: ProtocolBuffer.Encoder.STRING,
     36: ProtocolBuffer.Encoder.NUMERIC,
     37: ProtocolBuffer.Encoder.STRING,
-  }, 37, ProtocolBuffer.Encoder.MAX_TYPE)
+    38: ProtocolBuffer.Encoder.STRING,
+  }, 38, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""

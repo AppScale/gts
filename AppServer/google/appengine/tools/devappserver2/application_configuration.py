@@ -82,6 +82,12 @@ class ModuleConfiguration(object):
 
     self._app_info_external, files_to_check = self._parse_configuration(
         self._yaml_path)
+
+    # TODO: As in AppengineApiClient._CreateVersionResource,
+    # add deprecation warnings and remove this code
+    if self._app_info_external.service:
+      self._app_info_external.module = self._app_info_external.service
+
     if app_id:
       self._app_info_external.application = app_id
     self._mtimes = self._get_mtimes([self._yaml_path] + files_to_check)

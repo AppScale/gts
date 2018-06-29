@@ -5,23 +5,29 @@ import logging
 import md5
 import random
 import sys
-import threading
 import time
 
 from tornado import gen
+from tornado.ioloop import IOLoop
 
 from appscale.datastore import dbconstants, helper_functions
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
 from appscale.datastore.dbconstants import (
-  APP_ENTITY_SCHEMA, BadRequest, ID_KEY_LENGTH, MAX_TX_DURATION, Timeout
+  APP_ENTITY_SCHEMA, BadRequest, ID_KEY_LENGTH, InternalError, MAX_TX_DURATION,
+  Timeout
 )
+from appscale.datastore.cassandra_env.cassandra_interface import (
+  batch_size, LARGE_BATCH_THRESHOLD)
 from appscale.datastore.cassandra_env.entity_id_allocator import EntityIDAllocator
 from appscale.datastore.cassandra_env.entity_id_allocator import ScatteredAllocator
+from appscale.datastore.cassandra_env.large_batch import BatchNotApplied
 from appscale.datastore.cassandra_env.utils import deletions_for_entity
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
+from appscale.datastore.taskqueue_client import EnqueueError, TaskQueueClient
 from appscale.datastore.utils import clean_app_id
+from appscale.datastore.utils import decode_path
 from appscale.datastore.utils import encode_entity_table_key
 from appscale.datastore.utils import encode_index_pb
 from appscale.datastore.utils import encode_path_from_filter
@@ -34,16 +40,13 @@ from appscale.datastore.utils import group_for_key
 from appscale.datastore.utils import kind_from_encoded_key
 from appscale.datastore.utils import reference_property_to_reference
 from appscale.datastore.utils import UnprocessedQueryCursor
+from appscale.datastore.range_iterator import RangeExhausted, RangeIterator
 from appscale.datastore.zkappscale import entity_lock
 from appscale.datastore.zkappscale import zktransaction
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
 from google.appengine.api.datastore_distributed import _MAX_ACTIONS_PER_TXN
-from google.appengine.api.taskqueue import taskqueue_service_pb
-from google.appengine.api.taskqueue.taskqueue_distributed import\
-  TaskQueueServiceStub
 from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
@@ -64,10 +67,6 @@ class DatastoreDistributed():
   """
   # Max number of results for a query
   _MAXIMUM_RESULTS = 10000
-
-  # The number of entries looked at when doing a composite query
-  # It will keep looking at this size window when getting the result
-  _MAX_COMPOSITE_WINDOW = 10000
 
   # Maximum amount of filter and orderings allowed within a query
   _MAX_QUERY_COMPONENTS = 63
@@ -115,7 +114,7 @@ class DatastoreDistributed():
   BATCH_SIZE = 100
 
   def __init__(self, datastore_batch, transaction_manager, zookeeper=None,
-               log_level=logging.INFO):
+               log_level=logging.INFO, taskqueue_locations=()):
     """
        Constructor.
 
@@ -137,15 +136,13 @@ class DatastoreDistributed():
     # zookeeper instance for accesing ZK functionality.
     self.zookeeper = zookeeper
 
-    # Maintain a stub object for each project using transactional tasks.
-    self.taskqueue_stubs = {}
-
     # Maintain a scattered allocator for each project.
     self.scattered_allocators = {}
 
     # Maintain a sequential allocator for each project.
     self.sequential_allocators = {}
 
+    self.taskqueue_client = TaskQueueClient(taskqueue_locations)
     self.transaction_manager = transaction_manager
     self.zookeeper.handle.add_listener(self._zk_state_listener)
 
@@ -574,8 +571,13 @@ class DatastoreDistributed():
         entity_keys = [
           get_entity_key(self.get_table_prefix(entity), entity.key().path())
           for entity in entity_list]
-        current_values = yield self.datastore_batch.batch_get_entity(
-          dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
+        try:
+          current_values = yield self.datastore_batch.batch_get_entity(
+            dbconstants.APP_ENTITY_TABLE, entity_keys, APP_ENTITY_SCHEMA)
+        except dbconstants.AppScaleDBConnectionError:
+          lock.release()
+          self.transaction_manager.delete_transaction_id(app, txid)
+          raise
 
         batch = []
         entity_changes = []
@@ -597,8 +599,27 @@ class DatastoreDistributed():
 
           entity_changes.append(
             {'key': entity.key(), 'old': current_value, 'new': entity})
-        yield self.datastore_batch.batch_mutate(
-          app, batch, entity_changes, txid)
+
+        if batch_size(batch) > LARGE_BATCH_THRESHOLD:
+          try:
+            yield self.datastore_batch.large_batch(app, batch, entity_changes,
+                                                   txid)
+          except BatchNotApplied as error:
+            # If the "applied" switch has not been flipped, the lock can be
+            # released. The transaction ID is kept so that the groomer can
+            # clean up the batch tables.
+            lock.release()
+            raise dbconstants.AppScaleDBConnectionError(str(error))
+        else:
+          try:
+            yield self.datastore_batch.normal_batch(batch, txid)
+          except dbconstants.AppScaleDBConnectionError:
+            # Since normal batches are guaranteed to be atomic, the lock can
+            # be released.
+            lock.release()
+            self.transaction_manager.delete_transaction_id(app, txid)
+            raise
+
         lock.release()
 
       finally:
@@ -640,7 +661,7 @@ class DatastoreDistributed():
                     'key': bytearray(group.Encode()),
                     'last_update': txid})
 
-      yield self.datastore_batch._normal_batch(batch, txid)
+      yield self.datastore_batch.normal_batch(batch, txid)
 
   @gen.coroutine
   def dynamic_put(self, app_id, put_request, put_response):
@@ -2109,6 +2130,62 @@ class DatastoreDistributed():
 
     raise gen.Return([])
 
+  @staticmethod
+  @gen.coroutine
+  def _common_refs_from_ranges(ranges, limit):
+    """ Find common entries across multiple index ranges.
+
+    Args:
+      ranges: A list of RangeIterator objects.
+      limit: An integer specifying the maximum number of references to find.
+    Returns:
+      A dictionary mapping entity references to index entries.
+    """
+    reference_hash = {}
+    min_common_path = ranges[0].get_cursor()
+    entries_exhausted = False
+    while True:
+      common_keys = []
+      entry = None
+      for range_ in ranges:
+        try:
+          entry = yield range_.async_next()
+        except RangeExhausted:
+          # If any ranges have been exhausted, there are no more matches.
+          entries_exhausted = True
+          break
+
+        # If this entry's path is ahead of the others, consider it the new
+        # minimum acceptable path and adjust the other ranges.
+        if entry.encoded_path > str(encode_index_pb(min_common_path)):
+          min_common_path = entry.path
+          break
+
+        common_keys.append({'index': entry.key, 'prop_name': range_.prop_name})
+
+      if entries_exhausted:
+        break
+
+      # If not all paths are common, adjust earlier ranges.
+      if len(common_keys) < len(ranges):
+        for range_ in ranges:
+          range_.set_cursor(min_common_path, inclusive=True)
+
+        continue
+
+      reference_hash[entry.entity_reference] = common_keys
+
+      # Ensure the chosen reference is excluded.
+      for range_ in ranges:
+        range_.set_cursor(min_common_path, inclusive=False)
+
+      # If there are enough references to satisfy the query, stop fetching
+      # entries.
+      if len(reference_hash) == limit:
+        break
+
+    raise gen.Return(reference_hash)
+
   @gen.coroutine
   def zigzag_merge_join(self, query, filter_info, order_info):
     """ Performs a composite query for queries which have multiple
@@ -2134,177 +2211,45 @@ class DatastoreDistributed():
     if not self.is_zigzag_merge_join(query, filter_info, order_info):
       return
     kind = query.kind()
-    prefix = self.get_table_prefix(query)
     limit = self.get_limit(query)
     app_id = clean_app_id(query.app())
 
     # We only use references from the ascending property table.
     direction = datastore_pb.Query_Order.ASCENDING
 
-    count = self._MAX_COMPOSITE_WINDOW
-    start_key = ""
-    result_list = []
-    force_exclusive = False
-    more_results = True
-    ancestor = None
+    ranges = [RangeIterator.from_filter(self.datastore_batch, app_id,
+                                        query.name_space(), kind, filter_)
+              for filter_ in query.filter_list()]
+
     if query.has_ancestor():
-      ancestor = query.ancestor()
+      for range_ in ranges:
+        range_.restrict_to_path(query.ancestor().path())
 
-    # We will apply the other equality filters after fetching the entities.
-    clean_filter_info = {}
-    for prop in filter_info:
-      filter_ops = filter_info[prop]
-      clean_filter_info[prop] = self.remove_extra_equality_filters(filter_ops)
-    filter_info = clean_filter_info
+    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
+      cursor = appscale_stub_util.ListCursor(query)
+      cursor_path = cursor._GetLastResult().key().path()
+      for range_ in ranges:
+        range_.set_cursor(cursor_path, inclusive=False)
 
-    multiple_equality_filters = self.__get_multiple_equality_filters(
-      query.filter_list())
+    entities = []
+    while True:
+      reference_hash = yield self._common_refs_from_ranges(ranges, limit)
+      new_entities = yield self.__fetch_and_validate_entity_set(
+        reference_hash, limit, app_id, direction)
+      entities.extend(new_entities)
 
-    while more_results:
-      reference_hash = {}
-      temp_res = {}
-      # We use what we learned from the previous scans to skip over any keys
-      # that we know will not be a match.
-      startrow = ""
-      # TODO Do these in parallel and measure speedup.
-      # I've tried a thread wrapper before but due to the function having
-      # self attributes it's nontrivial.
-      for prop_name in filter_info.keys():
-        filter_ops = filter_info.get(prop_name, [])
-        if start_key:
-          # Grab the reference key which is after the last delimiter.
-          value = str(filter_ops[0][1])
-          reference_key = start_key.split(self._SEPARATOR)[-1]
-          params = [prefix, kind, prop_name, value, reference_key]
-          startrow = get_index_key_from_params(params)
-        elif query.has_compiled_cursor() and \
-          query.compiled_cursor().position_size():
-          cursor = appscale_stub_util.ListCursor(query)
-          last_result = cursor._GetLastResult()
-          value = str(filter_ops[0][1])
-          reference_key = str(encode_index_pb(last_result.key().path()))
-          params = [prefix, kind, prop_name, value, reference_key]
-          startrow = get_index_key_from_params(params)
+      # If there are enough entities to satisfy the query, stop fetching.
+      if len(entities) >= limit:
+        break
 
-        # We use equality filters only so order ops should always be ASC.
-        order_ops = []
-        for i in order_info:
-          if i[0] == prop_name:
-            order_ops = [i]
-            break
+      # If there weren't enough common references to fulfill the limit, the
+      # references are exhausted.
+      if len(reference_hash) < limit:
+        break
 
-        temp_res[prop_name] = yield self.__apply_filters(
-          filter_ops, order_ops, prop_name, kind, prefix, count, 0, startrow,
-          force_start_key_exclusive=force_exclusive, ancestor=ancestor,
-          query=query
-        )
-
-      # We do reference counting and consider any reference which matches the
-      # number of properties to be a match. Any others are discarded but it
-      # possible they show up on subsequent scans.
-      last_keys_of_scans = {}
-      first_keys_of_scans = {}
-      for prop_name in temp_res:
-        for indexes in temp_res[prop_name]:
-          for reference in indexes:
-            reference_key = indexes[reference]['reference']
-            if reference_key not in reference_hash:
-              reference_hash[reference_key] = []
-
-            reference_hash[reference_key].append(
-              {'index': reference, 'prop_name': prop_name})
-          # Of the set of entity scans we use the earliest of the set as the
-          # starting point of scans to follow. This makes sure we do not miss
-          # overlapping results because different properties had different
-          # distributions of keys. The index value gives us the key to
-          # the entity table (what the index points to).
-          index_key = indexes.keys()[0]
-          index_value = indexes[index_key]['reference']
-          first_keys_of_scans[prop_name] = index_value
-
-          index_key = indexes.keys()[-1]
-          index_value = indexes[index_key]['reference']
-          last_keys_of_scans[prop_name] = index_value
-
-      # We are looking for the earliest (alphabetically) of the set of last
-      # keys. This tells us where to start our next scans. And from where
-      # we can remove potential results.
-      start_key = ""
-      starting_prop_name = ""
-      for prop_name in first_keys_of_scans:
-        first_key = first_keys_of_scans[prop_name]
-        if not start_key or first_key < start_key:
-          start_key = first_key
-          starting_prop_name = prop_name
-
-      # Override the start key if one of the prop starting keys is outside the
-      # end key of all the other props. This allows to jump over results which
-      # would not have matched.
-      for prop_name in first_keys_of_scans:
-        first_key = first_keys_of_scans[prop_name]
-        jump_ahead = False
-        for last_prop in last_keys_of_scans:
-          if last_prop == prop_name:
-            continue
-
-          if first_key > last_keys_of_scans[last_prop]:
-            jump_ahead = True
-          else:
-            jump_ahead = False
-            break
-        if jump_ahead:
-          start_key = first_key
-          starting_prop_name = prop_name
-
-      # Purge keys which did not intersect from all equality filters and those
-      # which are past the earliest reference shared by all property names
-      # (start_key variable).
-      keys_to_delete = []
-      for key in reference_hash:
-        if len(reference_hash[key]) != len(filter_info.keys()):
-          keys_to_delete.append(key)
-      # You cannot loop on a dictionary and delete from it at the same time.
-      # Hence why the deletes happen here.
-      for key in keys_to_delete:
-        del reference_hash[key]
-
-      # If we have results, we only need to fetch enough to meet the limit.
-      to_fetch = limit - len(result_list)
-
-      entities = yield self.__fetch_and_validate_entity_set(
-        reference_hash, to_fetch, app_id, direction)
-
-      if len(multiple_equality_filters) > 0:
-        self.logger.debug('Detected multiple equality filters on a repeated'
-          'property. Removing results that do not match query.')
-        entities = self.__apply_multiple_equality_filters(
-          entities, multiple_equality_filters)
-
-      result_list.extend(entities)
-
-      # If the property we are setting the start key did not get the requested
-      # amount of entities then we can stop scanning, as there are no more
-      # entities to scan from that property.
-      for prop_name in temp_res:
-        if len(temp_res[prop_name]) < count and prop_name == starting_prop_name:
-          more_results = False
-
-        # If any property no longer has any more items, this query is done.
-        if len(temp_res[prop_name]) == 0:
-          more_results = False
-
-      # If we reached our limit of result entities, then we are done.
-      if len(result_list) >= limit:
-        more_results = False
-
-      # Do not include the first key in subsequent scans because we have
-      # already accounted for the given entity.
-      if start_key in result_list:
-        force_exclusive = True
-
-    results = result_list[:limit]
+    results = entities[:limit]
     self.logger.debug('Returning {} results'.format(len(results)))
-    raise gen.Return(result_list[:limit])
+    raise gen.Return(results)
 
   def does_composite_index_exist(self, query):
     """ Checks to see if the query has a composite index that can implement
@@ -2579,7 +2524,7 @@ class DatastoreDistributed():
 
       # This is a projection query.
       if query.property_name_size() > 0:
-        potential_entities = self.__extract_entities_from_composite_indexes(
+        potential_entities = self._extract_entities_from_composite_indexes(
           query, references)
       else:
         potential_entities = yield self.__fetch_entities(references)
@@ -2817,7 +2762,7 @@ class DatastoreDistributed():
 
     return cleaned_results
 
-  def __extract_entities_from_composite_indexes(self, query, index_result):
+  def _extract_entities_from_composite_indexes(self, query, index_result):
     """ Takes index values and creates partial entities out of them.
 
     This is required for projection queries where the query specifies certain
@@ -2883,35 +2828,20 @@ class DatastoreDistributed():
         self.__decode_index_str(value, prop_value)
 
       key_string = tokens[-1]
-      elements = key_string.split(dbconstants.KIND_SEPARATOR)
+      path = decode_path(key_string)
 
       # Set the entity group.
-      element = elements[0]
-      kind, identifier = element.split(dbconstants.ID_SEPARATOR)
       ent_group = entity.mutable_entity_group()
       new_element = ent_group.add_element()
-      new_element.set_type(kind)
-      if len(identifier) == ID_KEY_LENGTH and identifier.isdigit():
-        new_element.set_id(int(identifier))
-      else:
-        new_element.set_name(identifier)
+      new_element.MergeFrom(path.element(0))
 
       # Set the key path.
       key = entity.mutable_key()
       key.set_app(clean_app_id(app_id))
-      path = key.mutable_path()
       if namespace:
         key.set_name_space(namespace)
-      for element in elements:
-        if not element:
-          continue
-        kind, identifier = element.split(dbconstants.ID_SEPARATOR)
-        new_element = path.add_element()
-        new_element.set_type(kind)
-        if len(identifier) == ID_KEY_LENGTH and identifier.isdigit():
-          new_element.set_id(int(identifier))
-        else:
-          new_element.set_name(identifier)
+
+      key.mutable_path().MergeFrom(path)
 
       # Filter entities if this is a distinct query.
       if query.group_by_property_name_size() == 0:
@@ -3083,6 +3013,7 @@ class DatastoreDistributed():
       app_id, txid, is_xg, in_progress)
     raise gen.Return(txid)
 
+  @gen.coroutine
   def enqueue_transactional_tasks(self, app, tasks):
     """ Send a BulkAdd request to the taskqueue service.
 
@@ -3090,37 +3021,21 @@ class DatastoreDistributed():
       app: A string specifying an application ID.
       task_ops: A list of tasks.
     """
-    if app not in self.taskqueue_stubs:
-      # The host is used only for generating URLs, which have already been
-      # generated for the tasks.
-      self.taskqueue_stubs[app] = TaskQueueServiceStub(app, '')
-
-    bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
-    bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
-
     # Assume all tasks have the same client version.
     service_id = tasks[0]['service_id']
     version_id = tasks[0]['version_id']
 
-    for task in tasks:
-      bulk_request.add_add_request().CopyFrom(task['task'])
-
-    self.logger.debug(
-      'Enqueuing {} tasks'.format(bulk_request.add_request_size()))
-    self.taskqueue_stubs[app]._RemoteSend(
-      bulk_request, bulk_response, 'BulkAdd', service_id=service_id,
-      version_id=version_id)
+    add_requests = [task['task'] for task in tasks]
+    self.logger.debug('Enqueuing {} tasks'.format(len(add_requests)))
 
     # The transaction has already been committed, but enqueuing the tasks may
     # fail. We need a way to enqueue the task with the condition that it
     # executes only upon successful commit. For now, we just log the error.
-    if bulk_response.taskresult_size() != bulk_request.add_request_size():
-      self.logger.error('Unexpected number of task results: {} != {}'.format(
-        bulk_response.taskresult_size(), bulk_request.add_request_size()))
-
-    for task_result in bulk_response.taskresult_list():
-      if task_result.result() != taskqueue_service_pb.TaskQueueServiceError.OK:
-        self.logger.error(task_result)
+    try:
+      yield self.taskqueue_client.add_tasks(app, service_id, version_id,
+                                            add_requests)
+    except EnqueueError as error:
+      self.logger.error('Unable to enqueue tasks: {}'.format(error))
 
   @gen.coroutine
   def apply_txn_changes(self, app, txn):
@@ -3134,11 +3049,11 @@ class DatastoreDistributed():
 
     # If too much time has passed, the transaction cannot be committed.
     if 'start' not in metadata:
-      raise dbconstants.TxTimeoutException('Unable to find transaction')
+      raise dbconstants.BadRequest('Unable to find transaction')
 
     tx_duration = datetime.datetime.utcnow() - metadata['start']
     if (tx_duration > datetime.timedelta(seconds=MAX_TX_DURATION)):
-      raise dbconstants.TxTimeoutException('Transaction timed out')
+      raise dbconstants.BadRequest('The referenced transaction has expired')
 
     # If there were no changes, the transaction is complete.
     if (len(metadata['puts']) + len(metadata['deletes']) +
@@ -3158,7 +3073,7 @@ class DatastoreDistributed():
     indices = yield self.datastore_batch.get_indices(app)
     composite_indices = [entity_pb.CompositeIndex(index) for index in indices]
 
-    decoded_groups = (entity_pb.Reference(group) for group in tx_groups)
+    decoded_groups = [entity_pb.Reference(group) for group in tx_groups]
     self.transaction_manager.set_groups(app, txn, decoded_groups)
 
     # Allow the lock to stick around if there is an issue applying the batch.
@@ -3169,7 +3084,15 @@ class DatastoreDistributed():
       raise Timeout('Unable to acquire entity group locks')
 
     try:
-      group_txids = yield self.datastore_batch.group_updates(metadata['reads'])
+      try:
+        group_txids = yield self.datastore_batch.group_updates(
+          metadata['reads'])
+      except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+        lock.release()
+        self.transaction_manager.delete_transaction_id(app, txn)
+        raise dbconstants.AppScaleDBConnectionError(
+          'Unable to fetch group updates')
+
       for group_txid in group_txids:
         if group_txid in metadata['in_progress'] or group_txid > txn:
           lock.release()
@@ -3182,8 +3105,13 @@ class DatastoreDistributed():
                            for key, _ in metadata['puts'].iteritems()]
       entity_table_keys.extend([encode_entity_table_key(key)
                                 for key in metadata['deletes']])
-      current_values = yield self.datastore_batch.batch_get_entity(
-        dbconstants.APP_ENTITY_TABLE, entity_table_keys, APP_ENTITY_SCHEMA)
+      try:
+        current_values = yield self.datastore_batch.batch_get_entity(
+          dbconstants.APP_ENTITY_TABLE, entity_table_keys, APP_ENTITY_SCHEMA)
+      except dbconstants.AppScaleDBConnectionError:
+        lock.release()
+        self.transaction_manager.delete_transaction_id(app, txn)
+        raise
 
       batch = []
       entity_changes = []
@@ -3221,7 +3149,26 @@ class DatastoreDistributed():
           {'table': 'group_updates', 'key': bytearray(group),
            'last_update': txn})
 
-      yield self.datastore_batch.batch_mutate(app, batch, entity_changes, txn)
+      if batch_size(batch) > LARGE_BATCH_THRESHOLD:
+        try:
+          yield self.datastore_batch.large_batch(app, batch, entity_changes,
+                                                 txn)
+        except BatchNotApplied as error:
+          # If the "applied" switch has not been flipped, the lock can be
+          # released. The transaction ID is kept so that the groomer can
+          # clean up the batch tables.
+          lock.release()
+          raise dbconstants.AppScaleDBConnectionError(str(error))
+      else:
+        try:
+          yield self.datastore_batch.normal_batch(batch, txn)
+        except dbconstants.AppScaleDBConnectionError:
+          # Since normal batches are guaranteed to be atomic, the lock can
+          # be released.
+          lock.release()
+          self.transaction_manager.delete_transaction_id(app, txn)
+          raise
+
       lock.release()
 
     finally:
@@ -3234,8 +3181,8 @@ class DatastoreDistributed():
 
     # Process transactional tasks.
     if metadata['tasks']:
-      threading.Thread(target=self.enqueue_transactional_tasks,
-                       args=(app, metadata['tasks'])).start()
+      IOLoop.current().spawn_callback(self.enqueue_transactional_tasks, app,
+                                      metadata['tasks'])
 
   @gen.coroutine
   def commit_transaction(self, app_id, http_request_data):
@@ -3269,24 +3216,21 @@ class DatastoreDistributed():
     commitres_pb = datastore_pb.CommitResponse()
     raise gen.Return((commitres_pb.Encode(), 0, ''))
 
-  def rollback_transaction(self, app_id, http_request_data):
+  def rollback_transaction(self, app_id, txid):
     """ Handles the rollback phase of a transaction.
 
     Args:
       app_id: The application ID requesting the rollback.
-      http_request_data: The encoded request, a datstore_pb.Transaction.
-    Returns:
-      An encoded protocol buffer void response.
+      txid: An integer specifying a transaction ID.
+    Raises:
+      InternalError if unable to roll back transaction.
     """
-    txn = datastore_pb.Transaction(http_request_data)
     self.logger.info(
-      'Doing a rollback on transaction {} for {}'.format(txn.handle(), app_id))
+      'Doing a rollback on transaction {} for {}'.format(txid, app_id))
     try:
-      self.zookeeper.notify_failed_transaction(app_id, txn.handle())
-      return api_base_pb.VoidProto().Encode(), 0, ''
-    except zktransaction.ZKTransactionException as zkte:
-      self.logger.exception('Unable to rollback {} for {}'.format(txn, app_id))
-      return '', datastore_pb.Error.PERMISSION_DENIED, str(zkte)
+      self.zookeeper.notify_failed_transaction(app_id, txid)
+    except zktransaction.ZKTransactionException as error:
+      raise InternalError(str(error))
 
   def _zk_state_listener(self, state):
     """ Handles changes to the ZooKeeper connection state.

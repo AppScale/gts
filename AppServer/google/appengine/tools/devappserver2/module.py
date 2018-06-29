@@ -263,7 +263,7 @@ class Module(object):
 
     # AppScale: Pack both API ports into the same field.
     if (self._external_api_port is not None and
-        self._module_configuration.runtime == 'python27'):
+        self._module_configuration.runtime in ('python27', 'go', 'php')):
       port_bytes = struct.pack('HH', self._api_port, self._external_api_port)
       runtime_config.api_port = struct.unpack('I', port_bytes)[0]
     else:

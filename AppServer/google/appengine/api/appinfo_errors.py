@@ -38,6 +38,10 @@ class EmptyConfigurationFile(Error):
   """Tried to load empty configuration file"""
 
 
+class ModuleAndServiceDefined(Error):
+  """Configuration has both 'module' and 'service' instead of just one."""
+
+
 class MultipleConfigurationFile(Error):
   """Tried to load configuration file with multiple AppInfo objects"""
 

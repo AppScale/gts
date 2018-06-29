@@ -364,7 +364,8 @@ def start_app(version_key, config):
       login_server,
       max_heap,
       pidfile,
-      revision_key
+      revision_key,
+      api_server_port
     )
 
     env_vars.update(create_java_app_env(project_id))
@@ -776,7 +777,7 @@ def locate_dir(path, dir_name):
 
 
 def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
-                          pidfile, revision_key):
+                          pidfile, revision_key, api_server_port):
   """ Creates the start command to run the java application server.
 
   Args:
@@ -786,6 +787,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     max_heap: An integer specifying the max heap size in MB.
     pidfile: A string specifying the pidfile location.
     revision_key: A string specifying the revision key.
+    api_server_port: An integer specifying the port of the external API server.
   Returns:
     A string of the start command.
   """
@@ -804,6 +806,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     "--jvm_flag=-Dsocket.permit_connect=true",
     '--jvm_flag=-Xmx{}m'.format(max_heap),
     '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
+    '--jvm_flag=-Djdk.tls.client.protocols=TLSv1.1,TLSv1.2',
     "--disable_update_check",
     "--address=" + options.private_ip,
     "--datastore_path=" + options.db_proxy,
@@ -813,6 +816,8 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     "--NGINX_ADDRESS=" + load_balancer_host,
     "--TQ_PROXY=" + options.tq_proxy,
     "--pidfile={}".format(pidfile),
+    "--external_api_port={}".format(api_server_port),
+    "--api_using_python_stub=app_identity_service",
     os.path.dirname(web_inf_directory)
   ]
 
@@ -834,7 +839,10 @@ def unregister_instance(instance):
   except NoNodeError:
     pass
 
-  running_instances.remove(instance)
+  try:
+    running_instances.remove(instance)
+  except KeyError:
+    logging.info('unregister_instance: non-existent instance {}'.format(instance))
 
 
 def register_instance(instance):
@@ -1078,6 +1086,7 @@ if __name__ == "__main__":
   projects_manager = GlobalProjectsManager(zk_client)
   thread_pool = ThreadPoolExecutor(MAX_BACKGROUND_WORKERS)
   source_manager = SourceManager(zk_client, thread_pool)
+  source_manager.configure_automatic_fetch(projects_manager)
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('syslog_server', appscale_info.get_headnode_ip())

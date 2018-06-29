@@ -29,3 +29,7 @@ end
 # do not return properly (specifically, not having a return value of zero).
 class FailedShellExec < StandardError
 end
+
+# Indicates that the user being created already exists.
+class UserExists < StandardError
+end

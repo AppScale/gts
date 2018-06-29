@@ -22,12 +22,17 @@
 import calendar
 import datetime
 import hashlib
+import httplib
 import StringIO
-import time
 
+from google.appengine.api import datastore
+from google.appengine.api import namespace_manager
 from google.appengine.api.blobstore import blobstore_stub
 from google.appengine.ext import db
 from google.appengine.ext.cloudstorage import common
+
+
+_GCS_DEFAULT_CONTENT_TYPE = 'binary/octet-stream'
 
 
 class _AE_GCSFileInfo_(db.Model):
@@ -38,8 +43,10 @@ class _AE_GCSFileInfo_(db.Model):
 
   Key name is blobkey.
   """
+
   filename = db.StringProperty(required=True)
   finalized = db.BooleanProperty(required=True)
+
 
 
 
@@ -48,8 +55,12 @@ class _AE_GCSFileInfo_(db.Model):
 
   size = db.IntegerProperty()
 
+
+  next_offset = db.IntegerProperty(default=0)
+
   creation = db.DateTimeProperty()
-  content_type = db.ByteStringProperty()
+
+  content_type = db.StringProperty(default=_GCS_DEFAULT_CONTENT_TYPE)
   etag = db.ByteStringProperty()
 
   def get_options(self):
@@ -73,22 +84,23 @@ class _AE_GCSFileInfo_(db.Model):
 class _AE_GCSPartialFile_(db.Model):
   """Store partial content for uploading files."""
 
-  start = db.IntegerProperty(required=True)
+
+
+
+
 
   end = db.IntegerProperty(required=True)
-
-
 
   partial_content = db.TextProperty(required=True)
 
 
 class CloudStorageStub(object):
-  """Cloud Storage stub implementation.
+  """Google Cloud Storage stub implementation.
 
   We use blobstore stub to store files. All metadata are stored
   in _AE_GCSFileInfo_.
 
-  Note: this Cloud Storage stub is designed to work with
+  Note: this Google Cloud Storage stub is designed to work with
   apphosting.ext.cloudstorage.storage_api.py.
   It only implements the part of GCS storage_api.py uses, and its interface
   maps to GCS XML APIs.
@@ -107,7 +119,7 @@ class CloudStorageStub(object):
     """Get blobkey for filename.
 
     Args:
-      filename: gs filename of form /bucket/filename.
+      filename: gcs filename of form /bucket/filename.
 
     Returns:
       blobinfo's datastore's key name, aka, blobkey.
@@ -115,35 +127,47 @@ class CloudStorageStub(object):
     common.validate_file_path(filename)
 
     return blobstore_stub.BlobstoreServiceStub.CreateEncodedGoogleStorageKey(
-        filename)
+        filename[1:])
 
+  @db.non_transactional
   def post_start_creation(self, filename, options):
     """Start object creation with a POST.
 
     This implements the resumable upload XML API.
 
+    Only major limitation of current implementation is that we don't
+    support multiple upload sessions for the same GCS file. Previous
+    _AE_GCSFileInfo (which represents either a finalized file, or
+    an upload session) will be removed when a new upload session is
+    created.
+
     Args:
-      filename: gs filename of form /bucket/filename.
+      filename: gcs filename of form /bucket/filename.
       options: a dict containing all user specified request headers.
         e.g. {'content-type': 'foo', 'x-goog-meta-bar': 'bar'}.
 
     Returns:
-      a token used for continuing upload. Also used as blobkey to store
-    the content.
+      a token (blobkey) used for continuing upload.
     """
-    common.validate_file_path(filename)
-    token = self._filename_to_blobkey(filename)
-    gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
+    ns = namespace_manager.get_namespace()
+    try:
+      namespace_manager.set_namespace('')
+      common.validate_file_path(filename)
+      token = self._filename_to_blobkey(filename)
+      gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
 
-    self._cleanup_old_file(gcs_file)
-    new_file = _AE_GCSFileInfo_(key_name=token,
-                                filename=filename,
-                                finalized=False)
-    new_file.options = options
-    new_file.put()
-    return token
+      self._cleanup_old_file(gcs_file)
+      new_file = _AE_GCSFileInfo_(key_name=token,
+                                  filename=filename,
+                                  finalized=False)
+      new_file.options = options
+      new_file.put()
+      return token
+    finally:
+      namespace_manager.set_namespace(ns)
 
 
+  @db.non_transactional
   def _cleanup_old_file(self, gcs_file):
     """Clean up the old version of a file.
 
@@ -162,43 +186,126 @@ class CloudStorageStub(object):
         db.delete(_AE_GCSPartialFile_.all().ancestor(gcs_file))
       gcs_file.delete()
 
-  def put_continue_creation(self, token, content, content_range, last=False):
+  @db.non_transactional
+  def put_continue_creation(self, token, content, content_range,
+                            length=None,
+                            _upload_filename=None):
     """Continue object upload with PUTs.
 
     This implements the resumable upload XML API.
 
     Args:
       token: upload token returned by post_start_creation.
-      content: object content.
+      content: object content. None if no content was provided with this
+        PUT request.
       content_range: a (start, end) tuple specifying the content range of this
-        chunk. Both are inclusive according to XML API.
-      last: True if this is the last chunk of file content.
+        chunk. Both are inclusive according to XML API. None is content is None.
+      length: file length, if this is the last chunk of file content.
+      _upload_filename: internal use. Might be removed any time! This is
+        used by blobstore to pass in the upload filename from user.
+
+    Returns:
+      _AE_GCSFileInfo entity for this file if the file is finalized.
 
     Raises:
-      ValueError: if token is invalid.
+      ValueError: if something is invalid. The exception.args is a tuple of
+      (msg, http status code).
     """
-    gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
-    if not gcs_file:
-      raise ValueError('Invalid token')
-    if content:
-      start, end = content_range
-      if len(content) != (end - start + 1):
-        raise ValueError('Invalid content range %d-%d' % content_range)
-      blobkey = '%s-%d-%d' % (token, content_range[0], content_range[1])
-      self.blob_storage.StoreBlob(blobkey, StringIO.StringIO(content))
-      new_content = _AE_GCSPartialFile_(parent=gcs_file,
-                                        partial_content=blobkey,
-                                        start=start,
-                                        end=end + 1)
-      new_content.put()
-    if last:
-      self._end_creation(token)
 
-  def _end_creation(self, token):
+
+    ns = namespace_manager.get_namespace()
+    try:
+      namespace_manager.set_namespace('')
+      gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
+      if not gcs_file:
+        raise ValueError('Invalid token', httplib.BAD_REQUEST)
+      if gcs_file.next_offset == -1:
+        raise ValueError('Received more uploads after file %s '
+                         'was finalized.' % gcs_file.filename,
+                         httplib.OK)
+      if content:
+        start, end = content_range
+        if len(content) != (end - start + 1):
+          raise ValueError('Invalid content range %d-%d' % content_range,
+                           httplib.REQUESTED_RANGE_NOT_SATISFIABLE)
+
+        if start > gcs_file.next_offset:
+          raise ValueError('Expect start offset %s, got %s' %
+                           (gcs_file.next_offset, start),
+                           httplib.REQUESTED_RANGE_NOT_SATISFIABLE)
+
+        elif end < gcs_file.next_offset:
+          return
+        else:
+
+          content = content[gcs_file.next_offset - start:]
+          start = gcs_file.next_offset
+          blobkey = '%s-%d-%d' % (token, start, end)
+          self.blob_storage.StoreBlob(blobkey, StringIO.StringIO(content))
+          new_content = _AE_GCSPartialFile_(
+              parent=gcs_file,
+
+              key_name='%020d' % start,
+              partial_content=blobkey,
+              start=start,
+              end=end + 1)
+          new_content.put()
+          gcs_file.next_offset = end + 1
+          gcs_file.put()
+      if length is not None and length != gcs_file.next_offset:
+        raise ValueError(
+            'Got finalization request with wrong file length. '
+            'Expecting %s, got %s' % (gcs_file.next_offset, length),
+            httplib.REQUESTED_RANGE_NOT_SATISFIABLE)
+      elif length is not None:
+        return self._end_creation(token, _upload_filename)
+    finally:
+      namespace_manager.set_namespace(ns)
+
+  @db.non_transactional
+  def put_copy(self, src, dst):
+    """Copy file from src to dst.
+
+    Metadata is copied.
+
+    Args:
+      src: /bucket/filename. This file must exist.
+      dst: /bucket/filename
+    """
+    common.validate_file_path(src)
+    common.validate_file_path(dst)
+
+
+    ns = namespace_manager.get_namespace()
+    try:
+      namespace_manager.set_namespace('')
+      src_blobkey = self._filename_to_blobkey(src)
+      source = _AE_GCSFileInfo_.get_by_key_name(src_blobkey)
+      token = self._filename_to_blobkey(dst)
+      new_file = _AE_GCSFileInfo_(key_name=token,
+                                  filename=dst,
+                                  finalized=True)
+      new_file.options = source.options
+      new_file.etag = source.etag
+      new_file.size = source.size
+      new_file.creation = datetime.datetime.utcnow()
+      new_file.put()
+    finally:
+      namespace_manager.set_namespace(ns)
+
+
+    local_file = self.blob_storage.OpenBlob(src_blobkey)
+    self.blob_storage.StoreBlob(token, local_file)
+
+  @db.non_transactional
+  def _end_creation(self, token, _upload_filename):
     """End object upload.
 
     Args:
       token: upload token returned by post_start_creation.
+
+    Returns:
+      _AE_GCSFileInfo Entity for this file.
 
     Raises:
       ValueError: if token is invalid. Or file is corrupted during upload.
@@ -208,6 +315,8 @@ class CloudStorageStub(object):
     gcs_file = _AE_GCSFileInfo_.get_by_key_name(token)
     if not gcs_file:
       raise ValueError('Invalid token')
+    if gcs_file.finalized:
+      return gcs_file
 
     error_msg, content = self._get_content(gcs_file)
     if error_msg:
@@ -217,12 +326,25 @@ class CloudStorageStub(object):
     gcs_file.creation = datetime.datetime.utcnow()
     gcs_file.size = len(content)
 
+
+
+    blob_info = datastore.Entity('__BlobInfo__', name=str(token), namespace='')
+    blob_info['content_type'] = gcs_file.content_type
+    blob_info['creation'] = gcs_file.creation
+    blob_info['filename'] = _upload_filename
+    blob_info['md5_hash'] = gcs_file.etag
+    blob_info['size'] = gcs_file.size
+    datastore.Put(blob_info)
+
     self.blob_storage.StoreBlob(token, StringIO.StringIO(content))
 
     gcs_file.finalized = True
-    gcs_file.put()
 
-  @db.transactional
+    gcs_file.next_offset = -1
+    gcs_file.put()
+    return gcs_file
+
+  @db.transactional(propagation=db.INDEPENDENT)
   def _get_content(self, gcs_file):
     """Aggregate all partial content of the gcs_file.
 
@@ -237,11 +359,13 @@ class CloudStorageStub(object):
     content = ''
     previous_end = 0
     error_msg = ''
-    for partial in _AE_GCSPartialFile_.all().ancestor(gcs_file).order('start'):
+    for partial in (_AE_GCSPartialFile_.all(namespace='').ancestor(gcs_file).
+                    order('__key__')):
+      start = int(partial.key().name())
       if not error_msg:
-        if partial.start < previous_end:
+        if start < previous_end:
           error_msg = 'File is corrupted due to missing chunks.'
-        elif partial.start > previous_end:
+        elif start > previous_end:
           error_msg = 'File is corrupted due to overlapping chunks'
         previous_end = partial.end
         content += self.blob_storage.OpenBlob(partial.partial_content).read()
@@ -252,24 +376,43 @@ class CloudStorageStub(object):
       content = ''
     return error_msg, content
 
+  @db.non_transactional
   def get_bucket(self,
                  bucketpath,
                  prefix,
                  marker,
-                 max_keys):
+                 max_keys,
+                 delimiter):
     """Get bucket listing with a GET.
 
+    How GCS listbucket work in production:
+    GCS tries to return as many items as possible in a single response. If
+    there are more items satisfying user's query and the current request
+    took too long (e.g spent on skipping files in a subdir) or items to return
+    gets too big (> max_keys), it returns fast and sets IsTruncated
+    and NextMarker for continuation. They serve redundant purpose: if
+    NextMarker is set, IsTruncated is True.
+
+    Note NextMarker is not where GCS scan left off. It is
+    only valid for the exact same type of query the marker was generated from.
+    For example, if a marker is generated from query with delimiter, the marker
+    is the name of a subdir (instead of the last file within the subdir). Thus
+    you can't use this marker to issue a query without delimiter.
+
     Args:
-      bucketpath: gs bucket path of form '/bucket'
+      bucketpath: gcs bucket path of form '/bucket'
       prefix: prefix to limit listing.
-      marker: a str after which to start listing.
-      max_keys: max size of listing.
+      marker: a str after which to start listing. Exclusive.
+      max_keys: max items we scan & return.
+      delimiter: delimiter for directory.
 
     See https://developers.google.com/storage/docs/reference-methods#getbucket
     for details.
 
     Returns:
-      A list of CSFileStat sorted by filename.
+      A tuple of (a list of GCSFileStat for files or directories sorted by
+      filename, next_marker to use as next marker, is_truncated boolean to
+      indicate if there are more results satisfying query).
     """
     common.validate_bucket_path(bucketpath)
     q = _AE_GCSFileInfo_.all(namespace='')
@@ -278,22 +421,82 @@ class CloudStorageStub(object):
       q.filter('filename >', '/'.join([bucketpath, marker]))
     else:
       q.filter('filename >=', fully_qualified_prefix)
-    result = []
-    for info in q.run(limit=max_keys):
+
+    result = set()
+    name = None
+    first = True
+    first_dir = None
+    for info in q.run():
+
       if not info.filename.startswith(fully_qualified_prefix):
         break
-      result.append(common.CSFileStat(
-          filename=info.filename,
+      if len(result) == max_keys:
+        break
+
+
+      info = db.get(info.key())
+      if not info:
+        continue
+
+      name = info.filename
+      if delimiter:
+
+        start_index = name.find(delimiter, len(fully_qualified_prefix))
+        if start_index != -1:
+          name = name[:start_index + len(delimiter)]
+
+
+          if marker and (first or name == first_dir):
+            first = False
+            first_dir = name
+
+          else:
+            result.add(common.GCSFileStat(name, st_size=None,
+                                          st_ctime=None, etag=None,
+                                          is_dir=True))
+          continue
+
+      first = False
+      result.add(common.GCSFileStat(
+          filename=name,
           st_size=info.size,
           st_ctime=calendar.timegm(info.creation.utctimetuple()),
           etag=info.etag))
-    return result
 
+    def is_truncated():
+      """Check if there are more results satisfying the query."""
+      if not result:
+        return False
+      q = _AE_GCSFileInfo_.all(namespace='')
+      q.filter('filename >', name)
+      info = None
+
+      if delimiter and name.endswith(delimiter):
+
+        for info in q.run():
+          if not info.filename.startswith(name):
+            break
+        if info.filename.startswith(name):
+          info = None
+      else:
+        info = q.get()
+      if info is None or not info.filename.startswith(fully_qualified_prefix):
+        return False
+      return True
+
+    result = list(result)
+    result.sort()
+    truncated = is_truncated()
+    next_marker = name if truncated else None
+
+    return result, next_marker, truncated
+
+  @db.non_transactional
   def get_object(self, filename, start=0, end=None):
     """Get file content with a GET.
 
     Args:
-      filename: gs filename of form '/bucket/filename'.
+      filename: gcs filename of form '/bucket/filename'.
       start: start offset to request. Inclusive.
       end: end offset to request. Inclusive.
 
@@ -305,8 +508,9 @@ class CloudStorageStub(object):
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
-    gsfileinfo = _AE_GCSFileInfo_.get_by_key_name(blobkey)
-    if not gsfileinfo or not gsfileinfo.finalized:
+    key = blobstore_stub.BlobstoreServiceStub.ToDatastoreBlobKey(blobkey)
+    gcsfileinfo = db.get(key)
+    if not gcsfileinfo or not gcsfileinfo.finalized:
       raise ValueError('File does not exist.')
     local_file = self.blob_storage.OpenBlob(blobkey)
     local_file.seek(start)
@@ -315,21 +519,23 @@ class CloudStorageStub(object):
     else:
       return local_file.read()
 
+  @db.non_transactional
   def head_object(self, filename):
     """Get file stat with a HEAD.
 
     Args:
-      filename: gs filename of form '/bucket/filename'
+      filename: gcs filename of form '/bucket/filename'
 
     Returns:
-      A CSFileStat object containing file stat. None if file doesn't exist.
+      A GCSFileStat object containing file stat. None if file doesn't exist.
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
-    info = _AE_GCSFileInfo_.get_by_key_name(blobkey)
+    key = blobstore_stub.BlobstoreServiceStub.ToDatastoreBlobKey(blobkey)
+    info = db.get(key)
     if info and info.finalized:
       metadata = common.get_metadata(info.options)
-      filestat = common.CSFileStat(
+      filestat = common.GCSFileStat(
           filename=info.filename,
           st_size=info.size,
           etag=info.etag,
@@ -339,20 +545,22 @@ class CloudStorageStub(object):
       return filestat
     return None
 
+  @db.non_transactional
   def delete_object(self, filename):
     """Delete file with a DELETE.
 
     Args:
-      filename: gs filename of form '/bucket/filename'
+      filename: gcs filename of form '/bucket/filename'
 
     Returns:
       True if file is deleted. False if file doesn't exist.
     """
     common.validate_file_path(filename)
     blobkey = self._filename_to_blobkey(filename)
-    gsfileinfo = _AE_GCSFileInfo_.get_by_key_name(blobkey)
-    if not gsfileinfo:
+    key = blobstore_stub.BlobstoreServiceStub.ToDatastoreBlobKey(blobkey)
+    gcsfileinfo = db.get(key)
+    if not gcsfileinfo:
       return False
-    gsfileinfo.delete()
-    self.blob_storage.DeleteBlob(blobkey)
+
+    blobstore_stub.BlobstoreServiceStub.DeleteBlob(blobkey, self.blob_storage)
     return True

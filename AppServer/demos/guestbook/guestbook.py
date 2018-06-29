@@ -20,7 +20,6 @@ import webapp2
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
-import time
 
 guestbook_key = ndb.Key('Guestbook', 'default_guestbook')
 
@@ -32,7 +31,6 @@ class Greeting(ndb.Model):
 
 class MainPage(webapp2.RequestHandler):
   def get(self):
-    start = time.time()
     self.response.out.write('<html><body>')
 
     greetings = ndb.gql('SELECT * '
@@ -40,6 +38,7 @@ class MainPage(webapp2.RequestHandler):
                         'WHERE ANCESTOR IS :1 '
                         'ORDER BY date DESC LIMIT 10',
                         guestbook_key)
+
     for greeting in greetings:
       if greeting.author:
         self.response.out.write('<b>%s</b> wrote:' % greeting.author.nickname())

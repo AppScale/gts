@@ -145,6 +145,7 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
 
     Args:
       service_name: Service name expected for all calls.
+      # AppScale: Host prefix does not include port since that can change.
       host_prefix: the URL prefix (protocol://host) to prepend to image urls
         on a call to GetUrlBase.
     """
@@ -586,6 +587,8 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
 
 
     degrees = 360 - degrees
+    # AppScale: An update to the pillow library makes the expand parameter
+    # necessary to behave the same way as GAE does.
     return image.rotate(degrees, expand=True)
 
   def _Crop(self, image, transform):

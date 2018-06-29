@@ -170,7 +170,10 @@ listen:
     http_bind: true
     ## register: true
     captcha: true
-    tls: true
+    ## AppScale: The nginx proxy entry tries to use HTTP. Disabling tls here
+    ## prevents ejabberd from trying to upgrade the connection. When enabled,
+    ## nginx returns 502 to the client.
+    ## tls: true
     certfile: "APPSCALE-CERTFILE"
 
 ## Disabling digest-md5 SASL authentication. digest-md5 requires plain-text

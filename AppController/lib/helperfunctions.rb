@@ -1002,17 +1002,17 @@ module HelperFunctions
 
         handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
 
-        next unless copy_files
+        if copy_files
+          cache_static_dir_path = File.join(cache_path,handler["static_dir"])
+          FileUtils.mkdir_p cache_static_dir_path
 
-        cache_static_dir_path = File.join(cache_path,handler["static_dir"])
-        FileUtils.mkdir_p cache_static_dir_path
+          filenames = Dir.glob(File.join(untar_dir, handler["static_dir"],"*"))
 
-        filenames = Dir.glob(File.join(untar_dir, handler["static_dir"],"*"))
+          # Remove all files which match the skip file regex so they do not get copied
+          filenames.delete_if { |f| File.expand_path(f).match(skip_files_regex) }
 
-        # Remove all files which match the skip file regex so they do not get copied
-        filenames.delete_if { |f| File.expand_path(f).match(skip_files_regex) }
-
-        FileUtils.cp_r filenames, cache_static_dir_path
+          FileUtils.cp_r filenames, cache_static_dir_path
+        end
       elsif handler["static_files"]
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
@@ -1025,25 +1025,25 @@ module HelperFunctions
 
         handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
 
-        next unless copy_files
+        if copy_files
+          upload_regex = Regexp.new(handler["upload"])
 
-        upload_regex = Regexp.new(handler["upload"])
+          filenames = Dir.glob(File.join(untar_dir,"**","*"))
 
-        filenames = Dir.glob(File.join(untar_dir,"**","*"))
+          filenames.each do |filename|
+            relative_filename = get_relative_filename(filename, untar_dir)
 
-        filenames.each do |filename|
-          relative_filename = get_relative_filename(filename, untar_dir)
+            # Only include files that match the provided upload regular expression
+            next unless relative_filename.match(upload_regex)
 
-          # Only include files that match the provided upload regular expression
-          next unless relative_filename.match(upload_regex)
+            # Skip all files which match the skip file regex so they do not get copied
+            next if relative_filename.match(skip_files_regex)
 
-          # Skip all files which match the skip file regex so they do not get copied
-          next if relative_filename.match(skip_files_regex)
+            file_cache_path = File.join(cache_path, File.dirname(relative_filename))
+            FileUtils.mkdir_p file_cache_path unless File.exists?(file_cache_path)
 
-          file_cache_path = File.join(cache_path, File.dirname(relative_filename))
-          FileUtils.mkdir_p file_cache_path unless File.exists?(file_cache_path)
-
-          FileUtils.cp_r filename, File.join(file_cache_path,File.basename(filename))
+            FileUtils.cp_r filename, File.join(file_cache_path,File.basename(filename))
+          end
         end
       end
       handler
