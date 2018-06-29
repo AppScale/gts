@@ -29,6 +29,7 @@ from cassandra.policies import FallthroughRetryPolicy
 from .constants import (
   InvalidTarget,
   QueueNotFound,
+  TaskNotFound,
   TARGET_REGEX
 )
 from .queue import (
@@ -420,6 +421,8 @@ class DistributedTaskQueue():
 
     try:
       self.__bulk_add(source_info, bulk_request, bulk_response)
+    except TransientError as error:
+      return '', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
     except QueueNotFound as error:
       return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
@@ -454,6 +457,8 @@ class DistributedTaskQueue():
       self.__bulk_add(source_info, request, response)
     except QueueNotFound as error:
       return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+    except TransientError as error:
+      return '', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
 
     return (response.Encode(), 0, "")
 
@@ -853,6 +858,8 @@ class DistributedTaskQueue():
       # The response requires ETA to be set before encoding.
       response.set_updated_eta_usec(0)
       return response.Encode(), error, str(lease_error)
+    except TaskNotFound as error:
+      return '', TaskQueueServiceError.UNKNOWN_TASK, str(error)
 
     epoch = datetime.datetime.utcfromtimestamp(0)
     updated_usec = int((task.leaseTimestamp - epoch).total_seconds() * 1000000)
