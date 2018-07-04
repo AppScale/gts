@@ -323,7 +323,18 @@ class InfrastructureManager:
       {'location' : disk_location})
 
 
+  @classmethod
   def __describe_vms(self, agent, parameters):
+    """
+    Private method for calling the agent to describe VMs.
+
+    Args:
+      agent           Infrastructure agent in charge of current operation
+      parameters      A dictionary of parameters
+    Returns:
+      If the agent is able to describe instances, return the list of instance
+      ids, public ips, and private ips. If the agent fails, return empty lists.
+    """
     try:
       return agent.describe_instances(parameters)
     except (AgentConfigurationException, AgentRuntimeException) as exception:
