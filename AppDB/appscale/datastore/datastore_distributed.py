@@ -1755,8 +1755,6 @@ class DatastoreDistributed():
 
     limit = self.get_limit(query)
 
-    app_id = clean_app_id(query.app())
-
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
@@ -1777,7 +1775,7 @@ class DatastoreDistributed():
     while True:
       references = yield self.__apply_filters(
         filter_ops, order_info, property_name, query.kind(), prefix,
-        current_limit, 0, startrow, ancestor=ancestor, query=query,
+        current_limit, startrow, ancestor=ancestor, query=query,
         end_compiled_cursor=end_compiled_cursor)
 
       potential_entities = yield self.__fetch_entities_dict(references)
@@ -1847,7 +1845,6 @@ class DatastoreDistributed():
                      kind,
                      prefix,
                      limit,
-                     offset,
                      startrow,
                      force_start_key_exclusive=False,
                      ancestor=None,
@@ -1861,7 +1858,6 @@ class DatastoreDistributed():
       kind: Kind of the entity.
       prefix: Prefix for the table.
       limit: Number of results.
-      offset: Number of results to skip.
       startrow: Start key for the range scan.
       force_start_key_exclusive: Do not include the start key.
       ancestor: Optional query ancestor.
@@ -1908,7 +1904,7 @@ class DatastoreDistributed():
     # is based on the terminating string.
     if len(filter_ops) == 0 and (order_info and len(order_info) == 1):
       if not startrow:
-        params = [prefix, kind, property_name, ancestor_filter]
+        params = [prefix, kind, property_name, None]
         startrow = get_index_key_from_params(params)
       if not endrow:
         params = [prefix, kind, property_name, self._TERM_STRING, None]
