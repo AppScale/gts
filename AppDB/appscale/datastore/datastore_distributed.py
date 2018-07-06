@@ -1733,11 +1733,11 @@ class DatastoreDistributed():
     if len(order_info) > 1 or (order_info and order_info[0][0] == '__key__'):
       return
 
-    # If there is an ancestor in the query, it can only have a single
-    # equality filter, otherwise there is no way to build the start
-    # and end key.
-    if query.has_ancestor() and len(filter_ops) > 0 and \
-      filter_ops[0][0] != datastore_pb.Query_Filter.EQUAL:
+    # If there is an ancestor in the query, any filtering must be within a
+    # single value when using a single-prop index.
+    spans_multiple_values = order_info or (
+      filter_ops and filter_ops[0][0] != datastore_pb.Query_Filter.EQUAL)
+    if query.has_ancestor() and spans_multiple_values:
       return
 
     if query.has_ancestor():
