@@ -286,14 +286,15 @@ def get_frontend_ip_port(configs_dir, proxy_name):
     for line in proxy_conf:
       line = line.strip()
       if line.startswith('bind'):
-        return line.split(' ')[1].split(':')
+        ip, port = line.split(' ')[1].split(':')
+        return ip, int(port)
   raise BoundIpPortNotFound("Couldn't find bound IP and port for {} at {}"
                             .format(proxy_name, configs_dir))
 
 
 def get_connections(ip, port):
-  return len([conn for conn in psutil.net_connections()
-             if conn.laddr == (ip, port)])
+  return sum(1 for conn in psutil.net_connections()
+             if conn.laddr == (ip, port) and conn.status == 'ESTABLISHED')
 
 
 def get_stats_from_one_haproxy(socket_path, configs_dir):
