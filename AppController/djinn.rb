@@ -5146,6 +5146,15 @@ HOSTS
     # Check if we need to spawn VMs and the InfrastructureManager is
     # available to do so.
     return unless vms_to_spawn > 0
+
+    # Check if we haven't recently scaled.
+    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
+      Djinn.log_info("Not scaling up right now, as we recently scaled " \
+                     "up or down.")
+      return
+    end
+
+    # Check if there is another thread already working.
     if SCALE_LOCK.locked?
       Djinn.log_debug("Another thread is already working with the InfrastructureManager.")
       return
@@ -5155,17 +5164,12 @@ HOSTS
       SCALE_LOCK.synchronize {
         Djinn.log_info("We need #{vms_to_spawn} more VMs.")
 
-        if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
-          Djinn.log_info("Not scaling up right now, as we recently scaled " \
-            "up or down.")
+        result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
+        if result != "OK"
+          Djinn.log_error("Was not able to add nodes because: #{result}.")
         else
-          result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
-          if result != "OK"
-            Djinn.log_error("Was not able to add nodes because: #{result}.")
-          else
-            @last_scaling_time = Time.now.to_i
-            Djinn.log_info("Added the following nodes: #{roles_needed}.")
-          end
+          @last_scaling_time = Time.now.to_i
+          Djinn.log_info("Added the following nodes: #{roles_needed}.")
         end
       }
     }
