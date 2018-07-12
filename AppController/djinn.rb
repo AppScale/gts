@@ -5080,13 +5080,10 @@ HOSTS
   end
 
 
-  # Scale AppServers up/down for each application depending on the current
-  # queued requests and load of the application.
-  #
-  # Returns:
-  #   An Integer indicating the number of AppServers that we couldn't
-  #   start for lack of resources.
-  def scale_appservers
+  # Adds or removes AppServers and/or nodes to the deployment, depending
+  # on the statistics of the application and the loads of the various
+  # services.
+  def scale_deployment
     needed_appservers = 0
     begin
       configured_versions = ZKInterface.get_versions
@@ -5105,35 +5102,15 @@ HOSTS
       # Get the desired changes in the number of AppServers.
       delta_appservers = get_scaling_info_for_version(version_key)
       if delta_appservers > 0
-        Djinn.log_debug("Considering scaling up #{version_key}.")
         needed_appservers += try_to_scale_up(version_key, delta_appservers)
+        scale_up_instances(needed_appservers)
       elsif delta_appservers < 0
-        Djinn.log_debug("Considering scaling down #{version_key}.")
         try_to_scale_down(version_key, delta_appservers.abs)
-      else
-        Djinn.log_debug("Not scaling app #{version_key} up or down right now.")
+        scale_down_instances
       end
     }
-
-    return needed_appservers
   end
 
-
-  # Adds or removes AppServers and/or nodes to the deployment, depending
-  # on the statistics of the application and the loads of the various
-  # services.
-  def scale_deployment
-    # Here, we calculate how many more AppServers we need and try to start them.
-    # If we do not have enough capacity to start all of them, we return the number
-    # of more AppServers needed and spawn new machines to accommodate them.
-    needed_appservers = scale_appservers
-    if needed_appservers > 0
-      Djinn.log_debug("Need to start VMs for #{needed_appservers} more AppServers.")
-      scale_up_instances(needed_appservers)
-      return
-    end
-    scale_down_instances
-  end
 
   # Adds additional nodes to the deployment, depending on the load of the
   # application and the additional AppServers we need to accomodate.
@@ -5146,6 +5123,9 @@ HOSTS
     vms_to_spawn = 0
     roles_needed = {}
     vm_scaleup_capacity = Integer(@options['max_machines']) - @nodes.length
+
+    Djinn.log_info("Need to start VMs for #{needed_appservers} more AppServers.")
+
     if needed_appservers > 0
       # TODO: Here we use 3 as an arbitrary number to calculate the number of machines
       # needed to run those number of appservers. That will change in the next step
@@ -5363,7 +5343,8 @@ HOSTS
     end
 
     # We only run @options['default_min_appservers'] AppServers per application
-    # if austoscale is disabled.
+    # if austoscale is disabled. No need to print anything here since we
+    # print log about disabled autoscale at intervals with the stats.
     return 0 if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
@@ -5479,11 +5460,6 @@ HOSTS
   #     requests waiting to be served.
   def update_request_info(version_key, total_requests_seen,
                           time_requests_were_seen, total_req_in_queue)
-    Djinn.log_debug("Time now is #{time_requests_were_seen}, last " \
-      "time was #{@last_sampling_time[version_key]}")
-    Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " \
-      "time was #{@total_req_seen[version_key]}")
-    Djinn.log_debug("Requests currently in the queue #{total_req_in_queue}")
     requests_since_last_sampling = total_requests_seen - @total_req_seen[version_key]
     time_since_last_sampling = time_requests_were_seen - @last_sampling_time[version_key]
     if time_since_last_sampling.zero?
@@ -5497,9 +5473,10 @@ HOSTS
       initialize_scaling_info_for_version(version_key, true)
       return
     end
-    Djinn.log_debug("Total requests will be set to #{total_requests_seen} " \
-                    "for #{version_key}, with last sampling time " \
-                    "#{time_requests_were_seen}")
+    Djinn.log_debug("Stats for #{version_key}: Total requests " \
+                    "#{total_requests_seen}, requests in queue " \
+                    "#{total_req_in_queue}, average rate " \
+                    "#{average_request_rate}, time #{time_requests_were_seen}")
     @average_req_rate[version_key] = average_request_rate
     @current_req_rate[version_key] = total_req_in_queue
     @total_req_seen[version_key] = total_requests_seen
@@ -5603,11 +5580,10 @@ HOSTS
       @cluster_stats.each { |node|
         next if node['private_ip'] != host
 
-        # Convert total memory to MB
-        total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
-
         # Check how many new AppServers of this app, we can run on this
-        # node (as theoretical maximum memory usage goes).
+        # node (as theoretical maximum memory usage goes).  First convert
+        # total memory to MB.
+        total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
         allocated_memory[host] = 0 if allocated_memory[host].nil?
         max_new_total = Integer(
           (total - allocated_memory[host] - SAFE_MEM) / max_app_mem)
@@ -5616,7 +5592,7 @@ HOSTS
         break if max_new_total <= 0
 
         # Now we do a similar calculation but for the current amount of
-        # available memory on this node. First convert bytes to MB
+        # available memory on this node. First convert bytes to MB.
         host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
         max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
         Djinn.log_debug("Check for free memory usage: #{host} can run " \
@@ -6151,7 +6127,7 @@ HOSTS
   #
   def get_application_load_stats(version_key)
     total_requests, requests_in_queue, sessions = 0, 0, 0
-    pxname = "gae_#{version_key}"
+    pxname = "#{HelperFunctions::GAE_PREFIX}#{version_key}"
     time = :no_stats
     lb_nodes = @nodes.select{|node| node.is_load_balancer?}
     lb_nodes.each { |node|
@@ -6167,7 +6143,7 @@ HOSTS
       end
     }
     if lb_nodes.length > 1
-      # Report total HAProxy stats if there are multiple LB nodes
+      # Report total HAProxy stats if there are multiple LB nodes.
       Djinn.log_debug("Summarized HAProxy load stats for #{pxname}: " \
         "req_tot=#{total_requests}, qcur=#{requests_in_queue}, scur=#{sessions}")
     end
