@@ -841,7 +841,6 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest(http_data)
-    response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
 
     try:
       queue = self.get_queue(app_id, request.queue_name())
@@ -854,15 +853,13 @@ class DistributedTaskQueue():
       # so update_lease can't be used. It checks with millisecond precision.
       task = queue.update_task(Task(task_info), request.lease_seconds())
     except InvalidLeaseRequest as lease_error:
-      error = TaskQueueServiceError.TASK_LEASE_EXPIRED
-      # The response requires ETA to be set before encoding.
-      response.set_updated_eta_usec(0)
-      return response.Encode(), error, str(lease_error)
+      return '', TaskQueueServiceError.TASK_LEASE_EXPIRED, str(lease_error)
     except TaskNotFound as error:
-      return '', TaskQueueServiceError.UNKNOWN_TASK, str(error)
+      return '', TaskQueueServiceError.TASK_LEASE_EXPIRED, str(error)
 
     epoch = datetime.datetime.utcfromtimestamp(0)
     updated_usec = int((task.leaseTimestamp - epoch).total_seconds() * 1000000)
+    response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
     response.set_updated_eta_usec(updated_usec)
     return response.Encode(), 0, ""
 
