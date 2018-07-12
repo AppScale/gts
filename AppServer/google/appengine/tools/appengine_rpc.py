@@ -51,7 +51,11 @@ def GetPlatformToken(os_module=os, sys_module=sys, platform=sys.platform):
   Returns:
     String containing the platform token for the host system.
   """
-  if hasattr(os_module, "uname"):
+  if hasattr(sys_module, "getwindowsversion"):
+    windows_version = sys_module.getwindowsversion()
+    version_info = ".".join(str(i) for i in windows_version[:4])
+    return platform + "/" + version_info
+  elif hasattr(os_module, "uname"):
     uname = os_module.uname()
     return "%s/%s" % (uname[0], uname[2])
   else:
