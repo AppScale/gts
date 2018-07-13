@@ -141,7 +141,9 @@ from google.appengine.tools import dev_appserver_blobstore
 from google.appengine.tools import dev_appserver_channel
 from google.appengine.tools import dev_appserver_import_hook
 from google.appengine.tools import dev_appserver_login
+from google.appengine.tools import dev_appserver_multiprocess as multiprocess
 from google.appengine.tools import dev_appserver_oauth
+from google.appengine.tools import dev_appserver_upload
 
 from google.storage.speckle.python.api import rdbms
 
@@ -2983,6 +2985,7 @@ def CreateRequestHandler(root_path,
         os.environ['REQUEST_ID_HASH'] = request_id_hash
 
 
+        multiprocess.GlobalProcess().UpdateEnv(env_dict)
 
         cookies = ', '.join(self.headers.getheaders('cookie'))
         email_addr, user_id, admin, valid_cookie = \
@@ -3002,6 +3005,8 @@ def CreateRequestHandler(root_path,
 
 
 
+        if multiprocess.GlobalProcess().HandleRequest(self):
+          return
 
         outfile = cStringIO.StringIO()
         try:
@@ -3037,6 +3042,7 @@ def CreateRequestHandler(root_path,
           response.body = cStringIO.StringIO(new_response)
 
 
+        multiprocess.GlobalProcess().RequestComplete(self, response)
 
       except yaml_errors.EventListenerError, e:
         title = 'Fatal error when loading application configuration'
@@ -3338,6 +3344,7 @@ def LoadAppConfig(root_path,
       # if config.application:
       #   config.application = AppIdWithDefaultPartition(config.application,
       #                                                  default_partition)
+      multiprocess.GlobalProcess().NewAppInfo(config)
 
       if static_caching:
         if config.default_expiration:
@@ -3538,54 +3545,55 @@ def SetupStubs(app_id, **config):
     _RemoveFile(search_index_path)
 
 
+  if not multiprocess.GlobalProcess().MaybeConfigureRemoteDataApis():
 
 
 
 
 
 
-  apiproxy_stub_map.apiproxy = apiproxy_stub_map.APIProxyStubMap()
+    apiproxy_stub_map.apiproxy = apiproxy_stub_map.APIProxyStubMap()
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'app_identity_service',
-      app_identity_stub.AppIdentityServiceStub())
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'app_identity_service',
+        app_identity_stub.AppIdentityServiceStub())
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'capability_service',
-      capability_stub.CapabilityServiceStub())
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'capability_service',
+        capability_stub.CapabilityServiceStub())
 
-  datastore = datastore_distributed.DatastoreDistributed(
-        app_id, datastore_path, require_indexes=require_indexes,
-        trusted=trusted, root_path=root_path)
+    datastore = datastore_distributed.DatastoreDistributed(
+          app_id, datastore_path, require_indexes=require_indexes,
+          trusted=trusted, root_path=root_path)
 
-  apiproxy_stub_map.apiproxy.ReplaceStub(
-      'datastore_v3', datastore)
+    apiproxy_stub_map.apiproxy.ReplaceStub(
+        'datastore_v3', datastore)
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'mail',
-      mail_stub.MailServiceStub(smtp_host,
-                                smtp_port,
-                                smtp_user,
-                                smtp_password,
-                                enable_sendmail=enable_sendmail,
-                                show_mail_body=show_mail_body))
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'mail',
+        mail_stub.MailServiceStub(smtp_host,
+                                  smtp_port,
+                                  smtp_user,
+                                  smtp_password,
+                                  enable_sendmail=enable_sendmail,
+                                  show_mail_body=show_mail_body))
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'memcache',
-      memcache_distributed.MemcacheService())
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'memcache',
+        memcache_distributed.MemcacheService())
 
-  hash_secret = hashlib.sha1(app_id + '/'+ cookie_secret).hexdigest()
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'taskqueue',
-      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address))
+    hash_secret = hashlib.sha1(app_id + '/'+ cookie_secret).hexdigest()
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'taskqueue',
+        taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address))
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'urlfetch',
-      urlfetch_stub.URLFetchServiceStub())
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'urlfetch',
+        urlfetch_stub.URLFetchServiceStub())
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'xmpp',
-      xmpp_service_real.XmppService(domain=xmpp_path, uaserver=uaserver_path))
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'xmpp',
+        xmpp_service_real.XmppService(domain=xmpp_path, uaserver=uaserver_path))
 
 
 
@@ -3664,6 +3672,7 @@ def SetupStubs(app_id, **config):
       logservice_stub.LogServiceStub(True))
 
   system_service_stub = system_stub.SystemServiceStub()
+  multiprocess.GlobalProcess().UpdateSystemStub(system_service_stub)
   apiproxy_stub_map.apiproxy.RegisterStub('system', system_service_stub)
 
 
@@ -3916,7 +3925,10 @@ def CreateServer(root_path,
 
     python_path_list.insert(0, absolute_root_path)
 
-  server = HTTPServerWithScheduler((serve_address, port), handler_class)
+  if multiprocess.Enabled():
+    server = HttpServerWithMultiProcess((serve_address, port), handler_class)
+  else:
+    server = HTTPServerWithScheduler((serve_address, port), handler_class)
 
 
 
@@ -4042,4 +4054,20 @@ class HTTPServerWithScheduler(BaseHTTPServer.HTTPServer):
         break
 
 
+class HttpServerWithMultiProcess(HTTPServerWithScheduler):
+  """Class extending HTTPServerWithScheduler with multi-process handling."""
 
+  def __init__(self, server_address, request_handler_class):
+    """Constructor.
+
+    Args:
+      server_address: the bind address of the server.
+      request_handler_class: class used to handle requests.
+    """
+    HTTPServerWithScheduler.__init__(self, server_address,
+                                     request_handler_class)
+    multiprocess.GlobalProcess().SetHttpServer(self)
+
+  def process_request(self, request, client_address):
+    """Overrides the SocketServer process_request call."""
+    multiprocess.GlobalProcess().ProcessRequest(request, client_address)
