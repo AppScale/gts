@@ -2595,6 +2595,7 @@ class ModuleManager(object):
     Returns:
       True if one or more files have been modified, False otherwise.
     """
+    self._dirty = True
     for name, (mtime, fname) in self._modification_times.iteritems():
 
       if name not in self._modules:
