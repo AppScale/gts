@@ -15,8 +15,8 @@ from appscale.datastore import dbconstants, helper_functions
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
 from appscale.datastore.dbconstants import (
-  APP_ENTITY_SCHEMA, ID_KEY_LENGTH, InternalError,
-  MAX_TX_DURATION, Timeout
+  APP_ENTITY_SCHEMA, BadRequest, ID_KEY_LENGTH, InternalError, MAX_TX_DURATION,
+  Timeout
 )
 from appscale.datastore.cassandra_env.cassandra_interface import (
   batch_size, LARGE_BATCH_THRESHOLD)
@@ -37,6 +37,7 @@ from appscale.datastore.utils import get_entity_kind
 from appscale.datastore.utils import get_index_key_from_params
 from appscale.datastore.utils import get_kind_key
 from appscale.datastore.utils import group_for_key
+from appscale.datastore.utils import kind_from_encoded_key
 from appscale.datastore.utils import reference_property_to_reference
 from appscale.datastore.utils import UnprocessedQueryCursor
 from appscale.datastore.range_iterator import RangeExhausted, RangeIterator
@@ -1258,63 +1259,13 @@ class DatastoreDistributed():
     return results
 
   @gen.coroutine
-  def ordered_ancestor_query(self, query, filter_info, order_info):
-    """ Performs an ordered ancestor query. It grabs all entities of a
-        given ancestor and then orders in memory.
-
-    Args:
-      query: The query to run.
-      filter_info: Tuple with filter operators and values
-      order_info: Tuple with property name and the sort order.
-    Returns:
-      A list of entities.
-    Raises:
-      ZKTransactionException: If a lock could not be acquired.
-    """
-    ancestor = query.ancestor()
-    prefix = self.get_table_prefix(query)
-    path = buffer(prefix + self._SEPARATOR) + encode_index_pb(ancestor.path())
-    txn_id = 0
-    if query.has_transaction():
-      txn_id = query.transaction().handle()
-
-    startrow = path
-    endrow = path + self._TERM_STRING
-    end_inclusive = self._ENABLE_INCLUSIVITY
-    start_inclusive = self._ENABLE_INCLUSIVITY
-    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = appscale_stub_util.ListCursor(query)
-      last_result = cursor._GetLastResult()
-      startrow = yield self.__get_start_key(prefix, None, None, last_result)
-      start_inclusive = self._DISABLE_INCLUSIVITY
-      if query.compiled_cursor().position_list()[0].start_inclusive() == 1:
-        start_inclusive = self._ENABLE_INCLUSIVITY
-
-    limit = self._MAXIMUM_RESULTS
-
-    unordered = yield self.fetch_from_entity_table(
-      startrow, endrow, limit, 0, start_inclusive, end_inclusive, query, txn_id)
-
-    if query.has_transaction():
-      yield self.datastore_batch.record_reads(
-        query.app(), query.transaction().handle(), [group_for_key(ancestor)])
-
-    kind = None
-    if query.has_kind():
-      kind = query.kind()
-    limit = self.get_limit(query)
-    raise gen.Return(
-      self.__multiorder_results(unordered, order_info, kind)[:limit])
-
-  @gen.coroutine
-  def ancestor_query(self, query, filter_info, order_info):
+  def ancestor_query(self, query, filter_info):
     """ Performs ancestor queries which is where you select
-        entities based on a particular root entitiy.
+        entities based on a particular root entity.
 
     Args:
       query: The query to run.
       filter_info: Tuple with filter operators and values.
-      order_info: Tuple with property name and the sort order.
     Returns:
       A list of entities.
     Raises:
@@ -1363,17 +1314,40 @@ class DatastoreDistributed():
 
     limit = self.get_limit(query)
 
-    unordered = yield self.fetch_from_entity_table(
-      startrow, endrow, limit, 0, start_inclusive, end_inclusive, query, txn_id)
+    entities = []
+    while True:
+      results = yield self.datastore_batch.range_query(
+        dbconstants.APP_ENTITY_TABLE,
+        APP_ENTITY_SCHEMA,
+        startrow,
+        endrow,
+        limit,
+        start_inclusive=start_inclusive,
+        end_inclusive=end_inclusive)
+
+      if query.has_kind():
+        entities.extend([
+          result.values()[0]['entity'] for result in results
+          if kind_from_encoded_key(result.keys()[0]) == query.kind()])
+      else:
+        entities.extend([result.values()[0]['entity'] for result in results])
+
+      if len(results) < limit:
+        break
+
+      if len(entities) >= limit:
+        break
+
+      # TODO: This can be made more efficient by skipping ahead to the next
+      # possible match.
+      startrow = results[-1].keys()[0]
+      start_inclusive = False
 
     if query.has_transaction():
       yield self.datastore_batch.record_reads(
         query.app(), query.transaction().handle(), [group_for_key(ancestor)])
 
-    kind = None
-    if query.kind():
-      kind = query.kind()
-    raise gen.Return(self.__multiorder_results(unordered, order_info, kind))
+    raise gen.Return(entities[:limit])
 
   @gen.coroutine
   def fetch_from_entity_table(self,
@@ -1589,17 +1563,18 @@ class DatastoreDistributed():
       if fi != "__key__":
         return
 
-    if query.has_ancestor() and len(order_info) > 0:
-      result = yield self.ordered_ancestor_query(query, filter_info, order_info)
+    if query.has_ancestor():
+      if len(order_info) > 0:
+        raise BadRequest('Ordered ancestor queries require an index')
+
+      result = yield self.ancestor_query(query, filter_info)
       raise gen.Return(result)
-    if query.has_ancestor() and not query.has_kind():
-      result = yield self.ancestor_query(query, filter_info, order_info)
-      raise gen.Return(result)
-    elif not query.has_kind():
+
+    if not query.has_kind():
       result = yield self.kindless_query(query, filter_info)
       raise gen.Return(result)
-    elif query.kind().startswith("__") and \
-      query.kind().endswith("__"):
+
+    if query.kind().startswith("__") and query.kind().endswith("__"):
       # Use the default namespace for metadata queries.
       query.set_name_space("")
 
@@ -1758,11 +1733,11 @@ class DatastoreDistributed():
     if len(order_info) > 1 or (order_info and order_info[0][0] == '__key__'):
       return
 
-    # If there is an ancestor in the query, it can only have a single
-    # equality filter, otherwise there is no way to build the start
-    # and end key.
-    if query.has_ancestor() and len(filter_ops) > 0 and \
-      filter_ops[0][0] != datastore_pb.Query_Filter.EQUAL:
+    # If there is an ancestor in the query, any filtering must be within a
+    # single value when using a single-prop index.
+    spans_multiple_values = order_info or (
+      filter_ops and filter_ops[0][0] != datastore_pb.Query_Filter.EQUAL)
+    if query.has_ancestor() and spans_multiple_values:
       return
 
     if query.has_ancestor():
@@ -1779,8 +1754,6 @@ class DatastoreDistributed():
     prefix = self.get_table_prefix(query)
 
     limit = self.get_limit(query)
-
-    app_id = clean_app_id(query.app())
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
@@ -1802,7 +1775,7 @@ class DatastoreDistributed():
     while True:
       references = yield self.__apply_filters(
         filter_ops, order_info, property_name, query.kind(), prefix,
-        current_limit, 0, startrow, ancestor=ancestor, query=query,
+        current_limit, startrow, ancestor=ancestor, query=query,
         end_compiled_cursor=end_compiled_cursor)
 
       potential_entities = yield self.__fetch_entities_dict(references)
@@ -1872,7 +1845,6 @@ class DatastoreDistributed():
                      kind,
                      prefix,
                      limit,
-                     offset,
                      startrow,
                      force_start_key_exclusive=False,
                      ancestor=None,
@@ -1886,7 +1858,6 @@ class DatastoreDistributed():
       kind: Kind of the entity.
       prefix: Prefix for the table.
       limit: Number of results.
-      offset: Number of results to skip.
       startrow: Start key for the range scan.
       force_start_key_exclusive: Do not include the start key.
       ancestor: Optional query ancestor.
@@ -1933,7 +1904,7 @@ class DatastoreDistributed():
     # is based on the terminating string.
     if len(filter_ops) == 0 and (order_info and len(order_info) == 1):
       if not startrow:
-        params = [prefix, kind, property_name, ancestor_filter]
+        params = [prefix, kind, property_name, None]
         startrow = get_index_key_from_params(params)
       if not endrow:
         params = [prefix, kind, property_name, self._TERM_STRING, None]
@@ -2898,63 +2869,6 @@ class DatastoreDistributed():
     raise apiproxy_errors.ApplicationError(
       datastore_pb.Error.NEED_INDEX,
       'No composite index provided')
-
-  def __multiorder_results(self, result, order_info, kind):
-    """ Takes results and applies ordering based on properties and
-        whether it should be ascending or decending. Filters out
-        any entities which do not match the given kind, if given.
-
-      Args:
-        result: unordered results.
-        order_info: given ordering of properties.
-        kind: The kind to filter on if given.
-      Returns:
-        A list of ordered entities.
-    """
-    # TODO:
-    # We can not fully filter past one filter without getting
-    # the entire table to make sure results are in the correct order.
-    # Composites must be implemented the correct way with specialized
-    # indexes to get the correct result.
-    # The effect is that entities at the edge of each batch have a high
-    # chance of being out of order with our current implementation.
-
-    # Put all the values appended based on order info into a dictionary,
-    # The key being the values appended and the value being the index
-    if not result:
-      return []
-
-    if not order_info and not kind:
-      return result
-
-    vals = {}
-    for e in result:
-      key = self._SEPARATOR
-      e = entity_pb.EntityProto(e)
-      # Skip this entitiy if it does not match the given kind.
-      last_path = e.key().path().element_list()[-1]
-      if kind and last_path.type() != kind:
-        continue
-
-      prop_list = e.property_list()
-      for ii in order_info:
-        ord_prop = ii[0]
-        ord_dir = ii[1]
-        for each in prop_list:
-          if each.name() == ord_prop:
-            if ord_dir == datastore_pb.Query_Order.DESCENDING:
-              key = str(key+ self._SEPARATOR + helper_functions.reverse_lex(
-                str(each.value())))
-            else:
-              key = str(key + self._SEPARATOR + str(each.value()))
-            break
-      # Add a unique identifier at the end because indexes can be the same.
-      key = key + str(e)
-      vals[key] = e
-    keys = sorted(vals.keys())
-    sorted_vals = [vals[ii] for ii in keys]
-    result = [e.Encode() for e in sorted_vals]
-    return result
 
   # These are the three different types of queries attempted. Queries
   # can be identified by their filters and orderings.

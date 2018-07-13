@@ -13,7 +13,8 @@ from tornado import ioloop
 from appscale.datastore import dbconstants, helper_functions
 from appscale.datastore.appscale_datastore_batch import DatastoreFactory
 from appscale.datastore.dbconstants import (
-  AppScaleDBConnectionError, ID_KEY_LENGTH, METADATA_TABLE, TERMINATING_STRING
+  AppScaleDBConnectionError, ID_KEY_LENGTH, ID_SEPARATOR, KEY_DELIMITER,
+  KIND_SEPARATOR, METADATA_TABLE, TERMINATING_STRING
 )
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -742,3 +743,16 @@ def decode_path(encoded_path):
       new_element.set_name(identifier)
 
   return path
+
+
+def kind_from_encoded_key(encoded_key):
+  """ Extract kind from an encoded reference string.
+
+  Args:
+    encoded_key: A string specifying an encoded entity key.
+  Returns:
+    A string specifying an entity kind.
+  """
+  path_section = encoded_key.rsplit(KEY_DELIMITER, 1)[-1]
+  last_element = path_section.split(KIND_SEPARATOR)[-2]
+  return last_element.split(ID_SEPARATOR, 1)[0]
