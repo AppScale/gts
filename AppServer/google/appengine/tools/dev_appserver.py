@@ -87,6 +87,15 @@ import zlib
 
 import google
 
+
+
+try:
+  from google.third_party.apphosting.python.webapp2 import v2_3 as tmp
+  sys.path.append(os.path.dirname(tmp.__file__))
+  del tmp
+except ImportError:
+  pass
+
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import appinfo
 from google.appengine.api import appinfo_includes
