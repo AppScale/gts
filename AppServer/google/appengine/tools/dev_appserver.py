@@ -102,9 +102,11 @@ from google.appengine.api import app_logging
 from google.appengine.api import blobstore
 from google.appengine.api import croninfo
 from google.appengine.api import datastore
+from google.appengine.api import datastore_file_stub
 from google.appengine.api import lib_config
 from google.appengine.api import mail
 from google.appengine.api import namespace_manager
+from google.appengine.api import request_info
 from google.appengine.api import urlfetch_stub
 from google.appengine.api import user_service_stub
 from google.appengine.api import yaml_errors
@@ -121,6 +123,7 @@ from google.appengine.api.remote_socket import _remote_socket_stub
 from google.appengine.api import rdbms_mysqldb
 
 from google.appengine.api.system import system_stub
+from google.appengine.datastore import datastore_sqlite_stub
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.ext.cloudstorage import stub_dispatcher as gcs_dispatcher
 from google.appengine import dist
