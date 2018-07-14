@@ -61,6 +61,7 @@ import random
 import select
 import shutil
 import simplejson
+import StringIO
 import struct
 import tempfile
 import yaml
@@ -3946,11 +3947,7 @@ def CreateServer(root_path,
   if queue_stub and hasattr(queue_stub, 'StartBackgroundExecution'):
     queue_stub.StartBackgroundExecution()
 
-
-  channel_stub = apiproxy_stub_map.apiproxy.GetStub('channel')
-  if channel_stub:
-    channel_stub._add_event = server.AddEvent
-    channel_stub._update_event = server.UpdateEvent
+  request_info._local_dispatcher = DevAppserverDispatcher(server)
 
   server.frontend_hostport = '%s:%d' % (serve_address or 'localhost',
                                         frontend_port or port)
@@ -4081,3 +4078,90 @@ class HttpServerWithMultiProcess(HTTPServerWithScheduler):
   def process_request(self, request, client_address):
     """Overrides the SocketServer process_request call."""
     multiprocess.GlobalProcess().ProcessRequest(request, client_address)
+
+
+class FakeRequestSocket(object):
+  """A socket object to fake an HTTP request."""
+
+  def __init__(self, method, relative_url, headers, body):
+    payload = cStringIO.StringIO()
+    payload.write('%s %s HTTP/1.1\r\n' % (method, relative_url))
+    payload.write('Content-Length: %d\r\n' % len(body))
+    for key, value in headers:
+      payload.write('%s: %s\r\n' % (key, value))
+    payload.write('\r\n')
+    payload.write(body)
+    self.rfile = cStringIO.StringIO(payload.getvalue())
+    self.wfile = StringIO.StringIO()
+    self.wfile_close = self.wfile.close
+    self.wfile.close = self.connection_done
+
+  def connection_done(self):
+    self.wfile_close()
+
+  def makefile(self, mode, buffsize):
+    if mode.startswith('w'):
+      return self.wfile
+    else:
+      return self.rfile
+
+  def close(self):
+    pass
+
+  def shutdown(self, how):
+    pass
+
+
+class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
+  """A dev_appserver Dispatcher implementation."""
+
+  def __init__(self, server):
+    self._server = server
+
+  def add_event(self, runnable, eta, service=None, event_id=None):
+    """Add a callable to be run at the specified time.
+
+    Args:
+      runnable: A callable object to call at the specified time.
+      eta: An int containing the time to run the event, in seconds since the
+          epoch.
+      service: A str containing the name of the service that owns this event.
+          This should be set if event_id is set.
+      event_id: A str containing the id of the event. If set, this can be passed
+          to update_event to change the time at which the event should run.
+    """
+    self._server.AddEvent(eta, runnable, service, event_id)
+
+  def update_event(self, eta, service, event_id):
+    """Update the eta of a scheduled event.
+
+    Args:
+      eta: An int containing the time to run the event, in seconds since the
+          epoch.
+      service: A str containing the name of the service that owns this event.
+      event_id: A str containing the id of the event to update.
+    """
+    self._server.UpdateEvent(service, event_id, eta)
+
+  def add_async_request(self, method, relative_url, headers, body, source_ip,
+                        port, server_name=None, version=None, instance_id=None):
+    """Dispatch an HTTP request asynchronously.
+
+    Args:
+      method: A str containing the HTTP method of the request.
+      relative_url: A str containing path and query string of the request.
+      headers: A list of (key, value) tuples where key and value are both str.
+      body: A str containing the request body.
+      source_ip: The source ip address for the request.
+      port: The port that will receive the request.
+      server_name: An optional str containing the server name to service this
+          request. If unset, the request will be dispatched to the default
+          server.
+      version: An optional str containing the version to service this request.
+          If unset, the request will be dispatched to the default version.
+      instance_id: An optional str containing the instance_id of the instance to
+          service this request. If unset, the request will be dispatched to
+          according to the load-balancing for the server and version.
+    """
+    fake_socket = FakeRequestSocket(method, relative_url, headers, body)
+    self._server.AddEvent(0, lambda: (fake_socket, (source_ip, port)))
