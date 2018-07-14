@@ -57,7 +57,6 @@ import logging
 import mimetools
 import mimetypes
 import os
-import random
 import select
 import shutil
 import simplejson
@@ -67,9 +66,7 @@ import tempfile
 import wsgiref.headers
 import yaml
 
-# AppScale
-# Imported for checking memory usage
-import resource
+
 
 
 
@@ -3604,7 +3601,6 @@ def SetupStubs(app_id, **config):
         'memcache',
         memcache_distributed.MemcacheService())
 
-    hash_secret = hashlib.sha1(app_id + '/'+ cookie_secret).hexdigest()
     apiproxy_stub_map.apiproxy.RegisterStub(
         'taskqueue',
         taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address))
