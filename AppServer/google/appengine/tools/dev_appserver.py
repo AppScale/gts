@@ -2792,7 +2792,7 @@ def CreateRequestHandler(root_path,
         args: Positional arguments passed to the superclass constructor.
         kwargs: Keyword arguments passed to the superclass constructor.
       """
-      self._log_record_writer = logservice_stub.RequestLogWriter()
+      self._log_record_writer = apiproxy_stub_map.apiproxy.GetStub('logservice')
       BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def version_string(self):
@@ -3002,13 +3002,18 @@ def CreateRequestHandler(root_path,
         email_addr, user_id, admin, valid_cookie = \
                 dev_appserver_login.GetUserInfo(cookies)
 
-        self._log_record_writer.write_request_info(
+        self._log_record_writer.start_request(
+            request_id=None,
+            user_request_id=_GenerateRequestLogId(),
             ip=env_dict['REMOTE_ADDR'],
             app_id=env_dict['APPLICATION_ID'],
             version_id=env_dict['CURRENT_VERSION_ID'],
             nickname=email_addr.split('@')[0],
-            user_agent=self.headers.get('user-agent'),
-            host=host_name)
+            user_agent=self.headers.get('user-agent', ''),
+            host=host_name,
+            method=self.command,
+            resource=self.path,
+            http_version=self.request_version)
 
         dispatcher = MatcherDispatcher(config, login_url, self.module_manager,
                                        [implicit_matcher, explicit_matcher])
@@ -3124,11 +3129,9 @@ def CreateRequestHandler(root_path,
       if size == '-':
         size = 0
 
+
       logservice.logs_buffer().flush()
-
-      self._log_record_writer.write(self.command, self.path, code, size,
-                                    self.request_version)
-
+      self._log_record_writer.end_request(None, code, size)
   return DevAppServerRequestHandler
 
 
@@ -3556,7 +3559,14 @@ def SetupStubs(app_id, **config):
     _RemoveFile(search_index_path)
 
 
-  if not multiprocess.GlobalProcess().MaybeConfigureRemoteDataApis():
+  if multiprocess.GlobalProcess().MaybeConfigureRemoteDataApis():
+
+
+
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'logservice',
+        logservice_stub.LogServiceStub(logs_path=':memory:'))
+  else:
 
 
 
@@ -3605,6 +3615,10 @@ def SetupStubs(app_id, **config):
     apiproxy_stub_map.apiproxy.RegisterStub(
         'xmpp',
         xmpp_service_real.XmppService(domain=xmpp_path, uaserver=uaserver_path))
+
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'logservice',
+        logservice_stub.LogServiceStub(logs_path=logs_path))
 
 
 
@@ -3677,10 +3691,6 @@ def SetupStubs(app_id, **config):
   apiproxy_stub_map.apiproxy.RegisterStub(
       'file',
       file_service_stub.FileServiceStub(blob_storage))
-
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'logservice',
-      logservice_stub.LogServiceStub(True))
 
   system_service_stub = system_stub.SystemServiceStub()
   multiprocess.GlobalProcess().UpdateSystemStub(system_service_stub)
@@ -3947,8 +3957,8 @@ def CreateServer(root_path,
   if queue_stub and hasattr(queue_stub, 'StartBackgroundExecution'):
     queue_stub.StartBackgroundExecution()
 
-  request_info._local_dispatcher = DevAppserverDispatcher(server)
-
+  request_info._local_dispatcher = DevAppserverDispatcher(server,
+                                                          frontend_port or port)
   server.frontend_hostport = '%s:%d' % (serve_address or 'localhost',
                                         frontend_port or port)
 
@@ -4040,7 +4050,7 @@ class HTTPServerWithScheduler(BaseHTTPServer.HTTPServer):
 
   def UpdateEvent(self, service, event_id, eta):
     """Update a runnable event in the heap with a new eta.
-    TODO(moishel): come up with something better than a linear scan to
+    TODO: come up with something better than a linear scan to
     update items. For the case this is used for now -- updating events to
     "time out" channels -- this works fine because those events are always
     soon (within seconds) and thus found quickly towards the front of the heap.
@@ -4115,8 +4125,9 @@ class FakeRequestSocket(object):
 class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
   """A dev_appserver Dispatcher implementation."""
 
-  def __init__(self, server):
+  def __init__(self, server, port):
     self._server = server
+    self._port = port
 
   def add_event(self, runnable, eta, service=None, event_id=None):
     """Add a callable to be run at the specified time.
@@ -4144,7 +4155,7 @@ class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
     self._server.UpdateEvent(service, event_id, eta)
 
   def add_async_request(self, method, relative_url, headers, body, source_ip,
-                        port, server_name=None, version=None, instance_id=None):
+                        server_name=None, version=None, instance_id=None):
     """Dispatch an HTTP request asynchronously.
 
     Args:
@@ -4153,7 +4164,6 @@ class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
       headers: A list of (key, value) tuples where key and value are both str.
       body: A str containing the request body.
       source_ip: The source ip address for the request.
-      port: The port that will receive the request.
       server_name: An optional str containing the server name to service this
           request. If unset, the request will be dispatched to the default
           server.
@@ -4164,4 +4174,4 @@ class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
           according to the load-balancing for the server and version.
     """
     fake_socket = FakeRequestSocket(method, relative_url, headers, body)
-    self._server.AddEvent(0, lambda: (fake_socket, (source_ip, port)))
+    self._server.AddEvent(0, lambda: (fake_socket, (source_ip, self._port)))
