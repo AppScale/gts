@@ -53,6 +53,10 @@ STRIPPED_HEADERS = frozenset(('content-length',
                              ))
 
 
+
+MAX_STRING_NAME_LENGTH = 500
+
+
 class Error(Exception):
   """Base class for upload processing errors."""
 
@@ -66,6 +70,15 @@ class InvalidMetadataError(Error):
 
 class UploadEntityTooLargeError(Error):
   """Entity being uploaded exceeded the allowed size."""
+
+
+class FilenameOrContentTypeTooLargeError(Error):
+  """The filename or content type exceeded the allowed size."""
+
+  def __init__(self, invalid_field):
+    Error.__init__(self,
+        'The %s exceeds the maximum allowed length of %s.' % (
+            invalid_field, MAX_STRING_NAME_LENGTH))
 
 
 def GenerateBlobKey(time_func=time.time, random_func=random.random):
@@ -277,6 +290,8 @@ class UploadCGIHandler(object):
     total_bytes_uploaded = 0
     created_blobs = []
     upload_too_large = False
+    filename_too_large = False
+    content_type_too_large = False
 
     for form_item in IterateForm():
 
@@ -307,6 +322,14 @@ class UploadCGIHandler(object):
         if max_bytes_total is not None:
           if max_bytes_total < total_bytes_uploaded:
             upload_too_large = True
+            break
+        if form_item.filename is not None:
+          if MAX_STRING_NAME_LENGTH < len(form_item.filename):
+            filename_too_large = True
+            break
+        if form_item.type is not None:
+          if MAX_STRING_NAME_LENGTH < len(form_item.type):
+            content_type_too_large = True
             break
 
 
@@ -356,10 +379,15 @@ class UploadCGIHandler(object):
                           **disposition_parameters)
       message.attach(variable)
 
-    if upload_too_large:
+    if upload_too_large or filename_too_large or content_type_too_large:
       for blob in created_blobs:
         datastore.Delete(blob)
-      raise UploadEntityTooLargeError()
+      if upload_too_large:
+        raise UploadEntityTooLargeError()
+      elif filename_too_large:
+        raise FilenameOrContentTypeTooLargeError('filename')
+      else:
+        raise FilenameOrContentTypeTooLargeError('content-type')
 
     return message
 
