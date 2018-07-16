@@ -164,11 +164,13 @@ import traceback
 
 
 
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(levelname)-8s %(asctime)s %(filename)s:%(lineno)s] %(message)s')
 
 from google.appengine.api import yaml_errors
+from google.appengine.dist import py_zipimport
 from google.appengine.tools import appcfg
 from google.appengine.tools import appengine_rpc
 from google.appengine.tools import dev_appserver
@@ -750,10 +752,9 @@ def main(argv):
           exc_type, exc_value, exc_traceback)))
     return 1
 
-  frontend_port = option_dict.get(ARG_MULTIPROCESS_FRONTEND_PORT, None)
+  frontend_port=option_dict.get(ARG_MULTIPROCESS_FRONTEND_PORT, None)
   if frontend_port is not None:
     frontend_port = int(frontend_port)
-
   http_server = dev_appserver.CreateServer(
       root_path,
       login_url,
@@ -763,7 +764,7 @@ def main(argv):
       allow_skipped_files=allow_skipped_files,
       static_caching=static_caching,
       default_partition=default_partition,
-      frontend_port= None, 
+      frontend_port=None,
       interactive_console=interactive_console,
       secret_hash = hashlib.sha1(appinfo.application + '/' + \
         option_dict['COOKIE_SECRET']).hexdigest())

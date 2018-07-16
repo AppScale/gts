@@ -863,7 +863,6 @@ def SetupEnvironment(cgi_path,
   env['USER_IS_ADMIN'] = '0'
   if admin and valid_cookie:
     env['USER_IS_ADMIN'] = '1'
-
   if env['AUTH_DOMAIN'] == '*':
 
     auth_domain = 'gmail.com'
@@ -1013,6 +1012,13 @@ SHARED_MODULE_PREFIXES = set([
     'wsgiref',
 
     'MySQLdb',
+
+
+
+
+
+
+
     'decimal',
 ])
 
@@ -1638,6 +1644,7 @@ def ExecuteCGI(config,
 
 
 
+
   if handler_path == '_go_app':
     from google.appengine.ext.go import execute_go_cgi
     return execute_go_cgi(root_path, config, handler_path, cgi_path,
@@ -1745,7 +1752,6 @@ def ExecuteCGI(config,
     sys.argv = old_argv
     sys.stdin = old_stdin
     sys.stdout = old_stdout
-
 
     sys.stderr = old_stderr
     logging.getLogger().removeHandler(app_log_handler)
@@ -3102,6 +3108,16 @@ def CreateRequestHandler(root_path,
 
           shutil.copyfileobj(response.body, self.wfile, COPY_BLOCK_SIZE)
         except (IOError, OSError), e:
+
+
+
+
+
+
+
+
+
+
           if e.errno not in [errno.EPIPE, os_compat.WSAECONNABORTED]:
             raise e
         except socket.error, e:
@@ -3120,7 +3136,6 @@ def CreateRequestHandler(root_path,
         logging.debug(format, *args)
       else:
         logging.info(format, *args)
-
 
     def log_request(self, code='-', size='-'):
       """Indicate that this request has completed."""
@@ -3351,6 +3366,7 @@ def LoadAppConfig(root_path,
         cache.mtime = mtime
 
       config = read_app_config(appinfo_path, appinfo_includes.Parse)
+
 
       # AppScale
       # Commenting this out because this function adds "~dev" to the application
@@ -3955,7 +3971,7 @@ def CreateServer(root_path,
 
   queue_stub = apiproxy_stub_map.apiproxy.GetStub('taskqueue')
   if queue_stub and hasattr(queue_stub, 'StartBackgroundExecution'):
-    queue_stub.StartBackgroundExecution()
+      queue_stub.StartBackgroundExecution()
 
   request_info._local_dispatcher = DevAppserverDispatcher(server,
                                                           frontend_port or port)

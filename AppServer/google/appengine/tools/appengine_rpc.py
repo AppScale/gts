@@ -21,6 +21,8 @@
 """Tool for performing authenticated RPCs against App Engine."""
 
 
+import google
+
 import cookielib
 import commands
 import cStringIO
@@ -574,7 +576,6 @@ class AbstractRpcServer(object):
           return response
         except urllib2.HTTPError, e:
           logger.debug("Got http error, this is try #%s", tries)
-        
           if tries > self.rpc_tries:
             raise AppScaleAuthenticationError("Unable to authenticate " + \
                                               "with AppScale.")
@@ -589,9 +590,11 @@ class AbstractRpcServer(object):
             else:
               self._Authenticate()
           elif e.code >= 500 and e.code < 600:
-            continue
 
+            continue
           elif e.code == 302:
+
+
             if tries >= 2:
               if auth_domain == 'appscale':
                 logger.info("Deleting authentication cookie : %s" % \
@@ -822,6 +825,8 @@ To learn more, see https://developers.google.com/appengine/kb/general#rpcssl""")
 
     opener.add_handler(urllib2.HTTPCookieProcessor(self.cookie_jar))
     return opener
+
+
 
 class HttpRpcServerWithOAuth2Suggestion(HttpRpcServer):
   """An HttpRpcServer variant which suggests using OAuth2 instead of ASP.

@@ -15,6 +15,9 @@
 # limitations under the License.
 #
 
+
+
+
 """Helper CGI for POST uploads.
 
 Utility library contains the main logic behind simulating the blobstore
@@ -29,13 +32,14 @@ Contents:
 import base64
 import cStringIO
 import datetime
-import hashlib
 import random
 import time
+import hashlib
 
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api.blobstore import blobstore
+
 
 
 try:
@@ -46,6 +50,9 @@ except ImportError:
   from email import Generator as generator
   from email import MIMEBase as base
   from email import MIMEMultipart as multipart
+
+
+
 
 STRIPPED_HEADERS = frozenset(('content-length',
                               'content-md5',
@@ -231,8 +238,8 @@ class UploadCGIHandler(object):
     datastore.Put(blob_entity)
     return blob_entity
 
-  def _GenerateMIMEMessage(self, 
-                           form, 
+  def _GenerateMIMEMessage(self,
+                           form,
                            boundary=None,
                            max_bytes_per_blob=None,
                            max_bytes_total=None,
@@ -258,12 +265,12 @@ class UploadCGIHandler(object):
       value of this method to generate a string unless you know what you're
       doing and properly handle folding whitespace (from rfc822) properly.
 
-     Raises:
-       UploadEntityTooLargeError: The upload exceeds either the
-         max_bytes_per_blob or max_bytes_total limits.
-       FilenameOrContentTypeTooLargeError: The filename or the content_type of
-         the upload is larger than the allowed size for a string type in the
-         datastore.
+    Raises:
+      UploadEntityTooLargeError: The upload exceeds either the
+        max_bytes_per_blob or max_bytes_total limits.
+      FilenameOrContentTypeTooLargeError: The filename or the content_type of
+        the upload is larger than the allowed size for a string type in the
+        datastore.
     """
     message = multipart.MIMEMultipart('form-data', boundary)
     for name, value in form.headers.items():
@@ -285,6 +292,8 @@ class UploadCGIHandler(object):
       Yields:
         cgi.FieldStorage irrespective of their nesting level.
       """
+
+
       for key in sorted(form):
         form_item = form[key]
         if isinstance(form_item, list):
@@ -302,12 +311,23 @@ class UploadCGIHandler(object):
 
     for form_item in IterateForm():
 
+
+
+
+
+
+
+
       disposition_parameters = {'name': form_item.name}
 
       if form_item.filename is None:
+
         variable = base.MIMEBase('text', 'plain')
         variable.set_payload(form_item.value)
       else:
+
+
+
         if not form_item.filename:
           continue
 
@@ -377,13 +397,17 @@ class UploadCGIHandler(object):
         for key, value in headers.iteritems():
           external.add_header(key, value)
 
+
         external_disposition_parameters = dict(disposition_parameters)
+
+
         external_disposition_parameters['filename'] = form_item.filename
         if not external.get('Content-Disposition'):
           external.add_header('Content-Disposition',
                               'form-data',
                               **external_disposition_parameters)
         variable.set_payload([external])
+
 
       variable.add_header('Content-Disposition',
                           'form-data',
@@ -402,7 +426,7 @@ class UploadCGIHandler(object):
 
     return message
 
-  def GenerateMIMEMessageString(self, 
+  def GenerateMIMEMessageString(self,
                                 form,
                                 boundary=None,
                                 max_bytes_per_blob=None,
