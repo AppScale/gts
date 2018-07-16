@@ -39,7 +39,7 @@ Options:
                              (Default gmail.com)
   --auto_id_policy=POLICY    Dictate how automatic IDs are assigned by the
                              datastore stub, "sequential" or "scattered".
-                             (Default sequential)
+                             (Default scattered)
   --backends                 Run the dev_appserver with backends support
                              (multiprocess mode).
   --blobstore_path=DIR       Path to directory to use for storing Blobstore
@@ -173,6 +173,7 @@ from google.appengine.tools import appcfg
 from google.appengine.tools import appengine_rpc
 from google.appengine.tools import dev_appserver
 from google.appengine.tools import dev_appserver_multiprocess as multiprocess
+from google.appengine.tools import sdk_update_checker
 
 
 
@@ -257,7 +258,7 @@ DEFAULT_ARGS = {
   ARG_ADMIN_CONSOLE_SERVER: DEFAULT_ADMIN_CONSOLE_SERVER,
   ARG_ALLOW_SKIPPED_FILES: False,
   ARG_AUTH_DOMAIN: 'gmail.com',
-  ARG_AUTO_ID_POLICY: 'sequential',
+  ARG_AUTO_ID_POLICY: 'scattered',
   ARG_BLOBSTORE_PATH: 'appscale',
   ARG_CLEAR_DATASTORE: False,
   ARG_CLEAR_PROSPECTIVE_SEARCH: False,
@@ -633,7 +634,7 @@ def MakeRpcServer(option_dict):
   server = appengine_rpc.HttpRpcServer(
       option_dict[ARG_ADMIN_CONSOLE_SERVER],
       lambda: ('unused_email', 'unused_password'),
-      appcfg.GetUserAgent(),
+      appcfg.GetUserAgent(sdk_product='dev_appserver_py'),
       appcfg.GetSourceName(),
       host_override=option_dict[ARG_ADMIN_CONSOLE_HOST])
 
