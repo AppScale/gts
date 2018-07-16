@@ -37,6 +37,9 @@ Options:
                              skipped_files (default False)
   --auth_domain              Authorization domain that this app runs in.
                              (Default gmail.com)
+  --auto_id_policy=POLICY    Dictate how automatic IDs are assigned by the
+                             datastore stub, "sequential" or "scattered".
+                             (Default sequential)
   --backends                 Run the dev_appserver with backends support
                              (multiprocess mode).
   --blobstore_path=DIR       Path to directory to use for storing Blobstore
@@ -63,6 +66,12 @@ Options:
                              model. (Default false).
   --history_path=PATH        Path to use for storing Datastore history.
                              (Default %(history_path)s)
+  --persist_logs             Enables storage of all request and application
+                             logs to enable later access. (Default false).
+  --logs_path=LOGS_FILE      Path to use for storing request logs. If this is
+                             set, logs will be persisted to the given path. If
+                             this is not set and --persist_logs is true, logs
+                             are stored in %(logs_path)s.
   --multiprocess_min_port    When running in multiprocess mode, specifies the
                              lowest port value to use when choosing ports. If
                              set to 0, select random ports.
@@ -82,8 +91,6 @@ Options:
   --mysql_socket=PATH        MySQL Unix socket file path.
                              Used by the Cloud SQL (rdbms) stub.
                              (Default '%(mysql_socket)s')
-  --persist_logs             Enables storage of all request and application
-                             logs to enable later access. (Default false).
   --require_indexes          Disallows queries that require composite indexes
                              not defined in index.yaml.
   --search_indexes_path=PATH Path to file to use for storing Full Text Search
@@ -178,6 +185,7 @@ ARG_ADMIN_CONSOLE_HOST = 'admin_console_host'
 ARG_ADMIN_CONSOLE_SERVER = 'admin_console_server'
 ARG_ALLOW_SKIPPED_FILES = 'allow_skipped_files'
 ARG_AUTH_DOMAIN = 'auth_domain'
+ARG_AUTO_ID_POLICY = 'auto_id_policy'
 ARG_BACKENDS = 'backends'
 ARG_BLOBSTORE_PATH = 'blobstore_path'
 ARG_CLEAR_DATASTORE = 'clear_datastore'
@@ -192,6 +200,7 @@ ARG_HIGH_REPLICATION = 'high_replication'
 ARG_HISTORY_PATH = 'history_path'
 ARG_LOGIN_URL = 'login_url'
 ARG_LOG_LEVEL = 'log_level'
+ARG_LOGS_PATH = 'logs_path'
 ARG_MULTIPROCESS = multiprocess.ARG_MULTIPROCESS
 ARG_MULTIPROCESS_API_PORT = multiprocess.ARG_MULTIPROCESS_API_PORT
 ARG_MULTIPROCESS_API_SERVER = multiprocess.ARG_MULTIPROCESS_API_SERVER
@@ -205,7 +214,6 @@ ARG_MYSQL_PASSWORD = 'mysql_password'
 ARG_MYSQL_PORT = 'mysql_port'
 ARG_MYSQL_SOCKET = 'mysql_socket'
 ARG_MYSQL_USER = 'mysql_user'
-ARG_PERSIST_LOGS = 'persist_logs'
 ARG_PORT = 'port'
 ARG_PROSPECTIVE_SEARCH_PATH = 'prospective_search_path'
 ARG_REQUIRE_INDEXES = 'require_indexes'
@@ -249,6 +257,7 @@ DEFAULT_ARGS = {
   ARG_ADMIN_CONSOLE_SERVER: DEFAULT_ADMIN_CONSOLE_SERVER,
   ARG_ALLOW_SKIPPED_FILES: False,
   ARG_AUTH_DOMAIN: 'gmail.com',
+  ARG_AUTO_ID_POLICY: 'sequential',
   ARG_BLOBSTORE_PATH: 'appscale',
   ARG_CLEAR_DATASTORE: False,
   ARG_CLEAR_PROSPECTIVE_SEARCH: False,
@@ -262,12 +271,12 @@ DEFAULT_ARGS = {
                                  'dev_appserver.datastore.history'),
   ARG_LOGIN_URL: '/_ah/login',
   ARG_LOG_LEVEL: logging.INFO,
+  ARG_LOGS_PATH: None,
   ARG_MYSQL_HOST: 'localhost',
   ARG_MYSQL_PASSWORD: '',
   ARG_MYSQL_PORT: 3306,
   ARG_MYSQL_SOCKET: '',
   ARG_MYSQL_USER: '',
-  ARG_PERSIST_LOGS: False,
   ARG_PORT: 8080,
   ARG_PROSPECTIVE_SEARCH_PATH: os.path.join(tempfile.gettempdir(),
                                             'dev_appserver.prospective_search'),
@@ -300,6 +309,7 @@ LONG_OPTIONS = [
     'admin_console_server=',
     'allow_skipped_files',
     'auth_domain=',
+    'auto_id_policy=',
     'backends',
     'blobstore_path=',
     'clear_datastore',
@@ -315,6 +325,7 @@ LONG_OPTIONS = [
     'help',
     'high_replication',
     'history_path=',
+    'logs_path=',
     'multiprocess',
     'multiprocess_api_port=',
     'multiprocess_api_server',
@@ -361,6 +372,8 @@ def PrintUsageExit(code):
   """
   render_dict = DEFAULT_ARGS.copy()
   render_dict['script'] = os.path.basename(sys.argv[0])
+  render_dict['logs_path'] = os.path.join(tempfile.gettempdir(),
+                                          'dev_appserver.logs')
   print sys.modules['__main__'].__doc__ % render_dict
   sys.stdout.flush()
   sys.exit(code)
@@ -429,6 +442,9 @@ def ParseArguments(argv):
       option_dict[ARG_PROSPECTIVE_SEARCH_PATH] = expand_path(value)
 
     option_dict[ARG_SKIP_SDK_UPDATE_CHECK] = True
+
+    if option == '--auto_id_policy':
+      option_dict[ARG_AUTO_ID_POLICY] = value.lower()
 
     if option == '--use_sqlite':
       option_dict[ARG_USE_SQLITE] = True
@@ -520,8 +536,11 @@ def ParseArguments(argv):
     if option == '--trusted':
       option_dict[ARG_TRUSTED] = True
 
-    if option == '--persist_logs':
-      option_dict[ARG_PERSIST_LOGS] = True
+    if option == '--logs_path':
+      option_dict[ARG_LOGS_PATH] = value
+    if option == '--persist_logs' and not option_dict[ARG_LOGS_PATH]:
+      option_dict[ARG_LOGS_PATH] = os.path.join(tempfile.gettempdir(),
+                                                'dev_appserver.logs')
 
     if option == '--backends':
       option_dict[ARG_BACKENDS] = value
@@ -709,7 +728,6 @@ def main(argv):
   address = option_dict[ARG_ADDRESS]
   allow_skipped_files = option_dict[ARG_ALLOW_SKIPPED_FILES]
   static_caching = option_dict[ARG_STATIC_CACHING]
-  persist_logs = option_dict[ARG_PERSIST_LOGS]
   skip_sdk_update_check = option_dict[ARG_SKIP_SDK_UPDATE_CHECK]
   interactive_console = option_dict[ARG_CONSOLE]
 
@@ -744,7 +762,6 @@ def main(argv):
       allow_skipped_files=allow_skipped_files,
       static_caching=static_caching,
       default_partition=default_partition,
-      persist_logs=persist_logs,
       frontend_port= None, 
       interactive_console=interactive_console,
       secret_hash = hashlib.sha1(appinfo.application + '/' + \
