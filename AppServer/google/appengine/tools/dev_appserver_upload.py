@@ -64,6 +64,9 @@ class InvalidMIMETypeFormatError(Error):
 class InvalidMetadataError(Error):
   """The filename or content type of the entity was not a valid UTF-8 string."""
 
+class UploadEntityTooLargeError(Error):
+  """Entity being uploaded exceeded the allowed size."""
+
 
 def GenerateBlobKey(time_func=time.time, random_func=random.random):
   """Generate a unique BlobKey.
@@ -193,10 +196,19 @@ class UploadCGIHandler(object):
         'The uploaded entity contained invalid UTF-8 metadata. This may be '
         'because the page containing the upload form was served with a '
         'charset other than "utf-8".')
-    #form_item.file.seek(0, 2)
-    #size = form_item.file.tell()
-    #form_item.file.seek(0)
-    blob_entity['size'] = len(form_item["body"])
+
+    form_item.file.seek(0)
+    digester = hashlib.md5()
+    while True:
+      block = form_item.file.read(1 << 20)
+      if not block:
+        break
+      digester.update(block)
+
+    blob_entity['md5_hash'] = digester.hexdigest()
+    blob_entity['size'] = form_item.file.tell()
+    form_item.file.seek(0)
+
     datastore.Put(blob_entity)
     return blob_entity
 
@@ -263,6 +275,10 @@ class UploadCGIHandler(object):
           yield form_item
 
     creation = self.__now_func()
+    total_bytes_uploaded = 0
+    created_blobs = []
+    upload_too_large = False
+
     for form_item in IterateForm():
 
       disposition_parameters = {'name': form_item.name}
@@ -278,15 +294,43 @@ class UploadCGIHandler(object):
 
         main_type, sub_type = _SplitMIMEType(form_item.type)
 
+
+        form_item.file.seek(0, 2)
+        content_length = form_item.file.tell()
+        form_item.file.seek(0)
+
+        total_bytes_uploaded += content_length
+
+        if max_bytes_per_blob is not None:
+          if max_bytes_per_blob < content_length:
+            upload_too_large = True
+            break
+        if max_bytes_total is not None:
+          if max_bytes_total < total_bytes_uploaded:
+            upload_too_large = True
+            break
+
+
         blob_entity = self.StoreBlob(form_item, creation)
+
+
+        created_blobs.append(blob_entity)
 
         variable = base.MIMEBase('message',
                                  'external-body',
                                  access_type=blobstore.BLOB_KEY_HEADER,
                                  blob_key=blob_entity.key().name())
 
-        form_item.file.seek(0, 2)
-        content_length = form_item.file.tell()
+
+        form_item.file.seek(0)
+        digester = hashlib.md5()
+        while True:
+          block = form_item.file.read(1 << 20)
+          if not block:
+            break
+          digester.update(block)
+
+        blob_key = base64.urlsafe_b64encode(digester.hexdigest())
         form_item.file.seek(0)
 
         external = base.MIMEBase(main_type,
@@ -296,6 +340,7 @@ class UploadCGIHandler(object):
         headers['Content-Length'] = str(content_length)
         headers[blobstore.UPLOAD_INFO_CREATION_HEADER] = (
             blobstore._format_creation(creation))
+        headers['Content-MD5'] = blob_key
         for key, value in headers.iteritems():
           external.add_header(key, value)
 
@@ -311,6 +356,11 @@ class UploadCGIHandler(object):
                           'form-data',
                           **disposition_parameters)
       message.attach(variable)
+
+    if upload_too_large:
+      for blob in created_blobs:
+        datastore.Delete(blob)
+      raise UploadEntityTooLargeError()
 
     return message
 
