@@ -65,9 +65,6 @@ class InvalidMIMETypeFormatError(Error):
   """MIME type was formatted incorrectly."""
 
 
-class InvalidMetadataError(Error):
-  """The filename or content type of the entity was not a valid UTF-8 string."""
-
 class UploadEntityTooLargeError(Error):
   """Entity being uploaded exceeded the allowed size."""
 
@@ -79,6 +76,10 @@ class FilenameOrContentTypeTooLargeError(Error):
     Error.__init__(self,
         'The %s exceeds the maximum allowed length of %s.' % (
             invalid_field, MAX_STRING_NAME_LENGTH))
+
+
+class InvalidMetadataError(Error):
+  """The filename or content type of the entity was not a valid UTF-8 string."""
 
 
 def GenerateBlobKey(time_func=time.time, random_func=random.random):
@@ -204,10 +205,16 @@ class UploadCGIHandler(object):
     blob_entity = datastore.Entity('__BlobInfo__',
                                    name=str(blob_key),
                                    namespace='')
-    blob_entity['content_type'] = (
-        content_type_formatter['content-type'].decode('utf-8'))
-    blob_entity['creation'] = creation
-    blob_entity['filename'] = form_item.filename.decode('utf-8')
+    try:
+      blob_entity['content_type'] = (
+          content_type_formatter['content-type'].decode('utf-8'))
+      blob_entity['creation'] = creation
+      blob_entity['filename'] = form_item.filename.decode('utf-8')
+    except UnicodeDecodeError:
+      raise InvalidMetadataError(
+          'The uploaded entity contained invalid UTF-8 metadata. This may be '
+          'because the page containing the upload form was served with a '
+          'charset other than "utf-8".')
 
     blob_file.seek(0)
     digester = hashlib.md5()
