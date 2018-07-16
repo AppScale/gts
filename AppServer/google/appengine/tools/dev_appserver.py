@@ -4171,7 +4171,7 @@ class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
     self._server.UpdateEvent(service, event_id, eta)
 
   def add_async_request(self, method, relative_url, headers, body, source_ip,
-                        server_name=None, version=None, instance_id=None):
+                        module_name=None, version=None, instance_id=None):
     """Dispatch an HTTP request asynchronously.
 
     Args:
@@ -4180,20 +4180,20 @@ class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
       headers: A list of (key, value) tuples where key and value are both str.
       body: A str containing the request body.
       source_ip: The source ip address for the request.
-      server_name: An optional str containing the server name to service this
+      module_name: An optional str containing the module name to service this
           request. If unset, the request will be dispatched to the default
-          server.
+          module.
       version: An optional str containing the version to service this request.
           If unset, the request will be dispatched to the default version.
       instance_id: An optional str containing the instance_id of the instance to
           service this request. If unset, the request will be dispatched to
-          according to the load-balancing for the server and version.
+          according to the load-balancing for the module and version.
     """
     fake_socket = FakeRequestSocket(method, relative_url, headers, body)
     self._server.AddEvent(0, lambda: (fake_socket, (source_ip, self._port)))
 
   def add_request(self, method, relative_url, headers, body, source_ip,
-                  server_name=None, version=None, instance_id=None):
+                  module_name=None, version=None, instance_id=None):
     """Process an HTTP request.
 
     Args:
@@ -4202,14 +4202,14 @@ class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
       headers: A list of (key, value) tuples where key and value are both str.
       body: A str containing the request body.
       source_ip: The source ip address for the request.
-      server_name: An optional str containing the server name to service this
+      module_name: An optional str containing the module name to service this
           request. If unset, the request will be dispatched to the default
-          server.
+          module.
       version: An optional str containing the version to service this request.
           If unset, the request will be dispatched to the default version.
       instance_id: An optional str containing the instance_id of the instance to
           service this request. If unset, the request will be dispatched to
-          according to the load-balancing for the server and version.
+          according to the load-balancing for the module and version.
 
     Returns:
       A request_info.ResponseTuple containing the response information for the
