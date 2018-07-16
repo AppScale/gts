@@ -426,6 +426,8 @@ class UploadCGIHandler(object):
     """
     message = self._GenerateMIMEMessage(form,
                                         boundary=boundary,
+                                        max_bytes_per_blob=max_bytes_per_blob,
+                                        max_bytes_total=max_bytes_total,
                                         bucket_name=bucket_name)
     message_out = cStringIO.StringIO()
     gen = generator.Generator(message_out, maxheaderlen=0)
