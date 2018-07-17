@@ -1126,11 +1126,7 @@ module HelperFunctions
     project_id, service_id, version_id = version_key.split(
       Djinn::VERSION_PATH_SEPARATOR)
 
-    secure_handlers = {
-        always:  [],
-        never:  [],
-        non_secure: []
-    }
+    secure_handlers = []
 
     begin
       version_details = ZKInterface.get_version_details(
@@ -1156,16 +1152,11 @@ module HelperFunctions
     handlers = tree['handlers']
 
     handlers.map! do |handler|
-      if !handler.key?("static_dir") && !handler.key?("static_files") && !handler.key?('secure')
-        handler['secure'] = 'non_secure'
-        secure_handlers[:non_secure] << handler
-      end
-      next unless handler.key?('secure')
-
-      if handler['secure'] == 'always'
-        secure_handlers[:always] << handler
-      elsif handler['secure'] == 'never'
-        secure_handlers[:never] << handler
+      if !handler.key?("static_dir") && !handler.key?("static_files")
+        if !handler.key?('secure')
+            handler['secure'] = 'non_secure'
+        end
+        secure_handlers.push(handler)
       end
     end
     secure_handlers
