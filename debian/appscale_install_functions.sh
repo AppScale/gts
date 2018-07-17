@@ -653,16 +653,17 @@ prepdashboard()
 upgradepip()
 {
     # Versions older than Pip 7 did not correctly parse install commands for
-    # local packages with optional dependencies.
+    # local packages with optional dependencies. Versions greater than Pip 9
+    # do not allow replacing packages installed by the distro.
     case "$DIST" in
         wheezy|trusty)
-            pipwrapper pip
+            pipwrapper 'pip<10'
             # Account for the change in the path to the pip binary.
             hash -r
             ;;
         jessie)
             # The system's pip does not allow updating itself.
-            easy_install --upgrade pip
+            easy_install --upgrade 'pip<10.0.0b1'
             hash -r
             ;;
     esac
