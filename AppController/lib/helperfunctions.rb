@@ -1153,9 +1153,7 @@ module HelperFunctions
 
     handlers.map! do |handler|
       if !handler.key?("static_dir") && !handler.key?("static_files")
-        if !handler.key?('secure')
-            handler['secure'] = 'non_secure'
-        end
+        handler['secure'] = 'non_secure' if !handler.key?('secure')
         secure_handlers.push(handler)
       end
     end

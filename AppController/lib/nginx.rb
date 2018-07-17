@@ -127,19 +127,21 @@ module Nginx
     secure_handlers.each do |handler|
       if handler["secure"] == "always"
         handler_location = HelperFunctions.generate_secure_location_config(handler, https_port)
-        combined_http_locations = combined_http_locations + handler_location
-        always_secure_locations = always_secure_locations + handler_location
+        combined_http_locations += handler_location
+        always_secure_locations += handler_location
+
       elsif handler["secure"] == "never"
         handler_https_location = HelperFunctions.generate_secure_location_config(handler, http_port)
         combined_https_locations = combined_https_locations + handler_https_location
         handler_http_location = "\n    location ~ #{handler['url']} {"
         handler_http_location << http_location_params
-        combined_http_locations = combined_http_locations + handler_http_location
-        never_secure_locations = never_secure_locations + handler_http_location
+        combined_http_locations += handler_http_location
+        never_secure_locations += handler_http_location
+
       elsif handler["secure"] == "non_secure"
         handler_https_location = "\n    location ~ #{handler['url']} {"
         handler_https_location << http_location_params
-        combined_http_locations = combined_http_locations + handler_https_location
+        combined_http_locations += handler_https_location
       end
     end
 
