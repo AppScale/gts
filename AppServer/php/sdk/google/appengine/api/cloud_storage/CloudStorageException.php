@@ -17,13 +17,10 @@
 /**
  */
 
-namespace google\appengine\api\users;
-
-require_once "google/appengine/api/users/Error.php";
+namespace google\appengine\api\cloud_storage;
 
 /**
- * Thrown by User constructor when there's no email argument and no user is
- * logged in.
+ * Thrown when there is a failure using the blobstore service.
  */
-class UserNotFoundError extends Error {
+class CloudStorageException extends \Exception {
 }
