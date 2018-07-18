@@ -331,7 +331,5 @@ SERVICE_PB_MAP = {
                           channel_service_pb.CreateChannelResponse),
         'SendChannelMessage': (channel_service_pb.SendMessageRequest,
                                api_base_pb.VoidProto),
-        'GetChannelPresence': (channel_service_pb.ChannelPresenceRequest,
-                               channel_service_pb.ChannelPresenceResponse),
     },
 }
