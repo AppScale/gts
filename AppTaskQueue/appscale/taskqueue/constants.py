@@ -13,6 +13,10 @@ class InvalidTarget(Exception):
   """ Indicates an invalid target. """
   pass
 
+class TaskNotFound(Exception):
+  """ Indicates that the specified task does not exist. """
+  pass
+
 def non_negative_int(value):
   """ Checks if a value is greater than 0. """
   return isinstance(value, int) and value >= 0
