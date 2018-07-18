@@ -1958,14 +1958,13 @@ class Query(_BaseQuery):
       if self._group_by:
         extra = set(projection) - set(self._group_by)
         if extra:
-          raise datastore_errors.BadQueryError(
+          raise datastore_errors.BadRequestError(
               'projections includes properties not in the group_by argument: %s'
               % extra)
       pb.property_name_list().extend(projection)
     elif self._group_by:
-      raise datastore_errors.BadQueryError(
+      raise datastore_errors.BadRequestError(
           'cannot specify group_by without a projection')
-
 
     if QueryOptions.produce_cursors(query_options, conn.config):
       pb.set_compile(True)

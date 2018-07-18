@@ -814,33 +814,26 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
     self._FillSearchResponse(results, position_range, params.cursor_type(),
                              _ScoreRequested(params), response)
 
-  def _CopyBaseDocument(self, doc, doc_copy):
+  def _CopyDocument(self, doc, doc_copy, field_names, ids_only=None):
+    """Copies Document, doc, to doc_copy restricting fields to field_names."""
     doc_copy.set_id(doc.id())
-    if doc.has_order_id():
-      doc_copy.set_order_id(doc.order_id())
+    if ids_only:
+      return
     if doc.has_language():
       doc_copy.set_language(doc.language())
-
-  def _CopyDocument(self, doc, doc_copy, field_spec=None, ids_only=None):
-    """Copies Document, doc, to doc_copy restricting fields to field_spec."""
-    if ids_only:
-      self._CopyBaseDocument(doc, doc_copy)
-    elif field_spec and field_spec.name_list():
-      self._CopyBaseDocument(doc, doc_copy)
-      for field in doc.field_list():
-        if field.name() in field_spec.name_list():
-          doc_copy.add_field().CopyFrom(field)
-    else:
-      doc_copy.CopyFrom(doc)
+    for field in doc.field_list():
+      if not field_names or field.name() in field_names:
+        doc_copy.add_field().CopyFrom(field)
+    doc_copy.set_order_id(doc.order_id())
 
   def _FillSearchResponse(self, results, position_range, cursor_type, score,
-                          response, field_spec=None, ids_only=None):
+                          response, field_names=None, ids_only=None):
     """Fills the SearchResponse with a selection of results."""
     for i in position_range:
       result = results[i]
       search_result = response.add_result()
       self._CopyDocument(result.document, search_result.mutable_document(),
-                         field_spec, ids_only)
+                         field_names, ids_only)
       if cursor_type == search_service_pb.SearchParams.PER_RESULT:
         search_result.set_cursor(result.document.id())
       if score:
@@ -855,6 +848,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
           expr.mutable_value().set_type(document_pb.FieldValue.NUMBER)
         else:
           expr.mutable_value().set_string_value(expression)
+          expr.mutable_value().set_type(document_pb.FieldValue.HTML)
 
   def _Dynamic_Search(self, request, response):
     """A local implementation of SearchService.Search RPC.
@@ -897,10 +891,9 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
     else:
       position_range = range(0)
     field_spec = None
-    if params.has_field_spec():
-      field_spec = params.field_spec()
+    field_names = params.field_spec().name_list()
     self._FillSearchResponse(results, position_range, params.cursor_type(),
-                             _ScoreRequested(params), response, field_spec,
+                             _ScoreRequested(params), response, field_names,
                              params.keys_only())
     if (params.cursor_type() == search_service_pb.SearchParams.SINGLE and
         len(position_range)):

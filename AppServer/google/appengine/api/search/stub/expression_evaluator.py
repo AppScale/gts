@@ -192,7 +192,7 @@ class ExpressionEvaluator(object):
         field_val = search_util.GetFieldValue(
             search_util.GetFieldInDocument(self._doc_pb, field))
         if not field_val:
-          return None
+          return ''
         return '%s...' % field_val[:search_util.DEFAULT_MAX_SNIPPET_LENGTH]
 
   def _Unsupported(self, method):
