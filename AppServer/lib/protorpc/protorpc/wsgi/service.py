@@ -27,15 +27,10 @@ WSGI applications.  For more information about WSGI, please see:
 __author__ = 'rafek@google.com (Rafe Kaplan)'
 
 import cgi
-import cStringIO
 import httplib
 import logging
 import re
 
-from wsgiref import headers as wsgi_headers
-
-from .. import protobuf
-from .. import protojson
 from .. import messages
 from .. import registry
 from .. import remote
