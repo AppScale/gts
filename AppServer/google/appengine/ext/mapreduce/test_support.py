@@ -42,30 +42,32 @@ import re
 
 from google.appengine.ext.mapreduce import main
 from google.appengine.ext.webapp import mock_webapp
-from google.appengine.ext.mapreduce import util
 
 
 def decode_task_payload(task):
   """Decodes POST task payload.
 
+  This can only decode POST payload for a normal task. For huge task,
+  use model.HugeTask.decode_payload.
+
   Args:
-    task: a task to decode its payload.
+    task: a dict representing a taskqueue task as documented in taskqueue_stub.
 
   Returns:
     parameter_name -> parameter_value dict. If multiple parameter values are
     present, then parameter_value will be a list.
   """
-  body = task["body"]
-  if not body:
+  if not task:
     return {}
-  decoded = base64.b64decode(body)
+
+  body = base64.b64decode(task["body"])
   result = {}
-  for (name, value) in cgi.parse_qs(decoded).items():
+  for (name, value) in cgi.parse_qs(body).items():
     if len(value) == 1:
       result[name] = value[0]
     else:
       result[name] = value
-  return util.HugeTask.decode_payload(result)
+  return result
 
 
 def execute_task(task, retries=0, handlers_map=None):
@@ -85,6 +87,9 @@ def execute_task(task, retries=0, handlers_map=None):
 
   Returns:
     the handler instance used for this task.
+
+  Raises:
+    Exception: whatever the task raises.
   """
   if not handlers_map:
     handlers_map = main.create_handlers_map()
@@ -95,35 +100,46 @@ def execute_task(task, retries=0, handlers_map=None):
   for (re_str, handler_class) in handlers_map:
     re_str = "^" + re_str + "($|\\?)"
     if re.match(re_str, url):
-      handler = handler_class()
       break
-
-  if not handler:
+  else:
     raise Exception("Can't determine handler for %s" % task)
 
-  handler.initialize(mock_webapp.MockRequest(),
-                     mock_webapp.MockResponse())
-  handler.request.set_url(url)
+  request = mock_webapp.MockRequest()
+  request.set_url(url)
 
-  handler.request.environ["HTTP_HOST"] = "myapp.appspot.com"
+  request.environ["HTTP_HOST"] = "myapp.appspot.com"
   for k, v in task.get("headers", []):
-    handler.request.headers[k] = v
+    request.headers[k] = v
     environ_key = "HTTP_" + k.replace("-", "_").upper()
-    handler.request.environ[environ_key] = v
-  handler.request.headers["X-AppEngine-TaskExecutionCount"] = retries
-  handler.request.environ["HTTP_X_APPENGINE_TASKNAME"] = (
+    request.environ[environ_key] = v
+  request.headers["X-AppEngine-TaskExecutionCount"] = retries
+  request.environ["HTTP_X_APPENGINE_TASKNAME"] = (
       task.get("name", "default_task_name"))
-  handler.request.environ["HTTP_X_APPENGINE_QUEUENAME"] = (
+  request.environ["HTTP_X_APPENGINE_QUEUENAME"] = (
       task.get("queue_name", "default"))
-  handler.request.environ["PATH_INFO"] = handler.request.path
+  request.environ["PATH_INFO"] = request.path
+
+  if task["method"] == "POST":
+
+    request.body = base64.b64decode(task["body"])
+    for k, v in decode_task_payload(task).iteritems():
+      request.set(k, v)
+
+  response = mock_webapp.MockResponse()
+  try:
+
+
+    handler = handler_class(request, response)
+  except TypeError:
+
+    handler = handler_class()
+    handler.initialize(request, response)
 
   saved_os_environ = os.environ
   try:
     os.environ = dict(os.environ)
-    os.environ.update(handler.request.environ)
+    os.environ.update(request.environ)
     if task["method"] == "POST":
-      for k, v in decode_task_payload(task).items():
-        handler.request.set(k, v)
       handler.post()
     elif task["method"] == "GET":
       handler.get()
