@@ -57,6 +57,8 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
   Instead it queues messages internally.
   """
 
+  THREADSAFE = True
+
 
 
 

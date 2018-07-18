@@ -134,6 +134,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       buffers.
 
   """
+  THREADSAFE = True
+
   _ACCEPTS_REQUEST_ID = True
 
   _PROPERTY_TYPE_TAGS = {

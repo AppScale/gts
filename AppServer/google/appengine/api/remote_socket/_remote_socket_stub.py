@@ -92,6 +92,8 @@ class SocketState(object):
 class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
   """Stub implementation of the Remote Socket API."""
 
+  THREADSAFE = True
+
   _AF_MAP = {
       socket.AF_INET: remote_socket_service_pb.CreateSocketRequest.IPv4,
       socket.AF_INET6: remote_socket_service_pb.CreateSocketRequest.IPv6,
