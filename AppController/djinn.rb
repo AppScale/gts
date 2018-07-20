@@ -4455,7 +4455,8 @@ HOSTS
     service_port = 17442
     start_cmd = "#{script} serve -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
-    MonitInterface.start(:admin_server, start_cmd)
+    MonitInterface.start(:admin_server, start_cmd, nil,
+                         {'PATH' => ENV['PATH']})
     if my_node.is_shadow?
       Nginx.add_service_location('appscale-administration', my_node.private_ip,
                                  service_port, nginx_port, '/')
