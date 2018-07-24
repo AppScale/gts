@@ -13,6 +13,7 @@ from psutil import NoSuchProcess
 from tornado import gen
 from tornado.httpclient import AsyncHTTPClient
 from tornado.ioloop import IOLoop, PeriodicCallback
+from tornado.locks import Lock as AsyncLock
 from tornado.options import options
 
 from appscale.common.async_retrying import retry_data_watch_coroutine
@@ -113,10 +114,14 @@ class DatastoreServer(Server):
     self._stdout = None
     self._verbose = verbose
 
+    # Serializes start, stop, and monitor operations.
+    self._management_lock = AsyncLock()
+
   @gen.coroutine
   def ensure_running(self):
     """ Checks to make sure the server is still running. """
-    yield self._wait_for_service(timeout=self.STATUS_TIMEOUT)
+    with (yield self._management_lock.acquire()):
+      yield self._wait_for_service(timeout=self.STATUS_TIMEOUT)
 
   @staticmethod
   def from_pid(pid, http_client):
@@ -138,39 +143,39 @@ class DatastoreServer(Server):
   @gen.coroutine
   def start(self):
     """ Starts a new datastore server. """
-    if self.state in (ServerStates.STARTING, ServerStates.RUNNING):
-      return
+    with (yield self._management_lock.acquire()):
+      if self.state == ServerStates.RUNNING:
+        return
 
-    self.state = ServerStates.STARTING
-    start_cmd = ['appscale-datastore',
-                 '--type', self.DATASTORE_TYPE,
-                 '--port', str(self.port)]
-    if self._verbose:
-      start_cmd.append('--verbose')
+      self.state = ServerStates.STARTING
+      start_cmd = ['appscale-datastore',
+                   '--type', self.DATASTORE_TYPE,
+                   '--port', str(self.port)]
+      if self._verbose:
+        start_cmd.append('--verbose')
 
-    log_file = os.path.join(LOG_DIR,
-                            'datastore_server-{}.log'.format(self.port))
-    self._stdout = open(log_file, 'a')
-    self.process = psutil.Popen(
-      ['cgexec', '-g', ':'.join(DATASTORE_CGROUP)] + start_cmd,
-      stdout=self._stdout, stderr=subprocess.STDOUT)
+      log_file = os.path.join(LOG_DIR,
+                              'datastore_server-{}.log'.format(self.port))
+      self._stdout = open(log_file, 'a')
+      self.process = psutil.Popen(
+        ['cgexec', '-g', ':'.join(DATASTORE_CGROUP)] + start_cmd,
+        stdout=self._stdout, stderr=subprocess.STDOUT)
 
-    # Wait for server to bind to port before making HTTP requests.
-    yield gen.sleep(1)
-    yield self._wait_for_service(timeout=self.START_TIMEOUT)
-    self.state = ServerStates.RUNNING
+      yield self._wait_for_service(timeout=self.START_TIMEOUT)
+      self.state = ServerStates.RUNNING
 
   @gen.coroutine
   def stop(self):
     """ Stops an existing datastore server. """
-    if self.state in (ServerStates.STOPPING, ServerStates.STOPPED):
-      return
+    with (yield self._management_lock.acquire()):
+      if self.state == ServerStates.STOPPED:
+        return
 
-    self.state = ServerStates.STOPPING
-    try:
-      self._cleanup()
-    finally:
-      self.state = ServerStates.STOPPED
+      self.state = ServerStates.STOPPING
+      try:
+        yield self._cleanup()
+      finally:
+        self.state = ServerStates.STOPPED
 
   @gen.coroutine
   def _cleanup(self):
