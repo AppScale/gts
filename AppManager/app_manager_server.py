@@ -806,6 +806,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     "--jvm_flag=-Dsocket.permit_connect=true",
     '--jvm_flag=-Xmx{}m'.format(max_heap),
     '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
+    '--jvm_flag=-Djdk.tls.client.protocols=TLSv1.1,TLSv1.2',
     "--disable_update_check",
     "--address=" + options.private_ip,
     "--datastore_path=" + options.db_proxy,
@@ -838,7 +839,10 @@ def unregister_instance(instance):
   except NoNodeError:
     pass
 
-  running_instances.remove(instance)
+  try:
+    running_instances.remove(instance)
+  except KeyError:
+    logging.info('unregister_instance: non-existent instance {}'.format(instance))
 
 
 def register_instance(instance):
@@ -1082,6 +1086,7 @@ if __name__ == "__main__":
   projects_manager = GlobalProjectsManager(zk_client)
   thread_pool = ThreadPoolExecutor(MAX_BACKGROUND_WORKERS)
   source_manager = SourceManager(zk_client, thread_pool)
+  source_manager.configure_automatic_fetch(projects_manager)
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('syslog_server', appscale_info.get_headnode_ip())

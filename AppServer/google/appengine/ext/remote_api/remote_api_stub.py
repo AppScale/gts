@@ -578,7 +578,7 @@ def GetRemoteAppIdFromServer(server, path, remote_token=None):
   if not response.startswith('{'):
     raise ConfigurationError(
         'Invalid response recieved from server: %s' % response)
-  app_info = yaml.load(response)
+  app_info = yaml.safe_load(response)
   if not app_info or 'rtok' not in app_info or 'app_id' not in app_info:
     raise ConfigurationError('Error parsing app_id lookup response')
   if str(app_info['rtok']) != remote_token:

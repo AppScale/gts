@@ -8,10 +8,12 @@ import shutil
 
 from kazoo.exceptions import NodeExistsError
 from tornado import gen
+from tornado.ioloop import IOLoop
 from tornado.options import options
 
 from appscale.common.appscale_utils import get_md5
 from appscale.common.appscale_info import get_secret
+from appscale.common.async_retrying import retry_children_watch_coroutine
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from .utils import fetch_file
 from ..constants import (
@@ -23,6 +25,10 @@ from ..constants import (
 from ..utils import extract_source
 
 logger = logging.getLogger('appscale-admin')
+
+
+class AlreadyHoster(Exception):
+  pass
 
 
 class SourceManager(object):
@@ -37,35 +43,97 @@ class SourceManager(object):
     self.zk_client = zk_client
     self.thread_pool = thread_pool
     self.source_futures = {}
+    self.projects_manager = None
+    self.fetched_revisions = None
+
+  def configure_automatic_fetch(self, project_manager):
+    """ Ensures that SourceManager watches zookeeper nodes describing
+    application archives and fetches it as soon as new archive
+    is available.
+
+    Args:
+      project_manager: an instance of GlobalProjectManager.
+    """
+    if self.projects_manager is not None:
+      logger.debug("Automatic fetch of new application archives "
+                   "was already configured")
+      return
+    self.projects_manager = project_manager
+    self.fetched_revisions = set()
+    self.zk_client.ChildrenWatch('/apps', self._update_apps_watch)
+    logger.debug("Configured automatic fetch of new application archives")
+
+  def _update_apps_watch(self, new_apps_list):
+    """ Schedules fetch of new sources if there are any available.
+
+    Args:
+      new_apps_list: a list of revisions with archive
+        available somewhere in deployment.
+    """
+    persistent_update_apps = retry_children_watch_coroutine(
+      '/apps', self._handle_apps_update
+    )
+    main_io_loop = IOLoop.current()
+    main_io_loop.add_callback(persistent_update_apps, new_apps_list)
 
   @gen.coroutine
-  def fetch_archive(self, revision_key, source_location, try_existing=True):
+  def _handle_apps_update(self, new_apps_list):
+    """ Fetches new available sources if there are any.
+
+    Args:
+      new_apps_list: a list of revisions with archive
+        available somewhere in deployment.
+    """
+    for revision_key in new_apps_list:
+      if revision_key in self.fetched_revisions:
+        continue
+      revision_key_parts = revision_key.split(VERSION_PATH_SEPARATOR)
+      project_id = revision_key_parts[0]
+      service_id = revision_key_parts[1]
+      version_id = revision_key_parts[2]
+      revision_id = revision_key_parts[3]
+
+      service_manager = self.projects_manager[project_id][service_id]
+      version_details = service_manager[version_id].version_details
+      runtime = version_details['runtime']
+      source_archive = version_details['deployment']['zip']['sourceUrl']
+      last_revision_id = version_details['revision']
+      if revision_id == last_revision_id:
+        yield self.ensure_source(revision_key, source_archive, runtime)
+        self.fetched_revisions.add(revision_key)
+
+  @gen.coroutine
+  def fetch_archive(self, revision_key, source_location):
     """ Copies the source archive from a machine that has it.
 
     Args:
       revision_key: A string specifying a revision key.
       source_location: A string specifying the location of the version's
         source archive.
-      try_existing: A boolean specifying that the local file system should be
-        searched before copying from another machine.
     Returns:
       A string specifying the source archive's MD5 hex digest.
+    Raises:
+      AlreadyHoster if local machine is hosting archive.
     """
     hosts_with_archive = yield self.thread_pool.submit(
       self.zk_client.get_children, '/apps/{}'.format(revision_key))
     assert hosts_with_archive, '{} has no hosters'.format(revision_key)
+
+    if options.private_ip in hosts_with_archive:
+      raise AlreadyHoster('{} is already a hoster of {}'
+                         .format(options.private_ip, revision_key))
 
     host = random.choice(hosts_with_archive)
     host_node = '/apps/{}/{}'.format(revision_key, host)
     original_md5, _ = yield self.thread_pool.submit(
       self.zk_client.get, host_node)
 
-    if try_existing and os.path.isfile(source_location):
+    if os.path.isfile(source_location):
       md5 = yield self.thread_pool.submit(get_md5, source_location)
       if md5 == original_md5:
         raise gen.Return(md5)
 
-      raise InvalidSource('Source MD5 does not match')
+      logger.warning('Source MD5 does not match. Re-fetching archive.')
 
     yield self.thread_pool.submit(fetch_file, host, source_location)
     md5 = yield self.thread_pool.submit(get_md5, source_location)
@@ -73,6 +141,21 @@ class SourceManager(object):
       raise InvalidSource('Source MD5 does not match')
 
     raise gen.Return(md5)
+
+  @gen.coroutine
+  def register_as_hoster(self, revision_key, md5):
+    """ Adds an entry to indicate that the local machine has the archive.
+
+    Args:
+      revision_key: A string specifying a revision key.
+      md5: A string specifying the source archive's MD5 hex digest.
+    """
+    new_hoster_node = '/apps/{}/{}'.format(revision_key, options.private_ip)
+    try:
+      yield self.thread_pool.submit(self.zk_client.create, new_hoster_node,
+                                    md5, makepath=True)
+    except NodeExistsError:
+      logger.debug('{} is already a hoster'.format(options.private_ip))
 
   @gen.coroutine
   def prepare_source(self, revision_key, location, runtime):
@@ -84,21 +167,17 @@ class SourceManager(object):
         archive.
       runtime: A string specifying the revision's runtime.
     """
+    source_extracted = False
     try:
       md5 = yield self.fetch_archive(revision_key, location)
-    except InvalidSource:
-      md5 = yield self.fetch_archive(
-        revision_key, location, try_existing=False)
+    except AlreadyHoster as already_hoster_err:
+      logger.info(already_hoster_err)
+      source_extracted = os.path.isdir(os.path.join(UNPACK_ROOT, revision_key))
+    else:
+      yield self.register_as_hoster(revision_key, md5)
 
-    # Register as a hoster.
-    new_hoster_node = '/apps/{}/{}'.format(revision_key, options.private_ip)
-    try:
-      yield self.thread_pool.submit(self.zk_client.create, new_hoster_node,
-                                    md5, makepath=True)
-    except NodeExistsError:
-      logger.debug('{} is already a hoster'.format(options.private_ip))
-
-    yield self.thread_pool.submit(extract_source, revision_key, location,
+    if not source_extracted:
+      yield self.thread_pool.submit(extract_source, revision_key, location,
                                   runtime)
 
     project_id = revision_key.split(VERSION_PATH_SEPARATOR)[0]

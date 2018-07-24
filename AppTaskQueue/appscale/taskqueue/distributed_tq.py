@@ -29,6 +29,7 @@ from cassandra.policies import FallthroughRetryPolicy
 from .constants import (
   InvalidTarget,
   QueueNotFound,
+  TaskNotFound,
   TARGET_REGEX
 )
 from .queue import (
@@ -420,6 +421,8 @@ class DistributedTaskQueue():
 
     try:
       self.__bulk_add(source_info, bulk_request, bulk_response)
+    except TransientError as error:
+      return '', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
     except QueueNotFound as error:
       return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
@@ -454,6 +457,8 @@ class DistributedTaskQueue():
       self.__bulk_add(source_info, request, response)
     except QueueNotFound as error:
       return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+    except TransientError as error:
+      return '', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
 
     return (response.Encode(), 0, "")
 
@@ -836,26 +841,26 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest(http_data)
-    response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
 
     try:
       queue = self.get_queue(app_id, request.queue_name())
     except QueueNotFound as error:
       return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
-    task_info = {'id': request.task_name()}
+    task_info = {'id': request.task_name(),
+                 'leaseTimestamp': request.eta_usec()}
     try:
       # The Python AppServer sets eta_usec with a resolution of 1 second,
       # so update_lease can't be used. It checks with millisecond precision.
       task = queue.update_task(Task(task_info), request.lease_seconds())
     except InvalidLeaseRequest as lease_error:
-      error = TaskQueueServiceError.TASK_LEASE_EXPIRED
-      # The response requires ETA to be set before encoding.
-      response.set_updated_eta_usec(0)
-      return response.Encode(), error, str(lease_error)
+      return '', TaskQueueServiceError.TASK_LEASE_EXPIRED, str(lease_error)
+    except TaskNotFound as error:
+      return '', TaskQueueServiceError.TASK_LEASE_EXPIRED, str(error)
 
     epoch = datetime.datetime.utcfromtimestamp(0)
     updated_usec = int((task.leaseTimestamp - epoch).total_seconds() * 1000000)
+    response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
     response.set_updated_eta_usec(updated_usec)
     return response.Encode(), 0, ""
 

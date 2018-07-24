@@ -157,7 +157,13 @@ class Task(object):
     Returns:
       A string representing the task.
     """
-    return '<Task: {}>'.format(self.id)
+    attributes = {'id': self.id}
+    if hasattr(self, 'queueName'):
+      attributes['queue'] = self.queueName
+
+    values = ', '.join(['='.join([attr, val])
+                        for attr, val in attributes.items()])
+    return '<Task: {}>'.format(values)
 
   def json_safe_dict(self, fields=TASK_FIELDS):
     """ Generate a JSON-safe dictionary representation of the task.
@@ -204,7 +210,7 @@ class Task(object):
     task_pb.set_task_name(self.id)
     epoch = datetime.datetime.utcfromtimestamp(0)
     task_pb.set_eta_usec(
-      int((self.get_eta() - epoch).total_seconds()) * 1000000)
+      int((self.get_eta() - epoch).total_seconds() * 1000000))
     task_pb.set_retry_count(self.retry_count)
     task_pb.set_body(base64.urlsafe_b64decode(self.payloadBase64))
     try:

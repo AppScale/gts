@@ -116,23 +116,16 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
                  for ip in ips]
     return locations
 
-  def _ChooseTaskName(self, app_name, queue_name, user_chosen=None):
+  def _ChooseTaskName(self):
     """ Creates a task name that the system can use to address
         tasks from different apps and queues.
 
-    Args:
-      app_name: The application name.
-      queue_name: A str representing the queue name that the task goes in.
-      user_chosen: A string name the user selected for their application.
     Returns:
       A randomized string representing a task name.
     """
     RAND_LENGTH_SIZE = 32
-    if not user_chosen:
-      user_chosen = ''.join(random.choice(string.ascii_uppercase + \
-        string.digits) for x in range(RAND_LENGTH_SIZE))
-    return 'task_%s_%s_%s' % (app_name, queue_name, user_chosen)
-
+    alphabet = string.ascii_uppercase + string.digits
+    return ''.join(random.choice(alphabet) for _ in range(RAND_LENGTH_SIZE))
 
   def _AddTransactionalBulkTask(self, request, response):
     """ Add a transactional task.
@@ -145,13 +138,18 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     """
     for add_request in request.add_request_list():
       task_result = response.add_taskresult()
+
       task_name = None
       if add_request.has_task_name():
         task_name = add_request.task_name()
-      namespaced_name = self._ChooseTaskName(add_request.app_id(),
-                                            add_request.queue_name(),
-                                            user_chosen=task_name)
-      add_request.set_task_name(namespaced_name)
+
+      if not task_name:
+        task_name = self._ChooseTaskName()
+
+      namespaced_name = '_'.join(['task', self.__app_id,
+                                  add_request.queue_name(), task_name])
+
+      add_request.set_task_name(task_name)
       task_result.set_chosen_task_name(namespaced_name)
 
     for add_request, task_result in zip(request.add_request_list(),

@@ -15,6 +15,7 @@ import tornado.httpserver
 import tornado.web
 
 from appscale.common import appscale_info
+from appscale.common.appscale_info import get_load_balancer_ips
 from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
@@ -39,6 +40,7 @@ from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_v4_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
+from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 # Global for accessing the datastore. An instance of DatastoreDistributed.
 datastore_access = None
@@ -358,14 +360,20 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore is in read-only mode.')
 
     try:
-      return datastore_access.rollback_transaction(app_id, http_request_data)
-    except zktransaction.ZKInternalException as error:
-      logger.exception('ZKInternalException during {} for {}'.
-        format(http_request_data, app_id))
+      txn = datastore_pb.Transaction(http_request_data)
+    except ProtocolBufferDecodeError as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+
+    try:
+      datastore_access.rollback_transaction(app_id, txn.handle())
+    except dbconstants.InternalError as error:
+      logger.exception('Unable to rollback transaction')
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
     except Exception as error:
       logger.exception('Unable to rollback transaction')
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+
+    return api_base_pb.VoidProto().Encode(), 0, ''
 
   @gen.coroutine
   def run_query(self, http_request_data):
@@ -849,6 +857,7 @@ def main():
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('port', args.port)
+  taskqueue_locations = get_load_balancer_ips()
 
   server_node = '{}/{}:{}'.format(DATASTORE_SERVERS_NODE, options.private_ip,
                                   options.port)
@@ -869,7 +878,8 @@ def main():
   transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
     datastore_batch, transaction_manager, zookeeper=zookeeper,
-    log_level=logger.getEffectiveLevel())
+    log_level=logger.getEffectiveLevel(),
+    taskqueue_locations=taskqueue_locations)
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)

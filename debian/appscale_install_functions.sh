@@ -17,7 +17,7 @@ fi
 
 JAVA_VERSION="java-8-openjdk"
 case "${DIST}" in
-    trusty|wheezy) JAVA_VERSION="java-7-openjdk" ;;
+    wheezy) JAVA_VERSION="java-7-openjdk" ;;
 esac
 
 export UNAME_MACHINE=$(uname -m)
@@ -160,6 +160,17 @@ root            soft    nofile           200000
 *               soft    nofile           200000
 *               -       nproc            32768
 EOF
+
+    # On distros with systemd, the open file limit must be adjusted for each
+    # service.
+    if which systemctl > /dev/null && [ "${IN_DOCKER}" != "yes" ]; then
+        mkdir -p /etc/systemd/system/nginx.service.d
+        cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
+[Service]
+LimitNOFILE=200000
+EOF
+        systemctl daemon-reload
+    fi
 }
 
 installappscaleprofile()
@@ -303,7 +314,7 @@ installgems()
     sleep 1
     gem install json ${GEMOPT} -v 1.8.3
     sleep 1
-    gem install soap4r-ng ${GEMOPT}
+    gem install soap4r-ng ${GEMOPT} -v 2.0.3
     gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
     gem install posixpsutil ${GEMOPT}
@@ -621,9 +632,20 @@ installapiserver()
 
     # The activate script fails under `set -u`.
     unset_opt=$(shopt -po nounset)
+    case ${DIST} in
+        wheezy|trusty)
+            # Tornado 5 does not work with Python<2.7.9.
+            tornado_package='tornado<5'
+            ;;
+        *)
+            tornado_package='tornado'
+            ;;
+    esac
+
     set +u
     (source /opt/appscale_api_server/bin/activate && \
      pip install -U pip && \
+     pip install "${tornado_package}" && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}
@@ -642,16 +664,17 @@ prepdashboard()
 upgradepip()
 {
     # Versions older than Pip 7 did not correctly parse install commands for
-    # local packages with optional dependencies.
+    # local packages with optional dependencies. Versions greater than Pip 9
+    # do not allow replacing packages installed by the distro.
     case "$DIST" in
         wheezy|trusty)
-            pipwrapper pip
+            pipwrapper 'pip<10'
             # Account for the change in the path to the pip binary.
             hash -r
             ;;
         jessie)
             # The system's pip does not allow updating itself.
-            easy_install --upgrade pip
+            easy_install --upgrade 'pip<10.0.0b1'
             hash -r
             ;;
     esac

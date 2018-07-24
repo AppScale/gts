@@ -26,6 +26,7 @@ from appscale.datastore.cassandra_env.utils import index_deletions
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
 
 from appscale.datastore.utils import (
+  encode_index_pb,
   get_entity_key,
   get_entity_kind,
   get_index_key_from_params,
@@ -326,9 +327,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
     commit_request = datastore_pb.Transaction()
     commit_request.set_handle(123)
     commit_request.set_app("aaa")
-    http_request = commit_request.Encode()
-    self.assertEquals(dd.rollback_transaction("app_id", http_request),
-                      (api_base_pb.VoidProto().Encode(), 0, ""))
+    self.assertEquals(
+      dd.rollback_transaction("app_id", commit_request.handle()), None)
 
   @staticmethod
   def get_new_entity_proto(app_id, kind, entity_name, prop_name, prop_value, ns=""):
@@ -371,7 +371,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key1: {}, entity_key2: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
+    db_batch.should_receive('normal_batch').and_return(ASYNC_NONE)
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
       delete_transaction_id=lambda project, txid: None,
@@ -415,7 +415,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key1: {}, entity_key2: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
+    db_batch.should_receive('normal_batch').and_return(ASYNC_NONE)
     transaction_manager = flexmock(
       create_transaction_id=lambda project, xg: 1,
       delete_transaction_id=lambda project, txid: None,
@@ -499,8 +499,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version_sync').and_return(True)
     db_batch.should_receive("batch_get_entity").and_return(async_result)
-    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
-    db_batch.should_receive('_normal_batch').and_return(ASYNC_NONE)
+    db_batch.should_receive('normal_batch').and_return(ASYNC_NONE)
 
     transaction_manager = flexmock()
     dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
@@ -646,67 +645,11 @@ class TestDatastoreServer(testing.AsyncTestCase):
     zookeeper.should_receive("is_in_transaction").and_return(False)
     transaction_manager = flexmock()
     dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
-    yield dd.ancestor_query(query, filter_info, None)
+    yield dd.ancestor_query(query, filter_info)
     # Now with a transaction
     transaction = query.mutable_transaction()
     transaction.set_handle(2)
-    yield dd.ancestor_query(query, filter_info, None)
-
-  @testing.gen_test
-  def test_ordered_ancestor_query(self):
-    query = datastore_pb.Query()
-    ancestor = query.mutable_ancestor()
-    entity_proto1 = self.get_new_entity_proto(
-      "test", "test_kind", "nancy", "prop1name", "prop1val", ns="blah")
-    entity_key = entity_proto1.key()
-    get_req = datastore_pb.GetRequest()
-    key = get_req.add_key()
-    key.MergeFrom(entity_key)
-    ancestor.MergeFrom(entity_key)
-
-    async_result = gen.Future()
-    async_result.set_result({
-      "test\x00blah\x00test_kind:nancy\x01": {
-        APP_ENTITY_SCHEMA[0]: entity_proto1.Encode(),
-        APP_ENTITY_SCHEMA[1]: 1
-      }
-    })
-
-    filter_info = []
-    tombstone1 = {'key': {APP_ENTITY_SCHEMA[0]:TOMBSTONE, APP_ENTITY_SCHEMA[1]: 1}}
-    db_batch = flexmock()
-    db_batch.should_receive('valid_data_version_sync').and_return(True)
-    db_batch.should_receive("batch_get_entity").and_return(async_result)
-    db_batch.should_receive('record_reads').and_return(ASYNC_NONE)
-
-    entity_proto1 = {
-      'test\x00blah\x00test_kind:nancy\x01': {
-        APP_ENTITY_SCHEMA[0]:entity_proto1.Encode(),
-        APP_ENTITY_SCHEMA[1]: 1
-      }
-    }
-    async_result_1 = gen.Future()
-    async_result_1.set_result([entity_proto1, tombstone1])
-    async_result_2 = gen.Future()
-    async_result_2.set_result([])
-    db_batch.should_receive("range_query").\
-      and_return(async_result_1).\
-      and_return(async_result_2)
-    zk_client = flexmock()
-    zk_client.should_receive('add_listener')
-
-    zookeeper = flexmock(handle=zk_client)
-    zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("acquire_lock").and_return(True)
-    zookeeper.should_receive("is_in_transaction").and_return(False)
-    transaction_manager = flexmock()
-    dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
-    yield dd.ordered_ancestor_query(query, filter_info, None)
-
-    # Now with a transaction
-    transaction = query.mutable_transaction()
-    transaction.set_handle(2)
-    yield dd.ordered_ancestor_query(query, filter_info, None)
+    yield dd.ancestor_query(query, filter_info)
 
   @testing.gen_test
   def test_kindless_query(self):
@@ -1093,7 +1036,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
     async_result.set_result({entity_key: {}})
 
     db_batch.should_receive('batch_get_entity').and_return(async_result)
-    db_batch.should_receive('batch_mutate').and_return(ASYNC_NONE)
+    db_batch.should_receive('normal_batch').and_return(ASYNC_NONE)
 
     async_true = gen.Future()
     async_true.set_result(True)
@@ -1102,6 +1045,46 @@ class TestDatastoreServer(testing.AsyncTestCase):
     entity_lock.should_receive('release')
 
     yield dd.apply_txn_changes(app, txn)
+
+  def test_extract_entities_from_composite_indexes(self):
+    project_id = 'guestbook'
+    props = ['prop1', 'prop2']
+    db_batch = flexmock()
+    db_batch.should_receive('valid_data_version_sync').and_return(True)
+    transaction_manager = flexmock()
+    dd = DatastoreDistributed(db_batch, transaction_manager,
+                              self.get_zookeeper())
+    query = datastore_pb.Query()
+    for prop_name in props:
+      query.add_property_name(prop_name)
+
+    index = query.add_composite_index()
+    definition = index.mutable_definition()
+    for prop_name in props:
+      prop = definition.add_property()
+      prop.set_name(prop_name)
+
+    entity_id = 1524699263329044
+    val1 = entity_pb.PropertyValue()
+    val1.set_int64value(5)
+    val2 = entity_pb.PropertyValue()
+    val2.set_stringvalue('test')
+    index_key = '\x00'.join(
+      [project_id, 'namespace', 'index1', str(encode_index_pb(val1)),
+       str(encode_index_pb(val2)), 'Greeting:{}\x01'.format(entity_id)])
+
+    index_results = [{index_key: {'reference': 'ignored-ref'}}]
+    entities = dd._extract_entities_from_composite_indexes(
+      query, index_results)
+    self.assertEqual(len(entities), 1)
+    returned_entity = entity_pb.EntityProto(entities[0])
+    self.assertEqual(returned_entity.property_size(), 2)
+    self.assertEqual(returned_entity.key().path().element(0).type(), 'Greeting')
+    self.assertEqual(returned_entity.key().path().element(0).id(), entity_id)
+    self.assertEqual(returned_entity.property(0).name(), 'prop1')
+    self.assertEqual(returned_entity.property(0).value().int64value(), 5)
+    self.assertEqual(returned_entity.property(1).name(), 'prop2')
+    self.assertEqual(returned_entity.property(1).value().stringvalue(), 'test')
 
 if __name__ == "__main__":
   unittest.main()

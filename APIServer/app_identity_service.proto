@@ -50,3 +50,10 @@ message GetAccessTokenResponse {
   optional bytes access_token = 1;
   optional int64 expiration_time = 2;
 }
+
+message GetDefaultGcsBucketNameRequest {
+}
+
+message GetDefaultGcsBucketNameResponse {
+  optional string default_gcs_bucket_name = 1;
+}

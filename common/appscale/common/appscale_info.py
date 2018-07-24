@@ -135,7 +135,7 @@ def get_db_info():
     A dictionary with database info
   """
   info = file_io.read(constants.DB_INFO_LOC) 
-  return yaml.load(info) 
+  return yaml.safe_load(info)
 
 def get_taskqueue_nodes():
   """ Returns a list of all the taskqueue nodes (including the master). 
