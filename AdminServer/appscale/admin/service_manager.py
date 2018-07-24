@@ -5,22 +5,27 @@ import json
 import logging
 import os
 import psutil
+import re
 import socket
 import subprocess
 import time
 
 from psutil import NoSuchProcess
-from tornado import gen
+from tornado import gen, web
 from tornado.httpclient import AsyncHTTPClient
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.locks import Lock as AsyncLock
 from tornado.options import options
 
 from appscale.common.async_retrying import retry_data_watch_coroutine
-from appscale.common.constants import ASSIGNMENTS_PATH, CGROUP_DIR, LOG_DIR
+from appscale.common.constants import (ASSIGNMENTS_PATH, CGROUP_DIR, HTTPCodes,
+                                       LOG_DIR, VAR_DIR)
 
 # The cgroup used to start datastore server processes.
 DATASTORE_CGROUP = ['memory', 'appscale-datastore']
+
+# The characters allowed in a service identifier (eg. datastore)
+SERVICE_ID_CHARS = '[a-z_]'
 
 logger = logging.getLogger('appscale-admin')
 
@@ -38,6 +43,11 @@ class ServerStates(object):
   STARTING = 'starting'
   STOPPED = 'stopped'
   STOPPING = 'stopping'
+
+
+class BadRequest(Exception):
+  """ Indicates a problem with the client request. """
+  pass
 
 
 class ProcessStopped(Exception):
@@ -67,6 +77,14 @@ class Server(object):
     self.process = None
     self.state = ServerStates.NEW
     self.type = service_type
+
+  @gen.coroutine
+  def ensure_running(self):
+    raise NotImplementedError()
+
+  @gen.coroutine
+  def restart(self):
+    raise NotImplementedError()
 
   @gen.coroutine
   def start(self):
@@ -139,6 +157,11 @@ class DatastoreServer(Server):
     server.process = process
     server.state = ServerStates.RUNNING
     return server
+
+  @gen.coroutine
+  def restart(self):
+    yield self.stop()
+    yield self.start()
 
   @gen.coroutine
   def start(self):
@@ -320,6 +343,28 @@ class ServiceManager(object):
                      self.GROOMING_INTERVAL * 1000).start()
 
   @gen.coroutine
+  def restart_service(self, service_id):
+    if service_id not in self.SERVICE_MAP:
+      raise BadRequest('Unrecognized service: {}'.format(service_id))
+
+    logger.info('Restarting {} servers'.format(service_id))
+    yield [server.restart() for server in self.state
+           if server.type == service_id]
+
+  @gen.coroutine
+  def restart_server(self, service_id, port):
+    if service_id not in self.SERVICE_MAP:
+      raise BadRequest('Unrecognized service: {}'.format(service_id))
+
+    try:
+      server = next(server for server in self.state
+                    if server.type == service_id and server.port == port)
+    except StopIteration:
+      raise BadRequest('Server not found')
+
+    yield server.restart()
+
+  @gen.coroutine
   def _groom_servers(self):
     """ Forgets about outdated servers and fulfills assignments. """
     def outdated(server):
@@ -413,3 +458,51 @@ class ServiceManager(object):
     assignments = json.loads(encoded_assignments) if encoded_assignments else {}
 
     IOLoop.instance().add_callback(persistent_update_services, assignments)
+
+
+class ServiceManagerHandler(web.RequestHandler):
+  # The unix socket to use for receiving management requests.
+  SOCKET_PATH = os.path.join(VAR_DIR, 'service_manager.sock')
+
+  # An expression that matches server instances.
+  SERVER_RE = re.compile(r'^({}+)-(\d+)$'.format(SERVICE_ID_CHARS))
+
+  # An expression that matches service IDs.
+  SERVICE_RE = re.compile('^{}+$'.format(SERVICE_ID_CHARS))
+
+  def initialize(self, service_manager):
+    """ Defines required resources to handle requests.
+
+    Args:
+      service_manager: A ServiceManager object.
+    """
+    self._service_manager = service_manager
+
+  @gen.coroutine
+  def post(self):
+    command = self.get_argument('command')
+    if command != 'restart':
+      raise web.HTTPError(HTTPCodes.BAD_REQUEST,
+                          '"restart" is the only supported command')
+
+    args = self.get_arguments('arg')
+    for arg in args:
+      match = self.SERVER_RE.match(arg)
+      if match:
+        service_id = match.group(1)
+        port = int(match.group(2))
+        try:
+          yield self._service_manager.restart_server(service_id, port)
+          return
+        except BadRequest as error:
+          raise web.HTTPError(HTTPCodes.BAD_REQUEST, str(error))
+
+      if self.SERVICE_RE.match(arg):
+        try:
+          yield self._service_manager.restart_service(arg)
+          return
+        except BadRequest as error:
+          raise web.HTTPError(HTTPCodes.BAD_REQUEST, str(error))
+
+      raise web.HTTPError(HTTPCodes.BAD_REQUEST,
+                          'Unrecognized argument: {}'.format(arg))
