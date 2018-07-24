@@ -180,7 +180,7 @@ def create_pull_queue_tables(cluster, session):
 class TaskName(db.Model):
   """ A datastore model for tracking task names in order to prevent
   tasks with the same name from being enqueued repeatedly.
-  
+
   Attributes:
     timestamp: The time the task was enqueued.
   """
@@ -262,7 +262,7 @@ class DistributedTaskQueue():
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the proper tags.
 
-    Args: 
+    Args:
       json_request: A JSON string.
       tags: The tags to validate if they are in the JSON string.
     Returns:
@@ -271,13 +271,13 @@ class DistributedTaskQueue():
     try:
       json_response = json.loads(json_request)
     except ValueError:
-      json_response = {"error": True, 
+      json_response = {"error": True,
                        "reason": "Badly formed JSON"}
       return json_response
 
     for tag in tags:
       if tag  not in json_response:
-        json_response = {'error': True, 
+        json_response = {'error': True,
                          'reason': 'Missing ' + tag + ' tag'}
         break
     return json_response
@@ -325,7 +325,7 @@ class DistributedTaskQueue():
     return response.Encode(), 0, ""
 
   def purge_queue(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -464,7 +464,7 @@ class DistributedTaskQueue():
 
   def __bulk_add(self, source_info, request, response):
     """ Function for bulk adding tasks.
-   
+
     Args:
       source_info: A dictionary containing the application, module, and version
        ID that is sending this request.
@@ -475,7 +475,7 @@ class DistributedTaskQueue():
     """
     if request.add_request_size() == 0:
       return
-   
+
     now = datetime.datetime.utcfromtimestamp(time.time())
 
     # Assign names if needed and validate tasks.
@@ -507,13 +507,13 @@ class DistributedTaskQueue():
       result = tq_lib.verify_task_queue_add_request(add_request.app_id(),
                                                     add_request, now)
       # Tasks go from SKIPPED to OK once they're run. If there are
-      # any failures from other tasks then we pass this request 
+      # any failures from other tasks then we pass this request
       # back as skipped.
       if result == TaskQueueServiceError.SKIPPED:
-        task_name = None       
+        task_name = None
         if add_request.has_task_name():
           task_name = add_request.task_name()
-           
+
         namespaced_name = tq_lib.choose_task_name(add_request.app_id(),
                                                   add_request.queue_name(),
                                                   user_chosen=task_name)
@@ -542,8 +542,8 @@ class DistributedTaskQueue():
         task_result.set_result(TaskQueueServiceError.OK)
 
   def __method_mapping(self, method):
-    """ Maps an int index to a string. 
-   
+    """ Maps an int index to a string.
+
     Args:
       method: int representing a http method.
     Returns:
@@ -561,15 +561,15 @@ class DistributedTaskQueue():
       return 'DELETE'
 
   def __check_and_store_task_names(self, request):
-    """ Tries to fetch the taskqueue name, if it exists it will raise an 
-    exception. 
+    """ Tries to fetch the taskqueue name, if it exists it will raise an
+    exception.
 
     We store a receipt of each enqueued task in the datastore. If we find that
     task in the datastore, we will raise an exception. If the task is not
     in the datastore, then it is assumed this is the first time seeing the
     tasks and we create a receipt of the task in the datastore to prevent
     a duplicate task from being enqueued.
-    
+
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     Raises:
@@ -595,7 +595,7 @@ class DistributedTaskQueue():
 
   def __enqueue_push_task(self, source_info, request):
     """ Enqueues a batch of push tasks.
-  
+
     Args:
       source_info: A dictionary containing the application, module, and version
        ID that is sending this request.
@@ -624,7 +624,7 @@ class DistributedTaskQueue():
 
   def get_task_args(self, source_info, headers, request):
     """ Gets the task args used when making a task web request.
-  
+
     Args:
       source_info: A dictionary containing the application, module, and version
        ID that is sending this request.
@@ -646,8 +646,8 @@ class DistributedTaskQueue():
     args['max_retries'] = self.DEFAULT_MAX_RETRIES
     args['expires'] = self.__when_to_expire(request)
     args['max_retries'] = self.DEFAULT_MAX_RETRIES
-    args['max_backoff_sec'] = self.DEFAULT_MAX_BACKOFF 
-    args['min_backoff_sec'] = self.DEFAULT_MIN_BACKOFF 
+    args['max_backoff_sec'] = self.DEFAULT_MAX_BACKOFF
+    args['min_backoff_sec'] = self.DEFAULT_MIN_BACKOFF
     args['max_doublings'] = self.DEFAULT_MAX_DOUBLINGS
 
     # Load queue info into cache.
@@ -707,7 +707,7 @@ class DistributedTaskQueue():
   def get_target_url(self, app_id, source_info, target):
     """ Gets the url for the target using the queue's target defined in the
     configuration file or the request's host header.
-    
+
     Args:
       app_id: The application id, used to lookup module port.
       source_info: A dictionary containing the source version and module ids.
@@ -723,7 +723,7 @@ class DistributedTaskQueue():
   def get_module_port(self, app_id, source_info, target_info):
     """ Gets the port for the desired version and module or uses the current
     running version and module.
-    
+
     Args:
      app_id: The application id, used to lookup port.
      source_info: A dictionary containing the source version and module ids.
@@ -751,21 +751,21 @@ class DistributedTaskQueue():
     return port
 
   def get_task_headers(self, request):
-    """ Gets the task headers used for a task web request. 
+    """ Gets the task headers used for a task web request.
 
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest
     Returns:
       A dictionary of key/values for a web request.
-    """  
+    """
     headers = {}
     for header in request.header_list():
       headers[header.key()] = header.value()
 
     eta = self.__when_to_run(request)
-    
+
     # This header is how we authenticate that it's an internal request
-    secret = appscale_info.get_secret() 
+    secret = appscale_info.get_secret()
     secret_hash = hashlib.sha1(request.app_id() + '/' + \
                       secret).hexdigest()
     headers['X-AppEngine-Fake-Is-Admin'] = secret_hash
@@ -778,26 +778,26 @@ class DistributedTaskQueue():
 
   def __when_to_run(self, request):
     """ Returns a datetime object of when a task should execute.
-    
+
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     Returns:
-      A datetime object for when the nearest time to run the 
+      A datetime object for when the nearest time to run the
      task is.
     """
     if request.has_eta_usec():
       eta = request.eta_usec()
       return datetime.datetime.fromtimestamp(eta/1000000)
     else:
-      return datetime.datetime.now() 
+      return datetime.datetime.now()
 
   def __when_to_expire(self, request):
     """ Returns a datetime object of when a task should expire.
-    
+
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     Returns:
-      A datetime object of when the task should expire. 
+      A datetime object of when the task should expire.
     """
     if request.has_retry_parameters() and \
            request.retry_parameters().has_age_limit_sec():
@@ -809,12 +809,12 @@ class DistributedTaskQueue():
 
   def __validate_push_task(self, request):
     """ Checks to make sure the task request is valid.
-    
+
     Args:
-      request: A taskqueue_service_pb.TaskQueueAddRequest. 
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
     Raises:
       apiproxy_errors.ApplicationError upon invalid tasks.
-    """ 
+    """
     if not request.has_queue_name():
       raise apiproxy_errors.ApplicationError(
         TaskQueueServiceError.INVALID_QUEUE_NAME)
@@ -830,9 +830,9 @@ class DistributedTaskQueue():
         request.mode() == taskqueue_service_pb.TaskQueueMode.PULL):
       raise apiproxy_errors.ApplicationError(
         TaskQueueServiceError.INVALID_QUEUE_MODE)
-     
+
   def modify_task_lease(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -865,7 +865,7 @@ class DistributedTaskQueue():
     return response.Encode(), 0, ""
 
   def fetch_queue(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -879,7 +879,7 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def query_tasks(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -893,7 +893,7 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def fetch_task(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -907,7 +907,7 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def force_run(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -921,7 +921,7 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def pause_queue(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -935,7 +935,7 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def delete_group(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -949,7 +949,7 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def update_storage_limit(self, app_id, http_data):
-    """ 
+    """
 
     Args:
       app_id: The application ID.
@@ -965,19 +965,19 @@ class DistributedTaskQueue():
   def __cleanse(self, str_input):
     """ Removes any questionable characters which might be apart of a remote
     attack.
-   
+
     Args:
       str_input: The string to cleanse.
-    Returns: 
+    Returns:
       A string which has questionable characters replaced.
-    """ 
+    """
     for char in "~./\\!@#$%&*()]\+=|":
       str_input = str_input.replace(char, "_")
     return str_input
 
   def __is_localhost(self, hostname):
     """ Determines if the hostname is that of the current host.
- 
+
     Args:
       hostname: A string representing the hostname.
     Returns:
