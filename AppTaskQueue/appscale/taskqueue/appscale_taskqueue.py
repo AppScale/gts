@@ -20,7 +20,7 @@ from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 from appscale.taskqueue import distributed_tq
 from appscale.taskqueue.constants import SHUTTING_DOWN_TIMEOUT
 from appscale.taskqueue.rest_api import (
-  RESTLease, RESTQueue, RESTTask, RESTTasks
+  REST_PREFIX, RESTLease, RESTQueue, RESTTask, RESTTasks, QueueList
 )
 from appscale.taskqueue.statistics import (
   PROTOBUFFER_API, service_stats, stats_lock
@@ -221,6 +221,9 @@ class StatsHandler(RequestHandler):
 
 def prepare_taskqueue_application(task_queue):
   handlers = [
+    # Allows task viewer to retrieve list of queues.
+    (REST_PREFIX, QueueList, {'queue_handler': task_queue}),
+
     # Provides compatibility with the v1beta2 REST API.
     (RESTQueue.PATH, RESTQueue, {'queue_handler': task_queue}),
     (RESTTasks.PATH, RESTTasks, {'queue_handler': task_queue}),
