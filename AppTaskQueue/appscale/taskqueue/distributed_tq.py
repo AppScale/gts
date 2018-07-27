@@ -73,13 +73,13 @@ def rebuild_task_indexes(session):
   total_tasks = 0
   app = ''
   queue = ''
-  id = ''
+  id_ = ''
   while True:
     results = session.execute("""
       SELECT app, queue, id, lease_expires, tag FROM pull_queue_tasks
       WHERE token(app, queue, id) > token(%(app)s, %(queue)s, %(id)s)
       LIMIT {}
-    """.format(batch_size), {'app': app, 'queue': queue, 'id': id})
+    """.format(batch_size), {'app': app, 'queue': queue, 'id': id_})
     results_list = list(results)
     for result in results_list:
       parameters = {'app': result.app, 'queue': result.queue,
@@ -104,7 +104,7 @@ def rebuild_task_indexes(session):
 
     app = results_list[-1].app
     queue = results_list[-1].queue
-    id = results_list[-1].id
+    id_ = results_list[-1].id
 
   logger.info('Created entries for {} tasks'.format(total_tasks))
 
