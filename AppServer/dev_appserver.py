@@ -16,7 +16,7 @@
 #
 """Convenience wrapper for starting an appengine tool."""
 
-import glob
+
 import os
 import sys
 
