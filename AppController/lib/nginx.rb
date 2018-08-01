@@ -139,7 +139,7 @@ module Nginx
     if language == 'java'
       java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
 location ~ /_ah/upload/.* {
-      proxy_pass            http://gae_#{version_key}_blobstore;
+      proxy_pass            http://#{HelperFunctions::GAE_PREFIX}#{version_key}_blobstore;
       proxy_connect_timeout 600;
       proxy_read_timeout    600;
       client_body_timeout   600;
@@ -159,7 +159,7 @@ location / {
       proxy_set_header      X-Forwarded-Ssl $ssl;
       proxy_set_header      Host $http_host;
       proxy_redirect        off;
-      proxy_pass            http://gae_ssl_#{version_key};
+      proxy_pass            http://#{HelperFunctions::GAE_PREFIX}ssl_#{version_key};
       proxy_connect_timeout 600;
       proxy_read_timeout    600;
       client_body_timeout   600;
@@ -179,7 +179,7 @@ location / {
       proxy_set_header      X-Forwarded-Ssl $ssl;
       proxy_set_header      Host $http_host;
       proxy_redirect        off;
-      proxy_pass            http://gae_#{version_key};
+      proxy_pass            http://#{HelperFunctions::GAE_PREFIX}#{version_key};
       proxy_connect_timeout 600;
       proxy_read_timeout    600;
       client_body_timeout   600;
@@ -190,15 +190,15 @@ DEFAULT_CONFIG
 
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
-upstream gae_#{version_key} {
+upstream #{HelperFunctions::GAE_PREFIX}#{version_key} {
     server #{my_private_ip}:#{proxy_port};
 }
 
-upstream gae_ssl_#{version_key} {
+upstream #{HelperFunctions::GAE_PREFIX}ssl_#{version_key} {
     server #{my_private_ip}:#{proxy_port};
 }
 
-upstream gae_#{version_key}_blobstore {
+upstream #{HelperFunctions::GAE_PREFIX}#{version_key}_blobstore {
     server #{my_private_ip}:#{BlobServer::HAPROXY_PORT};
 }
 

@@ -48,6 +48,7 @@ except ImportError, e:
 from google.appengine.api import apiproxy_stub
 
 APP_SERVICE_ACCOUNT_NAME = 'test@localhost'
+APP_DEFAULT_GCS_BUCKET_NAME = 'app_default_bucket'
 
 SIGNING_KEY_NAME = 'key'
 
@@ -97,9 +98,12 @@ class AppIdentityServiceStub(apiproxy_stub.APIProxyStub):
   Provides stub functions which allow a developer to test integration before
   deployment.
   """
+  THREADSAFE = True
+
   def __init__(self, service_name='app_identity_service'):
     """Constructor."""
     super(AppIdentityServiceStub, self).__init__(service_name)
+    self.__default_gcs_bucket_name = APP_DEFAULT_GCS_BUCKET_NAME
 
   def _Dynamic_SignForApp(self, request, response):
     """Implementation of AppIdentityService::SignForApp."""
@@ -125,6 +129,16 @@ class AppIdentityServiceStub(apiproxy_stub.APIProxyStub):
   def _Dynamic_GetServiceAccountName(self, request, response):
     """Implementation of AppIdentityService::GetServiceAccountName"""
     response.set_service_account_name(APP_SERVICE_ACCOUNT_NAME)
+
+  def _Dynamic_GetDefaultGcsBucketName(self, unused_request, response):
+    """Implementation of AppIdentityService::GetDefaultGcsBucketName."""
+    response.set_default_gcs_bucket_name(self.__default_gcs_bucket_name)
+
+  def SetDefaultGcsBucketName(self, default_gcs_bucket_name):
+    if default_gcs_bucket_name:
+      self.__default_gcs_bucket_name = default_gcs_bucket_name
+    else:
+      self.__default_gcs_bucket_name = APP_DEFAULT_GCS_BUCKET_NAME
 
   def _Dynamic_GetAccessToken(self, request, response):
     """Implementation of AppIdentityService::GetAccessToken.

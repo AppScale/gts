@@ -306,8 +306,12 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       blobkey: blobkey in str.
       storage: blobstore storage stub.
     """
-    # AppScale: Do not delete the blob key yet. We need blobinfo to tell us
-    # how big the blob is. The key will be deleted within DeleteBlob.
+    datastore.Delete(cls.ToDatastoreBlobKey(blobkey))
+
+    blobinfo = datastore_types.Key.from_path(blobstore.BLOB_INFO_KIND,
+                                             blobkey,
+                                             namespace='')
+    datastore.Delete(blobinfo)
     storage.DeleteBlob(blobkey)
 
   def _Dynamic_DeleteBlob(self, request, response, unused_request_id):
@@ -382,8 +386,22 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       try:
         block = datastore.Get(block_key)
       except datastore_errors.EntityNotFoundError:
-        raise apiproxy_errors.ApplicationError(
-           blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
+        # If this is the first block, the blob does not exist.
+        if block_count == 0:
+          raise apiproxy_errors.ApplicationError(
+             blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
+
+        # If the first block exists, the index is just past the last block.
+        first_block_key = datastore.Key.from_path(
+          '__BlobChunk__', ''.join([str(blob_key), '__0']), namespace='')
+        try:
+          datastore.Get(first_block_key)
+        except datastore_errors.EntityNotFoundError:
+          raise apiproxy_errors.ApplicationError(
+             blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
+
+        response.set_data('')
+        return
 
       self.__block_cache = block["block"]
       self.__block_key_cache = str(block_key)

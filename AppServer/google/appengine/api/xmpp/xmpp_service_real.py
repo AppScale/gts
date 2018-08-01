@@ -30,6 +30,7 @@ from google.appengine.api import xmpp
 from google.appengine.api.xmpp import xmpp_service_pb
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.channel import channel_service_pb
+from google.appengine.api.xmpp.unverified_transport import UnverifiedTransport
 from google.appengine.runtime import apiproxy_errors
 
 
@@ -80,7 +81,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
       response: A PresenceResponse.
     """
     jid = request.jid()
-    server = SOAPpy.SOAPProxy(self.login)
+    server = SOAPpy.SOAPProxy(self.login, transport=UnverifiedTransport)
     online_users = server.get_online_users_list(self.uasecret)
     user_is_online = False
     try:
@@ -199,7 +200,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
                                       application_key,
                                       self.xmpp_domain)
 
-    server = SOAPpy.SOAPProxy(self.uaserver) 
+    server = SOAPpy.SOAPProxy(self.uaserver, transport=UnverifiedTransport)
     password = application_key
     encry_pw = hashlib.sha1(client_id+password)
     ret = server.commit_new_user(client_id, 

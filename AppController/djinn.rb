@@ -26,7 +26,6 @@ require 'zookeeper'
 $:.unshift File.join(File.dirname(__FILE__), 'lib')
 require 'app_controller_client'
 require 'app_manager_client'
-require 'backup_restore_service'
 require 'blobstore'
 require 'cron_helper'
 require 'custom_exceptions'
@@ -1073,7 +1072,7 @@ class Djinn
       if output.include?("Your app can be reached at the following URL")
         result = "true"
       else
-        result = output
+        result = output.dump
       end
 
       @app_upload_reservations[reservation_id]['status'] = result
@@ -1733,6 +1732,29 @@ class Djinn
     JSON.dump(private_ips)
   end
 
+  def check_api_services
+    # LoadBalancers needs to setup the routing for the datastore before
+    # proceeding.
+    while my_node.is_load_balancer? && !update_db_haproxy
+      Djinn.log_info("Waiting for Datastore assignements ...")
+      sleep(SMALL_WAIT)
+    end
+
+    # Wait till the Datastore is functional.
+    loop do
+      break if HelperFunctions.is_port_open?(get_load_balancer.private_ip,
+                                             DatastoreServer::PROXY_PORT)
+      Djinn.log_debug("Waiting for Datastore to be active...")
+      sleep(SMALL_WAIT)
+    end
+    Djinn.log_info("Datastore service is active.")
+
+    # At this point all nodes are fully functional, so the Shadow will do
+    # another assignments of the datastore processes to ensure we got the
+    # accurate CPU count.
+    assign_datastore_processes if my_node.is_shadow?
+  end
+
   def job_start(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
@@ -1838,6 +1860,9 @@ class Djinn
     pick_zookeeper(@zookeeper_data)
     write_our_node_info
     wait_for_nodes_to_finish_loading(@nodes)
+
+    # Check that services are up before proceeding into the duty cycle.
+    check_api_services
 
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
@@ -2629,11 +2654,12 @@ class Djinn
       }
     rescue FailedZooKeeperOperationException
       Djinn.log_warn('Unable to fetch list of datastore servers')
-      return
+      return false
     end
 
     HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
                               DatastoreServer::NAME)
+    return true
   end
 
   # Creates HAProxy configuration for TaskQueue.
@@ -3273,13 +3299,10 @@ class Djinn
           verbose = @options['verbose'].downcase == 'true'
           GroomerService.start_transaction_groomer(verbose)
         end
-
-        start_backup_service
       }
     else
       stop_groomer_service
       GroomerService.stop_transaction_groomer
-      stop_backup_service
     end
 
     start_admin_server
@@ -3350,13 +3373,10 @@ class Djinn
     # Start Hermes with integrated stats service
     start_hermes
 
-    if my_node.is_shadow?
-      @state = "Starting Datastore"
-      start_datastore
-    end
-
     # Leader node starts additional services.
     if my_node.is_shadow?
+      @state = "Assigning Datastore processes"
+      assign_datastore_processes
       update_node_info_cache
       TaskQueue.start_flower(@options['flower_password'])
     else
@@ -3400,10 +3420,6 @@ class Djinn
 
     @state = "Failed to prime #{table}."
     HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
-  end
-
-  def start_backup_service
-    BackupRecoveryService.start
   end
 
   def start_blobstore_server
@@ -3511,21 +3527,24 @@ class Djinn
     MonitInterface.start(:uaserver, start_cmd, nil, env_vars)
   end
 
-  def start_datastore
+  def assign_datastore_processes
+    # Shadow is the only node to call this method, and is called upon
+    # startup.
+    return unless my_node.is_shadow?
+
+    Djinn.log_info("Assigning datastore processes.")
     verbose = @options['verbose'].downcase == 'true'
-    db_proxy = nil
     db_nodes = []
     @state_change_lock.synchronize {
       @nodes.each { |node|
-        db_proxy = node.private_ip if node.is_load_balancer?
         db_nodes << node if node.is_db_master? || node.is_db_slave?
       }
     }
 
-    HelperFunctions.log_and_crash('db proxy ip was nil') if db_proxy.nil?
-
-    assignments = {}
-    @nodes.each { |node|
+    # Assign the proper number of Datastore processes on each database
+    # machine.
+    db_nodes.each { |node|
+      assignments = {}
       begin
         cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
         server_count = cpu_count * DatastoreServer::MULTIPLIER
@@ -3535,14 +3554,9 @@ class Djinn
 
       assignments['datastore'] = {'count' => server_count,
                                   'verbose' => verbose}
+      ZKInterface.set_machine_assignments(node.private_ip, assignments)
+      Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
-    ZKInterface.set_machine_assignments(my_node.private_ip, assignments)
-
-    # Let's wait for at least one datastore server to be active.
-    until HelperFunctions.is_port_open?(db_proxy, DatastoreServer::PROXY_PORT)
-      update_db_haproxy if my_node.is_load_balancer?
-      sleep(SMALL_WAIT)
-    end
   end
 
   # Starts the Log Server service on this machine
@@ -3572,11 +3586,6 @@ class Djinn
   def stop_log_server
     Djinn.log_info("Stopping Log Server")
     MonitInterface.stop(:log_service)
-  end
-
-  # Stops the Backup/Recovery service.
-  def stop_backup_service
-    BackupRecoveryService.stop
   end
 
   # Stops the blobstore server.
@@ -4433,7 +4442,8 @@ HOSTS
     service_port = 17442
     start_cmd = "#{script} serve -p #{service_port}"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
-    MonitInterface.start(:admin_server, start_cmd)
+    MonitInterface.start(:admin_server, start_cmd, nil,
+                         {'PATH' => ENV['PATH']})
     if my_node.is_shadow?
       Nginx.add_service_location('appscale-administration', my_node.private_ip,
                                  service_port, nginx_port, '/')
@@ -5058,13 +5068,10 @@ HOSTS
   end
 
 
-  # Scale AppServers up/down for each application depending on the current
-  # queued requests and load of the application.
-  #
-  # Returns:
-  #   An Integer indicating the number of AppServers that we couldn't
-  #   start for lack of resources.
-  def scale_appservers
+  # Adds or removes AppServers and/or nodes to the deployment, depending
+  # on the statistics of the application and the loads of the various
+  # services.
+  def scale_deployment
     needed_appservers = 0
     begin
       configured_versions = ZKInterface.get_versions
@@ -5083,35 +5090,15 @@ HOSTS
       # Get the desired changes in the number of AppServers.
       delta_appservers = get_scaling_info_for_version(version_key)
       if delta_appservers > 0
-        Djinn.log_debug("Considering scaling up #{version_key}.")
         needed_appservers += try_to_scale_up(version_key, delta_appservers)
+        scale_up_instances(needed_appservers)
       elsif delta_appservers < 0
-        Djinn.log_debug("Considering scaling down #{version_key}.")
         try_to_scale_down(version_key, delta_appservers.abs)
-      else
-        Djinn.log_debug("Not scaling app #{version_key} up or down right now.")
+        scale_down_instances
       end
     }
-
-    return needed_appservers
   end
 
-
-  # Adds or removes AppServers and/or nodes to the deployment, depending
-  # on the statistics of the application and the loads of the various
-  # services.
-  def scale_deployment
-    # Here, we calculate how many more AppServers we need and try to start them.
-    # If we do not have enough capacity to start all of them, we return the number
-    # of more AppServers needed and spawn new machines to accommodate them.
-    needed_appservers = scale_appservers
-    if needed_appservers > 0
-      Djinn.log_debug("Need to start VMs for #{needed_appservers} more AppServers.")
-      scale_up_instances(needed_appservers)
-      return
-    end
-    scale_down_instances
-  end
 
   # Adds additional nodes to the deployment, depending on the load of the
   # application and the additional AppServers we need to accomodate.
@@ -5124,6 +5111,9 @@ HOSTS
     vms_to_spawn = 0
     roles_needed = {}
     vm_scaleup_capacity = Integer(@options['max_machines']) - @nodes.length
+
+    Djinn.log_info("Need to start VMs for #{needed_appservers} more AppServers.")
+
     if needed_appservers > 0
       # TODO: Here we use 3 as an arbitrary number to calculate the number of machines
       # needed to run those number of appservers. That will change in the next step
@@ -5144,6 +5134,15 @@ HOSTS
     # Check if we need to spawn VMs and the InfrastructureManager is
     # available to do so.
     return unless vms_to_spawn > 0
+
+    # Check if we haven't recently scaled.
+    if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
+      Djinn.log_info("Not scaling up right now, as we recently scaled " \
+                     "up or down.")
+      return
+    end
+
+    # Check if there is another thread already working.
     if SCALE_LOCK.locked?
       Djinn.log_debug("Another thread is already working with the InfrastructureManager.")
       return
@@ -5153,17 +5152,12 @@ HOSTS
       SCALE_LOCK.synchronize {
         Djinn.log_info("We need #{vms_to_spawn} more VMs.")
 
-        if Time.now.to_i - @last_scaling_time < (SCALEUP_THRESHOLD * DUTY_CYCLE)
-          Djinn.log_info("Not scaling up right now, as we recently scaled " \
-            "up or down.")
+        result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
+        if result != "OK"
+          Djinn.log_error("Was not able to add nodes because: #{result}.")
         else
-          result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
-          if result != "OK"
-            Djinn.log_error("Was not able to add nodes because: #{result}.")
-          else
-            @last_scaling_time = Time.now.to_i
-            Djinn.log_info("Added the following nodes: #{roles_needed}.")
-          end
+          @last_scaling_time = Time.now.to_i
+          Djinn.log_info("Added the following nodes: #{roles_needed}.")
         end
       }
     }
@@ -5341,7 +5335,8 @@ HOSTS
     end
 
     # We only run @options['default_min_appservers'] AppServers per application
-    # if austoscale is disabled.
+    # if austoscale is disabled. No need to print anything here since we
+    # print log about disabled autoscale at intervals with the stats.
     return 0 if @options['autoscale'].downcase != "true"
 
     # We need the haproxy stats to decide upon what to do.
@@ -5457,11 +5452,6 @@ HOSTS
   #     requests waiting to be served.
   def update_request_info(version_key, total_requests_seen,
                           time_requests_were_seen, total_req_in_queue)
-    Djinn.log_debug("Time now is #{time_requests_were_seen}, last " \
-      "time was #{@last_sampling_time[version_key]}")
-    Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " \
-      "time was #{@total_req_seen[version_key]}")
-    Djinn.log_debug("Requests currently in the queue #{total_req_in_queue}")
     requests_since_last_sampling = total_requests_seen - @total_req_seen[version_key]
     time_since_last_sampling = time_requests_were_seen - @last_sampling_time[version_key]
     if time_since_last_sampling.zero?
@@ -5475,9 +5465,10 @@ HOSTS
       initialize_scaling_info_for_version(version_key, true)
       return
     end
-    Djinn.log_debug("Total requests will be set to #{total_requests_seen} " \
-                    "for #{version_key}, with last sampling time " \
-                    "#{time_requests_were_seen}")
+    Djinn.log_debug("Stats for #{version_key}: Total requests " \
+                    "#{total_requests_seen}, requests in queue " \
+                    "#{total_req_in_queue}, average rate " \
+                    "#{average_request_rate}, time #{time_requests_were_seen}")
     @average_req_rate[version_key] = average_request_rate
     @current_req_rate[version_key] = total_req_in_queue
     @total_req_seen[version_key] = total_requests_seen
@@ -5581,11 +5572,10 @@ HOSTS
       @cluster_stats.each { |node|
         next if node['private_ip'] != host
 
-        # Convert total memory to MB
-        total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
-
         # Check how many new AppServers of this app, we can run on this
-        # node (as theoretical maximum memory usage goes).
+        # node (as theoretical maximum memory usage goes).  First convert
+        # total memory to MB.
+        total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
         allocated_memory[host] = 0 if allocated_memory[host].nil?
         max_new_total = Integer(
           (total - allocated_memory[host] - SAFE_MEM) / max_app_mem)
@@ -5594,7 +5584,7 @@ HOSTS
         break if max_new_total <= 0
 
         # Now we do a similar calculation but for the current amount of
-        # available memory on this node. First convert bytes to MB
+        # available memory on this node. First convert bytes to MB.
         host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
         max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
         Djinn.log_debug("Check for free memory usage: #{host} can run " \
@@ -6129,7 +6119,7 @@ HOSTS
   #
   def get_application_load_stats(version_key)
     total_requests, requests_in_queue, sessions = 0, 0, 0
-    pxname = "gae_#{version_key}"
+    pxname = "#{HelperFunctions::GAE_PREFIX}#{version_key}"
     time = :no_stats
     lb_nodes = @nodes.select{|node| node.is_load_balancer?}
     lb_nodes.each { |node|
@@ -6145,7 +6135,7 @@ HOSTS
       end
     }
     if lb_nodes.length > 1
-      # Report total HAProxy stats if there are multiple LB nodes
+      # Report total HAProxy stats if there are multiple LB nodes.
       Djinn.log_debug("Summarized HAProxy load stats for #{pxname}: " \
         "req_tot=#{total_requests}, qcur=#{requests_in_queue}, scur=#{sessions}")
     end

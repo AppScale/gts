@@ -40,6 +40,7 @@ from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_v4_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
+from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 # Global for accessing the datastore. An instance of DatastoreDistributed.
 datastore_access = None
@@ -359,14 +360,20 @@ class MainHandler(tornado.web.RequestHandler):
               'Datastore is in read-only mode.')
 
     try:
-      return datastore_access.rollback_transaction(app_id, http_request_data)
-    except zktransaction.ZKInternalException as error:
-      logger.exception('ZKInternalException during {} for {}'.
-        format(http_request_data, app_id))
+      txn = datastore_pb.Transaction(http_request_data)
+    except ProtocolBufferDecodeError as error:
+      return '', datastore_pb.Error.BAD_REQUEST, str(error)
+
+    try:
+      datastore_access.rollback_transaction(app_id, txn.handle())
+    except dbconstants.InternalError as error:
+      logger.exception('Unable to rollback transaction')
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
     except Exception as error:
       logger.exception('Unable to rollback transaction')
       return '', datastore_pb.Error.INTERNAL_ERROR, str(error)
+
+    return api_base_pb.VoidProto().Encode(), 0, ''
 
   @gen.coroutine
   def run_query(self, http_request_data):

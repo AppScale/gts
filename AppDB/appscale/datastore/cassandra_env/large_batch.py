@@ -18,8 +18,14 @@ sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
 
 
+class BatchNotApplied(Exception):
+  """ Indicates that a large batch failed before it could be applied. """
+  pass
+
+
 class BatchNotFound(Exception):
   """ Indicates that the batch status is not defined. """
+  pass
 
 
 class BatchNotOwned(Exception):
