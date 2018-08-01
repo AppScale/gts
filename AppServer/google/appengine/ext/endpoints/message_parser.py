@@ -176,9 +176,13 @@ class MessageTypeToJsonSchema(object):
     for field in message_type.all_fields():
       descriptor = {}
 
+
+
+      type_info = {}
+
       if type(field) == messages.MessageField:
         field_type = field.type().__class__
-        descriptor['$ref'] = self.add_message(field_type)
+        type_info['$ref'] = self.add_message(field_type)
         if field_type.__doc__:
           descriptor['description'] = field_type.__doc__
       else:
@@ -194,9 +198,9 @@ class MessageTypeToJsonSchema(object):
           else:
 
             schema_type = variant_map[None]
-        descriptor['type'] = schema_type[0]
+        type_info['type'] = schema_type[0]
         if schema_type[1]:
-          descriptor['format'] = schema_type[1]
+          type_info['format'] = schema_type[1]
       if field.required:
         descriptor['required'] = True
 
@@ -207,16 +211,10 @@ class MessageTypeToJsonSchema(object):
           descriptor['default'] = field.default
 
       if field.repeated:
-        if '$ref' in descriptor:
-          descriptor['items'] = {
-              '$ref': descriptor['$ref']
-              }
-          del descriptor['$ref']
-        else:
-          descriptor['items'] = {
-              'type': descriptor['type']
-              }
+        descriptor['items'] = type_info
         descriptor['type'] = 'array'
+      else:
+        descriptor.update(type_info)
 
       properties[field.name] = descriptor
 

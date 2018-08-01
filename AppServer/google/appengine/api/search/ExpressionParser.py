@@ -30,55 +30,60 @@ from google.appengine._internal.antlr3.tree import *
 HIDDEN = BaseRecognizer.HIDDEN
 
 
-DOLLAR=49
-EXPONENT=44
+DOLLAR=54
+EXPONENT=49
 LT=11
 LSQUARE=23
-ASCII_LETTER=47
-LOG=35
-SNIPPET=39
-OCTAL_ESC=52
-MAX=36
-FLOAT=27
-COUNT=31
-NAME_START=45
+ASCII_LETTER=52
+LOG=40
+SNIPPET=44
+OCTAL_ESC=57
+MAX=41
+FLOAT=33
+COUNT=37
+NAME_START=50
 NOT=10
+HTML=28
+ATOM=29
 AND=7
 EOF=-1
 LPAREN=21
 INDEX=5
+QUOTE=47
 RPAREN=22
-DISTANCE=32
-QUOTE=42
+DISTANCE=38
+T__58=58
 NAME=26
-ESC_SEQ=43
-POW=38
-T__53=53
-COMMA=29
+ESC_SEQ=48
+POW=43
+COMMA=35
 PLUS=17
-DIGIT=41
+GEO=32
+DIGIT=46
 EQ=15
 NE=16
 GE=14
 XOR=9
-SWITCH=40
-UNICODE_ESC=51
-HEX_DIGIT=50
-UNDERSCORE=48
+SWITCH=45
+UNICODE_ESC=56
+NUMBER=31
+HEX_DIGIT=55
+UNDERSCORE=53
 INT=24
-MIN=37
+MIN=42
 MINUS=18
 RSQUARE=25
-GEOPOINT=33
-PHRASE=28
-ABS=30
-WS=46
+TEXT=27
+GEOPOINT=39
+PHRASE=34
+ABS=36
+WS=51
 OR=8
 NEG=4
 GT=13
-LEN=34
 DIV=20
 TIMES=19
+DATE=30
 COND=6
 LE=12
 
@@ -87,11 +92,11 @@ tokenNames = [
     "<invalid>", "<EOR>", "<DOWN>", "<UP>",
     "NEG", "INDEX", "COND", "AND", "OR", "XOR", "NOT", "LT", "LE", "GT",
     "GE", "EQ", "NE", "PLUS", "MINUS", "TIMES", "DIV", "LPAREN", "RPAREN",
-    "LSQUARE", "INT", "RSQUARE", "NAME", "FLOAT", "PHRASE", "COMMA", "ABS",
-    "COUNT", "DISTANCE", "GEOPOINT", "LEN", "LOG", "MAX", "MIN", "POW",
-    "SNIPPET", "SWITCH", "DIGIT", "QUOTE", "ESC_SEQ", "EXPONENT", "NAME_START",
-    "WS", "ASCII_LETTER", "UNDERSCORE", "DOLLAR", "HEX_DIGIT", "UNICODE_ESC",
-    "OCTAL_ESC", "'.'"
+    "LSQUARE", "INT", "RSQUARE", "NAME", "TEXT", "HTML", "ATOM", "DATE",
+    "NUMBER", "GEO", "FLOAT", "PHRASE", "COMMA", "ABS", "COUNT", "DISTANCE",
+    "GEOPOINT", "LOG", "MAX", "MIN", "POW", "SNIPPET", "SWITCH", "DIGIT",
+    "QUOTE", "ESC_SEQ", "EXPONENT", "NAME_START", "WS", "ASCII_LETTER",
+    "UNDERSCORE", "DOLLAR", "HEX_DIGIT", "UNICODE_ESC", "OCTAL_ESC", "'.'"
 ]
 
 
@@ -109,6 +114,17 @@ class ExpressionParser(Parser):
 
         Parser.__init__(self, input, state)
 
+
+        self.dfa9 = self.DFA9(
+            self, 9,
+            eot = self.DFA9_eot,
+            eof = self.DFA9_eof,
+            min = self.DFA9_min,
+            max = self.DFA9_max,
+            accept = self.DFA9_accept,
+            special = self.DFA9_special,
+            transition = self.DFA9_transition
+            )
 
         self.dfa10 = self.DFA10(
             self, 10,
@@ -1164,22 +1180,7 @@ class ExpressionParser(Parser):
             try:
 
                 alt9 = 5
-                LA9 = self.input.LA(1)
-                if LA9 == NAME:
-                    alt9 = 1
-                elif LA9 == INT or LA9 == FLOAT:
-                    alt9 = 2
-                elif LA9 == PHRASE:
-                    alt9 = 3
-                elif LA9 == ABS or LA9 == COUNT or LA9 == DISTANCE or LA9 == GEOPOINT or LA9 == LEN or LA9 == LOG or LA9 == MAX or LA9 == MIN or LA9 == POW or LA9 == SNIPPET or LA9 == SWITCH:
-                    alt9 = 4
-                elif LA9 == LPAREN:
-                    alt9 = 5
-                else:
-                    nvae = NoViableAltException("", 9, 0, self.input)
-
-                    raise nvae
-
+                alt9 = self.dfa9.predict(self.input)
                 if alt9 == 1:
 
                     pass
@@ -1495,55 +1496,264 @@ class ExpressionParser(Parser):
 
         root_0 = None
 
+        t = None
         NAME42 = None
         char_literal43 = None
         NAME44 = None
 
+        t_tree = None
         NAME42_tree = None
         char_literal43_tree = None
         NAME44_tree = None
+        stream_GEO = RewriteRuleTokenStream(self._adaptor, "token GEO")
+        stream_HTML = RewriteRuleTokenStream(self._adaptor, "token HTML")
+        stream_ATOM = RewriteRuleTokenStream(self._adaptor, "token ATOM")
+        stream_TEXT = RewriteRuleTokenStream(self._adaptor, "token TEXT")
+        stream_DATE = RewriteRuleTokenStream(self._adaptor, "token DATE")
+        stream_NUMBER = RewriteRuleTokenStream(self._adaptor, "token NUMBER")
 
         try:
             try:
 
+                alt12 = 7
+                LA12 = self.input.LA(1)
+                if LA12 == NAME:
+                    alt12 = 1
+                elif LA12 == TEXT:
+                    alt12 = 2
+                elif LA12 == HTML:
+                    alt12 = 3
+                elif LA12 == ATOM:
+                    alt12 = 4
+                elif LA12 == DATE:
+                    alt12 = 5
+                elif LA12 == NUMBER:
+                    alt12 = 6
+                elif LA12 == GEO:
+                    alt12 = 7
+                else:
+                    nvae = NoViableAltException("", 12, 0, self.input)
 
-                pass
-                root_0 = self._adaptor.nil()
+                    raise nvae
 
-                NAME42=self.match(self.input, NAME, self.FOLLOW_NAME_in_name471)
+                if alt12 == 1:
 
-                NAME42_tree = self._adaptor.createWithPayload(NAME42)
-                self._adaptor.addChild(root_0, NAME42_tree)
+                    pass
+                    root_0 = self._adaptor.nil()
 
+                    NAME42=self.match(self.input, NAME, self.FOLLOW_NAME_in_name471)
 
-                while True:
-                    alt11 = 2
-                    LA11_0 = self.input.LA(1)
-
-                    if (LA11_0 == 53) :
-                        alt11 = 1
+                    NAME42_tree = self._adaptor.createWithPayload(NAME42)
+                    self._adaptor.addChild(root_0, NAME42_tree)
 
 
-                    if alt11 == 1:
+                    while True:
+                        alt11 = 2
+                        LA11_0 = self.input.LA(1)
 
-                        pass
-                        char_literal43=self.match(self.input, 53, self.FOLLOW_53_in_name474)
-
-                        char_literal43_tree = self._adaptor.createWithPayload(char_literal43)
-                        root_0 = self._adaptor.becomeRoot(char_literal43_tree, root_0)
-
-                        NAME44=self.match(self.input, NAME, self.FOLLOW_NAME_in_name477)
-
-                        NAME44_tree = self._adaptor.createWithPayload(NAME44)
-                        self._adaptor.addChild(root_0, NAME44_tree)
+                        if (LA11_0 == 58) :
+                            alt11 = 1
 
 
+                        if alt11 == 1:
 
+                            pass
+                            char_literal43=self.match(self.input, 58, self.FOLLOW_58_in_name474)
+
+                            char_literal43_tree = self._adaptor.createWithPayload(char_literal43)
+                            root_0 = self._adaptor.becomeRoot(char_literal43_tree, root_0)
+
+                            NAME44=self.match(self.input, NAME, self.FOLLOW_NAME_in_name477)
+
+                            NAME44_tree = self._adaptor.createWithPayload(NAME44)
+                            self._adaptor.addChild(root_0, NAME44_tree)
+
+
+
+                        else:
+                            break
+
+
+
+
+                elif alt12 == 2:
+
+                    pass
+                    t=self.match(self.input, TEXT, self.FOLLOW_TEXT_in_name493)
+                    stream_TEXT.add(t)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
                     else:
-                        break
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, self._adaptor.create(NAME, t))
 
 
 
+                    retval.tree = root_0
+
+
+                elif alt12 == 3:
+
+                    pass
+                    t=self.match(self.input, HTML, self.FOLLOW_HTML_in_name506)
+                    stream_HTML.add(t)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, self._adaptor.create(NAME, t))
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt12 == 4:
+
+                    pass
+                    t=self.match(self.input, ATOM, self.FOLLOW_ATOM_in_name519)
+                    stream_ATOM.add(t)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, self._adaptor.create(NAME, t))
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt12 == 5:
+
+                    pass
+                    t=self.match(self.input, DATE, self.FOLLOW_DATE_in_name532)
+                    stream_DATE.add(t)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, self._adaptor.create(NAME, t))
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt12 == 6:
+
+                    pass
+                    t=self.match(self.input, NUMBER, self.FOLLOW_NUMBER_in_name545)
+                    stream_NUMBER.add(t)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, self._adaptor.create(NAME, t))
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt12 == 7:
+
+                    pass
+                    t=self.match(self.input, GEO, self.FOLLOW_GEO_in_name558)
+                    stream_GEO.add(t)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, self._adaptor.create(NAME, t))
+
+
+
+                    retval.tree = root_0
 
 
                 retval.stop = self.input.LT(-1)
@@ -1656,7 +1866,7 @@ class ExpressionParser(Parser):
                 pass
                 root_0 = self._adaptor.nil()
 
-                PHRASE46=self.match(self.input, PHRASE, self.FOLLOW_PHRASE_in_str511)
+                PHRASE46=self.match(self.input, PHRASE, self.FOLLOW_PHRASE_in_str595)
 
                 PHRASE46_tree = self._adaptor.createWithPayload(PHRASE46)
                 self._adaptor.addChild(root_0, PHRASE46_tree)
@@ -1724,33 +1934,33 @@ class ExpressionParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_fnName_in_fn524)
+                self._state.following.append(self.FOLLOW_fnName_in_fn608)
                 fnName47 = self.fnName()
 
                 self._state.following.pop()
                 stream_fnName.add(fnName47.tree)
-                LPAREN48=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_fn526)
+                LPAREN48=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_fn610)
                 stream_LPAREN.add(LPAREN48)
-                self._state.following.append(self.FOLLOW_condExpr_in_fn528)
+                self._state.following.append(self.FOLLOW_condExpr_in_fn612)
                 condExpr49 = self.condExpr()
 
                 self._state.following.pop()
                 stream_condExpr.add(condExpr49.tree)
 
                 while True:
-                    alt12 = 2
-                    LA12_0 = self.input.LA(1)
+                    alt13 = 2
+                    LA13_0 = self.input.LA(1)
 
-                    if (LA12_0 == COMMA) :
-                        alt12 = 1
+                    if (LA13_0 == COMMA) :
+                        alt13 = 1
 
 
-                    if alt12 == 1:
+                    if alt13 == 1:
 
                         pass
-                        COMMA50=self.match(self.input, COMMA, self.FOLLOW_COMMA_in_fn531)
+                        COMMA50=self.match(self.input, COMMA, self.FOLLOW_COMMA_in_fn615)
                         stream_COMMA.add(COMMA50)
-                        self._state.following.append(self.FOLLOW_condExpr_in_fn533)
+                        self._state.following.append(self.FOLLOW_condExpr_in_fn617)
                         condExpr51 = self.condExpr()
 
                         self._state.following.pop()
@@ -1761,7 +1971,7 @@ class ExpressionParser(Parser):
                         break
 
 
-                RPAREN52=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_fn537)
+                RPAREN52=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_fn621)
                 stream_RPAREN.add(RPAREN52)
 
 
@@ -1852,7 +2062,7 @@ class ExpressionParser(Parser):
                 root_0 = self._adaptor.nil()
 
                 set53 = self.input.LT(1)
-                if (ABS <= self.input.LA(1) <= SWITCH):
+                if (TEXT <= self.input.LA(1) <= GEO) or (ABS <= self.input.LA(1) <= SWITCH):
                     self.input.consume()
                     self._adaptor.addChild(root_0, self._adaptor.createWithPayload(set53))
                     self._state.errorRecovery = False
@@ -1890,40 +2100,92 @@ class ExpressionParser(Parser):
 
 
 
+    DFA9_eot = DFA.unpack(
+        u"\14\uffff"
+        )
+
+    DFA9_eof = DFA.unpack(
+        u"\2\uffff\6\1\4\uffff"
+        )
+
+    DFA9_min = DFA.unpack(
+        u"\1\25\1\uffff\6\6\4\uffff"
+        )
+
+    DFA9_max = DFA.unpack(
+        u"\1\55\1\uffff\6\43\4\uffff"
+        )
+
+    DFA9_accept = DFA.unpack(
+        u"\1\uffff\1\1\6\uffff\1\2\1\3\1\4\1\5"
+        )
+
+    DFA9_special = DFA.unpack(
+        u"\14\uffff"
+        )
+
+
+    DFA9_transition = [
+        DFA.unpack(u"\1\13\2\uffff\1\10\1\uffff\1\1\1\2\1\3\1\4\1\5\1\6\1"
+        u"\7\1\10\1\11\1\uffff\12\12"),
+        DFA.unpack(u""),
+        DFA.unpack(u"\4\1\1\uffff\12\1\1\12\2\1\13\uffff\1\1"),
+        DFA.unpack(u"\4\1\1\uffff\12\1\1\12\2\1\13\uffff\1\1"),
+        DFA.unpack(u"\4\1\1\uffff\12\1\1\12\2\1\13\uffff\1\1"),
+        DFA.unpack(u"\4\1\1\uffff\12\1\1\12\2\1\13\uffff\1\1"),
+        DFA.unpack(u"\4\1\1\uffff\12\1\1\12\2\1\13\uffff\1\1"),
+        DFA.unpack(u"\4\1\1\uffff\12\1\1\12\2\1\13\uffff\1\1"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"")
+    ]
+
+
+
+    DFA9 = DFA
+
+
     DFA10_eot = DFA.unpack(
-        u"\6\uffff"
+        u"\14\uffff"
         )
 
     DFA10_eof = DFA.unpack(
-        u"\1\uffff\1\4\3\uffff\1\4"
+        u"\1\uffff\7\12\3\uffff\1\12"
         )
 
     DFA10_min = DFA.unpack(
-        u"\1\32\1\6\1\32\2\uffff\1\6"
+        u"\1\32\7\6\1\32\2\uffff\1\6"
         )
 
     DFA10_max = DFA.unpack(
-        u"\1\32\1\65\1\32\2\uffff\1\65"
+        u"\1\40\1\72\6\43\1\32\2\uffff\1\72"
         )
 
     DFA10_accept = DFA.unpack(
-        u"\3\uffff\1\2\1\1\1\uffff"
+        u"\11\uffff\1\2\1\1\1\uffff"
         )
 
     DFA10_special = DFA.unpack(
-        u"\6\uffff"
+        u"\14\uffff"
         )
 
 
     DFA10_transition = [
-        DFA.unpack(u"\1\1"),
-        DFA.unpack(u"\4\4\1\uffff\12\4\1\uffff\1\4\1\3\5\uffff\1\4\27\uffff"
-        u"\1\2"),
-        DFA.unpack(u"\1\5"),
+        DFA.unpack(u"\1\1\1\2\1\3\1\4\1\5\1\6\1\7"),
+        DFA.unpack(u"\4\12\1\uffff\12\12\1\uffff\1\12\1\11\13\uffff\1\12"
+        u"\26\uffff\1\10"),
+        DFA.unpack(u"\4\12\1\uffff\12\12\1\uffff\1\12\1\11\13\uffff\1\12"),
+        DFA.unpack(u"\4\12\1\uffff\12\12\1\uffff\1\12\1\11\13\uffff\1\12"),
+        DFA.unpack(u"\4\12\1\uffff\12\12\1\uffff\1\12\1\11\13\uffff\1\12"),
+        DFA.unpack(u"\4\12\1\uffff\12\12\1\uffff\1\12\1\11\13\uffff\1\12"),
+        DFA.unpack(u"\4\12\1\uffff\12\12\1\uffff\1\12\1\11\13\uffff\1\12"),
+        DFA.unpack(u"\4\12\1\uffff\12\12\1\uffff\1\12\1\11\13\uffff\1\12"),
+        DFA.unpack(u"\1\13"),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\4\4\1\uffff\12\4\1\uffff\1\4\1\3\5\uffff\1\4\27\uffff"
-        u"\1\2")
+        DFA.unpack(u"\4\12\1\uffff\12\12\1\uffff\1\12\1\11\13\uffff\1\12"
+        u"\26\uffff\1\10")
     ]
 
 
@@ -1934,37 +2196,37 @@ class ExpressionParser(Parser):
     FOLLOW_conjunction_in_expression92 = frozenset([])
     FOLLOW_EOF_in_expression94 = frozenset([1])
     FOLLOW_conjunction_in_condExpr107 = frozenset([1, 6])
-    FOLLOW_COND_in_condExpr110 = frozenset([18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_COND_in_condExpr110 = frozenset([18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_addExpr_in_condExpr113 = frozenset([1])
     FOLLOW_disjunction_in_conjunction128 = frozenset([1, 7])
-    FOLLOW_AND_in_conjunction131 = frozenset([10, 18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_AND_in_conjunction131 = frozenset([10, 18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_disjunction_in_conjunction134 = frozenset([1, 7])
     FOLLOW_negation_in_disjunction149 = frozenset([1, 8, 9])
-    FOLLOW_set_in_disjunction152 = frozenset([10, 18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_set_in_disjunction152 = frozenset([10, 18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_negation_in_disjunction161 = frozenset([1, 8, 9])
     FOLLOW_cmpExpr_in_negation176 = frozenset([1])
-    FOLLOW_NOT_in_negation182 = frozenset([18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_NOT_in_negation182 = frozenset([18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_cmpExpr_in_negation185 = frozenset([1])
     FOLLOW_addExpr_in_cmpExpr198 = frozenset([1, 11, 12, 13, 14, 15, 16])
-    FOLLOW_cmpOp_in_cmpExpr201 = frozenset([18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_cmpOp_in_cmpExpr201 = frozenset([18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_addExpr_in_cmpExpr204 = frozenset([1])
     FOLLOW_set_in_cmpOp0 = frozenset([1])
     FOLLOW_multExpr_in_addExpr262 = frozenset([1, 17, 18])
-    FOLLOW_addOp_in_addExpr265 = frozenset([18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_addOp_in_addExpr265 = frozenset([18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_multExpr_in_addExpr268 = frozenset([1, 17, 18])
     FOLLOW_set_in_addOp0 = frozenset([1])
     FOLLOW_unary_in_multExpr302 = frozenset([1, 19, 20])
-    FOLLOW_multOp_in_multExpr305 = frozenset([18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_multOp_in_multExpr305 = frozenset([18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_unary_in_multExpr308 = frozenset([1, 19, 20])
     FOLLOW_set_in_multOp0 = frozenset([1])
-    FOLLOW_MINUS_in_unary342 = frozenset([18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_MINUS_in_unary342 = frozenset([18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_atom_in_unary344 = frozenset([1])
     FOLLOW_atom_in_unary359 = frozenset([1])
     FOLLOW_var_in_atom372 = frozenset([1])
     FOLLOW_num_in_atom378 = frozenset([1])
     FOLLOW_str_in_atom384 = frozenset([1])
     FOLLOW_fn_in_atom390 = frozenset([1])
-    FOLLOW_LPAREN_in_atom396 = frozenset([10, 18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_LPAREN_in_atom396 = frozenset([10, 18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
     FOLLOW_conjunction_in_atom398 = frozenset([22])
     FOLLOW_RPAREN_in_atom400 = frozenset([1])
     FOLLOW_name_in_var417 = frozenset([1])
@@ -1973,17 +2235,23 @@ class ExpressionParser(Parser):
     FOLLOW_LSQUARE_in_index447 = frozenset([24])
     FOLLOW_INT_in_index451 = frozenset([25])
     FOLLOW_RSQUARE_in_index453 = frozenset([1])
-    FOLLOW_NAME_in_name471 = frozenset([1, 53])
-    FOLLOW_53_in_name474 = frozenset([26])
-    FOLLOW_NAME_in_name477 = frozenset([1, 53])
+    FOLLOW_NAME_in_name471 = frozenset([1, 58])
+    FOLLOW_58_in_name474 = frozenset([26])
+    FOLLOW_NAME_in_name477 = frozenset([1, 58])
+    FOLLOW_TEXT_in_name493 = frozenset([1])
+    FOLLOW_HTML_in_name506 = frozenset([1])
+    FOLLOW_ATOM_in_name519 = frozenset([1])
+    FOLLOW_DATE_in_name532 = frozenset([1])
+    FOLLOW_NUMBER_in_name545 = frozenset([1])
+    FOLLOW_GEO_in_name558 = frozenset([1])
     FOLLOW_set_in_num0 = frozenset([1])
-    FOLLOW_PHRASE_in_str511 = frozenset([1])
-    FOLLOW_fnName_in_fn524 = frozenset([21])
-    FOLLOW_LPAREN_in_fn526 = frozenset([10, 18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
-    FOLLOW_condExpr_in_fn528 = frozenset([22, 29])
-    FOLLOW_COMMA_in_fn531 = frozenset([10, 18, 21, 24, 26, 27, 28, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
-    FOLLOW_condExpr_in_fn533 = frozenset([22, 29])
-    FOLLOW_RPAREN_in_fn537 = frozenset([1])
+    FOLLOW_PHRASE_in_str595 = frozenset([1])
+    FOLLOW_fnName_in_fn608 = frozenset([21])
+    FOLLOW_LPAREN_in_fn610 = frozenset([10, 18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
+    FOLLOW_condExpr_in_fn612 = frozenset([22, 35])
+    FOLLOW_COMMA_in_fn615 = frozenset([10, 18, 21, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45])
+    FOLLOW_condExpr_in_fn617 = frozenset([22, 35])
+    FOLLOW_RPAREN_in_fn621 = frozenset([1])
     FOLLOW_set_in_fnName0 = frozenset([1])
 
 

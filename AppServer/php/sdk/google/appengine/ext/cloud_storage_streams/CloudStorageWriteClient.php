@@ -104,8 +104,8 @@ final class CloudStorageWriteClient extends CloudStorageClient {
       return false;
     }
     if ($status_code != HttpResponse::CREATED) {
-      trigger_error(sprintf("Error connecting to Google Cloud Storage: %s",
-                            HttpResponse::getStatusMessage($status_code)),
+      trigger_error($this->getErrorMessage($http_response['status_code'],
+                                           $http_response['body']),
                     E_USER_WARNING);
       return false;
     }
@@ -222,10 +222,9 @@ final class CloudStorageWriteClient extends CloudStorageClient {
     // TODO: Retry on some status codes.
     if (($complete && $code != HttpResponse::OK) ||
         (!$complete && $code != HttpResponse::RESUME_INCOMPLETE)) {
-      trigger_error(
-          sprintf("Error writing to Google Cloud Storage Service: %s",
-                  HttpResponse::getStatusMessage($code)),
-          E_USER_WARNING);
+      trigger_error($this->getErrorMessage($http_response['status_code'],
+                                           $http_response['body']),
+                    E_USER_WARNING);
       return false;
     }
     // Buffer flushed, update pointers if we actually wrote something.

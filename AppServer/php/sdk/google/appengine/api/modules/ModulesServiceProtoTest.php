@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-namespace google\appengine\api\servers;
+namespace google\appengine\api\modules;
 
-require_once 'google/appengine/api/servers/servers_service_pb.php';
+require_once 'google/appengine/api/modules/modules_service_pb.php';
 
-use \google\appengine\GetServersRequest;
+use \google\appengine\GetModulesRequest;
 
-class ServersServiceProtoTest extends\PHPUnit_Framework_TestCase {
-  public function testGetServersRequestInstantiation() {
-    $req = new GetServersRequest();
+class ModulesServiceProtoTest extends\PHPUnit_Framework_TestCase {
+  public function testGetModulesRequestInstantiation() {
+    $req = new GetModulesRequest();
     $this->assertEquals("", $req->serializePartialToString());
   }
 }
-

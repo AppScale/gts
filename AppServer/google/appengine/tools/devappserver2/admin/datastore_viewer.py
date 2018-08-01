@@ -141,7 +141,6 @@ class DataType(object):
      input_field: returns a string HTML <input> element for this DataType
      name: the friendly string name of this DataType
      parse: parses the formatted string representation of this DataType
-     python_type: the canonical Python type for this datastore type
 
   We use DataType instances to display formatted values in our result lists,
   and we uses input_field/format/parse to generate forms and parse the results
@@ -222,9 +221,6 @@ class StringType(DataType):
   def parse(self, value):
     return value
 
-  def python_type(self):
-    return str
-
   def input_field_size(self):
     return 50
 
@@ -242,9 +238,6 @@ class TextType(StringType):
 
   def parse(self, value):
     return datastore_types.Text(value)
-
-  def python_type(self):
-    return datastore_types.Text
 
 
 class ByteStringType(StringType):
@@ -264,9 +257,6 @@ class ByteStringType(StringType):
     bytestring = value.encode('ascii').decode('string-escape')
     return datastore_types.ByteString(bytestring)
 
-  def python_type(self):
-    return datastore_types.ByteString
-
 
 class BlobType(StringType):
   def name(self):
@@ -278,21 +268,15 @@ class BlobType(StringType):
   def format(self, value):
     return '<binary>'
 
-  def python_type(self):
-    return datastore_types.Blob
-
 
 class EmbeddedEntityType(BlobType):
   def name(self):
     return 'entity:proto'
 
-  def python_type(self):
-    return datastore_types.EmbeddedEntity
-
 
 class TimeType(DataType):
   _FORMAT = '%Y-%m-%d %H:%M:%S'
-  PLACEHOLDER = '2009-24-12 23:59:59'
+  PLACEHOLDER = '2009-12-24 23:59:59'
 
   def format(self, value):
     return value.isoformat(' ')[0:19]
@@ -304,8 +288,19 @@ class TimeType(DataType):
     return datetime.datetime(*(time.strptime(value,
                                              TimeType._FORMAT)[0:6]))
 
-  def python_type(self):
-    return datetime.datetime
+
+class OverflowTimeType(TimeType):
+  def format(self, value):
+    return str(value)
+
+  def name(self):
+    return 'overflowdatetime'
+
+  def parse(self, value):
+    try:
+      return datastore_types._OverflowDateTime(value)
+    except ValueError:
+      return super(OverflowTimeType, self).parse(value)
 
 
 class ListType(DataType):
@@ -316,9 +311,6 @@ class ListType(DataType):
   def input_field(self, name, value, sample_values, back_uri):
     string_value = self.format(value) if value else ''
     return cgi.escape(string_value)
-
-  def python_type(self):
-    return list
 
 
 class BoolType(DataType):
@@ -343,9 +335,6 @@ class BoolType(DataType):
     # Otherwise treat as an int
     return bool(int(value))
 
-  def python_type(self):
-    return bool
-
 
 class IntType(DataType):
   PLACEHOLDER = '42'
@@ -359,9 +348,6 @@ class IntType(DataType):
   def parse(self, value):
     return int(value)
 
-  def python_type(self):
-    return int
-
 
 class FloatType(DataType):
   PLACEHOLDER = '3.14159'
@@ -372,9 +358,6 @@ class FloatType(DataType):
   def parse(self, value):
     return float(value)
 
-  def python_type(self):
-    return float
-
 
 class UserType(DataType):
   PLACEHOLDER = 'john@example.com'
@@ -384,9 +367,6 @@ class UserType(DataType):
 
   def parse(self, value):
     return users.User(value)
-
-  def python_type(self):
-    return users.User
 
   def input_field_size(self):
     return 15
@@ -402,9 +382,6 @@ class ReferenceType(DataType):
 
   def parse(self, value):
     return datastore_types.Key(value)
-
-  def python_type(self):
-    return datastore_types.Key
 
   def input_field(self, name, value, sample_values, back_uri):
     string_value = self.format(value) if value else ''
@@ -431,9 +408,6 @@ class EmailType(StringType):
   def parse(self, value):
     return datastore_types.Email(value)
 
-  def python_type(self):
-    return datastore_types.Email
-
 
 class CategoryType(StringType):
   def name(self):
@@ -441,9 +415,6 @@ class CategoryType(StringType):
 
   def parse(self, value):
     return datastore_types.Category(value)
-
-  def python_type(self):
-    return datastore_types.Category
 
 
 class LinkType(StringType):
@@ -455,9 +426,6 @@ class LinkType(StringType):
   def parse(self, value):
     return datastore_types.Link(value)
 
-  def python_type(self):
-    return datastore_types.Link
-
 
 class GeoPtType(DataType):
   PLACEHOLDER = '33.86,-151.2'
@@ -467,9 +435,6 @@ class GeoPtType(DataType):
 
   def parse(self, value):
     return datastore_types.GeoPt(value)
-
-  def python_type(self):
-    return datastore_types.GeoPt
 
 
 class ImType(DataType):
@@ -481,9 +446,6 @@ class ImType(DataType):
   def parse(self, value):
     return datastore_types.IM(value)
 
-  def python_type(self):
-    return datastore_types.IM
-
 
 class PhoneNumberType(StringType):
   def name(self):
@@ -492,9 +454,6 @@ class PhoneNumberType(StringType):
   def parse(self, value):
     return datastore_types.PhoneNumber(value)
 
-  def python_type(self):
-    return datastore_types.PhoneNumber
-
 
 class PostalAddressType(StringType):
   def name(self):
@@ -502,9 +461,6 @@ class PostalAddressType(StringType):
 
   def parse(self, value):
     return datastore_types.PostalAddress(value)
-
-  def python_type(self):
-    return datastore_types.PostalAddress
 
 
 class RatingType(DataType):
@@ -519,18 +475,12 @@ class RatingType(DataType):
   def parse(self, value):
     return datastore_types.Rating(value)
 
-  def python_type(self):
-    return datastore_types.Rating
-
 
 class NoneType(DataType):
   def name(self):
     return 'None'
 
   def parse(self, value):
-    return None
-
-  def python_type(self):
     return None
 
   def format(self, value):
@@ -543,9 +493,6 @@ class BlobKeyType(StringType):
 
   def parse(self, value):
     return datastore_types.BlobKey(value)
-
-  def python_type(self):
-    return datastore_types.BlobKey
 
 
 # Maps Pyathon/datatstore types to DataType instances
@@ -561,6 +508,7 @@ _DATA_TYPES = {
     types.LongType: IntType(),
     types.FloatType: FloatType(),
     datetime.datetime: TimeType(),
+    datastore_types._OverflowDateTime: OverflowTimeType(),
     users.User: UserType(),
     datastore_types.Key: ReferenceType(),
     types.ListType: ListType(),

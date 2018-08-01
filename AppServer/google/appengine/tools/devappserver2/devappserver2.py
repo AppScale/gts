@@ -121,6 +121,18 @@ def _get_storage_path(path, app_id):
     return path
 
 
+def _get_default_php_path():
+  """Returns the path to the siloed php-cgi binary or None if not present."""
+  if sys.platform == 'win32':
+    default_php_executable_path = os.path.abspath(
+        os.path.join(os.path.dirname(sys.argv[0]),
+                     'php/php-5.4.15-Win32-VC9-x86/php-cgi.exe'))
+    if os.path.exists(default_php_executable_path):
+      return default_php_executable_path
+
+  return None
+
+
 class PortParser(object):
   """A parser for ints that represent ports."""
 
@@ -239,8 +251,8 @@ def create_command_line_parser():
   php_group = parser.add_argument_group('PHP')
   php_group.add_argument('--php_executable_path', metavar='PATH',
                          type=parse_path,
-                         help='path to the PHP executable',
-                         default='php-cgi')
+                         default=_get_default_php_path(),
+                         help='path to the PHP executable')
   php_group.add_argument('--php_remote_debugging',
                          action=boolean_action.BooleanAction,
                          const=True,

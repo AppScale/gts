@@ -1,5 +1,15 @@
 <?php
+
+
+
+
 $setup = function() {
+  $allowed_buckets = ini_get(
+      'google_app_engine.allow_include_gs_buckets');
+  define('GAE_INCLUDE_REQUIRE_GS_STREAMS',
+         // All values are considered true except the empty string.
+         $allowed_buckets ? 1 : 0);
+
   $updateScriptFilename = function() {
     putenv('SCRIPT_FILENAME=' . getenv('REAL_SCRIPT_FILENAME'));
     $_ENV['SCRIPT_FILENAME'] = getenv('REAL_SCRIPT_FILENAME');

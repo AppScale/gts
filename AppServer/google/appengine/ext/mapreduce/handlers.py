@@ -50,7 +50,6 @@ from google.appengine.ext import ndb
 from google.appengine import runtime
 from google.appengine.api import datastore_errors
 from google.appengine.api import logservice
-from google.appengine.api import modules
 from google.appengine.api import taskqueue
 from google.appengine.ext import db
 from google.appengine.ext.mapreduce import base_handler
@@ -62,6 +61,16 @@ from google.appengine.ext.mapreduce import operation
 from google.appengine.ext.mapreduce import parameters
 from google.appengine.ext.mapreduce import util
 from google.appengine.runtime import apiproxy_errors
+
+
+
+using_modules = True
+try:
+  from google.appengine.api import modules
+except ImportError:
+
+  using_modules = False
+  from google.appengine.api import servers
 
 
 
@@ -256,10 +265,17 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       logs = list(logservice.fetch(request_ids=request_ids))
     except logservice.InvalidArgumentError:
 
-      logs = list(logservice.fetch(
-          request_ids=request_ids,
-          module_versions=[(modules.get_current_module_name(),
-                            modules.get_current_version_name())]))
+      global using_modules
+      if using_modules:
+        logs = list(logservice.fetch(
+            request_ids=request_ids,
+            module_versions=[(modules.get_current_module_name(),
+                              modules.get_current_version_name())]))
+      else:
+        logs = list(logservice.fetch(
+            request_ids=request_ids,
+            server_versions=[(servers.get_current_server_name(),
+                              servers.get_current_version_name())]))
 
     if not logs or not logs[0].finished:
       return False

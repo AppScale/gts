@@ -28,9 +28,7 @@ from google.appengine.tools.devappserver2.endpoints import discovery_service
 
 
 # Internal constants
-_API_REST_PATH_FORMAT = '{!name}/{!version}/%s'
 _PATH_VARIABLE_PATTERN = r'[a-zA-Z_][a-zA-Z_.\d]*'
-_RESERVED_PATH_VARIABLE_PATTERN = r'!' + _PATH_VARIABLE_PATTERN
 _PATH_VALUE_PATTERN = r'[^:/?#\[\]{}]*'
 
 
@@ -94,12 +92,13 @@ class ApiConfigManager(object):
             self.configs[lookup_key] = config
 
         for config in self.configs.itervalues():
+          name = config.get('name', '')
           version = config.get('version', '')
           sorted_methods = self._get_sorted_methods(config.get('methods', {}))
 
           for method_name, method in sorted_methods:
             self._save_rpc_method(method_name, version, method)
-            self._save_rest_method(method_name, version, method)
+            self._save_rest_method(method_name, name, version, method)
 
   def _get_sorted_methods(self, methods):
     """Get a copy of 'methods' sorted the way they would be on the live server.
@@ -230,8 +229,7 @@ class ApiConfigManager(object):
         match = compiled_path_pattern.match(path)
         if match:
           params = self._get_path_params(match)
-          version = match.group(2)
-          method_key = (http_method.lower(), version)
+          method_key = http_method.lower()
           method_name, method = methods.get(method_key, (None, None))
           if method:
             break
@@ -293,14 +291,8 @@ class ApiConfigManager(object):
   def _compile_path_pattern(pattern):
     r"""Generates a compiled regex pattern for a path pattern.
 
-    e.g. '/{!name}/{!version}/notes/{id}'
-    returns re.compile(r'/([^:/?#\[\]{}]*)'
-                       r'/([^:/?#\[\]{}]*)'
-                       r'/notes/(?P<id>[^:/?#\[\]{}]*)')
-    Note in this example that !name and !version are reserved variable names
-    used to match the API name and version that should not be migrated into the
-    method argument namespace.  As such they are not named in the regex, so
-    groupdict() excludes them.
+    e.g. '/MyApi/v1/notes/{id}'
+    returns re.compile(r'/MyApi/v1/notes/(?P<id>[^:/?#\[\]{}]*)')
 
     Args:
       pattern: A string, the parameterized path pattern to be checked.
@@ -308,21 +300,6 @@ class ApiConfigManager(object):
     Returns:
       A compiled regex object to match this path pattern.
     """
-
-    def replace_reserved_variable(match):
-      """Replaces a {!variable} with a regex to match it not by name.
-
-      Args:
-        match: A regex match object, the matching regex group as sent by
-          re.sub().
-
-      Returns:
-        A string regex to match the variable by name, if the full pattern was
-        matched.
-      """
-      if match.lastindex > 1:
-        return '%s(%s)' % (match.group(1), _PATH_VALUE_PATTERN)
-      return match.group(0)
 
     def replace_variable(match):
       """Replaces a {variable} with a regex to match it by name.
@@ -346,11 +323,6 @@ class ApiConfigManager(object):
                                  _PATH_VALUE_PATTERN)
       return match.group(0)
 
-    # Replace !name and !version with regexes, but only allow replacement
-    # of two reserved variables (re.sub argument 'count') to prevent
-    # substituting e.g. {!name}/{!version}/myapi/{id}/{!othervar}
-    pattern = re.sub('(/|^){(%s)}(?=/|$)' % _RESERVED_PATH_VARIABLE_PATTERN,
-                     replace_reserved_variable, pattern, 2)
     pattern = re.sub('(/|^){(%s)}(?=/|$)' % _PATH_VARIABLE_PATTERN,
                      replace_variable, pattern)
     return re.compile(pattern + '/?$')
@@ -368,7 +340,7 @@ class ApiConfigManager(object):
     """
     self._rpc_method_dict[(method_name, version)] = method
 
-  def _save_rest_method(self, method_name, version, method):
+  def _save_rest_method(self, method_name, api_name, version, method):
     """Store Rest api methods in a list for lookup at call time.
 
     The list is self._rest_methods, a list of tuples:
@@ -377,7 +349,7 @@ class ApiConfigManager(object):
       <compiled_path> is a compiled regex to match against the incoming URL
       <path_pattern> is a string representing the original path pattern,
         checked on insertion to prevent duplicates.     -and-
-      <method_dict> is a dict (httpMethod, apiVersion) => (method_name, method)
+      <method_dict> is a dict of httpMethod => (method_name, method)
 
     This structure is a bit complex, it supports use in two contexts:
       Creation time:
@@ -388,28 +360,28 @@ class ApiConfigManager(object):
           comparison as it is not documented as being stable for this use.
         - Need to store the method that will be mapped at calltime.
         - Different methods may have the same path but different http method.
-          and/or API versions.
       Call time:
         - Quickly scan through the list attempting .match(path) on each
           compiled regex to find the path that matches.
-        - When a path is matched, look up the API version and method from the
-          request and get the method name and method config for the matching
+        - When a path is matched, look up the API method from the request
+          and get the method name and method config for the matching
           API method and method name.
 
     Args:
       method_name: A string containing the name of the API method.
+      api_name: A string containing the name of the API.
       version: A string containing the version of the API.
       method: A dict containing the method descriptor (as in the api config
         file).
     """
-    path_pattern = _API_REST_PATH_FORMAT % method.get('path', '')
+    path_pattern = '/'.join((api_name, version, method.get('path', '')))
     http_method = method.get('httpMethod', '').lower()
     for _, path, methods in self._rest_methods:
       if path == path_pattern:
-        methods[(http_method, version)] = method_name, method
+        methods[http_method] = method_name, method
         break
     else:
       self._rest_methods.append(
           (self._compile_path_pattern(path_pattern),
            path_pattern,
-           {(http_method, version): (method_name, method)}))
+           {http_method: (method_name, method)}))

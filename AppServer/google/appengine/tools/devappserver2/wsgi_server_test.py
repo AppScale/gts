@@ -88,7 +88,7 @@ class SharedCherryPyThreadPoolTest(unittest.TestCase):
   def setUp(self):
     self.mox = mox.Mox()
     self.mox.StubOutWithMock(wsgi_server._THREAD_POOL, 'submit')
-    self.thread_pool = wsgi_server.SharedCherryPyThreadPool()
+    self.thread_pool = wsgi_server._SharedCherryPyThreadPool()
 
   def tearDown(self):
     self.mox.UnsetStubs()
@@ -537,7 +537,7 @@ class _SingleAddressWsgiServerStartupTest(unittest.TestCase):
     self.mox.StubOutWithMock(wsgi_server._SELECT_THREAD, 'remove_socket')
     self.server.socket = object()
     self.server.requests = self.mox.CreateMock(
-        wsgi_server.SharedCherryPyThreadPool)
+        wsgi_server._SharedCherryPyThreadPool)
     wsgi_server._SELECT_THREAD.remove_socket(self.server.socket)
     self.server.requests.stop(timeout=1)
     self.mox.ReplayAll()

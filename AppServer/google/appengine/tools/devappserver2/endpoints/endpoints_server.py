@@ -27,6 +27,7 @@ configuration has changed.
 
 
 
+import httplib
 import json
 import logging
 import re
@@ -746,14 +747,17 @@ class EndpointsDispatcher(object):
     if orig_request.is_rpc():
       # JSON RPC errors are returned with status 200 OK and the
       # error details in the body.
-      response_status = '200 OK'
+      status_code = 200
       body = self._finish_rpc_response(orig_request.body_json.get('id'),
                                        orig_request.is_batch(),
                                        error.rpc_error())
     else:
-      response_status = error.http_status()
+      status_code = error.status_code()
       body = error.rest_error()
 
+    response_status = '%d %s' % (status_code,
+                                 httplib.responses.get(status_code,
+                                                       'Unknown Error'))
     cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
     return util.send_wsgi_response(response_status, headers, body,
                                    start_response, cors_handler=cors_handler)

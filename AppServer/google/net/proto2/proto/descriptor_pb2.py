@@ -28,7 +28,7 @@ from google.net.proto2.python.public import reflection as _reflection
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='net/proto2/proto/descriptor.proto',
   package='proto2',
-  serialized_pb='\n!net/proto2/proto/descriptor.proto\x12\x06proto2\">\n\x11\x46ileDescriptorSet\x12)\n\x04\x66ile\x18\x01 \x03(\x0b\x32\x1b.proto2.FileDescriptorProto\"\x95\x03\n\x13\x46ileDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07package\x18\x02 \x01(\t\x12\x12\n\ndependency\x18\x03 \x03(\t\x12\x19\n\x11public_dependency\x18\n \x03(\x05\x12\x17\n\x0fweak_dependency\x18\x0b \x03(\x05\x12-\n\x0cmessage_type\x18\x04 \x03(\x0b\x32\x17.proto2.DescriptorProto\x12.\n\tenum_type\x18\x05 \x03(\x0b\x32\x1b.proto2.EnumDescriptorProto\x12/\n\x07service\x18\x06 \x03(\x0b\x32\x1e.proto2.ServiceDescriptorProto\x12/\n\textension\x18\x07 \x03(\x0b\x32\x1c.proto2.FieldDescriptorProto\x12$\n\x07options\x18\x08 \x01(\x0b\x32\x13.proto2.FileOptions\x12\x30\n\x10source_code_info\x18\t \x01(\x0b\x32\x16.proto2.SourceCodeInfo\"\xf3\x02\n\x0f\x44\x65scriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x05\x66ield\x18\x02 \x03(\x0b\x32\x1c.proto2.FieldDescriptorProto\x12/\n\textension\x18\x06 \x03(\x0b\x32\x1c.proto2.FieldDescriptorProto\x12,\n\x0bnested_type\x18\x03 \x03(\x0b\x32\x17.proto2.DescriptorProto\x12.\n\tenum_type\x18\x04 \x03(\x0b\x32\x1b.proto2.EnumDescriptorProto\x12?\n\x0f\x65xtension_range\x18\x05 \x03(\x0b\x32&.proto2.DescriptorProto.ExtensionRange\x12\'\n\x07options\x18\x07 \x01(\x0b\x32\x16.proto2.MessageOptions\x1a,\n\x0e\x45xtensionRange\x12\r\n\x05start\x18\x01 \x01(\x05\x12\x0b\n\x03\x65nd\x18\x02 \x01(\x05\"\xf9\x04\n\x14\x46ieldDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06number\x18\x03 \x01(\x05\x12\x31\n\x05label\x18\x04 \x01(\x0e\x32\".proto2.FieldDescriptorProto.Label\x12/\n\x04type\x18\x05 \x01(\x0e\x32!.proto2.FieldDescriptorProto.Type\x12\x11\n\ttype_name\x18\x06 \x01(\t\x12\x10\n\x08\x65xtendee\x18\x02 \x01(\t\x12\x15\n\rdefault_value\x18\x07 \x01(\t\x12%\n\x07options\x18\x08 \x01(\x0b\x32\x14.proto2.FieldOptions\"\xb6\x02\n\x04Type\x12\x0f\n\x0bTYPE_DOUBLE\x10\x01\x12\x0e\n\nTYPE_FLOAT\x10\x02\x12\x0e\n\nTYPE_INT64\x10\x03\x12\x0f\n\x0bTYPE_UINT64\x10\x04\x12\x0e\n\nTYPE_INT32\x10\x05\x12\x10\n\x0cTYPE_FIXED64\x10\x06\x12\x10\n\x0cTYPE_FIXED32\x10\x07\x12\r\n\tTYPE_BOOL\x10\x08\x12\x0f\n\x0bTYPE_STRING\x10\t\x12\x0e\n\nTYPE_GROUP\x10\n\x12\x10\n\x0cTYPE_MESSAGE\x10\x0b\x12\x0e\n\nTYPE_BYTES\x10\x0c\x12\x0f\n\x0bTYPE_UINT32\x10\r\x12\r\n\tTYPE_ENUM\x10\x0e\x12\x11\n\rTYPE_SFIXED32\x10\x0f\x12\x11\n\rTYPE_SFIXED64\x10\x10\x12\x0f\n\x0bTYPE_SINT32\x10\x11\x12\x0f\n\x0bTYPE_SINT64\x10\x12\"C\n\x05Label\x12\x12\n\x0eLABEL_OPTIONAL\x10\x01\x12\x12\n\x0eLABEL_REQUIRED\x10\x02\x12\x12\n\x0eLABEL_REPEATED\x10\x03\"z\n\x13\x45numDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12/\n\x05value\x18\x02 \x03(\x0b\x32 .proto2.EnumValueDescriptorProto\x12$\n\x07options\x18\x03 \x01(\x0b\x32\x13.proto2.EnumOptions\"c\n\x18\x45numValueDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06number\x18\x02 \x01(\x05\x12)\n\x07options\x18\x03 \x01(\x0b\x32\x18.proto2.EnumValueOptions\"\xad\x01\n\x16ServiceDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12-\n\x06method\x18\x02 \x03(\x0b\x32\x1d.proto2.MethodDescriptorProto\x12-\n\x06stream\x18\x04 \x03(\x0b\x32\x1d.proto2.StreamDescriptorProto\x12\'\n\x07options\x18\x03 \x01(\x0b\x32\x16.proto2.ServiceOptions\"v\n\x15MethodDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ninput_type\x18\x02 \x01(\t\x12\x13\n\x0boutput_type\x18\x03 \x01(\t\x12&\n\x07options\x18\x04 \x01(\x0b\x32\x15.proto2.MethodOptions\"\x87\x01\n\x15StreamDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1b\n\x13\x63lient_message_type\x18\x02 \x01(\t\x12\x1b\n\x13server_message_type\x18\x03 \x01(\t\x12&\n\x07options\x18\x04 \x01(\x0b\x32\x15.proto2.StreamOptions\"\x8c\t\n\x0b\x46ileOptions\x12\x19\n\x0e\x63\x63_api_version\x18\x02 \x01(\x05:\x01\x32\x12V\n\x14\x63\x63_api_compatibility\x18\x0f \x01(\x0e\x32&.proto2.FileOptions.CompatibilityLevel:\x10NO_COMPATIBILITY\x12\'\n\x19\x63\x63_proto_array_compatible\x18\x16 \x01(\x08:\x04true\x12\"\n\x14\x63\x63_utf8_verification\x18\x18 \x01(\x08:\x04true\x12$\n\x15\x63\x63_proto1_text_format\x18\x19 \x01(\x08:\x05\x66\x61lse\x12\x14\n\x0cjava_package\x18\x01 \x01(\t\x12\x19\n\x0epy_api_version\x18\x04 \x01(\x05:\x01\x32\x12\x1b\n\x10java_api_version\x18\x05 \x01(\x05:\x01\x32\x12!\n\x13java_use_javaproto2\x18\x06 \x01(\x08:\x04true\x12\x1e\n\x10java_java5_enums\x18\x07 \x01(\x08:\x04true\x12)\n\x1ajava_generate_rpc_baseimpl\x18\r \x01(\x08:\x05\x66\x61lse\x12#\n\x14java_use_javastrings\x18\x15 \x01(\x08:\x05\x66\x61lse\x12\x1c\n\x14java_alt_api_package\x18\x13 \x01(\t\x12,\n\x1ejava_dual_generate_mutable_api\x18\x1a \x01(\x08:\x04true\x12\x1c\n\x14java_outer_classname\x18\x08 \x01(\t\x12\"\n\x13java_multiple_files\x18\n \x01(\x08:\x05\x66\x61lse\x12,\n\x1djava_generate_equals_and_hash\x18\x14 \x01(\x08:\x05\x66\x61lse\x12=\n\x0coptimize_for\x18\t \x01(\x0e\x32 .proto2.FileOptions.OptimizeMode:\x05SPEED\x12\x12\n\ngo_package\x18\x0b \x01(\t\x12\x1a\n\x12javascript_package\x18\x0c \x01(\t\x12\x1a\n\x0fszl_api_version\x18\x0e \x01(\x05:\x01\x31\x12\"\n\x13\x63\x63_generic_services\x18\x10 \x01(\x08:\x05\x66\x61lse\x12$\n\x15java_generic_services\x18\x11 \x01(\x08:\x05\x66\x61lse\x12\"\n\x13py_generic_services\x18\x12 \x01(\x08:\x05\x66\x61lse\x12\x19\n\ndeprecated\x18\x17 \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption\"c\n\x12\x43ompatibilityLevel\x12\x14\n\x10NO_COMPATIBILITY\x10\x00\x12\x15\n\x11PROTO1_COMPATIBLE\x10\x64\x12 \n\x1c\x44\x45PRECATED_PROTO1_COMPATIBLE\x10\x32\":\n\x0cOptimizeMode\x12\t\n\x05SPEED\x10\x01\x12\r\n\tCODE_SIZE\x10\x02\x12\x10\n\x0cLITE_RUNTIME\x10\x03*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\xca\x01\n\x0eMessageOptions\x12&\n\x17message_set_wire_format\x18\x01 \x01(\x08:\x05\x66\x61lse\x12.\n\x1fno_standard_descriptor_accessor\x18\x02 \x01(\x08:\x05\x66\x61lse\x12\x19\n\ndeprecated\x18\x03 \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\xdb\x04\n\x0c\x46ieldOptions\x12\x31\n\x05\x63type\x18\x01 \x01(\x0e\x32\x1a.proto2.FieldOptions.CType:\x06STRING\x12\x0e\n\x06packed\x18\x02 \x01(\x08\x12\x31\n\x05jtype\x18\x04 \x01(\x0e\x32\x1a.proto2.FieldOptions.JType:\x06NORMAL\x12\x36\n\x06jstype\x18\x06 \x01(\x0e\x32\x1b.proto2.FieldOptions.JSType:\tJS_NORMAL\x12\x13\n\x04lazy\x18\x05 \x01(\x08:\x05\x66\x61lse\x12\x19\n\ndeprecated\x18\x03 \x01(\x08:\x05\x66\x61lse\x12\x1c\n\x14\x65xperimental_map_key\x18\t \x01(\t\x12\x13\n\x04weak\x18\n \x01(\x08:\x05\x66\x61lse\x12<\n\x0fupgraded_option\x18\x0b \x03(\x0b\x32#.proto2.FieldOptions.UpgradedOption\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption\x1a-\n\x0eUpgradedOption\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"/\n\x05\x43Type\x12\n\n\x06STRING\x10\x00\x12\x08\n\x04\x43ORD\x10\x01\x12\x10\n\x0cSTRING_PIECE\x10\x02\"\x1e\n\x05JType\x12\n\n\x06NORMAL\x10\x00\x12\t\n\x05\x42YTES\x10\x01\"5\n\x06JSType\x12\r\n\tJS_NORMAL\x10\x00\x12\r\n\tJS_STRING\x10\x01\x12\r\n\tJS_NUMBER\x10\x02*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\x99\x01\n\x0b\x45numOptions\x12\x13\n\x0bproto1_name\x18\x01 \x01(\t\x12\x13\n\x0b\x61llow_alias\x18\x02 \x01(\x08\x12\x19\n\ndeprecated\x18\x03 \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"t\n\x10\x45numValueOptions\x12\x19\n\ndeprecated\x18\x01 \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\xb6\x01\n\x0eServiceOptions\x12\x1d\n\x0emulticast_stub\x18\x14 \x01(\x08:\x05\x66\x61lse\x12#\n\x17\x66\x61ilure_detection_delay\x18\x10 \x01(\x01:\x02-1\x12\x19\n\ndeprecated\x18! \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\x9c\x06\n\rMethodOptions\x12\x35\n\x08protocol\x18\x07 \x01(\x0e\x32\x1e.proto2.MethodOptions.Protocol:\x03TCP\x12\x14\n\x08\x64\x65\x61\x64line\x18\x08 \x01(\x01:\x02-1\x12$\n\x15\x64uplicate_suppression\x18\t \x01(\x08:\x05\x66\x61lse\x12\x18\n\tfail_fast\x18\n \x01(\x08:\x05\x66\x61lse\x12\x1b\n\x0e\x63lient_logging\x18\x0b \x01(\x11:\x03\x32\x35\x36\x12\x1b\n\x0eserver_logging\x18\x0c \x01(\x11:\x03\x32\x35\x36\x12\x41\n\x0esecurity_level\x18\r \x01(\x0e\x32#.proto2.MethodOptions.SecurityLevel:\x04NONE\x12\x43\n\x0fresponse_format\x18\x0f \x01(\x0e\x32\x1c.proto2.MethodOptions.Format:\x0cUNCOMPRESSED\x12\x42\n\x0erequest_format\x18\x11 \x01(\x0e\x32\x1c.proto2.MethodOptions.Format:\x0cUNCOMPRESSED\x12\x13\n\x0bstream_type\x18\x12 \x01(\t\x12\x16\n\x0esecurity_label\x18\x13 \x01(\t\x12\x18\n\x10\x63lient_streaming\x18\x14 \x01(\x08\x12\x18\n\x10server_streaming\x18\x15 \x01(\x08\x12\x19\n\ndeprecated\x18! \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption\"\x1c\n\x08Protocol\x12\x07\n\x03TCP\x10\x00\x12\x07\n\x03UDP\x10\x01\"e\n\rSecurityLevel\x12\x08\n\x04NONE\x10\x00\x12\r\n\tINTEGRITY\x10\x01\x12\x19\n\x15PRIVACY_AND_INTEGRITY\x10\x02\x12 \n\x1cSTRONG_PRIVACY_AND_INTEGRITY\x10\x03\"0\n\x06\x46ormat\x12\x10\n\x0cUNCOMPRESSED\x10\x00\x12\x14\n\x10ZIPPY_COMPRESSED\x10\x01*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\xae\x03\n\rStreamOptions\x12!\n\x15\x63lient_initial_tokens\x18\x01 \x01(\x03:\x02-1\x12!\n\x15server_initial_tokens\x18\x02 \x01(\x03:\x02-1\x12<\n\ntoken_unit\x18\x03 \x01(\x0e\x32\x1f.proto2.StreamOptions.TokenUnit:\x07MESSAGE\x12\x41\n\x0esecurity_level\x18\x04 \x01(\x0e\x32#.proto2.MethodOptions.SecurityLevel:\x04NONE\x12\x16\n\x0esecurity_label\x18\x05 \x01(\t\x12\x1b\n\x0e\x63lient_logging\x18\x06 \x01(\x05:\x03\x32\x35\x36\x12\x1b\n\x0eserver_logging\x18\x07 \x01(\x05:\x03\x32\x35\x36\x12\x19\n\ndeprecated\x18! \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption\"\"\n\tTokenUnit\x12\x0b\n\x07MESSAGE\x10\x00\x12\x08\n\x04\x42YTE\x10\x01*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\x95\x02\n\x13UninterpretedOption\x12\x32\n\x04name\x18\x02 \x03(\x0b\x32$.proto2.UninterpretedOption.NamePart\x12\x18\n\x10identifier_value\x18\x03 \x01(\t\x12\x1a\n\x12positive_int_value\x18\x04 \x01(\x04\x12\x1a\n\x12negative_int_value\x18\x05 \x01(\x03\x12\x14\n\x0c\x64ouble_value\x18\x06 \x01(\x01\x12\x14\n\x0cstring_value\x18\x07 \x01(\x0c\x12\x17\n\x0f\x61ggregate_value\x18\x08 \x01(\t\x1a\x33\n\x08NamePart\x12\x11\n\tname_part\x18\x01 \x02(\t\x12\x14\n\x0cis_extension\x18\x02 \x02(\x08\"\xa8\x01\n\x0eSourceCodeInfo\x12\x31\n\x08location\x18\x01 \x03(\x0b\x32\x1f.proto2.SourceCodeInfo.Location\x1a\x63\n\x08Location\x12\x10\n\x04path\x18\x01 \x03(\x05\x42\x02\x10\x01\x12\x10\n\x04span\x18\x02 \x03(\x05\x42\x02\x10\x01\x12\x18\n\x10leading_comments\x18\x03 \x01(\t\x12\x19\n\x11trailing_comments\x18\x04 \x01(\tB)\n\x13\x63om.google.protobufB\x10\x44\x65scriptorProtosH\x01')
+  serialized_pb='\n!net/proto2/proto/descriptor.proto\x12\x06proto2\">\n\x11\x46ileDescriptorSet\x12)\n\x04\x66ile\x18\x01 \x03(\x0b\x32\x1b.proto2.FileDescriptorProto\"\x95\x03\n\x13\x46ileDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07package\x18\x02 \x01(\t\x12\x12\n\ndependency\x18\x03 \x03(\t\x12\x19\n\x11public_dependency\x18\n \x03(\x05\x12\x17\n\x0fweak_dependency\x18\x0b \x03(\x05\x12-\n\x0cmessage_type\x18\x04 \x03(\x0b\x32\x17.proto2.DescriptorProto\x12.\n\tenum_type\x18\x05 \x03(\x0b\x32\x1b.proto2.EnumDescriptorProto\x12/\n\x07service\x18\x06 \x03(\x0b\x32\x1e.proto2.ServiceDescriptorProto\x12/\n\textension\x18\x07 \x03(\x0b\x32\x1c.proto2.FieldDescriptorProto\x12$\n\x07options\x18\x08 \x01(\x0b\x32\x13.proto2.FileOptions\x12\x30\n\x10source_code_info\x18\t \x01(\x0b\x32\x16.proto2.SourceCodeInfo\"\xa5\x03\n\x0f\x44\x65scriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12+\n\x05\x66ield\x18\x02 \x03(\x0b\x32\x1c.proto2.FieldDescriptorProto\x12/\n\textension\x18\x06 \x03(\x0b\x32\x1c.proto2.FieldDescriptorProto\x12,\n\x0bnested_type\x18\x03 \x03(\x0b\x32\x17.proto2.DescriptorProto\x12.\n\tenum_type\x18\x04 \x03(\x0b\x32\x1b.proto2.EnumDescriptorProto\x12?\n\x0f\x65xtension_range\x18\x05 \x03(\x0b\x32&.proto2.DescriptorProto.ExtensionRange\x12\x30\n\noneof_decl\x18\x08 \x03(\x0b\x32\x1c.proto2.OneofDescriptorProto\x12\'\n\x07options\x18\x07 \x01(\x0b\x32\x16.proto2.MessageOptions\x1a,\n\x0e\x45xtensionRange\x12\r\n\x05start\x18\x01 \x01(\x05\x12\x0b\n\x03\x65nd\x18\x02 \x01(\x05\"\x8e\x05\n\x14\x46ieldDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06number\x18\x03 \x01(\x05\x12\x31\n\x05label\x18\x04 \x01(\x0e\x32\".proto2.FieldDescriptorProto.Label\x12/\n\x04type\x18\x05 \x01(\x0e\x32!.proto2.FieldDescriptorProto.Type\x12\x11\n\ttype_name\x18\x06 \x01(\t\x12\x10\n\x08\x65xtendee\x18\x02 \x01(\t\x12\x15\n\rdefault_value\x18\x07 \x01(\t\x12\x13\n\x0boneof_index\x18\t \x01(\x05\x12%\n\x07options\x18\x08 \x01(\x0b\x32\x14.proto2.FieldOptions\"\xb6\x02\n\x04Type\x12\x0f\n\x0bTYPE_DOUBLE\x10\x01\x12\x0e\n\nTYPE_FLOAT\x10\x02\x12\x0e\n\nTYPE_INT64\x10\x03\x12\x0f\n\x0bTYPE_UINT64\x10\x04\x12\x0e\n\nTYPE_INT32\x10\x05\x12\x10\n\x0cTYPE_FIXED64\x10\x06\x12\x10\n\x0cTYPE_FIXED32\x10\x07\x12\r\n\tTYPE_BOOL\x10\x08\x12\x0f\n\x0bTYPE_STRING\x10\t\x12\x0e\n\nTYPE_GROUP\x10\n\x12\x10\n\x0cTYPE_MESSAGE\x10\x0b\x12\x0e\n\nTYPE_BYTES\x10\x0c\x12\x0f\n\x0bTYPE_UINT32\x10\r\x12\r\n\tTYPE_ENUM\x10\x0e\x12\x11\n\rTYPE_SFIXED32\x10\x0f\x12\x11\n\rTYPE_SFIXED64\x10\x10\x12\x0f\n\x0bTYPE_SINT32\x10\x11\x12\x0f\n\x0bTYPE_SINT64\x10\x12\"C\n\x05Label\x12\x12\n\x0eLABEL_OPTIONAL\x10\x01\x12\x12\n\x0eLABEL_REQUIRED\x10\x02\x12\x12\n\x0eLABEL_REPEATED\x10\x03\"$\n\x14OneofDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\"z\n\x13\x45numDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12/\n\x05value\x18\x02 \x03(\x0b\x32 .proto2.EnumValueDescriptorProto\x12$\n\x07options\x18\x03 \x01(\x0b\x32\x13.proto2.EnumOptions\"c\n\x18\x45numValueDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06number\x18\x02 \x01(\x05\x12)\n\x07options\x18\x03 \x01(\x0b\x32\x18.proto2.EnumValueOptions\"\xad\x01\n\x16ServiceDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12-\n\x06method\x18\x02 \x03(\x0b\x32\x1d.proto2.MethodDescriptorProto\x12-\n\x06stream\x18\x04 \x03(\x0b\x32\x1d.proto2.StreamDescriptorProto\x12\'\n\x07options\x18\x03 \x01(\x0b\x32\x16.proto2.ServiceOptions\"v\n\x15MethodDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x12\n\ninput_type\x18\x02 \x01(\t\x12\x13\n\x0boutput_type\x18\x03 \x01(\t\x12&\n\x07options\x18\x04 \x01(\x0b\x32\x15.proto2.MethodOptions\"\x87\x01\n\x15StreamDescriptorProto\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1b\n\x13\x63lient_message_type\x18\x02 \x01(\t\x12\x1b\n\x13server_message_type\x18\x03 \x01(\t\x12&\n\x07options\x18\x04 \x01(\x0b\x32\x15.proto2.StreamOptions\"\xba\t\n\x0b\x46ileOptions\x12\x19\n\x0e\x63\x63_api_version\x18\x02 \x01(\x05:\x01\x32\x12V\n\x14\x63\x63_api_compatibility\x18\x0f \x01(\x0e\x32&.proto2.FileOptions.CompatibilityLevel:\x10NO_COMPATIBILITY\x12\'\n\x19\x63\x63_proto_array_compatible\x18\x16 \x01(\x08:\x04true\x12\"\n\x14\x63\x63_utf8_verification\x18\x18 \x01(\x08:\x04true\x12$\n\x15\x63\x63_proto1_text_format\x18\x19 \x01(\x08:\x05\x66\x61lse\x12\x14\n\x0cjava_package\x18\x01 \x01(\t\x12\x19\n\x0epy_api_version\x18\x04 \x01(\x05:\x01\x32\x12\x1b\n\x10java_api_version\x18\x05 \x01(\x05:\x01\x32\x12!\n\x13java_use_javaproto2\x18\x06 \x01(\x08:\x04true\x12\x1e\n\x10java_java5_enums\x18\x07 \x01(\x08:\x04true\x12)\n\x1ajava_generate_rpc_baseimpl\x18\r \x01(\x08:\x05\x66\x61lse\x12#\n\x14java_use_javastrings\x18\x15 \x01(\x08:\x05\x66\x61lse\x12\x1c\n\x14java_alt_api_package\x18\x13 \x01(\t\x12\x33\n%java_enable_dual_generate_mutable_api\x18\x1a \x01(\x08:\x04true\x12\x1c\n\x14java_outer_classname\x18\x08 \x01(\t\x12\"\n\x13java_multiple_files\x18\n \x01(\x08:\x05\x66\x61lse\x12,\n\x1djava_generate_equals_and_hash\x18\x14 \x01(\x08:\x05\x66\x61lse\x12%\n\x16java_string_check_utf8\x18\x1b \x01(\x08:\x05\x66\x61lse\x12=\n\x0coptimize_for\x18\t \x01(\x0e\x32 .proto2.FileOptions.OptimizeMode:\x05SPEED\x12\x12\n\ngo_package\x18\x0b \x01(\t\x12\x1a\n\x12javascript_package\x18\x0c \x01(\t\x12\x1a\n\x0fszl_api_version\x18\x0e \x01(\x05:\x01\x31\x12\"\n\x13\x63\x63_generic_services\x18\x10 \x01(\x08:\x05\x66\x61lse\x12$\n\x15java_generic_services\x18\x11 \x01(\x08:\x05\x66\x61lse\x12\"\n\x13py_generic_services\x18\x12 \x01(\x08:\x05\x66\x61lse\x12\x19\n\ndeprecated\x18\x17 \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption\"c\n\x12\x43ompatibilityLevel\x12\x14\n\x10NO_COMPATIBILITY\x10\x00\x12\x15\n\x11PROTO1_COMPATIBLE\x10\x64\x12 \n\x1c\x44\x45PRECATED_PROTO1_COMPATIBLE\x10\x32\":\n\x0cOptimizeMode\x12\t\n\x05SPEED\x10\x01\x12\r\n\tCODE_SIZE\x10\x02\x12\x10\n\x0cLITE_RUNTIME\x10\x03*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\xca\x01\n\x0eMessageOptions\x12&\n\x17message_set_wire_format\x18\x01 \x01(\x08:\x05\x66\x61lse\x12.\n\x1fno_standard_descriptor_accessor\x18\x02 \x01(\x08:\x05\x66\x61lse\x12\x19\n\ndeprecated\x18\x03 \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\xdb\x04\n\x0c\x46ieldOptions\x12\x31\n\x05\x63type\x18\x01 \x01(\x0e\x32\x1a.proto2.FieldOptions.CType:\x06STRING\x12\x0e\n\x06packed\x18\x02 \x01(\x08\x12\x31\n\x05jtype\x18\x04 \x01(\x0e\x32\x1a.proto2.FieldOptions.JType:\x06NORMAL\x12\x36\n\x06jstype\x18\x06 \x01(\x0e\x32\x1b.proto2.FieldOptions.JSType:\tJS_NORMAL\x12\x13\n\x04lazy\x18\x05 \x01(\x08:\x05\x66\x61lse\x12\x19\n\ndeprecated\x18\x03 \x01(\x08:\x05\x66\x61lse\x12\x1c\n\x14\x65xperimental_map_key\x18\t \x01(\t\x12\x13\n\x04weak\x18\n \x01(\x08:\x05\x66\x61lse\x12<\n\x0fupgraded_option\x18\x0b \x03(\x0b\x32#.proto2.FieldOptions.UpgradedOption\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption\x1a-\n\x0eUpgradedOption\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"/\n\x05\x43Type\x12\n\n\x06STRING\x10\x00\x12\x08\n\x04\x43ORD\x10\x01\x12\x10\n\x0cSTRING_PIECE\x10\x02\"\x1e\n\x05JType\x12\n\n\x06NORMAL\x10\x00\x12\t\n\x05\x42YTES\x10\x01\"5\n\x06JSType\x12\r\n\tJS_NORMAL\x10\x00\x12\r\n\tJS_STRING\x10\x01\x12\r\n\tJS_NUMBER\x10\x02*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\x99\x01\n\x0b\x45numOptions\x12\x13\n\x0bproto1_name\x18\x01 \x01(\t\x12\x13\n\x0b\x61llow_alias\x18\x02 \x01(\x08\x12\x19\n\ndeprecated\x18\x03 \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"t\n\x10\x45numValueOptions\x12\x19\n\ndeprecated\x18\x01 \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\xb6\x01\n\x0eServiceOptions\x12\x1d\n\x0emulticast_stub\x18\x14 \x01(\x08:\x05\x66\x61lse\x12#\n\x17\x66\x61ilure_detection_delay\x18\x10 \x01(\x01:\x02-1\x12\x19\n\ndeprecated\x18! \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\x9c\x06\n\rMethodOptions\x12\x35\n\x08protocol\x18\x07 \x01(\x0e\x32\x1e.proto2.MethodOptions.Protocol:\x03TCP\x12\x14\n\x08\x64\x65\x61\x64line\x18\x08 \x01(\x01:\x02-1\x12$\n\x15\x64uplicate_suppression\x18\t \x01(\x08:\x05\x66\x61lse\x12\x18\n\tfail_fast\x18\n \x01(\x08:\x05\x66\x61lse\x12\x1b\n\x0e\x63lient_logging\x18\x0b \x01(\x11:\x03\x32\x35\x36\x12\x1b\n\x0eserver_logging\x18\x0c \x01(\x11:\x03\x32\x35\x36\x12\x41\n\x0esecurity_level\x18\r \x01(\x0e\x32#.proto2.MethodOptions.SecurityLevel:\x04NONE\x12\x43\n\x0fresponse_format\x18\x0f \x01(\x0e\x32\x1c.proto2.MethodOptions.Format:\x0cUNCOMPRESSED\x12\x42\n\x0erequest_format\x18\x11 \x01(\x0e\x32\x1c.proto2.MethodOptions.Format:\x0cUNCOMPRESSED\x12\x13\n\x0bstream_type\x18\x12 \x01(\t\x12\x16\n\x0esecurity_label\x18\x13 \x01(\t\x12\x18\n\x10\x63lient_streaming\x18\x14 \x01(\x08\x12\x18\n\x10server_streaming\x18\x15 \x01(\x08\x12\x19\n\ndeprecated\x18! \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption\"\x1c\n\x08Protocol\x12\x07\n\x03TCP\x10\x00\x12\x07\n\x03UDP\x10\x01\"e\n\rSecurityLevel\x12\x08\n\x04NONE\x10\x00\x12\r\n\tINTEGRITY\x10\x01\x12\x19\n\x15PRIVACY_AND_INTEGRITY\x10\x02\x12 \n\x1cSTRONG_PRIVACY_AND_INTEGRITY\x10\x03\"0\n\x06\x46ormat\x12\x10\n\x0cUNCOMPRESSED\x10\x00\x12\x14\n\x10ZIPPY_COMPRESSED\x10\x01*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\xde\x03\n\rStreamOptions\x12!\n\x15\x63lient_initial_tokens\x18\x01 \x01(\x03:\x02-1\x12!\n\x15server_initial_tokens\x18\x02 \x01(\x03:\x02-1\x12<\n\ntoken_unit\x18\x03 \x01(\x0e\x32\x1f.proto2.StreamOptions.TokenUnit:\x07MESSAGE\x12\x41\n\x0esecurity_level\x18\x04 \x01(\x0e\x32#.proto2.MethodOptions.SecurityLevel:\x04NONE\x12\x16\n\x0esecurity_label\x18\x05 \x01(\t\x12\x1b\n\x0e\x63lient_logging\x18\x06 \x01(\x05:\x03\x32\x35\x36\x12\x1b\n\x0eserver_logging\x18\x07 \x01(\x05:\x03\x32\x35\x36\x12\x14\n\x08\x64\x65\x61\x64line\x18\x08 \x01(\x01:\x02-1\x12\x18\n\tfail_fast\x18\t \x01(\x08:\x05\x66\x61lse\x12\x19\n\ndeprecated\x18! \x01(\x08:\x05\x66\x61lse\x12:\n\x14uninterpreted_option\x18\xe7\x07 \x03(\x0b\x32\x1b.proto2.UninterpretedOption\"\"\n\tTokenUnit\x12\x0b\n\x07MESSAGE\x10\x00\x12\x08\n\x04\x42YTE\x10\x01*\t\x08\xe8\x07\x10\x80\x80\x80\x80\x02\"\x95\x02\n\x13UninterpretedOption\x12\x32\n\x04name\x18\x02 \x03(\x0b\x32$.proto2.UninterpretedOption.NamePart\x12\x18\n\x10identifier_value\x18\x03 \x01(\t\x12\x1a\n\x12positive_int_value\x18\x04 \x01(\x04\x12\x1a\n\x12negative_int_value\x18\x05 \x01(\x03\x12\x14\n\x0c\x64ouble_value\x18\x06 \x01(\x01\x12\x14\n\x0cstring_value\x18\x07 \x01(\x0c\x12\x17\n\x0f\x61ggregate_value\x18\x08 \x01(\t\x1a\x33\n\x08NamePart\x12\x11\n\tname_part\x18\x01 \x02(\t\x12\x14\n\x0cis_extension\x18\x02 \x02(\x08\"\xa8\x01\n\x0eSourceCodeInfo\x12\x31\n\x08location\x18\x01 \x03(\x0b\x32\x1f.proto2.SourceCodeInfo.Location\x1a\x63\n\x08Location\x12\x10\n\x04path\x18\x01 \x03(\x05\x42\x02\x10\x01\x12\x10\n\x04span\x18\x02 \x03(\x05\x42\x02\x10\x01\x12\x18\n\x10leading_comments\x18\x03 \x01(\t\x12\x19\n\x11trailing_comments\x18\x04 \x01(\tB)\n\x13\x63om.google.protobufB\x10\x44\x65scriptorProtosH\x01')
 
 
 
@@ -113,8 +113,8 @@ _FIELDDESCRIPTORPROTO_TYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1146,
-  serialized_end=1456,
+  serialized_start=1217,
+  serialized_end=1527,
 )
 
 _FIELDDESCRIPTORPROTO_LABEL = _descriptor.EnumDescriptor(
@@ -138,8 +138,8 @@ _FIELDDESCRIPTORPROTO_LABEL = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1458,
-  serialized_end=1525,
+  serialized_start=1529,
+  serialized_end=1596,
 )
 
 _FILEOPTIONS_COMPATIBILITYLEVEL = _descriptor.EnumDescriptor(
@@ -163,8 +163,8 @@ _FILEOPTIONS_COMPATIBILITYLEVEL = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=3181,
-  serialized_end=3280,
+  serialized_start=3336,
+  serialized_end=3435,
 )
 
 _FILEOPTIONS_OPTIMIZEMODE = _descriptor.EnumDescriptor(
@@ -188,8 +188,8 @@ _FILEOPTIONS_OPTIMIZEMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=3282,
-  serialized_end=3340,
+  serialized_start=3437,
+  serialized_end=3495,
 )
 
 _FIELDOPTIONS_CTYPE = _descriptor.EnumDescriptor(
@@ -213,8 +213,8 @@ _FIELDOPTIONS_CTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=4017,
-  serialized_end=4064,
+  serialized_start=4172,
+  serialized_end=4219,
 )
 
 _FIELDOPTIONS_JTYPE = _descriptor.EnumDescriptor(
@@ -234,8 +234,8 @@ _FIELDOPTIONS_JTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=4066,
-  serialized_end=4096,
+  serialized_start=4221,
+  serialized_end=4251,
 )
 
 _FIELDOPTIONS_JSTYPE = _descriptor.EnumDescriptor(
@@ -259,8 +259,8 @@ _FIELDOPTIONS_JSTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=4098,
-  serialized_end=4151,
+  serialized_start=4253,
+  serialized_end=4306,
 )
 
 _METHODOPTIONS_PROTOCOL = _descriptor.EnumDescriptor(
@@ -280,8 +280,8 @@ _METHODOPTIONS_PROTOCOL = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=5228,
-  serialized_end=5256,
+  serialized_start=5383,
+  serialized_end=5411,
 )
 
 _METHODOPTIONS_SECURITYLEVEL = _descriptor.EnumDescriptor(
@@ -309,8 +309,8 @@ _METHODOPTIONS_SECURITYLEVEL = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=5258,
-  serialized_end=5359,
+  serialized_start=5413,
+  serialized_end=5514,
 )
 
 _METHODOPTIONS_FORMAT = _descriptor.EnumDescriptor(
@@ -330,8 +330,8 @@ _METHODOPTIONS_FORMAT = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=5361,
-  serialized_end=5409,
+  serialized_start=5516,
+  serialized_end=5564,
 )
 
 _STREAMOPTIONS_TOKENUNIT = _descriptor.EnumDescriptor(
@@ -351,8 +351,8 @@ _STREAMOPTIONS_TOKENUNIT = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=5808,
-  serialized_end=5842,
+  serialized_start=6011,
+  serialized_end=6045,
 )
 
 
@@ -512,8 +512,8 @@ _DESCRIPTORPROTO_EXTENSIONRANGE = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=845,
-  serialized_end=889,
+  serialized_start=895,
+  serialized_end=939,
 )
 
 _DESCRIPTORPROTO = _descriptor.Descriptor(
@@ -566,7 +566,14 @@ _DESCRIPTORPROTO = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='options', full_name='proto2.DescriptorProto.options', index=6,
+      name='oneof_decl', full_name='proto2.DescriptorProto.oneof_decl', index=6,
+      number=8, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='options', full_name='proto2.DescriptorProto.options', index=7,
       number=7, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -582,7 +589,7 @@ _DESCRIPTORPROTO = _descriptor.Descriptor(
   is_extendable=False,
   extension_ranges=[],
   serialized_start=518,
-  serialized_end=889,
+  serialized_end=939,
 )
 
 
@@ -643,7 +650,14 @@ _FIELDDESCRIPTORPROTO = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='options', full_name='proto2.FieldDescriptorProto.options', index=7,
+      name='oneof_index', full_name='proto2.FieldDescriptorProto.oneof_index', index=7,
+      number=9, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='options', full_name='proto2.FieldDescriptorProto.options', index=8,
       number=8, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -660,8 +674,36 @@ _FIELDDESCRIPTORPROTO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=892,
-  serialized_end=1525,
+  serialized_start=942,
+  serialized_end=1596,
+)
+
+
+_ONEOFDESCRIPTORPROTO = _descriptor.Descriptor(
+  name='OneofDescriptorProto',
+  full_name='proto2.OneofDescriptorProto',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='name', full_name='proto2.OneofDescriptorProto.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=1598,
+  serialized_end=1634,
 )
 
 
@@ -702,8 +744,8 @@ _ENUMDESCRIPTORPROTO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=1527,
-  serialized_end=1649,
+  serialized_start=1636,
+  serialized_end=1758,
 )
 
 
@@ -744,8 +786,8 @@ _ENUMVALUEDESCRIPTORPROTO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=1651,
-  serialized_end=1750,
+  serialized_start=1760,
+  serialized_end=1859,
 )
 
 
@@ -793,8 +835,8 @@ _SERVICEDESCRIPTORPROTO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=1753,
-  serialized_end=1926,
+  serialized_start=1862,
+  serialized_end=2035,
 )
 
 
@@ -842,8 +884,8 @@ _METHODDESCRIPTORPROTO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=1928,
-  serialized_end=2046,
+  serialized_start=2037,
+  serialized_end=2155,
 )
 
 
@@ -891,8 +933,8 @@ _STREAMDESCRIPTORPROTO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=2049,
-  serialized_end=2184,
+  serialized_start=2158,
+  serialized_end=2293,
 )
 
 
@@ -995,7 +1037,7 @@ _FILEOPTIONS = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='java_dual_generate_mutable_api', full_name='proto2.FileOptions.java_dual_generate_mutable_api', index=13,
+      name='java_enable_dual_generate_mutable_api', full_name='proto2.FileOptions.java_enable_dual_generate_mutable_api', index=13,
       number=26, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=True,
       message_type=None, enum_type=None, containing_type=None,
@@ -1023,63 +1065,70 @@ _FILEOPTIONS = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='optimize_for', full_name='proto2.FileOptions.optimize_for', index=17,
+      name='java_string_check_utf8', full_name='proto2.FileOptions.java_string_check_utf8', index=17,
+      number=27, type=8, cpp_type=7, label=1,
+      has_default_value=True, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='optimize_for', full_name='proto2.FileOptions.optimize_for', index=18,
       number=9, type=14, cpp_type=8, label=1,
       has_default_value=True, default_value=1,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='go_package', full_name='proto2.FileOptions.go_package', index=18,
+      name='go_package', full_name='proto2.FileOptions.go_package', index=19,
       number=11, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='javascript_package', full_name='proto2.FileOptions.javascript_package', index=19,
+      name='javascript_package', full_name='proto2.FileOptions.javascript_package', index=20,
       number=12, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='szl_api_version', full_name='proto2.FileOptions.szl_api_version', index=20,
+      name='szl_api_version', full_name='proto2.FileOptions.szl_api_version', index=21,
       number=14, type=5, cpp_type=1, label=1,
       has_default_value=True, default_value=1,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='cc_generic_services', full_name='proto2.FileOptions.cc_generic_services', index=21,
+      name='cc_generic_services', full_name='proto2.FileOptions.cc_generic_services', index=22,
       number=16, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='java_generic_services', full_name='proto2.FileOptions.java_generic_services', index=22,
+      name='java_generic_services', full_name='proto2.FileOptions.java_generic_services', index=23,
       number=17, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='py_generic_services', full_name='proto2.FileOptions.py_generic_services', index=23,
+      name='py_generic_services', full_name='proto2.FileOptions.py_generic_services', index=24,
       number=18, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='deprecated', full_name='proto2.FileOptions.deprecated', index=24,
+      name='deprecated', full_name='proto2.FileOptions.deprecated', index=25,
       number=23, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='uninterpreted_option', full_name='proto2.FileOptions.uninterpreted_option', index=25,
+      name='uninterpreted_option', full_name='proto2.FileOptions.uninterpreted_option', index=26,
       number=999, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -1096,8 +1145,8 @@ _FILEOPTIONS = _descriptor.Descriptor(
   options=None,
   is_extendable=True,
   extension_ranges=[(1000, 536870912), ],
-  serialized_start=2187,
-  serialized_end=3351,
+  serialized_start=2296,
+  serialized_end=3506,
 )
 
 
@@ -1145,8 +1194,8 @@ _MESSAGEOPTIONS = _descriptor.Descriptor(
   options=None,
   is_extendable=True,
   extension_ranges=[(1000, 536870912), ],
-  serialized_start=3354,
-  serialized_end=3556,
+  serialized_start=3509,
+  serialized_end=3711,
 )
 
 
@@ -1180,8 +1229,8 @@ _FIELDOPTIONS_UPGRADEDOPTION = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=3970,
-  serialized_end=4015,
+  serialized_start=4125,
+  serialized_end=4170,
 )
 
 _FIELDOPTIONS = _descriptor.Descriptor(
@@ -1273,8 +1322,8 @@ _FIELDOPTIONS = _descriptor.Descriptor(
   options=None,
   is_extendable=True,
   extension_ranges=[(1000, 536870912), ],
-  serialized_start=3559,
-  serialized_end=4162,
+  serialized_start=3714,
+  serialized_end=4317,
 )
 
 
@@ -1322,8 +1371,8 @@ _ENUMOPTIONS = _descriptor.Descriptor(
   options=None,
   is_extendable=True,
   extension_ranges=[(1000, 536870912), ],
-  serialized_start=4165,
-  serialized_end=4318,
+  serialized_start=4320,
+  serialized_end=4473,
 )
 
 
@@ -1357,8 +1406,8 @@ _ENUMVALUEOPTIONS = _descriptor.Descriptor(
   options=None,
   is_extendable=True,
   extension_ranges=[(1000, 536870912), ],
-  serialized_start=4320,
-  serialized_end=4436,
+  serialized_start=4475,
+  serialized_end=4591,
 )
 
 
@@ -1406,8 +1455,8 @@ _SERVICEOPTIONS = _descriptor.Descriptor(
   options=None,
   is_extendable=True,
   extension_ranges=[(1000, 536870912), ],
-  serialized_start=4439,
-  serialized_end=4621,
+  serialized_start=4594,
+  serialized_end=4776,
 )
 
 
@@ -1535,8 +1584,8 @@ _METHODOPTIONS = _descriptor.Descriptor(
   options=None,
   is_extendable=True,
   extension_ranges=[(1000, 536870912), ],
-  serialized_start=4624,
-  serialized_end=5420,
+  serialized_start=4779,
+  serialized_end=5575,
 )
 
 
@@ -1597,14 +1646,28 @@ _STREAMOPTIONS = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='deprecated', full_name='proto2.StreamOptions.deprecated', index=7,
+      name='deadline', full_name='proto2.StreamOptions.deadline', index=7,
+      number=8, type=1, cpp_type=5, label=1,
+      has_default_value=True, default_value=-1,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='fail_fast', full_name='proto2.StreamOptions.fail_fast', index=8,
+      number=9, type=8, cpp_type=7, label=1,
+      has_default_value=True, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='deprecated', full_name='proto2.StreamOptions.deprecated', index=9,
       number=33, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='uninterpreted_option', full_name='proto2.StreamOptions.uninterpreted_option', index=8,
+      name='uninterpreted_option', full_name='proto2.StreamOptions.uninterpreted_option', index=10,
       number=999, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -1620,8 +1683,8 @@ _STREAMOPTIONS = _descriptor.Descriptor(
   options=None,
   is_extendable=True,
   extension_ranges=[(1000, 536870912), ],
-  serialized_start=5423,
-  serialized_end=5853,
+  serialized_start=5578,
+  serialized_end=6056,
 )
 
 
@@ -1655,8 +1718,8 @@ _UNINTERPRETEDOPTION_NAMEPART = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=6082,
-  serialized_end=6133,
+  serialized_start=6285,
+  serialized_end=6336,
 )
 
 _UNINTERPRETEDOPTION = _descriptor.Descriptor(
@@ -1724,8 +1787,8 @@ _UNINTERPRETEDOPTION = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=5856,
-  serialized_end=6133,
+  serialized_start=6059,
+  serialized_end=6336,
 )
 
 
@@ -1773,8 +1836,8 @@ _SOURCECODEINFO_LOCATION = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=6205,
-  serialized_end=6304,
+  serialized_start=6408,
+  serialized_end=6507,
 )
 
 _SOURCECODEINFO = _descriptor.Descriptor(
@@ -1800,8 +1863,8 @@ _SOURCECODEINFO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
-  serialized_start=6136,
-  serialized_end=6304,
+  serialized_start=6339,
+  serialized_end=6507,
 )
 
 _FILEDESCRIPTORSET.fields_by_name['file'].message_type = _FILEDESCRIPTORPROTO
@@ -1817,6 +1880,7 @@ _DESCRIPTORPROTO.fields_by_name['extension'].message_type = _FIELDDESCRIPTORPROT
 _DESCRIPTORPROTO.fields_by_name['nested_type'].message_type = _DESCRIPTORPROTO
 _DESCRIPTORPROTO.fields_by_name['enum_type'].message_type = _ENUMDESCRIPTORPROTO
 _DESCRIPTORPROTO.fields_by_name['extension_range'].message_type = _DESCRIPTORPROTO_EXTENSIONRANGE
+_DESCRIPTORPROTO.fields_by_name['oneof_decl'].message_type = _ONEOFDESCRIPTORPROTO
 _DESCRIPTORPROTO.fields_by_name['options'].message_type = _MESSAGEOPTIONS
 _FIELDDESCRIPTORPROTO.fields_by_name['label'].enum_type = _FIELDDESCRIPTORPROTO_LABEL
 _FIELDDESCRIPTORPROTO.fields_by_name['type'].enum_type = _FIELDDESCRIPTORPROTO_TYPE
@@ -1869,6 +1933,7 @@ DESCRIPTOR.message_types_by_name['FileDescriptorSet'] = _FILEDESCRIPTORSET
 DESCRIPTOR.message_types_by_name['FileDescriptorProto'] = _FILEDESCRIPTORPROTO
 DESCRIPTOR.message_types_by_name['DescriptorProto'] = _DESCRIPTORPROTO
 DESCRIPTOR.message_types_by_name['FieldDescriptorProto'] = _FIELDDESCRIPTORPROTO
+DESCRIPTOR.message_types_by_name['OneofDescriptorProto'] = _ONEOFDESCRIPTORPROTO
 DESCRIPTOR.message_types_by_name['EnumDescriptorProto'] = _ENUMDESCRIPTORPROTO
 DESCRIPTOR.message_types_by_name['EnumValueDescriptorProto'] = _ENUMVALUEDESCRIPTORPROTO
 DESCRIPTOR.message_types_by_name['ServiceDescriptorProto'] = _SERVICEDESCRIPTORPROTO
@@ -1912,6 +1977,12 @@ class DescriptorProto(_message.Message):
 class FieldDescriptorProto(_message.Message):
   __metaclass__ = _reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _FIELDDESCRIPTORPROTO
+
+
+
+class OneofDescriptorProto(_message.Message):
+  __metaclass__ = _reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _ONEOFDESCRIPTORPROTO
 
 
 

@@ -54,6 +54,8 @@ __all__ = [
 
 import gc
 import logging
+import pickle
+import string
 import time
 
 from google.appengine.api import files
@@ -62,6 +64,13 @@ from google.appengine.api.files import records
 from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import operation
+
+
+
+try:
+  from google.appengine.ext import cloudstorage
+except ImportError:
+  pass
 
 
 
@@ -151,8 +160,8 @@ class OutputWriter(model.JsonMixin):
 
     Args:
       mapreduce_state: an instance of model.MapreduceState describing current
-      job. State can be modified.
-      shard_state: shard state.
+      job. State can NOT be modified.
+      shard_state: shard state which can be modified.
     """
     raise NotImplementedError("create() not implemented in %s" % cls)
 
@@ -208,7 +217,7 @@ _FILES_API_FLUSH_SIZE = 128*1024
 _FILES_API_MAX_SIZE = 1000*1024
 
 
-def _get_params(mapper_spec, allowed_keys=None):
+def _get_params(mapper_spec, allowed_keys=None, allow_old=True):
   """Obtain output writer parameters.
 
   Utility function for output writer implementation. Fetches parameters
@@ -219,6 +228,8 @@ def _get_params(mapper_spec, allowed_keys=None):
     allowed_keys: set of all allowed keys in parameters as strings. If it is not
       None, then parameters are expected to be in a separate "output_writer"
       subdictionary of mapper_spec parameters.
+    allow_old: Allow parameters to exist outside of the output_writer
+      subdictionary for compatability.
 
   Returns:
     mapper parameters as dict
@@ -230,7 +241,7 @@ def _get_params(mapper_spec, allowed_keys=None):
     message = (
         "Output writer's parameters should be specified in "
         "output_writer subdictionary.")
-    if allowed_keys:
+    if not allow_old or allowed_keys:
       raise errors.BadWriterParamsError(message)
     params = mapper_spec.params
     params = dict((str(n), v) for n, v in params.iteritems())
@@ -326,6 +337,33 @@ class _StringWriter(object):
       data: data to append to the buffer as string.
     """
     self._buffer += data
+
+
+class _PassthroughWriter(object):
+  """Simple output writer that exposes a file-like write().
+
+  Handles the mismatch of an output writer's write(), which requires a context,
+  and a file-like write() which does not. The context is provided at init time
+  and used with each write call.
+  """
+
+  def __init__(self, writer, ctx):
+    """Initialize passthrough writer.
+
+    Args:
+      writer: the underlying mapreduce output writer.
+      ctx: the mapreduce context to pass the writer on each write.
+    """
+    self._writer = writer
+    self._ctx = ctx
+
+  def write(self, data):
+    """Write data.
+
+    Args:
+      data: data to write
+    """
+    self._writer.write(data, self._ctx)
 
 
 class RecordsPool(object):
@@ -802,3 +840,306 @@ class BlobstoreRecordsOutputWriter(FileRecordsOutputWriter,
 class KeyValueBlobstoreOutputWriter(KeyValueFileOutputWriter,
                                     BlobstoreOutputWriterBase):
   """Output writer for KeyValue records files in blobstore."""
+
+
+class _GoogleCloudStorageOutputWriter(OutputWriter):
+  """Output writer to Google Cloud Storage using the cloudstorage library.
+
+  This class is expected to be subclassed with a writer that applies formatting
+  to user-level records.
+
+  Required configuration in the mapper_spec.output_writer dictionary.
+    BUCKET_NAME_PARAM: name of the bucket to use (with no extra delimiters or
+      suffixes such as directories. Directories/prefixes can be specifed as
+      part of the NAMING_FORMAT_PARAM).
+
+  Optional configuration in the mapper_spec.output_writer dictionary:
+    ACL_PARAM: acl to apply to new files, else bucket default used.
+    NAMING_FORMAT_PARAM: prefix format string for the new files (there is no
+      required starting slash, expected formats would look like
+      "directory/basename...", any starting slash will be treated as part of
+      the file name) that should use the following substitutions:
+        $name - the name of the job
+        $id - the id assigned to the job
+        $num - the shard number
+        $retry - the retry count for this shard
+      If there is more than one shard $num must be used. An arbitrary suffix may
+      be applied by the writer.
+    CONTENT_TYPE_PARAM: mime type to apply on the files. If not provided, Google
+      Cloud Storage will apply its default.
+  """
+
+
+  BUCKET_NAME_PARAM = "bucket_name"
+  ACL_PARAM = "acl"
+  NAMING_FORMAT_PARAM = "naming_format"
+  CONTENT_TYPE_PARAM = "content_type"
+
+
+  DEFAULT_NAMING_FORMAT = "$name-$id-output-$num-retry-$retry"
+
+
+  _ACCOUNT_ID_PARAM = "account_id"
+  _JSON_PICKLE = "pickle"
+
+
+  def __init__(self, streaming_buffer, writer_spec=None):
+    """Initialize a GoogleCloudStorageOutputWriter instance.
+
+    Args:
+      streaming_buffer: an instance of writable buffer from cloudstorage_api.
+      writer_spec: the specification for the writer, useful for subclasses.
+    """
+    self._streaming_buffer = streaming_buffer
+
+  @classmethod
+  def _generate_filename(cls, writer_spec, name, job_id, num,
+                         retry):
+    """Generates a filename for a shard / retry count.
+
+    Args:
+      writer_spec: specification dictionary for the output writer.
+      name: name of the job.
+      job_id: the ID number assigned to the job.
+      num: shard number.
+      retry: the retry number.
+
+    Returns:
+      a string containing the filename.
+
+    Raises:
+      BadWriterParamsError if the template contains any errors such as invalid
+        syntax or contains unknown substitution placeholders.
+    """
+    naming_format = writer_spec.get(cls.NAMING_FORMAT_PARAM,
+                                    cls.DEFAULT_NAMING_FORMAT)
+    template = string.Template(naming_format)
+    try:
+
+      return template.substitute(name=name, id=job_id, num=num, retry=retry)
+    except ValueError, error:
+      raise errors.BadWriterParamsError("Naming template is bad, %s" % (error))
+    except KeyError, error:
+      raise errors.BadWriterParamsError("Naming template '%s' has extra "
+                                        "mappings, %s" % (naming_format, error))
+
+  @classmethod
+  def validate(cls, mapper_spec):
+    """Validate mapper specification.
+
+    Args:
+      mapper_spec: an instance of model.MapperSpec.
+
+    Raises:
+      BadWriterParamsError if the specification is invalid for any reason such
+        as missing the bucket name or providing an invalid bucket name.
+    """
+    writer_spec = _get_params(mapper_spec, allow_old=False)
+
+
+    if cls.BUCKET_NAME_PARAM not in writer_spec:
+      raise errors.BadWriterParamsError(
+          "%s is required for Google Cloud Storage" %
+          cls.BUCKET_NAME_PARAM)
+    try:
+      cloudstorage.validate_bucket_name(
+          writer_spec[cls.BUCKET_NAME_PARAM])
+    except ValueError, error:
+      raise errors.BadWriterParamsError("Bad bucket name, %s" % (error))
+
+
+    cls._generate_filename(writer_spec, "name", "id", 0, 0)
+
+  @classmethod
+  def init_job(cls, mapreduce_state):
+    """Initialize any job-level state.
+
+    Args:
+      mapreduce_state: an instance of model.MapreduceState. State may be
+        modified during initialization.
+    """
+
+    pass
+
+  @classmethod
+  def finalize_job(cls, mapreduce_state):
+    """Finalize any job-level state.
+
+    Args:
+      mapreduce_state: an instance of model.MapreduceState. State may be
+        modified during finalization.
+    """
+
+    pass
+
+  @classmethod
+  def create(cls, mapreduce_state, shard_state):
+    """Create new writer for a shard.
+
+    Args:
+      mapreduce_state: an instance of model.MapreduceState describing current
+        job. State can NOT be modified.
+      shard_state: an instance of model.ShardState which can be modified.
+
+    Returns:
+      an output writer for the requested shard.
+    """
+
+    job_spec = mapreduce_state.mapreduce_spec
+    writer_spec = _get_params(job_spec.mapper, allow_old=False)
+
+
+    key = cls._generate_filename(writer_spec, job_spec.name,
+                                 job_spec.mapreduce_id,
+                                 shard_state.shard_number, shard_state.retries)
+
+    filename = "/%s/%s" % (writer_spec[cls.BUCKET_NAME_PARAM], key)
+
+    content_type = writer_spec.get(cls.CONTENT_TYPE_PARAM, None)
+
+    options = {}
+    if cls.ACL_PARAM in writer_spec:
+      options["x-goog-acl"] = writer_spec.get(cls.ACL_PARAM)
+
+    account_id = writer_spec.get(cls._ACCOUNT_ID_PARAM, None)
+
+    writer = cloudstorage.open(filename, mode="w",
+                               content_type=content_type,
+                               options=options,
+                               _account_id=account_id)
+
+
+    shard_state.writer_state = {"filename": filename}
+
+    return cls(writer, writer_spec=writer_spec)
+
+  @classmethod
+  def _get_filename(cls, shard_state):
+    return shard_state.writer_state["filename"]
+
+  @classmethod
+  def get_filenames(cls, mapreduce_state):
+    shards = model.ShardState.find_by_mapreduce_state(mapreduce_state)
+    filenames = []
+    for shard in shards:
+      filenames.append(cls._get_filename(shard))
+    return filenames
+
+  @classmethod
+  def from_json(cls, state):
+    return pickle.loads(state[cls._JSON_PICKLE])
+
+  def to_json(self):
+    return {self._JSON_PICKLE: pickle.dumps(self)}
+
+  def write(self, data, ctx):
+    """Write data to the GoogleCloudStorage file.
+
+    The actual writing to the stream is handled by a private function
+    allowing this method to be overriden with other logic (such as records).
+
+    Args:
+      data: string containing the data to be written.
+      ctx: a model.Context for this shard.
+    """
+    self._write(data, ctx)
+
+  def _write(self, data, ctx):
+    start_time = time.time()
+    self._streaming_buffer.write(data)
+    if ctx:
+      operation.counters.Increment(COUNTER_IO_WRITE_BYTES, len(data))(ctx)
+      operation.counters.Increment(
+          COUNTER_IO_WRITE_MSEC, int((time.time() - start_time) * 1000))(ctx)
+
+  def finalize(self, ctx, shard_state):
+    self._streaming_buffer.close()
+
+
+class _GoogleCloudStorageRecordOutputWriter(_GoogleCloudStorageOutputWriter):
+  """Write data to the Google Cloud Storage file using LevelDB format.
+
+  Records are buffered in this writer till FLUSH_SIZE is reached or before
+  serialization to reduce the amount buffered. Up to 32KB of padding may be
+  added with each flush. Additionally, the underlying cloudstorage stream will
+  perform additional/separate buffering to ensure that data is sent to Google
+  Cloud Storage in the correct chunk sizes.
+
+  Buffering may be improved in the future through a different implementation
+  of the underlying LevelDB/Records writer.
+
+  Optional configuration in the mapper_spec.output_writer dictionary:
+    FLUSH_SIZE_PARAM: amount of data to buffer before generating records and
+      sending to the underlying Google Cloud Storage writer. The total data
+      buffered in memory may be this plus the buffer of the underlying writer.
+
+  See the _GoogleCloudStorageOutputWriter for additional configuration options.
+  """
+
+
+  FLUSH_SIZE_PARAM = "record_flush_size"
+
+
+  DEFAULT_FLUSH_SIZE = 1024 * 1024 * 1
+
+  def __init__(self,
+               streaming_buffer,
+               writer_spec=None):
+    """Initialize a CloudStorageOutputWriter instance.
+
+    Args:
+      streaming_buffer: an instance of writable buffer from cloudstorage_api.
+      writer_spec: the specification for the writer.
+    """
+    super(_GoogleCloudStorageRecordOutputWriter, self).__init__(
+        streaming_buffer)
+    self._flush_size = writer_spec.get(self.FLUSH_SIZE_PARAM,
+                                       self.DEFAULT_FLUSH_SIZE)
+    self._reset()
+
+  def to_json(self):
+
+    if self._buffer:
+      self._flush(self._last_ctx)
+    return super(_GoogleCloudStorageRecordOutputWriter, self).to_json()
+
+  def write(self, data, ctx):
+    """Write a single record of data to the file using LevelDB format.
+
+    Args:
+      data: string containing the data to be written.
+      ctx: a model.Context for this shard.
+    """
+    self._buffer.append(data)
+    self._size += len(data)
+    self._last_ctx = ctx
+    if self._size > self._flush_size:
+      self._flush(ctx)
+
+  def finalize(self, ctx, shard_state):
+    """Finalize output file making it durable for a shard.
+
+    Args:
+      ctx: a model.Context for the shard.
+      shard_state: an instance of model.ShardState for the shard.
+    """
+    self._flush(ctx)
+    self._streaming_buffer.close()
+
+  def _flush(self, ctx):
+    record_writer = records.RecordsWriter(
+        _PassthroughWriter(super(_GoogleCloudStorageRecordOutputWriter, self),
+                           ctx))
+
+    with record_writer as w:
+      for record in self._buffer:
+        w.write(record)
+    self._reset()
+
+  def _reset(self):
+    self._buffer = []
+
+
+
+    self._size = 0
+    self._last_ctx = None

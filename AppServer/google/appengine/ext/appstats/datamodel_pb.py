@@ -633,7 +633,7 @@ class BilledOpProto(ProtocolBuffer.ProtocolMessage):
   MAIL_RECIPIENT =    3
   CHANNEL_OPEN =    4
   XMPP_STANZA  =    5
-  OBSOLETE_CHANNEL_PRESENCE =    6
+  CHANNEL_PRESENCE =    6
 
   _BilledOp_NAMES = {
     0: "DATASTORE_READ",
@@ -642,7 +642,7 @@ class BilledOpProto(ProtocolBuffer.ProtocolMessage):
     3: "MAIL_RECIPIENT",
     4: "CHANNEL_OPEN",
     5: "XMPP_STANZA",
-    6: "OBSOLETE_CHANNEL_PRESENCE",
+    6: "CHANNEL_PRESENCE",
   }
 
   def BilledOp_Name(cls, x): return cls._BilledOp_NAMES.get(x, "")

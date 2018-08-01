@@ -335,7 +335,9 @@ _SUPPORTED_LIBRARIES = [
         'lxml',
         'http://lxml.de/',
         'A Pythonic binding for the C libraries libxml2 and libxslt.',
-        ['2.3']),
+        ['2.3', '2.3.5'],
+        experimental_versions=['2.3.5'],
+        ),
     _VersionedLibrary(
         'markupsafe',
         'http://pypi.python.org/pypi/MarkupSafe',

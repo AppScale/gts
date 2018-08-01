@@ -114,10 +114,16 @@ class PHPRuntime(object):
     else:
       content = None
 
+    # On Windows, in order to run a side-by-side assembly the specified env
+    # must include a valid SystemRoot.
+    if 'SYSTEMROOT' in os.environ:
+      user_environ['SYSTEMROOT'] = os.environ['SYSTEMROOT']
+
     # See http://www.php.net/manual/en/ini.core.php#ini.include-path.
     include_paths = [self.config.application_root, SDK_PATH]
     if sys.platform == 'win32':
-      include_path = 'include_path=%s' % ';'.join(include_paths)
+      # See https://bugs.php.net/bug.php?id=46034 for quoting requirements.
+      include_path = 'include_path="%s"' % ';'.join(include_paths)
     else:
       include_path = 'include_path=%s' % ':'.join(include_paths)
 

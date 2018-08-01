@@ -91,7 +91,7 @@ final class CloudStorageReadClient extends CloudStorageClient {
     $bytes_available = $readBuffer_size - $this->buffer_read_position;
 
     // If there are no more bytes available then get some.
-    if ($bytes_available === 0) {
+    if ($bytes_available === 0 && !$this->eof) {
       // If we know the object size, check it first.
       $object_bytes_read = $this->object_block_start_position +
                            $this->buffer_read_position;
@@ -222,8 +222,8 @@ final class CloudStorageReadClient extends CloudStorageClient {
     }
 
     if (!in_array($status_code, self::$valid_status_codes)) {
-      trigger_error(sprintf("Error connecting to Google Cloud Storage: %s",
-                            HttpResponse::getStatusMessage($status_code)),
+      trigger_error($this->getErrorMessage($status_code,
+                                           $http_response['body']),
                     E_USER_WARNING);
       return false;
     }
@@ -242,6 +242,7 @@ final class CloudStorageReadClient extends CloudStorageClient {
       $this->next_read_position = null;
     } else if ($status_code == HttpResponse::RANGE_NOT_SATISFIABLE) {
       // We've read past the end of the object ... no more data.
+      $this->read_buffer = "";
       $this->eof = true;
       $this->next_read_position = null;
       if (!isset($this->object_total_length)) {

@@ -64,6 +64,7 @@ __all__ = ['IndexConsistencyError',
            'RamInvertedIndex',
            'SearchServiceStub',
            'SimpleIndex',
+           'FieldTypesDict',
           ]
 
 _VISIBLE_PRINTABLE_ASCII = frozenset(
@@ -228,13 +229,46 @@ class _DocumentStatistics(object):
     return search_util.Repr(self, [('term_stats', self.term_stats)])
 
 
+class FieldTypesDict(object):
+  """Dictionary-like object for type mappings."""
+
+  def __init__(self):
+    self._field_types = []
+
+  def __contains__(self, name):
+    return name in [ f.name() for f in self._field_types ]
+
+  def __getitem__(self, name):
+    for f in self._field_types:
+      if name == f.name():
+        return f
+    raise KeyError, name
+
+  def AddFieldType(self, name, field_type):
+    field_types = None
+    for f in self._field_types:
+      if name == f.name():
+        field_types = f
+    if field_types is None:
+      field_types = document_pb.FieldTypes()
+      field_types.set_name(name)
+      self._field_types.append(field_types)
+    if field_type not in field_types.type_list():
+      field_types.add_type(field_type)
+
+  def __iter__(self):
+    return iter(sorted([f.name() for f in self._field_types]))
+
+  def __repr__(self):
+    return repr(self._field_types)
+
 class RamInvertedIndex(object):
   """A simple RAM-resident inverted file over documents."""
 
   def __init__(self, tokenizer):
     self._tokenizer = tokenizer
     self._inverted_index = {}
-    self._schema = {}
+    self._schema = FieldTypesDict()
     self._document_ids = set([])
 
   def _AddDocumentId(self, doc_id):
@@ -252,13 +286,7 @@ class RamInvertedIndex(object):
 
   def _AddFieldType(self, name, field_type):
     """Adds the type to the list supported for a named field."""
-    if name not in self._schema:
-      field_types = document_pb.FieldTypes()
-      field_types.set_name(name)
-      self._schema[name] = field_types
-    field_types = self._schema[name]
-    if field_type not in field_types.type_list():
-      field_types.add_type(field_type)
+    self._schema.AddFieldType(name, field_type)
 
   def GetDocumentStats(self, document):
     """Gets statistics about occurrences of terms in document."""
@@ -352,6 +380,20 @@ class SimpleIndex(object):
       if not doc_id:
         doc_id = str(uuid.uuid4())
         document.set_id(doc_id)
+
+
+
+
+
+
+
+      try:
+        search._NewDocumentFromPb(document)
+      except ValueError, e:
+        new_status = response.add_status()
+        new_status.set_code(search_service_pb.SearchServiceError.INVALID_REQUEST)
+        new_status.set_error_detail(e.message)
+        continue
       response.add_doc_id(doc_id)
       if doc_id in self._documents:
         old_document = self._documents[doc_id]
@@ -650,9 +692,6 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
             ''.join(random.choice(list(_VISIBLE_PRINTABLE_ASCII))
                     for _ in xrange(random.randint(
                         0, search.MAXIMUM_INDEX_NAME_LENGTH))))
-        new_index_spec.set_consistency(random.choice([
-            search_service_pb.IndexSpec.GLOBAL,
-            search_service_pb.IndexSpec.PER_DOCUMENT]))
       response.mutable_status().set_code(
           random.choice([search_service_pb.SearchServiceError.OK] * 10 +
                         [search_service_pb.SearchServiceError.TRANSIENT_ERROR] +
@@ -688,7 +727,6 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       metadata = response.add_index_metadata()
       new_index_spec = metadata.mutable_index_spec()
       new_index_spec.set_name(index_spec.name())
-      new_index_spec.set_consistency(index_spec.consistency())
       new_index_spec.set_namespace(index_spec.namespace())
       if params.fetch_schema():
         self._AddSchemaInformation(index, metadata)
@@ -870,7 +908,12 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       return
 
     params = request.params()
-    results = index.Search(params)
+    try:
+      results = index.Search(params)
+    except query_parser.QueryException, e:
+      self._InvalidRequest(response.mutable_status(), e)
+      response.set_matched_count(0)
+      return
     response.set_matched_count(len(results))
 
     offset = 0
