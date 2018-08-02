@@ -28,7 +28,7 @@ from google.appengine.ext import db
 
 
 # The maximum number of seconds a task is permitted to take.
-MAX_TASK_DURATION = 10 * 60
+MAX_TASK_DURATION = 13 * 60
 
 app_id = os.environ['APP_ID']
 remote_host = os.environ['HOST']
