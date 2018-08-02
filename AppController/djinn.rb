@@ -3836,10 +3836,9 @@ class Djinn
     end
 
     # Get the username to use for ssh (depends on environments).
-    if ["ec2", "euca"].include?(@options['infrastructure'])
+    if ["azure", "ec2", "euca"].include?(@options['infrastructure'])
       # Add deployment key to remote instance's authorized_keys.
-      user_name = "ubuntu"
-      enable_root_login(ip, ssh_key, user_name)
+      enable_root_login(ip, ssh_key)
     elsif @options['infrastructure'] == "gce"
       # Since GCE v1beta15, SSH keys don't immediately get injected to newly
       # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
@@ -3847,11 +3846,7 @@ class Djinn
       Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
       Kernel.sleep(60)
 
-      enable_root_login(ip, ssh_key, 'ubuntu')
-
-    elsif @options['infrastructure'] == 'azure'
-      user_name = 'azureuser'
-      enable_root_login(ip, ssh_key, user_name)
+      enable_root_login(ip, ssh_key)
     end
 
     Kernel.sleep(SMALL_WAIT)
@@ -3890,8 +3885,24 @@ class Djinn
 
   # Logs into the named host and alters its ssh configuration to enable the
   # root user to directly log in.
-  def enable_root_login(ip, ssh_key, user_name)
+  def enable_root_login(ip, ssh_key)
     options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
+
+    # Determine which user to login as.
+    output = `ssh -i #{ssh_key} #{options} 2>&1 root@#{ip} true`
+    match = /Please login as the user "(.+)" rather than the user "root"/.match(output)
+    if match.nil?
+      if @options['infrastructure'] == 'azure'
+        user_name = 'azureuser'
+      else
+        user_name = 'ubuntu'
+      end
+      Djinn.log_warn(
+        "Unable to find out what user to login as. Using #{user_name}")
+    else
+      user_name = match[1]
+    end
+
     backup_keys = 'sudo cp -p /root/.ssh/authorized_keys ' \
         '/root/.ssh/authorized_keys.old'
     Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{user_name}@#{ip} " \
