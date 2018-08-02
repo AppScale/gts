@@ -3835,17 +3835,14 @@ class Djinn
       Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
     end
 
-    # Get the username to use for ssh (depends on environments).
-    if ["azure", "ec2", "euca"].include?(@options['infrastructure'])
-      # Add deployment key to remote instance's authorized_keys.
-      enable_root_login(ip, ssh_key)
-    elsif @options['infrastructure'] == "gce"
-      # Since GCE v1beta15, SSH keys don't immediately get injected to newly
-      # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
-      # sure.
-      Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
-      Kernel.sleep(60)
-
+    if is_cloud?
+      if @options['infrastructure'] == 'gce'
+        # Since GCE v1beta15, SSH keys don't immediately get injected to newly
+        # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
+        # sure.
+        Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
+        Kernel.sleep(60)
+      end
       enable_root_login(ip, ssh_key)
     end
 
