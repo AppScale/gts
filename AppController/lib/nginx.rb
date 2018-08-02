@@ -107,12 +107,61 @@ module Nginx
 
     secure_handlers = HelperFunctions.get_secure_handlers(version_key)
     parsing_log += "Secure handlers: #{secure_handlers}.\n"
-    always_secure_locations = secure_handlers[:always].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, https_port)
-    }.join
-    never_secure_locations = secure_handlers[:never].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, http_port)
-    }.join
+
+    always_secure_locations = ""
+    never_secure_locations = ""
+    
+    http_location_params = \
+        "\n\tproxy_set_header      X-Real-IP $remote_addr;" \
+        "\n\tproxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;" \
+        "\n\tproxy_set_header      X-Forwarded-Proto $scheme;" \
+        "\n\tproxy_set_header      X-Forwarded-Ssl $ssl;" \
+        "\n\tproxy_set_header      Host $http_host;\n\tproxy_redirect        off;" \
+        "\n\tproxy_pass            http://gae_ssl_#{version_key};" \
+        "\n\tproxy_connect_timeout 600;\n\tproxy_read_timeout    600;" \
+        "\n\tclient_body_timeout   600;\n\tclient_max_body_size  2G;" \
+        "\n    }\n"
+
+    https_location_params = \
+      "\n\tproxy_set_header      X-Real-IP $remote_addr;" \
+      "\n\tproxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;" \
+      "\n\tproxy_set_header      X-Forwarded-Proto $scheme;" \
+      "\n\tproxy_set_header      X-Forwarded-Ssl $ssl;" \
+      "\n\tproxy_set_header      Host $http_host;" \
+      "\n\tproxy_redirect        off;" \
+      "\n\tproxy_pass            http://gae_ssl_#{version_key};" \
+      "\n\tproxy_connect_timeout 600;" \
+      "\n\tproxy_read_timeout    600;" \
+      "\n\tclient_body_timeout   600;" \
+      "\n\tclient_max_body_size  2G;" \
+      "\n    }\n"
+
+    combined_http_locations = ""
+    combined_https_locations = ""
+    secure_handlers.each do |handler|
+      if handler["secure"] == "always"
+        handler_location = HelperFunctions.generate_secure_location_config(handler, https_port)
+        combined_http_locations += handler_location
+        always_secure_locations += handler_location
+        handler_https_location = "\n    location ~ #{handler['url']} {"
+        handler_https_location << https_location_params
+        combined_https_locations += handler_https_location
+
+      elsif handler["secure"] == "never"
+        handler_https_location = HelperFunctions.generate_secure_location_config(handler, http_port)
+        combined_https_locations += handler_https_location
+        handler_http_location = "\n    location ~ #{handler['url']} {"
+        handler_http_location << http_location_params
+        combined_http_locations += handler_http_location
+        never_secure_locations += handler_http_location
+
+      elsif handler["secure"] == "non_secure"
+        handler_http_location = "\n    location ~ #{handler['url']} {"
+        handler_http_location << http_location_params
+        combined_http_locations += handler_http_location
+        combined_https_locations += handler_http_location
+      end
+    end
 
     secure_static_handlers = []
     non_secure_static_handlers = []
@@ -225,7 +274,7 @@ server {
     # If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
 
-    #{always_secure_locations}
+    #{combined_http_locations}
     #{non_secure_static_locations}
     #{non_secure_default_location}
 
@@ -264,7 +313,7 @@ server {
 
     error_page 404 = /404.html;
 
-    #{never_secure_locations}
+    #{combined_https_locations}
     #{secure_static_locations}
     #{secure_default_location}
 
