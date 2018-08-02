@@ -122,6 +122,20 @@ module Nginx
         "\n\tclient_body_timeout   600;\n\tclient_max_body_size  2G;" \
         "\n    }\n"
 
+    https_location_params = \
+      "\n\tproxy_set_header      X-Real-IP $remote_addr;" \
+      "\n\tproxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;" \
+      "\n\tproxy_set_header      X-Forwarded-Proto $scheme;" \
+      "\n\tproxy_set_header      X-Forwarded-Ssl $ssl;" \
+      "\n\tproxy_set_header      Host $http_host;" \
+      "\n\tproxy_redirect        off;" \
+      "\n\tproxy_pass            http://gae_ssl_#{version_key};" \
+      "\n\tproxy_connect_timeout 600;" \
+      "\n\tproxy_read_timeout    600;" \
+      "\n\tclient_body_timeout   600;" \
+      "\n\tclient_max_body_size  2G;" \
+      "\n    }\n"
+
     combined_http_locations = ""
     combined_https_locations = ""
     secure_handlers.each do |handler|
@@ -129,6 +143,9 @@ module Nginx
         handler_location = HelperFunctions.generate_secure_location_config(handler, https_port)
         combined_http_locations += handler_location
         always_secure_locations += handler_location
+        handler_https_location = "\n    location ~ #{handler['url']} {"
+        handler_https_location << https_location_params
+        combined_https_locations += handler_https_location
 
       elsif handler["secure"] == "never"
         handler_https_location = HelperFunctions.generate_secure_location_config(handler, http_port)
