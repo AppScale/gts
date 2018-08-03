@@ -1,4 +1,4 @@
-""" Stores push task metadta. """
+""" Stores push task metadata. """
 import sys
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
