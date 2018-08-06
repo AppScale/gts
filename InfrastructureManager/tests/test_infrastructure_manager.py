@@ -26,25 +26,25 @@ class TestInfrastructureManager(TestCase):
       InfrastructureManager.REASON_BAD_SECRET)
 
     # test the scenario where we fail to give describe_instances a
-    # reservation id
+    # operation id
     params2 = {}
     result2 = i.describe_instances(params2, 'secret')
     self.assertFalse(result2['success'])
     self.assertEquals(result2['reason'],
-      'no ' + InfrastructureManager.PARAM_RESERVATION_ID)
+      'no ' + InfrastructureManager.PARAM_OPERATION_ID)
 
     # test what happens when a caller fails to give describe instances
-    # a reservation id that's in the system
-    params3 = {InfrastructureManager.PARAM_RESERVATION_ID: 'boo'}
+    # a operation id that's in the system
+    params3 = {InfrastructureManager.PARAM_OPERATION_ID: 'boo'}
     result3 = i.describe_instances(params3, 'secret')
     self.assertFalse(result3['success'])
     self.assertEquals(result3['reason'],
-      InfrastructureManager.REASON_RESERVATION_NOT_FOUND)
+      InfrastructureManager.REASON_OPERATION_ID_NOT_FOUND)
 
-    # test what happens when a caller gives describe_instances a reservation
+    # test what happens when a caller gives describe_instances a operation
     # id that is in the system
     id = '0000000000'
-    params4 = {InfrastructureManager.PARAM_RESERVATION_ID: id}
+    params4 = {InfrastructureManager.PARAM_OPERATION_ID: id}
     vm_info = {
       'public_ips': ['public-ip'],
       'private_ips': ['private-ip'],
@@ -56,8 +56,8 @@ class TestInfrastructureManager(TestCase):
       'state': InfrastructureManager.STATE_SUCCESS,
       'vm_info': vm_info
     }
-    i.reservations.put(id, status_info)
-    result4 = i.reservations.get(id)
+    i.operation_ids.put(id, status_info)
+    result4 = i.operation_ids.get(id)
     self.assertEquals(result4, i.describe_instances(params4, "secret"))
 
     params5 = json.dumps(params4)
@@ -70,7 +70,7 @@ class TestInfrastructureManager(TestCase):
       pass
 
     try:
-      i.describe_instances({'reservation_id': 'foo'}, {})
+      i.describe_instances({i.PARAM_OPERATION_ID: 'foo'}, {})
       self.fail('Must throw an exception')
     except TypeError:
       pass

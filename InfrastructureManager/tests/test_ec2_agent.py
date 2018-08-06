@@ -62,7 +62,7 @@ class TestEC2Agent(TestCase):
         .and_return([reservation])
 
     # first, validate that the run_instances call goes through successfully
-    # and gives the user a reservation id
+    # and gives the user a operation id
     full_params = {
       'credentials': {
         'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
@@ -82,7 +82,7 @@ class TestEC2Agent(TestCase):
     id = '0000000000'  # no longer randomly generated
     full_result = {
       'success': True,
-      'reservation_id': id,
+      'operation_id': id,
       'reason': 'none'
     }
     result = i.run_instances(full_params, 'secret')
@@ -90,21 +90,21 @@ class TestEC2Agent(TestCase):
       self.assertEquals(full_result, result)
 
     # next, look at run_instances internally to make sure it actually is
-    # updating its reservation info
+    # updating its operation info
     if not blocking:
       time.sleep(.1)
     if success:
       self.assertEquals(InfrastructureManager.STATE_SUCCESS,
-        i.reservations.get(id)['state'])
-      vm_info = i.reservations.get(id)['vm_info']
+        i.operation_ids.get(id)['state'])
+      vm_info = i.operation_ids.get(id)['vm_info']
       self.assertEquals(['new-public-ip'], vm_info['public_ips'])
       self.assertEquals(['new-private-ip'], vm_info['private_ips'])
       self.assertEquals(['new-i-id'], vm_info['instance_ids'])
     else:
       if blocking:
         self.assertEquals(InfrastructureManager.STATE_FAILED,
-                          i.reservations.get(id)['state'])
-        self.assertEquals(i.reservations.get(id)['vm_info'], None)
+                          i.operation_ids.get(id)['state'])
+        self.assertEquals(i.operation_ids.get(id)['vm_info'], None)
 
   def terminate_instances(self, prefix, blocking):
     i = InfrastructureManager(blocking=blocking)

@@ -162,10 +162,10 @@ class InfrastructureManagerClient
       @conn.terminate_instances(parameters.to_json, @secret)
     }
     Djinn.log_debug("[IM] Terminate instances says [#{terminate_result}]")
-    reservation_id = terminate_result['reservation_id']
+    operation_id = terminate_result['operation_id']
 
     loop {
-      describe_result = describe_instances('reservation_id' => reservation_id)
+      describe_result = describe_instances('operation_id' => operation_id)
       Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']}.")
 
       if describe_result['state'] == 'success'
@@ -201,11 +201,11 @@ class InfrastructureManagerClient
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
-    reservation_id = run_result['reservation_id']
+    operation_id = run_result['operation_id']
 
     vm_info = {}
     loop {
-      describe_result = describe_instances('reservation_id' => reservation_id)
+      describe_result = describe_instances('operation_id' => operation_id)
       Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']} " \
         "and vm_info is #{describe_result['vm_info'].inspect}.")
 

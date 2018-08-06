@@ -52,7 +52,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
-        'reservation_id' => "0000000000",
+        'operation_id' => "0000000000",
         'reason' => 'none'
       })
 
@@ -78,7 +78,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       }
 
       instance.should_receive(:describe_instances).with({
-        'reservation_id' => "0000000000"
+        'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
 
@@ -148,7 +148,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
-        'reservation_id' => "0000000000",
+        'operation_id' => "0000000000",
         'reason' => 'none'
       })
 
@@ -174,7 +174,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       }
 
       instance.should_receive(:describe_instances).with({
-        'reservation_id' => "0000000000"
+        'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
 
@@ -260,7 +260,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
-        'reservation_id' => "0000000000",
+        'operation_id' => "0000000000",
         'reason' => 'none'
       })
 
@@ -286,7 +286,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       }
 
       instance.should_receive(:describe_instances).with({
-        'reservation_id' => "0000000000"
+        'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
 
@@ -369,7 +369,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'IS_VERBOSE' => nil
       }).and_return({
           'success' => true,
-          'reservation_id' => "0000000000",
+          'operation_id' => "0000000000",
           'reason' => 'none'
       })
 
@@ -395,7 +395,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       }
 
       instance.should_receive(:describe_instances).with({
-        'reservation_id' => "0000000000"
+        'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
 

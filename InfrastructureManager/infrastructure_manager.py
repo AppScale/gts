@@ -33,11 +33,11 @@ class InfrastructureManager:
   REASON_BAD_SECRET = 'bad secret'
   REASON_BAD_VM_COUNT = 'bad vm count'
   REASON_BAD_ARGUMENTS = 'bad arguments'
-  REASON_RESERVATION_NOT_FOUND = 'reservation_id not found'
+  REASON_OPERATION_ID_NOT_FOUND = 'operation_id not found'
   REASON_NONE = 'none'
 
   # Parameters required by InfrastructureManager
-  PARAM_RESERVATION_ID = 'reservation_id'
+  PARAM_OPERATION_ID = 'operation_id'
   PARAM_INFRASTRUCTURE = 'infrastructure'
   PARAM_NUM_VMS = 'num_vms'
 
@@ -48,7 +48,7 @@ class InfrastructureManager:
 
   # A list of parameters required to query the InfrastructureManager about
   # the state of a run_instances request.
-  DESCRIBE_INSTANCES_REQUIRED_PARAMS = ( PARAM_RESERVATION_ID, )
+  DESCRIBE_INSTANCES_REQUIRED_PARAMS = (PARAM_OPERATION_ID,)
 
   # A list of parameters required to initiate a VM deployment process
   RUN_INSTANCES_REQUIRED_PARAMS = (
@@ -84,22 +84,22 @@ class InfrastructureManager:
     if params is not None:
       store_factory = PersistentStoreFactory()
       store = store_factory.create_store(params)
-      self.reservations = PersistentDictionary(store)
+      self.operation_ids = PersistentDictionary(store)
     else:
-      self.reservations = PersistentDictionary()
+      self.operation_ids = PersistentDictionary()
 
   def describe_instances(self, parameters, secret):
     """
     Query the InfrastructureManager instance for details regarding
-    a reservation for running or terminating instances. This method accepts
+    an operation for running or terminating instances. This method accepts
     a dictionary of parameters and a secret for authentication purposes.
-    The dictionary of parameters must include a 'reservation_id' parameter
+    The dictionary of parameters must include an 'operation_id' parameter
     which is used to lookup calls that have been made to run or terminate
     instances.
 
     Args:
       parameters  A dictionary of parameters which contains a valid
-                  'reservation_id' parameter. A valid 'reservation_id'
+                  'operation_id' parameter. A valid 'operation_id'
                   is an ID issued by the run_instances method of the
                   same InfrastructureManager object. Alternatively one
                   may provide a valid JSON string instead of a dictionary
@@ -107,15 +107,15 @@ class InfrastructureManager:
       secret      A previously established secret
 
     Returns:
-      invalid key or an invalid 'reservation_id':
+      invalid key or an invalid 'operation_id':
        'success': False
        'reason': is set to an error message describing the cause.
 
       If the provided secret key is valid and the parameters map contains
-      a valid 'reservation_id' parameter, this method will return a
+      a valid 'operation_id' parameter, this method will return a
       dictionary containing the following keys for the specified cases.
 
-      For a run_instances reservation_id:
+      For a run_instances operation_id:
         'success': True or False depending on the outcome of the virtual
           machine deployment process.
         'state': pending, failed, or success
@@ -123,7 +123,7 @@ class InfrastructureManager:
         'vm_info': a dictionary containing the IP addresses of the spawned
           virtual machines or None if the virtual machine deployment had
           failed or still in the 'pending' state.
-      For a terminate_instances reservation_id:
+      For a terminate_instances operation_id:
         'success': True or False depending on the outcome of the virtual
           machine deployment process.
         'state': pending, failed, or success
@@ -143,11 +143,11 @@ class InfrastructureManager:
       if not utils.has_parameter(param, parameters):
         return self.__generate_response(False, 'no ' + param)
 
-    reservation_id = parameters[self.PARAM_RESERVATION_ID]
-    if self.reservations.has_key(reservation_id):
-      return self.reservations.get(reservation_id)
+    operation_id = parameters[self.PARAM_OPERATION_ID]
+    if self.operation_ids.has_key(operation_id):
+      return self.operation_ids.get(operation_id)
     else:
-      return self.__generate_response(False, self.REASON_RESERVATION_NOT_FOUND)
+      return self.__generate_response(False, self.REASON_OPERATION_ID_NOT_FOUND)
 
   def run_instances(self, parameters, secret):
     """
@@ -175,7 +175,7 @@ class InfrastructureManager:
     Returns:
       If the secret is valid and all the required parameters are available in
       the input parameter map, this method will return a dictionary containing
-      a special 'reservation_id' key. If the secret is invalid or a required
+      a special 'operation_id' key. If the secret is invalid or a required
       parameter is missing, this method will return a different map with the
       key 'success' set to False and 'reason' set to a simple error message.
 
@@ -208,26 +208,26 @@ class InfrastructureManager:
     except AgentConfigurationException as exception:
       return self.__generate_response(False, str(exception))
 
-    reservation_id = utils.get_random_alphanumeric()
+    operation_id = utils.get_random_alphanumeric()
     status_info = {
       'success': True,
       'reason': 'received run request',
       'state': self.STATE_PENDING,
       'vm_info': None
     }
-    self.reservations.put(reservation_id, status_info)
-    utils.log('Generated reservation id {0} for this run '
-              'instances request.'.format(reservation_id))
+    self.operation_ids.put(operation_id, status_info)
+    utils.log('Generated operation id {0} for this run '
+              'instances request.'.format(operation_id))
     if self.blocking:
-      self.__spawn_vms(agent, num_vms, parameters, reservation_id)
+      self.__spawn_vms(agent, num_vms, parameters, operation_id)
     else:
       thread.start_new_thread(self.__spawn_vms,
-        (agent, num_vms, parameters, reservation_id))
+        (agent, num_vms, parameters, operation_id))
 
     utils.log('Successfully started run instances request {0}.'.format(
-        reservation_id))
+        operation_id))
     return self.__generate_response(True,
-      self.REASON_NONE, {'reservation_id': reservation_id})
+      self.REASON_NONE, {'operation_id': operation_id})
 
   def terminate_instances(self, parameters, secret):
     """
@@ -252,7 +252,7 @@ class InfrastructureManager:
     Returns:
       If the secret is valid and all the required parameters are available in
       the input parameter map, this method will return a dictionary containing
-      a special 'reservation_id' key. If the secret is invalid or a required
+      a special 'operation_id' key. If the secret is invalid or a required
       parameter is missing, this method will return a different map with the
       key 'success' set to False and 'reason' set to a simple error message.
 
@@ -277,26 +277,26 @@ class InfrastructureManager:
     except AgentConfigurationException as exception:
       return self.__generate_response(False, str(exception))
 
-    reservation_id = utils.get_random_alphanumeric()
+    operation_id = utils.get_random_alphanumeric()
     status_info = {
       'success': True,
       'reason': 'received kill request',
       'state': self.STATE_PENDING
     }
-    self.reservations.put(reservation_id, status_info)
-    utils.log('Generated reservation id {0} for this terminate instances '
-              'request.'.format(reservation_id))
+    self.operation_ids.put(operation_id, status_info)
+    utils.log('Generated operation id {0} for this terminate instances '
+              'request.'.format(operation_id))
 
     if self.blocking:
-      self.__kill_vms(agent, parameters, reservation_id)
+      self.__kill_vms(agent, parameters, operation_id)
     else:
       thread.start_new_thread(self.__kill_vms,
-                              (agent, parameters, reservation_id))
+                              (agent, parameters, operation_id))
 
     utils.log('Successfully started terminate instances request {0}.'.format(
-        reservation_id))
+        operation_id))
     return self.__generate_response(True,
-      self.REASON_NONE, {'reservation_id': reservation_id})
+      self.REASON_NONE, {'operation_id': operation_id})
 
   def attach_disk(self, parameters, disk_name, instance_id, secret):
     """ Contacts the infrastructure named in 'parameters' and tells it to
@@ -343,7 +343,7 @@ class InfrastructureManager:
       return [], [], []
 
 
-  def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
+  def __spawn_vms(self, agent, num_vms, parameters, operation_id):
     """
     Private method for starting a set of VMs
 
@@ -351,9 +351,9 @@ class InfrastructureManager:
       agent           Infrastructure agent in charge of current operation
       num_vms         No. of VMs to be spawned
       parameters      A dictionary of parameters
-      reservation_id  Reservation ID of the current run request
+      operation_id  Operation ID of the current run request
     """
-    status_info = self.reservations.get(reservation_id)
+    status_info = self.operation_ids.get(operation_id)
 
     active_public_ips, active_private_ips, active_instances = \
       self.__describe_vms(agent, parameters)
@@ -372,7 +372,7 @@ class InfrastructureManager:
         'instance_ids': ids
       }
       utils.log('Successfully finished run instances request {0}.'.format(
-          reservation_id))
+          operation_id))
     except (AgentConfigurationException, AgentRuntimeException) as exception:
       # Check if we have had partial success starting instances.
       public_ips, private_ips, instance_ids = \
@@ -396,14 +396,14 @@ class InfrastructureManager:
       # 'success' and it technically failed.
       status_info['success'] = False
       status_info['reason'] = str(exception)
-      utils.log('Updating run instances request with reservation id {0} to '
+      utils.log('Updating run instances request with operation id {0} to '
                 'failed status because: {1}'\
-                .format(reservation_id, str(exception)))
+                .format(operation_id, str(exception)))
 
-    self.reservations.put(reservation_id, status_info)
+    self.operation_ids.put(operation_id, status_info)
 
 
-  def __kill_vms(self, agent, parameters, reservation_id):
+  def __kill_vms(self, agent, parameters, operation_id):
     """
     Private method for stopping a VM. This method assumes it has only been
     told to stop one VM.
@@ -411,20 +411,20 @@ class InfrastructureManager:
     Args:
       agent       Infrastructure agent in charge of current operation
       parameters  A dictionary of parameters
-      reservation_id  Reservation ID of the current run request
+      operation_id  Operation ID of the current run request
     """
-    status_info = self.reservations.get(reservation_id)
+    status_info = self.operation_ids.get(operation_id)
     try:
       agent.terminate_instances(parameters)
       status_info['state'] = self.STATE_SUCCESS
     except AgentRuntimeException as exception:
       status_info['state'] = self.STATE_FAILED
       status_info['reason'] = str(exception)
-      utils.log('Updating terminate instances request with reservation id {0} '
+      utils.log('Updating terminate instances request with operation id {0} '
                 'to failed status because: {1}'\
-                .format(reservation_id, str(exception)))
+                .format(operation_id, str(exception)))
 
-    self.reservations.put(reservation_id, status_info)
+    self.operation_ids.put(operation_id, status_info)
 
 
   def __generate_response(self, status, msg, extra=None):
