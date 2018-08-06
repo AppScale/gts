@@ -24,3 +24,9 @@ class TestUtils(unittest.TestCase):
     self.assertEqual(path.element_size(), 1)
     self.assertEqual(path.element(0).type(), 'Greeting')
     self.assertEqual(path.element(0).id(), 2)
+
+    # Test a path that contains the ID separator.
+    path = utils.decode_path('Greeting:Test:1\x01')
+    self.assertEqual(path.element_size(), 1)
+    self.assertEqual(path.element(0).type(), 'Greeting')
+    self.assertEqual(path.element(0).name(), 'Test:1')
