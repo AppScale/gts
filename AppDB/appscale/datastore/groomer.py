@@ -297,7 +297,8 @@ class DatastoreGroomer(threading.Thread):
 
     mutable_path = group.mutable_path()
     first_element = mutable_path.add_element()
-    kind, id_ = path.split(dbconstants.KIND_SEPARATOR)[0].split(':')
+    encoded_first_element = path.split(dbconstants.KIND_SEPARATOR)[0]
+    kind, id_ = encoded_first_element.split(dbconstants.ID_SEPARATOR, 1)
     first_element.set_type(kind)
 
     # At this point, there's no way to tell if the ID was originally a name,
@@ -452,7 +453,8 @@ class DatastoreGroomer(threading.Thread):
         element = entity_pb.Path_Element()
         # IDs are treated as names here. This avoids having to fetch the entity
         # to tell the difference.
-        element.set_name(encoded_element.split(dbconstants.ID_SEPARATOR)[-1])
+        key_name = encoded_element.split(dbconstants.ID_SEPARATOR, 1)[-1]
+        element.set_name(key_name)
         return element
 
       key = None
