@@ -39,6 +39,8 @@ from .queue import (
   TransientError
 )
 from .task import Task
+from .task_name import TaskName
+from .tq_lib import TASK_STATES
 from .utils import (
   get_celery_queue_name,
   get_queue_function_name,
@@ -176,25 +178,6 @@ def create_pull_queue_tables(cluster, session):
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
-
-class TaskName(db.Model):
-  """ A datastore model for tracking task names in order to prevent
-  tasks with the same name from being enqueued repeatedly.
-
-  Attributes:
-    timestamp: The time the task was enqueued.
-  """
-  STORED_KIND_NAME = "__task_name__"
-  timestamp = db.DateTimeProperty(auto_now_add=True)
-  queue = db.StringProperty(required=True)
-  state = db.StringProperty(required=True)
-  endtime = db.DateTimeProperty()
-  app_id = db.StringProperty(required=True)
-
-  @classmethod
-  def kind(cls):
-    """ Kind name override. """
-    return cls.STORED_KIND_NAME
 
 def setup_env():
   """ Sets required environment variables for GAE datastore library. """
@@ -579,19 +562,25 @@ class DistributedTaskQueue():
     item = TaskName.get_by_key_name(task_name)
     logger.debug("Task name {0}".format(task_name))
     if item:
-      logger.warning("Task already exists")
-      raise apiproxy_errors.ApplicationError(
-        TaskQueueServiceError.TASK_ALREADY_EXISTS)
-    else:
-      new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
-        queue=request.queue_name(), app_id=request.app_id())
-      logger.debug("Creating entity {0}".format(str(new_name)))
-      try:
-        db.put(new_name)
-      except datastore_errors.InternalError, internal_error:
-        logger.error(str(internal_error))
+      if item.state == TASK_STATES.QUEUED:
+        logger.warning("Task already exists")
         raise apiproxy_errors.ApplicationError(
-          TaskQueueServiceError.DATASTORE_ERROR)
+          TaskQueueServiceError.TASK_ALREADY_EXISTS)
+      else:
+        # If a task with the same name has already been processed, it should
+        # be tombstoned for some time to prevent a duplicate task.
+        raise apiproxy_errors.ApplicationError(
+          TaskQueueServiceError.TOMBSTONED_TASK)
+
+    new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
+      queue=request.queue_name(), app_id=request.app_id())
+    logger.debug("Creating entity {0}".format(str(new_name)))
+    try:
+      db.put(new_name)
+    except datastore_errors.InternalError as internal_error:
+      logger.error(str(internal_error))
+      raise apiproxy_errors.ApplicationError(
+        TaskQueueServiceError.DATASTORE_ERROR)
 
   def __enqueue_push_task(self, source_info, request):
     """ Enqueues a batch of push tasks.
