@@ -17,18 +17,18 @@ class TestInfrastructureManager(TestCase):
     i = InfrastructureManager()
     self.assertEquals('secret', i.secret)
 
-  def test_describe_instances(self):
+  def test_describe_operation(self):
     i = InfrastructureManager()
     params1 = {}
-    result1 = i.describe_instances(params1, 'secret1')
+    result1 = i.describe_operation(params1, 'secret1')
     self.assertFalse(result1['success'])
     self.assertEquals(result1['reason'],
       InfrastructureManager.REASON_BAD_SECRET)
 
-    # test the scenario where we fail to give describe_instances a
+    # test the scenario where we fail to give describe_operation a
     # operation id
     params2 = {}
-    result2 = i.describe_instances(params2, 'secret')
+    result2 = i.describe_operation(params2, 'secret')
     self.assertFalse(result2['success'])
     self.assertEquals(result2['reason'],
       'no ' + InfrastructureManager.PARAM_OPERATION_ID)
@@ -36,12 +36,12 @@ class TestInfrastructureManager(TestCase):
     # test what happens when a caller fails to give describe instances
     # a operation id that's in the system
     params3 = {InfrastructureManager.PARAM_OPERATION_ID: 'boo'}
-    result3 = i.describe_instances(params3, 'secret')
+    result3 = i.describe_operation(params3, 'secret')
     self.assertFalse(result3['success'])
     self.assertEquals(result3['reason'],
       InfrastructureManager.REASON_OPERATION_ID_NOT_FOUND)
 
-    # test what happens when a caller gives describe_instances a operation
+    # test what happens when a caller gives describe_operation a operation
     # id that is in the system
     id = '0000000000'
     params4 = {InfrastructureManager.PARAM_OPERATION_ID: id}
@@ -58,19 +58,19 @@ class TestInfrastructureManager(TestCase):
     }
     i.operation_ids.put(id, status_info)
     result4 = i.operation_ids.get(id)
-    self.assertEquals(result4, i.describe_instances(params4, "secret"))
+    self.assertEquals(result4, i.describe_operation(params4, "secret"))
 
     params5 = json.dumps(params4)
-    self.assertEquals(result4, i.describe_instances(params5, "secret"))
+    self.assertEquals(result4, i.describe_operation(params5, "secret"))
 
     try:
-      i.describe_instances('foo', 'bar')
+      i.describe_operation('foo', 'bar')
       self.fail('Must throw an exception')
     except Exception:
       pass
 
     try:
-      i.describe_instances({i.PARAM_OPERATION_ID: 'foo'}, {})
+      i.describe_operation({i.PARAM_OPERATION_ID: 'foo'}, {})
       self.fail('Must throw an exception')
     except TypeError:
       pass

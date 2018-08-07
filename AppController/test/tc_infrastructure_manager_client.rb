@@ -56,7 +56,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'reason' => 'none'
       })
 
-      # Let's say that the describe_instances request shows the machines
+      # Let's say that the describe_operation request shows the machines
       # not ready the first time, and then ready on all other times
       first_result = {
         'success' => true,
@@ -77,7 +77,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         }
       }
 
-      instance.should_receive(:describe_instances).with({
+      instance.should_receive(:describe_operation).with({
         'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
@@ -152,7 +152,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'reason' => 'none'
       })
 
-      # Let's say that the describe_instances request shows the machines
+      # Let's say that the describe_operation request shows the machines
       # not ready the first time, and then ready on all other times
       first_result = {
         'success' => true,
@@ -173,7 +173,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         }
       }
 
-      instance.should_receive(:describe_instances).with({
+      instance.should_receive(:describe_operation).with({
         'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
@@ -264,7 +264,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'reason' => 'none'
       })
 
-      # Let's say that the describe_instances request shows the machines
+      # Let's say that the describe_operation request shows the machines
       # not ready the first time, and then ready on all other times
       first_result = {
         'success' => true,
@@ -285,7 +285,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         }
       }
 
-      instance.should_receive(:describe_instances).with({
+      instance.should_receive(:describe_operation).with({
         'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
@@ -373,7 +373,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
           'reason' => 'none'
       })
 
-      # Let's say that the describe_instances request shows the machines
+      # Let's say that the describe_operation request shows the machines
       # not ready the first time, and then ready on all other times
       first_result = {
         'success' => true,
@@ -394,7 +394,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         }
       }
 
-      instance.should_receive(:describe_instances).with({
+      instance.should_receive(:describe_operation).with({
         'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }

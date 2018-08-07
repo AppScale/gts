@@ -20,13 +20,13 @@ class TestInfrastructureManagerService(TestCase):
 
   def test_service(self):
     proxy = SOAPpy.SOAPProxy('http://{0}:{1}'.format('127.0.0.1', self.port))
-    result = proxy.describe_instances(
+    result = proxy.describe_operation(
       {InfrastructureManager.PARAM_OPERATION_ID: 'foo'}, 'wrong_secret')
     self.assertFalse(result['success'])
     self.assertEquals(result['reason'],
       InfrastructureManager.REASON_BAD_SECRET)
 
-    result = proxy.describe_instances(
+    result = proxy.describe_operation(
       {InfrastructureManager.PARAM_OPERATION_ID: 'foo'}, 'secret')
     self.assertFalse(result['success'])
     self.assertEquals(result['reason'],

@@ -88,10 +88,10 @@ class InfrastructureManager:
     else:
       self.operation_ids = PersistentDictionary()
 
-  def describe_instances(self, parameters, secret):
+  def describe_operation(self, parameters, secret):
     """
     Query the InfrastructureManager instance for details regarding
-    an operation for running or terminating instances. This method accepts
+    an operation id for running or terminating instances. This method accepts
     a dictionary of parameters and a secret for authentication purposes.
     The dictionary of parameters must include an 'operation_id' parameter
     which is used to lookup calls that have been made to run or terminate
