@@ -632,9 +632,20 @@ installapiserver()
 
     # The activate script fails under `set -u`.
     unset_opt=$(shopt -po nounset)
+    case ${DIST} in
+        wheezy|trusty)
+            # Tornado 5 does not work with Python<2.7.9.
+            tornado_package='tornado<5'
+            ;;
+        *)
+            tornado_package='tornado'
+            ;;
+    esac
+
     set +u
     (source /opt/appscale_api_server/bin/activate && \
      pip install -U pip && \
+     pip install "${tornado_package}" && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}
@@ -653,16 +664,17 @@ prepdashboard()
 upgradepip()
 {
     # Versions older than Pip 7 did not correctly parse install commands for
-    # local packages with optional dependencies.
+    # local packages with optional dependencies. Versions greater than Pip 9
+    # do not allow replacing packages installed by the distro.
     case "$DIST" in
         wheezy|trusty)
-            pipwrapper pip
+            pipwrapper 'pip<10'
             # Account for the change in the path to the pip binary.
             hash -r
             ;;
         jessie)
             # The system's pip does not allow updating itself.
-            easy_install --upgrade pip
+            easy_install --upgrade 'pip<10.0.0b1'
             hash -r
             ;;
     esac

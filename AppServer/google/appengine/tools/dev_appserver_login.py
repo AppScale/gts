@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+
+
 """Helper CGI for logins/logout in the development application server.
 
 This CGI has these parameters:
@@ -43,12 +46,16 @@ EMAIL_PARAM = 'email'
 ADMIN_PARAM = 'admin'
 ACTION_PARAM = 'action'
 
+
 LOGOUT_ACTION = 'Logout'
 LOGIN_ACTION = 'Login'
 
+
 LOGOUT_PARAM = 'action=%s' % LOGOUT_ACTION
 
+
 COOKIE_NAME = 'dev_appserver_login'
+
 
 
 def GetUserInfo(http_cookie, cookie_name=COOKIE_NAME):
@@ -258,4 +265,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-

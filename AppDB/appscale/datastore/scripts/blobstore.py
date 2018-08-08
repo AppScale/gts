@@ -8,6 +8,7 @@ http://blog.doughellmann.com/2009/07/pymotw-urllib2-library-for-opening-urls.htm
 """
 import argparse
 import base64
+import cgi
 import cStringIO
 import datetime
 import gzip
@@ -355,7 +356,12 @@ class UploadHandler(tornado.web.RequestHandler):
         gs_path = '/gs/{}/{}'.format(gcs_bucket_name, filename)
         blob_key = 'encoded_gs_key:' + base64.b64encode(gs_path)
       else:
-        blob_entity = uploadhandler.StoreBlob(file, creation)
+        form_item = cgi.FieldStorage(
+          headers={'content-type': file_content_type})
+        form_item.file = cStringIO.StringIO(body)
+        form_item.filename = filename
+
+        blob_entity = uploadhandler.StoreBlob(form_item, creation)
         blob_key = str(blob_entity.key().name())
 
       if not blob_key: 

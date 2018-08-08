@@ -13,7 +13,8 @@ from tornado import ioloop
 from appscale.datastore import dbconstants, helper_functions
 from appscale.datastore.appscale_datastore_batch import DatastoreFactory
 from appscale.datastore.dbconstants import (
-  AppScaleDBConnectionError, ID_KEY_LENGTH, METADATA_TABLE, TERMINATING_STRING
+  AppScaleDBConnectionError, BadRequest, ID_KEY_LENGTH, ID_SEPARATOR,
+  KEY_DELIMITER, KIND_SEPARATOR, METADATA_TABLE, TERMINATING_STRING
 )
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -252,7 +253,13 @@ def encode_index_pb(pb):
         key_id = e.name()
       elif e.has_id():
         key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-      path.append("{0}:{1}".format(e.type(), key_id))
+      else:
+        raise BadRequest('Entity path must contain name or ID')
+
+      if ID_SEPARATOR in e.type():
+        raise BadRequest('Kind names must not include ":"')
+
+      path.append(ID_SEPARATOR.join([e.type(), key_id]))
     val = dbconstants.KIND_SEPARATOR.join(path)
     val += dbconstants.KIND_SEPARATOR
     return val
@@ -711,3 +718,47 @@ def tornado_synchronous(coroutine):
     finally:
       io_loop.close()
   return synchronous_coroutine
+
+
+def decode_path(encoded_path):
+  """ Parse a Cassandra-encoded reference path.
+
+  Args:
+    encoded_path: A string specifying the encoded path.
+  Returns:
+    An entity_pb.Path object.
+  """
+  path = entity_pb.Path()
+
+  for element in encoded_path.split(dbconstants.KIND_SEPARATOR):
+    # For some reason, encoded keys have a trailing separator, so ignore the
+    # last empty element.
+    if not element:
+      continue
+
+    kind, identifier = element.split(dbconstants.ID_SEPARATOR, 1)
+
+    new_element = path.add_element()
+    new_element.set_type(kind)
+
+    # Encoded paths do not differentiate between IDs and names, so we can only
+    # guess which one it is. IDs often exceed the ID_KEY_LENGTH.
+    if len(identifier) >= ID_KEY_LENGTH and identifier.isdigit():
+      new_element.set_id(int(identifier))
+    else:
+      new_element.set_name(identifier)
+
+  return path
+
+
+def kind_from_encoded_key(encoded_key):
+  """ Extract kind from an encoded reference string.
+
+  Args:
+    encoded_key: A string specifying an encoded entity key.
+  Returns:
+    A string specifying an entity kind.
+  """
+  path_section = encoded_key.rsplit(KEY_DELIMITER, 1)[-1]
+  last_element = path_section.split(KIND_SEPARATOR)[-2]
+  return last_element.split(ID_SEPARATOR, 1)[0]
