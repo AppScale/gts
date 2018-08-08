@@ -34,6 +34,7 @@ from .constants import (
 )
 from .queue import (
   InvalidLeaseRequest,
+  PostgresPullQueue,
   PullQueue,
   PushQueue,
   TransientError
@@ -469,7 +470,7 @@ class DistributedTaskQueue():
       if (add_request.has_mode() and
           add_request.mode() == taskqueue_service_pb.TaskQueueMode.PULL):
         queue = self.get_queue(add_request.app_id(), add_request.queue_name())
-        if not isinstance(queue, PullQueue):
+        if not isinstance(queue, (PullQueue, PostgresPullQueue)):
           task_result.set_result(TaskQueueServiceError.INVALID_QUEUE_MODE)
           error_found = True
 
