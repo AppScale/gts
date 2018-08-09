@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import hmac
 import json
 import re
 import time
@@ -37,8 +38,8 @@ class BaseHandler(web.RequestHandler):
     if not authorization_header and not secret_header:
       message = 'A required header is missing: AppScale-Secret or Authorization'
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=message)
-    if secret_header and self.request.headers['AppScale-Secret'] != \
-        options.secret:
+    if secret_header and not hmac.compare_digest(self.request.headers['AppScale-Secret'],
+                                                 options.secret):
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
     elif authorization_header:
       self.authenticate_access_token(self.request.headers, project_id,
