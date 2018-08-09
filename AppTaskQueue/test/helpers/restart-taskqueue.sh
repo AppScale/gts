@@ -102,7 +102,7 @@ if [ ! -z "${RUNNING_SERVER}" ]; then
     echo "${RUNNING_SERVER}" | awk '{ print $1 }' | xargs kill
 fi
 
-PORTS=$(echo "${PORTS}" | sed "s/,/ /g")
+PORTS="${PORTS//,/ }"
 log "Starting taskqueue servers on ports: ${PORTS}"
 for port in ${PORTS}
 do

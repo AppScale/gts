@@ -82,7 +82,7 @@ log "Installing Postgres"
 attempt=1
 while ! (yes | apt-get install postgresql)
 do
-    if (( ${attempt} > 15 )); then
+    if (( attempt > 15 )); then
         log "Failed to install postgresql after ${attempt} attempts" "ERROR"
         exit 1
     fi

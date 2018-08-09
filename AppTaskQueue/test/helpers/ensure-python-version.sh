@@ -94,7 +94,6 @@ then
     ./configure --prefix="${INSTALLATION_DIR}"
     make
     make install
-    SUFFIX=$(echo ${NEEDED_VERSION} | awk -F '.' '{ print  $1 "." $2 }')
     PYTHON=$(realpath --strip "./python")
     cd ..
 fi
