@@ -5,6 +5,7 @@ This API is not documented, but it is used by the Google Cloud SDK.
 
 import json
 import logging
+import six
 import yaml
 from kazoo.exceptions import NoNodeError
 from yaml.parser import ParserError
@@ -195,7 +196,8 @@ class UpdateIndexesHandler(BaseHandler):
       given_indexes = [DatastoreIndex.from_yaml(index)
                        for index in given_indexes]
     except InvalidConfiguration as error:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=str(error))
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message=six.text_type(error))
 
     indexes_node = '/appscale/projects/{}/indexes'.format(project_id)
     try:

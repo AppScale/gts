@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import six
 import sys
 import time
 
@@ -791,7 +792,8 @@ class VersionsHandler(BaseHandler):
         version['deployment']['zip']['sourceUrl'])
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
     except constants.InvalidSource as error:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=str(error))
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message=six.text_type(error))
 
     new_path = utils.rename_source_archive(project_id, service_id, version)
     version['deployment']['zip']['sourceUrl'] = new_path
@@ -801,7 +803,7 @@ class VersionsHandler(BaseHandler):
     try:
       version = self.put_version(project_id, service_id, version)
     except VersionNotChanged as warning:
-      logger.info(str(warning))
+      logger.info(six.text_type(warning))
       self.stop_hosting_revision(project_id, service_id, version)
       return
     finally:
