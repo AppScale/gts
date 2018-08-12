@@ -145,8 +145,8 @@ CGROUP_DIR = os.path.join('/', 'sys', 'fs', 'cgroup')
 # The default log directory for AppScale services.
 LOG_DIR = os.path.join('/var', 'log', 'appscale')
 
-# The default directory for pidfiles.
-PID_DIR = os.path.join('/', 'var', 'run', 'appscale')
+# The default directory for run-time variable data (eg. pidfiles).
+VAR_DIR = os.path.join('/', 'var', 'run', 'appscale')
 
 # The number of seconds to wait before retrying some operations.
 SMALL_WAIT = 5
