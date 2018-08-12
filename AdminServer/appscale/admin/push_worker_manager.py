@@ -13,12 +13,8 @@ from tornado.options import options
 from appscale.common.async_retrying import (
   retry_children_watch_coroutine, retry_coroutine, retry_data_watch_coroutine
 )
-from appscale.common.constants import (
-  LOG_DIR,
-  MonitStates,
-  PID_DIR,
-  CONFIG_DIR
-)
+from appscale.common.constants import (CONFIG_DIR, LOG_DIR, MonitStates,
+                                       VAR_DIR)
 from appscale.common.monit_app_configuration import create_config_file
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 
@@ -83,7 +79,7 @@ class ProjectPushWorkerManager(object):
     self._write_worker_configuration(queue_config)
     status = yield self._wait_for_stable_state()
 
-    pid_location = os.path.join(PID_DIR, 'celery-{}.pid'.format(self.project_id))
+    pid_location = os.path.join(VAR_DIR, 'celery-{}.pid'.format(self.project_id))
     try:
       with open(pid_location) as pidfile:
         old_pid = int(pidfile.read().strip())
@@ -144,7 +140,7 @@ class ProjectPushWorkerManager(object):
     """ Generates the Celery command for a project's push worker. """
     log_file = os.path.join(CELERY_WORKER_LOG_DIR,
                             '{}.log'.format(self.project_id))
-    pidfile = os.path.join(PID_DIR, 'celery-{}.pid'.format(self.project_id))
+    pidfile = os.path.join(VAR_DIR, 'celery-{}.pid'.format(self.project_id))
     state_db = os.path.join(CELERY_STATE_DIR,
                             'worker___{}.db'.format(self.project_id))
 

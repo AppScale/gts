@@ -12,6 +12,13 @@ import six
 import sys
 import time
 
+try:
+  from urllib import quote as urlquote
+except ImportError:
+  from urllib.parse import quote as urlquote
+
+import requests_unixsocket
+
 from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info
 from appscale.common.constants import (
@@ -36,7 +43,9 @@ from tornado.options import options
 from tornado import web
 from tornado.escape import json_decode
 from tornado.escape import json_encode
+from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
+from tornado.netutil import bind_unix_socket
 from . import utils
 from . import constants
 from .appengine_api import UpdateCronHandler
@@ -61,7 +70,7 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
-from .service_manager import ServiceManager
+from .service_manager import ServiceManager, ServiceManagerHandler
 from .summary import get_combined_services
 
 logger = logging.getLogger('appscale-admin')
@@ -1204,12 +1213,26 @@ def main():
 
   subparsers.add_parser(
     'summary', description='Lists AppScale processes running on this machine')
+  restart_parser = subparsers.add_parser(
+    'restart',
+    description='Restart AppScale processes running on this machine')
+  restart_parser.add_argument('service', nargs='+',
+                              help='The process or service ID to restart')
 
   args = parser.parse_args()
   if args.command == 'summary':
     table = sorted(list(get_combined_services().items()))
     print(tabulate(table, headers=['Service', 'State']))
     sys.exit(0)
+
+  if args.command == 'restart':
+    socket_path = urlquote(ServiceManagerHandler.SOCKET_PATH, safe='')
+    session = requests_unixsocket.Session()
+    response = session.post(
+      'http+unix://{}/'.format(socket_path),
+      data={'command': 'restart', 'arg': [args.service]})
+    response.raise_for_status()
+    return
 
   if args.verbose:
     logger.setLevel(logging.DEBUG)
@@ -1264,5 +1287,12 @@ def main():
   ])
   logger.info('Starting AdminServer')
   app.listen(args.port)
+
+  management_app = web.Application([
+    ('/', ServiceManagerHandler, {'service_manager': service_manager})])
+  management_server = HTTPServer(management_app)
+  management_socket = bind_unix_socket(ServiceManagerHandler.SOCKET_PATH)
+  management_server.add_socket(management_socket)
+
   io_loop = IOLoop.current()
   io_loop.start()

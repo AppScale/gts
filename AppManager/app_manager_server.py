@@ -50,9 +50,7 @@ from appscale.common import (
   monit_interface,
   misc
 )
-from appscale.common.constants import HTTPCodes
-from appscale.common.constants import PID_DIR
-from appscale.common.constants import MonitStates
+from appscale.common.constants import HTTPCodes, MonitStates, VAR_DIR
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
@@ -232,7 +230,7 @@ def ensure_api_server(project_id):
 
   watch = ''.join([API_SERVER_PREFIX, project_id])
   full_watch = '-'.join([watch, str(server_port)])
-  pidfile = os.path.join(PID_DIR, '{}.pid'.format(full_watch))
+  pidfile = os.path.join(VAR_DIR, '{}.pid'.format(full_watch))
   monit_app_configuration.create_config_file(
     watch,
     start_cmd,
