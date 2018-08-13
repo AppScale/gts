@@ -8,6 +8,7 @@ install_requires = [
   'psutil',
   'PyYaml',
   'requests-unixsocket',
+  'six',
   'SOAPpy',
   'tabulate',
   'tornado',
