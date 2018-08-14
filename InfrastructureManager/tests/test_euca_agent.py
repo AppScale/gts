@@ -28,10 +28,11 @@ class TestEucaAgent(TestCase):
     new_reservation = Reservation()
     new_reservation.instances = [instance, new_instance]
     flexmock(EC2Connection).should_receive('get_all_instances').and_return([]) \
-      .and_return([reservation]).and_return([new_reservation])
+      .and_return([reservation]).and_return([reservation]) \
+      .and_return([new_reservation]).and_return([new_reservation])
 
     # first, validate that the run_instances call goes through successfully
-    # and gives the user a reservation id
+    # and gives the user an operation id
     full_params = {
       'credentials': {
         'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
@@ -51,16 +52,16 @@ class TestEucaAgent(TestCase):
     id = '0000000000'  # no longer randomly generated
     full_result = {
       'success': True,
-      'reservation_id': id,
+      'operation_id': id,
       'reason': 'none'
     }
     self.assertEquals(full_result, i.run_instances(full_params, 'secret'))
 
     # next, look at run_instances internally to make sure it actually is
-    # updating its reservation info
-    self.assertEquals(InfrastructureManager.STATE_RUNNING,
-      i.reservations.get(id)['state'])
-    vm_info = i.reservations.get(id)['vm_info']
+    # updating its operation info
+    self.assertEquals(InfrastructureManager.STATE_SUCCESS,
+      i.operation_ids.get(id)['state'])
+    vm_info = i.operation_ids.get(id)['vm_info']
     self.assertEquals(['new-public-ip'], vm_info['public_ips'])
     self.assertEquals(['new-private-ip'],vm_info['private_ips'])
     self.assertEquals(['new-i-id'], vm_info['instance_ids'])

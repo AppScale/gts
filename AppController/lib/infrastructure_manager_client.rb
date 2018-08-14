@@ -51,7 +51,7 @@ class InfrastructureManagerClient
     @conn.options['protocol.http.ssl_config.verify_mode'] = nil
     @conn.add_method('get_queues_in_use', 'secret')
     @conn.add_method('run_instances', 'parameters', 'secret')
-    @conn.add_method('describe_instances', 'parameters', 'secret')
+    @conn.add_method('describe_operation', 'parameters', 'secret')
     @conn.add_method('terminate_instances', 'parameters', 'secret')
     @conn.add_method('attach_disk', 'parameters', 'disk_name', 'instance_id',
       'secret')
@@ -139,12 +139,12 @@ class InfrastructureManagerClient
     }
   end
 
-  def describe_instances(parameters)
-    Djinn.log_debug('Calling describe_instances with parameters ' +
+  def describe_operation(parameters)
+    Djinn.log_debug('Calling describe_operation with parameters ' +
       parameters.inspect.to_s)
 
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'describe_instances') {
-      @conn.describe_instances(parameters.to_json, @secret)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'describe_operation') {
+      @conn.describe_operation(parameters.to_json, @secret)
     }
   end
 
@@ -161,7 +161,20 @@ class InfrastructureManagerClient
       'terminate_instances') {
       @conn.terminate_instances(parameters.to_json, @secret)
     }
-    Djinn.log_debug("Terminate instances says [#{terminate_result}]")
+    Djinn.log_debug("[IM] Terminate instances says [#{terminate_result}]")
+    operation_id = terminate_result['operation_id']
+
+    loop {
+      describe_result = describe_operation('operation_id' => operation_id)
+      Djinn.log_debug("[IM] Describe operation state is #{describe_result['state']}.")
+
+      if describe_result['state'] == 'success'
+        break
+      elsif describe_result['state'] == 'failed'
+        raise AppScaleException.new(describe_result['reason'])
+      end
+      Kernel.sleep(SMALL_WAIT)
+    }
   end
 
   # Create new VMs.
@@ -188,15 +201,15 @@ class InfrastructureManagerClient
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
-    reservation_id = run_result['reservation_id']
+    operation_id = run_result['operation_id']
 
     vm_info = {}
     loop {
-      describe_result = describe_instances('reservation_id' => reservation_id)
-      Djinn.log_debug("[IM] Describe instances state is #{describe_result['state']} " \
+      describe_result = describe_operation('operation_id' => operation_id)
+      Djinn.log_debug("[IM] Describe operation state is #{describe_result['state']} " \
         "and vm_info is #{describe_result['vm_info'].inspect}.")
 
-      if describe_result['state'] == 'running'
+      if describe_result['state'] == 'success'
         vm_info = describe_result['vm_info']
         break
       elsif describe_result['state'] == 'failed'

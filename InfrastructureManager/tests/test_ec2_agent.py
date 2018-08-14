@@ -22,8 +22,7 @@ class TestEC2Agent(TestCase):
   def test_ec2_run_instances(self):
     self.run_instances('ec2', True)
     self.run_instances('ec2', False)
-    e = EC2ResponseError('Error', 'Mock error')
-    e.error_message = 'Mock error'
+    e = AgentRuntimeException('Mock error')
     self.fake_ec2.should_receive('run_instances').and_raise(e)
     self.run_instances('ec2', True, False)
     self.run_instances('ec2', False, False)
@@ -54,11 +53,16 @@ class TestEC2Agent(TestCase):
     reservation.instances = [instance]
     new_reservation = Reservation()
     new_reservation.instances = [instance, new_instance]
-    self.fake_ec2.should_receive('get_all_instances').and_return([]) \
-      .and_return([reservation]).and_return([new_reservation])
+    if success:
+      self.fake_ec2.should_receive('get_all_instances').and_return([]) \
+        .and_return([reservation]).and_return([reservation]) \
+        .and_return([new_reservation]).and_return([new_reservation])
+    else:
+      self.fake_ec2.should_receive('get_all_instances') \
+        .and_return([reservation])
 
     # first, validate that the run_instances call goes through successfully
-    # and gives the user a reservation id
+    # and gives the user a operation id
     full_params = {
       'credentials': {
         'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
@@ -78,32 +82,36 @@ class TestEC2Agent(TestCase):
     id = '0000000000'  # no longer randomly generated
     full_result = {
       'success': True,
-      'reservation_id': id,
+      'operation_id': id,
       'reason': 'none'
     }
+    result = i.run_instances(full_params, 'secret')
     if success:
-      self.assertEquals(full_result, i.run_instances(full_params, 'secret'))
+      self.assertEquals(full_result, result)
 
     # next, look at run_instances internally to make sure it actually is
-    # updating its reservation info
+    # updating its operation info
     if not blocking:
       time.sleep(.1)
     if success:
-      self.assertEquals(InfrastructureManager.STATE_RUNNING,
-        i.reservations.get(id)['state'])
-      vm_info = i.reservations.get(id)['vm_info']
+      self.assertEquals(InfrastructureManager.STATE_SUCCESS,
+        i.operation_ids.get(id)['state'])
+      vm_info = i.operation_ids.get(id)['vm_info']
       self.assertEquals(['new-public-ip'], vm_info['public_ips'])
       self.assertEquals(['new-private-ip'], vm_info['private_ips'])
       self.assertEquals(['new-i-id'], vm_info['instance_ids'])
     else:
       if blocking:
-        self.assertRaises(AgentRuntimeException, i.run_instances, full_params, 'secret')
+        self.assertEquals(InfrastructureManager.STATE_FAILED,
+                          i.operation_ids.get(id)['state'])
+        self.assertEquals(i.operation_ids.get(id)['vm_info'], None)
 
   def terminate_instances(self, prefix, blocking):
     i = InfrastructureManager(blocking=blocking)
 
     params1 = {'infrastructure': prefix}
-    self.assertRaises(AgentConfigurationException, i.terminate_instances, params1, 'secret')
+    result = i.terminate_instances(params1, 'secret')
+    self.assertFalse(result['success'])
 
     params2 = {
       'credentials': {
