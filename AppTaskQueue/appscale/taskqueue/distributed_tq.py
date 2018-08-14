@@ -287,7 +287,7 @@ class DistributedTaskQueue():
 
       stats_response = response.add_queuestats()
 
-      if isinstance(queue, PullQueue):
+      if isinstance(queue, (PullQueue, PostgresPullQueue)):
         num_tasks = queue.total_tasks()
         oldest_eta = queue.oldest_eta()
       else:
