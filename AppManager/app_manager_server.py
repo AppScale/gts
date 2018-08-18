@@ -1,5 +1,6 @@
 """ This service starts and stops application servers of a given application. """
 
+import httplib
 import json
 import logging
 import math
@@ -447,28 +448,42 @@ def setup_logrotate(app_name, log_size):
   return True
 
 
-def unmonitor(process_name, retries=5):
+def unmonitor(process_name, retries=5, csrf_token=None):
   """ Unmonitors a process.
 
   Args:
     process_name: A string specifying the process to stop monitoring.
     retries: An integer specifying the number of times to retry the operation.
+    csrf_token: A string specifying a security token for making API calls.
   """
   client = HTTPClient()
   process_url = '{}/{}'.format(monit_operator.LOCATION, process_name)
-  payload = urllib.urlencode({'action': 'unmonitor'})
+  params = {'action': 'unmonitor'}
+
+  headers = {}
+  if csrf_token is not None:
+    headers['Cookie'] = 'securitytoken={}'.format(csrf_token)
+    params['securitytoken'] = csrf_token
+
   try:
-    client.fetch(process_url, method='POST', body=payload)
+    client.fetch(process_url, method='POST', body=urllib.urlencode(params),
+                 headers=headers)
   except HTTPError as error:
-    if error.code == 404:
+    if error.code == httplib.NOT_FOUND:
       raise ProcessNotFound('{} not listed by Monit'.format(process_name))
 
-    if error.code == 503:
+    if error.code == httplib.FORBIDDEN:
+      # Retrieve CSRF token (introduced in Monit 5.20).
+      response = client.fetch(process_url)
+      csrf_token = re.search('securitytoken=([a-zA-Z0-9]+);',
+                             response.headers['Set-Cookie']).group(1)
+
+    if error.code in (httplib.FORBIDDEN, httplib.SERVICE_UNAVAILABLE):
       retries -= 1
       if retries < 0:
         raise
 
-      return unmonitor(process_name, retries)
+      return unmonitor(process_name, retries, csrf_token)
 
     raise
 

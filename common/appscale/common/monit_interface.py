@@ -1,6 +1,8 @@
 import errno
+import httplib
 import logging
 import os
+import re
 import subprocess
 import time
 import urllib
@@ -202,6 +204,7 @@ class MonitOperator(object):
     self.last_reload = time.time()
     self._async_client = AsyncHTTPClient()
     self._client = HTTPClient()
+    self._csrf_token = None
 
   @gen.coroutine
   def reload(self):
@@ -248,11 +251,25 @@ class MonitOperator(object):
       command: A string specifying the command to send.
     """
     process_url = '{}/{}'.format(self.LOCATION, process_name)
-    payload = urllib.urlencode({'action': command})
+    params = {'action': command}
+
+    headers = {}
+    if self._csrf_token is not None:
+      headers['Cookie'] = 'securitytoken={}'.format(self._csrf_token)
+      params['securitytoken'] = self._csrf_token
+
     try:
-      yield self._async_client.fetch(process_url, method='POST', body=payload)
+      yield self._async_client.fetch(
+        process_url, method='POST', body=urllib.urlencode(params),
+        headers=headers)
     except HTTPError as error:
-      if error.code == 404:
+      if error.code == httplib.FORBIDDEN:
+        # Retrieve CSRF token (introduced in Monit 5.20).
+        response = yield self._async_client.fetch(process_url)
+        self._csrf_token = re.search('securitytoken=([a-zA-Z0-9]+);',
+                                     response.headers['Set-Cookie']).group(1)
+
+      if error.code == httplib.NOT_FOUND:
         raise ProcessNotFound('{} is not monitored'.format(process_name))
       raise
 
