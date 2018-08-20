@@ -3,6 +3,7 @@ import httplib
 import logging
 import os
 import re
+import socket
 import subprocess
 import time
 import urllib
@@ -38,6 +39,11 @@ RETRYING_TIMEOUT = 60
 
 class ProcessNotFound(Exception):
   """ Indicates that Monit has no entry for a process. """
+  pass
+
+
+class MonitUnavailable(Exception):
+  """ Indicates that Monit is not currently accepting commands. """
   pass
 
 
@@ -272,6 +278,52 @@ class MonitOperator(object):
       if error.code == httplib.NOT_FOUND:
         raise ProcessNotFound('{} is not monitored'.format(process_name))
       raise
+
+  def send_command_sync(self, process_name, command, new_token=False):
+    """ Sends a command to the Monit API.
+
+    Args:
+      process_name: A string specifying a monit watch.
+      command: A string specifying the command to send.
+      new_token: A boolean indicating whether or not a new CSRF token was
+        recently obtained.
+    Raises:
+      ProcessNotFound if Monit cannot find the specified process_name.
+      MonitUnavailable if Monit is not accepting commands.
+    """
+    process_url = '/'.join([self.LOCATION, process_name])
+    params = {'action': command}
+
+    headers = {}
+    if self._csrf_token is not None:
+      headers['Cookie'] = 'securitytoken={}'.format(self._csrf_token)
+      params['securitytoken'] = self._csrf_token
+
+    try:
+      self._client.fetch(
+        process_url, method='POST', body=urllib.urlencode(params),
+        headers=headers)
+    except HTTPError as error:
+      if error.code == httplib.FORBIDDEN:
+        # Prevent infinite loop if new token did not resolve 403.
+        if new_token:
+          raise
+
+        # Retrieve CSRF token (introduced in Monit 5.20).
+        response = self._client.fetch(process_url)
+        self._csrf_token = re.search('securitytoken=([a-zA-Z0-9]+);',
+                                     response.headers['Set-Cookie']).group(1)
+        return self.send_command_sync(process_name, command, new_token=True)
+
+      if error.code == httplib.NOT_FOUND:
+        raise ProcessNotFound('{} is not monitored'.format(process_name))
+
+      if error.code == httplib.SERVICE_UNAVAILABLE:
+        raise MonitUnavailable('Monit is not currently available')
+
+      raise
+    except socket.error:
+      raise MonitUnavailable('Monit is not currently available')
 
   @gen.coroutine
   def wait_for_status(self, process_name, acceptable_states):

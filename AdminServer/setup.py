@@ -41,6 +41,8 @@ setup(
   entry_points={'console_scripts': [
     'appscale-admin=appscale.admin:main',
     'appscale-stop-instance=appscale.admin.instance_manager.stop_instance:main',
-    'appscale-stop-services=appscale.admin.stop_services:main'
+    'appscale-stop-services=appscale.admin.stop_services:main',
+    'appscale-stop-service=appscale.admin.stop_services:stop_service',
+    'appscale-start-service=appscale.admin.stop_services:start_service'
   ]}
 )
