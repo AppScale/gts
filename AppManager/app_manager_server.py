@@ -1,6 +1,5 @@
 """ This service starts and stops application servers of a given application. """
 
-import httplib
 import json
 import logging
 import math
