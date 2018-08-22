@@ -4467,7 +4467,7 @@ HOSTS
   end
 
   def stop_memcache
-    MonitInterface.stop(:memcached)
+    MonitInterface.stop(:memcached) if MonitInterface.is_running?(:memcached)
   end
 
   def start_ejabberd
@@ -6019,7 +6019,7 @@ HOSTS
   #   app: The application ID whose XMPPReceiver we should shut down.
   def stop_xmpp_for_app(app)
     Djinn.log_info("Shutting down xmpp receiver for app: #{app}")
-    MonitInterface.stop("xmpp-#{app}")
+    MonitInterface.stop("xmpp-#{app}") if MonitInterface.is_running?("xmpp-#{app}")
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
   end
 
