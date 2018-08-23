@@ -201,9 +201,10 @@ def restore_data(path, keyname, force=False):
     status = utils.monit_status(summary, CASSANDRA_MONIT_WATCH_NAME)
     retries = SERVICE_RETRIES
     while status != MonitStates.UNMONITORED:
-      appscale_utils.ssh(db_ip, keyname,
-                         'monit stop {}'.format(CASSANDRA_MONIT_WATCH_NAME),
-                         method=subprocess.call)
+      appscale_utils.ssh(
+        db_ip, keyname,
+        'appscale-stop-service {}'.format(CASSANDRA_MONIT_WATCH_NAME),
+        method=subprocess.call)
       time.sleep(3)
       summary = appscale_utils.ssh(db_ip, keyname, 'monit summary',
                                    method=subprocess.check_output)
@@ -229,9 +230,10 @@ def restore_data(path, keyname, force=False):
     retries = SERVICE_RETRIES
     status = MonitStates.UNMONITORED
     while status != MonitStates.RUNNING:
-      appscale_utils.ssh(db_ip, keyname,
-                         'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME),
-                         method=subprocess.call)
+      appscale_utils.ssh(
+        db_ip, keyname,
+        'appscale-start-service {}'.format(CASSANDRA_MONIT_WATCH_NAME),
+        method=subprocess.call)
       time.sleep(3)
       summary = appscale_utils.ssh(db_ip, keyname, 'monit summary',
                                    method=subprocess.check_output)
@@ -240,8 +242,9 @@ def restore_data(path, keyname, force=False):
       if retries < 0:
         raise BRException('Unable to start Cassandra')
 
-    appscale_utils.ssh(db_ip, keyname,
-                       'monit start {}'.format(CASSANDRA_MONIT_WATCH_NAME))
+    appscale_utils.ssh(
+      db_ip, keyname,
+      'appscale-start-service {}'.format(CASSANDRA_MONIT_WATCH_NAME))
 
   logging.info('Waiting for Cassandra cluster to be ready')
   db_ip = db_ips[0]

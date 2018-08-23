@@ -1,11 +1,13 @@
 """ Tries to stop all Monit services until they are stopped. """
+import argparse
 import logging
 import socket
-import subprocess
 import time
 
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.monit_interface import MonitOperator, MonitStates
+from appscale.common.monit_interface import (MonitOperator, MonitStates,
+                                             MonitUnavailable)
+from appscale.common.retrying import retry
 
 
 def order_services(running_services):
@@ -63,6 +65,30 @@ def order_services(running_services):
   return ordered_services, running_services
 
 
+def start_service():
+  """ Starts a service using the Monit HTTP API. """
+  parser = argparse.ArgumentParser()
+  parser.add_argument('service', help='The service to start')
+  args = parser.parse_args()
+
+  monit_operator = MonitOperator()
+  monit_retry = retry(max_retries=5, retry_on_exception=MonitUnavailable)
+  send_w_retries = monit_retry(monit_operator.send_command_sync)
+  send_w_retries(args.service, 'start')
+
+
+def stop_service():
+  """ Stops a service using the Monit HTTP API. """
+  parser = argparse.ArgumentParser()
+  parser.add_argument('service', help='The service to stop')
+  args = parser.parse_args()
+
+  monit_operator = MonitOperator()
+  monit_retry = retry(max_retries=5, retry_on_exception=MonitUnavailable)
+  send_w_retries = monit_retry(monit_operator.send_command_sync)
+  send_w_retries(args.service, 'stop')
+
+
 def main():
   """ Tries to stop all Monit services until they are stopped. """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
@@ -97,7 +123,10 @@ def main():
       ordered_services = ordered_services + unrecognized_services
       service = next((service for service in ordered_services
                       if services[service] != MonitStates.PENDING))
-      subprocess.Popen(['monit', 'stop', service])
+
+      monit_retry = retry(max_retries=5, retry_on_exception=MonitUnavailable)
+      send_w_retries = monit_retry(monit_operator.send_command_sync)
+      send_w_retries(service, 'stop')
     except StopIteration:
       # If all running services are pending, just wait until they are not.
       pass
