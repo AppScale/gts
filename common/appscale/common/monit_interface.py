@@ -277,6 +277,8 @@ class MonitOperator(object):
         # Retrieve CSRF token (introduced in Monit 5.20).
         response = yield self._async_client.fetch(process_url)
         self._csrf_token = self._parse_security_token(response)
+        if self._csrf_token is None:
+          raise
 
       if error.code == httplib.NOT_FOUND:
         raise ProcessNotFound('{} is not monitored'.format(process_name))
@@ -315,6 +317,9 @@ class MonitOperator(object):
         # Retrieve CSRF token (introduced in Monit 5.20).
         response = self._client.fetch(process_url)
         self._csrf_token = self._parse_security_token(response)
+        if self._csrf_token is None:
+          raise
+
         return self.send_command_sync(process_name, command, new_token=True)
 
       if error.code == httplib.NOT_FOUND:
@@ -418,7 +423,10 @@ class MonitOperator(object):
     Args:
       A tornado.httpclient.HTTPResponse object.
     Returns:
-      A string containing the security token.
+      A string containing the security token or None.
     """
-    cookie = SimpleCookie(http_response.headers['Set-Cookie'])
-    return cookie['securitytoken'].value
+    try:
+      cookie = SimpleCookie(http_response.headers['Set-Cookie'])
+      return cookie['securitytoken'].value
+    except KeyError:
+      return None
