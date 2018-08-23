@@ -420,5 +420,5 @@ class MonitOperator(object):
     Returns:
       A string containing the security token.
     """
-    cookie = SimpleCookie(http_response['Set-Cookie'])
+    cookie = SimpleCookie(http_response.headers['Set-Cookie'])
     return cookie['securitytoken'].value
