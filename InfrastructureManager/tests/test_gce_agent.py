@@ -35,9 +35,9 @@ class TestGCEAgent(TestCase):
     os.path.should_receive('exists').with_args(
       GCEAgent.OAUTH2_STORAGE_LOCATION).and_return(True)
 
-    self.reservation_id = '00000000'
+    self.operation_id = '00000000'
     flexmock(utils).should_receive('get_random_alphanumeric').and_return(
-      self.reservation_id)
+      self.operation_id)
 
     self.params = {
       'credentials' : {
@@ -131,13 +131,17 @@ class TestGCEAgent(TestCase):
 
     fake_list_instance_request = flexmock(name='fake_list_instance_request')
     fake_list_instance_request.should_receive('execute').with_args(
-      http=fake_authorized_http).and_return(no_instance_info).and_return(list_instance_info)
+      http=fake_authorized_http).and_return(no_instance_info)\
+      .and_return(no_instance_info)\
+      .and_return(list_instance_info)
 
     fake_instances = flexmock(name='fake_instances')
     fake_gce = flexmock(name='fake_gce')
-    fake_gce.should_receive('instances').and_return(fake_instances)
+    fake_gce.should_receive('instances').and_return(fake_instances)\
+      .and_return(fake_instances).and_return(fake_instances)
     fake_instances.should_receive('list').with_args(project=self.project,
       filter="name eq boogroup-.*", zone='my-zone-1b') \
+      .and_return(fake_list_instance_request)\
       .and_return(fake_list_instance_request)
 
     # we only need to create one node, so set up mocks for that
@@ -203,19 +207,19 @@ class TestGCEAgent(TestCase):
     i = InfrastructureManager(blocking=True)
 
     # first, validate that the run_instances call goes through successfully
-    # and gives the user a reservation id
+    # and gives the user an operation id
     full_result = {
       'success': True,
-      'reservation_id': self.reservation_id,
+      i.PARAM_OPERATION_ID: self.operation_id,
       'reason': 'none'
     }
     self.assertEquals(full_result, i.run_instances(self.params, 'secret'))
 
     # next, look at run_instances internally to make sure it actually is
-    # updating its reservation info
-    self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations.get(
-      self.reservation_id)['state'])
-    vm_info = i.reservations.get(self.reservation_id)['vm_info']
+    # updating its operation id info
+    self.assertEquals(InfrastructureManager.STATE_SUCCESS, i.operation_ids.get(
+      self.operation_id)['state'])
+    vm_info = i.operation_ids.get(self.operation_id)['vm_info']
     self.assertEquals(['public-ip'], vm_info['public_ips'])
     self.assertEquals(['private-ip'], vm_info['private_ips'])
     self.assertEquals([instance_id], vm_info['instance_ids'])

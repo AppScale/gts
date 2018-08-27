@@ -14,7 +14,7 @@ from appscale.api_server.app_identity import AppIdentityService
 from appscale.api_server.base_service import BaseService
 from appscale.api_server.constants import ApplicationError
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.constants import PID_DIR
+from appscale.common.constants import VAR_DIR
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 
 logger = logging.getLogger('appscale-api-server')
@@ -69,7 +69,7 @@ def main():
     args = parser.parse_args()
 
     pidfile_location = os.path.join(
-        PID_DIR, 'api-server_{}-{}.pid'.format(args.project_id, args.port))
+        VAR_DIR, 'api-server_{}-{}.pid'.format(args.project_id, args.port))
     with open(pidfile_location, 'w') as pidfile:
         pidfile.write(str(os.getpid()))
 

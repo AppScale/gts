@@ -113,7 +113,7 @@ CONFIG
     while running
       if stop
         Djinn.log_info("stop_monitoring: stopping service #{watch}.")
-        run_cmd("#{MONIT} stop -g #{watch}")
+        run_cmd("appscale-stop-service #{watch}")
       else
         Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
         run_cmd("#{MONIT} unmonitor -g #{watch}")
