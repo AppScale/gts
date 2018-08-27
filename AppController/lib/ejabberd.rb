@@ -33,7 +33,7 @@ module Ejabberd
   end
 
   def self.stop
-    MonitInterface.stop(:ejabberd)
+    MonitInterface.stop(:ejabberd) if MonitInterface.is_running?(:ejabberd)
   end
 
   def self.clear_online_users
