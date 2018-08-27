@@ -5,21 +5,27 @@ import json
 import logging
 import os
 import psutil
+import re
 import socket
 import subprocess
 import time
 
 from psutil import NoSuchProcess
-from tornado import gen
+from tornado import gen, web
 from tornado.httpclient import AsyncHTTPClient
 from tornado.ioloop import IOLoop, PeriodicCallback
+from tornado.locks import Lock as AsyncLock
 from tornado.options import options
 
 from appscale.common.async_retrying import retry_data_watch_coroutine
-from appscale.common.constants import ASSIGNMENTS_PATH, CGROUP_DIR, LOG_DIR
+from appscale.common.constants import (ASSIGNMENTS_PATH, CGROUP_DIR, HTTPCodes,
+                                       LOG_DIR, VAR_DIR)
 
 # The cgroup used to start datastore server processes.
 DATASTORE_CGROUP = ['memory', 'appscale-datastore']
+
+# The characters allowed in a service identifier (eg. datastore)
+SERVICE_ID_CHARS = '[a-z_]'
 
 logger = logging.getLogger('appscale-admin')
 
@@ -37,6 +43,11 @@ class ServerStates(object):
   STARTING = 'starting'
   STOPPED = 'stopped'
   STOPPING = 'stopping'
+
+
+class BadRequest(Exception):
+  """ Indicates a problem with the client request. """
+  pass
 
 
 class ProcessStopped(Exception):
@@ -66,6 +77,14 @@ class Server(object):
     self.process = None
     self.state = ServerStates.NEW
     self.type = service_type
+
+  @gen.coroutine
+  def ensure_running(self):
+    raise NotImplementedError()
+
+  @gen.coroutine
+  def restart(self):
+    raise NotImplementedError()
 
   @gen.coroutine
   def start(self):
@@ -113,10 +132,14 @@ class DatastoreServer(Server):
     self._stdout = None
     self._verbose = verbose
 
+    # Serializes start, stop, and monitor operations.
+    self._management_lock = AsyncLock()
+
   @gen.coroutine
   def ensure_running(self):
     """ Checks to make sure the server is still running. """
-    yield self._wait_for_service(timeout=self.STATUS_TIMEOUT)
+    with (yield self._management_lock.acquire()):
+      yield self._wait_for_service(timeout=self.STATUS_TIMEOUT)
 
   @staticmethod
   def from_pid(pid, http_client):
@@ -136,41 +159,46 @@ class DatastoreServer(Server):
     return server
 
   @gen.coroutine
+  def restart(self):
+    yield self.stop()
+    yield self.start()
+
+  @gen.coroutine
   def start(self):
     """ Starts a new datastore server. """
-    if self.state in (ServerStates.STARTING, ServerStates.RUNNING):
-      return
+    with (yield self._management_lock.acquire()):
+      if self.state == ServerStates.RUNNING:
+        return
 
-    self.state = ServerStates.STARTING
-    start_cmd = ['appscale-datastore',
-                 '--type', self.DATASTORE_TYPE,
-                 '--port', str(self.port)]
-    if self._verbose:
-      start_cmd.append('--verbose')
+      self.state = ServerStates.STARTING
+      start_cmd = ['appscale-datastore',
+                   '--type', self.DATASTORE_TYPE,
+                   '--port', str(self.port)]
+      if self._verbose:
+        start_cmd.append('--verbose')
 
-    log_file = os.path.join(LOG_DIR,
-                            'datastore_server-{}.log'.format(self.port))
-    self._stdout = open(log_file, 'a')
-    self.process = psutil.Popen(
-      ['cgexec', '-g', ':'.join(DATASTORE_CGROUP)] + start_cmd,
-      stdout=self._stdout, stderr=subprocess.STDOUT)
+      log_file = os.path.join(LOG_DIR,
+                              'datastore_server-{}.log'.format(self.port))
+      self._stdout = open(log_file, 'a')
+      self.process = psutil.Popen(
+        ['cgexec', '-g', ':'.join(DATASTORE_CGROUP)] + start_cmd,
+        stdout=self._stdout, stderr=subprocess.STDOUT)
 
-    # Wait for server to bind to port before making HTTP requests.
-    yield gen.sleep(1)
-    yield self._wait_for_service(timeout=self.START_TIMEOUT)
-    self.state = ServerStates.RUNNING
+      yield self._wait_for_service(timeout=self.START_TIMEOUT)
+      self.state = ServerStates.RUNNING
 
   @gen.coroutine
   def stop(self):
     """ Stops an existing datastore server. """
-    if self.state in (ServerStates.STOPPING, ServerStates.STOPPED):
-      return
+    with (yield self._management_lock.acquire()):
+      if self.state == ServerStates.STOPPED:
+        return
 
-    self.state = ServerStates.STOPPING
-    try:
-      self._cleanup()
-    finally:
-      self.state = ServerStates.STOPPED
+      self.state = ServerStates.STOPPING
+      try:
+        yield self._cleanup()
+      finally:
+        self.state = ServerStates.STOPPED
 
   @gen.coroutine
   def _cleanup(self):
@@ -315,6 +343,28 @@ class ServiceManager(object):
                      self.GROOMING_INTERVAL * 1000).start()
 
   @gen.coroutine
+  def restart_service(self, service_id):
+    if service_id not in self.SERVICE_MAP:
+      raise BadRequest('Unrecognized service: {}'.format(service_id))
+
+    logger.info('Restarting {} servers'.format(service_id))
+    yield [server.restart() for server in self.state
+           if server.type == service_id]
+
+  @gen.coroutine
+  def restart_server(self, service_id, port):
+    if service_id not in self.SERVICE_MAP:
+      raise BadRequest('Unrecognized service: {}'.format(service_id))
+
+    try:
+      server = next(server for server in self.state
+                    if server.type == service_id and server.port == port)
+    except StopIteration:
+      raise BadRequest('Server not found')
+
+    yield server.restart()
+
+  @gen.coroutine
   def _groom_servers(self):
     """ Forgets about outdated servers and fulfills assignments. """
     def outdated(server):
@@ -408,3 +458,51 @@ class ServiceManager(object):
     assignments = json.loads(encoded_assignments) if encoded_assignments else {}
 
     IOLoop.instance().add_callback(persistent_update_services, assignments)
+
+
+class ServiceManagerHandler(web.RequestHandler):
+  # The unix socket to use for receiving management requests.
+  SOCKET_PATH = os.path.join(VAR_DIR, 'service_manager.sock')
+
+  # An expression that matches server instances.
+  SERVER_RE = re.compile(r'^({}+)-(\d+)$'.format(SERVICE_ID_CHARS))
+
+  # An expression that matches service IDs.
+  SERVICE_RE = re.compile('^{}+$'.format(SERVICE_ID_CHARS))
+
+  def initialize(self, service_manager):
+    """ Defines required resources to handle requests.
+
+    Args:
+      service_manager: A ServiceManager object.
+    """
+    self._service_manager = service_manager
+
+  @gen.coroutine
+  def post(self):
+    command = self.get_argument('command')
+    if command != 'restart':
+      raise web.HTTPError(HTTPCodes.BAD_REQUEST,
+                          '"restart" is the only supported command')
+
+    args = self.get_arguments('arg')
+    for arg in args:
+      match = self.SERVER_RE.match(arg)
+      if match:
+        service_id = match.group(1)
+        port = int(match.group(2))
+        try:
+          yield self._service_manager.restart_server(service_id, port)
+          return
+        except BadRequest as error:
+          raise web.HTTPError(HTTPCodes.BAD_REQUEST, str(error))
+
+      if self.SERVICE_RE.match(arg):
+        try:
+          yield self._service_manager.restart_service(arg)
+          return
+        except BadRequest as error:
+          raise web.HTTPError(HTTPCodes.BAD_REQUEST, str(error))
+
+      raise web.HTTPError(HTTPCodes.BAD_REQUEST,
+                          'Unrecognized argument: {}'.format(arg))

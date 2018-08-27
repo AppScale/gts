@@ -35,6 +35,9 @@ handlers:
 - url: /download-logs
   static_dir: static/download-logs
 
+- url: /healthprobe
+  script: health_probe.app
+  
 - url: /.*
   script: dashboard.app
   secure: always
