@@ -52,11 +52,11 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
-        'reservation_id' => "0000000000",
+        'operation_id' => "0000000000",
         'reason' => 'none'
       })
 
-      # Let's say that the describe_instances request shows the machines
+      # Let's say that the describe_operation request shows the machines
       # not ready the first time, and then ready on all other times
       first_result = {
         'success' => true,
@@ -68,7 +68,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       second_result = {
         'success' => true,
         'reason' => 'received run request',
-        'state' => 'running',
+        'state' => 'success',
         'vm_info' => {
           'public_ips' => ['public-ip'],
           'private_ips' => ['private-ip'],
@@ -77,8 +77,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         }
       }
 
-      instance.should_receive(:describe_instances).with({
-        'reservation_id' => "0000000000"
+      instance.should_receive(:describe_operation).with({
+        'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
 
@@ -101,7 +101,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'region' => 'my-zone-1',
       'zone' => 'my-zone-1b'
     }
-  
+
     expected = [{
       "public_ip" => "public-ip",
       "private_ip" => "private-ip",
@@ -148,11 +148,11 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
-        'reservation_id' => "0000000000",
+        'operation_id' => "0000000000",
         'reason' => 'none'
       })
 
-      # Let's say that the describe_instances request shows the machines
+      # Let's say that the describe_operation request shows the machines
       # not ready the first time, and then ready on all other times
       first_result = {
         'success' => true,
@@ -164,7 +164,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       second_result = {
         'success' => true,
         'reason' => 'received run request',
-        'state' => 'running',
+        'state' => 'success',
         'vm_info' => {
           'public_ips' => ['public-ip1', 'public-ip2', 'public-ip3'],
           'private_ips' => ['private-ip1', 'private-ip2', 'private-ip3'],
@@ -173,8 +173,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         }
       }
 
-      instance.should_receive(:describe_instances).with({
-        'reservation_id' => "0000000000"
+      instance.should_receive(:describe_operation).with({
+        'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
 
@@ -198,7 +198,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'autoscale_agent' => true,
       'IS_VERBOSE' => nil
     }
-  
+
     expected = [{
       'public_ip' => 'public-ip1',
       'private_ip' => 'private-ip1',
@@ -260,11 +260,11 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'IS_VERBOSE' => nil
       }).and_return({
         'success' => true,
-        'reservation_id' => "0000000000",
+        'operation_id' => "0000000000",
         'reason' => 'none'
       })
 
-      # Let's say that the describe_instances request shows the machines
+      # Let's say that the describe_operation request shows the machines
       # not ready the first time, and then ready on all other times
       first_result = {
         'success' => true,
@@ -276,7 +276,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       second_result = {
         'success' => true,
         'reason' => 'received run request',
-        'state' => 'running',
+        'state' => 'success',
         'vm_info' => {
           'public_ips' => ['public-ip1', 'public-ip2', 'public-ip3'],
           'private_ips' => ['private-ip1', 'private-ip2', 'private-ip3'],
@@ -285,8 +285,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         }
       }
 
-      instance.should_receive(:describe_instances).with({
-        'reservation_id' => "0000000000"
+      instance.should_receive(:describe_operation).with({
+        'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
 
@@ -369,11 +369,11 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'IS_VERBOSE' => nil
       }).and_return({
           'success' => true,
-          'reservation_id' => "0000000000",
+          'operation_id' => "0000000000",
           'reason' => 'none'
       })
 
-      # Let's say that the describe_instances request shows the machines
+      # Let's say that the describe_operation request shows the machines
       # not ready the first time, and then ready on all other times
       first_result = {
         'success' => true,
@@ -385,7 +385,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       second_result = {
         'success' => true,
         'reason' => 'received run request',
-        'state' => 'running',
+        'state' => 'success',
         'vm_info' => {
           'public_ips' => ['public_ip'],
           'private_ips' => ['private_ip'],
@@ -394,8 +394,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         }
       }
 
-      instance.should_receive(:describe_instances).with({
-        'reservation_id' => "0000000000"
+      instance.should_receive(:describe_operation).with({
+        'operation_id' => "0000000000"
       }).and_return(first_result, second_result)
     }
 

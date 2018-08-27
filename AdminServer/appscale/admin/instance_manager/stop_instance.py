@@ -5,7 +5,7 @@ import os
 import psutil
 import signal
 
-from appscale.common.constants import PID_DIR
+from appscale.common.constants import VAR_DIR
 
 # The number of seconds to wait for an instance to terminate.
 DEFAULT_WAIT_TIME = 20
@@ -23,7 +23,7 @@ def stop_instance(watch, timeout, force=False):
     IOError if the pidfile does not exist.
     OSError if the process does not exist.
   """
-  pidfile_location = os.path.join(PID_DIR, '{}.pid'.format(watch))
+  pidfile_location = os.path.join(VAR_DIR, '{}.pid'.format(watch))
   with open(pidfile_location) as pidfile:
     pid = int(pidfile.read().strip())
 
