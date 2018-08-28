@@ -473,6 +473,7 @@ class DistributedTaskQueue():
         if not isinstance(queue, (PullQueue, PostgresPullQueue)):
           task_result.set_result(TaskQueueServiceError.INVALID_QUEUE_MODE)
           error_found = True
+          continue
 
         encoded_payload = base64.urlsafe_b64encode(add_request.body())
         task_info = {'payloadBase64': encoded_payload,
