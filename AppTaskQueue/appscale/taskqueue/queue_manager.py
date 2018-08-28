@@ -105,9 +105,11 @@ class ProjectQueueManager(dict):
                                             self._update_queues_watch)
 
   def stop(self):
-    """ Close the Celery connections if they still exist. """
+    """ Close the Celery and Postgres connections if they still exist. """
     if self.celery is not None:
       self.celery.close()
+    if self.pg_connection is not None:
+      self.pg_connection.close()
 
   def _update_queues_watch(self, queue_config, _):
     """ Handles updates to a queue configuration node.
