@@ -5,6 +5,7 @@ import sys
 import time
 
 import random
+import socket
 
 from appscale.common import appscale_info
 from tornado import gen, httpclient
@@ -112,21 +113,15 @@ class ClusterStatsSource(object):
     )
     async_client = httpclient.AsyncHTTPClient()
 
-    # Send Future object to coroutine and suspend till result is ready
-    response = yield async_client.fetch(request, raise_error=False)
-    if response.code >= 400:
-      if response.body:
-        logging.error(
-          u"Failed to get stats from {url} ({code} {reason}, BODY: {body})"
-          .format(url=url, code=response.code, reason=response.reason,
-                  body=response.body)
-        )
-      else:
-        logging.error(
-          u"Failed to get stats from {url} ({code} {reason})"
-          .format(url=url, code=response.code, reason=response.reason)
-        )
-      raise gen.Return(u"{} {}".format(response.code, response.reason))
+    try:
+      # Send Future object to coroutine and suspend till result is ready
+      response = yield async_client.fetch(request)
+    except (socket.error, httpclient.HTTPError) as err:
+      msg = u"Failed to get stats from {url} ({err})".format(url=url, err=err)
+      if hasattr(err, 'response') and err.response and err.response.body:
+        msg += u"\nBODY: {body}".format(body=err.response.body)
+      logging.error(msg)
+      raise gen.Return(unicode(err))
 
     try:
       snapshot = json.loads(response.body)

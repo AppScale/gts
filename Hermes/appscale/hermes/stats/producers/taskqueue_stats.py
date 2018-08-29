@@ -8,6 +8,8 @@ import collections
 import sys
 
 import time
+
+import socket
 from tornado import gen, httpclient
 
 from appscale.hermes.stats.converter import include_list_name, Meta
@@ -95,24 +97,15 @@ class TaskqueueStatsSource(object):
     )
     async_client = httpclient.AsyncHTTPClient()
 
-    # Send Future object to coroutine and suspend till result is ready
-    response = yield async_client.fetch(request, raise_error=False)
-    if response.code >= 400:
-      if response.body:
-        logging.error(
-          "Failed to get stats from {url} ({code} {reason}, BODY: {body})"
-          .format(url=url, code=response.code, reason=response.reason,
-                  body=response.body)
-        )
-      else:
-        logging.error(
-          "Failed to get stats from {url} ({code} {reason})"
-          .format(url=url, code=response.code, reason=response.reason)
-        )
-      failure = FailureSnapshot(
-        ip_port=ip_port,
-        error="{} {}".format(response.code, response.reason)
-      )
+    try:
+      # Send Future object to coroutine and suspend till result is ready
+      response = yield async_client.fetch(request)
+    except (socket.error, httpclient.HTTPError) as err:
+      msg = u"Failed to get stats from {url} ({err})".format(url=url, err=err)
+      if hasattr(err, 'response') and err.response and err.response.body:
+        msg += u"\nBODY: {body}".format(body=err.response.body)
+      logging.error(msg)
+      failure = FailureSnapshot(ip_port=ip_port, error=unicode(err))
       raise gen.Return(failure)
 
     try:

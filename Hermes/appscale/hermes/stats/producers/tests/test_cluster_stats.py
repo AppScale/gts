@@ -2,7 +2,7 @@ import json
 import os
 
 from mock import patch, MagicMock
-from tornado import testing, gen
+from tornado import testing, gen, httpclient
 
 from appscale.hermes.stats import converter
 from appscale.hermes.stats.converter import IncludeLists
@@ -95,9 +95,9 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     # Mock local source
     mock_get_current.return_value = stats_test_data['192.168.33.10']
     # Mock AsyncHTTPClient.fetch using raw stats dictionaries from test data
-    response = MagicMock(code=500, reason="Timeout error")
+    failure = httpclient.HTTPError(500, "Timeout error")
     future_response = gen.Future()
-    future_response.set_result(response)
+    future_response.set_exception(failure)
     mock_fetch.return_value = future_response
 
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
@@ -118,7 +118,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     self.assertNotIn('192.168.33.11', stats)
     self.assertIsInstance(local_stats, node_stats.NodeStatsSnapshot)
     self.assertEqual(local_stats.utc_timestamp, 1494248091.0)
-    self.assertEqual(failures, {'192.168.33.11': '500 Timeout error'})
+    self.assertEqual(failures, {'192.168.33.11': 'HTTP 500: Timeout error'})
 
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
   @patch.object(cluster_stats.cluster_nodes_stats, 'ips_getter')
