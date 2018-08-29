@@ -89,7 +89,7 @@ if [ ! -z ${TQ_SOURCE_DIR} ]; then
 fi
 
 log "Filling /etc/appscale/* files with addresses of required services"
-echo ${DB_IP} > /etc/appscale/master
+echo ${DB_IP} > /etc/appscale/masters
 echo ${DB_IP} > /etc/appscale/slaves
 echo "{\"locations\":[\"${ZK_IP}\"]}" > /etc/appscale/zookeeper_locations.json
 echo ${LB_IP} > /etc/appscale/load_balancer_ips
@@ -106,11 +106,22 @@ PORTS="${PORTS//,/ }"
 log "Starting taskqueue servers on ports: ${PORTS}"
 for port in ${PORTS}
 do
-  nohup appscale-taskqueue -p "${port}" --verbose > "/var/log/appscale/taskqueue-${port}.log" 2>&1 &
+    nohup appscale-taskqueue -p "${port}" --verbose > "/var/log/appscale/taskqueue-${port}.log" 2>&1 &
 done
 
 log "Ensuring servers are running"
+tq_wait_start=$(date +%s)
 for port in ${PORTS}
 do
-  while ! curl localhost:${port}; do sleep 1; done
+    while ! curl localhost:${port}
+    do
+        current_time=$(date +%s)
+        elapsed_time=$((current_time - tq_wait_start))
+        if [ "${elapsed_time}" -gt 60 ]
+        then
+            log "Timed out waiting for TQ to start" "ERROR"
+            exit 1
+        fi
+        sleep 1
+    done
 done

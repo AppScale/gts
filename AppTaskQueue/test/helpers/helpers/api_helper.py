@@ -7,10 +7,17 @@ import attr
 from helpers import taskqueue_service_pb2, remote_api_pb2
 
 
-def sync_version(method):
+def sync_version(async_coroutine):
+  """ Decorates asyncio coroutine in order to make it synchronous.
+
+  Args:
+    async_coroutine: asyncio coroutine to wrap.
+  Returns:
+    Synchronous version of the method.
+  """
   def sync(*args, **kwargs):
     event_loop = asyncio.get_event_loop()
-    result = event_loop.run_until_complete(method(*args, **kwargs))
+    result = event_loop.run_until_complete(async_coroutine(*args, **kwargs))
     return result
   return sync
 
@@ -19,9 +26,9 @@ class TaskQueueError(Exception):
   pass
 
 
-class RESTError(TaskQueueError):
-  def __init__(self, msg, status, reason, body):
-    super().__init__(msg)
+class HTTPError(TaskQueueError):
+  def __init__(self, status, reason, body):
+    super().__init__(f'HTTP {status}: {reason}\n{body}')
     self.status = status
     self.reason = reason
     self.body = body
@@ -95,8 +102,7 @@ class TaskQueue(object):
             resp.raise_for_status()
           except aiohttp.ClientResponseError:
             body = await resp.text()
-            raise RESTError(f'HTTP {resp.status}: {resp.reason}\n{body}',
-                            status=resp.status, reason=resp.reason, body=body)
+            raise HTTPError(status=resp.status, reason=resp.reason, body=body)
 
         return self.RESTResponse(
           status=resp.status,
@@ -132,6 +138,13 @@ class TaskQueue(object):
     body = remote_api_request.SerializeToString()
     async with aiohttp.ClientSession() as session:
       async with session.request('POST', url, data=body, headers=headers) as resp:
+        try:
+          # We won't be able to parse PB response if status != 200
+          resp.raise_for_status()
+        except aiohttp.ClientResponseError:
+          body = await resp.text()
+          raise HTTPError(status=resp.status, reason=resp.reason, body=body)
+
         response_body = await resp.read()
         api_response = remote_api_pb2.Response()
         api_response.ParseFromString(response_body)
@@ -144,7 +157,7 @@ class TaskQueue(object):
           if api_response.HasField('exception'):
             raise ProtobufferException(api_response.exception)
 
-        resp_cls_name = request.__class__.__name__.replace('Request', 'Response')
+        resp_cls_name = f'TaskQueue{method}Response'
         resp_cls = getattr(taskqueue_service_pb2, resp_cls_name)
         resp = resp_cls()
         resp.ParseFromString(api_response.response)

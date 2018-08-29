@@ -26,6 +26,7 @@ done
 
 log "Set cassandra-related appscale configs in zookeeper"
 /usr/share/zookeeper/bin/zkCli.sh create /appscale ""
+/usr/share/zookeeper/bin/zkCli.sh create /appscale/projects ""
 /usr/share/zookeeper/bin/zkCli.sh create /appscale/config ""
 /usr/share/zookeeper/bin/zkCli.sh create /appscale/config/cassandra \
   '{"num_tokens":1}'
