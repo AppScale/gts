@@ -15,7 +15,7 @@ usage() {
     echo "Options:"
     echo "   --key-location <KEY>  Private key file for access to the machine"
     echo "   --user-name <USER>    User name to use for access to the machine"
-    echo "   --vm-addr <HOST>      Hostname ot public IP of the machine"
+    echo "   --vm-addr <HOST>      Hostname or public IP of the machine"
     echo "                         to start TaskQueue on"
     echo "   --vm-private-ip <IP>  Private IP of the machine to start TaskQueue on"
     echo "   --logs-dir <DIR>      Directory to save logs to (default: ./logs)"
@@ -107,7 +107,10 @@ TASKQUEUE_SRC_DIR="$( dirname "$( dirname "${SUITES_DIR}" )" )"
 HELPERS_DIR="${TASKQUEUE_SRC_DIR}/test/helpers"
 E2E_TEST_DIR="${TASKQUEUE_SRC_DIR}/test/e2e"
 
-log "Copying scripts and TaskQueue sources to the machine"
+log ""
+log "==================================================================="
+log "=== Sending provisioning scripts, sources and other files to VM ==="
+log "==================================================================="
 scp -o StrictHostKeyChecking=no \
     -i "${KEY_LOCATION}" \
     "${HELPERS_DIR}/prepare-postgres.sh" \
@@ -123,19 +126,49 @@ scp -o StrictHostKeyChecking=no \
     "${TASKQUEUE_SRC_DIR}/setup.py" \
     "${USER}@${VM_ADDR}:/tmp/AppTaskQueue/"
 
-log "Initializing TaskQueue dependencies at ${USER}@${VM_ADDR}"
+# Save DSN string and projects config to variables
+PG_DSN="dbname=appscale-test-project user=appscale password=appscale-pwd host=${VM_PRIVATE_IP}"
+POSTGRES_PROJECT='postgres-test-project'
+CASSANDRA_PROJECT='cassandra-test-project'
+
+log ""
+log "=========================================================================="
+log "=== Initializing TaskQueue with its dependencies at ${USER}@${VM_ADDR} ==="
+log "=========================================================================="
 ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${VM_ADDR} << COMMANDS
 set -e
-set -u
+echo "=== Preparing Postgres server ==="
 sudo /tmp/prepare-postgres.sh --host "${VM_PRIVATE_IP}" \
                               --dbname "appscale-test-project" \
                               --username "appscale" \
                               --password "appscale-pwd"
+
+echo "=== Starting Zookeeper server ==="
 sudo /tmp/prepare-zookeeper.sh
-sudo /tmp/prepare-cassandra.sh --private-ip ${VM_PRIVATE_IP}
+
+echo "=== Starting and priming Cassandra ==="
+sudo /tmp/prepare-cassandra.sh --private-ip ${VM_PRIVATE_IP} \
+                               --zk-ip ${VM_PRIVATE_IP}
+
+echo "=== Creating project nodes in Zookeeper ==="
+sudo /usr/share/zookeeper/bin/zkCli.sh create \
+    /appscale/projects/${CASSANDRA_PROJECT} ""
+sudo /usr/share/zookeeper/bin/zkCli.sh create \
+    /appscale/projects/${POSTGRES_PROJECT} ""
+sudo /usr/share/zookeeper/bin/zkCli.sh create \
+    /appscale/projects/${POSTGRES_PROJECT}/postgres_dsn "${PG_DSN}"
+
+sudo /tmp/restart-taskqueue.sh --ports 50001,50002 \
+                               --db-ip "${VM_PRIVATE_IP}" \
+                               --zk-ip "${VM_PRIVATE_IP}" \
+                               --lb-ip "${VM_PRIVATE_IP}" \
+                               --source-dir /tmp/AppTaskQueue
 COMMANDS
 
-log "Prepare virtualenv for running test script"
+log ""
+log "=================================================="
+log "=== Prepare virtualenv for running test script ==="
+log "=================================================="
 # aiohttp lib which is used in e2e test requires Python>=3.5.3
 # test scripts uses new syntax for formatting strings (3.6+)
 PYTHON=$(realpath --strip ./python-3.6.6-plus)
@@ -150,44 +183,22 @@ venv/bin/pip install ${HELPERS_DIR}
 venv/bin/pip install pytest
 venv/bin/pip install kazoo
 
-export TEST_PROJECT="test-project"
-
 STATUS=0
 
-log "============================================"
-log "Test Cassandra implementation of Pull Queues"
-
-log "Upgrading TaskQueue package and starting servers at ${USER}@${VM_ADDR}"
-ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${VM_ADDR} << COMMAND
-sudo /tmp/restart-taskqueue.sh --ports 50001,50002 \
-                               --db-ip "${VM_PRIVATE_IP}" \
-                               --zk-ip "${VM_PRIVATE_IP}" \
-                               --lb-ip "${VM_PRIVATE_IP}" \
-                               --source-dir /tmp/AppTaskQueue
-COMMAND
-
+log ""
+log "===================================================="
+log "=== Test Cassandra implementation of Pull Queues ==="
+log "===================================================="
+export TEST_PROJECT="${CASSANDRA_PROJECT}"
 venv/bin/pytest -vv --tq-locations ${VM_ADDR}:50001 ${VM_ADDR}:50002 \
                 --zk-location "${VM_ADDR}" \
                 || STATUS=1
 
-
-log "==========================================="
-log "Test Postgres implementation of Pull Queues"
-
-log "Creating postgres_dsn node in Zookeeper and restarting TaskQueue"
-ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${VM_ADDR} << COMMANDS
-set -e
-set -u
-sudo /usr/share/zookeeper/bin/zkCli.sh delete \
-    /appscale/projects/${TEST_PROJECT}/postgres_dsn \
-sudo /usr/share/zookeeper/bin/zkCli.sh create \
-    /appscale/projects/${TEST_PROJECT}/postgres_dsn \
-    "dbname=appscale-test-project user=appscale password=appscale-pwd host=${VM_PRIVATE_IP}"
-sudo /tmp/restart-taskqueue.sh --ports 50001,50002 \
-                               --db-ip "${VM_PRIVATE_IP}" \
-                               --zk-ip "${VM_PRIVATE_IP}" \
-                               --lb-ip "${VM_PRIVATE_IP}"
-COMMANDS
+log ""
+log "==================================================="
+log "=== Test Postgres implementation of Pull Queues ==="
+log "==================================================="
+export TEST_PROJECT="${POSTGRES_PROJECT}"
 venv/bin/pytest -vv --tq-locations ${VM_ADDR}:50001 ${VM_ADDR}:50002 \
                 --zk-location "${VM_ADDR}" \
                 || STATUS=1
