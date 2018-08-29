@@ -34,6 +34,7 @@ from .constants import (
 )
 from .queue import (
   InvalidLeaseRequest,
+  PostgresPullQueue,
   PullQueue,
   PushQueue,
   TransientError
@@ -286,7 +287,7 @@ class DistributedTaskQueue():
 
       stats_response = response.add_queuestats()
 
-      if isinstance(queue, PullQueue):
+      if isinstance(queue, (PullQueue, PostgresPullQueue)):
         num_tasks = queue.total_tasks()
         oldest_eta = queue.oldest_eta()
       else:
@@ -469,9 +470,10 @@ class DistributedTaskQueue():
       if (add_request.has_mode() and
           add_request.mode() == taskqueue_service_pb.TaskQueueMode.PULL):
         queue = self.get_queue(add_request.app_id(), add_request.queue_name())
-        if not isinstance(queue, PullQueue):
+        if not isinstance(queue, (PullQueue, PostgresPullQueue)):
           task_result.set_result(TaskQueueServiceError.INVALID_QUEUE_MODE)
           error_found = True
+          continue
 
         encoded_payload = base64.urlsafe_b64encode(add_request.body())
         task_info = {'payloadBase64': encoded_payload,
