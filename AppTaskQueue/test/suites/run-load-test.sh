@@ -268,14 +268,14 @@ ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${CASSANDRA_VM}  << C
 CMD
 
 # Generate comma-separated list of ports from (50000) to (50000 + TQ_PER_VM)
-TQ_PORTS=$(echo $(seq 50000 $((50000 + TQ_PER_VM - 1))) | sed 's/ /,/g')
+TQ_PORTS=$(echo $(seq 50000 $((50000 + TQ_PER_VM - 1))))
 # Start all TaskQueue servers
 for tq_vm in ${TASKQUEUE_VMS}
 do
     log "### Starting ${TQ_PER_VM} Taskqueue servers at ${USER}@${tq_vm} ###"
     ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${tq_vm} << COMMAND
         set -e
-        sudo /tmp/restart-taskqueue.sh --ports "${TQ_PORTS}" \
+        sudo /tmp/restart-taskqueue.sh --ports "${TQ_PORTS// /,}" \
                                        --db-ip "${CASSANDRA_VM_PRIVATE_IP}" \
                                        --zk-ip "${ZOOKEEPER_VM}" \
                                        --lb-ip "${LOADBALANCER_VM}" \
