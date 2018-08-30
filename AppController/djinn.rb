@@ -5175,7 +5175,6 @@ HOSTS
   # any AppServers and the minimum number of user specified machines are still
   # running in the deployment.
   def scale_down_instances
-    num_scaled_down = 0
     # If we are already at the minimum number of machines that the user specified,
     # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_machines'])
@@ -5200,10 +5199,13 @@ HOSTS
 
     Thread.new {
       SCALE_LOCK.synchronize {
+        # The list of nodes we identified as to be removed.
+        nodes_to_remove = []
+
         # Look through an array of autoscaled nodes and check if any of the
         # machines are not running any AppServers and need to be downscaled.
         get_autoscaled_nodes.reverse_each { |node|
-          break if num_scaled_down == max_scale_down_capacity
+          break if nodes_to_remove.length >= max_scale_down_capacity
 
           hosted_apps = []
           @versions_loaded.each { |version_key|
@@ -5224,15 +5226,12 @@ HOSTS
           # Right now, only the autoscaled machines are started with just the
           # compute role, so we check specifically for that during downscaling
           # to make sure we only downscale the new machines added.
-          node_to_remove = nil
           if node.jobs == ['compute']
             Djinn.log_info("Removing node #{node}")
-            node_to_remove = node
+            nodes_to_remove << node
           end
-
-          num_terminated = terminate_node_from_deployment(node_to_remove)
-          num_scaled_down += num_terminated
         }
+        terminate_nodes_from_deployment(nodes_to_remove)
       }
 
       # Make sure we have the proper list of blobservers configured.
@@ -5240,46 +5239,52 @@ HOSTS
     }
   end
 
-  # Removes the specified node from the deployment and terminates
+  # Removes the specified nodes from the deployment and terminates
   # the instance from the cloud.
   #
   # Args:
-  #   node_to_remove: A node instance, to be terminated and removed
-  #     from this deployment.
-  def terminate_node_from_deployment(node_to_remove)
-    if node_to_remove.nil?
-      Djinn.log_warn("Tried to scale down but couldn't find a node to remove.")
+  #   nodes_to_remove: A node instance, or an Array of nodes to be
+  #                    terminated and removed from this deployment.
+  def terminate_nodes_from_deployment(nodes_to_remove)
+    if nodes_to_remove.nil? || nodes_to_remove.emtpy?
+      Djinn.log_info("Tried to scale down but couldn't find a node to remove.")
       return 0
     end
 
+    # Let's get the list of IDs of the instances to terminate.
+    instances_id = []
+    nodes_to_remove.each{ |node| instances_id << node.instance_id }
+
     imc = InfrastructureManagerClient.new(@@secret)
     begin
-      imc.terminate_instances(@options, node_to_remove.instance_id)
+      imc.terminate_instances(@options, instances_id)
     rescue FailedNodeException
       Djinn.log_warn("Failed to call terminate_instances")
       return 0
     rescue AppScaleException
-      Djinn.log_warn("Failed to terminate #{node_to_remove}. Not removing it.")
+      Djinn.log_warn("Failed to terminate #{instances_id}. Not removing it.")
       return 0
     end
 
-    remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
+    nodes_to_remove.each { |node|
+      remove_node_from_local_and_zookeeper(node.private_ip)
 
-    to_remove = {}
-    @app_info_map.each { |version_key, info|
-      next if info['appservers'].nil?
+      to_remove = {}
+      @app_info_map.each { |version_key, info|
+        next if info['appservers'].nil?
 
-      info['appservers'].each { |location|
-        host = location.split(":")[0]
-        if host == node_to_remove.private_ip
-          to_remove[version_key] = [] if to_remove[version_key].nil?
-          to_remove[version_key] << location
-        end
+        info['appservers'].each { |location|
+          host = location.split(":")[0]
+          if host == node.private_ip
+            to_remove[version_key] = [] if to_remove[version_key].nil?
+            to_remove[version_key] << location
+          end
+        }
       }
-    }
-    to_remove.each { |version_key, locations|
-      locations.each { |location|
-        @app_info_map[version_key]['appservers'].delete(location)
+      to_remove.each { |version_key, locations|
+        locations.each { |location|
+          @app_info_map[version_key]['appservers'].delete(location)
+        }
       }
     }
 
