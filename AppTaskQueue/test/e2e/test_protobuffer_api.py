@@ -41,7 +41,7 @@ async def test_add_lease_prolong_delete(taskqueue):
   leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
   # Make sure eta_usec is ~5s greater than current remote_time
   assert all(
-    task.eta_usec == pytest.approx(remote_time + 5_000_000, abs=300_000)
+    task.eta_usec == pytest.approx(remote_time + 5_000_000, abs=600_000)
     for task in leased.task
   )
 
@@ -62,14 +62,14 @@ async def test_add_lease_prolong_delete(taskqueue):
   done_tasks, _ = await asyncio.wait(prolong_requests)
   responses = [asyncio_task.result() for asyncio_task in done_tasks]
   actual = [resp.updated_eta_usec for resp in responses]
-  expected = [pytest.approx(remote_time + 6_000_000, abs=300_000)] * 10
+  expected = [pytest.approx(remote_time + 6_000_000, abs=600_000)] * 10
   # Make sure updated_eta_usec is 6s greater than start_time
   assert actual == expected
 
   # Verify listed tasks
   listed = await taskqueue.rest('GET', path_suffix=f'/{queue_str}/tasks')
   actual = [int(task['leaseTimestamp']) for task in listed.json['items']]
-  expected = [pytest.approx(remote_time + 6_000_000, abs=300_000)] * 10
+  expected = [pytest.approx(remote_time + 6_000_000, abs=600_000)] * 10
   # Make sure leaseTimestamp is what we expect
   assert actual == expected
   assert (  # Make sure all tasks are in place
