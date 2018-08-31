@@ -6,6 +6,7 @@ import re
 import sys
 import uuid
 
+from appscale.common import retrying
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.retry_policies import (
   BASIC_RETRIES,
@@ -255,40 +256,45 @@ class PostgresPullQueue(Queue):
       app: A string containing the application ID.
       pg_connection: A psycopg2 connection to PostgreSQL.
     """
+    from psycopg2 import IntegrityError  # Import psycopg2 lazily
     super(PostgresPullQueue, self).__init__(queue_info, app)
     self.pg_connection = pg_connection
-    self.ensure_tables_created()
+
+    # When multiple TQ servers are notified by ZK about new queue
+    # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+    @retrying.retry(max_retries=5, retry_on_exception=IntegrityError)
+    def ensure_tables_created():
+      try:
+        self.pg_connection.cursor().execute(
+          'CREATE TABLE IF NOT EXISTS "{table_name}" ('
+          '  task_name varchar(500) NOT NULL,'
+          '  time_deleted timestamp DEFAULT NULL,'
+          '  time_enqueued timestamp NOT NULL,'
+          '  lease_count integer NOT NULL,'
+          '  lease_expires timestamp NOT NULL,'
+          '  payload bytea,'
+          '  tag varchar(500),'
+          '  PRIMARY KEY (task_name)'
+          ');'
+          'CREATE INDEX IF NOT EXISTS "{table_name}-eta-retry-tag-index" '
+          '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
+          '  WHERE time_deleted IS NULL;'
+          'CREATE INDEX IF NOT EXISTS "{table_name}-retry-eta-tag-index" '
+          '  ON "{table_name}" (lease_count, lease_expires, tag) '
+          '  WHERE time_deleted IS NULL;'
+            .format(table_name=self.tasks_table_name)
+        )
+        self.pg_connection.commit()
+      except Exception as err:
+        logger.error('Rolling back transaction ({err})'.format(err=err))
+        self.pg_connection.rollback()
+        raise
+
+    ensure_tables_created()
 
   @property
   def tasks_table_name(self):
     return 'pullqueue-{}'.format(self.name)
-
-  def ensure_tables_created(self):
-    try:
-      self.pg_connection.cursor().execute(
-        'CREATE TABLE IF NOT EXISTS "{table_name}" ('
-        '  task_name varchar(500) NOT NULL,'
-        '  time_deleted timestamp DEFAULT NULL,'
-        '  time_enqueued timestamp NOT NULL,'
-        '  lease_count integer NOT NULL,'
-        '  lease_expires timestamp NOT NULL,'
-        '  payload bytea,'
-        '  tag varchar(500),'
-        '  PRIMARY KEY (task_name)'
-        ');'
-        'CREATE INDEX IF NOT EXISTS "{table_name}-eta-retry-tag-index" '
-        '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
-        '  WHERE time_deleted IS NULL;'
-        'CREATE INDEX IF NOT EXISTS "{table_name}-retry-eta-tag-index" '
-        '  ON "{table_name}" (lease_count, lease_expires, tag) '
-        '  WHERE time_deleted IS NULL;'
-        .format(table_name=self.tasks_table_name)
-      )
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
 
   def add_task(self, task):
     """ Adds a task to the queue.
