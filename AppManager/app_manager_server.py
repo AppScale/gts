@@ -51,6 +51,7 @@ from appscale.common.constants import HTTPCodes, MonitStates, VAR_DIR
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
+from appscale.common.monit_interface import DEFAULT_RETRIES
 from appscale.common.monit_interface import MonitOperator
 from appscale.common.monit_interface import MonitUnavailable
 from appscale.common.monit_interface import ProcessNotFound
@@ -204,6 +205,7 @@ def add_routing(instance):
   register_instance(instance)
 
 
+@gen.coroutine
 def ensure_api_server(project_id):
   """ Make sure there is a running API server for a project.
 
@@ -214,7 +216,7 @@ def ensure_api_server(project_id):
   """
   global api_servers
   if project_id in api_servers:
-    return api_servers[project_id]
+    raise gen.Return(api_servers[project_id])
 
   server_port = MAX_API_SERVER_PORT
   for port in api_servers.values():
@@ -239,14 +241,11 @@ def ensure_api_server(project_id):
     check_port=True)
 
   monit_operator = MonitOperator()
-  monit_operator.reload_sync()
-
-  monit_retry = retry(max_retries=5, retry_on_exception=MonitUnavailable)
-  send_w_retries = monit_retry(monit_operator.send_command_sync)
-  send_w_retries(full_watch, 'start')
+  yield monit_operator.reload(thread_pool)
+  yield monit_operator.send_command_retry_process(full_watch, 'start')
 
   api_servers[project_id] = server_port
-  return server_port
+  raise gen.Return(server_port)
 
 
 @gen.coroutine
@@ -327,7 +326,7 @@ def start_app(version_key, config):
     [project_id, service_id, version_id, str(version_details['revision'])])
   source_archive = version_details['deployment']['zip']['sourceUrl']
 
-  api_server_port = ensure_api_server(project_id)
+  api_server_port = yield ensure_api_server(project_id)
   yield source_manager.ensure_source(revision_key, source_archive, runtime)
 
   logging.info('Starting {} application {}'.format(runtime, project_id))
@@ -391,8 +390,8 @@ def start_app(version_key, config):
   full_watch = '{}-{}'.format(watch, config['app_port'])
 
   monit_operator = MonitOperator()
-  yield monit_operator.reload()
-  yield monit_operator.send_command(full_watch, 'start')
+  yield monit_operator.reload(thread_pool)
+  yield monit_operator.send_command_retry_process(full_watch, 'start')
 
   # Make sure the version node exists.
   zk_client.ensure_path('/'.join([VERSION_REGISTRATION_NODE, version_key]))
@@ -477,7 +476,7 @@ def unmonitor_and_terminate(watch):
     watch: A string specifying the Monit entry.
   """
   try:
-    monit_retry = retry(max_retries=5, retry_on_exception=MonitUnavailable)
+    monit_retry = retry(max_retries=5, retry_on_exception=DEFAULT_RETRIES)
     send_w_retries = monit_retry(monit_operator.send_command_sync)
     send_w_retries(watch, 'unmonitor')
   except ProcessNotFound:
@@ -534,7 +533,7 @@ def stop_app_instance(version_key, port):
   if not remaining_instances:
     yield stop_api_server(project_id)
 
-  yield monit_operator.reload()
+  yield monit_operator.reload(thread_pool)
   yield clean_old_sources()
 
 
@@ -576,7 +575,7 @@ def stop_app(version_key):
     logging.error("Error while removing log rotation for application: {}".
                   format(project_id))
 
-  yield monit_operator.reload()
+  yield monit_operator.reload(thread_pool)
   yield clean_old_sources()
 
 
