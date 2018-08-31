@@ -247,16 +247,17 @@ class PostgresPullQueue(Queue):
 
   TTL_INTERVAL_AFTER_DELETED = '7 days'
 
-  def __init__(self, queue_info, app, pg_connection=None):
+  def __init__(self, queue_info, app, pg_connection_pool=None):
     """ Create a PostgresPullQueue object.
 
     Args:
       queue_info: A dictionary containing queue info.
       app: A string containing the application ID.
-      pg_connection: A psycopg2 connection to PostgreSQL.
+      pg_connection_pool: A psycopg2 connection pool.
     """
     super(PostgresPullQueue, self).__init__(queue_info, app)
-    self.pg_connection = pg_connection
+    self.connection_key = self.app
+    self.pg_connection_pool = pg_connection_pool
     self.ensure_tables_created()
 
   @property
@@ -264,8 +265,9 @@ class PostgresPullQueue(Queue):
     return 'pullqueue-{}'.format(self.name)
 
   def ensure_tables_created(self):
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
     try:
-      self.pg_connection.cursor().execute(
+      pg_connection.cursor().execute(
         'CREATE TABLE IF NOT EXISTS "{table_name}" ('
         '  task_name varchar(500) NOT NULL,'
         '  time_deleted timestamp DEFAULT NULL,'
@@ -284,10 +286,10 @@ class PostgresPullQueue(Queue):
         '  WHERE time_deleted IS NULL;'
         .format(table_name=self.tasks_table_name)
       )
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      logger.exception('Rolling back transaction ({err})'.format(err=err))
+      pg_connection.rollback()
       raise
 
   def add_task(self, task):
@@ -318,7 +320,8 @@ class PostgresPullQueue(Queue):
     except AttributeError:
       lease_expires = 'current_timestamp'
 
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'INSERT INTO "{table}" ( '
@@ -335,18 +338,18 @@ class PostgresPullQueue(Queue):
       )
       row = pg_cursor.fetchone()
 
-      self.pg_connection.commit()
+      pg_connection.commit()
       logger.debug('Added task: {}'.format(task))
 
     except psycopg2.IntegrityError as err:
       name_taken_msg = 'Task name already taken: {}'.format(task.id)
       logger.warning('{msg}. Rolling back transaction({err})'
                      .format(msg=name_taken_msg, err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise InvalidTaskInfo(name_taken_msg)
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
     task.queueName = self.name
@@ -369,7 +372,8 @@ class PostgresPullQueue(Queue):
     else:
       columns = ['payload', 'task_name', 'time_enqueued',
                  'lease_expires', 'lease_count', 'tag']
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'SELECT {columns} FROM "{tasks_table}" '
@@ -381,10 +385,10 @@ class PostgresPullQueue(Queue):
         }
       )
       row = pg_cursor.fetchone()
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
     if not row:
@@ -398,8 +402,9 @@ class PostgresPullQueue(Queue):
     Args:
       task: A Task object.
     """
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
     try:
-      self.pg_connection.cursor().execute(
+      pg_connection.cursor().execute(
         'UPDATE "{tasks_table}" '
         'SET time_deleted = current_timestamp '
         'WHERE "{tasks_table}".task_name = %(task_name)s'
@@ -408,10 +413,10 @@ class PostgresPullQueue(Queue):
           'task_name': task.id,
         }
       )
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
   def update_lease(self, task, new_lease_seconds):
@@ -424,7 +429,8 @@ class PostgresPullQueue(Queue):
     Returns:
       A Task object.
     """
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'UPDATE "{tasks_table}" '
@@ -448,11 +454,11 @@ class PostgresPullQueue(Queue):
         raise InvalidLeaseRequest('The task lease has expired')
 
       row = pg_cursor.fetchone()
-      self.pg_connection.commit()
+      pg_connection.commit()
 
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
     task.leaseTimestamp = row[0]
@@ -493,7 +499,8 @@ class PostgresPullQueue(Queue):
     else:
       old_eta_verification = ''
 
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         statement.format(tasks_table=self.tasks_table_name,
@@ -506,11 +513,11 @@ class PostgresPullQueue(Queue):
         raise InvalidLeaseRequest('The task lease has expired')
 
       row = pg_cursor.fetchone()
-      self.pg_connection.commit()
+      pg_connection.commit()
 
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
     task.leaseTimestamp = row[0]
@@ -526,7 +533,8 @@ class PostgresPullQueue(Queue):
     """
     columns = ['task_name', 'time_enqueued',
                'lease_expires', 'lease_count', 'tag']
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'SELECT {columns} FROM "{tasks_table}" '
@@ -537,10 +545,10 @@ class PostgresPullQueue(Queue):
       )
       rows = pg_cursor.fetchmany(size=limit)
       tasks = [self._task_from_row(columns, row) for row in rows]
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
     return tasks
@@ -591,7 +599,8 @@ class PostgresPullQueue(Queue):
       '"{table}".{col}'.format(table=self.tasks_table_name, col=column)
       for column in columns
     ]
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'UPDATE "{tasks_table}" '
@@ -621,10 +630,10 @@ class PostgresPullQueue(Queue):
       )
       rows = pg_cursor.fetchall()
       leased = [self._task_from_row(columns, row) for row in rows]
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
     time_elapsed = datetime.datetime.utcnow() - start_time
@@ -635,15 +644,16 @@ class PostgresPullQueue(Queue):
   def purge(self):
     """ Remove all tasks from queue.
     """
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
     try:
-      self.pg_connection.cursor().execute(
+      pg_connection.cursor().execute(
         'TRUNCATE TABLE "{tasks_table}"'
         .format(tasks_table=self.tasks_table_name)
       )
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
   def to_json(self, include_stats=False, fields=None):
@@ -685,17 +695,18 @@ class PostgresPullQueue(Queue):
     Returns:
       An integer specifying the number of tasks in the queue.
     """
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'SELECT count(*) FROM "{tasks_table}" WHERE time_deleted IS NULL'
         .format(tasks_table=self.tasks_table_name)
       )
       tasks_count = pg_cursor.fetchone()[0]
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
     return tasks_count
 
@@ -706,7 +717,8 @@ class PostgresPullQueue(Queue):
       A datetime object specifying the oldest ETA or None if there are no
       tasks.
     """
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'SELECT min(lease_expires) FROM "{tasks_table}" '
@@ -714,17 +726,18 @@ class PostgresPullQueue(Queue):
         .format(tasks_table=self.tasks_table_name)
       )
       oldest_eta = pg_cursor.fetchone()[0]
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
     return oldest_eta
 
   def flush_deleted(self):
     """ Removes all tasks which were deleted more than week ago.
     """
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'DELETE FROM "{tasks_table}" '
@@ -734,10 +747,10 @@ class PostgresPullQueue(Queue):
       )
       logger.info('Flushed deleted tasks from {} with status: {}'
                   .format(self.tasks_table_name, pg_cursor.statusmessage))
-      self.pg_connection.commit()
+      pg_connection.commit()
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
   COLUMN_ATTR_MAPPING = {
@@ -779,7 +792,8 @@ class PostgresPullQueue(Queue):
     Returns:
       A string containing a tag or None.
     """
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_pool.getconn(self.connection_key)
+    pg_cursor = pg_connection.cursor()
     try:
       pg_cursor.execute(
         'SELECT tag FROM "{tasks_table}" '
@@ -789,11 +803,11 @@ class PostgresPullQueue(Queue):
       )
       row = pg_cursor.fetchone()
       tag = row[0] if row else None
-      self.pg_connection.commit()
+      pg_connection.commit()
       return tag
     except Exception as err:
       logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
+      pg_connection.rollback()
       raise
 
   def _get_stats(self, fields):
