@@ -5252,17 +5252,16 @@ HOSTS
     end
 
     # Let's get the list of IDs of the instances to terminate.
-    instances_id = []
-    nodes_to_remove.each{ |node| instances_id << node.instance_id }
+    instance_ids = nodes_to_remove.map{ |node| node.instance_id }
 
     imc = InfrastructureManagerClient.new(@@secret)
     begin
-      imc.terminate_instances(@options, instances_id)
+      imc.terminate_instances(@options, instance_ids)
     rescue FailedNodeException
       Djinn.log_warn("Failed to call terminate_instances")
       return 0
     rescue AppScaleException
-      Djinn.log_warn("Failed to terminate #{instances_id}. Not removing it.")
+      Djinn.log_warn("Failed to terminate #{instance_ids}. Not removing it.")
       return 0
     end
 
