@@ -50,7 +50,6 @@ module TerminateHelper
     # Let's make sure we restart any non-appscale service.
     `service monit restart`
     `service appscale-controller stop`
-    `monit start all`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
 
     # Remove location files.
