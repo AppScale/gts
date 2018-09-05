@@ -228,7 +228,7 @@ def execute_task(task, headers, args):
     if thrown_timeout != timeout:
       raise
 
-    logger.exception('Task timed out')
+    logger.exception('Task {} timed out. Retrying.'.format(args['task_name']))
     # This could probably be calculated, but for now, just retry immediately.
     raise task.retry(countdown=0)
   finally:
