@@ -38,6 +38,15 @@ class Datastore(object):
     raise gen.Return(start_response.handle())
 
   @gen.coroutine
+  def delete(self, keys):
+    request = datastore_pb.DeleteRequest()
+    for key in keys:
+      key_pb = request.add_key()
+      key_pb.MergeFrom(key._ToPb())
+
+    yield self._make_request('Delete', request.Encode())
+
+  @gen.coroutine
   def get(self, key, txid=None):
     request = datastore_pb.GetRequest()
     req_key = request.add_key()
