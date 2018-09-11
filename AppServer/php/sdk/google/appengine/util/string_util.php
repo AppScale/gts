@@ -14,12 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-namespace google\appengine\api\users;
-
-require_once "google/appengine/api/users/Error.php";
+/**
+ * Various utilities for working with Strings.
+ *
+ */
+namespace google\appengine\util;
 
 /**
- * Thrown by APIProxy when API calls are temporarily disabled.
+ * Return true if the first paramater contains the second parameter at the end
+ *
+ * @param string $input The input string which may contain the suffix
+ * @param string $suffix The string to look for at the end of the input
+ *
+ * @return true if the input contains the suffix at the end or false otherwise
  */
-class RedirectTooLongError extends Error {
+function endsWith($input, $suffix) {
+  return substr($input, -strlen($suffix)) === $suffix;
 }

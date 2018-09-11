@@ -15,14 +15,10 @@
  * limitations under the License.
  */
 /**
+ * Handles the /reset.do url.
+ * It deletes all the session variables, hence resetting the environment.
  */
+session_start();
+session_unset();
 
-namespace google\appengine\api\capabilities;
-
-/**
- * Thrown when the user requests the status of a capability that does not exist.
- */
-
-class UnknownCapabilityError extends \Exception {
-}
-
+header("Location: /");

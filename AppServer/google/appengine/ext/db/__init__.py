@@ -3045,7 +3045,7 @@ class DateTimeProperty(Property):
     Returns:
       'now' as a whole timestamp, including both time and date.
     """
-    return datetime.datetime.now()
+    return datetime.datetime.utcnow()
 
 
 def _date_to_datetime(value):
@@ -3093,7 +3093,7 @@ class DateProperty(DateTimeProperty):
     Returns:
       'date' part of 'now' only.
     """
-    return datetime.datetime.now().date()
+    return datetime.datetime.utcnow().date()
 
   def validate(self, value):
     """Validate date.
@@ -3170,7 +3170,7 @@ class TimeProperty(DateTimeProperty):
     Returns:
       'time' part of 'now' only.
     """
-    return datetime.datetime.now().time()
+    return datetime.datetime.utcnow().time()
 
   def empty(self, value):
     """Is time property empty.

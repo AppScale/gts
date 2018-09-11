@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 /**
- * Blobstore Service allows the user to create and serve blobs.
- *
  */
-
-namespace google\appengine\api\blobstore;
+namespace google\appengine\api\cloud_storage;
 
 use \google\appengine\BlobstoreServiceError\ErrorCode;
 use \google\appengine\CreateEncodedGoogleStorageKeyRequest;
 use \google\appengine\CreateEncodedGoogleStorageKeyResponse;
 use \google\appengine\CreateUploadURLRequest;
 use \google\appengine\CreateUploadURLResponse;
+use \google\appengine\ImagesDeleteUrlBaseRequest;
+use \google\appengine\ImagesDeleteUrlBaseResponse;
+use \google\appengine\ImagesGetUrlBaseRequest;
+use \google\appengine\ImagesGetUrlBaseResponse;
+use \google\appengine\ImagesServiceError;
 use \google\appengine\files\GetDefaultGsBucketNameRequest;
 use \google\appengine\files\GetDefaultGsBucketNameResponse;
 use \google\appengine\runtime\ApiProxy;
@@ -33,32 +35,44 @@ use \google\appengine\runtime\ApplicationError;
 use \google\appengine\util as util;
 
 require_once 'google/appengine/api/blobstore/blobstore_service_pb.php';
-require_once 'google/appengine/api/blobstore/BlobstoreException.php';
+require_once 'google/appengine/api/cloud_storage/CloudStorageException.php';
 require_once 'google/appengine/api/files/file_service_pb.php';
+require_once 'google/appengine/api/images/images_service_pb.php';
 require_once 'google/appengine/runtime/ApiProxy.php';
 require_once 'google/appengine/runtime/ApplicationError.php';
 require_once 'google/appengine/util/array_util.php';
 
-
-
-class BlobstoreService {
-  const GCS_PREFIX = 'gcs://';
+/**
+ * CloudStorageTools allows the user to create and serve data with
+ * <a href="http://cloud.google.com/products/cloud-storage">Google Cloud Storage
+ * </a>.
+ */
+final class CloudStorageTools {
+  const GS_PREFIX = 'gs://';
   const BLOB_KEY_HEADER = "X-AppEngine-BlobKey";
   const BLOB_RANGE_HEADER = "X-AppEngine-BlobRange";
+  const MAX_IMAGE_SERVING_SIZE = 1600;
+
   /**
    * The list of options that can be supplied to createUploadUrl.
-   * @see BlobstoreService::createUploadUrl()
+   * @see CloudStorageTools::createUploadUrl()
    * @var array
    */
-  static $create_upload_url_options = ['gs_bucket_name', 'max_bytes_per_blob',
-      'max_bytes_total'];
+  private static $create_upload_url_options = ['gs_bucket_name',
+      'max_bytes_per_blob', 'max_bytes_total'];
 
   /**
    * The list of options that can be suppied to serve.
    * @var array
    */
-  static $serve_options = ['content_type', 'save_as', 'start', 'end',
+  private static $serve_options = ['content_type', 'save_as', 'start', 'end',
       'use_range'];
+
+  private static $get_image_serving_url_default_options = [
+    'crop'       => false,
+    'secure_url' => false,
+    'size'       => NULL
+  ];
 
   /**
    * Workaround for the 'Cannot modify header information' problem when
@@ -76,21 +90,21 @@ class BlobstoreService {
    * @param string $success_path A relative URL which will be invoked after the
    * user successfully uploads a blob.
    * @param mixed[] $options A key value pair array of upload options. Valid
-   * options are:
-   * - max_bytes_per_blob: an integer value of the largest size that any one
-   *   uploaded blob may be. Default value: unlimited.
-   * - max_bytes_total: an integer value that is the total size that sum of all
-   *   uploaded blobs may be. Default value: unlimited.
-   * - gs_bucket_name: a string that is the name of a Google Cloud Storage
+   * options are:<ul>
+   * <li>'max_bytes_per_blob': integer The value of the largest size that any
+   * one uploaded blob may be. Default value: unlimited.
+   * <li>'max_bytes_total': integer The value that is the total size that sum of
+   * all uploaded blobs may be. Default value: unlimited.
+   * <li>'gs_bucket_name': string The name of a Google Cloud Storage
    *   bucket that the blobs should be uploaded to. Not specifying a value
    *   will result in the blob being uploaded to the application's default
    *   bucket.
-   *
+   * </ul>
    * @return string The upload URL.
    *
-   * @throws InvalidArgumentException If $success_path is not valid, or one of
+   * @throws \InvalidArgumentException If $success_path is not valid, or one of
    * the options is not valid.
-   * @throws BlobstoreException Thrown when there is a failure using the
+   * @throws CloudStorageException Thrown when there is a failure using the
    * blobstore service.
    */
   public static function createUploadUrl($success_path, $options=array()) {
@@ -136,7 +150,7 @@ class BlobstoreService {
       }
       $req->setGsBucketName($val);
     } else {
-      $bucket = BlobstoreService::getDefaultGoogleStorageBucketName();
+      $bucket = self::getDefaultGoogleStorageBucketName();
 
       if (!$bucket) {
         throw new \InvalidArgumentException(
@@ -157,50 +171,171 @@ class BlobstoreService {
     try {
       ApiProxy::makeSyncCall('blobstore', 'CreateUploadURL', $req, $resp);
     } catch (ApplicationError $e) {
-      throw BlobstoreService::ApplicationErrorToException($e);
+      throw self::applicationErrorToException($e);
     }
     return $resp->getUrl();
+  }
+
+  /**
+   * Returns a URL that serves an image.
+   *
+   * @param string $gs_filename The name of the Google Cloud Storage object to
+   * serve. In the format gs://bucket_name/object_name
+   *
+   * @param mixed[] $options Array of additional options for serving the object.
+   * Valid options are:
+   * <ul>
+   * <li>'crop': boolean Whether the image should be cropped.  If set to true, a
+   *   size must also be supplied. Default value: false.
+   * <li>'secure_url': boolean Whether to request an https URL. Default value:
+   *   false.
+   * <li>'size': integer The size of the longest dimension of the resulting
+   * image. Size must be in the range 0 to 1600, with 0 specifying the size of
+   * the original image. The aspect ratio is preserved unless 'crop' is
+   * specified.
+   * </ul>
+   * @return string The image serving URL.
+   *
+   * @throws \InvalidArgumentException if any of the arguments are not valid.
+   * @throws CloudStorageException If there was a problem contacting the
+   * service.
+   */
+  public static function getImageServingUrl($gs_filename, $options = []) {
+    $blob_key = self::createGsKey($gs_filename);
+    if (!is_array($options)) {
+      throw new \InvalidArgumentException('$options must be an array. ' .
+          'Actual type: ' . gettype($options));
+    }
+
+    $extra_options = array_diff(array_keys($options), array_keys(
+         self::$get_image_serving_url_default_options));
+    if (!empty($extra_options)) {
+      throw new \InvalidArgumentException('Invalid options supplied: ' .
+          implode(',', $extra_options));
+    }
+    $options = array_merge(self::$get_image_serving_url_default_options,
+                           $options);
+
+    # Validate options.
+    if (!is_bool($options['crop'])) {
+      throw new \InvalidArgumentException(
+          '$options[\'crop\'] must be a boolean. ' .
+          'Actual type: ' . gettype($options['crop']));
+    }
+    if ($options['crop'] && is_null($options['size'])) {
+      throw new \InvalidArgumentException(
+          '$options[\'size\'] must be set because $options[\'crop\'] is true.');
+    }
+    if (!is_null($options['size'])) {
+      $size = $options['size'];
+      if (!is_int($size)) {
+        throw new \InvalidArgumentException(
+            '$options[\'size\'] must be an integer. ' .
+            'Actual type: ' . gettype($size));
+      }
+      if ($size < 0 || $size > self::MAX_IMAGE_SERVING_SIZE) {
+        throw new \InvalidArgumentException(
+            '$options[\'size\'] must be >= 0 and <= ' .
+            self::MAX_IMAGE_SERVING_SIZE .  '. Actual value: ' . $size);
+      }
+    }
+    if (!is_bool($options['secure_url'])) {
+      throw new \InvalidArgumentException(
+          '$options[\'secure_url\'] must be a boolean. ' .
+          'Actual type: ' . gettype($options['secure_url']));
+    }
+
+    $req = new ImagesGetUrlBaseRequest();
+    $resp = new ImagesGetUrlBaseResponse();
+    $req->setBlobKey($blob_key);
+    $req->setCreateSecureUrl($options['secure_url']);
+
+    try {
+      ApiProxy::makeSyncCall('images',
+                             'GetUrlBase',
+                             $req,
+                             $resp);
+    } catch (ApplicationError $e) {
+      throw self::imagesApplicationErrorToException($e);
+    }
+    $url = $resp->getUrl();
+    if (!is_null($options['size'])) {
+      $url .= ('=s' . $options['size']);
+      if ($options['crop']) {
+        $url .= '-c';
+      }
+    }
+    return $url;
+  }
+
+  /**
+   * Deletes an image serving URL that was created using getImageServingUrl.
+   *
+   * @param string $gs_filename The name of the Google Cloud Storage object
+   * that has an existing URL to delete. In the format
+   * gs://bucket_name/object_name
+   *
+   * @throws \InvalidArgumentException if any of the arguments are not valid.
+   * @throws CloudStorageException If there was a problem contacting the
+   * service.
+   */
+  public static function deleteImageServingUrl($gs_filename) {
+    $blob_key = self::createGsKey($gs_filename);
+    $req = new ImagesDeleteUrlBaseRequest();
+    $resp = new ImagesDeleteUrlBaseResponse();
+    $req->setBlobKey($blob_key);
+
+    try {
+      ApiProxy::makeSyncCall('images',
+                             'DeleteUrlBase',
+                             $req,
+                             $resp);
+    } catch (ApplicationError $e) {
+      throw self::imagesApplicationErrorToException($e);
+    }
   }
 
   /**
    * Create a blob key for a Google Cloud Storage file.
    *
    * @param string $filename The google cloud storage filename, in the format
-   * gcs://bucket_name/object_name
+   * gs://bucket_name/object_name
    *
    * @return string A blob key for this filename that can be used in other API
    * calls.
    *
-   * @throws InvalidArgumentException if the filename is not in the correct
+   * @throws \InvalidArgumentException if the filename is not in the correct
    * format.
-   * @throws BlobstoreException If there was a problem contacting the
+   * @throws CloudStorageException If there was a problem contacting the
    * service.
+   * @deprecated This method will be made private in the next version.
    */
-  public static function createGsKey($filename) {
+  private static function createGsKey($filename) {
     if (!is_string($filename)) {
-      throw new \InvalidArgumentException('filename must be a string.');
+      throw new \InvalidArgumentException('filename must be a string. ' .
+          'Actual type: ' . gettype($filename));
     }
 
-    $gcs_prefix_len = strlen(self::GCS_PREFIX);
+    $gs_prefix_len = strlen(self::GS_PREFIX);
 
-    if (strncmp($filename, self::GCS_PREFIX, $gcs_prefix_len) != 0) {
+    if (strncmp($filename, self::GS_PREFIX, $gs_prefix_len) != 0) {
       throw new \InvalidArgumentException(
-          sprintf('filename must start with the prefix %s.', self::GCS_PREFIX));
+          sprintf('filename must start with the prefix %s.', self::GS_PREFIX));
     }
 
-    $gcs_filename = substr($filename, $gcs_prefix_len);
+    $gs_filename = substr($filename, $gs_prefix_len);
 
-    if (!strpos($gcs_filename, "/")) {
+    if (!strpos($gs_filename, "/")) {
       throw new \InvalidArgumentException(
-        'filename not in the format gcs://bucket_name/object_name.');
+        'filename not in the format gs://bucket_name/object_name.');
     }
 
-    $gcs_filename = sprintf('/gs/%s', $gcs_filename);
+    $gs_filename = sprintf('/gs/%s', $gs_filename);
 
     $request = new CreateEncodedGoogleStorageKeyRequest();
     $response = new CreateEncodedGoogleStorageKeyResponse();
 
-    $request->setFilename($gcs_filename);
+    $request->setFilename($gs_filename);
 
     try {
       ApiProxy::makeSyncCall('blobstore',
@@ -208,7 +343,7 @@ class BlobstoreService {
                              $request,
                              $response);
     } catch (ApplicationError $e) {
-      throw BlobstoreService::ApplicationErrorToException($e);
+      throw self::applicationErrorToException($e);
     }
 
     return $response->getBlobKey();
@@ -217,19 +352,22 @@ class BlobstoreService {
   /**
    * Serve a Google Cloud Storage file as the response.
    *
-   * @param string $gcs_filename The name of the Google Cloud Storage object to
+   * @param string $gs_filename The name of the Google Cloud Storage object to
    * serve.
-   * @param mixed $options Array of additional options for serving the object.
-   *   content_type: Content-Type to override when known.
-   *   save_as: If True then send the file as an attachment.
-   *   start: Start index of content-range to send.
-   *   end: End index of content-range to send. End index is inclusive.
-   *   use_range: Use provided content range from the request's Range header.
-   *     Mutually exclusive with start and end.
+   * @param mixed[] $options Array of additional options for serving the object.
+   * <ul>
+   *   <li>'content_type': string Content-Type to override when known.
+   *   <li>'save_as': boolean If True then send the file as an attachment.
+   *   <li>'start': int Start index of content-range to send.
+   *   <li>'end': int End index of content-range to send. End index is
+   *   inclusive.
+   *   <li>'use_range': boolean Use provided content range from the request's
+   *   Range header. Mutually exclusive with start and end.
+   * </ul>
    *
-   * @throws InvalidArgumentException If invalid options are supplied.
+   * @throws \InvalidArgumentException If invalid options are supplied.
    */
-  public static function serve($gcs_filename, $options = []) {
+  public static function serve($gs_filename, $options = []) {
     $extra_options = array_diff(array_keys($options), self::$serve_options);
 
     if (!empty($extra_options)) {
@@ -243,30 +381,30 @@ class BlobstoreService {
     $use_range = util\FindByKeyOrNull($options, "use_range");
     $request_range_header = util\FindByKeyOrNull($_SERVER, "HTTP_RANGE");
 
-    $range_header = BlobstoreService::checkRanges($start,
-                                                  $end,
-                                                  $use_range,
-                                                  $request_range_header);
+    $range_header = self::checkRanges($start,
+                                      $end,
+                                      $use_range,
+                                      $request_range_header);
 
     $save_as = util\FindByKeyOrNull($options, "save_as");
     if (isset($save_as) && !is_string($save_as)) {
       throw new \InvalidArgumentException("Unexpected value for save_as.");
     }
 
-    $blob_key = BlobstoreService::createGsKey($gcs_filename);
-    BlobstoreService::sendHeader(self::BLOB_KEY_HEADER, $blob_key);
+    $blob_key = self::createGsKey($gs_filename);
+    self::sendHeader(self::BLOB_KEY_HEADER, $blob_key);
 
     if (isset($range_header)) {
-      BlobstoreService::sendHeader(self::BLOB_RANGE_HEADER, $range_header);
+      self::sendHeader(self::BLOB_RANGE_HEADER, $range_header);
     }
 
     $content_type = util\FindByKeyOrNull($options, "content_type");
     if (isset($content_type)) {
-      BlobstoreService::sendHeader("Content-Type", $content_type);
+      self::sendHeader("Content-Type", $content_type);
     }
 
     if (isset($save_as)) {
-      BlobstoreService::sendHeader("Content-Disposition", sprintf(
+      self::sendHeader("Content-Disposition", sprintf(
           "attachment; filename=%s", $save_as));
     }
   }
@@ -304,18 +442,45 @@ class BlobstoreService {
   /**
    * @access private
    */
-  private static function ApplicationErrorToException($error) {
+  private static function applicationErrorToException($error) {
     switch($error->getApplicationError()) {
       case ErrorCode::URL_TOO_LONG:
         return new \InvalidArgumentException(
             'The upload URL supplied was too long.');
       case ErrorCode::PERMISSION_DENIED:
-        return new BlobstoreException('Permission Denied');
+        return new CloudStorageException('Permission Denied');
       case ErrorCode::ARGUMENT_OUT_OF_RANGE:
         return new \InvalidArgumentException($error->getMessage());
       default:
-        return new BlobstoreException(
+        return new CloudStorageException(
             'Error Code: ' . $error->getApplicationError());
+    }
+  }
+
+  /**
+   * @access private
+   */
+  private static function imagesApplicationErrorToException($error) {
+    switch($error->getApplicationError()) {
+      case ImagesServiceError\ErrorCode::UNSPECIFIED_ERROR:
+        return new CloudStorageException('Unspecified error with image.');
+      case ImagesServiceError\ErrorCode::BAD_TRANSFORM_DATA:
+        return new CloudStorageException('Bad image transform data.');
+      case ImagesServiceError\ErrorCode::NOT_IMAGE:
+        return new CloudStorageException('Not an image.');
+      case ImagesServiceError\ErrorCode::BAD_IMAGE_DATA:
+        return new CloudStorageException('Bad image data.');
+      case ImagesServiceError\ErrorCode::IMAGE_TOO_LARGE:
+        return new CloudStorageException('Image too large.');
+      case ImagesServiceError\ErrorCode::INVALID_BLOB_KEY:
+        return new CloudStorageException('Invalid blob key for image.');
+      case ImagesServiceError\ErrorCode::ACCESS_DENIED:
+        return new CloudStorageException('Access denied to image.');
+      case ImagesServiceError\ErrorCode::OBJECT_NOT_FOUND:
+        return new CloudStorageException('Image object not found.');
+      default:
+        return new CloudStorageException(
+            'Images Error Code: ' . $error->getApplicationError());
     }
   }
 
@@ -343,7 +508,7 @@ class BlobstoreService {
               sprintf("The start range (%d) cannot be less than 0.", $start));
         }
       }
-      $range_indexes = BlobstoreService::serializeRange($start, $end);
+      $range_indexes = self::serializeRange($start, $end);
     }
 
     // If both headers and index parameters are in use they must be the same.

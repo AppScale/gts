@@ -114,6 +114,8 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
   external servers.
   """
 
+  THREADSAFE = True
+
   def __init__(self, gettime=time.time, service_name='memcache'):
     """Initializer.
 

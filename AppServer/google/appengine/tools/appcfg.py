@@ -143,6 +143,12 @@ class Error(Exception):
 
 class OAuthNotAvailable(Error):
   """The appengine_rpc_httplib2 module could not be imported."""
+  pass
+
+
+class CannotStartServingError(Error):
+  """We could not start serving the version being uploaded."""
+  pass
 
 
 def PrintUpdate(msg):
@@ -1574,6 +1580,14 @@ class AppVersionUpload(object):
       result += ', version: %s' % self.version
     return result
 
+  @staticmethod
+  def _ValidateBeginYaml(resp):
+    """Validates the given /api/appversion/create response string."""
+    response_dict = yaml.safe_load(resp)
+    if not response_dict or 'warnings' not in response_dict:
+      return False
+    return response_dict
+
   def Begin(self):
     """Begins the transaction, returning a list of files that need uploading.
 
@@ -1598,7 +1612,16 @@ class AppVersionUpload(object):
           url.static_files = os.path.join(STATIC_FILE_PREFIX, url.static_files)
           url.upload = os.path.join(STATIC_FILE_PREFIX, url.upload)
 
-    self.Send('/api/appversion/create', payload=config_copy.ToYAML())
+    response = self.Send(
+        '/api/appversion/create',
+        payload=config_copy.ToYAML())
+
+    result = self._ValidateBeginYaml(response)
+    if result:
+      warnings = result.get('warnings')
+      for warning in warnings:
+        StatusUpdate('WARNING: %s' % warning)
+
     self.in_transaction = True
 
     files_to_clone = []
@@ -1788,6 +1811,9 @@ class AppVersionUpload(object):
 
       self.in_transaction = False
     else:
+      if result == '0':
+        raise CannotStartServingError(
+            'Another operation on this version is in progress.')
       success, unused_contents = RetryWithBackoff(
           lambda: (self.IsServing(), None), PrintRetryMessage, 1, 2, 60, 20)
       if not success:
@@ -1857,6 +1883,17 @@ class AppVersionUpload(object):
     self.started = True
     return result
 
+  @staticmethod
+  def _ValidateIsServingYaml(resp):
+    """Validates the given /isserving YAML string.
+
+    Returns the resulting dictionary if the response is valid.
+    """
+    response_dict = yaml.safe_load(resp)
+    if 'serving' not in response_dict:
+      return False
+    return response_dict
+
   def IsServing(self):
     """Check if the new app version is serving.
 
@@ -1869,8 +1906,23 @@ class AppVersionUpload(object):
     assert self.started, 'StartServing() must be called before IsServing().'
 
     StatusUpdate('Checking if updated app version is serving.')
+
+    self.params['new_serving_resp'] = '1'
     result = self.Send('/api/appversion/isserving')
-    return result == '1'
+    del self.params['new_serving_resp']
+    if result in ['0', '1']:
+      return result == '1'
+    result = AppVersionUpload._ValidateIsServingYaml(result)
+    if not result:
+      raise CannotStartServingError(
+          'Internal error: Could not parse IsServing response.')
+    message = result.get('message')
+    fatal = result.get('fatal')
+    if message:
+      StatusUpdate(message)
+    if fatal:
+      raise CannotStartServingError(fatal)
+    return result['serving']
 
   def Rollback(self):
     """Rolls back the transaction if one is in progress."""
@@ -1990,6 +2042,11 @@ class AppVersionUpload(object):
     except urllib2.HTTPError, err:
 
       logging.info('HTTP Error (%s)', err)
+      self.Rollback()
+      raise
+    except CannotStartServingError, err:
+
+      logging.error(err.message)
       self.Rollback()
       raise
     except:
@@ -2353,6 +2410,9 @@ class AppCfgApp(object):
       return 1
     except yaml_errors.EventListenerError, e:
       print >>self.error_fh, ('Error parsing yaml file:\n%s' % e)
+      return 1
+    except CannotStartServingError:
+      print >>self.error_fh, 'Could not start serving the given version.'
       return 1
     return 0
 

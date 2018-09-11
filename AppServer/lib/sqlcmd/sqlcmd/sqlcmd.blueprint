@@ -1,0 +1,15 @@
+include "devtools/blueprint/ncl/blueprint_file.ncl";
+
+blueprint_file = ::blueprint::BlueprintFile(
+  buildable_units = [
+    ::blueprint::BuildableUnit(
+      test_patterns = ["//third_party/py/sqlcmd/..."],
+      name = "third_party.py.sqlcmd",
+      continuous_build_email = ::blueprint::ContinuousBuildEmailInfo(
+        build_cop_email_addrs = ["mmcdonald@google.com"]),
+      enable_release = false,
+      enable_continuous_build = true,
+      tap_settings = tap::TapBuildableUnitSettings(
+        legacy_tap_project_id = "third_party.py.sqlcmd"))],
+  project_name = "third_party.py.sqlcmd",
+  mdb_groups = ["techinfra-build"]);

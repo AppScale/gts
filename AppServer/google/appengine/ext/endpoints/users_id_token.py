@@ -37,10 +37,18 @@ import urllib
 
 import google
 
-from google.appengine.api import memcache
-from google.appengine.api import oauth
-from google.appengine.api import urlfetch
-from google.appengine.api import users
+try:
+
+  from google.appengine.api import memcache
+  from google.appengine.api import oauth
+  from google.appengine.api import urlfetch
+  from google.appengine.api import users
+except ImportError:
+
+  from google.appengine.api import memcache
+  from google.appengine.api import oauth
+  from google.appengine.api import urlfetch
+  from google.appengine.api import users
 
 try:
 
@@ -201,12 +209,10 @@ def _maybe_set_current_user_vars(method, api_info=None, request=None):
 
   if scopes:
     logging.info('Checking for oauth token.')
-    result = urlfetch.fetch(
-        '%s?%s' % (_TOKENINFO_URL, urllib.urlencode({'access_token': token})))
-    if result.status_code == 200:
-      token_info = json.loads(result.content)
-      _set_oauth_user_vars(token_info, audiences, allowed_client_ids,
-                           scopes, _is_local_dev())
+    if _is_local_dev():
+      _set_bearer_user_vars_local(token, allowed_client_ids, scopes)
+    else:
+      _set_bearer_user_vars(allowed_client_ids, scopes)
 
 
 def _get_token(request):
@@ -282,22 +288,73 @@ def _get_id_token_user(token, audiences, allowed_client_ids, time_now, cache):
     return users.User(email)
 
 
+
 def _set_oauth_user_vars(token_info, audiences, allowed_client_ids, scopes,
                          local_dev):
-  """Validate the oauth token and set endpoints auth user variables.
+  logging.warning('_set_oauth_user_vars is deprecated and will be removed '
+                  'soon.')
+  return _set_bearer_user_vars(allowed_client_ids, scopes)
 
-  If the oauth token is valid, this sets either the ENDPOINTS_AUTH_EMAIL and
-  ENDPOINTS_AUTH_DOMAIN environment variables (in local development) or
-  the ENDPOINTS_USE_OAUTH_SCOPE one.  These provide enough information
-  that our endpoints.get_current_user() function can get the user.
+
+
+def _set_bearer_user_vars(allowed_client_ids, scopes):
+  """Validate the oauth bearer token and set endpoints auth user variables.
+
+  If the bearer token is valid, this sets ENDPOINTS_USE_OAUTH_SCOPE.  This
+  provides enough information that our endpoints.get_current_user() function
+  can get the user.
 
   Args:
-    token_info: Info returned about the oauth token from the tokeninfo endpoint.
-    audiences: List of audiences that are acceptable, or None for first-party.
     allowed_client_ids: List of client IDs that are acceptable.
     scopes: List of acceptable scopes.
-    local_dev: True if we're running a local dev server, false if we're in prod.
   """
+  for scope in scopes:
+    try:
+      client_id = oauth.get_client_id(scope)
+    except oauth.Error:
+
+      continue
+
+
+    if allowed_client_ids and client_id not in allowed_client_ids:
+      logging.warning('Client ID is not allowed: %s', client_id)
+      return
+
+    os.environ[_ENV_USE_OAUTH_SCOPE] = scope
+    logging.debug('Returning user from matched oauth_user.')
+    return
+
+  logging.warning('Oauth framework user didn\'t match oauth token user.')
+  return None
+
+
+def _set_bearer_user_vars_local(token, allowed_client_ids, scopes):
+  """Validate the oauth bearer token on the dev server.
+
+  Since the functions in the oauth module return only example results in local
+  development, this hits the tokeninfo endpoint and attempts to validate the
+  token.  If it's valid, we'll set _ENV_AUTH_EMAIL and _ENV_AUTH_DOMAIN so we
+  can get the user from the token.
+
+  Args:
+    token: String with the oauth token to validate.
+    allowed_client_ids: List of client IDs that are acceptable.
+    scopes: List of acceptable scopes.
+  """
+
+  result = urlfetch.fetch(
+      '%s?%s' % (_TOKENINFO_URL, urllib.urlencode({'access_token': token})))
+  if result.status_code != 200:
+    try:
+      error_description = json.loads(result.content)['error_description']
+    except (ValueError, KeyError):
+      error_description = ''
+    logging.warning('Token info endpoint returned status %s: %s',
+                    result.status_code, error_description)
+    return
+  token_info = json.loads(result.content)
+
+
   if 'email' not in token_info:
     logging.warning('Oauth token doesn\'t include an email address.')
     return
@@ -306,25 +363,10 @@ def _set_oauth_user_vars(token_info, audiences, allowed_client_ids, scopes,
     return
 
 
-
-
-  if audiences or allowed_client_ids:
-    if 'audience' not in token_info:
-      logging.warning('Audience is required and isn\'t specified in token.')
-      return
-
-
-
-
-    if token_info['audience'] in audiences:
-      pass
-    elif (token_info['audience'] == token_info.get('issued_to') and
-          allowed_client_ids is not None and
-          token_info['audience'] in allowed_client_ids):
-      pass
-    else:
-      logging.warning('Oauth token audience isn\'t permitted.')
-      return
+  client_id = token_info.get('issued_to')
+  if allowed_client_ids and client_id not in allowed_client_ids:
+    logging.warning('Client ID is not allowed: %s', client_id)
+    return
 
 
   token_scopes = token_info.get('scope', '').split(' ')
@@ -332,35 +374,10 @@ def _set_oauth_user_vars(token_info, audiences, allowed_client_ids, scopes,
     logging.warning('Oauth token scopes don\'t match any acceptable scopes.')
     return
 
-  if local_dev:
-
-
-
-
-
-    os.environ[_ENV_AUTH_EMAIL] = token_info['email']
-    os.environ[_ENV_AUTH_DOMAIN] = ''
-    return
-
-
-
-  for scope in scopes:
-    try:
-      oauth_user = oauth.get_current_user(scope)
-      oauth_scope = scope
-      break
-    except oauth.Error:
-
-      pass
-  else:
-    logging.warning('Oauth framework couldn\'t find a user.')
-    return None
-  if oauth_user.email() == token_info['email']:
-    os.environ[_ENV_USE_OAUTH_SCOPE] = oauth_scope
-    return
-
-  logging.warning('Oauth framework user didn\'t match oauth token user.')
-  return None
+  os.environ[_ENV_AUTH_EMAIL] = token_info['email']
+  os.environ[_ENV_AUTH_DOMAIN] = ''
+  logging.debug('Local dev returning user from token.')
+  return
 
 
 def _is_local_dev():
