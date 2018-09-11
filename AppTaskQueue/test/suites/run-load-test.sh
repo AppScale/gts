@@ -300,8 +300,26 @@ log "=== Preparing Virtualenv for the load test ==="
 log "=============================================="
 # aiohttp lib which is used in e2e test requires Python>=3.5.3
 # test scripts uses new syntax for formatting strings (3.6+)
-PYTHON=$(realpath --strip ./python-3.6.6-plus)
-${HELPERS_DIR}/ensure-python-version.sh 3.6.6 --create-link "${PYTHON}"
+
+# Loop through standard python aliases in order to find needed version
+PYTHON=
+for PYTHON_EXECUTABLE in python python3 python3.6 python3.7
+do
+    # Get exact version of python interpreter
+    HAVE=$(${PYTHON_EXECUTABLE} --version 2> null | awk '{ print $2 }')
+    # Stop if version is new enough
+    if echo -e "${HAVE}\n3.6" | sort -V | head -1 | grep "^3.6$"
+    then
+        PYTHON=$(which ${PYTHON_EXECUTABLE})
+        break
+    fi
+done
+if [ -z "${PYTHON}" ]
+then
+    log "Python 3.6 or greater was not found." "ERROR"
+    log "Please install it and try again."
+    exit 1
+fi
 
 cd "${LOAD_TEST_DIR}"
 
