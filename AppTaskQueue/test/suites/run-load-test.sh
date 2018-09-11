@@ -16,7 +16,8 @@ usage() {
     echo "Usage: ${0} \\"
     echo "         --key-location <KEY> --user-name <USER> \\"
     echo "         --layout-file <FILE> --producers <NUM> --workers <NUM> \\"
-    echo "         --tq-per-vm <NUM> [--locust-timeout <SEC>] [--logs-dir <DIR>]"
+    echo "         --run-time <DURATION> --tq-per-vm <NUM> \\"
+    echo "         [--locust-timeout <SEC>] [--logs-dir <DIR>]"
     echo
     echo "Options:"
     echo "   --key-location <KEY>    Private key file for access to machines."
@@ -26,6 +27,8 @@ usage() {
     echo "                           appscale/AppTaskQueue/test/suites/layout-example.txt "
     echo "   --producers <NUM>       Number of task producers to start."
     echo "   --workers <NUM>         Number of workers to start."
+    echo "   --run-time <DURATION>   Stop producer after specified amount of time,"
+    echo "                           e.g. 300s, 20m, 4h, 1h30m, etc."
     echo "   --tq-per-vm <NUM>       Number of TQ servers to start on taskqueue VMs."
     echo "   --locust-timeout <SEC>  Timeout for producers and workers (default: 1200)."
     echo "   --logs-dir <DIR>        Dir to save logs to (default: ./logs)."
@@ -37,6 +40,7 @@ USER=
 LAYOUT_FILE=
 PRODUCERS=
 WORKERS=
+RUN_TIME=
 TQ_PER_VM=
 LOCUST_TIMEOUT=1200  # 20 minutes
 LOGS_DIR="$(realpath --strip ./logs)"
@@ -88,6 +92,15 @@ while [ $# -gt 0 ]; do
         shift
         continue
     fi
+    if [ "${1}" = "--run-time" ]; then
+        shift
+        if [ -z "${1}" ]; then
+            usage
+        fi
+        RUN_TIME="${1}"
+        shift
+        continue
+    fi
     if [ "${1}" = "--tq-per-vm" ]; then
         shift
         if [ -z "${1}" ]; then
@@ -119,7 +132,8 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "${KEY_LOCATION}" ] || [ -z "${USER}" ] || [ -z "${LAYOUT_FILE}" ] || \
-   [ -z "${PRODUCERS}" ] || [ -z "${WORKERS}" ] || [ -z "${TQ_PER_VM}" ]
+   [ -z "${PRODUCERS}" ] || [ -z "${WORKERS}" ] || [ -z "${RUN_TIME}" ] || \
+   [ -z "${TQ_PER_VM}" ]
 then
     usage
 fi
@@ -328,7 +342,7 @@ ${PYTHON} -m venv "venv"
 venv/bin/pip install --upgrade pip
 venv/bin/pip install "${HELPERS_DIR}"
 venv/bin/pip install kazoo
-venv/bin/pip install locustio
+venv/bin/pip install locustio==0.9
 venv/bin/pip install requests
 venv/bin/pip install attr
 venv/bin/pip install psutil
@@ -358,7 +372,7 @@ timeout "${LOCUST_TIMEOUT}" \
     venv/bin/locust --host "${TQ_LOCATION}" --no-web \
                     --clients ${PRODUCERS} \
                     --hatch-rate $((PRODUCERS/10 + 1)) \
-                    --num-request $((PRODUCERS*3)) \
+                    --run-time ${RUN_TIME} \
                     --csv-base-name "${LOCUST_LOGS}/producers" \
                     --logfile "${LOCUST_LOGS}/producers-log" \
                     --locustfile ./producer_locust.py \
@@ -434,7 +448,7 @@ timeout "${LOCUST_TIMEOUT}" \
     venv/bin/locust --host "${TQ_LOCATION}" --no-web \
                     --clients ${PRODUCERS} \
                     --hatch-rate $((PRODUCERS/10 + 1)) \
-                    --num-request $((PRODUCERS*3)) \
+                    --run-time ${RUN_TIME} \
                     --csv-base-name "${LOCUST_LOGS}/producers" \
                     --logfile "${LOCUST_LOGS}/producers-log" \
                     --locustfile ./producer_locust.py \
