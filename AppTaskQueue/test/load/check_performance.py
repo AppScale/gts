@@ -124,7 +124,7 @@ class LocustLogChecker(object):
       with open(distribution_file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         for row in reader:
-          if row[0] == "Name" or row[0] == "None Total":
+          if row[0] == "Name" or row[0] == "Total":
             continue    # Skip header and total line
           method_name = row[0]
           if method_name not in self.methods:

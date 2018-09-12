@@ -102,11 +102,11 @@ class Worker(TaskQueueLocust):
         if active_tasks:
           return
 
-        if Worker.LAST_LEASE_TIME + LEASE_SECONDS + 20 < time.time():
+        if Worker.LAST_LEASE_TIME + LEASE_SECONDS + 150 < time.time():
           logging.info(
             'producer_locust is already terminated and we couldn\'t find '
             'any active tasks (which did not exhausted retries) in queue. '
-            f'No tasks were leased during last {LEASE_SECONDS + 20} seconds.'
+            f'No tasks were leased during last {LEASE_SECONDS + 150} seconds.'
           )
           raise StopLocust('All work seems to be done')
 
