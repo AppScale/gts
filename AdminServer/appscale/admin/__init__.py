@@ -62,6 +62,7 @@ from .constants import (
   VALID_RUNTIMES,
   VersionNotChanged
 )
+from .controller_state import ControllerState
 from .operation import (
   DeleteServiceOperation,
   CreateVersionOperation,
@@ -70,6 +71,7 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
+from .routing.routing_manager import RoutingManager
 from .service_manager import ServiceManager, ServiceManagerHandler
 from .summary import get_combined_services
 
@@ -1262,6 +1264,12 @@ def main():
   if options.private_ip in appscale_info.get_taskqueue_nodes():
     logger.info('Starting push worker manager')
     GlobalPushWorkerManager(zk_client, monit_operator)
+
+  if options.private_ip in appscale_info.get_load_balancer_ips():
+    logger.info('Starting RoutingManager')
+    controller_state = ControllerState(zk_client)
+    routing_manager = RoutingManager(zk_client, controller_state)
+    routing_manager.start()
 
   service_manager = ServiceManager(zk_client)
   service_manager.start()
