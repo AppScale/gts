@@ -47,8 +47,9 @@ from appscale.common import (
   monit_app_configuration,
   misc
 )
-from appscale.common.constants import HTTPCodes, MonitStates, VAR_DIR
-from appscale.common.constants import VERSION_PATH_SEPARATOR
+from appscale.common.constants import (
+  GAE_PREFIX, HTTPCodes, MonitStates, VAR_DIR, VERSION_PATH_SEPARATOR,
+  VERSION_REGISTRATION_NODE)
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.monit_interface import DEFAULT_RETRIES
@@ -83,9 +84,6 @@ FETCH_PATH = '/_ah/health_check'
 
 # The number of seconds to wait between checking for failed instances.
 INSTANCE_CLEANUP_INTERVAL = 30
-
-# The ZooKeeper node that keeps track of running AppServers by version.
-VERSION_REGISTRATION_NODE = '/appscale/instances_by_version'
 
 # Apps which can access any application's data.
 TRUSTED_APPS = ["appscaledashboard"]
@@ -975,10 +973,10 @@ def get_failed_instances():
   proxy_stats = json.loads(response.body)['proxies_stats']
 
   routed_versions = [server for server in proxy_stats
-                     if server['name'].startswith('gae_')]
+                     if server['name'].startswith(GAE_PREFIX)]
   failed_instances = set()
   for version in routed_versions:
-    version_key = version['name'][len('gae_'):]
+    version_key = version['name'][len(GAE_PREFIX):]
     for server in version['servers']:
       if server['private_ip'] != options.private_ip:
         continue
