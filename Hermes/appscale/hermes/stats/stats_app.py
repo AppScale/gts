@@ -3,6 +3,9 @@ import json
 
 import attr
 import logging
+
+from appscale.hermes.stats.producers.cassandra_stats import \
+  CassandraStatsSource
 from tornado.ioloop import PeriodicCallback, IOLoop
 
 from appscale.hermes.handlers import Respond404Handler
@@ -22,8 +25,8 @@ from appscale.hermes.stats.handlers import (
 from appscale.hermes.stats.producers.cluster_stats import (
   cluster_nodes_stats, cluster_processes_stats, cluster_proxies_stats,
   cluster_rabbitmq_stats, cluster_push_queues_stats,
-  cluster_taskqueue_stats
-)
+  cluster_taskqueue_stats,
+  cluster_cassandra_stats)
 from appscale.hermes.stats.producers.node_stats import NodeStatsSource
 from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
 from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
@@ -63,6 +66,11 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name'],
   # Push queue stats
   'queue': ['name', 'messages'],
+  # Cassandra stats
+  'cassandra': ['utc_timestamp', 'nodes', 'missing_nodes', 'unknown_nodes'],
+  # Cassandra node stats
+  'cassandra.node': ['address', 'status', 'state', 'load', 'owns_pct',
+                     'tokens_num'],
 })
 
 
@@ -73,13 +81,14 @@ class HandlerInfo(object):
   init_kwargs = attr.ib()
 
 
-def get_local_stats_api_routes(is_lb_node, is_tq_node):
+def get_local_stats_api_routes(is_lb_node, is_tq_node, is_db_node):
   """ Creates stats sources and API handlers for providing local
   node, processes and proxies (only on LB nodes) stats.
 
   Args:
     is_lb_node: A boolean indicating whether this node is load balancer.
     is_tq_node: A boolean indicating whether this node runs taskqueue service.
+    is_db_node: A boolean indicating whether this node runs cassandra service.
   Returns:
     A list of route-handler tuples.
   """
@@ -140,6 +149,20 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
       init_kwargs={'reason': 'Only TQ nodes provide push queue stats'}
     )
 
+  if is_db_node:
+    # Only DB nodes provide Cassandra stats.
+    local_cassandra_stats_handler = HandlerInfo(
+      handler_class=CurrentStatsHandler,
+      init_kwargs={'source': CassandraStatsSource,
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+    )
+  else:
+    # Stub handler for non-DB nodes
+    local_cassandra_stats_handler = HandlerInfo(
+      handler_class=Respond404Handler,
+      init_kwargs={'reason': 'Only DB nodes provide Cassandra stats'}
+    )
+
   routes = {
     '/stats/local/node': local_node_stats_handler,
     '/stats/local/processes': local_processes_stats_handler,
@@ -147,6 +170,7 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
     '/stats/local/rabbitmq': local_rabbitmq_stats_handler,
     '/stats/local/push_queues': local_push_queue_stats_handler,
     '/stats/local/taskqueue': local_taskqueue_stats_handler,
+    '/stats/local/cassandra': local_cassandra_stats_handler,
   }
   return [
     (route, handler.handler_class, handler.init_kwargs)
@@ -196,6 +220,11 @@ def get_cluster_stats_api_routes(is_lb):
       init_kwargs={'source': cluster_push_queues_stats,
                    'default_include_lists': DEFAULT_INCLUDE_LISTS}
     )
+    cluster_cassandra_stats_handler = HandlerInfo(
+      handler_class=CurrentClusterStatsHandler,
+      init_kwargs={'source': cluster_cassandra_stats,
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+    )
   else:
     # Stub handler for slave nodes
     cluster_stub_handler = HandlerInfo(
@@ -208,6 +237,7 @@ def get_cluster_stats_api_routes(is_lb):
     cluster_taskqueue_stats_handler = cluster_stub_handler
     cluster_rabbitmq_stats_handler = cluster_stub_handler
     cluster_push_queue_stats_handler = cluster_stub_handler
+    cluster_cassandra_stats_handler = cluster_stub_handler
 
   routes = {
     '/stats/cluster/nodes': cluster_node_stats_handler,
@@ -216,6 +246,7 @@ def get_cluster_stats_api_routes(is_lb):
     '/stats/cluster/taskqueue': cluster_taskqueue_stats_handler,
     '/stats/cluster/rabbitmq': cluster_rabbitmq_stats_handler,
     '/stats/cluster/push_queues': cluster_push_queue_stats_handler,
+    '/stats/cluster/cassandra': cluster_cassandra_stats_handler,
   }
   return [
     (route, handler.handler_class, handler.init_kwargs)
