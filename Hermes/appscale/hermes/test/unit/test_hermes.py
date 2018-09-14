@@ -13,12 +13,11 @@ from appscale.common.ua_client import UAException
 from flexmock import flexmock
 from tornado.ioloop import IOLoop
 
-from appscale import hermes
-from appscale.hermes import helper
-from appscale.hermes import poll
-from appscale.hermes import SensorDeployer
-from appscale.hermes import shutdown
-from appscale.hermes import signal_handler
+from appscale.hermes import helper, server
+from appscale.hermes.server import poll
+from appscale.hermes.server import SensorDeployer
+from appscale.hermes.server import shutdown
+from appscale.hermes.server import signal_handler
 
 
 class TestHelper(unittest.TestCase):
@@ -66,7 +65,7 @@ class TestHelper(unittest.TestCase):
     poll()
 
   def test_signal_handler(self):
-    hermes.zk_client = flexmock(stop=lambda: None)
+    server.zk_client = flexmock(stop=lambda: None)
     flexmock(IOLoop.instance()).should_receive('add_callback').and_return()\
       .times(1)
     signal_handler(15, None)
@@ -78,9 +77,9 @@ class TestHelper(unittest.TestCase):
   def test_sensor_app_not_deployed_when_deployment_not_registered(self):
     # Test sensor app is not deployed when deployment is not registered.
     flexmock(helper).should_receive('get_deployment_id').and_return(None)
-    flexmock(hermes).should_receive('create_appscale_user').and_return().\
+    flexmock(server).should_receive('create_appscale_user').and_return().\
       times(0)
-    flexmock(hermes).should_receive('create_xmpp_user').and_return().\
+    flexmock(server).should_receive('create_xmpp_user').and_return().\
       times(0)
     flexmock(AppControllerClient).should_receive('upload_app').and_return().\
       times(0)
@@ -93,7 +92,7 @@ class TestHelper(unittest.TestCase):
     flexmock(helper).should_receive('get_deployment_id').and_return(
       self.DEPLOYMENT_ID)
     fake_options = flexmock(secret="fake_secret")
-    hermes.options = fake_options
+    server.options = fake_options
     flexmock(appscale_info).should_receive('get_db_master_ip').and_return()
     # Assume appscalesensor app already running.
     flexmock(AppControllerClient).should_receive('upload_app').and_return(). \
@@ -108,7 +107,7 @@ class TestHelper(unittest.TestCase):
     # Assume error while creating a new user.
     flexmock(UAClient).should_receive('does_user_exist').and_return(False)
     flexmock(UAClient).should_receive('commit_new_user').and_raise(UAException)
-    flexmock(hermes).should_receive('create_appscale_user').and_return(). \
+    flexmock(server).should_receive('create_appscale_user').and_return(). \
       times(1)
     flexmock(AppControllerClient).should_receive('upload_app').and_return(). \
       times(0)
@@ -125,8 +124,8 @@ class TestHelper(unittest.TestCase):
     flexmock(tarfile.TarFile).should_receive('close').and_return()
     flexmock(appscale_info).should_receive('get_appcontroller_client').and_return(
       AppControllerClient)
-    flexmock(hermes).should_receive('create_appscale_user').and_return(True)
-    flexmock(hermes).should_receive('create_xmpp_user').and_return(True)
+    flexmock(server).should_receive('create_appscale_user').and_return(True)
+    flexmock(server).should_receive('create_xmpp_user').and_return(True)
     flexmock(AppControllerClient).should_receive('upload_app').and_return(). \
       times(1)
 
