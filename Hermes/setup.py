@@ -31,5 +31,7 @@ setup(
             'appscale.hermes',
             'appscale.hermes.stats',
             'appscale.hermes.stats.producers'],
-  entry_points={'console_scripts': ['appscale-hermes=appscale.hermes:main']}
+  entry_points={'console_scripts': [
+    'appscale-hermes=appscale.hermes.server:main'
+  ]}
 )
