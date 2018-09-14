@@ -87,7 +87,7 @@ def rebuild_task_indexes(session):
                     'tag': result.tag or ''}
 
       insert_eta_index = SimpleStatement("""
-        INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag)
+        INSERT INTO pull_queue_eta_index (app, queue, eta, id, tag)
         VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s)
       """, retry_policy=BASIC_RETRIES)
       session.execute(insert_eta_index, parameters)
@@ -169,9 +169,9 @@ def create_pull_queue_tables(cluster, session):
     session.execute('DROP TABLE pull_queue_tasks_index',
                     timeout=SCHEMA_CHANGE_TIMEOUT)
 
-  logger.info('Trying to create pull_queue_tasks_index')
+  logger.info('Trying to create pull_queue_eta_index')
   create_index_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_tasks_index (
+    CREATE TABLE IF NOT EXISTS pull_queue_eta_index (
       app text,
       queue text,
       eta timestamp,
@@ -185,7 +185,7 @@ def create_pull_queue_tables(cluster, session):
     session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except OperationTimedOut:
     logger.warning(
-      'Encountered an operation timeout while creating pull_queue_tasks_index.'
+      'Encountered an operation timeout while creating pull_queue_eta_index.'
       ' Waiting {} seconds for schema to settle.'
         .format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)

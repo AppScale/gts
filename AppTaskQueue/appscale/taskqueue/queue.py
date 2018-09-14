@@ -316,7 +316,7 @@ class PullQueue(Queue):
       tag = ''
 
     insert_eta_index = SimpleStatement("""
-      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag)
+      INSERT INTO pull_queue_eta_index (app, queue, eta, id, tag)
       VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s)
     """, retry_policy=BASIC_RETRIES)
     parameters = {
@@ -467,7 +467,7 @@ class PullQueue(Queue):
     task_id = ''
     while True:
       query_tasks = """
-        SELECT eta, id FROM pull_queue_tasks_index
+        SELECT eta, id FROM pull_queue_eta_index
         WHERE token(app, queue, eta, id) > token(%(app)s, %(queue)s, %(eta)s, %(id)s)
         AND token(app, queue, eta, id) < token(%(app)s, %(next_queue)s, 0, '')
         LIMIT {limit}
@@ -605,7 +605,7 @@ class PullQueue(Queue):
     """
     session = self.db_access.session
     select_oldest = """
-      SELECT eta FROM pull_queue_tasks_index
+      SELECT eta FROM pull_queue_eta_index
       WHERE token(app, queue, eta, id) >= token(%(app)s, %(queue)s, 0, '')
       AND token(app, queue, eta, id) < token(%(app)s, %(next_queue)s, 0, '')
       LIMIT 1
@@ -803,7 +803,7 @@ class PullQueue(Queue):
       results = self.db_access.session.execute(query_tasks, parameters)
     else:
       query_tasks = """
-        SELECT eta, id, tag FROM pull_queue_tasks_index
+        SELECT eta, id, tag FROM pull_queue_eta_index
         WHERE token(app, queue, eta, id) >= token(%(app)s, %(queue)s, 0, '')
         AND token(app, queue, eta, id) <= token(%(app)s, %(queue)s, dateof(now()), '')
         LIMIT {limit}
@@ -879,7 +879,7 @@ class PullQueue(Queue):
       EmptyQueue if there are no tasks.
     """
     get_earliest_tag = """
-      SELECT tag FROM pull_queue_tasks_index
+      SELECT tag FROM pull_queue_eta_index
       WHERE token(app, queue, eta, id) > token(%(app)s, %(queue)s, 0, '')
       LIMIT 1
     """
@@ -1025,7 +1025,7 @@ class PullQueue(Queue):
     update_index = BatchStatement(retry_policy=BASIC_RETRIES)
 
     statement = """
-      DELETE FROM pull_queue_tasks_index
+      DELETE FROM pull_queue_eta_index
       WHERE app=?
       AND queue=?
       AND eta=?
@@ -1059,7 +1059,7 @@ class PullQueue(Queue):
       tag = ''
 
     statement = """
-      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag)
+      INSERT INTO pull_queue_eta_index (app, queue, eta, id, tag)
       VALUES (?, ?, ?, ?, ?)
     """
     if statement not in self.prepared_statements:
@@ -1091,7 +1091,7 @@ class PullQueue(Queue):
       tag: A string containing the task tag.
     """
     delete_eta_index = """
-      DELETE FROM pull_queue_tasks_index
+      DELETE FROM pull_queue_eta_index
       WHERE app = %(app)s
       AND queue = %(queue)s
       AND eta = %(eta)s
@@ -1136,7 +1136,7 @@ class PullQueue(Queue):
       return self._delete_task_and_index(task, retries=retries_left)
 
     delete_task_eta_index = SimpleStatement("""
-      DELETE FROM pull_queue_tasks_index
+      DELETE FROM pull_queue_eta_index
       WHERE app = %(app)s
       AND queue = %(queue)s
       AND eta = %(eta)s
