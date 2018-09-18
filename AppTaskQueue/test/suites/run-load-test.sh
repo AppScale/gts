@@ -362,6 +362,7 @@ mkdir "${VALIDATION_LOG}"
 export VALIDATION_LOG
 export PULL_QUEUES_BACKEND="cassandra"
 export TEST_PROJECT="${CASSANDRA_PROJECT}"
+export RUN_TIME
 
 log "Ensuring queues are configured and empty"
 venv/bin/python ./prepare_queues.py --zookeeper-location ${ZOOKEEPER_VM} \
@@ -371,8 +372,7 @@ log "Starting task producers with timeout ${LOCUST_TIMEOUT}s"
 timeout "${LOCUST_TIMEOUT}" \
     venv/bin/locust --host "${TQ_LOCATION}" --no-web \
                     --clients ${PRODUCERS} \
-                    --hatch-rate $((PRODUCERS/10 + 1)) \
-                    --run-time ${RUN_TIME} \
+                    --hatch-rate $((PRODUCERS/3 + 1)) \
                     --csv-base-name "${LOCUST_LOGS}/producers" \
                     --logfile "${LOCUST_LOGS}/producers-log" \
                     --locustfile ./producer_locust.py \
@@ -438,6 +438,7 @@ mkdir "${VALIDATION_LOG}"
 export VALIDATION_LOG
 export PULL_QUEUES_BACKEND="postgres"
 export TEST_PROJECT="${POSTGRES_PROJECT}"
+export RUN_TIME
 
 log "Ensuring queues are configured and empty"
 venv/bin/python ./prepare_queues.py --zookeeper-location ${ZOOKEEPER_VM} \
@@ -447,8 +448,7 @@ log "Starting task producers with timeout ${LOCUST_TIMEOUT}s"
 timeout "${LOCUST_TIMEOUT}" \
     venv/bin/locust --host "${TQ_LOCATION}" --no-web \
                     --clients ${PRODUCERS} \
-                    --hatch-rate $((PRODUCERS/10 + 1)) \
-                    --run-time ${RUN_TIME} \
+                    --hatch-rate $((PRODUCERS/3 + 1)) \
                     --csv-base-name "${LOCUST_LOGS}/producers" \
                     --logfile "${LOCUST_LOGS}/producers-log" \
                     --locustfile ./producer_locust.py \

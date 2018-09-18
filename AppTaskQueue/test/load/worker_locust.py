@@ -2,6 +2,7 @@ import logging
 import os
 import time
 
+import gevent
 import locust
 import psutil
 from locust.exception import StopLocust
@@ -63,7 +64,7 @@ class Worker(TaskQueueLocust):
         # Assuming that virtual tasks can be run in parallel
         work_time_ms = max(work_time for task, work_time, should_fail
                            in tasks_info)
-        time.sleep(work_time_ms / 1000)
+        gevent.sleep(work_time_ms / 1000)
 
         # Determine tasks that should not be retried
         tasks_to_delete = [task for task, work_time, should_fail

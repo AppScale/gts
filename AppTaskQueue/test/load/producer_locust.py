@@ -1,10 +1,13 @@
 import itertools
+import os
 import random
 import uuid
 
 import locust
 
 from helpers import taskqueue_service_pb2
+from locust.util.time import parse_timespan
+
 from base_locust import TEST_PROJECT, TaskQueueLocust
 from prepare_queues import PULL_QUEUE
 
@@ -48,6 +51,11 @@ class Producer(TaskQueueLocust):
   """
   Virtual TaskQueue user producing tasks
   """
+
+  # Locustio has CLI --run-time parameter which limits execution time,
+  # but it kills locusts without giving them to report latest
+  # action to validation log.
+  stop_timeout = parse_timespan(os.environ['RUN_TIME'])
 
   class ProducerTasks(locust.TaskSet):
     """
