@@ -253,6 +253,10 @@ MINIMUM_IDLE_INSTANCES = 'min_idle_instances'
 MAXIMUM_IDLE_INSTANCES = 'max_idle_instances'
 MAXIMUM_CONCURRENT_REQUEST = 'max_concurrent_requests'
 
+# AppScale supported standard scaling configuration
+MINIMUM_INSTANCES = 'min_instances'
+MAXIMUM_INSTANCES = 'max_instances'
+
 
 INSTANCES = 'instances'
 
@@ -1224,6 +1228,8 @@ class AutomaticScaling(validation.Validated):
   ATTRIBUTES = {
       MINIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
       MAXIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
+      MINIMUM_INSTANCES: validation.Optional(_INSTANCES_REGEX),
+      MAXIMUM_INSTANCES: validation.Optional(_INSTANCES_REGEX),
       MINIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
       MAXIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
       MAXIMUM_CONCURRENT_REQUEST: validation.Optional(

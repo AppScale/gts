@@ -70,6 +70,7 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
+from .resource_validator import validate_resource, ResourceValidationError
 from .service_manager import ServiceManager, ServiceManagerHandler
 from .summary import get_combined_services
 
@@ -594,9 +595,9 @@ class VersionsHandler(BaseHandler):
         raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                               message='Reserved version ID')
 
-    if 'basicScaling' in version or 'manualScaling' in version:
+    if 'basicScaling' in version:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Only automaticScaling is supported')
+                            message='Invalid scaling, basicScaling is not supported')
 
     for inbound_service in version.get('inboundServices', []):
       if inbound_service not in SUPPORTED_INBOUND_SERVICES:
@@ -617,6 +618,12 @@ class VersionsHandler(BaseHandler):
         https_port not in constants.ALLOWED_HTTPS_PORTS):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid HTTPS port')
+
+    try:
+      validate_resource(version, 'version')
+    except ResourceValidationError as e:
+        resource_message = 'Invalid request: {}'.format(e.message)
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=resource_message)
 
     return version
 
@@ -886,8 +893,16 @@ class VersionHandler(BaseVersionHandler):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
     desired_fields = update_mask.split(',')
-    supported_fields = {'appscaleExtensions.httpPort',
-                        'appscaleExtensions.httpsPort'}
+    supported_fields = {
+      'appscaleExtensions.httpPort',
+      'appscaleExtensions.httpsPort',
+      'automaticScaling.standard_scheduler_settings.max_instances',
+      'automaticScaling.standard_scheduler_settings.min_instances'}
+    mapped_fields = {
+      'automaticScaling.standard_scheduler_settings.max_instances':
+        'automaticScaling.standardSchedulerSettings.maxInstances',
+      'automaticScaling.standard_scheduler_settings.min_instances':
+        'automaticScaling.standardSchedulerSettings.minInstances'}
     for field in desired_fields:
       if field not in supported_fields:
         message = ('This operation is only supported on the following '
@@ -899,8 +914,10 @@ class VersionHandler(BaseVersionHandler):
     except ValueError:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Payload must be valid JSON')
-
-    masked_version = utils.apply_mask_to_version(given_version, desired_fields)
+    rest_to_json = lambda field : mapped_fields.get(field, field)
+    masked_version = utils.apply_mask_to_version(
+      given_version,
+      list(map(rest_to_json, desired_fields)))
 
     extensions = masked_version.get('appscaleExtensions', {})
     http_port = extensions.get('httpPort', None)
@@ -937,6 +954,12 @@ class VersionHandler(BaseVersionHandler):
     version = json.loads(version_json)
     new_ports = utils.assign_ports(version, new_fields, self.zk_client)
     version['appscaleExtensions'].update(new_ports)
+    if not 'manualScaling' in version:
+      (version.setdefault('automaticScaling', {})
+              .setdefault('standardSchedulerSettings',{})
+              .update(new_fields.get('automaticScaling',{})
+                                .get('standardSchedulerSettings',{})))
+
     self.zk_client.set(version_node, json.dumps(version))
     return version
 
@@ -960,6 +983,37 @@ class VersionHandler(BaseVersionHandler):
 
     if https_port is not None:
       new_fields['appscaleExtensions']['httpsPort'] = https_port
+
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      version = self.update_version(project_id, service_id, version_id,
+                                    new_fields)
+    finally:
+      self.version_update_lock.release()
+
+    raise gen.Return(version)
+
+  @gen.coroutine
+  def update_scaling_for_version(self, project_id, service_id, version_id,
+                                 min_instances, max_instances):
+    """ Updates scaling settings for a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+      min_instances: An integer specifying minimum instances.
+      max_instances: An integer specifying maximum instances.
+    Returns:
+      A dictionary containing completed version details.
+    """
+    new_fields = {'automaticScaling': {'standardSchedulerSettings': {}}}
+    scheduler_fields = new_fields['automaticScaling']['standardSchedulerSettings']
+    if min_instances is not None:
+      scheduler_fields['minInstances'] = min_instances
+
+    if max_instances is not None:
+      scheduler_fields['maxInstances'] = max_instances
 
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
@@ -1048,6 +1102,17 @@ class VersionHandler(BaseVersionHandler):
       new_https_port = extensions.get('httpsPort')
       version = yield self.relocate_version(
         project_id, service_id, version_id, new_http_port, new_https_port)
+
+    automatic_scaling = version.get('automaticScaling', {})
+    standard_settings = automatic_scaling.get(
+      'standardSchedulerSettings', {})
+    if ('minInstances' in standard_settings or
+        'maxInstances' in standard_settings):
+      new_min_instances = standard_settings.get('minInstances', None)
+      new_max_instances = standard_settings.get('maxInstances', None)
+      version = yield self.update_scaling_for_version(
+        project_id, service_id, version_id, new_min_instances,
+        new_max_instances)
 
     operation = UpdateVersionOperation(project_id, service_id, version)
     self.write(json_encode(operation.rest_repr()))

@@ -1,0 +1,173 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "AppEngine application version",
+    "description": "An AppEngine application version - apps.services.versions.Version",
+    "definitions": {
+        "duration": {
+            "type": "string",
+            "pattern": "^[+-]?[0-9]{1,12}(?:.[+-]?[0-9]{1,9})?s$"
+        }
+    },
+    "type": "object",
+    "properties": {
+        "automaticScaling": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "coolDownPeriod": {
+                    "$ref": "#/definitions/duration"
+                },
+                "cpuUtilization": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "aggregationWindowLength": {
+                            "$ref": "#/definitions/duration"
+                        },
+                        "targetUtilization": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        }
+                    }
+                },
+                "maxConcurrentRequests": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "maxIdleInstances": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "maxTotalInstances": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "maxPendingLatency": {
+                    "$ref": "#/definitions/duration"
+                },
+                "minIdleInstances": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "minTotalInstances": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "minPendingLatency": {
+                    "$ref": "#/definitions/duration"
+                },
+                "requestUtilization": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "targetRequestCountPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "targetConcurrentRequests": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                "diskUtilization": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "targetWriteBytesPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "targetWriteOpsPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "targetReadBytesPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "targetReadOpsPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                "networkUtilization": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "targetSentBytesPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "targetSentPacketsPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "targetReceivedBytesPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "targetReceivedPacketsPerSecond": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                "standardSchedulerSettings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "targetCpuUtilization": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "targetThroughputUtilization": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "minInstances": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000
+                        },
+                        "maxInstances": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 2147483647
+                        }
+                    }
+                }
+            }
+        },
+        "basicScaling": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "idleTimeout": {
+                    "$ref": "#/definitions/duration"
+                },
+                "maxInstances": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                }
+            }
+        },
+        "manualScaling": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "instances": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                }
+            }
+        }
+    }
+}
+
