@@ -897,7 +897,8 @@ class VersionHandler(BaseVersionHandler):
       'appscaleExtensions.httpPort',
       'appscaleExtensions.httpsPort',
       'automaticScaling.standard_scheduler_settings.max_instances',
-      'automaticScaling.standard_scheduler_settings.min_instances'}
+      'automaticScaling.standard_scheduler_settings.min_instances',
+      'servingStatus'}
     mapped_fields = {
       'automaticScaling.standard_scheduler_settings.max_instances':
         'automaticScaling.standardSchedulerSettings.maxInstances',
@@ -963,6 +964,17 @@ class VersionHandler(BaseVersionHandler):
               .update(new_fields.get('automaticScaling')
                                 .get('standardSchedulerSettings',{})))
 
+    if 'servingStatus' in new_fields:
+      if not 'manualScaling' in version:
+        scaling_error = ('Serving status cannot be changed for Automatic '
+                         'Scaling versions')
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=scaling_error)
+
+      if ServingStatus.STOPPED == new_fields['servingStatus']:
+        version['servingStatus'] = ServingStatus.STOPPED
+      elif 'servingStatus' in version:
+        del version['servingStatus']
+
     new_ports = utils.assign_ports(version, new_fields, self.zk_client)
     version['appscaleExtensions'].update(new_ports)
 
@@ -1021,6 +1033,29 @@ class VersionHandler(BaseVersionHandler):
     if max_instances is not None:
       scheduler_fields['maxInstances'] = max_instances
 
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      version = self.update_version(project_id, service_id, version_id,
+                                    new_fields)
+    finally:
+      self.version_update_lock.release()
+
+    raise gen.Return(version)
+
+  @gen.coroutine
+  def update_serving_status_for_version(self, project_id, service_id,
+                                        version_id, serving_status):
+    """ Updates service status for a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+      serving_status: The desired status (SERVING|STOPPED)
+    Returns:
+      A dictionary containing completed version details.
+    """
+    new_fields = {'servingStatus': serving_status}
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
       version = self.update_version(project_id, service_id, version_id,
@@ -1119,6 +1154,11 @@ class VersionHandler(BaseVersionHandler):
       version = yield self.update_scaling_for_version(
         project_id, service_id, version_id, new_min_instances,
         new_max_instances)
+
+    serving_status = version.get('servingStatus', None)
+    if serving_status:
+      version = yield self.update_serving_status_for_version(
+        project_id, service_id, version_id, serving_status)
 
     operation = UpdateVersionOperation(project_id, service_id, version)
     self.write(json_encode(operation.rest_repr()))

@@ -5320,6 +5320,38 @@ HOSTS
     @initialized_versions[version_key] = true
   end
 
+  # Get the effective min/max instances for a version
+  #
+  # Args:
+  #   version_details: The version details from zookeeper
+  def get_min_max_from_version_details(version_details)
+    manual_scaling = version_details.fetch('manualScaling', {})
+    if manual_scaling.fetch('instances', nil)
+      if version_details.fetch('servingStatus', 'SERVING') == 'STOPPED'
+        min = 0
+        max = 0
+      else
+        min = manual_scaling.fetch('instances')
+        max = min
+      end
+    else
+      scaling_params = version_details.fetch('automaticScaling', {})
+      if scaling_params.fetch('standardSchedulerSettings', nil)
+        min_max_params = scaling_params.fetch('standardSchedulerSettings', {})
+        min_param = 'minInstances'
+        max_param = 'maxInstances'
+      else
+        min_max_params = scaling_params
+        min_param = 'minTotalInstances'
+        max_param = 'maxTotalInstances'
+      end
+      min = min_max_params.fetch(min_param,
+                                 Integer(@options['default_min_appservers']))
+      max = min_max_params.fetch(max_param,
+                                 Integer(@options['default_max_appservers']))
+    end
+    return min, max
+  end
 
   # Queries haproxy to see how many requests are queued for a given version
   # and how many requests are served at a given time.
@@ -5340,6 +5372,7 @@ HOSTS
                      'hosting it anymore.')
       return 0
     end
+    min, max = get_min_max_from_version_details(version_details)
 
     # Let's make sure we have the minimum number of AppServers running.
     Djinn.log_debug("Evaluating #{version_key} for scaling.")
@@ -5349,26 +5382,6 @@ HOSTS
       num_appservers = @app_info_map[version_key]['appservers'].length
     end
 
-    manual_scaling = version_details.fetch('manualScaling', {})
-    if manual_scaling.fetch('instances', nil)
-      min = manual_scaling.fetch('instances')
-      max = min
-    else
-      scaling_params = version_details.fetch('automaticScaling', {})
-      if scaling_params.fetch('standardSchedulerSettings', nil)
-        min_max_params = scaling_params.fetch('standardSchedulerSettings', {})
-        min_param = 'minInstances'
-        max_param = 'maxInstances'
-      else
-        min_max_params = scaling_params
-        min_param = 'minTotalInstances'
-        max_param = 'maxTotalInstances'
-      end
-      min = min_max_params.fetch(min_param,
-                                 Integer(@options['default_min_appservers']))
-      max = min_max_params.fetch(max_param,
-                                 Integer(@options['default_max_appservers']))
-    end
     if num_appservers < min
       Djinn.log_info(
         "#{version_key} needs #{min - num_appservers} more AppServers.")
@@ -5380,6 +5393,10 @@ HOSTS
     # if austoscale is disabled. No need to print anything here since we
     # print log about disabled autoscale at intervals with the stats.
     return 0 if @options['autoscale'].downcase != "true"
+
+    # If there are no instances then there is no load to decide scaling
+    # activity, a manual start is required when using manual scaling
+    return 0 if num_appservers == 0 and max == 0
 
     # We need the haproxy stats to decide upon what to do.
     total_requests_seen, total_req_in_queue, current_sessions,
@@ -5710,9 +5727,7 @@ HOSTS
     begin
       version_details = ZKInterface.get_version_details(
         project_id, service_id, version_id)
-      scaling_params = version_details.fetch('automaticScaling', {})
-      min = scaling_params.fetch('minTotalInstances',
-                                 Integer(@options['default_min_appservers']))
+      min, max = get_min_max_from_version_details(version_details)
     rescue VersionNotFound
       min = 0
     end

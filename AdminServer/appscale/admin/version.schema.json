@@ -192,6 +192,10 @@
                     "maximum": 10000
                 }
             }
+        },
+        "servingStatus": {
+          "type": "string",
+          "pattern": "^(SERVING|STOPPED)$"
         }
     }
 }
