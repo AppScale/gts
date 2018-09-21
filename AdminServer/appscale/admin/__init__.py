@@ -952,13 +952,19 @@ class VersionHandler(BaseVersionHandler):
       raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Version not found')
 
     version = json.loads(version_json)
-    new_ports = utils.assign_ports(version, new_fields, self.zk_client)
-    version['appscaleExtensions'].update(new_ports)
-    if not 'manualScaling' in version:
+
+    if 'automaticScaling' in new_fields:
+      if 'manualScaling' in version:
+        scaling_error = 'Invalid scaling update for Manual Scaling version'
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=scaling_error)
+
       (version.setdefault('automaticScaling', {})
               .setdefault('standardSchedulerSettings',{})
-              .update(new_fields.get('automaticScaling',{})
+              .update(new_fields.get('automaticScaling')
                                 .get('standardSchedulerSettings',{})))
+
+    new_ports = utils.assign_ports(version, new_fields, self.zk_client)
+    version['appscaleExtensions'].update(new_ports)
 
     self.zk_client.set(version_node, json.dumps(version))
     return version
