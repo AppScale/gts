@@ -9,6 +9,31 @@
         }
     },
     "type": "object",
+    "oneOf": [ {
+        "type": "object",
+        "not": {
+          "type": "object",
+          "anyOf": [ {
+              "type": "object",
+              "required": ["automaticScaling"]
+            }, {
+              "type": "object",
+              "required": ["basicScaling"]
+            }, {
+              "type": "object",
+              "required": ["manualScaling"]
+          } ]
+        }
+      }, {
+        "type": "object",
+        "required": ["automaticScaling"]
+      }, {
+        "type": "object",
+        "required": ["basicScaling"]
+      }, {
+        "type": "object",
+        "required": ["manualScaling"]
+    } ],
     "properties": {
         "automaticScaling": {
             "type": "object",
