@@ -22,7 +22,6 @@ Small collection of helpful utilities for working with WSGI.
 
 __author__ = 'rafek@google.com (Rafe Kaplan)'
 
-import cStringIO
 import httplib
 import re
 

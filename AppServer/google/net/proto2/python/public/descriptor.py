@@ -706,17 +706,30 @@ def MakeDescriptor(desc_proto, package=''):
   """
   full_message_name = [desc_proto.name]
   if package: full_message_name.insert(0, package)
+
+  enum_types = {}
+  for enum_proto in desc_proto.enum_type:
+    full_name = '.'.join(full_message_name + [enum_proto.name])
+    enum_desc = EnumDescriptor(
+      enum_proto.name, full_name, None, [
+        EnumValueDescriptor(enum_val.name, ii, enum_val.number)
+        for ii, enum_val in enumerate(enum_proto.value)])
+    enum_types[full_name] = enum_desc
+
   fields = []
   for field_proto in desc_proto.field:
     full_name = '.'.join(full_message_name + [field_proto.name])
+    enum_desc = None
+    if field_proto.HasField('type_name'):
+      enum_desc = enum_types.get(field_proto.type_name)
     field = FieldDescriptor(
         field_proto.name, full_name, field_proto.number - 1,
         field_proto.number, field_proto.type,
         FieldDescriptor.ProtoTypeToCppProtoType(field_proto.type),
-        field_proto.label, None, None, None, None, False, None,
+        field_proto.label, None, None, enum_desc, None, False, None,
         has_default_value=False)
     fields.append(field)
 
   desc_name = '.'.join(full_message_name)
   return Descriptor(desc_proto.name, desc_name, None, None, fields,
-                    [], [], [])
+                    [], enum_types.values(), [])

@@ -1996,7 +1996,7 @@ class QueryOptions(object):
       QueryOptions(limit=page_size, offset=next_page))
   """
 
-  def __init__(self, limit=20, number_found_accuracy=100, cursor=None,
+  def __init__(self, limit=20, number_found_accuracy=None, cursor=None,
                offset=None, sort_options=None, returned_fields=None,
                ids_only=False, snippeted_fields=None,
                returned_expressions=None):
@@ -2143,7 +2143,7 @@ def _CopyQueryOptionsObjectToProtocolBuffer(query, options, params):
   """Copies a QueryOptions object to a SearchParams proto buff."""
   offset = 0
   web_safe_string = None
-  cursor_type = search_service_pb.SearchParams.NONE
+  cursor_type = None
   offset = options.offset
   if options.cursor:
     cursor = options.cursor
@@ -2168,11 +2168,12 @@ def _CopyQueryOptionsToProtocolBuffer(
   if offset:
     params.set_offset(offset)
   params.set_limit(limit)
-  params.set_matched_count_accuracy(number_found_accuracy)
+  if number_found_accuracy is not None:
+    params.set_matched_count_accuracy(number_found_accuracy)
   if cursor:
     params.set_cursor(cursor.encode('utf-8'))
-
-  params.set_cursor_type(cursor_type)
+  if cursor_type is not None:
+    params.set_cursor_type(cursor_type)
   if ids_only:
     params.set_keys_only(ids_only)
   if returned_fields or snippeted_fields or returned_expressions:

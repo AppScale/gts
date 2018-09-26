@@ -141,7 +141,10 @@ class EndpointsDispatcher(object):
                                start_response)
 
     # Call the service.
-    return self.call_spi(request, start_response)
+    try:
+      return self.call_spi(request, start_response)
+    except errors.RequestError as error:
+      return self._handle_request_error(request, error, start_response)
 
   def dispatch_non_api_requests(self, request, start_response):
     """Dispatch this request if this is a request to a reserved URL.
@@ -287,12 +290,7 @@ class EndpointsDispatcher(object):
                                                cors_handler=cors_handler)
 
     # Prepare the request for the back end.
-    try:
-      spi_request = self.transform_request(orig_request, params, method_config)
-    except errors.RequestRejectionError, rejection_error:
-      cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
-      return util.send_wsgi_rejected_response(rejection_error, start_response,
-                                              cors_handler=cors_handler)
+    spi_request = self.transform_request(orig_request, params, method_config)
 
     # Check if this SPI call is for the Discovery service.  If so, route
     # it to our Discovery handler.
@@ -375,13 +373,14 @@ class EndpointsDispatcher(object):
                                  'Non-JSON reply: %s' % response.content,
                                  start_response)
 
-    body = response.content
+    self.check_error_response(response)
+
     # Need to check is_rpc() against the original request, because the
     # incoming request here has had its path modified.
     if orig_request.is_rpc():
-      body = self.transform_jsonrpc_response(spi_request, body)
+      body = self.transform_jsonrpc_response(spi_request, response.content)
     else:
-      body = self.transform_rest_response(body)
+      body = self.transform_rest_response(response.content)
 
     cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
     return util.send_wsgi_response(response.status, response.headers, body,
@@ -670,6 +669,19 @@ class EndpointsDispatcher(object):
     request.body = json.dumps(request.body_json)
     return request
 
+  def check_error_response(self, response):
+    """Raise an exception if the response from the SPI was an error.
+
+    Args:
+      response: A ResponseTuple containing the backend response.
+
+    Raises:
+      BackendError if the response is an error.
+    """
+    status_code = int(response.status.split(' ', 1)[0])
+    if status_code >= 300:
+      raise errors.BackendError(response)
+
   def transform_rest_response(self, response_body):
     """Translates an apiserving REST response so it's ready to return.
 
@@ -698,8 +710,50 @@ class EndpointsDispatcher(object):
       A string with the updated, JsonRPC-formatted request body.
     """
     body_json = {'result': json.loads(response_body)}
-    if spi_request.request_id is not None:
-      body_json['id'] = spi_request.request_id
-    if spi_request.is_batch():
+    return self._finish_rpc_response(spi_request.request_id,
+                                     spi_request.is_batch(), body_json)
+
+  def _finish_rpc_response(self, request_id, is_batch, body_json):
+    """Finish adding information to a JSON RPC response.
+
+    Args:
+      request_id: None if the request didn't have a request ID.  Otherwise, this
+        is a string containing the request ID for the request.
+      is_batch: A boolean indicating whether the request is a batch request.
+      body_json: A dict containing the JSON body of the response.
+
+    Returns:
+      A string with the updated, JsonRPC-formatted request body.
+    """
+    if request_id is not None:
+      body_json['id'] = request_id
+    if is_batch:
       body_json = [body_json]
     return json.dumps(body_json, indent=1, sort_keys=True)
+
+  def _handle_request_error(self, orig_request, error, start_response):
+    """Handle a request error, converting it to a WSGI response.
+
+    Args:
+      orig_request: An ApiRequest, the original request from the user.
+      error: A RequestError containing information about the error.
+      start_response: A function with semantics defined in PEP-333.
+
+    Returns:
+      A string containing the response body.
+    """
+    headers = [('Content-Type', 'application/json')]
+    if orig_request.is_rpc():
+      # JSON RPC errors are returned with status 200 OK and the
+      # error details in the body.
+      response_status = '200 OK'
+      body = self._finish_rpc_response(orig_request.body_json.get('id'),
+                                       orig_request.is_batch(),
+                                       error.rpc_error())
+    else:
+      response_status = error.http_status()
+      body = error.rest_error()
+
+    cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
+    return util.send_wsgi_response(response_status, headers, body,
+                                   start_response, cors_handler=cors_handler)

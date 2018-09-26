@@ -58,9 +58,12 @@ def main():
     zookeeper.close()
     return
 
+  update_composite_index_sync = tornado_synchronous(
+    datastore_access.update_composite_index)
+
   if args.all:
     for index in indices:
-      datastore_access.update_composite_index(args.app_id, index)
+      update_composite_index_sync(args.app_id, index)
     print('Successfully updated all composite indexes')
     return
 
@@ -79,8 +82,6 @@ def main():
       sys.exit()
 
   selected_index = indices[selection - 1]
-  update_composite_index_sync = tornado_synchronous(
-    datastore_access.update_composite_index)
   update_composite_index_sync(args.app_id, selected_index)
 
   zookeeper.close()

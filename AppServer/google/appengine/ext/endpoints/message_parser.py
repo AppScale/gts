@@ -59,7 +59,7 @@ class MessageTypeToJsonSchema(object):
                             messages.Variant.DOUBLE: ('number', 'double'),
                             None: ('number', 'float')},
       messages.BooleanField: ('boolean', None),
-      messages.BytesField: ('string', None),
+      messages.BytesField: ('string', 'byte'),
       message_types.DateTimeField: ('string', 'date-time'),
       messages.StringField: ('string', None),
       messages.MessageField: ('object', None),

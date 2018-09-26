@@ -24,6 +24,8 @@ import logging
 import os
 import socket
 import subprocess
+import sys
+import time
 import threading
 import urllib
 import wsgiref.headers
@@ -32,7 +34,7 @@ from google.appengine.tools.devappserver2 import http_runtime_constants
 from google.appengine.tools.devappserver2 import instance
 from google.appengine.tools.devappserver2 import login
 from google.appengine.tools.devappserver2 import safe_subprocess
-from google.appengine.tools.devappserver2 import shutdown
+from google.appengine.tools.devappserver2 import tee
 from google.appengine.tools.devappserver2 import util
 
 
@@ -58,6 +60,8 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
     self._port = None
     self._process = None
     self._process_lock = threading.Lock()  # Lock to guard self._process.
+    self._prior_error = None
+    self._stderr_tee = None
     self._runtime_config_getter = runtime_config_getter
     self._args = args
     self._module_configuration = module_configuration
@@ -88,6 +92,10 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
     Yields:
       A sequence of strings containing the body of the HTTP response.
     """
+    if self._prior_error:
+      yield self._handle_error(self._prior_error, start_response)
+      return
+
     environ[http_runtime_constants.SCRIPT_HEADER] = match.expand(url_map.script)
     if request_type == instance.BACKGROUND_REQUEST:
       environ[http_runtime_constants.REQUEST_TYPE_HEADER] = 'background'
@@ -144,7 +152,16 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
                            url,
                            data,
                            dict(headers.items()))
-        response = connection.getresponse()
+
+        try:
+          response = connection.getresponse()
+        except httplib.HTTPException as e:
+          # The runtime process has written a bad HTTP response. For example,
+          # a Go runtime process may have crashed in app-specific code.
+          yield self._handle_error(
+              'the runtime process gave a bad HTTP response: %s' % e,
+              start_response)
+          return
 
         # Ensures that we avoid merging repeat headers into a single header,
         # allowing use of multiple Set-Cookie headers.
@@ -174,27 +191,46 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
                        response_headers.items())
 
         # Yield the response body in small blocks.
-        block = response.read(512)
-        while block:
-          yield block
-          block = response.read(512)
+        while True:
+          try:
+            block = response.read(512)
+            if not block:
+              break
+            yield block
+          except httplib.HTTPException:
+            # The runtime process has encountered a problem, but has not
+            # necessarily crashed. For example, a Go runtime process' HTTP
+            # handler may have panicked in app-specific code (which the http
+            # package will recover from, so the process as a whole doesn't
+            # crash). At this point, we have already proxied onwards the HTTP
+            # header, so we cannot retroactively serve a 500 Internal Server
+            # Error. We silently break here; the runtime process has presumably
+            # already written to stderr (via the Tee).
+            break
       except Exception:
         with self._process_lock:
           if self._process and self._process.poll() is not None:
             # The development server is in a bad state. Log and return an error
-            # message and quit.
-            message = ('the runtime process for the instance running on port '
-                       '%d has unexpectedly quit; exiting the development '
-                       'server' % (
-                           self._port))
-            logging.error(message)
-            start_response('500 Internal Server Error',
-                           [('Content-Type', 'text/plain'),
-                            ('Content-Length', str(len(message)))])
-            shutdown.async_quit()
-            yield message
+            # message.
+            self._prior_error = ('the runtime process for the instance running '
+                                 'on port %d has unexpectedly quit' % (
+                                     self._port))
+            yield self._handle_error(self._prior_error, start_response)
           else:
             raise
+
+  def _handle_error(self, message, start_response):
+    # Give the runtime process a bit of time to write to stderr.
+    time.sleep(0.1)
+    buf = self._stderr_tee.get_buf()
+    if buf:
+      message = message + '\n\n' + buf
+    # TODO: change 'text/plain' to 'text/plain; charset=utf-8'
+    # throughout devappserver2.
+    start_response('500 Internal Server Error',
+                   [('Content-Type', 'text/plain'),
+                    ('Content-Length', str(len(message)))])
+    return message
 
   def start(self):
     """Starts the runtime process and waits until it is ready to serve."""
@@ -209,20 +245,26 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
           self._args,
           serialized_config,
           stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE,
           env=self._env,
           cwd=self._module_configuration.application_root)
     line = self._process.stdout.readline()
+    if self._stderr_tee is None:
+      self._stderr_tee = tee.Tee(self._process.stderr, sys.stderr)
+      self._stderr_tee.start()
+    self._prior_error = None
+    self._port = None
     try:
       # Older runtimes output just the port, while newer ones prepend the host.
       self._port = int(line.split()[-1])
     except ValueError:
-      # The development server is in a bad state. Log an error message and quit.
-      logging.error('unexpected port response from runtime [%r]; '
-                    'exiting the development server',
-                    line)
-      shutdown.async_quit()
+      self._prior_error = 'bad runtime process port [%r]' % line
+      logging.error(self._prior_error)
     else:
-      self._check_serving()
+      # Check if the runtime can serve requests.
+      if not self._can_connect():
+        self._prior_error = 'cannot connect to runtime on port %r' % self._port
+        logging.error(self._prior_error)
 
   def _can_connect(self):
     connection = httplib.HTTPConnection(self._host, self._port)
@@ -233,17 +275,6 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
         return False
       else:
         return True
-
-  def _check_serving(self):
-    """Checks if the runtime can serve requests.
-
-    Quits the development server if the runtime cannot serve.
-    """
-    if not self._can_connect():
-      logging.error('cannot connect to runtime running on port %r; '
-                    'exiting the development server',
-                    self._port)
-      shutdown.async_quit()
 
   def quit(self):
     """Causes the runtime process to exit."""

@@ -295,6 +295,14 @@ class APIProxyStubMap(object):
     """
     return self.__stub_map.get(service, self.__default_stub)
 
+  def _CopyStubMap(self):
+    """Get a copy of the stub map. For testing only.
+
+    Returns:
+      Get a shallow copy of the stub map.
+    """
+    return dict(self.__stub_map)
+
   def MakeSyncCall(self, service, call, request, response):
     """The APIProxy entry point.
 

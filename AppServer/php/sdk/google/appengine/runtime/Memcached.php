@@ -137,7 +137,7 @@ class Memcached {
    * @param mixed $value The value to store.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns bool true on success, false on failure.
+   * @return bool true on success, false on failure.
    */
   public function add($key, $value, $expiration = 0) {
     $key = $this->getPrefixKey($key);
@@ -159,7 +159,7 @@ class Memcached {
    * @param mixed $value The value to store.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns bool true on success, false on failure.
+   * @return bool true on success, false on failure.
    */
   public function addByKey($server_key,
                            $key,
@@ -221,8 +221,8 @@ class Memcached {
   }
 
   /**
-   * Performas a set and check operation, so that the item will be stored only
-   * if not other client has updated it since it was last fetched by this
+   * Performs a set and check operation, so that the item will be stored only
+   * if no other client has updated it since it was last fetched by this
    * client.
    *
    * @param mixed $cas_token Unique memcached assigned value.
@@ -230,7 +230,7 @@ class Memcached {
    * @param mixed $value The value to store.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns bool True on success, or false on failure.
+   * @return bool True on success, or false on failure.
    */
   public function cas($cas_token, $key, $value, $expiration = 0) {
     $key = $this->getPrefixKey($key);
@@ -280,7 +280,7 @@ class Memcached {
    * @param mixed $value The value to store.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns bool True on success, or false on failure.
+   * @return bool True on success, or false on failure.
    */
   public function casByKey($cas_token,
                            $server_key,
@@ -299,7 +299,7 @@ class Memcached {
    * currently exist.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns bool True on success, or false on failure.
+   * @return bool True on success, or false on failure.
    */
   public function decrement($key,
                             $offset = 1,
@@ -318,7 +318,7 @@ class Memcached {
    * currently exist.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns bool True on success, or false on failure.
+   * @return bool True on success, or false on failure.
    */
   public function decrementByKey($server_key,
                                  $key,
@@ -335,7 +335,7 @@ class Memcached {
    * @param int $time The time parameter is the amount of time in seconds the
    * client wishes the server to refuse add and replace commands for this key.
    *
-   * @returns bool true on success or false on failure.
+   * @return bool true on success or false on failure.
    */
   public function delete($key, $time = 0) {
     return $this->deleteMulti([$key], $time);
@@ -349,7 +349,7 @@ class Memcached {
    * @param int $time The time parameter is the amount of time in seconds the
    * client wishes the server to refuse add and replace commands for this key.
    *
-   * @returns bool true on success or false on failure.
+   * @return bool true on success or false on failure.
    */
   public function deleteByKey($server_key, $key, $time = 0) {
     return $this->delete($key, $time);
@@ -362,7 +362,7 @@ class Memcached {
    * @param int $time The time parameter is the amount of time in seconds the
    * client wishes the server to refuse add and replace commands for this key.
    *
-   * @returns bool true on success or false on failure.
+   * @return bool true on success or false on failure.
    */
   public function deleteMulti($keys, $time = 0) {
     $request = new MemcacheDeleteRequest();
@@ -401,7 +401,7 @@ class Memcached {
    * @param int $time The time parameter is the amount of time in seconds the
    * client wishes the server to refuse add and replace commands for this key.
    *
-   * @returns bool true on success or false on failure.
+   * @return bool true on success or false on failure.
    */
   public function deleteMultiByKey($server_key, $keys, $time = 0) {
     return $this->deleteMulti($keys, $time);
@@ -412,7 +412,7 @@ class Memcached {
    *
    * Note that currently getDelayed is a synchronous call.
    *
-   * @returns The next result, or false if there are no more results.
+   * @return The next result, or false if there are no more results.
    */
   public function fetch() {
     if (!empty($this->delayed_results)) {
@@ -427,7 +427,7 @@ class Memcached {
    *
    * Note that currently getDelayed is a synchronous call.
    *
-   * @returns array The remaining results, or false if there are no results.
+   * @return array The remaining results, or false if there are no results.
    */
   public function fetchAll() {
     if (!empty($this->delayed_results)) {
@@ -444,7 +444,7 @@ class Memcached {
    *
    * @param int $delay This parameter is ignored.
    *
-   * @returns bool true on success, or false on failure.
+   * @return bool true on success, or false on failure.
    */
   public function flush($delay = 0) {
     $result = $this->memcache->flush();
@@ -460,7 +460,7 @@ class Memcached {
    * @param mixed $cas_token The variable to store the CAS token in. This value
    * is opaque to the application.
    *
-   * @returns the value stored in the cache of false if there was a failure.
+   * @return the value stored in the cache of false if there was a failure.
    */
   public function get($key, $cache_cb = null, &$cas_token = null) {
     // Not re-using getMulti to avoid messing with multiple result arrays for
@@ -527,7 +527,7 @@ class Memcached {
    * @param mixed $cas_token The variable to store the CAS token in. This value
    * is opaque to the application.
    *
-   * @returns the value stored in the cache of false if there was a failure.
+   * @return the value stored in the cache of false if there was a failure.
    */
   public function getByKey($server_key, $key, $cache_cb, &$cas_token) {
     return $this->get($key, $cache_cb, $cas_token);
@@ -542,7 +542,7 @@ class Memcached {
    * @param bool $with_cas If true, retrieve the CAS tokens for the keys.
    * @param callable $value_cb The result callback.
    *
-   * @returns bool true on success, or false on failure.
+   * @return bool true on success, or false on failure.
    */
   public function getDelayed($keys, $with_cas=false, $value_cb=null) {
     // Clear any previous delayed results.
@@ -585,7 +585,7 @@ class Memcached {
    * @param bool $with_cas If true, retrieve the CAS tokens for the keys.
    * @param callable $value_cb The result callback.
    *
-   * @returns bool true on success, or false on failure.
+   * @return bool true on success, or false on failure.
    */
   public function getDelayedByKey($server_key,
                                   $keys,
@@ -605,7 +605,7 @@ class Memcached {
    * items.
    * @param int $flags The flags for the get operation.
    *
-   * @returns array The array of found items for false on failure.
+   * @return array The array of found items for false on failure.
    */
   public function getMulti($keys, &$cas_tokens = null, $flags = 0) {
     $request = new MemcacheGetRequest();
@@ -673,7 +673,7 @@ class Memcached {
    * items.
    * @param int $flags The flags for the get operation.
    *
-   * @returns array The array of found items for false on failure.
+   * @return array The array of found items for false on failure.
    */
   public function getMultiByKey($server_key,
                                 $keys,
@@ -687,7 +687,7 @@ class Memcached {
    *
    * @params int $option One of the Memcached::OPT_* constants.
    *
-   * @returns mixed the value of the requested option, of false on error.
+   * @return mixed the value of the requested option, of false on error.
    */
   public function getOption($option) {
     if (array_key_exists($option, $this->options)) {
@@ -700,7 +700,7 @@ class Memcached {
    * Returns one of the Memcached::RES_* constants that is the result of the
    * last executed Memcached method.
    *
-   * @returns int The result code of the last memcached operation.
+   * @return int The result code of the last memcached operation.
    */
   public function getResultCode() {
     return $this->result_code;
@@ -709,7 +709,7 @@ class Memcached {
   /**
    * Return the message describing the result of the last operation.
    *
-   * @returns string Message describing the result of the last operation.
+   * @return string Message describing the result of the last operation.
    */
   public function getResultMessage() {
     // We're only handling the results that our code actually generates.
@@ -763,7 +763,7 @@ class Memcached {
    * @param int $initial_value The value to set the item to if it doesn't exist.
    * @param int $expiry The expiry time to set on the item.
    *
-   * @returns The new item's value on success or false on failure.
+   * @return The new item's value on success or false on failure.
    */
   public function increment($key,
                             $offset = 1,
@@ -805,7 +805,7 @@ class Memcached {
    * @param int $initial_value The value to set the item to if it doesn't exist.
    * @param int $expiry The expiry time to set on the item.
    *
-   * @returns The new item's value on success or false on failure.
+   * @return The new item's value on success or false on failure.
    */
   public function incrementByKey($server_key,
                                  $key,
@@ -835,7 +835,7 @@ class Memcached {
    * @param string $key The key under which to store the value.
    * @param string $value The string to prepend.
    *
-   * @returns true on success or false on failure.
+   * @return true on success or false on failure.
    */
   public function prepend($key, $value) {
     do {
@@ -860,7 +860,7 @@ class Memcached {
    * @param string $key The key under which to store the value.
    * @param string $value The string to prepend.
    *
-   * @returns true on success or false on failure.
+   * @return true on success or false on failure.
    */
   public function prependByKey($server_key, $key, $value) {
     return $this->prepend($key, $value);
@@ -881,7 +881,7 @@ class Memcached {
    * @param mixed $value The value to store.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns true if the method succeeds, false on failure.
+   * @return true if the method succeeds, false on failure.
    */
   public function replace($key, $value, $expiration = 0) {
     $key = $this->getPrefixKey($key);
@@ -898,7 +898,7 @@ class Memcached {
    * @param mixed $value The value to store.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns true if the method succeeds, false on failure.
+   * @return true if the method succeeds, false on failure.
    */
   public function replaceByKey($server_key, $key, $value, $expiration = 0) {
     return $this->replace($key, $value, $expiration);
@@ -920,7 +920,7 @@ class Memcached {
    * @param mixed $value The value to store.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns true if the method succeeds, false on failure.
+   * @return true if the method succeeds, false on failure.
    */
   public function set($key, $value, $expiration = 0) {
     $key = $this->getPrefixKey($key);
@@ -937,7 +937,7 @@ class Memcached {
    * @param mixed $value The value to store.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns true if the method succeeds, false on failure.
+   * @return true if the method succeeds, false on failure.
    */
   public function setByKey($server_key, $key, $value, $expiration = 0) {
     return $this->set($key, $value, $expiration);
@@ -991,7 +991,7 @@ class Memcached {
    * @param array $items An array of key value pairs to set.
    * @param int $expiration The expiration time to set for the value.
    *
-   * @returns bool true if the call succeeds, false otherwise.
+   * @return bool true if the call succeeds, false otherwise.
    */
   public function setMultiByKey($server_key, $items, $expiration = 0) {
     return $this->setMulti($items, $expiration);
@@ -1003,7 +1003,7 @@ class Memcached {
    * @param int $option The option to set.
    * @param mixed $value The value to set the option to.
    *
-   * @returns bool true if the call succeeds, false otherwise.
+   * @return bool true if the call succeeds, false otherwise.
    */
   public function setOption($option, $value) {
     // The only option we allow to be changed is OPT_PREFIX_KEY
@@ -1020,7 +1020,7 @@ class Memcached {
    *
    * @param mixed $options An associated array of options.
    *
-   * @returns bool true if the call succeeds, false otherwise.
+   * @return bool true if the call succeeds, false otherwise.
    */
   public function setOptions($options) {
     $result = true;
@@ -1042,7 +1042,7 @@ class Memcached {
    * @param string $key The key under which to append the value.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns bool true on success or false on failure.
+   * @return bool true on success or false on failure.
    */
   public function touch($key, $expiration = 0) {
     $result = $this->get($key, null, $cas_token);
@@ -1060,7 +1060,7 @@ class Memcached {
    * @param string $key The key under which to append the value.
    * @param int $expiration The expiration time, defaults to 0.
    *
-   * @returns bool true on success or false on failure.
+   * @return bool true on success or false on failure.
    */
   public function touchByKey($server_key, $key, $expiration = 0) {
     return $this->touch($key, $expiration);

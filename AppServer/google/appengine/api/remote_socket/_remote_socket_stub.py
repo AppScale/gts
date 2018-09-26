@@ -22,8 +22,10 @@ A stub version of the Remote Socket API for the dev_appserver.
 from __future__ import with_statement
 
 
+import binascii
 import errno
 import os
+import re
 import select
 import socket
 import threading
@@ -33,6 +35,7 @@ import uuid
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.remote_socket import _remote_socket_addr
 from google.appengine.api.remote_socket import remote_socket_service_pb
+from google.appengine.api.remote_socket.remote_socket_service_pb import RemoteSocketServiceError
 from google.appengine.runtime import apiproxy_errors
 
 
@@ -52,16 +55,16 @@ def TranslateSystemErrors(method):
       return method(self, *args, **kwargs)
     except socket.gaierror, e:
       raise apiproxy_errors.ApplicationError(
-          remote_socket_service_pb.RemoteSocketServiceError.GAI_ERROR,
+          RemoteSocketServiceError.GAI_ERROR,
           'system_error:%u error_detail:"%s"' % (e.errno, e.strerror))
     except socket.timeout, e:
       raise apiproxy_errors.ApplicationError(
-          remote_socket_service_pb.RemoteSocketServiceError.SYSTEM_ERROR,
+          RemoteSocketServiceError.SYSTEM_ERROR,
           'system_error:%u error_detail:"%s"' % (errno.EAGAIN,
                                                  os.strerror(errno.EAGAIN)))
     except socket.error, e:
       raise apiproxy_errors.ApplicationError(
-          remote_socket_service_pb.RemoteSocketServiceError.SYSTEM_ERROR,
+          RemoteSocketServiceError.SYSTEM_ERROR,
           'system_error:%u error_detail:"%s"' % (e.errno, e.strerror))
 
   return WrappedMethod
@@ -89,8 +92,22 @@ class SocketState(object):
     self.timeout = timeout
 
 
+
+_MOCK_SOCKET_OPTIONS = (
+    'SOL_SOCKET:SO_KEEPALIVE=00000000,'
+    'SOL_SOCKET:SO_DEBUG=80000000,'
+    'SOL_TCP:TCP_NODELAY=00000000,'
+    'SOL_SOCKET:SO_LINGER=0000000000000000,'
+    'SOL_SOCKET:SO_OOBINLINE=00000000,'
+    'SOL_SOCKET:SO_SNDBUF=00002000,'
+    'SOL_SOCKET:SO_RCVBUF=00002000,'
+    'SOL_SOCKET:SO_REUSEADDR=01000000')
+
+
 class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
   """Stub implementation of the Remote Socket API."""
+
+  THREADSAFE = True
 
   _AF_MAP = {
       socket.AF_INET: remote_socket_service_pb.CreateSocketRequest.IPv4,
@@ -111,7 +128,10 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
           socket.SHUT_RDWR),
       }
 
-  def __init__(self, service_name='remote_socket', get_time=time.time):
+  def __init__(self,
+               service_name='remote_socket',
+               get_time=time.time,
+               mock_options_spec=_MOCK_SOCKET_OPTIONS):
     """Initializer.
 
     Args:
@@ -122,19 +142,23 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
     super(RemoteSocketServiceStub, self).__init__(service_name)
     self._descriptor_to_socket_state = {}
     self._time = get_time
+    self._mock_options = _MockSocketOptions(mock_options_spec)
+
+  def ResetMockOptions(self, mock_options_spec):
+    self._mock_options = _MockSocketOptions(mock_options_spec)
 
   def _LookupSocket(self, descriptor):
     with self._mutex:
       val = self._descriptor_to_socket_state.get(descriptor)
       if not val:
         raise apiproxy_errors.ApplicationError(
-            remote_socket_service_pb.RemoteSocketServiceError.SOCKET_CLOSED)
+            RemoteSocketServiceError.SOCKET_CLOSED)
 
       now = self._time()
       if val.last_accessed_time < now - 120:
         del self._descriptor_to_socket_state[descriptor]
         raise apiproxy_errors.ApplicationError(
-            remote_socket_service_pb.RemoteSocketServiceError.SOCKET_CLOSED)
+            RemoteSocketServiceError.SOCKET_CLOSED)
 
       val.last_accessed_time = now
       return val
@@ -146,7 +170,7 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
           self._TRANSLATED_AF_MAP[family], ap_proto.packed_address())
     except ValueError:
       raise apiproxy_errors.ApplicationError(
-          remote_socket_service_pb.RemoteSocketServiceError.INVALID_REQUEST,
+          RemoteSocketServiceError.INVALID_REQUEST,
           'Invalid Address.')
     return (addr, ap_proto.port())
 
@@ -176,7 +200,7 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
           family, request.proxy_external_ip())
       if not self._BindAllowed(addr, port):
         raise apiproxy_errors.ApplicationError(
-            remote_socket_service_pb.RemoteSocketServiceError.PERMISSION_DENIED,
+            RemoteSocketServiceError.PERMISSION_DENIED,
             'Attempt to bind port without permission.')
       sock.bind((addr, port))
     if request.has_remote_ip():
@@ -199,7 +223,7 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
         state.family, request.proxy_external_ip())
     if not self._BindAllowed(addr, port):
       raise apiproxy_errors.ApplicationError(
-          remote_socket_service_pb.RemoteSocketServiceError.PERMISSION_DENIED,
+          RemoteSocketServiceError.PERMISSION_DENIED,
           'Attempt to bind port without permission.')
     state.sock.bind((addr, port))
     self._AddressPortTupleToProto(state.family, state.sock.getsockname(),
@@ -233,12 +257,27 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
         ret.set_value(
             state.sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR, 1024))
       else:
-        raise apiproxy_errors.ApplicationError(
-            remote_socket_service_pb.RemoteSocketServiceError.INVALID_REQUEST,
-            'Invalid GetSocketOption level/option.')
+        value = self._mock_options.GetMockValue(opt.level(), opt.option())
+        if value is None:
+          raise apiproxy_errors.ApplicationError(
+              RemoteSocketServiceError.PERMISSION_DENIED,
+              'Attempt to get blocked socket option.')
+
+        ret = response.add_options()
+        ret.set_level(opt.level())
+        ret.set_option(opt.option())
+        ret.set_value(value)
+
+
 
   def _Dynamic_SetSocketOptions(self, request, response):
-    raise NotImplementedError()
+    self._LookupSocket(request.socket_descriptor())
+    for opt in request.options_list():
+      value = self._mock_options.GetMockValue(opt.level(), opt.option())
+      if value is None:
+        raise apiproxy_errors.ApplicationError(
+            RemoteSocketServiceError.PERMISSION_DENIED,
+            'Attempt to set blocked socket option.')
 
   @TranslateSystemErrors
   def _Dynamic_GetSocketName(self, request, response):
@@ -262,12 +301,12 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
       if state.protocol == socket.SOCK_STREAM:
         if request.stream_offset() != state.stream_offset:
           raise apiproxy_errors.ApplicationError(
-              remote_socket_service_pb.RemoteSocketServiceError.INVALID_REQUEST,
+              RemoteSocketServiceError.INVALID_REQUEST,
               'Invalid stream_offset.')
       flags = request.flags()
       if flags != 0:
         raise apiproxy_errors.ApplicationError(
-            remote_socket_service_pb.RemoteSocketServiceError.INVALID_REQUEST,
+            RemoteSocketServiceError.INVALID_REQUEST,
             'Invalid flags.')
       if request.has_send_to():
         data_sent = state.sock.sendto(
@@ -345,7 +384,7 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
       if events & ~(remote_socket_service_pb.PollEvent.SOCKET_POLLIN|
                     remote_socket_service_pb.PollEvent.SOCKET_POLLOUT):
         raise apiproxy_errors.ApplicationError(
-            remote_socket_service_pb.RemoteSocketServiceError.INVALID_REQUEST,
+            RemoteSocketServiceError.INVALID_REQUEST,
             'Invalid requested_events.')
       if events & remote_socket_service_pb.PollEvent.SOCKET_POLLIN:
         rfds.append(state.sock)
@@ -367,3 +406,39 @@ class RemoteSocketServiceStub(apiproxy_stub.APIProxyStub):
         o.set_observed_events(
             o.observed_events()|
             remote_socket_service_pb.PollEvent.SOCKET_POLLOUT)
+
+
+
+
+
+
+
+
+class _MockSocketOptions(object):
+
+  def __init__(self, mock_options_spec):
+    self._mock_options = {}
+
+    option_spec_re = re.compile(r'^(\w+):(\w+)=(\w+)$')
+    for mock_option_spec in mock_options_spec.split(','):
+      if not mock_option_spec:
+        continue
+
+      m = option_spec_re.match(mock_option_spec)
+      if m is None:
+        raise Exception('option specification malformed. '
+                        'expected <level>:<name>=<value>. Saw "%s"'
+                        % mock_option_spec)
+
+      level, name, value = m.groups()
+
+      numeric_level = getattr(remote_socket_service_pb.SocketOption,
+                              'SOCKET_' + level)
+      numeric_name = getattr(remote_socket_service_pb.SocketOption,
+                             'SOCKET_' + name)
+      raw_value = binascii.a2b_hex(value)
+
+      self._mock_options[(numeric_level, numeric_name)] = raw_value
+
+  def GetMockValue(self, level, name):
+    return self._mock_options.get((level, name), None)

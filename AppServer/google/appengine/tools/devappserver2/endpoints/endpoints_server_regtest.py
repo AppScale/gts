@@ -135,5 +135,33 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
     self.assertRegexpMatches(response_json['rootUrl'],
                              r'^http://localhost(:\d+)?/_ah/api/$')
 
+  def test_multiclass_rest_get(self):
+    """Test that a GET request to a second class in the REST API works."""
+    status, content, headers = self.fetch_url(
+        'default', 'GET', '/_ah/api/test_service/v1/extrapath/test')
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    self.assertEqual({'text': 'Extra test response'}, response_json)
+
+  def test_multiclass_rpc(self):
+    """Test that an RPC request to a second class in the API works."""
+    body = json.dumps([{'jsonrpc': '2.0',
+                        'id': 'gapiRpc',
+                        'method': 'testservice.extraname.test',
+                        'params': {},
+                        'apiVersion': 'v1'}])
+    send_headers = {'content-type': 'application-rpc'}
+    status, content, headers = self.fetch_url('default', 'POST',
+                                              '/_ah/api/rpc',
+                                              body, send_headers)
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    self.assertEqual([{'result': {'text': 'Extra test response'},
+                       'id': 'gapiRpc'}], response_json)
+
 if __name__ == '__main__':
   googletest.main()

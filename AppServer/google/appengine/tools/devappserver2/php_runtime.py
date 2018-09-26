@@ -196,7 +196,7 @@ class PHPRuntimeInstanceFactory(instance.InstanceFactory):
       except _PHPEnvironmentError as e:
         self._php_binary_to_bad_environment_proxy[php_executable_path] = (
             _BadPHPEnvironmentRuntimeProxy(php_executable_path, str(e)))
-        logging.error('The PHP runtime is not available because: %r', str(e))
+        logging.error('The PHP runtime is not available because: %s', e)
       else:
         self._php_binary_to_bad_environment_proxy[php_executable_path] = None
 

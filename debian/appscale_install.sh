@@ -42,6 +42,7 @@ case "$1" in
         installpycrypto 
         installpycapnp
         installpyyaml
+        installsoappy
         installzookeeper
         postinstallzookeeper
         installcassandra

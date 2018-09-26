@@ -29,7 +29,7 @@ require_once 'google/appengine/runtime/Memcache.php';
 /**
  * Remove direct interaction with Memcache object for ease of mocking in tests.
  */
-class MemcacheContainer {
+final class MemcacheContainer {
 
   private $memcache = null;
 
@@ -62,7 +62,7 @@ class MemcacheContainer {
    * @param string $key Input key to associate with the value
    * @param string $value Input value to be stored
    * @param int $expire Time until the pair can be garbage collected
-   * @returns bool true if successful, false otherwise
+   * @return bool true if successful, false otherwise
    */
   public function set($key, $value, $expire) {
     return $this->memcache->set($key, $value, null, $expire);
@@ -81,7 +81,7 @@ class MemcacheContainer {
 /**
  * A session handler interface using the GAE Memcache API.
  */
-class MemcacheSessionHandler implements \SessionHandlerInterface {
+final class MemcacheSessionHandler implements \SessionHandlerInterface {
 
   const SESSION_PREFIX = 'sess_';
 

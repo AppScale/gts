@@ -52,6 +52,8 @@ class UserServiceStub(apiproxy_stub.APIProxyStub):
 
   _ACCEPTS_REQUEST_ID = True
 
+  THREADSAFE = True
+
   def __init__(self,
                login_url=_DEFAULT_LOGIN_URL,
                logout_url=_DEFAULT_LOGOUT_URL,

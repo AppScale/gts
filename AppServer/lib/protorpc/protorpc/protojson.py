@@ -189,7 +189,9 @@ def decode_message(message_type, encoded_message):
       The messages.Variant value that best describes value's type, or None if
       it's a type we don't know how to handle.
     """
-    if isinstance(value, (int, long)):
+    if isinstance(value, bool):
+      return messages.Variant.BOOL
+    elif isinstance(value, (int, long)):
       return messages.Variant.INT64
     elif isinstance(value, float):
       return messages.Variant.DOUBLE
@@ -232,6 +234,8 @@ def decode_message(message_type, encoded_message):
         # Save unknown values.
         variant = find_variant(value)
         if variant:
+          if key.isdigit():
+            key = int(key)
           message.set_unrecognized_field(key, value, variant)
         else:
           logging.warning('No variant found for unrecognized field: %s', key)
@@ -262,7 +266,7 @@ def decode_message(message_type, encoded_message):
           except ValueError, err:
             raise messages.DecodeError(err)
         elif isinstance(field, messages.MessageField):
-          item = decode_dictionary(field.type, item)
+          item = decode_dictionary(field.message_type, item)
         elif (isinstance(field, messages.FloatField) and
               isinstance(item, (int, long, basestring))):
           try:

@@ -15,10 +15,6 @@
  * limitations under the License.
  */
 /**
- * Allow users to send mail using the App Engine mail APIs.
- * BaseMessage is an abstract class for AdminMessage and Message to extend,
- * featuring the methods common to both.
- *
  */
 
 namespace google\appengine\api\mail;
@@ -32,6 +28,9 @@ use google\appengine\MailHeader;
 use google\appengine\MailMessage;
 use google\appengine\MailServiceError\ErrorCode;
 
+/**
+ * Abstract base class for sending mail using the App Engine mail APIs.
+ */
 abstract class BaseMessage {
   // Force AdminMessage and Message to implement send.
   abstract public function send();
@@ -47,8 +46,8 @@ abstract class BaseMessage {
 
   // Whitelisted headers.
   protected static $allowed_headers = array(
-      'in-reply-to', 'list-id', 'list-unsubscribe', 'on-behalf-of',
-      'references', 'resent-date', 'resent-from', 'resent-to');
+      'auto-submitted', 'in-reply-to', 'list-id', 'list-unsubscribe',
+      'on-behalf-of', 'references', 'resent-date', 'resent-from', 'resent-to');
 
   // Blacklisted extension types.
   protected static $extension_blacklist = array(
@@ -73,9 +72,9 @@ abstract class BaseMessage {
    *
    * @param array $options Options for message content, key as per set_functions
    * shown above, value to be set.
-   * @throws InvalidArgumentException if the options variable passed was not an
+   * @throws \InvalidArgumentException If the options variable passed was not an
    * array, if an invalid option was set in the options array, or if a value
-   * to be set by the options array was invalid
+   * to be set by the options array was invalid.
    */
   public function __construct($options = null) {
     $this->message = new MailMessage();
@@ -104,11 +103,11 @@ abstract class BaseMessage {
   /**
    * Adds an attachment to the Message object.
    *
-   * @param string $filename Filename of the attachment
-   * @param mixed $data File data of the attachment
-   * @throws InvalidArgumentException if the input is not an array or if the
+   * @param string $filename Filename of the attachment.
+   * @param mixed $data File data of the attachment.
+   * @throws \InvalidArgumentException If the input is not an array or if the
    * attachment type is invalid (i.e. the filename is not a string, or the
-   * file extension is blacklisted)
+   * file extension is blacklisted).
    */
   public function addAttachment($filename, $data) {
     $this->addAttachmentArray(array($filename => $data));
@@ -119,9 +118,9 @@ abstract class BaseMessage {
    *
    * @param array Attachments as filename => data pairs.
    *    Example: array("filename.txt" => "This is the file contents.");
-   * @throws InvalidArgumentException if the input is not an array or if the
+   * @throws \InvalidArgumentException If the input is not an array or if the
    * attachment type is invalid (i.e. the filename is not a string, or the
-   * file extension is blacklisted)
+   * file extension is blacklisted).
    */
   public function addAttachmentArray($attach_array) {
     if (!is_array($attach_array)) {
@@ -147,10 +146,10 @@ abstract class BaseMessage {
   /**
    * Adds a header pair to the mail object.
    *
-   * @param string $key Header name (from the whitelist) to be added
-   * @param string $value Header value to be added
-   * @throws InvalidArgumentException if the header is not on the whitelist, or
-   * if the header is invalid (i.e. not a string)
+   * @param string $key Header name (from the whitelist) to be added.
+   * @param string $value Header value to be added.
+   * @throws \InvalidArgumentException If the header is not on the whitelist, or
+   * if the header is invalid (i.e. not a string).
    */
   public function addHeader($key, $value) {
     if (!is_string($key)) {
@@ -165,9 +164,9 @@ abstract class BaseMessage {
    * Adds an array of headers to the mail object.
    *
    * @param array An array of headers.
-   * @throws InvalidArgumentException if the input is not an array, or if
+   * @throws \InvalidArgumentException If the input is not an array, or if
    * headers are not on the whitelist, or if a header is invalid
-   * (i.e. not a string)
+   * (i.e. not a string).
    */
   public function addHeaderArray($header_array) {
     if (!is_array($header_array)) {
@@ -193,13 +192,14 @@ abstract class BaseMessage {
   /**
    * Checks that an attachment is valid.
    *
-   * @param string $filename Filename of the attachment
-   * @return bool true if successful, false otherwise
-   * @param string &$error Error message to be set if the header is invalid
+   * @param string $filename Filename of the attachment.
+   * @return bool True if successful, false otherwise.
+   * @param string &$error Error message to be set if the header is invalid.
    */
   protected function checkValidAttachment($filename, &$error) {
     if (!is_string($filename)) {
-      $error = sprintf("Filename %s is not a string.", $filename);
+      $error = sprintf("Filename must be a string but was type %s",
+                       gettype($filename));
       return false;
     }
 
@@ -218,8 +218,8 @@ abstract class BaseMessage {
   /**
    * Checks that an email is valid.
    *
-   * @param string $email The email to be validated
-   * @return bool true if valid, false otherwise
+   * @param string $email The email to be validated.
+   * @return bool True if valid, false otherwise.
    */
   protected function checkValidEmail($email) {
     if (filter_var($email, FILTER_VALIDATE_EMAIL) !== false) {
@@ -231,10 +231,10 @@ abstract class BaseMessage {
   /**
    * Check validity of a header pair.
    *
-   * @param string $key Header key
-   * @param string $value Header value
-   * @param string &$error Error message to be set if the header is invalid
-   * @return bool true if successful, false otherwise
+   * @param string $key Header key.
+   * @param string $value Header value.
+   * @param string &$error Error message to be set if the header is invalid.
+   * @return bool True if successful, false otherwise.
    */
   protected function checkValidHeader($key, $value, &$error) {
     if (!is_string($key)) {
@@ -267,11 +267,11 @@ abstract class BaseMessage {
   /**
    * Handles application errors generated by the RPC call.
    *
-   * @param ApplicationError An exception caught during the RPC call
-   * @throws RuntimeException If there was an internal error or bad request
-   * @throws InvalidArgumentException If there was an unauthorized sender,
-   * an invalid attachment type, or an invalid header name
-   * @throws ApplicationError If the error is not one of the above
+   * @param ApplicationError An exception caught during the RPC call.
+   * @throws \RuntimeException If there was an internal error or bad request.
+   * @throws \InvalidArgumentException If there was an unauthorized sender,
+   * an invalid attachment type, or an invalid header name.
+   * @throws ApplicationError If the error is not one of the above.
    */
   protected function handleApplicationError($e) {
     switch($e->getApplicationError()) {
@@ -299,7 +299,7 @@ abstract class BaseMessage {
    * Sets HTML content for the email body.
    *
    * @param string $text HTML to add.
-   * @throws InvalidArgumentException if text is not a string
+   * @throws \InvalidArgumentException If text is not a string.
    */
   public function setHtmlBody($text) {
     if (!is_string($text)) {
@@ -313,9 +313,9 @@ abstract class BaseMessage {
   /**
    * Sets a reply-to address for the mail object.
    *
-   * @param string $email Reply-to address
-   * @throws InvalidArgumentException if the input reply-to address is an
-   * invalid email address
+   * @param string $email Reply-to address.
+   * @throws \InvalidArgumentException If the input reply-to address is an
+   * invalid email address.
    */
   public function setReplyTo($email) {
     if (!$this->checkValidEmail($email)) {
@@ -327,9 +327,9 @@ abstract class BaseMessage {
   /**
    * Sets the sender for the mail object.
    *
-   * @param string $email Email of the sender
-   * @throws InvalidArgumentException if the input sender is an invalid email
-   * address
+   * @param string $email Email of the sender.
+   * @throws \InvalidArgumentException If the input sender is an invalid email
+   * address.
    */
   public function setSender($email) {
     if (!$this->checkValidEmail($email)) {
@@ -341,8 +341,8 @@ abstract class BaseMessage {
   /**
    * Sets the subject for the mail object.
    *
-   * @param string $subject Subject line
-   * @throws InvalidArgumentException if subject line is not a string
+   * @param string $subject Subject line.
+   * @throws \InvalidArgumentException If subject line is not a string.
    */
   public function setSubject($subject) {
     if (!is_string($subject)) {
@@ -357,8 +357,8 @@ abstract class BaseMessage {
    * Sets plain text for the email body.
    *
    * @param string $text Plain text to add.
-   * @return true if successful, false otherwise
-   * @throws InvalidArgumentException if text is not a string
+   * @return bool True if successful, false otherwise.
+   * @throws \InvalidArgumentException If text is not a string.
    */
   public function setTextBody($text) {
     if (!is_string($text)) {

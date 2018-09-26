@@ -20,8 +20,21 @@
 
 require_once 'google/appengine/runtime/Memcache.php';
 require_once 'google/appengine/runtime/Memcached.php';
+require_once 'google/appengine/ext/cloud_storage_streams/CloudStorageStreamWrapper.php';
 require_once 'google/appengine/ext/session/MemcacheSessionHandler.php';
 require_once 'google/appengine/api/mail/MailService.php';
 
 // Setup the Memcache session handler
 google\appengine\ext\session\configureMemcacheSessionHandler();
+
+// Setup the GS stream wrapper
+$url_flags = STREAM_IS_URL;
+if (GAE_INCLUDE_REQUIRE_GS_STREAMS === 1) {
+  // By clearing the STREAM_IS_URL flag we allow this stream handler to be used
+  // in include & require calls.
+  $url_flags = 0;
+}
+
+stream_wrapper_register("gs",
+    "\\google\\appengine\\ext\\cloud_storage_streams\\CloudStorageStreamWrapper",
+    $url_flags);

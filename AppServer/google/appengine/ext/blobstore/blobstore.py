@@ -73,6 +73,7 @@ __all__ = ['BLOB_INFO_KIND',
            'fetch_data_async',
            'create_gs_key',
            'create_gs_key_async',
+           'GS_PREFIX',
            'get',
            'parse_blob_info',
            'parse_file_info']
@@ -102,6 +103,7 @@ BLOB_RANGE_HEADER = blobstore.BLOB_RANGE_HEADER
 MAX_BLOB_FETCH_SIZE = blobstore.MAX_BLOB_FETCH_SIZE
 UPLOAD_INFO_CREATION_HEADER = blobstore.UPLOAD_INFO_CREATION_HEADER
 CLOUD_STORAGE_OBJECT_HEADER = blobstore.CLOUD_STORAGE_OBJECT_HEADER
+GS_PREFIX = blobstore.GS_PREFIX
 
 
 class BlobInfoParseError(Error):

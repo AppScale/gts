@@ -63,9 +63,7 @@ class ApiConfigRegistry(object):
     if config_contents is None:
       return
     parsed_config = json.loads(config_contents)
-    if not self.__register_class(parsed_config):
-      return
-
+    self.__register_class(parsed_config)
     self.__api_configs.add(config_contents)
     self.__register_methods(parsed_config)
 
@@ -75,38 +73,26 @@ class ApiConfigRegistry(object):
     Args:
       parsed_config: The JSON object with the API configuration being added.
 
-    Returns:
-      True if the class has been registered and it's fine to add this
-      configuration.  False if this configuration shouldn't be added.
+    Raises:
+      ApiConfigurationError: If the class has already been registered.
     """
     methods = parsed_config.get('methods')
     if not methods:
-      return True
+      return
 
 
-
-
-    service_class = None
+    service_classes = set()
     for method in methods.itervalues():
       rosy_method = method.get('rosyMethod')
       if rosy_method and '.' in rosy_method:
         method_class = rosy_method.split('.', 1)[0]
-        if service_class is None:
-          service_class = method_class
-        elif service_class != method_class:
-          raise api_config.ApiConfigurationError(
-              'SPI registered with multiple classes within one '
-              'configuration (%s and %s).  Each call to register_spi should '
-              'only contain the methods from a single class.  Call '
-              'repeatedly for multiple classes.' % (service_class,
-                                                    method_class))
+        service_classes.add(method_class)
 
-    if service_class is not None:
+    for service_class in service_classes:
       if service_class in self.__registered_classes:
-
-        return False
+        raise api_config.ApiConfigurationError(
+            'SPI class %s has already been registered.' % service_class)
       self.__registered_classes.add(service_class)
-    return True
 
   def __register_methods(self, parsed_config):
     """Register all methods from the given api config file.

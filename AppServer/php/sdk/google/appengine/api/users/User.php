@@ -19,6 +19,10 @@
 
 namespace google\appengine\api\users;
 
+require_once 'google/appengine/util/string_util.php';
+
+use \google\appengine\util as util;
+
 /**
  * A user.
  *
@@ -30,44 +34,45 @@ namespace google\appengine\api\users;
  *
  * A user could be a Google Accounts user or a federated login user.
  *
- * federatedIdentity and federatedProvider are only avaliable for
+ * Federated identity and federated provider are only avaliable for
  * federated users.
  */
-class User {
-  private $userId = null;
-  private $federatedIdentity = null;
-  private $federatedProvider = null;
+final class User {
+  private $user_id = null;
+  private $federated_identity = null;
+  private $federated_provider = null;
 
   /**
    * Constructor.
    *
-   * @param string email An optional string of the user's email address. It
+   * @param string $email An optional string of the user's email address. It
    *               defaults to the current user's email address.
-   * @param string federatedIdentity The federated identity of user. It
+   * @param string $federated_identity The federated identity of user. It
    *               defaults to the current user's federated identity.
-   * @param string federatedProvider The federated provider url of user.
+   * @param string $federated_provider The federated provider url of user.
    *
-   * @throws UserNotFoundError Thrown if both email and federated identity
-   *         are empty.
+   * @throws \InvalidArgumentException Thrown if both email and federated
+   * identity are empty.
    */
   public function __construct(
       $email = null,
-      $federatedIdentity = null,
-      $federatedProvider = null,
-      $userId = null) {
+      $federated_identity = null,
+      $federated_provider = null,
+      $user_id = null) {
 
-    $authDomain = getenv('AUTH_DOMAIN');
-    assert($authDomain !== FALSE);
+    $auth_domain = getenv('AUTH_DOMAIN');
+    assert($auth_domain !== FALSE);
 
-    if ($email === null and $federatedIdentity === null) {
-      throw new UserNotFoundError();
+    if ($email === null and $federated_identity === null) {
+      throw new \InvalidArgumentException(
+          'One of $email or $federated_identity must be set.');
     }
 
     $this->email = $email;
-    $this->federatedIdentity = $federatedIdentity;
-    $this->federatedProvider = $federatedProvider;
-    $this->authDomain = $authDomain;
-    $this->userId = $userId;
+    $this->federated_identity = $federated_identity;
+    $this->federated_provider = $federated_provider;
+    $this->auth_domain = $auth_domain;
+    $this->user_id = $user_id;
   }
 
   /**
@@ -77,15 +82,16 @@ class User {
    * with respect to this application. It will be an email address for some
    * users, part of the email address for some users, and the federated identity
    * for federated users who have not asserted an email address.
+   *
+   * @return string The user's nickname.
    */
   public function getNickname() {
-    // TODO: create an utility class and endsWith() function, use it here:
-    if ($this->email != null && $this->authDomain != null && substr(
-        $this->email, -strlen($this->authDomain)) === $this->authDomain) {
-      $suffixLen = strlen($this->authDomain) + 1;
+    if ($this->email != null && $this->auth_domain != null &&
+        util\endsWith($this->email, $this->auth_domain)) {
+      $suffixLen = strlen($this->auth_domain) + 1;
       return substr($this->email, 0, -$suffixLen);
-    } elseif ($this->federatedIdentity) {
-      return $this->federatedIdentity;
+    } elseif ($this->federated_identity) {
+      return $this->federated_identity;
     } else {
       return $this->email;
     }
@@ -93,6 +99,8 @@ class User {
 
   /**
    * Return this user's email address.
+   *
+   * @return string The user's email address.
    */
   public function getEmail() {
     return $this->email;
@@ -102,44 +110,57 @@ class User {
    * Return either a permanent unique identifying string or null.
    *
    * If the email address was set explicity, this will return null.
+   *
+   * @return string The user's UserId.
    */
   public function getUserId() {
-    return $this->userId;
+    return $this->user_id;
   }
 
   /**
    * Return this user's auth domain.
    *
    * This method is internal and should not be used by client applications.
+   *
+   * @return string The user's authentication domain.
    */
   public function getAuthDomain() {
-    return $this->authDomain;
+    return $this->auth_domain;
   }
 
   /**
    * Return this user's federated identity, null if not a federated user.
+   *
+   * @return string The user's federated identity.
    */
   public function getFederatedIdentity() {
-    return $this->federatedIdentity;
+    return $this->federated_identity;
   }
 
   /**
    * Return this user's federated provider, null if not a federated user.
+   *
+   * @return string The user's federated provider.
    */
   public function getFederatedProvider() {
-    return $this->federatedProvider;
+    return $this->federated_provider;
   }
 
+  /**
+   * Magic method that PHP uses when the object is treated like a string.
+   *
+   * @return string The attributes of this user.
+   */
   public function  __toString() {
     $res = array();
     if ($this->email != null) {
       $res[] = sprintf("email='%s'", $this->email);
     }
-    if ($this->federatedIdentity != null) {
-      $res[] = sprintf("federatedIdentity='%s'", $this->federatedIdentity);
+    if ($this->federated_identity != null) {
+      $res[] = sprintf("federated_identity='%s'", $this->federated_identity);
     }
-    if ($this->userId != null) {
-      $res[] = sprintf("userId='%s'", $this->userId);
+    if ($this->user_id != null) {
+      $res[] = sprintf("user_id='%s'", $this->user_id);
     }
     return sprintf('User(%s)', join(',', $res));
   }

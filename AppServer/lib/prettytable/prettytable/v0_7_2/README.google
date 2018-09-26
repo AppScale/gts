@@ -1,0 +1,16 @@
+URL: http://code.google.com/p/prettytable/
+Version: 0.7.2
+License: BSD
+License File: LICENSE
+
+Description:
+A simple Python library for easily displaying tabular data in a
+visually appealing ASCII table format.
+
+For using the version 0.7.2 it is necessary to write:
+import google3
+import prettytable.v0_7_2 as prettytable
+prettytable.PrettyTable()
+
+Local Modifications:
+Renamed prettyprint.py to __init__.py

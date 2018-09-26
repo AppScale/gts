@@ -23,7 +23,6 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api.blobstore import blobstore_stub
-from google.appengine.api.files import file_service_stub
 from google.appengine.ext import blobstore
 
 
@@ -80,55 +79,6 @@ def _parse_range_header(range_header):
     return None, None
 
 
-def _get_google_storage_file_metadata(blob_key):
-  """Retreive metadata about a GS blob from the blob_key.
-
-  Args:
-    blob_key: The BlobKey of the blob.
-
-  Returns:
-    Tuple (size, content_type, open_key):
-      size: The size of the blob.
-      content_type: The content type of the blob.
-      open_key: The key used as an argument to BlobStorage to open the blob
-        for reading.
-    (None, None, None) if the blob metadata was not found.
-  """
-  try:
-    gs_info = datastore.Get(
-        datastore.Key.from_path(file_service_stub.GS_INFO_KIND,
-                                blob_key,
-                                namespace=''))
-    return gs_info['size'], gs_info['content_type'], gs_info['storage_key']
-  except datastore_errors.EntityNotFoundError:
-    return None, None, None
-
-
-def _get_blobstore_metadata(blob_key):
-  """Retreive metadata about a blobstore blob from the blob_key.
-
-  Args:
-    blob_key: The BlobKey of the blob.
-
-  Returns:
-    Tuple (size, content_type, open_key):
-      size: The size of the blob.
-      content_type: The content type of the blob.
-      open_key: The key used as an argument to BlobStorage to open the blob
-        for reading.
-    (None, None, None) if the blob metadata was not found.
-  """
-  try:
-    blob_info = datastore.Get(
-        datastore.Key.from_path(blobstore.BLOB_INFO_KIND,
-                                blob_key,
-                                namespace=''))
-    return blob_info['size'], blob_info['content_type'], blob_key
-  except datastore_errors.EntityNotFoundError:
-    return None, None, None
-
-
-# AppScale: Get blob metadata from datastore.
 def _get_blob_metadata(blob_key):
   """Retrieve the metadata about a blob from the blob_key.
 

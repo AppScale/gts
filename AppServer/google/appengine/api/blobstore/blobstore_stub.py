@@ -65,6 +65,7 @@ class ConfigurationError(Error):
 
 
 _UPLOAD_SESSION_KIND = '__BlobUploadSession__'
+
 _GS_INFO_KIND = '__GsFileInfo__'
 
 
@@ -365,7 +366,13 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
           blobstore_service_pb.BlobstoreServiceError.BLOB_FETCH_SIZE_TOO_LARGE)
 
 
-    blob_key = request.blob_key()
+    blobkey = request.blob_key()
+    info_key = self.ToDatastoreBlobKey(blobkey)
+    try:
+      datastore.Get(info_key)
+    except datastore_errors.EntityNotFoundError:
+      raise apiproxy_errors.ApplicationError(
+          blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
 
     # AppScale: Access the blob data from BlobChunk entities.
 
@@ -378,7 +385,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     # This is the last block we'll look at for this request
     block_count_end = int(end_index/blobstore.MAX_BLOB_FETCH_SIZE)
 
-    block_key = str(blob_key) + "__" + str(block_count)
+    block_key = str(blobkey) + "__" + str(block_count)
     block_key = datastore.Key.from_path("__BlobChunk__",
                                         block_key,
                                         namespace='')
@@ -393,7 +400,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
 
         # If the first block exists, the index is just past the last block.
         first_block_key = datastore.Key.from_path(
-          '__BlobChunk__', ''.join([str(blob_key), '__0']), namespace='')
+          '__BlobChunk__', ''.join([str(blobkey), '__0']), namespace='')
         try:
           datastore.Get(first_block_key)
         except datastore_errors.EntityNotFoundError:
@@ -418,12 +425,12 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
         data = self.__block_cache[block_modulo:]
         response.set_data(data)
         return
-    
+
     data = self.__block_cache[block_modulo:]
     data_size = len(data)
 
     # Must fetch the next block
-    block_key = blob_key + "__" + str(block_count + 1)
+    block_key = blobkey + "__" + str(block_count + 1)
     block_key = datastore.Key.from_path("__BlobChunk__",
                                         block_key,
                                         namespace='')

@@ -54,6 +54,11 @@ class APIProxyStub(object):
 
   _ACCEPTS_REQUEST_ID = False
 
+
+
+
+  THREADSAFE = False
+
   def __init__(self, service_name, max_request_size=MAX_REQUEST_SIZE,
                request_data=None):
     """Constructor.

@@ -1,0 +1,24 @@
+application: shell-php
+version: 1
+runtime: php
+api_version: 1
+threadsafe: false
+
+handlers:
+- url: /static
+  static_dir: static
+  expiration: 30d
+
+- url: /favicon.ico
+  static_files: static/favicon.ico
+  upload: static/favicon.ico
+  expiration: 30d
+
+- url: /shell.do
+  script: shell.php
+
+- url: /reset.do
+  script: reset.php
+
+- url: .*
+  script: frontpage.php

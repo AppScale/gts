@@ -22,7 +22,6 @@
 
 
 import base64
-import collections
 import datetime
 import logging
 import os
@@ -89,7 +88,9 @@ config.BASE_PATH
 
 
 def IsKindNameVisible(kind_name):
-  return not (kind_name.startswith('__') or kind_name in DATASTORE_ADMIN_KINDS)
+  return not (kind_name.startswith('__') or
+              kind_name in DATASTORE_ADMIN_KINDS or
+              kind_name in model._MAP_REDUCE_KINDS)
 
 
 def RenderToResponse(handler, template_file, template_params):

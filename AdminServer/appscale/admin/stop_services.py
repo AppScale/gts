@@ -2,11 +2,13 @@
 import argparse
 import logging
 import socket
+import sys
 import time
 
 from appscale.common.constants import LOG_FORMAT
-from appscale.common.monit_interface import (MonitOperator, MonitStates,
-                                             MonitUnavailable)
+from appscale.common.monit_interface import (DEFAULT_RETRIES, MonitOperator,
+                                             MonitStates, MonitUnavailable,
+                                             ProcessNotFound)
 from appscale.common.retrying import retry
 
 
@@ -72,7 +74,7 @@ def start_service():
   args = parser.parse_args()
 
   monit_operator = MonitOperator()
-  monit_retry = retry(max_retries=5, retry_on_exception=MonitUnavailable)
+  monit_retry = retry(max_retries=5, retry_on_exception=DEFAULT_RETRIES)
   send_w_retries = monit_retry(monit_operator.send_command_sync)
   send_w_retries(args.service, 'start')
 
@@ -83,10 +85,15 @@ def stop_service():
   parser.add_argument('service', help='The service to stop')
   args = parser.parse_args()
 
-  monit_operator = MonitOperator()
-  monit_retry = retry(max_retries=5, retry_on_exception=MonitUnavailable)
-  send_w_retries = monit_retry(monit_operator.send_command_sync)
-  send_w_retries(args.service, 'stop')
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+  try:
+    monit_operator = MonitOperator()
+    monit_retry = retry(max_retries=5, retry_on_exception=DEFAULT_RETRIES)
+    send_w_retries = monit_retry(monit_operator.send_command_sync)
+    send_w_retries(args.service, 'stop')
+  except ProcessNotFound as e:
+    logging.info(str(e))
+    sys.exit(1)
 
 
 def main():
@@ -124,7 +131,7 @@ def main():
       service = next((service for service in ordered_services
                       if services[service] != MonitStates.PENDING))
 
-      monit_retry = retry(max_retries=5, retry_on_exception=MonitUnavailable)
+      monit_retry = retry(max_retries=5, retry_on_exception=DEFAULT_RETRIES)
       send_w_retries = monit_retry(monit_operator.send_command_sync)
       send_w_retries(service, 'stop')
     except StopIteration:

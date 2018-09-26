@@ -68,10 +68,8 @@ import time
 import zipfile
 
 from google.net.proto import ProtocolBuffer
-try:
-  from google.appengine.ext import ndb
-except ImportError:
-  ndb = None
+from google.appengine.ext import ndb
+
 from google.appengine.api import datastore
 from google.appengine.api import files
 from google.appengine.api import logservice
@@ -180,7 +178,7 @@ class InputReader(model.JsonMixin):
         parameters to define the behavior of input readers.
 
     Returns:
-      A list of InputReaders.
+      A list of InputReaders. None when no input data can be found.
     """
     raise NotImplementedError("split_input() not implemented in %s" % cls)
 
@@ -721,7 +719,7 @@ class DatastoreInputReader(AbstractDatastoreInputReader):
     entity_type = util.for_name(model_classpath)
     if isinstance(entity_type, db.Model):
       return entity_type.kind()
-    elif ndb and isinstance(entity_type, (ndb.Model, ndb.MetaModel)):
+    elif isinstance(entity_type, (ndb.Model, ndb.MetaModel)):
 
       return entity_type._get_kind()
     else:
@@ -2145,7 +2143,7 @@ class ConsistentKeyReader(_OldAbstractDatastoreInputReader):
     Returns:
       all the data in json-compatible map.
     """
-    json_dict = super(DatastoreKeyInputReader, self).to_json()
+    json_dict = super(ConsistentKeyReader, self).to_json()
     json_dict[self.START_TIME_US_PARAM] = self.start_time_us
     return json_dict
 

@@ -473,7 +473,13 @@ def make_get_access_token_call(rpc, scopes, service_account_id=None):
     for scope in scopes:
       request.add_scope(scope)
   if service_account_id:
-    request.set_service_account_id(service_account_id)
+    if isinstance(service_account_id, (int, long)):
+      request.set_service_account_id(service_account_id)
+    elif isinstance(service_account_id, basestring):
+      request.set_service_account_name(service_account_id)
+    else:
+      raise TypeError()
+
   response = app_identity_service_pb.GetAccessTokenResponse()
 
   def get_access_token_result(rpc):
@@ -544,7 +550,7 @@ def get_access_token(scopes, service_account_id=None):
 
   memcache_key = _MEMCACHE_KEY_PREFIX + str(scopes)
   if service_account_id:
-    memcache_key += ',%d' % service_account_id
+    memcache_key += ',%s' % service_account_id
   memcache_value = memcache.get(memcache_key, namespace=_MEMCACHE_NAMESPACE)
   if memcache_value:
     access_token, expires_at = memcache_value

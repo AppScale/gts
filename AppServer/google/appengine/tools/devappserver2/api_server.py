@@ -76,24 +76,6 @@ from google.appengine.api.blobstore import datastore_blob_storage
 # safety.
 GLOBAL_API_LOCK = threading.RLock()
 
-# Set of whitelisted services that are thread-safe, and therefore do not require
-# the GLOBAL_API_LOCK when executed.
-THREAD_SAFE_SERVICES = frozenset((
-    'app_identity_service',
-    'capability_service',
-    'channel',
-    'datastore_v3',
-    'logservice',
-    'mail',
-    'memcache',
-    'remote_socket',
-    'servers',
-    'taskqueue',
-    'urlfetch',
-    'user',
-    'xmpp',
-))
-
 
 def _execute_request(request):
   """Executes an API method call and returns the response object.
@@ -127,17 +109,18 @@ def _execute_request(request):
   request_data = request_class()
   request_data.ParseFromString(request.request())
   response_data = response_class()
+  service_stub = apiproxy_stub_map.apiproxy.GetStub(service)
 
   def make_request():
-    apiproxy_stub_map.apiproxy.GetStub(service).MakeSyncCall(service,
-                                                             method,
-                                                             request_data,
-                                                             response_data,
-                                                             request_id)
+    service_stub.MakeSyncCall(service,
+                              method,
+                              request_data,
+                              response_data,
+                              request_id)
 
-  # If the service is not whitelisted in THREAD_SAFE_SERVICES, acquire
+  # If the service has not declared itself as threadsafe acquire
   # GLOBAL_API_LOCK.
-  if service in THREAD_SAFE_SERVICES:
+  if service_stub.THREADSAFE:
     make_request()
   else:
     with GLOBAL_API_LOCK:

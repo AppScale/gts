@@ -76,7 +76,7 @@ class RangeIterator(object):
     """ The encoded reference without the path element. """
     return KEY_DELIMITER.join(
       [self.project_id, self.namespace, self.kind, self.prop_name,
-       str(encode_index_pb(self._value))])
+       str(encode_index_pb(self._value))]) + KEY_DELIMITER
 
   @gen.coroutine
   def async_next(self):
@@ -180,8 +180,7 @@ class RangeIterator(object):
       BadRequest if unable to set the cursor to the given path.
     """
     range_start, range_end = self._range
-    cursor = Cursor(
-      KEY_DELIMITER.join([self.prefix, str(encode_index_pb(path))]), inclusive)
+    cursor = Cursor(self.prefix + str(encode_index_pb(path)), inclusive)
 
     if cursor.key < self._cursor.key:
       raise BadRequest(
@@ -199,7 +198,7 @@ class RangeIterator(object):
     Args:
       path: An entity_pb.Path object.
     """
-    start_key = KEY_DELIMITER.join([self.prefix, str(encode_index_pb(path))])
+    start_key = self.prefix + str(encode_index_pb(path))
     end_key = ''.join([start_key, TERMINATING_STRING])
     if start_key < self._range[0] or end_key > self._range[-1]:
       raise BadRequest('Restriction must be within range')

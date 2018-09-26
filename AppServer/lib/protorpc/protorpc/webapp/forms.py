@@ -24,11 +24,11 @@ automatically added to the registry service URL at <registry-path>/forms
 service_handlers.service_mapping function.
 """
 
-import logging
 import os
 
-from google.appengine.ext import webapp
-from google.appengine.ext.webapp import template
+from .google_imports import template
+from .google_imports import webapp
+
 
 __all__ = ['FormsHandler',
            'ResourceHandler',

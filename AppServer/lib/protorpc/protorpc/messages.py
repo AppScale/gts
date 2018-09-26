@@ -761,12 +761,14 @@ class Message(object):
       else:
         try:
           if (isinstance(field, MessageField) and
-              issubclass(field.type, MessageField)):
+              issubclass(field.message_type, Message)):
             if field.repeated:
               for item in value:
-                item.check_initialized()
+                item_message_value = field.value_to_message(item)
+                item_message_value.check_initialized()
             else:
-              value.check_initialized()
+              message_value = field.value_to_message(value)
+              message_value.check_initialized()
         except ValidationError, err:
           if not hasattr(err, 'message_name'):
             err.message_name = type(self).__name__
@@ -1525,7 +1527,7 @@ class MessageField(Field):
       message: A message instance of type self.message_type.
 
     Returns:
-      Value of self.type.
+      Value of self.message_type.
     """
     if not isinstance(message, self.message_type):
       raise DecodeError('Expected type %s, got %s: %r' %

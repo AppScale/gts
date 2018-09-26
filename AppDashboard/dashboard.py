@@ -9,7 +9,6 @@ Engine applications.
 # pylint: disable-msg=E1101
 # pylint: disable-msg=W0613
 
-import cgi
 import datetime
 import json
 import logging
@@ -171,21 +170,21 @@ class NewUserPage(AppDashboard):
     """
     users = {}
     error_msgs = {}
-    users['email'] = cgi.escape(self.request.get('user_email'))
+    users['email'] = self.request.get('user_email')
     if re.match(self.USER_EMAIL_REGEX, users['email']):
       error_msgs['email'] = None
     else:
       error_msgs['email'] = 'Format must be foo@boo.goo.'
 
-    users['password'] = cgi.escape(self.request.get('user_password'))
+    users['password'] = self.request.get('user_password')
     if len(users['password']) >= self.MIN_PASSWORD_LENGTH:
       error_msgs['password'] = None
     else:
       error_msgs['password'] = 'Password must be at least {0} characters ' \
                                'long.'.format(self.MIN_PASSWORD_LENGTH)
 
-    users['password_confirmation'] = cgi.escape(
-      self.request.get('user_password_confirmation'))
+    users['password_confirmation'] = \
+        self.request.get('user_password_confirmation')
     if users['password_confirmation'] == users['password']:
       error_msgs['password_confirmation'] = None
     else:
@@ -205,9 +204,10 @@ class NewUserPage(AppDashboard):
     if errors['email'] or errors['password'] or errors['password_confirmation']:
       return False
     else:
-      return self.helper.create_new_user(cgi.escape(
-        self.request.get('user_email')), cgi.escape(
-        self.request.get('user_password')), self.response)
+      return self.helper.create_new_user(
+        self.request.get('user_email'),
+        self.request.get('user_password'),
+        self.response)
 
   def post(self):
     """ Handler for POST requests. """
@@ -225,10 +225,10 @@ class NewUserPage(AppDashboard):
       err_msgs['email'] = str(err)
 
     users = {}
-    users['email'] = cgi.escape(self.request.get('user_email'))
-    users['password'] = cgi.escape(self.request.get('user_password'))
-    users['password_confirmation'] = cgi.escape(
-      self.request.get('user_password_confirmation'))
+    users['email'] = self.request.get('user_email')
+    users['password'] = self.request.get('user_password')
+    users['password_confirmation'] = \
+        self.request.get('user_password_confirmation')
 
     self.render_page(page='users', template_file=self.TEMPLATE, values={
       'continue': self.request.get('continue'),
@@ -482,8 +482,7 @@ class ChangePasswordPage(AppDashboard):
     email = self.request.get("email")
     password = self.request.get("password")
     if self.dstore.is_user_cloud_admin():
-      success, message = self.helper.change_password(cgi.escape(email),
-                                                     cgi.escape(password))
+      success, message = self.helper.change_password(email, password)
     else:
       success = False
       message = "Only the cloud administrator can change passwords."

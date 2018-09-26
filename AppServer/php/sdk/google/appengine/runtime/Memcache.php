@@ -146,15 +146,17 @@ function memcache_flush($memcache_obj) {
 /**
  * Fetches previously stored data from the cache.
  *
- * @param string $key The key associated with the value to fetch.
+ * @param string|string[] $keys The key associated with the value to fetch, or
+ *                              an array of keys if fetching multiple values.
  *
  * @param Memcache $memcache_obj The cache instance to get the item from.
  *
  * @param int $flags This parameter is present only for compatibility and is
  *                   ignored. It should return the stored flag value.
  *
- * @return mixed On success, the new value of the item is returned.
- *               On failure, false is returned.
+ * @return mixed On success, the string associated with the key, or an array
+ *               of key-value pairs when $keys is an array. On failure, false
+ *               is returned.
  */
 function memcache_get($memcache_obj, $keys, $flags = null) {
   return $memcache_obj->get($keys, $flags);
@@ -407,13 +409,15 @@ class Memcache {
   /**
    * Fetches previously stored data from the cache.
    *
-   * @param string $key The key associated with the value to fetch.
+   * @param string|string[] $keys The key associated with the value to fetch, or
+   *                              an array of keys if fetching multiple values.
    *
    * @param int $flags This parameter is present only for compatibility and is
    *                   ignored. It should return the stored flag value.
    *
-   * @return mixed On success, the new value of the item is returned.
-   *               On failure, false is returned.
+   * @return mixed On success, the string associated with the key, or an array
+   *               of key-value pairs when $keys is an array. On failure, false
+   *               is returned.
    */
   public function get($keys, $flags = null) {
     if (is_array($keys)) {

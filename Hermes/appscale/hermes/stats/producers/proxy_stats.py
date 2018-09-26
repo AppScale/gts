@@ -209,8 +209,10 @@ class HAProxyServerStats(object):
 
 
 ALL_HAPROXY_FIELDS = set(
-  HAProxyListenerStats.__slots__ + HAProxyFrontendStats.__slots__
-  + HAProxyBackendStats.__slots__ + HAProxyServerStats.__slots__
+  attr.fields_dict(HAProxyListenerStats).keys() +
+  attr.fields_dict(HAProxyFrontendStats).keys() +
+  attr.fields_dict(HAProxyBackendStats).keys() +
+  attr.fields_dict(HAProxyServerStats).keys()
 ) - {'private_ip', 'port'}    # HAProxy stats doesn't include IP/Port columns
                               # But we add these values by ourselves
 
@@ -331,7 +333,7 @@ def get_stats_from_one_haproxy(socket_path, configs_dir):
 
     stats_values = {
       field: _get_field_value(row, field)
-      for field in stats_type.__slots__
+      for field in attr.fields_dict(stats_type).keys()
     }
     stats_values.update(**extra_values)
 

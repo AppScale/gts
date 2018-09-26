@@ -575,6 +575,14 @@ installpyyaml()
     fi
 }
 
+installsoappy()
+{
+    # This particular version is needed for
+    # google.appengine.api.xmpp.unverified_transport, which imports
+    # SOAPpy.HTTPWithTimeout.
+    pipwrapper SOAPpy==0.12.22
+}
+
 preplogserver()
 {
     LOGSERVER_DIR="/opt/appscale/logserver"

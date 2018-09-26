@@ -134,7 +134,8 @@ MODULE_VERSION_ID_RE_STRING = (r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' %
                                (MODULE_VERSION_ID_MAX_LEN - 1))
 
 _IDLE_INSTANCES_REGEX = r'^([\d]+|automatic)$'
-_INSTANCES_REGEX = r'^[\d]+$'
+
+_INSTANCES_REGEX = r'^[1-9][\d]*$'
 _INSTANCE_CLASS_REGEX = r'^([fF](1|2|4|4_1G)|[bB](1|2|4|8|4_1G))$'
 
 _CONCURRENT_REQUESTS_REGEX = r'^([1-9]\d*)$'

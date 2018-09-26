@@ -186,13 +186,103 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
 
     logging.warning('Config %s', self.server.config_manager.configs)
 
-    self.assertEqual(self.response_status, '400')
+    self.assertEqual(self.response_status, '400 Bad Request')
     body = ''.join(response)
     body_json = json.loads(body)
     self.assertEqual(1, len(body_json['error']['errors']))
     self.assertEqual('gid', body_json['error']['errors'][0]['location'])
     self.assertEqual('invalidParameter',
                      body_json['error']['errors'][0]['reason'])
+
+  def test_dispatch_spi_error(self):
+    """Check the error response if the SPI returns an error."""
+    config = json.dumps({
+        'name': 'guestbook_api',
+        'version': 'v1',
+        'methods': {
+            'guestbook.get': {
+                'httpMethod': 'GET',
+                'path': 'greetings/{gid}',
+                'rosyMethod': 'MyApi.greetings_get'
+            }
+        }
+    })
+    request = test_utils.build_request('/_ah/api/foo')
+    self.prepare_dispatch(config)
+    self.mox.StubOutWithMock(self.server, 'call_spi')
+    # The application chose to throw a 404 error.
+    response = dispatcher.ResponseTuple('404 Not Found', [],
+                                        ('{"state": "APPLICATION_ERROR",'
+                                         ' "error_message": "Test error"}'))
+    self.server.call_spi(request, mox.IgnoreArg()).AndRaise(
+        errors.BackendError(response))
+
+    self.mox.ReplayAll()
+    response = self.server.dispatch(request, self.start_response)
+    self.mox.VerifyAll()
+
+    expected_response = (
+        '{\n'
+        ' "error": {\n'
+        '  "code": 404, \n'
+        '  "errors": [\n'
+        '   {\n'
+        '    "domain": "global", \n'
+        '    "message": "Test error", \n'
+        '    "reason": "notFound"\n'
+        '   }\n'
+        '  ], \n'
+        '  "message": "Test error"\n'
+        ' }\n'
+        '}')
+    response = ''.join(response)
+    self.assert_http_match(response, '404 Not Found',
+                           [('Content-Length', '%d' % len(expected_response)),
+                            ('Content-Type', 'application/json')],
+                           expected_response)
+
+  def test_dispatch_rpc_error(self):
+    """Test than an RPC call that returns an error is handled properly."""
+    config = json.dumps({
+        'name': 'guestbook_api',
+        'version': 'v1',
+        'methods': {
+            'guestbook.get': {
+                'httpMethod': 'GET',
+                'path': 'greetings/{gid}',
+                'rosyMethod': 'MyApi.greetings_get'
+            }
+        }
+    })
+    request = test_utils.build_request(
+        '/_ah/api/rpc',
+        '{"method": "foo.bar", "apiVersion": "X", "id": "gapiRpc"}')
+    self.prepare_dispatch(config)
+    self.mox.StubOutWithMock(self.server, 'call_spi')
+    # The application chose to throw a 404 error.
+    response = dispatcher.ResponseTuple('404 Not Found', [],
+                                        ('{"state": "APPLICATION_ERROR",'
+                                         ' "error_message": "Test error"}'))
+    self.server.call_spi(request, mox.IgnoreArg()).AndRaise(
+        errors.BackendError(response))
+
+    self.mox.ReplayAll()
+    response = self.server.dispatch(request, self.start_response)
+    self.mox.VerifyAll()
+
+    expected_response = {'error': {'code': 404,
+                                   'message': 'Test error',
+                                   'data': [{
+                                       'domain': 'global',
+                                       'reason': 'notFound',
+                                       'message': 'Test error',
+                                       }]
+                                  },
+                         'id': 'gapiRpc'
+                        }
+    response = ''.join(response)
+    self.assertEqual('200 OK', self.response_status)
+    self.assertEqual(expected_response, json.loads(response))
 
   def test_dispatch_json_rpc(self):
     config = json.dumps({
@@ -499,25 +589,14 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
     self.assertEqual(expected_response,
                      self.server.transform_rest_response(orig_response))
 
-  def test_transform_json_rpc_response(self):
-    """Verify request_id inserted into the body, and body into body.result."""
-    orig_request = test_utils.build_request(
-        '/_ah/api/rpc', '{"params": {"sample": "body"}, "id": "42"}')
-    request = orig_request.copy()
-    request.request_id = '42'
-    response = self.server.transform_jsonrpc_response(request,
-                                                      '{"sample": "body"}')
-    self.assertEqual({'result': {'sample': 'body'}, 'id': '42'},
-                     json.loads(response))
-
   def test_transform_json_rpc_response_batch(self):
     """Verify request_id inserted into the body, and body into body.result."""
     orig_request = test_utils.build_request(
         '/_ah/api/rpc', '[{"params": {"sample": "body"}, "id": "42"}]')
     request = orig_request.copy()
     request.request_id = '42'
-    response = self.server.transform_jsonrpc_response(request,
-                                                      '{"sample": "body"}')
+    orig_response = '{"sample": "body"}'
+    response = self.server.transform_jsonrpc_response(request, orig_response)
     self.assertEqual([{'result': {'sample': 'body'}, 'id': '42'}],
                      json.loads(response))
 

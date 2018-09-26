@@ -48,6 +48,46 @@ def get_count(datastore, counter_id):
 
 
 @gen.coroutine
+def test_merge_query_with_null(locations):
+  datastore = Datastore(locations, PROJECT_ID)
+
+  query = Query('Greeting', _app=PROJECT_ID)
+  results = yield datastore.run_query(query)
+  for entity in results:
+    yield datastore.delete([entity.key()])
+
+  entity = Entity('Greeting', _app=PROJECT_ID)
+  create_time = datetime.datetime.now()
+  entity['content'] = None
+  entity['create_time'] = create_time
+  yield datastore.put(entity)
+
+  entity = Entity('Greeting', _app=PROJECT_ID)
+  entity['content'] = 'hi'
+  entity['create_time'] = create_time
+  yield datastore.put(entity)
+
+  entity = Entity('Greeting', _app=PROJECT_ID)
+  entity['create_time'] = None
+  yield datastore.put(entity)
+
+  query = Query('Greeting', {'content =': None, 'create_time =': create_time},
+                _app=PROJECT_ID)
+  response = yield datastore.run_query(query)
+  if len(response) != 1:
+    raise Exception('Expected 1 result. Received: {}'.format(response))
+
+  entity = response[0]
+  if entity['content'] is not None or entity['create_time'] != create_time:
+    raise Exception('Unexpected entity: {}'.format(entity))
+
+  query = Query('Greeting', _app=PROJECT_ID)
+  results = yield datastore.run_query(query)
+  for entity in results:
+    yield datastore.delete([entity.key()])
+
+
+@gen.coroutine
 def test_separator_in_name(locations):
   datastore = Datastore(locations, PROJECT_ID)
 
@@ -92,3 +132,4 @@ if __name__ == '__main__':
   io_loop = ioloop.IOLoop.current()
   io_loop.run_sync(lambda: test_separator_in_kind(args.locations))
   io_loop.run_sync(lambda: test_separator_in_name(args.locations))
+  io_loop.run_sync(lambda: test_merge_query_with_null(args.locations))

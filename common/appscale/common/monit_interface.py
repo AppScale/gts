@@ -6,13 +6,9 @@ import socket
 import subprocess
 import time
 import urllib
+import uuid
 from datetime import timedelta
 from xml.etree import ElementTree
-
-try:
-  from http.cookies import SimpleCookie
-except ImportError:
-  from Cookie import SimpleCookie
 
 from tornado import gen
 from tornado.httpclient import AsyncHTTPClient
@@ -36,6 +32,7 @@ charge of creating configuration files for the process they want started.
 MONIT = "/usr/bin/monit"
 
 NUM_RETRIES = 10
+DEFAULT_RETRIES = lambda err: not isinstance(err, ProcessNotFound)
 
 SMALL_WAIT = 3
 RETRYING_TIMEOUT = 60
@@ -214,20 +211,21 @@ class MonitOperator(object):
     self.last_reload = time.time()
     self._async_client = AsyncHTTPClient()
     self._client = HTTPClient()
-    self._csrf_token = None
 
   @gen.coroutine
-  def reload(self):
+  def reload(self, thread_pool=None):
     """ Groups closely-timed reload operations. """
     if self.reload_future is None or self.reload_future.done():
-      self.reload_future = self._reload()
+      self.reload_future = self._reload(thread_pool)
+    else:
+      logging.info('Using future of active monit reload')
 
     yield self.reload_future
 
   @staticmethod
   def reload_sync():
     """ Reloads Monit. """
-    subprocess.check_call(['monit', 'reload'])
+    subprocess.check_call([MONIT, 'reload'])
 
   @retry_coroutine(retrying_timeout=RETRYING_TIMEOUT)
   def get_entries(self):
@@ -251,8 +249,20 @@ class MonitOperator(object):
     return monit_entries
 
   @retry_coroutine(
+      retrying_timeout=RETRYING_TIMEOUT)
+  def send_command_retry_process(self, process_name, command):
+    """ Sends a command to the Monit API.
+
+    Args:
+      process_name: A string specifying a monit watch.
+      command: A string specifying the command to send.
+    """
+    yield self._send_command(process_name, command)
+
+
+  @retry_coroutine(
     retrying_timeout=RETRYING_TIMEOUT,
-    retry_on_exception=lambda err: not isinstance(err, ProcessNotFound))
+    retry_on_exception=DEFAULT_RETRIES)
   def send_command(self, process_name, command):
     """ Sends a command to the Monit API.
 
@@ -260,68 +270,43 @@ class MonitOperator(object):
       process_name: A string specifying a monit watch.
       command: A string specifying the command to send.
     """
+    yield self._send_command(process_name, command)
+
+  @gen.coroutine
+  def _send_command(self, process_name, command):
     process_url = '{}/{}'.format(self.LOCATION, process_name)
-    params = {'action': command}
-
-    headers = {}
-    if self._csrf_token is not None:
-      headers['Cookie'] = 'securitytoken={}'.format(self._csrf_token)
-      params['securitytoken'] = self._csrf_token
-
+    csrf_token = str(uuid.uuid4())
+    headers = {'Cookie': 'securitytoken={}'.format(csrf_token)}
+    payload = urllib.urlencode({'action': command,
+                                'securitytoken': csrf_token})
     try:
-      yield self._async_client.fetch(
-        process_url, method='POST', body=urllib.urlencode(params),
-        headers=headers)
+      yield self._async_client.fetch(process_url, method='POST',
+                                     headers=headers, body=payload)
     except HTTPError as error:
-      if error.code == httplib.FORBIDDEN:
-        # Retrieve CSRF token (introduced in Monit 5.20).
-        response = yield self._async_client.fetch(process_url)
-        self._csrf_token = self._parse_security_token(response)
-        if self._csrf_token is None:
-          raise
-
       if error.code == httplib.NOT_FOUND:
         raise ProcessNotFound('{} is not monitored'.format(process_name))
       raise
 
-  def send_command_sync(self, process_name, command, new_token=False):
+  def send_command_sync(self, process_name, command):
     """ Sends a command to the Monit API.
 
     Args:
       process_name: A string specifying a monit watch.
       command: A string specifying the command to send.
-      new_token: A boolean indicating whether or not a new CSRF token was
-        recently obtained.
     Raises:
       ProcessNotFound if Monit cannot find the specified process_name.
       MonitUnavailable if Monit is not accepting commands.
     """
     process_url = '/'.join([self.LOCATION, process_name])
-    params = {'action': command}
-
-    headers = {}
-    if self._csrf_token is not None:
-      headers['Cookie'] = 'securitytoken={}'.format(self._csrf_token)
-      params['securitytoken'] = self._csrf_token
+    csrf_token = str(uuid.uuid4())
+    headers = {'Cookie': 'securitytoken={}'.format(csrf_token)}
+    payload = urllib.urlencode({'action': command,
+                                'securitytoken': csrf_token})
 
     try:
-      self._client.fetch(
-        process_url, method='POST', body=urllib.urlencode(params),
-        headers=headers)
+      self._client.fetch(process_url, method='POST',
+                         headers=headers, body=payload)
     except HTTPError as error:
-      if error.code == httplib.FORBIDDEN:
-        # Prevent infinite loop if new token did not resolve 403.
-        if new_token:
-          raise
-
-        # Retrieve CSRF token (introduced in Monit 5.20).
-        response = self._client.fetch(process_url)
-        self._csrf_token = self._parse_security_token(response)
-        if self._csrf_token is None:
-          raise
-
-        return self.send_command_sync(process_name, command, new_token=True)
-
       if error.code == httplib.NOT_FOUND:
         raise ProcessNotFound('{} is not monitored'.format(process_name))
 
@@ -408,25 +393,13 @@ class MonitOperator(object):
   @retry_coroutine(
     retrying_timeout=RETRYING_TIMEOUT,
     retry_on_exception=[subprocess.CalledProcessError])
-  def _reload(self):
+  def _reload(self, thread_pool):
     """ Reloads Monit. """
     time_since_reload = time.time() - self.last_reload
     wait_time = max(self.RELOAD_COOLDOWN - time_since_reload, 0)
     yield gen.sleep(wait_time)
     self.last_reload = time.time()
-    subprocess.check_call(['monit', 'reload'])
-
-  @staticmethod
-  def _parse_security_token(http_response):
-    """ Extracts the security token from an HTTP response.
-
-    Args:
-      A tornado.httpclient.HTTPResponse object.
-    Returns:
-      A string containing the security token or None.
-    """
-    try:
-      cookie = SimpleCookie(http_response.headers['Set-Cookie'])
-      return cookie['securitytoken'].value
-    except KeyError:
-      return None
+    if thread_pool:
+      yield thread_pool.submit(subprocess.check_call, [MONIT, 'reload'])
+    else:
+      subprocess.check_call([MONIT, 'reload'])

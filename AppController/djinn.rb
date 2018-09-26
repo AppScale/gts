@@ -124,6 +124,9 @@ MIN_LOAD_THRESHOLD = 0.7
 # The number of seconds to wait for an AppServer instance to start.
 START_APP_TIMEOUT = 180
 
+# The exit code that indicates the data layout version is unexpected.
+INVALID_VERSION_EXIT_CODE = 64
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -3261,10 +3264,23 @@ class Djinn
 
     Djinn.log_info('Ensuring data layout version is correct')
     layout_script = `which appscale-data-layout`.chomp
-    unless system("#{layout_script} --db-type cassandra > /dev/null 2>&1")
-      HelperFunctions.log_and_crash(
-        'Unexpected data layout version. Please run "appscale upgrade".')
-    end
+    retries = 10
+    loop {
+      output = `#{layout_script} --db-type cassandra 2>&1`
+      if $?.exitstatus == 0
+        break
+      elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
+        HelperFunctions.log_and_crash(
+          'Unexpected data layout version. Please run "appscale upgrade".')
+      elsif retries.zero?
+        HelperFunctions.log_and_crash(
+          'Exceeded retries while trying to check data layout.')
+      else
+        Djinn.log_warn("Error while checking data layout:\n#{output}")
+        sleep(SMALL_WAIT)
+      end
+      retries -= 1
+    }
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"

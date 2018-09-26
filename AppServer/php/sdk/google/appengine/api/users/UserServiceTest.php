@@ -39,7 +39,7 @@ class UserServiceTest extends ApiProxyTestBase {
     parent::tearDown();
   }
 
-  public function testCreateLoginURL() {
+  public function testCreateLoginURLWithDestination() {
     $req = new \google\appengine\CreateLoginURLRequest();
     $req->setDestinationUrl('http://abc');
 
@@ -52,10 +52,23 @@ class UserServiceTest extends ApiProxyTestBase {
     $this->apiProxyMock->verify();
   }
 
+  public function testCreateLoginURLNoArgs() {
+    $req = new \google\appengine\CreateLoginURLRequest();
+    $req->setDestinationUrl('');
+
+    $resp = new \google\appengine\CreateLoginURLResponse();
+    $resp->setLoginUrl('http://www');
+
+    $this->apiProxyMock->expectCall(
+        'user', 'CreateLoginURL', $req, $resp);
+    $loginUrl = UserService::createLoginURL();
+    $this->assertEquals('http://www', $loginUrl);
+    $this->apiProxyMock->verify();
+  }
+
   public function testCreateLoginURLAllArgs() {
     $req = new \google\appengine\CreateLoginURLRequest();
     $req->setDestinationUrl('http://abc');
-    $req->setAuthDomain('abc');
     $req->setFederatedIdentity('xyz');
 
     $resp = new \google\appengine\CreateLoginURLResponse();
@@ -63,7 +76,7 @@ class UserServiceTest extends ApiProxyTestBase {
 
     $this->apiProxyMock->expectCall(
         'user', 'CreateLoginURL', $req, $resp);
-    $loginUrl = UserService::createLoginURL('http://abc', 'abc', 'xyz');
+    $loginUrl = UserService::createLoginURL('http://abc', 'xyz');
     $this->assertEquals('http://www', $loginUrl);
     $this->apiProxyMock->verify();
   }
@@ -90,7 +103,8 @@ class UserServiceTest extends ApiProxyTestBase {
         UserServiceError\ErrorCode::REDIRECT_URL_TOO_LONG, 'zzz');
 
     $this->setExpectedException(
-        '\google\appengine\api\users\RedirectTooLongError', '');
+        '\google\appengine\api\users\UsersException',
+        'URL too long: http://abc');
     $this->apiProxyMock->expectCall(
         'user', 'CreateLoginURL', $req, $exception);
 
@@ -105,7 +119,7 @@ class UserServiceTest extends ApiProxyTestBase {
         UserServiceError\ErrorCode::NOT_ALLOWED, 'yyy');
 
     $this->setExpectedException(
-        '\google\appengine\api\users\NotAllowedError', '');
+        '\google\appengine\api\users\UsersException', 'Action not allowed.');
     $this->apiProxyMock->expectCall(
         'user', 'CreateLoginURL', $req, $exception);
 
@@ -119,7 +133,7 @@ class UserServiceTest extends ApiProxyTestBase {
     $exception = new \google\appengine\runtime\ApplicationError(123, 'yyy');
 
     $this->setExpectedException(
-        '\google\appengine\runtime\ApplicationError', 'yyy');
+        '\google\appengine\api\users\UsersException', 'Error code: 123');
     $this->apiProxyMock->expectCall(
         'user', 'CreateLoginURL', $req, $exception);
 
@@ -139,20 +153,6 @@ class UserServiceTest extends ApiProxyTestBase {
     $this->apiProxyMock->verify();
   }
 
-  public function testCreateLogoutURLWithAuthDomain() {
-    $req = new \google\appengine\CreateLogoutURLRequest();
-    $req->setDestinationUrl('http://abc');
-    $req->setAuthDomain("google.com");
-
-    $resp = new \google\appengine\CreateLogoutURLResponse();
-    $resp->setLogoutUrl('http://www');
-
-    $this->apiProxyMock->expectCall('user', 'CreateLogoutURL', $req, $resp);
-    $logoutUrl = UserService::createLogoutURL('http://abc', "google.com");
-    $this->assertEquals('http://www', $logoutUrl);
-    $this->apiProxyMock->verify();
-  }
-
   public function testCreateLogoutURLRedirectTooLong() {
     $req = new \google\appengine\CreateLogoutURLRequest();
     $req->setDestinationUrl('http://abc');
@@ -161,7 +161,8 @@ class UserServiceTest extends ApiProxyTestBase {
         UserServiceError\ErrorCode::REDIRECT_URL_TOO_LONG, 'zzz');
 
     $this->setExpectedException(
-        '\google\appengine\api\users\RedirectTooLongError', '');
+        '\google\appengine\api\users\UsersException',
+        'URL too long: http://abc');
     $this->apiProxyMock->expectCall(
         'user', 'CreateLogoutURL', $req, $exception);
 
@@ -175,7 +176,7 @@ class UserServiceTest extends ApiProxyTestBase {
     $exception = new \google\appengine\runtime\ApplicationError(123, 'yyy');
 
     $this->setExpectedException(
-        '\google\appengine\runtime\ApplicationError', 'yyy');
+        '\google\appengine\api\users\UsersException', 'Error code: 123');
     $this->apiProxyMock->expectCall(
         'user', 'CreateLogoutURL', $req, $exception);
 

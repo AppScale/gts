@@ -89,20 +89,11 @@ Public Exceptions:
 
 __author__ = 'rafek@google.com (Rafe Kaplan)'
 
-
-import array
-import cgi
-import itertools
 import httplib
 import logging
-import re
-import sys
-import traceback
-import urllib
-import weakref
 
-from google.appengine.ext import webapp
-from google.appengine.ext.webapp import util as webapp_util
+from .google_imports import webapp
+from .google_imports import webapp_util
 from .. import messages
 from .. import protobuf
 from .. import protojson

@@ -155,6 +155,10 @@ _ADDRESS_FAMILY_LENGTH_MAP = {
 }
 
 
+class SocketApiNotImplementedError(NotImplementedError, error):
+  pass
+
+
 def _SystemExceptionFromAppError(e):
   app_error = e.application_error
   if app_error in (RemoteSocketServiceError.SYSTEM_ERROR,
@@ -267,7 +271,7 @@ def gethostbyname_ex(host):
 
 def gethostbyaddr(addr):
 
-  raise NotImplementedError()
+  raise SocketApiNotImplementedError()
 
 
 def gethostname():
@@ -279,7 +283,7 @@ def gethostname():
 
 
 def getprotobyname(protocolname):
-  raise NotImplementedError()
+  raise SocketApiNotImplementedError()
 
 
 def getservbyname(servicename, protocolname=None):
@@ -293,7 +297,7 @@ def getservbyname(servicename, protocolname=None):
 
 
 def getservbyport(portnumber, protocolname=0):
-  raise NotImplementedError()
+  raise SocketApiNotImplementedError()
 
 
 
@@ -366,7 +370,7 @@ def getaddrinfo(host, service, family=AF_UNSPEC, socktype=0, proto=0, flags=0):
 
 def getnameinfo():
 
-  raise NotImplementedError()
+  raise SocketApiNotImplementedError()
 
 
 def getdefaulttimeout():
@@ -556,6 +560,7 @@ class socket(object):
     self._bound = False
     self._listen = False
     self._connected = False
+    self._connect_in_progress = False
     self._shutdown_read = False
     self._shutdown_write = False
     self._setsockopt = []
@@ -772,6 +777,8 @@ class socket(object):
       if translated_e.errno == errno.EISCONN:
         self._bound = True
         self._connected = True
+      elif translated_e.errno == errno.EINPROGRESS:
+        self._connect_in_progress = True
       raise translated_e
 
     self._bound = True
@@ -799,7 +806,7 @@ class socket(object):
       self._CreateSocket()
     if not self._socket_descriptor:
       raise error(errno.EBADF, os.strerror(errno.EBADF))
-    if not self._connected:
+    if not (self._connected or self._connect_in_progress):
       raise error(errno.ENOTCONN, os.strerror(errno.ENOTCONN))
 
     request = remote_socket_service_pb.GetPeerNameRequest()
@@ -812,6 +819,10 @@ class socket(object):
           'remote_socket', 'GetPeerName', request, reply)
     except apiproxy_errors.ApplicationError, e:
       raise _SystemExceptionFromAppError(e)
+
+    if self._connect_in_progress:
+      self._connect_in_progress = False
+      self._connected = True
 
     return (
         inet_ntop(self.family, reply.peer_ip().packed_address()),
@@ -863,7 +874,7 @@ class socket(object):
 
     See recv() for documentation about the flags.
     """
-    raise NotImplementedError()
+    raise SocketApiNotImplementedError()
 
   def recvfrom(self, buffersize, flags=0):
     """recvfrom(buffersize[, flags]) -> (data, address info)
@@ -880,7 +891,7 @@ class socket(object):
     request.set_data_size(buffersize)
     request.set_flags(flags)
     if self.type == SOCK_STREAM:
-      if not self._connected:
+      if not (self._connected or self._connect_in_progress):
         raise error(errno.ENOTCONN, os.strerror(errno.ENOTCONN))
     if self._shutdown_read:
       request.set_timeout_seconds(0.0)
@@ -895,6 +906,10 @@ class socket(object):
       e = _SystemExceptionFromAppError(e)
       if not self._shutdown_read or e.errno != errno.EAGAIN:
         raise e
+
+    if self._connect_in_progress:
+      self._connect_in_progress = False
+      self._connected = True
 
     address = None
     if reply.has_received_from():
@@ -913,7 +928,7 @@ class socket(object):
     sender's address info.
     """
 
-    raise NotImplementedError()
+    raise SocketApiNotImplementedError()
 
   def send(self, data, flags=0):
     """send(data[, flags]) -> count
@@ -971,7 +986,7 @@ class socket(object):
         raise error(errno.ENOTCONN, os.strerror(errno.ENOTCONN))
       self._SetProtoFromAddr(request.mutable_send_to(), address)
     else:
-      if not self._connected:
+      if not (self._connected or self._connect_in_progress):
         raise error(errno.ENOTCONN, os.strerror(errno.ENOTCONN))
 
     if self.gettimeout() is not None:
@@ -983,6 +998,10 @@ class socket(object):
       apiproxy_stub_map.MakeSyncCall('remote_socket', 'Send', request, reply)
     except apiproxy_errors.ApplicationError, e:
       raise _SystemExceptionFromAppError(e)
+
+    if self._connect_in_progress:
+      self._connect_in_progress = False
+      self._connected = True
 
     nbytes = reply.data_sent()
     assert nbytes >= 0
@@ -1062,7 +1081,7 @@ class socket(object):
 
     try:
       apiproxy_stub_map.MakeSyncCall(
-          'remote_socket', 'SetSocketOption', request, reply)
+          'remote_socket', 'SetSocketOptions', request, reply)
     except apiproxy_errors.ApplicationError, e:
       raise _SystemExceptionFromAppError(e)
 

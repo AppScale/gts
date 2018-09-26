@@ -40,6 +40,9 @@ class ApiProxyMock extends ApiProxyBase {
     $call = new ApiCallArguments($package, $call_name, $req, $resp);
     $expectedCall = array_shift($this->expected);
 
+    if (is_null($expectedCall)) {
+      $this->testcase->fail("Unexpected API Call: " . $call->toString());
+    }
     if (!$call->isInputEqual($expectedCall)) {
       $this->testcase->fail("Expected: " . $expectedCall->toString() . "\n"
           . "Was: " . $call->toString());

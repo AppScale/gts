@@ -42,7 +42,8 @@ class UserTest extends ApiProxyTestBase {
 
   public function testException() {
     $this->setExpectedException(
-        '\google\appengine\api\users\UserNotFoundError');
+        '\InvalidArgumentException',
+        'One of $email or $federated_identity must be set.');
     new User();
   }
 
@@ -93,7 +94,7 @@ class UserTest extends ApiProxyTestBase {
     $bill = new User(
         'bill@example.com', 'http://google.com/bill', null, '22772');
     $this->assertEquals(
-        "User(email='bill@example.com',federatedIdentity=" .
-        "'http://google.com/bill',userId='22772')", (string)$bill);
+        "User(email='bill@example.com',federated_identity=" .
+        "'http://google.com/bill',user_id='22772')", (string)$bill);
   }
 }

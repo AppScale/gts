@@ -146,6 +146,15 @@ _DEFAULT_TO_STRING_MAP = {
     messages.EnumField: lambda value: unicode(value.number),
 }
 
+_DEFAULT_FROM_STRING_MAP = {
+    messages.IntegerField: int,
+    messages.FloatField: float,
+    messages.BooleanField: lambda value: value == u'true',
+    messages.BytesField: lambda value: codecs.escape_decode(value)[0],
+    messages.StringField: lambda value: value,
+    messages.EnumField: int,
+}
+
 
 class EnumValueDescriptor(messages.Message):
   """Enum value descriptor.
