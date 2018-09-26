@@ -2,26 +2,16 @@
 initiates actions accordingly. """
 
 import argparse
-import json
 import logging
-import os
-import re
 import signal
-import socket
-import tarfile
-import urllib
 
 import tornado.escape
 import tornado.httpclient
 import tornado.web
-from appscale.admin.constants import DEFAULT_SERVICE
-from appscale.admin.constants import DEFAULT_VERSION
-from appscale.appcontroller_client import AppControllerException
-from appscale.common import appscale_info, appscale_utils
+from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT, ZK_PERSISTENT_RECONNECTS
-from appscale.common.ua_client import UAClient, UAException
 from kazoo.client import KazooClient
-from tornado.ioloop import IOLoop, PeriodicCallback
+from tornado.ioloop import IOLoop
 from tornado.options import options
 
 from appscale.hermes import constants, helper
