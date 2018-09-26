@@ -4,7 +4,7 @@ import urllib
 
 from appscale.hermes import helper, constants
 from appscale.hermes.helper import JSONTags
-from appscale.hermes.stats.converter import stats_to_dict
+from appscale.hermes.converter import stats_to_dict
 
 
 class NodeStatsPortalSender(object):
