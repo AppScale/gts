@@ -3,8 +3,8 @@ import unittest
 
 from mock import patch, call
 
-from appscale.hermes.stats.unified_service_names import ServicesEnum
-from appscale.hermes.stats.producers import process_stats
+from appscale.hermes.unified_service_names import ServicesEnum
+from appscale.hermes.producers import process_stats
 
 MONIT_STATUS = """
 The Monit daemon 5.6 uptime: 20h 22m

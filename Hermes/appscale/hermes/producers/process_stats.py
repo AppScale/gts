@@ -9,8 +9,8 @@ import psutil
 from appscale.admin.service_manager import ServiceManager
 from appscale.common import appscale_info
 
-from appscale.hermes.stats.converter import Meta, include_list_name
-from appscale.hermes.stats.unified_service_names import \
+from appscale.hermes.converter import Meta, include_list_name
+from appscale.hermes.unified_service_names import \
   find_service_by_monit_name
 
 

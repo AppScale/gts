@@ -4,9 +4,9 @@ import os
 from mock import patch, MagicMock
 from tornado import testing, gen, httpclient
 
-from appscale.hermes.stats import converter
-from appscale.hermes.stats.converter import IncludeLists
-from appscale.hermes.stats.producers import (
+from appscale.hermes import converter
+from appscale.hermes.converter import IncludeLists
+from appscale.hermes.producers import (
   cluster_stats, node_stats, process_stats, proxy_stats
 )
 

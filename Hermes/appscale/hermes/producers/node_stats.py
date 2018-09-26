@@ -7,7 +7,7 @@ import attr
 import psutil
 from appscale.common import appscale_info
 
-from appscale.hermes.stats.converter import include_list_name, Meta
+from appscale.hermes.converter import include_list_name, Meta
 
 
 @include_list_name('node.cpu')

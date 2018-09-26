@@ -36,9 +36,12 @@ class _MissedValue(object):
 
 MISSED = _MissedValue()
 
+# The port Hermes listens to.
+HERMES_PORT = 4378
 
 # Name of header where secret should be passed
 SECRET_HEADER = 'Appscale-Secret'
+
 
 
 class HTTP_Codes(object):
@@ -48,4 +51,3 @@ class HTTP_Codes(object):
   HTTP_DENIED = 403
   HTTP_INTERNAL_ERROR = 500
   HTTP_NOT_IMPLEMENTED = 501
-
