@@ -411,7 +411,7 @@ if [ ${WORKERS_STATUS} == 124 ]; then
   log "Workers timed out to finish work in ${LOCUST_TIMEOUT}s" "ERROR"
   status=1
 elif [ ${WORKERS_STATUS} != 0 ]; then
-  log "Producers exited with non-zero status (${PRODUCERS_STATUS})" "WARNING"
+  log "Workers exited with non-zero status (${WORKERS_STATUS})" "WARNING"
   log "It's probably because some requests were failed. Ignoring it."
 fi
 
@@ -487,7 +487,7 @@ if [ ${WORKERS_STATUS} == 124 ]; then
   log "Workers timed out to finish work in ${LOCUST_TIMEOUT}s" "ERROR"
   status=1
 elif [ ${WORKERS_STATUS} != 0 ]; then
-  log "Producers exited with non-zero status (${PRODUCERS_STATUS})" "WARNING"
+  log "Workers exited with non-zero status (${WORKERS_STATUS})" "WARNING"
   log "It's probably because some requests were failed. Ignoring it."
 fi
 
