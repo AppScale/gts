@@ -5246,7 +5246,7 @@ HOSTS
   #   nodes_to_remove: A node instance, or an Array of nodes to be
   #                    terminated and removed from this deployment.
   def terminate_nodes_from_deployment(nodes_to_remove)
-    if nodes_to_remove.nil? || nodes_to_remove.emtpy?
+    if nodes_to_remove.nil? || nodes_to_remove.empty?
       Djinn.log_info("Tried to scale down but couldn't find a node to remove.")
       return 0
     end
