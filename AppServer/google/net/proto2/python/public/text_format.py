@@ -19,12 +19,12 @@
 """Contains routines for printing protocol messages in text format."""
 
 
-from collections import deque
 import cStringIO
 import re
 
 from google.net.proto2.python.internal import type_checkers
 from google.net.proto2.python.public import descriptor
+from google.net.proto2.python.public import text_encoding
 
 __all__ = ['MessageToString', 'PrintMessage', 'PrintField',
            'PrintFieldValue', 'Merge']
@@ -141,7 +141,7 @@ def PrintFieldValue(field, value, out, indent=0, as_utf8=False,
       out_as_utf8 = False
     else:
       out_as_utf8 = as_utf8
-    out.write(_CEscape(out_value, out_as_utf8))
+    out.write(text_encoding.CEscape(out_value, out_as_utf8))
     out.write('\"')
   elif field.cpp_type == descriptor.FieldDescriptor.CPPTYPE_BOOL:
     if value:
@@ -152,11 +152,11 @@ def PrintFieldValue(field, value, out, indent=0, as_utf8=False,
     out.write(str(value))
 
 
-def _ParseOrMerge(text, message, allow_multiple_scalars):
+def _ParseOrMerge(lines, message, allow_multiple_scalars):
   """Converts an ASCII representation of a protocol message into a message.
 
   Args:
-    text: Message ASCII representation.
+    lines: Lines of a message's ASCII representation.
     message: A protocol buffer message to merge into.
     allow_multiple_scalars: Determines if repeated values for a non-repeated
       field are permitted, e.g., the string "foo: 1 foo: 2" for a
@@ -165,7 +165,7 @@ def _ParseOrMerge(text, message, allow_multiple_scalars):
   Raises:
     ParseError: On ASCII parsing problems.
   """
-  tokenizer = _Tokenizer(text)
+  tokenizer = _Tokenizer(lines)
   while not tokenizer.AtEnd():
     _MergeField(tokenizer, message, allow_multiple_scalars)
 
@@ -180,8 +180,7 @@ def Parse(text, message):
   Raises:
     ParseError: On ASCII parsing problems.
   """
-
-  _ParseOrMerge(text, message, False)
+  ParseLines(text.split('\n'), message)
 
 
 def Merge(text, message):
@@ -197,8 +196,33 @@ def Merge(text, message):
   Raises:
     ParseError: On ASCII parsing problems.
   """
+  MergeLines(text.split('\n'), message)
 
-  _ParseOrMerge(text, message, True)
+
+def ParseLines(lines, message):
+  """Parses an ASCII representation of a protocol message into a message.
+
+  Args:
+    lines: An iterable of lines of a message's ASCII representation.
+    message: A protocol buffer message to merge into.
+
+  Raises:
+    ParseError: On ASCII parsing problems.
+  """
+  _ParseOrMerge(lines, message, False)
+
+
+def MergeLines(lines, message):
+  """Parses an ASCII representation of a protocol message into a message.
+
+  Args:
+    lines: An iterable of lines of a message's ASCII representation.
+    message: A protocol buffer message to merge into.
+
+  Raises:
+    ParseError: On ASCII parsing problems.
+  """
+  _ParseOrMerge(lines, message, True)
 
 
 def _MergeField(tokenizer, message, allow_multiple_scalars):
@@ -376,18 +400,17 @@ class _Tokenizer(object):
       '\'([^\'\n\\\\]|\\\\.)*(\'|\\\\?$)')
   _IDENTIFIER = re.compile(r'\w+')
 
-  def __init__(self, text_message):
-    self._text_message = text_message
-
+  def __init__(self, lines):
     self._position = 0
     self._line = -1
     self._column = 0
     self._token_start = None
     self.token = ''
-    self._lines = deque(text_message.split('\n'))
+    self._lines = iter(lines)
     self._current_line = ''
     self._previous_line = 0
     self._previous_column = 0
+    self._more_lines = True
     self._SkipWhitespace()
     self.NextToken()
 
@@ -401,12 +424,15 @@ class _Tokenizer(object):
 
   def _PopLine(self):
     while len(self._current_line) <= self._column:
-      if not self._lines:
+      try:
+        self._current_line = self._lines.next()
+      except StopIteration:
         self._current_line = ''
+        self._more_lines = False
         return
-      self._line += 1
-      self._column = 0
-      self._current_line = self._lines.popleft()
+      else:
+        self._line += 1
+        self._column = 0
 
   def _SkipWhitespace(self):
     while True:
@@ -598,7 +624,7 @@ class _Tokenizer(object):
       raise self._ParseError('String missing ending quote.')
 
     try:
-      result = _CUnescape(text[1:-1])
+      result = text_encoding.CUnescape(text[1:-1])
     except ValueError, e:
       raise self._ParseError(str(e))
     self.NextToken()
@@ -640,7 +666,7 @@ class _Tokenizer(object):
     self._column += len(self.token)
     self._SkipWhitespace()
 
-    if not self._lines and len(self._current_line) <= self._column:
+    if not self._more_lines:
       self.token = ''
       return
 
@@ -650,46 +676,6 @@ class _Tokenizer(object):
       self.token = token
     else:
       self.token = self._current_line[self._column]
-
-
-
-
-
-
-
-def _CEscape(text, as_utf8):
-  def escape(c):
-    o = ord(c)
-    if o == 10: return r'\n'
-    if o == 13: return r'\r'
-    if o ==  9: return r'\t'
-    if o == 39: return r"\'"
-
-    if o == 34: return r'\"'
-    if o == 92: return r'\\'
-
-
-    if not as_utf8 and (o >= 127 or o < 32):
-      return r'\%03o' % o
-    return c
-  return ''.join([escape(c) for c in text])
-
-
-_CUNESCAPE_HEX = re.compile(r'(\\+)x([0-9a-fA-F])(?![0-9a-fA-F])')
-
-
-def _CUnescape(text):
-  def ReplaceHex(m):
-
-
-    if len(m.group(1)) & 1:
-      return m.group(1) + 'x0' + m.group(2)
-    return m.group(0)
-
-
-
-  result = _CUNESCAPE_HEX.sub(ReplaceHex, text)
-  return result.decode('string_escape')
 
 
 def ParseInteger(text, is_signed=False, is_long=False):

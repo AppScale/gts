@@ -260,8 +260,15 @@ def _enable_libraries(libraries):
   library_pattern = os.path.join(os.path.dirname(
       os.path.dirname(google.__file__)), _THIRD_PARTY_LIBRARY_FORMAT_STRING)
   for library in libraries:
+    # Encode the library name/version to convert the Python type
+    # from unicode to str so that Python doesn't try to decode
+    # library pattern from str to unicode (which can cause problems
+    # when the SDK has non-ASCII data in the directory). Encode as
+    # ASCII should be safe as we control library info and are not
+    # likely to have non-ASCII names/versions.
     library_dir = os.path.abspath(
-        library_pattern % {'name': library.name, 'version': library.version})
+        library_pattern % {'name': library.name.encode('ascii'),
+                           'version': library.version.encode('ascii')})
     library_dirs.append(library_dir)
   return library_dirs
 

@@ -3876,7 +3876,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   has_limit_ = 0
   limit_ = 20
   has_matched_count_accuracy_ = 0
-  matched_count_accuracy_ = 100
+  matched_count_accuracy_ = 0
   has_scorer_spec_ = 0
   scorer_spec_ = None
   has_field_spec_ = 0
@@ -3974,7 +3974,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   def clear_matched_count_accuracy(self):
     if self.has_matched_count_accuracy_:
       self.has_matched_count_accuracy_ = 0
-      self.matched_count_accuracy_ = 100
+      self.matched_count_accuracy_ = 0
 
   def has_matched_count_accuracy(self): return self.has_matched_count_accuracy_
 

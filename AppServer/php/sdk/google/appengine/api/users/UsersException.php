@@ -16,10 +16,8 @@
  */
 namespace google\appengine\api\users;
 
-require_once "google/appengine/api/users/Error.php";
-
 /**
- * Thrown by APIProxy when API calls are temporarily disabled.
+ * Base User exception type.
  */
-class NotAllowedError extends Error {
+class UsersException extends \Exception {
 }

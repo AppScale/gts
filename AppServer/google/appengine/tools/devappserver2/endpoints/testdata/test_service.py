@@ -41,7 +41,10 @@ class TestDateTime(messages.Message):
   datetime_value = message_types.DateTimeField(1)
 
 
-@endpoints.api(name='test_service', version='v1')
+my_api = endpoints.api(name='test_service', version='v1')
+
+
+@my_api.collection()
 class TestService(remote.Service):
   """ProtoRPC test class for Cloud Endpoints."""
 
@@ -76,4 +79,15 @@ class TestService(remote.Service):
     return request
 
 
-application = endpoints.api_server([TestService])
+@my_api.collection(resource_name='extraname', path='extrapath')
+class ExtraMethods(remote.Service):
+  """Some extra test methods in the test API."""
+
+  @endpoints.method(message_types.VoidMessage, TestResponse,
+                    http_method='GET', name='test', path='test',
+                    scopes=[])
+  def test(self, unused_request):
+    return TestResponse(text='Extra test response')
+
+
+application = endpoints.api_server([TestService, ExtraMethods])

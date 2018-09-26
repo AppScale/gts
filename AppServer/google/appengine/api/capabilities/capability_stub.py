@@ -51,6 +51,8 @@ SUPPORTED_CAPABILITIES = (
 class CapabilityServiceStub(apiproxy_stub.APIProxyStub):
   """Python only capability service stub."""
 
+  THREADSAFE = True
+
   def __init__(self, service_name='capability_service'):
     """Constructor.
 
