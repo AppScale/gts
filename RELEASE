@@ -5,6 +5,13 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.6.1, released September 2018
+Highlights of features and defects fixed in this release:
+ - Issue-715 - SSH login problems when starting cloud-mode on GCE (tools)
+
+Known Issues:
+
+
 AppScale version 3.6.0, released August 2018
 Highlights of features and defects fixed in this release:
  - Close PG connection when cleaning up project
