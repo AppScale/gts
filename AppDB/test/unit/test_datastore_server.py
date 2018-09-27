@@ -8,7 +8,6 @@ import unittest
 
 from tornado import gen, testing
 
-from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore import dbconstants
 from appscale.datastore import utils
@@ -19,8 +18,6 @@ from appscale.datastore.dbconstants import TOMBSTONE
 from appscale.datastore.cassandra_env.entity_id_allocator import\
   ScatteredAllocator
 
-from appscale.datastore.cassandra_env.cassandra_interface import (
-  DatastoreProxy)
 from appscale.datastore.cassandra_env.utils import deletions_for_entity
 from appscale.datastore.cassandra_env.utils import index_deletions
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
@@ -36,11 +33,9 @@ from appscale.datastore.utils import (
 
 from appscale.datastore.zkappscale.entity_lock import EntityLock
 from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
-from cassandra.cluster import Cluster
 from flexmock import flexmock
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api import api_base_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
@@ -174,18 +169,6 @@ class TestDatastoreServer(testing.AsyncTestCase):
       "appid\x00\x00123\x00\x9avalue\x01\x01\x00\x00kind:entity_name\x01")
 
   @testing.gen_test
-  def test_get_indices(self):
-    session = flexmock(default_consistency_level=None)
-    cluster = flexmock(connect=lambda keyspace: session)
-    flexmock(appscale_info).should_receive('get_db_ips')
-    flexmock(Cluster).new_instances(cluster)
-    flexmock(DatastoreProxy).should_receive('range_query').and_return({})
-    db_batch = DatastoreProxy()
-
-    result = yield db_batch.get_indices("appid")
-    self.assertEquals(result, [])
-
-  @testing.gen_test
   def test_delete_composite_index_metadata(self):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version_sync').and_return(True)
@@ -194,6 +177,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
     dd = flexmock(dd)
+    dd.index_manager = flexmock(
+      projects={'appid': flexmock(delete_index_definition=lambda id_: None)})
     composite_index = entity_pb.CompositeIndex()
     composite_index.set_id(1)
     yield dd.delete_composite_index_metadata("appid", composite_index)
@@ -206,6 +191,10 @@ class TestDatastoreServer(testing.AsyncTestCase):
     transaction_manager = flexmock()
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
+    zk_handle = flexmock(ensure_path=lambda path: None,
+                         get=lambda path: (None, flexmock(version=None)),
+                         set=lambda path, value, version: None)
+    dd.zookeeper.handle = zk_handle
     dd = flexmock(dd)
     index = entity_pb.CompositeIndex()
     index.set_app_id("appid")
@@ -220,8 +209,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
     prop2.set_name("prop2")
     prop1.set_direction(1) # ascending
 
-    yield dd.create_composite_index("appid", index)
-    assert index.id() > 0
+    index_id = yield dd.create_composite_index("appid", index)
+    assert index_id > 0
 
   @testing.gen_test
   def test_insert_composite_indexes(self):
@@ -378,6 +367,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
       set_groups=lambda project, txid, groups: None)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
+    dd.index_manager = flexmock(
+      projects={'test': flexmock(indexes_pb=[])})
     putreq_pb = datastore_pb.PutRequest()
     putreq_pb.add_entity()
     putreq_pb.mutable_entity(0).MergeFrom(entity_proto1)
@@ -422,6 +413,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
       set_groups=lambda project, txid, groups: None)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
+    dd.index_manager = flexmock(
+      projects={app_id: flexmock(indexes_pb=[])})
 
     async_true = gen.Future()
     async_true.set_result(True)
@@ -722,6 +715,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
       set_groups=lambda project_id, txid, groups: None)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
+    dd.index_manager = flexmock(
+      projects={'guestbook': flexmock(indexes_pb=[])})
     yield dd.dynamic_delete("appid", del_request)
 
     fake_key = entity_pb.Reference()
@@ -740,6 +735,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
     del_request.should_receive("has_mark_changes").and_return(False)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
+    dd.index_manager = flexmock(
+      projects={'appid': flexmock(indexes_pb=[])})
     flexmock(utils).should_receive("get_entity_kind").and_return("kind")
     db_batch.should_receive('delete_entities_tx').and_return(ASYNC_NONE)
     yield dd.dynamic_delete("appid", del_request)
@@ -750,6 +747,8 @@ class TestDatastoreServer(testing.AsyncTestCase):
     del_request.should_receive("has_mark_changes").and_return(False)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
+    dd.index_manager = flexmock(
+      projects={'appid': flexmock(indexes_pb=[])})
     flexmock(dd).should_receive("delete_entities").and_return(ASYNC_NONE).once()
     yield dd.dynamic_delete("appid", del_request)
 
@@ -1022,13 +1021,14 @@ class TestDatastoreServer(testing.AsyncTestCase):
       and_return(async_metadata)
     db_batch.should_receive('valid_data_version_sync').and_return(True)
     db_batch.should_receive('group_updates').and_return([])
-    db_batch.should_receive('get_indices').and_return([])
 
     transaction_manager = flexmock(
       delete_transaction_id=lambda project_id, txid: None,
       set_groups=lambda project_id, txid, groups: None)
     dd = DatastoreDistributed(db_batch, transaction_manager,
                               self.get_zookeeper())
+    dd.index_manager = flexmock(
+      projects={'guestbook': flexmock(indexes_pb=[])})
     prefix = dd.get_table_prefix(entity)
     entity_key = get_entity_key(prefix, entity.key().path())
 
@@ -1075,7 +1075,7 @@ class TestDatastoreServer(testing.AsyncTestCase):
 
     index_results = [{index_key: {'reference': 'ignored-ref'}}]
     entities = dd._extract_entities_from_composite_indexes(
-      query, index_results)
+      query, index_results, index)
     self.assertEqual(len(entities), 1)
     returned_entity = entity_pb.EntityProto(entities[0])
     self.assertEqual(returned_entity.property_size(), 2)

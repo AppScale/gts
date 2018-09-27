@@ -27,6 +27,7 @@ from tornado.options import options
 from .. import dbconstants
 from ..appscale_datastore_batch import DatastoreFactory
 from ..datastore_distributed import DatastoreDistributed
+from ..index_manager import IndexManager
 from ..utils import (clean_app_id,
                      logger,
                      UnprocessedQueryResult)
@@ -405,6 +406,9 @@ class MainHandler(tornado.web.RequestHandler):
     except dbconstants.AppScaleDBConnectionError as error:
       logger.exception('DB connection error during query')
       raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
+    except dbconstants.NeedsIndex as error:
+      raise gen.Return(('', datastore_pb.Error.NEED_INDEX, str(error)))
+
     raise gen.Return((clone_qr_pb.Encode(), 0, ''))
 
   @gen.coroutine
@@ -492,9 +496,12 @@ class MainHandler(tornado.web.RequestHandler):
 
     try:
       yield datastore_access.delete_composite_index_metadata(app_id, request)
-    except dbconstants.AppScaleDBConnectionError as error:
+    except (dbconstants.AppScaleDBConnectionError,
+            dbconstants.InternalError) as error:
       logger.exception('DB connection error during index deletion')
       raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
+    except dbconstants.BadRequest as error:
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
 
     raise gen.Return((response.Encode(), 0, ''))
 
@@ -510,15 +517,18 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     response = datastore_pb.CompositeIndices()
     try:
-      indices = yield datastore_access.datastore_batch.get_indices(app_id)
-    except dbconstants.AppScaleDBConnectionError as error:
+      indices = datastore_access.get_indexes(app_id)
+    except (dbconstants.AppScaleDBConnectionError,
+            dbconstants.InternalError) as error:
       logger.exception(
-        'DB connection error while fetching indices for {}'.format(app_id))
+        'Internal error while fetching indices for {}'.format(app_id))
       raise gen.Return(('', datastore_pb.Error.INTERNAL_ERROR, str(error)))
+    except dbconstants.BadRequest as error:
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
 
     for index in indices:
       new_index = response.add_index()
-      new_index.ParseFromString(index)
+      new_index.MergeFrom(index)
 
     raise gen.Return((response.Encode(), 0, ''))
 
@@ -880,6 +890,9 @@ def main():
     datastore_batch, transaction_manager, zookeeper=zookeeper,
     log_level=logger.getEffectiveLevel(),
     taskqueue_locations=taskqueue_locations)
+  index_manager = IndexManager(zookeeper.handle, datastore_access,
+                               perform_admin=True)
+  datastore_access.index_manager = index_manager
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)

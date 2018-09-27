@@ -208,6 +208,10 @@ class InternalError(Exception):
   """ Indicates that the datastore was unable to perform an operation. """
   pass
 
+class NeedsIndex(Exception):
+  """ Indicates that a required index is missing or incomplete. """
+  pass
+
 class Timeout(Exception):
   """ Indicates that the datastore timed out while performing an operation. """
   pass
