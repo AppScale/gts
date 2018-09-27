@@ -80,7 +80,6 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   APP_ENTITY_TABLE,
                   APP_KIND_TABLE,
                   COMPOSITE_TABLE,
-                  METADATA_TABLE,
                   USERS_TABLE,
                   SCHEMA_TABLE,
                   DATASTORE_METADATA_TABLE]
