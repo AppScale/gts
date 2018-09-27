@@ -12,7 +12,7 @@ from yaml.parser import ParserError
 
 from appscale.appcontroller_client import AppControllerException
 from appscale.common.constants import HTTPCodes, InvalidConfiguration
-from appscale.common.datastore_index import DatastoreIndex
+from appscale.common.datastore_index import DatastoreIndex, merge_indexes
 from .base_handler import BaseHandler
 from .constants import CustomHTTPError
 from .utils import cron_from_dict
@@ -58,33 +58,13 @@ class UpdateIndexesHandler(BaseHandler):
       return
 
     try:
-      given_indexes = [DatastoreIndex.from_yaml(index)
+      given_indexes = [DatastoreIndex.from_yaml(project_id, index)
                        for index in given_indexes]
     except InvalidConfiguration as error:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message=six.text_type(error))
 
-    indexes_node = '/appscale/projects/{}/indexes'.format(project_id)
-    try:
-      existing_indexes, znode_stat = self.zk_client.get(indexes_node)
-    except NoNodeError:
-      encoded_indexes = json.dumps(
-        [index.to_dict() for index in given_indexes])
-      self.zk_client.create(indexes_node, encoded_indexes)
-      return
-
-    combined_indexes = [DatastoreIndex.from_dict(index)
-                        for index in json.loads(existing_indexes)]
-    existing_index_ids = {index.id for index in combined_indexes}
-    for new_index in given_indexes:
-      if new_index.id not in existing_index_ids:
-        combined_indexes.append(new_index)
-
-    encoded_indexes = json.dumps(
-      [index.to_dict() for index in combined_indexes])
-    self.zk_client.set(indexes_node, encoded_indexes,
-                       version=znode_stat.version)
-
+    merge_indexes(self.zk_client, project_id, given_indexes)
     logger.info('Updated indexes for {}'.format(project_id))
 
 
