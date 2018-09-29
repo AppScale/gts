@@ -254,7 +254,7 @@ class IndexManager(object):
 
       yield self.admin_lock.acquire()
       try:
-        for project_id, project_index_manager in self.projects.items():
+        for project_index_manager in self.projects.values():
           IOLoop.current().spawn_callback(
             project_index_manager.apply_definitions)
 

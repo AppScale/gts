@@ -398,7 +398,7 @@ class AsyncKazooLock(object):
     contenders = []
     for child in children:
       try:
-        data, stat = yield self.tornado_kazoo.get(self.path + "/" + child)
+        data = yield self.tornado_kazoo.get(self.path + "/" + child)[0]
         contenders.append(data.decode('utf-8'))
       except NoNodeError:  # pragma: nocover
         pass
