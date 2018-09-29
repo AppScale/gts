@@ -9,7 +9,9 @@ import uuid
 from kazoo.exceptions import (
   CancelledError, ConnectionClosedError, ConnectionLoss, KazooException,
   LockTimeout, NoNodeError, OperationTimeoutError, SessionExpiredError)
-from kazoo.retry import ForceRetryError, InterruptedError, RetryFailedError
+from kazoo.retry import (
+  ForceRetryError, InterruptedError as KazooInterruptedError,
+  RetryFailedError)
 from tornado import gen
 from tornado.concurrent import Future as TornadoFuture
 from tornado.ioloop import IOLoop
@@ -132,7 +134,7 @@ class AsyncKazooRetry(object):
               yield gen.sleep(0.1)
               sleeptime -= 0.1
             if self.interrupt():
-              raise InterruptedError()
+              raise KazooInterruptedError()
         else:
           yield gen.sleep(sleeptime)
         self._cur_delay = min(self._cur_delay * self.backoff,
