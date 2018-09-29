@@ -533,7 +533,8 @@ class TornadoKazoo(object):
     zk_future.rawlink(tornado_future.handle_zk_result)
     return tornado_future
 
-  def _wrap_in_io_loop(self, watch):
+  @staticmethod
+  def _wrap_in_io_loop(watch):
     """ Returns a function that runs the given function in the main IO loop.
 
     Args:
