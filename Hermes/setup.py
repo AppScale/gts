@@ -15,7 +15,7 @@ setup(
     'kazoo',
     'tornado',
     'psutil==5.1.3',
-    'attrs>=16',
+    'attrs>=18.1.0',
     'flexmock',
     'mock',
   ],
