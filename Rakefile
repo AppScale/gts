@@ -28,14 +28,6 @@ namespace :appcontroller do
 
 end
 
-namespace :appmanager do
-
-  task :test do
-   sh 'python -m unittest discover -b -v -s AppManager/test/unit'
-  end
-
-end
-
 namespace :apps do
 
   task :test do
@@ -149,7 +141,6 @@ end
 python_tests = [
   'appdashboard:test',
   'appdb:test',
-  'appmanager:test',
   'appserver:test',
   'apptaskqueue:test',
   'common:test',

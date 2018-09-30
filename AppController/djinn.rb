@@ -3482,7 +3482,7 @@ class Djinn
   # starting and stopping applications.
   def start_app_manager_server
     @state = "Starting up AppManager"
-    app_manager_script = "#{APPSCALE_HOME}/AppManager/app_manager_server.py"
+    app_manager_script = `which appscale-instance-manager`.chomp
     start_cmd = "#{PYTHON27} #{app_manager_script}"
     MonitInterface.start(:appmanagerserver, start_cmd)
   end

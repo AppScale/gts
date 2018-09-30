@@ -2,7 +2,6 @@
 
 import os
 import subprocess
-import sys
 import threading
 import unittest
 import urllib2
@@ -15,6 +14,8 @@ from tornado.options import options
 from tornado.testing import AsyncTestCase
 from tornado.testing import gen_test
 
+from appscale.admin.instance_manager import server as app_manager_server
+from appscale.admin.instance_manager.server import BadConfigurationException
 from appscale.common import (
   file_io,
   appscale_info,
@@ -25,13 +26,11 @@ from appscale.common import (
 from appscale.common import monit_app_configuration
 from appscale.common.monit_interface import MonitOperator
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-import app_manager_server
-from app_manager_server import BadConfigurationException
-
 options.define('login_ip', '127.0.0.1')
 options.define('syslog_server', '127.0.0.1')
-options.define('private_ip', '<private_ip>')
+if not hasattr(options, 'private_ip'):
+  options.define('private_ip', '<private_ip>')
+
 options.define('db_proxy', '<private_ip>')
 options.define('tq_proxy', '<private_ip>')
 

@@ -40,6 +40,7 @@ setup(
             'appscale.admin.instance_manager'],
   entry_points={'console_scripts': [
     'appscale-admin=appscale.admin:main',
+    'appscale-instance-manager=appscale.admin.instance_manager.server:main',
     'appscale-stop-instance=appscale.admin.instance_manager.stop_instance:main',
     'appscale-stop-services=appscale.admin.stop_services:main',
     'appscale-stop-service=appscale.admin.stop_services:stop_service',

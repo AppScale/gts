@@ -1049,7 +1049,14 @@ class InstanceHandler(tornado.web.RequestHandler):
 ################################
 # MAIN
 ################################
-if __name__ == "__main__":
+def main():
+  global deployment_config
+  global projects_manager
+  global running_instances
+  global source_manager
+  global thread_pool
+  global zk_client
+
   file_io.set_logging_format()
   logging.getLogger().setLevel(logging.INFO)
 
