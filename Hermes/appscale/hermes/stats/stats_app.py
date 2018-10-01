@@ -88,23 +88,27 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
   local_node_stats_handler =  HandlerInfo(
     handler_class=CurrentStatsHandler,
     init_kwargs={'source': NodeStatsSource,
-                 'default_include_lists': DEFAULT_INCLUDE_LISTS})
+                 'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                 'cache_container': [None]})
   local_processes_stats_handler = HandlerInfo(
     handler_class=CurrentStatsHandler,
     init_kwargs={'source': ProcessesStatsSource,
-                 'default_include_lists': DEFAULT_INCLUDE_LISTS})
+                 'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                 'cache_container': [None]})
 
   if is_lb_node:
     # Only LB nodes provide proxies and service stats
     local_proxies_stats_handler = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs={'source': ProxiesStatsSource,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': [None]}
     )
     local_taskqueue_stats_handler = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs={'source': TaskqueueStatsSource(),
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': [None]}
     )
   else:
     # Stub handler for non-LB nodes
@@ -122,12 +126,14 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node):
     local_rabbitmq_stats_handler = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs={'source': RabbitMQStatsSource,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': [None]}
     )
     local_push_queue_stats_handler = HandlerInfo(
       handler_class=CurrentStatsHandler,
       init_kwargs={'source': PushQueueStatsSource,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': [None]}
     )
   else:
     # Stub handler for non-TQ nodes
@@ -169,32 +175,38 @@ def get_cluster_stats_api_routes(is_lb):
     cluster_node_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
       init_kwargs={'source': cluster_nodes_stats,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': {}}
     )
     cluster_processes_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
       init_kwargs={'source': cluster_processes_stats,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': {}}
     )
     cluster_proxies_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
       init_kwargs={'source': cluster_proxies_stats,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': {}}
     )
     cluster_taskqueue_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
       init_kwargs={'source': cluster_taskqueue_stats,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': {}}
     )
     cluster_rabbitmq_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
       init_kwargs={'source': cluster_rabbitmq_stats,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': {}}
     )
     cluster_push_queue_stats_handler = HandlerInfo(
       handler_class=CurrentClusterStatsHandler,
       init_kwargs={'source': cluster_push_queues_stats,
-                   'default_include_lists': DEFAULT_INCLUDE_LISTS}
+                   'default_include_lists': DEFAULT_INCLUDE_LISTS,
+                   'cache_container': {}}
     )
   else:
     # Stub handler for slave nodes
