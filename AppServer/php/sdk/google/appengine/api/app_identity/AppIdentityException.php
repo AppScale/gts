@@ -20,7 +20,7 @@
 namespace google\appengine\api\app_identity;
 
 /**
- * Thrown when there is a general failure using the AppIdentity service.
+ * Thrown when there is a general failure using the AppIdentityService.
  */
 class AppIdentityException extends \Exception {
 }

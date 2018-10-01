@@ -13,7 +13,8 @@ from eventlet.green import httplib
 from eventlet.green.httplib import BadStatusLine
 from socket import error as SocketError
 from urlparse import urlparse
-from .distributed_tq import TaskName
+from .task_name import TaskName
+from .tq_lib import TASK_STATES
 from .utils import (
   create_celery_for_app,
   get_celery_configuration_path,
@@ -105,9 +106,14 @@ def execute_task(task, headers, args):
       logger.error(
         "Task %s with id %s has expired with expiration date %s" % (
          args['task_name'], task.request.id, args['expires']))
-      item = TaskName.get_by_key_name(args['task_name'])
       celery.control.revoke(task.request.id)
-      db.delete(item)
+
+      item = TaskName.get_by_key_name(args['task_name'])
+      if item is not None:
+        item.state = TASK_STATES.EXPIRED
+        item.endtime = datetime.datetime.now()
+        db.put(item)
+
       return
 
     if (args['max_retries'] != 0 and
@@ -115,10 +121,16 @@ def execute_task(task, headers, args):
       logger.error("Task %s with id %s has exceeded retries: %s" % (
         args['task_name'], task.request.id,
         args['max_retries']))
-      item = TaskName.get_by_key_name(args['task_name'])
       celery.control.revoke(task.request.id)
-      db.delete(item)
+
+      item = TaskName.get_by_key_name(args['task_name'])
+      if item is not None:
+        item.state = TASK_STATES.FAILED
+        item.endtime = datetime.datetime.now()
+        db.put(item)
+
       return
+
     # Targets do not get X-Forwarded-Proto from nginx, they use haproxy port.
     headers['X-Forwarded-Proto'] = url.scheme
     if url.scheme == 'http':
@@ -179,7 +191,11 @@ def execute_task(task, headers, args):
     if 200 <= response.status < 300:
       # Task successful.
       item = TaskName.get_by_key_name(args['task_name'])
-      db.delete(item)
+      if item is not None:
+        item.state = TASK_STATES.SUCCESS
+        item.endtime = datetime.datetime.now()
+        db.put(item)
+
       time_elapsed = datetime.datetime.utcnow() - start_time
       logger.info(
         '{task} received status {status} from {url} [time elapsed: {te}]'. \

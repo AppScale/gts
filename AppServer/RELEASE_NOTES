@@ -1,7 +1,104 @@
 Copyright 2008 Google Inc.
 All rights reserved.
 
-App Engine Python SDK - Release Notes
+App Engine SDK - Release Notes
+
+Version 1.8.1
+
+Python
+===============================
+- The Task Queue async API is now a GA feature. The asynchronous methods
+  improve utilization by allowing your app to add, lease and delete multiple
+  tasks in parallel.
+- Cloud Console projects are now created by default whenever a new App Engine
+  app is created.  This is a Preview feature.
+- In an upcoming release the Experimental Google Cloud Storage API Functions
+  will be decommissioned. This API and its Experimental status is documented at
+  the following link:
+  https://developers.google.com/appengine/docs/python/googlestorage/functions
+- The Google Cloud Storage library will replace Google Cloud Storage API and is
+  now available as a Preview feature.  More information can be found at
+  https://code.google.com/p/appengine-gcs-client/
+- Bandwidth between App Engine and Google Cloud Storage is currently free of
+  charge (this may change in the future for certain levels of service).
+- The Search API has graduated from Experimental to Preview. Apps that have
+  billing enabled can exceed the free quota levels and will be charged for
+  usage above these levels.
+- Estimated number of search results will only be accurate if it is less than
+  or equal to the number of results requested. By default this can be
+  overridden by setting number_found_accuracy QueryOption in the Search API.
+- Dates, atoms, and number fields can now be found by searching without a field
+  restriction in the Search API.
+- A quoted empty string now returns atom fields with empty values for the
+  Search API.
+- Snippet and count functions are no longer allowed in sort expressions for the
+  Search API.
+- The Search API now has improved error messages for user errors and internal
+  errors.
+- App Engine now supports deployment of applications via the Git tool. Once you
+  complete the initial setup steps, you will be ready to deploy apps with the
+  same ease you push code to a git repository using
+  "% git push appengine master". This is a Limited Preview feature. You may
+  request access via the following link:
+  https://docs.google.com/a/google.com/forms/d/
+  1aLaAOZb_cXFiVqzLAMvPV9kh0FmvlLRUbwD-LBbLuUI/viewform
+- The Datastore now assigns scattered auto ids by default. Legacy auto ids
+  are still available via the 'auto_id_policy' option in app.yaml.
+- The Sockets API now allows client code to call get/set options against
+  sockets. Previously, calls raised "Not Implemented" exceptions. For supported
+  options, calls to getsockopt will return a mock value and calls to setsockopt
+  will be silently ignored.  Errors will continue to be raised for unsupported
+  options. The currently supported options are: SO_KEEPALIVE, SO_DEBUG,
+  TCP_NODELAY, SO_LINGER, SO_OOBINLINE, SO_SNDBUF, SO_RCVBUF, and SO_REUSEADDR.
+- Updated skip_files documentation to reflect the new default.
+  https://developers.google.com/appengine/docs/python/config/
+  appconfig#Skipping_Files
+- The ndb library now supports distinct queries. This is a Preview feature.
+    https://code.google.com/p/appengine-ndb-experiment/issues/detail?id=229
+- Fixed an issue with Google Cloud Storage objects not being compatible across
+  various APIs on the dev_appserver.
+- Fixed an issue with the namespace not being displayed when a user attempts
+  to select a namespace in the Admin Console.
+    https://code.google.com/p/googleappengine/issues/detail?id=8164
+- Fixed an issue in the Admin Console Logs page to correctly display 'Until'
+  instead of 'Since' for logs search criteria.
+    https://code.google.com/p/googleappengine/issues/detail?id=8659
+
+PHP
+===============================
+- Enabled the Mcrypt extension.
+    https://code.google.com/p/googleappengine/issues/detail?id=9332
+- Enabled the iconv extension.
+    https://code.google.com/p/googleappengine/issues/detail?id=9340
+- Enabled the mbstring extension.
+    https://code.google.com/p/googleappengine/issues/detail?id=9342
+- It is now possible to include/require files from Google Cloud Storage using
+  the google_app_engine.allow_include_gs_buckets ini setting.
+- Basic support for url_stat() with Cloud Storage Streams is now provided.
+  This means that many standard filesystem functions such as is_file(),
+  is_readable(), is_writeable(), filesize(), etc now work with Cloud Storage
+  objects.
+- Honor the default_stream_context for Google Cloud Storage streams when
+  writing new objects.
+- Added deleteImageServingUrl() method to the CloudStorageTools class.
+- The createGsKey() method of CloudStorageTools has been made private.
+- Fixed a bug where $_SERVER['PHP_SELF'] was including the query string.
+- App Engine now supports deployment of applications via the Git tool. Once you
+  complete the initial setup steps, you will be ready to deploy apps with the
+  same ease you push code to a git repository using
+  "% git push appengine master". This is a Limited Preview feature. You may
+  request access via the following link:
+  https://docs.google.com/a/google.com/forms/d/
+  1aLaAOZb_cXFiVqzLAMvPV9kh0FmvlLRUbwD-LBbLuUI/viewform
+- Updated skip_files documentation to reflect the new default.
+  https://developers.google.com/appengine/docs/php/config/
+  appconfig#Skipping_Files
+- Removed the NotAllowedError, RedirectTooLongError, and UserNotFoundError
+  exception classes from the Users API.  Their use is replaced by throwing a
+  UsersException or InvalidArgumentException as appropriate.
+- Removed the Capability API.
+- Fixed an issue with Google Cloud Storage objects not being compatible across
+  various APIs on the dev_appserver.
 
 Version 1.8.0
 ===============================

@@ -84,6 +84,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   This stub executes tasks when enabled by using the dev_appserver's AddEvent
   capability.
   """
+  THREADSAFE = True
+
   _ACCEPTS_REQUEST_ID = True
 
   def __init__(self, app_id, host, service_name='taskqueue'):

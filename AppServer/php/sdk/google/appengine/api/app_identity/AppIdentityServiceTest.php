@@ -21,6 +21,7 @@
 
 require_once 'google/appengine/api/app_identity/app_identity_service_pb.php';
 require_once 'google/appengine/api/app_identity/AppIdentityService.php';
+require_once 'google/appengine/runtime/Memcache.php';
 require_once 'google/appengine/testing/ApiProxyTestBase.php';
 
 use \google\appengine\AppIdentityServiceError\ErrorCode;
@@ -110,43 +111,100 @@ class AppIdentityServiceTest extends ApiProxyTestBase {
     $this->apiProxyMock->verify();
   }
 
-  public function testGetAccessToken() {
+  private function expectGetAccessTokenRequest($scopes, $cached,
+      $exception = null) {
+    $req = new \google\appengine\MemcacheGetRequest();
+    $memcache_key = AppIdentityService::MEMCACHE_KEY_PREFIX .
+        AppIdentityService::DOMAIN_SEPARATOR .
+        implode(AppIdentityService::DOMAIN_SEPARATOR, $scopes);
+    $req->addKey($memcache_key);
+    $resp = new \google\appengine\MemcacheGetResponse();
+
+    if ($cached) {
+      $item = $resp->addItem();
+      $item->setKey($memcache_key);
+      $item->setValue(serialize([
+          'access_token' => 'foo token',
+          'expiration_time' => 12345,
+      ]));
+      $item->setFlags(
+          \google\appengine\runtime\MemcacheUtils::TYPE_PHP_SERIALIZED);
+    }
+
+    $this->apiProxyMock->expectCall('memcache',
+                                    'Get',
+                                    $req,
+                                    $resp);
+    if ($cached) return;
     $req = new \google\appengine\GetAccessTokenRequest();
+    foreach ($scopes as $scope) {
+      $req->addScope($scope);
+    }
 
-    $scope = 'mail.google.com/send';
-    $req->addScope($scope);
-
-    $resp = new \google\appengine\GetAccessTokenResponse();
-    $resp->setAccessToken('foo token');
-    $resp->setExpirationTime(12345);
+    if (is_null($exception)) {
+      $resp = new \google\appengine\GetAccessTokenResponse();
+      $resp->setAccessToken('foo token');
+      $resp->setExpirationTime(12345);
+    } else {
+      $resp = $exception;
+    }
 
     $this->apiProxyMock->expectCall('app_identity_service',
                                     'GetAccessToken',
                                     $req,
                                     $resp);
 
+    if (!is_null($exception)) return;
+
+    $req = new \google\appengine\MemcacheSetRequest();
+    $item = $req->addItem();
+    $item->setKey($memcache_key);
+    $item->setValue(serialize([
+        'access_token' => $resp->getAccessToken(),
+        'expiration_time' => $resp->getExpirationTime(),
+    ]));
+    $item->setExpirationTime($resp->getExpirationTime() - 300);
+    $item->setFlags(
+        \google\appengine\runtime\MemcacheUtils::TYPE_PHP_SERIALIZED);
+    $item->setSetPolicy(1); // Add
+    $resp = new \google\appengine\MemcacheSetResponse();
+    $resp->addSetStatus(1); // Stored
+
+    $this->apiProxyMock->expectCall('memcache',
+                                    'Set',
+                                    $req,
+                                    $resp);
+  }
+
+  public function testGetAccessTokenCacheHit() {
+    $scope = 'mail.google.com/send';
+
+    self::expectGetAccessTokenRequest(array($scope), true);
+
     $result = AppIdentityService::getAccessToken($scope);
+
+    $this->assertEquals($result['access_token'], 'foo token');
+    $this->assertEquals($result['expiration_time'], 12345);
+    $this->apiProxyMock->verify();
+  }
+
+  public function testGetAccessTokenCacheMiss() {
+    $scope = 'mail.google.com/send';
+
+    self::expectGetAccessTokenRequest(array($scope), false);
+
+    $result = AppIdentityService::getAccessToken($scope);
+
     $this->assertEquals($result['access_token'], 'foo token');
     $this->assertEquals($result['expiration_time'], 12345);
     $this->apiProxyMock->verify();
   }
 
   public function testGetAccessTokenScopes() {
-    $req = new \google\appengine\GetAccessTokenRequest();
-
     $scope1 = 'mail.google.com/send';
     $scope2 = 'google.cloud.scope/foo';
-    $req->addScope($scope1);
-    $req->addScope($scope2);
 
-    $resp = new \google\appengine\GetAccessTokenResponse();
-    $resp->setAccessToken('foo token');
-    $resp->setExpirationTime(12345);
-
-    $this->apiProxyMock->expectCall('app_identity_service',
-                                    'GetAccessToken',
-                                    $req,
-                                    $resp);
+    self::expectGetAccessTokenRequest(array($scope1, $scope2), false);
 
     $result = AppIdentityService::getAccessToken([$scope1, $scope2]);
     $this->assertEquals($result['access_token'], 'foo token');
@@ -159,9 +217,24 @@ class AppIdentityServiceTest extends ApiProxyTestBase {
     $sign_result = AppIdentityService::getAccessToken(1.0);
   }
 
+  private function expectMemcacheGetRequest($scopes) {
+    $req = new \google\appengine\MemcacheGetRequest();
+    $memcache_key = AppIdentityService::MEMCACHE_KEY_PREFIX .
+        AppIdentityService::DOMAIN_SEPARATOR .
+        implode(AppIdentityService::DOMAIN_SEPARATOR, $scopes);
+    $req->addKey($memcache_key);
+    $resp = new \google\appengine\MemcacheGetResponse();
+    $this->apiProxyMock->expectCall('memcache',
+                                    'Get',
+                                    $req,
+                                    $resp);
+  }
+
   public function testGetAccessTokenInvalidScopeArray() {
+    $scopes = ["foo", 1];
+    self::expectMemcacheGetRequest($scopes);
     $this->setExpectedException('\InvalidArgumentException');
-    $sign_result = AppIdentityService::getAccessToken(["foo", 1]);
+    $sign_result = AppIdentityService::getAccessToken($scopes);
   }
 
   public function testGetAccessTokenServiceInvalidScope() {
@@ -176,33 +249,30 @@ class AppIdentityServiceTest extends ApiProxyTestBase {
     $this->setExpectedException('\InvalidArgumentException',
                                 'An unknown scope was supplied.');
 
-    $this->apiProxyMock->expectCall('app_identity_service',
-                                    'GetAccessToken',
-                                    $req,
-                                    $exception);
+    self::expectGetAccessTokenRequest(array($scope), false, $exception);
 
     $result = AppIdentityService::getAccessToken($scope);
   }
+  public function testGetAccessTokenGaiaMintNotInitialized() {
+    $this->executeServiceErrorTest(
+        ErrorCode::GAIAMINT_NOT_INITIAILIZED,
+        'There was a GAIA error using the AppIdentity service.');
+  }
 
   public function testGetAccessTokenServiceNotAnnApp() {
-    $req = new \google\appengine\GetAccessTokenRequest();
+    $this->executeServiceErrorTest(ErrorCode::NOT_A_VALID_APP,
+                                   'The application is not valid.');
+  }
 
-    $scope = 'mail.google.com/send';
-    $req->addScope($scope);
+  public function testGetAccessTokenServiceUnknownError() {
+    $this->executeServiceErrorTest(
+        ErrorCode::UNKNOWN_ERROR,
+        'There was an unknown error using the AppIdentity service.');
+  }
 
-    $exception = new \google\appengine\runtime\ApplicationError(
-        ErrorCode::NOT_A_VALID_APP, "unknown scope");
-
-    $this->setExpectedException(
-      '\google\appengine\api\app_identity\AppIdentityException',
-      'The application is not valid.');
-
-    $this->apiProxyMock->expectCall('app_identity_service',
-                                    'GetAccessToken',
-                                    $req,
-                                    $exception);
-
-     $result = AppIdentityService::getAccessToken($scope);
+  public function testGetAccessTokenServiceNotAllowed() {
+    $this->executeServiceErrorTest(ErrorCode::NOT_ALLOWED,
+                                   'The call is not allowed.');
   }
 
   public function testGetApplicationId() {
@@ -221,12 +291,29 @@ class AppIdentityServiceTest extends ApiProxyTestBase {
     putenv("APPLICATION_ID=part~domain.com:display");
     $this->assertEquals("domain.com:display",
                         AppIdentityService::getApplicationId());
-
   }
 
   public function testGetDefaultVersionHostname() {
     putenv("DEFAULT_VERSION_HOSTNAME=my-app.appspot.com");
     $this->assertEquals("my-app.appspot.com",
                         AppIdentityService::getDefaultVersionHostname());
+  }
+
+  private function executeServiceErrorTest($error, $expected_response) {
+    $req = new \google\appengine\GetAccessTokenRequest();
+
+    $scope = 'mail.google.com/invalid-scope';
+    $req->addScope($scope);
+
+    $exception = new \google\appengine\runtime\ApplicationError(
+        $error, "not initialized");
+
+    $this->setExpectedException(
+        '\google\appengine\api\app_identity\AppIdentityException',
+        $expected_response);
+
+    self::expectGetAccessTokenRequest(array($scope), false, $exception);
+
+    $result = AppIdentityService::getAccessToken($scope);
   }
 }

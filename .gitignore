@@ -3,6 +3,7 @@
 *.pyc
 *.idea
 *.egg-info
+*.pytest_cache
 /AppServer_Java/appengine-java-sdk-repacked
 /AppTaskQueue/build
 /AppTaskQueue/dist

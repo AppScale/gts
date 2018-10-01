@@ -1,8 +1,9 @@
 import json
 import os
+import socket
 
 from mock import patch, mock
-from tornado import testing, gen
+from tornado import testing, gen, httpclient
 
 from appscale.hermes.stats.producers import taskqueue_stats, proxy_stats
 
@@ -29,18 +30,24 @@ class TestTaskqueueStatsSource(testing.AsyncTestCase):
       '10.10.7.86:17448': mock.MagicMock(
         code=200, reason='OK', body=json.dumps(tq_stats['10.10.7.86:17448'])
       ),
-      '10.10.7.86:17449': mock.MagicMock(
-        code=504, reason='Gateway Timeout', body=None
-      )
+      '10.10.7.86:17449': httpclient.HTTPError(
+        504,
+        "Gateway Timeout",
+        mock.MagicMock(code=504, reason='Gateway Timeout', body=None)
+      ),
+      '10.10.7.86:17450': socket.error("Connection refused")
     }
     mock_get_instances.return_value = tq_responses.keys()
 
     # Mock taskqueue service stats API
     def fetch(request, **kwargs):
       ip_port = request.url.split('://')[1].split('/')[0]
-      response = tq_responses[ip_port]
+      result = tq_responses[ip_port]
       future_response = gen.Future()
-      future_response.set_result(response)
+      if isinstance(result, Exception):
+        future_response.set_exception(result)
+      else:
+        future_response.set_result(result)
       return future_response
 
     mock_fetch.side_effect = fetch
@@ -138,8 +145,10 @@ class TestTaskqueueStatsSource(testing.AsyncTestCase):
     self.assertEqual(stats_snapshot.instances_count, 2)
 
     # Check Failures
-    self.assertEqual(len(stats_snapshot.failures), 1)
-    self.assertEqual(stats_snapshot.failures[0].ip_port,
-                     '10.10.7.86:17449')
-    self.assertEqual(stats_snapshot.failures[0].error,
-                     '504 Gateway Timeout')
+    self.assertEqual(len(stats_snapshot.failures), 2)
+    tq_17449 = next(instance for instance in stats_snapshot.failures
+                    if instance.ip_port == '10.10.7.86:17449')
+    tq_17450 = next(instance for instance in stats_snapshot.failures
+                    if instance.ip_port == '10.10.7.86:17450')
+    self.assertEqual(tq_17449.error, 'HTTP 504: Gateway Timeout')
+    self.assertEqual(tq_17450.error, 'Connection refused')

@@ -13,6 +13,7 @@ from ..cassandra_env.constants import LB_POLICY
 from ..cassandra_env.retry_policies import BASIC_RETRIES
 from ..dbconstants import APP_ENTITY_TABLE
 from ..dbconstants import APP_ENTITY_SCHEMA
+from ..dbconstants import ID_SEPARATOR
 from ..dbconstants import KEY_DELIMITER
 from ..dbconstants import KIND_SEPARATOR
 
@@ -63,7 +64,7 @@ def get_kind_averages(keys):
     key = key_dict['key']
     if is_entity(key):
       key_parts = key.split(KEY_DELIMITER)
-      kind = key_parts[2].split(':')[0]
+      kind = key_parts[2].split(ID_SEPARATOR, 1)[0]
       kind_id = KEY_DELIMITER.join([key_parts[0], key_parts[1], kind])
       if kind_id not in entities_by_kind:
         entities_by_kind[kind_id] = {'keys': [], 'size': 0, 'fetched': 0}
@@ -146,7 +147,7 @@ def main():
       continue
 
     key_parts = key.split(KEY_DELIMITER)
-    kind = key_parts[2].split(':')[0]
+    kind = key_parts[2].split(ID_SEPARATOR, 1)[0]
     kind_id = KEY_DELIMITER.join([key_parts[0], key_parts[1], kind])
     if kind_id in kind_averages:
       key_dict['size'] += kind_averages[kind_id]

@@ -57,8 +57,11 @@ use \google\appengine\TaskQueueServiceError\ErrorCode;
  * one of the application's handlers.
  * This class is immutable.
  */
-class PushTask {
-  const MAX_DELAY_SECONDS = 2592000;  // 30 days
+final class PushTask {
+  /**
+   * A task may be scheduled up to 30 days into the future.
+   */
+  const MAX_DELAY_SECONDS = 2592000;
   const MAX_NAME_LENGTH = 500;
   const MAX_TASK_SIZE_BYTES = 102400;
   const MAX_URL_LENGTH = 2083;
@@ -87,21 +90,25 @@ class PushTask {
   /**
    * Construct a PushTask.
    *
-   * @param string url_path The path of the URL handler for this task relative
+   * @param string $url_path The path of the URL handler for this task relative
    * to your application's root directory.
-   * @param array query_data The data carried by task, typically in the form of
+   * @param array $query_data The data carried by task, typically in the form of
    * a set of key value pairs. This data will be encoded using
    * http_build_query() and will be either:
-   * - added to the payload of the http request if the task's method is POST or
-   *   PUT,
-   * - added to the URL if the task's method is GET, HEAD, or DELETE.
-   * @param array options Additional options for the task. Valid options are:
-   * - method: One of 'POST', 'GET', 'HEAD', 'PUT', 'DELETE'. Default value:
-   *   'POST'.
-   * - name: Name of the task. Defaults to '' meaning the service will generate
-   *   a unique task name.
-   * - delay_seconds: The minimum time to wait before executing the task.
-   *   Default: zero.
+   * <ul>
+   *   <li>Added to the payload of the http request if the task's method is POST
+   *    or PUT.</li>
+   *   <li>Added to the URL if the task's method is GET, HEAD, or DELETE.</li>
+   * </ul>
+   * @param array $options Additional options for the task. Valid options are:
+   * <ul>
+   *   <li>'method': string One of 'POST', 'GET', 'HEAD', 'PUT', 'DELETE'.
+   *   Default value: 'POST'.</li>
+   *   <li>'name': string Name of the task. Defaults to '' meaning the service
+   *   will generate a unique task name.</li>
+   *   <li>'delay_seconds': float The minimum time to wait before executing the
+   *   task. Default: zero.</li>
+   * </ul>
    */
   public function __construct($url_path, $query_data=[], $options=[]) {
     if (!is_string($url_path)) {
@@ -172,7 +179,7 @@ class PushTask {
   /**
    * Return the task's URL path.
    *
-   * @return string the task's URL path.
+   * @return string The task's URL path.
    */
   public function getUrlPath() {
     return $this->url_path;
@@ -181,7 +188,7 @@ class PushTask {
   /**
    * Return the task's query data.
    *
-   * @return array the task's query data.
+   * @return array The task's query data.
    */
   public function getQueryData() {
     return $this->query_data;
@@ -190,7 +197,7 @@ class PushTask {
   /**
    * Return the task's name if it was explicitly named.
    *
-   * @return string the task's name if it was explicity named, or empty string
+   * @return string The task's name if it was explicity named, or empty string
    * if it will be given a uniquely generated name in the queue.
    */
   public function getName() {
@@ -200,7 +207,7 @@ class PushTask {
   /**
    * Return the task's execution delay, in seconds.
    *
-   * @return the task's execution delay in seconds.
+   * @return float The task's execution delay in seconds.
    */
   public function getDelaySeconds() {
     return $this->options['delay_seconds'];
@@ -209,7 +216,8 @@ class PushTask {
   /**
    * Return the task's HTTP method.
    *
-   * @return the task's HTTP method.
+   * @return string The task's HTTP method, i.e. one of 'DELETE', 'GET', 'HEAD',
+   * 'POST', 'PUT'.
    */
   public function getMethod() {
     return $this->options['method'];
@@ -218,7 +226,7 @@ class PushTask {
   /**
    * Adds the task to a queue.
    *
-   * @param string queue The name of the queue to add to. Defaults to
+   * @param string $queue The name of the queue to add to. Defaults to
    * 'default'.
    *
    * @return string The name of the task.
@@ -235,7 +243,7 @@ class PushTask {
     return self::addTasks([$this], $queue)[0];
   }
 
-  private static function ApplicationErrorToException($error) {
+  private static function applicationErrorToException($error) {
     switch($error->getApplicationError()) {
       case ErrorCode::UNKNOWN_QUEUE:
         return new TaskQueueException('Unknown queue');
@@ -318,7 +326,7 @@ class PushTask {
     try {
       ApiProxy::makeSyncCall('taskqueue', 'BulkAdd', $req, $resp);
     } catch (ApplicationError $e) {
-      throw self::ApplicationErrorToException($e);
+      throw self::applicationErrorToException($e);
     }
 
     // Update $names with any generated task names.

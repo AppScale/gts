@@ -86,7 +86,7 @@ class InfrastructureManagerService:
     else:
       i = InfrastructureManager()
 
-    self.server.registerFunction(i.describe_instances)
+    self.server.registerFunction(i.describe_operation)
     self.server.registerFunction(i.run_instances)
     self.server.registerFunction(i.terminate_instances)
     self.server.registerFunction(i.attach_disk)

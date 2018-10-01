@@ -23,7 +23,7 @@ namespace google\appengine\api\app_identity;
  * PublicCertificate contains an X509 public certificate in PEM format and a
  * string which is used to identify this certificate.
  */
-class PublicCertificate {
+final class PublicCertificate {
 
   /**
    * The name of the certificate.

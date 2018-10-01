@@ -1,6 +1,10 @@
 import re
 
 
+class EmptyQueue(Exception):
+  """ Indicates that there are no tasks in the queue. """
+  pass
+
 class QueueNotFound(Exception):
   """ Indicates that the specified queue does not exist. """
   pass
@@ -11,6 +15,10 @@ class InvalidQueueConfiguration(Exception):
 
 class InvalidTarget(Exception):
   """ Indicates an invalid target. """
+  pass
+
+class TaskNotFound(Exception):
+  """ Indicates that the specified task does not exist. """
   pass
 
 def non_negative_int(value):

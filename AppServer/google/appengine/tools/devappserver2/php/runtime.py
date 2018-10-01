@@ -56,10 +56,10 @@ class PHPRuntime(object):
     self.environ_template = {
         'APPLICATION_ID': str(config.app_id),
         'CURRENT_VERSION_ID': str(config.version_id),
-        'DATACENTER': config.datacenter,
-        'INSTANCE_ID': config.instance_id,
+        'DATACENTER': str(config.datacenter),
+        'INSTANCE_ID': str(config.instance_id),
         'APPENGINE_RUNTIME': 'php',
-        'AUTH_DOMAIN': config.auth_domain,
+        'AUTH_DOMAIN': str(config.auth_domain),
         'HTTPS': 'off',
         # By default php-cgi does not allow .php files to be run directly so
         # REDIRECT_STATUS must be set. See:
@@ -88,6 +88,15 @@ class PHPRuntime(object):
     user_environ['REQUEST_METHOD'] = environ.get('REQUEST_METHOD', 'GET')
     user_environ['PATH_INFO'] = environ['PATH_INFO']
     user_environ['QUERY_STRING'] = environ['QUERY_STRING']
+
+    # Construct the partial URL that PHP expects for REQUEST_URI
+    # (http://php.net/manual/en/reserved.variables.server.php) using part of
+    # the process described in PEP-333
+    # (http://www.python.org/dev/peps/pep-0333/#url-reconstruction).
+    user_environ['REQUEST_URI'] = urllib.quote(user_environ['PATH_INFO'])
+    if user_environ['QUERY_STRING']:
+      user_environ['REQUEST_URI'] += '?' + user_environ['QUERY_STRING']
+
     # Modify the SCRIPT_FILENAME to specify the setup script that readies the
     # PHP environment. Put the user script in REAL_SCRIPT_FILENAME.
     user_environ['REAL_SCRIPT_FILENAME'] = environ[
@@ -105,8 +114,12 @@ class PHPRuntime(object):
     else:
       content = None
 
-    include_path = 'include_path=%s:%s' % (self.config.application_root,
-                                           SDK_PATH)
+    # See http://www.php.net/manual/en/ini.core.php#ini.include-path.
+    include_paths = [self.config.application_root, SDK_PATH]
+    if sys.platform == 'win32':
+      include_path = 'include_path=%s' % ';'.join(include_paths)
+    else:
+      include_path = 'include_path=%s' % ':'.join(include_paths)
 
     args = [self.config.php_config.php_executable_path, '-d', include_path]
 

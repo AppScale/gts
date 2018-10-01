@@ -42,23 +42,34 @@ __all__ = [
     "handler_for_name",
     "is_generator",
     "parse_bool",
-    "HugeTask",
+    "total_seconds",
     "try_serialize_handler",
     "try_deserialize_handler",
     ]
 
-
-import base64
-import cgi
 import inspect
 import pickle
 import types
-import urllib
-import zlib
 
-from google.appengine.api import taskqueue
-from google.appengine.ext import db
 from google.appengine.datastore import datastore_rpc
+
+
+def total_seconds(td):
+  """convert a timedelta to seconds.
+
+  This is patterned after timedelta.total_seconds, which is only
+  available in python 27.
+
+  Args:
+    td: a timedelta object.
+
+  Returns:
+    total seconds within a timedelta. Rounded up to seconds.
+  """
+  secs = td.seconds + td.days * 24 * 3600
+  if td.microseconds:
+    secs += 1
+  return secs
 
 
 def for_name(fq_name, recursive=False):
@@ -253,115 +264,3 @@ def create_datastore_write_config(mapreduce_spec):
   else:
 
     return datastore_rpc.Configuration()
-
-
-class _HugeTaskPayload(db.Model):
-  """Model object to store task payload."""
-
-  payload = db.TextProperty()
-
-  @classmethod
-  def kind(cls):
-    """Returns entity kind."""
-    return "_GAE_MR_TaskPayload"
-
-
-class HugeTask(object):
-  """HugeTask is a taskqueue.Task-like class that can store big payloads.
-
-  Payloads are stored either in the task payload itself or in the datastore.
-  Task handlers should inherit from HugeTaskHandler class.
-  """
-
-  PAYLOAD_PARAM = "__payload"
-  PAYLOAD_KEY_PARAM = "__payload_key"
-
-  MAX_TASK_PAYLOAD = 100000
-  MAX_DB_PAYLOAD = 1000000
-
-  def __init__(self,
-               url,
-               params,
-               name=None,
-               eta=None,
-               countdown=None):
-    self.url = url
-    self.params = params
-    self.compressed_payload = None
-    self.name = name
-    self.eta = eta
-    self.countdown = countdown
-
-    payload_str = urllib.urlencode(self.params)
-    if len(payload_str) > self.MAX_TASK_PAYLOAD:
-      compressed_payload = base64.b64encode(zlib.compress(payload_str))
-      if len(compressed_payload) > self.MAX_DB_PAYLOAD:
-        raise Exception("Payload from %s to big to be stored in database: %s",
-                        self.name, len(compressed_payload))
-      self.compressed_payload = compressed_payload
-
-  def add(self, queue_name, transactional=False, parent=None):
-    """Add task to the queue."""
-    if self.compressed_payload is None:
-
-      task = self.to_task()
-      task.add(queue_name, transactional)
-      return
-
-    if len(self.compressed_payload) < self.MAX_TASK_PAYLOAD:
-
-      task = taskqueue.Task(
-          url=self.url,
-          params={self.PAYLOAD_PARAM: self.compressed_payload},
-          name=self.name,
-          eta=self.eta,
-          countdown=self.countdown)
-      task.add(queue_name, transactional)
-      return
-
-
-    if not parent:
-      raise Exception("Huge tasks should specify parent entity.")
-
-    payload_entity = _HugeTaskPayload(payload=self.compressed_payload,
-                                      parent=parent)
-
-    payload_key = payload_entity.put()
-    task = taskqueue.Task(
-        url=self.url,
-        params={self.PAYLOAD_KEY_PARAM: str(payload_key)},
-        name=self.name,
-        eta=self.eta,
-        countdown=self.countdown)
-    task.add(queue_name, transactional)
-
-  def to_task(self):
-    """Convert to a taskqueue task without doing any kind of encoding."""
-    return taskqueue.Task(
-        url=self.url,
-        params=self.params,
-        name=self.name,
-        eta=self.eta,
-        countdown=self.countdown)
-
-  @classmethod
-  def decode_payload(cls, payload_dict):
-    if (not payload_dict.get(cls.PAYLOAD_PARAM) and
-        not payload_dict.get(cls.PAYLOAD_KEY_PARAM)):
-        return payload_dict
-
-    if payload_dict.get(cls.PAYLOAD_PARAM):
-      payload = payload_dict.get(cls.PAYLOAD_PARAM)
-    else:
-      payload_key = payload_dict.get(cls.PAYLOAD_KEY_PARAM)
-      payload_entity = _HugeTaskPayload.get(payload_key)
-      payload = payload_entity.payload
-    payload_str = zlib.decompress(base64.b64decode(payload))
-
-    result = {}
-    for (name, value) in cgi.parse_qs(payload_str).items():
-      if len(value) == 1:
-        result[name] = value[0]
-      else:
-        result[name] = value
-    return result

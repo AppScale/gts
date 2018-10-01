@@ -7,7 +7,6 @@ import os
 import random
 import re
 import signal
-import urllib
 import urllib2
 
 import psutil
@@ -18,7 +17,6 @@ from kazoo.exceptions import NodeExistsError, NoNodeError
 from tornado import gen
 from tornado.escape import json_decode
 from tornado.httpclient import AsyncHTTPClient
-from tornado.httpclient import HTTPClient
 from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.options import options
@@ -47,17 +45,17 @@ from appscale.common import (
   constants,
   file_io,
   monit_app_configuration,
-  monit_interface,
   misc
 )
-from appscale.common.constants import HTTPCodes
-from appscale.common.constants import PID_DIR
-from appscale.common.constants import MonitStates
+from appscale.common.constants import HTTPCodes, MonitStates, VAR_DIR
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.deployment_config import DeploymentConfig
+from appscale.common.monit_interface import DEFAULT_RETRIES
 from appscale.common.monit_interface import MonitOperator
+from appscale.common.monit_interface import MonitUnavailable
 from appscale.common.monit_interface import ProcessNotFound
+from appscale.common.retrying import retry
 from appscale.hermes.constants import HERMES_PORT
 
 
@@ -207,6 +205,7 @@ def add_routing(instance):
   register_instance(instance)
 
 
+@gen.coroutine
 def ensure_api_server(project_id):
   """ Make sure there is a running API server for a project.
 
@@ -217,7 +216,7 @@ def ensure_api_server(project_id):
   """
   global api_servers
   if project_id in api_servers:
-    return api_servers[project_id]
+    raise gen.Return(api_servers[project_id])
 
   server_port = MAX_API_SERVER_PORT
   for port in api_servers.values():
@@ -232,7 +231,7 @@ def ensure_api_server(project_id):
 
   watch = ''.join([API_SERVER_PREFIX, project_id])
   full_watch = '-'.join([watch, str(server_port)])
-  pidfile = os.path.join(PID_DIR, '{}.pid'.format(full_watch))
+  pidfile = os.path.join(VAR_DIR, '{}.pid'.format(full_watch))
   monit_app_configuration.create_config_file(
     watch,
     start_cmd,
@@ -241,11 +240,12 @@ def ensure_api_server(project_id):
     max_memory=DEFAULT_MAX_APPSERVER_MEMORY,
     check_port=True)
 
-  assert monit_interface.start(full_watch, is_group=False), (
-    'Monit was unable to start {}'.format(watch))
+  monit_operator = MonitOperator()
+  yield monit_operator.reload(thread_pool)
+  yield monit_operator.send_command_retry_process(full_watch, 'start')
 
   api_servers[project_id] = server_port
-  return server_port
+  raise gen.Return(server_port)
 
 
 @gen.coroutine
@@ -326,7 +326,7 @@ def start_app(version_key, config):
     [project_id, service_id, version_id, str(version_details['revision'])])
   source_archive = version_details['deployment']['zip']['sourceUrl']
 
-  api_server_port = ensure_api_server(project_id)
+  api_server_port = yield ensure_api_server(project_id)
   yield source_manager.ensure_source(revision_key, source_archive, runtime)
 
   logging.info('Starting {} application {}'.format(runtime, project_id))
@@ -387,12 +387,11 @@ def start_app(version_key, config):
     check_port=True,
     kill_exceeded_memory=True)
 
-  # We want to tell monit to start the single process instead of the
-  # group, since monit can get slow if there are quite a few processes in
-  # the same group.
   full_watch = '{}-{}'.format(watch, config['app_port'])
-  assert monit_interface.start(full_watch, is_group=False), (
-    'Monit was unable to start {}:{}'.format(project_id, config['app_port']))
+
+  monit_operator = MonitOperator()
+  yield monit_operator.reload(thread_pool)
+  yield monit_operator.send_command_retry_process(full_watch, 'start')
 
   # Make sure the version node exists.
   zk_client.ensure_path('/'.join([VERSION_REGISTRATION_NODE, version_key]))
@@ -449,32 +448,6 @@ def setup_logrotate(app_name, log_size):
   return True
 
 
-def unmonitor(process_name, retries=5):
-  """ Unmonitors a process.
-
-  Args:
-    process_name: A string specifying the process to stop monitoring.
-    retries: An integer specifying the number of times to retry the operation.
-  """
-  client = HTTPClient()
-  process_url = '{}/{}'.format(monit_operator.LOCATION, process_name)
-  payload = urllib.urlencode({'action': 'unmonitor'})
-  try:
-    client.fetch(process_url, method='POST', body=payload)
-  except HTTPError as error:
-    if error.code == 404:
-      raise ProcessNotFound('{} not listed by Monit'.format(process_name))
-
-    if error.code == 503:
-      retries -= 1
-      if retries < 0:
-        raise
-
-      return unmonitor(process_name, retries)
-
-    raise
-
-
 @gen.coroutine
 def clean_old_sources():
   """ Removes source code for obsolete revisions. """
@@ -503,7 +476,9 @@ def unmonitor_and_terminate(watch):
     watch: A string specifying the Monit entry.
   """
   try:
-    unmonitor(watch)
+    monit_retry = retry(max_retries=5, retry_on_exception=DEFAULT_RETRIES)
+    send_w_retries = monit_retry(monit_operator.send_command_sync)
+    send_w_retries(watch, 'unmonitor')
   except ProcessNotFound:
     # If Monit does not know about a process, assume it is already stopped.
     return
@@ -558,7 +533,7 @@ def stop_app_instance(version_key, port):
   if not remaining_instances:
     yield stop_api_server(project_id)
 
-  yield monit_operator.reload()
+  yield monit_operator.reload(thread_pool)
   yield clean_old_sources()
 
 
@@ -600,7 +575,7 @@ def stop_app(version_key):
     logging.error("Error while removing log rotation for application: {}".
                   format(project_id))
 
-  yield monit_operator.reload()
+  yield monit_operator.reload(thread_pool)
   yield clean_old_sources()
 
 

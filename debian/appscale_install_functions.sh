@@ -575,6 +575,14 @@ installpyyaml()
     fi
 }
 
+installsoappy()
+{
+    # This particular version is needed for
+    # google.appengine.api.xmpp.unverified_transport, which imports
+    # SOAPpy.HTTPWithTimeout.
+    pipwrapper SOAPpy==0.12.22
+}
+
 preplogserver()
 {
     LOGSERVER_DIR="/opt/appscale/logserver"
@@ -632,9 +640,20 @@ installapiserver()
 
     # The activate script fails under `set -u`.
     unset_opt=$(shopt -po nounset)
+    case ${DIST} in
+        wheezy|trusty)
+            # Tornado 5 does not work with Python<2.7.9.
+            tornado_package='tornado<5'
+            ;;
+        *)
+            tornado_package='tornado'
+            ;;
+    esac
+
     set +u
     (source /opt/appscale_api_server/bin/activate && \
      pip install -U pip && \
+     pip install "${tornado_package}" && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}

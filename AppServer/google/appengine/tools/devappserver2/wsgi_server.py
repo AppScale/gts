@@ -17,6 +17,7 @@
 """A WSGI server implementation using a shared thread pool."""
 
 
+import collections
 import errno
 import httplib
 import logging
@@ -276,39 +277,39 @@ class WsgiServer(object):
     """
     host, port = self.bind_addr
     try:
-      info = socket.getaddrinfo(host, port, socket.AF_UNSPEC,
-                                socket.SOCK_STREAM, 0, socket.AI_PASSIVE)
+      addrinfo = socket.getaddrinfo(host, port, socket.AF_UNSPEC,
+                                    socket.SOCK_STREAM, 0, socket.AI_PASSIVE)
+      sockaddrs = [addr[-1] for addr in addrinfo]
+      host_ports = [sockaddr[:2] for sockaddr in sockaddrs]
+      # Remove duplicate addresses caused by bad hosts file. Retain the
+      # order to minimize behavior change (and so we don't have to tweak
+      # unit tests to deal with different order).
+      host_ports = list(collections.OrderedDict.fromkeys(host_ports))
     except socket.gaierror:
-      if ':' in host:
-        info = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', self.bind_addr)]
-      else:
-        info = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', self.bind_addr)]
+      host_ports = [self.bind_addr]
 
     if port != 0:
-      self._start_all_fixed_port(info)
+      self._start_all_fixed_port(host_ports)
     else:
       for _ in range(_PORT_0_RETRIES):
-        if self._start_all_dynamic_port(info):
+        if self._start_all_dynamic_port(host_ports):
           break
       else:
         raise BindError('Unable to find a consistent port %s' % host)
 
-  def _start_all_fixed_port(self, info):
+  def _start_all_fixed_port(self, host_ports):
     """Starts a server for each specified address with a fixed port.
 
     Does the work of actually trying to create a _SingleAddressWsgiServer for
     each specified address.
 
     Args:
-      info: An iterable with the same structure as returned by
-          socket.getaddrinfo().
+      host_ports: An iterable of host, port tuples.
 
     Raises:
       BindError: The address could not be bound.
     """
-    for res in info:
-      _, _, _, _, bind_addr = res
-      host, port = bind_addr[:2]
+    for host, port in host_ports:
       assert port != 0
       server = _SingleAddressWsgiServer((host, port), self._app)
       try:
@@ -319,8 +320,7 @@ class WsgiServer(object):
         # think we should either:
         # - Fail (just like we do now when bind fails on every interface).
         # - Retry on next highest port.
-        logging.debug('Failed to bind "%s:%s": %s',
-                      bind_addr[0], bind_addr[1], bind_error)
+        logging.debug('Failed to bind "%s:%s": %s', host, port, bind_error)
         continue
       else:
         self._servers.append(server)
@@ -328,24 +328,21 @@ class WsgiServer(object):
     if not self._servers:
       raise BindError('Unable to bind %s:%s' % self.bind_addr)
 
-  def _start_all_dynamic_port(self, info):
+  def _start_all_dynamic_port(self, host_ports):
     """Starts a server for each specified address with a dynamic port.
 
     Does the work of actually trying to create a _SingleAddressWsgiServer for
     each specified address.
 
     Args:
-      info: An iterable with the same structure as returned by
-          socket.getaddrinfo().
+      host_ports: An iterable of host, port tuples.
 
     Returns:
       The list of all servers (also saved as self._servers). A non empty list
       indicates success while an empty list indicates failure.
     """
     port = 0
-    for res in info:
-      _, _, _, _, bind_addr = res
-      host, _ = bind_addr[:2]
+    for host, _ in host_ports:
       server = _SingleAddressWsgiServer((host, port), self._app)
       try:
         server.start()
@@ -361,8 +358,7 @@ class WsgiServer(object):
           break
         else:
           # Ignore the interface if we get an error other than EADDRINUSE.
-          logging.debug('Failed to bind "%s:%s": %s',
-                        bind_addr[0], bind_addr[1], bind_error)
+          logging.debug('Failed to bind "%s:%s": %s', host, port, bind_error)
           continue
       else:
         self._servers.append(server)

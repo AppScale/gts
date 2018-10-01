@@ -47,7 +47,7 @@ class TestAppManager(AsyncTestCase):
   @gen_test
   def test_start_app_bad_appname(self):
     configuration = {
-      'app_port': 2000,
+      'app_port': 20000,
       'service_id': 'default',
       'version_id': 'v1',
       'env_vars': {}
@@ -63,8 +63,10 @@ class TestAppManager(AsyncTestCase):
 
   @gen_test
   def test_start_app_goodconfig_python(self):
+    testing.disable_logging()
+
     configuration = {
-      'app_port': 2000,
+      'app_port': 20000,
       'login_server': 'public1',
       'service_id': 'default',
       'version_id': 'v1',
@@ -83,15 +85,35 @@ class TestAppManager(AsyncTestCase):
     source_manager = flexmock()
     response = Future()
     response.set_result(None)
-    source_manager.should_receive('ensure_source'). \
-      with_args('test_default_v1_1', 'source.tar.gz', 'python27'). \
+    source_manager.should_receive('ensure_source').\
+      with_args('test_default_v1_1', 'source.tar.gz', 'python27').\
       and_return(response)
     app_manager_server.source_manager = source_manager
 
     flexmock(monit_app_configuration).should_receive('create_config_file').\
       and_return('fakeconfig')
-    flexmock(monit_interface).should_receive('start').\
-      and_return(True)
+
+    response = Future()
+    response.set_result(None)
+    flexmock(app_manager_server).should_receive('ensure_api_server').\
+      and_return(response)
+
+    response = Future()
+    response.set_result(None)
+    flexmock(MonitOperator).should_receive('reload').\
+      and_return(response)
+
+    response = Future()
+    response.set_result(None)
+    flexmock(MonitOperator).should_receive('send_command_retry_process').\
+      with_args('app___test_default_v1_1-20000', 'start').\
+      and_return(response)
+
+    response = Future()
+    response.set_result(None)
+    flexmock(app_manager_server).should_receive('add_routing').\
+      and_return(response)
+
     flexmock(app_manager_server).should_receive('wait_on_app').\
       and_return(True)
     flexmock(os).should_receive('popen').\
@@ -108,6 +130,8 @@ class TestAppManager(AsyncTestCase):
 
   @gen_test
   def test_start_app_goodconfig_java(self):
+    testing.disable_logging()
+
     configuration = {
       'app_port': 20000,
       'login_server': 'public1',
@@ -140,8 +164,28 @@ class TestAppManager(AsyncTestCase):
 
     flexmock(monit_app_configuration).should_receive('create_config_file').\
       and_return('fakeconfig')
-    flexmock(monit_interface).should_receive('start').\
-      and_return(True)
+
+    response = Future()
+    response.set_result(None)
+    flexmock(app_manager_server).should_receive('ensure_api_server').\
+        and_return(response)
+
+    response = Future()
+    response.set_result(None)
+    flexmock(MonitOperator).should_receive('reload').\
+        and_return(response)
+
+    response = Future()
+    response.set_result(None)
+    flexmock(MonitOperator).should_receive('send_command_retry_process').\
+      with_args('app___test_default_v1_1-20000', 'start').\
+      and_return(response)
+
+    response = Future()
+    response.set_result(None)
+    flexmock(app_manager_server).should_receive('add_routing').\
+      and_return(response)
+
     flexmock(app_manager_server).should_receive('create_java_app_env').\
       and_return({})
     flexmock(app_manager_server).should_receive('wait_on_app').\
@@ -164,7 +208,7 @@ class TestAppManager(AsyncTestCase):
   @gen_test
   def test_start_app_failed_copy_java(self):
     configuration = {
-      'app_port': 2000,
+      'app_port': 20000,
       'login_server': 'public1',
       'service_id': 'default',
       'version_id': 'v1',
@@ -231,7 +275,8 @@ class TestAppManager(AsyncTestCase):
 
     flexmock(misc).should_receive('is_app_name_valid').and_return(True)
     flexmock(app_manager_server).should_receive('unregister_instance')
-    flexmock(app_manager_server).should_receive('unmonitor').\
+    flexmock(MonitOperator).should_receive('send_command_sync').\
+      with_args('app___test_default_v1-20000', 'unmonitor').\
       and_raise(HTTPError)
 
     unmonitor_future = Future()
@@ -247,9 +292,15 @@ class TestAppManager(AsyncTestCase):
     with self.assertRaises(HTTPError):
       yield app_manager_server.stop_app_instance(version_key, port)
 
-    flexmock(app_manager_server).should_receive('unmonitor')
+    flexmock(MonitOperator).should_receive('send_command_sync').\
+      with_args('app___test_default_v1-20000', 'unmonitor')
     flexmock(os).should_receive('remove')
     flexmock(monit_interface).should_receive('safe_monit_run')
+
+    response = Future()
+    response.set_result(None)
+    flexmock(MonitOperator).should_receive('reload').\
+      and_return(response)
 
     response = Future()
     response.set_result(None)

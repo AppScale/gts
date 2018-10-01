@@ -13,8 +13,8 @@ from tornado import ioloop
 from appscale.datastore import dbconstants, helper_functions
 from appscale.datastore.appscale_datastore_batch import DatastoreFactory
 from appscale.datastore.dbconstants import (
-  AppScaleDBConnectionError, ID_KEY_LENGTH, ID_SEPARATOR, KEY_DELIMITER,
-  KIND_SEPARATOR, METADATA_TABLE, TERMINATING_STRING
+  AppScaleDBConnectionError, BadRequest, ID_KEY_LENGTH, ID_SEPARATOR,
+  KEY_DELIMITER, KIND_SEPARATOR, METADATA_TABLE, TERMINATING_STRING
 )
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -253,7 +253,13 @@ def encode_index_pb(pb):
         key_id = e.name()
       elif e.has_id():
         key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-      path.append("{0}:{1}".format(e.type(), key_id))
+      else:
+        raise BadRequest('Entity path must contain name or ID')
+
+      if ID_SEPARATOR in e.type():
+        raise BadRequest('Kind names must not include ":"')
+
+      path.append(ID_SEPARATOR.join([e.type(), key_id]))
     val = dbconstants.KIND_SEPARATOR.join(path)
     val += dbconstants.KIND_SEPARATOR
     return val
@@ -730,7 +736,7 @@ def decode_path(encoded_path):
     if not element:
       continue
 
-    kind, identifier = element.split(dbconstants.ID_SEPARATOR)
+    kind, identifier = element.split(dbconstants.ID_SEPARATOR, 1)
 
     new_element = path.add_element()
     new_element.set_type(kind)

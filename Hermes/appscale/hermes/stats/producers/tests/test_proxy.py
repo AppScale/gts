@@ -2,6 +2,7 @@ import os
 from os import path
 import unittest
 
+import attr
 from mock import patch, MagicMock
 
 from appscale.hermes.stats.constants import MISSED
@@ -50,12 +51,12 @@ class TestCurrentProxiesStats(unittest.TestCase):
 
     # Frontend stats shouldn't have Nones
     frontend = dashboard.frontend
-    for field in proxy_stats.HAProxyFrontendStats.__slots__:
+    for field in attr.fields_dict(proxy_stats.HAProxyFrontendStats).keys():
       self.assertIsNotNone(getattr(frontend, field))
 
     # Backend stats shouldn't have Nones
     backend = dashboard.backend
-    for field in proxy_stats.HAProxyBackendStats.__slots__:
+    for field in attr.fields_dict(proxy_stats.HAProxyBackendStats).keys():
       self.assertIsNotNone(getattr(backend, field))
 
     # Backend stats can have Nones only in some fields
@@ -63,7 +64,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
     self.assertIsInstance(servers, list)
     self.assertEqual(len(servers), 3)
     for server in servers:
-      for field in proxy_stats.HAProxyServerStats.__slots__:
+      for field in attr.fields_dict(proxy_stats.HAProxyServerStats).keys():
         if field in {'qlimit', 'throttle', 'tracked', 'check_code',
                      'last_chk', 'last_agt'}:
           continue
@@ -108,7 +109,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
 
     # Frontend stats shouldn't have Nones
     frontend = dashboard.frontend
-    for field in proxy_stats.HAProxyFrontendStats.__slots__:
+    for field in attr.fields_dict(proxy_stats.HAProxyFrontendStats).keys():
       self.assertIsNotNone(getattr(frontend, field))
     # New columns should be highlighted
     for new_in_v1_5 in ('comp_byp', 'comp_rsp', 'comp_out', 'comp_in'):
@@ -116,7 +117,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
 
     # Backend stats shouldn't have Nones
     backend = dashboard.backend
-    for field in proxy_stats.HAProxyBackendStats.__slots__:
+    for field in attr.fields_dict(proxy_stats.HAProxyBackendStats).keys():
       self.assertIsNotNone(getattr(backend, field))
     # New columns should be highlighted
     for new_in_v1_5 in ('comp_byp', 'lastsess', 'comp_rsp', 'comp_out',
@@ -128,7 +129,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
     self.assertIsInstance(servers, list)
     self.assertEqual(len(servers), 3)
     for server in servers:
-      for field in proxy_stats.HAProxyServerStats.__slots__:
+      for field in attr.fields_dict(proxy_stats.HAProxyServerStats).keys():
         if field in {'qlimit', 'throttle', 'tracked', 'check_code',
                      'last_chk', 'last_agt'}:
           continue

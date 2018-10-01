@@ -54,6 +54,14 @@ class MessageTest extends ApiProxyTestBase {
     $message->addAttachment("file.exe", "data");
   }
 
+  public function testAddAttachmentFilenameTypeError() {
+    $message = new Message();
+    $this->setExpectedException(
+        "InvalidArgumentException",
+        "Filename must be a string but was type integer");
+    $message->addAttachment(7, "data");
+  }
+
   private function setupAttachmentTest($input) {
     $message = new Message();
     $error_message = "";

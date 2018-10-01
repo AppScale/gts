@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 /**
- * Allow users to send mail using the App Engine mail APIs.
- *
  */
 
 namespace google\appengine\api\mail;
@@ -27,14 +25,17 @@ use google\appengine\base\VoidProto;
 use google\appengine\runtime\ApiProxy;
 use google\appengine\runtime\ApplicationError;
 
-class Message extends BaseMessage {
+/**
+ * Allows users to send mail using the App Engine mail APIs.
+ */
+final class Message extends BaseMessage {
   /**
    * Adds a "bcc" address, or array of addresses, to the mail object.
    *
    * @param mixed $emails String email of individual recipient, or array of
-   * emails of recipients
-   * @throws InvalidArgumentException if any of the input emails are not
-   * correctly formatted email addresses
+   * emails of recipients.
+   * @throws \InvalidArgumentException If any of the input emails are not
+   * correctly formatted email addresses.
    */
   public function addBcc($emails) {
     $email_array = $this->validEmailsArray($emails, "'bcc' recipient");
@@ -47,9 +48,9 @@ class Message extends BaseMessage {
    * Adds a "cc" address, or array of addresses, to the mail object.
    *
    * @param mixed $emails String email of individual recipient, or array of
-   * emails of recipients
-   * @throws InvalidArgumentException if any of the input emails are not
-   * correctly formatted email addresses
+   * emails of recipients.
+   * @throws \InvalidArgumentException If any of the input emails are not
+   * correctly formatted email addresses.
    */
   public function addCc($emails) {
     $email_array = $this->validEmailsArray($emails, "'cc' recipient");
@@ -62,9 +63,9 @@ class Message extends BaseMessage {
    * Adds a "to" address, or array of addresses, to the mail object.
    *
    * @param mixed $emails String email of individual recipient, or array of
-   * emails of recipients
-   * @throws InvalidArgumentException if any of the input emails are not
-   * correctly formatted email addresses
+   * emails of recipients.
+   * @throws \InvalidArgumentException If any of the input emails are not
+   * correctly formatted email addresses.
    */
   public function addTo($emails) {
     $email_array = $this->validEmailsArray($emails, "'to' recipient");
@@ -105,8 +106,8 @@ class Message extends BaseMessage {
    * Returns the class variable $set_functions array, or the corresponding
    * value in that array if a key is provided.
    *
-   * @param string $key Key to get corresponding value for
-   * @return mixed $set_functions array, or a string value from that array
+   * @param string $key Key to get corresponding value for.
+   * @return mixed $set_functions array, or a string value from that array.
    */
   protected function getFunctionArray($key = null) {
     return self::$set_functions;
@@ -115,13 +116,13 @@ class Message extends BaseMessage {
   /**
    * Send the pre-formed email from the Message object.
    *
-   * @throws InvalidArgumentException if a required field (sender, recipient
+   * @throws \InvalidArgumentException If a required field (sender, recipient
    * [to, cc or bcc], subject, body [plain or html]) is missing, or if an
    * ApplicationError was thrown by the RPC call due to an unauthorized
-   * sender, an invalid attachment type, or an invalid header name
-   * @throws RuntimeException If an ApplicationError was thrown by the RPC call
-   * due to an internal error or bad request
-   * @throws ApplicationError If there was an unknown error in the RPC call
+   * sender, an invalid attachment type, or an invalid header name.
+   * @throws \RuntimeException If an ApplicationError was thrown by the RPC call
+   * due to an internal error or bad request.
+   * @throws ApplicationError If there was an unknown error in the RPC call.
    */
   public function send() {
     if (!$this->message->hasSender()) {
@@ -158,9 +159,9 @@ class Message extends BaseMessage {
    * And subsequently returns an array of the valid emails.
    *
    * @param mixed $emails An array of emails string, or a single email string
-   * @return An array of emails
-   * @throws InvalidArgumentException if any of the input emails are not
-   * correctly formatted email addresses
+   * @return An array of emails.
+   * @throws \InvalidArgumentException If any of the input emails are not
+   * correctly formatted email addresses.
    */
   protected function validEmailsArray($email_list, $err_str) {
     if (is_string($email_list) && $this->checkValidEmail($email_list)) {

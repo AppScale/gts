@@ -117,12 +117,14 @@ class AppIdentityService(BaseService):
 
         return self._key.key_name
 
-    def get_access_token(self, scopes, service_account_id=None):
+    def get_access_token(self, scopes, service_account_id=None,
+                         service_account_name=None):
         """ Generates an access token from a service account.
 
         Args:
             scopes: A list of strings specifying scopes.
-            service_account_id: A string specifying a service account name.
+            service_account_id: An integer specifying a service account ID.
+            service_account_name: A string specifying a service account name.
         Returns:
             An AccessToken.
         Raises:
@@ -131,10 +133,14 @@ class AppIdentityService(BaseService):
         if self._key is None:
             raise UnknownError('A private key is not configured')
 
-        if (service_account_id is not None and
-            service_account_id != self._key.key_name):
+        if service_account_id is not None:
             raise UnknownError(
                 '{} is not configured'.format(service_account_id))
+
+        if (service_account_name is not None and
+            service_account_name != self._key.key_name):
+            raise UnknownError(
+                '{} is not configured'.format(service_account_name))
 
         return self._key.generate_access_token(self.project_id, scopes)
 
@@ -200,9 +206,14 @@ class AppIdentityService(BaseService):
             if request.HasField('service_account_id'):
                 service_account_id = request.service_account_id
 
+            service_account_name = None
+            if request.HasField('service_account_name'):
+                service_account_name = request.service_account_name
+
             try:
-                token = self.get_access_token(list(request.scope),
-                                              service_account_id)
+                token = self.get_access_token(
+                    list(request.scope), service_account_id,
+                    service_account_name)
             except UnknownError as error:
                 logger.exception('Unable to get access token')
                 raise ApplicationError(service_pb.UNKNOWN_ERROR, str(error))
