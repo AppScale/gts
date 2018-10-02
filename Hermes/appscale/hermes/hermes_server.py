@@ -1,5 +1,5 @@
-""" Web server/client that polls the AppScale Portal for new tasks and
-initiates actions accordingly. """
+""" Web server providing different metrics of AppScale
+nodes, processes and services. """
 
 import argparse
 import logging
