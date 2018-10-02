@@ -43,7 +43,6 @@ HERMES_PORT = 4378
 SECRET_HEADER = 'Appscale-Secret'
 
 
-
 class HTTP_Codes(object):
   """ A class with HTTP status codes. """
   HTTP_OK = 200

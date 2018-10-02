@@ -7,20 +7,37 @@ from tornado import gen
 from tornado.options import options
 from tornado.web import RequestHandler
 
-from appscale.hermes.constants import SECRET_HEADER, HTTP_Codes
-from appscale.hermes.constants import ACCEPTABLE_STATS_AGE
-from appscale.hermes.converter import stats_to_dict, \
-  IncludeLists, WrongIncludeLists
+from appscale.hermes.constants import (
+  SECRET_HEADER, HTTP_Codes, ACCEPTABLE_STATS_AGE
+)
+from appscale.hermes.converter import (
+  stats_to_dict, IncludeLists, WrongIncludeLists
+)
 
 
 class CurrentStatsHandler(RequestHandler):
   """ Handler for getting current local stats of specific kind.
   """
 
-  def initialize(self, source, default_include_lists):
+  def initialize(self, source, default_include_lists, cache_container):
+    """ Initializes RequestHandler for handling a single request.
+
+    Args:
+      source: an object with method get_current.
+      default_include_lists: an instance of IncludeLists to use as default.
+      cache_container: a list containing a single element - cached snapshot.
+    """
     self._stats_source = source
     self._default_include_lists = default_include_lists
-    self._snapshot = None
+    self._cache_container = cache_container
+
+  @property
+  def _cached_snapshot(self):
+    return self._cache_container[0]
+
+  @_cached_snapshot.setter
+  def _cached_snapshot(self, newer_snapshot):
+    self._cache_container[0] = newer_snapshot
 
   @gen.coroutine
   def get(self):
@@ -48,27 +65,41 @@ class CurrentStatsHandler(RequestHandler):
     else:
       include_lists = self._default_include_lists
 
-    newer_than = time.mktime(datetime.now().timetuple()) - max_age
+    snapshot = None
 
-    need_refresh = (
-      not self._snapshot or
-      (self._snapshot.utc_timestamp <= newer_than and max_age)
-    )
-    if need_refresh:
-      self._snapshot = self._stats_source.get_current()
-      if isinstance(self._snapshot, gen.Future):
-        self._snapshot = yield self._snapshot
+    # Try to use cached snapshot
+    if self._cached_snapshot:
+      now = time.time()
+      acceptable_time = now - max_age
+      if self._cached_snapshot.utc_timestamp >= acceptable_time:
+        snapshot = self._cached_snapshot
+        logging.info("Returning cached snapshot with age {:.2f}s"
+                     .format(now-self._cached_snapshot.utc_timestamp))
 
-    json.dump(stats_to_dict(self._snapshot, include_lists), self)
+    if not snapshot:
+      snapshot = self._stats_source.get_current()
+      if isinstance(snapshot, gen.Future):
+        snapshot = yield snapshot
+      self._cached_snapshot = snapshot
+
+    json.dump(stats_to_dict(snapshot, include_lists), self)
 
 
 class CurrentClusterStatsHandler(RequestHandler):
   """ Handler for getting current stats of specific kind.
   """
-  def initialize(self, source, default_include_lists):
+
+  def initialize(self, source, default_include_lists, cache_container):
+    """ Initializes RequestHandler for handling a single request.
+
+    Args:
+      source: an object with method get_current.
+      default_include_lists: an instance of IncludeLists to use as default.
+      cache_container: a dict with cached snapshots.
+    """
     self._current_cluster_stats_source = source
     self._default_include_lists = default_include_lists
-    self._snapshots = {}
+    self._cached_snapshots = cache_container
 
   @gen.coroutine
   def get(self):
@@ -102,9 +133,13 @@ class CurrentClusterStatsHandler(RequestHandler):
         include_lists.is_subset_of(self._default_include_lists)):
       # If user didn't specify any non-default fields we can use local cache
       fresh_local_snapshots = {
-        node_ip: snapshot for node_ip, snapshot in self._snapshots.iteritems()
+        node_ip: snapshot
+        for node_ip, snapshot in self._cached_snapshots.iteritems()
         if max_age and snapshot.utc_timestamp > newer_than
       }
+      if fresh_local_snapshots:
+        logging.debug("Returning cluster stats with {} cached snapshots"
+                      .format(len(fresh_local_snapshots)))
     else:
       fresh_local_snapshots = {}
 
@@ -116,7 +151,7 @@ class CurrentClusterStatsHandler(RequestHandler):
     )
 
     # Put new snapshots to local cache
-    self._snapshots.update(new_snapshots_dict)
+    self._cached_snapshots.update(new_snapshots_dict)
 
     # Extend fetched snapshots dict with fresh local snapshots
     new_snapshots_dict.update(fresh_local_snapshots)
@@ -130,6 +165,7 @@ class CurrentClusterStatsHandler(RequestHandler):
       "stats": rendered_snapshots,
       "failures": failures
     }, self)
+
 
 class Respond404Handler(RequestHandler):
   """

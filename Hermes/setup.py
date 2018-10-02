@@ -15,7 +15,7 @@ setup(
     'kazoo',
     'tornado',
     'psutil==5.1.3',
-    'attrs>=16',
+    'attrs>=18.1.0',
     'mock',
   ],
   test_suite='appscale.hermes',
@@ -29,5 +29,7 @@ setup(
   packages=['appscale',
             'appscale.hermes',
             'appscale.hermes.producers'],
-  entry_points={'console_scripts': ['appscale-hermes=appscale.hermes:main']}
+  entry_points={'console_scripts': [
+    'appscale-hermes=appscale.hermes.hermes_server:main'
+  ]}
 )

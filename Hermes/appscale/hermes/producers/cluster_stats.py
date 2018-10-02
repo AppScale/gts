@@ -18,7 +18,8 @@ from appscale.hermes import converter
 from appscale.hermes.constants import STATS_REQUEST_TIMEOUT
 from appscale.hermes.producers import (
   proxy_stats, node_stats, process_stats, rabbitmq_stats,
-  taskqueue_stats)
+  taskqueue_stats, cassandra_stats
+)
 
 # Allow tornado to fetch up to 100 concurrent requests
 httpclient.AsyncHTTPClient.configure(SimpleAsyncHTTPClient, max_clients=100)
@@ -135,6 +136,10 @@ def get_random_lb_node():
   return [random.choice(appscale_info.get_load_balancer_ips())]
 
 
+def get_random_db_node():
+  return [random.choice(appscale_info.get_db_ips())]
+
+
 cluster_nodes_stats = ClusterStatsSource(
   ips_getter=appscale_info.get_all_ips,
   method_path='stats/local/node',
@@ -175,4 +180,11 @@ cluster_push_queues_stats = ClusterStatsSource(
   method_path='stats/local/push_queues',
   stats_model=rabbitmq_stats.PushQueueStatsSnapshot,
   local_stats_source=rabbitmq_stats.PushQueueStatsSource
+)
+
+cluster_cassandra_stats = ClusterStatsSource(
+  ips_getter=get_random_db_node,
+  method_path='stats/local/cassandra',
+  stats_model=cassandra_stats.CassandraStatsSnapshot,
+  local_stats_source=cassandra_stats.CassandraStatsSource
 )
