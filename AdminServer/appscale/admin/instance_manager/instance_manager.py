@@ -1,14 +1,17 @@
 """ Fulfills AppServer instance assignments from the scheduler. """
+import datetime
 import logging
 import math
+import json
 import os
 import psutil
-import re
 import signal
+import time
 import urllib2
 
+from kazoo.exceptions import NoNodeError
 from tornado import gen
-from tornado.httpclient import HTTPError
+from tornado.gen import TimeoutError
 from tornado.ioloop import IOLoop
 from tornado.locks import Event as AsyncEvent
 
@@ -16,17 +19,17 @@ from appscale.admin.constants import UNPACK_ROOT
 from appscale.admin.instance_manager.constants import (
   API_SERVER_LOCATION, API_SERVER_PREFIX, APP_LOG_SIZE, BACKOFF_TIME,
   BadConfigurationException, DASHBOARD_LOG_SIZE, DASHBOARD_PROJECT_ID,
-  DEFAULT_MAX_APPSERVER_MEMORY, FETCH_PATH, GO_SDK, JAVA_APPSERVER_CLASS,
-  INSTANCE_CLASSES, MAX_API_SERVER_PORT, MAX_INSTANCE_RESPONSE_TIME,
-  MONIT_INSTANCE_PREFIX, NoRedirection, PIDFILE_TEMPLATE, PYTHON_APPSERVER,
-  START_APP_TIMEOUT, VERSION_REGISTRATION_NODE)
+  DEFAULT_MAX_APPSERVER_MEMORY, FETCH_PATH, GO_SDK, INSTANCE_CLASSES,
+  INSTANCE_CLEANUP_INTERVAL, JAVA_APPSERVER_CLASS, MAX_API_SERVER_PORT,
+  MAX_INSTANCE_RESPONSE_TIME, MONIT_INSTANCE_PREFIX, NoRedirection,
+  PIDFILE_TEMPLATE, PYTHON_APPSERVER, START_APP_TIMEOUT,
+  STARTING_INSTANCE_PORT, VERSION_REGISTRATION_NODE)
 from appscale.admin.instance_manager.instance import (
   Instance, create_java_app_env, create_java_start_cmd, create_python_app_env,
   create_python27_start_cmd)
 from appscale.admin.instance_manager.stop_instance import stop_instance
-from appscale.admin.instance_manager.utils import (
-  remove_logrotate, setup_logrotate)
-from appscale.common import appscale_info, misc, monit_app_configuration
+from appscale.admin.instance_manager.utils import setup_logrotate
+from appscale.common import appscale_info, monit_app_configuration
 from appscale.common.constants import (
   APPS_PATH, GO, HTTPCodes, JAVA, MonitStates, PHP, PYTHON27, VAR_DIR,
   VERSION_PATH_SEPARATOR)
@@ -76,7 +79,7 @@ class InstanceManager(object):
   """ Fulfills AppServer instance assignments from the scheduler. """
 
   # The seconds to wait between ensuring that assignments are fulfilled.
-  GROOMING_INTERVAL = 10
+  GROOMING_INTERVAL = 60
 
   # The ZooKeeper node that keeps track of the head node's state.
   CONTROLLER_STATE_NODE = '/appcontroller/state'
@@ -114,42 +117,33 @@ class InstanceManager(object):
     self._assignments = {}
     self._api_servers = {}
     self._running_instances = set()
+    self._last_cleanup_time = time.time()
+    self._login_server = None
 
   def start(self):
     """ Begins processes needed to fulfill instance assignments. """
     self._recover_state()
+    self._last_cleanup_time = time.time()
+    try:
+      encoded_state = self._zk_client.get(self.CONTROLLER_STATE_NODE)[0]
+    except NoNodeError:
+      encoded_state = None
+
+    self._update_assignments(encoded_state)
+    IOLoop.current().spawn_callback(self._fulfillment_loop)
+    self._zk_client.DataWatch(self.CONTROLLER_STATE_NODE,
+                              self._update_assignments_watch)
 
   @gen.coroutine
-  def start_app(self, version_key, config):
+  def _start_instance(self, version, port):
     """ Starts a Google App Engine application on this machine. It
         will start it up and then proceed to fetch the main page.
 
     Args:
-      version_key: A string specifying a version key.
-      config: a dictionary that contains
-        app_port: An integer specifying the port to use.
-        login_server: The server address the AppServer will use for login urls.
+      version: A Version object.
+      port: An integer specifying a port to use.
     """
-    if 'app_port' not in config:
-      raise BadConfigurationException('app_port is required')
-    if 'login_server' not in config or not config['login_server']:
-      raise BadConfigurationException('login_server is required')
-
-    login_server = config['login_server']
-
-    project_id, service_id, version_id = version_key.split(
-      VERSION_PATH_SEPARATOR)
-
-    if not misc.is_app_name_valid(project_id):
-      raise BadConfigurationException(
-        'Invalid project ID: {}'.format(project_id))
-
-    try:
-      service_manager = self._projects_manager[project_id][service_id]
-      version_details = service_manager[version_id].version_details
-    except KeyError:
-      raise BadConfigurationException('Version not found')
-
+    version_details = version.version_details
     runtime = version_details['runtime']
     env_vars = version_details.get('envVariables', {})
     runtime_params = self._deployment_config.get_config('runtime_parameters')
@@ -159,35 +153,32 @@ class InstanceManager(object):
       max_memory = INSTANCE_CLASSES.get(version_details['instanceClass'],
                                         max_memory)
 
-    revision_key = VERSION_PATH_SEPARATOR.join(
-      [project_id, service_id, version_id, str(version_details['revision'])])
     source_archive = version_details['deployment']['zip']['sourceUrl']
 
-    api_server_port = yield self._ensure_api_server(project_id)
-    yield self._source_manager.ensure_source(revision_key, source_archive,
-                                             runtime)
+    api_server_port = yield self._ensure_api_server(version.project_id)
+    yield self._source_manager.ensure_source(
+      version.revision_key, source_archive, runtime)
 
-    logging.info('Starting {} application {}'.format(runtime, project_id))
+    logger.info('Starting {}'.format(version))
 
-    pidfile = PIDFILE_TEMPLATE.format(revision=revision_key,
-                                      port=config['app_port'])
+    pidfile = PIDFILE_TEMPLATE.format(revision=version.revision_key, port=port)
 
     if runtime == GO:
-      env_vars['GOPATH'] = os.path.join(UNPACK_ROOT, revision_key, 'gopath')
+      env_vars['GOPATH'] = os.path.join(UNPACK_ROOT, version.revision_key,
+                                        'gopath')
       env_vars['GOROOT'] = os.path.join(GO_SDK, 'goroot')
 
-    watch = ''.join([MONIT_INSTANCE_PREFIX, revision_key])
+    watch = ''.join([MONIT_INSTANCE_PREFIX, version.revision_key])
     if runtime in (PYTHON27, GO, PHP):
       start_cmd = create_python27_start_cmd(
-        project_id,
-        login_server,
-        config['app_port'],
+        version.project_id,
+        self._login_server,
+        port,
         pidfile,
-        revision_key,
+        version.revision_key,
         api_server_port)
-      env_vars.update(create_python_app_env(
-        login_server,
-        project_id))
+      env_vars.update(create_python_app_env(self._login_server,
+                                            version.project_id))
     elif runtime == JAVA:
       # Account for MaxPermSize (~170MB), the parent process (~50MB), and thread
       # stacks (~20MB).
@@ -197,19 +188,19 @@ class InstanceManager(object):
           'Memory for Java applications must be greater than 250MB')
 
       start_cmd = create_java_start_cmd(
-        project_id,
-        config['app_port'],
-        login_server,
+        version.project_id,
+        port,
+        self._login_server,
         max_heap,
         pidfile,
-        revision_key,
+        version.revision_key,
         api_server_port
       )
 
       env_vars.update(create_java_app_env(self._deployment_config))
     else:
       raise BadConfigurationException(
-        'Unknown runtime {} for {}'.format(runtime, project_id))
+        'Unknown runtime {} for {}'.format(runtime, version.project_id))
 
     logging.info("Start command: " + str(start_cmd))
     logging.info("Environment variables: " + str(env_vars))
@@ -218,84 +209,33 @@ class InstanceManager(object):
       watch,
       start_cmd,
       pidfile,
-      config['app_port'],
+      port,
       env_vars,
       max_memory,
       self._syslog_server,
       check_port=True,
       kill_exceeded_memory=True)
 
-    full_watch = '{}-{}'.format(watch, config['app_port'])
+    full_watch = '{}-{}'.format(watch, port)
 
     yield self._monit_operator.reload(self._thread_pool)
     yield self._monit_operator.send_command_retry_process(full_watch, 'start')
 
-    # Make sure the version node exists.
+    # Make sure the version registration node exists.
     self._zk_client.ensure_path(
-      '/'.join([VERSION_REGISTRATION_NODE, version_key]))
+      '/'.join([VERSION_REGISTRATION_NODE, version.version_key]))
 
-    # Since we are going to wait, possibly for a long time for the
-    # application to be ready, we do it later.
-    IOLoop.current().spawn_callback(self._add_routing,
-                                    Instance(revision_key, config['app_port']))
+    instance = Instance(version.revision_key, port)
+    yield self._add_routing(instance)
 
-    if project_id == DASHBOARD_PROJECT_ID:
+    if version.project_id == DASHBOARD_PROJECT_ID:
       log_size = DASHBOARD_LOG_SIZE
     else:
       log_size = APP_LOG_SIZE
 
-    if not setup_logrotate(project_id, log_size):
+    if not setup_logrotate(version.project_id, log_size):
       logging.error("Error while setting up log rotation for application: {}".
-                    format(project_id))
-
-  @gen.coroutine
-  def stop_app(self, version_key):
-    """ Stops all process instances of a version on this machine.
-
-    Args:
-      version_key: Name of version to stop
-    Returns:
-      True on success, False otherwise
-    """
-    project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
-
-    if not misc.is_app_name_valid(project_id):
-      raise BadConfigurationException(
-        'Invalid project ID: {}'.format(project_id))
-
-    logging.info('Stopping {}'.format(version_key))
-
-    version_group = ''.join([MONIT_INSTANCE_PREFIX, version_key])
-    monit_entries = yield self._monit_operator.get_entries()
-    version_entries = [entry for entry in monit_entries
-                       if entry.startswith(version_group)]
-    for entry in version_entries:
-      revision_key, port = entry[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)
-      port = int(port)
-      instance = Instance(revision_key, port)
-      self._routing_client.unregister_instance(instance)
-      try:
-        self._running_instances.remove(instance)
-      except KeyError:
-        logging.info(
-          'unregister_instance: non-existent instance {}'.format(instance))
-
-      yield self._unmonitor_and_terminate(entry)
-
-    project_prefix = ''.join([MONIT_INSTANCE_PREFIX, project_id])
-    remaining_instances = [entry for entry in monit_entries
-                           if entry.startswith(project_prefix)
-                           and entry not in version_entries]
-    if not remaining_instances:
-      yield self._stop_api_server(project_id)
-
-    if (project_id not in self._projects_manager and
-        not remove_logrotate(project_id)):
-      logging.error("Error while removing log rotation for application: {}".
-                    format(project_id))
-
-    yield self._monit_operator.reload(self._thread_pool)
-    yield self._clean_old_sources()
+                    format(version.project_id))
 
   @gen.coroutine
   def stop_failed_instances(self):
@@ -303,7 +243,9 @@ class InstanceManager(object):
     failed_instances = yield self._routing_client.get_failed_instances()
     for instance in self._running_instances:
       if (instance.version_key, instance.port) in failed_instances:
-        yield self._stop_app_instance(instance.version_key, instance.port)
+        yield self._stop_app_instance(instance)
+
+    self._last_cleanup_time = time.time()
 
   @gen.coroutine
   def populate_api_servers(self):
@@ -423,7 +365,7 @@ class InstanceManager(object):
     # monit doesn't pick it up and restart it.
     self._monit_operator.remove_configuration(watch)
 
-    yield stop_instance(watch, MAX_INSTANCE_RESPONSE_TIME)
+    stop_instance(watch, MAX_INSTANCE_RESPONSE_TIME)
 
   @gen.coroutine
   def _wait_for_app(self, port):
@@ -508,53 +450,161 @@ class InstanceManager(object):
     self._source_manager.clean_old_revisions(active_revisions=active_revisions)
 
   @gen.coroutine
-  def _stop_app_instance(self, version_key, port):
+  def _stop_app_instance(self, instance):
     """ Stops a Google App Engine application process instance on current
         machine.
 
     Args:
-      version_key: A string, the name of version to stop.
-      port: The port the application is running on.
-    Returns:
-      True on success, False otherwise.
+      instance: An Instance object.
     """
-    project_id = version_key.split(VERSION_PATH_SEPARATOR)[0]
+    logger.info('Stopping {}'.format(instance))
 
-    if not misc.is_app_name_valid(project_id):
-      raise BadConfigurationException(
-        'Invalid project ID: {}'.format(project_id))
+    monit_watch = ''.join(
+      [MONIT_INSTANCE_PREFIX, instance.revision_key, '-', str(instance.port)])
 
-    logging.info('Stopping {}:{}'.format(version_key, port))
-
-    # Discover revision key from version and port.
-    instance_key_re = re.compile(
-      '{}{}.*-{}'.format(MONIT_INSTANCE_PREFIX, version_key, port))
-    monit_entries = yield self._monit_operator.get_entries()
-    try:
-      watch = next(entry for entry in monit_entries
-                   if instance_key_re.match(entry))
-    except StopIteration:
-      message = 'No entries exist for {}:{}'.format(version_key, port)
-      raise HTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
-    revision_key, port = watch[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)
-    port = int(port)
-    instance = Instance(revision_key, port)
-    self._routing_client.unregister_instance()
+    self._routing_client.unregister_instance(instance)
     try:
       self._running_instances.remove(instance)
     except KeyError:
       logging.info(
         'unregister_instance: non-existent instance {}'.format(instance))
 
-    yield self._unmonitor_and_terminate(watch)
+    yield self._unmonitor_and_terminate(monit_watch)
 
-    project_prefix = ''.join([MONIT_INSTANCE_PREFIX, project_id])
-    remaining_instances = [entry for entry in monit_entries
-                           if entry.startswith(project_prefix)
-                           and not instance_key_re.match(entry)]
-    if not remaining_instances:
-      yield self._stop_api_server(project_id)
+    project_instances = [instance_ for instance_ in self._running_instances
+                         if instance_.project_id == instance.project_id]
+    if not project_instances:
+      yield self._stop_api_server(instance.project_id)
 
     yield self._monit_operator.reload(self._thread_pool)
     yield self._clean_old_sources()
+
+  def _get_lowest_port(self):
+    """ Determines the lowest usuable port for a new instance.
+
+    Returns:
+      An integer specifying a free port.
+    """
+    existing_ports = {instance.port for instance in self._running_instances}
+    port = STARTING_INSTANCE_PORT
+    while True:
+      if port in existing_ports:
+        port += 1
+        continue
+
+      return port
+
+  @gen.coroutine
+  def _fulfill_assignments(self):
+    """ Starts and stops instances in order to fulfill assignments. """
+
+    # Wait until either the grooming interval has passed or the assignments
+    # have been updated.
+    try:
+      yield gen.with_timeout(datetime.timedelta(seconds=self.GROOMING_INTERVAL),
+                             self._update_event.wait())
+    except TimeoutError:
+      pass
+
+    self._update_event.clear()
+
+    if time.time() > self._last_cleanup_time + INSTANCE_CLEANUP_INTERVAL:
+      yield self.stop_failed_instances()
+
+    # Stop versions that aren't assigned.
+    to_stop = [instance for instance in self._running_instances
+               if instance.version_key not in self._assignments]
+    for instance in to_stop:
+      yield self._stop_app_instance(instance)
+
+    for version_key, assigned_ports in self._assignments.items():
+      project_id, service_id, version_id = version_key.split(
+        VERSION_PATH_SEPARATOR)
+      version_instances = [instance for instance in self._running_instances
+                           if instance.version_key == version_key]
+      try:
+        version = self._projects_manager[project_id][service_id][version_id]
+      except KeyError:
+        # If the version node no longer exists, stop any running instances.
+        for instance in version_instances:
+          yield self._stop_app_instance(instance)
+
+        continue
+
+      # Ensure version updates trigger fulfillment work.
+      version.add_callback(self._handle_version_update)
+
+      # Stop instances that aren't assigned.
+      for instance in version_instances:
+        if instance.port not in assigned_ports:
+          yield self._stop_app_instance(instance)
+
+      # Start assigned instances that aren't running.
+      for port in assigned_ports:
+        if port == -1:
+          port = self._get_lowest_port()
+
+        instance = Instance(version.revision_key, port)
+        if instance not in version_instances:
+          self._start_instance(version, instance.port)
+
+      # If there are any instances running an older revision, restart them.
+      for instance in version_instances:
+        if instance.revision_key != version.revision_key:
+          yield self._stop_app_instance(instance)
+          yield self._start_instance(version, instance.port)
+
+  @gen.coroutine
+  def _fulfillment_loop(self):
+    """ Continually tries to fulfill assignments. """
+    while True:
+      try:
+        yield self._fulfill_assignments()
+      # The above shouldn't raise an exception, but if for some reason it does,
+      # it's crucial that the manager keeps trying to fulfill assignments.
+      except Exception:
+        logger.exception('Unexpected error when scheduling instances')
+
+  def _update_assignments(self, encoded_controller_state):
+    """ Updates the list of instances this machine should run.
+
+    Args:
+      encoded_controller_state: A JSON-encoded string containing controller
+        state.
+    """
+    if encoded_controller_state is None:
+      self._assignments = {}
+      return
+
+    controller_state = json.loads(encoded_controller_state)
+    def version_assignments(data):
+      return [int(server.split(':')[1]) for server in data['appservers']
+              if server.split(':')[0] == self._private_ip]
+
+    new_assignments = {
+      version_key: version_assignments(data)
+      for version_key, data in controller_state['@app_info_map'].items()
+      if version_assignments(data)}
+
+    login_server = controller_state['@options']['login']
+
+    if (new_assignments != self._assignments or
+        login_server != self._login_server):
+      self._assignments = new_assignments
+      self._login_server = login_server
+      self._update_event.set()
+
+  def _update_assignments_watch(self, encoded_controller_state, _):
+    """ Handles updates to controller state.
+
+    Args:
+      encoded_controller_state: A JSON-encoded string containing controller
+        state.
+    """
+    IOLoop.instance().add_callback(
+      self._update_assignments, encoded_controller_state)
+
+  def _handle_version_update(self, version_details):
+    """ Triggers the fulfillment work when a version has been update. """
+    del version_details
+    self._update_event.set()

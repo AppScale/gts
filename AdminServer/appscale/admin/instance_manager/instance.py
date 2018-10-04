@@ -29,6 +29,11 @@ class Instance(object):
     return VERSION_PATH_SEPARATOR.join(revision_parts[:3])
 
   @property
+  def project_id(self):
+    revision_parts = self.revision_key.split(VERSION_PATH_SEPARATOR)
+    return revision_parts[0]
+
+  @property
   def revision(self):
     return self.revision_key.split(VERSION_PATH_SEPARATOR)[-1]
 

@@ -69,27 +69,4 @@ module AppDashboard
 
     app_location
   end
-
-  # Stops all AppServers running the AppDashboard on this machine.
-  # Returns:
-  #   true if the AppDashboard was stopped successfully, and false otherwise.
-  def self.stop
-    Djinn.log_info("Stopping app #{APP_NAME} on #{HelperFunctions.local_ip}")
-    app_manager = AppManagerClient.new(HelperFunctions.local_ip)
-
-    app_stopped = false
-    begin
-      app_manager.stop_app(APP_NAME)
-      app_stopped = true
-    rescue FailedNodeException
-      app_stopped = false
-    end
-
-    unless app_stopped
-      Djinn.log_error("Failed to stop app #{APP_NAME} on " \
-        "#{HelperFunctions.local_ip}")
-    end
-
-    app_stopped
-  end
 end

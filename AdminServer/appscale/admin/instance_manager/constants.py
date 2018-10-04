@@ -125,6 +125,9 @@ INSTANCE_CLEANUP_INTERVAL = 30
 # The amount of seconds to wait for an application to start up.
 START_APP_TIMEOUT = 180
 
+# The lowest port to use when starting instances.
+STARTING_INSTANCE_PORT = 20000
+
 # Apps which can access any application's data.
 TRUSTED_APPS = ["appscaledashboard"]
 

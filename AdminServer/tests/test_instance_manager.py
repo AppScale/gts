@@ -18,7 +18,6 @@ from appscale.admin.instance_manager import (
 from appscale.admin.instance_manager import InstanceManager
 from appscale.admin.instance_manager import instance
 from appscale.admin.instance_manager import utils
-from appscale.admin.instance_manager.server import BadConfigurationException
 from appscale.common import (
   file_io,
   appscale_info,
@@ -40,49 +39,16 @@ options.define('tq_proxy', '<private_ip>')
 
 class TestInstanceManager(AsyncTestCase):
   @gen_test
-  def test_start_app_badconfig(self):
-    testing.disable_logging()
-
-    instance_manager = InstanceManager(
-      None, None, None, None, None, None, None, None, None)
-    with self.assertRaises(BadConfigurationException):
-      yield instance_manager.start_app('test', {})
-
-  @gen_test
-  def test_start_app_bad_appname(self):
-    configuration = {
-      'app_port': 20000,
-      'service_id': 'default',
-      'version_id': 'v1',
-      'env_vars': {}
-    }
-
-    version_manager = flexmock(version_details={'runtime': 'python27'})
-    projects_manager = {
-      'test': {'default': {'v1': version_manager}}}
-    instance_manager = InstanceManager(
-      None, None, None, projects_manager, None, None, None, None, None)
-
-    with self.assertRaises(BadConfigurationException):
-      yield instance_manager.start_app(
-        'badName!@#$%^&*([]/.,_default_v1', configuration)
-
-  @gen_test
   def test_start_app_goodconfig_python(self):
     testing.disable_logging()
-
-    configuration = {
-      'app_port': 20000,
-      'login_server': 'public1',
-      'service_id': 'default',
-      'version_id': 'v1',
-      'env_vars': {}
-    }
 
     version_details = {'runtime': 'python27',
                        'revision': 1,
                        'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}}}
-    version_manager = flexmock(version_details=version_details)
+    version_manager = flexmock(version_details=version_details,
+                               project_id='test',
+                               revision_key='test_default_v1_1',
+                               version_key='test_default_v1')
     projects_manager = {
       'test': {'default': {'v1': version_manager}}}
     deployment_config = flexmock(
@@ -98,6 +64,7 @@ class TestInstanceManager(AsyncTestCase):
     instance_manager = InstanceManager(
       None, None, None, projects_manager, deployment_config,
       source_manager, None, None, None)
+    instance_manager._login_server = '192.168.33.10'
 
     flexmock(monit_app_configuration).should_receive('create_config_file').\
       and_return('fakeconfig')
@@ -138,24 +105,19 @@ class TestInstanceManager(AsyncTestCase):
       reload=lambda x: response,
       send_command_retry_process=lambda watch, cmd: response)
 
-    yield instance_manager.start_app('test_default_v1', configuration)
+    yield instance_manager._start_instance(version_manager, 20000)
 
   @gen_test
   def test_start_app_goodconfig_java(self):
     testing.disable_logging()
 
-    configuration = {
-      'app_port': 20000,
-      'login_server': 'public1',
-      'service_id': 'default',
-      'version_id': 'v1',
-      'env_vars': {}
-    }
-
     version_details = {'runtime': 'java',
                        'revision': 1,
                        'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}}}
-    version_manager = flexmock(version_details=version_details)
+    version_manager = flexmock(version_details=version_details,
+                               project_id='test',
+                               revision_key='test_default_v1_1',
+                               version_key='test_default_v1')
 
     instance_manager = InstanceManager(
       None, None, None, None, None, None, None, None, None)
@@ -224,22 +186,17 @@ class TestInstanceManager(AsyncTestCase):
       reload=lambda x: response,
       send_command_retry_process=lambda watch, cmd: response)
 
-    yield instance_manager.start_app('test_default_v1', configuration)
+    yield instance_manager._start_instance(version_manager, 20000)
 
   @gen_test
   def test_start_app_failed_copy_java(self):
-    configuration = {
-      'app_port': 20000,
-      'login_server': 'public1',
-      'service_id': 'default',
-      'version_id': 'v1',
-      'env_vars': {}
-    }
-
     version_details = {'runtime': 'java',
                        'revision': 1,
                        'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}}}
-    version_manager = flexmock(version_details=version_details)
+    version_manager = flexmock(version_details=version_details,
+                               project_id='test',
+                               revision_key='test_default_v1_1',
+                               version_key='test_default_v1')
 
     instance_manager = InstanceManager(
       None, None, None, None, None, None, None, None, None)
@@ -262,7 +219,7 @@ class TestInstanceManager(AsyncTestCase):
       and_raise(IOError)
 
     with self.assertRaises(IOError):
-      yield instance_manager.start_app('test_default_v1', configuration)
+      yield instance_manager._start_instance(version_manager, 20000)
 
   def test_create_python_app_env(self):
     env_vars = instance.create_python_app_env('1', '2')
@@ -296,14 +253,11 @@ class TestInstanceManager(AsyncTestCase):
     instance_manager = InstanceManager(
       None, None, None, None, None, None, None, None, None)
 
-    with self.assertRaises(BadConfigurationException):
-      yield instance_manager._stop_app_instance(version_key, port)
-
     flexmock(misc).should_receive('is_app_name_valid').and_return(True)
     response = Future()
     response.set_result(None)
     instance_manager._routing_client = flexmock(
-      unregister_instance=lambda: response)
+      unregister_instance=lambda instance: response)
     flexmock(MonitOperator).should_receive('send_command_sync').\
       with_args('app___test_default_v1-20000', 'unmonitor').\
       and_raise(HTTPError)
@@ -320,7 +274,8 @@ class TestInstanceManager(AsyncTestCase):
       reload=lambda x: response)
 
     with self.assertRaises(HTTPError):
-      yield instance_manager._stop_app_instance(version_key, port)
+      yield instance_manager._stop_app_instance(
+        instance.Instance('_'.join([version_key, 'revid']), port))
 
     flexmock(MonitOperator).should_receive('send_command_sync').\
       with_args('app___test_default_v1-20000', 'unmonitor')
@@ -342,16 +297,8 @@ class TestInstanceManager(AsyncTestCase):
     flexmock(instance_manager).should_receive('_unmonitor_and_terminate').\
       and_return(response)
 
-    yield instance_manager._stop_app_instance(version_key, port)
-
-  def test_stop_app(self):
-    instance_manager = InstanceManager(
-      None, None, None, None, None, None, None, None, None)
-    flexmock(monit_interface).should_receive('stop').\
-      and_return(True)
-    flexmock(os).should_receive('system').\
-      and_return(0)
-    instance_manager.stop_app('test')
+    yield instance_manager._stop_app_instance(
+      instance.Instance('_'.join([version_key, 'revid']), port))
 
   def test_remove_logrotate(self):
     flexmock(os).should_receive("remove").and_return()

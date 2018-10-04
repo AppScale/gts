@@ -123,12 +123,11 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
 
 
 @gen.coroutine
-def wait_for_deploy(operation_id, acc):
+def wait_for_deploy(operation_id):
   """ Tracks the progress of a deployment.
 
   Args:
     operation_id: A string specifying the operation ID.
-    acc: An AppControllerClient instance.
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
@@ -513,18 +512,15 @@ class VersionsHandler(BaseHandler):
   # Reserved names for version IDs.
   RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
 
-  def initialize(self, acc, ua_client, zk_client, version_update_lock,
-                 thread_pool):
+  def initialize(self, ua_client, zk_client, version_update_lock, thread_pool):
     """ Defines required resources to handle requests.
 
     Args:
-      acc: An AppControllerClient.
       ua_client: A UAClient.
       zk_client: A KazooClient.
       version_update_lock: A kazoo lock.
       thread_pool: A ThreadPoolExecutor.
     """
-    self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
     self.version_update_lock = version_update_lock
@@ -688,25 +684,6 @@ class VersionsHandler(BaseHandler):
 
     return new_version
 
-  def begin_deploy(self, project_id, service_id, version_id):
-    """ Triggers the deployment process.
-
-    Args:
-      project_id: A string specifying a project ID.
-      service_id: A string specifying a service ID.
-      version_id: A string specifying a version ID.
-    Raises:
-      CustomHTTPError if unable to start the deployment process.
-    """
-    version_key = VERSION_PATH_SEPARATOR.join(
-      [project_id, service_id, version_id])
-
-    try:
-      self.acc.update([version_key])
-    except AppControllerException as error:
-      message = 'Error while updating version: {}'.format(error)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
-
   @gen.coroutine
   def identify_as_hoster(self, project_id, service_id, version):
     """ Marks this machine as having a version's source code.
@@ -820,7 +797,6 @@ class VersionsHandler(BaseHandler):
 
     self.clean_up_revision_nodes(project_id, service_id, version)
     utils.remove_old_archives(project_id, service_id, version)
-    self.begin_deploy(project_id, service_id, version['id'])
 
     operation = CreateVersionOperation(project_id, service_id, version)
     operations[operation.id] = operation
@@ -828,8 +804,7 @@ class VersionsHandler(BaseHandler):
     pre_wait = REDEPLOY_WAIT if version_exists else 0
     logging.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
-    IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id,
-                                self.acc)
+    IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id)
 
     self.write(json_encode(operation.rest_repr()))
 
@@ -1269,7 +1244,8 @@ def main():
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
-     all_resources),
+     {'ua_client': ua_client, 'zk_client': zk_client,
+      'version_update_lock': version_update_lock, 'thread_pool': thread_pool}),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)', ServiceHandler,
