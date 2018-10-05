@@ -1,5 +1,4 @@
 """ Fulfills AppServer instance assignments from the scheduler. """
-import datetime
 import logging
 import math
 import json
@@ -11,8 +10,7 @@ import urllib2
 
 from kazoo.exceptions import NoNodeError
 from tornado import gen
-from tornado.gen import TimeoutError
-from tornado.ioloop import IOLoop
+from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.locks import Event as AsyncEvent
 
 from appscale.admin.constants import UNPACK_ROOT
@@ -119,20 +117,41 @@ class InstanceManager(object):
     self._running_instances = set()
     self._last_cleanup_time = time.time()
     self._login_server = None
+    self._grooming_trigger = PeriodicCallback(
+      self._update_event.set, self.GROOMING_INTERVAL * 1000)
 
   def start(self):
     """ Begins processes needed to fulfill instance assignments. """
+
+    # Update list of running instances in case the InstanceManager was
+    # restarted.
     self._recover_state()
     self._last_cleanup_time = time.time()
+
+    # Synchronously fetch assignments so that instances are not stopped before
+    # the first time assignments are fetched.
     try:
       encoded_state = self._zk_client.get(self.CONTROLLER_STATE_NODE)[0]
     except NoNodeError:
       encoded_state = None
 
     self._update_assignments(encoded_state)
-    IOLoop.current().spawn_callback(self._fulfillment_loop)
+
+    # Trigger fulfillment work on a regular interval.
+    self._grooming_trigger.start()
+
+    # Subscribe to changes in controller state, which includes assignments and
+    # the 'login' property.
     self._zk_client.DataWatch(self.CONTROLLER_STATE_NODE,
                               self._update_assignments_watch)
+
+    # Subscribe to changes in project configuration, including relevant
+    # versions.
+    self._projects_manager.subscriptions.append(
+      self._handle_configuration_update)
+
+    # Begin the never-ending task of fulfilling assignments.
+    IOLoop.current().spawn_callback(self._fulfillment_loop)
 
   @gen.coroutine
   def _start_instance(self, version, port):
@@ -539,16 +558,17 @@ class InstanceManager(object):
   def _fulfill_assignments(self):
     """ Starts and stops instances in order to fulfill assignments. """
 
-    # Wait until either the grooming interval has passed or the assignments
-    # have been updated.
-    try:
-      yield gen.with_timeout(datetime.timedelta(seconds=self.GROOMING_INTERVAL),
-                             self._update_event.wait())
-    except TimeoutError:
-      pass
-
+    # Wait until one of the following conditions has been met:
+    #  - The grooming interval has passed
+    #  - The machine's assignments have been updated
+    #  - The deployment's "login" property has been updated
+    #  - The details of an assigned version have been updated
+    #  - The details of a running version have been updated
+    yield self._update_event.wait()
     self._update_event.clear()
 
+    # Occasionally, a router will mark an instance as "down". This cleanup
+    # manually stops the unrouted processes.
     if time.time() > self._last_cleanup_time + INSTANCE_CLEANUP_INTERVAL:
       yield self.stop_failed_instances()
 
@@ -571,9 +591,6 @@ class InstanceManager(object):
           yield self._stop_app_instance(instance)
 
         continue
-
-      # Ensure version updates trigger fulfillment work.
-      version.add_callback(self._handle_version_update)
 
       # Stop instances that aren't assigned.
       for instance in version_instances:
@@ -646,7 +663,12 @@ class InstanceManager(object):
     IOLoop.instance().add_callback(
       self._update_assignments, encoded_controller_state)
 
-  def _handle_version_update(self, version_details):
-    """ Triggers the fulfillment work when a version has been update. """
-    del version_details
-    self._update_event.set()
+  def _handle_configuration_update(self, event):
+    """ Triggers fulfillment work when an assigned version has been updated. """
+    running_versions = {instance.version_key
+                        for instance in self._running_instances}
+    assigned_versions = set(self._assignments.keys())
+    for relevant_version in running_versions | assigned_versions:
+      if event.affects_version(relevant_version):
+        self._update_event.set()
+        break

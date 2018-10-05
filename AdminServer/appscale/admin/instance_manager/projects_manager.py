@@ -16,24 +16,68 @@ from appscale.common.constants import VERSION_PATH_SEPARATOR
 logger = logging.getLogger('appscale-admin')
 
 
+class Event(object):
+  """ Represents a change in configuration. """
+
+  PROJECT_CREATED = 'project_created'
+  PROJECT_DELETED = 'project_deleted'
+  SERVICE_CREATED = 'service_created'
+  SERVICE_DELETED = 'service_deleted'
+  VERSION_CREATED = 'version_created'
+  VERSION_DELETED = 'version_deleted'
+  VERSION_UPDATED = 'version_updated'
+
+  __slots__ = ['type', 'resource']
+
+  def __init__(self, event_type, resource):
+    self.type = event_type
+    self.resource = resource
+
+  def affects_version(self, version_key):
+    """ Reports whether or not the event affects a given version.
+
+    Args:
+      version_key: A string specifying the relevant version key.
+    Returns:
+      A boolean specifying whether or not the version is affected.
+    """
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
+
+    if self.type in (self.PROJECT_CREATED, self.PROJECT_DELETED):
+      return self.resource == project_id
+
+    if self.type in (self.SERVICE_CREATED, self.SERVICE_DELETED):
+      service_key = VERSION_PATH_SEPARATOR.join([project_id, service_id])
+      return self.resource == service_key
+
+    if self.type in (self.VERSION_CREATED, self.VERSION_DELETED,
+                     self.VERSION_UPDATED):
+      return self.resource == version_key
+
+    return False
+
+
 class Version(object):
   """ Keeps track of version details. """
-  def __init__(self, zk_client, project_id, service_id, version_id):
+  def __init__(self, zk_client, projects_manager, project_id, service_id,
+               version_id):
     """ Creates a new Version.
 
     Args:
       zk_client: A KazooClient.
+      projects_manager: A GlobalProjectsManager object.
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
       version_id: A string specifying a version ID.
     """
     self._zk_client = zk_client
+    self._projects_manager = projects_manager
     self.version_details = None
     self.project_id = project_id
     self.service_id = service_id
     self.version_id = version_id
 
-    self._callbacks = []
     self._stopped = False
 
     self.version_node = '/appscale/projects/{}/services/{}/versions/{}'.format(
@@ -75,16 +119,6 @@ class Version(object):
 
     return 'Version<{}>'.format(details)
 
-  def add_callback(self, callback):
-    """ Adds function to call when there is an update.
-
-    callback: A callable object.
-    """
-    if callback in self._callbacks:
-      return
-
-    self._callbacks.append(callback)
-
   def update_version(self, new_version):
     """ Caches new version details.
 
@@ -107,8 +141,7 @@ class Version(object):
       port_file.write(str(http_port))
 
     logger.info('Updated version details: {}'.format(version_key))
-    for callback in self._callbacks:
-      callback(self.version_details)
+    self._projects_manager.publish(Event(Event.VERSION_UPDATED, version_key))
 
   def ensure_watch(self):
     """ Restarts the watch if it has been cancelled. """
@@ -134,18 +167,20 @@ class Version(object):
     main_io_loop.add_callback(persistent_update_version, new_version)
 
 
-class ServiceManager(dict):
-  """ Keeps track of versions for a service. """
-  def __init__(self, zk_client, project_id, service_id):
-    """ Creates a new ServiceManager.
+class ProjectService(dict):
+  """ Keeps track of a project's service details. """
+  def __init__(self, zk_client, projects_manager, project_id, service_id):
+    """ Creates a new ProjectService.
 
     Args:
       zk_client: A KazooClient.
+      projects_manager: A GlobalProjectsManager object.
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
     """
-    super(ServiceManager, self).__init__()
+    super(ProjectService, self).__init__()
     self._zk_client = zk_client
+    self._projects_manager = projects_manager
     self.project_id = project_id
     self.service_id = service_id
     self._stopped = False
@@ -171,11 +206,15 @@ class ServiceManager(dict):
     to_stop = [version for version in self if version not in new_versions_list]
     for version_id in to_stop:
       del self[version_id]
+      self._projects_manager.publish(Event(Event.VERSION_DELETED, version_id))
 
     for version_id in new_versions_list:
       if version_id not in self:
         self[version_id] = Version(
-          self._zk_client, self.project_id, self.service_id, version_id)
+          self._zk_client, self._projects_manager, self.project_id,
+          self.service_id, version_id)
+        self._projects_manager.publish(
+          Event(Event.VERSION_CREATED, version_id))
 
       self[version_id].ensure_watch()
 
@@ -206,17 +245,19 @@ class ServiceManager(dict):
     main_io_loop.add_callback(persistent_update_versions, new_versions_list)
 
 
-class ProjectManager(dict):
-  """ Keeps track of services for a project. """
-  def __init__(self, zk_client, project_id):
-    """ Creates a new ProjectManager.
+class Project(dict):
+  """ Keeps track of project details. """
+  def __init__(self, zk_client, projects_manager, project_id):
+    """ Creates a new Project.
 
     Args:
       zk_client: A KazooClient.
+      projects_manager: A GlobalProjectsManager object.
       project_id: A string specifying a project ID.
     """
-    super(ProjectManager, self).__init__()
+    super(Project, self).__init__()
     self._zk_client = zk_client
+    self._projects_manager = projects_manager
     self.project_id = project_id
     self._stopped = False
 
@@ -241,11 +282,14 @@ class ProjectManager(dict):
     for service_id in to_stop:
       self[service_id].stop()
       del self[service_id]
+      self._projects_manager.publish(Event(Event.SERVICE_DELETED, service_id))
 
     for service_id in new_services_list:
       if service_id not in self:
-        self[service_id] = ServiceManager(self._zk_client, self.project_id,
-                                          service_id)
+        self[service_id] = ProjectService(
+          self._zk_client, self._projects_manager, self.project_id, service_id)
+        self._projects_manager.publish(
+          Event(Event.SERVICE_CREATED, service_id))
 
   def stop(self):
     """ Stops all watches associated with this service. """
@@ -299,6 +343,14 @@ class GlobalProjectsManager(dict):
     self._zk_client.ChildrenWatch(self.PROJECTS_NODE,
                                   self._update_projects_watch)
 
+    # A list of functions to call when configuration changes are made.
+    self.subscriptions = []
+
+  def publish_event(self, event):
+    """ Notifies subscribers that a configuration change happened. """
+    for callback in self.subscriptions:
+      callback(event)
+
   def update_projects(self, new_projects_list):
     """ Establishes watches for all existing projects.
 
@@ -310,10 +362,12 @@ class GlobalProjectsManager(dict):
     for project_id in to_stop:
       self[project_id].stop()
       del self[project_id]
+      self.publish_event(Event(Event.PROJECT_DELETED, project_id))
 
     for project_id in new_projects_list:
       if project_id not in self:
-        self[project_id] = ProjectManager(self._zk_client, project_id)
+        self[project_id] = Project(self._zk_client, self, project_id)
+        self.publish_event(Event(Event.PROJECT_CREATED, project_id))
 
   def _update_projects_watch(self, new_projects_list):
     """ Handles the creation and deletion of projects.
