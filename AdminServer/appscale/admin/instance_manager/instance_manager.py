@@ -494,6 +494,47 @@ class InstanceManager(object):
 
       return port
 
+  def _get_login_server(self, instance):
+    """ Returns the configured login server for a running instance.
+
+    Args:
+      instance: An Instance object.
+    Returns:
+      A string containing the instance's login server value or None.
+    """
+    pidfile_location = PIDFILE_TEMPLATE.format(revision=instance.revision_key,
+                                               port=instance.port)
+    try:
+      with open(pidfile_location) as pidfile:
+        pid_str = pidfile.read().strip()
+    except IOError:
+      return None
+
+    try:
+      pid = int(pid_str)
+    except ValueError:
+      logger.warning('Invalid pidfile for {}: {}'.format(instance, pid_str))
+      return None
+
+    try:
+      args = psutil.Process(pid).cmdline()
+    except psutil.NoSuchProcess:
+      return None
+
+    for index, arg in enumerate(args):
+      if '--login_server=' in arg:
+        return arg.split('=', 1)[1]
+
+      if arg == '--login_server':
+        try:
+          login_server = args[index + 1]
+        except IndexError:
+          return None
+
+        return login_server
+
+    return None
+
   @gen.coroutine
   def _fulfill_assignments(self):
     """ Starts and stops instances in order to fulfill assignments. """
@@ -548,9 +589,10 @@ class InstanceManager(object):
         if instance not in version_instances:
           self._start_instance(version, instance.port)
 
-      # If there are any instances running an older revision, restart them.
+      # Restart instances with an outdated revision or login server.
       for instance in version_instances:
-        if instance.revision_key != version.revision_key:
+        if (instance.revision_key != version.revision_key or
+            self._get_login_server(instance) != self._login_server):
           yield self._stop_app_instance(instance)
           yield self._start_instance(version, instance.port)
 

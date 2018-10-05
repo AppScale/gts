@@ -1351,9 +1351,6 @@ class Djinn
       elsif key == 'replication'
         Djinn.log_warn('replication cannot be changed at runtime.')
         next
-      elsif key == "login"
-        Djinn.log_info('Restarting applications since public IP changed.')
-        restart_versions(@versions_loaded)
       elsif key == 'lb_connect_timeout'
         unless Integer(val) > 0
           Djinn.log_warn('Cannot set a negative timeout.')
@@ -1655,21 +1652,6 @@ class Djinn
     }
 
     'true'
-  end
-
-  # Clears version entries to make way for a new revision.
-  #
-  # Args:
-  #   versions_to_restart: An Array containing the version keys to restart.
-  def restart_versions(versions_to_restart)
-    return if versions_to_restart.empty?
-
-    Djinn.log_info("Remove old AppServers for #{versions_to_restart}.")
-    APPS_LOCK.synchronize {
-      versions_to_restart.each { |version_key|
-        @app_info_map[version_key]['appservers'].clear
-      }
-    }
   end
 
   def get_all_public_ips(secret)
