@@ -71,6 +71,41 @@ def get_wait_time(retries, args):
   return wait_time
 
 
+def update_task(task_name, new_state, retries=3):
+  """ Updates the TaskName entity for a given task.
+
+  Args:
+    task_name: A string specifying the TaskName key.
+    new_state: A string specifying the new task state.
+    retries: An integer specifying how many times to retry the delete.
+  """
+  try:
+    task_name_entity = TaskName.get_by_key_name(task_name)
+  except Exception as error:
+    retries -= 1
+    if retries >= 0:
+      logger.warning('Error fetching task name: {}. Retrying'.format(error))
+      return update_task(task_name, retries)
+
+    raise
+
+  if task_name_entity is not None:
+    task_name_entity.state = new_state
+    if new_state in (TASK_STATES.EXPIRED, TASK_STATES.FAILED,
+                     TASK_STATES.SUCCESS):
+      task_name_entity.endtime = datetime.datetime.now()
+
+    try:
+      db.put(task_name_entity)
+    except Exception as error:
+      retries -= 1
+      if retries >= 0:
+        logger.warning('Error updating task name: {}. Retrying'.format(error))
+        return update_task(task_name, retries)
+
+      raise
+
+
 def execute_task(task, headers, args):
   """ Executes a task to a url with the given args.
 
@@ -114,12 +149,7 @@ def execute_task(task, headers, args):
            args['task_name'], task.request.id, args['expires']))
         celery.control.revoke(task.request.id)
 
-        item = TaskName.get_by_key_name(args['task_name'])
-        if item is not None:
-          item.state = TASK_STATES.EXPIRED
-          item.endtime = datetime.datetime.now()
-          db.put(item)
-
+        update_task(args['task_name'], TASK_STATES.EXPIRED)
         return
 
       if (args['max_retries'] != 0 and
@@ -129,12 +159,7 @@ def execute_task(task, headers, args):
           args['max_retries']))
         celery.control.revoke(task.request.id)
 
-        item = TaskName.get_by_key_name(args['task_name'])
-        if item is not None:
-          item.state = TASK_STATES.FAILED
-          item.endtime = datetime.datetime.now()
-          db.put(item)
-
+        update_task(args['task_name'], TASK_STATES.FAILED)
         return
 
       # Targets do not get X-Forwarded-Proto from nginx, they use haproxy port.
@@ -196,11 +221,7 @@ def execute_task(task, headers, args):
 
       if 200 <= response.status < 300:
         # Task successful.
-        item = TaskName.get_by_key_name(args['task_name'])
-        if item is not None:
-          item.state = TASK_STATES.SUCCESS
-          item.endtime = datetime.datetime.now()
-          db.put(item)
+        update_task(args['task_name'], TASK_STATES.SUCCESS)
 
         time_elapsed = datetime.datetime.utcnow() - start_time
         logger.info(
