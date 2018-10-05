@@ -56,6 +56,7 @@ def main():
   is_master = (my_ip == appscale_info.get_headnode_ip())
   is_lb = (my_ip in appscale_info.get_load_balancer_ips())
   is_tq = (my_ip in appscale_info.get_taskqueue_nodes())
+  is_db = (my_ip in appscale_info.get_db_ips())
 
   if is_master:
     global zk_client
@@ -67,7 +68,7 @@ def main():
     stats_app.ProfilingManager(zk_client)
 
   app = tornado.web.Application(
-    stats_app.get_local_stats_api_routes(is_lb, is_tq)
+    stats_app.get_local_stats_api_routes(is_lb, is_tq, is_db)
     + stats_app.get_cluster_stats_api_routes(is_master),
     debug=False
   )
