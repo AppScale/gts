@@ -1,11 +1,13 @@
 """ Resources related to starting AppServer instances. """
 import logging
 import os
+
+import psutil
 from tornado.options import options
 
 from appscale.admin.constants import UNPACK_ROOT
 from appscale.admin.instance_manager.constants import (
-  PHP_CGI_LOCATION, TRUSTED_APPS)
+  PHP_CGI_LOCATION, PIDFILE_TEMPLATE, TRUSTED_APPS)
 from appscale.admin.instance_manager.utils import find_web_inf
 from appscale.common import appscale_info
 from appscale.common.constants import (
@@ -176,3 +178,45 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
     cmd.append('--trusted')
 
   return ' '.join(cmd)
+
+
+def get_login_server(instance):
+  """ Returns the configured login server for a running instance.
+
+  Args:
+    instance: An Instance object.
+  Returns:
+    A string containing the instance's login server value or None.
+  """
+  pidfile_location = PIDFILE_TEMPLATE.format(revision=instance.revision_key,
+                                             port=instance.port)
+  try:
+    with open(pidfile_location) as pidfile:
+      pid_str = pidfile.read().strip()
+  except IOError:
+    return None
+
+  try:
+    pid = int(pid_str)
+  except ValueError:
+    logger.warning('Invalid pidfile for {}: {}'.format(instance, pid_str))
+    return None
+
+  try:
+    args = psutil.Process(pid).cmdline()
+  except psutil.NoSuchProcess:
+    return None
+
+  for index, arg in enumerate(args):
+    if '--login_server=' in arg:
+      return arg.split('=', 1)[1]
+
+    if arg == '--login_server':
+      try:
+        login_server = args[index + 1]
+      except IndexError:
+        return None
+
+      return login_server
+
+  return None

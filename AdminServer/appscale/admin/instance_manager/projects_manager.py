@@ -41,7 +41,7 @@ class Event(object):
     Returns:
       A boolean specifying whether or not the version is affected.
     """
-    project_id, service_id, version_id = version_key.split(
+    project_id, service_id, _ = version_key.split(
       VERSION_PATH_SEPARATOR)
 
     if self.type in (self.PROJECT_CREATED, self.PROJECT_DELETED):
@@ -85,11 +85,11 @@ class Version(object):
 
     # Update the version details in case this is used synchronously.
     try:
-      version = self._zk_client.get(self.version_node)[0]
+      version_details = self._zk_client.get(self.version_node)[0]
     except NoNodeError:
-      version = None
+      version_details = None
 
-    self.update_version(version)
+    self.update_version(version_details)
 
     self.watch = zk_client.DataWatch(self.version_node,
                                      self._update_version_watch)
@@ -334,6 +334,9 @@ class GlobalProjectsManager(dict):
     super(GlobalProjectsManager, self).__init__()
     self._zk_client = zk_client
 
+    # A list of functions to call when configuration changes are made.
+    self.subscriptions = []
+
     self._zk_client.ensure_path(self.PROJECTS_NODE)
 
     # Update the projects list in case this is used synchronously.
@@ -343,13 +346,22 @@ class GlobalProjectsManager(dict):
     self._zk_client.ChildrenWatch(self.PROJECTS_NODE,
                                   self._update_projects_watch)
 
-    # A list of functions to call when configuration changes are made.
-    self.subscriptions = []
-
-  def publish_event(self, event):
+  def publish(self, event):
     """ Notifies subscribers that a configuration change happened. """
     for callback in self.subscriptions:
-      callback(event)
+      IOLoop.instance().spawn_callback(callback, event)
+
+  def version_from_key(self, version_key):
+    """ Retrieves a Version from a given key.
+
+    Args:
+      version_key: A string specifying a version key.
+    Returns:
+      A Version object.
+    """
+    project_id, service_id, version_id = version_key.split(
+      VERSION_PATH_SEPARATOR)
+    return self[project_id][service_id][version_id]
 
   def update_projects(self, new_projects_list):
     """ Establishes watches for all existing projects.
@@ -362,12 +374,12 @@ class GlobalProjectsManager(dict):
     for project_id in to_stop:
       self[project_id].stop()
       del self[project_id]
-      self.publish_event(Event(Event.PROJECT_DELETED, project_id))
+      self.publish(Event(Event.PROJECT_DELETED, project_id))
 
     for project_id in new_projects_list:
       if project_id not in self:
         self[project_id] = Project(self._zk_client, self, project_id)
-        self.publish_event(Event(Event.PROJECT_CREATED, project_id))
+        self.publish(Event(Event.PROJECT_CREATED, project_id))
 
   def _update_projects_watch(self, new_projects_list):
     """ Handles the creation and deletion of projects.

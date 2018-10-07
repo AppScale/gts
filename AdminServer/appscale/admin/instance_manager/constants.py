@@ -119,9 +119,6 @@ INSTANCE_CLASSES = {'F1': 128,
                     'F4': 512,
                     'F4_1G': 1024}
 
-# The number of seconds to wait between checking for failed instances.
-INSTANCE_CLEANUP_INTERVAL = 30
-
 # The amount of seconds to wait for an application to start up.
 START_APP_TIMEOUT = 180
 

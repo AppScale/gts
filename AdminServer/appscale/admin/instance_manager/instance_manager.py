@@ -5,29 +5,27 @@ import json
 import os
 import psutil
 import signal
-import time
 import urllib2
 
-from kazoo.exceptions import NoNodeError
 from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
-from tornado.locks import Event as AsyncEvent
+from tornado.locks import Lock as AsyncLock
 
 from appscale.admin.constants import UNPACK_ROOT
 from appscale.admin.instance_manager.constants import (
   API_SERVER_LOCATION, API_SERVER_PREFIX, APP_LOG_SIZE, BACKOFF_TIME,
   BadConfigurationException, DASHBOARD_LOG_SIZE, DASHBOARD_PROJECT_ID,
   DEFAULT_MAX_APPSERVER_MEMORY, FETCH_PATH, GO_SDK, INSTANCE_CLASSES,
-  INSTANCE_CLEANUP_INTERVAL, JAVA_APPSERVER_CLASS, MAX_API_SERVER_PORT,
-  MAX_INSTANCE_RESPONSE_TIME, MONIT_INSTANCE_PREFIX, NoRedirection,
-  PIDFILE_TEMPLATE, PYTHON_APPSERVER, START_APP_TIMEOUT,
-  STARTING_INSTANCE_PORT, VERSION_REGISTRATION_NODE)
+  JAVA_APPSERVER_CLASS, MAX_API_SERVER_PORT, MAX_INSTANCE_RESPONSE_TIME,
+  MONIT_INSTANCE_PREFIX, NoRedirection, PIDFILE_TEMPLATE, PYTHON_APPSERVER,
+  START_APP_TIMEOUT, STARTING_INSTANCE_PORT, VERSION_REGISTRATION_NODE)
 from appscale.admin.instance_manager.instance import (
-  Instance, create_java_app_env, create_java_start_cmd, create_python_app_env,
-  create_python27_start_cmd)
+  create_java_app_env, create_java_start_cmd, create_python_app_env,
+  create_python27_start_cmd, get_login_server, Instance)
 from appscale.admin.instance_manager.stop_instance import stop_instance
 from appscale.admin.instance_manager.utils import setup_logrotate
 from appscale.common import appscale_info, monit_app_configuration
+from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.constants import (
   APPS_PATH, GO, HTTPCodes, JAVA, MonitStates, PHP, PYTHON27, VAR_DIR,
   VERSION_PATH_SEPARATOR)
@@ -76,8 +74,8 @@ def clean_up_instances(entries_to_keep):
 class InstanceManager(object):
   """ Fulfills AppServer instance assignments from the scheduler. """
 
-  # The seconds to wait between ensuring that assignments are fulfilled.
-  GROOMING_INTERVAL = 60
+  # The seconds to wait between performing health checks.
+  HEALTH_CHECK_INTERVAL = 60
 
   # The ZooKeeper node that keeps track of the head node's state.
   CONTROLLER_STATE_NODE = '/appcontroller/state'
@@ -107,18 +105,20 @@ class InstanceManager(object):
     self._deployment_config = deployment_config
     self._source_manager = source_manager
     self._thread_pool = thread_pool
-    self._update_event = AsyncEvent()
     self._zk_client = zk_client
+
+    # Ensures only one process tries to make changes at a time.
+    self._work_lock = AsyncLock()
+
+    self._health_checker = PeriodicCallback(
+      self._ensure_health, self.HEALTH_CHECK_INTERVAL * 1000)
 
     # Instances that this machine should run.
     # For example, {guestbook_default_v1: [20000, -1]}
-    self._assignments = {}
+    self._assignments = None
     self._api_servers = {}
     self._running_instances = set()
-    self._last_cleanup_time = time.time()
     self._login_server = None
-    self._grooming_trigger = PeriodicCallback(
-      self._update_event.set, self.GROOMING_INTERVAL * 1000)
 
   def start(self):
     """ Begins processes needed to fulfill instance assignments. """
@@ -126,32 +126,19 @@ class InstanceManager(object):
     # Update list of running instances in case the InstanceManager was
     # restarted.
     self._recover_state()
-    self._last_cleanup_time = time.time()
-
-    # Synchronously fetch assignments so that instances are not stopped before
-    # the first time assignments are fetched.
-    try:
-      encoded_state = self._zk_client.get(self.CONTROLLER_STATE_NODE)[0]
-    except NoNodeError:
-      encoded_state = None
-
-    self._update_assignments(encoded_state)
-
-    # Trigger fulfillment work on a regular interval.
-    self._grooming_trigger.start()
 
     # Subscribe to changes in controller state, which includes assignments and
     # the 'login' property.
     self._zk_client.DataWatch(self.CONTROLLER_STATE_NODE,
-                              self._update_assignments_watch)
+                              self._controller_state_watch)
 
     # Subscribe to changes in project configuration, including relevant
     # versions.
     self._projects_manager.subscriptions.append(
       self._handle_configuration_update)
 
-    # Begin the never-ending task of fulfilling assignments.
-    IOLoop.current().spawn_callback(self._fulfillment_loop)
+    # Start the regular health check.
+    self._health_checker.start()
 
   @gen.coroutine
   def _start_instance(self, version, port):
@@ -255,16 +242,6 @@ class InstanceManager(object):
     if not setup_logrotate(version.project_id, log_size):
       logging.error("Error while setting up log rotation for application: {}".
                     format(version.project_id))
-
-  @gen.coroutine
-  def stop_failed_instances(self):
-    """ Stops AppServer instances that HAProxy considers to be unavailable. """
-    failed_instances = yield self._routing_client.get_failed_instances()
-    for instance in self._running_instances:
-      if (instance.version_key, instance.port) in failed_instances:
-        yield self._stop_app_instance(instance)
-
-    self._last_cleanup_time = time.time()
 
   @gen.coroutine
   def populate_api_servers(self):
@@ -513,162 +490,171 @@ class InstanceManager(object):
 
       return port
 
-  def _get_login_server(self, instance):
-    """ Returns the configured login server for a running instance.
-
-    Args:
-      instance: An Instance object.
-    Returns:
-      A string containing the instance's login server value or None.
-    """
-    pidfile_location = PIDFILE_TEMPLATE.format(revision=instance.revision_key,
-                                               port=instance.port)
-    try:
-      with open(pidfile_location) as pidfile:
-        pid_str = pidfile.read().strip()
-    except IOError:
-      return None
-
-    try:
-      pid = int(pid_str)
-    except ValueError:
-      logger.warning('Invalid pidfile for {}: {}'.format(instance, pid_str))
-      return None
-
-    try:
-      args = psutil.Process(pid).cmdline()
-    except psutil.NoSuchProcess:
-      return None
-
-    for index, arg in enumerate(args):
-      if '--login_server=' in arg:
-        return arg.split('=', 1)[1]
-
-      if arg == '--login_server':
+  @gen.coroutine
+  def _restart_unrouted_instances(self):
+    """ Restarts instances that the router considers offline. """
+    with (yield self._work_lock.acquire()):
+      failed_instances = yield self._routing_client.get_failed_instances()
+      for version_key, port in failed_instances:
         try:
-          login_server = args[index + 1]
-        except IndexError:
-          return None
+          instance = next(instance for instance in self._running_instances
+                          if instance.version_key == version_key
+                          and instance.port == port)
+        except StopIteration:
+          # If the manager has no recored of that instance, remove routing.
+          self._routing_client.unregister_instance(Instance(version_key, port))
+          continue
 
-        return login_server
+        try:
+          version = self._projects_manager.version_from_key(
+            instance.version_key)
+        except KeyError:
+          # If the version no longer exists, avoid doing any work. The
+          # scheduler should remove any assignments for it.
+          continue
 
-    return None
+        logger.warning('Restarting failed instance: {}'.format(instance))
+        yield self._stop_app_instance(instance)
+        yield self._start_instance(version, instance.port)
+
+  @gen.coroutine
+  def _ensure_health(self):
+    """ Checks to make sure all required instances are running and healthy. """
+    yield self._restart_unrouted_instances()
+
+    # Just as an infrequent sanity check, fulfill assignments and enforce
+    # instance details.
+    yield self._fulfill_assignments()
+    yield self._enforce_instance_details()
 
   @gen.coroutine
   def _fulfill_assignments(self):
     """ Starts and stops instances in order to fulfill assignments. """
 
-    # Wait until one of the following conditions has been met:
-    #  - The grooming interval has passed
-    #  - The machine's assignments have been updated
-    #  - The deployment's "login" property has been updated
-    #  - The details of an assigned version have been updated
-    #  - The details of a running version have been updated
-    yield self._update_event.wait()
-    self._update_event.clear()
+    # If the manager has not been able to retrieve a valid set of assignments,
+    # don't do any work.
+    if self._assignments is None:
+      return
 
-    # Occasionally, a router will mark an instance as "down". This cleanup
-    # manually stops the unrouted processes.
-    if time.time() > self._last_cleanup_time + INSTANCE_CLEANUP_INTERVAL:
-      yield self.stop_failed_instances()
+    with (yield self._work_lock.acquire()):
+      # Stop versions that aren't assigned.
+      to_stop = [instance for instance in self._running_instances
+                 if instance.version_key not in self._assignments]
+      for instance in to_stop:
+        yield self._stop_app_instance(instance)
 
-    # Stop versions that aren't assigned.
-    to_stop = [instance for instance in self._running_instances
-               if instance.version_key not in self._assignments]
-    for instance in to_stop:
-      yield self._stop_app_instance(instance)
+      for version_key, assigned_ports in self._assignments.items():
+        running_instances = [instance for instance in self._running_instances
+                             if instance.version_key == version_key]
+        try:
+          version = self._projects_manager.version_from_key(version_key)
+        except KeyError:
+          # If the version no longer exists, avoid doing any work. The
+          # scheduler should remove any assignments for it.
+          continue
 
-    for version_key, assigned_ports in self._assignments.items():
-      project_id, service_id, version_id = version_key.split(
-        VERSION_PATH_SEPARATOR)
-      version_instances = [instance for instance in self._running_instances
-                           if instance.version_key == version_key]
-      try:
-        version = self._projects_manager[project_id][service_id][version_id]
-      except KeyError:
-        # If the version node no longer exists, stop any running instances.
-        for instance in version_instances:
-          yield self._stop_app_instance(instance)
+        # Stop instances that aren't assigned.
+        for running_instance in running_instances:
+          if running_instance.port not in assigned_ports:
+            yield self._stop_app_instance(running_instance)
 
-        continue
+        # Start assigned instances that aren't running.
+        for port in assigned_ports:
+          if port == -1:
+            port = self._get_lowest_port()
 
-      # Stop instances that aren't assigned.
-      for instance in version_instances:
-        if instance.port not in assigned_ports:
-          yield self._stop_app_instance(instance)
+          instance = Instance(version.revision_key, port)
+          if instance not in running_instances:
+            self._start_instance(version, instance.port)
 
-      # Start assigned instances that aren't running.
-      for port in assigned_ports:
-        if port == -1:
-          port = self._get_lowest_port()
-
-        instance = Instance(version.revision_key, port)
-        if instance not in version_instances:
-          self._start_instance(version, instance.port)
-
+  @gen.coroutine
+  def _enforce_instance_details(self):
+    """ Ensures all running instances are configured correctly. """
+    with (yield self._work_lock.acquire()):
       # Restart instances with an outdated revision or login server.
-      for instance in version_instances:
+      for instance in self._running_instances:
+        try:
+          version = self._projects_manager.version_from_key(instance.version_key)
+        except KeyError:
+          # If the version no longer exists, avoid doing any work. The
+          # scheduler should remove any assignments for it.
+          continue
+
+        login_server_changed = (
+          self._login_server is not None and
+          self._login_server != get_login_server(instance))
         if (instance.revision_key != version.revision_key or
-            self._get_login_server(instance) != self._login_server):
+            login_server_changed):
           yield self._stop_app_instance(instance)
           yield self._start_instance(version, instance.port)
 
-  @gen.coroutine
-  def _fulfillment_loop(self):
-    """ Continually tries to fulfill assignments. """
-    while True:
-      try:
-        yield self._fulfill_assignments()
-      # The above shouldn't raise an exception, but if for some reason it does,
-      # it's crucial that the manager keeps trying to fulfill assignments.
-      except Exception:
-        logger.exception('Unexpected error when scheduling instances')
-
-  def _update_assignments(self, encoded_controller_state):
-    """ Updates the list of instances this machine should run.
+  def _assignments_from_state(self, controller_state):
+    """ Extracts the current machine's assignments from controller state.
 
     Args:
-      encoded_controller_state: A JSON-encoded string containing controller
-        state.
+      controller_state: A dictionary containing controller state.
     """
-    if encoded_controller_state is None:
-      self._assignments = {}
-      return
-
-    controller_state = json.loads(encoded_controller_state)
     def version_assignments(data):
       return [int(server.split(':')[1]) for server in data['appservers']
               if server.split(':')[0] == self._private_ip]
 
-    new_assignments = {
+    return {
       version_key: version_assignments(data)
       for version_key, data in controller_state['@app_info_map'].items()
       if version_assignments(data)}
 
-    login_server = controller_state['@options']['login']
-
-    if (new_assignments != self._assignments or
-        login_server != self._login_server):
-      self._assignments = new_assignments
-      self._login_server = login_server
-      self._update_event.set()
-
-  def _update_assignments_watch(self, encoded_controller_state, _):
+  @gen.coroutine
+  def _update_controller_state(self, encoded_controller_state):
     """ Handles updates to controller state.
 
     Args:
       encoded_controller_state: A JSON-encoded string containing controller
         state.
     """
-    IOLoop.instance().add_callback(
-      self._update_assignments, encoded_controller_state)
+    try:
+      controller_state = json.loads(encoded_controller_state)
+    except (TypeError, ValueError):
+      # If the controller state isn't usable, don't do any work.
+      logger.warning(
+        'Invalid controller state: {}'.format(encoded_controller_state))
+      return
 
+    new_assignments = self._assignments_from_state(controller_state)
+    login_server = controller_state['@options']['login']
+
+    if new_assignments != self._assignments:
+      self._assignments = new_assignments
+      yield self._fulfill_assignments()
+
+    if login_server != self._login_server:
+      self._login_server = login_server
+      yield self._enforce_instance_details()
+
+  def _controller_state_watch(self, encoded_controller_state, _):
+    """ Handles updates to controller state.
+
+    Args:
+      encoded_controller_state: A JSON-encoded string containing controller
+        state.
+    """
+    persistent_update_controller_state = retry_data_watch_coroutine(
+      self.CONTROLLER_STATE_NODE, self._update_controller_state)
+    IOLoop.instance().add_callback(
+      persistent_update_controller_state, encoded_controller_state)
+
+  @gen.coroutine
   def _handle_configuration_update(self, event):
-    """ Triggers fulfillment work when an assigned version has been updated. """
-    running_versions = {instance.version_key
-                        for instance in self._running_instances}
-    assigned_versions = set(self._assignments.keys())
-    for relevant_version in running_versions | assigned_versions:
-      if event.affects_version(relevant_version):
-        self._update_event.set()
+    """ Handles updates to a project's configuration details.
+
+    Args:
+      event: An appscale.admin.instance_manager.projects_manager.Event object.
+    """
+    relevant_versions = {instance.version_key
+                         for instance in self._running_instances}
+    if self._assignments is not None:
+      relevant_versions |= set(self._assignments.keys())
+
+    for version_key in relevant_versions:
+      if event.affects_version(version_key):
+        yield self._enforce_instance_details()
         break
