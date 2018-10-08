@@ -2,7 +2,7 @@
 """
 
 import json
-import os
+import pkgutil
 
 from jsonschema import (
   validate,
@@ -41,10 +41,8 @@ def _schema_filename(name):
 def _schema(name):
   schema = SCHEMAS.get(name, None)
   if not schema:
-    schema_file_path = os.path.join(os.path.dirname(__file__),
-                                    _schema_filename(name))
-    with open(schema_file_path, 'r') as schema_file:
-      schema = json.load(schema_file)
+    schema_data = pkgutil.get_data(__name__, _schema_filename(name))
+    schema = json.loads(schema_data)
     SCHEMAS[name] = schema
   return schema
 
