@@ -12,10 +12,10 @@ import time
 import socket
 from tornado import gen, httpclient
 
-from appscale.hermes.stats.converter import include_list_name, Meta
+from appscale.hermes.converter import include_list_name, Meta
 
 # The endpoint used for retrieving node stats.
-from appscale.hermes.stats.producers import proxy_stats
+from appscale.hermes.producers import proxy_stats
 
 STATS_ENDPOINT = '/service-stats'
 

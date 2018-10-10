@@ -7,7 +7,7 @@ import collections
 
 import attr
 
-from appscale.hermes.stats.constants import MISSED
+from appscale.hermes.constants import MISSED
 
 
 class WrongIncludeLists(ValueError):

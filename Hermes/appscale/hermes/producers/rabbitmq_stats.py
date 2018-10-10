@@ -8,7 +8,7 @@ import time
 import attr
 from tornado.httpclient import HTTPClient
 
-from appscale.hermes.stats.converter import Meta, include_list_name
+from appscale.hermes.converter import Meta, include_list_name
 
 # The port used by the RabbitMQ management plugin.
 API_PORT = 15672

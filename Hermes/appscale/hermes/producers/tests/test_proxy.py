@@ -5,8 +5,8 @@ import unittest
 import attr
 from mock import patch, MagicMock
 
-from appscale.hermes.stats.constants import MISSED
-from appscale.hermes.stats.producers import proxy_stats
+from appscale.hermes.constants import MISSED
+from appscale.hermes.producers import proxy_stats
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')

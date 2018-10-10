@@ -2,7 +2,7 @@ import unittest
 
 from mock import patch
 
-from appscale.hermes.stats.producers import node_stats
+from appscale.hermes.producers import node_stats
 
 
 class TestCurrentNodeStats(unittest.TestCase):

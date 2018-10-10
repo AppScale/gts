@@ -14,9 +14,9 @@ from tornado.simple_httpclient import SimpleAsyncHTTPClient
 
 from appscale.hermes import constants
 from appscale.hermes.constants import SECRET_HEADER
-from appscale.hermes.stats import converter
-from appscale.hermes.stats.constants import STATS_REQUEST_TIMEOUT
-from appscale.hermes.stats.producers import (
+from appscale.hermes import converter
+from appscale.hermes.constants import STATS_REQUEST_TIMEOUT
+from appscale.hermes.producers import (
   proxy_stats, node_stats, process_stats, rabbitmq_stats,
   taskqueue_stats, cassandra_stats
 )

@@ -11,14 +11,14 @@ import psutil
 
 import attr
 
-from appscale.hermes.stats.constants import (
+from appscale.hermes.constants import (
   HAPROXY_APPS_STATS_SOCKET_PATH,
   HAPROXY_SERVICES_STATS_SOCKET_PATH,
   HAPROXY_APPS_CONFIGS_DIR,
   HAPROXY_SERVICES_CONFIGS_DIR, MISSED,
 )
-from appscale.hermes.stats.converter import include_list_name, Meta
-from appscale.hermes.stats.unified_service_names import find_service_by_pxname
+from appscale.hermes.converter import include_list_name, Meta
+from appscale.hermes.unified_service_names import find_service_by_pxname
 
 
 class BoundIpPortNotFound(Exception):

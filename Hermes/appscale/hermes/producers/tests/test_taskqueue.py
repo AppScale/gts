@@ -5,7 +5,7 @@ import socket
 from mock import patch, mock
 from tornado import testing, gen, httpclient
 
-from appscale.hermes.stats.producers import taskqueue_stats, proxy_stats
+from appscale.hermes.producers import taskqueue_stats, proxy_stats
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')

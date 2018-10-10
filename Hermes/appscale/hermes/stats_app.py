@@ -4,34 +4,34 @@ import json
 import attr
 import logging
 
-from appscale.hermes.stats.producers.cassandra_stats import \
-  CassandraStatsSource
 from tornado.ioloop import PeriodicCallback, IOLoop
 
 from appscale.hermes.handlers import Respond404Handler
-from appscale.hermes.stats.constants import (
+from appscale.hermes.constants import (
   NODES_STATS_CONFIGS_NODE,
   PROCESSES_STATS_CONFIGS_NODE,
   PROXIES_STATS_CONFIGS_NODE
 )
-from appscale.hermes.stats.producers.taskqueue_stats import TaskqueueStatsSource
-from appscale.hermes.stats.profile import (
+from appscale.hermes.producers.taskqueue_stats import TaskqueueStatsSource
+from appscale.hermes.profile import (
   NodesProfileLog, ProcessesProfileLog, ProxiesProfileLog
 )
-from appscale.hermes.stats.converter import IncludeLists
-from appscale.hermes.stats.handlers import (
+from appscale.hermes.converter import IncludeLists
+from appscale.hermes.handlers import (
   CurrentStatsHandler, CurrentClusterStatsHandler
 )
-from appscale.hermes.stats.producers.cluster_stats import (
+from appscale.hermes.producers.cluster_stats import (
   cluster_nodes_stats, cluster_processes_stats, cluster_proxies_stats,
   cluster_rabbitmq_stats, cluster_push_queues_stats,
   cluster_taskqueue_stats,
-  cluster_cassandra_stats)
-from appscale.hermes.stats.producers.node_stats import NodeStatsSource
-from appscale.hermes.stats.producers.process_stats import ProcessesStatsSource
-from appscale.hermes.stats.producers.proxy_stats import ProxiesStatsSource
-from appscale.hermes.stats.producers.rabbitmq_stats import PushQueueStatsSource
-from appscale.hermes.stats.producers.rabbitmq_stats import RabbitMQStatsSource
+  cluster_cassandra_stats
+)
+from appscale.hermes.producers.cassandra_stats import CassandraStatsSource
+from appscale.hermes.producers.node_stats import NodeStatsSource
+from appscale.hermes.producers.process_stats import ProcessesStatsSource
+from appscale.hermes.producers.proxy_stats import ProxiesStatsSource
+from appscale.hermes.producers.rabbitmq_stats import PushQueueStatsSource
+from appscale.hermes.producers.rabbitmq_stats import RabbitMQStatsSource
 
 
 DEFAULT_INCLUDE_LISTS = IncludeLists({

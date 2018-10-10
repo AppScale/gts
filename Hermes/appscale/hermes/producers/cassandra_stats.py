@@ -7,7 +7,7 @@ import attr
 from tornado import process, gen
 
 from appscale.common import appscale_info
-from appscale.hermes.stats.converter import Meta, include_list_name
+from appscale.hermes.converter import Meta, include_list_name
 
 # The endpoint used for retrieving queue stats.
 NODETOOL_STATUS_COMMAND = ['/opt/cassandra/cassandra/bin/nodetool', 'status']

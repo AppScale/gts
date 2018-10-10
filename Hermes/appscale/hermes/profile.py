@@ -8,9 +8,9 @@ from os import path, rename
 import attr
 
 from appscale.hermes import helper
-from appscale.hermes.stats import converter
-from appscale.hermes.stats.constants import PROFILE_LOG_DIR
-from appscale.hermes.stats.producers import node_stats, process_stats, \
+from appscale.hermes import converter
+from appscale.hermes.constants import PROFILE_LOG_DIR
+from appscale.hermes.producers import node_stats, process_stats, \
   proxy_stats
 
 

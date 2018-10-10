@@ -1,7 +1,7 @@
 from mock import MagicMock, patch
 from tornado import gen, testing
 
-from appscale.hermes.stats.producers import cassandra_stats
+from appscale.hermes.producers import cassandra_stats
 
 
 def future(value):
