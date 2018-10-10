@@ -649,6 +649,16 @@ def create_python_app_env(public_ip, app_name):
   env_vars['GOMAXPROCS'] = appscale_info.get_num_cpus()
   env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
   env_vars['PYTHON_LIB'] = "{0}/AppServer/".format(constants.APPSCALE_HOME)
+
+  gcs_config = {'scheme': 'https', 'port': 443}
+  try:
+    gcs_config.update(deployment_config.get_config('gcs'))
+  except ConfigInaccessible:
+    logging.warning('Unable to fetch GCS configuration.')
+
+  if 'host' in gcs_config:
+    env_vars['GCS_HOST'] = '{scheme}://{host}:{port}'.format(**gcs_config)
+
   return env_vars
 
 
