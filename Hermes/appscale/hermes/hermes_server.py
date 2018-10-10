@@ -80,5 +80,3 @@ def main():
   logging.info("Hermes is up and listening on port: {}."
                .format(constants.HERMES_PORT))
 
-if __name__ == '__main__':
-  main()
