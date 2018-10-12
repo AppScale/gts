@@ -457,6 +457,9 @@ def create_command_line_parser():
       default=False,
       help='skip checking for SDK updates (if false, use .appcfg_nag to '
       'decide)')
+  misc_group.add_argument(
+      '--default_gcs_bucket_name', default=None,
+      help='default Google Cloud Storgage bucket name')
 
   # AppScale
   appscale_group = parser.add_argument_group('AppScale')
@@ -709,9 +712,10 @@ class DevelopmentServer(object):
         search_index_path=search_index_path,
         taskqueue_auto_run_tasks=options.enable_task_running,
         taskqueue_default_http_server=application_address,
-        uaserver_path=options.uaserver_path,
         user_login_url=user_login_url,
         user_logout_url=user_logout_url,
+        default_gcs_bucket_name=options.default_gcs_bucket_name,
+        uaserver_path=options.uaserver_path,
         xmpp_path=options.xmpp_path)
 
     # The APIServer must bind to localhost because that is what the runtime
