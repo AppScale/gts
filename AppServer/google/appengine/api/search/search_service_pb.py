@@ -41,6 +41,8 @@ class SearchServiceError(ProtocolBuffer.ProtocolMessage):
   TRANSIENT_ERROR =    2
   INTERNAL_ERROR =    3
   PERMISSION_DENIED =    4
+  TIMEOUT      =    5
+  CONCURRENT_TRANSACTION =    6
 
   _ErrorCode_NAMES = {
     0: "OK",
@@ -48,6 +50,8 @@ class SearchServiceError(ProtocolBuffer.ProtocolMessage):
     2: "TRANSIENT_ERROR",
     3: "INTERNAL_ERROR",
     4: "PERMISSION_DENIED",
+    5: "TIMEOUT",
+    6: "CONCURRENT_TRANSACTION",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")

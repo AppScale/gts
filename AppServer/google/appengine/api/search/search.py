@@ -49,6 +49,7 @@ from google.appengine.runtime import apiproxy_errors
 
 __all__ = [
     'AtomField',
+    'ConcurrentTransactionError',
     'Cursor',
     'DateField',
     'DeleteError',
@@ -103,6 +104,7 @@ __all__ = [
     'SortExpression',
     'SortOptions',
     'TextField',
+    'Timeout',
     'TIMESTAMP_FIELD_NAME',
     'TransientError',
     ]
@@ -188,6 +190,14 @@ class ExpressionError(Error):
   """An error occurred while parsing an expression input string."""
 
 
+class Timeout(Error):
+  """Indicates a call on the search API could not finish before its deadline."""
+
+
+class ConcurrentTransactionError(Error):
+  """Indicates a call on the search API failed due to concurrent updates."""
+
+
 def _ConvertToUnicode(some_string):
   """Convert UTF-8 encoded string to unicode."""
   if some_string is None:
@@ -210,10 +220,13 @@ class OperationResult(object):
   This is an abstract class.
   """
 
-  OK, INVALID_REQUEST, TRANSIENT_ERROR, INTERNAL_ERROR = (
-      'OK', 'INVALID_REQUEST', 'TRANSIENT_ERROR', 'INTERNAL_ERROR')
+  (OK, INVALID_REQUEST, TRANSIENT_ERROR, INTERNAL_ERROR,
+  TIMEOUT,  CONCURRENT_TRANSACTION) = (
+      'OK', 'INVALID_REQUEST', 'TRANSIENT_ERROR', 'INTERNAL_ERROR',
+      'TIMEOUT', 'CONCURRENT_TRANSACTION')
 
-  _CODES = frozenset([OK, INVALID_REQUEST, TRANSIENT_ERROR, INTERNAL_ERROR])
+  _CODES = frozenset([OK, INVALID_REQUEST, TRANSIENT_ERROR, INTERNAL_ERROR,
+                      TIMEOUT, CONCURRENT_TRANSACTION])
 
   def __init__(self, code, message=None, id=None):
     """Initializer.
@@ -261,7 +274,11 @@ _ERROR_OPERATION_CODE_MAP = {
     search_service_pb.SearchServiceError.TRANSIENT_ERROR:
     OperationResult.TRANSIENT_ERROR,
     search_service_pb.SearchServiceError.INTERNAL_ERROR:
-    OperationResult.INTERNAL_ERROR
+    OperationResult.INTERNAL_ERROR,
+    search_service_pb.SearchServiceError.TIMEOUT:
+    OperationResult.TIMEOUT,
+    search_service_pb.SearchServiceError.CONCURRENT_TRANSACTION:
+    OperationResult.CONCURRENT_TRANSACTION,
     }
 
 
@@ -318,7 +335,10 @@ class DeleteError(Error):
 _ERROR_MAP = {
     search_service_pb.SearchServiceError.INVALID_REQUEST: InvalidRequest,
     search_service_pb.SearchServiceError.TRANSIENT_ERROR: TransientError,
-    search_service_pb.SearchServiceError.INTERNAL_ERROR: InternalError
+    search_service_pb.SearchServiceError.INTERNAL_ERROR: InternalError,
+    search_service_pb.SearchServiceError.TIMEOUT: Timeout,
+    search_service_pb.SearchServiceError.CONCURRENT_TRANSACTION:
+    ConcurrentTransactionError,
     }
 
 
@@ -2414,7 +2434,8 @@ class Index(object):
     message = None
     if status_pb.has_error_detail():
       message = _DecodeUTF8(status_pb.error_detail())
-    code = _ERROR_OPERATION_CODE_MAP[status_pb.code()]
+    code = _ERROR_OPERATION_CODE_MAP.get(status_pb.code(),
+                                         OperationResult.INTERNAL_ERROR)
     return PutResult(code=code, message=message, id=_DecodeUTF8(doc_id))
 
   def _NewPutResultList(self, response):
@@ -2503,7 +2524,8 @@ class Index(object):
     message = None
     if status_pb.has_error_detail():
       message = _DecodeUTF8(status_pb.error_detail())
-    code = _ERROR_OPERATION_CODE_MAP[status_pb.code()]
+    code = _ERROR_OPERATION_CODE_MAP.get(status_pb.code(),
+                                         OperationResult.INTERNAL_ERROR)
 
     return DeleteResult(code=code, message=message, id=doc_id)
 

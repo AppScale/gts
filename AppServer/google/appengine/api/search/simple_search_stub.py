@@ -914,6 +914,10 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       self._InvalidRequest(response.mutable_status(), e)
       response.set_matched_count(0)
       return
+    except document_matcher.ExpressionTreeException, e:
+      self._InvalidRequest(response.mutable_status(), e)
+      response.set_matched_count(0)
+      return
     response.set_matched_count(len(results))
 
     offset = 0
