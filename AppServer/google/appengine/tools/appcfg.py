@@ -81,6 +81,11 @@ from google.appengine.tools import sdk_update_checker
 LIST_DELIMITER = '\n'
 TUPLE_DELIMITER = '|'
 BACKENDS_ACTION = 'backends'
+BACKENDS_MESSAGE = ('Looks like you\'re using Backends. We suggest that you '
+                    'make the switch to App Engine Modules. See the Modules '
+                    'documentation to learn more about converting: '
+                    'https://developers.google.com/appengine/docs/python/'
+                    'modules/converting')
 
 
 MAX_LOG_LEVEL = 4
@@ -2317,6 +2322,8 @@ class AppCfgApp(object):
 
 
     if action == BACKENDS_ACTION:
+
+      StatusUpdate(BACKENDS_MESSAGE)
       if len(self.args) < 1:
         RaiseParseError(action, self.actions[BACKENDS_ACTION])
 
