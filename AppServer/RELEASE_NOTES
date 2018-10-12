@@ -3,6 +3,54 @@ All rights reserved.
 
 App Engine SDK - Release Notes
 
+Version 1.8.2
+
+Python
+===============================
+- Dedicated memcache is now available to all developers. With
+  dedicated memcache you can purchase in-memory data caching capacity
+  exclusively for your application, cache more data and drive up cache hit
+  rates. This is a Preview feature. For more information please see:
+  https://developers.google.com/appengine/docs/adminconsole/memcache
+- App Engine Modules is now available to all developers. App Engine Modules
+  allow developers to segment their applications into logical subcomponents.
+  This is a Preview feature. More information on this feature can be found
+  here:
+  https://developers.google.com/appengine/docs/python/modules/
+- Push-to-Deploy is now available to all developers. This Preview feature makes
+  it even easier to deploy Python apps.
+- The Python Interpreter has been upgraded to 2.7.5.
+- lxml 2.3.5 is now available.
+- Fixed an issue with the Datastore bulkloader syntax when using the Python 2.5
+  interpreter.
+- Fixed an issue with the Channel API's Javascript library; a memory leak
+  occurred when closing channels.
+    https://code.google.com/p/googleappengine/issues/detail?id=9283
+- Fixed an issue with App Engine receiving erroneous XMPP presence from
+  Google Hangouts.
+    https://code.google.com/p/googleappengine/issues/detail?id=9498
+
+PHP
+===============================
+- Dedicated memcache is now available to all developers. With
+  dedicated memcache you can purchase in-memory data caching capacity
+  exclusively for your application, cache more data and drive up cache hit
+  rates. This is a Preview feature. For more information please see:
+  https://developers.google.com/appengine/docs/adminconsole/memcache
+- Push-to-Deploy is now available to all developers. This Preview feature makes
+  it even easier to deploy PHP apps.
+- appcfg.py no longer requires the -R parameter to deploy PHP applications.
+- The function libxml_disable_entity_loader() is now disabled by default for
+  security reasons.  It can be re-enabled if necessary using the
+  google_app_engine.enable_functions directive in the php.ini file.
+- Added support for the move_uploaded_file() and rename() methods on files
+  stored on Google Cloud Storage.
+- Fixed an issue with the dev_appserver on Windows where the PHP interpreter
+  was not passed a required environment variable.
+    https://code.google.com/p/googleappengine/issues/detail?id=9382
+- Fixed an issue with the URL Fetch timeout option being ignored.
+    https://code.google.com/p/googleappengine/issues/detail?id=9460
+
 Version 1.8.1
 
 Python

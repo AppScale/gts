@@ -83,7 +83,7 @@ final class MemcacheContainer {
  */
 final class MemcacheSessionHandler implements \SessionHandlerInterface {
 
-  const SESSION_PREFIX = 'sess_';
+  const SESSION_PREFIX = '_ah_sess_';
 
   private $expire = null;
   private $memcacheContainer = null;

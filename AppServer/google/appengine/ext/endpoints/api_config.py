@@ -40,6 +40,7 @@ try:
   import json
 except ImportError:
   import simplejson as json
+import logging
 import re
 
 from protorpc import message_types
@@ -268,7 +269,7 @@ class _ApiDecorator(object):
   """Decorator for single- or multi-class APIs.
 
   An instance of this class can be used directly as a decorator for a
-  single-class API.  Or call the collection() method to decorate a multi-class
+  single-class API.  Or call the api_class() method to decorate a multi-class
   API.
   """
 
@@ -310,6 +311,7 @@ class _ApiDecorator(object):
         canonical_name=canonical_name, auth=auth, owner_domain=owner_domain,
         owner_name=owner_name, package_path=package_path,
         frontend_limits=frontend_limits)
+    self.__classes = []
 
   class __ApiCommonInfo(object):
     """API information that's common among all classes that implement an API.
@@ -460,19 +462,25 @@ class _ApiDecorator(object):
       """Optional query limits for unregistered developers."""
       return self.__frontend_limits
 
-  def __call__(self, api_class):
+  def __call__(self, service_class):
     """Decorator for ProtoRPC class that configures Google's API server.
 
     Args:
-      api_class: remote.Service class, ProtoRPC service class being wrapped.
+      service_class: remote.Service class, ProtoRPC service class being wrapped.
 
     Returns:
       Same class with API attributes assigned in api_info.
     """
-    return self.collection()(api_class)
+    return self.api_class()(service_class)
 
-  def collection(self, resource_name=None, path=None, audiences=None,
-                 scopes=None, allowed_client_ids=None):
+  def collection(self, *args, **kwargs):
+    logging.warning('Using deprecated "collection" decorator.  Use the '
+                    'api_class decorator instead.  The "collection" decorator '
+                    'will be removed in a future version.')
+    return self.api_class(*args, **kwargs)
+
+  def api_class(self, resource_name=None, path=None, audiences=None,
+                scopes=None, allowed_client_ids=None):
     """Get a decorator for a class that implements an API.
 
     This can be used for single-class or multi-class implementations.  It's
@@ -503,6 +511,7 @@ class _ApiDecorator(object):
       Returns:
         Same class with API attributes assigned in api_info.
       """
+      self.__classes.append(api_class)
       api_class.api_info = _ApiInfo(
           self.__common_info, resource_name=resource_name,
           path=path, audiences=audiences, scopes=scopes,
@@ -510,6 +519,10 @@ class _ApiDecorator(object):
       return api_class
 
     return apiserving_api_decorator
+
+  def get_api_classes(self):
+    """Get the list of remote.Service classes that implement this API."""
+    return self.__classes
 
 
 class ApiAuth(object):
@@ -674,11 +687,11 @@ def api(name, version, description=None, hostname=None, audiences=None,
   Sample usage if multiple classes implement one API:
     api_root = endpoints.api(name='library', version='v1.0')
 
-    @api_root.collection(resource_name='shelves')
+    @api_root.api_class(resource_name='shelves')
     class Shelves(remote.Service):
       ...
 
-    @api_root.collection(resource_name='books', path='books')
+    @api_root.api_class(resource_name='books', path='books')
     class Books(remote.Service):
       ...
 

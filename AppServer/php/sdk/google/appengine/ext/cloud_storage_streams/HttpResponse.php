@@ -32,6 +32,8 @@ final class HttpResponse {
 
   const RESUME_INCOMPLETE = 308;
 
+  const BAD_REQUEST = 400;
+  const UNAUTHORIZED = 401;
   const FORBIDDEN = 403;
   const NOT_FOUND = 404;
   const REQUEST_TIMEOUT = 408;
@@ -49,6 +51,8 @@ final class HttpResponse {
     self::NO_CONTENT => "NO CONTENT",
     self::PARTIAL_CONTENT => "PARTIAL CONTENT",
     self::RESUME_INCOMPLETE => "RESUME INCOMPLETE",
+    self::BAD_REQUEST => "BAD REQUEST",
+    self::UNAUTHORIZED => "UNAUTHORIZED",
     self::FORBIDDEN => "FORBIDDEN",
     self::NOT_FOUND => "NOT FOUND",
     self::REQUEST_TIMEOUT => "REQUEST TIMEOUT",

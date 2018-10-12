@@ -613,14 +613,21 @@ def _CheckDocument(document):
     ValueError if the document is invalid in a way that would trigger an
     PutError from the server.
   """
-  no_repeat_names = set()
+  no_repeat_date_names = set()
+  no_repeat_number_names = set()
   for field in document.fields:
-    if isinstance(field, NumberField) or isinstance(field, DateField):
-      if field.name in no_repeat_names:
+    if isinstance(field, NumberField):
+      if field.name in no_repeat_number_names:
         raise ValueError(
             'Invalid document %s: field %s with type date or number may not '
             'be repeated.' % (document.doc_id, field.name))
-      no_repeat_names.add(field.name)
+      no_repeat_number_names.add(field.name)
+    elif isinstance(field, DateField):
+      if field.name in no_repeat_date_names:
+        raise ValueError(
+            'Invalid document %s: field %s with type date or number may not '
+            'be repeated.' % (document.doc_id, field.name))
+      no_repeat_date_names.add(field.name)
 
 
 def _CheckSortLimit(limit):

@@ -95,7 +95,7 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
 
   def test_echo_datetime_message(self):
     """Test sending and receiving a datetime."""
-    body = json.dumps({'milliseconds': 5000, 'time_zone_offset': 60})
+    body = json.dumps({'milliseconds': '5000', 'time_zone_offset': '60'})
     send_headers = {'content-type': 'application/json'}
     status, content, headers = self.fetch_url(
         'default', 'POST', '/_ah/api/test_service/v1/echo_datetime_message',
@@ -104,7 +104,7 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
     self.assertEqual('application/json', headers['Content-Type'])
 
     response_json = json.loads(content)
-    self.assertEqual({'milliseconds': 5000, 'time_zone_offset': 60},
+    self.assertEqual({'milliseconds': '5000', 'time_zone_offset': '60'},
                      response_json)
 
   def test_echo_datetime_field(self):
@@ -120,6 +120,25 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
 
     response_json = json.loads(content)
     self.assertEqual(body_json, response_json)
+
+  def test_increment_integers(self):
+    """Test sending and receiving integer values."""
+    body_json = {'var_int32': 100, 'var_int64': '1000',
+                 'var_repeated_int64': ['10', '11', '900'],
+                 'var_sint64': -555, 'var_uint64': 4320}
+    body = json.dumps(body_json)
+    send_headers = {'content-type': 'application/json'}
+    status, content, headers = self.fetch_url(
+        'default', 'POST', '/_ah/api/test_service/v1/increment_integers',
+        body, send_headers)
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    expected_response = {'var_int32': 101, 'var_int64': '1001',
+                         'var_repeated_int64': ['11', '12', '901'],
+                         'var_sint64': '-554', 'var_uint64': '4321'}
+    self.assertEqual(expected_response, response_json)
 
   def test_discovery_config(self):
     """Test that the discovery configuration looks right."""
@@ -162,6 +181,17 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
     response_json = json.loads(content)
     self.assertEqual([{'result': {'text': 'Extra test response'},
                        'id': 'gapiRpc'}], response_json)
+
+  def test_second_api_no_collision(self):
+    """Test that a GET request to a second similar API works."""
+    status, content, headers = self.fetch_url('default', 'GET',
+                                              '/_ah/api/second_service/v1/test')
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    self.assertEqual({'text': 'Second response'}, response_json)
+
 
 if __name__ == '__main__':
   googletest.main()

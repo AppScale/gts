@@ -128,18 +128,21 @@ abstract class CloudStorageClient {
     $this->anonymous = util\FindByKeyOrNull($this->context_options,
                                             "anonymous");
 
-    $host = $this->isDevelServer() ? self::LOCAL_HOST : self::PRODUCTION_HOST;
-    if (isset($this->object_name)) {
-      $this->url = sprintf(self::BUCKET_OBJECT_FORMAT, $host, $bucket, $object);
-    } else {
-      $this->url = sprintf(self::BUCKET_FORMAT, $host, $bucket);
-    }
+    $this->url = $this->createObjectUrl($bucket, $object);
   }
 
   public function __destruct() {
   }
 
   public function initialize() {
+    return false;
+  }
+
+  public function dir_readdir() {
+    return false;
+  }
+
+  public function dir_rewinddir() {
     return false;
   }
 
@@ -198,6 +201,18 @@ abstract class CloudStorageClient {
                                          $token['access_token'])];
     } catch (AppIdentityException $e) {
       return false;
+    }
+  }
+
+  /**
+   * Create a URL for a target bucket and optional object.
+   */
+  protected function createObjectUrl($bucket, $object) {
+    $host = $this->isDevelServer() ? self::LOCAL_HOST : self::PRODUCTION_HOST;
+    if (isset($object)) {
+      return sprintf(self::BUCKET_OBJECT_FORMAT, $host, $bucket, $object);
+    } else {
+      return sprintf(self::BUCKET_FORMAT, $host, $bucket);
     }
   }
 
@@ -325,6 +340,62 @@ abstract class CloudStorageClient {
     }
 
     return $result;
+  }
+
+  /**
+   * Given an xml based error response from Cloud Storage, try and extract the
+   * error code and error message according to the schema described at
+   * https://developers.google.com/storage/docs/reference-status
+   *
+   * @param string $gcs_result The response body of the last call to Google
+   * Cloud Storage.
+   * @param string $code Reference variable where the error code for the last
+   * message will be returned.
+   * @param string $message Reference variable where the error detail for the
+   * last message will be returned.
+   * @return bool True if the error code and message could be extracted, false
+   * otherwise.
+   */
+  protected function tryParseCloudStorageErrorMessage($gcs_result,
+                                                      &$code,
+                                                      &$message) {
+    $code = null;
+    $message = null;
+
+    $old_errors = libxml_use_internal_errors(true);
+    $xml = simplexml_load_string($gcs_result);
+
+    if (false != $xml) {
+      $code = (string) $xml->Code;
+      $message = (string) $xml->Message;
+    }
+    libxml_use_internal_errors($old_errors);
+    return (isset($code) && isset($message));
+  }
+
+  /**
+   * Return a formatted error message for the http response.
+   *
+   * @param int $http_status_code The HTTP status code returned from the last
+   * http request.
+   * @param string $http_result The response body from the last http request.
+   * @param string $msg_prefix The prefix to add to the error message that will
+   * be generated.
+   *
+   * @return string The error message for the last HTTP response.
+   */
+  protected function getErrorMessage($http_status_code,
+                                     $http_result,
+                                     $msg_prefix = "Cloud Storage Error:") {
+    if ($this->tryParseCloudStorageErrorMessage($http_result,
+                                                $code,
+                                                $message)) {
+      return sprintf("%s %s (%s)", $msg_prefix, $message, $code);
+    } else {
+      return sprintf("%s %s",
+                     $msg_prefix,
+                     HttpResponse::getStatusMessage($http_status_code));
+    }
   }
 
   /**

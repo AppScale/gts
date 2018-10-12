@@ -140,7 +140,10 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     """
 
 
-    client_id = request.application_key()
+
+    client_id = self.client_id_from_token(request.application_key())
+    if client_id is None:
+      client_id = request.application_key()
 
     if not request.message():
       raise apiproxy_errors.ApplicationError(

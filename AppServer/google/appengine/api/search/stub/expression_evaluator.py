@@ -91,7 +91,6 @@ class ExpressionEvaluator(object):
         ExpressionParser.COUNT: self._Count,
         ExpressionParser.DISTANCE: self._Unsupported('distance'),
         ExpressionParser.GEOPOINT: self._Unsupported('geopoint'),
-        ExpressionParser.LEN: self._Unsupported('len'),
         ExpressionParser.LOG: self._Unsupported('log'),
         ExpressionParser.MAX: self._Max,
         ExpressionParser.MIN: self._Min,

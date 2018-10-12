@@ -46,7 +46,8 @@ final class CloudStorageUrlStatClient extends CloudStorageClient {
     $http_response = $this->makeHttpRequest($this->url, "HEAD", $headers);
     if ($http_response === false) {
       if (!$this->quiet) {
-        trigger_error("Unable to connect to Google Cloud Storage Service.",
+        trigger_error($this->getErrorMessage($http_response['status_code'],
+                                             $http_response['body']),
                       E_USER_WARNING);
       }
       return false;

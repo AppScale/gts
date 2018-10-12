@@ -41,8 +41,20 @@ class QueryException(Exception):
   """An error occurred while parsing the query input string."""
 
 
+class QueryTreeException(Exception):
+  """An error occurred while analyzing the parse tree."""
+
+  def __init__(self, msg, position):
+    Exception.__init__(self, msg)
+    self.position = position
+
+
 class QueryLexerWithErrors(QueryLexer.QueryLexer):
   """An overridden Lexer that raises exceptions."""
+
+  def displayRecognitionError(self, tokenNames, e):
+    msg = "WARNING: query error at line %d:%d" % (e.line, e.charPositionInLine);
+    self.emitErrorMessage(msg)
 
   def emitErrorMessage(self, msg):
     """Raise an exception if the input fails to parse correctly.
@@ -60,6 +72,10 @@ class QueryLexerWithErrors(QueryLexer.QueryLexer):
 
 class QueryParserWithErrors(QueryParser.QueryParser):
   """An overridden Parser that raises exceptions."""
+
+  def displayRecognitionError(self, tokenNames, e):
+    msg = "WARNING: query error at line %d:%d" % (e.line, e.charPositionInLine);
+    self.emitErrorMessage(msg)
 
   def emitErrorMessage(self, msg):
     """Raise an exception if the input fails to parse correctly.
@@ -89,7 +105,11 @@ def ParseAndSimplify(query):
   node = Parse(query).tree
   node = _ColonToEquals(node)
   node = SequenceToConjunction(node)
-  node = SimplifyNode(node)
+  try:
+    node = SimplifyNode(node)
+  except QueryTreeException, e:
+    msg = "%s in query '%s'" % (e.message, query)
+    raise QueryException(msg)
   return node
 
 
@@ -99,7 +119,8 @@ def Parse(query):
   try:
     return parser.query()
   except Exception, e:
-    raise QueryException(e.message)
+    msg = "%s in query '%s'" % (e.message, query)
+    raise QueryException(msg)
 
 
 def ConvertNodes(node, from_type, to_type, to_text):
@@ -151,21 +172,44 @@ def Simplify(parser_return):
   return parser_return
 
 
-def SimplifyNode(node):
-  """Simplifies the node removing singleton conjunctions and others."""
-  if not node.getType():
-    return SimplifyNode(node.children[0])
-  elif node.getType() == QueryParser.CONJUNCTION and node.getChildCount() == 1:
-    return SimplifyNode(node.children[0])
-  elif node.getType() == QueryParser.DISJUNCTION and node.getChildCount() == 1:
-    return SimplifyNode(node.children[0])
-  elif ((node.getType() == QueryParser.EQ or node.getType() == QueryParser.HAS)
-        and node.getChildCount() == 1):
-    return SimplifyNode(node.children[0])
-  for i, child in enumerate(node.children):
-    node.setChild(i, SimplifyNode(child))
-  return node
-
+def SimplifyNode(tree, restriction=None):
+  if tree.getType() == QueryLexer.VALUE:
+    return tree
+  elif tree.getType() == QueryParser.CONJUNCTION and tree.getChildCount() == 1:
+    return SimplifyNode(tree.children[0], restriction)
+  elif tree.getType() == QueryParser.DISJUNCTION and tree.getChildCount() == 1:
+    return SimplifyNode(tree.children[0], restriction)
+  elif tree.getType() == QueryLexer.HAS or tree.getType() == QueryLexer.EQ:
+    lhs = tree.getChild(0);
+    if lhs.getType() == QueryLexer.VALUE:
+      myField = lhs.getChild(1).getText()
+      if restriction is None:
+        restriction = lhs
+      else:
+        otherField = restriction.getChild(1).getText();
+        if myField != otherField:
+          raise QueryTreeException(
+              "Restriction on %s and %s" % (otherField, myField),
+              lhs.getChild(1).getCharPositionInLine());
+    rhs = tree.getChild(1);
+    flattened = SimplifyNode(rhs, restriction);
+    if (flattened.getType() == QueryLexer.HAS or
+        flattened.getType() == QueryLexer.EQ or
+        flattened.getType() == QueryLexer.CONJUNCTION or
+        flattened.getType() == QueryLexer.DISJUNCTION or
+        flattened.getType() == QueryLexer.SEQUENCE):
+      return flattened;
+    if flattened != rhs:
+      tree.setChild(1, flattened);
+    if restriction != lhs:
+      tree.setChild(0, restriction);
+    return tree;
+  for i in range(tree.getChildCount()):
+    original = tree.getChild(i);
+    flattened = SimplifyNode(tree.getChild(i), restriction);
+    if original != flattened:
+      tree.setChild(i, flattened)
+  return tree;
 
 def CreateQueryNode(text, type):
   token = tree.CommonTreeAdaptor().createToken(tokenType=type, text=text)

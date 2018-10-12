@@ -32,6 +32,7 @@ except ImportError:
   import simplejson as json
 import logging
 import os
+import re
 import time
 import urllib
 
@@ -75,6 +76,8 @@ _ENV_AUTH_EMAIL = 'ENDPOINTS_AUTH_EMAIL'
 _ENV_AUTH_DOMAIN = 'ENDPOINTS_AUTH_DOMAIN'
 _EMAIL_SCOPE = 'https://www.googleapis.com/auth/userinfo.email'
 _TOKENINFO_URL = 'https://www.googleapis.com/oauth2/v1/tokeninfo'
+_MAX_AGE_REGEX = re.compile(r'\s*max-age\s*=\s*(\d+)\s*')
+_CERT_NAMESPACE = '__verify_jwt'
 
 
 class _AppIdentityError(Exception):
@@ -282,9 +285,6 @@ def _get_id_token_user(token, audiences, allowed_client_ids, time_now, cache):
 
 
 
-
-
-
     return users.User(email)
 
 
@@ -425,8 +425,48 @@ def _urlsafe_b64decode(b64string):
   return base64.urlsafe_b64decode(padded)
 
 
+def _get_cert_expiration_time(headers):
+  """Get the expiration time for a cert, given the response headers.
+
+  Get expiration time from the headers in the result.  If we can't get
+  a time from the headers, this returns 0, indicating that the cert
+  shouldn't be cached.
+
+  Args:
+    headers: A dict containing the response headers from the request to get
+      certs.
+
+  Returns:
+    An integer with the number of seconds the cert should be cached.  This
+    value is guaranteed to be >= 0.
+  """
+
+  cache_control = headers.get('Cache-Control', '')
+
+
+
+  for entry in cache_control.split(','):
+    match = _MAX_AGE_REGEX.match(entry)
+    if match:
+      cache_time_seconds = int(match.group(1))
+      break
+  else:
+    return 0
+
+
+  age = headers.get('Age')
+  if age is not None:
+    try:
+      age = int(age)
+    except ValueError:
+      age = 0
+    cache_time_seconds -= age
+
+  return max(0, cache_time_seconds)
+
+
 def _get_cached_certs(cert_uri, cache):
-  certs = cache.get(cert_uri, namespace='verify_jwt')
+  certs = cache.get(cert_uri, namespace=_CERT_NAMESPACE)
   if certs is None:
     logging.info('Cert cache miss')
     try:
@@ -437,8 +477,10 @@ def _get_cached_certs(cert_uri, cache):
 
     if result.status_code == 200:
       certs = json.loads(result.content)
-
-      cache.set(cert_uri, certs, time=24*60*60, namespace='verify_jwt')
+      expiration_time_seconds = _get_cert_expiration_time(result.headers)
+      if expiration_time_seconds:
+        cache.set(cert_uri, certs, time=expiration_time_seconds,
+                  namespace=_CERT_NAMESPACE)
     else:
       logging.error(
           'Certs not available, HTTP request returned %d', result.status_code)

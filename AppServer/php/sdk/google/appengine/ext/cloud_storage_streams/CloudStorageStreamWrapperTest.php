@@ -224,17 +224,14 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
         'headers' => [
         ],
     ];
-    $expected_url = sprintf(CloudStorageClient::BUCKET_OBJECT_FORMAT,
-                            CloudStorageClient::PRODUCTION_HOST,
-                            "bucket",
-                            "/object_name.png");
+    $expected_url = $this->makeCloudStorageObjectUrl();
     $this->expectHttpRequest($expected_url,
                              RequestMethod::DELETE,
                              $request_headers,
                              null,
                              $response);
 
-    $this->assertTrue(unlink("gs://bucket/object_name.png"));
+    $this->assertTrue(unlink("gs://bucket/object.png"));
     $this->apiProxyMock->verify();
   }
 
@@ -249,18 +246,22 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
         'status_code' => 404,
         'headers' => [
         ],
+        'body' => "<?xml version='1.0' encoding='utf-8'?>
+                   <Error>
+                   <Code>NoSuchBucket</Code>
+                   <Message>No Such Bucket</Message>
+                   </Error>",
     ];
-    $expected_url = sprintf(CloudStorageClient::BUCKET_OBJECT_FORMAT,
-                            CloudStorageClient::PRODUCTION_HOST,
-                            "bucket",
-                            "/object_name.png");
+    $expected_url = $this->makeCloudStorageObjectUrl();
     $this->expectHttpRequest($expected_url,
                              RequestMethod::DELETE,
                              $request_headers,
                              null,
                              $response);
 
-    $this->assertFalse(unlink("gs://bucket/object_name.png"));
+    $this->setExpectedException("PHPUnit_Framework_Error_Warning",
+        "Cloud Storage Error: No Such Bucket (NoSuchBucket)");
+    $this->assertFalse(unlink("gs://bucket/object.png"));
     $this->apiProxyMock->verify();
   }
 
@@ -277,9 +278,7 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
         ],
     ];
 
-    $expected_url = sprintf(CloudStorageClient::BUCKET_FORMAT,
-                            CloudStorageClient::PRODUCTION_HOST,
-                            "bucket");
+    $expected_url = $this->makeCloudStorageObjectUrl("bucket", null);
     $this->expectHttpRequest($expected_url,
                              RequestMethod::HEAD,
                              $request_headers,
@@ -304,17 +303,14 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
         ],
     ];
 
-    $expected_url = sprintf(CloudStorageClient::BUCKET_OBJECT_FORMAT,
-                            CloudStorageClient::PRODUCTION_HOST,
-                            "bucket",
-                            "/object_name.png");
+    $expected_url = $this->makeCloudStorageObjectUrl();
     $this->expectHttpRequest($expected_url,
                              RequestMethod::HEAD,
                              $request_headers,
                              null,
                              $response);
 
-    $result = stat("gs://bucket/object_name.png");
+    $result = stat("gs://bucket/object.png");
     $this->assertEquals(37337, $result['size']);
     $this->assertEquals(0100400, $result['mode']);
     $this->apiProxyMock->verify();
@@ -333,10 +329,7 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
         ],
     ];
 
-    $expected_url = sprintf(CloudStorageClient::BUCKET_OBJECT_FORMAT,
-                            CloudStorageClient::PRODUCTION_HOST,
-                            "bucket",
-                            "/object_name.png");
+    $expected_url = $this->makeCloudStorageObjectUrl();
     $this->expectHttpRequest($expected_url,
                              RequestMethod::HEAD,
                              $request_headers,
@@ -344,7 +337,236 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
                              $response);
 
     $this->setExpectedException("PHPUnit_Framework_Error_Warning");
-    $result = stat("gs://bucket/object_name.png");
+    $result = stat("gs://bucket/object.png");
+    $this->apiProxyMock->verify();
+  }
+
+  public function testInvalidRenamePaths() {
+    $this->setExpectedException("\PHPUnit_Framework_Error");
+    $this->assertFalse(rename("gs://bucket/object.png", "gs://to/"));
+    $this->setExpectedException("\PHPUnit_Framework_Error");
+    $this->assertFalse(rename("gs://bucket/", "gs://to/object.png"));
+  }
+
+  public function testRenameObjectSuccess() {
+    $this->expectGetAccessTokenRequest(CloudStorageClient::WRITE_SCOPE);
+
+    // First there is a stat
+    $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 200,
+        'headers' => [
+            'Content-Length' => 37337,
+            'ETag' => 'abcdef',
+            'Content-Type' => 'text/plain',
+        ],
+    ];
+
+    $expected_url = $this->makeCloudStorageObjectUrl();
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::HEAD,
+                             $request_headers,
+                             null,
+                             $response);
+
+    // Then there is a copy
+    $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-copy-source" => '/bucket/object.png',
+        "x-goog-copy-source-if-match" => 'abcdef',
+        "content-type" => 'text/plain',
+        "x-goog-metadata-directive" => "COPY",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 200,
+        'headers' => [
+        ]
+    ];
+    $expected_url = $this->makeCloudStorageObjectUrl("to_bucket", "/to.png");
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::PUT,
+                             $request_headers,
+                             null,
+                             $response);
+
+    // Then we unlink the original.
+    $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 204,
+        'headers' => [
+        ],
+    ];
+    $expected_url = $this->makeCloudStorageObjectUrl();
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::DELETE,
+                             $request_headers,
+                             null,
+                             $response);
+
+    $from = "gs://bucket/object.png";
+    $to = "gs://to_bucket/to.png";
+
+    $this->assertTrue(rename($from, $to));
+    $this->apiProxyMock->verify();
+  }
+
+  public function testRenameObjectFromObjectNotFound() {
+    $this->expectGetAccessTokenRequest(CloudStorageClient::WRITE_SCOPE);
+
+    // First there is a stat
+    $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 404,
+        'headers' => [
+        ],
+    ];
+
+    $expected_url = $this->makeCloudStorageObjectUrl();
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::HEAD,
+                             $request_headers,
+                             null,
+                             $response);
+
+    $from = "gs://bucket/object.png";
+    $to = "gs://to_bucket/to_object";
+
+    $this->setExpectedException("\PHPUnit_Framework_Error_Warning");
+    rename($from, $to);
+    $this->apiProxyMock->verify();
+  }
+
+  public function testRenameObjectCopyFailed() {
+    $this->expectGetAccessTokenRequest(CloudStorageClient::WRITE_SCOPE);
+
+    // First there is a stat
+    $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 200,
+        'headers' => [
+            'Content-Length' => 37337,
+            'ETag' => 'abcdef',
+            'Content-Type' => 'text/plain',
+        ],
+    ];
+
+    $expected_url = $this->makeCloudStorageObjectUrl();
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::HEAD,
+                             $request_headers,
+                             null,
+                             $response);
+
+    // Then there is a copy
+    $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-copy-source" => '/bucket/object.png',
+        "x-goog-copy-source-if-match" => 'abcdef',
+        "content-type" => 'text/plain',
+        "x-goog-metadata-directive" => "COPY",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 412,
+        'headers' => [
+        ]
+    ];
+    $expected_url = $this->makeCloudStorageObjectUrl("to_bucket", "/to_object");
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::PUT,
+                             $request_headers,
+                             null,
+                             $response);
+
+    $from = "gs://bucket/object.png";
+    $to = "gs://to_bucket/to_object";
+
+    $this->setExpectedException("\PHPUnit_Framework_Error_Warning");
+    $this->assertFalse(rename($from, $to));
+    $this->apiProxyMock->verify();
+  }
+
+  public function testRenameObjectUnlinkFailed() {
+    $this->expectGetAccessTokenRequest(CloudStorageClient::WRITE_SCOPE);
+
+    // First there is a stat
+    $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 200,
+        'headers' => [
+            'Content-Length' => 37337,
+            'ETag' => 'abcdef',
+            'Content-Type' => 'text/plain',
+        ],
+    ];
+
+    $expected_url = $this->makeCloudStorageObjectUrl();
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::HEAD,
+                             $request_headers,
+                             null,
+                             $response);
+
+    // Then there is a copy
+    $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-copy-source" => '/bucket/object.png',
+        "x-goog-copy-source-if-match" => 'abcdef',
+        "content-type" => 'text/plain',
+        "x-goog-metadata-directive" => "COPY",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 200,
+        'headers' => [
+        ]
+    ];
+    $expected_url = $this->makeCloudStorageObjectUrl("to_bucket",
+                                                     "/to_object");
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::PUT,
+                             $request_headers,
+                             null,
+                             $response);
+
+    // Then we unlink the original.
+     $request_headers = [
+        "Authorization" => "OAuth foo token",
+        "x-goog-api-version" => 2,
+    ];
+    $response = [
+        'status_code' => 404,
+        'headers' => [
+        ],
+    ];
+    $expected_url = $this->makeCloudStorageObjectUrl();
+    $this->expectHttpRequest($expected_url,
+                             RequestMethod::DELETE,
+                             $request_headers,
+                             null,
+                             $response);
+
+    $from = "gs://bucket/object.png";
+    $to = "gs://to_bucket/to_object";
+
+    $this->setExpectedException("\PHPUnit_Framework_Error_Warning");
+    $this->assertFalse(rename($from, $to));
     $this->apiProxyMock->verify();
   }
 
@@ -352,10 +574,7 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
     $data_to_write = "Hello To PHP.";
     $data_to_write_len = strlen($data_to_write);
 
-    $expected_url = sprintf(CloudStorageClient::BUCKET_OBJECT_FORMAT,
-                            CloudStorageClient::PRODUCTION_HOST,
-                            "bucket",
-                            "/object.png");
+    $expected_url = $this->makeCloudStorageObjectUrl();
 
     $this->expectFileWriteStartRequest("text/plain",
                                        "public-read",
@@ -385,10 +604,7 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
     $data_to_write = str_repeat("1234567890", 100000);
     $data_len = strlen($data_to_write);
 
-    $expected_url = sprintf(CloudStorageClient::BUCKET_OBJECT_FORMAT,
-                            CloudStorageClient::PRODUCTION_HOST,
-                            "bucket",
-                            "/object.png");
+    $expected_url = $this->makeCloudStorageObjectUrl();
 
     $this->expectFileWriteStartRequest("text/plain",
                                        "public-read",
@@ -437,10 +653,8 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
     $data_to_write = "";
     $data_len = 0;
 
-    $expected_url = sprintf(CloudStorageClient::BUCKET_OBJECT_FORMAT,
-                            CloudStorageClient::PRODUCTION_HOST,
-                            "bucket",
-                            "/empty_file.txt");
+    $expected_url = $this->makeCloudStorageObjectUrl("bucket",
+                                                     "/empty_file.txt");
 
     $this->expectFileWriteStartRequest("text/plain",
                                        "public-read",
@@ -498,6 +712,13 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
 
     $this->assertEquals($a, 'foo');
     $this->apiProxyMock->verify();
+  }
+
+  public function testInvalidPathForOpenDir() {
+    $this->setExpectedException("\PHPUnit_Framework_Error");
+    $this->assertFalse(opendir("gs:///"));
+    $this->setExpectedException("\PHPUnit_Framework_Error");
+    $this->assertFalse(fopen("gs://"));
   }
 
   private function expectFileReadRequest($body,
@@ -570,19 +791,22 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
 
     if ($total_body_length <= $start_byte) {
       $range_cannot_be_satisfied = true;
-    }
-    if ($start_byte != 0 || $length < $total_body_length) {
-      $final_length = min($length, $total_body_length - $start_byte);
-      $body = substr($body, $start_byte, $final_length);
-      $partial_content = true;
-    } else if ($return_partial_content) {
-      $final_length = strlen($body);
-      $partial_content = true;
+      $body = "<Message>The requested range cannot be satisfied.</Message>";
+    } else {
+      if ($start_byte != 0 || $length < $total_body_length) {
+        $final_length = min($length, $total_body_length - $start_byte);
+        $body = substr($body, $start_byte, $final_length);
+        $partial_content = true;
+      } else if ($return_partial_content) {
+        $final_length = strlen($body);
+        $partial_content = true;
+      }
     }
 
     $success_headers = [];
     if ($range_cannot_be_satisfied) {
       $status_code = HttpResponse::RANGE_NOT_SATISFIABLE;
+      $success_headers["Content-Length"] = $total_body_length;
     } else if (!$partial_content) {
       $status_code = HttpResponse::OK;
       $success_headers["Content-Length"] = $total_body_length;
@@ -703,6 +927,20 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
                                     'Fetch',
                                     $req,
                                     $resp);
+  }
+
+  private function makeCloudStorageObjectUrl($bucket = "bucket",
+                                             $object = "/object.png") {
+    if (isset($object)){
+      return sprintf(CloudStorageClient::BUCKET_OBJECT_FORMAT,
+                     CloudStorageClient::PRODUCTION_HOST,
+                     $bucket,
+                     $object);
+    } else {
+      return sprintf(CloudStorageClient::BUCKET_FORMAT,
+                     CloudStorageClient::PRODUCTION_HOST,
+                     $bucket);
+    }
   }
 }
 

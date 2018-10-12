@@ -108,7 +108,7 @@ SDK_PRODUCT = 'appcfg_py'
 DAY = 24*3600
 SUNDAY = 6
 
-SUPPORTED_RUNTIMES = ('go', 'python', 'python27')
+SUPPORTED_RUNTIMES = ('go', 'php', 'python', 'python27')
 
 
 
@@ -1606,11 +1606,13 @@ class AppVersionUpload(object):
     for url in config_copy.handlers:
       handler_type = url.GetHandlerType()
       if url.application_readable:
+
+
         if handler_type == 'static_dir':
-          url.static_dir = os.path.join(STATIC_FILE_PREFIX, url.static_dir)
+          url.static_dir = '%s/%s' % (STATIC_FILE_PREFIX, url.static_dir)
         elif handler_type == 'static_files':
-          url.static_files = os.path.join(STATIC_FILE_PREFIX, url.static_files)
-          url.upload = os.path.join(STATIC_FILE_PREFIX, url.upload)
+          url.static_files = '%s/%s' % (STATIC_FILE_PREFIX, url.static_files)
+          url.upload = '%s/%s' % (STATIC_FILE_PREFIX, url.upload)
 
     response = self.Send(
         '/api/appversion/create',
@@ -1633,7 +1635,7 @@ class AppVersionUpload(object):
       if file_classification.IsStaticFile():
         upload_path = path
         if file_classification.IsApplicationFile():
-          upload_path = os.path.join(STATIC_FILE_PREFIX, path)
+          upload_path = '%s/%s' % (STATIC_FILE_PREFIX, path)
         blobs_to_clone.append((path, upload_path, content_hash,
                                file_classification.StaticMimeType()))
 
@@ -1716,7 +1718,7 @@ class AppVersionUpload(object):
     if file_classification.IsStaticFile():
       upload_path = path
       if file_classification.IsApplicationFile():
-        upload_path = os.path.join(STATIC_FILE_PREFIX, path)
+        upload_path = '%s/%s' % (STATIC_FILE_PREFIX, path)
       self.blob_batcher.AddToBatch(upload_path, payload,
                                    file_classification.StaticMimeType())
 
@@ -4037,7 +4039,6 @@ definitions from the optional queue.yaml file."""),
 
       'update_dispatch': Action(
           function='UpdateDispatch',
-          hidden=True,
           usage='%prog [options] update_dispatch <directory>',
           short_desc='Update application dispatch definitions.',
           long_desc="""
@@ -4162,11 +4163,8 @@ Expected an optional <directory> and mandatory <output_file> argument."""),
 The 'cron_info' command will display the next 'number' runs (default 5) for
 each cron job defined in the cron.yaml file."""),
 
-
-
       'start': Action(
           function='Start',
-          hidden=True,
           uses_basepath=False,
           usage='%prog [options] start [file, ...]',
           short_desc='Start a module version.',
@@ -4175,7 +4173,6 @@ The 'start' command will put a module version into the START state."""),
 
       'stop': Action(
           function='Stop',
-          hidden=True,
           uses_basepath=False,
           usage='%prog [options] stop [file, ...]',
           short_desc='Stop a module version.',

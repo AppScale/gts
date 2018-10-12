@@ -68,13 +68,13 @@ import logging
 import os
 
 from protorpc import messages
-from protorpc import protojson
 from protorpc import remote
 from protorpc.wsgi import service as wsgi_service
 
 from google.appengine.ext.endpoints import api_backend_service
 from google.appengine.ext.endpoints import api_config
 from google.appengine.ext.endpoints import api_exceptions
+from google.appengine.ext.endpoints import protojson
 
 package = 'google.appengine.endpoints'
 
@@ -94,8 +94,9 @@ _ERROR_NAME_MAP = dict((httplib.responses[c.http_status], c) for c in [
     api_exceptions.UnauthorizedException,
     ])
 
-_ALL_JSON_CONTENT_TYPES = frozenset([protojson.CONTENT_TYPE] +
-                                    protojson.ALTERNATIVE_CONTENT_TYPES)
+_ALL_JSON_CONTENT_TYPES = frozenset(
+    [protojson.EndpointsProtoJson.CONTENT_TYPE] +
+    protojson.EndpointsProtoJson.ALTERNATIVE_CONTENT_TYPES)
 
 
 
@@ -184,6 +185,9 @@ class _ApiServer(object):
   __HEADER_NAME_PEER = 'HTTP_X_APPENGINE_PEER'
   __GOOGLE_PEER = 'apiserving'
 
+
+  __PROTOJSON = protojson.EndpointsProtoJson()
+
   def __init__(self, api_services, **kwargs):
     """Initialize an _ApiServer instance.
 
@@ -194,6 +198,8 @@ class _ApiServer(object):
 
     Args:
       api_services: List of protorpc.remote.Service classes implementing the API
+        or a list of _ApiDecorator instances that decorate the service classes
+        for an API.
       **kwargs: Passed through to protorpc.wsgi.service.service_handlers except:
         protocols - ProtoRPC protocols are not supported, and are disallowed.
         restricted - If True or unset, the API will only be allowed to serve to
@@ -208,6 +214,12 @@ class _ApiServer(object):
       TypeError: if protocols are configured (this feature is not supported).
       ApiConfigurationError: if there's a problem with the API config.
     """
+    for entry in api_services[:]:
+
+      if isinstance(entry, api_config._ApiDecorator):
+        api_services.remove(entry)
+        api_services.extend(entry.get_api_classes())
+
     protorpc_services = []
     generator = api_config.ApiConfigGenerator()
     self.api_config_registry = api_backend_service.ApiConfigRegistry()
@@ -238,9 +250,14 @@ class _ApiServer(object):
         self.api_config_registry, _get_app_revision())
     protorpc_services.insert(0, (self.__BACKEND_SERVICE_ROOT, backend_service))
 
+
     if 'protocols' in kwargs:
       raise TypeError('__init__() got an unexpected keyword argument '
                       "'protocols'")
+    protocols = remote.Protocols()
+    protocols.add_protocol(self.__PROTOJSON, 'protojson')
+    remote.Protocols.set_default(protocols)
+
     self.restricted = kwargs.pop('restricted', True)
     self.service_app = wsgi_service.service_mappings(protorpc_services,
                                                      **kwargs)
@@ -302,7 +319,7 @@ class _ApiServer(object):
     message = EndpointsErrorMessage(
         state=EndpointsErrorMessage.State.APPLICATION_ERROR,
         error_message=error_message)
-    return status, protojson.encode_message(message)
+    return status, self.__PROTOJSON.encode_message(message)
 
   def protorpc_to_endpoints_error(self, status, body):
     """Convert a ProtoRPC error to the format expected by Google Endpoints.
@@ -318,7 +335,7 @@ class _ApiServer(object):
       Tuple of (http status, body)
     """
     try:
-      rpc_error = protojson.decode_message(remote.RpcStatus, body)
+      rpc_error = self.__PROTOJSON.decode_message(remote.RpcStatus, body)
     except (ValueError, messages.ValidationError):
       rpc_error = remote.RpcStatus()
 
@@ -407,6 +424,8 @@ def api_server(api_services, **kwargs):
 
   Args:
     api_services: List of protorpc.remote.Service classes implementing the API
+      or a list of _ApiDecorator instances that decorate the service classes
+      for an API.
     **kwargs: Passed through to protorpc.wsgi.service.service_handlers except:
       protocols - ProtoRPC protocols are not supported, and are disallowed.
       restricted - If True or unset, the API will only be allowed to serve to

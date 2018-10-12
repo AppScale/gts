@@ -41,10 +41,20 @@ class TestDateTime(messages.Message):
   datetime_value = message_types.DateTimeField(1)
 
 
+class TestIntegers(messages.Message):
+  """Simple ProtoRPC request/response with a few integer types."""
+  var_int32 = messages.IntegerField(1, variant=messages.Variant.INT32)
+  var_int64 = messages.IntegerField(2, variant=messages.Variant.INT64)
+  var_repeated_int64 = messages.IntegerField(3, variant=messages.Variant.INT64,
+                                             repeated=True)
+  var_sint64 = messages.IntegerField(4, variant=messages.Variant.SINT64)
+  var_uint64 = messages.IntegerField(5, variant=messages.Variant.UINT64)
+
+
 my_api = endpoints.api(name='test_service', version='v1')
 
 
-@my_api.collection()
+@my_api.api_class()
 class TestService(remote.Service):
   """ProtoRPC test class for Cloud Endpoints."""
 
@@ -78,8 +88,19 @@ class TestService(remote.Service):
                  request.datetime_value.month)
     return request
 
+  @endpoints.method(TestIntegers, TestIntegers, http_method='POST',
+                    path='increment_integers', scopes=[])
+  def increment_integers(self, request):
+    response = TestIntegers(
+        var_int32=request.var_int32 + 1,
+        var_int64=request.var_int64 + 1,
+        var_repeated_int64=[val + 1 for val in request.var_repeated_int64],
+        var_sint64=request.var_sint64 + 1,
+        var_uint64=request.var_uint64 + 1)
+    return response
 
-@my_api.collection(resource_name='extraname', path='extrapath')
+
+@my_api.api_class(resource_name='extraname', path='extrapath')
 class ExtraMethods(remote.Service):
   """Some extra test methods in the test API."""
 
@@ -90,4 +111,16 @@ class ExtraMethods(remote.Service):
     return TestResponse(text='Extra test response')
 
 
-application = endpoints.api_server([TestService, ExtraMethods])
+@endpoints.api(name='second_service', version='v1')
+class SecondService(remote.Service):
+  """Second test class for Cloud Endpoints."""
+
+  @endpoints.method(message_types.VoidMessage, TestResponse,
+                    http_method='GET', name='test_name', path='test',
+                    scopes=[])
+  def second_test(self, unused_request):
+    """Test a second API, same version, same path.  Shouldn't collide."""
+    return TestResponse(text='Second response')
+
+
+application = endpoints.api_server([TestService, ExtraMethods, SecondService])

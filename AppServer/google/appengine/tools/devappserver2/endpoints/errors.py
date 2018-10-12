@@ -19,9 +19,10 @@
 
 
 
-import httplib
 import json
 import logging
+
+from google.appengine.tools.devappserver2.endpoints import generated_error_info
 
 
 __all__ = ['BackendError',
@@ -35,27 +36,13 @@ _INVALID_ENUM_TEMPLATE = 'Invalid string value: %r. Allowed values: %r'
 class RequestError(Exception):
   """Base class for errors that happen while processing a request."""
 
-  # Most error reasons are a straightforward conversion from the HTTP response
-  # string to a more compact name.  But there are exceptions.  This maps
-  # the exceptions.
-  __ERROR_REASON_EXCEPTIONS = {
-      httplib.OK: 'ok',
-      httplib.PAYMENT_REQUIRED: 'user402',
-      httplib.METHOD_NOT_ALLOWED: 'httpMethodNotAllowed',
-      httplib.GONE: 'deleted',
-      httplib.PRECONDITION_FAILED: 'conditionNotMet',
-      httplib.REQUEST_ENTITY_TOO_LARGE: 'uploadTooLarge',
-      httplib.INTERNAL_SERVER_ERROR: 'internalError',
-      httplib.SERVICE_UNAVAILABLE: 'backendError',
-      }
+  def status_code(self):
+    """HTTP status code number associated with this error.
 
-  def http_status(self):
-    """HTTP status code and message associated with this error.
+    Subclasses must implement this, returning an integer with the status
+    code number for the error.
 
-    Subclasses must implement this, returning a string with the status
-    code number and status text for the error.
-
-    Example: "400 Bad Request"
+    Example: 400
 
     Raises:
       NotImplementedError: Subclasses must override this function.
@@ -85,7 +72,16 @@ class RequestError(Exception):
       None, by default.  Subclasses can override this if they have a specific
       error reason.
     """
-    return None
+    raise NotImplementedError
+
+  def domain(self):
+    """Get the domain for this error.
+
+    Returns:
+      The string 'global' by default.  Subclasses can override this if they have
+      a different domain.
+    """
+    return 'global'
 
   def extra_fields(self):
     """Return a dict of extra fields to add to the error response.
@@ -99,31 +95,6 @@ class RequestError(Exception):
     """
     return None
 
-  def _get_status_code_and_error_reason(self):
-    """Get the error reason string and HTTP status code from this request error.
-
-    Error reason is a custom string in the Cloud Endpoints server.  This is
-    a rough approximation of what the server will return.  For most errors,
-    this should be accurate, but there are no guarantees.
-
-    Returns:
-      A tuple containing (status_code, reason), where 'status_code' is an
-      integer indicating the HTTP status, and 'reason' string with the short
-      reason for the error.
-    """
-    try:
-      status_code = int(self.http_status().split(' ', 1)[0])
-    except TypeError:
-      logging.warning('Unable to find status code in HTTP status %r.',
-                      self.http_status())
-      status_code = 500
-    reason = self.reason() or self.__ERROR_REASON_EXCEPTIONS.get(status_code)
-    if not reason:
-      http_response = httplib.responses.get(status_code, '')
-      reason = http_response[0:1].lower() + http_response[1:].replace(' ', '')
-
-    return status_code, reason
-
   def __format_error(self, error_list_tag):
     """Format this error into a JSON response.
 
@@ -134,13 +105,12 @@ class RequestError(Exception):
     Returns:
       A dict containing the reformatted JSON error response.
     """
-    status_code, reason = self._get_status_code_and_error_reason()
-    error = {'domain': 'global',
-             'reason': reason,
+    error = {'domain': self.domain(),
+             'reason': self.reason(),
              'message': self.message()}
     error.update(self.extra_fields() or {})
     return {'error': {error_list_tag: [error],
-                      'code': status_code,
+                      'code': self.status_code(),
                       'message': self.message()}}
 
   def rest_error(self):
@@ -169,8 +139,8 @@ class RequestRejectionError(RequestError):
   generated discovery document.
   """
 
-  def http_status(self):
-    return '400 Bad Request'
+  def status_code(self):
+    return 400
 
 
 
@@ -218,7 +188,9 @@ class BackendError(RequestError):
 
   def __init__(self, response):
     super(BackendError, self).__init__()
-    self._status = response.status
+    # Convert backend error status to whatever the live server would return.
+    status_code = self._get_status_code(response.status)
+    self._error_info = generated_error_info.get_error_info(status_code)
 
     try:
       error_json = json.loads(response.content)
@@ -226,13 +198,29 @@ class BackendError(RequestError):
     except TypeError:
       self._message = response.content
 
-  def http_status(self):
-    """Return the HTTP status code and message for this error.
+  def _get_status_code(self, http_status):
+    """Get the HTTP status code from an HTTP status string.
+
+    Args:
+      http_status: A string containing a HTTP status code and reason.
 
     Returns:
-      A string containing the status code and message for this error.
+      An integer with the status code number from http_status.
     """
-    return self._status
+    try:
+      return int(http_status.split(' ', 1)[0])
+    except TypeError:
+      logging.warning('Unable to find status code in HTTP status %r.',
+                      http_status)
+    return 500
+
+  def status_code(self):
+    """Return the HTTP status code number for this error.
+
+    Returns:
+      An integer containing the status code for this error.
+    """
+    return self._error_info.http_status
 
   def message(self):
     """Return a descriptive message for this error.
@@ -241,3 +229,19 @@ class BackendError(RequestError):
       A string containing a descriptive message for this error.
     """
     return self._message
+
+  def reason(self):
+    """Return the short reason for this error.
+
+    Returns:
+      A string with the reason for this error.
+    """
+    return self._error_info.reason
+
+  def domain(self):
+    """Return the remapped domain for this error.
+
+    Returns:
+      A string containing the remapped domain for this error.
+    """
+    return self._error_info.domain
