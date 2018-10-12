@@ -19,6 +19,8 @@
 """Endpoints-specific implementation of ProtoRPC's ProtoJson class."""
 
 
+import base64
+
 from protorpc import messages
 from protorpc import protojson
 
@@ -63,3 +65,24 @@ class EndpointsProtoJson(protojson.ProtoJson):
         return value
 
     return super(EndpointsProtoJson, self).encode_field(field, value)
+
+  def decode_field(self, field, value):
+    """Decode a JSON value to a python value.
+
+    Args:
+      field: A ProtoRPC field instance.
+      value: A serialized JSON value.
+
+    Returns:
+      A Python value compatible with field.
+    """
+
+
+
+    if isinstance(field, messages.BytesField):
+      try:
+        return base64.urlsafe_b64decode(value)
+      except TypeError, err:
+        raise messages.DecodeError('Base64 decoding error: %s' % err)
+
+    return super(EndpointsProtoJson, self).decode_field(field, value)

@@ -220,30 +220,10 @@ class _ApiServer(object):
         api_services.remove(entry)
         api_services.extend(entry.get_api_classes())
 
-    protorpc_services = []
-    generator = api_config.ApiConfigGenerator()
     self.api_config_registry = api_backend_service.ApiConfigRegistry()
-    api_name_version_map = {}
-    for service in api_services:
-      key = (service.api_info.name, service.api_info.version)
-      services = api_name_version_map.setdefault(key, [])
-      if service in services:
-        raise api_config.ApiConfigurationError(
-            'Can\'t add the same class to an API twice: %s' % service.__name__)
-      services.append(service)
-
-    for services in api_name_version_map.values():
-      config_file = generator.pretty_print_config_to_json(services)
-
-
-
-      self.api_config_registry.register_spi(config_file)
-      for api_service in services:
-        protorpc_class_name = api_service.__name__
-        root = self.__SPI_PREFIX + protorpc_class_name
-        if not any(service[0] == root or service[1] == api_service
-                   for service in protorpc_services):
-          protorpc_services.append((root, api_service))
+    api_name_version_map = self.__create_name_version_map(api_services)
+    protorpc_services = self.__register_services(api_name_version_map,
+                                                 self.api_config_registry)
 
 
     backend_service = api_backend_service.BackendServiceImpl.new_factory(
@@ -261,6 +241,85 @@ class _ApiServer(object):
     self.restricted = kwargs.pop('restricted', True)
     self.service_app = wsgi_service.service_mappings(protorpc_services,
                                                      **kwargs)
+
+  @staticmethod
+  def __create_name_version_map(api_services):
+    """Create a map from API name/version to Service class/factory.
+
+    This creates a map from an API name and version to a list of remote.Service
+    factories that implement that API.
+
+    Args:
+      api_services: A list of remote.Service-derived classes or factories
+        created with remote.Service.new_factory.
+
+    Returns:
+      A mapping from (api name, api version) to a list of service factories,
+      for service classes that implement that API.
+
+    Raises:
+      ApiConfigurationError: If a Service class appears more than once
+        in api_services.
+    """
+    api_name_version_map = {}
+    for service_factory in api_services:
+      try:
+        service_class = service_factory.service_class
+      except AttributeError:
+        service_class = service_factory
+        service_factory = service_class.new_factory()
+
+      key = service_class.api_info.name, service_class.api_info.version
+      service_factories = api_name_version_map.setdefault(key, [])
+      if service_factory in service_factories:
+        raise api_config.ApiConfigurationError(
+            'Can\'t add the same class to an API twice: %s' %
+            service_factory.service_class.__name__)
+
+      service_factories.append(service_factory)
+    return api_name_version_map
+
+  @staticmethod
+  def __register_services(api_name_version_map, api_config_registry):
+    """Register & return a list of each SPI URL and class that handles that URL.
+
+    This finds every service class in api_name_version_map, registers it with
+    the given ApiConfigRegistry, builds the SPI url for that class, and adds
+    the URL and its factory to a list that's returned.
+
+    Args:
+      api_name_version_map: A mapping from (api name, api version) to a list of
+        service factories, as returned by __create_name_version_map.
+      api_config_registry: The ApiConfigRegistry where service classes will
+        be registered.
+
+    Returns:
+      A list of (SPI URL, service_factory) for each service class in
+      api_name_version_map.
+
+    Raises:
+      ApiConfigurationError: If a Service class appears more than once
+        in api_name_version_map.  This could happen if one class is used to
+        implement multiple APIs.
+    """
+    generator = api_config.ApiConfigGenerator()
+    protorpc_services = []
+    for service_factories in api_name_version_map.itervalues():
+      service_classes = [service_factory.service_class
+                         for service_factory in service_factories]
+      config_file = generator.pretty_print_config_to_json(service_classes)
+      api_config_registry.register_spi(config_file)
+
+      for service_factory in service_factories:
+        protorpc_class_name = service_factory.service_class.__name__
+        root = _ApiServer.__SPI_PREFIX + protorpc_class_name
+        if any(service_map[0] == root or service_map[1] == service_factory
+               for service_map in protorpc_services):
+          raise api_config.ApiConfigurationError(
+              'Can\'t reuse the same class in multiple APIs: %s' %
+              protorpc_class_name)
+        protorpc_services.append((root, service_factory))
+    return protorpc_services
 
   def __is_request_restricted(self, environ):
     """Determine if access to SPI should be denied.

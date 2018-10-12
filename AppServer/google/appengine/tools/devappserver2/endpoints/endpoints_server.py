@@ -38,6 +38,7 @@ from google.appengine.tools.devappserver2.endpoints import api_request
 from google.appengine.tools.devappserver2.endpoints import discovery_api_proxy
 from google.appengine.tools.devappserver2.endpoints import discovery_service
 from google.appengine.tools.devappserver2.endpoints import errors
+from google.appengine.tools.devappserver2.endpoints import parameter_converter
 from google.appengine.tools.devappserver2.endpoints import util
 
 
@@ -309,7 +310,7 @@ class EndpointsDispatcher(object):
                                             spi_request.body,
                                             spi_request.source_ip)
     return self.handle_spi_response(orig_request, spi_request, response,
-                                    start_response)
+                                    method_config, start_response)
 
   class __CheckCorsHeaders(object):
     """Track information about CORS headers and our response to them."""
@@ -350,7 +351,7 @@ class EndpointsDispatcher(object):
         headers[_CORS_HEADER_ALLOW_HEADERS] = self.cors_request_headers
 
   def handle_spi_response(self, orig_request, spi_request, response,
-                          start_response):
+                          method_config, start_response):
     """Handle SPI response, transforming output as needed.
 
     This calls start_response and returns the response body.
@@ -360,6 +361,7 @@ class EndpointsDispatcher(object):
       spi_request: An ApiRequest, the transformed request that was sent to the
         SPI handler.
       response: A ResponseTuple, the response from the SPI handler.
+      method_config: A dict, the API config of the method to be called.
       start_response: A function with semantics defined in PEP-333.
 
     Returns:
@@ -381,6 +383,13 @@ class EndpointsDispatcher(object):
     if orig_request.is_rpc():
       body = self.transform_jsonrpc_response(spi_request, response.content)
     else:
+      # Check if the response from the SPI was empty.  Empty REST responses
+      # generate a HTTP 204.
+      empty_response = self.check_empty_response(orig_request, method_config,
+                                                 start_response)
+      if empty_response is not None:
+        return empty_response
+
       body = self.transform_rest_response(response.content)
 
     cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
@@ -461,66 +470,6 @@ class EndpointsDispatcher(object):
       request = self.transform_rest_request(orig_request, params, method_params)
     request.path = method_config.get('rosyMethod', '')
     return request
-
-  def _check_enum(self, parameter_name, value, field_parameter):
-    """Checks if the parameter value is valid if an enum.
-
-    If the parameter is not an enum, does nothing. If it is, verifies that
-    its value is valid.
-
-    Args:
-      parameter_name: A string containing the name of the parameter, which is
-        either just a variable name or the name with the index appended. For
-        example 'var' or 'var[2]'.
-      value: A string or list of strings containing the value(s) to be used as
-        enum(s) for the parameter.
-      field_parameter: The dictionary containing information specific to the
-        field in question. This is retrieved from request.parameters in the
-        method config.
-
-    Raises:
-      EnumRejectionError: If the given value is not among the accepted
-        enum values in the field parameter.
-    """
-    if 'enum' not in field_parameter:
-      return
-
-    enum_values = [enum['backendValue']
-                   for enum in field_parameter['enum'].values()
-                   if 'backendValue' in enum]
-    if value not in enum_values:
-      raise errors.EnumRejectionError(parameter_name, value, enum_values)
-
-  def _check_parameter(self, parameter_name, value, field_parameter):
-    """Checks if the parameter value is valid against all parameter rules.
-
-    If the value is a list this will recursively call _check_parameter
-    on the values in the list. Otherwise, it checks all parameter rules for the
-    the current value.
-
-    In the list case, '[index-of-value]' is appended to the parameter name for
-    error reporting purposes.
-
-    Currently only checks if value adheres to enum rule, but more checks may be
-    added.
-
-    Args:
-      parameter_name: A string containing the name of the parameter, which is
-        either just a variable name or the name with the index appended, in the
-        recursive case. For example 'var' or 'var[2]'.
-      value: A string or list of strings containing the value(s) to be used for
-        the parameter.
-      field_parameter: The dictionary containing information specific to the
-        field in question. This is retrieved from request.parameters in the
-        method config.
-    """
-    if isinstance(value, list):
-      for index, element in enumerate(value):
-        parameter_name_index = '%s[%d]' % (parameter_name, index)
-        self._check_parameter(parameter_name_index, element, field_parameter)
-      return
-
-    self._check_enum(parameter_name, value, field_parameter)
 
   def _add_message_field(self, field_name, value, params):
     """Converts a . delimitied field name to a message field in parameters.
@@ -639,10 +588,11 @@ class EndpointsDispatcher(object):
 
       # Order is important here.  Parameter names are dot-delimited in
       # parameters instead of nested in dictionaries as a message field is, so
-      # we need to call _check_parameter on them before calling
+      # we need to call transform_parameter_value on them before calling
       # _add_message_field.
 
-      self._check_parameter(key, body_json[key], current_parameter)
+      body_json[key] = parameter_converter.transform_parameter_value(
+          key, body_json[key], current_parameter)
       # Remove the old key and try to convert to nested message value
       message_value = body_json.pop(key)
       self._add_message_field(key, message_value, body_json)
@@ -682,6 +632,28 @@ class EndpointsDispatcher(object):
     status_code = int(response.status.split(' ', 1)[0])
     if status_code >= 300:
       raise errors.BackendError(response)
+
+  def check_empty_response(self, orig_request, method_config, start_response):
+    """If the response from the SPI is empty, return a HTTP 204 No Content.
+
+    Args:
+      orig_request: An ApiRequest, the original request from the user.
+      method_config: A dict, the API config of the method to be called.
+      start_response: A function with semantics defined in PEP-333.
+
+    Returns:
+      If the SPI response was empty, this returns a string containing the
+      response body that should be returned to the user.  If the SPI response
+      wasn't empty, this returns None, indicating that we should not exit early
+      with a 204.
+    """
+    response_config = method_config.get('response', {}).get('body')
+    if response_config == 'empty':
+      # The response to this function should be empty.  We should return a 204.
+      # Note that it's possible that the SPI returned something, but we'll
+      # ignore it.  This matches the behavior in the Endpoints server.
+      cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
+      return util.send_wsgi_no_content_response(start_response, cors_handler)
 
   def transform_rest_response(self, response_body):
     """Translates an apiserving REST response so it's ready to return.
