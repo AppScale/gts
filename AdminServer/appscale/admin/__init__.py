@@ -509,6 +509,7 @@ class VersionsHandler(BaseHandler):
 
   # A rule for validating version IDs.
   VERSION_ID_RE = re.compile(r'(?!-)[a-z\d\-]{1,100}')
+  PROJECT_ID_RE = re.compile(r'^[a-z][a-z\d\-]{5,29}$')
 
   # Reserved names for version IDs.
   RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
@@ -770,6 +771,11 @@ class VersionsHandler(BaseHandler):
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
     """
+    if not self.PROJECT_ID_RE.match(project_id):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid project ID. '
+                                    'It must be 6 to 30 lowercase letters, digits, '
+                                    'or hyphens. It must start with a letter.')
     self.authenticate(project_id, self.ua_client)
     version = self.version_from_payload()
 
@@ -1314,16 +1320,16 @@ def main():
 
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
+    ('/v1/apps/([^/]*)/services/([a-z0-9-]+)/versions', VersionsHandler,
      {'ua_client': ua_client, 'zk_client': zk_client,
       'version_update_lock': version_update_lock, 'thread_pool': thread_pool}),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)', ServiceHandler,
+    ('/v1/apps/([^/]*)/services/([a-z0-9-]+)', ServiceHandler,
      all_resources),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
+    ('/v1/apps/([^/]*)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
      VersionHandler, all_resources),
-    ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler,
+    ('/v1/apps/([^/]*)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
     ('/api/cron/update', UpdateCronHandler,
      {'acc': acc, 'zk_client': zk_client, 'ua_client': ua_client}),
