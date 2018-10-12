@@ -144,6 +144,7 @@ DEFAULT_ENVIRONMENT = {
     'APPLICATION_ID': 'testbed-test',
     'AUTH_DOMAIN': 'gmail.com',
     'HTTP_HOST': 'testbed.example.com',
+    'CURRENT_MODULE_ID': 'default',
     'CURRENT_VERSION_ID': 'testbed-version',
     'REQUEST_ID_HASH': 'testbed-request-id-hash',
     'REQUEST_LOG_ID': 'testbed-request-log-id',

@@ -181,6 +181,8 @@ def parse_max_module_instances(value):
             'Expected "module:max_instances": %r' % module_instance_max)
       else:
         module_name = module_name.strip()
+        if not module_name:
+          module_name = 'default'
         if module_name in module_to_max_instances:
           raise argparse.ArgumentTypeError(
               'Duplicate max instance value: %r' % module_name)
@@ -525,16 +527,27 @@ def _clear_search_indexes_storage(search_index_path):
                       e)
 
 
-def _setup_environ(app_id, version_id):
+def _setup_environ(app_id, version_info):
   """Sets up the os.environ dictionary for the front-end server and API server.
 
   This function should only be called once.
 
   Args:
     app_id: The id of the application.
+    version_info: A string in the form of either major_version.minor_version or
+      service_id:major_version.minor_version.
   """
   os.environ['APPLICATION_ID'] = app_id
-  # AS: set CURRENT_VERSION_ID so taskqueue can get running version.module.
+
+  # AppScale: Define environment variables that the runtime uses so that the
+  # API Server can infer the running service ID and version ID.
+  if ':' in version_info:
+    service_id, version_id = version_info.split(':')
+  else:
+    service_id = 'default'
+    version_id = version_info
+
+  os.environ['CURRENT_MODULE_ID'] = service_id
   os.environ['CURRENT_VERSION_ID'] = version_id
 
 
