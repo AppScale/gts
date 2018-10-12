@@ -14,10 +14,13 @@
       {% for backup in backups %}
         <input type="hidden" name="backup_id" value="{{backup.key}}">
       {% endfor %}
+      {% if run_as_a_service %}
+        <input type="hidden" name="run_as_a_service" value="{{ run_as_a_service|escape }}">
+      {% endif %}
       <input type="hidden" name="namespace" value="{{namespace|escape}}">
       <input type="hidden" name="xsrf_token" value="{{xsrf_token|escape}}">
       <input type="Submit" value="Yes">
-      <a href="{{ cancel_url|escape }}">No</a>
+      <a href="{{ datastore_admin_home }}">No</a>
     </form>
 
   {% else %}

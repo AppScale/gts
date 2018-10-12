@@ -14,6 +14,9 @@
 
     <form class="ae-form" action="{{base_path}}/{{form_target}}" method="post"
         style="width:39.39em;">
+      {% if run_as_a_service %}
+        <input type="hidden" name="run_as_a_service" value="{{ run_as_a_service|escape }}">
+      {% endif %}
       {% for kind in kind_list %}
       <input type="hidden" name="kind" value="{{kind|escape}}">
       {% endfor %}
@@ -55,6 +58,8 @@
           {% endfor %}
         </select>
       </p>
+
+      {% if not run_as_a_service %}
       <p>Operation will be performed using the selected queue:
         {% if queues %}
         <select name="queue">
@@ -66,18 +71,21 @@
         <input type="text" name="queue" value="default"/>
         {% endif %}
       </p>
+      {% endif %}
 
       <table>
         <tr>
           <td>
             Backup storage destination:
             <select name="filesystem" id="ae-datastore-admin-filesystem">
+              {% if not run_as_a_service %}
               <option value="blobstore" selected="selected">Blobstore</option>
+              {% endif %}
               <option value="gs">Google Cloud Storage</option>
             </select>
           </td>
         </tr>
-        <tr style="display:none;" id="gs_bucket_tr">
+        <tr {% if not run_as_a_service %}style="display:none;"{% endif %} id="gs_bucket_tr">
           <td>
             Google Cloud Storage bucket name
             (<a target="_blank"
@@ -92,7 +100,7 @@
           <input class="goog-button" type="submit" name="backup"
               value="Backup Entities"></td>
         <td style="color: #666667;">
-          or <a href="{{ cancel_url|escape }}">Cancel</a></td>
+          or <a href="{{ datastore_admin_home }}">Cancel</a></td>
       </tr></table>
     </form>
   {% else %}
