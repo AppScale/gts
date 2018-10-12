@@ -173,9 +173,8 @@ def main():
         request_rewriter.runtime_rewriter_middleware(
             request_handler.RequestHandler(config)))
   server.start()
-  print server.port
-  sys.stdout.close()
-  sys.stdout = sys.stderr
+  print >>child_out, server.port
+  child_out.close()
   try:
     while True:
       time.sleep(1)

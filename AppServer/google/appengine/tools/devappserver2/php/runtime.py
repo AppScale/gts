@@ -133,19 +133,27 @@ class PHPRuntime(object):
       args.extend(['-d', 'xdebug.remote_enable="1"'])
       user_environ['XDEBUG_CONFIG'] = os.environ.get('XDEBUG_CONFIG', '')
 
-    p = subprocess.Popen(args,
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE,
-                         env=user_environ,
-                         cwd=self.config.application_root)
-    stdout, stderr = p.communicate(content)
-
-    if p.returncode:
-      logging.error('php failure (%r) with:\n%s', p.returncode, stdout+stderr)
+    try:
+      p = subprocess.Popen(args,
+                           stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE,
+                           env=user_environ,
+                           cwd=self.config.application_root)
+      stdout, stderr = p.communicate(content)
+    except Exception as e:
+      logging.exception('Failure to start PHP with: %s', args)
       start_response('500 Internal Server Error',
                      [(http_runtime_constants.ERROR_CODE_HEADER, '1')])
-      return []
+      return ['Failure to start the PHP subprocess with %r:\n%s' % (args, e)]
+
+    if p.returncode:
+      logging.error('php failure (%r) with:\nstdout:\n%sstderr:\n%s',
+                    p.returncode, stdout, stderr)
+      start_response('500 Internal Server Error',
+                     [(http_runtime_constants.ERROR_CODE_HEADER, '1')])
+      return ['php failure (%r) with:\nstdout:%s\nstderr:\n%s' %
+              (p.returncode, stdout, stderr)]
 
     message = httplib.HTTPMessage(cStringIO.StringIO(stdout))
     assert 'Content-Type' in message, 'invalid CGI response: %r' % stdout
