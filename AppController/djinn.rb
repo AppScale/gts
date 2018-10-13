@@ -5349,11 +5349,26 @@ HOSTS
       num_appservers = @app_info_map[version_key]['appservers'].length
     end
 
-    scaling_params = version_details.fetch('automaticScaling', {})
-    min = scaling_params.fetch('minTotalInstances',
-                               Integer(@options['default_min_appservers']))
-    max = scaling_params.fetch('maxTotalInstances',
-                               Integer(@options['default_max_appservers']))
+    manual_scaling = version_details.fetch('manualScaling', {})
+    if manual_scaling.fetch('instances', nil)
+      min = manual_scaling.fetch('instances')
+      max = min
+    else
+      scaling_params = version_details.fetch('automaticScaling', {})
+      if scaling_params.fetch('standardSchedulerSettings', nil)
+        min_max_params = scaling_params.fetch('standardSchedulerSettings', {})
+        min_param = 'minInstances'
+        max_param = 'maxInstances'
+      else
+        min_max_params = scaling_params
+        min_param = 'minTotalInstances'
+        max_param = 'maxTotalInstances'
+      end
+      min = min_max_params.fetch(min_param,
+                                 Integer(@options['default_min_appservers']))
+      max = min_max_params.fetch(max_param,
+                                 Integer(@options['default_max_appservers']))
+    end
     if num_appservers < min
       Djinn.log_info(
         "#{version_key} needs #{min - num_appservers} more AppServers.")
