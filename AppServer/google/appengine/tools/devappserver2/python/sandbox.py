@@ -50,6 +50,7 @@ NAME_TO_CMODULE_WHITELIST_REGEX = {
     'pycrypto': re.compile(r'Crypto(\..*)?$'),
     'lxml': re.compile(r'lxml(\..*)?$'),
     'PIL': re.compile(r'(PIL(\..*)?|_imaging|_imagingft|_imagingmath)$'),
+    'ssl': re.compile(r'_ssl$'),
 }
 
 # Maps App Engine third-party library names to the Python package name for

@@ -147,7 +147,7 @@ DEFAULT_ENVIRONMENT = {
     'CURRENT_MODULE_ID': 'default',
     'CURRENT_VERSION_ID': 'testbed-version',
     'REQUEST_ID_HASH': 'testbed-request-id-hash',
-    'REQUEST_LOG_ID': 'testbed-request-log-id',
+    'REQUEST_LOG_ID': '7357B3D7091D',
     'SERVER_NAME': 'testbed.example.com',
     'SERVER_SOFTWARE': 'Development/1.0 (testbed)',
     'SERVER_PORT': '80',

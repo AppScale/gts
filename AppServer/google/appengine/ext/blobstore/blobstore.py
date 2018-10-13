@@ -36,6 +36,7 @@ class representing a blob-key.
 
 import base64
 import email
+import email.message
 
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
@@ -402,6 +403,26 @@ def get(blob_key):
   return BlobInfo.get(blob_key)
 
 
+def _get_upload_content(field_storage):
+  """Returns an email.Message holding the values of the file transfer.
+
+  It decodes the content of the field storage and creates a new email.Message.
+
+  Args:
+    field_storage: cgi.FieldStorage that represents uploaded blob.
+
+  Returns:
+    An email.message.Message holding the upload information.
+  """
+  message = email.message.Message()
+  message.add_header(
+      'content-transfer-encoding',
+      field_storage.headers.getheader('Content-Transfer-Encoding', ''))
+  message.set_payload(field_storage.file.read())
+  payload = message.get_payload(decode=True)
+  return email.message_from_string(payload)
+
+
 def _parse_upload_info(field_storage, error_class):
   """Parse the upload info from file upload field_storage.
 
@@ -432,7 +453,7 @@ def _parse_upload_info(field_storage, error_class):
   filename = get_value(field_storage.disposition_options, 'filename')
   blob_key = field_storage.type_options.get('blob-key', None)
 
-  upload_content = email.message_from_file(field_storage.file)
+  upload_content = _get_upload_content(field_storage)
 
 
   field_storage.file.seek(0)

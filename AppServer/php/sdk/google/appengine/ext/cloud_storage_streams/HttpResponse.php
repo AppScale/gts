@@ -30,6 +30,7 @@ final class HttpResponse {
   const NO_CONTENT = 204;
   const PARTIAL_CONTENT = 206;
 
+  const NOT_MODIFIED = 304;
   const RESUME_INCOMPLETE = 308;
 
   const BAD_REQUEST = 400;
@@ -50,6 +51,7 @@ final class HttpResponse {
     self::CREATED => "CREATE",
     self::NO_CONTENT => "NO CONTENT",
     self::PARTIAL_CONTENT => "PARTIAL CONTENT",
+    self::NOT_MODIFIED => "NOT MODIFIED",
     self::RESUME_INCOMPLETE => "RESUME INCOMPLETE",
     self::BAD_REQUEST => "BAD REQUEST",
     self::UNAUTHORIZED => "UNAUTHORIZED",

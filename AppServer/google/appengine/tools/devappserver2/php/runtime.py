@@ -105,11 +105,17 @@ class PHPRuntime(object):
     user_environ['REMOTE_REQUEST_ID'] = environ[
         http_runtime_constants.REQUEST_ID_ENVIRON]
 
+    # Pass the APPLICATION_ROOT so we can use it in the setup script. We will
+    # remove it from the environment before we execute the user script.
+    user_environ['APPLICATION_ROOT'] = self.config.application_root
+
     if 'CONTENT_TYPE' in environ:
       user_environ['CONTENT_TYPE'] = environ['CONTENT_TYPE']
+      user_environ['HTTP_CONTENT_TYPE'] = environ['CONTENT_TYPE']
 
     if 'CONTENT_LENGTH' in environ:
       user_environ['CONTENT_LENGTH'] = environ['CONTENT_LENGTH']
+      user_environ['HTTP_CONTENT_LENGTH'] = environ['CONTENT_LENGTH']
       content = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
     else:
       content = None

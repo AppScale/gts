@@ -23,17 +23,14 @@
 namespace google\appengine\ext\cloud_storage_streams;
 
 require_once 'google/appengine/ext/cloud_storage_streams/CloudStorageClient.php';
+require_once 'google/appengine/util/string_util.php';
+
+use \google\appengine\util as util;
 
 /**
  * Client for deleting objects from Google Cloud Storage.
  */
 final class CloudStorageDirectoryClient extends CloudStorageClient {
-
-  // A character or multiple characters that can be used to simplify a list of
-  // objects that use a directory-like naming scheme. Can be used in conjunction
-  // with a prefix.
-  const DELIMITER = '/';
-
   // Maximum number of keys to return per call
   const MAX_KEYS = 1000;
 
@@ -50,9 +47,12 @@ final class CloudStorageDirectoryClient extends CloudStorageClient {
   private $current_file_list = null;
 
   public function __construct($bucket_name, $object_prefix, $context) {
-    parent::__construct($bucket_name, null, $context);
+    parent::__construct($bucket_name, $object_prefix, $context);
     // Ignore the leading slash
     if (isset($object_prefix)) {
+      if (!util\endsWith($object_prefix, '/')) {
+        $object_prefix .= '/';
+      }
       $this->prefix = substr($object_prefix, 1);
     }
   }
@@ -60,8 +60,8 @@ final class CloudStorageDirectoryClient extends CloudStorageClient {
   /**
    * Make the initial connection to GCS and fill the read buffer with files.
    *
-   * @return bool TRUE if we can connect to the Cloud Storage bucket, FALSE
-   * otherwise.
+   * @return bool <code>true</code> if we can connect to the Cloud Storage
+   * bucket, <code>false</code> otherwise.
    */
   public function initialise() {
     return $this->fillFileBuffer();
@@ -71,7 +71,7 @@ final class CloudStorageDirectoryClient extends CloudStorageClient {
    * Read the next file in the directory list. If the list is empty and we
    * believe that there are more results to read then fetch them
    *
-   * @return string The name of the next file in the directory, FALSE if there
+   * @return string The name of the next file in the directory, false if there
    * are not more files.
    */
   public function dir_readdir() {
@@ -100,7 +100,7 @@ final class CloudStorageDirectoryClient extends CloudStorageClient {
    * Rewind the directory handle to the first file that would have been returned
    * from opendir().
    *
-   * @return bool True is successful, False otherwise.
+   * @return bool <code>true</code> is successful, <code>false</code> otherwise.
    */
   public function dir_rewinddir() {
     // We could be more efficient if the user calls opendir() followed by
@@ -113,6 +113,106 @@ final class CloudStorageDirectoryClient extends CloudStorageClient {
   public function close() {
   }
 
+  /**
+   * Make a 'directory' in Google Cloud Storage.
+   *
+   * @param mixed $options A bitwise mask of values, such as
+   * STREAM_MKDIR_RECURSIVE.
+   *
+   * @return bool <code>true</code> if the directory was created,
+   * <code>false</code> otherwise.
+   *
+   * TODO: If the STREAM_MKDIR_RECURSIVE bit is not set in the options then we
+   * should validate that the entire path exists before we create the directory.
+   */
+  public function mkdir($options) {
+    $report_errors = ($options | STREAM_REPORT_ERRORS) != 0;
+    $path = $this->getCorrectPathForDirectoryName();
+    $headers = $this->getOAuthTokenHeader(parent::WRITE_SCOPE);
+    if ($headers === false) {
+      if ($report_errors) {
+        trigger_error("Unable to acquire OAuth token.", E_USER_WARNING);
+      }
+      return false;
+    }
+
+    // Use x-goog-if-generation-match so we only create a new object.
+    $headers['x-goog-if-generation-match'] = 0;
+    $headers['Content-Range'] = sprintf(parent::FINAL_CONTENT_RANGE_NO_DATA, 0);
+    $url = $this->createObjectUrl($this->bucket_name, $path);
+    $http_response = $this->makeHttpRequest($url, "PUT", $headers);
+
+    if (false === $http_response) {
+      if ($report_errors) {
+        trigger_error("Unable to connect to Google Cloud Storage Service.",
+                      E_USER_WARNING);
+      }
+      return false;
+    }
+
+    // The status code precondition failed means that the 'directoy' already
+    // existed.
+    $status_code = $http_response['status_code'];
+    if ($status_code != HttpResponse::OK &&
+        $status_code != HttpResponse::PRECONDITION_FAILED) {
+      if ($report_errors) {
+        trigger_error($this->getErrorMessage($status_code,
+                                             $http_response['body']),
+                    E_USER_WARNING);
+      }
+      return false;
+    }
+    return ($status_code === HttpResponse::OK);
+  }
+
+  /**
+   * Attempts to remove the directory . The directory must be empty. A
+   * E_WARNING level error will be generated on failure.
+   *
+   * @param mixed $options A bitwise mask of values, such as
+   * STREAM_MKDIR_RECURSIVE.
+   *
+   * @return bool <code>true</code> if the directory was removed,
+   * <code>false</code> otherwise.
+   */
+  public function rmdir($options) {
+    // We need to check that the 'directory' is empty before we can unlink it.
+    // As we create a new instance of a CloudStorageDirectoryClient when
+    // performing a rmdir(), all we need to check is that a readdir() returns
+    // any value to know that the directory is not empty.
+    if ($this->dir_readdir() !== false) {
+      trigger_error('The directory is not empty.', E_USER_WARNING);
+      return false;
+    }
+
+    $headers = $this->getOAuthTokenHeader(parent::WRITE_SCOPE);
+    if ($headers === false) {
+      if ($report_errors) {
+        trigger_error("Unable to acquire OAuth token.", E_USER_WARNING);
+      }
+      return false;
+    }
+
+    $path = $this->getCorrectPathForDirectoryName();
+    $url = $this->createObjectUrl($this->bucket_name, $path);
+    $http_response = $this->makeHttpRequest($url, "DELETE", $headers);
+
+    if (false === $http_response) {
+      trigger_error("Unable to connect to Google Cloud Storage Service.",
+                    E_USER_WARNING);
+      return false;
+    }
+
+    if (HttpResponse::NO_CONTENT == $http_response['status_code']) {
+      return true;
+    } else {
+      trigger_error($this->getErrorMessage($http_response['status_code'],
+                                           $http_response['body']),
+                    E_USER_WARNING);
+      return false;
+    }
+  }
+
   private function fillFileBuffer() {
     $headers = $this->getOAuthTokenHeader(parent::READ_SCOPE);
     if ($headers === false) {
@@ -121,7 +221,7 @@ final class CloudStorageDirectoryClient extends CloudStorageClient {
     }
 
     $query_arr = [
-        'delimiter' => self::DELIMITER,
+        'delimiter' => parent::DELIMITER,
         'max-keys' => self::MAX_KEYS,
     ];
     if (isset($this->prefix)) {
@@ -131,9 +231,8 @@ final class CloudStorageDirectoryClient extends CloudStorageClient {
       $query_arr['marker'] = $this->next_marker;
     }
     $query_str = http_build_query($query_arr);
-    $http_response = $this->makeHttpRequest(sprintf("%s?%s",
-                                                    $this->url,
-                                                    $query_str),
+    $url = $this->createObjectUrl($this->bucket_name);
+    $http_response = $this->makeHttpRequest(sprintf("%s?%s", $url, $query_str),
                                             "GET",
                                             $headers);
 
@@ -163,10 +262,35 @@ final class CloudStorageDirectoryClient extends CloudStorageClient {
       $this->current_file_list = [];
     }
 
+    $prefix_len = isset($this->prefix) ? strlen($this->prefix) : 0;
     foreach($xml->Contents as $content) {
-      array_push($this->current_file_list, (string) $content->Key);
+      $key = (string) $content->Key;
+      if ($prefix_len != 0) {
+        $key = substr($key, $prefix_len);
+      }
+      // If the key ends with FOLDER_SUFFIX then replace that value with a '/'
+      // to be consistent with the folder behaviour of Google Cloud Storage
+      // Manager, which supports the creating of 'folders' in the UI. See
+      // https://developers.google.com/storage/docs/gsmanager
+      if (util\endsWith($key, self::FOLDER_SUFFIX)) {
+        $key = substr_replace($key,
+                              parent::DELIMITER,
+                              -strlen(parent::FOLDER_SUFFIX));
+      }
+      array_push($this->current_file_list, $key);
     }
-
     return true;
+  }
+
+  private function getCorrectPathForDirectoryName() {
+    // Replace the trailing MARKER from the prefix and replace it with the
+    // FOLDER_SUFFIX.
+    if (util\endsWith($this->object_name, parent::DELIMITER)) {
+      return substr_replace($this->object_name,
+                            parent::FOLDER_SUFFIX,
+                            -strlen(parent::DELIMITER));
+    } else {
+      return $this->object_name . parent::FOLDER_SUFFIX;
+    }
   }
 }

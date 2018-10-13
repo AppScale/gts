@@ -43,6 +43,14 @@ use \google\appengine\util as util;
  * perform.
  */
 abstract class CloudStorageClient {
+  // The default chunk size that we will read from the file. This value should
+  // remain smaller than the maximum object size valid for memcache writes so
+  // we can cache the reads.
+  const DEFAULT_READ_SIZE = 524288;
+
+  // The default amount of time that reads will be held in the cache
+  const DEFAULT_READ_CACHE_EXPIRY_SECONDS = 3600;  // one hour
+
   // Token scopers for accessing objects in Google Cloud Storage
   const READ_SCOPE = "https://www.googleapis.com/auth/devstorage.read_only";
   const WRITE_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
@@ -63,20 +71,57 @@ abstract class CloudStorageClient {
   // Format for the OAuth token header.
   const OAUTH_TOKEN_FORMAT = "OAuth %s";
 
+  // Content Range Header format when the total length is unknown.
+  const PARTIAL_CONTENT_RANGE_FORMAT = "bytes %d-%d/*";
+
+  // Content Range Header format when the length is known.
+  const FINAL_CONTENT_RANGE_FORMAT = "bytes %d-%d/%d";
+
+  // Content Range Header for final chunk with no new data
+  const FINAL_CONTENT_RANGE_NO_DATA = "bytes */%d";
+
+  // A character or multiple characters that can be used to simplify a list of
+  // objects that use a directory-like naming scheme. Can be used in conjunction
+  // with a prefix.
+  const DELIMITER = '/';
+
+  // Cloud storage can append _$folder$ to an object name and have it behave
+  // like a regular file system folder.
+  const FOLDER_SUFFIX = '_$folder$';
+
   // Bit fields for the stat mode field
   const S_IFREG = 0100000;
   const S_IFDIR = 0040000;
 
-  const S_IRWXU = 00700;  //  mask for owner permissions
-  const S_IRUSR = 00400;  //  owner: read permission
-  const S_IWUSR = 00200;  //  owner: write permission
-  const S_IXUSR = 00100;  //  owner: execute permission
+  const S_IRWXU = 00700;  // mask for owner permissions
+  const S_IRUSR = 00400;  // read for owner
+  const S_IWUSR = 00200;  // write for owner
+  const S_IXUSR = 00100;  // execute for owner
+
+  const S_IRWXG = 00070;  // mask for group permissions
+  const S_IRGRP = 00040;  // read for group
+  const S_IWGRP = 00020;  // write for group
+  const S_IXGRP = 00010;  // execute for group
+
+  const S_IRWXO = 00007;  // mask for other other permissions
+  const S_IROTH = 00004;  // read for other
+  const S_IWOTH = 00002;  // write for other
+  const S_IXOTH = 00001;  // execute for other
 
   // The API version header
   private static $api_version_header = ["x-goog-api-version" => 2];
 
   // Regex patterm for retrieving the Length of the content being served.
   const CONTENT_RANGE_REGEX = "/bytes\s+(\d+)-(\d+)\/(\d+)/i";
+
+  /**
+   * Memcache key format for caching the results of reads from GCS. The
+   * parameters are the object url (as a string) and the read range, as a
+   * string (e.g. bytes=0-512000).
+   * Example key for a cloud storage file gs://bucket/object.png
+   *   _ah_gs_read_cache_https://storage.googleapis.com/bucket/object.png_bytes=0-524287
+   */
+  const MEMCACHE_KEY_FORMAT = "_ah_gs_read_cache_%s_%s";
 
   // HTTP status codes that should be retried if they are returned by a request
   // to GCS. Retry should occur with a random exponential back-off.
@@ -104,6 +149,12 @@ abstract class CloudStorageClient {
       "PATCH" => RequestMethod::PATCH
   ];
 
+  private static $default_gs_context_options = [
+      "enable_cache" => true,
+      "enable_optimistic_cache" => false,
+      "cache_expiry_seconds" => self::DEFAULT_READ_CACHE_EXPIRY_SECONDS,
+  ];
+
   protected $bucket_name;  // Name of the bucket for this object.
   protected $object_name;  // The name of the object.
   protected $context_options = [];  // Any context arguments supplied on open.
@@ -113,7 +164,10 @@ abstract class CloudStorageClient {
   /**
    * Construct an object of CloudStorageClient.
    *
-   * @
+   * @param string $bucket The name of the bucket.
+   * @param string $object The name of the object, or null if there is no
+   * object.
+   * @param resource $context The stream context to use.
    */
   public function __construct($bucket, $object = null, $context = null) {
     $this->bucket_name = $bucket;
@@ -123,7 +177,10 @@ abstract class CloudStorageClient {
     }
     $context_array = stream_context_get_options($context);
     if (array_key_exists("gs", $context_array)) {
-      $this->context_options = $context_array["gs"];
+      $this->context_options = array_merge(self::$default_gs_context_options,
+                                           $context_array["gs"]);
+    } else {
+      $this->context_options = self::$default_gs_context_options;
     }
     $this->anonymous = util\FindByKeyOrNull($this->context_options,
                                             "anonymous");
@@ -206,9 +263,11 @@ abstract class CloudStorageClient {
 
   /**
    * Create a URL for a target bucket and optional object.
+   *
+   * @visibleForTesting
    */
-  protected function createObjectUrl($bucket, $object) {
-    $host = $this->isDevelServer() ? self::LOCAL_HOST : self::PRODUCTION_HOST;
+  public static function createObjectUrl($bucket, $object = null) {
+    $host = self::isDevelServer() ? self::LOCAL_HOST : self::PRODUCTION_HOST;
     if (isset($object)) {
       return sprintf(self::BUCKET_OBJECT_FORMAT, $host, $bucket, $object);
     } else {
@@ -403,7 +462,7 @@ abstract class CloudStorageClient {
    *
    * @return bool True if running in the developement server, false otherwise.
    */
-  private function isDevelServer() {
+  private static function isDevelServer() {
     $server_software = getenv("SERVER_SOFTWARE");
     $key = "Development";
     return strncmp($server_software, $key, strlen($key)) === 0;

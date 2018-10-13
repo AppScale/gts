@@ -48,7 +48,6 @@ final class CloudStorageStreamWrapper {
   // constructing objects.
   public $context;
 
-  const ALLOWED_BUCKET_INI = "google_app_engine.allow_include_gs_buckets";
   const STREAM_OPEN_FOR_INCLUDE = 0x80;
   /**
    * Constructs a new stream wrapper.
@@ -60,6 +59,82 @@ final class CloudStorageStreamWrapper {
    * Destructs an existing stream wrapper.
    */
   public function __destruct() {
+  }
+
+  /**
+   * Close an open directory handle.
+   */
+  public function dir_closedir() {
+    assert(isset($this->client));
+    $this->client->close();
+    $this->client = null;
+  }
+
+  /**
+   * Open a directory handle.
+   */
+  public function dir_opendir($path, $options) {
+    if (!$this->getBucketAndObjectFromPath($path, $bucket, $path)) {
+      trigger_error(sprintf("Invalid Google Cloud Storage path: %s", $path),
+                    E_USER_ERROR);
+      return false;
+    }
+
+    $this->client = new CloudStorageDirectoryClient($bucket,
+                                                    $path,
+                                                    $this->context);
+    return $this->client->initialise();
+  }
+
+  /**
+   * Read entry from the directory handle.
+   *
+   * @return string representing the next filename, of false if there is no
+   * next file.
+   */
+  public function dir_readdir() {
+    assert(isset($this->client));
+    return $this->client->dir_readdir();
+  }
+
+  /**
+   * Reset the output returned from dir_readdir.
+   *
+   * @return bool true if the stream can be rewound, false otherwise.
+   */
+  public function dir_rewinddir() {
+    assert(isset($this->client));
+    return $this->client->dir_rewinddir();
+  }
+
+  public function mkdir($path, $mode, $options) {
+    if (!$this->getBucketAndObjectFromPath($path, $bucket, $object) ||
+        !isset($object)) {
+      if (($options | STREAM_REPORT_ERRORS) != 0) {
+        trigger_error(sprintf("Invalid Google Cloud Storage path: %s", $path),
+                      E_USER_ERROR);
+      }
+      return false;
+    }
+    $client = new CloudStorageDirectoryClient($bucket,
+                                              $object,
+                                              $this->context);
+    return $client->mkdir($options);
+  }
+
+  public function rmdir($path, $options) {
+    if (!$this->getBucketAndObjectFromPath($path, $bucket, $object) ||
+        !isset($object)) {
+      if (($options | STREAM_REPORT_ERRORS) != 0) {
+        trigger_error(sprintf("Invalid Google Cloud Storage path: %s", $path),
+                      E_USER_ERROR);
+      }
+      return false;
+    }
+    $client = new CloudStorageDirectoryClient($bucket,
+                                              $object,
+                                              $this->context);
+    return $client->rmdir($options);
   }
 
   /**
@@ -137,7 +212,7 @@ final class CloudStorageStreamWrapper {
     }
 
     if (($options & self::STREAM_OPEN_FOR_INCLUDE) != 0) {
-      $allowed_buckets = explode(",", ini_get(self::ALLOWED_BUCKET_INI));
+      $allowed_buckets = explode(",", GAE_INCLUDE_GS_BUCKETS);
       $include_allowed = false;
       foreach ($allowed_buckets as $bucket_name) {
         $bucket_name = trim($bucket_name);
