@@ -97,12 +97,7 @@ def get_current_module_name():
   If this is version "v1" of module "module5" for app "my-app", this function
   will return "module5".
   """
-  module = _split_version_id(os.environ['CURRENT_VERSION_ID'])[0]
-  if not module:
-
-
-    return 'default'
-  return module
+  return os.environ['CURRENT_MODULE_ID']
 
 
 def get_current_version_name():
