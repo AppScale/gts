@@ -194,8 +194,6 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     self.__time_function = time_function
     self.__next_session_id = 1
     self.__uploader_path = uploader_path
-    # AppScale: Keep track of the most recently fetched chunk.
-    self.__block_key_cache = None
 
   @classmethod
   def ToDatastoreBlobKey(cls, blobkey):

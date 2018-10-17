@@ -20,3 +20,7 @@
 __all__ = []
 
 DEFAULT_SHARD_RETRY_LIMIT = 3
+
+
+_DEFAULT_BASE_PATH = "/_ah/mapreduce"
+_DEFAULT_PIPELINE_BASE_PATH = _DEFAULT_BASE_PATH + "/pipeline"

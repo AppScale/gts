@@ -64,6 +64,12 @@ class TestService(remote.Service):
   def test(self, unused_request):
     return TestResponse(text='Test response')
 
+  @endpoints.method(message_types.VoidMessage, TestResponse,
+                    http_method='GET', name='empty_test', path='empty_test',
+                    scopes=[])
+  def empty_test(self, unused_request):
+    return TestResponse()
+
   @endpoints.method(TestRequest, TestResponse,
                     http_method='POST', name='t2name', path='t2path',
                     scopes=[])
@@ -98,6 +104,11 @@ class TestService(remote.Service):
         var_sint64=request.var_sint64 + 1,
         var_uint64=request.var_uint64 + 1)
     return response
+
+  @endpoints.method(message_types.VoidMessage, message_types.VoidMessage,
+                    path='empty_response', http_method='GET', scopes=[])
+  def empty_response(self, unused_request):
+    return message_types.VoidMessage()
 
 
 @my_api.api_class(resource_name='extraname', path='extrapath')

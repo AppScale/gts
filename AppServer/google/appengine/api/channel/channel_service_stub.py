@@ -27,6 +27,7 @@
 
 
 
+import hashlib
 import logging
 import random
 import time
@@ -34,6 +35,11 @@ import time
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.channel import channel_service_pb
 from google.appengine.runtime import apiproxy_errors
+
+
+def _GenerateTokenHash(token):
+  """Returns a MD5 hash of a token for integrity checking."""
+  return hashlib.md5(token).hexdigest()
 
 
 class Error(Exception):
@@ -117,10 +123,14 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
 
     expiration_sec = long(self._time_func() + duration * 60) + 1
 
-    token = '-'.join([ChannelServiceStub.CHANNEL_TOKEN_IDENTIFIER,
-                      str(random.randint(0, 2 ** 32)),
-                      str(expiration_sec),
-                      client_id])
+    raw_token = '-'.join([ChannelServiceStub.CHANNEL_TOKEN_IDENTIFIER,
+                          str(random.randint(0, 2 ** 32)),
+                          str(expiration_sec),
+                          client_id])
+
+
+
+    token = '-'.join([_GenerateTokenHash(raw_token), raw_token])
 
     self._log('Creating channel token %s with client id %s and duration %s',
               token, request.application_key(), duration)
@@ -170,34 +180,43 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
        or None if this token is incorrectly formed and doesn't map to a
        client id.
     """
-    pieces = token.split('-', 3)
-    if len(pieces) == 4:
-      return pieces[3]
-    else:
+    try:
+      return self.validate_token_and_extract_client_id(token)
+    except (InvalidTokenError, TokenTimedOutError):
       return None
 
-
-  def check_token_validity(self, token):
-    """Checks if a token is well-formed and its expiration status.
+  def validate_token_and_extract_client_id(self, token):
+    """Ensures token is well-formed and hasn't expired, and extracts client_id.
 
     Args:
       token: a token returned by CreateChannel.
 
     Returns:
-      A tuple (syntax_valid, time_valid) where syntax_valid is true if the
-      token is well-formed and time_valid is true if the token is not expired.
-      In other words, a usable token will return (true, true).
-    """
-    pieces = token.split('-', 3)
-    if len(pieces) != 4:
-      return False, False
+      A client_id, which is the value passed to CreateChannel.
 
-    (constant_identifier, token_id, expiration_sec, clientid) = pieces
-    syntax_valid = (
-        constant_identifier == ChannelServiceStub.CHANNEL_TOKEN_IDENTIFIER
-        and expiration_sec.isdigit())
-    time_valid = syntax_valid and long(expiration_sec) > self._time_func()
-    return (syntax_valid, time_valid)
+    Raises:
+      InvalidTokenError: The token is syntactically invalid.
+      TokenTimedOutError: The token expired or does not exist.
+    """
+
+    pieces = token.split('-', 1)
+    if len(pieces) != 2 or _GenerateTokenHash(pieces[1]) != pieces[0]:
+      raise InvalidTokenError()
+    raw_token = pieces[1]
+
+
+    pieces = raw_token.split('-', 3)
+    if len(pieces) != 4:
+      raise InvalidTokenError()
+
+    constant_id, unused_random_id, expiration_sec, client_id = pieces
+    if (constant_id != ChannelServiceStub.CHANNEL_TOKEN_IDENTIFIER
+        or not expiration_sec.isdigit()):
+      raise InvalidTokenError()
+    if long(expiration_sec) <= self._time_func():
+      raise TokenTimedOutError()
+
+    return client_id
 
   @apiproxy_stub.Synchronized
   def get_channel_messages(self, token):
@@ -327,13 +346,7 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
       InvalidTokenError: The token is syntactically invalid.
       TokenTimedOutError: The token expired or does not exist.
     """
-    syntax_valid, time_valid = self.check_token_validity(token)
-    if not syntax_valid:
-      raise InvalidTokenError()
-    elif not time_valid:
-      raise TokenTimedOutError()
-
-    client_id = self.client_id_from_token(token)
+    client_id = self.validate_token_and_extract_client_id(token)
 
 
 

@@ -313,8 +313,9 @@ class ProtoJson(object):
       except ValueError, err:
         raise messages.DecodeError(err)
 
-    elif isinstance(field, messages.MessageField):
-      return self.__decode_dictionary(field.message_type, value)
+    elif (isinstance(field, messages.MessageField) and
+          issubclass(field.type, messages.Message)):
+      return self.__decode_dictionary(field.type, value)
 
     elif (isinstance(field, messages.FloatField) and
           isinstance(value, (int, long, basestring))):

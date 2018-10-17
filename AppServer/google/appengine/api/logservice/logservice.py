@@ -933,10 +933,12 @@ def fetch(start_time=None,
                                'used at the same time.')
 
   if version_ids is None and module_versions is None:
+    module_version = request.add_module_version()
+    if os.environ['CURRENT_MODULE_ID'] != 'default':
 
-
-    version_id = os.environ['CURRENT_VERSION_ID']
-    request.add_module_version().set_version_id(version_id.split('.')[0])
+      module_version.set_module_id(os.environ['CURRENT_MODULE_ID'])
+    module_version.set_version_id(
+        os.environ['CURRENT_VERSION_ID'].split('.')[0])
 
   if module_versions:
     if not isinstance(module_versions, list):

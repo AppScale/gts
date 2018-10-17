@@ -30,11 +30,11 @@ import webapp2
 
 from google.appengine.datastore import entity_pb
 from google.appengine.api import datastore
-from google.appengine.api import lib_config
 from google.appengine.api import memcache
 from google.appengine.api import users
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import db
+from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.db import stats
 from google.appengine.ext.mapreduce import control
 from google.appengine.ext.mapreduce import model
@@ -50,7 +50,6 @@ MAPREDUCE_DEFAULT_SHARDS = 32
 MAPREDUCE_MAX_SHARDS = 256
 RESERVE_KEY_POOL_MAX_SIZE = 1000
 
-
 DATASTORE_ADMIN_OPERATION_KIND = '_AE_DatastoreAdmin_Operation'
 BACKUP_INFORMATION_KIND = '_AE_Backup_Information'
 BACKUP_INFORMATION_FILES_KIND = '_AE_Backup_Information_Kind_Files'
@@ -59,32 +58,6 @@ DATASTORE_ADMIN_KINDS = (DATASTORE_ADMIN_OPERATION_KIND,
                          BACKUP_INFORMATION_KIND,
                          BACKUP_INFORMATION_FILES_KIND,
                          BACKUP_INFORMATION_KIND_TYPE_INFO)
-
-
-class ConfigDefaults(object):
-  """Configurable constants.
-
-  To override datastore_admin configuration values, define values like this
-  in your appengine_config.py file (in the root of your app):
-
-    datastore_admin_MAPREDUCE_PATH = /_ah/mapreduce
-  """
-
-  BASE_PATH = '/_ah/datastore_admin'
-  MAPREDUCE_PATH = '/_ah/mapreduce'
-  DEFERRED_PATH = BASE_PATH + '/queue/deferred'
-  CLEANUP_MAPREDUCE_STATE = True
-
-
-
-config = lib_config.register('datastore_admin', ConfigDefaults.__dict__)
-
-
-
-
-config.BASE_PATH
-
-
 
 
 def IsKindNameVisible(kind_name):
@@ -102,6 +75,18 @@ def RenderToResponse(handler, template_file, template_params):
     template_params: the parameters used to render the given template
   """
   template_params = _GetDefaultParams(template_params)
+
+
+
+
+
+
+
+
+  handler.response.headers['X-FRAME-OPTIONS'] = ('ALLOW-FROM %s' %
+                                                 config.ADMIN_CONSOLE_URL)
+  template_params['admin_console_url'] = config.ADMIN_CONSOLE_URL
+
   rendered = _template.render(_GetTemplatePath(template_file), template_params)
   handler.response.out.write(rendered)
 
@@ -337,6 +322,26 @@ def _CreateDatastoreConfig():
   return datastore_rpc.Configuration(force_writes=True)
 
 
+def GenerateHomeUrl(request):
+  """Generates a link to the Datastore Admin main page.
+
+  Primarily intended to be used for cancel buttons or links on error pages. To
+  avoid any XSS security vulnerabilities the URL should not use any
+  user-defined strings (unless proper precautions are taken).
+
+  Args:
+    request: the webapp.Request object (to determine if certain query
+      parameters need to be used).
+
+  Returns:
+    domain-relative URL for the main Datastore Admin page.
+  """
+  datastore_admin_home = config.BASE_PATH
+  if request and request.get('run_as_a_service'):
+    datastore_admin_home += '?run_as_a_service=True'
+  return datastore_admin_home
+
+
 class MapreduceDoneHandler(webapp2.RequestHandler):
   """Handler to delete data associated with successful MapReduce jobs."""
 
@@ -398,6 +403,11 @@ class MapreduceDoneHandler(webapp2.RequestHandler):
       logging.error('Done callback called without Mapreduce Id.')
 
 
+class Error(Exception):
+  """Base DatastoreAdmin error type."""
+
+
+
 class DatastoreAdminOperation(db.Model):
   """An entity to keep progress and status of datastore admin operation."""
   STATUS_CREATED = 'Created'
@@ -418,6 +428,7 @@ class DatastoreAdminOperation(db.Model):
   last_updated = db.DateTimeProperty(default=DEFAULT_LAST_UPDATED_VALUE,
                                      auto_now=True)
   status_info = db.StringProperty(default='', indexed=False)
+  service_job_id = db.StringProperty()
 
   @classmethod
   def kind(cls):

@@ -81,6 +81,11 @@ from google.appengine.tools import sdk_update_checker
 LIST_DELIMITER = '\n'
 TUPLE_DELIMITER = '|'
 BACKENDS_ACTION = 'backends'
+BACKENDS_MESSAGE = ('Looks like you\'re using Backends. We suggest that you '
+                    'make the switch to App Engine Modules. See the Modules '
+                    'documentation to learn more about converting: '
+                    'https://developers.google.com/appengine/docs/python/'
+                    'modules/converting')
 
 
 MAX_LOG_LEVEL = 4
@@ -2317,6 +2322,8 @@ class AppCfgApp(object):
 
 
     if action == BACKENDS_ACTION:
+
+      StatusUpdate(BACKENDS_MESSAGE)
       if len(self.args) < 1:
         RaiseParseError(action, self.actions[BACKENDS_ACTION])
 
@@ -2598,8 +2605,9 @@ class AppCfgApp(object):
                 self.oauth_scopes,
                 self.options.oauth2_credential_file)
 
-      appengine_rpc_httplib2.tools.FLAGS.auth_local_webserver = (
-          self.options.auth_local_webserver)
+      if hasattr(appengine_rpc_httplib2.tools, 'FLAGS'):
+        appengine_rpc_httplib2.tools.FLAGS.auth_local_webserver = (
+            self.options.auth_local_webserver)
     else:
       if not self.rpc_server_class:
         self.rpc_server_class = appengine_rpc.HttpRpcServerWithOAuth2Suggestion
@@ -3296,6 +3304,22 @@ class AppCfgApp(object):
                               backend=backend,
                               payload=backends_yaml.ToYAML())
     print >> self.out_fh, response
+
+  def ListVersions(self):
+    """Lists all versions for an app."""
+    if self.args:
+      self.parser.error('Expected no arguments.')
+
+    appyaml = self._ParseAppInfoFromYaml(self.basepath)
+    rpcserver = self._GetRpcServer()
+    response = rpcserver.Send('/api/versions/list', app_id=appyaml.application)
+
+    parsed_response = yaml.safe_load(response)
+    if not parsed_response:
+      print >> self.out_fh, ('No versions uploaded for app: %s.' %
+                             appyaml.application)
+    else:
+      print >> self.out_fh, response
 
   def _ParseAndValidateModuleYamls(self, yaml_paths):
     """Validates given yaml paths and returns the parsed yaml objects.
@@ -4232,7 +4256,13 @@ The 'set_default_version' command sets the default (serving) version of the app.
 The 'resource_limits_info' command prints the current resource limits that
 are enforced."""),
 
-
+      'list_versions': Action(
+          function='ListVersions',
+          usage='%prog [options] list_versions <directory>',
+          short_desc='List all uploaded versions for an app.',
+          long_desc="""
+The 'list_versions' command outputs the uploaded versions for each module of
+an application in YAML."""),
   }
 
 

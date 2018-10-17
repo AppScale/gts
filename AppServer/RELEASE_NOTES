@@ -3,6 +3,77 @@ All rights reserved.
 
 App Engine SDK - Release Notes
 
+Version 1.8.3
+
+Python
+===============================
+- Published a major rewrite of the Search API documentation. Please see:
+    https://developers.google.com/appengine/docs/python/search/
+- Interfacing into the Task Queue REST API no longer requires including "s~"
+  at the beginning of the project name.
+- Fixed an issue with the Mail API, email addresses that contain encoded
+  newlines as specified in rfc2047 are now parsed correctly.
+- Fixed an issue with channels.send_message failing when a client id has 3 or
+  more dashes.
+- Fixed an issue with ndb.non_transactional correctly restoring the db
+  library's transactional state.
+    https://code.google.com/p/appengine-ndb-experiment/issues/detail?id=232
+- Fixed an issue with NDB raising the correct exception when the rollback
+  itself has an exception.
+    https://code.google.com/p/appengine-ndb-experiment/issues/detail?id=234
+- The NDB model property settings 'default' and 'required' are no longer
+  mutually exclusive.
+    https://code.google.com/p/appengine-ndb-experiment/issues/detail?id=236
+- Fixed an issue with debugger/breakpoint not working on the dev_appserver.
+    http://code.google.com/p/appengine-devappserver2-experiment/issues/detail?
+    id=28
+    http://code.google.com/p/googleappengine/issues/detail?id=9012
+    http://code.google.com/p/googleappengine/issues/detail?id=9027
+- Fixed an issue with NDB queries supporting iterate over distinct queries.
+    http://code.google.com/p/googleappengine/issues/detail?id=9591
+- Fixed an issue with enabling cloud integration for existing apps.
+    https://code.google.com/p/googleappengine/issues/detail?id=9602
+- Fixed an issue with users not being able to view the cron jobs page in the
+  dev_appserver.
+    https://code.google.com/p/googleappengine/issues/detail?id=9665
+- Fixed an issue with the Channel API send_message function not working on the
+  dev_appserver.
+    https://code.google.com/p/googleappengine/issues/detail?id=9675
+- Fixed an issue with Modules get_current_module_name() incorrectly reporting
+  as default when it is not.
+    https://code.google.com/p/googleappengine/issues/detail?id=9687
+- Fixed an issue with the Datastore Admin UI failing to load due to the app
+  having too many kinds.
+    https://code.google.com/p/googleappengine/issues/detail?id=9749
+- Fixed an issue with the Channel API Testbed not working correctly after
+  upgrading to SDK 1.8.2
+    https://code.google.com/p/googleappengine/issues/detail?id=9757
+
+PHP
+===============================
+- Users who are whitelisted to use PHP are now able to deploy PHP to any of
+  their apps.
+- There is now better support for stat() related functions for Google Cloud
+  Storage objects.
+- Added a read through cache to the GCS client to improve performance. This
+  allows for optimistic caching for write-once, read-many applications and
+  performs on-write invalidation.
+- Environment variables that are set in app.yaml are now available in the PHP
+  runtime.
+- You can now pass an array of metadata as part of the Google Cloud Storage
+  upload context.
+- Apps can now use opendir()/readdir()/rewinddir()/closedir() on Google Cloud
+  Storage buckets.
+- The PHP Task Queue API now supports adding tasks in bulk via the addTasks()
+  method on the new PushQueue class.
+- The PHP Task Queue API now supports setting headers on the PushTask class.
+- Interfacing into the Task Queue REST API no longer requires including "s~"
+  at the beginning of the project name.
+- Fixed an issue with the Mail API, email addresses that contain encoded
+  newlines as specified in rfc2047 are now parsed correctly.
+- Fixed an issue with enabling cloud integration for existing apps.
+    https://code.google.com/p/googleappengine/issues/detail?id=9602
+
 Version 1.8.2
 
 Python

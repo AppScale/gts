@@ -59,6 +59,9 @@ SERVICE_PB_MAP = {
         'GetServiceAccountName': (
             app_identity_service_pb.GetServiceAccountNameRequest,
             app_identity_service_pb.GetServiceAccountNameResponse),
+        'GetDefaultGcsBucketName': (
+            app_identity_service_pb.GetDefaultGcsBucketNameRequest,
+            app_identity_service_pb.GetDefaultGcsBucketNameResponse),
         'GetAccessToken': (app_identity_service_pb.GetAccessTokenRequest,
                            app_identity_service_pb.GetAccessTokenResponse),
     },

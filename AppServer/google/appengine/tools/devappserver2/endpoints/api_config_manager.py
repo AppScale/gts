@@ -38,8 +38,18 @@ class ApiConfigManager(object):
   def __init__(self):
     self._rpc_method_dict = {}
     self._rest_methods = []
-    self.configs = {}
+    self._configs = {}
     self._config_lock = threading.Lock()
+
+  @property
+  def configs(self):
+    """Return a dict with the current configuration mappings.
+
+    Returns:
+      A dict with the current configuration mappings.
+    """
+    with self._config_lock:
+      return self._configs.copy()
 
   def _convert_https_to_http(self, config):
     """Switch the URLs in one API configuration to use HTTP instead of HTTPS.
@@ -89,9 +99,9 @@ class ApiConfigManager(object):
           else:
             lookup_key = config.get('name', ''), config.get('version', '')
             self._convert_https_to_http(config)
-            self.configs[lookup_key] = config
+            self._configs[lookup_key] = config
 
-        for config in self.configs.itervalues():
+        for config in self._configs.itervalues():
           name = config.get('name', '')
           version = config.get('version', '')
           sorted_methods = self._get_sorted_methods(config.get('methods', {}))
@@ -241,9 +251,14 @@ class ApiConfigManager(object):
     return method_name, method, params
 
   def _add_discovery_config(self):
+    """Add the Discovery configuration to our list of configs.
+
+    This should only be called with self._config_lock.  The code here assumes
+    the lock is held.
+    """
     lookup_key = (discovery_service.DiscoveryService.API_CONFIG['name'],
                   discovery_service.DiscoveryService.API_CONFIG['version'])
-    self.configs[lookup_key] = discovery_service.DiscoveryService.API_CONFIG
+    self._configs[lookup_key] = discovery_service.DiscoveryService.API_CONFIG
 
   @staticmethod
   def _to_safe_path_param_name(matched_parameter):

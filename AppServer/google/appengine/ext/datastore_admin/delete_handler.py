@@ -29,7 +29,9 @@ import re
 import urllib
 import webapp2
 
+from google.appengine.api import capabilities
 from google.appengine.api import datastore
+from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import operation
@@ -81,19 +83,22 @@ class ConfirmDeleteHandler(webapp2.RequestHandler):
     Args:
       handler: the webapp.RequestHandler invoking the method
     """
+    readonly_warning = not capabilities.CapabilitySet(
+        'datastore_v3', capabilities=['write']).is_enabled()
     namespace = handler.request.get('namespace')
     kinds = handler.request.get_all('kind')
     sizes_known, size_total, remainder = utils.ParseKindsAndSizes(kinds)
 
     (namespace_str, kind_str) = utils.GetPrintableStrs(namespace, kinds)
     template_params = {
+        'readonly_warning': readonly_warning,
         'form_target': DoDeleteHandler.SUFFIX,
         'kind_list': kinds,
         'remainder': remainder,
         'sizes_known': sizes_known,
         'size_total': size_total,
         'app_id': handler.request.get('app_id'),
-        'cancel_url': handler.request.get('cancel_url'),
+        'datastore_admin_home': utils.GenerateHomeUrl(handler.request),
         'kind_str': kind_str,
         'namespace_str': namespace_str,
         'xsrf_token': utils.CreateXsrfToken(XSRF_ACTION),
@@ -113,7 +118,7 @@ class DoDeleteHandler(webapp2.RequestHandler):
       'google.appengine.ext.datastore_admin.delete_handler.DeleteEntity')
   INPUT_READER = (
       'google.appengine.ext.mapreduce.input_readers.DatastoreKeyInputReader')
-  MAPREDUCE_DETAIL = utils.config.MAPREDUCE_PATH + '/detail?mapreduce_id='
+  MAPREDUCE_DETAIL = config.MAPREDUCE_PATH + '/detail?mapreduce_id='
 
   def get(self):
     """Handler for get requests to datastore_admin/delete.do.
@@ -123,13 +128,15 @@ class DoDeleteHandler(webapp2.RequestHandler):
     jobs = self.request.get_all('job')
     error = self.request.get('error', '')
     xsrf_error = self.request.get('xsrf_error', '')
+    noconfirm_error = self.request.get('noconfirm_error', '')
 
     template_params = {
         'job_list': jobs,
         'mapreduce_detail': self.MAPREDUCE_DETAIL,
         'error': error,
         'xsrf_error': xsrf_error,
-        'datastore_admin_home': utils.config.BASE_PATH,
+        'noconfirm_error': noconfirm_error,
+        'datastore_admin_home': config.BASE_PATH,
     }
     utils.RenderToResponse(self, 'do_delete.html', template_params)
 
@@ -142,43 +149,52 @@ class DoDeleteHandler(webapp2.RequestHandler):
     kinds = self.request.get_all('kind')
     (namespace_str, kinds_str) = utils.GetPrintableStrs(namespace, kinds)
     token = self.request.get('xsrf_token')
+    readonly_warning = self.request.get('readonly_warning')
 
     jobs = []
-    if utils.ValidateXsrfToken(token, XSRF_ACTION):
-      try:
-        op = utils.StartOperation(
-            'Deleting %s%s' % (kinds_str, namespace_str))
-        name_template = 'Delete all %(kind)s objects%(namespace)s'
-        queue = self.request.get('queue')
-        queue = queue or os.environ.get('HTTP_X_APPENGINE_QUEUENAME', 'default')
-        if queue[0] == '_':
 
-          queue = 'default'
-        jobs = utils.RunMapForKinds(
-            op.key(),
-            kinds,
-            name_template,
-            self.DELETE_HANDLER,
-            self.INPUT_READER,
-            None,
-            {},
-            queue_name=queue,
-            max_shard_count=utils.MAPREDUCE_DEFAULT_SHARDS)
-        error = ''
-
-
-      except Exception, e:
-        error = self._HandleException(e)
-
-      parameters = [('job', job) for job in jobs]
-      if error:
-        parameters.append(('error', error))
+    if (readonly_warning == 'True') and not self.request.get(
+        'confirm_readonly_delete'):
+      parameters = [('noconfirm_error', '1')]
     else:
-      parameters = [('xsrf_error', '1')]
+      if utils.ValidateXsrfToken(token, XSRF_ACTION):
+        try:
+          op = utils.StartOperation(
+              'Deleting %s%s' % (kinds_str, namespace_str))
+          name_template = 'Delete all %(kind)s objects%(namespace)s'
+          mapreduce_params = {'force_ops_writes': True}
+          queue = self.request.get('queue')
+          queue = queue or os.environ.get(
+              'HTTP_X_APPENGINE_QUEUENAME', 'default')
+          if queue[0] == '_':
+
+            queue = 'default'
+          jobs = utils.RunMapForKinds(
+              op.key(),
+              kinds,
+              name_template,
+              self.DELETE_HANDLER,
+              self.INPUT_READER,
+              None,
+              {},
+              mapreduce_params=mapreduce_params,
+              queue_name=queue,
+              max_shard_count=utils.MAPREDUCE_DEFAULT_SHARDS)
+          error = ''
+
+
+        except Exception, e:
+          error = self._HandleException(e)
+
+        parameters = [('job', job) for job in jobs]
+        if error:
+          parameters.append(('error', error))
+      else:
+        parameters = [('xsrf_error', '1')]
 
     query = urllib.urlencode(parameters)
 
-    self.redirect('%s/%s?%s' % (utils.config.BASE_PATH, self.SUFFIX, query))
+    self.redirect('%s/%s?%s' % (config.BASE_PATH, self.SUFFIX, query))
 
   def _HandleException(self, e):
     """Make exception handling overrideable by tests.

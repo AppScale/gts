@@ -140,6 +140,22 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
                          'var_sint64': '-554', 'var_uint64': '4321'}
     self.assertEqual(expected_response, response_json)
 
+  def test_empty_test(self):
+    """Test that an empty response that should have an object returns 200."""
+    status, content, headers = self.fetch_url(
+        'default', 'GET', '/_ah/api/test_service/v1/empty_test')
+    self.assertEqual(200, status)
+    self.assertEqual('2', headers['Content-Length'])
+    self.assertEqual('{}', content)
+
+  def test_empty_response(self):
+    """An empty response that should be empty should return 204."""
+    status, content, headers = self.fetch_url(
+        'default', 'GET', '/_ah/api/test_service/v1/empty_response')
+    self.assertEqual(204, status)
+    self.assertEqual('0', headers['Content-Length'])
+    self.assertEqual('', content)
+
   def test_discovery_config(self):
     """Test that the discovery configuration looks right."""
     status, content, headers = self.fetch_url(

@@ -26,11 +26,14 @@ from google.appengine.tools.devappserver2.endpoints import generated_error_info
 
 
 __all__ = ['BackendError',
+           'BasicTypeParameterError',
            'EnumRejectionError',
+           'InvalidParameterError',
            'RequestError',
            'RequestRejectionError']
 
 _INVALID_ENUM_TEMPLATE = 'Invalid string value: %r. Allowed values: %r'
+_INVALID_BASIC_PARAM_TEMPLATE = 'Invalid %s value: %r.'
 
 
 class RequestError(Exception):
@@ -143,27 +146,23 @@ class RequestRejectionError(RequestError):
     return 400
 
 
+class InvalidParameterError(RequestRejectionError):
+  """Base class for invalid parameter errors.
 
-class EnumRejectionError(RequestRejectionError):
-  """Custom request rejection exception for enum values."""
+  Child classes only need to implement the message() function.
+  """
 
-  def __init__(self, parameter_name, value, allowed_values):
-    """Constructor for EnumRejectionError.
+  def __init__(self, parameter_name, value):
+    """Constructor for InvalidParameterError.
 
     Args:
-      parameter_name: String; the name of the enum parameter which had a value
+      parameter_name: String; the name of the parameter which had a value
         rejected.
-      value: The actual value passed in for the enum. Usually string.
-      allowed_values: List of strings allowed for the enum.
+      value: The actual value passed in for the parameter. Usually string.
     """
-    super(EnumRejectionError, self).__init__()
+    super(InvalidParameterError, self).__init__()
     self.parameter_name = parameter_name
     self.value = value
-    self.allowed_values = allowed_values
-
-  def message(self):
-    """A descriptive message describing the error."""
-    return _INVALID_ENUM_TEMPLATE % (self.value, self.allowed_values)
 
   def reason(self):
     """Returns the server's reason for this error.
@@ -181,6 +180,47 @@ class EnumRejectionError(RequestRejectionError):
     """
     return {'locationType': 'parameter',
             'location': self.parameter_name}
+
+
+class BasicTypeParameterError(InvalidParameterError):
+  """Request rejection exception for basic types (int, float)."""
+
+  def __init__(self, parameter_name, value, type_name):
+    """Constructor for BasicTypeParameterError.
+
+    Args:
+      parameter_name: String; the name of the parameter which had a value
+        rejected.
+      value: The actual value passed in for the enum. Usually string.
+      type_name: Descriptive name of the data type expected.
+    """
+    super(BasicTypeParameterError, self).__init__(parameter_name, value)
+    self.type_name = type_name
+
+  def message(self):
+    """A descriptive message describing the error."""
+    return _INVALID_BASIC_PARAM_TEMPLATE % (self.type_name, self.value)
+
+
+
+class EnumRejectionError(InvalidParameterError):
+  """Custom request rejection exception for enum values."""
+
+  def __init__(self, parameter_name, value, allowed_values):
+    """Constructor for EnumRejectionError.
+
+    Args:
+      parameter_name: String; the name of the enum parameter which had a value
+        rejected.
+      value: The actual value passed in for the enum. Usually string.
+      allowed_values: List of strings allowed for the enum.
+    """
+    super(EnumRejectionError, self).__init__(parameter_name, value)
+    self.allowed_values = allowed_values
+
+  def message(self):
+    """A descriptive message describing the error."""
+    return _INVALID_ENUM_TEMPLATE % (self.value, self.allowed_values)
 
 
 class BackendError(RequestError):

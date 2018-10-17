@@ -105,11 +105,17 @@ class PHPRuntime(object):
     user_environ['REMOTE_REQUEST_ID'] = environ[
         http_runtime_constants.REQUEST_ID_ENVIRON]
 
+    # Pass the APPLICATION_ROOT so we can use it in the setup script. We will
+    # remove it from the environment before we execute the user script.
+    user_environ['APPLICATION_ROOT'] = self.config.application_root
+
     if 'CONTENT_TYPE' in environ:
       user_environ['CONTENT_TYPE'] = environ['CONTENT_TYPE']
+      user_environ['HTTP_CONTENT_TYPE'] = environ['CONTENT_TYPE']
 
     if 'CONTENT_LENGTH' in environ:
       user_environ['CONTENT_LENGTH'] = environ['CONTENT_LENGTH']
+      user_environ['HTTP_CONTENT_LENGTH'] = environ['CONTENT_LENGTH']
       content = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
     else:
       content = None
@@ -133,19 +139,27 @@ class PHPRuntime(object):
       args.extend(['-d', 'xdebug.remote_enable="1"'])
       user_environ['XDEBUG_CONFIG'] = os.environ.get('XDEBUG_CONFIG', '')
 
-    p = subprocess.Popen(args,
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE,
-                         env=user_environ,
-                         cwd=self.config.application_root)
-    stdout, stderr = p.communicate(content)
-
-    if p.returncode:
-      logging.error('php failure (%r) with:\n%s', p.returncode, stdout+stderr)
+    try:
+      p = subprocess.Popen(args,
+                           stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE,
+                           env=user_environ,
+                           cwd=self.config.application_root)
+      stdout, stderr = p.communicate(content)
+    except Exception as e:
+      logging.exception('Failure to start PHP with: %s', args)
       start_response('500 Internal Server Error',
                      [(http_runtime_constants.ERROR_CODE_HEADER, '1')])
-      return []
+      return ['Failure to start the PHP subprocess with %r:\n%s' % (args, e)]
+
+    if p.returncode:
+      logging.error('php failure (%r) with:\nstdout:\n%sstderr:\n%s',
+                    p.returncode, stdout, stderr)
+      start_response('500 Internal Server Error',
+                     [(http_runtime_constants.ERROR_CODE_HEADER, '1')])
+      return ['php failure (%r) with:\nstdout:%s\nstderr:\n%s' %
+              (p.returncode, stdout, stderr)]
 
     message = httplib.HTTPMessage(cStringIO.StringIO(stdout))
     assert 'Content-Type' in message, 'invalid CGI response: %r' % stdout

@@ -40,7 +40,6 @@ try:
   import json
 except ImportError:
   import simplejson as json
-import logging
 import re
 
 from protorpc import message_types
@@ -255,6 +254,16 @@ class _ApiInfo(object):
     return self.__common_info.frontend_limits
 
   @property
+  def title(self):
+    """Human readable name of this API."""
+    return self.__common_info.title
+
+  @property
+  def documentation(self):
+    """Link to the documentation for this version of the API."""
+    return self.__common_info.documentation
+
+  @property
   def resource_name(self):
     """Resource name for the class this decorates."""
     return self.__resource_name
@@ -277,7 +286,8 @@ class _ApiDecorator(object):
   def __init__(self, name, version, description=None, hostname=None,
                audiences=None, scopes=None, allowed_client_ids=None,
                canonical_name=None, auth=None, owner_domain=None,
-               owner_name=None, package_path=None, frontend_limits=None):
+               owner_name=None, package_path=None, frontend_limits=None,
+               title=None, documentation=None):
     """Constructor for _ApiDecorator.
 
     Args:
@@ -303,6 +313,11 @@ class _ApiDecorator(object):
         client libraries of this API.
       frontend_limits: ApiFrontEndLimits, optional query limits for unregistered
         developers.
+      title: string, the human readable title of your API. It is exposed in the
+        discovery service.
+      documentation: string, a URL where users can find documentation about this
+        version of the API. This will be surfaced in the API Explorer and GPE
+        plugin to allow users to learn about your service.
     """
     self.__common_info = self.__ApiCommonInfo(
         name, version, description=description, hostname=hostname,
@@ -310,7 +325,8 @@ class _ApiDecorator(object):
         allowed_client_ids=allowed_client_ids,
         canonical_name=canonical_name, auth=auth, owner_domain=owner_domain,
         owner_name=owner_name, package_path=package_path,
-        frontend_limits=frontend_limits)
+        frontend_limits=frontend_limits, title=title,
+        documentation=documentation)
     self.__classes = []
 
   class __ApiCommonInfo(object):
@@ -333,7 +349,8 @@ class _ApiDecorator(object):
     def __init__(self, name, version, description=None, hostname=None,
                  audiences=None, scopes=None, allowed_client_ids=None,
                  canonical_name=None, auth=None, owner_domain=None,
-                 owner_name=None, package_path=None, frontend_limits=None):
+                 owner_name=None, package_path=None, frontend_limits=None,
+                 title=None, documentation=None):
       """Constructor for _ApiCommonInfo.
 
       Args:
@@ -359,6 +376,11 @@ class _ApiDecorator(object):
           client libraries of this API.
         frontend_limits: ApiFrontEndLimits, optional query limits for
           unregistered developers.
+        title: string, the human readable title of your API. It is exposed in
+          the discovery service.
+        documentation: string, a URL where users can find documentation about
+          this version of the API. This will be surfaced in the API Explorer and
+          GPE plugin to allow users to learn about your service.
       """
       _CheckType(name, basestring, 'name', allow_none=False)
       _CheckType(version, basestring, 'version', allow_none=False)
@@ -373,6 +395,8 @@ class _ApiDecorator(object):
       _CheckType(owner_name, basestring, 'owner_name')
       _CheckType(package_path, basestring, 'package_path')
       _CheckType(frontend_limits, ApiFrontEndLimits, 'frontend_limits')
+      _CheckType(title, basestring, 'title')
+      _CheckType(documentation, basestring, 'documentation')
 
       if hostname is None:
         hostname = app_identity.get_default_version_hostname()
@@ -396,6 +420,8 @@ class _ApiDecorator(object):
       self.__owner_name = owner_name
       self.__package_path = package_path
       self.__frontend_limits = frontend_limits
+      self.__title = title
+      self.__documentation = documentation
 
     @property
     def name(self):
@@ -462,6 +488,16 @@ class _ApiDecorator(object):
       """Optional query limits for unregistered developers."""
       return self.__frontend_limits
 
+    @property
+    def title(self):
+      """Human readable name of this API."""
+      return self.__title
+
+    @property
+    def documentation(self):
+      """Link to the documentation for this version of the API."""
+      return self.__documentation
+
   def __call__(self, service_class):
     """Decorator for ProtoRPC class that configures Google's API server.
 
@@ -472,12 +508,6 @@ class _ApiDecorator(object):
       Same class with API attributes assigned in api_info.
     """
     return self.api_class()(service_class)
-
-  def collection(self, *args, **kwargs):
-    logging.warning('Using deprecated "collection" decorator.  Use the '
-                    'api_class decorator instead.  The "collection" decorator '
-                    'will be removed in a future version.')
-    return self.api_class(*args, **kwargs)
 
   def api_class(self, resource_name=None, path=None, audiences=None,
                 scopes=None, allowed_client_ids=None):
@@ -666,7 +696,7 @@ class ApiFrontEndLimits(object):
 def api(name, version, description=None, hostname=None, audiences=None,
         scopes=None, allowed_client_ids=None, canonical_name=None,
         auth=None, owner_domain=None, owner_name=None, package_path=None,
-        frontend_limits=None):
+        frontend_limits=None, title=None, documentation=None):
   """Decorate a ProtoRPC Service class for use by the framework above.
 
   This decorator can be used to specify an API name, version, description, and
@@ -718,6 +748,11 @@ def api(name, version, description=None, hostname=None, audiences=None,
       client libraries of this API.
     frontend_limits: ApiFrontEndLimits, optional query limits for unregistered
       developers.
+    title: string, the human readable title of your API. It is exposed in the
+      discovery service.
+    documentation: string, a URL where users can find documentation about this
+      version of the API. This will be surfaced in the API Explorer and GPE
+      plugin to allow users to learn about your service.
 
   Returns:
     Class decorated with api_info attribute, an instance of ApiInfo.
@@ -729,7 +764,8 @@ def api(name, version, description=None, hostname=None, audiences=None,
                        canonical_name=canonical_name, auth=auth,
                        owner_domain=owner_domain, owner_name=owner_name,
                        package_path=package_path,
-                       frontend_limits=frontend_limits)
+                       frontend_limits=frontend_limits, title=title,
+                       documentation=documentation)
 
 
 class CacheControl(object):
@@ -1676,6 +1712,7 @@ class ApiConfigGenerator(object):
 
     method_map = {}
     method_collision_tracker = {}
+    rest_collision_tracker = {}
 
     for service in services:
       remote_methods = service.all_remote_methods()
@@ -1693,11 +1730,23 @@ class ApiConfigGenerator(object):
 
         if method_id in method_collision_tracker:
           raise ApiConfigurationError(
-              'Method %s used in multiple classes: %s and %s' %
+              'Method %s used multiple times, in classes %s and %s' %
               (method_id, method_collision_tracker[method_id],
                service.__name__))
         else:
           method_collision_tracker[method_id] = service.__name__
+
+
+        rest_identifier = (method_info.http_method,
+                           method_info.get_path(service.api_info))
+        if rest_identifier in rest_collision_tracker:
+          raise ApiConfigurationError(
+              '%s path "%s" used multiple times, in classes %s and %s' %
+              (method_info.http_method, method_info.get_path(service.api_info),
+               rest_collision_tracker[rest_identifier],
+               service.__name__))
+        else:
+          rest_collision_tracker[rest_identifier] = service.__name__
 
     if method_map:
       descriptor['methods'] = method_map
@@ -1738,6 +1787,10 @@ class ApiConfigGenerator(object):
       defaults['ownerName'] = api_info.owner_name
     if api_info.package_path:
       defaults['packagePath'] = api_info.package_path
+    if api_info.title:
+      defaults['title'] = api_info.title
+    if api_info.documentation:
+      defaults['documentation'] = api_info.documentation
     return defaults
 
   def pretty_print_config_to_json(self, services, hostname=None):

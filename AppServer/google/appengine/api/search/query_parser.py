@@ -16,10 +16,7 @@
 #
 
 
-
-
 """Wrapper for QueryParser."""
-
 
 from google.appengine._internal import antlr3
 from google.appengine._internal.antlr3 import tree
@@ -32,7 +29,7 @@ COMPARISON_TYPES = [
     QueryParser.NE,
     QueryParser.GT,
     QueryParser.GE,
-    QueryParser.LT,
+    QueryParser.LESSTHAN,
     QueryParser.LE,
     ]
 

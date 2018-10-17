@@ -125,7 +125,7 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
     self.mox.StubOutWithMock(self.server, 'handle_spi_response')
     self.server.handle_spi_response(
         mox.IsA(api_request.ApiRequest), mox.IsA(api_request.ApiRequest),
-        spi_response, self.start_response).AndReturn('Test')
+        spi_response, mox.IsA(dict), self.start_response).AndReturn('Test')
 
     # Run the test.
     self.mox.ReplayAll()
@@ -392,7 +392,7 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
         200, [('Content-type', 'text/plain')],
         'This is an invalid response.')
     response = self.server.handle_spi_response(orig_request, spi_request,
-                                               spi_response,
+                                               spi_response, {},
                                                self.start_response)
     error_json = {'error': {'message':
                             'Non-JSON reply: This is an invalid response.'}}
@@ -445,7 +445,7 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
           '200 OK', [('Content-type', 'application/json')], '{}')
 
     response = self.server.handle_spi_response(orig_request, spi_request,
-                                               server_response,
+                                               server_response, {},
                                                self.start_response)
 
     headers = dict(self.response_headers)
@@ -534,7 +534,7 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
                                             '{"some": "response"}')
 
     response = self.server.handle_spi_response(orig_request, spi_request,
-                                               spi_response,
+                                               spi_response, {},
                                                self.start_response)
     response = ''.join(response)  # Merge response iterator into single body.
 
@@ -555,7 +555,7 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
                                             '{"some": "response"}')
 
     response = self.server.handle_spi_response(orig_request, spi_request,
-                                               spi_response,
+                                               spi_response, {},
                                                self.start_response)
     response = ''.join(response)  # Merge response iterator into single body.
 
@@ -570,7 +570,7 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
     body = json.dumps({'some': 'response'}, indent=1)
     spi_response = dispatcher.ResponseTuple('200 OK', [('a', 'b')], body)
     response = self.server.handle_spi_response(orig_request, spi_request,
-                                               spi_response,
+                                               spi_response, {},
                                                self.start_response)
     self.assert_http_match(response, '200 OK',
                            [('a', 'b'),
@@ -630,6 +630,27 @@ class DevAppserverEndpointsServerTest(test_utils.TestsWithStartResponse):
     self.assertEqual(True, self.server.verify_response(response, 200, None))
     # Specified content type not matched
     self.assertEqual(False, self.server.verify_response(response, 200, 'a'))
+
+  def test_check_empty_response(self):
+    """Test that check_empty_response returns 204 for an empty response."""
+    orig_request = test_utils.build_request('/_ah/api/test', '{}')
+    method_config = {'response': {'body': 'empty'}}
+    empty_response = self.server.check_empty_response(orig_request,
+                                                      method_config,
+                                                      self.start_response)
+    self.assert_http_match(empty_response, 204, [('Content-Length', '0')], '')
+
+  def test_check_non_empty_response(self):
+    """Test that check_empty_response returns None for a non-empty response."""
+    orig_request = test_utils.build_request('/_ah/api/test', '{}')
+    method_config = {'response': {'body': 'autoTemplate(backendResponse)'}}
+    empty_response = self.server.check_empty_response(orig_request,
+                                                      method_config,
+                                                      self.start_response)
+    self.assertIsNone(empty_response)
+    self.assertIsNone(self.response_status)
+    self.assertIsNone(self.response_headers)
+    self.assertIsNone(self.response_exc_info)
 
 
 class TransformRequestTests(unittest.TestCase):
@@ -1014,6 +1035,54 @@ class TransformRequestTests(unittest.TestCase):
     self._try_transform_rest_request(path_parameters, query_parameters,
                                      body_object, expected,
                                      method_params=method_params)
+
+  # Other tests.
+
+  def test_type_conversions(self):
+    """Verify that type conversion matches prod."""
+    path_parameters = {'int32_val': '1', 'uint32_val': '2',
+                       'int64_val': '3', 'uint64_val': '4',
+                       'true_bool_val': 'true', 'false_bool_val': 'FALSE'}
+    query_parameters = {'float_val': ['5.25'], 'double_val': ['6.5']}
+    body_object = {'int_body_val': '7'}
+    expected = {'int32_val': 1,
+                'uint32_val': 2,
+                'int64_val': '3',
+                'uint64_val': '4',
+                'true_bool_val': True,
+                'false_bool_val': False,
+                'float_val': 5.25,
+                'double_val': 6.5,
+                'int_body_val': '7'}
+    method_params = {'int32_val': {'type': 'int32'},
+                     'uint32_val': {'type': 'uint32'},
+                     'int64_val': {'type': 'int64'},
+                     'uint64_val': {'type': 'uint64'},
+                     'true_bool_val': {'type': 'boolean'},
+                     'false_bool_val': {'type': 'boolean'},
+                     'float_val': {'type': 'float'},
+                     'double_val': {'type': 'double'},
+                     'int_body_val': {'type': 'int32'}}
+    self._try_transform_rest_request(path_parameters, query_parameters,
+                                     body_object, expected, method_params)
+
+  def test_invalid_conversions(self):
+    """Verify that invalid parameter values for basic types raise errors."""
+    for type_name in ('int32', 'uint32', 'boolean', 'float', 'double'):
+      param_name = '%s_val' % type_name
+      path_parameters = {param_name: 'invalid'}
+      query_parameters = {}
+      body_object = {}
+      expected = {}
+      method_params = {param_name: {'type': type_name}}
+
+      try:
+        self._try_transform_rest_request(path_parameters, query_parameters,
+                                         body_object, expected,
+                                         method_params=method_params)
+        self.fail('Bad %s value should have caused failure.' % type_name)
+      except errors.BasicTypeParameterError as error:
+        self.assertEqual(error.parameter_name, param_name)
 
 if __name__ == '__main__':
   unittest.main()

@@ -46,6 +46,10 @@ def send_wsgi_redirect_response(redirect_location, start_response,
                             start_response, cors_handler=cors_handler)
 
 
+def send_wsgi_no_content_response(start_response, cors_handler=None):
+  return send_wsgi_response('204', [], '', start_response, cors_handler)
+
+
 def send_wsgi_response(status, headers, content, start_response,
                        cors_handler=None):
   """Dump reformatted response to CGI start_response.

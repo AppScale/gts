@@ -106,6 +106,15 @@ class ExpressionEvaluator(object):
     return max(self._Eval(node) for node in nodes)
 
   def _Count(self, node):
+
+
+
+
+
+
+    if node.getType() != ExpressionParser.NAME:
+      raise _ExpressionError(
+          'The argument to count() must be a simple field name')
     return search_util.GetFieldCountInDocument(
         self._doc_pb, query_parser.GetQueryNodeText(node))
 

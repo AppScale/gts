@@ -30,9 +30,6 @@ require_once 'google/appengine/ext/cloud_storage_streams/HttpResponse.php';
  * Google Cloud Storage Client for reading objects.
  */
 final class CloudStorageReadClient extends CloudStorageClient {
-  // The default chunk size that we will read from the file.
-  const DEFAULT_READ_SIZE = 524288;
-
   // Buffer for storing data.
   private $read_buffer;
 
@@ -64,8 +61,12 @@ final class CloudStorageReadClient extends CloudStorageClient {
                                         HttpResponse::PARTIAL_CONTENT,
                                         HttpResponse::RANGE_NOT_SATISFIABLE];
 
+  // Client for caching the results of GCS reads.
+  private $memcache_client;
+
   public function __construct($bucket, $object, $context) {
     parent::__construct($bucket, $object, $context);
+    $this->memcache_client = new \Memcache();
   }
 
   public function __destruct() {
@@ -182,6 +183,63 @@ final class CloudStorageReadClient extends CloudStorageClient {
   }
 
   /**
+   * Override the makeHttpRequest function so we can implement caching.
+   * If caching is enabled then we try and retrieve a matching request for the
+   * object name and range from memcache.
+   * If we find a result in memcache, and optimistic caching is enabled then
+   * we return that result immediately without checking if the object has
+   * changed in GCS. Otherwise, we will issue a 'If-None-Match' request with
+   * the ETag of the object to ensure it is still current.
+   *
+   * Optimisitic caching is best suited when the application is soley updating
+   * objects in cloud storage, as the cache can be invalidated when the object
+   * is updated by the application.
+   */
+  protected function makeHttpRequest($url, $method, $headers, $body = null) {
+    if (!$this->context_options['enable_cache']) {
+      return parent::makeHttpRequest($url, $method, $headers, $body);
+    }
+
+    $cache_key = sprintf(parent::MEMCACHE_KEY_FORMAT, $url, $headers['Range']);
+    $cache_obj = $this->memcache_client->get($cache_key);
+    if (false !== $cache_obj) {
+      if ($this->context_options['enable_optimistic_cache']) {
+        return $cache_obj;
+      } else {
+        $cache_etag = $this->getHeaderValue('ETag', $cache_obj['headers']);
+        if (array_key_exists('If-Match', $headers)) {
+          // We will perform a If-None-Match to validate the cache object, only
+          // if it has the same ETag value as what we are asking for.
+          if ($headers['If-Match'] === $cache_etag) {
+            unset($headers['If-Match']);
+          } else {
+            // We are asking for a different object that what is in the cache.
+            $cache_etag = null;
+          }
+        }
+      }
+      if (isset($cache_etag)) {
+        $headers['If-None-Match'] = $cache_etag;
+      }
+    }
+
+    $result = parent::makeHttpRequest($url, $method, $headers, $body);
+
+    if (false === $result) {
+      return false;
+    }
+    $status_code = $result['status_code'];
+    if (HttpResponse::NOT_MODIFIED === $result['status_code']) {
+      return $cache_obj;
+    }
+    if (in_array($status_code, self::$valid_status_codes)) {
+      $this->memcache_client->set($cache_key, $result, 0,
+          $this->context_options['cache_expiry_seconds']);
+    }
+    return $result;
+  }
+
+  /**
    * Fill our internal buffer with data, by making a http request to Google
    * Cloud Storage.
    */
@@ -192,7 +250,7 @@ final class CloudStorageReadClient extends CloudStorageClient {
       return false;
     }
 
-    $end_range = $read_position + self::DEFAULT_READ_SIZE - 1;
+    $end_range = $read_position + parent::DEFAULT_READ_SIZE - 1;
     $range = $this->getRangeHeader($read_position, $end_range);
     $headers = array_merge($headers, $range);
 

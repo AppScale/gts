@@ -1331,7 +1331,7 @@ class ExpressionLexer(Lexer):
 
 
             pass
-            self.match("==")
+            self.match(61)
 
 
 

@@ -1495,6 +1495,23 @@ class MessageField(Field):
                                        repeated=repeated,
                                        variant=variant)
 
+  def __set__(self, message_instance, value):
+    """Set value on message.
+
+    Args:
+      message_instance: Message instance to set value on.
+      value: Value to set on message.
+    """
+    message_type = self.type
+    if isinstance(message_type, type) and issubclass(message_type, Message):
+      if self.repeated:
+        if value and isinstance(value, (list, tuple)):
+          value = [(message_type(**v) if isinstance(v, dict) else v)
+                   for v in value]
+      elif isinstance(value, dict):
+        value = message_type(**value)
+    super(MessageField, self).__set__(message_instance, value)
+
   @property
   def type(self):
     """Message type used for field."""

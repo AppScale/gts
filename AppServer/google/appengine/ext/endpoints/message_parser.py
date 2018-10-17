@@ -201,6 +201,12 @@ class MessageTypeToJsonSchema(object):
         type_info['type'] = schema_type[0]
         if schema_type[1]:
           type_info['format'] = schema_type[1]
+
+      if type(field) == messages.EnumField:
+        sorted_enums = sorted([enum_info for enum_info in field.type],
+                              key=lambda enum_info: enum_info.number)
+        type_info['enum'] = [enum_info.name for enum_info in sorted_enums]
+
       if field.required:
         descriptor['required'] = True
 

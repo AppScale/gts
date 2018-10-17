@@ -122,6 +122,9 @@ def _run_task_hook(hooks, method, task, queue_name):
 class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
   """Callback handler for mapreduce worker task."""
 
+  _TASK_STATE = util._enum(RETRY_TASK="retry_task",
+                           DROP_TASK="drop_task")
+
   def __init__(self, *args):
     """Constructor."""
     super(MapperWorkerCallbackHandler, self).__init__(*args)
@@ -138,8 +141,8 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       tstate: model.TransientShardState from taskqueue paylod.
 
     Returns:
-      True if lease is acquired. None if this task should be retried.
-    False if this task should be dropped. Only old tasks
+      A fresh shard state entity if lease is acquired. A _TASK_STATE
+    enum if this task should be retried or dropped. Only old tasks
     (comparing to datastore state) will be dropped. Future tasks are
     retried until they naturally become old so that we don't ever stuck MR.
     """
@@ -148,13 +151,13 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       logging.warning("State not found for shard %s; Possible spurious task "
                       "execution. Dropping this task.",
                       tstate.shard_id)
-      return False
+      return self._TASK_STATE.DROP_TASK
 
     if not shard_state.active:
       logging.warning("Shard %s is not active. Possible spurious task "
                       "execution. Dropping this task.", tstate.shard_id)
       logging.warning(str(shard_state))
-      return False
+      return self._TASK_STATE.DROP_TASK
 
 
     if shard_state.retries > tstate.retries:
@@ -164,7 +167,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
           tstate.shard_id,
           tstate.retries)
       logging.warning(str(shard_state))
-      return False
+      return self._TASK_STATE.DROP_TASK
     elif shard_state.retries < tstate.retries:
 
 
@@ -172,7 +175,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       logging.warning(
           "ShardState for %s is behind slice. Waiting for it to catch up",
           shard_state.shard_id)
-      return
+      return self._TASK_STATE.RETRY_TASK
 
 
 
@@ -180,7 +183,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       logging.warning(
           "Task %s-%s is behind ShardState %s. Dropping task.""",
           tstate.shard_id, tstate.slice_id, shard_state.slice_id)
-      return False
+      return self._TASK_STATE.DROP_TASK
 
 
 
@@ -188,7 +191,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       logging.warning(
           "Task %s-%s is ahead of ShardState %s. Waiting for it to catch up.",
           tstate.shard_id, tstate.slice_id, shard_state.slice_id)
-      return
+      return self._TASK_STATE.RETRY_TASK
 
 
 
@@ -204,16 +207,21 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
 
 
         time.sleep(countdown)
-        return
+        return self._TASK_STATE.RETRY_TASK
 
       else:
-        if (not self._old_request_ended(shard_state) and
-            self._wait_time(shard_state, _REQUEST_EVENTUAL_TIMEOUT)):
+        if self._wait_time(shard_state, _REQUEST_EVENTUAL_TIMEOUT):
+          if not self._old_request_ended(shard_state):
+            logging.warning(
+                "Last retry of slice %s-%s is still in flight with request_id "
+                "%s. Will try again later.", tstate.shard_id, tstate.slice_id,
+                shard_state.slice_request_id)
+            return self._TASK_STATE.RETRY_TASK
+        else:
           logging.warning(
-              "Last retry of slice %s-%s is still in flight with request_id "
-              "%s. Will try again later.", tstate.shard_id, tstate.slice_id,
-              shard_state.slice_request_id)
-          return
+              "Last retry of slice %s-%s has no log entry and has"
+              "timed out after %s seconds",
+              tstate.shard_id, tstate.slice_id, _REQUEST_EVENTUAL_TIMEOUT)
 
 
     config = util.create_datastore_write_config(tstate.mapreduce_spec)
@@ -225,7 +233,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       the previous validation code). The task would die naturally eventually.
 
       Returns:
-        True if state commit succeeded. None otherwise.
+        Fresh shard state if state commit succeeded. None otherwise.
       """
       fresh_state = model.ShardState.get_by_shard_id(tstate.shard_id)
       if not fresh_state:
@@ -236,15 +244,16 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
           fresh_state.slice_start_time == shard_state.slice_start_time):
         fresh_state.slice_start_time = datetime.datetime.now()
         fresh_state.slice_request_id = os.environ.get("REQUEST_LOG_ID")
+        fresh_state.acquired_once = True
         fresh_state.put(config=config)
-        return True
+        return fresh_state
       else:
         logging.warning(
             "Contention on slice %s-%s execution. Will retry again.",
             tstate.shard_id, tstate.slice_id)
 
         time.sleep(random.randrange(1, 5))
-        return
+        return self._TASK_STATE.RETRY_TASK
 
     return _tx()
 
@@ -327,9 +336,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
     @db.transactional
     def _tx():
       fresh_state = model.ShardState.get_by_shard_id(shard_state.shard_id)
-      if (fresh_state and
-          fresh_state.active and
-          fresh_state.slice_id == shard_state.slice_id):
+      if fresh_state and fresh_state.active:
 
         fresh_state.slice_start_time = None
         fresh_state.slice_request_id = None
@@ -342,8 +349,8 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
     except Exception, e:
       logging.warning(e)
       logging.warning(
-          "Release lock for slice %s-%s failed. Wait for lease to expire.",
-          shard_state.shard_id, shard_state.slice_id)
+          "Release lock for shard %s failed. Wait for lease to expire.",
+          shard_state.shard_id)
 
   def handle(self):
     """Handle request."""
@@ -356,11 +363,11 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
         model.MapreduceControl.get_key_by_job_id(spec.mapreduce_id),
     ])
 
-    lease_acquired = self._try_acquire_lease(shard_state, tstate)
-    if lease_acquired is None:
+    shard_state = self._try_acquire_lease(shard_state, tstate)
+    if shard_state == self._TASK_STATE.RETRY_TASK:
       self.retry_task()
       return
-    if not lease_acquired:
+    if shard_state == self._TASK_STATE.DROP_TASK:
       return
 
     ctx = context.Context(spec, shard_state,
@@ -371,8 +378,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
                    shard_state.shard_number, shard_state.mapreduce_id)
 
 
-      shard_state.active = False
-      shard_state.result_status = model.ShardState.RESULT_ABORTED
+      shard_state.set_for_abort()
       shard_state.put(config=util.create_datastore_write_config(spec))
       return
 
@@ -466,8 +472,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
     ctx.flush()
 
     if finished_shard:
-      shard_state.active = False
-      shard_state.result_status = model.ShardState.RESULT_SUCCESS
+      shard_state.set_for_success()
 
   def process_data(self, data, input_reader, ctx, transient_shard_state):
     """Process a single data piece.
@@ -573,7 +578,6 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
           tstate.shard_id,
           tstate.slice_id,
           self.task_retry_count() + 1)
-      shard_state.slice_id -= 1
       self._try_free_lease(shard_state)
       raise e
     finally:
@@ -1364,7 +1368,11 @@ class StartJobHandler(base_handler.PostJsonHandler):
     finally:
       context.Context._set(None)
 
-    if not transactional:
+
+
+
+    @db.non_transactional
+    def _txn():
 
       state = model.MapreduceState.create_new(mapreduce_spec.mapreduce_id)
       state.mapreduce_spec = mapreduce_spec
@@ -1372,8 +1380,11 @@ class StartJobHandler(base_handler.PostJsonHandler):
       state.active_shards = mapper_spec.shard_count
       if _app:
         state.app_id = _app
-      config = util.create_datastore_write_config(mapreduce_spec)
-      state.put(config=config)
+      state.put(config=util.create_datastore_write_config(mapreduce_spec))
+      return state
+
+    state = _txn()
+    if not transactional:
       parent_entity = state
 
     cls._add_kickoff_task(

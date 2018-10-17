@@ -19,6 +19,7 @@
 import logging
 import subprocess
 import sys
+import tempfile
 import threading
 
 # Subprocess creation is not threadsafe in Python. See
@@ -68,3 +69,56 @@ def start_process(args, input_string='', env=None, cwd=None, stdout=None,
     p.stdin.close()
     p.stdin = None
   return p
+
+
+def start_process_file(args, input_string, env, cwd, stdin=None, stdout=None,
+                       stderr=None):
+  """Starts a subprocess thread safely with temporary files for communication.
+
+  An alternate version of start_process that allows for the preservation
+  of stdin and stdout by creating two files that can be used for communication
+  between the processes. The paths to these files are added to the command
+  line after any args provided by the caller. The first file is written with
+  the value of input_string and the second file is returned to the caller.
+
+  Args:
+    args: A string or sequence of strings containing the program arguments.
+    input_string: A string to pass to stdin of the subprocess.
+    env: A dict containing environment variables for the subprocess.
+    cwd: A string containing the directory to switch to before executing the
+        subprocess.
+    stdin: A file descriptor, file object or subprocess.PIPE to use for the
+        stdin descriptor for the subprocess.
+    stdout: A file descriptor, file object or subprocess.PIPE to use for the
+        stdout descriptor for the subprocess.
+    stderr: A file descriptor, file object or subprocess.PIPE to use for the
+        stderr descriptor for the subprocess.
+
+  Returns:
+    A subprocess.Popen instance for the created subprocess. In addition to
+    the standard attributes, an additional child_out attribute is attached
+    that references a NamedTemporaryFile that the child process may write
+    and this process may read; it is up to the caller to delete the file
+    (path available as p.child_out.name).
+  """
+  # In addition to needing to control deletion time, we need delete=False
+  # in order to allow multiple files to open the process on Windows.
+  child_in = tempfile.NamedTemporaryFile(mode='wb', delete=False)
+  child_out = tempfile.NamedTemporaryFile(mode='rb', delete=False)
+
+  child_in.write(input_string)
+  child_in.close()
+
+  # pylint: disable=g-no-augmented-assignment
+  # += modifies the original args which we don't want.
+  args = args + [child_in.name, child_out.name]
+
+  with _popen_lock:
+    logging.debug('Starting process %r with input=%r, env=%r, cwd=%r',
+                  args, input_string, env, cwd)
+    p = subprocess.Popen(args, env=env, cwd=cwd, stdin=stdin, stdout=stdout,
+                         stderr=stderr)
+
+  p.child_out = child_out
+  return p
+
