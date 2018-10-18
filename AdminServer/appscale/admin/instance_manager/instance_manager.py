@@ -165,7 +165,7 @@ class InstanceManager(object):
     yield self._source_manager.ensure_source(
       version.revision_key, source_archive, runtime)
 
-    logger.info('Starting {}'.format(version))
+    logger.info('Starting {}:{}'.format(version, port))
 
     pidfile = PIDFILE_TEMPLATE.format(revision=version.revision_key, port=port)
 
@@ -540,6 +540,9 @@ class InstanceManager(object):
       # Stop versions that aren't assigned.
       to_stop = [instance for instance in self._running_instances
                  if instance.version_key not in self._assignments]
+      for version_key in {instance.version_key for instance in to_stop}:
+        logger.info('{} is no longer assigned'.format(version_key))
+
       for instance in to_stop:
         yield self._stop_app_instance(instance)
 
@@ -556,6 +559,7 @@ class InstanceManager(object):
         # Stop instances that aren't assigned.
         for running_instance in running_instances:
           if running_instance.port not in assigned_ports:
+            logger.info('{} is no longer assigned'.format(running_instance))
             yield self._stop_app_instance(running_instance)
 
         # Start assigned instances that aren't running.
@@ -585,6 +589,7 @@ class InstanceManager(object):
           self._login_server != get_login_server(instance))
         if (instance.revision_key != version.revision_key or
             login_server_changed):
+          logger.info('Configuration changed for {}'.format(instance))
           yield self._stop_app_instance(instance)
           yield self._start_instance(version, instance.port)
 
@@ -623,10 +628,12 @@ class InstanceManager(object):
     login_server = controller_state['@options']['login']
 
     if new_assignments != self._assignments:
+      logger.info('New assignments: {}'.format(new_assignments))
       self._assignments = new_assignments
       yield self._fulfill_assignments()
 
     if login_server != self._login_server:
+      logger.info('New login server: {}'.format(login_server))
       self._login_server = login_server
       yield self._enforce_instance_details()
 
@@ -656,5 +663,6 @@ class InstanceManager(object):
 
     for version_key in relevant_versions:
       if event.affects_version(version_key):
+        logger.info('New revision for version: {}'.format(version_key))
         yield self._enforce_instance_details()
         break
