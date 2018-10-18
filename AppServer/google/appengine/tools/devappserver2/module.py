@@ -538,7 +538,7 @@ class Module(object):
 
   # AppScale: Check if the instance should be shutting down before handling
   # request.
-  def _handle_request(self, environ, start_response, **kwargs):
+  def _handle_request(self, environ, start_response, *args, **kwargs):
     """ A _handle_request wrapper that keeps track of active requests.
 
     Args:
@@ -556,7 +556,8 @@ class Module(object):
       self.request_count += 1
 
     try:
-      return self._handle_request_impl(environ, start_response, **kwargs)
+      return self._handle_request_impl(environ, start_response, *args,
+                                       **kwargs)
     finally:
       with self.graceful_shutdown_lock:
         self.request_count -= 1
