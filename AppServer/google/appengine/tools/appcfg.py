@@ -2761,6 +2761,10 @@ class AppCfgApp(object):
     if self.options.runtime:
       appyaml.runtime = self.options.runtime
 
+    if not appyaml.application:
+      self.parser.error('Expected -A app_id when application property in file '
+                        '%s.yaml is not set.' % basename)
+
     msg = 'Application: %s' % appyaml.application
     if appyaml.application != orig_application:
       msg += ' (was: %s)' % orig_application
@@ -2771,7 +2775,6 @@ class AppCfgApp(object):
         msg += '; module: %s' % appyaml.module
         if appyaml.module != orig_module:
           msg += ' (was: %s)' % orig_module
-
       msg += '; version: %s' % appyaml.version
       if appyaml.version != orig_version:
         msg += ' (was: %s)' % orig_version
@@ -3237,6 +3240,22 @@ class AppCfgApp(object):
     """Placeholder; we never expect this action to be invoked."""
     pass
 
+  def BackendsPhpCheck(self, appyaml):
+    """Don't support backends with the PHP runtime.
+
+    This should be used to prevent use of backends update/start/configure
+    with the PHP runtime.  We continue to allow backends
+    stop/delete/list/rollback just in case there are existing PHP backends.
+
+    Args:
+      appyaml: A parsed app.yaml file.
+    """
+    if appyaml.runtime == 'php':
+      _PrintErrorAndExit(
+          self.error_fh,
+          'Error: Backends are not supported with the PHP runtime. '
+          'Please use Modules instead.\n')
+
   def BackendsYamlCheck(self, appyaml, backend=None):
     """Check the backends.yaml file is sane and which backends to update."""
 
@@ -3284,6 +3303,7 @@ class AppCfgApp(object):
     yaml_file_basename = 'app'
     appyaml = self._ParseAppInfoFromYaml(self.basepath,
                                          basename=yaml_file_basename)
+    self.BackendsPhpCheck(appyaml)
     rpcserver = self._GetRpcServer()
 
     backends_to_update = self.BackendsYamlCheck(appyaml, self.backend)
@@ -3318,6 +3338,7 @@ class AppCfgApp(object):
 
     backend = self.args[0]
     appyaml = self._ParseAppInfoFromYaml(self.basepath)
+    self.BackendsPhpCheck(appyaml)
     rpcserver = self._GetRpcServer()
     response = rpcserver.Send('/api/backends/start',
                               app_id=appyaml.application,
@@ -3357,6 +3378,7 @@ class AppCfgApp(object):
 
     backend = self.args[0]
     appyaml = self._ParseAppInfoFromYaml(self.basepath)
+    self.BackendsPhpCheck(appyaml)
     backends_yaml = self._ParseBackendsYaml(self.basepath)
     rpcserver = self._GetRpcServer()
     response = rpcserver.Send('/api/backends/configure',
@@ -3380,6 +3402,24 @@ class AppCfgApp(object):
                              appyaml.application)
     else:
       print >> self.out_fh, response
+
+  def DeleteVersion(self):
+    """Deletes the specified version for an app."""
+    if not (self.options.app_id and self.options.version):
+      self.parser.error('Expected an <app_id> argument, a <version> argument '
+                        'and an optional <module> argument.')
+    if self.options.module:
+      module = self.options.module
+    else:
+      module = ''
+
+    rpcserver = self._GetRpcServer()
+    response = rpcserver.Send('/api/versions/delete',
+                              app_id=self.options.app_id,
+                              version_match=self.options.version,
+                              module=module)
+
+    print >> self.out_fh, response
 
   def _ParseAndValidateModuleYamls(self, yaml_paths):
     """Validates given yaml paths and returns the parsed yaml objects.
@@ -4323,7 +4363,28 @@ are enforced."""),
           long_desc="""
 The 'list_versions' command outputs the uploaded versions for each module of
 an application in YAML."""),
+
+      'delete_version': Action(
+          function='DeleteVersion',
+          usage='%prog [options] delete_version -A app_id -V version '
+          '[-M module]',
+          uses_basepath=False,
+          short_desc='Delete the specified version for an app.',
+          long_desc="""
+The 'delete_version' command deletes the specified version for the specified
+application."""),
   }
+
+
+def IsWarFileWithoutYaml(dir_path):
+  if os.path.isfile(os.path.join(dir_path, 'app.yaml')):
+    return False
+  web_inf = os.path.join(dir_path, 'WEB-INF')
+  if not os.path.isdir(web_inf):
+    return False
+  if not set(['appengine-web.xml', 'web.xml']).issubset(os.listdir(web_inf)):
+    return False
+  return True
 
 
 def main(argv):

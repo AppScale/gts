@@ -37,7 +37,13 @@ from google.appengine.tools.devappserver2 import thread_executor
 
 _HAS_POLL = hasattr(select, 'poll')
 
-_PORT_0_RETRIES = 5
+# Due to reports of failure to find a consistent port, trying a higher value
+# to see if that reduces the problem sufficiently.  If it doesn't we can try
+# increasing it (on my circa 2010 desktop, it takes about 1/2 second per 1024
+# tries) but it would probably be better to either figure out a better
+# algorithm or make it possible for code to work with inconsistent ports.
+
+_PORT_0_RETRIES = 2048
 
 
 class BindError(errors.Error):
@@ -295,7 +301,7 @@ class WsgiServer(object):
         if self._start_all_dynamic_port(host_ports):
           break
       else:
-        raise BindError('Unable to find a consistent port %s' % host)
+        raise BindError('Unable to find a consistent port for %s' % host)
 
   def _start_all_fixed_port(self, host_ports):
     """Starts a server for each specified address with a fixed port.

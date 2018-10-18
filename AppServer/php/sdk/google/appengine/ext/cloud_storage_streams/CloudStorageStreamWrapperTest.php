@@ -230,7 +230,7 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
     $options = [ 'gs' => [
             'enable_cache' => true,
             'enable_optimistic_cache' => false,
-            'cache_expiry_seconds' => $cache_expiry_seconds,
+            'read_cache_expiry_seconds' => $cache_expiry_seconds,
         ]
     ];
     $ctx = stream_context_create($options);
@@ -436,6 +436,9 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
                              null,
                              $response);
 
+    // Return a false is writable check from the cache
+    $this->expectIsWritableMemcacheLookup(true, false);
+
     $this->assertTrue(is_dir("gs://bucket"));
     $this->apiProxyMock->verify();
   }
@@ -485,9 +488,17 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
                              null,
                              $response);
 
+    // Don't find the key in the cache, to force a write attempt to the bucket.
+    $temp_url = $this->makeCloudStorageObjectUrl("bucket",
+        CloudStorageClient::WRITABLE_TEMP_FILENAME);
+    $this->expectIsWritableMemcacheLookup(false, false);
+    $this->expectFileWriteStartRequest(null, null, 'foo', $temp_url, null);
+    $this->expectIsWritableMemcacheSet(true);
+
+
     $result = stat("gs://bucket/object.png");
     $this->assertEquals(37337, $result['size']);
-    $this->assertEquals(0100444, $result['mode']);
+    $this->assertEquals(0100666, $result['mode']);
     $this->assertEquals(strtotime($last_modified), $result['mtime']);
     $this->apiProxyMock->verify();
   }
@@ -517,8 +528,45 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
                              $request_headers,
                              null,
                              $response);
+    // Return a false is writable check from the cache
+    $this->expectIsWritableMemcacheLookup(true, false);
 
     $this->assertTrue(is_dir('gs://bucket/a/b/'));
+    $this->apiProxyMock->verify();
+  }
+
+  public function testStatObjectWithCommonPrefixSuccess() {
+    $this->expectGetAccessTokenRequest(CloudStorageClient::READ_SCOPE);
+    $request_headers = $this->getStandardRequestHeaders();
+    $last_modified = 'Mon, 01 Jul 2013 10:02:46 GMT';
+    $common_prefix_results = ['a/b/c/',
+        'a/b/d/',
+    ];
+    $response = [
+        'status_code' => 200,
+        'headers' => [
+        ],
+        'body' => $this->makeGetBucketXmlResponse('a/b',
+                                                  [],
+                                                  null,
+                                                  $common_prefix_results),
+    ];
+    $expected_url = $this->makeCloudStorageObjectUrl('bucket', null);
+    $expected_query = http_build_query([
+        'delimiter' => CloudStorageClient::DELIMITER,
+        'max-keys' => CloudStorageUrlStatClient::MAX_KEYS,
+        'prefix' => 'a/b',
+    ]);
+
+    $this->expectHttpRequest(sprintf("%s?%s", $expected_url, $expected_query),
+                             RequestMethod::GET,
+                             $request_headers,
+                             null,
+                             $response);
+    // Return a false is writable check from the cache
+    $this->expectIsWritableMemcacheLookup(true, false);
+
+    $this->assertTrue(is_dir('gs://bucket/a/b'));
     $this->apiProxyMock->verify();
   }
 
@@ -1366,9 +1414,13 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
     $request_headers = [
         "x-goog-resumable" => "start",
         "Authorization" => "OAuth foo token",
-        "Content-Type" => $content_type,
-        "x-goog-acl" => $acl,
     ];
+    if ($content_type != null) {
+      $request_headers['Content-Type'] = $content_type;
+    }
+    if ($acl != null) {
+      $request_headers['x-goog-acl'] = $acl;
+    }
     if (isset($metadata)) {
       foreach ($metadata as $key => $value) {
         $request_headers["x-goog-meta-" . $key] = $value;
@@ -1466,6 +1518,30 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
                                     $resp);
   }
 
+  private function expectIsWritableMemcacheLookup($key_found, $result) {
+    if ($key_found) {
+      $lookup_result = ['is_writable' => $result];
+    } else {
+      $lookup_result = false;
+    }
+
+    $this->mock_memcache->expects($this->at($this->mock_memcache_call_index++))
+                        ->method('get')
+                        ->with($this->stringStartsWith(
+                            '_ah_gs_write_bucket_cache_'))
+                        ->will($this->returnValue($lookup_result));
+  }
+
+  private function expectIsWritableMemcacheSet($value) {
+    $this->mock_memcache->expects($this->at($this->mock_memcache_call_index++))
+        ->method('set')
+        ->with($this->stringStartsWith('_ah_gs_write_bucket_cache_'),
+               ['is_writable' => $value],
+               null,
+               CloudStorageClient::DEFAULT_WRITABLE_CACHE_EXPIRY_SECONDS)
+        ->will($this->returnValue(false));
+  }
+
   private function makeCloudStorageObjectUrl($bucket = "bucket",
                                              $object = "/object.png") {
     if (isset($object)){
@@ -1489,7 +1565,8 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
 
   private function makeGetBucketXmlResponse($prefix,
                                             $contents_array,
-                                            $next_marker = null) {
+                                            $next_marker = null,
+                                            $common_prefix_array = null) {
     $result = "<?xml version='1.0' encoding='UTF-8'?>
         <ListBucketResult xmlns='http://doc.s3.amazonaws.com/2006-03-01'>
         <Name>sjl-test</Name>
@@ -1511,6 +1588,13 @@ class CloudStorageStreamWrapperTest extends ApiProxyTestBase {
         $result .= '<LastModified>' . $content['mtime'] . '</LastModified>';
       }
       $result .= '</Contents>';
+    }
+    if (isset($common_prefix_array)) {
+      foreach($common_prefix_array as $common_prefix) {
+        $result .= '<CommonPrefixes>';
+        $result .= '<Prefix>' . $common_prefix . '</Prefix>';
+        $result .= '</CommonPrefixes>';
+      }
     }
     $result .= "</ListBucketResult>";
     return $result;
