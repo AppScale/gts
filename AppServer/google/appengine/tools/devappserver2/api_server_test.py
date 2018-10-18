@@ -18,14 +18,19 @@
 
 
 import cStringIO
+import pickle
 import tempfile
 import unittest
 import urllib
 import wsgiref.util
 
+from google.appengine.api import apiproxy_stub
+from google.appengine.api import apiproxy_stub_map
+from google.appengine.api import urlfetch_service_pb
 from google.appengine.api import user_service_pb
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.ext.remote_api import remote_api_pb
+from google.appengine.runtime import apiproxy_errors
 from google.appengine.tools.devappserver2 import api_server
 from google.appengine.tools.devappserver2 import wsgi_request_info
 from google.appengine.tools.devappserver2 import wsgi_test_utils
@@ -53,6 +58,17 @@ USER_LOGOUT_URL = 'https://localhost/Logout?continue=%s'
 request_data = wsgi_request_info.WSGIRequestInfo(None)
 
 
+class FakeURLFetchServiceStub(apiproxy_stub.APIProxyStub):
+  def __init__(self):
+    super(FakeURLFetchServiceStub, self).__init__('urlfetch')
+
+  def _Dynamic_Fetch(self, request, unused_response):
+    if request.url() == 'exception':
+      raise IOError('the remote error')
+    elif request.url() == 'application_error':
+      raise apiproxy_errors.ApplicationError(23, 'details')
+
+
 def setup_stubs():
   """Setup the API stubs. This can only be done once."""
   api_server.test_setup_stubs(
@@ -77,6 +93,7 @@ def setup_stubs():
       taskqueue_default_http_server=TASKQUEUE_DEFAULT_HTTP_SERVER,
       user_login_url=USER_LOGIN_URL,
       user_logout_url=USER_LOGOUT_URL)
+  apiproxy_stub_map.apiproxy.ReplaceStub('urlfetch', FakeURLFetchServiceStub())
 
 
 class TestAPIServer(wsgi_test_utils.WSGITestCase):
@@ -91,25 +108,24 @@ class TestAPIServer(wsgi_test_utils.WSGITestCase):
   def tearDown(self):
     api_server.cleanup_stubs()
 
-  def test_user_api_call(self):
-    logout_response = user_service_pb.CreateLogoutURLRequest()
-    logout_response.set_destination_url(
-        USER_LOGOUT_URL % urllib.quote('http://machine:8080/crazy_logout'))
+  def _assert_remote_call(
+      self, expected_remote_response, stub_request, service, method):
+    """Test a call across the remote API to the API server.
 
-    expected_remote_response = remote_api_pb.Response()
-    expected_remote_response.set_response(logout_response.Encode())
-
-    logout_request = user_service_pb.CreateLogoutURLRequest()
-    logout_request.set_destination_url('/crazy_logout')
-
+    Args:
+      expected_remote_response: the remote response that is expected.
+      stub_request: the request protobuf that the stub expects.
+      service: the stub's service name.
+      method: which service method to call.
+    """
     request_environ = {'HTTP_HOST': 'machine:8080'}
     wsgiref.util.setup_testing_defaults(request_environ)
 
     with request_data.request(request_environ, None) as request_id:
       remote_request = remote_api_pb.Request()
-      remote_request.set_service_name('user')
-      remote_request.set_method('CreateLogoutURL')
-      remote_request.set_request(logout_request.Encode())
+      remote_request.set_service_name(service)
+      remote_request.set_method(method)
+      remote_request.set_request(stub_request.Encode())
       remote_request.set_request_id(request_id)
       remote_payload = remote_request.Encode()
 
@@ -124,6 +140,20 @@ class TestAPIServer(wsgi_test_utils.WSGITestCase):
                           self.server,
                           environ)
 
+  def test_user_api_call(self):
+    logout_response = user_service_pb.CreateLogoutURLResponse()
+    logout_response.set_logout_url(
+        USER_LOGOUT_URL % urllib.quote('http://machine:8080/crazy_logout'))
+
+    expected_remote_response = remote_api_pb.Response()
+    expected_remote_response.set_response(logout_response.Encode())
+
+    logout_request = user_service_pb.CreateLogoutURLRequest()
+    logout_request.set_destination_url('/crazy_logout')
+
+    self._assert_remote_call(
+        expected_remote_response, logout_request, 'user', 'CreateLogoutURL')
+
   def test_GET(self):
     environ = {'REQUEST_METHOD': 'GET',
                'QUERY_STRING': 'rtok=23'}
@@ -132,6 +162,33 @@ class TestAPIServer(wsgi_test_utils.WSGITestCase):
                         "{app_id: test, rtok: '23'}\n",
                         self.server,
                         environ)
+
+  def test_exception(self):
+    urlfetch_request = urlfetch_service_pb.URLFetchRequest()
+    urlfetch_request.set_url('exception')
+    urlfetch_request.set_method(urlfetch_service_pb.URLFetchRequest.GET)
+
+    expected_remote_response = remote_api_pb.Response()
+    expected_remote_response.set_exception(pickle.dumps(
+        RuntimeError(repr(IOError('the remote error')))))
+
+    self._assert_remote_call(
+        expected_remote_response, urlfetch_request, 'urlfetch', 'Fetch')
+
+  def test_application_error(self):
+    urlfetch_request = urlfetch_service_pb.URLFetchRequest()
+    urlfetch_request.set_url('application_error')
+    urlfetch_request.set_method(urlfetch_service_pb.URLFetchRequest.GET)
+
+    expected_remote_response = remote_api_pb.Response()
+    expected_remote_response.mutable_application_error().set_code(23)
+    expected_remote_response.mutable_application_error().set_detail('details')
+    expected_remote_response.set_exception(pickle.dumps(
+        apiproxy_errors.ApplicationError(23, 'details')))
+
+    self._assert_remote_call(
+        expected_remote_response, urlfetch_request, 'urlfetch', 'Fetch')
+
 
 if __name__ == '__main__':
   unittest.main()
