@@ -573,7 +573,7 @@ class InstanceManager(object):
                          if instance.version_key == version_key]
         for port in assigned_ports:
           if port != -1 and port not in running_ports:
-            self._start_instance(version, port)
+            yield self._start_instance(version, port)
 
         # Start new assignments that don't have a match.
         candidates = [instance for instance in self._running_instances
@@ -581,7 +581,7 @@ class InstanceManager(object):
                       and instance.port not in assigned_ports]
         to_start = max(new_assignment_count - len(candidates), 0)
         for _ in range(to_start):
-          self._start_instance(version, self._get_lowest_port())
+          yield self._start_instance(version, self._get_lowest_port())
 
   @gen.coroutine
   def _enforce_instance_details(self):
