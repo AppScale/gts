@@ -202,10 +202,14 @@ class Module(object):
     handlers.append(
         wsgi_handler.WSGIHandler(channel.application, url_pattern))
 
-    url_pattern = '/%s' % endpoints.API_SERVING_PATTERN
-    handlers.append(
-        wsgi_handler.WSGIHandler(
-            endpoints.EndpointsDispatcher(self._dispatcher), url_pattern))
+    # Add a handler for Endpoints, only if version == 1.0
+    runtime_config = self._get_runtime_config()
+    for library in runtime_config.libraries:
+      if library.name == 'endpoints' and library.version == '1.0':
+        url_pattern = '/%s' % endpoints.API_SERVING_PATTERN
+        handlers.append(
+            wsgi_handler.WSGIHandler(
+                endpoints.EndpointsDispatcher(self._dispatcher), url_pattern))
 
     found_start_handler = False
     found_warmup_handler = False
