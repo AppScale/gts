@@ -20,10 +20,9 @@
  */
 
 # Overview of TODOs(petermck) for building out the full Task Queue API:
-# - Support additional options for PushTasks, including headers, target,
-#   payload, and retry options.
-# - Add a PushQueue class which will support adding multiple tasks at once, plus
-#   various other queue level functionality such as FetchQueueStats.
+# - Support additional options for PushTasks, including retry options and maybe
+#   raw payloads.
+# - Support various queue level functionality such as FetchQueueStats.
 # - Add PullTask class.  At that point, perhaps refactor to use a Task
 #   baseclass to share code with PushTask.
 # - Add a PullQueue class, including pull specific queue methods such as
@@ -33,21 +32,10 @@
 
 namespace google\appengine\api\taskqueue;
 
+require_once 'google/appengine/api/taskqueue/PushQueue.php';
 require_once 'google/appengine/api/taskqueue/taskqueue_service_pb.php';
-require_once 'google/appengine/api/taskqueue/TaskAlreadyExistsException.php';
-require_once 'google/appengine/api/taskqueue/TaskQueueException.php';
-require_once 'google/appengine/api/taskqueue/TransientTaskQueueException.php';
-require_once 'google/appengine/runtime/ApiProxy.php';
-require_once 'google/appengine/runtime/ApplicationError.php';
 
-use \google\appengine\runtime\ApiProxy;
-use \google\appengine\runtime\ApplicationError;
-use \google\appengine\TaskQueueAddRequest;
 use \google\appengine\TaskQueueAddRequest\RequestMethod;
-use \google\appengine\TaskQueueAddResponse;
-use \google\appengine\TaskQueueBulkAddRequest;
-use \google\appengine\TaskQueueBulkAddResponse;
-use \google\appengine\TaskQueueServiceError\ErrorCode;
 
 
 /**
@@ -79,13 +67,16 @@ final class PushTask {
     'delay_seconds' => 0.0,
     'method'        => 'POST',
     'name'          => '',
+    'header'        => '',
   ];
 
-  private $url_path;
+  private $url;
 
   private $query_data;
 
   private $options;
+
+  private $headers = [];
 
   /**
    * Construct a PushTask.
@@ -108,6 +99,8 @@ final class PushTask {
    *   will generate a unique task name.</li>
    *   <li>'delay_seconds': float The minimum time to wait before executing the
    *   task. Default: zero.</li>
+   *   <li>'header': string Additional headers to be sent when the task
+   *   executes.</li>
    * </ul>
    */
   public function __construct($url_path, $query_data=[], $options=[]) {
@@ -139,8 +132,6 @@ final class PushTask {
                                           implode(',', $extra_options));
     }
 
-    $this->url_path = $url_path;
-    $this->query_data = $query_data;
     $this->options = array_merge(self::$default_options, $options);
 
     if (!array_key_exists($this->options['method'], self::$methods)) {
@@ -174,15 +165,58 @@ final class PushTask {
           'delay_seconds must be between 0 and ' . self::MAX_DELAY_SECONDS .
           ' (30 days). delay_seconds: ' . $delay);
     }
+
+    $this->query_data = $query_data;
+    $this->url = $url_path;
+    if ($query_data) {
+      if (in_array($this->options['method'], ['GET', 'HEAD', 'DELETE'])) {
+        $this->url = $url_path . '?' . http_build_query($query_data);
+      } else { // PUT or POST
+        $this->headers[] = 'content-type: application/x-www-form-urlencoded';
+      }
+    }
+    if (strlen($this->url) > self::MAX_URL_LENGTH) {
+      throw new \InvalidArgumentException(
+          'URL length greater than maximum of ' .
+          PushTask::MAX_URL_LENGTH . '. URL: ' . $this->url);
+    }
+
+    // Handle user specified headers.
+    $header = $this->options['header'];
+    if (!is_string($header)) {
+      throw new \InvalidArgumentException('header must be a string. ' .
+          'Actual type: ' . gettype($header));
+    }
+
+    $has_content_type = !empty($this->headers);
+    $header_array = explode("\r\n", $header);
+    foreach ($header_array as $h) {
+      $h = trim($h);
+      if (empty($h)) {
+        continue;
+      }
+      if (strpos($h, ':') == false) {
+        throw new \InvalidArgumentException(
+            'Each header must contain a colon. Header: ' . $h);
+      }
+      if ($has_content_type &&
+          strncasecmp('content-type', $h, strlen('content-type')) == 0) {
+        throw new \InvalidArgumentException('Content-type header may not ' .
+            'be specified as it is set by the task.');
+        continue;
+      }
+      $this->headers[] = $h;
+    }
   }
 
   /**
-   * Return the task's URL path.
+   * Return the task's URL.  This will be the task's URL path, plus any query
+   * parameters if the task's method is GET, HEAD, or DELETE.
    *
    * @return string The task's URL path.
    */
-  public function getUrlPath() {
-    return $this->url_path;
+  public function getUrl() {
+    return $this->url;
   }
 
   /**
@@ -224,6 +258,19 @@ final class PushTask {
   }
 
   /**
+   * Return the task's headers.
+   *
+   * @return string[] The headers that will be sent when the task is
+   * executed. This list is not exhaustive as the backend may add more
+   * headers at execution time.
+   * The array is numerically indexed and of the same format as that returned
+   * by the standard headers_list() function.
+   */
+  public function getHeaders() {
+    return $this->headers;
+  }
+
+  /**
    * Adds the task to a queue.
    *
    * @param string $queue The name of the queue to add to. Defaults to
@@ -235,107 +282,8 @@ final class PushTask {
    * exists in the queue.
    * @throws TaskQueueException if there was a problem using the service.
    */
-  public function add($queue = 'default') {
-    if (!is_string($queue)) {
-      throw new \InvalidArgumentException('query must be a string.');
-    }
-    # TODO: validate queue name length and regex.
-    return self::addTasks([$this], $queue)[0];
-  }
-
-  private static function applicationErrorToException($error) {
-    switch($error->getApplicationError()) {
-      case ErrorCode::UNKNOWN_QUEUE:
-        return new TaskQueueException('Unknown queue');
-      case ErrorCode::TRANSIENT_ERROR:
-        return new TransientTaskQueueException();
-      case ErrorCode::INTERNAL_ERROR:
-        return new TaskQueueException('Internal error');
-      case ErrorCode::TASK_TOO_LARGE:
-        return new TaskQueueException('Task too large');
-      case ErrorCode::INVALID_TASK_NAME:
-        return new TaskQueueException('Invalid task name');
-      case ErrorCode::INVALID_QUEUE_NAME:
-      case ErrorCode::TOMBSTONED_QUEUE:
-        return new TaskQueueException('Invalid queue name');
-      case ErrorCode::INVALID_URL:
-        return new TaskQueueException('Invalid URL');
-      case ErrorCode::PERMISSION_DENIED:
-        return new TaskQueueException('Permission Denied');
-
-      // Both TASK_ALREADY_EXISTS and TOMBSTONED_TASK are translated into the
-      // same exception. This is in keeping with the Java API but different to
-      // the Python API. Knowing that the task is tombstoned isn't particularly
-      // interesting: the main point is that it has already been added.
-      case ErrorCode::TASK_ALREADY_EXISTS:
-      case ErrorCode::TOMBSTONED_TASK:
-        return new TaskAlreadyExistsException();
-      case ErrorCode::INVALID_ETA:
-        return new TaskQueueException('Invalid delay_seconds');
-      case ErrorCode::INVALID_REQUEST:
-        return new TaskQueueException('Invalid request');
-      case ErrorCode::INVALID_QUEUE_MODE:
-        return new TaskQueueException('Cannot add a PushTask to a pull queue.');
-      default:
-        return new TaskQueueException(
-            'Error Code: ' . $error->getApplicationError());
-    }
-  }
-
-  # TODO: Move this function into a PushQueue class when we have one.
-  # Returns an array containing the name of each task added.
-  private static function addTasks($tasks, $queue) {
-    $req = new TaskQueueBulkAddRequest();
-    $resp = new TaskQueueBulkAddResponse();
-
-    $names = [];
-    $current_time = microtime(true);
-    foreach ($tasks as $task) {
-      $names[] = $task->getName();
-      $add = $req->addAddRequest();
-      $add->setQueueName($queue);
-      $add->setTaskName($task->getName());
-      $add->setEtaUsec(($current_time + $task->getDelaySeconds()) * 1e6);
-      $add->setMethod(self::$methods[$task->getMethod()]);
-      if ($task->getMethod() == 'POST' || $task->getMethod() == 'PUT') {
-        $add->setUrl($task->getUrlPath());
-        if ($task->getQueryData()) {
-          $add->setBody(http_build_query($task->getQueryData()));
-          $header = $add->addHeader();
-          $header->setKey('content-type');
-          $header->setValue('application/x-www-form-urlencoded');
-        }
-      } else {
-        $url_path = $task->getUrlPath();
-        if ($task->getQueryData()) {
-          $url_path = $url_path . '?' .
-              http_build_query($task->getQueryData());
-        }
-        $add->setUrl($url_path);
-      }
-      if (strlen($add->getUrl()) > self::MAX_URL_LENGTH) {
-        throw new TaskQueueException('URL length greater than maximum of ' .
-            self::MAX_URL_LENGTH . '. URL: ' . $add->getUrl());
-      }
-      if ($add->byteSizePartial() > self::MAX_TASK_SIZE_BYTES) {
-        throw new TaskQueueException('Task greater than maximum size of ' .
-            self::MAX_TASK_SIZE_BYTES . '. size: ' . $add->byteSizePartial());
-      }
-    }
-
-    try {
-      ApiProxy::makeSyncCall('taskqueue', 'BulkAdd', $req, $resp);
-    } catch (ApplicationError $e) {
-      throw self::applicationErrorToException($e);
-    }
-
-    // Update $names with any generated task names.
-    $results = $resp->getTaskResultList();
-    foreach ($results as $index => $taskResult) {
-      if ($taskResult->hasChosenTaskName()) {
-        $names[$index] = $taskResult->getChosenTaskName();
-      }
-    }
-    return $names;
+  public function add($queue_name = 'default') {
+    $queue = new PushQueue($queue_name);
+    return $queue->addTasks([$this])[0];
   }
 }

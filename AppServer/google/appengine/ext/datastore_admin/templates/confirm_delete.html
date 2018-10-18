@@ -38,13 +38,14 @@
       entities?
       </div>
     </div>
-    <form action="{{base_path}}/{{form_target}}" method="post">
+    <form action="{{base_path}}/{{form_target}}" id="confirm_delete_form" method="post">
       {% for kind in kind_list %}
       <input type="hidden" name="kind" value="{{kind}}">
       {% endfor %}
-      <input type="hidden" name="namespace" value="{{namespace}}">
-      <input type="hidden" name="app_id" value="{{app_id}}">
+      <input type="hidden" name="namespace" value="{{ namespace|escape }}">
+      <input type="hidden" name="app_id" value="{{ app_id|escape }}">
       <input type="hidden" name="xsrf_token" value="{{xsrf_token}}">
+      <input type="hidden" name="readonly_warning" value="{{readonly_warning}}">
       <p>Operation will be performed using the selected queue:
         {% if queues %}
           <select name="queue">
@@ -56,12 +57,29 @@
           <input type="text" name="queue" value="default"/>
         {% endif %}
       </p>
+      {% if readonly_warning %}
+        <table style="padding-top: 0.5em;">
+         <tr>
+          <td style="padding-right: 0.5em;">
+           <input type="checkbox" id="confirm_readonly_delete" name="confirm_readonly_delete">
+          </td>
+          <td>
+           <div id="confirm_message">
+             <strong>
+              Datastore writes are currently disabled. Please confirm if you
+              still want to go ahead with deletion.
+             </strong>
+           </div>
+          </td>
+         </tr>
+        </table>
+      {% endif %}
       <table style="padding-top: 1em;"><tr>
         <td style="padding-right: 0.5em;">
           <input class="goog-button" type="submit" name="delete"
               value="Delete Entities"></td>
         <td style="color: #666667;">
-          or <a href="{{ cancel_url }}">Cancel</a></td>
+          or <a href="{{ datastore_admin_home }}">Cancel</a></td>
       </tr></table>
     </form>
   {% else %}

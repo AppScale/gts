@@ -236,8 +236,8 @@ class ApiConfigManagerTest(unittest.TestCase):
     # Now we manually save it, and should find it
     fake_method = {'httpMethod': 'GET',
                    'path': 'greetings/{id}'}
-    self.config_manager._save_rest_method('guestbook_api.get', 'v1',
-                                          fake_method)
+    self.config_manager._save_rest_method('guestbook_api.get', 'guestbook_api',
+                                          'v1', fake_method)
     method_name, method_spec, params = self.config_manager.lookup_rest_method(
         'guestbook_api/v1/greetings/i', 'GET')
     self.assertEqual('guestbook_api.get', method_name)
@@ -247,8 +247,8 @@ class ApiConfigManagerTest(unittest.TestCase):
   def test_trailing_slash_optional(self):
     # Create a typical get resource URL.
     fake_method = {'httpMethod': 'GET', 'path': 'trailingslash'}
-    self.config_manager._save_rest_method('guestbook_api.trailingslash', 'v1',
-                                          fake_method)
+    self.config_manager._save_rest_method('guestbook_api.trailingslash',
+                                          'guestbook_api', 'v1', fake_method)
 
     # Make sure we get this method when we query without a slash.
     method_name, method_spec, params = self.config_manager.lookup_rest_method(

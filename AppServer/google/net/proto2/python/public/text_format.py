@@ -177,10 +177,13 @@ def Parse(text, message):
     text: Message ASCII representation.
     message: A protocol buffer message to merge into.
 
+  Returns:
+    The same message passed as argument.
+
   Raises:
     ParseError: On ASCII parsing problems.
   """
-  ParseLines(text.split('\n'), message)
+  return ParseLines(text.split('\n'), message)
 
 
 def Merge(text, message):
@@ -193,10 +196,13 @@ def Merge(text, message):
     text: Message ASCII representation.
     message: A protocol buffer message to merge into.
 
+  Returns:
+    The same message passed as argument.
+
   Raises:
     ParseError: On ASCII parsing problems.
   """
-  MergeLines(text.split('\n'), message)
+  return MergeLines(text.split('\n'), message)
 
 
 def ParseLines(lines, message):
@@ -206,10 +212,14 @@ def ParseLines(lines, message):
     lines: An iterable of lines of a message's ASCII representation.
     message: A protocol buffer message to merge into.
 
+  Returns:
+    The same message passed as argument.
+
   Raises:
     ParseError: On ASCII parsing problems.
   """
   _ParseOrMerge(lines, message, False)
+  return message
 
 
 def MergeLines(lines, message):
@@ -219,10 +229,14 @@ def MergeLines(lines, message):
     lines: An iterable of lines of a message's ASCII representation.
     message: A protocol buffer message to merge into.
 
+  Returns:
+    The same message passed as argument.
+
   Raises:
     ParseError: On ASCII parsing problems.
   """
   _ParseOrMerge(lines, message, True)
+  return message
 
 
 def _MergeField(tokenizer, message, allow_multiple_scalars):

@@ -958,3 +958,118 @@ namespace google\appengine {
     }
   }
 }
+namespace google\appengine {
+  class GetDefaultGcsBucketNameRequest extends \google\net\ProtocolMessage {
+    public function clear() {
+    }
+    public function byteSizePartial() {
+      $res = 0;
+      return $res;
+    }
+    public function outputPartial($out) {
+    }
+    public function tryMerge($d) {
+      while($d->avail() > 0) {
+        $tt = $d->getVarInt32();
+        switch ($tt) {
+          case 0:
+            throw new \google\net\ProtocolBufferDecodeError();
+            break;
+          default:
+            $d->skipData($tt);
+        }
+      };
+    }
+    public function checkInitialized() {
+      return null;
+    }
+    public function mergeFrom($x) {
+      if ($x === $this) { throw new \IllegalArgumentException('Cannot copy message to itself'); }
+    }
+    public function equals($x) {
+      if ($x === $this) { return true; }
+      return true;
+    }
+    public function shortDebugString($prefix = "") {
+      $res = '';
+      return $res;
+    }
+  }
+}
+namespace google\appengine {
+  class GetDefaultGcsBucketNameResponse extends \google\net\ProtocolMessage {
+    public function getDefaultGcsBucketName() {
+      if (!isset($this->default_gcs_bucket_name)) {
+        return '';
+      }
+      return $this->default_gcs_bucket_name;
+    }
+    public function setDefaultGcsBucketName($val) {
+      $this->default_gcs_bucket_name = $val;
+      return $this;
+    }
+    public function clearDefaultGcsBucketName() {
+      unset($this->default_gcs_bucket_name);
+      return $this;
+    }
+    public function hasDefaultGcsBucketName() {
+      return isset($this->default_gcs_bucket_name);
+    }
+    public function clear() {
+      $this->clearDefaultGcsBucketName();
+    }
+    public function byteSizePartial() {
+      $res = 0;
+      if (isset($this->default_gcs_bucket_name)) {
+        $res += 1;
+        $res += $this->lengthString(strlen($this->default_gcs_bucket_name));
+      }
+      return $res;
+    }
+    public function outputPartial($out) {
+      if (isset($this->default_gcs_bucket_name)) {
+        $out->putVarInt32(10);
+        $out->putPrefixedString($this->default_gcs_bucket_name);
+      }
+    }
+    public function tryMerge($d) {
+      while($d->avail() > 0) {
+        $tt = $d->getVarInt32();
+        switch ($tt) {
+          case 10:
+            $length = $d->getVarInt32();
+            $this->setDefaultGcsBucketName(substr($d->buffer(), $d->pos(), $length));
+            $d->skip($length);
+            break;
+          case 0:
+            throw new \google\net\ProtocolBufferDecodeError();
+            break;
+          default:
+            $d->skipData($tt);
+        }
+      };
+    }
+    public function checkInitialized() {
+      return null;
+    }
+    public function mergeFrom($x) {
+      if ($x === $this) { throw new \IllegalArgumentException('Cannot copy message to itself'); }
+      if ($x->hasDefaultGcsBucketName()) {
+        $this->setDefaultGcsBucketName($x->getDefaultGcsBucketName());
+      }
+    }
+    public function equals($x) {
+      if ($x === $this) { return true; }
+      if (isset($this->default_gcs_bucket_name) !== isset($x->default_gcs_bucket_name)) return false;
+      if (isset($this->default_gcs_bucket_name) && $this->default_gcs_bucket_name !== $x->default_gcs_bucket_name) return false;
+      return true;
+    }
+    public function shortDebugString($prefix = "") {
+      $res = '';
+      if (isset($this->default_gcs_bucket_name)) {
+        $res .= $prefix . "default_gcs_bucket_name: " . $this->debugFormatString($this->default_gcs_bucket_name) . "\n";
+      }
+      return $res;
+    }
+  }
+}

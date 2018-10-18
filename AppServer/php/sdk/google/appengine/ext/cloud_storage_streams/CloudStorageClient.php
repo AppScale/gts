@@ -43,6 +43,14 @@ use \google\appengine\util as util;
  * perform.
  */
 abstract class CloudStorageClient {
+  // The default chunk size that we will read from the file. This value should
+  // remain smaller than the maximum object size valid for memcache writes so
+  // we can cache the reads.
+  const DEFAULT_READ_SIZE = 524288;
+
+  // The default amount of time that reads will be held in the cache
+  const DEFAULT_READ_CACHE_EXPIRY_SECONDS = 3600;  // one hour
+
   // Token scopers for accessing objects in Google Cloud Storage
   const READ_SCOPE = "https://www.googleapis.com/auth/devstorage.read_only";
   const WRITE_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
@@ -63,20 +71,57 @@ abstract class CloudStorageClient {
   // Format for the OAuth token header.
   const OAUTH_TOKEN_FORMAT = "OAuth %s";
 
+  // Content Range Header format when the total length is unknown.
+  const PARTIAL_CONTENT_RANGE_FORMAT = "bytes %d-%d/*";
+
+  // Content Range Header format when the length is known.
+  const FINAL_CONTENT_RANGE_FORMAT = "bytes %d-%d/%d";
+
+  // Content Range Header for final chunk with no new data
+  const FINAL_CONTENT_RANGE_NO_DATA = "bytes */%d";
+
+  // A character or multiple characters that can be used to simplify a list of
+  // objects that use a directory-like naming scheme. Can be used in conjunction
+  // with a prefix.
+  const DELIMITER = '/';
+
+  // Cloud storage can append _$folder$ to an object name and have it behave
+  // like a regular file system folder.
+  const FOLDER_SUFFIX = '_$folder$';
+
   // Bit fields for the stat mode field
   const S_IFREG = 0100000;
   const S_IFDIR = 0040000;
 
-  const S_IRWXU = 00700;  //  mask for owner permissions
-  const S_IRUSR = 00400;  //  owner: read permission
-  const S_IWUSR = 00200;  //  owner: write permission
-  const S_IXUSR = 00100;  //  owner: execute permission
+  const S_IRWXU = 00700;  // mask for owner permissions
+  const S_IRUSR = 00400;  // read for owner
+  const S_IWUSR = 00200;  // write for owner
+  const S_IXUSR = 00100;  // execute for owner
+
+  const S_IRWXG = 00070;  // mask for group permissions
+  const S_IRGRP = 00040;  // read for group
+  const S_IWGRP = 00020;  // write for group
+  const S_IXGRP = 00010;  // execute for group
+
+  const S_IRWXO = 00007;  // mask for other other permissions
+  const S_IROTH = 00004;  // read for other
+  const S_IWOTH = 00002;  // write for other
+  const S_IXOTH = 00001;  // execute for other
 
   // The API version header
   private static $api_version_header = ["x-goog-api-version" => 2];
 
   // Regex patterm for retrieving the Length of the content being served.
   const CONTENT_RANGE_REGEX = "/bytes\s+(\d+)-(\d+)\/(\d+)/i";
+
+  /**
+   * Memcache key format for caching the results of reads from GCS. The
+   * parameters are the object url (as a string) and the read range, as a
+   * string (e.g. bytes=0-512000).
+   * Example key for a cloud storage file gs://bucket/object.png
+   *   _ah_gs_read_cache_https://storage.googleapis.com/bucket/object.png_bytes=0-524287
+   */
+  const MEMCACHE_KEY_FORMAT = "_ah_gs_read_cache_%s_%s";
 
   // HTTP status codes that should be retried if they are returned by a request
   // to GCS. Retry should occur with a random exponential back-off.
@@ -104,6 +149,12 @@ abstract class CloudStorageClient {
       "PATCH" => RequestMethod::PATCH
   ];
 
+  private static $default_gs_context_options = [
+      "enable_cache" => true,
+      "enable_optimistic_cache" => false,
+      "cache_expiry_seconds" => self::DEFAULT_READ_CACHE_EXPIRY_SECONDS,
+  ];
+
   protected $bucket_name;  // Name of the bucket for this object.
   protected $object_name;  // The name of the object.
   protected $context_options = [];  // Any context arguments supplied on open.
@@ -113,7 +164,10 @@ abstract class CloudStorageClient {
   /**
    * Construct an object of CloudStorageClient.
    *
-   * @
+   * @param string $bucket The name of the bucket.
+   * @param string $object The name of the object, or null if there is no
+   * object.
+   * @param resource $context The stream context to use.
    */
   public function __construct($bucket, $object = null, $context = null) {
     $this->bucket_name = $bucket;
@@ -123,23 +177,29 @@ abstract class CloudStorageClient {
     }
     $context_array = stream_context_get_options($context);
     if (array_key_exists("gs", $context_array)) {
-      $this->context_options = $context_array["gs"];
+      $this->context_options = array_merge(self::$default_gs_context_options,
+                                           $context_array["gs"]);
+    } else {
+      $this->context_options = self::$default_gs_context_options;
     }
     $this->anonymous = util\FindByKeyOrNull($this->context_options,
                                             "anonymous");
 
-    $host = $this->isDevelServer() ? self::LOCAL_HOST : self::PRODUCTION_HOST;
-    if (isset($this->object_name)) {
-      $this->url = sprintf(self::BUCKET_OBJECT_FORMAT, $host, $bucket, $object);
-    } else {
-      $this->url = sprintf(self::BUCKET_FORMAT, $host, $bucket);
-    }
+    $this->url = $this->createObjectUrl($bucket, $object);
   }
 
   public function __destruct() {
   }
 
   public function initialize() {
+    return false;
+  }
+
+  public function dir_readdir() {
+    return false;
+  }
+
+  public function dir_rewinddir() {
     return false;
   }
 
@@ -198,6 +258,20 @@ abstract class CloudStorageClient {
                                          $token['access_token'])];
     } catch (AppIdentityException $e) {
       return false;
+    }
+  }
+
+  /**
+   * Create a URL for a target bucket and optional object.
+   *
+   * @visibleForTesting
+   */
+  public static function createObjectUrl($bucket, $object = null) {
+    $host = self::isDevelServer() ? self::LOCAL_HOST : self::PRODUCTION_HOST;
+    if (isset($object)) {
+      return sprintf(self::BUCKET_OBJECT_FORMAT, $host, $bucket, $object);
+    } else {
+      return sprintf(self::BUCKET_FORMAT, $host, $bucket);
     }
   }
 
@@ -328,11 +402,67 @@ abstract class CloudStorageClient {
   }
 
   /**
+   * Given an xml based error response from Cloud Storage, try and extract the
+   * error code and error message according to the schema described at
+   * https://developers.google.com/storage/docs/reference-status
+   *
+   * @param string $gcs_result The response body of the last call to Google
+   * Cloud Storage.
+   * @param string $code Reference variable where the error code for the last
+   * message will be returned.
+   * @param string $message Reference variable where the error detail for the
+   * last message will be returned.
+   * @return bool True if the error code and message could be extracted, false
+   * otherwise.
+   */
+  protected function tryParseCloudStorageErrorMessage($gcs_result,
+                                                      &$code,
+                                                      &$message) {
+    $code = null;
+    $message = null;
+
+    $old_errors = libxml_use_internal_errors(true);
+    $xml = simplexml_load_string($gcs_result);
+
+    if (false != $xml) {
+      $code = (string) $xml->Code;
+      $message = (string) $xml->Message;
+    }
+    libxml_use_internal_errors($old_errors);
+    return (isset($code) && isset($message));
+  }
+
+  /**
+   * Return a formatted error message for the http response.
+   *
+   * @param int $http_status_code The HTTP status code returned from the last
+   * http request.
+   * @param string $http_result The response body from the last http request.
+   * @param string $msg_prefix The prefix to add to the error message that will
+   * be generated.
+   *
+   * @return string The error message for the last HTTP response.
+   */
+  protected function getErrorMessage($http_status_code,
+                                     $http_result,
+                                     $msg_prefix = "Cloud Storage Error:") {
+    if ($this->tryParseCloudStorageErrorMessage($http_result,
+                                                $code,
+                                                $message)) {
+      return sprintf("%s %s (%s)", $msg_prefix, $message, $code);
+    } else {
+      return sprintf("%s %s",
+                     $msg_prefix,
+                     HttpResponse::getStatusMessage($http_status_code));
+    }
+  }
+
+  /**
    * Determine if the code is executing on the development server.
    *
    * @return bool True if running in the developement server, false otherwise.
    */
-  private function isDevelServer() {
+  private static function isDevelServer() {
     $server_software = getenv("SERVER_SOFTWARE");
     $key = "Development";
     return strncmp($server_software, $key, strlen($key)) === 0;

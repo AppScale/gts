@@ -16,15 +16,11 @@
 #
 
 
-
-
 """Document matcher for Full Text Search API stub.
 
 DocumentMatcher provides an approximation of the Full Text Search API's query
 matching.
 """
-
-
 
 import logging
 
@@ -36,6 +32,13 @@ from google.appengine.api.search import QueryParser
 from google.appengine.api.search import search_util
 from google.appengine.api.search.stub import simple_tokenizer
 from google.appengine.api.search.stub import tokens
+
+
+class ExpressionTreeException(Exception):
+  """An error occurred while analyzing/translating the expression parse tree."""
+
+  def __init__(self, msg):
+    Exception.__init__(self, msg)
 
 
 class DocumentMatcher(object):
@@ -173,8 +176,8 @@ class DocumentMatcher(object):
       self, field, match, cast_to_type, op, document):
     """A generic method to test matching for comparable types.
 
-    Comparable types are defined to be anything that supports <, >, <=, >=, ==
-    and !=. For our purposes, this is numbers and dates.
+    Comparable types are defined to be anything that supports <, >, <=, >=, ==.
+    For our purposes, this is numbers and dates.
 
     Args:
       field: The document_pb.Field to test
@@ -189,6 +192,7 @@ class DocumentMatcher(object):
     Raises:
       UnsupportedOnDevError: Raised when an unsupported operator is used, or
       when the query node is of the wrong type.
+      ExpressionTreeException: Raised when a != inequality operator is used.
     """
 
     field_val = cast_to_type(field.value().string_value())
@@ -204,12 +208,12 @@ class DocumentMatcher(object):
     if op == QueryParser.EQ:
       return field_val == match_val
     if op == QueryParser.NE:
-      return field_val != match_val
+      raise ExpressionTreeException('!= comparison operator is not available')
     if op == QueryParser.GT:
       return field_val > match_val
     if op == QueryParser.GE:
       return field_val >= match_val
-    if op == QueryParser.LT:
+    if op == QueryParser.LESSTHAN:
       return field_val < match_val
     if op == QueryParser.LE:
       return field_val <= match_val

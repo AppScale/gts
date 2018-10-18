@@ -33,7 +33,7 @@ class MemcacheSessionHandlerTest extends \PHPUnit_Framework_TestCase {
     configureMemcacheSessionHandler($stub);
 
     $sessionId = "my_session_id";
-    $mySessionId = "sess_" . $sessionId;
+    $mySessionId = "_ah_sess_" . $sessionId;
 
     $stub->expects($this->at(0))
         ->method('get')

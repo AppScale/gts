@@ -215,6 +215,20 @@ class ParseMaxServerInstancesTest(unittest.TestCase):
         argparse.ArgumentTypeError,
         devappserver2.parse_max_module_instances, 'default:5,default:10')
 
+  def test_multiple_with_zero(self):
+    self.assertRaises(
+        argparse.ArgumentTypeError,
+        devappserver2.parse_max_module_instances, 'default:5,foo:0')
+
+  def test_multiple_missing_name(self):
+    self.assertEqual(
+        {'default': 10},
+        devappserver2.parse_max_module_instances(':10'))
+
+  def test_multiple_missing_value(self):
+    self.assertRaises(
+        argparse.ArgumentTypeError,
+        devappserver2.parse_max_module_instances, 'default:')
 
 if __name__ == '__main__':
   unittest.main()

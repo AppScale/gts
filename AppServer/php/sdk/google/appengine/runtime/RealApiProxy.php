@@ -23,6 +23,9 @@ require_once 'google/appengine/runtime/CapabilityDisabledError.php';
 require_once 'google/appengine/runtime/FeatureNotEnabledError.php';
 
 class RealApiProxy extends ApiProxyBase {
+  // Specifying a value of -1.0 for the default deadline ensures that the
+  // default for each package is used when making the call in the App Server.
+  const DEFAULT_DEADLINE_VALUE = -1.0;
   /**
    * Makes a synchronous RPC call.
    * @param string $package Package to call
@@ -38,8 +41,8 @@ class RealApiProxy extends ApiProxyBase {
       $response,
       $deadline = null) {
 
-    if ($deadline === null) {
-      $deadline = 5;
+   if ($deadline === null) {
+      $deadline = self::DEFAULT_DEADLINE_VALUE;
     }
 
     $result_array = array();

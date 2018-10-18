@@ -1852,7 +1852,7 @@ class _TaskExecutor(object):
                     str(_UsecToSec(task.eta_usec()))))
     headers.append(('X-AppEngine-Fake-Is-Admin', '1'))
     headers.append(('Content-Length', str(len(task.body()))))
-    if 'content-type' not in header_dict:
+    if task.has_body() and 'content-type' not in header_dict:
       headers.append(('Content-Type', 'application/octet-stream'))
     headers.append(('X-AppEngine-TaskExecutionCount',
                     str(task.execution_count())))

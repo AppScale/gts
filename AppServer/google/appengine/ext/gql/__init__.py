@@ -1240,24 +1240,27 @@ class GQL(object):
       integer, or floating point value).
     """
     logging.log(LOG_LEVEL, 'Try Literal')
+
     literal = None
-    try:
-      literal = int(self.__symbols[self.__next_symbol])
-    except ValueError:
-      pass
-    else:
-      self.__next_symbol += 1
 
-
-
-
-    if literal is None:
+    if self.__next_symbol < len(self.__symbols):
       try:
-        literal = float(self.__symbols[self.__next_symbol])
+        literal = int(self.__symbols[self.__next_symbol])
       except ValueError:
         pass
       else:
         self.__next_symbol += 1
+
+
+
+
+      if literal is None:
+        try:
+          literal = float(self.__symbols[self.__next_symbol])
+        except ValueError:
+          pass
+        else:
+          self.__next_symbol += 1
 
     if literal is None:
 

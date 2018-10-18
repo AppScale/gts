@@ -37,14 +37,15 @@
 
 import httplib
 import logging
-import json 
+import json
 import webapp2
 
 import google
+
 try:
-  from appengine_pipeline.src import pipeline
+  from google.appengine.ext.mapreduce import pipeline_base
 except ImportError:
-  pipeline = None
+  pipeline_base = None
 from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import model
 
@@ -204,21 +205,8 @@ class HugeTaskHandler(TaskQueueHandler):
     self.request = self._RequestWrapper(self.request)
 
 
+if pipeline_base:
 
-_DEFAULT_BASE_PATH = "/_ah/mapreduce"
-_DEFAULT_PIPELINE_BASE_PATH = _DEFAULT_BASE_PATH + "/pipeline"
-
-
-if pipeline:
-  class PipelineBase(pipeline.Pipeline):
-    """Base class for all pipelines within mapreduce framework.
-
-    Rewrites base path to use pipeline library bundled with mapreduce.
-    """
-
-    def start(self, **kwargs):
-      if "base_path" not in kwargs:
-        kwargs["base_path"] = _DEFAULT_PIPELINE_BASE_PATH
-      return pipeline.Pipeline.start(self, **kwargs)
+  PipelineBase = pipeline_base.PipelineBase
 else:
   PipelineBase = None

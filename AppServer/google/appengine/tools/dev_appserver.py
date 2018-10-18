@@ -1637,20 +1637,6 @@ def ExecuteCGI(config,
     exec_py27_handler: Used for dependency injection.
   """
 
-
-
-
-
-
-
-
-
-  if handler_path == '_go_app':
-    from google.appengine.ext.go import execute_go_cgi
-    return execute_go_cgi(root_path, config, handler_path, cgi_path,
-        env, infile, outfile)
-
-
   old_module_dict = sys.modules.copy()
   old_builtin = __builtin__.__dict__.copy()
   old_argv = sys.argv

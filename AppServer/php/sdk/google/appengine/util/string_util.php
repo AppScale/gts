@@ -21,13 +21,25 @@
 namespace google\appengine\util;
 
 /**
- * Return true if the first paramater contains the second parameter at the end
+ * Return true if the first paramater contains the second parameter at the end.
  *
- * @param string $input The input string which may contain the suffix
- * @param string $suffix The string to look for at the end of the input
+ * @param string $input The input string which may contain the suffix.
+ * @param string $suffix The string to look for at the end of the input.
  *
- * @return true if the input contains the suffix at the end or false otherwise
+ * @return boolean <code>true</code> iff the input contains the suffix at the
+ * end.
  */
 function endsWith($input, $suffix) {
   return substr($input, -strlen($suffix)) === $suffix;
+}
+
+/**
+ * @param string $input The string which may contain the prefix at the start.
+ * @param string $prefix The string to look for at the start of the input.
+ *
+ * @return boolean <code>true</code> iff the input contains the prefix at the
+ * start.
+ */
+function startsWith($input, $prefix) {
+  return substr($input, 0, strlen($prefix)) === $prefix;
 }

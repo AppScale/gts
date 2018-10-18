@@ -54,6 +54,11 @@ import types
 from google.appengine.datastore import datastore_rpc
 
 
+def _enum(**enums):
+  """Helper to create enum."""
+  return type("Enum", (), enums)
+
+
 def total_seconds(td):
   """convert a timedelta to seconds.
 

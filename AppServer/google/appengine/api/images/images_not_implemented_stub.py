@@ -21,13 +21,17 @@
 """A NotImplemented Images API stub for when the PIL library is not found."""
 
 
+from google.appengine.api import apiproxy_stub
 from google.appengine.api.images import images_blob_stub
 
+_SERVICE_NAME = "images"
 
-class ImagesNotImplementedServiceStub(object):
+
+class ImagesNotImplementedServiceStub(apiproxy_stub.APIProxyStub):
   """Stub version of images API which raises a NotImplementedError."""
 
   def __init__(self, host_prefix=""):
+    super(ImagesNotImplementedServiceStub, self).__init__(_SERVICE_NAME)
     self._blob_stub = images_blob_stub.ImagesBlobStub(host_prefix)
 
   def MakeSyncCall(self, service, call, request, response, request_id=None):
@@ -41,7 +45,7 @@ class ImagesNotImplementedServiceStub(object):
       request_id: A unique string identifying the request associated with the
           API call.
     """
-    if service == "images":
+    if service == _SERVICE_NAME:
       if call == "GetUrlBase":
         self._blob_stub.GetUrlBase(request, response)
         return

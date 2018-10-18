@@ -31,14 +31,12 @@ final class CloudStorageWriteClient extends CloudStorageClient {
   // the last chunk.
   const WRITE_CHUNK_SIZE = 262144;
 
-  // Content Range Header format when the total length is unknown.
-  const PARTIAL_CONTENT_RANGE_FORMAT = "bytes %d-%d/*";
+  // Conservative pattern for metadata headers name - could be relaxed
+  const METADATA_KEY_REGEX = "/^[[:alnum:]-]+$/";
 
-  // Content Range Header format when the length is known.
-  const FINAL_CONTENT_RANGE_FORMAT = "bytes %d-%d/%d";
-
-  // Content Range Header for final chunk with no new data
-  const FINAL_CONTENT_RANGE_NO_DATA = "bytes */%d";
+  // Metadata header value must be printable US ascii
+  // http://tools.ietf.org/html/rfc2616#section-4.2
+  const METADATA_VALUE_REGEX = "/^[[:print:]]*$/";
 
   private static $upload_start_header = ["x-goog-resumable" => "start"];
 
@@ -88,6 +86,23 @@ final class CloudStorageWriteClient extends CloudStorageClient {
       }
     }
 
+    if (array_key_exists("metadata", $this->context_options)) {
+      $metadata = $this->context_options["metadata"];
+      foreach ($metadata as $name => $value) {
+        if (!preg_match(self::METADATA_KEY_REGEX, $name)) {
+          trigger_error(sprintf("Invalid metadata key: %s", $name),
+              E_USER_WARNING);
+          return false;
+        }
+        if (!preg_match(self::METADATA_KEY_REGEX, $value)) {
+          trigger_error(sprintf("Invalid metadata value: %s", $value),
+              E_USER_WARNING);
+          return false;
+        }
+        $headers['x-goog-meta-' . $name] = $value;
+      }
+    }
+
     $http_response = $this->makeHttpRequest($this->url,
                                             "POST",
                                             $headers);
@@ -104,8 +119,8 @@ final class CloudStorageWriteClient extends CloudStorageClient {
       return false;
     }
     if ($status_code != HttpResponse::CREATED) {
-      trigger_error(sprintf("Error connecting to Google Cloud Storage: %s",
-                            HttpResponse::getStatusMessage($status_code)),
+      trigger_error($this->getErrorMessage($http_response['status_code'],
+                                           $http_response['body']),
                     E_USER_WARNING);
       return false;
     }
@@ -201,16 +216,16 @@ final class CloudStorageWriteClient extends CloudStorageClient {
     if ($complete) {
       $object_length = $this->buffer_start_offset + $write_size;
       if ($write_size === 0) {
-        $headers['Content-Range'] = sprintf(self::FINAL_CONTENT_RANGE_NO_DATA,
+        $headers['Content-Range'] = sprintf(parent::FINAL_CONTENT_RANGE_NO_DATA,
                                             $object_length);
       } else {
-        $headers['Content-Range'] = sprintf(self::FINAL_CONTENT_RANGE_FORMAT,
+        $headers['Content-Range'] = sprintf(parent::FINAL_CONTENT_RANGE_FORMAT,
                                             $this->buffer_start_offset,
                                             $write_end_byte,
                                             $object_length);
       }
     } else {
-      $headers['Content-Range'] = sprintf(self::PARTIAL_CONTENT_RANGE_FORMAT,
+      $headers['Content-Range'] = sprintf(parent::PARTIAL_CONTENT_RANGE_FORMAT,
                                           $this->buffer_start_offset,
                                           $write_end_byte);
     }
@@ -222,16 +237,33 @@ final class CloudStorageWriteClient extends CloudStorageClient {
     // TODO: Retry on some status codes.
     if (($complete && $code != HttpResponse::OK) ||
         (!$complete && $code != HttpResponse::RESUME_INCOMPLETE)) {
-      trigger_error(
-          sprintf("Error writing to Google Cloud Storage Service: %s",
-                  HttpResponse::getStatusMessage($code)),
-          E_USER_WARNING);
+      trigger_error($this->getErrorMessage($http_response['status_code'],
+                                           $http_response['body']),
+                    E_USER_WARNING);
       return false;
     }
     // Buffer flushed, update pointers if we actually wrote something.
     if ($write_size !== 0) {
       $this->buffer_start_offset = $write_end_byte + 1;
       $this->byte_buffer = substr($this->byte_buffer, $write_size);
+    }
+    // Invalidate any cached object with the same name. Note that there is a
+    // potential race condition when using optimistic caching and invalidate
+    // on write where the old version of an object can still be returned from
+    // the cache.
+    if ($complete && $this->context_options['enable_cache'] === true) {
+      if ($object_length > 0) {
+        $key_names = [];
+        for ($i = 0; $i < $object_length; $i += parent::DEFAULT_READ_SIZE) {
+          $range = $this->getRangeHeader($i,
+                                         $i + parent::DEFAULT_READ_SIZE - 1);
+          $key_names[] = sprintf(parent::MEMCACHE_KEY_FORMAT,
+                                 $this->url,
+                                 $range['Range']);
+        }
+        $memcached = new \Memcached();
+        $memcached->deleteMulti($key_names);
+      }
     }
     return true;
   }

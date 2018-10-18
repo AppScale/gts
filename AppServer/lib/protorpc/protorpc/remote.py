@@ -1212,7 +1212,7 @@ class Protocols(object):
     """
     protocols = cls()
     protocols.add_protocol(protobuf, 'protobuf')
-    protocols.add_protocol(protojson, 'protojson')
+    protocols.add_protocol(protojson.ProtoJson.get_default(), 'protojson')
     return protocols
 
   @classmethod

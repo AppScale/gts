@@ -48,6 +48,10 @@ final class CloudStorageDeleteClient extends CloudStorageClient {
 
     if ($http_response['status_code'] === HttpResponse::NO_CONTENT) {
       return true;
+    } else {
+      trigger_error($this->getErrorMessage($http_response['status_code'],
+                                           $http_response['body']),
+                    E_USER_WARNING);
     }
 
     return false;

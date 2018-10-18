@@ -19,7 +19,6 @@
 
 namespace dummy {
   require_once 'google/appengine/runtime/proto/ProtocolMessage.php';
-  require_once 'google/appengine/base/memcache_sharding_strategy_pb.php';
 }
 namespace google\appengine\MemcacheServiceError {
   class ErrorCode {
@@ -140,7 +139,7 @@ namespace google\appengine {
     }
     public function getMemcacheShardingStrategy() {
       if (!isset($this->memcache_sharding_strategy)) {
-        return 0;
+        return '';
       }
       return $this->memcache_sharding_strategy;
     }
@@ -181,7 +180,7 @@ namespace google\appengine {
       }
       if (isset($this->memcache_sharding_strategy)) {
         $res += 1;
-        $res += $this->lengthVarInt64($this->memcache_sharding_strategy);
+        $res += $this->lengthString(strlen($this->memcache_sharding_strategy));
       }
       return $res;
     }
@@ -203,8 +202,8 @@ namespace google\appengine {
         $out->putPrefixedString($this->memcache_pool_hint);
       }
       if (isset($this->memcache_sharding_strategy)) {
-        $out->putVarInt32(40);
-        $out->putVarInt32($this->memcache_sharding_strategy);
+        $out->putVarInt32(42);
+        $out->putPrefixedString($this->memcache_sharding_strategy);
       }
     }
     public function tryMerge($d) {
@@ -227,8 +226,10 @@ namespace google\appengine {
             $this->setMemcachePoolHint(substr($d->buffer(), $d->pos(), $length));
             $d->skip($length);
             break;
-          case 40:
-            $this->setMemcacheShardingStrategy($d->getVarInt32());
+          case 42:
+            $length = $d->getVarInt32();
+            $this->setMemcacheShardingStrategy(substr($d->buffer(), $d->pos(), $length));
+            $d->skip($length);
             break;
           case 0:
             throw new \google\net\ProtocolBufferDecodeError();
@@ -289,7 +290,7 @@ namespace google\appengine {
         $res .= $prefix . "memcache_pool_hint: " . $this->debugFormatString($this->memcache_pool_hint) . "\n";
       }
       if (isset($this->memcache_sharding_strategy)) {
-        $res .= $prefix . "memcache_sharding_strategy: " . ($this->memcache_sharding_strategy) . "\n";
+        $res .= $prefix . "memcache_sharding_strategy: " . $this->debugFormatString($this->memcache_sharding_strategy) . "\n";
       }
       return $res;
     }

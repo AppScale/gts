@@ -26,8 +26,10 @@ To use, add this to app.yaml:
 """
 
 
+import logging
 import operator
 import os
+import time
 import webapp2
 
 from google.appengine.api import app_identity
@@ -35,6 +37,7 @@ from google.appengine.api import datastore_errors
 from google.appengine.api import users
 from google.appengine.ext import deferred
 from google.appengine.ext.datastore_admin import backup_handler
+from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import copy_handler
 from google.appengine.ext.datastore_admin import delete_handler
 from google.appengine.ext.datastore_admin import utils
@@ -70,6 +73,9 @@ GET_ACTIONS.update({'Import Backup Information':
                     backup_handler.ConfirmBackupImportHandler.Render})
 
 
+MAX_RPCS = 10
+
+
 def _GetDatastoreStats(kinds_list, use_stats_kinds=False):
   """Retrieves stats for kinds.
 
@@ -80,7 +86,6 @@ def _GetDatastoreStats(kinds_list, use_stats_kinds=False):
 
   Returns:
     timestamp: records time that statistics were last updated.
-    global_size: total size of all known kinds.
     kind_dict: dictionary of kind objects with the following members:
     - kind_name: the name of this kind.
     - count: number of known entities of this type.
@@ -147,19 +152,23 @@ class RouteByActionHandler(webapp2.RequestHandler):
     """Handler for get requests to datastore_admin/confirm_delete."""
     use_stats_kinds = False
     kinds = []
+    more_kinds = False
     try:
-      kinds = self.GetKinds()
+      kinds, more_kinds = self.GetKinds()
       if not kinds:
         use_stats_kinds = True
-    except datastore_errors.Error:
+        logging.warning('Found no kinds. Using datastore stats instead.')
+    except datastore_errors.Error, e:
+      logging.exception(e)
       use_stats_kinds = True
 
     last_stats_update, kind_stats = _GetDatastoreStats(
         kinds, use_stats_kinds=use_stats_kinds)
 
     template_params = {
+        'run_as_a_service': self.request.get('run_as_a_service'),
         'kind_stats': kind_stats,
-        'cancel_url': self.request.path + '?' + self.request.query_string,
+        'more_kinds': more_kinds,
         'last_stats_update': last_stats_update,
         'app_id': self.request.get('app_id'),
         'hosting_app_id': app_identity.get_application_id(),
@@ -173,7 +182,7 @@ class RouteByActionHandler(webapp2.RequestHandler):
         'active_operations': self.GetOperations(active=True),
         'pending_backups': self.GetPendingBackups(),
         'backups': self.GetBackups(),
-        'map_reduce_path': utils.config.MAPREDUCE_PATH + '/detail'
+        'map_reduce_path': config.MAPREDUCE_PATH + '/detail'
     }
     utils.RenderToResponse(self, 'list_actions.html', template_params)
 
@@ -193,54 +202,110 @@ class RouteByActionHandler(webapp2.RequestHandler):
   def post(self):
     self.RouteAction(GET_ACTIONS)
 
-  def GetKinds(self, all_ns=True):
+  def GetKinds(self, all_ns=True, deadline=40):
     """Obtain a list of all kind names from the datastore.
 
     Args:
       all_ns: If true, list kind names for all namespaces.
               If false, list kind names only for the current namespace.
+      deadline: maximum number of seconds to spend getting kinds.
 
     Returns:
-      An alphabetized list of kinds for the specified namespace(s).
+      kinds: an alphabetized list of kinds for the specified namespace(s).
+      more_kinds: a boolean indicating whether there may be additional kinds
+          not included in 'kinds' (e.g. because the query deadline was reached).
     """
     if all_ns:
-      result = self.GetKindsForAllNamespaces()
+      kinds, more_kinds = self.GetKindsForAllNamespaces(deadline)
     else:
-      result = self.GetKindsForCurrentNamespace()
-    return result
+      kinds, more_kinds = self.GetKindsForCurrentNamespace(deadline)
+    return kinds, more_kinds
 
-  def GetKindsForAllNamespaces(self):
-    """Obtain a list of all kind names from the datastore, *regardless*
-    of namespace.  The result is alphabetized and deduped."""
+  def GetKindsForAllNamespaces(self, deadline):
+    """Obtain a list of all kind names from the datastore.
 
+    Pulls kinds from all namespaces. The result is deduped and alphabetized.
 
-    namespace_list = [ns.namespace_name
-                      for ns in metadata.Namespace.all().run(limit=99999999)]
-    kind_itr_list = [metadata.Kind.all(namespace=ns).run(limit=99999999,
-                                                         batch_size=99999999)
-                     for ns in namespace_list]
+    Args:
+      deadline: maximum number of seconds to spend getting kinds.
 
-
+    Returns:
+      kinds: an alphabetized list of kinds for the specified namespace(s).
+      more_kinds: a boolean indicating whether there may be additional kinds
+          not included in 'kinds' (e.g. because the query deadline was reached).
+    """
+    start = time.time()
     kind_name_set = set()
-    for kind_itr in kind_itr_list:
-      for kind in kind_itr:
+
+    def ReadFromKindIters(kind_iter_list):
+      """Read kinds from a list of iterators.
+
+      Reads a kind from each iterator in kind_iter_list, adds it to
+      kind_name_set, and removes any completed iterators.
+
+      Args:
+        kind_iter_list: a list of iterators of kinds.
+      """
+      completed = []
+      for kind_iter in kind_iter_list:
+        try:
+          kind_name = kind_iter.next().kind_name
+          if utils.IsKindNameVisible(kind_name):
+            kind_name_set.add(kind_name)
+        except StopIteration:
+          completed.append(kind_iter)
+      for kind_iter in completed:
+        kind_iter_list.remove(kind_iter)
+
+    more_kinds = False
+    try:
+      namespace_iter = metadata.Namespace.all().run(batch_size=1000,
+                                                    deadline=deadline)
+      kind_iter_list = []
+      for ns in namespace_iter:
+
+
+        remaining = deadline - (time.time() - start)
+
+        if remaining <= 0:
+          raise datastore_errors.Timeout
+        kind_iter_list.append(metadata.Kind.all(namespace=ns.namespace_name)
+                              .run(batch_size=1000, deadline=remaining))
+        while len(kind_iter_list) == MAX_RPCS:
+          ReadFromKindIters(kind_iter_list)
+      while kind_iter_list:
+        ReadFromKindIters(kind_iter_list)
+    except datastore_errors.Timeout:
+      more_kinds = True
+      logging.warning('Failed to retrieve all kinds within deadline.')
+    return sorted(kind_name_set), more_kinds
+
+  def GetKindsForCurrentNamespace(self, deadline):
+    """Obtain a list of all kind names from the datastore.
+
+    Pulls kinds from the current namespace only. The result is alphabetized.
+
+    Args:
+      deadline: maximum number of seconds to spend getting kinds.
+
+    Returns:
+      kinds: an alphabetized list of kinds for the specified namespace(s).
+      more_kinds: a boolean indicating whether there may be additional kinds
+          not included in 'kinds' (e.g. because the query limit was reached).
+    """
+    more_kinds = False
+    kind_names = []
+    try:
+      kinds = metadata.Kind.all().order('__key__').run(batch_size=1000,
+                                                       deadline=deadline)
+      for kind in kinds:
         kind_name = kind.kind_name
         if utils.IsKindNameVisible(kind_name):
-          kind_name_set.add(kind.kind_name)
-
-    kind_name_list = sorted(kind_name_set)
-    return kind_name_list
-
-  def GetKindsForCurrentNamespace(self):
-    """Obtain a list of all kind names from the datastore for the
-    current namespace.  The result is alphabetized."""
-    kinds = metadata.Kind.all().order('__key__').fetch(99999999)
-    kind_names = []
-    for kind in kinds:
-      kind_name = kind.kind_name
-      if utils.IsKindNameVisible(kind_name):
-        kind_names.append(kind_name)
-    return kind_names
+          kind_names.append(kind_name)
+    except datastore_errors.Timeout:
+      more_kinds = True
+      logging.warning('Failed to retrieve all kinds within deadline.')
+    return kind_names, more_kinds
 
   def GetOperations(self, active=False, limit=100):
     """Obtain a list of operation, ordered by last_updated."""
@@ -295,7 +360,7 @@ class StaticResourceHandler(webapp2.RequestHandler):
   }
 
   def get(self):
-    relative_path = self.request.path.split(utils.config.BASE_PATH + '/')[1]
+    relative_path = self.request.path.split(config.BASE_PATH + '/')[1]
     if relative_path not in self._RESOURCE_MAP:
       self.response.set_status(404)
       self.response.out.write('Resource not found.')
@@ -334,22 +399,20 @@ def CreateApplication():
     an instance of webapp2.WSGIApplication with all mapreduce handlers
     registered.
   """
-  return webapp2.WSGIApplication([
-      (r'%s/%s' % (utils.config.BASE_PATH,
-                   delete_handler.ConfirmDeleteHandler.SUFFIX),
-       delete_handler.ConfirmDeleteHandler),
-      (r'%s/%s' % (utils.config.BASE_PATH,
-                   delete_handler.DoDeleteHandler.SUFFIX),
-       delete_handler.DoDeleteHandler),
-      (r'%s/%s' % (utils.config.BASE_PATH,
-                   utils.MapreduceDoneHandler.SUFFIX),
-       utils.MapreduceDoneHandler),
-      (utils.config.DEFERRED_PATH, deferred.TaskHandler)]
-      + copy_handler.handlers_list(utils.config.BASE_PATH)
-      + backup_handler.handlers_list(utils.config.BASE_PATH)
-      + [(r'%s/static.*' % utils.config.BASE_PATH, StaticResourceHandler),
-         (r'/_ah/login_required', LoginRequiredHandler),
-         (r'.*', RouteByActionHandler)])
+  return webapp.WSGIApplication(
+      backup_handler.handlers_list(config.BASE_PATH) +
+      copy_handler.handlers_list(config.BASE_PATH) +
+      [(r'%s/%s' % (config.BASE_PATH,
+                    delete_handler.ConfirmDeleteHandler.SUFFIX),
+        delete_handler.ConfirmDeleteHandler),
+       (r'%s/%s' % (config.BASE_PATH, delete_handler.DoDeleteHandler.SUFFIX),
+        delete_handler.DoDeleteHandler),
+       (r'%s/%s' % (config.BASE_PATH, utils.MapreduceDoneHandler.SUFFIX),
+        utils.MapreduceDoneHandler),
+       (config.DEFERRED_PATH, deferred.TaskHandler),
+       (r'%s/static.*' % config.BASE_PATH, StaticResourceHandler),
+       (r'/_ah/login_required', LoginRequiredHandler),
+       (r'.*', RouteByActionHandler)])
 
 
 APP = CreateApplication()

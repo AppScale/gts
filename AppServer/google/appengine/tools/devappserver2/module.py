@@ -420,15 +420,16 @@ class Module(object):
     self._python_config = python_config
     self._cloud_sql_config = cloud_sql_config
     self._request_data = request_data
-    # _create_instance_factory() transitively calls _get_runtime_config, which
-    # uses self._allow_skipped_files.
     self._allow_skipped_files = allow_skipped_files
-    self._instance_factory = self._create_instance_factory(
-        self._module_configuration)
     self._dispatcher = dispatcher
     self._max_instances = max_instances
     self._automatic_restarts = automatic_restarts
     self._use_mtime_file_watcher = use_mtime_file_watcher
+    self._default_version_port = default_version_port
+    self._port_registry = port_registry
+
+    self._instance_factory = self._create_instance_factory(
+        self._module_configuration)
     if self._automatic_restarts:
       self._watcher = file_watcher.get_file_watcher(
           [self._module_configuration.application_root] +
@@ -438,9 +439,6 @@ class Module(object):
       self._watcher = None
     self._handler_lock = threading.Lock()
     self._handlers = self._create_url_handlers()
-    self._default_version_port = default_version_port
-    self._port_registry = port_registry
-
     self._balanced_module = wsgi_server.WsgiServer(
         (self._host, self._balanced_port), self)
     self._quit_event = threading.Event()  # Set when quit() has been called.

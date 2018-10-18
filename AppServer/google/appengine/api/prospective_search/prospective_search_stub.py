@@ -403,7 +403,7 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
       elif op is QueryParser.GE:
         for val in field_vals:
           if val >= query_num: return True
-      elif op is QueryParser.LT:
+      elif op is QueryParser.LESSTHAN:
         for val in field_vals:
           if val < query_num: return True
       elif op is QueryParser.LE:

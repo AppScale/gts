@@ -161,12 +161,11 @@ def LoginRedirect(login_url,
   """
   hostname = os.environ['NGINX_HOST']
 
-  # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
-  version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
-  if ':' not in version_info:
-    version_info = 'default:' + version_info
+  service_id = os.environ.get('CURRENT_MODULE_ID', 'default')
 
-  service_id, version_id = version_info.split(':')
+  # CURRENT_VERSION_ID is formatted as major_version.minor_version.
+  version_id = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
+
   version_key = '_'.join(
     [os.environ['APPLICATION_ID'], service_id, version_id])
 
@@ -219,12 +218,11 @@ def main():
 
   nginx_url = os.environ['NGINX_HOST']
 
-  # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
-  version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
-  if ':' not in version_info:
-    version_info = 'default:' + version_info
+  service_id = os.environ.get('CURRENT_MODULE_ID', 'default')
 
-  service_id, version_id = version_info.split(':')
+  # CURRENT_VERSION_ID is formatted as major_version.minor_version.
+  version_id = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
+
   version_key = '_'.join(
     [os.environ['APPLICATION_ID'], service_id, version_id])
 

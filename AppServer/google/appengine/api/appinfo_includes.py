@@ -106,12 +106,16 @@ def _MergeBuiltinsIncludes(appinfo_path, appyaml, open_fn=open):
       appyaml.builtins.append(appinfo.BuiltinHandler(default='on'))
 
 
+
+  runtime_for_including = appyaml.runtime
+  if runtime_for_including == 'vm':
+    runtime_for_including = appyaml.vm_settings['vm_runtime']
   aggregate_appinclude, include_paths = (
       _ResolveIncludes(appinfo_path,
                        appinfo.AppInclude(builtins=appyaml.builtins,
                                           includes=appyaml.includes),
                        os.path.dirname(appinfo_path),
-                       appyaml.runtime,
+                       runtime_for_including,
                        open_fn=open_fn))
 
   return (

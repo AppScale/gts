@@ -254,7 +254,8 @@ def _SetupStubs(
     taskqueue_task_retry_seconds,
     taskqueue_default_http_server,
     user_login_url,
-    user_logout_url):
+    user_logout_url,
+    default_gcs_bucket_name):
   """Configures the APIs hosted by this server.
 
   Args:
@@ -305,6 +306,7 @@ def _SetupStubs(
     user_login_url: A str containing the url that should be used for user login.
     user_logout_url: A str containing the url that should be used for user
         logout.
+    default_gcs_bucket_name: A str overriding the usual default bucket name.
   """
 
 
@@ -315,9 +317,11 @@ def _SetupStubs(
 
 
 
+  tmp_app_identity_stub = app_identity_stub.AppIdentityServiceStub()
+  if default_gcs_bucket_name is not None:
+    tmp_app_identity_stub.SetDefaultGcsBucketName(default_gcs_bucket_name)
   apiproxy_stub_map.apiproxy.RegisterStub(
-      'app_identity_service',
-      app_identity_stub.AppIdentityServiceStub())
+      'app_identity_service', tmp_app_identity_stub)
 
   blob_storage = file_blob_storage.FileBlobStorage(blobstore_path, app_id)
   apiproxy_stub_map.apiproxy.RegisterStub(
@@ -584,7 +588,8 @@ class APIServerProcess(object):
                smtp_user=None,
                task_retry_seconds=None,
                trusted=None,
-               use_sqlite=None):
+               use_sqlite=None,
+               default_gcs_bucket_name=None):
     """Configures the APIs hosted by this server.
 
     Args:
@@ -643,6 +648,7 @@ class APIServerProcess(object):
       trusted: A bool indicating if privileged APIs should be made available.
       use_sqlite: A bool indicating whether DatastoreSqliteStub or
           DatastoreFileStub should be used.
+      default_gcs_bucket_name: A str overriding the normal default bucket name.
     """
     self._process = None
     self._host = host
@@ -676,6 +682,7 @@ class APIServerProcess(object):
     self._BindArgument('--task_retry_seconds', task_retry_seconds)
     self._BindArgument('--trusted', trusted)
     self._BindArgument('--use_sqlite', use_sqlite)
+    self._BindArgument('--default_gcs_bucket_name', default_gcs_bucket_name)
 
   @property
   def url(self):
@@ -841,6 +848,9 @@ def main():
   else:
     application_address = None
 
+  if not hasattr(args, 'default_gcs_bucket_name'):
+    args.default_gcs_bucket_name = None
+
   request_info._local_dispatcher = ApiServerDispatcher()
   _SetupStubs(app_id=args.application,
               application_root=args.application_root,
@@ -864,7 +874,8 @@ def main():
               taskqueue_task_retry_seconds=args.task_retry_seconds,
               taskqueue_default_http_server=application_address,
               user_login_url=args.user_login_url,
-              user_logout_url=args.user_logout_url)
+              user_logout_url=args.user_logout_url,
+              default_gcs_bucket_name=args.default_gcs_bucket_name)
   server = APIServer((args.api_host, args.api_port), args.application)
   try:
     server.serve_forever()

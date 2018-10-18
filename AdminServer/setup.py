@@ -4,6 +4,7 @@ from setuptools import setup
 
 install_requires = [
   'appscale-common',
+  'jsonschema',
   'kazoo',
   'psutil',
   'PyYaml',
@@ -38,6 +39,8 @@ setup(
   packages=['appscale',
             'appscale.admin',
             'appscale.admin.instance_manager'],
+  package_data={'': ['*.json']},
+  include_package_data=True,
   entry_points={'console_scripts': [
     'appscale-admin=appscale.admin:main',
     'appscale-stop-instance=appscale.admin.instance_manager.stop_instance:main',

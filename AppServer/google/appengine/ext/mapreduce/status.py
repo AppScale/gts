@@ -34,6 +34,7 @@
 
 
 import os
+import pkgutil
 import time
 
 from google.appengine.api import validation
@@ -295,7 +296,11 @@ class ResourceHandler(base_handler.BaseHandler):
     path = os.path.join(os.path.dirname(__file__), "static", real_path)
     self.response.headers["Cache-Control"] = "public; max-age=300"
     self.response.headers["Content-Type"] = content_type
-    self.response.out.write(open(path).read())
+    try:
+      data = pkgutil.get_data(__name__, "static/" + real_path)
+    except AttributeError:
+      data = None
+    self.response.out.write(data or open(path).read())
 
 
 class ListConfigsHandler(base_handler.GetJsonHandler):

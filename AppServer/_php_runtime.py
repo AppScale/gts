@@ -114,6 +114,8 @@ _DEVAPPSERVER2_PATHS = _STUB_DEPENDENCIES + [
     ]
 
 _PHP_RUNTIME_PATHS = [
+    _DIR_PATH,
+
     os.path.join(_DIR_PATH, 'lib', 'concurrent'),
     os.path.join(_DIR_PATH, 'lib', 'cherrypy'),
     os.path.join(_DIR_PATH, 'lib', 'yaml-3.10'),

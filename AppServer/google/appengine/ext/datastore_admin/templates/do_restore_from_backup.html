@@ -24,12 +24,19 @@
         information.
         </p>
       </div>
+      {% for id in job_list %}
+        <p>Restore from backup <a href="{{mapreduce_detail|escape}}{{id|escape}}">job with id
+          {{id|escape}}</a>
+            kicked off.</p>
+      {% endfor %}
     {% endif %}
-    {% for id in job_list %}
-      <p>Backup <a href="{{mapreduce_detail|escape}}{{id|escape}}">job with id
-        {{id|escape}}</a>
-          kicked off.</p>
-    {% endfor %}
+    {% if remote_job %}
+      <div class="ae-message">
+        <div class="ae-alert">
+          Restore from backup was initiated as a remote job.
+        </div>
+      </div>
+    {% endif %}
 
     {% if error %}
       <p>There was a problem kicking off the jobs.

@@ -15,7 +15,7 @@
   word-wrap: break-word;
 }
 #code_text {
-  font-family: 'Courier', monospace, sans-serif;
+  font-family: monospace, sans-serif;
   font-size: 1.1em;
   height: 300px;
   margin: 10px 0px;

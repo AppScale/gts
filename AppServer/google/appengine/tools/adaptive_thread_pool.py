@@ -122,7 +122,6 @@ class WorkerThread(threading.Thread):
     logger.debug('[%s] %s: started', self.getName(), self.__class__.__name__)
 
 
-
     try:
       self.WorkOnItems()
     except:

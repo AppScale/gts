@@ -35,6 +35,7 @@ from google.appengine.api.logservice import logservice
 from google.appengine import dist27 as dist27
 from google.appengine.ext.remote_api import remote_api_stub
 from google.appengine.runtime import request_environment
+from google.appengine.tools.devappserver2.python import pdb_sandbox
 from google.appengine.tools.devappserver2.python import request_state
 from google.appengine.tools.devappserver2.python import stubs
 
@@ -49,6 +50,7 @@ NAME_TO_CMODULE_WHITELIST_REGEX = {
     'pycrypto': re.compile(r'Crypto(\..*)?$'),
     'lxml': re.compile(r'lxml(\..*)?$'),
     'PIL': re.compile(r'(PIL(\..*)?|_imaging|_imagingft|_imagingmath)$'),
+    'ssl': re.compile(r'_ssl$'),
 }
 
 # Maps App Engine third-party library names to the Python package name for
@@ -112,6 +114,7 @@ def enable_sandbox(config):
     config: The runtime_config_pb2.Config to use to configure the sandbox.
   """
 
+  devnull = open(os.path.devnull)
   modules = [os, traceback, google, protorpc]
   c_module = _find_shared_object_c_module()
   if c_module:
@@ -171,6 +174,9 @@ def enable_sandbox(config):
   request_environment.PatchOsEnviron(sandboxed_os)
   os.__dict__.update(sandboxed_os.__dict__)
   _init_logging(config.stderr_log_level)
+  pdb_sandbox.install()
+  sys.stdin = devnull
+  sys.stdout = sys.stderr
 
 
 def _find_shared_object_c_module():

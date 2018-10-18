@@ -164,7 +164,4 @@ final class User {
     }
     return sprintf('User(%s)', join(',', $res));
   }
-
-  // TODO: PHP doesn't allow to redefine equals() operations. Need to
-  // figure out how to handle this.
 }  // class User
