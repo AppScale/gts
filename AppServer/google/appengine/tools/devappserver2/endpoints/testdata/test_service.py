@@ -51,6 +51,11 @@ class TestIntegers(messages.Message):
   var_uint64 = messages.IntegerField(5, variant=messages.Variant.UINT64)
 
 
+class TestBytes(messages.Message):
+  """Simple ProtoRPC request/response with a bytes field."""
+  bytes_value = messages.BytesField(1)
+
+
 my_api = endpoints.api(name='test_service', version='v1')
 
 
@@ -104,6 +109,12 @@ class TestService(remote.Service):
         var_sint64=request.var_sint64 + 1,
         var_uint64=request.var_uint64 + 1)
     return response
+
+  @endpoints.method(TestBytes, TestBytes,
+                    path='echo_bytes', scopes=[])
+  def echo_bytes(self, request):
+    logging.info('Found bytes: %s', request.bytes_value)
+    return request
 
   @endpoints.method(message_types.VoidMessage, message_types.VoidMessage,
                     path='empty_response', http_method='GET', scopes=[])

@@ -1821,12 +1821,24 @@ class AppVersionUpload(object):
       if result == '0':
         raise CannotStartServingError(
             'Another operation on this version is in progress.')
-      success, unused_contents = RetryWithBackoff(
-          lambda: (self.IsServing(), None), PrintRetryMessage, 1, 2, 60, 20)
+      success, response = RetryWithBackoff(
+          self.IsServing, PrintRetryMessage, 1, 2, 60, 20)
       if not success:
 
         logging.warning('Version still not serving, aborting.')
         raise Exception('Version not ready.')
+
+
+
+      check_config_updated = response.get('check_endpoints_config')
+      if check_config_updated:
+        success, unused_contents = RetryWithBackoff(
+            lambda: (self.IsEndpointsConfigUpdated(), None),
+            PrintRetryMessage, 1, 2, 60, 20)
+        if not success:
+          logging.warning('Failed to update Endpoints configuration.  Try '
+                          'updating again.')
+          raise Exception('Endpoints config update failed.')
       self.in_transaction = False
 
     return app_summary
@@ -1908,7 +1920,10 @@ class AppVersionUpload(object):
       Exception: Deploy has not yet been called.
 
     Returns:
-      True if the deployed app version is serving.
+      (serving, response) Where serving is True if the deployed app version is
+        serving, False otherwise.  response is a dict containing the parsed
+        response from the server, or an empty dict if the server's response was
+        an old style 0/1 response.
     """
     assert self.started, 'StartServing() must be called before IsServing().'
 
@@ -1918,7 +1933,7 @@ class AppVersionUpload(object):
     result = self.Send('/api/appversion/isserving')
     del self.params['new_serving_resp']
     if result in ['0', '1']:
-      return result == '1'
+      return result == '1', {}
     result = AppVersionUpload._ValidateIsServingYaml(result)
     if not result:
       raise CannotStartServingError(
@@ -1929,7 +1944,52 @@ class AppVersionUpload(object):
       StatusUpdate(message)
     if fatal:
       raise CannotStartServingError(fatal)
-    return result['serving']
+    return result['serving'], result
+
+  @staticmethod
+  def _ValidateIsEndpointsConfigUpdatedYaml(resp):
+    """Validates the YAML string response from an isconfigupdated request.
+
+    Args:
+      resp: A string containing the response from the server.
+
+    Returns:
+      The dictionary with the parsed response if the response is valid.
+      Otherwise returns False.
+    """
+    response_dict = yaml.safe_load(resp)
+    if 'updated' not in response_dict:
+      return None
+    return response_dict
+
+  def IsEndpointsConfigUpdated(self):
+    """Check if the Endpoints configuration for this app has been updated.
+
+    This should only be called if the app has a Google Cloud Endpoints
+    handler, or if it's removing one.  The server performs the check to see
+    if Endpoints support is added/updated/removed, and the response to the
+    isserving call indicates whether IsEndpointsConfigUpdated should be called.
+
+    Raises:
+      AssertionError: Deploy has not yet been called.
+      CannotStartServingError: There was an unexpected error with the server
+        response.
+
+    Returns:
+      True if the configuration has been updated, False if not.
+    """
+
+    assert self.started, ('StartServing() must be called before '
+                          'IsEndpointsConfigUpdated().')
+
+    StatusUpdate('Checking if Endpoints configuration has been updated.')
+
+    result = self.Send('/api/isconfigupdated')
+    result = AppVersionUpload._ValidateIsEndpointsConfigUpdatedYaml(result)
+    if result is None:
+      raise CannotStartServingError(
+          'Internal error: Could not parse IsEndpointsConfigUpdated response.')
+    return result['updated']
 
   def Rollback(self):
     """Rolls back the transaction if one is in progress."""
