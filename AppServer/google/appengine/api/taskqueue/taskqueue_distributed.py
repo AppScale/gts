@@ -449,7 +449,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
 
     tq_locations = self._GetTQLocations()
     api_response = remote_api_pb.Response()
-    for index, tq_location in enumerate(tq_locations):
+    for tq_location in tq_locations:
       try:
         api_request.sendCommand(tq_location,
           tag,
