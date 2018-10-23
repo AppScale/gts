@@ -225,6 +225,14 @@ class InstanceManager(object):
     full_watch = '{}-{}'.format(watch, port)
 
     yield self._monit_operator.reload(self._thread_pool)
+
+    # The reload command does not block, and we don't have a good way to check
+    # if Monit is ready with its new configuration yet. If the daemon begins
+    # reloading while it is handling the 'start', it can end up in a state
+    # where it never starts the process. As a temporary workaround, this
+    # small period allows it to finish reloading. This can be removed if
+    # instances are started inside a cgroup.
+    yield gen.sleep(0.5)
     yield self._monit_operator.send_command_retry_process(full_watch, 'start')
 
     # Make sure the version registration node exists.
@@ -406,7 +414,7 @@ class InstanceManager(object):
       # In case the AppServer fails we let the AppController to detect it
       # and remove it if it still show in monit.
       logging.warning('{} did not come up in time'.format(instance))
-      raise gen.Return()
+      return
 
     self._routing_client.register_instance(instance)
     self._running_instances.add(instance)
