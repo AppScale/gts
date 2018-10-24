@@ -1,329 +1,262 @@
-import json
-import thread
+import argparse
+import logging
+import uuid
 
+from tornado import gen
+from tornado import web
+from tornado.escape import json_decode
+from tornado.escape import json_encode
+from tornado.ioloop import IOLoop, PeriodicCallback
+from tornado.options import options
+
+from appscale.common import appscale_info
+from appscale.common.constants import (
+  HTTPCodes,
+  LOG_FORMAT
+)
 from appscale.tools.agents.base_agent import AgentConfigurationException
 from appscale.tools.agents.base_agent import AgentRuntimeException
 from appscale.tools.agents.base_agent import BaseAgent
 from appscale.tools.agents.factory import InfrastructureAgentFactory
 
-from utils import utils
-from utils.persistent_dictionary import PersistentDictionary
-from utils.persistent_dictionary import PersistentStoreFactory
+from .operation_ids_cache import OperationIdsCache
+from .system_manager import ServiceException
+from .system_manager import SystemManager
 
-class InfrastructureManager:
+
+logger = logging.getLogger('appscale-infrastructure-manager')
+
+DEFAULT_PORT = 17444
+
+# Parameters required by InfrastructureManager
+PARAM_OPERATION_ID = 'operation_id'
+
+# Parameters for agent calls.
+PARAM_INSTANCE_IDS = 'instance_ids'
+PARAM_INFRASTRUCTURE = 'infrastructure'
+PARAM_NUM_VMS = 'num_vms'
+PARAM_AUTOSCALE_AGENT = 'autoscale_agent'
+
+# The state of each operation.
+operation_ids = OperationIdsCache()
+
+ENSURE_WATCH_INTERVAL = 60 * 1000
+
+
+class CustomHTTPError(web.HTTPError):
+  """ An HTTPError that keeps track of keyword arguments. """
+
+  def __init__(self, status_code=500, **kwargs):
+    # Pass standard HTTPError arguments along.
+    log_message = kwargs.get('log_message', None)
+    reason = kwargs.get('reason', None)
+    super(CustomHTTPError, self).__init__(status_code,
+                                          log_message=log_message,
+                                          reason=reason)
+    self.kwargs = kwargs
+
+class InstancesHandler(web.RequestHandler):
+  """InstancesHandler is used to start and stop instances in a supported
+  infrastructure by making calls to the agents available in the tools. It
+  keeps track of these operations in the OperationsCache that will be updated
+  when the agent request is completed.
   """
-  InfrastructureManager class is the main entry point to the AppScale
-  Infrastructure Manager implementation. An instance of this class can
-  be used to start new virtual machines in a specified cloud environment
-  and terminate virtual machines when they are no longer required. Instances
-  of this class also keep track of the virtual machines spawned by them
-  and hence each InfrastructureManager instance can be queried to obtain
-  information about any virtual machines spawned by each of them in the
-  past.
 
-  This implementation is completely cloud infrastructure agnostic
-  and hence can be used to spawn/terminate instances on a wide range of
-  cloud (IaaS) environments. All the cloud environment specific operations
-  are delegated to a separate cloud agent and the InfrastructureManager
-  initializes cloud agents on demand by looking at the 'infrastructure'
-  parameter passed into the methods of this class.
-  """
-
-  # Default reasons which might be returned by this module
-  REASON_BAD_SECRET = 'bad secret'
-  REASON_BAD_VM_COUNT = 'bad vm count'
-  REASON_BAD_ARGUMENTS = 'bad arguments'
-  REASON_OPERATION_ID_NOT_FOUND = 'operation_id not found'
-  REASON_NONE = 'none'
-
-  # Parameters required by InfrastructureManager
-  PARAM_OPERATION_ID = 'operation_id'
-  PARAM_INFRASTRUCTURE = 'infrastructure'
-  PARAM_NUM_VMS = 'num_vms'
-
-  # States a particular request could be in.
+  # States a particular VM deployment could be in
   STATE_PENDING = 'pending'
   STATE_SUCCESS = 'success'
   STATE_FAILED  = 'failed'
 
-  # A list of parameters required to query the InfrastructureManager about
-  # the state of a run_instances request.
-  DESCRIBE_INSTANCES_REQUIRED_PARAMS = (PARAM_OPERATION_ID,)
-
-  # A list of parameters required to initiate a VM deployment process
-  RUN_INSTANCES_REQUIRED_PARAMS = (
-    PARAM_INFRASTRUCTURE,
-    PARAM_NUM_VMS
-  )
-
-  # A list of parameters required to initiate a VM termination process
-  TERMINATE_INSTANCES_REQUIRED_PARAMS = ( PARAM_INFRASTRUCTURE, )
-
-  def __init__(self, params=None, blocking=False):
-    """
-    Create a new InfrastructureManager instance. This constructor
-    accepts an optional boolean parameter which decides whether the
-    InfrastructureManager instance should operate in blocking mode
-    or not. A blocking InfrastructureManager does not return until
-    each requested run/terminate operation is complete. This mode
-    is useful for testing and verification purposes. In a real-world
-    deployment it's advisable to instantiate the InfrastructureManager
-    in the non-blocking mode as run/terminate operations could take
-    a rather long time to complete. By default InfrastructureManager
-    instances are created in the non-blocking mode.
-
-    Args
-      params    A dictionary of parameters. Optional parameter. If
-                specified it must at least include the 'store_type' parameter.
-      blocking  Whether to operate in blocking mode or not. Optional
-                and defaults to false.
-    """
-    self.blocking = blocking
-    self.secret = utils.get_secret()
-    self.agent_factory = InfrastructureAgentFactory()
-    if params is not None:
-      store_factory = PersistentStoreFactory()
-      store = store_factory.create_store(params)
-      self.operation_ids = PersistentDictionary(store)
-    else:
-      self.operation_ids = PersistentDictionary()
-
-  def describe_operation(self, parameters, secret):
-    """
-    Query the InfrastructureManager instance for details regarding
-    an operation id for running or terminating instances. This method accepts
-    a dictionary of parameters and a secret for authentication purposes.
-    The dictionary of parameters must include an 'operation_id' parameter
-    which is used to lookup calls that have been made to run or terminate
-    instances.
+  def initialize(self, agent_factory):
+    """ Defines required resources to handle requests.
 
     Args:
-      parameters  A dictionary of parameters which contains a valid
-                  'operation_id' parameter. A valid 'operation_id'
-                  is an ID issued by the run_instances method of the
-                  same InfrastructureManager object. Alternatively one
-                  may provide a valid JSON string instead of a dictionary
-                  object.
-      secret      A previously established secret
+      agent_factory: An Agent Factory.
+    """
+    self.agent_factory = agent_factory
 
+  def get_agent(self, operation, scaling_parameters):
+    """ Returns an agent and the parameters reformatted from the given
+    parameters.
+
+    Args:
+      operation: The agent operation that we are going to run.
+      scaling_parameters: A dictionary containing additional keys to be added
+        for scaling up or down. Ex: 'instance_ids' required for
+        terminate_instances so needs to be added.
     Returns:
-      invalid key or an invalid 'operation_id':
-       'success': False
-       'reason': is set to an error message describing the cause.
+      A tuple containing the Agent instance and the dictionary of parameters
+        that have been verified.
+    Raises:
+      AgentConfigurationException if we are missing required parameters.
+    """
+    infrastructure = scaling_parameters[PARAM_INFRASTRUCTURE]
+    agent = self.agent_factory.create_agent(infrastructure)
+    parameters = agent.get_params_from_args(scaling_parameters)
+    parameters[PARAM_AUTOSCALE_AGENT] = True
+    if scaling_parameters:
+      parameters.update(scaling_parameters)
+    agent.assert_required_parameters(parameters, operation)
+    return (agent, parameters)
 
-      If the provided secret key is valid and the parameters map contains
-      a valid 'operation_id' parameter, this method will return a
-      dictionary containing the following keys for the specified cases.
+  @gen.coroutine
+  def get(self):
+    """
+    Query the InfrastructureManager instance for details regarding
+    an operation id for running or terminating instances.
+
+    Args:
+      AppScale-Secret: Required in header. Authentication to deployment.
+      operation_id: Required in body. A valid 'operation_id' is an ID issued
+        by InfrastructureManager during the initial request.
+    Returns:
+      A dictionary containing the following keys for the specified cases.
 
       For a run_instances operation_id:
         'success': True or False depending on the outcome of the virtual
           machine deployment process.
         'state': pending, failed, or success
-        'reason': set only in a failed case.
-        'vm_info': a dictionary containing the IP addresses of the spawned
-          virtual machines or None if the virtual machine deployment had
-          failed or still in the 'pending' state.
+        'reason': None if success, otherwise a string containing the Exception.
+        'vm_info': None if a terminate request or a run operation is pending,
+          otherwise should be a dictionary containing the following keys:
+            'public_ips': The list of public ips to add to the deployment.
+            'private_ips': The list of private ips to add to the deployment.
+            'instance_ids': The list of instance ids to add to the deployment.
       For a terminate_instances operation_id:
         'success': True or False depending on the outcome of the virtual
           machine deployment process.
         'state': pending, failed, or success
-        'reason': set only in a failed case.
+        'reason': None if success, otherwise a string containing the Exception.
         * note that this dictionary does not contain 'vm_info'.
 
     Raises:
-      TypeError   If the inputs are not of the expected types
-      ValueError  If the input JSON string (parameters) cannot be parsed properly
+      CustomHTTPError if an invalid Operation ID is given.
+
     """
-    parameters, secret = self.__validate_args(parameters, secret)
+    if 'AppScale-Secret' not in self.request.headers \
+        or self.request.headers['AppScale-Secret'] != options.secret:
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    if self.secret != secret:
-      return self.__generate_response(False, self.REASON_BAD_SECRET)
+    parameters = json_decode(self.request.body)
+    logger.info('Operation id received: {}'.format(parameters))
+    if not parameters or 'operation_id' not in parameters:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='operation_id is a'
+                                                           'required parameter')
 
-    for param in self.DESCRIBE_INSTANCES_REQUIRED_PARAMS:
-      if not utils.has_parameter(param, parameters):
-        return self.__generate_response(False, 'no ' + param)
-
-    operation_id = parameters[self.PARAM_OPERATION_ID]
-    if self.operation_ids.has_key(operation_id):
-      return self.operation_ids.get(operation_id)
+    operation_id = parameters['operation_id']
+    if operation_ids.has_key(operation_id):
+      self.write(json_encode(operation_ids.get(operation_id)))
     else:
-      return self.__generate_response(False, self.REASON_OPERATION_ID_NOT_FOUND)
-
-  def run_instances(self, parameters, secret):
+      logger.error('Operation id not found')
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Operation id not '
+                                                         'found')
+  @gen.coroutine
+  def post(self):
     """
-    Start a new virtual machine deployment using the provided parameters. The
-    input parameter set must include an 'infrastructure' parameter which indicates
-    the exact cloud environment to use. Value of this parameter will be used to
-    instantiate a cloud environment specific agent which knows how to interact
-    with the specified cloud platform. The parameters map must also contain a
-    'num_vms' parameter which indicates the number of virtual machines that should
-    be spawned. In addition to that any parameters required to spawn VMs in the
-    specified cloud environment must be included in the parameters map.
-
-    If this InfrastructureManager instance has been created in the blocking mode,
-    this method will not return until the VM deployment is complete. Otherwise
-    this method will simply kick off the VM deployment process and return
-    immediately.
+    Spawn new instances using the provided parameters. The request must also
+    contain a 'num_vms' parameter which indicates the number of virtual
+    machines that should be spawned.
 
     Args:
-      parameters  A parameter map containing the keys 'infrastructure',
-                  'num_vms' and any other cloud platform specific
-                  parameters. Alternatively one may provide a valid
-                  JSON string instead of a dictionary object.
-      secret      A previously established secret
+      AppScale-Secret: Required in header. Authentication to deployment.
+      num_vms: Required in body. Number of VMs to start.
 
     Returns:
       If the secret is valid and all the required parameters are available in
       the input parameter map, this method will return a dictionary containing
-      a special 'operation_id' key. If the secret is invalid or a required
-      parameter is missing, this method will return a different map with the
-      key 'success' set to False and 'reason' set to a simple error message.
+      an 'operation_id' key.
 
     Raises:
-      TypeError   If the inputs are not of the expected types
-      ValueError  If the input JSON string (parameters) cannot be parsed properly
+      CustomHTTPError if the necessary parameters are not filled.
     """
-    parameters, secret = self.__validate_args(parameters, secret)
+    if 'AppScale-Secret' not in self.request.headers \
+        or self.request.headers['AppScale-Secret'] != options.secret:
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    utils.log('Received a request to run instances.')
+    parameters = json_decode(self.request.body)
 
-    if self.secret != secret:
-      utils.log('Incoming secret {0} does not match the current secret {1} - '\
-                'Rejecting request.'.format(secret, self.secret))
-      return self.__generate_response(False, self.REASON_BAD_SECRET)
+    logger.info('Received a request to run instances.')
+    if PARAM_NUM_VMS not in parameters:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+          message='{} is a required parameter'.format(PARAM_NUM_VMS))
 
-    for param in self.RUN_INSTANCES_REQUIRED_PARAMS:
-      if not utils.has_parameter(param, parameters):
-        return self.__generate_response(False, 'no ' + param)
-
-    num_vms = int(parameters[self.PARAM_NUM_VMS])
+    num_vms = int(parameters[PARAM_NUM_VMS])
     if num_vms <= 0:
-      utils.log('Invalid VM count: {0}'.format(num_vms))
-      return self.__generate_response(False, self.REASON_BAD_VM_COUNT)
+      logger.warn('Invalid VM count: {0}'.format(num_vms))
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid VM count: {0}'.format(num_vms))
 
-    infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
-    agent = self.agent_factory.create_agent(infrastructure)
     try:
-      agent.assert_required_parameters(parameters, BaseAgent.OPERATION_RUN)
+      agent, run_params = self.get_agent(BaseAgent.OPERATION_RUN, parameters)
     except AgentConfigurationException as exception:
-      return self.__generate_response(False, str(exception))
+      logger.exception("Error creating agent!")
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+        message='Invalid agent configuration: {0}'.format(exception))
 
-    operation_id = utils.get_random_alphanumeric()
+    operation_id = str(uuid.uuid4())
     status_info = {
       'success': True,
       'reason': 'received run request',
       'state': self.STATE_PENDING,
       'vm_info': None
     }
-    self.operation_ids.put(operation_id, status_info)
-    utils.log('Generated operation id {0} for this run '
-              'instances request.'.format(operation_id))
-    if self.blocking:
-      self.__spawn_vms(agent, num_vms, parameters, operation_id)
-    else:
-      thread.start_new_thread(self.__spawn_vms,
-        (agent, num_vms, parameters, operation_id))
-
-    utils.log('Successfully started run instances request {0}.'.format(
+    operation_ids[operation_id] = status_info
+    logger.debug('Generated operation id {0} for this request.'.format(
         operation_id))
-    return self.__generate_response(True,
-      self.REASON_NONE, {'operation_id': operation_id})
+    IOLoop.current().spawn_callback(self.__spawn_vms, agent=agent,
+                                    parameters=run_params,
+                                    num_vms=num_vms,
+                                    operation_id=operation_id)
+    logger.info('Successfully started operation {0}.'.format(operation_id))
+    self.write(json_encode({PARAM_OPERATION_ID: operation_id}))
 
-  def terminate_instances(self, parameters, secret):
+  @gen.coroutine
+  def delete(self):
     """
-    Terminate a virtual machine using the provided parameters.
-    The input parameter map must contain an 'infrastructure' parameter which
-    will be used to instantiate a suitable cloud agent. Any additional
-    environment specific parameters should also be available in the same
-    map.
-
-    If this InfrastructureManager instance has been created in the blocking mode,
-    this method will not return until the VM deployment is complete. Otherwise
-    this method simply starts the VM termination process and returns immediately.
-
+    Terminate a virtual machine.
     Args:
-      parameters  A dictionary of parameters containing the required
-                  'infrastructure' parameter and any other platform
-                  dependent required parameters. Alternatively one
-                  may provide a valid JSON string instead of a dictionary
-                  object.
-      secret      A previously established secret
-
+      AppScale-Secret: Required in header. Authentication to deployment.
+      instance_id: Required in body. Instance id to terminate.
     Returns:
       If the secret is valid and all the required parameters are available in
       the input parameter map, this method will return a dictionary containing
-      a special 'operation_id' key. If the secret is invalid or a required
-      parameter is missing, this method will return a different map with the
-      key 'success' set to False and 'reason' set to a simple error message.
+      an 'operation_id' key.
 
     Raises:
-      TypeError   If the inputs are not of the expected types
-      ValueError  If the input JSON string (parameters) cannot be parsed properly
+      CustomHTTPError if the necessary parameters are not filled.
     """
-    parameters, secret = self.__validate_args(parameters, secret)
+    if 'AppScale-Secret' in self.request.headers \
+        and self.request.headers['AppScale-Secret'] != options.secret:
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    if self.secret != secret:
-      return self.__generate_response(False, self.REASON_BAD_SECRET)
-
-    for param in self.TERMINATE_INSTANCES_REQUIRED_PARAMS:
-      if not utils.has_parameter(param, parameters):
-        return self.__generate_response(False, 'no ' + param)
-
-    infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
-    agent = self.agent_factory.create_agent(infrastructure)
+    parameters = json_decode(self.request.body)
+    if not parameters or PARAM_INSTANCE_IDS not in parameters:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Instance id is required')
     try:
-      agent.assert_required_parameters(parameters,
-        BaseAgent.OPERATION_TERMINATE)
+      agent, terminate_params = self.get_agent(BaseAgent.OPERATION_TERMINATE,
+                                               parameters)
     except AgentConfigurationException as exception:
-      return self.__generate_response(False, str(exception))
+      logger.exception("Error creating agent!")
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+        message='Invalid agent configuration: {0}'.format(exception))
 
-    operation_id = utils.get_random_alphanumeric()
+    operation_id = str(uuid.uuid4())
     status_info = {
       'success': True,
       'reason': 'received kill request',
-      'state': self.STATE_PENDING
+      'state': self.STATE_PENDING,
+      'vm_info': None
     }
-    self.operation_ids.put(operation_id, status_info)
-    utils.log('Generated operation id {0} for this terminate instances '
-              'request.'.format(operation_id))
-
-    if self.blocking:
-      self.__kill_vms(agent, parameters, operation_id)
-    else:
-      thread.start_new_thread(self.__kill_vms,
-                              (agent, parameters, operation_id))
-
-    utils.log('Successfully started terminate instances request {0}.'.format(
+    operation_ids[operation_id] = status_info
+    logger.debug('Generated operation id {0} for this request.'.format(
         operation_id))
-    return self.__generate_response(True,
-      self.REASON_NONE, {'operation_id': operation_id})
-
-  def attach_disk(self, parameters, disk_name, instance_id, secret):
-    """ Contacts the infrastructure named in 'parameters' and tells it to
-    attach a persistent disk to this machine.
-
-    Args:
-      parameters: A dict containing the credentials necessary to send requests
-        to the underlying cloud infrastructure.
-      disk_name: A str corresponding to the name of the persistent disk that
-        should be attached to this machine.
-      instance_id: A str naming the instance id that the disk should be attached
-        to (typically this machine).
-      secret: A str that authenticates the caller.
-    """
-    parameters, secret = self.__validate_args(parameters, secret)
-
-    if self.secret != secret:
-      return self.__generate_response(False, self.REASON_BAD_SECRET)
-
-    infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
-    agent = self.agent_factory.create_agent(infrastructure)
-    disk_location = agent.attach_disk(parameters, disk_name, instance_id)
-    return self.__generate_response(True, self.REASON_NONE,
-      {'location' : disk_location})
+    IOLoop.current().spawn_callback(self.__kill_vms, agent, terminate_params,
+                                    operation_id)
+    logger.info('Successfully started operation {0}.'.format(operation_id))
+    self.write(json_encode({PARAM_OPERATION_ID: operation_id}))
 
 
-  @classmethod
   def __describe_vms(self, agent, parameters):
     """
     Private method for calling the agent to describe VMs.
@@ -338,11 +271,12 @@ class InfrastructureManager:
     try:
       return agent.describe_instances(parameters)
     except (AgentConfigurationException, AgentRuntimeException) as exception:
-      utils.log('Agent call to describe instances failed with {0}'.format(
-          str(exception)))
+      logger.exception('Agent call to describe instances failed with '
+                       '{0}'.format(str(exception)))
       return [], [], []
 
 
+  @gen.coroutine
   def __spawn_vms(self, agent, num_vms, parameters, operation_id):
     """
     Private method for starting a set of VMs
@@ -353,7 +287,7 @@ class InfrastructureManager:
       parameters      A dictionary of parameters
       operation_id  Operation ID of the current run request
     """
-    status_info = self.operation_ids.get(operation_id)
+    status_info = operation_ids[operation_id]
 
     active_public_ips, active_private_ips, active_instances = \
       self.__describe_vms(agent, parameters)
@@ -371,7 +305,7 @@ class InfrastructureManager:
         'private_ips': private_ips,
         'instance_ids': ids
       }
-      utils.log('Successfully finished run instances request {0}.'.format(
+      logger.info('Successfully finished operation {0}.'.format(
           operation_id))
     except (AgentConfigurationException, AgentRuntimeException) as exception:
       # Check if we have had partial success starting instances.
@@ -396,11 +330,9 @@ class InfrastructureManager:
       # 'success' and it technically failed.
       status_info['success'] = False
       status_info['reason'] = str(exception)
-      utils.log('Updating run instances request with operation id {0} to '
+      logger.info('Updating run instances request with operation id {0} to '
                 'failed status because: {1}'\
                 .format(operation_id, str(exception)))
-
-    self.operation_ids.put(operation_id, status_info)
 
 
   def __kill_vms(self, agent, parameters, operation_id):
@@ -411,61 +343,153 @@ class InfrastructureManager:
     Args:
       agent       Infrastructure agent in charge of current operation
       parameters  A dictionary of parameters
-      operation_id  Operation ID of the current run request
+      operation_id    Operation ID of the current terminate request
     """
-    status_info = self.operation_ids.get(operation_id)
+    status_info = operation_ids[operation_id]
     try:
       agent.terminate_instances(parameters)
       status_info['state'] = self.STATE_SUCCESS
-    except AgentRuntimeException as exception:
+      logger.info('Successfully finished operation {0}.'.format(
+          operation_id))
+    except (AgentRuntimeException, AgentConfigurationException) as exception:
       status_info['state'] = self.STATE_FAILED
       status_info['reason'] = str(exception)
-      utils.log('Updating terminate instances request with operation id {0} '
-                'to failed status because: {1}'\
-                .format(operation_id, str(exception)))
-
-    self.operation_ids.put(operation_id, status_info)
+      logger.info('Updating operation {0} to {1}.'.format(
+          operation_id, self.STATE_FAILED))
 
 
-  def __generate_response(self, status, msg, extra=None):
+class InstanceHandler(web.RequestHandler):
+  """  Instance Handler is used to modify (adding a disk) or get statistics
+  (system manager stats) from existing instances. InstanceHandler should be
+  ran on every machine.
     """
-    Generate an infrastructure manager service response
+  def initialize(self, agent_factory):
+    """ Defines required resources to handle requests.
 
     Args:
-      status  A boolean value indicating the status
-      msg     A reason message (useful if this a failed operation)
-      extra   Any extra fields to be included in the response (Optional)
-
-    Returns:
-      A dictionary containing the operation response
+      agent_factory: An Agent Factory.
     """
-    utils.log("Sending success = {0}, reason = {1}".format(status, msg))
-    response = {'success': status, 'reason': msg}
-    if extra is not None:
-      for key, value in extra.items():
-        response[key] = value
-    return response
+    self.agent_factory = agent_factory
 
-  def __validate_args(self, parameters, secret):
-    """
-    Validate the arguments provided by user.
+  @gen.coroutine
+  def get(self):
+    """ Contacts the infrastructure named in 'parameters' and tells it to
+    attach a persistent disk to this machine.
 
     Args:
-      parameters  A dictionary (or a JSON string) provided by the client
-      secret      Secret sent by the client
-
-    Returns:
-      Processed user arguments
-
-    Raises
-      TypeError If at least one user argument is not of the current type
+      AppScale-Secret: Required in header. Authentication to deployment.
+      parameters: A dict containing the credentials necessary to send requests
+        to the underlying cloud infrastructure.
+      disk_name: A str corresponding to the name of the persistent disk that
+        should be attached to this machine.
+      instance_id: A str naming the instance id that the disk should be attached
+        to (typically this machine).
+      secret: A str that authenticates the caller.
     """
-    if type(parameters) != type('') and type(parameters) != type({}):
-      raise TypeError('Invalid data type for parameters. Must be a '
-                      'JSON string or a dictionary.')
-    elif type(secret) != type(''):
-      raise TypeError('Invalid data type for secret. Must be a string.')
+    if 'AppScale-Secret' in self.request.headers \
+        and self.request.headers['AppScale-Secret'] != options.secret:
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    if type(parameters) == type(''):
-      parameters = json.loads(parameters)
-    return parameters, secret
+    system_manager = SystemManager()
+
+    cpu_usage = system_manager.get_cpu_usage()
+    disk_usage = system_manager.get_disk_usage()
+    memory_usage = system_manager.get_memory_usage()
+    swap_usage = system_manager.get_swap_usage()
+    loadavg = system_manager.get_loadavg()
+    try:
+      service_summary = system_manager.get_service_summary()
+    except ServiceException as e:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=e.message)
+
+    all_stats = cpu_usage
+    all_stats.update(disk_usage)
+    all_stats.update(memory_usage)
+    all_stats.update(swap_usage)
+    all_stats.update(loadavg)
+
+    # Service summary is a flat dictionary, while the rest contain nested
+    # dictionaries.
+    all_stats['services'] = service_summary
+
+    self.write(json_encode(all_stats))
+
+  @gen.coroutine
+  def post(self):
+    """ Contacts the infrastructure named in 'parameters' and tells it to
+    attach a persistent disk to this machine.
+
+    Args:
+      AppScale-Secret: Required in header. Authentication to deployment.
+      parameters: A dict containing the credentials necessary to send requests
+        to the underlying cloud infrastructure.
+      secret: A str that authenticates the caller.
+    """
+    if 'AppScale-Secret' in self.request.headers \
+        and self.request.headers['AppScale-Secret'] != options.secret:
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
+
+    parameters = json_decode(self.request.body)
+    for param in ['disk_name', 'instance_id', PARAM_INFRASTRUCTURE]:
+      if param not in parameters:
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+            message='{} is a required parameter'.format(param))
+
+    infrastructure = parameters[PARAM_INFRASTRUCTURE]
+    agent = self.agent_factory.create_agent(infrastructure)
+    attach_params = agent.get_params_from_args(parameters)
+    attach_params.update(parameters)
+    disk_location = agent.attach_disk(attach_params, attach_params['disk_name'],
+                                      attach_params['instance_id'])
+    self.write(json_encode({'location': disk_location}))
+
+class Respond404Handler(web.RequestHandler):
+  """
+  This class is aimed to stub unavailable route.
+  The autoscaler is not available on all nodes.
+    """
+
+  def initialize(self, reason):
+    self.reason = reason
+
+  def get(self):
+    self.set_status(404, self.reason)
+
+def make_app(secret, is_autoscaler):
+  options.__dict__['_options'].clear()
+  options.define('secret', secret)
+  agent_factory = InfrastructureAgentFactory()
+
+  if is_autoscaler:
+    scaler_route = ('/instances', InstancesHandler,
+                    {'agent_factory': agent_factory})
+  else:
+    scaler_route = ('/instances', Respond404Handler,
+                    dict(reason='This node was not started as an autoscaler.'))
+  app = web.Application([
+    ('/instance', InstanceHandler, {'agent_factory': agent_factory}),
+    scaler_route,
+  ])
+  return app
+
+
+def main():
+  """ Starts the AdminServer. """
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--autoscaler', action='store_true',
+                      help='Ability to start/terminate instances.')
+  parser.add_argument('-p', '--port', type=int, default=DEFAULT_PORT,
+                      help='The port to listen on')
+  parser.add_argument('-v', '--verbose', action='store_true',
+                      help='Output debug-level logging')
+  args = parser.parse_args()
+  if args.verbose:
+    logger.setLevel(logging.DEBUG)
+
+  app = make_app(appscale_info.get_secret(), args.autoscaler)
+
+  logger.info('Starting InfrastructureManager')
+  app.listen(args.port)
+  io_loop = IOLoop.current()
+  io_loop.start()
