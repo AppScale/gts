@@ -1,12 +1,10 @@
-import json
 import logging
 import psutil
 import subprocess
 
 from appscale.admin.service_manager import ServiceManager
 
-from infrastructure_manager import InfrastructureManager
-from utils import utils
+logger = logging.getLogger('appscale-infrastructure-manager')
 
 MOUNTPOINT_WHITELIST = ['/', '/opt/appscale', '/opt/appscale/backups',
   '/opt/appscale/cassandra', '/var/apps']
@@ -36,6 +34,9 @@ class JSONTags(object):
   RUNNABLE_ENTITIES = "runnable_entities"
   SCHEDULING_ENTITIES = "scheduling_entities"
 
+class ServiceException(Exception):
+  pass
+
 class SystemManager():
   """ SystemManager class is the entry point for queries regarding system stats.
 
@@ -43,20 +44,12 @@ class SystemManager():
   Monit summary, and number of running appservers, if any.
   """
 
-  def __init__(self):
-    self.secret = utils.get_secret()
-
-  def get_cpu_usage(self, secret):
+  def get_cpu_usage(self):
     """ Discovers CPU usage on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing the idle, system and user percentages.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     cpu_stats = psutil.cpu_times_percent(percpu=False)
     cpu_stats_dict = { JSONTags.CPU :
@@ -69,20 +62,15 @@ class SystemManager():
     }
     logging.debug("CPU stats: {}".format(cpu_stats_dict))
 
-    return json.dumps(cpu_stats_dict)
+    return cpu_stats_dict
 
-  def get_disk_usage(self, secret):
+  def get_disk_usage(self):
     """ Discovers disk usage per mount point on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing free bytes and bytes used per disk
       partition.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     inner_disk_stats_dict = []
     relevant_mountpoints = [
@@ -103,19 +91,14 @@ class SystemManager():
     disk_stats_dict = { JSONTags.DISK : inner_disk_stats_dict }
     logging.debug("Disk stats: {}".format(disk_stats_dict))
 
-    return json.dumps(disk_stats_dict)
+    return disk_stats_dict
 
-  def get_memory_usage(self, secret):
+  def get_memory_usage(self):
     """ Discovers memory usage on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing memory bytes available and used.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     mem_stats = psutil.virtual_memory()
 
@@ -128,23 +111,18 @@ class SystemManager():
     }
     logging.debug("Memory stats: {}".format(mem_stats_dict))
 
-    return json.dumps(mem_stats_dict)
+    return mem_stats_dict
 
-  def get_service_summary(self, secret):
+  def get_service_summary(self):
     """ Retrieves Monit's summary on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing Monit's summary as a string.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     try:
       monit_stats = subprocess.check_output(["monit", "summary"])
-    except CalledProcessError:
+    except subprocess.CalledProcessError:
       logging.warn("get_service_summary: failed to query monit.")
       raise ServiceException('Failed to query monit.')
 
@@ -162,19 +140,14 @@ class SystemManager():
       {'-'.join([server.type, str(server.port)]): server.state
        for server in ServiceManager.get_state()})
 
-    return json.dumps(monit_stats_dict)
+    return monit_stats_dict
 
-  def get_swap_usage(self, secret):
+  def get_swap_usage(self):
     """ Discovers swap usage on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing free bytes and bytes used for swap.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     swap_stats = psutil.swap_memory()
     swap_stats_dict = { JSONTags.SWAP :
@@ -185,22 +158,17 @@ class SystemManager():
     }
     logging.debug("Swap stats: {}".format(swap_stats_dict))
 
-    return json.dumps(swap_stats_dict)
+    return swap_stats_dict
 
-  def get_loadavg(self, secret):
+  def get_loadavg(self):
     """ Returns info from /proc/loadavg.
     See `man proc` for more details.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing average load for last 1, 5 and 15 minutes,
       and information about running and scheduled entities,
       and PID of the most recently added process.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     with open("/proc/loadavg") as loadavg:
       loadavg = loadavg.read().split()
@@ -216,22 +184,4 @@ class SystemManager():
     }
     logging.debug("Loadavg stats: {}".format(' '.join(loadavg)))
 
-    return json.dumps(loadavg_stat)
-
-
-  def __generate_response(self, success, message):
-    """ Generate a system manager service response
-
-    Args:
-      success:  A boolean value indicating the success status.
-      message: A str, the reason of failure.
-
-    Returns:
-      A dictionary containing the operation response.
-    """
-    response = "Sending success = {0}, reason = {1}".format(success, message)
-    if success:
-      logging.debug(response)
-    else:
-      logging.warn(response)
-    return {'success': success, 'reason': message}
+    return loadavg_stat
