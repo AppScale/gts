@@ -87,7 +87,9 @@ class TestServiceManager(AsyncTestCase):
   @gen_test
   def test_schedule_service(self):
     zk_client = None
-    options.define('private_ip', '192.168.33.10')
+    if not hasattr(options, 'private_ip'):
+      options.define('private_ip', '192.168.33.10')
+
     manager = ServiceManager(zk_client)
 
     # Test that servers are started when scheduled.
