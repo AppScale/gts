@@ -2113,15 +2113,13 @@ class Djinn
   # a SOAP interface by which we can dynamically add and remove nodes in this
   # AppScale deployment.
   def start_infrastructure_manager
-    iaas_script = "#{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
-    start_cmd = "#{PYTHON27} #{iaas_script}"
-    env = {
-      'APPSCALE_HOME' => APPSCALE_HOME,
-      'EC2_HOME' => ENV['EC2_HOME'],
-      'JAVA_HOME' => ENV['JAVA_HOME']
-    }
+    script = `which appscale-infrastructure`.chomp
+    service_port = 17444
+    start_cmd = "#{script} -p #{service_port}"
+    start_cmd << ' --autoscaler' if my_node.is_shadow?
+    start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
 
-    MonitInterface.start(:iaas_manager, start_cmd, nil, env)
+    MonitInterface.start(:iaas_manager, start_cmd)
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
 
@@ -2301,7 +2299,7 @@ class Djinn
       disks = Array.new(new_nodes_roles.length, nil)
       imc = InfrastructureManagerClient.new(@@secret)
       begin
-        new_nodes_info = imc.spawn_vms(new_nodes_roles.length, @options,
+        new_nodes_info = imc.run_instances(new_nodes_roles.length, @options,
            new_nodes_roles.values, disks)
       rescue FailedNodeException, AppScaleException => exception
         Djinn.log_error("Couldn't spawn #{new_nodes_roles.length} VMs " \
