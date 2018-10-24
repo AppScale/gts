@@ -57,7 +57,7 @@ if grep docker /proc/1/cgroup > /dev/null ; then
     echo "Detected docker container."
     IN_DOCKER="yes"
     # Make sure we have default locale.
-    ${PKG_CMD} install --force-yes locales
+    ${PKG_CMD} install --assume-yes locales
     locale-gen en_US en_US.UTF-8
     # Docker images miss the following.
     mkdir -p /var/run/sshd
@@ -110,14 +110,14 @@ mkdir -p /etc/ejabberd && touch /etc/ejabberd/ejabberd.pem
 # This will install dependencies from control.$DIST (ie distro specific
 # packages).
 PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +)"
-if ! ${PKG_CMD} install -y --force-yes ${PACKAGES}; then
+if ! ${PKG_CMD} install --assume-yes ${PACKAGES}; then
     echo "Fail to install depending packages for runtime."
     exit 1
 fi
 
 # This will remove all the conflicts packages.
 PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/remove-list.awk {} +)"
-if ! ${PKG_CMD} remove --purge -y --force-yes ${PACKAGES}; then
+if ! ${PKG_CMD} remove --purge --assume-yes ${PACKAGES}; then
     echo "Fail to remove conflicting packages"
     exit 1
 fi
