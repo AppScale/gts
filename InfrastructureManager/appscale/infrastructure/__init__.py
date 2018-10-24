@@ -2,10 +2,8 @@ import argparse
 import logging
 import uuid
 
-from tornado import gen
-from tornado import web
-from tornado.escape import json_decode
-from tornado.escape import json_encode
+from tornado import gen, web
+from tornado.escape import json_decode, json_encode
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.options import options
 
@@ -14,14 +12,15 @@ from appscale.common.constants import (
   HTTPCodes,
   LOG_FORMAT
 )
-from appscale.tools.agents.base_agent import AgentConfigurationException
-from appscale.tools.agents.base_agent import AgentRuntimeException
-from appscale.tools.agents.base_agent import BaseAgent
+from appscale.tools.agents.base_agent import (
+  AgentConfigurationException,
+  AgentRuntimeException,
+  BaseAgent
+)
 from appscale.tools.agents.factory import InfrastructureAgentFactory
 
 from .operation_ids_cache import OperationIdsCache
-from .system_manager import ServiceException
-from .system_manager import SystemManager
+from .system_manager import ServiceException, SystemManager
 
 
 logger = logging.getLogger('appscale-infrastructure-manager')
