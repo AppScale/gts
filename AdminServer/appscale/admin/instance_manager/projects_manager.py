@@ -13,7 +13,7 @@ from appscale.common.async_retrying import (
 from appscale.common.constants import CONFIG_DIR
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 class Event(object):
