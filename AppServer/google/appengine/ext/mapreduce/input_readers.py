@@ -40,9 +40,9 @@ __all__ = [
     "BlobstoreLineInputReader",
     "BlobstoreZipInputReader",
     "BlobstoreZipLineInputReader",
+    "ConsistentKeyReader",
     "COUNTER_IO_READ_BYTES",
     "COUNTER_IO_READ_MSEC",
-    "ConsistentKeyReader",
     "DatastoreEntityInputReader",
     "DatastoreInputReader",
     "DatastoreKeyInputReader",
@@ -61,6 +61,7 @@ __all__ = [
 import base64
 import copy
 import logging
+import pickle
 import random
 import string
 import StringIO
@@ -92,6 +93,13 @@ from google.appengine.ext.mapreduce import namespace_range
 from google.appengine.ext.mapreduce import operation
 from google.appengine.ext.mapreduce import property_range
 from google.appengine.ext.mapreduce import util
+
+
+
+try:
+  from google.appengine.ext import cloudstorage
+except ImportError:
+  pass
 
 
 
@@ -178,7 +186,7 @@ class InputReader(model.JsonMixin):
         parameters to define the behavior of input readers.
 
     Returns:
-      A list of InputReaders. None when no input data can be found.
+      A list of InputReaders. None or [] when no input data can be found.
     """
     raise NotImplementedError("split_input() not implemented in %s" % cls)
 
@@ -203,7 +211,7 @@ class InputReader(model.JsonMixin):
       raise BadReaderParamsError("Input reader class mismatch")
 
 
-def _get_params(mapper_spec, allowed_keys=None):
+def _get_params(mapper_spec, allowed_keys=None, allow_old=True):
   """Obtain input reader parameters.
 
   Utility function for input readers implementation. Fetches parameters
@@ -214,6 +222,8 @@ def _get_params(mapper_spec, allowed_keys=None):
     allowed_keys: set of all allowed keys in parameters as strings. If it is not
       None, then parameters are expected to be in a separate "input_reader"
       subdictionary of mapper_spec parameters.
+    allow_old: Allow parameters to exist outside of the input_reader
+      subdictionary for compatability.
 
   Returns:
     mapper parameters as dict
@@ -224,7 +234,7 @@ def _get_params(mapper_spec, allowed_keys=None):
   if "input_reader" not in mapper_spec.params:
     message = ("Input reader's parameters should be specified in "
         "input_reader subdictionary.")
-    if allowed_keys:
+    if not allow_old or allowed_keys:
       raise errors.BadReaderParamsError(message)
     params = mapper_spec.params
     params = dict((str(n), v) for n, v in params.iteritems())
@@ -333,6 +343,8 @@ class FileInputReader(InputReader):
                                                params[cls.FORMAT_PARAM],
                                                mapper_spec.shard_count)
 
+    if file_format_roots is None:
+      return []
     return [cls(root) for root in file_format_roots]
 
   @classmethod
@@ -1972,196 +1984,6 @@ class RandomStringInputReader(InputReader):
     return {self.COUNT: self._count, self.STRING_LENGTH: self._string_length}
 
 
-class ConsistentKeyReader(_OldAbstractDatastoreInputReader):
-  """A key reader which reads consistent data from datastore.
-
-  Datastore might have entities which were written, but not visible through
-  queries for some time. Typically these entities can be only read inside
-  transaction until they are 'applied'.
-
-  This reader reads all keys even if they are not visible. It might take
-  significant time to start yielding some data because it has to apply all
-  modifications created before its start.
-  """
-  START_TIME_US_PARAM = "start_time_us"
-  UNAPPLIED_LOG_FILTER = "__unapplied_log_timestamp_us__ <"
-  DUMMY_KIND = "DUMMY_KIND"
-  DUMMY_ID = 106275677020293L
-  UNAPPLIED_QUERY_DEADLINE = 270
-
-  def _get_unapplied_jobs_accross_namespaces(self,
-                                             namespace_start,
-                                             namespace_end,
-                                             app):
-    filters = {"__key__ >=": db.Key.from_path("__namespace__",
-                                              namespace_start or 1,
-                                              _app=app),
-               "__key__ <=": db.Key.from_path("__namespace__",
-                                              namespace_end or 1,
-                                              _app=app),
-               self.UNAPPLIED_LOG_FILTER: self.start_time_us}
-    unapplied_query = datastore.Query(filters=filters, keys_only=True, _app=app)
-    return unapplied_query.Get(
-        limit=self._batch_size,
-        config=datastore_rpc.Configuration(
-            deadline=self.UNAPPLIED_QUERY_DEADLINE))
-
-  def _iter_ns_range(self):
-    while True:
-      unapplied_jobs = self._get_unapplied_jobs_accross_namespaces(
-          self._ns_range.namespace_start,
-          self._ns_range.namespace_end,
-          self._ns_range.app)
-
-      if not unapplied_jobs:
-        break
-
-      self._apply_jobs(unapplied_jobs)
-
-    for o in super(ConsistentKeyReader, self)._iter_ns_range():
-      yield o
-
-  def _iter_key_range(self, k_range):
-    assert hasattr(self, "start_time_us"), "start_time_us property was not set"
-    if self._ns_range is None:
-
-
-      self._apply_key_range(k_range)
-
-    raw_entity_kind = self._get_raw_entity_kind(self._entity_kind)
-    query = k_range.make_ascending_datastore_query(
-        raw_entity_kind, keys_only=True, filters=self._filters)
-    for key in query.Run(
-        config=datastore_query.QueryOptions(batch_size=self._batch_size)):
-      yield key, key
-
-  def _apply_key_range(self, k_range):
-    """Apply all jobs in the given KeyRange."""
-
-
-
-
-
-    apply_range = copy.deepcopy(k_range)
-    while True:
-
-
-
-      unapplied_query = self._make_unapplied_query(apply_range)
-      unapplied_jobs = unapplied_query.Get(
-          limit=self._batch_size,
-          config=datastore_rpc.Configuration(
-              deadline=self.UNAPPLIED_QUERY_DEADLINE))
-      if not unapplied_jobs:
-        break
-      self._apply_jobs(unapplied_jobs)
-
-
-      apply_range.advance(unapplied_jobs[-1])
-
-  def _make_unapplied_query(self, k_range):
-    """Returns a datastore.Query that finds the unapplied keys in k_range."""
-    unapplied_query = k_range.make_ascending_datastore_query(
-        kind=None, keys_only=True)
-    unapplied_query[
-        ConsistentKeyReader.UNAPPLIED_LOG_FILTER] = self.start_time_us
-    return unapplied_query
-
-  def _apply_jobs(self, unapplied_jobs):
-    """Apply all jobs implied by the given keys."""
-
-    keys_to_apply = []
-    for key in unapplied_jobs:
-
-
-      path = key.to_path() + [ConsistentKeyReader.DUMMY_KIND,
-                              ConsistentKeyReader.DUMMY_ID]
-      keys_to_apply.append(
-          db.Key.from_path(_app=key.app(), namespace=key.namespace(), *path))
-    db.get(keys_to_apply, config=datastore_rpc.Configuration(
-        deadline=self.UNAPPLIED_QUERY_DEADLINE,
-        read_policy=datastore_rpc.Configuration.APPLY_ALL_JOBS_CONSISTENCY))
-
-  @classmethod
-  def _split_input_from_namespace(cls,
-                                  app,
-                                  namespace,
-                                  entity_kind_name,
-                                  shard_count):
-    key_ranges = super(ConsistentKeyReader, cls)._split_input_from_namespace(
-        app, namespace, entity_kind_name, shard_count)
-    assert len(key_ranges) == shard_count
-
-
-
-
-    try:
-      last_key_range_index = key_ranges.index(None) - 1
-    except ValueError:
-      last_key_range_index = shard_count - 1
-
-    if last_key_range_index != -1:
-      key_ranges[0].key_start = None
-      key_ranges[0].include_start = False
-      key_ranges[last_key_range_index].key_end = None
-      key_ranges[last_key_range_index].include_end = False
-    return key_ranges
-
-  @classmethod
-  def _split_input_from_params(cls, app, namespaces, entity_kind_name,
-                               params, shard_count):
-    readers = super(ConsistentKeyReader, cls)._split_input_from_params(
-        app,
-        namespaces,
-        entity_kind_name,
-        params,
-        shard_count)
-
-
-
-    if not readers:
-      readers = [cls(entity_kind_name,
-                     key_ranges=None,
-                     ns_range=namespace_range.NamespaceRange(),
-                     batch_size=shard_count)]
-
-    return readers
-
-  @classmethod
-  def split_input(cls, mapper_spec):
-    """Splits input into key ranges."""
-    readers = super(ConsistentKeyReader, cls).split_input(mapper_spec)
-    start_time_us = _get_params(mapper_spec).get(
-        cls.START_TIME_US_PARAM, long(time.time() * 1e6))
-    for reader in readers:
-      reader.start_time_us = start_time_us
-    return readers
-
-  def to_json(self):
-    """Serializes all the data in this reader into json form.
-
-    Returns:
-      all the data in json-compatible map.
-    """
-    json_dict = super(ConsistentKeyReader, self).to_json()
-    json_dict[self.START_TIME_US_PARAM] = self.start_time_us
-    return json_dict
-
-  @classmethod
-  def from_json(cls, json):
-    """Create new ConsistentKeyReader from the json, encoded by to_json.
-
-    Args:
-      json: json map representation of ConsistentKeyReader.
-
-    Returns:
-      an instance of ConsistentKeyReader with all data deserialized from json.
-    """
-    reader = super(ConsistentKeyReader, cls).from_json(json)
-    reader.start_time_us = json[cls.START_TIME_US_PARAM]
-    return reader
-
-
 
 
 
@@ -2607,3 +2429,236 @@ class LogInputReader(InputReader):
         params.append("%s=%s" % (key, value))
 
     return "LogInputReader(%s)" % ", ".join(params)
+
+
+class _GoogleCloudStorageInputReader(InputReader):
+  """Input reader from Gloogle Cloud Storage using the cloudstorage library.
+
+  This class is expected to be subclassed with a reader that understands
+  user-level records.
+
+  Required configuration in the mapper_spec.input_reader dictionary.
+    BUCKET_NAME_PARAM: name of the bucket to use (with no extra delimiters or
+      suffixed such as directories.
+    OBJECT_NAMES_PARAM: a list of object names or prefixes. All objects must be
+      in the BUCKET_NAME_PARAM bucket. If the name ends with a * it will be
+      treated as prefix and all objects with matching names will be read.
+      Entries should not start with a slash unless that is part of the object's
+      name. An example list could be:
+      ["my-1st-input-file", "directory/my-2nd-file", "some/other/dir/input-*"]
+      To retrieve all files "*" will match every object in the bucket. If a file
+      is listed twice or is covered by multiple prefixes it will be read twice,
+      there is no deduplication.
+
+  Optional configuration in the mapper_sec.input_reader dictionary.
+    BUFFER_SIZE_PARAM: the size of the read buffer for each file handle.
+  """
+
+
+  BUCKET_NAME_PARAM = "bucket_name"
+  OBJECT_NAMES_PARAM = "objects"
+  BUFFER_SIZE_PARAM = "buffer_size"
+
+
+  _ACCOUNT_ID_PARAM = "account_id"
+
+
+  _JSON_PICKLE = "pickle"
+  _STRING_MAX_FILES_LISTED = 10
+
+  def __init__(self, filenames, index=0, buffer_size=None, _account_id=None):
+    """Initialize a GoogleCloudStorageInputReader instance.
+
+    Args:
+      filenames: A list of Google Cloud Storage filenames of the form
+        '/bucket/objectname'.
+      index: Index of the next filename to read.
+      buffer_size: The size of the read buffer, None to use default.
+      _account_id: Internal use only. See cloudstorage documentation.
+    """
+    self._filenames = filenames
+    self._index = index
+    self._buffer_size = buffer_size
+    self._account_id = _account_id
+
+  @classmethod
+  def validate(cls, mapper_spec):
+    """Validate mapper specification.
+
+    Args:
+      mapper_spec: an instance of model.MapperSpec
+
+    Raises:
+      BadReaderParamsError if the specification is invalid for any reason such
+        as missing the bucket name or providing an invalid bucket name.
+    """
+    reader_spec = _get_params(mapper_spec, allow_old=False)
+
+
+    if cls.BUCKET_NAME_PARAM not in reader_spec:
+      raise errors.BadReaderParamsError(
+          "%s is required for Google Cloud Storage" %
+          cls.BUCKET_NAME_PARAM)
+    try:
+      cloudstorage.validate_bucket_name(
+          reader_spec[cls.BUCKET_NAME_PARAM])
+    except ValueError, error:
+      raise errors.BadReaderParamsError("Bad bucket name, %s" % (error))
+
+
+    if cls.OBJECT_NAMES_PARAM not in reader_spec:
+      raise errors.BadReaderParamsError(
+          "%s is required for Google Cloud Storage" %
+          cls.OBJECT_NAMES_PARAM)
+    filenames = reader_spec[cls.OBJECT_NAMES_PARAM]
+    if not isinstance(filenames, list):
+      raise errors.BadReaderParamsError(
+          "Object name list is not a list but a %s" %
+          filenames.__class__.__name__)
+    for filename in filenames:
+      if not isinstance(filename, basestring):
+        raise errors.BadReaderParamsError(
+            "Object name is not a string but a %s" %
+            filename.__class__.__name__)
+
+  @classmethod
+  def split_input(cls, mapper_spec):
+    """Returns a list of input readers.
+
+    An equal number of input files are assigned to each shard (+/- 1). If there
+    are fewer files than shards, fewer than the requested number of shards will
+    be used. Input files are currently never split (although for some formats
+    could be and may be split in a future implementation).
+
+    Args:
+      mapper_spec: an instance of model.MapperSpec.
+
+    Returns:
+      A list of InputReaders. None when no input data can be found.
+    """
+    reader_spec = _get_params(mapper_spec, allow_old=False)
+
+
+    all_filenames = []
+    bucket = reader_spec[cls.BUCKET_NAME_PARAM]
+    filenames = reader_spec[cls.OBJECT_NAMES_PARAM]
+    for filename in filenames:
+      if filename.endswith("*"):
+        all_filenames.extend(
+            [file_stat.filename for file_stat in cloudstorage.listbucket(
+                "/" + bucket,
+                prefix=filename[:-1],
+                _account_id=reader_spec.get(cls._ACCOUNT_ID_PARAM, None))])
+      else:
+        all_filenames.append("/%s/%s" % (bucket, filename))
+
+
+
+
+
+    readers = []
+    for shard in range(0, mapper_spec.shard_count):
+      shard_filenames = all_filenames[shard::mapper_spec.shard_count]
+      if shard_filenames:
+        readers.append(cls(
+            shard_filenames,
+            buffer_size=reader_spec.get(cls.BUFFER_SIZE_PARAM, None),
+            _account_id=reader_spec.get(cls._ACCOUNT_ID_PARAM, None)))
+    return readers
+
+  @classmethod
+  def from_json(cls, state):
+    return pickle.loads(state[cls._JSON_PICKLE])
+
+  def to_json(self):
+    return {self._JSON_PICKLE: pickle.dumps(self)}
+
+  def next(self):
+    """Returns the next input from this input reader, a block of bytes.
+
+    Returns:
+      The next input from this input reader in the form of a cloudstorage
+      ReadBuffer that supports a File-like interface (read, readline, seek,
+      tell, and close). An error may be raised if the file can not be opened.
+
+    Raises:
+      StopIteration: The list of files has been exhausted.
+    """
+
+
+    if self._index >= len(self._filenames):
+      raise StopIteration()
+    else:
+      options = {}
+      if self._buffer_size:
+        options["read_buffer_size"] = self._buffer_size
+      if self._account_id:
+        options["_account_id"] = self._account_id
+      handle = cloudstorage.open(self._filenames[self._index], **options)
+      self._index += 1
+      return handle
+
+  def __str__(self):
+
+    num_files = len(self._filenames)
+    if num_files > self._STRING_MAX_FILES_LISTED:
+      names = "%s...%s + %d not shown" % (
+          ",".join(self._filenames[0:self._STRING_MAX_FILES_LISTED-1]),
+          self._filenames[-1],
+          num_files - self._STRING_MAX_FILES_LISTED)
+    else:
+      names = ",".join(self._filenames)
+
+    if self._index > num_files:
+      status = "EOF"
+    else:
+      status = "Next %s (%d of %d)" % (
+          self._filenames[self._index],
+          self._index + 1,
+          num_files)
+    return "CloudStorage [%s, %s]" % (status, names)
+
+
+class _GoogleCloudStorageRecordInputReader(_GoogleCloudStorageInputReader):
+  """Read data from a Google Cloud Storage file using LevelDB format.
+
+  See the _GoogleCloudStorageOutputWriter for additional configuration options.
+  """
+
+  def __getstate__(self):
+    result = self.__dict__.copy()
+
+    if "_record_reader" in result:
+
+
+      result.pop("_record_reader")
+    return result
+
+  def next(self):
+    """Returns the next input from this input reader, a record.
+
+    Returns:
+      The next input from this input reader in the form of a record read from
+      an LevelDB file.
+
+    Raises:
+      StopIteration: The ordered set records has been exhausted.
+    """
+    while True:
+      if not hasattr(self, "_cur_handle") or self._cur_handle is None:
+
+        self._cur_handle = super(_GoogleCloudStorageRecordInputReader,
+                                 self).next()
+      if not hasattr(self, "_record_reader") or self._record_reader is None:
+        self._record_reader = records.RecordsReader(self._cur_handle)
+
+      try:
+        return self._record_reader.read()
+      except EOFError:
+        self._cur_handle = None
+        self._record_reader = None
+
+
+
+
+ConsistentKeyReader = DatastoreKeyInputReader

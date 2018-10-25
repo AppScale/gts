@@ -364,35 +364,58 @@ _thread_local = threading.local()
 _ENV_KEY = '__DATASTORE_CONNECTION_INITIALIZED__'
 
 
+def __InitConnection():
+  """Internal method to make sure the connection state has been initialized."""
+
+
+
+
+
+
+
+
+
+
+
+
+  if os.getenv(_ENV_KEY) and hasattr(_thread_local, 'connection_stack'):
+    return
+  _thread_local.connection_stack = [datastore_rpc.Connection(adapter=_adapter)]
+
+  os.environ[_ENV_KEY] = '1'
+
+
 def _GetConnection():
-  """Retrieve a datastore connection local to the thread."""
-
-
-
-
-
-
-
-
-
-
-  connection = None
-  if os.getenv(_ENV_KEY):
-    try:
-      connection = _thread_local.connection
-    except AttributeError:
-      pass
-  if connection is None:
-    connection = datastore_rpc.Connection(adapter=_adapter)
-    _SetConnection(connection)
-  return connection
+  """Internal method to retrieve a datastore connection local to the thread."""
+  __InitConnection()
+  return _thread_local.connection_stack[-1]
 
 
 def _SetConnection(connection):
-  """Sets the datastore connection local to the thread."""
-  _thread_local.connection = connection
+  """Internal method to replace the current thread local connection."""
+  __InitConnection()
+  _thread_local.connection_stack[-1] = connection
 
-  os.environ[_ENV_KEY] = '1'
+
+def _PushConnection(new_connection):
+  """Internal method to save the current connection and sets a new one.
+
+  Args:
+    new_connection: The connection to set.
+  """
+  __InitConnection()
+  _thread_local.connection_stack.append(new_connection)
+
+
+def _PopConnection():
+  """Internal method to restores the previous connection.
+
+  Returns:
+    The current connection.
+  """
+
+  assert len(_thread_local.connection_stack) >= 2
+  return _thread_local.connection_stack.pop()
 
 
 
@@ -2573,72 +2596,64 @@ def RunInTransactionOptions(options, function, *args, **kwargs):
     elif options.propagation is datastore_rpc.TransactionOptions.INDEPENDENT:
 
 
-      txn_connection = _GetConnection()
-      _SetConnection(_thread_local.old_connection)
+      txn_connection = _PopConnection()
       try:
         return RunInTransactionOptions(options, function, *args, **kwargs)
       finally:
-        _SetConnection(txn_connection)
+        _PushConnection(txn_connection)
     return function(*args, **kwargs)
 
   if options.propagation is datastore_rpc.TransactionOptions.MANDATORY:
-    raise datastore_errors.BadRequestError(
-      'Requires an existing transaction.')
+    raise datastore_errors.BadRequestError('Requires an existing transaction.')
 
 
   retries = options.retries
   if retries is None:
     retries = DEFAULT_TRANSACTION_RETRIES
 
-  _thread_local.old_connection = _GetConnection()
+  conn = _GetConnection()
+  _PushConnection(None)
+  try:
 
-  for _ in range(0, retries + 1):
-    new_connection = _thread_local.old_connection.new_transaction(options)
-    _SetConnection(new_connection)
-    try:
-      ok, result = _DoOneTry(new_connection, function, args, kwargs)
+    for _ in range(0, retries + 1):
+      _SetConnection(conn.new_transaction(options))
+      ok, result = _DoOneTry(function, args, kwargs)
       if ok:
         return result
-    finally:
-      _SetConnection(_thread_local.old_connection)
+  finally:
+    _PopConnection()
 
 
   raise datastore_errors.TransactionFailedError(
     'The transaction could not be committed. Please try again.')
 
 
-def _DoOneTry(new_connection, function, args, kwargs):
+def _DoOneTry(function, args, kwargs):
   """Helper to call a function in a transaction, once.
 
   Args:
-    new_connection: The new, transactional, connection object.
     function: The function to call.
     *args: Tuple of positional arguments.
     **kwargs: Dict of keyword arguments.
   """
-
   try:
     result = function(*args, **kwargs)
-
   except:
     original_exception = sys.exc_info()
-
     try:
-      new_connection.rollback()
+      _GetConnection().rollback()
     except Exception:
 
 
 
       logging.exception('Exception sending Rollback:')
-
     type, value, trace = original_exception
     if isinstance(value, datastore_errors.Rollback):
       return True, None
     else:
       raise type, value, trace
-
   else:
-    if new_connection.commit():
+    if _GetConnection().commit():
       return True, result
     else:
 
@@ -2739,12 +2754,12 @@ def NonTransactional(_func=None, allow_existing=True):
             'Function cannot be called from within a transaction.')
 
 
-      txn_connection = _GetConnection()
-      _SetConnection(_thread_local.old_connection)
+
+      txn_connection = _PopConnection()
       try:
         return func(*args, **kwds)
       finally:
-        _SetConnection(txn_connection)
+        _PushConnection(txn_connection)
     return inner_wrapper
   return outer_wrapper
 

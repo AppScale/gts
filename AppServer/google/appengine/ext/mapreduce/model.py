@@ -167,7 +167,7 @@ class HugeTask(object):
     elif len(compressed_payload) > self.MAX_DB_PAYLOAD:
       raise ValueError(
           "Payload from %s to big to be stored in database: %s" %
-          self.name, len(compressed_payload))
+          (self.name, len(compressed_payload)))
 
     else:
       if not parent:
@@ -1026,11 +1026,12 @@ class ShardState(db.Model):
 
   Properties:
     active: if we have this shard still running as boolean.
-    counters_map: shard's counters map as CountersMap. Mirrors
-      counters_map_json.
+    counters_map: shard's counters map as CountersMap. All counters yielded
+      within mapreduce are stored here.
     mapreduce_id: unique id of the mapreduce.
     shard_id: unique id of this shard as string.
     shard_number: ordered number for this shard.
+    retries: the number of times this shard has been retried.
     result_status: If not None, the final status of this shard.
     update_time: The last time this shard state was updated.
     shard_description: A string description of the work this shard will do.
@@ -1055,9 +1056,16 @@ class ShardState(db.Model):
       at all or doesn't log the end of a request. So a new request can
       proceed after a long conservative timeout.
     slice_retries: the number of times a slice has been retried due to
-      data processing error (non taskqueue/datastore). This count is
+      processing data when lock is held. Taskqueue/datastore errors
+      related to shard management are not counted. This count is
       only a lower bound and is used to determined when to fail a slice
       completely.
+    acquired_once: whether the lock for this slice has been acquired at
+      least once. When this is True, duplicates in outputs are possible.
+      This is very different from when slice_retries is 0, e.g. when
+      outputs have been written but a taskqueue problem prevents a slice
+      to continue, acquired_once would be True but slice_retries would be
+      0.
   """
 
   RESULT_SUCCESS = "success"
@@ -1078,6 +1086,7 @@ class ShardState(db.Model):
   slice_start_time = db.DateTimeProperty(indexed=False)
   slice_request_id = db.ByteStringProperty(indexed=False)
   slice_retries = db.IntegerProperty(default=0, indexed=False)
+  acquired_once = db.BooleanProperty(default=False, indexed=False)
 
 
   mapreduce_id = db.StringProperty(required=True)
@@ -1100,6 +1109,8 @@ class ShardState(db.Model):
       kv["slice_retries"] = self.slice_retries
     if self.slice_request_id:
       kv["slice_request_id"] = self.slice_request_id
+    if self.acquired_once:
+      kv["acquired_once"] = self.acquired_once
     keys = kv.keys()
     keys.sort()
 
@@ -1120,6 +1131,7 @@ class ShardState(db.Model):
     self.slice_start_time = None
     self.slice_request_id = None
     self.slice_retries = 0
+    self.acquired_once = False
 
   def advance_for_next_slice(self):
     """Advance self for next slice."""
@@ -1127,6 +1139,19 @@ class ShardState(db.Model):
     self.slice_start_time = None
     self.slice_request_id = None
     self.slice_retries = 0
+    self.acquired_once = False
+
+  def set_for_abort(self):
+    self.active = False
+    self.result_status = self.RESULT_ABORTED
+
+  def set_for_success(self):
+    self.active = False
+    self.result_status = self.RESULT_SUCCESS
+    self.slice_start_time = None
+    self.slice_request_id = None
+    self.slice_retries = 0
+    self.acquired_once = False
 
   def copy_from(self, other_state):
     """Copy data from another shard state entity to self."""

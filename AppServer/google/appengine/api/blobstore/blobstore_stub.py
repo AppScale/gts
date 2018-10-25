@@ -194,8 +194,6 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     self.__time_function = time_function
     self.__next_session_id = 1
     self.__uploader_path = uploader_path
-    # AppScale: Keep track of the most recently fetched chunk.
-    self.__block_key_cache = None
 
   @classmethod
   def ToDatastoreBlobKey(cls, blobkey):
@@ -374,81 +372,10 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
 
-    # AppScale: Access the blob data from BlobChunk entities.
 
-    # Get the block we will start from
-    block_count = int(start_index/blobstore.MAX_BLOB_FETCH_SIZE)
-
-    # Get the block's bytes we'll copy
-    block_modulo = int(start_index % blobstore.MAX_BLOB_FETCH_SIZE)
-
-    # This is the last block we'll look at for this request
-    block_count_end = int(end_index/blobstore.MAX_BLOB_FETCH_SIZE)
-
-    block_key = str(blobkey) + "__" + str(block_count)
-    block_key = datastore.Key.from_path("__BlobChunk__",
-                                        block_key,
-                                        namespace='')
-    if self.__block_key_cache != str(block_key):
-      try:
-        block = datastore.Get(block_key)
-      except datastore_errors.EntityNotFoundError:
-        # If this is the first block, the blob does not exist.
-        if block_count == 0:
-          raise apiproxy_errors.ApplicationError(
-             blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
-
-        # If the first block exists, the index is just past the last block.
-        first_block_key = datastore.Key.from_path(
-          '__BlobChunk__', ''.join([str(blobkey), '__0']), namespace='')
-        try:
-          datastore.Get(first_block_key)
-        except datastore_errors.EntityNotFoundError:
-          raise apiproxy_errors.ApplicationError(
-             blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
-
-        response.set_data('')
-        return
-
-      self.__block_cache = block["block"]
-      self.__block_key_cache = str(block_key)
-
-    # Matching boundaries, start and end are within one fetch
-    if block_count_end == block_count:
-      # Is there enough data to satisfy fetch_size bytes?
-      if len(self.__block_cache[block_modulo:]) >= fetch_size:
-        data = self.__block_cache[block_modulo:block_modulo + fetch_size]
-        response.set_data(data)
-        return
-      else:
-        # Return whatever is left, not fetch_size amount
-        data = self.__block_cache[block_modulo:]
-        response.set_data(data)
-        return
-
-    data = self.__block_cache[block_modulo:]
-    data_size = len(data)
-
-    # Must fetch the next block
-    block_key = blobkey + "__" + str(block_count + 1)
-    block_key = datastore.Key.from_path("__BlobChunk__",
-                                        block_key,
-                                        namespace='')
-    try:
-      block = datastore.Get(block_key)
-    except datastore_errors.EntityNotFoundError:
-      data = self.__block_cache[block_modulo:]
-      response.set_data(data)
-      return
-
-    self.__block_cache = block["block"]
-    self.__block_key_cache = str(block_key)
-    data += self.__block_cache[0: fetch_size - data_size]
-
-    # End AppScale.
-
-    response.set_data(data)
-
+    blob_file = self.__storage.OpenBlob(blobkey)
+    blob_file.seek(start_index)
+    response.set_data(blob_file.read(fetch_size))
 
   def _Dynamic_DecodeBlobKey(self, request, response, unused_request_id):
     """Decode a given blob key: data is simply base64-decoded.

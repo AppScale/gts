@@ -219,8 +219,7 @@ class HttpTransport(Transport):
   @util.positional(2)
   def __init__(self,
                service_url,
-               protocol=protobuf,
-               connection_class=httplib.HTTPConnection):
+               protocol=protobuf):
     """Constructor.
 
     Args:
@@ -231,7 +230,6 @@ class HttpTransport(Transport):
     """
     super(HttpTransport, self).__init__(protocol=protocol)
     self.__service_url = service_url
-    self.__connection_class = connection_class
 
   def __get_rpc_status(self, response, content):
     """Get RPC status from HTTP response.
@@ -316,13 +314,7 @@ class HttpTransport(Transport):
       connection_type = httplib.HTTPConnection
     connection = connection_type(url.hostname, url.port)
     try:
-      connection.request(
-        'POST',
-        url.path,
-        encoded_request,
-        headers={'Content-type': self.protocol_config.default_content_type,
-                 'Content-length': len(encoded_request)})
-
+      self._send_http_request(connection, url.path, encoded_request)
       rpc = Rpc(request)
     except remote.RpcError:
       # Pass through all ProtoRPC errors
@@ -342,6 +334,14 @@ class HttpTransport(Transport):
       rpc._wait_impl = wait_impl
 
       return rpc
+
+  def _send_http_request(self, connection, http_path, encoded_request):
+    connection.request(
+        'POST',
+        http_path,
+        encoded_request,
+        headers={'Content-type': self.protocol_config.default_content_type,
+                 'Content-length': len(encoded_request)})
 
 
 class LocalTransport(Transport):

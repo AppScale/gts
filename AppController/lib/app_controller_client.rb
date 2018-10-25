@@ -57,7 +57,6 @@ class AppControllerClient
     @conn.options['protocol.http.ssl_config.verify_mode'] = nil
     @conn.add_method('set_parameters', 'layout', 'options', 'secret')
     @conn.add_method('upload_app', 'archived_file', 'file_suffix', 'secret')
-    @conn.add_method('update', 'versions', 'secret')
     @conn.add_method('stop_version', 'version_key', 'secret')
     @conn.add_method('get_all_public_ips', 'secret')
     @conn.add_method('is_done_initializing', 'secret')
@@ -80,7 +79,6 @@ class AppControllerClient
   # used in few other clients (it should be made in a library):
   #   lib/infrastructure_manager_client.rb
   #   lib/user_app_client.rb
-  #   lib/app_manager_client.rb
   #   lib/app_controller_client.rb
   # Modification in this function should be reflected on the others too.
   #
@@ -148,10 +146,6 @@ class AppControllerClient
     make_call(30, RETRY_ON_FAIL, 'stop_version') {
       @conn.stop_version(version_key, @secret)
     }
-  end
-
-  def update(app_names)
-    make_call(30, RETRY_ON_FAIL, 'update') { @conn.update(app_names, @secret) }
   end
 
   def is_done_initializing?

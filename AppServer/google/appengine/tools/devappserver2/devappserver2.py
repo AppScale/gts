@@ -121,6 +121,18 @@ def _get_storage_path(path, app_id):
     return path
 
 
+def _get_default_php_path():
+  """Returns the path to the siloed php-cgi binary or None if not present."""
+  if sys.platform == 'win32':
+    default_php_executable_path = os.path.abspath(
+        os.path.join(os.path.dirname(sys.argv[0]),
+                     'php/php-5.4.15-Win32-VC9-x86/php-cgi.exe'))
+    if os.path.exists(default_php_executable_path):
+      return default_php_executable_path
+
+  return None
+
+
 class PortParser(object):
   """A parser for ints that represent ports."""
 
@@ -146,7 +158,16 @@ def parse_max_module_instances(value):
           1. "5" - All modules are limited to 5 instances.
           2. "default:3,backend:20" - The default module can have 3 instances,
              "backend" can have 20 instances and all other modules are
-              unaffected.
+              unaffected. An empty name (i.e. ":3") is shorthand for default
+              to match how not specifying a module name in the yaml is the
+              same as specifying "module: default".
+  Returns:
+    The parsed value of the max_module_instances flag. May either be an int
+    (for values of the form "5") or a dict of str->int (for values of the
+    form "default:3,backend:20").
+
+  Raises:
+    argparse.ArgumentTypeError: the value is invalid.
   """
   if ':' not in value:
     try:
@@ -169,9 +190,14 @@ def parse_max_module_instances(value):
             'Expected "module:max_instances": %r' % module_instance_max)
       else:
         module_name = module_name.strip()
+        if not module_name:
+          module_name = 'default'
         if module_name in module_to_max_instances:
           raise argparse.ArgumentTypeError(
               'Duplicate max instance value: %r' % module_name)
+        if not max_instances:
+          raise argparse.ArgumentTypeError(
+              'Cannot specify zero instances for module %s' % module_name)
         module_to_max_instances[module_name] = max_instances
     return module_to_max_instances
 
@@ -239,8 +265,8 @@ def create_command_line_parser():
   php_group = parser.add_argument_group('PHP')
   php_group.add_argument('--php_executable_path', metavar='PATH',
                          type=parse_path,
-                         help='path to the PHP executable',
-                         default='php-cgi')
+                         default=_get_default_php_path(),
+                         help='path to the PHP executable')
   php_group.add_argument('--php_remote_debugging',
                          action=boolean_action.BooleanAction,
                          const=True,
@@ -417,7 +443,7 @@ def create_command_line_parser():
       action=boolean_action.BooleanAction,
       const=True,
       default=False,
-      help='make files specified in the app.yaml "skip_files" or "static"'
+      help='make files specified in the app.yaml "skip_files" or "static" '
       'handles readable by the application.')
   misc_group.add_argument(
       '--api_port', type=PortParser(), default=0,
@@ -443,6 +469,9 @@ def create_command_line_parser():
       default=False,
       help='skip checking for SDK updates (if false, use .appcfg_nag to '
       'decide)')
+  misc_group.add_argument(
+      '--default_gcs_bucket_name', default=None,
+      help='default Google Cloud Storgage bucket name')
 
   # AppScale
   appscale_group = parser.add_argument_group('AppScale')
@@ -513,16 +542,27 @@ def _clear_search_indexes_storage(search_index_path):
                       e)
 
 
-def _setup_environ(app_id, version_id):
+def _setup_environ(app_id, version_info):
   """Sets up the os.environ dictionary for the front-end server and API server.
 
   This function should only be called once.
 
   Args:
     app_id: The id of the application.
+    version_info: A string in the form of either major_version.minor_version or
+      service_id:major_version.minor_version.
   """
   os.environ['APPLICATION_ID'] = app_id
-  # AS: set CURRENT_VERSION_ID so taskqueue can get running version.module.
+
+  # AppScale: Define environment variables that the runtime uses so that the
+  # API Server can infer the running service ID and version ID.
+  if ':' in version_info:
+    service_id, version_id = version_info.split(':')
+  else:
+    service_id = 'default'
+    version_id = version_info
+
+  os.environ['CURRENT_MODULE_ID'] = service_id
   os.environ['CURRENT_VERSION_ID'] = version_id
 
 
@@ -577,6 +617,8 @@ class DevelopmentServer(object):
       if options.python_startup_args:
         python_config.startup_args = options.python_startup_args
 
+    php_executable_path = (options.php_executable_path and
+                           os.path.abspath(options.php_executable_path))
     cloud_sql_config = runtime_config_pb2.CloudSQL()
     cloud_sql_config.mysql_host = options.mysql_host
     cloud_sql_config.mysql_port = options.mysql_port
@@ -600,7 +642,7 @@ class DevelopmentServer(object):
         options.port,
         options.auth_domain,
         _LOG_LEVEL_TO_RUNTIME_CONSTANT[options.log_level],
-        options.php_executable_path,
+        php_executable_path,
         options.php_remote_debugging,
         python_config,
         cloud_sql_config,
@@ -684,9 +726,10 @@ class DevelopmentServer(object):
         search_index_path=search_index_path,
         taskqueue_auto_run_tasks=options.enable_task_running,
         taskqueue_default_http_server=application_address,
-        uaserver_path=options.uaserver_path,
         user_login_url=user_login_url,
         user_logout_url=user_logout_url,
+        default_gcs_bucket_name=options.default_gcs_bucket_name,
+        uaserver_path=options.uaserver_path,
         xmpp_path=options.xmpp_path)
 
     # The APIServer must bind to localhost because that is what the runtime

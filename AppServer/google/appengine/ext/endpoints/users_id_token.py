@@ -32,6 +32,7 @@ except ImportError:
   import simplejson as json
 import logging
 import os
+import re
 import time
 import urllib
 
@@ -64,8 +65,11 @@ except ImportError:
   _CRYPTO_LOADED = False
 
 
-__all__ = ['get_current_user']
+__all__ = ['get_current_user',
+           'InvalidGetUserCall',
+           'SKIP_CLIENT_ID_CHECK']
 
+SKIP_CLIENT_ID_CHECK = ['*']
 _CLOCK_SKEW_SECS = 300
 _MAX_TOKEN_LIFETIME_SECS = 86400
 _DEFAULT_CERT_URI = ('https://www.googleapis.com/service_accounts/v1/metadata/'
@@ -75,10 +79,16 @@ _ENV_AUTH_EMAIL = 'ENDPOINTS_AUTH_EMAIL'
 _ENV_AUTH_DOMAIN = 'ENDPOINTS_AUTH_DOMAIN'
 _EMAIL_SCOPE = 'https://www.googleapis.com/auth/userinfo.email'
 _TOKENINFO_URL = 'https://www.googleapis.com/oauth2/v1/tokeninfo'
+_MAX_AGE_REGEX = re.compile(r'\s*max-age\s*=\s*(\d+)\s*')
+_CERT_NAMESPACE = '__verify_jwt'
 
 
 class _AppIdentityError(Exception):
   pass
+
+
+class InvalidGetUserCall(Exception):
+  """Called get_current_user when the environment was not set up for it."""
 
 
 
@@ -99,10 +109,16 @@ def get_current_user():
     None if there is no token or it's invalid.  If the token was valid, this
       returns a User.  Only the user's email field is guaranteed to be set.
       Other fields may be empty.
+
+  Raises:
+    InvalidGetUserCall: if the environment variables necessary to determine the
+      endpoints user are not set. These are typically set when processing a
+      request using an Endpoints handler. If they are not set, it likely
+      indicates that this function was called from outside an Endpoints request
+      handler.
   """
   if not _is_auth_info_available():
-    logging.error('endpoints.get_current_user() called outside a request.')
-    return None
+    raise InvalidGetUserCall('No valid endpoints user in environment.')
 
   if _ENV_USE_OAUTH_SCOPE in os.environ:
 
@@ -197,7 +213,7 @@ def _maybe_set_current_user_vars(method, api_info=None, request=None):
 
   if ((scopes == [_EMAIL_SCOPE] or scopes == (_EMAIL_SCOPE,)) and
       allowed_client_ids):
-    logging.info('Checking for id_token.')
+    logging.debug('Checking for id_token.')
     time_now = long(time.time())
     user = _get_id_token_user(token, audiences, allowed_client_ids, time_now,
                               memcache)
@@ -208,7 +224,7 @@ def _maybe_set_current_user_vars(method, api_info=None, request=None):
 
 
   if scopes:
-    logging.info('Checking for oauth token.')
+    logging.debug('Checking for oauth token.')
     if _is_local_dev():
       _set_bearer_user_vars_local(token, allowed_client_ids, scopes)
     else:
@@ -268,17 +284,14 @@ def _get_id_token_user(token, audiences, allowed_client_ids, time_now, cache):
   try:
     parsed_token = _verify_signed_jwt_with_certs(token, time_now, cache)
   except _AppIdentityError, e:
-    logging.warning('id_token verification failed: %s', e)
+    logging.debug('id_token verification failed: %s', e)
     return None
   except:
-    logging.warning('id_token verification failed.')
+    logging.debug('id_token verification failed.')
     return None
 
   if _verify_parsed_token(parsed_token, audiences, allowed_client_ids):
     email = parsed_token['email']
-
-
-
 
 
 
@@ -316,7 +329,10 @@ def _set_bearer_user_vars(allowed_client_ids, scopes):
       continue
 
 
-    if allowed_client_ids and client_id not in allowed_client_ids:
+
+
+    if (list(allowed_client_ids) != SKIP_CLIENT_ID_CHECK and
+        client_id not in allowed_client_ids):
       logging.warning('Client ID is not allowed: %s', client_id)
       return
 
@@ -324,7 +340,7 @@ def _set_bearer_user_vars(allowed_client_ids, scopes):
     logging.debug('Returning user from matched oauth_user.')
     return
 
-  logging.warning('Oauth framework user didn\'t match oauth token user.')
+  logging.debug('Oauth framework user didn\'t match oauth token user.')
   return None
 
 
@@ -349,8 +365,8 @@ def _set_bearer_user_vars_local(token, allowed_client_ids, scopes):
       error_description = json.loads(result.content)['error_description']
     except (ValueError, KeyError):
       error_description = ''
-    logging.warning('Token info endpoint returned status %s: %s',
-                    result.status_code, error_description)
+    logging.error('Token info endpoint returned status %s: %s',
+                  result.status_code, error_description)
     return
   token_info = json.loads(result.content)
 
@@ -364,7 +380,8 @@ def _set_bearer_user_vars_local(token, allowed_client_ids, scopes):
 
 
   client_id = token_info.get('issued_to')
-  if allowed_client_ids and client_id not in allowed_client_ids:
+  if (list(allowed_client_ids) != SKIP_CLIENT_ID_CHECK and
+      client_id not in allowed_client_ids):
     logging.warning('Client ID is not allowed: %s', client_id)
     return
 
@@ -404,8 +421,8 @@ def _verify_parsed_token(parsed_token, audiences, allowed_client_ids):
     return False
 
 
-  if not allowed_client_ids:
-    logging.warning('No allowed client IDs specified.  '
+  if list(allowed_client_ids) == SKIP_CLIENT_ID_CHECK:
+    logging.warning('Client ID check can\'t be skipped for ID tokens.  '
                     'Id_token cannot be verified.')
     return False
   elif not cid or cid not in allowed_client_ids:
@@ -425,10 +442,50 @@ def _urlsafe_b64decode(b64string):
   return base64.urlsafe_b64decode(padded)
 
 
+def _get_cert_expiration_time(headers):
+  """Get the expiration time for a cert, given the response headers.
+
+  Get expiration time from the headers in the result.  If we can't get
+  a time from the headers, this returns 0, indicating that the cert
+  shouldn't be cached.
+
+  Args:
+    headers: A dict containing the response headers from the request to get
+      certs.
+
+  Returns:
+    An integer with the number of seconds the cert should be cached.  This
+    value is guaranteed to be >= 0.
+  """
+
+  cache_control = headers.get('Cache-Control', '')
+
+
+
+  for entry in cache_control.split(','):
+    match = _MAX_AGE_REGEX.match(entry)
+    if match:
+      cache_time_seconds = int(match.group(1))
+      break
+  else:
+    return 0
+
+
+  age = headers.get('Age')
+  if age is not None:
+    try:
+      age = int(age)
+    except ValueError:
+      age = 0
+    cache_time_seconds -= age
+
+  return max(0, cache_time_seconds)
+
+
 def _get_cached_certs(cert_uri, cache):
-  certs = cache.get(cert_uri, namespace='verify_jwt')
+  certs = cache.get(cert_uri, namespace=_CERT_NAMESPACE)
   if certs is None:
-    logging.info('Cert cache miss')
+    logging.debug('Cert cache miss')
     try:
       result = urlfetch.fetch(cert_uri)
     except AssertionError:
@@ -437,8 +494,10 @@ def _get_cached_certs(cert_uri, cache):
 
     if result.status_code == 200:
       certs = json.loads(result.content)
-
-      cache.set(cert_uri, certs, time=24*60*60, namespace='verify_jwt')
+      expiration_time_seconds = _get_cert_expiration_time(result.headers)
+      if expiration_time_seconds:
+        cache.set(cert_uri, certs, time=expiration_time_seconds,
+                  namespace=_CERT_NAMESPACE)
     else:
       logging.error(
           'Certs not available, HTTP request returned %d', result.status_code)
@@ -525,6 +584,10 @@ def _verify_signed_jwt_with_certs(
                             'for more information on pycrypto.')
 
 
+
+  local_hash = SHA256.new(signed).hexdigest()
+
+
   verified = False
   for keyvalue in certs['keyvalues']:
     modulus = _b64_to_long(keyvalue['modulus'])
@@ -532,14 +595,13 @@ def _verify_signed_jwt_with_certs(
     key = RSA.construct((modulus, exponent))
 
 
-
-    local_hash = SHA256.new(signed).hexdigest()
-    local_hash = local_hash.zfill(64)
-
-
     hexsig = '%064x' % key.encrypt(lsignature, '')[0]
 
-    verified = (hexsig[-64:] == local_hash)
+    hexsig = hexsig[-64:]
+
+
+
+    verified = (hexsig == local_hash)
     if verified:
       break
   if not verified:

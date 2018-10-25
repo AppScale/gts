@@ -231,7 +231,7 @@ Component: Buttons
 }
 .ae-button.active{
   border: 1px solid #C6C6C6;
-  color: #333;  
+  color: #333;
 }
 
 .ae-button:visited {
@@ -304,7 +304,7 @@ Component: Text Fields and Textareas
 input[type=text], textarea {
   background-color: #FFF;
   padding-left: 8px;
-  color: #333;
+  color: #000;
   border: 1px solid #d9d9d9;
   border-top: 1px solid #c0c0c0;
   display: inline-block;
@@ -473,12 +473,12 @@ Component: Scrollbars
 }
 
 ::-webkit-scrollbar-track:hover {
-  background-color:rgba(0,0,0,0.05);  
+  background-color:rgba(0,0,0,0.05);
    -webkit-box-shadow: inset 1px 0px 0px  rgba(0,0,0,0.10);
 }
 
 ::-webkit-scrollbar-track:active {
-  background-color:rgba(0,0,0,0.05);  
+  background-color:rgba(0,0,0,0.05);
   -webkit-box-shadow: inset 1px 0px 0px  rgba(0,0,0,0.14),
                       inset -1px -1px 0px  rgba(0,0,0,0.07);
 }

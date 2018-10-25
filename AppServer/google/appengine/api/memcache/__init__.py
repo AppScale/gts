@@ -326,11 +326,7 @@ class Client(object):
                pload=None,
                pid=None,
                make_sync_call=None,
-               _app_id=None,
-               _num_memcacheg_backends=None,
-               _ignore_shardlock=None,
-               _memcache_pool_hint=None,
-               _memcache_sharding_strategy=None):
+               _app_id=None):
     """Create a new Client object.
 
     No parameters are required.
@@ -345,9 +341,6 @@ class Client(object):
       pid: Callable to use for determine the persistent id for objects, if any.
       make_sync_call: Ignored; only for compatibility with an earlier version.
     """
-
-
-
 
 
 
@@ -416,9 +409,6 @@ class Client(object):
     if self._app_id:
       app_override = message.mutable_override()
       app_override.set_app_id(self._app_id)
-
-
-      app_override.set_num_memcacheg_backends(0)
 
   def set_servers(self, servers):
     """Sets the pool of memcache servers used by the client.
