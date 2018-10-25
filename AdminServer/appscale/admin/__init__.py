@@ -374,54 +374,6 @@ class ProjectHandler(BaseVersionHandler):
     self.thread_pool = thread_pool
 
   @gen.coroutine
-  def wait_for_delete(self, ports_to_close, project_id):
-    """ Tracks the progress of removing version(s).
-
-    Args:
-      ports_to_close: A list of integers specifying the ports to wait for.
-      project_id: The id of the project we are deleting.
-    Raises:
-      OperationTimeout if the deadline is exceeded.
-    """
-    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
-    update_project_state(self.zk_client, project_id,
-                         LifecycleState.DELETE_IN_PROGRESS)
-    start_time = time.time()
-    deadline = start_time + constants.MAX_OPERATION_TIME
-
-    finished = 0
-    ports = ports_to_close[:]
-    while True:
-      if time.time() > deadline:
-        logger.error('Delete operation took too long (project_id: {}).'
-                     .format(project_id))
-        return
-      to_remove = []
-      for http_port in ports:
-        # If the port is open, continue to process other ports.
-        if utils.port_is_open(options.login_ip, int(http_port)):
-          continue
-        # Otherwise one more port has finished and remove it from the list of
-        # ports to check.
-        finished += 1
-        to_remove.append(http_port)
-      ports = [p for p in ports if p not in to_remove]
-      if finished == len(ports_to_close):
-        break
-
-      yield gen.sleep(1)
-
-    # Cleanup the project in zookeeper.
-    yield self.thread_pool.submit(self.version_update_lock.acquire)
-    try:
-      try:
-        self.zk_client.delete(project_path, recursive=True)
-      except NoNodeError:
-        pass
-    finally:
-      self.version_update_lock.release()
-
-  @gen.coroutine
   def delete(self, project_id):
     """ Deletes a project.
 
@@ -429,22 +381,11 @@ class ProjectHandler(BaseVersionHandler):
       project_id: The id of the project to delete.
     """
     self.authenticate(project_id, self.ua_client)
-    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
-    update_project_state(self.zk_client, project_id,
-                         LifecycleState.DELETE_REQUESTED)
-    ports_to_close = []
-    # Delete each version of each service of the project.
-    for service_id in \
-        self.zk_client.get_children("{0}/services".format(project_path)):
-      for version_id in self.zk_client.get_children(
-          "{0}/services/{1}/versions".format(project_path, service_id)):
+    raise CustomHTTPError(HTTPCodes.NOT_IMPLEMENTED,
+                          message='Project deletion is not supported')
 
-        port = yield self.start_delete_version(project_id, service_id,
-                                               version_id)
-        ports_to_close.append(port)
 
-    IOLoop.current().spawn_callback(self.wait_for_delete,
-                                    ports_to_close, project_id)
+
 
 
 class ServiceHandler(BaseVersionHandler):
