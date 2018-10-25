@@ -385,7 +385,31 @@ class ProjectHandler(BaseVersionHandler):
                           message='Project deletion is not supported')
 
 
+class ServicesHandler(BaseVersionHandler):
+  """ Manages a project's services. """
+  def initialize(self, ua_client, zk_client):
+    self._ua_client = ua_client
+    self._zk_client = zk_client
 
+  def get(self, project_id):
+    """ Lists all the services in a project. """
+    self.authenticate(project_id, self._ua_client)
+    project_node = '/'.join(['/appscale', 'projects', project_id])
+    services_node = '/'.join([project_node, 'services'])
+    if not self._zk_client.exists(project_node):
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Project does not exist')
+
+    try:
+      service_ids = self._zk_client.get_children(services_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Services node not found for project')
+
+    prefix = '/'.join(['apps', project_id, 'services'])
+    services = [{'name': '/'.join([prefix, service_id]), 'id': service_id}
+                for service_id in service_ids]
+    json.dump({'services': services}, self)
 
 
 class ServiceHandler(BaseVersionHandler):
@@ -1260,6 +1284,8 @@ def main():
       'version_update_lock': version_update_lock, 'thread_pool': thread_pool}),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
+    ('/v1/apps/([^/]*)/services', ServicesHandler,
+     {'ua_client': ua_client, 'zk_client': zk_client}),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)', ServiceHandler,
      all_resources),
     ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
