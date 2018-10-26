@@ -19,6 +19,8 @@ from appscale.hermes.producers import proxy_stats
 
 STATS_ENDPOINT = '/service-stats'
 
+logger = logging.getLogger(__name__)
+
 
 class BadTaskqueueStatsFormat(ValueError):
   pass
@@ -104,7 +106,7 @@ class TaskqueueStatsSource(object):
       msg = u"Failed to get stats from {url} ({err})".format(url=url, err=err)
       if hasattr(err, 'response') and err.response and err.response.body:
         msg += u"\nBODY: {body}".format(body=err.response.body)
-      logging.error(msg)
+      logger.error(msg)
       failure = FailureSnapshot(ip_port=ip_port, error=unicode(err))
       raise gen.Return(failure)
 
@@ -223,7 +225,7 @@ class TaskqueueStatsSource(object):
       instances_count=instances_count,
       failures=failures
     )
-    logging.info(
+    logger.info(
       "Fetched Taskqueue server stats from {nodes} instances in {elapsed:.1f}s."
       .format(nodes=len(instances_stats), elapsed=time.time() - start_time)
     )
