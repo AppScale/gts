@@ -5427,10 +5427,18 @@ HOSTS
       }
     }
 
-    # Finally terminates the selected AppServers.
+    # Finally terminates the selected AppServers. Since we can have
+    # multiple same locations (for starting AppServers) we delete the last
+    # occurence of the object only.
     to_delete.each{ |location|
-      @app_info_map[version_key]['appservers'].delete(location)
+      i = @app_info_map[version_key]['appservers'].rindex(location)
+      if i.nil?
+        Djinn.log_warn("Something went wrong removing #{location}.")
+        next
+      end
+      @app_info_map[version_key]['appservers'].delete_at(i)
       @last_decision[version_key] = Time.now.to_i
+      Djinn.log_info("Removing an AppServer for #{version_key} #{location}.")
     }
 
     return !to_delete.empty?
