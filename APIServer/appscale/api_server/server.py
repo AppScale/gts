@@ -17,7 +17,7 @@ from appscale.common.constants import LOG_FORMAT
 from appscale.common.constants import VAR_DIR
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 
-logger = logging.getLogger('appscale-api-server')
+logger = logging.getLogger(__name__)
 
 
 class MainHandler(web.RequestHandler):
