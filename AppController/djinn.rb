@@ -5399,24 +5399,41 @@ HOSTS
     max_delta = @app_info_map[version_key]['appservers'].length - min
     num_to_remove = [delta_appservers, max_delta].min
 
+    # We first remove AppServers that may not have yet started: this
+    # is important to guarantee the minimum number of AppServers will hold
+    # even in the event that new AppServers fails to start (assuming there
+    # are at least old ones running).
+    to_delete = []
+    get_all_compute_nodes.reverse_each { |node_ip|
+      break if num_to_remove == to_delete.length
+      @app_info_map[version_key]['appservers'].each { |location|
+        break if num_to_remove == to_delete.length
+
+        _, port = location.split(":")
+        to_delete << location if port < 0
+      }
+    }
+
     # Let's pick the latest compute node hosting the application and
     # remove the AppServer there, so we can try to reclaim it once it's
     # unloaded.
     get_all_compute_nodes.reverse_each { |node_ip|
+      break if num_to_remove == to_delete.length
       @app_info_map[version_key]['appservers'].each { |location|
+        break if num_to_remove == to_delete.length
+
         host, _ = location.split(":")
-        if host == node_ip
-          @app_info_map[version_key]['appservers'].delete(location)
-          @last_decision[version_key] = Time.now.to_i
-          Djinn.log_info(
-            "Removing an AppServer for #{version_key} #{location}.")
-          num_to_remove -= 1
-          return true if num_to_remove == 0
-        end
+        to_delete << location if host == node_ip
       }
     }
 
-    return true
+    # Finally terminates the selected AppServers.
+    to_delete.each{ |location|
+      @app_info_map[version_key]['appservers'].delete(location)
+      @last_decision[version_key] = Time.now.to_i
+    }
+
+    return !to_delete.empty?
   end
 
   # This function unpacks an application tarball if needed. A removal of
