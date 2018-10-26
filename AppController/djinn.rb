@@ -5410,7 +5410,7 @@ HOSTS
         break if num_to_remove == to_delete.length
 
         host, port = location.split(":")
-        to_delete << location if host == node_ip && port < 0
+        to_delete << location if host == node_ip && Integer(port) < 0
       }
     }
 
