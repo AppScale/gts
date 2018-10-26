@@ -5409,8 +5409,8 @@ HOSTS
       @app_info_map[version_key]['appservers'].each { |location|
         break if num_to_remove == to_delete.length
 
-        _, port = location.split(":")
-        to_delete << location if port < 0
+        host, port = location.split(":")
+        to_delete << location if host == node_ip && port < 0
       }
     }
 
