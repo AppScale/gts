@@ -473,7 +473,7 @@ def main():
   args = parser.parse_args()
 
   if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
 
   zk_hosts = appscale_info.get_zk_node_ips()
   zk_client = KazooClient(hosts=','.join(zk_hosts),

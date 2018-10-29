@@ -73,7 +73,7 @@ def main():
     with open(pidfile_location, 'w') as pidfile:
         pidfile.write(str(os.getpid()))
 
-    logger.setLevel(logging.INFO)
+    logging.getLogger('appscale').setLevel(logging.INFO)
 
     zk_client = KazooClient(hosts=','.join(args.zookeeper_locations),
                             connection_retry=ZK_PERSISTENT_RECONNECTS)

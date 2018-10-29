@@ -853,7 +853,7 @@ def main():
   args = parser.parse_args()
 
   if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('port', args.port)
