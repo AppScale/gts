@@ -6,7 +6,7 @@ install_requires = [
   'appscale-common',
   'appscale-tools',
   'requests[security]>=2.16.0,<=2.19.1',
-  'cryptography==1.3.4',
+  'cryptography>=2.3.0',
   'psutil',
   'tornado',
   'kazoo'
