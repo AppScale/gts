@@ -77,7 +77,7 @@ def update_task(task_name, new_state, retries=3):
   Args:
     task_name: A string specifying the TaskName key.
     new_state: A string specifying the new task state.
-    retries: An integer specifying how many times to retry the delete.
+    retries: An integer specifying how many times to retry the update.
   """
   try:
     task_name_entity = TaskName.get_by_key_name(task_name)
