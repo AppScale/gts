@@ -143,17 +143,27 @@ class PHPRuntimeInstanceFactory(instance.InstanceFactory):
                             'php-cgi binary.')
 
     if not os.path.exists(php_executable_path):
-      raise _PHPBinaryError('The path specified with the --php_exectuable_path '
+      raise _PHPBinaryError('The path specified with the --php_executable_path '
                             'flag (%s) does not exist.' % php_executable_path)
 
     if not os.access(php_executable_path, os.X_OK):
-      raise _PHPBinaryError('The path specified with the --php_exectuable_path '
+      raise _PHPBinaryError('The path specified with the --php_executable_path '
+                            'flag (%s) is not executable' % php_executable_path)
+
+    env = {}
+    # On Windows, in order to run a side-by-side assembly the specified env
+    # must include a valid SystemRoot.
+    if 'SYSTEMROOT' in os.environ:
+      env['SYSTEMROOT'] = os.environ['SYSTEMROOT']
+
+    if not os.access(php_executable_path, os.X_OK):
+      raise _PHPBinaryError('The path specified with the --php_executable_path '
                             'flag (%s) is not executable' % php_executable_path)
 
     version_process = safe_subprocess.start_process([php_executable_path, '-v'],
                                                     stdout=subprocess.PIPE,
                                                     stderr=subprocess.PIPE,
-                                                    env={})
+                                                    env=env)
     version_stdout, version_stderr = version_process.communicate()
     if version_process.returncode:
       raise _PHPEnvironmentError(
@@ -180,7 +190,7 @@ class PHPRuntimeInstanceFactory(instance.InstanceFactory):
         [php_executable_path, '-f', _CHECK_ENVIRONMENT_SCRIPT_PATH],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        env={})
+        env=env)
     check_process_stdout, _ = check_process.communicate()
     if check_process.returncode:
       raise _PHPEnvironmentError(check_process_stdout)

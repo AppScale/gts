@@ -542,6 +542,17 @@ class BackupLinkHandler(webapp2.RequestHandler):
   def post(self):
     """Handler for post requests to datastore_admin/backup.create."""
     try:
+
+
+
+
+      if ('X-AppEngine-TaskName' not in self.request.headers and
+          'X-AppEngine-Cron' not in self.request.headers):
+        logging.critical('Scheduled backups must be started via task queue or '
+                         'cron.')
+        self.response.set_status(403)
+        return
+
       backup_prefix = self.request.get('name')
       if not backup_prefix:
         if self.request.headers.get('X-AppEngine-Cron'):
@@ -820,15 +831,15 @@ class DoBackupRestoreHandler(BaseDoHandler):
     if difference:
       return [('error', 'Backup does not have kind[s] %s' %
                ', '.join(difference))]
-    kinds = list(kinds) if len(backup_kinds) != len(kinds) else []
+
     if self.request.get('run_as_a_service', False):
-      if not backup.gs_handle:
+      if backup.filesystem != files.GS_FILESYSTEM:
         return [('error',
                  'Restore as a service is only available for GS backups')]
       datastore_admin_service = services_client.DatastoreAdminClient()
-      description = 'Remote restore job: %s' % backup
+      description = 'Remote restore job: %s' % backup.name
       remote_job_id = datastore_admin_service.restore_from_backup(
-          description, backup_id, kinds)
+          description, backup_id, list(kinds))
       return [('remote_job', remote_job_id)]
 
     queue = self.request.get('queue')
@@ -840,6 +851,9 @@ class DoBackupRestoreHandler(BaseDoHandler):
           ', '.join(kinds) if kinds else 'all', backup.name)
       job_operation = utils.StartOperation(operation_name)
       mapper_params = self._GetBasicMapperParams()
+
+
+      kinds = list(kinds) if len(backup_kinds) != len(kinds) else []
       mapper_params['files'] = get_backup_files(backup, kinds)
       mapper_params['kind_filter'] = kinds
       mapper_params['original_app'] = backup.original_app
@@ -977,12 +991,14 @@ class KindBackupFiles(db.Model):
 def BackupCompleteHandler(operation, job_id, mapreduce_state):
   """Updates BackupInformation record for a completed mapper job."""
   mapreduce_spec = mapreduce_state.mapreduce_spec
+  filenames = mapreduce_spec.mapper.output_writer_class().get_filenames(
+      mapreduce_state)
   _perform_backup_complete(operation,
                            job_id,
                            mapreduce_spec.mapper.params['entity_kind'],
                            mapreduce_spec.params['backup_info_pk'],
                            mapreduce_spec.mapper.params.get('gs_bucket_name'),
-                           mapreduce_state.writer_state['filenames'],
+                           filenames,
                            mapreduce_spec.params.get('done_callback_queue'))
 
 

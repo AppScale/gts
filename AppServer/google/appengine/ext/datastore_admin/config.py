@@ -69,11 +69,11 @@ class Default(object):
   GOOGLE_API_HOSTNAME = 'www.googleapis.com'
   GOOGLE_API_OAUTH_SCOPE_HOSTNAME = 'https://www.googleapis.com'
   GS_API_HOSTNAME = 'storage.googleapis.com'
-  ADMIN_API_APP_ID = 'admin-api'
-  ADMIN_API_APP_VERSION = None
-  ADMIN_API_NAME = 'appengine'
-  ADMIN_API_VERSION = 'vdev'
-  ADMIN_API_VALIDATE_SSL = True
+  DATASTORE_ADMIN_API_APP_ID = None
+  DATASTORE_ADMIN_API_APP_VERSION = None
+  DATASTORE_ADMIN_API_NAME = None
+  DATASTORE_ADMIN_API_VERSION = None
+  DATASTORE_ADMIN_API_VALIDATE_SSL = True
   ADMIN_CONSOLE_URL = 'https://appengine.google.com'
 
   @property
@@ -89,12 +89,13 @@ class Default(object):
 
   @property
   def DISCOVERY_URL(self):
-    if self.ADMIN_API_APP_VERSION:
-      hostname = '%s-dot-%s.%s' % (self.ADMIN_API_APP_VERSION,
-                                   self.ADMIN_API_APP_ID,
+    if self.DATASTORE_ADMIN_API_APP_VERSION:
+      hostname = '%s-dot-%s.%s' % (self.DATASTORE_ADMIN_API_APP_VERSION,
+                                   self.DATASTORE_ADMIN_API_APP_ID,
                                    self.DEFAULT_APP_DOMAIN)
     else:
-      hostname = '%s.%s' % (self.ADMIN_API_APP_ID, self.DEFAULT_APP_DOMAIN)
+      hostname = '%s.%s' % (self.DATASTORE_ADMIN_API_APP_ID,
+                            self.DEFAULT_APP_DOMAIN)
     path = '_ah/api/discovery/v1/apis/{api}/{apiVersion}/rest'
     return 'https://%s/%s' % (hostname, path)
 
@@ -118,8 +119,10 @@ try:
   import config_runtime
 
   RUNTIME_DATACENTER_TO_CLASS = config_runtime.RUNTIME_DATACENTER_TO_CLASS
+  PRODUCTION_CLASS = config_runtime.ProdRuntime
 except ImportError:
   RUNTIME_DATACENTER_TO_CLASS = {}
+  PRODUCTION_CLASS = Prod
 
 
 def GetConfig():
@@ -139,7 +142,7 @@ def GetConfig():
   for prefix, config in RUNTIME_DATACENTER_TO_CLASS.items():
     if datacenter.startswith(prefix):
       return config
-  return Prod
+  return PRODUCTION_CLASS
 
 
 def Export(cls):

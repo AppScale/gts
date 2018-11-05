@@ -937,7 +937,7 @@ class AtomField(Field):
 class DateField(Field):
   """A Field that has a date value.
 
-  The following example shows an date field named creation_date:
+  The following example shows a date field named creation_date:
     DateField(name='creation_date', value=datetime.date(2011, 03, 11))
   """
 

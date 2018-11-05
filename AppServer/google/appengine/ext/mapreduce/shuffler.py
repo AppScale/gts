@@ -470,16 +470,13 @@ class _HashingBlobstoreOutputWriter(output_writers.BlobstoreOutputWriterBase):
 
   @classmethod
   def get_filenames(cls, mapreduce_state):
-    """Obtain output filenames from mapreduce state.
+    """See parent class."""
+    if mapreduce_state.writer_state:
+      return mapreduce_state.writer_state["filenames"]
+    return []
 
-    Args:
-      mapreduce_state: an instance of model.MapreduceState
-
-    Returns:
-        list of filenames this writer writes to or None if writer
-        doesn't write to a file.
-    """
-    return mapreduce_state.writer_state["filenames"]
+  def finalize(self, ctx, shard_state):
+    pass
 
   def write(self, data, ctx):
     """Write data.

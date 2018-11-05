@@ -20,6 +20,8 @@ import os
 import threading
 import warnings
 
+from google.appengine.tools.devappserver2 import watcher_common
+
 
 class MtimeFileWatcher(object):
   """Monitors a directory tree for changes using mtime polling."""
@@ -76,6 +78,7 @@ class MtimeFileWatcher(object):
     num_files = 0
     for dirname, dirnames, filenames in os.walk(self._directory,
                                                 followlinks=True):
+      watcher_common.remove_ignored_dirs(dirnames)
       for filename in filenames + dirnames:
         if num_files == 10000:
           warnings.warn(

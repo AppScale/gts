@@ -175,8 +175,7 @@ def _ConvertBackendToModule(backend_entry, app_yaml_config):
   _SetStart(result, backend_entry)
   _SetModule(result, backend_entry)
   _SetClass(result, backend_entry)
-  _SetInstances(result, backend_entry)
-  _SetDynamic(result, backend_entry)
+  _SetScalingType(result, backend_entry)
   return result
 
 
@@ -308,11 +307,11 @@ def _SetClass(target, backend_entry):
     target.instance_class = curr_class
 
 
-def _SetInstances(target, backend_entry):
-  """Sets number of instances for module if defined in backend.
+def _SetManualScaling(target, backend_entry):
+  """Sets scaling type to manual with specified number of instances.
 
-  If not defined in backend does nothing. Otherwise, sets the manual scaling
-  field to use the number of instances specified.
+  If instances not defined in backend does nothing. Otherwise, sets the manual
+  scaling field to use the number of instances specified.
 
   Args:
     target: A appinfo.AppInfoExternal object. Contains parsed app.yaml augmented
@@ -325,26 +324,23 @@ def _SetInstances(target, backend_entry):
     target.manual_scaling = appinfo.ManualScaling(instances=instances)
 
 
-def _SetDynamic(target, backend_entry):
-  """Sets basic scaling if backend is dynamic.
+def _GetInstances(name):
+  """Gets a positive number of instances from the user.
 
-  If dynamic not set on the backend, does nothing. Otherwise, sets the
-  basic scaling field to use the number of instances provided via raw_input.
+  Uses the DYNAMIC_PROMPT_TEXT to prompt the user. Accepts no
+  input to mean the default value of 1.
 
   Args:
-    target: A appinfo.AppInfoExternal object. Contains parsed app.yaml augmented
-      by current backend info.
-    backend_entry: A backendinfo.BackendEntry object. Contains a parsed backend
-      definition from backends.yaml.
-  """
-  if not backend_entry.dynamic:
-    return
+    name: String, name of module.
 
-  prompt = DYNAMIC_PROMPT_TEXT % (backend_entry.name,)
+  Returns:
+    Integer parsed from user input, 1 if empty input or None if the input was
+      not a positive integer.
+  """
+  prompt = DYNAMIC_PROMPT_TEXT % (name,)
   result = raw_input(prompt).strip()
   if result == '':
-    target.basic_scaling = appinfo.BasicScaling(max_instances=1)
-    return
+    return 1
 
   max_instances = -1
   try:
@@ -356,7 +352,37 @@ def _SetDynamic(target, backend_entry):
     print 'Invalid max_instances value: %r' % (result,)
     return
 
-  target.basic_scaling = appinfo.BasicScaling(max_instances=max_instances)
+  return max_instances
+
+
+def _SetScalingType(target, backend_entry):
+  """Sets the scaling type of the modules based on the backend.
+
+  If dynamic, sets scaling type to Basic and passes the number of instances if
+  set in the backends config. If not dynamic but instances set, calls to
+  _SetManualScaling. If neither dynamic or instances set, does nothing.
+
+  Args:
+    target: A appinfo.AppInfoExternal object. Contains parsed app.yaml augmented
+      by current backend info.
+    backend_entry: A backendinfo.BackendEntry object. Contains a parsed backend
+      definition from backends.yaml.
+  """
+  if not (backend_entry.dynamic or backend_entry.instances):
+    return
+
+
+  if not backend_entry.dynamic:
+    _SetManualScaling(target, backend_entry)
+    return
+
+  if backend_entry.instances:
+    max_instances = backend_entry.instances
+  else:
+    max_instances = _GetInstances(backend_entry.name)
+
+  if max_instances:
+    target.basic_scaling = appinfo.BasicScaling(max_instances=max_instances)
 
 
 def MakeParser(prog):

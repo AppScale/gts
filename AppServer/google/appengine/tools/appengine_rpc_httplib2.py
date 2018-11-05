@@ -227,8 +227,8 @@ class HttpRpcServerHttpLib2(object):
                    url, headers,
                    self.debug_data and payload or payload and 'ELIDED' or '')
       try:
-        response_info, response = self.http.request(url, method, body=payload,
-                                                    headers=headers)
+        response_info, response = self.http.request(
+            url, method=method, body=payload, headers=headers)
       except client.AccessTokenRefreshError, e:
 
         logger.info('Got access token error', exc_info=1)

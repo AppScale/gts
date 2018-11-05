@@ -14,42 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Parameters to control Mapreduce."""
+"""Common functionality for file watchers."""
 
 
-__all__ = []
-
-DEFAULT_SHARD_RETRY_LIMIT = 3
-DEFAULT_QUEUE_NAME = "default"
-DEFAULT_SHARD_COUNT = 8
+# Directories that we should not watch at all.
+_IGNORED_DIRS = ('.git', '.hg', '.svn')
 
 
-
-
-
-_RETRY_SLICE_ERROR_MAX_RETRIES = 10
-
-
-_MAX_TASK_RETRIES = 30
-
-
-
-
-_SLICE_DURATION_SEC = 15
-
-
-_LEASE_GRACE_PERIOD = 1
-
-
-_REQUEST_EVENTUAL_TIMEOUT = 10 * 60 + 30
-
-
-_CONTROLLER_PERIOD_SEC = 2
-
-
-
-_DEFAULT_PROCESSING_RATE_PER_SEC = 1000000
-
-
-_DEFAULT_BASE_PATH = "/_ah/mapreduce"
-_DEFAULT_PIPELINE_BASE_PATH = _DEFAULT_BASE_PATH + "/pipeline"
+def remove_ignored_dirs(dirs):
+  """Remove directories from dirs that should not be watched."""
+  for d in _IGNORED_DIRS:
+    if d in dirs:
+      dirs.remove(d)

@@ -166,14 +166,24 @@ class APIServer(wsgi_server.WsgiServer):
       api_response = _execute_request(request).Encode()
       response.set_response(api_response)
     except Exception, e:
-      logging.debug('Exception while handling %s\n%s',
-                    request,
-                    traceback.format_exc())
-      response.set_exception(pickle.dumps(e))
       if isinstance(e, apiproxy_errors.ApplicationError):
+        level = logging.DEBUG
         application_error = response.mutable_application_error()
         application_error.set_code(e.application_error)
         application_error.set_detail(e.error_detail)
+        # TODO: is this necessary? Python remote stub ignores exception
+        # when application error is specified; do other runtimes use it?
+        response.set_exception(pickle.dumps(e))
+      else:
+        # If the runtime instance is not Python, it won't be able to unpickle
+        # the exception so use level that won't be ignored by default.
+        level = logging.ERROR
+        # Even if the runtime is Python, the exception may be unpicklable if
+        # it requires importing a class blocked by the sandbox so just send
+        # back the exception representation.
+        response.set_exception(pickle.dumps(RuntimeError(repr(e))))
+      logging.log(level, 'Exception while handling %s\n%s', request,
+                  traceback.format_exc())
     encoded_response = response.Encode()
     logging.debug('Handled %s.%s in %0.4f',
                   request.service_name(),

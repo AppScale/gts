@@ -95,7 +95,8 @@ class OutputWriter(model.JsonMixin):
        multiple slices.
     4) write() method is called to write data.
     5) finalize() is called when shard processing is done.
-    5) finalize_job() is called when job is completed.
+    6) finalize_job() is called when job is completed.
+    7) get_filenames() is called to get output file names.
   """
 
   @classmethod
@@ -117,21 +118,35 @@ class OutputWriter(model.JsonMixin):
   def init_job(cls, mapreduce_state):
     """Initialize job-level writer state.
 
+    This method is only to support the deprecated feature which is shared
+    output files by many shards. New output writers should not do anything
+    in this method.
+
     Args:
       mapreduce_state: an instance of model.MapreduceState describing current
-      job. State can be modified during initialization.
+      job. MapreduceState.writer_state can be modified during initialization
+      to save the information about the files shared by many shards.
     """
-    raise NotImplementedError("init_job() not implemented in %s" % cls)
+    pass
 
   @classmethod
   def finalize_job(cls, mapreduce_state):
     """Finalize job-level writer state.
 
+    This method is only to support the deprecated feature which is shared
+    output files by many shards. New output writers should not do anything
+    in this method.
+
+    This method should only be called when mapreduce_state.result_status shows
+    success. After finalizing the outputs, it should save the info for shard
+    shared files into mapreduce_state.writer_state so that other operations
+    can find the outputs.
+
     Args:
       mapreduce_state: an instance of model.MapreduceState describing current
-      job. State can be modified during finalization.
+      job. MapreduceState.writer_state can be modified during finalization.
     """
-    raise NotImplementedError("finalize_job() not implemented in %s" % cls)
+    pass
 
   @classmethod
   def from_json(cls, state):
@@ -161,7 +176,9 @@ class OutputWriter(model.JsonMixin):
     Args:
       mapreduce_state: an instance of model.MapreduceState describing current
       job. State can NOT be modified.
-      shard_state: shard state which can be modified.
+      shard_state: shard state can NOT be modified. Output file state should
+      be contained in the output writer instance. The serialized output writer
+      instance will be saved by mapreduce across slices.
     """
     raise NotImplementedError("create() not implemented in %s" % cls)
 
@@ -178,9 +195,14 @@ class OutputWriter(model.JsonMixin):
   def finalize(self, ctx, shard_state):
     """Finalize writer shard-level state.
 
+    This should only be called when shard_state.result_status shows success.
+    After finalizing the outputs, it should save per-shard output file info
+    into shard_state.writer_state so that other operations can find the
+    outputs.
+
     Args:
       ctx: an instance of context.Context.
-      shard_state: shard state.
+      shard_state: shard state. ShardState.writer_state can be modified.
     """
     raise NotImplementedError("finalize() not implemented in %s" %
                               self.__class__)
@@ -189,12 +211,17 @@ class OutputWriter(model.JsonMixin):
   def get_filenames(cls, mapreduce_state):
     """Obtain output filenames from mapreduce state.
 
+    This method should only be called when a MR is finished. Implementors of
+    this method should not assume any other methods of this class have been
+    called. In the case of no input data, no other method except validate
+    would have been called.
+
     Args:
       mapreduce_state: an instance of model.MapreduceState
 
     Returns:
-      list of filenames this writer writes to or None if writer
-      doesn't write to a file.
+      List of filenames this mapreduce successfully wrote to. The list can be
+    empty if no output file was successfully written.
     """
     raise NotImplementedError("get_filenames() not implemented in %s" % cls)
 
@@ -492,8 +519,18 @@ class FileOutputWriterBase(OutputWriter):
     def from_json(cls, json):
       return cls(json["filenames"], json["request_filenames"])
 
-  def __init__(self, filename):
+  def __init__(self, filename, request_filename):
+    """Init.
+
+    Args:
+      filename: writable filename from Files API.
+      request_filename: in the case of GCS files, we need this to compute
+        finalized filename. In the case of blobstore, this is useless as
+        finalized filename can be retrieved from a Files API internal
+        name mapping.
+    """
     self._filename = filename
+    self._request_filename = request_filename
 
   @classmethod
   def _get_output_sharding(cls, mapreduce_state=None, mapper_spec=None):
@@ -606,31 +643,17 @@ class FileOutputWriterBase(OutputWriter):
 
   @classmethod
   def finalize_job(cls, mapreduce_state):
-    """Finalize job-level writer state.
-
-    Collect from model.ShardState if this job has output per shard.
-
-    Args:
-      mapreduce_state: an instance of model.MapreduceState describing current
-      job.
-    """
-    state = cls._State.from_json(mapreduce_state.writer_state)
+    """See parent class."""
     output_sharding = cls._get_output_sharding(mapreduce_state=mapreduce_state)
-    filesystem = cls._get_filesystem(mapreduce_state.mapreduce_spec.mapper)
     if output_sharding != cls.OUTPUT_SHARDING_INPUT_SHARDS:
+      state = cls._State.from_json(mapreduce_state.writer_state)
       files.finalize(state.filenames[0])
-      finalized_filenames = [cls._get_finalized_filename(
-          filesystem, state.filenames[0], state.request_filenames[0])]
-    else:
-      shards = model.ShardState.find_by_mapreduce_state(mapreduce_state)
-      finalized_filenames = []
-      for shard in shards:
-        state = cls._State.from_json(shard.writer_state)
-        finalized_filenames.append(state.filenames[0])
 
-    state.filenames = finalized_filenames
-    state.request_filenames = []
+
+    finalized_filenames = cls.get_filenames(mapreduce_state)
+    state = cls._State(finalized_filenames, [])
     mapreduce_state.writer_state = state.to_json()
+
 
   @classmethod
   def from_json(cls, state):
@@ -642,7 +665,12 @@ class FileOutputWriterBase(OutputWriter):
     Returns:
       An instance of the OutputWriter configured using the values of json.
     """
-    return cls(state["filename"])
+    if "request_filename" in state:
+      return cls(state["filename"], state["request_filename"])
+
+
+    return cls(state["filename"], None)
+
 
   def to_json(self):
     """Returns writer state to serialize in json.
@@ -650,7 +678,8 @@ class FileOutputWriterBase(OutputWriter):
     Returns:
       A json-izable version of the OutputWriter state.
     """
-    return {"filename": self._filename}
+    return {"filename": self._filename,
+            "request_filename": self._request_filename}
 
   def _can_be_retried(self, tstate):
     """Inherit doc.
@@ -697,12 +726,16 @@ class FileOutputWriterBase(OutputWriter):
                                   request_filename,
                                   mime_type,
                                   acl=acl)
+
+
       state = cls._State([filename], [request_filename])
       shard_state.writer_state = state.to_json()
+
     else:
       state = cls._State.from_json(mapreduce_state.writer_state)
       filename = state.filenames[0]
-    return cls(filename)
+      request_filename = state.request_filenames[0]
+    return cls(filename, request_filename)
 
   def finalize(self, ctx, shard_state):
     """Finalize writer shard-level state.
@@ -714,17 +747,20 @@ class FileOutputWriterBase(OutputWriter):
     mapreduce_spec = ctx.mapreduce_spec
     output_sharding = self.__class__._get_output_sharding(
         mapper_spec=mapreduce_spec.mapper)
+
+
+    if self._request_filename is None or hasattr(self, "_183_test"):
+      writer_state = self._State.from_json(shard_state.writer_state)
+      self._request_filename = writer_state.request_filenames[0]
+
     if output_sharding == self.OUTPUT_SHARDING_INPUT_SHARDS:
       filesystem = self._get_filesystem(mapreduce_spec.mapper)
-      state = self._State.from_json(shard_state.writer_state)
-      writable_filename = state.filenames[0]
-      files.finalize(writable_filename)
+      files.finalize(self._filename)
       finalized_filenames = [self._get_finalized_filename(
-          filesystem, state.filenames[0], state.request_filenames[0])]
+          filesystem, self._filename, self._request_filename)]
 
-      state.filenames = finalized_filenames
-      state.request_filenames = []
-      shard_state.writer_state = state.to_json()
+      shard_state.writer_state = self._State(
+          finalized_filenames, []).to_json()
 
 
 
@@ -733,21 +769,35 @@ class FileOutputWriterBase(OutputWriter):
             "Shard %s-%s finalized blobstore file %s.",
             mapreduce_spec.mapreduce_id,
             shard_state.shard_number,
-            writable_filename)
+            self._filename)
         logging.info("Finalized name is %s.", finalized_filenames[0])
 
   @classmethod
   def get_filenames(cls, mapreduce_state):
-    """Obtain output filenames from mapreduce state.
+    """See parent class."""
+    finalized_filenames = []
+    output_sharding = cls._get_output_sharding(mapreduce_state=mapreduce_state)
+    if output_sharding != cls.OUTPUT_SHARDING_INPUT_SHARDS:
+      if (mapreduce_state.writer_state and mapreduce_state.result_status ==
+          model.MapreduceState.RESULT_SUCCESS):
+        state = cls._State.from_json(mapreduce_state.writer_state)
+        filesystem = cls._get_filesystem(mapreduce_state.mapreduce_spec.mapper)
 
-    Args:
-      mapreduce_state: an instance of model.MapreduceState
 
-    Returns:
-      list of filenames this writer writes to.
-    """
-    state = cls._State.from_json(mapreduce_state.writer_state)
-    return state.filenames
+        if not state.request_filenames:
+          finalized_filenames = state.filenames
+        else:
+
+          finalized_filenames = [cls._get_finalized_filename(
+              filesystem, state.filenames[0], state.request_filenames[0])]
+    else:
+      shards = model.ShardState.find_by_mapreduce_state(mapreduce_state)
+      for shard in shards:
+        if shard.result_status == model.ShardState.RESULT_SUCCESS:
+          state = cls._State.from_json(shard.writer_state)
+          finalized_filenames.append(state.filenames[0])
+
+    return finalized_filenames
 
 
 class FileOutputWriter(FileOutputWriterBase):
@@ -883,14 +933,16 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
   _JSON_PICKLE = "pickle"
 
 
-  def __init__(self, streaming_buffer, writer_spec=None):
+  def __init__(self, streaming_buffer, filename, writer_spec=None):
     """Initialize a GoogleCloudStorageOutputWriter instance.
 
     Args:
       streaming_buffer: an instance of writable buffer from cloudstorage_api.
+      filename: the GCS client filename this writer is writing to.
       writer_spec: the specification for the writer, useful for subclasses.
     """
     self._streaming_buffer = streaming_buffer
+    self._filename = filename
 
   @classmethod
   def _generate_filename(cls, writer_spec, name, job_id, num,
@@ -951,35 +1003,13 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
     cls._generate_filename(writer_spec, "name", "id", 0, 0)
 
   @classmethod
-  def init_job(cls, mapreduce_state):
-    """Initialize any job-level state.
-
-    Args:
-      mapreduce_state: an instance of model.MapreduceState. State may be
-        modified during initialization.
-    """
-
-    pass
-
-  @classmethod
-  def finalize_job(cls, mapreduce_state):
-    """Finalize any job-level state.
-
-    Args:
-      mapreduce_state: an instance of model.MapreduceState. State may be
-        modified during finalization.
-    """
-
-    pass
-
-  @classmethod
   def create(cls, mapreduce_state, shard_state):
     """Create new writer for a shard.
 
     Args:
       mapreduce_state: an instance of model.MapreduceState describing current
         job. State can NOT be modified.
-      shard_state: an instance of model.ShardState which can be modified.
+      shard_state: an instance of model.ShardState.
 
     Returns:
       an output writer for the requested shard.
@@ -1008,10 +1038,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
                                options=options,
                                _account_id=account_id)
 
-
-    shard_state.writer_state = {"filename": filename}
-
-    return cls(writer, writer_spec=writer_spec)
+    return cls(writer, filename, writer_spec=writer_spec)
 
   @classmethod
   def _get_filename(cls, shard_state):
@@ -1022,7 +1049,8 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
     shards = model.ShardState.find_by_mapreduce_state(mapreduce_state)
     filenames = []
     for shard in shards:
-      filenames.append(cls._get_filename(shard))
+      if shard.result_status == model.ShardState.RESULT_SUCCESS:
+        filenames.append(cls._get_filename(shard))
     return filenames
 
   @classmethod
@@ -1055,6 +1083,8 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
   def finalize(self, ctx, shard_state):
     self._streaming_buffer.close()
 
+    shard_state.writer_state = {"filename": self._filename}
+
 
 class _GoogleCloudStorageRecordOutputWriter(_GoogleCloudStorageOutputWriter):
   """Write data to the Google Cloud Storage file using LevelDB format.
@@ -1084,15 +1114,17 @@ class _GoogleCloudStorageRecordOutputWriter(_GoogleCloudStorageOutputWriter):
 
   def __init__(self,
                streaming_buffer,
+               filename,
                writer_spec=None):
     """Initialize a CloudStorageOutputWriter instance.
 
     Args:
       streaming_buffer: an instance of writable buffer from cloudstorage_api.
+      filename: the GCS client filename this writer is writing to.
       writer_spec: the specification for the writer.
     """
     super(_GoogleCloudStorageRecordOutputWriter, self).__init__(
-        streaming_buffer)
+        streaming_buffer, filename, writer_spec)
     self._flush_size = writer_spec.get(self.FLUSH_SIZE_PARAM,
                                        self.DEFAULT_FLUSH_SIZE)
     self._reset()
@@ -1124,7 +1156,8 @@ class _GoogleCloudStorageRecordOutputWriter(_GoogleCloudStorageOutputWriter):
       shard_state: an instance of model.ShardState for the shard.
     """
     self._flush(ctx)
-    self._streaming_buffer.close()
+    super(_GoogleCloudStorageRecordOutputWriter, self).finalize(ctx,
+                                                                shard_state)
 
   def _flush(self, ctx):
     record_writer = records.RecordsWriter(
