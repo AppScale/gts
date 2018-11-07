@@ -215,6 +215,8 @@ class InfrastructureManagerClient
     headers = {'Content-Type' => 'application/json',
                'AppScale-Secret' => @secret}
     request = Net::HTTP::Get.new(uri.path, headers)
+
+    # Retry request for stats in case IaaS has difficulty talking to monit.
     retries = 5
     loop do
       begin
