@@ -59,6 +59,8 @@ from google.appengine.ext import db
 from google.appengine.ext.db.metadata import Namespace
 from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
+logger = logging.getLogger(__name__)
+
 
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the
@@ -318,7 +320,7 @@ class DatastoreDistributed():
       elif name == "__key__":
         value = ent_key
       else:
-        logging.warning("Given entity {0} is missing a property value {1}.".\
+        logger.warning("Given entity {0} is missing a property value {1}.".\
           format(entity, prop.name()))
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)

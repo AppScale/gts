@@ -16,6 +16,8 @@ from appscale.common import appscale_info, file_io
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.monit_interface import MonitOperator
 
+logger = logging.getLogger(__name__)
+
 
 def main():
   file_io.set_logging_format()
@@ -45,7 +47,7 @@ def main():
     options.private_ip)
   instance_manager.start()
 
-  logging.info('Starting AppManager')
+  logger.info('Starting AppManager')
 
   io_loop = IOLoop.current()
   io_loop.run_sync(instance_manager.populate_api_servers)

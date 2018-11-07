@@ -14,6 +14,8 @@ from ..cassandra_env.cassandra_interface import KEYSPACE
 # The percentage difference allowed between an actual and ideal load.
 MAX_DRIFT = .3
 
+logger = logging.getLogger(__name__)
+
 
 class InvalidUnits(Exception):
   """ Indicates an unexpected units value. """
@@ -108,7 +110,7 @@ def equalize(node1, node2):
   to_move = abs(node1['load'] - node2['load']) / 2
   mb_to_move = round(to_move / 1024 ** 2, 2)
   if node1['load'] > node2['load']:
-    logging.info('Moving {} MiB from {} to {}'.format(
+    logger.info('Moving {} MiB from {} to {}'.format(
       mb_to_move, node1['ip'], node2['ip']))
     percentile = 100 - int((to_move / node1['load']) * 100)
     new_token = ssh(node1['ip'], keyname,
@@ -117,7 +119,7 @@ def equalize(node1, node2):
     repair = [new_token, node1['token']]
     cleanup_ip = node1['ip']
   else:
-    logging.info('Moving {} MiB from {} to {}'.format(
+    logger.info('Moving {} MiB from {} to {}'.format(
       mb_to_move, node2['ip'], node1['ip']))
     percentile = int((to_move / node2['load']) * 100)
     new_token = ssh(node2['ip'], keyname,
@@ -126,21 +128,21 @@ def equalize(node1, node2):
     repair = [node1['token'], new_token]
     cleanup_ip = node2['ip']
 
-  logging.info('Moving {} to {}'.format(node1['ip'], new_token[:60] + '...'))
+  logger.info('Moving {} to {}'.format(node1['ip'], new_token[:60] + '...'))
   ssh(node1['ip'], keyname, '{} move {}'.format(NODE_TOOL, new_token))
 
   start = repair[0][:60] + '...'
   end = repair[1][:60] + '...'
-  logging.info('Repairing {} to {}'.format(start, end))
+  logger.info('Repairing {} to {}'.format(start, end))
   check_output([NODE_TOOL, 'repair', '-st', repair[0], '-et', repair[1]])
 
-  logging.info('Cleaning up {}'.format(cleanup_ip))
+  logger.info('Cleaning up {}'.format(cleanup_ip))
   ssh(cleanup_ip, keyname, '{} cleanup'.format(NODE_TOOL))
 
 
 def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-  logging.info('Fetching status')
+  logger.info('Fetching status')
   status = get_status()
 
   # All nodes must have just one token.
@@ -152,10 +154,10 @@ def main():
   # If all nodes own everything, a rebalance is not possible.
   assert {node['owns'] for node in status} != {float(100)}
 
-  logging.info('Fetching ring')
+  logger.info('Fetching ring')
   ring = get_ring()
   if max(node['skew'] for node in ring) < MAX_DRIFT:
-    logging.info('All nodes within {}% of ideal load'.format(MAX_DRIFT * 100))
+    logger.info('All nodes within {}% of ideal load'.format(MAX_DRIFT * 100))
     return
 
   # Pick two neighboring nodes with the largest difference in load. If the

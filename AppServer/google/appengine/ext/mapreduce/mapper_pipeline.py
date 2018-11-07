@@ -86,6 +86,21 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
           output_writer_spec=None,
           params=None,
           shards=None):
+    """Start a mapreduce job.
+
+    Args:
+      job_name: mapreduce name. Only for display purpose.
+      handler_spec: fully qualified name to your map function/class.
+      input_reader_spec: fully qualified name to input reader class.
+      output_writer_spec: fully qualified name to output writer class.
+      params: a dictionary of parameters for input reader and output writer
+        initialization.
+      shards: number of shards. This provides a guide to mapreduce. The real
+        number of shards is determined by how input are splited.
+    """
+    if shards is None:
+      shards = parameters.DEFAULT_SHARD_COUNT
+
     mapreduce_id = control.start_map(
         job_name,
         handler_spec,
@@ -104,6 +119,7 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
         (parameters._DEFAULT_BASE_PATH, mapreduce_id)))
 
   def callback(self):
+    """Callback after this async pipeline finishes."""
     mapreduce_id = self.outputs.job_id.value
     mapreduce_state = model.MapreduceState.get_by_job_id(mapreduce_id)
     mapper_spec = mapreduce_state.mapreduce_spec.mapper

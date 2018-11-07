@@ -109,7 +109,7 @@ def _MergeBuiltinsIncludes(appinfo_path, appyaml, open_fn=open):
 
   runtime_for_including = appyaml.runtime
   if runtime_for_including == 'vm':
-    runtime_for_including = appyaml.vm_settings['vm_runtime']
+    runtime_for_including = appyaml.vm_settings.get('vm_runtime', 'python27')
   aggregate_appinclude, include_paths = (
       _ResolveIncludes(appinfo_path,
                        appinfo.AppInclude(builtins=appyaml.builtins,

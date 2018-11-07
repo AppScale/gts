@@ -7,8 +7,8 @@ from appscale.common import async_retrying
 class TestRetryCoroutine(testing.AsyncTestCase):
 
   @patch.object(async_retrying.gen, 'sleep')
-  @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warning')
+  @patch.object(async_retrying.logger, 'error')
+  @patch.object(async_retrying.logger, 'warning')
   @testing.gen_test
   def test_no_errors(self, warning_mock, error_mock, sleep_mock):
     sleep_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
@@ -26,8 +26,8 @@ class TestRetryCoroutine(testing.AsyncTestCase):
     self.assertEqual(error_mock.call_args_list, [])
 
   @patch.object(async_retrying.gen, 'sleep')
-  @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warning')
+  @patch.object(async_retrying.logger, 'error')
+  @patch.object(async_retrying.logger, 'warning')
   @patch.object(async_retrying.random, 'random')
   @testing.gen_test
   def test_backoff_and_logging(self, random_mock, warning_mock, error_mock,
@@ -76,8 +76,8 @@ class TestRetryCoroutine(testing.AsyncTestCase):
 
   @patch.object(async_retrying.time, 'time')
   @patch.object(async_retrying.gen, 'sleep')
-  @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warning')
+  @patch.object(async_retrying.logger, 'error')
+  @patch.object(async_retrying.logger, 'warning')
   @testing.gen_test
   def test_retrying_timeout(self, warning_mock, err_mock, sleep_mock,
                             time_mock):
@@ -143,8 +143,8 @@ class TestRetryCoroutine(testing.AsyncTestCase):
 class TestRetryWatchCoroutine(testing.AsyncTestCase):
 
   @patch.object(async_retrying.locks.Condition, 'wait')
-  @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warning')
+  @patch.object(async_retrying.logger, 'error')
+  @patch.object(async_retrying.logger, 'warning')
   @testing.gen_test
   def test_no_errors(self, warning_mock, error_mock, wait_mock):
     wait_mock.side_effect = testing.gen.coroutine(lambda sec: sec)
@@ -163,8 +163,8 @@ class TestRetryWatchCoroutine(testing.AsyncTestCase):
 
   @patch.object(async_retrying.IOLoop, 'current')
   @patch.object(async_retrying.locks.Condition, 'wait')
-  @patch.object(async_retrying.logging, 'error')
-  @patch.object(async_retrying.logging, 'warning')
+  @patch.object(async_retrying.logger, 'error')
+  @patch.object(async_retrying.logger, 'warning')
   @patch.object(async_retrying.random, 'random')
   @testing.gen_test
   def test_backoff_and_logging(self, random_mock, warning_mock, error_mock,

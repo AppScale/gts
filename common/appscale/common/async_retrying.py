@@ -14,6 +14,8 @@ from appscale.common.retrying import (
   _Retry
 )
 
+logger = logging.getLogger(__name__)
+
 
 class _RetryCoroutine(_Retry):
 
@@ -60,12 +62,12 @@ class _RetryCoroutine(_Retry):
 
           # Check if need to retry
           if self.max_retries is not None and retries > self.max_retries:
-            logging.error("Giving up retrying after {} attempts during {:0.1f}s"
+            logger.error("Giving up retrying after {} attempts during {:0.1f}s"
                           .format(retries,  - start_time))
             raise
           timeout = self.retrying_timeout
           if timeout and time.time() - start_time > timeout:
-            logging.error("Giving up retrying after {} attempts during {:0.1f}s"
+            logger.error("Giving up retrying after {} attempts during {:0.1f}s"
                           .format(retries, time.time() - start_time))
             raise
           if not check_exception(err):
@@ -77,7 +79,7 @@ class _RetryCoroutine(_Retry):
           # Report problem to logs
           stacktrace = traceback.format_exc()
           msg = "Retry #{} in {:0.1f}s".format(retries, sleep_time)
-          logging.warning(stacktrace + msg)
+          logger.warning(stacktrace + msg)
 
           yield gen.sleep(sleep_time)
 
@@ -182,12 +184,12 @@ class _PersistentWatch(object):
 
             # Check if need to retry
             if max_retries is not None and retries > max_retries:
-              logging.error(
+              logger.error(
                 "Giving up retrying after {} attempts during {:0.1f}s"
                 .format(retries, time.time()-start_time))
               fail = True
             elif retrying_timeout and time.time()-start_time > retrying_timeout:
-              logging.error(
+              logger.error(
                 "Giving up retrying after {} attempts during {:0.1f}s"
                 .format(retries, time.time()-start_time))
               fail = True
@@ -207,13 +209,13 @@ class _PersistentWatch(object):
             # Report problem to logs
             stacktrace = traceback.format_exc()
             msg = "Retry #{} in {:0.1f}s".format(retries, sleep_time)
-            logging.warning(stacktrace + msg)
+            logger.warning(stacktrace + msg)
 
             # (*) Sleep with one eye open, give up if newer update wakes you
             now = IOLoop.current().time()
             interrupted = yield node_lock.condition.wait(now + sleep_time)
             if interrupted or node_lock.waiters:
-              logging.info("Giving up retrying because newer update came up")
+              logger.info("Giving up retrying because newer update came up")
               if not node_lock.waiters:
                 del self._locks[node]
               return

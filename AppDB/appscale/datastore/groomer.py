@@ -43,6 +43,8 @@ from google.appengine.api import datastore_errors
 sys.path.append(os.path.join(DASHBOARD_DIR, 'lib'))
 from dashboard_logs import RequestLogLine
 
+logger = logging.getLogger(__name__)
+
 
 class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
@@ -114,7 +116,7 @@ class DatastoreGroomer(threading.Thread):
       table_name: The database used (ie, cassandra)
       ds_path: The connection path to the datastore_server.
     """
-    logging.info("Logging started")
+    logger.info("Logging started")
 
     threading.Thread.__init__(self)
     self.zoo_keeper = zoo_keeper
@@ -143,22 +145,22 @@ class DatastoreGroomer(threading.Thread):
     """ Starts the main loop of the groomer thread. """
     while True:
 
-      logging.debug("Trying to get groomer lock.")
+      logger.debug("Trying to get groomer lock.")
       if self.get_groomer_lock():
-        logging.info("Got the groomer lock.")
+        logger.info("Got the groomer lock.")
         self.run_groomer()
         try:
           self.zoo_keeper.release_lock_with_path(zk.DS_GROOM_LOCK_PATH)
         except zk.ZKTransactionException, zk_exception:
-          logging.error("Unable to release zk lock {0}.".\
+          logger.error("Unable to release zk lock {0}.".\
             format(str(zk_exception)))
         except zk.ZKInternalException, zk_exception:
-          logging.error("Unable to release zk lock {0}.".\
+          logger.error("Unable to release zk lock {0}.".\
             format(str(zk_exception)))
       else:
-        logging.info("Did not get the groomer lock.")
+        logger.info("Did not get the groomer lock.")
       sleep_time = random.randint(1, self.LOCK_POLL_PERIOD)
-      logging.info('Sleeping for {:.1f} minutes.'.format(sleep_time/60.0))
+      logger.info('Sleeping for {:.1f} minutes.'.format(sleep_time/60.0))
       time.sleep(sleep_time)
 
   def get_groomer_lock(self):
@@ -200,11 +202,11 @@ class DatastoreGroomer(threading.Thread):
     try:
       self.db_access.batch_delete_sync(dbconstants.APP_ENTITY_TABLE, [row_key])
     except dbconstants.AppScaleDBConnectionError, db_error:
-      logging.error("Error hard deleting key {0}-->{1}".format(
+      logger.error("Error hard deleting key {0}-->{1}".format(
         row_key, db_error))
       return False
     except Exception, exception:
-      logging.error("Caught unexcepted exception {0}".format(exception))
+      logger.error("Caught unexcepted exception {0}".format(exception))
       return False
 
     return True
@@ -343,14 +345,14 @@ class DatastoreGroomer(threading.Thread):
           reference, entities, direction, prop):
           refs_to_delete.append(reference.keys()[0])
 
-      logging.debug('Removing {} indexes starting with {}'.
+      logger.debug('Removing {} indexes starting with {}'.
         format(len(refs_to_delete), [refs_to_delete[0]]))
       try:
         self.db_access.batch_delete_sync(
           table_name, refs_to_delete, column_names=dbconstants.PROPERTY_SCHEMA)
         self.index_entries_cleaned += len(refs_to_delete)
       except Exception:
-        logging.exception('Unable to delete indexes')
+        logger.exception('Unable to delete indexes')
         self.index_entries_delete_failures += 1
 
   @tornado_synchronous
@@ -375,14 +377,14 @@ class DatastoreGroomer(threading.Thread):
       entities = self.fetch_entity_dict_for_references([reference])
       if entity_key not in entities:
         index_to_delete = reference.keys()[0]
-        logging.debug('Removing {}'.format([index_to_delete]))
+        logger.debug('Removing {}'.format([index_to_delete]))
         try:
           self.db_access.batch_delete_sync(
             table_name, [index_to_delete],
             column_names=dbconstants.APP_KIND_SCHEMA)
           self.index_entries_cleaned += 1
         except dbconstants.AppScaleDBConnectionError:
-          logging.exception('Unable to delete index.')
+          logger.exception('Unable to delete index.')
           self.index_entries_delete_failures += 1
 
   def insert_scatter_indexes(self, entity_key, path, scatter_prop):
@@ -473,7 +475,7 @@ class DatastoreGroomer(threading.Thread):
       start_key = key
 
       if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
-        logging.info('Populated {} scatter property index entries'
+        logger.info('Populated {} scatter property index entries'
           .format(self.scatter_prop_vals_populated))
         self.last_logged = time.time()
 
@@ -528,11 +530,11 @@ class DatastoreGroomer(threading.Thread):
 
       self.index_entries_checked += len(references)
       if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
-        logging.info('Checked {} index entries'
+        logger.info('Checked {} index entries'
           .format(self.index_entries_checked))
         self.last_logged = time.time()
       first_ref = references[0].keys()[0]
-      logging.debug('Fetched {} total refs, starting with {}, direction: {}'
+      logger.debug('Fetched {} total refs, starting with {}, direction: {}'
         .format(self.index_entries_checked, [first_ref], direction))
 
       last_start_key = start_key
@@ -586,11 +588,11 @@ class DatastoreGroomer(threading.Thread):
 
       self.index_entries_checked += len(references)
       if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
-        logging.info('Checked {} index entries'.
+        logger.info('Checked {} index entries'.
           format(self.index_entries_checked))
         self.last_logged = time.time()
       first_ref = references[0].keys()[0]
-      logging.debug('Fetched {} kind indices, starting with {}'.
+      logger.debug('Fetched {} kind indices, starting with {}'.
         format(len(references), [first_ref]))
 
       last_start_key = start_key
@@ -709,7 +711,7 @@ class DatastoreGroomer(threading.Thread):
     namespace = entity.key().name_space()
 
     if not kind:
-      logging.warning("Entity did not have a kind {0}"\
+      logger.warning("Entity did not have a kind {0}"\
         .format(entity))
       return False
 
@@ -721,7 +723,7 @@ class DatastoreGroomer(threading.Thread):
 
     app_id = entity.key().app()
     if not app_id:
-      logging.warning("Entity of kind {0} did not have an app id"\
+      logger.warning("Entity of kind {0} did not have an app id"\
         .format(kind))
       return False
 
@@ -757,11 +759,11 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    logging.debug("Process entity {0}".format(str(entity)))
+    logger.debug("Process entity {0}".format(str(entity)))
     key = entity.keys()[0]
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
 
-    logging.debug("Entity value: {0}".format(entity))
+    logger.debug("Entity value: {0}".format(entity))
 
     ent_proto = entity_pb.EntityProto()
     ent_proto.ParseFromString(one_entity)
@@ -791,7 +793,7 @@ class DatastoreGroomer(threading.Thread):
       entities_to_write.append(namespace_entry)
 
     db.put(entities_to_write)
-    logging.debug("Done creating namespace stats")
+    logger.debug("Done creating namespace stats")
 
   def create_kind_stat_entry(self, kind, size, number, timestamp):
     """ Puts a kind statistic into the datastore.
@@ -809,7 +811,7 @@ class DatastoreGroomer(threading.Thread):
     kind_entry = metadata.Kind(key_name=kind)
     entities_to_write = [kind_stat, kind_entry]
     db.put(entities_to_write)
-    logging.debug("Done creating kind stat")
+    logger.debug("Done creating kind stat")
 
   def create_global_stat_entry(self, app_id, size, number, timestamp):
     """ Puts a global statistic into the datastore.
@@ -825,7 +827,7 @@ class DatastoreGroomer(threading.Thread):
                                    count=number,
                                    timestamp=timestamp)
     db.put(global_stat)
-    logging.debug("Done creating global stat")
+    logger.debug("Done creating global stat")
 
   def remove_old_tasks_entities(self):
     """ Queries for old tasks and removes the entity which tells
@@ -846,8 +848,8 @@ class DatastoreGroomer(threading.Thread):
       datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
 
     counter = 0
-    logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
-    logging.debug("The timeout time is {0}".format(timeout))
+    logger.debug("The current time is {0}".format(datetime.datetime.utcnow()))
+    logger.debug("The timeout time is {0}".format(timeout))
     while True:
       query = TaskName.all()
       if last_cursor:
@@ -858,15 +860,15 @@ class DatastoreGroomer(threading.Thread):
         break
       last_cursor = query.cursor()
       for entity in entities:
-        logging.debug("Removing task name {0}".format(entity.timestamp))
+        logger.debug("Removing task name {0}".format(entity.timestamp))
         entity.delete()
         counter += 1
       if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
-        logging.info('Removed {} task entities.'.format(counter))
+        logger.info('Removed {} task entities.'.format(counter))
         self.last_logged = self.LOG_PROGRESS_FREQUENCY
       self.update_groomer_state([self.CLEAN_TASKS_TASK, last_cursor])
 
-    logging.info("Removed {0} task name entities".format(counter))
+    logger.info("Removed {0} task name entities".format(counter))
     return True
 
   def clean_up_entities(self):
@@ -879,7 +881,7 @@ class DatastoreGroomer(threading.Thread):
       last_key = ""
     while True:
       try:
-        logging.debug('Fetching {} entities'.format(self.BATCH_SIZE))
+        logger.debug('Fetching {} entities'.format(self.BATCH_SIZE))
         entities = self.get_entity_batch(last_key)
 
         if not entities:
@@ -891,14 +893,14 @@ class DatastoreGroomer(threading.Thread):
         last_key = entities[-1].keys()[0]
         self.entities_checked += len(entities)
         if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
-          logging.info('Checked {} entities'.format(self.entities_checked))
+          logger.info('Checked {} entities'.format(self.entities_checked))
           self.last_logged = time.time()
         self.update_groomer_state([self.CLEAN_ENTITIES_TASK, last_key])
       except datastore_errors.Error, error:
-        logging.error("Error getting a batch: {0}".format(error))
+        logger.error("Error getting a batch: {0}".format(error))
         time.sleep(self.DB_ERROR_PERIOD)
       except dbconstants.AppScaleDBConnectionError, connection_error:
-        logging.error("Error getting a batch: {0}".format(connection_error))
+        logger.error("Error getting a batch: {0}".format(connection_error))
         time.sleep(self.DB_ERROR_PERIOD)
 
   def register_db_accessor(self, app_id):
@@ -942,21 +944,21 @@ class DatastoreGroomer(threading.Thread):
       timeout = (datetime.datetime.utcnow() -
         datetime.timedelta(seconds=log_timeout))
       query = RequestLogLine.query(RequestLogLine.timestamp < timeout)
-      logging.debug("The timeout time is {0}".format(timeout))
+      logger.debug("The timeout time is {0}".format(timeout))
     else:
       query = RequestLogLine.query()
     counter = 0
-    logging.debug("The current time is {0}".format(datetime.datetime.utcnow()))
+    logger.debug("The current time is {0}".format(datetime.datetime.utcnow()))
 
     while True:
       entities, next_cursor, more = query.fetch_page(self.BATCH_SIZE,
         start_cursor=last_cursor)
       for entity in entities:
-        logging.debug("Removing {0}".format(entity))
+        logger.debug("Removing {0}".format(entity))
         entity.key.delete()
         counter += 1
       if time.time() > self.last_logged + self.LOG_PROGRESS_FREQUENCY:
-        logging.info('Removed {} log entries.'.format(counter))
+        logger.info('Removed {} log entries.'.format(counter))
         self.last_logged = time.time()
       if more:
         last_cursor = next_cursor
@@ -964,7 +966,7 @@ class DatastoreGroomer(threading.Thread):
           last_cursor.urlsafe()])
       else:
         break
-    logging.info("Removed {0} log entries.".format(counter))
+    logger.info("Removed {0} log entries.".format(counter))
     return True
 
   def remove_old_statistics(self):
@@ -976,18 +978,18 @@ class DatastoreGroomer(threading.Thread):
       self.register_db_accessor(app_id)
       query = stats.KindStat.all()
       entities = query.run()
-      logging.debug("Result from kind stat query: {0}".format(str(entities)))
+      logger.debug("Result from kind stat query: {0}".format(str(entities)))
       for entity in entities:
-        logging.debug("Removing kind {0}".format(entity))
+        logger.debug("Removing kind {0}".format(entity))
         entity.delete()
 
       query = stats.GlobalStat.all()
       entities = query.run()
-      logging.debug("Result from global stat query: {0}".format(str(entities)))
+      logger.debug("Result from global stat query: {0}".format(str(entities)))
       for entity in entities:
-        logging.debug("Removing global {0}".format(entity))
+        logger.debug("Removing global {0}".format(entity))
         entity.delete()
-      logging.debug("Done removing old stats for app {0}".format(app_id))
+      logger.debug("Done removing old stats for app {0}".format(app_id))
 
   def update_namespaces(self, timestamp):
     """ Puts the namespace information into the datastore for applications to
@@ -1007,9 +1009,9 @@ class DatastoreGroomer(threading.Thread):
           self.create_namespace_entry(namespace, size, number, timestamp)
         except (datastore_errors.BadRequestError,
                 datastore_errors.InternalError) as error:
-          logging.error('Unable to insert namespace info: {}'.format(error))
+          logger.error('Unable to insert namespace info: {}'.format(error))
 
-      logging.info("Namespace for {0} are {1}"\
+      logger.info("Namespace for {0} are {1}"\
         .format(app_id, self.namespace_info[app_id]))
       del ds_distributed
 
@@ -1035,20 +1037,20 @@ class DatastoreGroomer(threading.Thread):
           self.create_kind_stat_entry(kind, size, number, timestamp)
         except (datastore_errors.BadRequestError,
                 datastore_errors.InternalError) as error:
-          logging.error('Unable to insert kind stat: {}'.format(error))
+          logger.error('Unable to insert kind stat: {}'.format(error))
 
       try:
         self.create_global_stat_entry(app_id, total_size, total_number,
                                       timestamp)
       except (datastore_errors.BadRequestError,
               datastore_errors.InternalError) as error:
-        logging.error('Unable to insert global stat: {}'.format(error))
+        logger.error('Unable to insert global stat: {}'.format(error))
 
-      logging.info("Kind stats for {0} are {1}"\
+      logger.info("Kind stats for {0} are {1}"\
         .format(app_id, self.stats[app_id]))
-      logging.info("Global stats for {0} are total size of {1} with " \
+      logger.info("Global stats for {0} are total size of {1} with " \
         "{2} entities".format(app_id, total_size, total_number))
-      logging.info("Number of hard deletes: {0}".format(self.num_deletes))
+      logger.info("Number of hard deletes: {0}".format(self.num_deletes))
       del ds_distributed
 
   def update_groomer_state(self, state):
@@ -1065,7 +1067,7 @@ class DatastoreGroomer(threading.Thread):
     try:
       self.zoo_keeper.update_node(self.GROOMER_STATE_PATH, zk_data)
     except zk.ZKInternalException as zkie:
-      logging.exception(zkie)
+      logger.exception(zkie)
     self.groomer_state = state
 
   def run_groomer(self):
@@ -1078,7 +1080,7 @@ class DatastoreGroomer(threading.Thread):
     self.ds_access = DatastoreDistributed(
       self.db_access, transaction_manager, zookeeper=self.zoo_keeper)
 
-    logging.info("Groomer started")
+    logger.info("Groomer started")
     start = time.time()
 
     self.reset_statistics()
@@ -1144,7 +1146,7 @@ class DatastoreGroomer(threading.Thread):
       tasks.extend(populate_scatter_prop)
 
     groomer_state = self.zoo_keeper.get_node(self.GROOMER_STATE_PATH)
-    logging.info('groomer_state: {}'.format(groomer_state))
+    logger.info('groomer_state: {}'.format(groomer_state))
     if groomer_state:
       self.update_groomer_state(
         groomer_state[0].split(self.GROOMER_STATE_DELIMITER))
@@ -1154,16 +1156,16 @@ class DatastoreGroomer(threading.Thread):
       if (len(self.groomer_state) > 0 and self.groomer_state[0] != '' and
         self.groomer_state[0] != task['id']):
         continue
-      logging.info('Starting to {}'.format(task['description']))
+      logger.info('Starting to {}'.format(task['description']))
       try:
         task['function'](*task['args'])
         if task_number != len(tasks) - 1:
           next_task = tasks[task_number + 1]
           self.update_groomer_state([next_task['id']])
       except Exception as exception:
-        logging.error('Exception encountered while trying to {}:'.
+        logger.error('Exception encountered while trying to {}:'.
           format(task['description']))
-        logging.exception(exception)
+        logger.exception(exception)
 
     self.update_groomer_state([])
 
@@ -1176,18 +1178,18 @@ class DatastoreGroomer(threading.Thread):
     del self.ds_access
 
     time_taken = time.time() - start
-    logging.info("Groomer cleaned {0} journal entries".format(
+    logger.info("Groomer cleaned {0} journal entries".format(
       self.journal_entries_cleaned))
-    logging.info("Groomer checked {0} index entries".format(
+    logger.info("Groomer checked {0} index entries".format(
       self.index_entries_checked))
-    logging.info("Groomer cleaned {0} index entries".format(
+    logger.info("Groomer cleaned {0} index entries".format(
       self.index_entries_cleaned))
-    logging.info('Groomer populated {} scatter property index entries'.format(
+    logger.info('Groomer populated {} scatter property index entries'.format(
       self.scatter_prop_vals_populated))
     if self.index_entries_delete_failures > 0:
-      logging.info("Groomer failed to remove {0} index entries".format(
+      logger.info("Groomer failed to remove {0} index entries".format(
         self.index_entries_delete_failures))
-    logging.info("Groomer took {0} seconds".format(str(time_taken)))
+    logger.info("Groomer took {0} seconds".format(str(time_taken)))
 
 
 def main():
@@ -1201,23 +1203,23 @@ def main():
                              str(constants.DB_SERVER_PORT)])
   ds_groomer = DatastoreGroomer(zookeeper, table, datastore_path)
 
-  logging.debug("Trying to get groomer lock.")
+  logger.debug("Trying to get groomer lock.")
   if ds_groomer.get_groomer_lock():
-    logging.info("Got the groomer lock.")
+    logger.info("Got the groomer lock.")
     try:
       ds_groomer.run_groomer()
     except Exception as exception:
-      logging.exception('Encountered exception {} while running the groomer.'
+      logger.exception('Encountered exception {} while running the groomer.'
         .format(str(exception)))
     try:
       ds_groomer.zoo_keeper.release_lock_with_path(zk.DS_GROOM_LOCK_PATH)
     except zk.ZKTransactionException, zk_exception:
-      logging.error("Unable to release zk lock {0}.".\
+      logger.error("Unable to release zk lock {0}.".\
         format(str(zk_exception)))
     except zk.ZKInternalException, zk_exception:
-      logging.error("Unable to release zk lock {0}.".\
+      logger.error("Unable to release zk lock {0}.".\
         format(str(zk_exception)))
     finally:
       zookeeper.close()
   else:
-    logging.info("Did not get the groomer lock.")
+    logger.info("Did not get the groomer lock.")

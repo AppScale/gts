@@ -460,6 +460,22 @@ def _GetMimeType(file_name):
   return mime_type
 
 
+def _GuessCharset(text):
+  """Guess the charset of a text.
+
+  Args:
+    text: a string (str) that is either a us-ascii string or a unicode that was
+        encoded in utf-8.
+  Returns:
+    Charset needed by the string, either 'us-ascii' or 'utf-8'.
+  """
+  try:
+    text.decode('us-ascii')
+    return 'us-ascii'
+  except UnicodeDecodeError:
+    return 'utf-8'
+
+
 def mail_message_to_mime_message(protocol_message):
   """Generate a MIMEMultitype message from protocol buffer.
 
@@ -481,10 +497,13 @@ def mail_message_to_mime_message(protocol_message):
   """
   parts = []
   if protocol_message.has_textbody():
-    parts.append(MIMEText.MIMEText(protocol_message.textbody()))
+    parts.append(MIMEText.MIMEText(
+        protocol_message.textbody(),
+        _charset=_GuessCharset(protocol_message.textbody())))
   if protocol_message.has_htmlbody():
-    parts.append(MIMEText.MIMEText(protocol_message.htmlbody(),
-                                   _subtype='html'))
+    parts.append(MIMEText.MIMEText(
+        protocol_message.htmlbody(), _subtype='html',
+        _charset=_GuessCharset(protocol_message.htmlbody())))
 
   if len(parts) == 1:
 

@@ -38,7 +38,7 @@ from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.db import stats
 from google.appengine.ext.mapreduce import control
 from google.appengine.ext.mapreduce import model
-from google.appengine.ext.mapreduce import operation
+from google.appengine.ext.mapreduce import operation as mr_operation
 from google.appengine.ext.mapreduce import util
 from google.appengine.ext.webapp import _template
 
@@ -465,6 +465,7 @@ def StartOperation(description):
   return operation
 
 
+@db.non_transactional(allow_existing=False)
 def StartMap(operation_key,
              job_name,
              handler_spec,
@@ -472,7 +473,6 @@ def StartMap(operation_key,
              writer_spec,
              mapper_params,
              mapreduce_params=None,
-             start_transaction=True,
              queue_name=None,
              shard_count=MAPREDUCE_DEFAULT_SHARDS):
   """Start map as part of datastore admin operation.
@@ -487,7 +487,6 @@ def StartMap(operation_key,
     writer_spec: Output writer specification.
     mapper_params: Custom mapper parameters.
     mapreduce_params: Custom mapreduce parameters.
-    start_transaction: Specify if a new transaction should be started.
     queue_name: the name of the queue that will be used by the M/R.
     shard_count: the number of shards the M/R will try to use.
 
@@ -505,8 +504,17 @@ def StartMap(operation_key,
     mapreduce_params['done_callback_queue'] = queue_name
   mapreduce_params['force_writes'] = 'True'
 
-  def tx():
-    operation = DatastoreAdminOperation.get(operation_key)
+  def tx(is_xg_transaction):
+    """Start MapReduce job and update datastore admin state.
+
+    Args:
+      is_xg_transaction: True if we are running inside a xg-enabled
+        transaction, else False if we are running inside a non-xg-enabled
+        transaction (which means the datastore admin state is updated in one
+        transaction and the MapReduce job in an indepedent transaction).
+    Returns:
+      result MapReduce job id as a string.
+    """
     job_id = control.start_map(
         job_name, handler_spec, reader_spec,
         mapper_params,
@@ -514,18 +522,27 @@ def StartMap(operation_key,
         mapreduce_parameters=mapreduce_params,
         base_path=config.MAPREDUCE_PATH,
         shard_count=shard_count,
-        transactional=True,
-        queue_name=queue_name,
-        transactional_parent=operation)
+        in_xg_transaction=is_xg_transaction,
+        queue_name=queue_name)
+    operation = DatastoreAdminOperation.get(operation_key)
     operation.status = DatastoreAdminOperation.STATUS_ACTIVE
     operation.active_jobs += 1
     operation.active_job_ids = list(set(operation.active_job_ids + [job_id]))
     operation.put(config=_CreateDatastoreConfig())
     return job_id
-  if start_transaction:
-    return db.run_in_transaction(tx)
+
+
+
+
+
+
+  datastore_type = datastore_rpc._GetDatastoreType()
+
+  if datastore_type != datastore_rpc.BaseConnection.MASTER_SLAVE_DATASTORE:
+    return db.run_in_transaction_options(
+        db.create_transaction_options(xg=True), tx, True)
   else:
-    return tx()
+    return db.run_in_transaction(tx, False)
 
 
 def RunMapForKinds(operation_key,
@@ -668,7 +685,7 @@ class ReserveKeyPool(object):
     self.keys = []
 
 
-class ReserveKey(operation.Operation):
+class ReserveKey(mr_operation.Operation):
   """Mapper operation to reserve key ids."""
 
   def __init__(self, key, app_id):

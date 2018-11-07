@@ -6,10 +6,12 @@ from appscale.tools.agents.euca_agent import EucalyptusAgent
 from appscale.tools.agents.gce_agent import GCEAgent
 from appscale.tools.agents.openstack_agent import OpenStackAgent
 
+logger = logging.getLogger(__name__)
+
 try:
   from appscale.tools.agents.azure_agent import AzureAgent
 except (ImportError, struct.error):
-  logging.exception('AzureAgent disabled')
+  logger.exception('AzureAgent disabled')
   AzureAgent = None
 
 __author__ = 'hiranya'

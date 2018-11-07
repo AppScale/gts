@@ -13,6 +13,8 @@ from appscale.hermes.converter import Meta, include_list_name
 from appscale.hermes.unified_service_names import \
   find_service_by_monit_name
 
+logger = logging.getLogger(__name__)
+
 
 @include_list_name('process.cpu')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -127,7 +129,7 @@ class ProcessesStatsSource(object):
         stats = _process_stats(pid, service, monit_name, private_ip)
         processes_stats.append(stats)
       except psutil.Error as err:
-        logging.warn(u"Unable to get process stats for {monit_name} ({err})"
+        logger.warn(u"Unable to get process stats for {monit_name} ({err})"
                      .format(monit_name=monit_name, err=err))
 
     # Add processes managed by the ServiceManager.
@@ -138,14 +140,14 @@ class ProcessesStatsSource(object):
                                private_ip)
         processes_stats.append(stats)
       except psutil.Error as error:
-        logging.warning(u'Unable to get process stats for '
+        logger.warning(u'Unable to get process stats for '
                         u'{} ({})'.format(server, error))
 
     stats = ProcessesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.now().timetuple()),
       processes_stats=processes_stats
     )
-    logging.info("Prepared stats about {proc} processes in {elapsed:.1f}s."
+    logger.info("Prepared stats about {proc} processes in {elapsed:.1f}s."
                  .format(proc=len(processes_stats), elapsed=time.time()-start))
     return stats
 

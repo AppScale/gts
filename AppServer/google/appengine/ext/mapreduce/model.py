@@ -79,13 +79,6 @@ from google.appengine._internal.graphy.backends import google_chart_api
 
 
 
-
-_DEFAULT_PROCESSING_RATE_PER_SEC = 1000000
-
-
-_DEFAULT_SHARD_COUNT = 8
-
-
 _MAP_REDUCE_KINDS = ("_GAE_MR_MapreduceControl",
                      "_GAE_MR_MapreduceState",
                      "_GAE_MR_ShardState",
@@ -128,7 +121,8 @@ class HugeTask(object):
                name=None,
                eta=None,
                countdown=None,
-               parent=None):
+               parent=None,
+               headers=None):
     """Init.
 
     Args:
@@ -138,6 +132,7 @@ class HugeTask(object):
       eta: task eta.
       countdown: task countdown.
       parent: parent entity of huge task's payload.
+      headers: a dict of headers for the task.
 
     Raises:
       ValueError: when payload is too big even for datastore, or parent is
@@ -151,6 +146,8 @@ class HugeTask(object):
         "Content-Type": "application/octet-stream",
         self.PAYLOAD_VERSION_HEADER: self.PAYLOAD_VERSION
     }
+    if headers:
+      self._headers.update(headers)
 
 
     payload_str = urllib.urlencode(params)
@@ -621,7 +618,7 @@ class MapperSpec(JsonMixin):
     self.handler_spec = handler_spec
     self.input_reader_spec = input_reader_spec
     self.output_writer_spec = output_writer_spec
-    self.shard_count = shard_count
+    self.shard_count = int(shard_count)
     self.params = params
 
   def get_handler(self):
@@ -676,6 +673,11 @@ class MapperSpec(JsonMixin):
                json_in["mapper_shard_count"],
                json_in.get("mapper_output_writer")
               )
+
+  def __eq__(self, other):
+    if not isinstance(other, self.__class__):
+      return False
+    return self.to_json() == other.to_json()
 
 
 class MapreduceSpec(JsonMixin):
@@ -767,6 +769,14 @@ class MapreduceSpec(JsonMixin):
                          json_in.get("hooks_class_name"))
     return mapreduce_spec
 
+  def __str__(self):
+    return str(self.to_json())
+
+  def __eq__(self, other):
+    if not isinstance(other, self.__class__):
+      return False
+    return self.to_json() == other.to_json()
+
 
 class MapreduceState(db.Model):
   """Holds accumulated state of mapreduce execution.
@@ -776,7 +786,7 @@ class MapreduceState(db.Model):
 
   Properties:
     mapreduce_spec: cached deserialized MapreduceSpec instance. read-only
-    active: if we have this mapreduce running right now
+    active: if this MR is still running.
     last_poll_time: last time controller job has polled this mapreduce.
     counters_map: shard's counters map as CountersMap. Mirrors
       counters_map_json.
@@ -784,10 +794,14 @@ class MapreduceState(db.Model):
       progress of all the shards the best way it can.
     sparkline_url: last computed mapreduce status chart url in small format.
     result_status: If not None, the final status of the job.
-    active_shards: How many shards are still processing.
+    active_shards: How many shards are still processing. This starts as 0,
+      then set by KickOffJob handler to be the actual number of input
+      readers after input splitting, and is updated by Controller task
+      as shards finish.
     start_time: When the job started.
     writer_state: Json property to be used by writer to store its state.
       This is filled when single output per job. Will be deprecated.
+      Use OutputWriter.get_filenames instead.
   """
 
   RESULT_SUCCESS = "success"
@@ -803,15 +817,15 @@ class MapreduceState(db.Model):
   counters_map = JsonProperty(CountersMap, default=CountersMap(), indexed=False)
   app_id = db.StringProperty(required=False, indexed=True)
   writer_state = JsonProperty(dict, indexed=False)
+  active_shards = db.IntegerProperty(default=0, indexed=False)
+  failed_shards = db.IntegerProperty(default=0, indexed=False)
+  aborted_shards = db.IntegerProperty(default=0, indexed=False)
+  result_status = db.StringProperty(required=False, choices=_RESULTS)
 
 
   chart_url = db.TextProperty(default="")
   chart_width = db.IntegerProperty(default=300, indexed=False)
   sparkline_url = db.TextProperty(default="")
-  result_status = db.StringProperty(required=False, choices=_RESULTS)
-  active_shards = db.IntegerProperty(default=0, indexed=False)
-  failed_shards = db.IntegerProperty(default=0, indexed=False)
-  aborted_shards = db.IntegerProperty(default=0, indexed=False)
   start_time = db.DateTimeProperty(auto_now_add=True)
 
   @classmethod
@@ -899,6 +913,11 @@ class MapreduceState(db.Model):
   def new_mapreduce_id():
     """Generate new mapreduce id."""
     return _get_descending_key()
+
+  def __eq__(self, other):
+    if not isinstance(other, self.__class__):
+      return False
+    return self.properties() == other.properties()
 
 
 class TransientShardState(object):
@@ -1022,7 +1041,7 @@ class ShardState(db.Model):
   """Single shard execution state.
 
   The shard state is stored in the datastore and is later aggregated by
-  controller task. Shard key_name is equal to shard_id.
+  controller task. ShardState key_name is equal to shard_id.
 
   Properties:
     active: if we have this shard still running as boolean.
@@ -1037,7 +1056,7 @@ class ShardState(db.Model):
     shard_description: A string description of the work this shard will do.
     last_work_item: A string description of the last work item processed.
     writer_state: writer state for this shard. This is filled when a job
-      has one output per shard by OutputWriter's create method.
+      has one output per shard by MR worker after finalizing output files.
     slice_id: slice id of current executing slice. A task
       will not run unless its slice_id matches this. Initial
       value is 0. By the end of slice execution, this number is
@@ -1141,6 +1160,10 @@ class ShardState(db.Model):
     self.slice_retries = 0
     self.acquired_once = False
 
+  def set_for_failure(self):
+    self.active = False
+    self.result_status = self.RESULT_FAILED
+
   def set_for_abort(self):
     self.active = False
     self.result_status = self.RESULT_ABORTED
@@ -1157,6 +1180,11 @@ class ShardState(db.Model):
     """Copy data from another shard state entity to self."""
     for prop in self.properties().values():
       setattr(self, prop.name, getattr(other_state, prop.name))
+
+  def __eq__(self, other):
+    if not isinstance(other, self.__class__):
+      return False
+    return self.properties() == other.properties()
 
   def get_shard_number(self):
     """Gets the shard number from the key name."""
@@ -1213,8 +1241,12 @@ class ShardState(db.Model):
     return cls.get_by_key_name(shard_id)
 
   @classmethod
+  @db.non_transactional
   def find_by_mapreduce_state(cls, mapreduce_state):
     """Find all shard states for given mapreduce.
+
+    Never runs within a transaction since it may touch >5 entity groups (one
+    for each shard).
 
     Args:
       mapreduce_state: MapreduceState instance

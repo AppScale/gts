@@ -932,20 +932,27 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
 
     if offset < len(results):
-      position_range = range(
-          offset,
-          min(offset + params.limit(), len(results)))
+
+
+      limit = offset + params.limit()
+      if limit >= len(results):
+
+
+        range_end = len(results)
+      else:
+
+
+
+        range_end = limit
+        if params.cursor_type() == search_service_pb.SearchParams.SINGLE:
+          response.set_cursor(results[range_end - 1].document.id())
+      result_range = range(offset, range_end)
     else:
-      position_range = range(0)
-    field_spec = None
+      result_range = range(0)
     field_names = params.field_spec().name_list()
-    self._FillSearchResponse(results, position_range, params.cursor_type(),
+    self._FillSearchResponse(results, result_range, params.cursor_type(),
                              _ScoreRequested(params), response, field_names,
                              params.keys_only())
-    if (params.cursor_type() == search_service_pb.SearchParams.SINGLE and
-        len(position_range)):
-      response.set_cursor(
-          results[position_range[len(position_range) - 1]].document.id())
 
     response.mutable_status().set_code(search_service_pb.SearchServiceError.OK)
 

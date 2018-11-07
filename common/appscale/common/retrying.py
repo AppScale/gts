@@ -13,6 +13,8 @@ DEFAULT_RETRY_ON_EXCEPTION = (Exception, )   # Retry after any exception.
 
 MISSED = object()
 
+logger = logging.getLogger(__name__)
+
 
 class BothMissedException(Exception):
   pass
@@ -137,12 +139,12 @@ class _Retry(object):
 
           # Check if need to retry
           if self.max_retries is not None and retries > self.max_retries:
-            logging.error("Giving up retrying after {} attempts during {:0.1f}s"
+            logger.error("Giving up retrying after {} attempts during {:0.1f}s"
                           .format(retries, time.time()-start_time))
             raise
           timeout = self.retrying_timeout
           if timeout and time.time() - start_time > timeout:
-            logging.error("Giving up retrying after {} attempts during {:0.1f}s"
+            logger.error("Giving up retrying after {} attempts during {:0.1f}s"
                           .format(retries, time.time()-start_time))
             raise
           if not check_exception(err):
@@ -154,7 +156,7 @@ class _Retry(object):
           # Report problem to logs
           stacktrace = traceback.format_exc()
           msg = "Retry #{} in {:0.1f}s".format(retries, sleep_time)
-          logging.warning(stacktrace + msg)
+          logger.warning(stacktrace + msg)
 
           time.sleep(sleep_time)
 

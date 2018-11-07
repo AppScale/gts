@@ -38,7 +38,7 @@ from google.appengine.datastore.entity_pb import CompositeIndex
 # The maximum number of transactions per project to clean up at the same time.
 MAX_CONCURRENCY = 10
 
-logger = logging.getLogger('appscale-transaction-groomer')
+logger = logging.getLogger(__name__)
 
 
 class GroomingCoordinator(object):
@@ -473,7 +473,7 @@ def main():
   args = parser.parse_args()
 
   if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
 
   zk_hosts = appscale_info.get_zk_node_ips()
   zk_client = KazooClient(hosts=','.join(zk_hosts),

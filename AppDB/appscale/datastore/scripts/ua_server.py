@@ -59,6 +59,8 @@ VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
 # Port separator used to store http and https application ports.
 PORT_SEPARATOR = '-'
 
+logger = logging.getLogger(__name__)
+
 
 class Users:
   attributes_ = USERS_SCHEMA
@@ -508,7 +510,7 @@ def usage():
 def main():
   """ Main function for running the server. """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-  logging.info('Starting UAServer')
+  logger.info('Starting UAServer')
 
   global bindport
   global datastore_type
@@ -555,7 +557,7 @@ def main():
 
   ip = "0.0.0.0"
   server = SOAPpy.SOAPServer((ip, bindport))
-  logging.info('Serving on {}'.format(bindport))
+  logger.info('Serving on {}'.format(bindport))
   # To debug this service, uncomment the 2 lines below.
   #server.config.dumpSOAPOut = 1
   #server.config.dumpSOAPIn = 1
