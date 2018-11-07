@@ -202,7 +202,7 @@ class InstancesHandler(web.RequestHandler):
     operation_ids[operation_id] = status_info
     logger.debug('Generated operation id {0} for this request.'.format(
         operation_id))
-    IOLoop.current().spawn_callback(self.__spawn_vms, agent=agent,
+    IOLoop.current().spawn_callback(InstancesHandler._spawn_vms, agent=agent,
                                     parameters=run_params,
                                     num_vms=num_vms,
                                     operation_id=operation_id)
@@ -250,13 +250,14 @@ class InstancesHandler(web.RequestHandler):
     operation_ids[operation_id] = status_info
     logger.debug('Generated operation id {0} for this request.'.format(
         operation_id))
-    IOLoop.current().spawn_callback(self.__kill_vms, agent, terminate_params,
+    IOLoop.current().spawn_callback(InstancesHandler._kill_vms, agent, terminate_params,
                                     operation_id)
     logger.info('Successfully started operation {0}.'.format(operation_id))
     self.write(json_encode({PARAM_OPERATION_ID: operation_id}))
 
 
-  def __describe_vms(self, agent, parameters):
+  @classmethod
+  def _describe_vms(cls, agent, parameters):
     """
     Private method for calling the agent to describe VMs.
 
@@ -274,9 +275,8 @@ class InstancesHandler(web.RequestHandler):
                        '{0}'.format(str(exception)))
       return [], [], []
 
-
-  @gen.coroutine
-  def __spawn_vms(self, agent, num_vms, parameters, operation_id):
+  @classmethod
+  def _spawn_vms(cls, agent, num_vms, parameters, operation_id):
     """
     Private method for starting a set of VMs
 
@@ -289,7 +289,7 @@ class InstancesHandler(web.RequestHandler):
     status_info = operation_ids[operation_id]
 
     active_public_ips, active_private_ips, active_instances = \
-      self.__describe_vms(agent, parameters)
+      cls._describe_vms(agent, parameters)
 
     try:
       security_configured = agent.configure_instance_security(parameters)
@@ -298,7 +298,8 @@ class InstancesHandler(web.RequestHandler):
       ids = instance_info[0]
       public_ips = instance_info[1]
       private_ips = instance_info[2]
-      status_info['state'] = self.STATE_SUCCESS
+      status_info['success'] = True
+      status_info['state'] = cls.STATE_SUCCESS
       status_info['vm_info'] = {
         'public_ips': public_ips,
         'private_ips': private_ips,
@@ -308,22 +309,22 @@ class InstancesHandler(web.RequestHandler):
           operation_id))
     except (AgentConfigurationException, AgentRuntimeException) as exception:
       # Check if we have had partial success starting instances.
-      public_ips, private_ips, instance_ids = \
-        self.__describe_vms(agent, parameters)
+      instance_ids, public_ips, private_ips = \
+        cls._describe_vms(agent, parameters)
 
       public_ips = agent.diff(public_ips, active_public_ips)
 
       if public_ips:
         private_ips = agent.diff(private_ips, active_private_ips)
         instance_ids = agent.diff(instance_ids, active_instances)
-        status_info['state'] = self.STATE_SUCCESS
+        status_info['state'] = cls.STATE_SUCCESS
         status_info['vm_info'] = {
           'public_ips': public_ips,
           'private_ips': private_ips,
           'instance_ids': instance_ids
         }
       else:
-        status_info['state'] = self.STATE_FAILED
+        status_info['state'] = cls.STATE_FAILED
 
       # Mark it as failed either way since the AppController never checks
       # 'success' and it technically failed.
@@ -333,8 +334,8 @@ class InstancesHandler(web.RequestHandler):
                 'failed status because: {1}'\
                 .format(operation_id, str(exception)))
 
-
-  def __kill_vms(self, agent, parameters, operation_id):
+  @classmethod
+  def _kill_vms(cls, agent, parameters, operation_id):
     """
     Private method for stopping a VM. This method assumes it has only been
     told to stop one VM.
@@ -347,14 +348,14 @@ class InstancesHandler(web.RequestHandler):
     status_info = operation_ids[operation_id]
     try:
       agent.terminate_instances(parameters)
-      status_info['state'] = self.STATE_SUCCESS
+      status_info['state'] = cls.STATE_SUCCESS
       logger.info('Successfully finished operation {0}.'.format(
           operation_id))
     except (AgentRuntimeException, AgentConfigurationException) as exception:
-      status_info['state'] = self.STATE_FAILED
+      status_info['state'] = cls.STATE_FAILED
       status_info['reason'] = str(exception)
       logger.info('Updating operation {0} to {1}.'.format(
-          operation_id, self.STATE_FAILED))
+          operation_id, cls.STATE_FAILED))
 
 
 class InstanceHandler(web.RequestHandler):
