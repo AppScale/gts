@@ -16,11 +16,10 @@ from appscale.tools.agents.base_agent import AgentRuntimeException
 from appscale.tools.agents.ec2_agent import EC2Agent
 
 full_params = {
-  'credentials': {
-    'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
-    'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
+  'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
+  'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key',
   'group': 'boogroup',
-  'image_id': 'booid',
+  'machine': 'booid',
   'infrastructure': 'ec2',
   'instance_type': 'booinstance_type',
   'keyname': 'bookeyname',
@@ -30,30 +29,27 @@ full_params = {
   'autoscale_agent': True
 }
 
-zk_client = Mock()
-agent_params = Mock()
-agent_params.state_details = full_params
-# @patch.object(iaas, 'zk_client', return_value=zk_client)
 class TestInfrastructureManager(AsyncHTTPTestCase):
 
   def get_app(self):
-    return iaas.make_app("secret")
+    return iaas.make_app("secret", True)
 
   @gen_test
   def test_describe_instances(self):
     # No secret header.
     payload_request = HTTPRequest(
-        method='GET', url=self.get_url('/instances'), headers=None, body=None
+        allow_nonstandard_methods=True, method='GET',
+        url=self.get_url('/instances'), headers=None, body=None
     )
     with self.assertRaises(HTTPError) as context:
       yield self.http_client.fetch(payload_request)
-      print context.exception
       self.assertEqual(context.exception.code, 401)
       self.assertEqual(context.exception.message, 'Invalid secret')
 
     # Invalid secret header.
     payload_request = HTTPRequest(
-        method='GET', url=self.get_url('/instances'),
+        allow_nonstandard_methods=True, method='GET',
+        url=self.get_url('/instances'),
         headers={'AppScale-Secret': 'invalid-secret'}, body=None
     )
 
@@ -64,8 +60,9 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
 
     # No operation_id.
     payload_request = HTTPRequest(
-        method='GET', url=self.get_url('/instances'), headers={
-          'AppScale-Secret': 'secret'}
+        allow_nonstandard_methods=True, method='GET',
+        url=self.get_url('/instances'),
+        headers={'AppScale-Secret': 'secret'}, body=json.dumps({})
     )
 
     with self.assertRaises(HTTPError) as context:
@@ -77,8 +74,9 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
     operation_id = '0000000000'
     # operation_id not valid.
     payload_request = HTTPRequest(
-        method='GET', url=self.get_url('/instances?operation_id={}'.format(
-            operation_id)),
+        allow_nonstandard_methods=True, method='GET',
+        url=self.get_url('/instances'),
+        body=json.dumps({'operation_id': operation_id}),
         headers={'AppScale-Secret': 'secret'}
     )
 
@@ -102,7 +100,9 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
     iaas.operation_ids[operation_id] = status_info
     result = iaas.operation_ids.get(operation_id)
     payload_request = HTTPRequest(
-        method='GET', url=self.get_url('/instances?operation_id={}'.format(operation_id)),
+        allow_nonstandard_methods=True,
+        method='GET', url=self.get_url('/instances'),
+        body=json.dumps({'operation_id': operation_id}),
         headers={'AppScale-Secret': 'secret'}
     )
     response = yield self.http_client.fetch(payload_request)
@@ -116,7 +116,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
     # No secret header.
     payload_request = HTTPRequest(
         method='POST', url=self.get_url('/instances'), headers=None,
-        body=json.dumps(None)
+        body=json.dumps({})
     )
 
     with self.assertRaises(HTTPError) as context:
@@ -127,7 +127,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
     # Invalid secret header.
     payload_request = HTTPRequest(
         method='POST', url=self.get_url('/instances'),
-        headers={'AppScale-Secret': 'invalid-secret'}, body=json.dumps(None)
+        headers={'AppScale-Secret': 'invalid-secret'}, body=json.dumps({})
     )
 
     with self.assertRaises(HTTPError) as context:
@@ -149,7 +149,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
       self.assertEqual(context.exception.message,
                        'infrastructure is a required parameter')
 
-    params2 = json.dumps({})
+    params2 = json.dumps(full_params)
     payload_request = HTTPRequest(
         method='POST', url=self.get_url('/instances'),
         headers={'AppScale-Secret': 'secret'}, body=params2
@@ -162,7 +162,9 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
       self.assertEqual(context.exception.message,
                        'num_vms is a required parameter')
 
-    params = json.dumps({'num_vms': 0})
+    params_copy = full_params.copy()
+    params_copy['num_vms'] = 0
+    params = json.dumps(params_copy)
     payload_request = HTTPRequest(
         method='POST', url=self.get_url('/instances'),
         headers={'AppScale-Secret': 'secret'}, body=params
@@ -174,62 +176,50 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
       self.assertEqual(context.exception.code, 400)
       self.assertEqual(context.exception.message, 'Invalid VM count: 0')
 
+    params_copy = full_params.copy()
+    params_copy['num_vms'] = 1
+    run_params = json.dumps(params_copy)
+
     # Passing parameter verification and calling __spawn_vms.
-    iaas.agent_params = MagicMock(state_details=full_params)
-    #with patch.dict(iaas.agent_params.state_details, full_params):
     # Successful calls ignoring callback of __spawn_vms
-    with patch.object(iaas.InstancesHandler, 'get_agent', return_value=EC2Agent):
+    with patch.object(EC2Agent, 'assert_credentials_are_valid'):
       with patch.object(IOLoop, 'spawn_callback', return_value=None):
-        params = json_encode({'num_vms': 1})
         payload_request = HTTPRequest(
             method='POST', url=self.get_url('/instances'),
-            headers={'AppScale-Secret': 'secret'}, body=params
-        )
-        response = yield self.http_client.fetch(payload_request)
-        self.assertEqual(response.code, 200)
-        self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
-
-      vm_info = {
-        'public_ips': ['public-ip'],
-        'private_ips': ['private-ip'],
-        'instance_ids': ['i-id']
-      }
-      vm_info_return = (['public-ip'], ['private-ip'], ['i-id'])
-
-      with patch.object(EC2Agent, 'run_instances',
-                        side_effect=[vm_info_return, AgentRuntimeException(
-                            "Runtime Exception")]):
-        # No Exception raised.
-        params = json.dumps({'num_vms': 1})
-        payload_request = HTTPRequest(
-            method='POST', url=self.get_url('/instances'),
-            headers={'AppScale-Secret': 'secret'}, body=params
+            headers={'AppScale-Secret': 'secret'}, body=run_params
         )
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
         self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
         operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
 
+        vm_info = {
+          'public_ips': ['public-ip'],
+          'private_ips': ['private-ip'],
+          'instance_ids': ['i-id']
+        }
+
         status_info = {
           'success': True,
           'reason': 'received run request',
-              'state': iaas.InstancesHandler.STATE_SUCCESS,
+          'state': iaas.InstancesHandler.STATE_SUCCESS,
           'vm_info': vm_info
         }
         iaas.operation_ids[operation_id] = status_info
         result = iaas.operation_ids.get(operation_id)
         payload_request = HTTPRequest(
-            method='GET', url=self.get_url('/instances?operation_id={}'.format(operation_id)), headers={
-              'AppScale-Secret': 'secret'}
+            allow_nonstandard_methods=True,
+            method='GET', url=self.get_url('/instances'),
+            body=json.dumps({'operation_id': operation_id}),
+            headers={'AppScale-Secret': 'secret'}
         )
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
         self.assertEquals(result, json.loads(response.body))
 
-        params = json.dumps({'num_vms': 1})
         payload_request = HTTPRequest(
             method='POST', url=self.get_url('/instances'),
-            headers={'AppScale-Secret': 'secret'}, body=params
+            headers={'AppScale-Secret': 'secret'}, body=run_params
         )
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
@@ -244,8 +234,10 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
         iaas.operation_ids[operation_id] = status_info
         result = iaas.operation_ids.get(operation_id)
         payload_request = HTTPRequest(
-            method='GET', url=self.get_url('/instances?operation_id={}'.format(operation_id)), headers={
-              'AppScale-Secret': 'secret'}
+            allow_nonstandard_methods=True,
+            method='GET', url=self.get_url('/instances'),
+            body=json.dumps({'operation_id': operation_id}),
+            headers={'AppScale-Secret': 'secret'}
         )
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
@@ -256,7 +248,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
     """Success cases are done in the test_{cloud}_agent files."""
     # No secret header.
     payload_request = HTTPRequest(
-        method='DELETE', url=self.get_url('/instances'), headers=None
+        method='DELETE', url=self.get_url('/instances'), headers={}
     )
 
     with self.assertRaises(HTTPError) as context:
@@ -278,8 +270,9 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
       self.assertEqual(context.exception.message, 'Invalid secret')
 
     payload_request = HTTPRequest(
+        allow_nonstandard_methods=True,
         method='DELETE', url=self.get_url('/instances'),
-        headers={'AppScale-Secret': 'secret'}
+        headers={'AppScale-Secret': 'secret'}, body=json.dumps({})
     )
 
     with self.assertRaises(HTTPError) as context:
@@ -287,76 +280,84 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
 
       self.assertEqual(context.exception.code, 400)
       self.assertEqual(context.exception.message,
-                       'num_vms is a required parameter')
+                       'infrastructure is a required parameter')
 
-    test_instance_id = 'i-foobar'
+    payload_request = HTTPRequest(
+        allow_nonstandard_methods=True,
+        method='DELETE', url=self.get_url('/instances'),
+        headers={'AppScale-Secret': 'secret'}, body=json.dumps(full_params)
+    )
+
+    with self.assertRaises(HTTPError) as context:
+      yield self.http_client.fetch(payload_request)
+
+      self.assertEqual(context.exception.code, 400)
+      self.assertEqual(context.exception.message,
+                       'instance_ids is a required parameter')
+
+    params_copy = full_params.copy()
+    params_copy['instance_ids'] = ['i-foobar']
+    terminate_params = json.dumps(params_copy)
+
     # Successful calls ignoring callback of __kill_vms
-    with patch.object(iaas.InstancesHandler, 'get_agent', return_value=EC2Agent):
-      with patch.dict(iaas.agent_params.state_details, full_params):
-        with patch.object(IOLoop, 'spawn_callback', return_value=None):
-          payload_request = HTTPRequest(
-              method='DELETE',
-              url=self.get_url('/instances?instance_id={}'.format(test_instance_id)),
-              headers={'AppScale-Secret': 'secret'}
-          )
-          response = yield self.http_client.fetch(payload_request)
-          self.assertEqual(response.code, 200)
-          self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
+    with patch.object(EC2Agent, 'assert_credentials_are_valid'):
+      with patch.object(IOLoop, 'spawn_callback', return_value=None):
+        payload_request = HTTPRequest(
+            allow_nonstandard_methods=True,
+            method='DELETE',
+            url=self.get_url('/instances'), body=terminate_params,
+            headers={'AppScale-Secret': 'secret'}
+        )
+        response = yield self.http_client.fetch(payload_request)
+        self.assertEqual(response.code, 200)
+        self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
+        operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
 
-        with patch.object(EC2Agent,
-                          'terminate_instances',
-                          side_effect=[None, AgentRuntimeException("Exception!")]):
-          # No Exception raised.
-          payload_request = HTTPRequest(
-              method='DELETE',
-              url=self.get_url('/instances?instance_id={}'.format(test_instance_id)),
-              headers={'AppScale-Secret': 'secret'}
-          )
-          response = yield self.http_client.fetch(payload_request)
-          self.assertEqual(response.code, 200)
-          self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
-          operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
+        # operation_id valid.
 
-          # operation_id valid.
+        status_info = {
+          'success': True,
+          'reason': 'received kill request',
+          'state': iaas.InstancesHandler.STATE_SUCCESS,
+        }
+        iaas.operation_ids[operation_id] = status_info
+        result = iaas.operation_ids.get(operation_id)
+        payload_request = HTTPRequest(
+            allow_nonstandard_methods=True,
+            method='GET',
+            url=self.get_url('/instances'),
+            body=json.dumps({'operation_id': operation_id}),
+            headers={'AppScale-Secret': 'secret'}
+        )
+        response = yield self.http_client.fetch(payload_request)
+        self.assertEqual(response.code, 200)
+        self.assertEquals(result, json.loads(response.body))
 
-          status_info = {
-            'success': True,
-            'reason': 'received kill request',
-            'state': iaas.InstancesHandler.STATE_SUCCESS,
-          }
-          iaas.operation_ids[operation_id] = status_info
-          result = iaas.operation_ids.get(operation_id)
-          payload_request = HTTPRequest(
-              method='GET',
-              url=self.get_url('/instances?operation_id={}'.format(operation_id)),
-              headers={'AppScale-Secret': 'secret'}
-          )
-          response = yield self.http_client.fetch(payload_request)
-          self.assertEqual(response.code, 200)
-          self.assertEquals(result, json.loads(response.body))
-
-          # AgentRuntimeException raised.
-          payload_request = HTTPRequest(
-              method='DELETE',
-              url=self.get_url('/instances?instance_id={}'.format(test_instance_id)),
-              headers={'AppScale-Secret': 'secret'}
-          )
-          response = yield self.http_client.fetch(payload_request)
-          self.assertEqual(response.code, 200)
-          self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
-          operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
-          # operation_id valid.
-          status_info = {
-            'success': False,
-            'state': iaas.InstancesHandler.STATE_FAILED,
-            'reason': str(AgentRuntimeException)
-          }
-          iaas.operation_ids[operation_id] = status_info
-          result = iaas.operation_ids.get(operation_id)
-          payload_request = HTTPRequest(
-              method='GET', url=self.get_url('/instances?operation_id={}'.format(operation_id)), headers={
-                'AppScale-Secret': 'secret'}
-          )
-          response = yield self.http_client.fetch(payload_request)
-          self.assertEqual(response.code, 200)
-          self.assertEquals(result, json.loads(response.body))
+        # AgentRuntimeException raised.
+        payload_request = HTTPRequest(
+            allow_nonstandard_methods=True,
+            method='DELETE',
+            url=self.get_url('/instances'), body=terminate_params,
+            headers={'AppScale-Secret': 'secret'}
+        )
+        response = yield self.http_client.fetch(payload_request)
+        self.assertEqual(response.code, 200)
+        self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
+        operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
+        # operation_id valid.
+        status_info = {
+          'success': False,
+          'state': iaas.InstancesHandler.STATE_FAILED,
+          'reason': str(AgentRuntimeException)
+        }
+        iaas.operation_ids[operation_id] = status_info
+        result = iaas.operation_ids.get(operation_id)
+        payload_request = HTTPRequest(
+            allow_nonstandard_methods=True,
+            method='GET', url=self.get_url('/instances'),
+            body=json.dumps({'operation_id': operation_id}),
+            headers={'AppScale-Secret': 'secret'}
+        )
+        response = yield self.http_client.fetch(payload_request)
+        self.assertEqual(response.code, 200)
+        self.assertEquals(result, json.loads(response.body))
