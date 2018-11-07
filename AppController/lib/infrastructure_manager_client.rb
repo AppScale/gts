@@ -117,6 +117,8 @@ class InfrastructureManagerClient
       'keyname' => options['keyname'],
       'use_spot_instances' => options['use_spot_instances'],
       'max_spot_price' => options['max_spot_price'],
+      'aws_vpc_id' => options['aws_vpc_id'],
+      'aws_subnet_id' => options['aws_subnet_id'],
       'azure_subscription_id' => options['azure_subscription_id'],
       'azure_app_id' => options['azure_app_id'],
       'azure_app_secret_key' => options['azure_app_secret_key'],
