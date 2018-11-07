@@ -587,11 +587,15 @@ class VersionsHandler(BaseHandler):
     # Prevent multiple versions per service.
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Invalid version ID')
+                            message='AppScale currently does not support versions, '
+                                    'so you have to use default version ID, i.e. "v1"')
 
     if not self.VERSION_ID_RE.match(version['id']):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Invalid version ID')
+                            message='Invalid version ID. '
+                                    'May only contain lowercase letters, digits, '
+                                    'and hyphens. Must begin and end with a letter '
+                                    'or digit. Must not exceed 63 characters.')
 
     for reserved_id in self.RESERVED_VERSION_IDS:
       if re.match(reserved_id, version['id']):
