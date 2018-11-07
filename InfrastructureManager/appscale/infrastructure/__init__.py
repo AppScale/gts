@@ -30,16 +30,14 @@ DEFAULT_PORT = 17444
 # Parameters required by InfrastructureManager
 PARAM_OPERATION_ID = 'operation_id'
 
-# Parameters for agent calls.
-PARAM_INSTANCE_IDS = 'instance_ids'
+# Parameters expected in request bodies for certain agent calls.
+PARAM_DISK_NAME = 'disk_name'
 PARAM_INFRASTRUCTURE = 'infrastructure'
+PARAM_INSTANCE_ID = 'instance_id'
 PARAM_NUM_VMS = 'num_vms'
-PARAM_AUTOSCALE_AGENT = 'autoscale_agent'
 
 # The state of each operation.
 operation_ids = OperationIdsCache()
-
-ENSURE_WATCH_INTERVAL = 60 * 1000
 
 
 class CustomHTTPError(web.HTTPError):
@@ -53,6 +51,36 @@ class CustomHTTPError(web.HTTPError):
                                           log_message=log_message,
                                           reason=reason)
     self.kwargs = kwargs
+
+
+
+def get_agent(agent_factory, operation, args, scaling_params=None):
+    """ Returns an agent and the parameters reformatted from the given
+    parameters. The point of this is so the controller doesn't have to
+    rearrange the dictionary and it can all be done by the agent.
+
+    Args:
+      agent_factory: The Agent Factory to use.
+      infrastructure: The infrastructure agent to create.
+      operation: The agent operation that we are going to run.
+      args: The original dictionary received from the AppController.
+      scaling_params: A dictionary containing additional keys to be added
+        for an agent operation. Ex: 'instance_ids' required for
+        terminate_instances so needs to be added before asserting required
+        parameters.
+    Returns:
+      A tuple containing the Agent instance and the dictionary of parameters
+        that have been verified.
+    Raises:
+      AgentConfigurationException if we are missing required parameters.
+    """
+    agent = agent_factory.create_agent(args[PARAM_INFRASTRUCTURE])
+    parameters = agent.get_params_from_args(args)
+    parameters[BaseAgent.PARAM_AUTOSCALE_AGENT] = True
+    if scaling_params:
+      parameters.update(scaling_params)
+    agent.assert_required_parameters(parameters, operation)
+    return (agent, parameters)
 
 class InstancesHandler(web.RequestHandler):
   """InstancesHandler is used to start and stop instances in a supported
@@ -73,30 +101,6 @@ class InstancesHandler(web.RequestHandler):
       agent_factory: An Agent Factory.
     """
     self.agent_factory = agent_factory
-
-  def get_agent(self, operation, scaling_parameters):
-    """ Returns an agent and the parameters reformatted from the given
-    parameters.
-
-    Args:
-      operation: The agent operation that we are going to run.
-      scaling_parameters: A dictionary containing additional keys to be added
-        for scaling up or down. Ex: 'instance_ids' required for
-        terminate_instances so needs to be added.
-    Returns:
-      A tuple containing the Agent instance and the dictionary of parameters
-        that have been verified.
-    Raises:
-      AgentConfigurationException if we are missing required parameters.
-    """
-    infrastructure = scaling_parameters[PARAM_INFRASTRUCTURE]
-    agent = self.agent_factory.create_agent(infrastructure)
-    parameters = agent.get_params_from_args(scaling_parameters)
-    parameters[PARAM_AUTOSCALE_AGENT] = True
-    if scaling_parameters:
-      parameters.update(scaling_parameters)
-    agent.assert_required_parameters(parameters, operation)
-    return (agent, parameters)
 
   @gen.coroutine
   def get(self):
@@ -158,8 +162,13 @@ class InstancesHandler(web.RequestHandler):
 
     Args:
       AppScale-Secret: Required in header. Authentication to deployment.
-      num_vms: Required in body. Number of VMs to start.
-
+      args: The request body, a dictionary of values needed to start
+        instances in the specified infrastructure. Infrastructure specific
+        checks are made in  'get_agent', but the following parameters will be
+        verified here:
+          num_vms: Required in body. Number of VMs to start.
+          infrastructure: Required in body, infrastructure to construct an agent
+            for.
     Returns:
       If the secret is valid and all the required parameters are available in
       the input parameter map, this method will return a dictionary containing
@@ -172,21 +181,23 @@ class InstancesHandler(web.RequestHandler):
         or self.request.headers['AppScale-Secret'] != options.secret:
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    parameters = json_decode(self.request.body)
+    args = json_decode(self.request.body)
 
     logger.info('Received a request to run instances.')
-    if PARAM_NUM_VMS not in parameters:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-          message='{} is a required parameter'.format(PARAM_NUM_VMS))
+    for arg in [PARAM_INFRASTRUCTURE, PARAM_NUM_VMS]:
+      if arg not in args:
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+              message='{} is a required parameter'.format(arg))
 
-    num_vms = int(parameters[PARAM_NUM_VMS])
+    num_vms = int(args[PARAM_NUM_VMS])
     if num_vms <= 0:
       logger.warn('Invalid VM count: {0}'.format(num_vms))
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid VM count: {0}'.format(num_vms))
 
     try:
-      agent, run_params = self.get_agent(BaseAgent.OPERATION_RUN, parameters)
+      agent, run_params = get_agent(self.agent_factory,
+                                    BaseAgent.OPERATION_RUN, args)
     except AgentConfigurationException as exception:
       logger.exception("Error creating agent!")
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
@@ -215,7 +226,13 @@ class InstancesHandler(web.RequestHandler):
     Terminate a virtual machine.
     Args:
       AppScale-Secret: Required in header. Authentication to deployment.
-      instance_id: Required in body. Instance id to terminate.
+      args: The request body, a dictionary of values needed to start
+        instances in the specified infrastructure. Infrastructure specific
+        checks are made in  'get_agent', but the following parameters will be
+        verified here:
+          instance_id: Required in body. Instance id to terminate.
+          infrastructure: Required in body, infrastructure to construct an agent
+            for.
     Returns:
       If the secret is valid and all the required parameters are available in
       the input parameter map, this method will return a dictionary containing
@@ -228,13 +245,19 @@ class InstancesHandler(web.RequestHandler):
         and self.request.headers['AppScale-Secret'] != options.secret:
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    parameters = json_decode(self.request.body)
-    if not parameters or PARAM_INSTANCE_IDS not in parameters:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Instance id is required')
+    args = json_decode(self.request.body)
+    for arg in [PARAM_INFRASTRUCTURE, BaseAgent.PARAM_INSTANCE_IDS]:
+      if arg not in args:
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                                message='{} is required'.format(arg))
+
+    # Dictionary containing the keys and values that need to be added to the
+    # parameters in order to perform a terminate_instances request.
+    scaling_params = {BaseAgent.PARAM_INSTANCE_IDS: args[BaseAgent.PARAM_INSTANCE_IDS]}
     try:
-      agent, terminate_params = self.get_agent(BaseAgent.OPERATION_TERMINATE,
-                                               parameters)
+      agent, terminate_params = get_agent(self.agent_factory,
+                                          BaseAgent.OPERATION_TERMINATE,
+                                          args, scaling_params)
     except AgentConfigurationException as exception:
       logger.exception("Error creating agent!")
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
@@ -262,8 +285,9 @@ class InstancesHandler(web.RequestHandler):
     Private method for calling the agent to describe VMs.
 
     Args:
-      agent           Infrastructure agent in charge of current operation
-      parameters      A dictionary of parameters
+      agent: Infrastructure agent in charge of current operation
+      parameters: A dictionary of values needed to describe instances in the
+        specified infrastructure.
     Returns:
       If the agent is able to describe instances, return the list of instance
       ids, public ips, and private ips. If the agent fails, return empty lists.
@@ -281,10 +305,11 @@ class InstancesHandler(web.RequestHandler):
     Private method for starting a set of VMs
 
     Args:
-      agent           Infrastructure agent in charge of current operation
-      num_vms         No. of VMs to be spawned
-      parameters      A dictionary of parameters
-      operation_id  Operation ID of the current run request
+      agent: Infrastructure agent in charge of current operation
+      num_vms: No. of VMs to be spawned
+      parameters: A dictionary of values needed to start instances in the
+        specified infrastructure.
+      operation_id: Operation ID of the current run request
     """
     status_info = operation_ids[operation_id]
 
@@ -341,9 +366,10 @@ class InstancesHandler(web.RequestHandler):
     told to stop one VM.
 
     Args:
-      agent       Infrastructure agent in charge of current operation
-      parameters  A dictionary of parameters
-      operation_id    Operation ID of the current terminate request
+      agent: Infrastructure agent in charge of current operation
+      parameters: A dictionary of values needed to terminate instances in the
+        specified infrastructure.
+      operation_id: Operation ID of the current terminate request
     """
     status_info = operation_ids[operation_id]
     try:
@@ -379,13 +405,6 @@ class InstanceHandler(web.RequestHandler):
 
     Args:
       AppScale-Secret: Required in header. Authentication to deployment.
-      parameters: A dict containing the credentials necessary to send requests
-        to the underlying cloud infrastructure.
-      disk_name: A str corresponding to the name of the persistent disk that
-        should be attached to this machine.
-      instance_id: A str naming the instance id that the disk should be attached
-        to (typically this machine).
-      secret: A str that authenticates the caller.
     """
     if 'AppScale-Secret' in self.request.headers \
         and self.request.headers['AppScale-Secret'] != options.secret:
@@ -422,26 +441,37 @@ class InstanceHandler(web.RequestHandler):
 
     Args:
       AppScale-Secret: Required in header. Authentication to deployment.
-      parameters: A dict containing the credentials necessary to send requests
-        to the underlying cloud infrastructure.
-      secret: A str that authenticates the caller.
+      args: the request body, a dictionary of values needed to start
+        instances in the specified infrastructure. Infrastructure specific
+        checks are made in  'get_agent', but the following parameters will be
+        verified here:
+          disk_name: A str corresponding to the name of the persistent disk that
+            should be attached to this machine.
+          instance_id: A str naming the instance id that the disk should be
+            attached to (typically this machine).
+          infrastructure: Required in body, infrastructure to construct an agent
+            for.
     """
     if 'AppScale-Secret' in self.request.headers \
         and self.request.headers['AppScale-Secret'] != options.secret:
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    parameters = json_decode(self.request.body)
-    for param in ['disk_name', 'instance_id', PARAM_INFRASTRUCTURE]:
-      if param not in parameters:
+    args = json_decode(self.request.body)
+    for arg in [PARAM_DISK_NAME, PARAM_INFRASTRUCTURE, PARAM_INSTANCE_ID]:
+      if arg not in args:
         raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-            message='{} is a required parameter'.format(param))
+            message='{} is a required parameter'.format(arg))
 
-    infrastructure = parameters[PARAM_INFRASTRUCTURE]
-    agent = self.agent_factory.create_agent(infrastructure)
-    attach_params = agent.get_params_from_args(parameters)
-    attach_params.update(parameters)
-    disk_location = agent.attach_disk(attach_params, attach_params['disk_name'],
-                                      attach_params['instance_id'])
+    # There is no "operation_attach_disk" so send None for operation and no
+    # additional parameters are required.
+    agent, attach_params = get_agent(self.agent_factory, None, args)
+    try:
+      disk_location = agent.attach_disk(attach_params,
+                                        args[PARAM_DISK_NAME],
+                                        args[PARAM_INSTANCE_ID])
+    except (AgentRuntimeException, AgentConfigurationException) as e:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Error attaching disk! {}'.format(e))
     self.write(json_encode({'location': disk_location}))
 
 class Respond404Handler(web.RequestHandler):
