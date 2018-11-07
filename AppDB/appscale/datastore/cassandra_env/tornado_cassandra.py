@@ -3,6 +3,8 @@ import logging
 from tornado.concurrent import Future as TornadoFuture
 from tornado.ioloop import IOLoop
 
+logger = logging.getLogger(__name__)
+
 
 class TornadoCassandra(object):
   """ A wrapper that converts Cassandra futures to Tornado futures. """
@@ -45,7 +47,7 @@ class TornadoCassandra(object):
     """
     if cassandra_future.has_more_pages:
       cassandra_future.start_fetching_next_page()
-      logging.debug("Fetching next page of cassandra response")
+      logger.debug("Fetching next page of cassandra response")
       return
 
     result = cassandra_future.result()
@@ -61,5 +63,5 @@ class TornadoCassandra(object):
       tornado_future: A Tornado future.
       query: An instance of Cassandra query.
     """
-    logging.error(u"Failed to run query: {} ({})".format(query, error))
+    logger.error(u"Failed to run query: {} ({})".format(query, error))
     io_loop.add_callback(tornado_future.set_exception, error)

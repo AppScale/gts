@@ -6,6 +6,8 @@ from appscale.hermes import helper, constants
 from appscale.hermes.helper import JSONTags
 from appscale.hermes.converter import stats_to_dict
 
+logger = logging.getLogger(__name__)
+
 
 class NodeStatsPortalSender(object):
   def __init__(self):
@@ -28,7 +30,7 @@ class NodeStatsPortalSender(object):
       })
     }
     snapshots_num = sum(len(snapshots) for snapshots in nodes_stats.values())
-    logging.debug(
+    logger.debug(
       "Sending {snapshots} node stats snapshots about {nodes} nodes to the "
       "AppScale Portal".format(snapshots=snapshots_num, nodes=len(nodes_stats))
     )
@@ -38,7 +40,7 @@ class NodeStatsPortalSender(object):
     response = helper.urlfetch(request)
 
     if not response[JSONTags.SUCCESS]:
-      logging.error("Inaccessible resource: {}".format(url))
+      logger.error("Inaccessible resource: {}".format(url))
       return
 
 

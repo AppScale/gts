@@ -12,7 +12,7 @@ from appscale.admin.instance_manager.constants import (
   CONFLICTING_JARS, LOGROTATE_CONFIG_DIR, MODIFIED_JARS, MONIT_INSTANCE_PREFIX)
 from appscale.common.constants import CONFIG_DIR
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 def fetch_file(host, location):
@@ -113,12 +113,12 @@ def remove_logrotate(app_name):
   """
   app_logrotate_script = "{0}/appscale-{1}".\
     format(LOGROTATE_CONFIG_DIR, app_name)
-  logging.debug("Removing script: {}".format(app_logrotate_script))
+  logger.debug("Removing script: {}".format(app_logrotate_script))
 
   try:
     os.remove(app_logrotate_script)
   except OSError:
-    logging.error("Error deleting {0}".format(app_logrotate_script))
+    logger.error("Error deleting {0}".format(app_logrotate_script))
     return False
 
   return True
@@ -152,7 +152,7 @@ def setup_logrotate(app_name, log_size):
   copytruncate
 }}
 """.format(log_prefix=log_prefix, size=log_size)
-  logging.debug("Logrotate file: {} - Contents:\n{}".
+  logger.debug("Logrotate file: {} - Contents:\n{}".
     format(app_logrotate_script, contents))
 
   with open(app_logrotate_script, 'w') as app_logrotate_fd:

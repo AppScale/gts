@@ -74,7 +74,7 @@ from .resource_validator import validate_resource, ResourceValidationError
 from .service_manager import ServiceManager, ServiceManagerHandler
 from .summary import get_combined_services
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 # The state of each operation.
 operations = OperationsCache()
@@ -815,7 +815,7 @@ class VersionsHandler(BaseHandler):
     operations[operation.id] = operation
 
     pre_wait = REDEPLOY_WAIT if version_exists else 0
-    logging.debug(
+    logger.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
     IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id)
 
@@ -1287,7 +1287,7 @@ def main():
     return
 
   if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
 
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
