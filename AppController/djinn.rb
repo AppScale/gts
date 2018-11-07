@@ -3027,18 +3027,18 @@ class Djinn
   end
 
   # Removes information associated with the given IP address from our local
-  # cache (@nodes) as well as the remote node storage mechanism (in ZooKeeper).
+  # cache (@nodes) as well as the remote node storage mechanism (in
+  # ZooKeeper). This method needs to be called within APPS_LOCK.
   def remove_node_from_local_and_zookeeper(ip)
     # First, remove our local copy
     index_to_remove = nil
     @state_change_lock.synchronize {
       @nodes.each_index { |i|
-        if @nodes[i].private_ip == ip
-          index_to_remove = i
-          break
-        end
+        next unless @nodes[i].private_ip == ip
+        index_to_remove = i
+        break
       }
-      @nodes.delete(@nodes[index_to_remove])
+      @nodes.delete_at(index_to_remove) if index_to_remove
     }
 
     # Then remove the remote copy
