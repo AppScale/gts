@@ -1141,14 +1141,13 @@ class Djinn
       end
     end
 
-    APPS_LOCK.syncrhonized { JSON.dump(@cluster_stats) }
+    APPS_LOCK.synchronized { JSON.dump(@cluster_stats) }
   end
 
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache
-    # We want to have only one sets of stats requests to be pending at
-    # each time.
+    # We want to have only one set of requests to be pending at each time.
     if STATS_LOCK.locked?
       Djinn.log_debug("Another thread is already updating cluster stats.")
       return
@@ -1185,7 +1184,7 @@ class Djinn
       }
     }
 
-    APPS_LOCK.syncrhonized { @cluster_stats = new_stats }
+    APPS_LOCK.synchronized { @cluster_stats = new_stats }
     Djinn.log_debug("Updated cluster stats.")
   end
 
