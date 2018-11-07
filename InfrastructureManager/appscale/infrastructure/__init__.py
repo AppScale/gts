@@ -194,7 +194,7 @@ class InstancesHandler(web.RequestHandler):
 
     operation_id = str(uuid.uuid4())
     status_info = {
-      'success': True,
+      'success': False,
       'reason': 'received run request',
       'state': self.STATE_PENDING,
       'vm_info': None
@@ -242,7 +242,7 @@ class InstancesHandler(web.RequestHandler):
 
     operation_id = str(uuid.uuid4())
     status_info = {
-      'success': True,
+      'success': False,
       'reason': 'received kill request',
       'state': self.STATE_PENDING,
       'vm_info': None
@@ -348,6 +348,7 @@ class InstancesHandler(web.RequestHandler):
     status_info = operation_ids[operation_id]
     try:
       agent.terminate_instances(parameters)
+      status_info['success'] = True
       status_info['state'] = cls.STATE_SUCCESS
       logger.info('Successfully finished operation {0}.'.format(
           operation_id))

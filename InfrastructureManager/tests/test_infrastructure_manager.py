@@ -361,3 +361,139 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
         self.assertEquals(result, json.loads(response.body))
+
+  @gen_test
+  def test_spawn_vms(self):
+    no_vms = ([], [], [])
+    vm_info_return = (['i-id'], ['public-ip'], ['private-ip'])
+    agent_exception = AgentRuntimeException("Runtime Exception")
+    mocked_agent = EC2Agent()
+    mocked_agent.assert_credentials_are_valid = MagicMock()
+    mocked_agent.run_instances = MagicMock(side_effect=[vm_info_return,
+                                                        agent_exception,
+                                                        agent_exception])
+    mocked_agent.describe_instances = MagicMock(side_effect=[no_vms,
+                                                             vm_info_return])
+    mocked_agent.configure_instance_security = MagicMock()
+
+    initial_status_info = {
+      'success': False,
+      'reason': 'received run request',
+      'state': iaas.InstancesHandler.STATE_PENDING
+    }
+    iaas.operation_ids['op_id'] = initial_status_info
+    iaas.InstancesHandler._spawn_vms(mocked_agent, 1, full_params, 'op_id')
+    vm_info = {
+      'public_ips': ['public-ip'],
+      'private_ips': ['private-ip'],
+      'instance_ids': ['i-id']
+    }
+
+    result_status_info = {
+      'success': True,
+      'reason': 'received run request',
+      'state': iaas.InstancesHandler.STATE_SUCCESS,
+      'vm_info': vm_info
+    }
+
+    self.assertEqual(iaas.operation_ids['op_id'], result_status_info)
+
+    # Exception happened but vms were started.
+    mocked_agent.describe_instances = MagicMock(side_effect=[no_vms,
+                                                             vm_info_return])
+    initial_status_info = {
+      'success': False,
+      'reason': 'received run request',
+      'state': iaas.InstancesHandler.STATE_PENDING
+    }
+    iaas.operation_ids['op_id_2'] = initial_status_info
+    iaas.InstancesHandler._spawn_vms(mocked_agent, 1, full_params, 'op_id_2')
+
+    result_status_info = {
+      'success': False,
+      'reason': str(agent_exception),
+      'state': iaas.InstancesHandler.STATE_SUCCESS,
+      'vm_info': vm_info
+    }
+
+    self.assertEqual(iaas.operation_ids['op_id_2'], result_status_info)
+
+    # Exception happened but vms were not started.
+    mocked_agent.describe_instances = MagicMock(side_effect=[no_vms, no_vms])
+    initial_status_info = {
+      'success': False,
+      'reason': 'received run request',
+      'state': iaas.InstancesHandler.STATE_PENDING
+    }
+    iaas.operation_ids['op_id_3'] = initial_status_info
+    iaas.InstancesHandler._spawn_vms(mocked_agent, 1, full_params, 'op_id_3')
+    result_status_info = {
+      'success': False,
+      'reason': str(agent_exception),
+      'state': iaas.InstancesHandler.STATE_FAILED,
+    }
+
+    self.assertEqual(iaas.operation_ids['op_id_3'], result_status_info)
+
+  @gen_test
+  def test_kill_vms(self):
+    agent_exception = AgentRuntimeException("Runtime Exception")
+    mocked_agent = EC2Agent()
+    mocked_agent.terminate_instances = MagicMock(side_effect=[None,
+                                                              agent_exception])
+
+    initial_status_info = {
+      'success': False,
+      'reason': 'received kill request',
+      'state': iaas.InstancesHandler.STATE_PENDING,
+      'vm_info': None
+    }
+    iaas.operation_ids['op_id'] = initial_status_info
+    terminate_params = full_params.copy()
+    terminate_params['instance_ids'] = ['i-foobar']
+    iaas.InstancesHandler._kill_vms(mocked_agent, terminate_params, 'op_id')
+
+    result_status_info = {
+      'success': True,
+      'reason': 'received kill request',
+      'state': iaas.InstancesHandler.STATE_SUCCESS,
+      'vm_info': None
+    }
+
+    self.assertEqual(iaas.operation_ids['op_id'], result_status_info)
+
+    initial_status_info = {
+      'success': False,
+      'reason': 'received kill request',
+      'state': iaas.InstancesHandler.STATE_PENDING,
+      'vm_info': None
+    }
+    iaas.operation_ids['op_id_2'] = initial_status_info
+    iaas.InstancesHandler._kill_vms(mocked_agent, terminate_params, 'op_id_2')
+    result_status_info = {
+      'success': False,
+      'reason': str(agent_exception),
+      'state': iaas.InstancesHandler.STATE_FAILED,
+      'vm_info': None
+    }
+
+    self.assertEqual(iaas.operation_ids['op_id_2'], result_status_info)
+
+  @gen_test
+  def test_describe_vms(self):
+    agent_exception = AgentRuntimeException("Runtime Exception")
+    vm_info_return = (['i-id'], ['public-ip'], ['private-ip'])
+    no_vms = ([], [], [])
+    mocked_agent = EC2Agent()
+    mocked_agent.describe_instances= MagicMock(side_effect=[vm_info_return, 
+                                                            agent_exception])
+    # Test describe vms returns values.
+    expected = vm_info_return
+    actual = iaas.InstancesHandler._describe_vms(mocked_agent, full_params)
+    self.assertEquals(actual, expected)
+
+    # Test describe vms runs into exception.
+    expected = no_vms
+    actual = iaas.InstancesHandler._describe_vms(mocked_agent, full_params)
+    self.assertEquals(actual, expected)
+
