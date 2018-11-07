@@ -12,6 +12,8 @@ from tornado.httpclient import HTTPRequest, HTTPError
 from tornado.ioloop import IOLoop
 from tornado.escape import json_encode, json_decode
 from mock import patch, Mock, PropertyMock, MagicMock
+
+from appscale.infrastructure.system_manager import SystemManager
 from appscale.tools.agents.base_agent import AgentRuntimeException
 from appscale.tools.agents.ec2_agent import EC2Agent
 
@@ -34,6 +36,9 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
   def get_app(self):
     return iaas.make_app("secret", True)
 
+  ############################################################
+  # InstancesHandler tests
+  ############################################################
   @gen_test
   def test_describe_instances(self):
     # No secret header.
@@ -362,6 +367,9 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
         self.assertEqual(response.code, 200)
         self.assertEquals(result, json.loads(response.body))
 
+  ############################################################
+  # InstancesHandler helper methods tests
+  ############################################################
   @gen_test
   def test_spawn_vms(self):
     no_vms = ([], [], [])
@@ -485,7 +493,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
     vm_info_return = (['i-id'], ['public-ip'], ['private-ip'])
     no_vms = ([], [], [])
     mocked_agent = EC2Agent()
-    mocked_agent.describe_instances= MagicMock(side_effect=[vm_info_return, 
+    mocked_agent.describe_instances= MagicMock(side_effect=[vm_info_return,
                                                             agent_exception])
     # Test describe vms returns values.
     expected = vm_info_return
@@ -497,3 +505,126 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
     actual = iaas.InstancesHandler._describe_vms(mocked_agent, full_params)
     self.assertEquals(actual, expected)
 
+  ############################################################
+  # InstanceHandler tests
+  ############################################################
+  @gen_test
+  def test_get_system_stats(self):
+    # No secret header.
+    payload_request = HTTPRequest(
+        method='GET', url=self.get_url('/instance'), headers=None
+    )
+    with self.assertRaises(HTTPError) as context:
+      yield self.http_client.fetch(payload_request)
+      self.assertEqual(context.exception.code, 401)
+      self.assertEqual(context.exception.message, 'Invalid secret')
+
+    # Invalid secret header.
+    payload_request = HTTPRequest(
+        method='GET', url=self.get_url('/instance'),
+        headers={'AppScale-Secret': 'invalid-secret'}
+    )
+
+    with self.assertRaises(HTTPError) as context:
+      yield self.http_client.fetch(payload_request)
+      self.assertEqual(context.exception.code, 401)
+      self.assertEqual(context.exception.message, 'Invalid secret')
+
+    # A method fails.
+    payload_request = HTTPRequest(
+        method='GET', url=self.get_url('/instance'),
+        headers={'AppScale-Secret': 'secret'}
+    )
+    with patch.object(SystemManager, 'get_cpu_usage', side_effect=[Exception]):
+      with self.assertRaises(HTTPError) as context:
+        yield self.http_client.fetch(payload_request)
+        self.assertEqual(context.exception.code, 500)
+
+  @gen_test
+  def test_attach_disk(self):
+    """Success cases are done in the test_{cloud}_agent files."""
+    # No secret header.
+    payload_request = HTTPRequest(
+        method='POST', url=self.get_url('/instance'), headers=None,
+        body=json.dumps({})
+    )
+
+    with self.assertRaises(HTTPError) as context:
+      yield self.http_client.fetch(payload_request)
+      self.assertEqual(context.exception.code, 401)
+      self.assertEqual(context.exception.message, 'Invalid secret')
+
+    # Invalid secret header.
+    payload_request = HTTPRequest(
+        method='POST', url=self.get_url('/instance'),
+        headers={'AppScale-Secret': 'invalid-secret'}, body=json.dumps({})
+    )
+
+    with self.assertRaises(HTTPError) as context:
+      yield self.http_client.fetch(payload_request)
+      self.assertEqual(context.exception.code, 401)
+      self.assertEqual(context.exception.message, 'Invalid secret')
+
+    # Missing parameters.
+    params1 = json.dumps({})
+    payload_request = HTTPRequest(
+        method='POST', url=self.get_url('/instance'),
+        headers={'AppScale-Secret': 'secret'}, body=params1
+    )
+
+    with self.assertRaises(HTTPError) as context:
+      yield self.http_client.fetch(payload_request)
+
+      self.assertEqual(context.exception.code, 400)
+      self.assertEqual(context.exception.message,
+                       'disk_name is a required parameter')
+
+    params2 = json.dumps({'disk_name': 'foo'})
+    payload_request = HTTPRequest(
+        method='POST', url=self.get_url('/instance'),
+        headers={'AppScale-Secret': 'secret'}, body=params2
+    )
+
+    with self.assertRaises(HTTPError) as context:
+      yield self.http_client.fetch(payload_request)
+
+      self.assertEqual(context.exception.code, 400)
+      self.assertEqual(context.exception.message,
+                       'instance_id is a required parameter')
+
+    params3 = json.dumps({'disk_name': 'foo', 'instance_id': 'i-foobar'})
+    payload_request = HTTPRequest(
+        method='POST', url=self.get_url('/instance'),
+        headers={'AppScale-Secret': 'secret'}, body=params3
+    )
+
+    with self.assertRaises(HTTPError) as context:
+      yield self.http_client.fetch(payload_request)
+
+      self.assertEqual(context.exception.code, 400)
+      self.assertEqual(context.exception.message,
+                       'infrastructure is a required parameter')
+
+    params_copy = full_params.copy()
+    params_copy.update({'disk_name': 'foo', 'instance_id': 'i-foobar'})
+    attach_params = json.dumps(params_copy)
+
+    attach_exception = AgentRuntimeException("Runtime Exception")
+    with patch.object(EC2Agent, 'assert_credentials_are_valid'):
+      with patch.object(EC2Agent, 'attach_disk', side_effect=[
+          attach_exception, '/dev/sdc']):
+        payload_request = HTTPRequest(
+            method='POST', url=self.get_url('/instance'),
+            headers={'AppScale-Secret': 'secret'}, body=attach_params
+        )
+        with self.assertRaises(HTTPError) as context:
+          yield self.http_client.fetch(payload_request)
+
+          self.assertEqual(context.exception.code, 500)
+          self.assertEqual(context.exception.message,
+                           'Error attaching disk! {}'.format(attach_exception))
+
+        response = yield self.http_client.fetch(payload_request)
+        self.assertEqual(response.code, 200)
+        self.assertTrue('location' in json_decode(response.body))
+        self.assertEqual(json_decode(response.body)['location'], '/dev/sdc')
