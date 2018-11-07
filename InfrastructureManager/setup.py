@@ -5,7 +5,7 @@ from setuptools import setup
 install_requires = [
   'appscale-common',
   'appscale-tools',
-  'requests[security]>=2.16.0,<=2.19.1',
+  'requests[security]>=2.20.0',
   'cryptography>=2.3.0',
   'psutil',
   'tornado',
