@@ -202,10 +202,14 @@ class Module(object):
     handlers.append(
         wsgi_handler.WSGIHandler(channel.application, url_pattern))
 
-    url_pattern = '/%s' % endpoints.API_SERVING_PATTERN
-    handlers.append(
-        wsgi_handler.WSGIHandler(
-            endpoints.EndpointsDispatcher(self._dispatcher), url_pattern))
+    # Add a handler for Endpoints, only if version == 1.0
+    runtime_config = self._get_runtime_config()
+    for library in runtime_config.libraries:
+      if library.name == 'endpoints' and library.version == '1.0':
+        url_pattern = '/%s' % endpoints.API_SERVING_PATTERN
+        handlers.append(
+            wsgi_handler.WSGIHandler(
+                endpoints.EndpointsDispatcher(self._dispatcher), url_pattern))
 
     found_start_handler = False
     found_warmup_handler = False
@@ -420,15 +424,16 @@ class Module(object):
     self._python_config = python_config
     self._cloud_sql_config = cloud_sql_config
     self._request_data = request_data
-    # _create_instance_factory() transitively calls _get_runtime_config, which
-    # uses self._allow_skipped_files.
     self._allow_skipped_files = allow_skipped_files
-    self._instance_factory = self._create_instance_factory(
-        self._module_configuration)
     self._dispatcher = dispatcher
     self._max_instances = max_instances
     self._automatic_restarts = automatic_restarts
     self._use_mtime_file_watcher = use_mtime_file_watcher
+    self._default_version_port = default_version_port
+    self._port_registry = port_registry
+
+    self._instance_factory = self._create_instance_factory(
+        self._module_configuration)
     if self._automatic_restarts:
       self._watcher = file_watcher.get_file_watcher(
           [self._module_configuration.application_root] +
@@ -438,9 +443,6 @@ class Module(object):
       self._watcher = None
     self._handler_lock = threading.Lock()
     self._handlers = self._create_url_handlers()
-    self._default_version_port = default_version_port
-    self._port_registry = port_registry
-
     self._balanced_module = wsgi_server.WsgiServer(
         (self._host, self._balanced_port), self)
     self._quit_event = threading.Event()  # Set when quit() has been called.
@@ -540,7 +542,7 @@ class Module(object):
 
   # AppScale: Check if the instance should be shutting down before handling
   # request.
-  def _handle_request(self, environ, start_response, **kwargs):
+  def _handle_request(self, environ, start_response, *args, **kwargs):
     """ A _handle_request wrapper that keeps track of active requests.
 
     Args:
@@ -558,7 +560,8 @@ class Module(object):
       self.request_count += 1
 
     try:
-      return self._handle_request_impl(environ, start_response, **kwargs)
+      return self._handle_request_impl(environ, start_response, *args,
+                                       **kwargs)
     finally:
       with self.graceful_shutdown_lock:
         self.request_count -= 1

@@ -166,14 +166,24 @@ class APIServer(wsgi_server.WsgiServer):
       api_response = _execute_request(request).Encode()
       response.set_response(api_response)
     except Exception, e:
-      logging.debug('Exception while handling %s\n%s',
-                    request,
-                    traceback.format_exc())
-      response.set_exception(pickle.dumps(e))
       if isinstance(e, apiproxy_errors.ApplicationError):
+        level = logging.DEBUG
         application_error = response.mutable_application_error()
         application_error.set_code(e.application_error)
         application_error.set_detail(e.error_detail)
+        # TODO: is this necessary? Python remote stub ignores exception
+        # when application error is specified; do other runtimes use it?
+        response.set_exception(pickle.dumps(e))
+      else:
+        # If the runtime instance is not Python, it won't be able to unpickle
+        # the exception so use level that won't be ignored by default.
+        level = logging.ERROR
+        # Even if the runtime is Python, the exception may be unpicklable if
+        # it requires importing a class blocked by the sandbox so just send
+        # back the exception representation.
+        response.set_exception(pickle.dumps(RuntimeError(repr(e))))
+      logging.log(level, 'Exception while handling %s\n%s', request,
+                  traceback.format_exc())
     encoded_response = response.Encode()
     logging.debug('Handled %s.%s in %0.4f',
                   request.service_name(),
@@ -221,9 +231,10 @@ def setup_stubs(
     search_index_path,
     taskqueue_auto_run_tasks,
     taskqueue_default_http_server,
-    uaserver_path,
     user_login_url,
     user_logout_url,
+    default_gcs_bucket_name,
+    uaserver_path,
     xmpp_path):
   """Configures the APIs hosted by this server.
 
@@ -273,18 +284,20 @@ def setup_stubs(
         be run automatically or it the must be manually triggered.
     taskqueue_default_http_server: A str containing the address of the http
         server that should be used to execute tasks.
-    uaserver_path: (AppScale-specific) A str containing the FQDN or IP address
-        of the machine that runs a UserAppServer.
     user_login_url: A str containing the url that should be used for user login.
     user_logout_url: A str containing the url that should be used for user
         logout.
+    default_gcs_bucket_name: A str, overriding the default bucket behavior.
+    uaserver_path: (AppScale-specific) A str containing the FQDN or IP address
+        of the machine that runs a UserAppServer.
     xmpp_path: (AppScale-specific) A str containing the FQDN or IP address of
         the machine that runs ejabberd, where XMPP clients should connect to.
   """
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'app_identity_service',
-      app_identity_stub.AppIdentityServiceStub())
+  identity_stub = app_identity_stub.AppIdentityServiceStub()
+  if default_gcs_bucket_name is not None:
+    identity_stub.SetDefaultGcsBucketName(default_gcs_bucket_name)
+  apiproxy_stub_map.apiproxy.RegisterStub('app_identity_service', identity_stub)
 
   blob_storage = datastore_blob_storage.DatastoreBlobStorage(app_id)
   apiproxy_stub_map.apiproxy.RegisterStub(
@@ -471,9 +484,10 @@ def test_setup_stubs(
     search_index_path=None,
     taskqueue_auto_run_tasks=False,
     taskqueue_default_http_server='http://localhost:8080',
-    uaserver_path='localhost',
     user_login_url='/_ah/login?continue=%s',
     user_logout_url='/_ah/login?continue=%s',
+    default_gcs_bucket_name=None,
+    uaserver_path='localhost',
     xmpp_path='localhost'):
   """Similar to setup_stubs with reasonable test defaults and recallable."""
 
@@ -506,9 +520,10 @@ def test_setup_stubs(
               search_index_path,
               taskqueue_auto_run_tasks,
               taskqueue_default_http_server,
-              uaserver_path,
               user_login_url,
               user_logout_url,
+              default_gcs_bucket_name,
+              uaserver_path,
               xmpp_path)
 
 

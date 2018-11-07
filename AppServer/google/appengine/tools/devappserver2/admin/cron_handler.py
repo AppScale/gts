@@ -75,7 +75,7 @@ class CronHandler(admin_request_handler.AdminRequestHandler):
     """
     for cron_yaml in ('cron.yaml', 'cron.yml'):
       try:
-        with open(os.path.join(self.configuration.servers[0].application_root,
+        with open(os.path.join(self.configuration.modules[0].application_root,
                                cron_yaml)) as f:
           cron_info = croninfo.LoadSingleCron(f)
           return cron_info

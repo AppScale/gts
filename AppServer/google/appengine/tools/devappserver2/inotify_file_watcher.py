@@ -30,6 +30,8 @@ import select
 import struct
 import sys
 
+from google.appengine.tools.devappserver2 import watcher_common
+
 IN_MODIFY = 0x00000002
 IN_ATTRIB = 0x00000004
 IN_MOVED_FROM = 0x00000040
@@ -97,8 +99,9 @@ class InotifyFileWatcher(object):
     logging.debug('_add_watch_for_path(%r)', path)
 
     for dirpath, directories, _ in itertools.chain(
-        [('', [path], None)],
+        [(os.path.dirname(path), [os.path.basename(path)], None)],
         os.walk(path, topdown=True, followlinks=True)):
+      watcher_common.remove_ignored_dirs(directories)
       for directory in directories:
         directory_path = os.path.join(dirpath, directory)
         # dirpath cannot be used as the parent directory path because it is the

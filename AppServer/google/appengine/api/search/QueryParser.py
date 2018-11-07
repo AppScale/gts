@@ -27,15 +27,10 @@ from google.appengine._internal.antlr3.tree import *
 
 
 
-
-
-
-
 HIDDEN = BaseRecognizer.HIDDEN
 
 
 FUNCTION=7
-LT=17
 GEO_POINT_FN=29
 FIX=30
 ESC=34
@@ -57,6 +52,7 @@ DIGIT=38
 EQ=21
 NE=20
 T__43=43
+LESSTHAN=17
 GE=18
 T__44=44
 T__45=45
@@ -82,7 +78,7 @@ STRING=12
 tokenNames = [
     "<invalid>", "<EOR>", "<DOWN>", "<UP>",
     "ARGS", "CONJUNCTION", "DISJUNCTION", "FUNCTION", "FUZZY", "GLOBAL",
-    "LITERAL", "NEGATION", "STRING", "SEQUENCE", "VALUE", "WS", "LE", "LT",
+    "LITERAL", "NEGATION", "STRING", "SEQUENCE", "VALUE", "WS", "LE", "LESSTHAN",
     "GE", "GT", "NE", "EQ", "HAS", "LPAREN", "RPAREN", "AND", "OR", "NOT",
     "DISTANCE_FN", "GEO_POINT_FN", "FIX", "REWRITE", "TEXT", "QUOTE", "ESC",
     "UNICODE_ESC", "OCTAL_ESC", "CHAR_SEQ", "DIGIT", "MID_CHAR", "ESCAPED_CHAR",
@@ -215,7 +211,7 @@ class QueryParser(Parser):
                     if alt1 == 1:
 
                         pass
-                        WS1=self.match(self.input, WS, self.FOLLOW_WS_in_query116)
+                        WS1=self.match(self.input, WS, self.FOLLOW_WS_in_query112)
                         stream_WS.add(WS1)
 
 
@@ -223,7 +219,7 @@ class QueryParser(Parser):
                         break
 
 
-                self._state.following.append(self.FOLLOW_expression_in_query119)
+                self._state.following.append(self.FOLLOW_expression_in_query115)
                 expression2 = self.expression()
 
                 self._state.following.pop()
@@ -240,7 +236,7 @@ class QueryParser(Parser):
                     if alt2 == 1:
 
                         pass
-                        WS3=self.match(self.input, WS, self.FOLLOW_WS_in_query121)
+                        WS3=self.match(self.input, WS, self.FOLLOW_WS_in_query117)
                         stream_WS.add(WS3)
 
 
@@ -248,7 +244,7 @@ class QueryParser(Parser):
                         break
 
 
-                EOF4=self.match(self.input, EOF, self.FOLLOW_EOF_in_query124)
+                EOF4=self.match(self.input, EOF, self.FOLLOW_EOF_in_query120)
                 stream_EOF.add(EOF4)
 
 
@@ -327,7 +323,7 @@ class QueryParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_sequence_in_expression143)
+                self._state.following.append(self.FOLLOW_sequence_in_expression139)
                 sequence5 = self.sequence()
 
                 self._state.following.pop()
@@ -339,12 +335,12 @@ class QueryParser(Parser):
                     if alt3 == 1:
 
                         pass
-                        self._state.following.append(self.FOLLOW_andOp_in_expression146)
+                        self._state.following.append(self.FOLLOW_andOp_in_expression142)
                         andOp6 = self.andOp()
 
                         self._state.following.pop()
                         stream_andOp.add(andOp6.tree)
-                        self._state.following.append(self.FOLLOW_sequence_in_expression148)
+                        self._state.following.append(self.FOLLOW_sequence_in_expression144)
                         sequence7 = self.sequence()
 
                         self._state.following.pop()
@@ -446,7 +442,7 @@ class QueryParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_factor_in_sequence174)
+                self._state.following.append(self.FOLLOW_factor_in_sequence170)
                 factor8 = self.factor()
 
                 self._state.following.pop()
@@ -471,7 +467,7 @@ class QueryParser(Parser):
                             if alt4 == 1:
 
                                 pass
-                                WS9=self.match(self.input, WS, self.FOLLOW_WS_in_sequence177)
+                                WS9=self.match(self.input, WS, self.FOLLOW_WS_in_sequence173)
                                 stream_WS.add(WS9)
 
 
@@ -485,7 +481,7 @@ class QueryParser(Parser):
                             cnt4 += 1
 
 
-                        self._state.following.append(self.FOLLOW_factor_in_sequence180)
+                        self._state.following.append(self.FOLLOW_factor_in_sequence176)
                         factor10 = self.factor()
 
                         self._state.following.pop()
@@ -587,7 +583,7 @@ class QueryParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_term_in_factor206)
+                self._state.following.append(self.FOLLOW_term_in_factor202)
                 term11 = self.term()
 
                 self._state.following.pop()
@@ -599,12 +595,12 @@ class QueryParser(Parser):
                     if alt6 == 1:
 
                         pass
-                        self._state.following.append(self.FOLLOW_orOp_in_factor209)
+                        self._state.following.append(self.FOLLOW_orOp_in_factor205)
                         orOp12 = self.orOp()
 
                         self._state.following.pop()
                         stream_orOp.add(orOp12.tree)
-                        self._state.following.append(self.FOLLOW_term_in_factor211)
+                        self._state.following.append(self.FOLLOW_term_in_factor207)
                         term13 = self.term()
 
                         self._state.following.pop()
@@ -719,12 +715,12 @@ class QueryParser(Parser):
                 if alt7 == 1:
 
                     pass
-                    self._state.following.append(self.FOLLOW_notOp_in_term235)
+                    self._state.following.append(self.FOLLOW_notOp_in_term231)
                     notOp14 = self.notOp()
 
                     self._state.following.pop()
                     stream_notOp.add(notOp14.tree)
-                    self._state.following.append(self.FOLLOW_primitive_in_term237)
+                    self._state.following.append(self.FOLLOW_primitive_in_term233)
                     primitive15 = self.primitive()
 
                     self._state.following.pop()
@@ -765,7 +761,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_primitive_in_term251)
+                    self._state.following.append(self.FOLLOW_primitive_in_term247)
                     primitive16 = self.primitive()
 
                     self._state.following.pop()
@@ -809,7 +805,7 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        restrict17 = None
+        restriction17 = None
 
         composite18 = None
 
@@ -827,11 +823,11 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_restrict_in_primitive267)
-                    restrict17 = self.restrict()
+                    self._state.following.append(self.FOLLOW_restriction_in_primitive263)
+                    restriction17 = self.restriction()
 
                     self._state.following.pop()
-                    self._adaptor.addChild(root_0, restrict17.tree)
+                    self._adaptor.addChild(root_0, restriction17.tree)
 
 
                 elif alt8 == 2:
@@ -839,7 +835,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_composite_in_primitive273)
+                    self._state.following.append(self.FOLLOW_composite_in_primitive269)
                     composite18 = self.composite()
 
                     self._state.following.pop()
@@ -849,7 +845,7 @@ class QueryParser(Parser):
                 elif alt8 == 3:
 
                     pass
-                    self._state.following.append(self.FOLLOW_item_in_primitive279)
+                    self._state.following.append(self.FOLLOW_item_in_primitive275)
                     item19 = self.item()
 
                     self._state.following.pop()
@@ -905,7 +901,7 @@ class QueryParser(Parser):
 
 
 
-    class restrict_return(ParserRuleReturnScope):
+    class restriction_return(ParserRuleReturnScope):
         def __init__(self):
             ParserRuleReturnScope.__init__(self)
 
@@ -916,9 +912,9 @@ class QueryParser(Parser):
 
 
 
-    def restrict(self, ):
+    def restriction(self, ):
 
-        retval = self.restrict_return()
+        retval = self.restriction_return()
         retval.start = self.input.LT(1)
 
         root_0 = None
@@ -938,17 +934,17 @@ class QueryParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_comparable_in_restrict305)
+                self._state.following.append(self.FOLLOW_comparable_in_restriction301)
                 comparable20 = self.comparable()
 
                 self._state.following.pop()
                 stream_comparable.add(comparable20.tree)
-                self._state.following.append(self.FOLLOW_comparator_in_restrict307)
+                self._state.following.append(self.FOLLOW_comparator_in_restriction303)
                 comparator21 = self.comparator()
 
                 self._state.following.pop()
                 stream_comparator.add(comparator21.tree)
-                self._state.following.append(self.FOLLOW_arg_in_restrict309)
+                self._state.following.append(self.FOLLOW_arg_in_restriction305)
                 arg22 = self.arg()
 
                 self._state.following.pop()
@@ -1031,9 +1027,9 @@ class QueryParser(Parser):
         WS23_tree = None
         WS24_tree = None
         stream_HAS = RewriteRuleTokenStream(self._adaptor, "token HAS")
+        stream_LESSTHAN = RewriteRuleTokenStream(self._adaptor, "token LESSTHAN")
         stream_GE = RewriteRuleTokenStream(self._adaptor, "token GE")
         stream_GT = RewriteRuleTokenStream(self._adaptor, "token GT")
-        stream_LT = RewriteRuleTokenStream(self._adaptor, "token LT")
         stream_WS = RewriteRuleTokenStream(self._adaptor, "token WS")
         stream_EQ = RewriteRuleTokenStream(self._adaptor, "token EQ")
         stream_LE = RewriteRuleTokenStream(self._adaptor, "token LE")
@@ -1056,7 +1052,7 @@ class QueryParser(Parser):
                     if alt9 == 1:
 
                         pass
-                        WS23=self.match(self.input, WS, self.FOLLOW_WS_in_comparator333)
+                        WS23=self.match(self.input, WS, self.FOLLOW_WS_in_comparator329)
                         stream_WS.add(WS23)
 
 
@@ -1069,7 +1065,7 @@ class QueryParser(Parser):
                 LA10 = self.input.LA(1)
                 if LA10 == LE:
                     alt10 = 1
-                elif LA10 == LT:
+                elif LA10 == LESSTHAN:
                     alt10 = 2
                 elif LA10 == GE:
                     alt10 = 3
@@ -1089,49 +1085,49 @@ class QueryParser(Parser):
                 if alt10 == 1:
 
                     pass
-                    x=self.match(self.input, LE, self.FOLLOW_LE_in_comparator339)
+                    x=self.match(self.input, LE, self.FOLLOW_LE_in_comparator335)
                     stream_LE.add(x)
 
 
                 elif alt10 == 2:
 
                     pass
-                    x=self.match(self.input, LT, self.FOLLOW_LT_in_comparator345)
-                    stream_LT.add(x)
+                    x=self.match(self.input, LESSTHAN, self.FOLLOW_LESSTHAN_in_comparator341)
+                    stream_LESSTHAN.add(x)
 
 
                 elif alt10 == 3:
 
                     pass
-                    x=self.match(self.input, GE, self.FOLLOW_GE_in_comparator351)
+                    x=self.match(self.input, GE, self.FOLLOW_GE_in_comparator347)
                     stream_GE.add(x)
 
 
                 elif alt10 == 4:
 
                     pass
-                    x=self.match(self.input, GT, self.FOLLOW_GT_in_comparator357)
+                    x=self.match(self.input, GT, self.FOLLOW_GT_in_comparator353)
                     stream_GT.add(x)
 
 
                 elif alt10 == 5:
 
                     pass
-                    x=self.match(self.input, NE, self.FOLLOW_NE_in_comparator363)
+                    x=self.match(self.input, NE, self.FOLLOW_NE_in_comparator359)
                     stream_NE.add(x)
 
 
                 elif alt10 == 6:
 
                     pass
-                    x=self.match(self.input, EQ, self.FOLLOW_EQ_in_comparator369)
+                    x=self.match(self.input, EQ, self.FOLLOW_EQ_in_comparator365)
                     stream_EQ.add(x)
 
 
                 elif alt10 == 7:
 
                     pass
-                    x=self.match(self.input, HAS, self.FOLLOW_HAS_in_comparator375)
+                    x=self.match(self.input, HAS, self.FOLLOW_HAS_in_comparator371)
                     stream_HAS.add(x)
 
 
@@ -1148,7 +1144,7 @@ class QueryParser(Parser):
                     if alt11 == 1:
 
                         pass
-                        WS24=self.match(self.input, WS, self.FOLLOW_WS_in_comparator378)
+                        WS24=self.match(self.input, WS, self.FOLLOW_WS_in_comparator374)
                         stream_WS.add(WS24)
 
 
@@ -1230,11 +1226,10 @@ class QueryParser(Parser):
             try:
 
                 alt12 = 2
-                LA12_0 = self.input.LA(1)
-
-                if ((FIX <= LA12_0 <= QUOTE)) :
+                LA12 = self.input.LA(1)
+                if LA12 == FIX or LA12 == REWRITE or LA12 == TEXT or LA12 == QUOTE:
                     alt12 = 1
-                elif ((DISTANCE_FN <= LA12_0 <= GEO_POINT_FN)) :
+                elif LA12 == DISTANCE_FN:
                     LA12_2 = self.input.LA(2)
 
                     if ((WS <= LA12_2 <= HAS)) :
@@ -1243,6 +1238,18 @@ class QueryParser(Parser):
                         alt12 = 2
                     else:
                         nvae = NoViableAltException("", 12, 2, self.input)
+
+                        raise nvae
+
+                elif LA12 == GEO_POINT_FN:
+                    LA12_3 = self.input.LA(2)
+
+                    if ((WS <= LA12_3 <= HAS)) :
+                        alt12 = 1
+                    elif (LA12_3 == LPAREN) :
+                        alt12 = 2
+                    else:
+                        nvae = NoViableAltException("", 12, 3, self.input)
 
                         raise nvae
 
@@ -1256,7 +1263,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_item_in_comparable400)
+                    self._state.following.append(self.FOLLOW_item_in_comparable396)
                     item25 = self.item()
 
                     self._state.following.pop()
@@ -1268,7 +1275,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_function_in_comparable406)
+                    self._state.following.append(self.FOLLOW_function_in_comparable402)
                     function26 = self.function()
 
                     self._state.following.pop()
@@ -1330,19 +1337,19 @@ class QueryParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_fnname_in_function421)
+                self._state.following.append(self.FOLLOW_fnname_in_function417)
                 fnname27 = self.fnname()
 
                 self._state.following.pop()
                 stream_fnname.add(fnname27.tree)
-                LPAREN28=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_function423)
+                LPAREN28=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_function419)
                 stream_LPAREN.add(LPAREN28)
-                self._state.following.append(self.FOLLOW_arglist_in_function425)
+                self._state.following.append(self.FOLLOW_arglist_in_function421)
                 arglist29 = self.arglist()
 
                 self._state.following.pop()
                 stream_arglist.add(arglist29.tree)
-                RPAREN30=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_function427)
+                RPAREN30=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_function423)
                 stream_RPAREN.add(RPAREN30)
 
 
@@ -1447,7 +1454,7 @@ class QueryParser(Parser):
                 if alt14 == 1:
 
                     pass
-                    self._state.following.append(self.FOLLOW_arg_in_arglist456)
+                    self._state.following.append(self.FOLLOW_arg_in_arglist452)
                     arg31 = self.arg()
 
                     self._state.following.pop()
@@ -1464,12 +1471,12 @@ class QueryParser(Parser):
                         if alt13 == 1:
 
                             pass
-                            self._state.following.append(self.FOLLOW_sep_in_arglist459)
+                            self._state.following.append(self.FOLLOW_sep_in_arglist455)
                             sep32 = self.sep()
 
                             self._state.following.pop()
                             stream_sep.add(sep32.tree)
-                            self._state.following.append(self.FOLLOW_arg_in_arglist461)
+                            self._state.following.append(self.FOLLOW_arg_in_arglist457)
                             arg33 = self.arg()
 
                             self._state.following.pop()
@@ -1568,7 +1575,7 @@ class QueryParser(Parser):
                 LA15 = self.input.LA(1)
                 if LA15 == FIX or LA15 == REWRITE or LA15 == TEXT or LA15 == QUOTE:
                     alt15 = 1
-                elif LA15 == DISTANCE_FN or LA15 == GEO_POINT_FN:
+                elif LA15 == DISTANCE_FN:
                     LA15_2 = self.input.LA(2)
 
                     if (LA15_2 == EOF or LA15_2 == WS or LA15_2 == RPAREN or LA15_2 == 44) :
@@ -1577,6 +1584,18 @@ class QueryParser(Parser):
                         alt15 = 3
                     else:
                         nvae = NoViableAltException("", 15, 2, self.input)
+
+                        raise nvae
+
+                elif LA15 == GEO_POINT_FN:
+                    LA15_3 = self.input.LA(2)
+
+                    if (LA15_3 == EOF or LA15_3 == WS or LA15_3 == RPAREN or LA15_3 == 44) :
+                        alt15 = 1
+                    elif (LA15_3 == LPAREN) :
+                        alt15 = 3
+                    else:
+                        nvae = NoViableAltException("", 15, 3, self.input)
 
                         raise nvae
 
@@ -1592,7 +1611,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_item_in_arg486)
+                    self._state.following.append(self.FOLLOW_item_in_arg482)
                     item34 = self.item()
 
                     self._state.following.pop()
@@ -1604,7 +1623,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_composite_in_arg492)
+                    self._state.following.append(self.FOLLOW_composite_in_arg488)
                     composite35 = self.composite()
 
                     self._state.following.pop()
@@ -1616,7 +1635,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_function_in_arg498)
+                    self._state.following.append(self.FOLLOW_function_in_arg494)
                     function36 = self.function()
 
                     self._state.following.pop()
@@ -1688,7 +1707,7 @@ class QueryParser(Parser):
                     if alt16 == 1:
 
                         pass
-                        WS37=self.match(self.input, WS, self.FOLLOW_WS_in_andOp512)
+                        WS37=self.match(self.input, WS, self.FOLLOW_WS_in_andOp508)
 
                         WS37_tree = self._adaptor.createWithPayload(WS37)
                         self._adaptor.addChild(root_0, WS37_tree)
@@ -1705,7 +1724,7 @@ class QueryParser(Parser):
                     cnt16 += 1
 
 
-                AND38=self.match(self.input, AND, self.FOLLOW_AND_in_andOp515)
+                AND38=self.match(self.input, AND, self.FOLLOW_AND_in_andOp511)
 
                 AND38_tree = self._adaptor.createWithPayload(AND38)
                 self._adaptor.addChild(root_0, AND38_tree)
@@ -1723,7 +1742,7 @@ class QueryParser(Parser):
                     if alt17 == 1:
 
                         pass
-                        WS39=self.match(self.input, WS, self.FOLLOW_WS_in_andOp517)
+                        WS39=self.match(self.input, WS, self.FOLLOW_WS_in_andOp513)
 
                         WS39_tree = self._adaptor.createWithPayload(WS39)
                         self._adaptor.addChild(root_0, WS39_tree)
@@ -1808,7 +1827,7 @@ class QueryParser(Parser):
                     if alt18 == 1:
 
                         pass
-                        WS40=self.match(self.input, WS, self.FOLLOW_WS_in_orOp532)
+                        WS40=self.match(self.input, WS, self.FOLLOW_WS_in_orOp528)
 
                         WS40_tree = self._adaptor.createWithPayload(WS40)
                         self._adaptor.addChild(root_0, WS40_tree)
@@ -1825,7 +1844,7 @@ class QueryParser(Parser):
                     cnt18 += 1
 
 
-                OR41=self.match(self.input, OR, self.FOLLOW_OR_in_orOp535)
+                OR41=self.match(self.input, OR, self.FOLLOW_OR_in_orOp531)
 
                 OR41_tree = self._adaptor.createWithPayload(OR41)
                 self._adaptor.addChild(root_0, OR41_tree)
@@ -1843,7 +1862,7 @@ class QueryParser(Parser):
                     if alt19 == 1:
 
                         pass
-                        WS42=self.match(self.input, WS, self.FOLLOW_WS_in_orOp537)
+                        WS42=self.match(self.input, WS, self.FOLLOW_WS_in_orOp533)
 
                         WS42_tree = self._adaptor.createWithPayload(WS42)
                         self._adaptor.addChild(root_0, WS42_tree)
@@ -1928,7 +1947,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    char_literal43=self.match(self.input, 43, self.FOLLOW_43_in_notOp552)
+                    char_literal43=self.match(self.input, 43, self.FOLLOW_43_in_notOp548)
 
                     char_literal43_tree = self._adaptor.createWithPayload(char_literal43)
                     self._adaptor.addChild(root_0, char_literal43_tree)
@@ -1940,7 +1959,7 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    NOT44=self.match(self.input, NOT, self.FOLLOW_NOT_in_notOp558)
+                    NOT44=self.match(self.input, NOT, self.FOLLOW_NOT_in_notOp554)
 
                     NOT44_tree = self._adaptor.createWithPayload(NOT44)
                     self._adaptor.addChild(root_0, NOT44_tree)
@@ -1958,7 +1977,7 @@ class QueryParser(Parser):
                         if alt20 == 1:
 
                             pass
-                            WS45=self.match(self.input, WS, self.FOLLOW_WS_in_notOp560)
+                            WS45=self.match(self.input, WS, self.FOLLOW_WS_in_notOp556)
 
                             WS45_tree = self._adaptor.createWithPayload(WS45)
                             self._adaptor.addChild(root_0, WS45_tree)
@@ -2041,7 +2060,7 @@ class QueryParser(Parser):
                     if alt22 == 1:
 
                         pass
-                        WS46=self.match(self.input, WS, self.FOLLOW_WS_in_sep575)
+                        WS46=self.match(self.input, WS, self.FOLLOW_WS_in_sep571)
 
                         WS46_tree = self._adaptor.createWithPayload(WS46)
                         self._adaptor.addChild(root_0, WS46_tree)
@@ -2052,7 +2071,7 @@ class QueryParser(Parser):
                         break
 
 
-                char_literal47=self.match(self.input, 44, self.FOLLOW_44_in_sep578)
+                char_literal47=self.match(self.input, 44, self.FOLLOW_44_in_sep574)
 
                 char_literal47_tree = self._adaptor.createWithPayload(char_literal47)
                 self._adaptor.addChild(root_0, char_literal47_tree)
@@ -2069,7 +2088,7 @@ class QueryParser(Parser):
                     if alt23 == 1:
 
                         pass
-                        WS48=self.match(self.input, WS, self.FOLLOW_WS_in_sep580)
+                        WS48=self.match(self.input, WS, self.FOLLOW_WS_in_sep576)
 
                         WS48_tree = self._adaptor.createWithPayload(WS48)
                         self._adaptor.addChild(root_0, WS48_tree)
@@ -2202,7 +2221,7 @@ class QueryParser(Parser):
 
 
                 pass
-                LPAREN50=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_composite616)
+                LPAREN50=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_composite612)
                 stream_LPAREN.add(LPAREN50)
 
                 while True:
@@ -2216,7 +2235,7 @@ class QueryParser(Parser):
                     if alt24 == 1:
 
                         pass
-                        WS51=self.match(self.input, WS, self.FOLLOW_WS_in_composite618)
+                        WS51=self.match(self.input, WS, self.FOLLOW_WS_in_composite614)
                         stream_WS.add(WS51)
 
 
@@ -2224,7 +2243,7 @@ class QueryParser(Parser):
                         break
 
 
-                self._state.following.append(self.FOLLOW_expression_in_composite621)
+                self._state.following.append(self.FOLLOW_expression_in_composite617)
                 expression52 = self.expression()
 
                 self._state.following.pop()
@@ -2241,7 +2260,7 @@ class QueryParser(Parser):
                     if alt25 == 1:
 
                         pass
-                        WS53=self.match(self.input, WS, self.FOLLOW_WS_in_composite623)
+                        WS53=self.match(self.input, WS, self.FOLLOW_WS_in_composite619)
                         stream_WS.add(WS53)
 
 
@@ -2249,7 +2268,7 @@ class QueryParser(Parser):
                         break
 
 
-                RPAREN54=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_composite626)
+                RPAREN54=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_composite622)
                 stream_RPAREN.add(RPAREN54)
 
 
@@ -2347,9 +2366,9 @@ class QueryParser(Parser):
                 if alt26 == 1:
 
                     pass
-                    FIX55=self.match(self.input, FIX, self.FOLLOW_FIX_in_item646)
+                    FIX55=self.match(self.input, FIX, self.FOLLOW_FIX_in_item642)
                     stream_FIX.add(FIX55)
-                    self._state.following.append(self.FOLLOW_value_in_item648)
+                    self._state.following.append(self.FOLLOW_value_in_item644)
                     value56 = self.value()
 
                     self._state.following.pop()
@@ -2388,9 +2407,9 @@ class QueryParser(Parser):
                 elif alt26 == 2:
 
                     pass
-                    REWRITE57=self.match(self.input, REWRITE, self.FOLLOW_REWRITE_in_item662)
+                    REWRITE57=self.match(self.input, REWRITE, self.FOLLOW_REWRITE_in_item658)
                     stream_REWRITE.add(REWRITE57)
-                    self._state.following.append(self.FOLLOW_value_in_item664)
+                    self._state.following.append(self.FOLLOW_value_in_item660)
                     value58 = self.value()
 
                     self._state.following.pop()
@@ -2429,7 +2448,7 @@ class QueryParser(Parser):
                 elif alt26 == 3:
 
                     pass
-                    self._state.following.append(self.FOLLOW_value_in_item678)
+                    self._state.following.append(self.FOLLOW_value_in_item674)
                     value59 = self.value()
 
                     self._state.following.pop()
@@ -2521,7 +2540,7 @@ class QueryParser(Parser):
                 if alt27 == 1:
 
                     pass
-                    self._state.following.append(self.FOLLOW_text_in_value696)
+                    self._state.following.append(self.FOLLOW_text_in_value692)
                     text60 = self.text()
 
                     self._state.following.pop()
@@ -2561,7 +2580,7 @@ class QueryParser(Parser):
                 elif alt27 == 2:
 
                     pass
-                    self._state.following.append(self.FOLLOW_phrase_in_value712)
+                    self._state.following.append(self.FOLLOW_phrase_in_value708)
                     phrase61 = self.phrase()
 
                     self._state.following.pop()
@@ -2635,29 +2654,100 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        set62 = None
+        t = None
+        TEXT62 = None
 
-        set62_tree = None
+        t_tree = None
+        TEXT62_tree = None
+        stream_GEO_POINT_FN = RewriteRuleTokenStream(self._adaptor, "token GEO_POINT_FN")
+        stream_DISTANCE_FN = RewriteRuleTokenStream(self._adaptor, "token DISTANCE_FN")
 
         try:
             try:
 
-
-                pass
-                root_0 = self._adaptor.nil()
-
-                set62 = self.input.LT(1)
-                if (DISTANCE_FN <= self.input.LA(1) <= GEO_POINT_FN) or self.input.LA(1) == TEXT:
-                    self.input.consume()
-                    self._adaptor.addChild(root_0, self._adaptor.createWithPayload(set62))
-                    self._state.errorRecovery = False
-
+                alt28 = 3
+                LA28 = self.input.LA(1)
+                if LA28 == TEXT:
+                    alt28 = 1
+                elif LA28 == DISTANCE_FN:
+                    alt28 = 2
+                elif LA28 == GEO_POINT_FN:
+                    alt28 = 3
                 else:
-                    mse = MismatchedSetException(None, self.input)
-                    raise mse
+                    nvae = NoViableAltException("", 28, 0, self.input)
+
+                    raise nvae
+
+                if alt28 == 1:
+
+                    pass
+                    root_0 = self._adaptor.nil()
+
+                    TEXT62=self.match(self.input, TEXT, self.FOLLOW_TEXT_in_text732)
+
+                    TEXT62_tree = self._adaptor.createWithPayload(TEXT62)
+                    self._adaptor.addChild(root_0, TEXT62_tree)
 
 
 
+                elif alt28 == 2:
+
+                    pass
+                    t=self.match(self.input, DISTANCE_FN, self.FOLLOW_DISTANCE_FN_in_text743)
+                    stream_DISTANCE_FN.add(t)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, self._adaptor.create(TEXT, t))
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt28 == 3:
+
+                    pass
+                    t=self.match(self.input, GEO_POINT_FN, self.FOLLOW_GEO_POINT_FN_in_text756)
+                    stream_GEO_POINT_FN.add(t)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, self._adaptor.create(TEXT, t))
+
+
+
+                    retval.tree = root_0
 
 
                 retval.stop = self.input.LT(-1)
@@ -2712,21 +2802,21 @@ class QueryParser(Parser):
                 pass
                 root_0 = self._adaptor.nil()
 
-                QUOTE63=self.match(self.input, QUOTE, self.FOLLOW_QUOTE_in_phrase762)
+                QUOTE63=self.match(self.input, QUOTE, self.FOLLOW_QUOTE_in_phrase775)
 
                 QUOTE63_tree = self._adaptor.createWithPayload(QUOTE63)
                 self._adaptor.addChild(root_0, QUOTE63_tree)
 
 
                 while True:
-                    alt28 = 2
-                    LA28_0 = self.input.LA(1)
+                    alt29 = 2
+                    LA29_0 = self.input.LA(1)
 
-                    if ((ARGS <= LA28_0 <= TEXT) or (ESC <= LA28_0 <= 44)) :
-                        alt28 = 1
+                    if ((ARGS <= LA29_0 <= TEXT) or (ESC <= LA29_0 <= 44)) :
+                        alt29 = 1
 
 
-                    if alt28 == 1:
+                    if alt29 == 1:
 
                         pass
                         set64 = self.input.LT(1)
@@ -2746,7 +2836,7 @@ class QueryParser(Parser):
                         break
 
 
-                QUOTE65=self.match(self.input, QUOTE, self.FOLLOW_QUOTE_in_phrase780)
+                QUOTE65=self.match(self.input, QUOTE, self.FOLLOW_QUOTE_in_phrase793)
 
                 QUOTE65_tree = self._adaptor.createWithPayload(QUOTE65)
                 self._adaptor.addChild(root_0, QUOTE65_tree)
@@ -2891,54 +2981,59 @@ class QueryParser(Parser):
 
 
     DFA8_eot = DFA.unpack(
-        u"\24\uffff"
+        u"\31\uffff"
         )
 
     DFA8_eof = DFA.unpack(
-        u"\3\uffff\1\14\1\uffff\1\14\1\uffff\1\14\1\uffff\1\14\1\uffff\1"
-        u"\14\3\uffff\1\14\1\uffff\1\14\1\uffff\1\14"
+        u"\3\uffff\3\21\2\uffff\3\21\1\uffff\3\21\1\uffff\1\21\3\uffff\1"
+        u"\21\1\uffff\1\21\1\uffff\1\21"
         )
 
     DFA8_min = DFA.unpack(
-        u"\1\27\2\34\1\17\1\4\1\17\1\uffff\1\17\1\4\1\17\1\4\1\17\2\uffff"
-        u"\1\4\1\17\1\4\1\17\1\4\1\17"
+        u"\1\27\2\34\3\17\1\4\1\uffff\3\17\1\4\3\17\1\4\1\17\2\uffff\1\4"
+        u"\1\17\1\4\1\17\1\4\1\17"
         )
 
     DFA8_max = DFA.unpack(
-        u"\3\41\1\30\1\54\1\30\1\uffff\1\30\1\54\1\30\1\54\1\53\2\uffff\1"
-        u"\54\1\30\1\54\1\30\1\54\1\30"
+        u"\3\41\3\30\1\54\1\uffff\3\30\1\54\3\30\1\54\1\53\2\uffff\1\54\1"
+        u"\30\1\54\1\30\1\54\1\30"
         )
 
     DFA8_accept = DFA.unpack(
-        u"\6\uffff\1\2\5\uffff\1\3\1\1\6\uffff"
+        u"\7\uffff\1\2\11\uffff\1\3\1\1\6\uffff"
         )
 
     DFA8_special = DFA.unpack(
-        u"\24\uffff"
+        u"\31\uffff"
         )
 
 
     DFA8_transition = [
-        DFA.unpack(u"\1\6\4\uffff\2\3\1\1\1\2\1\5\1\4"),
-        DFA.unpack(u"\2\7\2\uffff\1\7\1\10"),
-        DFA.unpack(u"\2\11\2\uffff\1\11\1\12"),
-        DFA.unpack(u"\1\13\10\15\1\14"),
-        DFA.unpack(u"\35\16\1\17\13\16"),
-        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
+        DFA.unpack(u"\1\7\4\uffff\1\4\1\5\1\1\1\2\1\3\1\6"),
+        DFA.unpack(u"\1\11\1\12\2\uffff\1\10\1\13"),
+        DFA.unpack(u"\1\15\1\16\2\uffff\1\14\1\17"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\1\20\10\22\1\21"),
+        DFA.unpack(u"\1\20\10\22\1\21"),
+        DFA.unpack(u"\35\23\1\24\13\23"),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
-        DFA.unpack(u"\35\20\1\21\13\20"),
-        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
-        DFA.unpack(u"\35\22\1\23\13\22"),
-        DFA.unpack(u"\1\13\7\15\13\14\11\uffff\1\14"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\35\25\1\26\13\25"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\35\27\1\30\13\27"),
+        DFA.unpack(u"\1\20\7\22\13\21\11\uffff\1\21"),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\35\16\1\17\13\16"),
-        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
-        DFA.unpack(u"\35\20\1\21\13\20"),
-        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
-        DFA.unpack(u"\35\22\1\23\13\22"),
-        DFA.unpack(u"\1\13\7\15\1\uffff\1\14")
+        DFA.unpack(u"\35\23\1\24\13\23"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\35\25\1\26\13\25"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21"),
+        DFA.unpack(u"\35\27\1\30\13\27"),
+        DFA.unpack(u"\1\20\7\22\1\uffff\1\21")
     ]
 
 
@@ -2946,78 +3041,80 @@ class QueryParser(Parser):
     DFA8 = DFA
 
 
-    FOLLOW_WS_in_query116 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
-    FOLLOW_expression_in_query119 = frozenset([15])
-    FOLLOW_WS_in_query121 = frozenset([15])
-    FOLLOW_EOF_in_query124 = frozenset([1])
-    FOLLOW_sequence_in_expression143 = frozenset([1, 15])
-    FOLLOW_andOp_in_expression146 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
-    FOLLOW_sequence_in_expression148 = frozenset([1, 15])
-    FOLLOW_factor_in_sequence174 = frozenset([1, 15])
-    FOLLOW_WS_in_sequence177 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
-    FOLLOW_factor_in_sequence180 = frozenset([1, 15])
-    FOLLOW_term_in_factor206 = frozenset([1, 15])
-    FOLLOW_orOp_in_factor209 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
-    FOLLOW_term_in_factor211 = frozenset([1, 15])
-    FOLLOW_notOp_in_term235 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
-    FOLLOW_primitive_in_term237 = frozenset([1])
-    FOLLOW_primitive_in_term251 = frozenset([1])
-    FOLLOW_restrict_in_primitive267 = frozenset([1])
-    FOLLOW_composite_in_primitive273 = frozenset([1])
-    FOLLOW_item_in_primitive279 = frozenset([1])
-    FOLLOW_comparable_in_restrict305 = frozenset([15, 16, 17, 18, 19, 20, 21, 22])
-    FOLLOW_comparator_in_restrict307 = frozenset([23, 28, 29, 30, 31, 32, 33])
-    FOLLOW_arg_in_restrict309 = frozenset([1])
-    FOLLOW_WS_in_comparator333 = frozenset([15, 16, 17, 18, 19, 20, 21, 22])
-    FOLLOW_LE_in_comparator339 = frozenset([1, 15])
-    FOLLOW_LT_in_comparator345 = frozenset([1, 15])
-    FOLLOW_GE_in_comparator351 = frozenset([1, 15])
-    FOLLOW_GT_in_comparator357 = frozenset([1, 15])
-    FOLLOW_NE_in_comparator363 = frozenset([1, 15])
-    FOLLOW_EQ_in_comparator369 = frozenset([1, 15])
-    FOLLOW_HAS_in_comparator375 = frozenset([1, 15])
-    FOLLOW_WS_in_comparator378 = frozenset([1, 15])
-    FOLLOW_item_in_comparable400 = frozenset([1])
-    FOLLOW_function_in_comparable406 = frozenset([1])
-    FOLLOW_fnname_in_function421 = frozenset([23])
-    FOLLOW_LPAREN_in_function423 = frozenset([23, 24, 28, 29, 30, 31, 32, 33])
-    FOLLOW_arglist_in_function425 = frozenset([24])
-    FOLLOW_RPAREN_in_function427 = frozenset([1])
-    FOLLOW_arg_in_arglist456 = frozenset([1, 15, 44])
-    FOLLOW_sep_in_arglist459 = frozenset([23, 28, 29, 30, 31, 32, 33])
-    FOLLOW_arg_in_arglist461 = frozenset([1, 15, 44])
-    FOLLOW_item_in_arg486 = frozenset([1])
-    FOLLOW_composite_in_arg492 = frozenset([1])
-    FOLLOW_function_in_arg498 = frozenset([1])
-    FOLLOW_WS_in_andOp512 = frozenset([15, 25])
-    FOLLOW_AND_in_andOp515 = frozenset([15])
-    FOLLOW_WS_in_andOp517 = frozenset([1, 15])
-    FOLLOW_WS_in_orOp532 = frozenset([15, 26])
-    FOLLOW_OR_in_orOp535 = frozenset([15])
-    FOLLOW_WS_in_orOp537 = frozenset([1, 15])
-    FOLLOW_43_in_notOp552 = frozenset([1])
-    FOLLOW_NOT_in_notOp558 = frozenset([15])
-    FOLLOW_WS_in_notOp560 = frozenset([1, 15])
-    FOLLOW_WS_in_sep575 = frozenset([15, 44])
-    FOLLOW_44_in_sep578 = frozenset([1, 15])
-    FOLLOW_WS_in_sep580 = frozenset([1, 15])
+    FOLLOW_WS_in_query112 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_expression_in_query115 = frozenset([15])
+    FOLLOW_WS_in_query117 = frozenset([15])
+    FOLLOW_EOF_in_query120 = frozenset([1])
+    FOLLOW_sequence_in_expression139 = frozenset([1, 15])
+    FOLLOW_andOp_in_expression142 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_sequence_in_expression144 = frozenset([1, 15])
+    FOLLOW_factor_in_sequence170 = frozenset([1, 15])
+    FOLLOW_WS_in_sequence173 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_factor_in_sequence176 = frozenset([1, 15])
+    FOLLOW_term_in_factor202 = frozenset([1, 15])
+    FOLLOW_orOp_in_factor205 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_term_in_factor207 = frozenset([1, 15])
+    FOLLOW_notOp_in_term231 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_primitive_in_term233 = frozenset([1])
+    FOLLOW_primitive_in_term247 = frozenset([1])
+    FOLLOW_restriction_in_primitive263 = frozenset([1])
+    FOLLOW_composite_in_primitive269 = frozenset([1])
+    FOLLOW_item_in_primitive275 = frozenset([1])
+    FOLLOW_comparable_in_restriction301 = frozenset([15, 16, 17, 18, 19, 20, 21, 22])
+    FOLLOW_comparator_in_restriction303 = frozenset([23, 28, 29, 30, 31, 32, 33])
+    FOLLOW_arg_in_restriction305 = frozenset([1])
+    FOLLOW_WS_in_comparator329 = frozenset([15, 16, 17, 18, 19, 20, 21, 22])
+    FOLLOW_LE_in_comparator335 = frozenset([1, 15])
+    FOLLOW_LESSTHAN_in_comparator341 = frozenset([1, 15])
+    FOLLOW_GE_in_comparator347 = frozenset([1, 15])
+    FOLLOW_GT_in_comparator353 = frozenset([1, 15])
+    FOLLOW_NE_in_comparator359 = frozenset([1, 15])
+    FOLLOW_EQ_in_comparator365 = frozenset([1, 15])
+    FOLLOW_HAS_in_comparator371 = frozenset([1, 15])
+    FOLLOW_WS_in_comparator374 = frozenset([1, 15])
+    FOLLOW_item_in_comparable396 = frozenset([1])
+    FOLLOW_function_in_comparable402 = frozenset([1])
+    FOLLOW_fnname_in_function417 = frozenset([23])
+    FOLLOW_LPAREN_in_function419 = frozenset([23, 24, 28, 29, 30, 31, 32, 33])
+    FOLLOW_arglist_in_function421 = frozenset([24])
+    FOLLOW_RPAREN_in_function423 = frozenset([1])
+    FOLLOW_arg_in_arglist452 = frozenset([1, 15, 44])
+    FOLLOW_sep_in_arglist455 = frozenset([23, 28, 29, 30, 31, 32, 33])
+    FOLLOW_arg_in_arglist457 = frozenset([1, 15, 44])
+    FOLLOW_item_in_arg482 = frozenset([1])
+    FOLLOW_composite_in_arg488 = frozenset([1])
+    FOLLOW_function_in_arg494 = frozenset([1])
+    FOLLOW_WS_in_andOp508 = frozenset([15, 25])
+    FOLLOW_AND_in_andOp511 = frozenset([15])
+    FOLLOW_WS_in_andOp513 = frozenset([1, 15])
+    FOLLOW_WS_in_orOp528 = frozenset([15, 26])
+    FOLLOW_OR_in_orOp531 = frozenset([15])
+    FOLLOW_WS_in_orOp533 = frozenset([1, 15])
+    FOLLOW_43_in_notOp548 = frozenset([1])
+    FOLLOW_NOT_in_notOp554 = frozenset([15])
+    FOLLOW_WS_in_notOp556 = frozenset([1, 15])
+    FOLLOW_WS_in_sep571 = frozenset([15, 44])
+    FOLLOW_44_in_sep574 = frozenset([1, 15])
+    FOLLOW_WS_in_sep576 = frozenset([1, 15])
     FOLLOW_set_in_fnname0 = frozenset([1])
-    FOLLOW_LPAREN_in_composite616 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
-    FOLLOW_WS_in_composite618 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
-    FOLLOW_expression_in_composite621 = frozenset([15, 24])
-    FOLLOW_WS_in_composite623 = frozenset([15, 24])
-    FOLLOW_RPAREN_in_composite626 = frozenset([1])
-    FOLLOW_FIX_in_item646 = frozenset([28, 29, 30, 31, 32, 33])
-    FOLLOW_value_in_item648 = frozenset([1])
-    FOLLOW_REWRITE_in_item662 = frozenset([28, 29, 30, 31, 32, 33])
-    FOLLOW_value_in_item664 = frozenset([1])
-    FOLLOW_value_in_item678 = frozenset([1])
-    FOLLOW_text_in_value696 = frozenset([1])
-    FOLLOW_phrase_in_value712 = frozenset([1])
-    FOLLOW_set_in_text0 = frozenset([1])
-    FOLLOW_QUOTE_in_phrase762 = frozenset([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44])
-    FOLLOW_set_in_phrase764 = frozenset([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44])
-    FOLLOW_QUOTE_in_phrase780 = frozenset([1])
+    FOLLOW_LPAREN_in_composite612 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_WS_in_composite614 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_expression_in_composite617 = frozenset([15, 24])
+    FOLLOW_WS_in_composite619 = frozenset([15, 24])
+    FOLLOW_RPAREN_in_composite622 = frozenset([1])
+    FOLLOW_FIX_in_item642 = frozenset([28, 29, 30, 31, 32, 33])
+    FOLLOW_value_in_item644 = frozenset([1])
+    FOLLOW_REWRITE_in_item658 = frozenset([28, 29, 30, 31, 32, 33])
+    FOLLOW_value_in_item660 = frozenset([1])
+    FOLLOW_value_in_item674 = frozenset([1])
+    FOLLOW_text_in_value692 = frozenset([1])
+    FOLLOW_phrase_in_value708 = frozenset([1])
+    FOLLOW_TEXT_in_text732 = frozenset([1])
+    FOLLOW_DISTANCE_FN_in_text743 = frozenset([1])
+    FOLLOW_GEO_POINT_FN_in_text756 = frozenset([1])
+    FOLLOW_QUOTE_in_phrase775 = frozenset([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44])
+    FOLLOW_set_in_phrase777 = frozenset([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44])
+    FOLLOW_QUOTE_in_phrase793 = frozenset([1])
 
 
 

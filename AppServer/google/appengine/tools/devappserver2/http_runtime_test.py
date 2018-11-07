@@ -26,6 +26,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import time
 import unittest
 
 import google
@@ -85,6 +86,9 @@ class FakeTee(object):
 
   def get_buf(self):
     return self.buf
+
+  def join(self, unused_timeout):
+    pass
 
 
 class ModuleConfigurationStub(object):
@@ -609,6 +613,184 @@ class HttpRuntimeProxyTest(wsgi_test_utils.WSGITestCase):
     }
     self.assertResponse('500 Internal Server Error', expected_headers,
                         'cannot connect to runtime on port 30002',
+                        self.proxy.handle, {},
+                        url_map=self.url_map,
+                        match=re.match(self.url_map.url, '/get%20request'),
+                        request_id='request id',
+                        request_type=instance.NORMAL_REQUEST)
+    self.mox.VerifyAll()
+
+
+class HttpRuntimeProxyFileFlavorTest(wsgi_test_utils.WSGITestCase):
+  def setUp(self):
+    self.mox = mox.Mox()
+    self.tmpdir = tempfile.mkdtemp()
+    module_configuration = ModuleConfigurationStub(application_root=self.tmpdir)
+    self.runtime_config = runtime_config_pb2.Config()
+    self.runtime_config.app_id = 'app'
+    self.runtime_config.version_id = 'version'
+    self.runtime_config.api_port = 12345
+    self.runtime_config.application_root = self.tmpdir
+    self.runtime_config.datacenter = 'us1'
+    self.runtime_config.instance_id = 'abc3dzac4'
+    self.runtime_config.auth_domain = 'gmail.com'
+    self.runtime_config_getter = lambda: self.runtime_config
+    self.proxy = http_runtime.HttpRuntimeProxy(
+        ['/runtime'], self.runtime_config_getter, module_configuration,
+        env={'foo': 'bar'},
+        start_process_flavor=http_runtime.START_PROCESS_FILE)
+    self.proxy._port = 23456
+    self.mox.StubOutWithMock(self.proxy, '_process_lock')
+    self.process = self.mox.CreateMock(subprocess.Popen)
+    self.process.stdin = self.mox.CreateMockAnything()
+    self.process.stdout = self.mox.CreateMockAnything()
+    self.process.stderr = self.mox.CreateMockAnything()
+    self.process.child_out = self.mox.CreateMockAnything()
+    self.mox.StubOutWithMock(safe_subprocess, 'start_process_file')
+    self.mox.StubOutWithMock(httplib.HTTPConnection, 'connect')
+    self.mox.StubOutWithMock(httplib.HTTPConnection, 'request')
+    self.mox.StubOutWithMock(httplib.HTTPConnection, 'getresponse')
+    self.mox.StubOutWithMock(httplib.HTTPConnection, 'close')
+    self.mox.StubOutWithMock(os, 'remove')
+    self.mox.StubOutWithMock(time, 'sleep')
+    self.url_map = appinfo.URLMap(url=r'/(get|post).*',
+                                  script=r'\1.py')
+
+  def tearDown(self):
+    shutil.rmtree(self.tmpdir)
+    self.mox.UnsetStubs()
+
+  def test_basic(self):
+    """Basic functionality test of START_PROCESS_FILE flavor."""
+    # start()
+    # As the lock is mocked out, this provides a mox expectation.
+    with self.proxy._process_lock:
+      safe_subprocess.start_process_file(
+          args=['/runtime'],
+          input_string=self.runtime_config.SerializeToString(),
+          env={'foo': 'bar'},
+          cwd=self.tmpdir,
+          stderr=subprocess.PIPE).AndReturn(self.process)
+    self.process.poll().AndReturn(None)
+    self.process.child_out.seek(0).AndReturn(None)
+    self.process.child_out.read().AndReturn('1234\n')
+    self.process.child_out.close().AndReturn(None)
+    self.process.child_out.name = '/tmp/c-out.ABC'
+    os.remove('/tmp/c-out.ABC').AndReturn(None)
+    self.proxy._stderr_tee = FakeTee('')
+
+    # _can_connect() via start().
+    httplib.HTTPConnection.connect()
+    httplib.HTTPConnection.close()
+
+    self.mox.ReplayAll()
+    self.proxy.start()
+    self.assertEquals(1234, self.proxy._port)
+    self.mox.VerifyAll()
+
+  def test_slow_shattered(self):
+    """The port number is received slowly in chunks."""
+    # start()
+    # As the lock is mocked out, this provides a mox expectation.
+    with self.proxy._process_lock:
+      safe_subprocess.start_process_file(
+          args=['/runtime'],
+          input_string=self.runtime_config.SerializeToString(),
+          env={'foo': 'bar'},
+          cwd=self.tmpdir,
+          stderr=subprocess.PIPE).AndReturn(self.process)
+    for response, sleeptime in [
+        ('', .125), ('43', .25), ('4321', .5), ('4321\n', None)]:
+      self.process.poll().AndReturn(None)
+      self.process.child_out.seek(0).AndReturn(None)
+      self.process.child_out.read().AndReturn(response)
+      if sleeptime is not None:
+        time.sleep(sleeptime).AndReturn(None)
+    self.process.child_out.close().AndReturn(None)
+    self.process.child_out.name = '/tmp/c-out.ABC'
+    os.remove('/tmp/c-out.ABC').AndReturn(None)
+    self.proxy._stderr_tee = FakeTee('')
+
+    # _can_connect() via start().
+    httplib.HTTPConnection.connect()
+    httplib.HTTPConnection.close()
+
+    self.mox.ReplayAll()
+    self.proxy.start()
+    self.assertEquals(4321, self.proxy._port)
+    self.mox.VerifyAll()
+
+  def test_runtime_instance_dies_immediately(self):
+    """Runtime instance dies without sending a port."""
+    # start()
+    # As the lock is mocked out, this provides a mox expectation.
+    with self.proxy._process_lock:
+      safe_subprocess.start_process_file(
+          args=['/runtime'],
+          input_string=self.runtime_config.SerializeToString(),
+          env={'foo': 'bar'},
+          cwd=self.tmpdir,
+          stderr=subprocess.PIPE).AndReturn(self.process)
+    self.process.poll().AndReturn(1)
+    self.process.child_out.close().AndReturn(None)
+    self.process.child_out.name = '/tmp/c-out.ABC'
+    os.remove('/tmp/c-out.ABC').AndReturn(None)
+    header = "bad runtime process port ['']\n\n"
+    stderr0 = 'Go away..\n'
+    self.proxy._stderr_tee = FakeTee(stderr0)
+    time.sleep(.1).AndReturn(None)
+
+    self.mox.ReplayAll()
+    self.proxy.start()
+    expected_headers = {
+        'Content-Type': 'text/plain',
+        'Content-Length': str(len(header) + len(stderr0)),
+    }
+    self.assertResponse('500 Internal Server Error', expected_headers,
+                        header + stderr0,
+                        self.proxy.handle, {},
+                        url_map=self.url_map,
+                        match=re.match(self.url_map.url, '/get%20request'),
+                        request_id='request id',
+                        request_type=instance.NORMAL_REQUEST)
+    self.mox.VerifyAll()
+
+  def test_runtime_instance_invalid_response(self):
+    """Runtime instance does not terminate port with a newline."""
+    # start()
+    # As the lock is mocked out, this provides a mox expectation.
+    with self.proxy._process_lock:
+      safe_subprocess.start_process_file(
+          args=['/runtime'],
+          input_string=self.runtime_config.SerializeToString(),
+          env={'foo': 'bar'},
+          cwd=self.tmpdir,
+          stderr=subprocess.PIPE).AndReturn(self.process)
+    for response, sleeptime in [
+        ('30000', .125), ('30000', .25), ('30000', .5), ('30000', 1.0),
+        ('30000', 2.0), ('30000', 4.0), ('30000', 8.0), ('30000', 16.0),
+        ('30000', 32.0), ('30000', None)]:
+      self.process.poll().AndReturn(None)
+      self.process.child_out.seek(0).AndReturn(None)
+      self.process.child_out.read().AndReturn(response)
+      if sleeptime is not None:
+        time.sleep(sleeptime).AndReturn(None)
+    self.process.child_out.close().AndReturn(None)
+    self.process.child_out.name = '/tmp/c-out.ABC'
+    os.remove('/tmp/c-out.ABC').AndReturn(None)
+    header = "bad runtime process port ['']\n\n"
+    stderr0 = 'Go away..\n'
+    self.proxy._stderr_tee = FakeTee(stderr0)
+    time.sleep(.1)
+
+    self.mox.ReplayAll()
+    self.proxy.start()
+    expected_headers = {
+        'Content-Type': 'text/plain',
+        'Content-Length': str(len(header) + len(stderr0)),
+    }
+    self.assertResponse('500 Internal Server Error', expected_headers,
+                        header + stderr0,
                         self.proxy.handle, {},
                         url_map=self.url_map,
                         match=re.match(self.url_map.url, '/get%20request'),

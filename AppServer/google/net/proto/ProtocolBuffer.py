@@ -129,16 +129,10 @@ class ProtocolMessage:
     conn.putheader("AppData", url) # app id, user email, nick name, auth domain
 
     # AppScale: Set Version and Module headers to current version & module.
-    # CURRENT_VERSION_ID is formatted module:major_version.minor_version.
-    version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
-    if ':' not in version_info:
-      version_info = 'default:' + version_info
+    service_id = os.environ.get('CURRENT_MODULE_ID', 'default')
 
-    if service_id is None:
-      service_id = version_info.split(':')[0]
-
-    if version_id is None:
-      version_id = version_info.split(':')[1]
+    # CURRENT_VERSION_ID is formatted major_version.minor_version.
+    version_id = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
 
     conn.putheader('Module', service_id)
     conn.putheader('Version', version_id)

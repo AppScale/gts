@@ -254,6 +254,16 @@ class _ApiInfo(object):
     return self.__common_info.frontend_limits
 
   @property
+  def title(self):
+    """Human readable name of this API."""
+    return self.__common_info.title
+
+  @property
+  def documentation(self):
+    """Link to the documentation for this version of the API."""
+    return self.__common_info.documentation
+
+  @property
   def resource_name(self):
     """Resource name for the class this decorates."""
     return self.__resource_name
@@ -268,7 +278,7 @@ class _ApiDecorator(object):
   """Decorator for single- or multi-class APIs.
 
   An instance of this class can be used directly as a decorator for a
-  single-class API.  Or call the collection() method to decorate a multi-class
+  single-class API.  Or call the api_class() method to decorate a multi-class
   API.
   """
 
@@ -276,7 +286,8 @@ class _ApiDecorator(object):
   def __init__(self, name, version, description=None, hostname=None,
                audiences=None, scopes=None, allowed_client_ids=None,
                canonical_name=None, auth=None, owner_domain=None,
-               owner_name=None, package_path=None, frontend_limits=None):
+               owner_name=None, package_path=None, frontend_limits=None,
+               title=None, documentation=None):
     """Constructor for _ApiDecorator.
 
     Args:
@@ -302,6 +313,11 @@ class _ApiDecorator(object):
         client libraries of this API.
       frontend_limits: ApiFrontEndLimits, optional query limits for unregistered
         developers.
+      title: string, the human readable title of your API. It is exposed in the
+        discovery service.
+      documentation: string, a URL where users can find documentation about this
+        version of the API. This will be surfaced in the API Explorer and GPE
+        plugin to allow users to learn about your service.
     """
     self.__common_info = self.__ApiCommonInfo(
         name, version, description=description, hostname=hostname,
@@ -309,7 +325,9 @@ class _ApiDecorator(object):
         allowed_client_ids=allowed_client_ids,
         canonical_name=canonical_name, auth=auth, owner_domain=owner_domain,
         owner_name=owner_name, package_path=package_path,
-        frontend_limits=frontend_limits)
+        frontend_limits=frontend_limits, title=title,
+        documentation=documentation)
+    self.__classes = []
 
   class __ApiCommonInfo(object):
     """API information that's common among all classes that implement an API.
@@ -331,7 +349,8 @@ class _ApiDecorator(object):
     def __init__(self, name, version, description=None, hostname=None,
                  audiences=None, scopes=None, allowed_client_ids=None,
                  canonical_name=None, auth=None, owner_domain=None,
-                 owner_name=None, package_path=None, frontend_limits=None):
+                 owner_name=None, package_path=None, frontend_limits=None,
+                 title=None, documentation=None):
       """Constructor for _ApiCommonInfo.
 
       Args:
@@ -357,6 +376,11 @@ class _ApiDecorator(object):
           client libraries of this API.
         frontend_limits: ApiFrontEndLimits, optional query limits for
           unregistered developers.
+        title: string, the human readable title of your API. It is exposed in
+          the discovery service.
+        documentation: string, a URL where users can find documentation about
+          this version of the API. This will be surfaced in the API Explorer and
+          GPE plugin to allow users to learn about your service.
       """
       _CheckType(name, basestring, 'name', allow_none=False)
       _CheckType(version, basestring, 'version', allow_none=False)
@@ -371,6 +395,8 @@ class _ApiDecorator(object):
       _CheckType(owner_name, basestring, 'owner_name')
       _CheckType(package_path, basestring, 'package_path')
       _CheckType(frontend_limits, ApiFrontEndLimits, 'frontend_limits')
+      _CheckType(title, basestring, 'title')
+      _CheckType(documentation, basestring, 'documentation')
 
       if hostname is None:
         hostname = app_identity.get_default_version_hostname()
@@ -394,6 +420,8 @@ class _ApiDecorator(object):
       self.__owner_name = owner_name
       self.__package_path = package_path
       self.__frontend_limits = frontend_limits
+      self.__title = title
+      self.__documentation = documentation
 
     @property
     def name(self):
@@ -460,19 +488,29 @@ class _ApiDecorator(object):
       """Optional query limits for unregistered developers."""
       return self.__frontend_limits
 
-  def __call__(self, api_class):
+    @property
+    def title(self):
+      """Human readable name of this API."""
+      return self.__title
+
+    @property
+    def documentation(self):
+      """Link to the documentation for this version of the API."""
+      return self.__documentation
+
+  def __call__(self, service_class):
     """Decorator for ProtoRPC class that configures Google's API server.
 
     Args:
-      api_class: remote.Service class, ProtoRPC service class being wrapped.
+      service_class: remote.Service class, ProtoRPC service class being wrapped.
 
     Returns:
       Same class with API attributes assigned in api_info.
     """
-    return self.collection()(api_class)
+    return self.api_class()(service_class)
 
-  def collection(self, resource_name=None, path=None, audiences=None,
-                 scopes=None, allowed_client_ids=None):
+  def api_class(self, resource_name=None, path=None, audiences=None,
+                scopes=None, allowed_client_ids=None):
     """Get a decorator for a class that implements an API.
 
     This can be used for single-class or multi-class implementations.  It's
@@ -503,6 +541,7 @@ class _ApiDecorator(object):
       Returns:
         Same class with API attributes assigned in api_info.
       """
+      self.__classes.append(api_class)
       api_class.api_info = _ApiInfo(
           self.__common_info, resource_name=resource_name,
           path=path, audiences=audiences, scopes=scopes,
@@ -510,6 +549,10 @@ class _ApiDecorator(object):
       return api_class
 
     return apiserving_api_decorator
+
+  def get_api_classes(self):
+    """Get the list of remote.Service classes that implement this API."""
+    return self.__classes
 
 
 class ApiAuth(object):
@@ -653,7 +696,7 @@ class ApiFrontEndLimits(object):
 def api(name, version, description=None, hostname=None, audiences=None,
         scopes=None, allowed_client_ids=None, canonical_name=None,
         auth=None, owner_domain=None, owner_name=None, package_path=None,
-        frontend_limits=None):
+        frontend_limits=None, title=None, documentation=None):
   """Decorate a ProtoRPC Service class for use by the framework above.
 
   This decorator can be used to specify an API name, version, description, and
@@ -674,11 +717,11 @@ def api(name, version, description=None, hostname=None, audiences=None,
   Sample usage if multiple classes implement one API:
     api_root = endpoints.api(name='library', version='v1.0')
 
-    @api_root.collection(resource_name='shelves')
+    @api_root.api_class(resource_name='shelves')
     class Shelves(remote.Service):
       ...
 
-    @api_root.collection(resource_name='books', path='books')
+    @api_root.api_class(resource_name='books', path='books')
     class Books(remote.Service):
       ...
 
@@ -705,6 +748,11 @@ def api(name, version, description=None, hostname=None, audiences=None,
       client libraries of this API.
     frontend_limits: ApiFrontEndLimits, optional query limits for unregistered
       developers.
+    title: string, the human readable title of your API. It is exposed in the
+      discovery service.
+    documentation: string, a URL where users can find documentation about this
+      version of the API. This will be surfaced in the API Explorer and GPE
+      plugin to allow users to learn about your service.
 
   Returns:
     Class decorated with api_info attribute, an instance of ApiInfo.
@@ -716,7 +764,8 @@ def api(name, version, description=None, hostname=None, audiences=None,
                        canonical_name=canonical_name, auth=auth,
                        owner_domain=owner_domain, owner_name=owner_name,
                        package_path=package_path,
-                       frontend_limits=frontend_limits)
+                       frontend_limits=frontend_limits, title=title,
+                       documentation=documentation)
 
 
 class CacheControl(object):
@@ -1663,6 +1712,7 @@ class ApiConfigGenerator(object):
 
     method_map = {}
     method_collision_tracker = {}
+    rest_collision_tracker = {}
 
     for service in services:
       remote_methods = service.all_remote_methods()
@@ -1680,11 +1730,23 @@ class ApiConfigGenerator(object):
 
         if method_id in method_collision_tracker:
           raise ApiConfigurationError(
-              'Method %s used in multiple classes: %s and %s' %
+              'Method %s used multiple times, in classes %s and %s' %
               (method_id, method_collision_tracker[method_id],
                service.__name__))
         else:
           method_collision_tracker[method_id] = service.__name__
+
+
+        rest_identifier = (method_info.http_method,
+                           method_info.get_path(service.api_info))
+        if rest_identifier in rest_collision_tracker:
+          raise ApiConfigurationError(
+              '%s path "%s" used multiple times, in classes %s and %s' %
+              (method_info.http_method, method_info.get_path(service.api_info),
+               rest_collision_tracker[rest_identifier],
+               service.__name__))
+        else:
+          rest_collision_tracker[rest_identifier] = service.__name__
 
     if method_map:
       descriptor['methods'] = method_map
@@ -1725,6 +1787,10 @@ class ApiConfigGenerator(object):
       defaults['ownerName'] = api_info.owner_name
     if api_info.package_path:
       defaults['packagePath'] = api_info.package_path
+    if api_info.title:
+      defaults['title'] = api_info.title
+    if api_info.documentation:
+      defaults['documentation'] = api_info.documentation
     return defaults
 
   def pretty_print_config_to_json(self, services, hostname=None):

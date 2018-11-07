@@ -37,7 +37,13 @@ from google.appengine.tools.devappserver2 import thread_executor
 
 _HAS_POLL = hasattr(select, 'poll')
 
-_PORT_0_RETRIES = 5
+# Due to reports of failure to find a consistent port, trying a higher value
+# to see if that reduces the problem sufficiently.  If it doesn't we can try
+# increasing it (on my circa 2010 desktop, it takes about 1/2 second per 1024
+# tries) but it would probably be better to either figure out a better
+# algorithm or make it possible for code to work with inconsistent ports.
+
+_PORT_0_RETRIES = 2048
 
 
 class BindError(errors.Error):
@@ -46,7 +52,7 @@ class BindError(errors.Error):
 _THREAD_POOL = thread_executor.ThreadExecutor()
 
 
-class SharedCherryPyThreadPool(object):
+class _SharedCherryPyThreadPool(object):
   """A mimic of wsgiserver.ThreadPool that delegates to a shared thread pool."""
 
   def __init__(self):
@@ -167,7 +173,7 @@ class _SingleAddressWsgiServer(wsgiserver.CherryPyWSGIServer):
     self._lock = threading.Lock()
     self._app = app  # Protected by _lock.
     self._error = None  # Protected by _lock.
-    self.requests = SharedCherryPyThreadPool()
+    self.requests = _SharedCherryPyThreadPool()
     self.software = http_runtime_constants.SERVER_SOFTWARE
     # Some servers, especially the API server, may receive many simultaneous
     # requests so set the listen() backlog to something high to reduce the
@@ -180,7 +186,7 @@ class _SingleAddressWsgiServer(wsgiserver.CherryPyWSGIServer):
     This is a modified version of the base class implementation. Changes:
       - Removed unused functionality (Unix domain socket and SSL support).
       - Raises BindError instead of socket.error.
-      - Uses SharedCherryPyThreadPool instead of wsgiserver.ThreadPool.
+      - Uses _SharedCherryPyThreadPool instead of wsgiserver.ThreadPool.
       - Calls _SELECT_THREAD.add_socket instead of looping forever.
 
     Raises:
@@ -295,7 +301,7 @@ class WsgiServer(object):
         if self._start_all_dynamic_port(host_ports):
           break
       else:
-        raise BindError('Unable to find a consistent port %s' % host)
+        raise BindError('Unable to find a consistent port for %s' % host)
 
   def _start_all_fixed_port(self, host_ports):
     """Starts a server for each specified address with a fixed port.

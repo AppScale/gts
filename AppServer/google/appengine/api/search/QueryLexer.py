@@ -26,7 +26,6 @@ HIDDEN = BaseRecognizer.HIDDEN
 
 
 FUNCTION=7
-LT=17
 GEO_POINT_FN=29
 FIX=30
 ESC=34
@@ -48,6 +47,7 @@ DIGIT=38
 EQ=21
 NE=20
 T__43=43
+LESSTHAN=17
 GE=18
 T__44=44
 T__45=45
@@ -530,10 +530,10 @@ class QueryLexer(Lexer):
 
 
 
-    def mLT(self, ):
+    def mLESSTHAN(self, ):
 
         try:
-            _type = LT
+            _type = LESSTHAN
             _channel = DEFAULT_CHANNEL
 
 
@@ -1319,7 +1319,7 @@ class QueryLexer(Lexer):
         elif alt9 == 16:
 
             pass
-            self.mLT()
+            self.mLESSTHAN()
 
 
         elif alt9 == 17:

@@ -60,6 +60,49 @@ def _GetTypeName(x):
     return type(x).__name__
 
 
+
+
+
+
+def LoadObject(object_name):
+  """Find and return a Python object specified by object_name.
+
+  Packages and modules are imported as necessary.
+
+  Args:
+    object_name: (string) An object specification.
+
+  Returns:
+    A tuple of the form (object, string, error).  If object_name can be
+    fully traversed, object is the specified object, string is the filename
+    containing the object, and error is None. Otherwise, object_name is
+    maximal partial match specified by object_name, string is the filename
+    containing object, and error is an ImportError.
+  """
+  containing_file = None
+  path = object_name.split('.')
+  obj = __import__(path[0])
+  is_parent_package = True
+  cumulative_path = path[0]
+  for name in path[1:]:
+    if hasattr(obj, '__file__'):
+      containing_file = obj.__file__
+    is_parent_package = is_parent_package and hasattr(obj, '__path__')
+    cumulative_path += '.' + name
+    if hasattr(obj, name):
+      obj = getattr(obj, name)
+    elif is_parent_package:
+      __import__(cumulative_path)
+      obj = getattr(obj, name)
+    else:
+      return obj, containing_file, ImportError(
+          '%s has no attribute %s' % (obj, name))
+
+
+
+  return obj, containing_file, None
+
+
 class WsgiRequest(object):
   """A single WSGI request."""
 
@@ -239,36 +282,23 @@ class WsgiRequest(object):
         result.close()
 
   def _LoadHandler(self):
-    """Find and return a Python object with name handler_name.
+    """Find and return a Python object with name self._handler.
 
-    Find and return a Python object specified by self._handler. Packages and
-    modules are imported as necessary. If successful, the filename of the module
-    is inserted into environ with key 'PATH_TRANSLATED' if it has one.
+    Sets _environ so that PATH_TRANSLATED is equal to the file containing the
+    handler.
+
+    Packages and modules are imported as necessary.
 
     Returns:
-      A Python object.
+      The python object specified by self._handler.
 
     Raises:
       ImportError: An element of the path cannot be resolved.
     """
-    path = self._handler.split('.')
-    handler = __import__(path[0])
-    is_parent_package = True
-    cumulative_path = path[0]
-    for name in path[1:]:
-      if hasattr(handler, '__file__'):
-        self._environ['PATH_TRANSLATED'] = handler.__file__
-      is_parent_package = is_parent_package and hasattr(handler, '__path__')
-      cumulative_path += '.' + name
-      if hasattr(handler, name):
-        handler = getattr(handler, name)
-      elif is_parent_package:
-        __import__(cumulative_path)
-        handler = getattr(handler, name)
-      else:
-        raise ImportError('%s has no attribute %s' % (handler, name))
-
-
+    handler, path, err = LoadObject(self._handler)
+    self._environ['PATH_TRANSLATED'] = path
+    if err:
+      raise err
     return handler
 
 

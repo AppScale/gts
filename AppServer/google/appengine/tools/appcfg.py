@@ -81,6 +81,11 @@ from google.appengine.tools import sdk_update_checker
 LIST_DELIMITER = '\n'
 TUPLE_DELIMITER = '|'
 BACKENDS_ACTION = 'backends'
+BACKENDS_MESSAGE = ('Looks like you\'re using Backends. We suggest that you '
+                    'make the switch to App Engine Modules. See the Modules '
+                    'documentation to learn more about converting: '
+                    'https://developers.google.com/appengine/docs/python/'
+                    'modules/converting')
 
 
 MAX_LOG_LEVEL = 4
@@ -108,7 +113,7 @@ SDK_PRODUCT = 'appcfg_py'
 DAY = 24*3600
 SUNDAY = 6
 
-SUPPORTED_RUNTIMES = ('go', 'python', 'python27')
+SUPPORTED_RUNTIMES = ('go', 'php', 'python', 'python27')
 
 
 
@@ -1606,11 +1611,13 @@ class AppVersionUpload(object):
     for url in config_copy.handlers:
       handler_type = url.GetHandlerType()
       if url.application_readable:
+
+
         if handler_type == 'static_dir':
-          url.static_dir = os.path.join(STATIC_FILE_PREFIX, url.static_dir)
+          url.static_dir = '%s/%s' % (STATIC_FILE_PREFIX, url.static_dir)
         elif handler_type == 'static_files':
-          url.static_files = os.path.join(STATIC_FILE_PREFIX, url.static_files)
-          url.upload = os.path.join(STATIC_FILE_PREFIX, url.upload)
+          url.static_files = '%s/%s' % (STATIC_FILE_PREFIX, url.static_files)
+          url.upload = '%s/%s' % (STATIC_FILE_PREFIX, url.upload)
 
     response = self.Send(
         '/api/appversion/create',
@@ -1633,7 +1640,7 @@ class AppVersionUpload(object):
       if file_classification.IsStaticFile():
         upload_path = path
         if file_classification.IsApplicationFile():
-          upload_path = os.path.join(STATIC_FILE_PREFIX, path)
+          upload_path = '%s/%s' % (STATIC_FILE_PREFIX, path)
         blobs_to_clone.append((path, upload_path, content_hash,
                                file_classification.StaticMimeType()))
 
@@ -1716,7 +1723,7 @@ class AppVersionUpload(object):
     if file_classification.IsStaticFile():
       upload_path = path
       if file_classification.IsApplicationFile():
-        upload_path = os.path.join(STATIC_FILE_PREFIX, path)
+        upload_path = '%s/%s' % (STATIC_FILE_PREFIX, path)
       self.blob_batcher.AddToBatch(upload_path, payload,
                                    file_classification.StaticMimeType())
 
@@ -1814,12 +1821,24 @@ class AppVersionUpload(object):
       if result == '0':
         raise CannotStartServingError(
             'Another operation on this version is in progress.')
-      success, unused_contents = RetryWithBackoff(
-          lambda: (self.IsServing(), None), PrintRetryMessage, 1, 2, 60, 20)
+      success, response = RetryWithBackoff(
+          self.IsServing, PrintRetryMessage, 1, 2, 60, 20)
       if not success:
 
         logging.warning('Version still not serving, aborting.')
         raise Exception('Version not ready.')
+
+
+
+      check_config_updated = response.get('check_endpoints_config')
+      if check_config_updated:
+        success, unused_contents = RetryWithBackoff(
+            lambda: (self.IsEndpointsConfigUpdated(), None),
+            PrintRetryMessage, 1, 2, 60, 20)
+        if not success:
+          logging.warning('Failed to update Endpoints configuration.  Try '
+                          'updating again.')
+          raise Exception('Endpoints config update failed.')
       self.in_transaction = False
 
     return app_summary
@@ -1901,7 +1920,10 @@ class AppVersionUpload(object):
       Exception: Deploy has not yet been called.
 
     Returns:
-      True if the deployed app version is serving.
+      (serving, response) Where serving is True if the deployed app version is
+        serving, False otherwise.  response is a dict containing the parsed
+        response from the server, or an empty dict if the server's response was
+        an old style 0/1 response.
     """
     assert self.started, 'StartServing() must be called before IsServing().'
 
@@ -1911,7 +1933,7 @@ class AppVersionUpload(object):
     result = self.Send('/api/appversion/isserving')
     del self.params['new_serving_resp']
     if result in ['0', '1']:
-      return result == '1'
+      return result == '1', {}
     result = AppVersionUpload._ValidateIsServingYaml(result)
     if not result:
       raise CannotStartServingError(
@@ -1922,7 +1944,52 @@ class AppVersionUpload(object):
       StatusUpdate(message)
     if fatal:
       raise CannotStartServingError(fatal)
-    return result['serving']
+    return result['serving'], result
+
+  @staticmethod
+  def _ValidateIsEndpointsConfigUpdatedYaml(resp):
+    """Validates the YAML string response from an isconfigupdated request.
+
+    Args:
+      resp: A string containing the response from the server.
+
+    Returns:
+      The dictionary with the parsed response if the response is valid.
+      Otherwise returns False.
+    """
+    response_dict = yaml.safe_load(resp)
+    if 'updated' not in response_dict:
+      return None
+    return response_dict
+
+  def IsEndpointsConfigUpdated(self):
+    """Check if the Endpoints configuration for this app has been updated.
+
+    This should only be called if the app has a Google Cloud Endpoints
+    handler, or if it's removing one.  The server performs the check to see
+    if Endpoints support is added/updated/removed, and the response to the
+    isserving call indicates whether IsEndpointsConfigUpdated should be called.
+
+    Raises:
+      AssertionError: Deploy has not yet been called.
+      CannotStartServingError: There was an unexpected error with the server
+        response.
+
+    Returns:
+      True if the configuration has been updated, False if not.
+    """
+
+    assert self.started, ('StartServing() must be called before '
+                          'IsEndpointsConfigUpdated().')
+
+    StatusUpdate('Checking if Endpoints configuration has been updated.')
+
+    result = self.Send('/api/isconfigupdated')
+    result = AppVersionUpload._ValidateIsEndpointsConfigUpdatedYaml(result)
+    if result is None:
+      raise CannotStartServingError(
+          'Internal error: Could not parse IsEndpointsConfigUpdated response.')
+    return result['updated']
 
   def Rollback(self):
     """Rolls back the transaction if one is in progress."""
@@ -2315,6 +2382,8 @@ class AppCfgApp(object):
 
 
     if action == BACKENDS_ACTION:
+
+      StatusUpdate(BACKENDS_MESSAGE)
       if len(self.args) < 1:
         RaiseParseError(action, self.actions[BACKENDS_ACTION])
 
@@ -2596,8 +2665,9 @@ class AppCfgApp(object):
                 self.oauth_scopes,
                 self.options.oauth2_credential_file)
 
-      appengine_rpc_httplib2.tools.FLAGS.auth_local_webserver = (
-          self.options.auth_local_webserver)
+      if hasattr(appengine_rpc_httplib2.tools, 'FLAGS'):
+        appengine_rpc_httplib2.tools.FLAGS.auth_local_webserver = (
+            self.options.auth_local_webserver)
     else:
       if not self.rpc_server_class:
         self.rpc_server_class = appengine_rpc.HttpRpcServerWithOAuth2Suggestion
@@ -2691,6 +2761,10 @@ class AppCfgApp(object):
     if self.options.runtime:
       appyaml.runtime = self.options.runtime
 
+    if not appyaml.application:
+      self.parser.error('Expected -A app_id when application property in file '
+                        '%s.yaml is not set.' % basename)
+
     msg = 'Application: %s' % appyaml.application
     if appyaml.application != orig_application:
       msg += ' (was: %s)' % orig_application
@@ -2701,7 +2775,6 @@ class AppCfgApp(object):
         msg += '; module: %s' % appyaml.module
         if appyaml.module != orig_module:
           msg += ' (was: %s)' % orig_module
-
       msg += '; version: %s' % appyaml.version
       if appyaml.version != orig_version:
         msg += ' (was: %s)' % orig_version
@@ -3167,6 +3240,22 @@ class AppCfgApp(object):
     """Placeholder; we never expect this action to be invoked."""
     pass
 
+  def BackendsPhpCheck(self, appyaml):
+    """Don't support backends with the PHP runtime.
+
+    This should be used to prevent use of backends update/start/configure
+    with the PHP runtime.  We continue to allow backends
+    stop/delete/list/rollback just in case there are existing PHP backends.
+
+    Args:
+      appyaml: A parsed app.yaml file.
+    """
+    if appyaml.runtime == 'php':
+      _PrintErrorAndExit(
+          self.error_fh,
+          'Error: Backends are not supported with the PHP runtime. '
+          'Please use Modules instead.\n')
+
   def BackendsYamlCheck(self, appyaml, backend=None):
     """Check the backends.yaml file is sane and which backends to update."""
 
@@ -3214,6 +3303,7 @@ class AppCfgApp(object):
     yaml_file_basename = 'app'
     appyaml = self._ParseAppInfoFromYaml(self.basepath,
                                          basename=yaml_file_basename)
+    self.BackendsPhpCheck(appyaml)
     rpcserver = self._GetRpcServer()
 
     backends_to_update = self.BackendsYamlCheck(appyaml, self.backend)
@@ -3248,6 +3338,7 @@ class AppCfgApp(object):
 
     backend = self.args[0]
     appyaml = self._ParseAppInfoFromYaml(self.basepath)
+    self.BackendsPhpCheck(appyaml)
     rpcserver = self._GetRpcServer()
     response = rpcserver.Send('/api/backends/start',
                               app_id=appyaml.application,
@@ -3287,12 +3378,47 @@ class AppCfgApp(object):
 
     backend = self.args[0]
     appyaml = self._ParseAppInfoFromYaml(self.basepath)
+    self.BackendsPhpCheck(appyaml)
     backends_yaml = self._ParseBackendsYaml(self.basepath)
     rpcserver = self._GetRpcServer()
     response = rpcserver.Send('/api/backends/configure',
                               app_id=appyaml.application,
                               backend=backend,
                               payload=backends_yaml.ToYAML())
+    print >> self.out_fh, response
+
+  def ListVersions(self):
+    """Lists all versions for an app."""
+    if self.args:
+      self.parser.error('Expected no arguments.')
+
+    appyaml = self._ParseAppInfoFromYaml(self.basepath)
+    rpcserver = self._GetRpcServer()
+    response = rpcserver.Send('/api/versions/list', app_id=appyaml.application)
+
+    parsed_response = yaml.safe_load(response)
+    if not parsed_response:
+      print >> self.out_fh, ('No versions uploaded for app: %s.' %
+                             appyaml.application)
+    else:
+      print >> self.out_fh, response
+
+  def DeleteVersion(self):
+    """Deletes the specified version for an app."""
+    if not (self.options.app_id and self.options.version):
+      self.parser.error('Expected an <app_id> argument, a <version> argument '
+                        'and an optional <module> argument.')
+    if self.options.module:
+      module = self.options.module
+    else:
+      module = ''
+
+    rpcserver = self._GetRpcServer()
+    response = rpcserver.Send('/api/versions/delete',
+                              app_id=self.options.app_id,
+                              version_match=self.options.version,
+                              module=module)
+
     print >> self.out_fh, response
 
   def _ParseAndValidateModuleYamls(self, yaml_paths):
@@ -4037,7 +4163,6 @@ definitions from the optional queue.yaml file."""),
 
       'update_dispatch': Action(
           function='UpdateDispatch',
-          hidden=True,
           usage='%prog [options] update_dispatch <directory>',
           short_desc='Update application dispatch definitions.',
           long_desc="""
@@ -4162,11 +4287,8 @@ Expected an optional <directory> and mandatory <output_file> argument."""),
 The 'cron_info' command will display the next 'number' runs (default 5) for
 each cron job defined in the cron.yaml file."""),
 
-
-
       'start': Action(
           function='Start',
-          hidden=True,
           uses_basepath=False,
           usage='%prog [options] start [file, ...]',
           short_desc='Start a module version.',
@@ -4175,7 +4297,6 @@ The 'start' command will put a module version into the START state."""),
 
       'stop': Action(
           function='Stop',
-          hidden=True,
           uses_basepath=False,
           usage='%prog [options] stop [file, ...]',
           short_desc='Stop a module version.',
@@ -4235,8 +4356,35 @@ The 'set_default_version' command sets the default (serving) version of the app.
 The 'resource_limits_info' command prints the current resource limits that
 are enforced."""),
 
+      'list_versions': Action(
+          function='ListVersions',
+          usage='%prog [options] list_versions <directory>',
+          short_desc='List all uploaded versions for an app.',
+          long_desc="""
+The 'list_versions' command outputs the uploaded versions for each module of
+an application in YAML."""),
 
+      'delete_version': Action(
+          function='DeleteVersion',
+          usage='%prog [options] delete_version -A app_id -V version '
+          '[-M module]',
+          uses_basepath=False,
+          short_desc='Delete the specified version for an app.',
+          long_desc="""
+The 'delete_version' command deletes the specified version for the specified
+application."""),
   }
+
+
+def IsWarFileWithoutYaml(dir_path):
+  if os.path.isfile(os.path.join(dir_path, 'app.yaml')):
+    return False
+  web_inf = os.path.join(dir_path, 'WEB-INF')
+  if not os.path.isdir(web_inf):
+    return False
+  if not set(['appengine-web.xml', 'web.xml']).issubset(os.listdir(web_inf)):
+    return False
+  return True
 
 
 def main(argv):
