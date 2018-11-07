@@ -59,12 +59,16 @@ APPS_LOCK = Monitor.new
 # applications.
 AMS_LOCK = Mutex.new
 
+# Prevents nodetool from being invoked concurrently.
+NODETOOL_LOCK = Mutex.new
+
 # This lock is to ensure that only one thread is trying to start/stop
 # new nodes (it takes a long time to spawn a new VM).
 SCALE_LOCK = Mutex.new
 
-# Prevents nodetool from being invoked concurrently.
-NODETOOL_LOCK = Mutex.new
+# This lock is used to ensure only one thread is updating the cluster
+# statistics.
+STATS_LOCK = Mutex.new
 
 # The name of the user to be used with reserved applications.
 APPSCALE_USER = 'appscale-user@local.appscale'.freeze
@@ -1137,15 +1141,22 @@ class Djinn
       end
     end
 
-    JSON.dump(@cluster_stats)
+    APPS_LOCK.syncrhonized { JSON.dump(@cluster_stats) }
   end
 
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache
-    new_stats = []
+    # We want to have only one sets of stats requests to be pending at
+    # each time.
+    if STATS_LOCK.locked?
+      Djinn.log_debug("Another thread is already updating cluster stats.")
+      return
+    end
 
-    Thread.new {
+    threads = []
+    new_stats = []
+    STATS_LOCK.synchronized {
       @nodes.each { |node|
         ip = node.private_ip
         if ip == my_node.private_ip
@@ -1156,19 +1167,26 @@ class Djinn
             next
           end
         else
-          acc = AppControllerClient.new(ip, @@secret)
-          begin
-            node_stats = JSON.load(acc.get_node_stats_json)
-          rescue FailedNodeException, SOAP::FaultError
-            Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
-              "not adding it to our cached info.")
-            next
-          end
+          threads << Thread.new {
+            acc = AppControllerClient.new(ip, @@secret)
+            begin
+              Thread.current["new_stat"] = JSON.load(acc.get_node_stats_json)
+            rescue FailedNodeException, SOAP::FaultError
+              Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
+                "not adding it to our cached info.")
+              Thread.current["new_stat"] = nil
+            end
+          }
         end
-        new_stats << node_stats
       }
-      @cluster_stats = new_stats
+      threads.each { |t|
+        t.join
+        new_stats << t["new_stat"] unless t["new_stat"].nil?
+      }
     }
+
+    APPS_LOCK.syncrhonized { @cluster_stats = new_stats }
+    Djinn.log_debug("Updated cluster stats.")
   end
 
   # Gets the database information of the AppScale deployment.
@@ -2307,7 +2325,9 @@ class Djinn
       @state_change_lock.synchronize {
         @nodes.each { |node|
           Djinn.log_run("ssh-keygen -R #{node.private_ip}")
-          Djinn.log_run("ssh-keygen -R #{node.public_ip}")
+          unless node.private_ip == node.public_ip
+            Djinn.log_run("ssh-keygen -R #{node.public_ip}")
+          end
         }
       }
     end
@@ -3329,7 +3349,6 @@ class Djinn
     if my_node.is_shadow?
       @state = "Assigning Datastore processes"
       assign_datastore_processes
-      update_node_info_cache
       TaskQueue.start_flower(@options['flower_password'])
     else
       TaskQueue.stop_flower
