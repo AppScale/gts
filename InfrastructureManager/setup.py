@@ -4,12 +4,10 @@ from setuptools import setup
 
 install_requires = [
   'appscale-common',
-  'appscale-tools',
-  'requests[security]>=2.20.0',
-  'cryptography>=2.3.0',
-  'psutil',
-  'tornado',
-  'kazoo'
+  # TODO: add 'appscale-agents' to required packages.
+  'mock',
+  'psutil==5.1.3',
+  'tornado'
 ]
 
 setup(
