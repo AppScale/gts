@@ -508,7 +508,7 @@ class VersionsHandler(BaseHandler):
   """ Manages service versions. """
 
   # A rule for validating project IDs.
-  PROJECT_ID_RE = re.compile(r'^[a-z][a-z\d\-]{5,29}$')
+  PROJECT_ID_RE = re.compile(r'^[a-z][a-z0-9\-]{5,29}$')
 
   # A rule for validating version IDs.
   VERSION_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
@@ -791,7 +791,7 @@ class VersionsHandler(BaseHandler):
     if not self.SERVICE_ID_RE.match(service_id):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid service ID. '
-                                    ' May only contain lowercase letters, digits, '
+                                    'May only contain lowercase letters, digits, '
                                     'and hyphens. Must begin and end with a letter '
                                     'or digit. Must not exceed 63 characters.')
 
