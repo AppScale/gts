@@ -1141,7 +1141,7 @@ class Djinn
       end
     end
 
-    APPS_LOCK.synchronized { JSON.dump(@cluster_stats) }
+    @state_change_lock.synchronized { JSON.dump(@cluster_stats) }
   end
 
   # Updates our locally cached information about the CPU, memory, and disk
@@ -1156,27 +1156,29 @@ class Djinn
     threads = []
     new_stats = []
     STATS_LOCK.synchronized {
-      @nodes.each { |node|
-        ip = node.private_ip
-        if ip == my_node.private_ip
-          begin
-            node_stats = JSON.load(get_node_stats_json(@@secret))
-          rescue SOAP::FaultError
-            Djinn.log_warn("Failed to get local status update.")
-            next
-          end
-        else
-          threads << Thread.new {
-            acc = AppControllerClient.new(ip, @@secret)
+      @state_change_lock.synchronize {
+        @nodes.each { |node|
+          ip = node.private_ip
+          if ip == my_node.private_ip
             begin
-              Thread.current["new_stat"] = JSON.load(acc.get_node_stats_json)
-            rescue FailedNodeException, SOAP::FaultError
-              Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
-                "not adding it to our cached info.")
-              Thread.current["new_stat"] = nil
+              node_stats = JSON.load(get_node_stats_json(@@secret))
+            rescue SOAP::FaultError
+              Djinn.log_warn("Failed to get local status update.")
+              next
             end
-          }
-        end
+          else
+            threads << Thread.new {
+              acc = AppControllerClient.new(ip, @@secret)
+              begin
+                Thread.current["new_stat"] = JSON.load(acc.get_node_stats_json)
+              rescue FailedNodeException, SOAP::FaultError
+                Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
+                  "not adding it to our cached info.")
+                Thread.current["new_stat"] = nil
+              end
+            }
+          end
+        }
       }
       threads.each { |t|
         t.join
@@ -1184,7 +1186,7 @@ class Djinn
       }
     }
 
-    APPS_LOCK.synchronized { @cluster_stats = new_stats }
+    @state_change_lock.synchronized { @cluster_stats = new_stats }
     Djinn.log_debug("Updated cluster stats.")
   end
 
@@ -1509,12 +1511,14 @@ class Djinn
       http.request(request)
     }
 
-    @nodes.each { | node |
-      if node.is_db_master? or node.is_db_slave?
-        acc = AppControllerClient.new(node.private_ip, @@secret)
-        response = acc.set_node_read_only(read_only)
-        return response unless response == 'OK'
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { | node |
+        if node.is_db_master? or node.is_db_slave?
+          acc = AppControllerClient.new(node.private_ip, @@secret)
+          response = acc.set_node_read_only(read_only)
+          return response unless response == 'OK'
+        end
+      }
     }
 
     return 'OK'
@@ -1675,8 +1679,8 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     public_ips = []
-    @nodes.each { |node|
-      public_ips << node.public_ip
+    @state_change_lock.synchronize {
+      @nodes.each { |node| public_ips << node.public_ip }
     }
     JSON.dump(public_ips)
   end
@@ -1685,8 +1689,8 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     private_ips = []
-    @nodes.each { |node|
-      private_ips << node.private_ip
+    @state_change_lock.synchronize {
+      @nodes.each { |node| private_ips << node.private_ip }
     }
     JSON.dump(private_ips)
   end
@@ -2745,10 +2749,12 @@ class Djinn
         local_state[var] = value
       }
     }
-    if @appcontroller_state == local_state.to_s
-      Djinn.log_debug("backup_appcontroller_state: no changes.")
-      return
-    end
+    @state_change_lock.synchronize {
+      if @appcontroller_state == local_state.to_s
+        Djinn.log_debug("backup_appcontroller_state: no changes.")
+        return
+      end
+    }
 
     begin
       ZKInterface.write_appcontroller_state(local_state)
@@ -2756,7 +2762,9 @@ class Djinn
       Djinn.log_warn("Couldn't talk to zookeeper whle backing up " \
         "appcontroller state with #{e.message}.")
     end
-    @appcontroller_state = local_state.to_s
+    @state_change_lock.synchronize {
+      @appcontroller_state = local_state.to_s
+    }
     Djinn.log_debug("backup_appcontroller_state: updated state.")
   end
 
@@ -2803,16 +2811,20 @@ class Djinn
       Djinn.log_warn("Unable to get state from zookeeper: trying again.")
       pick_zookeeper(@zookeeper_data)
     }
-    if @appcontroller_state == json_state.to_s
-      Djinn.log_debug("Reload state: no changes.")
-      return true
-    end
+    @state_change_lock.synchronize {
+      if @appcontroller_state == json_state.to_s
+        Djinn.log_debug("Reload state: no changes.")
+        return true
+      end
+    }
 
     Djinn.log_debug("Reload state : #{json_state}.")
-    @appcontroller_state = json_state.to_s
+    @state_change_lock.synchronize {
+      @appcontroller_state = json_state.to_s
+    }
 
     APPS_LOCK.synchronize {
-      @@secret = json_state['@@secret']
+      @state_change_lock.synchronize { @@secret = json_state['@@secret'] }
       keyname = json_state['@options']['keyname']
 
       # Puts json_state.
@@ -3028,7 +3040,7 @@ class Djinn
 
   # Removes information associated with the given IP address from our local
   # cache (@nodes) as well as the remote node storage mechanism (in
-  # ZooKeeper). This method needs to be called within APPS_LOCK.
+  # ZooKeeper).
   def remove_node_from_local_and_zookeeper(ip)
     # First, remove our local copy
     index_to_remove = nil
@@ -3149,7 +3161,9 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         unless is_zookeeper_running?
-          configure_zookeeper(@nodes, @my_index)
+          @state_change_lock.synchronize {
+            configure_zookeeper(@nodes, @my_index)
+          }
           begin
             start_zookeeper(false)
           rescue FailedZooKeeperOperationException
