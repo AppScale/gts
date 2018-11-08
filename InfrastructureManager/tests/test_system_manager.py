@@ -5,19 +5,15 @@ try:
 except ImportError:
   from unittest.case import TestCase
 
-from system_manager import JSONTags
-from system_manager import SystemManager
-from utils import utils
+from appscale.infrastructure.system_manager import (StatsKeys, SystemManager)
 
 
 class TestInfrastructureManager(TestCase):
 
   def test_get_cpu_usage(self):
-    flexmock(utils).should_receive("get_secret").and_return("fake secret")
-
-    expected_keys = [JSONTags.CPU, JSONTags.IDLE, JSONTags.SYSTEM,
-                     JSONTags.USER, JSONTags.COUNT]
-    actual = json.loads(SystemManager().get_cpu_usage("fake secret"))
+    expected_keys = [StatsKeys.CPU, StatsKeys.IDLE, StatsKeys.SYSTEM,
+                     StatsKeys.USER, StatsKeys.COUNT]
+    actual = SystemManager().get_cpu_usage()
     actual_keys = [actual.keys()[0]]
     for key in actual.values()[0].keys():
       actual_keys.append(key)
@@ -25,12 +21,10 @@ class TestInfrastructureManager(TestCase):
     self.assertSetEqual(set(expected_keys), set(actual_keys))
 
   def test_get_disk_usage(self):
-    flexmock(utils).should_receive("get_secret").and_return("fake secret")
-
     expected_keys = [
-      JSONTags.TOTAL, JSONTags.FREE, JSONTags.USED
+      StatsKeys.TOTAL, StatsKeys.FREE, StatsKeys.USED
     ]
-    actual = json.loads(SystemManager().get_disk_usage("fake secret"))
+    actual = SystemManager().get_disk_usage()
     actual_keys = []
 
     # Example: {'disk': [ {'/': {'used': 3513118720, 'free': 5747404800}} ]}
@@ -41,12 +35,10 @@ class TestInfrastructureManager(TestCase):
     self.assertSetEqual(set(expected_keys), set(actual_keys))
 
   def test_get_memory_usage(self):
-    flexmock(utils).should_receive("get_secret").and_return("fake secret")
-
     expected_keys = [
-      JSONTags.MEMORY, JSONTags.AVAILABLE, JSONTags.USED, JSONTags.TOTAL
+      StatsKeys.MEMORY, StatsKeys.AVAILABLE, StatsKeys.USED, StatsKeys.TOTAL
     ]
-    actual = json.loads(SystemManager().get_memory_usage("fake secret"))
+    actual = SystemManager().get_memory_usage()
     actual_keys = [actual.keys()[0]]
     for key in actual.values()[0].keys():
       actual_keys.append(key)
@@ -54,12 +46,10 @@ class TestInfrastructureManager(TestCase):
     self.assertSetEqual(set(expected_keys), set(actual_keys))
 
   def test_get_swap_usage(self):
-    flexmock(utils).should_receive("get_secret").and_return("fake secret")
-
     expected_keys = [
-      JSONTags.SWAP, JSONTags.FREE, JSONTags.USED
+      StatsKeys.SWAP, StatsKeys.FREE, StatsKeys.USED
     ]
-    actual = json.loads(SystemManager().get_swap_usage("fake secret"))
+    actual = SystemManager().get_swap_usage()
     actual_keys = [actual.keys()[0]]
     for key in actual.values()[0].keys():
       actual_keys.append(key)

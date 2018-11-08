@@ -9,7 +9,7 @@ logger = logging.getLogger('appscale-infrastructure-manager')
 MOUNTPOINT_WHITELIST = ['/', '/opt/appscale', '/opt/appscale/backups',
   '/opt/appscale/cassandra', '/var/apps']
 
-class JSONTags(object):
+class StatsKeys(object):
   # CPU related JSON tags.
   CPU = "cpu"
   IDLE = "idle"
@@ -52,12 +52,12 @@ class SystemManager():
     """
 
     cpu_stats = psutil.cpu_times_percent(percpu=False)
-    cpu_stats_dict = { JSONTags.CPU :
+    cpu_stats_dict = { StatsKeys.CPU :
       {
-        JSONTags.IDLE : cpu_stats.idle,
-        JSONTags.SYSTEM : cpu_stats.system,
-        JSONTags.USER : cpu_stats.user,
-        JSONTags.COUNT : len(psutil.cpu_times(percpu=True))
+        StatsKeys.IDLE : cpu_stats.idle,
+        StatsKeys.SYSTEM : cpu_stats.system,
+        StatsKeys.USER : cpu_stats.user,
+        StatsKeys.COUNT : len(psutil.cpu_times(percpu=True))
       }
     }
     logging.debug("CPU stats: {}".format(cpu_stats_dict))
@@ -83,12 +83,12 @@ class SystemManager():
 
     for partition in relevant_mountpoints:
       disk_stats = psutil.disk_usage(partition)
-      partition_stats = {partition: {JSONTags.TOTAL: disk_stats.total,
-                                     JSONTags.FREE: disk_stats.free,
-                                     JSONTags.USED: disk_stats.used}}
+      partition_stats = {partition: {StatsKeys.TOTAL: disk_stats.total,
+                                     StatsKeys.FREE: disk_stats.free,
+                                     StatsKeys.USED: disk_stats.used}}
       inner_disk_stats_dict.append(partition_stats)
 
-    disk_stats_dict = { JSONTags.DISK : inner_disk_stats_dict }
+    disk_stats_dict = { StatsKeys.DISK : inner_disk_stats_dict }
     logging.debug("Disk stats: {}".format(disk_stats_dict))
 
     return disk_stats_dict
@@ -102,11 +102,11 @@ class SystemManager():
 
     mem_stats = psutil.virtual_memory()
 
-    mem_stats_dict = { JSONTags.MEMORY :
+    mem_stats_dict = { StatsKeys.MEMORY :
       {
-        JSONTags.TOTAL : mem_stats.total,
-        JSONTags.AVAILABLE : mem_stats.available,
-        JSONTags.USED : mem_stats.used
+        StatsKeys.TOTAL : mem_stats.total,
+        StatsKeys.AVAILABLE : mem_stats.available,
+        StatsKeys.USED : mem_stats.used
       }
     }
     logging.debug("Memory stats: {}".format(mem_stats_dict))
@@ -150,10 +150,10 @@ class SystemManager():
     """
 
     swap_stats = psutil.swap_memory()
-    swap_stats_dict = { JSONTags.SWAP :
+    swap_stats_dict = { StatsKeys.SWAP :
       {
-        JSONTags.FREE : swap_stats.free,
-        JSONTags.USED : swap_stats.used
+        StatsKeys.FREE : swap_stats.free,
+        StatsKeys.USED : swap_stats.used
       }
     }
     logging.debug("Swap stats: {}".format(swap_stats_dict))
@@ -173,13 +173,13 @@ class SystemManager():
     with open("/proc/loadavg") as loadavg:
       loadavg = loadavg.read().split()
     kernel_entities = loadavg[3].split("/")
-    loadavg_stat = { JSONTags.LOADAVG :
+    loadavg_stat = { StatsKeys.LOADAVG :
       {
-        JSONTags.LAST_1_MIN : float(loadavg[0]),
-        JSONTags.LAST_5_MIN : float(loadavg[1]),
-        JSONTags.LAST_15_MIN : float(loadavg[2]),
-        JSONTags.RUNNABLE_ENTITIES : int(kernel_entities[0]),
-        JSONTags.SCHEDULING_ENTITIES : int(kernel_entities[1])
+        StatsKeys.LAST_1_MIN : float(loadavg[0]),
+        StatsKeys.LAST_5_MIN : float(loadavg[1]),
+        StatsKeys.LAST_15_MIN : float(loadavg[2]),
+        StatsKeys.RUNNABLE_ENTITIES : int(kernel_entities[0]),
+        StatsKeys.SCHEDULING_ENTITIES : int(kernel_entities[1])
       }
     }
     logging.debug("Loadavg stats: {}".format(' '.join(loadavg)))
