@@ -1141,7 +1141,7 @@ class Djinn
       end
     end
 
-    @state_change_lock.synchronized { JSON.dump(@cluster_stats) }
+    @state_change_lock.synchronize { JSON.dump(@cluster_stats) }
   end
 
   # Updates our locally cached information about the CPU, memory, and disk
@@ -1155,7 +1155,7 @@ class Djinn
 
     threads = []
     new_stats = []
-    STATS_LOCK.synchronized {
+    STATS_LOCK.synchronize {
       @state_change_lock.synchronize {
         @nodes.each { |node|
           ip = node.private_ip
@@ -1186,7 +1186,7 @@ class Djinn
       }
     }
 
-    @state_change_lock.synchronized { @cluster_stats = new_stats }
+    @state_change_lock.synchronize { @cluster_stats = new_stats }
     Djinn.log_debug("Updated cluster stats.")
   end
 
