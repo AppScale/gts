@@ -9,6 +9,8 @@ from appscale.common import appscale_info
 
 from appscale.hermes.converter import include_list_name, Meta
 
+logger = logging.getLogger(__name__)
+
 
 @include_list_name('node.cpu')
 @attr.s(cmp=False, hash=False, slots=True, frozen=True)
@@ -166,6 +168,6 @@ class NodeStatsSource(object):
       memory=memory, swap=swap, disk_io=disk_io,
       partitions_dict=partitions_dict, network=network, loadavg=loadavg
     )
-    logging.info("Prepared local node stats in {elapsed:.1f}s."
+    logger.info("Prepared local node stats in {elapsed:.1f}s."
                  .format(elapsed=time.time()-start))
     return stats

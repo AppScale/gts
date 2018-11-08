@@ -33,6 +33,8 @@ from appscale.hermes.producers.proxy_stats import ProxiesStatsSource
 from appscale.hermes.producers.rabbitmq_stats import PushQueueStatsSource
 from appscale.hermes.producers.rabbitmq_stats import RabbitMQStatsSource
 
+logger = logging.getLogger(__name__)
+
 
 DEFAULT_INCLUDE_LISTS = IncludeLists({
   # Node stats
@@ -316,9 +318,9 @@ class ProfilingManager(object):
       znode_stat: an instance if ZnodeStat.
     """
     if not new_conf:
-      logging.debug("No node stats profiling configs are specified yet")
+      logger.debug("No node stats profiling configs are specified yet")
       return
-    logging.info("New nodes stats profiling configs: {}".format(new_conf))
+    logger.info("New nodes stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
     enabled = conf["enabled"]
     interval = conf["interval"]
@@ -346,9 +348,9 @@ class ProfilingManager(object):
       znode_stat: an instance if ZnodeStat.
     """
     if not new_conf:
-      logging.debug("No processes stats profiling configs are specified yet")
+      logger.debug("No processes stats profiling configs are specified yet")
       return
-    logging.info("New processes stats profiling configs: {}".format(new_conf))
+    logger.info("New processes stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
     enabled = conf["enabled"]
     interval = conf["interval"]
@@ -378,9 +380,9 @@ class ProfilingManager(object):
       znode_stat: an instance if ZnodeStat.
     """
     if not new_conf:
-      logging.debug("No proxies stats profiling configs are specified yet")
+      logger.debug("No proxies stats profiling configs are specified yet")
       return
-    logging.info("New proxies stats profiling configs: {}".format(new_conf))
+    logger.info("New proxies stats profiling configs: {}".format(new_conf))
     conf = json.loads(new_conf)
     enabled = conf["enabled"]
     interval = conf["interval"]

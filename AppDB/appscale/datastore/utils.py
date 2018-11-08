@@ -25,7 +25,7 @@ from google.appengine.datastore import sortable_pb_encoder
 
 
 logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-logger = logging.getLogger('appscale-datastore')
+logger = logging.getLogger(__name__)
 
 
 def clean_app_id(app_id):
@@ -203,7 +203,7 @@ def fetch_and_delete_entities(database, table, schema, first_key,
 
   last_key = first_key + '\0' + TERMINATING_STRING
 
-  logging.debug("Deleting application data in the range: {0} - {1}".
+  logger.debug("Deleting application data in the range: {0} - {1}".
     format(first_key, last_key))
 
   db = DatastoreFactory.getDatastore(database)
@@ -213,7 +213,7 @@ def fetch_and_delete_entities(database, table, schema, first_key,
     return
 
   # Loop through the datastore tables and delete data.
-  logging.info("Deleting data from {0}".format(table))
+  logger.info("Deleting data from {0}".format(table))
 
   start_inclusive = True
   while True:
@@ -222,17 +222,17 @@ def fetch_and_delete_entities(database, table, schema, first_key,
         table, schema, first_key, last_key, batch_size,
         start_inclusive=start_inclusive)
       if not entities:
-        logging.info("No entities found for {}".format(table))
+        logger.info("No entities found for {}".format(table))
         break
 
       for ii in entities:
         db.batch_delete_sync(table, ii.keys())
-      logging.info("Deleted {0} entities".format(len(entities)))
+      logger.info("Deleted {0} entities".format(len(entities)))
 
       first_key = entities[-1].keys()[0]
       start_inclusive = False
     except AppScaleDBConnectionError:
-      logging.exception('Error while deleting data')
+      logger.exception('Error while deleting data')
       time.sleep(backoff_timeout)
 
 

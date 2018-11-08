@@ -3207,10 +3207,11 @@ class Djinn
         # If this machine is running other services, decrease Cassandra's max
         # heap size.
         heap_reduction = 0
-        heap_reduction += 0.2 if my_node.is_compute?
+        heap_reduction += 0.25 if my_node.is_compute?
         if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
-          heap_reduction += 0.1
+          heap_reduction += 0.15
         end
+        heap_reduction = heap_reduction.round(2)
 
         if my_node.is_db_master?
           start_db_master(false, needed_nodes, db_nodes, heap_reduction)

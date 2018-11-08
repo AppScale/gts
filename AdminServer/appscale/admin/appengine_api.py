@@ -18,7 +18,7 @@ from .constants import InvalidConfiguration
 from .utils import cron_from_dict
 from .utils import queues_from_dict
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 class IndexProperty(object):
