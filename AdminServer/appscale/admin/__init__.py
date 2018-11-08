@@ -514,7 +514,7 @@ class VersionsHandler(BaseHandler):
   VERSION_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
 
   # A rule for validating service IDs.
-  SERVICE_ID_RE = re.compile(r'^(?:^(?!-)[a-z\d\-]{0,62}[a-z\d]$)$')
+  SERVICE_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
 
 
   # Reserved names for version IDs.
