@@ -3878,7 +3878,6 @@ class Djinn
       AppControllerClient
       AppDashboard
       AppDB
-      AppManager
       AppServer
       AppServer_Java
       AppTaskQueue
