@@ -66,10 +66,6 @@ NODETOOL_LOCK = Mutex.new
 # new nodes (it takes a long time to spawn a new VM).
 SCALE_LOCK = Mutex.new
 
-# This lock is used to ensure only one thread is updating the cluster
-# statistics.
-STATS_LOCK = Mutex.new
-
 # The name of the user to be used with reserved applications.
 APPSCALE_USER = 'appscale-user@local.appscale'.freeze
 
@@ -1147,38 +1143,29 @@ class Djinn
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache
-    # We want to have only one set of requests to be pending at each time.
-    if STATS_LOCK.locked?
-      Djinn.log_debug("Another thread is already updating cluster stats.")
-      return
-    end
-
     threads = []
     new_stats = []
-    STATS_LOCK.synchronize {
-      @state_change_lock.synchronize {
-        @nodes.each { |node|
-          ip = node.private_ip
-          if ip == my_node.private_ip
-            begin
-              new_stats << JSON.load(get_node_stats_json(@@secret))
-            rescue SOAP::FaultError
-              Djinn.log_warn("Failed to get local status update.")
-              next
-            end
-          else
-            threads << Thread.new {
-              acc = AppControllerClient.new(ip, @@secret)
-              begin
-                Thread.current[:new_stat] = JSON.load(acc.get_node_stats_json)
-              rescue FailedNodeException, SOAP::FaultError
-                Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
-                  "not adding it to our cached info.")
-                Thread.current[:new_stat] = nil
-              end
-            }
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        ip = node.private_ip
+        if ip == my_node.private_ip
+          begin
+            new_stats << JSON.load(get_node_stats_json(@@secret))
+          rescue SOAP::FaultError
+            Djinn.log_warn("Failed to get local status update.")
           end
-        }
+        else
+          threads << Thread.new {
+            acc = AppControllerClient.new(ip, @@secret)
+            begin
+              Thread.current[:new_stat] = JSON.load(acc.get_node_stats_json)
+            rescue FailedNodeException, SOAP::FaultError
+              Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
+                "not adding it to our cached info.")
+              Thread.current[:new_stat] = nil
+            end
+          }
+        end
       }
       threads.each { |t|
         t.join
