@@ -507,9 +507,15 @@ class ServiceHandler(BaseVersionHandler):
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
 
+  # A rule for validating project IDs.
+  PROJECT_ID_RE = re.compile(r'^[a-z][a-z0-9\-]{5,29}$')
+
   # A rule for validating version IDs.
-  VERSION_ID_RE = re.compile(r'(?!-)[a-z\d\-]{1,100}')
-  PROJECT_ID_RE = re.compile(r'^[a-z][a-z\d\-]{5,29}$')
+  VERSION_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
+
+  # A rule for validating service IDs.
+  SERVICE_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
+
 
   # Reserved names for version IDs.
   RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
@@ -581,11 +587,15 @@ class VersionsHandler(BaseHandler):
     # Prevent multiple versions per service.
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Invalid version ID')
+                            message='AppScale currently does not support versions, '
+                                    'so you have to use default version ID, i.e. "v1"')
 
     if not self.VERSION_ID_RE.match(version['id']):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Invalid version ID')
+                            message='Invalid version ID. '
+                                    'May only contain lowercase letters, digits, '
+                                    'and hyphens. Must begin and end with a letter '
+                                    'or digit. Must not exceed 63 characters.')
 
     for reserved_id in self.RESERVED_VERSION_IDS:
       if re.match(reserved_id, version['id']):
@@ -771,11 +781,20 @@ class VersionsHandler(BaseHandler):
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
     """
+
     if not self.PROJECT_ID_RE.match(project_id):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid project ID. '
                                     'It must be 6 to 30 lowercase letters, digits, '
                                     'or hyphens. It must start with a letter.')
+
+    if not self.SERVICE_ID_RE.match(service_id):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid service ID. '
+                                    'May only contain lowercase letters, digits, '
+                                    'and hyphens. Must begin and end with a letter '
+                                    'or digit. Must not exceed 63 characters.')
+
     self.authenticate(project_id, self.ua_client)
     version = self.version_from_payload()
 
@@ -1320,14 +1339,14 @@ def main():
 
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
-    ('/v1/apps/([^/]*)/services/([a-z0-9-]+)/versions', VersionsHandler,
+    ('/v1/apps/([^/]*)/services/([^/]*)/versions', VersionsHandler,
      {'ua_client': ua_client, 'zk_client': zk_client,
       'version_update_lock': version_update_lock, 'thread_pool': thread_pool}),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
-    ('/v1/apps/([^/]*)/services/([a-z0-9-]+)', ServiceHandler,
+    ('/v1/apps/([^/]*)/services/([^/]*)', ServiceHandler,
      all_resources),
-    ('/v1/apps/([^/]*)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
+    ('/v1/apps/([^/]*)/services/([^/]*)/versions/([^/]*)',
      VersionHandler, all_resources),
     ('/v1/apps/([^/]*)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
