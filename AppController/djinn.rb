@@ -1161,7 +1161,7 @@ class Djinn
           ip = node.private_ip
           if ip == my_node.private_ip
             begin
-              node_stats = JSON.load(get_node_stats_json(@@secret))
+              new_stats << JSON.load(get_node_stats_json(@@secret))
             rescue SOAP::FaultError
               Djinn.log_warn("Failed to get local status update.")
               next
@@ -1170,11 +1170,11 @@ class Djinn
             threads << Thread.new {
               acc = AppControllerClient.new(ip, @@secret)
               begin
-                Thread.current["new_stat"] = JSON.load(acc.get_node_stats_json)
+                Thread.current[:new_stat] = JSON.load(acc.get_node_stats_json)
               rescue FailedNodeException, SOAP::FaultError
                 Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
                   "not adding it to our cached info.")
-                Thread.current["new_stat"] = nil
+                Thread.current[:new_stat] = nil
               end
             }
           end
@@ -1182,7 +1182,7 @@ class Djinn
       }
       threads.each { |t|
         t.join
-        new_stats << t["new_stat"] unless t["new_stat"].nil?
+        new_stats << t[:new_stat] unless t[:new_stat].nil?
       }
     }
 
