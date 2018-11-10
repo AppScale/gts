@@ -1842,10 +1842,15 @@ class Djinn
       # The appcontroller state is a misnomer, since it contains the state
       # of the deployment that each node needs to reload. For example it
       # contains the current listing of AppServers and Nodes.
-      if !restore_appcontroller_state
-        @state = "Couldn't reach the deployment state: now in isolated mode"
-        Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
-        next
+      unless restore_appcontroller_state
+        # Master is responsible to populate the state for the other nodes
+        # consumption, and since we know we could talk to zookeeper,
+        # master needs to go ahead and write the state.
+        unless my_node.is_shadow?
+          @state = "Couldn't reach the deployment state: now in isolated mode"
+          Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
+          next
+        end
       end
 
       # We act here if options or roles for this node changed.
@@ -2795,7 +2800,7 @@ class Djinn
     # Usually we don't expect the master node to see a change in the state
     # (since it is the one which saves it), so we leave a note here.
     if my_node.is_shadow?
-      Djinn.log_warn("Detected a change in the master state #{json_state.to_s}.")
+      Djinn.log_warn("Detected a change in the master state #{json_state}.")
     end
 
     Djinn.log_debug("Reload state : #{json_state}.")
