@@ -3263,18 +3263,18 @@ class Djinn
         end
       }
     else
-      stop_groomer_service
-      GroomerService.stop_transaction_groomer
+      threads << Thread.new {
+        stop_groomer_service
+        GroomerService.stop_transaction_groomer
+      }
     end
 
     start_admin_server
 
     if my_node.is_memcache?
-      threads << Thread.new {
-        start_memcache
-      }
+      threads << Thread.new { start_memcache }
     else
-      stop_memcache
+      threads << Thread.new { stop_memcache }
     end
 
     if my_node.is_load_balancer?
@@ -3283,8 +3283,10 @@ class Djinn
         configure_tq_routing
       }
     else
-      remove_tq_endpoints
-      stop_ejabberd
+      threads << Thread.new {
+        remove_tq_endpoints
+        stop_ejabberd
+      }
     end
 
     # The headnode needs to ensure we have the appscale user, and it needs
@@ -3302,35 +3304,31 @@ class Djinn
         start_blobstore_server
       }
     else
-      stop_app_manager_server
-      stop_blobstore_server
+      threads << Thread.new {
+        stop_app_manager_server
+        stop_blobstore_server
+      }
     end
 
     if my_node.is_search?
-      threads << Thread.new {
-        start_search_role
-      }
+      threads << Thread.new { start_search_role }
     else
-      stop_search_role
+      threads << Thread.new { stop_search_role }
     end
 
     if my_node.is_taskqueue_master?
-      threads << Thread.new {
-        start_taskqueue_master
-      }
+      threads << Thread.new { start_taskqueue_master }
     elsif my_node.is_taskqueue_slave?
-      threads << Thread.new {
-        start_taskqueue_slave
-      }
+      threads << Thread.new { start_taskqueue_slave }
     else
-      stop_taskqueue
+      threads << Thread.new { stop_taskqueue }
     end
 
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
-    Djinn.log_info("Waiting for all services to finish starting up")
+    Djinn.log_info("Waiting for relevant services to finish starting up,")
     threads.each { |t| t.join }
-    Djinn.log_info("API services have started on this node")
+    Djinn.log_info("API services have started on this node.")
 
     # Start Hermes with integrated stats service
     start_hermes
