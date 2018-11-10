@@ -1806,6 +1806,9 @@ class Djinn
     # Check that services are up before proceeding into the duty cycle.
     check_api_services
 
+    # Make sure we have the first state saved in zookeeper.
+    backup_appcontroller_state if my_node.is_shadow?
+
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
     last_print = Time.now.to_i
@@ -2787,6 +2790,12 @@ class Djinn
     if @appcontroller_state == json_state.to_s
       Djinn.log_debug("Reload state: no changes.")
       return true
+    end
+
+    # Usually we don't expect the master node to see a change in the state
+    # (since it is the one which saves it), so we leave a note here.
+    if my_node.is_shadow?
+      Djinn.log_warn("Detected a change in the master state #{json_state.to_s}.")
     end
 
     Djinn.log_debug("Reload state : #{json_state}.")
