@@ -1834,19 +1834,12 @@ class Djinn
       # restore_appcontroller_state modifies them.
       old_options = @options.clone
       old_jobs = my_node.jobs
-
-      # The following is the core of the duty cycle: start new apps,
-      # restart apps, terminate non-responsive AppServers, and autoscale.
-
-      # Every other node syncs its state with the login node state. The
-      # load_balancers need to check the applications that got loaded
-      # this time, to setup the routing.
       my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
-      if my_node.is_shadow?
-        write_tools_config
-        update_node_info_cache
-        backup_appcontroller_state
-      elsif !restore_appcontroller_state
+
+      # The appcontroller state is a misnomer, since it contains the state
+      # of the deployment that each node needs to reload. For example it
+      # contains the current listing of AppServers and Nodes.
+      if !restore_appcontroller_state
         @state = "Couldn't reach the deployment state: now in isolated mode"
         Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
         next
@@ -1854,6 +1847,13 @@ class Djinn
 
       # We act here if options or roles for this node changed.
       check_role_change(old_options, old_jobs)
+
+      # The master node has few more work to do.
+      if my_node.is_shadow?
+        write_tools_config
+        update_node_info_cache
+        backup_appcontroller_state
+      end
 
       # Load balancers (and shadow) needs to setup new applications.
       if my_node.is_load_balancer?
