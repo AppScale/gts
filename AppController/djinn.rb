@@ -1147,7 +1147,9 @@ class Djinn
     new_stats = []
     ips = []
 
-    @state_change_lock.synchronize { @nodes.each { |node| ips << ip } }
+    @state_change_lock.synchronize {
+      @nodes.each { |node| ips << node.private_ip }
+    }
     ips.each { |ip|
       if ip == my_node.private_ip
         begin
