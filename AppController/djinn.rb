@@ -1145,32 +1145,32 @@ class Djinn
   def update_node_info_cache
     threads = []
     new_stats = []
-    @state_change_lock.synchronize {
-      @nodes.each { |node|
-        ip = node.private_ip
-        if ip == my_node.private_ip
-          begin
-            new_stats << JSON.load(get_node_stats_json(@@secret))
-          rescue SOAP::FaultError
-            Djinn.log_warn("Failed to get local status update.")
-          end
-        else
-          threads << Thread.new {
-            acc = AppControllerClient.new(ip, @@secret)
-            begin
-              Thread.current[:new_stat] = JSON.load(acc.get_node_stats_json)
-            rescue FailedNodeException, SOAP::FaultError
-              Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
-                "not adding it to our cached info.")
-              Thread.current[:new_stat] = nil
-            end
-          }
+    ips = []
+
+    @state_change_lock.synchronize { @nodes.each { |node| ips << ip } }
+    ips.each { |ip|
+      if ip == my_node.private_ip
+        begin
+          new_stats << JSON.load(get_node_stats_json(@@secret))
+        rescue SOAP::FaultError
+          Djinn.log_warn("Failed to get local status update.")
         end
-      }
-      threads.each { |t|
-        t.join
-        new_stats << t[:new_stat] unless t[:new_stat].nil?
-      }
+      else
+        threads << Thread.new {
+          acc = AppControllerClient.new(ip, @@secret)
+          begin
+            Thread.current[:new_stat] = JSON.load(acc.get_node_stats_json)
+          rescue FailedNodeException, SOAP::FaultError
+            Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
+              "not adding it to our cached info.")
+            Thread.current[:new_stat] = nil
+          end
+        }
+      end
+    }
+    threads.each { |t|
+      t.join
+      new_stats << t[:new_stat] unless t[:new_stat].nil?
     }
 
     @state_change_lock.synchronize { @cluster_stats = new_stats }
@@ -1812,6 +1812,12 @@ class Djinn
     # statistics to the log.
     last_print = Time.now.to_i
 
+    # We use a thread to check the status of the cluster to ensure we
+    # don't block waiting for the status.
+    if my_node.is_shadow?
+      update_stats_thread = Thread.new { update_node_info_cache }
+    end
+
     until @kill_sig_received do
       # Mark the beginning of the duty cycle.
       start_work_time = Time.now.to_i
@@ -1846,7 +1852,11 @@ class Djinn
       my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
       if my_node.is_shadow?
         write_tools_config
-        update_node_info_cache
+        if update_stats_thread.alive?
+          Djinn.log_debug("Update thread still running: skipping updates.")
+        else
+          update_stats_thread = Thread.new { update_node_info_cache }
+        end
         backup_appcontroller_state
       elsif !restore_appcontroller_state
         @state = "Couldn't reach the deployment state: now in isolated mode"
@@ -5283,43 +5293,45 @@ HOSTS
 
     # Let's consider the last system load readings we have, to see if the
     # node can run another AppServer.
-    get_all_compute_nodes.each { |host|
-      @cluster_stats.each { |node|
-        next if node['private_ip'] != host
+    @state_change_lock.synchronize {
+      get_all_compute_nodes.each { |host|
+        @cluster_stats.each { |node|
+          next if node['private_ip'] != host
 
-        # Check how many new AppServers of this app, we can run on this
-        # node (as theoretical maximum memory usage goes).  First convert
-        # total memory to MB.
-        total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
-        allocated_memory[host] = 0 if allocated_memory[host].nil?
-        max_new_total = Integer(
-          (total - allocated_memory[host] - SAFE_MEM) / max_app_mem)
-        Djinn.log_debug("Check for total memory usage: #{host} can run " \
-                        "#{max_new_total} AppServers for #{version_key}.")
-        break if max_new_total <= 0
+          # Check how many new AppServers of this app, we can run on this
+          # node (as theoretical maximum memory usage goes).  First convert
+          # total memory to MB.
+          total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
+          allocated_memory[host] = 0 if allocated_memory[host].nil?
+          max_new_total = Integer(
+            (total - allocated_memory[host] - SAFE_MEM) / max_app_mem)
+          Djinn.log_debug("Check for total memory usage: #{host} can run " \
+                          "#{max_new_total} AppServers for #{version_key}.")
+          break if max_new_total <= 0
 
-        # Now we do a similar calculation but for the current amount of
-        # available memory on this node. First convert bytes to MB.
-        host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
-        max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
-        Djinn.log_debug("Check for free memory usage: #{host} can run " \
-                        "#{max_new_free} AppServers for #{version_key}.")
-        break if max_new_free <= 0
+          # Now we do a similar calculation but for the current amount of
+          # available memory on this node. First convert bytes to MB.
+          host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
+          max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
+          Djinn.log_debug("Check for free memory usage: #{host} can run " \
+                          "#{max_new_free} AppServers for #{version_key}.")
+          break if max_new_free <= 0
 
-        # The host needs to have normalized average load less than MAX_LOAD_AVG.
-        if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
-          Djinn.log_debug("#{host} CPUs are too busy.")
+          # The host needs to have normalized average load less than MAX_LOAD_AVG.
+          if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
+            Djinn.log_debug("#{host} CPUs are too busy.")
+            break
+          end
+
+          # We add the host as many times as AppServers it can run.
+          (max_new_total > max_new_free ? max_new_free : max_new_total).downto(1) {
+            available_hosts << host
+          }
+
+          # Since we already found the stats for this node, no need to look
+          # further.
           break
-        end
-
-        # We add the host as many times as AppServers it can run.
-        (max_new_total > max_new_free ? max_new_free : max_new_total).downto(1) {
-          available_hosts << host
         }
-
-        # Since we already found the stats for this node, no need to look
-        # further.
-        break
       }
     }
     Djinn.log_debug(
