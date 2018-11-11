@@ -1827,7 +1827,7 @@ class Djinn
       # We want to ensure monit stays up all the time, since we rely on
       # it for services and AppServers.
       unless MonitInterface.start_monit
-        Djinn.log_warn("Monit was not running: restarted it.")
+        Djinn.log_warn('Monit was not running: restarted it.')
       end
 
       write_database_info
@@ -1855,14 +1855,14 @@ class Djinn
       if my_node.is_shadow?
         write_tools_config
         if update_stats_thread.alive?
-          Djinn.log_debug("Update thread still running: skipping updates.")
+          Djinn.log_debug('Update thread still running: skipping updates.')
         else
           update_stats_thread = Thread.new { update_node_info_cache }
         end
         backup_appcontroller_state
       elsif !restore_appcontroller_state
-        @state = "Couldn't reach the deployment state: now in isolated mode"
-        Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
+        @state = 'Couldn\'t reach the deployment state: now in isolated mode'
+        Djinn.log_warn('Cannot talk to zookeeper: in isolated mode.')
         next
       end
 
