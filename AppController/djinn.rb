@@ -573,7 +573,9 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     all_nodes = []
-    @nodes.each { |node| all_nodes << node.to_hash }
+    @state_change_lock.synchronize {
+      @nodes.each { |node| all_nodes << node.to_hash }
+    }
     JSON.dump(all_nodes)
   end
 
@@ -683,13 +685,16 @@ class Djinn
     Djinn.log_info('Received a stop request.')
 
     if my_node.is_shadow? && stop_deployment
+      threads = []
       Djinn.log_info('Stopping all other nodes.')
-      # Let's stop all other nodes.
-      Thread.new {
-        @nodes.each { |node|
-          next if node.private_ip == my_node.private_ip
-          ip = node.private_ip
-          acc = AppControllerClient.new(ip, @@secret)
+      ips = []
+      @state_change_lock.synchronize {
+        @nodes.each { |node| ips << node.private_ip }
+      }
+      ips.each { |ip|
+        next if ip == my_node.private_ip
+        acc = AppControllerClient.new(ip, @@secret)
+        threads << Threads.new {
           begin
             acc.kill(stop_deployment)
             Djinn.log_info("kill: sent kill command to node at #{ip}.")
@@ -698,6 +703,8 @@ class Djinn
           end
         }
       }
+      Djinn.log_info("Waiting for other nodes to acknoledge stop ... ")
+      threads.each { |t| t.join }
     end
 
     Djinn.log_info('---- Stopping AppController ----')
@@ -938,13 +945,13 @@ class Djinn
       Djinn.log_error(msg)
       return msg
     else
-      @options = check_options(opts)
+      @state_change_lock.synchronize { @options = check_options(opts) }
     end
 
     # Let's validate we have the needed options defined.
     ['keyname', 'login', 'table'].each { |key|
       unless @options[key]
-        msg = "Error: cannot find #{key} in options!" unless @options[key]
+        msg = "Error: cannot find #{key} in options!"
         Djinn.log_error(msg)
         return msg
       end
@@ -962,15 +969,16 @@ class Djinn
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
     PARAMETERS_AND_CLASS.each { |key, _|
-      if @options[key]
+      @state_change_lock.synchronize {
         # The parameter 'key' is defined, no need to do anything.
-        next
-      end
-      if PARAMETERS_AND_CLASS[key][1]
-         # The parameter has a default, and it's not defined. Adding
-         # default value.
-         @options[key] = PARAMETERS_AND_CLASS[key][1]
-      end
+        next if @options[key]
+
+        if PARAMETERS_AND_CLASS[key][1]
+           # The parameter has a default, and it's not defined. Adding
+           # default value.
+           @options[key] = PARAMETERS_AND_CLASS[key][1]
+        end
+      }
     }
     enforce_options
 
@@ -978,39 +986,43 @@ class Djinn
     # The first one is to check that max and min are set appropriately.
     # Max and min needs to be at least the number of started nodes, it
     # needs to be positive. Max needs to be no smaller than min.
-    if Integer(@options['max_machines']) < @nodes.length
-      Djinn.log_warn("max_machines is less than the number of nodes!")
-      @options['max_machines'] = @nodes.length.to_s
-    end
-    if Integer(@options['min_machines']) < @nodes.length
-      Djinn.log_warn("min_machines is less than the number of nodes!")
-      @options['min_machines'] = @nodes.length.to_s
-    end
-    if Integer(@options['max_machines']) < Integer(@options['min_machines'])
-      Djinn.log_warn("min_machines is bigger than max_machines!")
-      @options['max_machines'] = @options['min_machines']
-    end
+    @state_change_lock.synchronize {
+      if Integer(@options['max_machines']) < @nodes.length
+        Djinn.log_warn("max_machines is less than the number of nodes!")
+        @options['max_machines'] = @nodes.length.to_s
+      end
+      if Integer(@options['min_machines']) < @nodes.length
+        Djinn.log_warn("min_machines is less than the number of nodes!")
+        @options['min_machines'] = @nodes.length.to_s
+      end
+      if Integer(@options['max_machines']) < Integer(@options['min_machines'])
+        Djinn.log_warn("min_machines is bigger than max_machines!")
+        @options['max_machines'] = @options['min_machines']
+      end
+    }
 
     # We need to make sure this node is listed in the started nodes.
     find_me_in_locations
     return "Error: Couldn't find me in the node map" if @my_index.nil?
 
-    ENV['EC2_URL'] = @options['ec2_url']
-    if @options['ec2_access_key'].nil?
-      @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
-      @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
-      @options['ec2_url'] = @options['EC2_URL']
-    end
-
-    @nodes.each { |node|
-      if node.jobs.include? 'compute'
-        if node.instance_type.nil?
-          @options['compute_instance_type'] = @options['instance_type']
-        else
-          @options['compute_instance_type'] = node.instance_type
-        end
-        break
+    @state_change_lock.synchronize {
+      ENV['EC2_URL'] = @options['ec2_url']
+      if @options['ec2_access_key'].nil?
+        @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
+        @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
+        @options['ec2_url'] = @options['EC2_URL']
       end
+
+      @nodes.each { |node|
+        if node.jobs.include? 'compute'
+          if node.instance_type.nil?
+            @options['compute_instance_type'] = @options['instance_type']
+          else
+            @options['compute_instance_type'] = node.instance_type
+          end
+          break
+        end
+      }
     }
 
     'OK'
@@ -1492,11 +1504,18 @@ class Djinn
       http.request(request)
     }
 
-    @nodes.each { | node |
-      if node.is_db_master? or node.is_db_slave?
-        acc = AppControllerClient.new(node.private_ip, @@secret)
-        response = acc.set_node_read_only(read_only)
-        return response unless response == 'OK'
+    ips = []
+    @state_change_lock.synchronize {
+      @nodes.each { | node |
+        ips << node.private_ip if node.is_db_master? || node.is_db_slave?
+      }
+    }
+    ips.each { |ip|
+      acc = AppControllerClient.new(ip, @@secret)
+      response = acc.set_node_read_only(read_only)
+      unless response == 'OK'
+        Djinn.log_warn("set_read_only: #{ip} responded with #{response}.")
+        return response
       end
     }
 
@@ -1658,8 +1677,8 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     public_ips = []
-    @nodes.each { |node|
-      public_ips << node.public_ip
+    @state_change_lock.synchronize {
+      @nodes.each { |node| public_ips << node.public_ip }
     }
     JSON.dump(public_ips)
   end
@@ -1668,8 +1687,8 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     private_ips = []
-    @nodes.each { |node|
-      private_ips << node.private_ip
+    @state_change_lock.synchronize {
+      @nodes.each { |node| private_ips << node.private_ip }
     }
     JSON.dump(private_ips)
   end
@@ -1784,7 +1803,7 @@ class Djinn
     if my_node.is_shadow?
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
-      initialize_nodes_in_parallel(@nodes)
+      @state_change_lock.synchronize { initialize_nodes_in_parallel(@nodes) }
     end
 
     # Initialize the current server and starts all the API and essential
@@ -1801,7 +1820,7 @@ class Djinn
 
     pick_zookeeper(@zookeeper_data)
     write_our_node_info
-    wait_for_nodes_to_finish_loading(@nodes)
+    @state_change_lock.synchronize { wait_for_nodes_to_finish_loading(@nodes) }
 
     # Check that services are up before proceeding into the duty cycle.
     check_api_services
@@ -1993,12 +2012,14 @@ class Djinn
   def terminate_appscale_in_parallel(clean)
     # Let's stop all other nodes.
     threads = []
-    @nodes.each { |node|
-      if node.private_ip != my_node.private_ip
-        threads << Thread.new {
-          Thread.current[:output] = terminate_appscale(node, clean)
-        }
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        if node.private_ip != my_node.private_ip
+          threads << Thread.new {
+            Thread.current[:output] = terminate_appscale(node, clean)
+          }
+        end
+      }
     }
 
     threads.each do |t|
@@ -2445,9 +2466,7 @@ class Djinn
 
   def get_shadow
     @state_change_lock.synchronize {
-      @nodes.each { |node|
-        return node if node.is_shadow?
-      }
+      @nodes.each { |node| return node if node.is_shadow?  }
     }
 
     @state = "No shadow nodes found."
@@ -2456,9 +2475,7 @@ class Djinn
 
   def get_db_master
     @state_change_lock.synchronize {
-      @nodes.each { |node|
-        return node if node.is_db_master?
-      }
+      @nodes.each { |node| return node if node.is_db_master?  }
     }
 
     @state = "No DB master nodes found."
@@ -2468,11 +2485,7 @@ class Djinn
   def get_all_compute_nodes
     ae_nodes = []
     @state_change_lock.synchronize {
-      @nodes.each { |node|
-        if node.is_compute?
-          ae_nodes << node.private_ip
-        end
-      }
+      @nodes.each { |node| ae_nodes << node.private_ip if node.is_compute?  }
     }
     return ae_nodes
   end
@@ -3144,7 +3157,9 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         unless is_zookeeper_running?
-          configure_zookeeper(@nodes, @my_index)
+          @state_change_lock.synchronize {
+            configure_zookeeper(@nodes, @my_index)
+          }
           begin
             start_zookeeper(false)
           rescue FailedZooKeeperOperationException
@@ -4161,9 +4176,7 @@ HOSTS
   end
 
   def my_node
-    if @my_index.nil?
-      find_me_in_locations
-    end
+    find_me_in_locations if @my_index.nil?
 
     if @my_index.nil?
       Djinn.log_debug("My index is nil - is nodes nil? #{@nodes.nil?}")
@@ -5790,7 +5803,9 @@ HOSTS
     total_requests, requests_in_queue, sessions = 0, 0, 0
     pxname = "#{HelperFunctions::GAE_PREFIX}#{version_key}"
     time = :no_stats
-    lb_nodes = @nodes.select{|node| node.is_load_balancer?}
+    @state_change_lock.synchronize {
+      lb_nodes = @nodes.select{|node| node.is_load_balancer?}
+    }
     lb_nodes.each { |node|
       begin
         ip = node.private_ip
