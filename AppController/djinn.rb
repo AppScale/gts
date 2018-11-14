@@ -703,7 +703,7 @@ class Djinn
           end
         }
       }
-      Djinn.log_info("Waiting for other nodes to acknoledge stop ... ")
+      Djinn.log_info('Waiting for other nodes to acknoledge stop ... ')
       threads.each { |t| t.join }
     end
 
@@ -1697,7 +1697,7 @@ class Djinn
     # LoadBalancers needs to setup the routing for the datastore before
     # proceeding.
     while my_node.is_load_balancer? && !update_db_haproxy
-      Djinn.log_info("Waiting for Datastore assignements ...")
+      Djinn.log_info('Waiting for Datastore assignements ...')
       sleep(SMALL_WAIT)
     end
 
@@ -1705,10 +1705,10 @@ class Djinn
     loop do
       break if HelperFunctions.is_port_open?(get_load_balancer.private_ip,
                                              DatastoreServer::PROXY_PORT)
-      Djinn.log_debug("Waiting for Datastore to be active...")
+      Djinn.log_debug('Waiting for Datastore to be active...')
       sleep(SMALL_WAIT)
     end
-    Djinn.log_info("Datastore service is active.")
+    Djinn.log_info('Datastore service is active.')
 
     # At this point all nodes are fully functional, so the Shadow will do
     # another assignments of the datastore processes to ensure we got the
@@ -2346,7 +2346,7 @@ class Djinn
   end
 
   def wait_for_nodes_to_finish_loading(nodes)
-    Djinn.log_info("Waiting for nodes to finish loading")
+    Djinn.log_info('Waiting for nodes to finish loading.')
 
     nodes.each { |node|
       if ZKInterface.is_node_done_loading?(node.private_ip)
@@ -2360,7 +2360,7 @@ class Djinn
       end
     }
 
-    Djinn.log_info("Nodes have finished loading")
+    Djinn.log_info('Nodes have finished loading.')
     return
   end
 
@@ -3062,10 +3062,10 @@ class Djinn
     loop {
       break if got_all_data
       if @kill_sig_received
-        Djinn.log_fatal("Received kill signal, aborting startup")
-        HelperFunctions.log_and_crash("Received kill signal, aborting startup")
+        Djinn.log_fatal('Received kill signal, aborting startup')
+        HelperFunctions.log_and_crash('Received kill signal, aborting startup.')
       else
-        Djinn.log_info("Waiting for data from the load balancer or cmdline tools")
+        Djinn.log_info('Waiting for data from the load balancer or cmdline tools.')
         Kernel.sleep(SMALL_WAIT)
       end
     }
@@ -3222,7 +3222,7 @@ class Djinn
     end
 
     # We now wait for the essential services to go up.
-    Djinn.log_info("Waiting for DB services ... ")
+    Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
     Djinn.log_info('Ensuring necessary database tables are present')
@@ -3346,16 +3346,16 @@ class Djinn
 
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
-    Djinn.log_info("Waiting for relevant services to finish starting up,")
+    Djinn.log_info('Waiting for relevant services to finish starting up,')
     threads.each { |t| t.join }
-    Djinn.log_info("API services have started on this node.")
+    Djinn.log_info('API services have started on this node.')
 
     # Start Hermes with integrated stats service
     start_hermes
 
     # Leader node starts additional services.
     if my_node.is_shadow?
-      @state = "Assigning Datastore processes"
+      @state = 'Assigning Datastore processes'
       assign_datastore_processes
       update_node_info_cache
       TaskQueue.start_flower(@options['flower_password'])
@@ -5803,8 +5803,9 @@ HOSTS
     total_requests, requests_in_queue, sessions = 0, 0, 0
     pxname = "#{HelperFunctions::GAE_PREFIX}#{version_key}"
     time = :no_stats
+    lb_nodes = []
     @state_change_lock.synchronize {
-      lb_nodes = @nodes.select{|node| node.is_load_balancer?}
+      lb_nodes = @nodes.select { |node| node.is_load_balancer? }
     }
     lb_nodes.each { |node|
       begin
