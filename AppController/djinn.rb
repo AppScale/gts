@@ -1856,7 +1856,10 @@ class Djinn
       # restore_appcontroller_state modifies them.
       old_options = @options.clone
       old_jobs = my_node.jobs
-      my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
+      my_versions_loaded = []
+      APPS_LOCK.synchronize {
+        my_versions_loaded = @versions_loaded.clone if my_node.is_load_balancer?
+      }
 
       # The appcontroller state is a misnomer, since it contains the state
       # of the deployment that each node needs to reload. For example it
@@ -1884,24 +1887,27 @@ class Djinn
 
       # Load balancers (and shadow) needs to setup new applications.
       if my_node.is_load_balancer?
-        APPS_LOCK.synchronize {
-          # Starts apps that are not running yet but they should.
-          if my_node.is_shadow?
-            begin
-              versions_to_load = ZKInterface.get_versions - @versions_loaded
-            rescue FailedZooKeeperOperationException
-              versions_to_load = []
-            end
-          else
-            versions_to_load = @versions_loaded - my_versions_loaded
+        versions_loaded_now = []
+        APPS_LOCK.synchronize { versions_loaded_now = @versions_loaded.clone }
+
+        # Starts apps that are not running yet but they should.
+        if my_node.is_shadow?
+          begin
+            versions_to_load = ZKInterface.get_versions - versions_loaded_now
+          rescue FailedZooKeeperOperationException
+            versions_to_load = []
           end
-          versions_to_load.each { |version_key|
+        else
+          versions_to_load = versions_loaded_now - my_versions_loaded
+        end
+        versions_to_load.each { |version_key|
+          APPS_LOCK.synchronize {
             setup_app_dir(version_key, true)
             setup_appengine_version(version_key)
           }
-          # In addition only shadow kick off the autoscaler.
-          scale_deployment if my_node.is_shadow?
         }
+        # In addition only shadow kick off the autoscaler.
+        APPS_LOCK.synchronize { scale_deployment if my_node.is_shadow? }
       end
 
       # Detect applications that have been undeployed and terminate all
@@ -1911,9 +1917,7 @@ class Djinn
       # Load balancers and shadow need to check/update nginx/haproxy.
       if my_node.is_load_balancer?
         update_db_haproxy
-        APPS_LOCK.synchronize {
-          regenerate_routing_config
-        }
+        APPS_LOCK.synchronize { regenerate_routing_config }
       end
       @state = "Done starting up AppScale, now in heartbeat mode"
 
@@ -2747,10 +2751,12 @@ class Djinn
         local_state[var] = value
       }
     }
-    if @appcontroller_state == local_state.to_s
-      Djinn.log_debug("backup_appcontroller_state: no changes.")
-      return
-    end
+    @state_change_lock.synchronize {
+      if @appcontroller_state == local_state.to_s
+        Djinn.log_debug("backup_appcontroller_state: no changes.")
+        return
+      end
+    }
 
     begin
       ZKInterface.write_appcontroller_state(local_state)
@@ -2758,7 +2764,7 @@ class Djinn
       Djinn.log_warn("Couldn't talk to zookeeper whle backing up " \
         "appcontroller state with #{e.message}.")
     end
-    @appcontroller_state = local_state.to_s
+    @state_change_lock.synchronize { @appcontroller_state = local_state.to_s }
     Djinn.log_debug("backup_appcontroller_state: updated state.")
   end
 
@@ -2837,7 +2843,7 @@ class Djinn
       # old ones were present.
       unless HelperFunctions.get_all_local_ips.include?(@my_private_ip)
         Djinn.log_info("IP changed old private:#{@my_private_ip} public:#{@my_public_ip}.")
-        update_state_with_new_local_ip
+        @state_change_lock.synchronize { update_state_with_new_local_ip }
         Djinn.log_info("IP changed new private:#{@my_private_ip} public:#{@my_public_ip}.")
       end
       Djinn.log_debug("app_info_map after restore is #{@app_info_map}.")
@@ -5719,62 +5725,68 @@ HOSTS
     node_stats = system_stats
     node_stats['apps'] = {}
     if my_node.is_shadow?
+      my_versions_loaded  = []
       APPS_LOCK.synchronize {
-        @versions_loaded.each { |version_key|
-          project_id, service_id, version_id = version_key.split(
-            VERSION_PATH_SEPARATOR)
+        my_versions_loaded = @versions_loaded.clone if my_node.is_load_balancer?
+      }
+      my_versions_loaded.each { |version_key|
+        project_id, service_id, version_id = version_key.split(
+          VERSION_PATH_SEPARATOR)
+
+        appservers = 0
+        pending = 0
+        APPS_LOCK.synchronize {
           if @app_info_map[version_key].nil? ||
               @app_info_map[version_key]['appservers'].nil?
             Djinn.log_debug(
               "#{version_key} not setup yet: skipping getting stats.")
             next
           end
+          @app_info_map[version_key]['appservers'].each { |location|
+            _host, port = location.split(':')
+            if Integer(port) > 0
+              appservers += 1
+            else
+              pending += 1
+            end
+          }
+        }
 
-          begin
-            version_details = ZKInterface.get_version_details(
-              project_id, service_id, version_id)
-          rescue VersionNotFound
-            next
-          end
+        begin
+          version_details = ZKInterface.get_version_details(
+            project_id, service_id, version_id)
+        rescue VersionNotFound
+          next
+        end
 
-          # Get HAProxy requests.
-          Djinn.log_debug("Getting HAProxy stats for #{version_key}")
-          total_reqs, reqs_enqueued, _,
-            collection_time = get_application_load_stats(version_key)
-          # Create the apps hash with useful information containing
-          # HAProxy stats.
-          begin
+        # Get HAProxy requests.
+        Djinn.log_debug("Getting HAProxy stats for #{version_key}")
+        total_reqs, reqs_enqueued, _,
+          collection_time = get_application_load_stats(version_key)
+        # Create the apps hash with useful information containing
+        # HAProxy stats.
+        begin
+          if collection_time == :no_backend
+            total_reqs = 0
+            reqs_enqueued = 0
             appservers = 0
             pending = 0
-            if collection_time == :no_backend
-              total_reqs = 0
-              reqs_enqueued = 0
-            else
-
-              @app_info_map[version_key]['appservers'].each { |location|
-                _host, port = location.split(':')
-                if Integer(port) > 0
-                  appservers += 1
-                else
-                  pending += 1
-                end
-              }
-            end
-            node_stats['apps'][version_key] = {
-              'language' => version_details['runtime'].tr('^A-Za-z', ''),
-              'appservers' => appservers,
-              'pending_appservers' => pending,
-              'http' => version_details['appscaleExtensions']['httpPort'],
-              'https' => version_details['appscaleExtensions']['httpsPort'],
-              'total_reqs' => total_reqs,
-              'reqs_enqueued' => reqs_enqueued
-            }
-          rescue => except
-            backtrace = except.backtrace.join("\n")
-            message = "Unforseen exception: #{except} \nBacktrace: #{backtrace}"
-            Djinn.log_warn("Unable to get application stats: #{message}")
           end
-        }
+
+          node_stats['apps'][version_key] = {
+            'language' => version_details['runtime'].tr('^A-Za-z', ''),
+            'appservers' => appservers,
+            'pending_appservers' => pending,
+            'http' => version_details['appscaleExtensions']['httpPort'],
+            'https' => version_details['appscaleExtensions']['httpsPort'],
+            'total_reqs' => total_reqs,
+            'reqs_enqueued' => reqs_enqueued
+          }
+        rescue => except
+          backtrace = except.backtrace.join("\n")
+          message = "Unforseen exception: #{except} \nBacktrace: #{backtrace}"
+          Djinn.log_warn("Unable to get application stats: #{message}")
+        end
       }
     end
 
