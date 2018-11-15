@@ -1856,7 +1856,7 @@ class Djinn
       # We act here if options or roles for this node changed.
       check_role_change(old_options, old_jobs)
 
-      # The master node has few more work to do.
+      # The master node has more work to do.
       if my_node.is_shadow?
         write_tools_config
         update_node_info_cache
