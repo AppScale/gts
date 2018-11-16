@@ -81,8 +81,10 @@ class EndpointsProtoJson(protojson.ProtoJson):
 
     if isinstance(field, messages.BytesField):
       try:
-        return base64.urlsafe_b64decode(value)
-      except TypeError, err:
+
+
+        return base64.urlsafe_b64decode(str(value))
+      except (TypeError, UnicodeEncodeError), err:
         raise messages.DecodeError('Base64 decoding error: %s' % err)
 
     return super(EndpointsProtoJson, self).decode_field(field, value)

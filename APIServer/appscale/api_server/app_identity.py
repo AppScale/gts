@@ -16,7 +16,7 @@ from appscale.api_server.crypto import PrivateKey
 from appscale.api_server.crypto import PublicCertificate
 from appscale.common.async_retrying import retry_children_watch_coroutine
 
-logger = logging.getLogger('appscale-api-server')
+logger = logging.getLogger(__name__)
 
 
 class UnknownError(Exception):

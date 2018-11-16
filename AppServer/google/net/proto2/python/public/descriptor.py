@@ -23,11 +23,14 @@ file, in types that make this information accessible in Python.
 """
 
 
-
 from google.net.proto2.python.internal import api_implementation
 
 
 if api_implementation.Type() == 'cpp':
+
+  import os
+  import uuid
+
   if api_implementation.Version() == 2:
     from google.net.proto2.python.internal.cpp import _message
   else:
@@ -704,6 +707,33 @@ def MakeDescriptor(desc_proto, package=''):
   Returns:
     A Descriptor for protobuf messages.
   """
+  if api_implementation.Type() == 'cpp':
+
+
+
+
+    from google.net.proto2.proto import descriptor_pb2
+    file_descriptor_proto = descriptor_pb2.FileDescriptorProto()
+    file_descriptor_proto.message_type.add().MergeFrom(desc_proto)
+
+
+
+
+
+    proto_name = str(uuid.uuid4())
+
+    if package:
+      file_descriptor_proto.name = os.path.join(package.replace('.', '/'),
+                                                proto_name + '.proto')
+      file_descriptor_proto.package = package
+    else:
+      file_descriptor_proto.name = proto_name + '.proto'
+
+    if api_implementation.Version() == 2:
+      _message.BuildFile(file_descriptor_proto.SerializeToString())
+    else:
+      cpp_message.BuildFile(file_descriptor_proto.SerializeToString())
+
   full_message_name = [desc_proto.name]
   if package: full_message_name.insert(0, package)
 

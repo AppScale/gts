@@ -34,6 +34,8 @@ from google.appengine.api.search.stub import simple_tokenizer
 from google.appengine.api.search.stub import tokens
 
 
+MSEC_PER_DAY = 86400000
+
 class ExpressionTreeException(Exception):
   """An error occurred while analyzing/translating the expression parse tree."""
 
@@ -163,7 +165,7 @@ class DocumentMatcher(object):
 
 
     return self._MatchComparableField(
-        field, match, search_util.DeserializeDate, operator, document)
+        field, match, _DateStrToDays, operator, document)
 
 
 
@@ -199,7 +201,7 @@ class DocumentMatcher(object):
 
     if match.getType() == QueryParser.VALUE:
       try:
-        match_val = cast_to_type(query_parser.GetQueryNodeText(match))
+        match_val = cast_to_type(query_parser.GetPhraseQueryNodeText(match))
       except ValueError:
         return False
     else:
@@ -297,3 +299,9 @@ class DocumentMatcher(object):
 
   def FilterDocuments(self, documents):
     return (doc for doc in documents if self.Matches(doc))
+
+
+def _DateStrToDays(date_str):
+
+  date = search_util.DeserializeDate(date_str)
+  return search_util.EpochTime(date) / MSEC_PER_DAY

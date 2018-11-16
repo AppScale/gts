@@ -110,6 +110,10 @@ final class CloudStorageUrlStatClient extends CloudStorageClient {
     // PHP internal APIs check the access mode, we'll set them all to readable.
     $mode |= parent::S_IRUSR | parent::S_IRGRP | parent::S_IROTH;
 
+    if ($this->isBucketWritable($this->bucket_name)) {
+      $mode |= parent::S_IWUSR | parent::S_IWGRP | parent::S_IWOTH;
+    }
+
     $stat_args["mode"] = $mode;
     if (isset($mtime)) {
       $unix_time = strtotime($mtime);
@@ -189,7 +193,55 @@ final class CloudStorageUrlStatClient extends CloudStorageClient {
           'mtime' => (string) $content->LastModified,
       ];
     }
-
+    // Subdirectories will be returned in the CommonPrefixes section. Refer to
+    // https://developers.google.com/storage/docs/reference-methods#getbucket
+    foreach($xml->CommonPrefixes as $common_prefix) {
+      $results[] = [
+          'name' => (string) $common_prefix->Prefix,
+      ];
+    }
     return $results;
+  }
+
+  /**
+   * Test if a given bucket is writable. We will cache results in memcache as
+   * this is an expensive operation. This might lead to incorrect results being
+   * returned for this call for a short period while the result remains in the
+   * cache.
+   */
+  private function isBucketWritable($bucket) {
+    $cache_key_name = sprintf(parent::WRITABLE_MEMCACHE_KEY_FORMAT, $bucket);
+    $memcache = new \Memcache();
+    $result = $memcache->get($cache_key_name);
+
+    if ($result) {
+      return $result['is_writable'];
+    }
+
+    // We determine if the bucket is writable by trying to start a resumable
+    // upload. GCS will cleanup the abandoned upload after 7 days, and it will
+    // not be charged to the bucket owner.
+    $token_header = $this->getOAuthTokenHeader(parent::WRITE_SCOPE);
+    if ($token_header === false) {
+      return false;
+    }
+    $headers = array_merge(parent::$upload_start_header, $token_header);
+    $url = parent::createObjectUrl($bucket, parent::WRITABLE_TEMP_FILENAME);
+    $http_response = $this->makeHttpRequest($url,
+                                            "POST",
+                                            $headers);
+
+    if ($http_response === false) {
+      return false;
+    }
+
+    $status_code = $http_response['status_code'];
+    $is_writable = $status_code == HttpResponse::CREATED;
+
+    $memcache->set($cache_key_name,
+                   ['is_writable' => $is_writable],
+                   null,
+                   $this->context_options['writable_cache_expiry_seconds']);
+    return $is_writable;
   }
 }

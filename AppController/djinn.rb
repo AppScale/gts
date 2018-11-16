@@ -3172,10 +3172,11 @@ class Djinn
         # If this machine is running other services, decrease Cassandra's max
         # heap size.
         heap_reduction = 0
-        heap_reduction += 0.2 if my_node.is_compute?
+        heap_reduction += 0.25 if my_node.is_compute?
         if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
-          heap_reduction += 0.1
+          heap_reduction += 0.15
         end
+        heap_reduction = heap_reduction.round(2)
 
         if my_node.is_db_master?
           start_db_master(false, needed_nodes, db_nodes, heap_reduction)
@@ -3890,7 +3891,6 @@ class Djinn
       AppControllerClient
       AppDashboard
       AppDB
-      AppManager
       AppServer
       AppServer_Java
       AppTaskQueue
@@ -5412,24 +5412,49 @@ HOSTS
     max_delta = @app_info_map[version_key]['appservers'].length - min
     num_to_remove = [delta_appservers, max_delta].min
 
+    # We first remove AppServers that may not have yet started: this
+    # is important to guarantee the minimum number of AppServers will hold
+    # even in the event that new AppServers fails to start (assuming there
+    # are at least old ones running).
+    to_delete = []
+    get_all_compute_nodes.reverse_each { |node_ip|
+      break if num_to_remove == to_delete.length
+      @app_info_map[version_key]['appservers'].each { |location|
+        break if num_to_remove == to_delete.length
+
+        host, port = location.split(":")
+        to_delete << location if host == node_ip && Integer(port) < 0
+      }
+    }
+
     # Let's pick the latest compute node hosting the application and
     # remove the AppServer there, so we can try to reclaim it once it's
     # unloaded.
     get_all_compute_nodes.reverse_each { |node_ip|
+      break if num_to_remove == to_delete.length
       @app_info_map[version_key]['appservers'].each { |location|
+        break if num_to_remove == to_delete.length
+
         host, _ = location.split(":")
-        if host == node_ip
-          @app_info_map[version_key]['appservers'].delete(location)
-          @last_decision[version_key] = Time.now.to_i
-          Djinn.log_info(
-            "Removing an AppServer for #{version_key} #{location}.")
-          num_to_remove -= 1
-          return true if num_to_remove == 0
-        end
+        to_delete << location if host == node_ip
       }
     }
 
-    return true
+    # Finally terminates the selected AppServers. Since we can have
+    # multiple same locations (for starting AppServers) we delete the last
+    # occurence of the object only.
+    to_delete.each{ |location|
+      i = @app_info_map[version_key]['appservers'].rindex(location)
+      if i.nil?
+        Djinn.log_warn("Something went wrong removing #{location}.")
+        next
+      end
+      @app_info_map[version_key]['appservers'].delete_at(i)
+      @last_decision[version_key] = Time.now.to_i
+      Djinn.log_info("Removing an AppServer for #{version_key} #{location}.")
+    }
+
+    return !to_delete.empty?
   end
 
   # This function unpacks an application tarball if needed. A removal of

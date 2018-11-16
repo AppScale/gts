@@ -22,8 +22,7 @@ from appscale.tools.agents.factory import InfrastructureAgentFactory
 from .operation_ids_cache import OperationIdsCache
 from .system_manager import ServiceException, SystemManager
 
-
-logger = logging.getLogger('appscale-infrastructure-manager')
+logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 17444
 

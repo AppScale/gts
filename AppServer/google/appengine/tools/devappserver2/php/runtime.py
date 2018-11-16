@@ -30,6 +30,7 @@ import urllib
 
 import google
 
+from google.appengine.api import appinfo
 from google.appengine.tools.devappserver2 import http_runtime_constants
 from google.appengine.tools.devappserver2 import php
 from google.appengine.tools.devappserver2 import request_rewriter
@@ -53,9 +54,15 @@ class PHPRuntime(object):
         port_bytes = struct.pack('I', config.api_port)
         config.api_port, external_api_port = struct.unpack('HH', port_bytes)
 
+    if appinfo.MODULE_SEPARATOR not in config.version_id:
+      module_id = appinfo.DEFAULT_MODULE
+      version_id = config.version_id
+    else:
+      module_id, version_id = config.version_id.split(appinfo.MODULE_SEPARATOR)
     self.environ_template = {
         'APPLICATION_ID': str(config.app_id),
-        'CURRENT_VERSION_ID': str(config.version_id),
+        'CURRENT_MODULE_ID': module_id,
+        'CURRENT_VERSION_ID': version_id,
         'DATACENTER': str(config.datacenter),
         'INSTANCE_ID': str(config.instance_id),
         'APPENGINE_RUNTIME': 'php',

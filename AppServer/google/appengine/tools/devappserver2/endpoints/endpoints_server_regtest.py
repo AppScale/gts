@@ -17,6 +17,7 @@
 """Regression tests for Endpoints server in devappserver2."""
 
 
+import base64
 import json
 import os.path
 
@@ -139,6 +140,23 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
                          'var_repeated_int64': ['11', '12', '901'],
                          'var_sint64': '-554', 'var_uint64': '4321'}
     self.assertEqual(expected_response, response_json)
+
+  def test_echo_bytes(self):
+    """Test sending and receiving a BytesField parameter."""
+    value = 'This is a test of a message encoded as a BytesField.01234\000\001'
+    bytes_value = base64.urlsafe_b64encode(value)
+    body_json = {'bytes_value': bytes_value}
+    body = json.dumps(body_json)
+    send_headers = {'content-type': 'application/json'}
+    status, content, headers = self.fetch_url(
+        'default', 'POST', '/_ah/api/test_service/v1/echo_bytes',
+        body, send_headers)
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    self.assertEqual(response_json, body_json)
+    self.assertEqual(value, base64.urlsafe_b64decode(body_json['bytes_value']))
 
   def test_empty_test(self):
     """Test that an empty response that should have an object returns 200."""

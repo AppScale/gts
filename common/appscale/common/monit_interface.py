@@ -37,6 +37,8 @@ DEFAULT_RETRIES = lambda err: not isinstance(err, ProcessNotFound)
 SMALL_WAIT = 3
 RETRYING_TIMEOUT = 60
 
+logger = logging.getLogger(__name__)
+
 
 class ProcessNotFound(Exception):
   """ Indicates that Monit has no entry for a process. """
@@ -87,7 +89,7 @@ def safe_monit_run(args):
     monit_run(args)
     return True
   except NonZeroReturnStatus as err:
-    logging.error(err)
+    logger.error(err)
     return False
 
 
@@ -105,15 +107,15 @@ def start(watch, is_group=True):
     configuration file, or (3) monit could not start the new program.
   """
   if not misc.is_string_secure(watch):
-    logging.error("Watch string [{0}] is a possible security violation".format(
+    logger.error("Watch string [{0}] is a possible security violation".format(
       watch))
     return False
 
-  logging.info("Reloading monit.")
+  logger.info("Reloading monit.")
   if not safe_monit_run(['reload']):
     return False
 
-  logging.info("Starting watch {0}".format(watch))
+  logger.info("Starting watch {0}".format(watch))
   if is_group:
     safe_monit_run(['monitor', '-g', watch])
     return safe_monit_run(['start', '-g', watch])
@@ -136,10 +138,10 @@ def stop(watch, is_group=True):
     stopped, or (3) the programs could not be unmonitored.
   """
   if not misc.is_string_secure(watch):
-    logging.error("Watch string (%s) is a possible security violation" % watch)
+    logger.error("Watch string (%s) is a possible security violation" % watch)
     return False
 
-  logging.info("Stopping watch {0}".format(watch))
+  logger.info("Stopping watch {0}".format(watch))
   if is_group:
     stop_command = ['stop', '-g', watch]
   else:
@@ -158,11 +160,11 @@ def restart(watch):
     valid program name, (2) monit could not restart the new program.
   """
   if not misc.is_string_secure(watch):
-    logging.error("Watch string [{0}] is a possible security violation".format(
+    logger.error("Watch string [{0}] is a possible security violation".format(
       watch))
     return False
 
-  logging.info("Restarting watch {0}".format(watch))
+  logger.info("Restarting watch {0}".format(watch))
   return safe_monit_run(['restart', '-g', watch])
 
 
@@ -218,7 +220,7 @@ class MonitOperator(object):
     if self.reload_future is None or self.reload_future.done():
       self.reload_future = self._reload(thread_pool)
     else:
-      logging.info('Using future of active monit reload')
+      logger.info('Using future of active monit reload')
 
     yield self.reload_future
 
@@ -325,7 +327,7 @@ class MonitOperator(object):
       process_name: A string specifying a monit watch.
       acceptable_states: An iterable of strings specifying states.
     """
-    logging.info(
+    logger.info(
       "Waiting until process '{}' gets to one of acceptable states: {}"
        .format(process_name, acceptable_states)
     )
@@ -338,13 +340,13 @@ class MonitOperator(object):
       elapsed = time.time() - start_time
 
       if status in acceptable_states:
-        logging.info("Status of '{}' became '{}' after {:0.1f}s"
+        logger.info("Status of '{}' became '{}' after {:0.1f}s"
                      .format(process_name, status, elapsed))
         raise gen.Return(status)
 
       if elapsed > 1:
         # Keep logs informative and don't report too early
-        logging.info("Status of '{}' is not acceptable ('{}') after {:0.1f}s."
+        logger.info("Status of '{}' is not acceptable ('{}') after {:0.1f}s."
                      "Checking again in {:0.1f}s."
                      .format(process_name, status, elapsed, backoff))
 
@@ -388,7 +390,7 @@ class MonitOperator(object):
       if error.errno != errno.ENOENT:
         raise
 
-      logging.error('Error deleting {}'.format(monit_config_file))
+      logger.error('Error deleting {}'.format(monit_config_file))
 
   @retry_coroutine(
     retrying_timeout=RETRYING_TIMEOUT,

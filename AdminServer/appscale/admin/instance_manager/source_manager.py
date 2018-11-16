@@ -24,7 +24,7 @@ from ..constants import (
 )
 from ..utils import extract_source
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 class AlreadyHoster(Exception):

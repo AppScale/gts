@@ -38,8 +38,6 @@ final class CloudStorageWriteClient extends CloudStorageClient {
   // http://tools.ietf.org/html/rfc2616#section-4.2
   const METADATA_VALUE_REGEX = "/^[[:print:]]*$/";
 
-  private static $upload_start_header = ["x-goog-resumable" => "start"];
-
   // The array of bytes to be written to GS
   private $byte_buffer;
 
@@ -63,7 +61,7 @@ final class CloudStorageWriteClient extends CloudStorageClient {
    * @return true if the streamable upload started, false otherwise.
    */
   public function initialize() {
-    $headers = self::$upload_start_header;
+    $headers = parent::$upload_start_header;
 
     $token_header = $this->getOAuthTokenHeader(parent::WRITE_SCOPE);
     if ($token_header === false) {

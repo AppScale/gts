@@ -74,7 +74,7 @@ class TestCurrentProxiesStats(unittest.TestCase):
     self.assertEqual(dashboard.listeners, [])
 
   @patch.object(proxy_stats.socket, 'socket')
-  @patch.object(proxy_stats.logging, 'warn')
+  @patch.object(proxy_stats.logger, 'warn')
   def test_haproxy_stats_v1_4(self, mock_logging_warn, mock_socket):
     # Mocking "echo 'show stat' | socat stdio unix-connect:{}" with csv file
     self.stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.4.csv'))
