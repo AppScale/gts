@@ -651,13 +651,34 @@ class DevelopmentServer(object):
         options.automatic_restart,
         options.allow_skipped_files,
         options.external_api_port)
-    request_data = wsgi_request_info.WSGIRequestInfo(self._dispatcher)
 
+    request_data = wsgi_request_info.WSGIRequestInfo(self._dispatcher)
     storage_path = _get_storage_path(options.storage_path, configuration.app_id)
+
+    apis = self._create_api_server(
+        request_data, storage_path, options, configuration)
+    apis.start()
+    self._running_modules.append(apis)
+
+    self._dispatcher.start(apis.port, request_data)
+    self._running_modules.append(self._dispatcher)
+
+    xsrf_path = os.path.join(storage_path, 'xsrf')
+    admin = admin_server.AdminServer(options.admin_host, options.admin_port,
+                                     self._dispatcher, configuration, xsrf_path)
+    admin.start()
+    self._running_modules.append(admin)
+
+  def stop(self):
+    """Stops all running devappserver2 modules."""
+    while self._running_modules:
+      self._running_modules.pop().quit()
+
+  @staticmethod
+  def _create_api_server(request_data, storage_path, options, configuration):
     datastore_path = options.datastore_path or os.path.join(storage_path,
                                                             'datastore.db')
     logs_path = options.logs_path or os.path.join(storage_path, 'logs.db')
-    xsrf_path = os.path.join(storage_path, 'xsrf')
 
     search_index_path = options.search_indexes_path or os.path.join(
         storage_path, 'search_indexes')
@@ -734,23 +755,8 @@ class DevelopmentServer(object):
 
     # The APIServer must bind to localhost because that is what the runtime
     # instances talk to.
-    apis = api_server.APIServer('localhost', options.api_port,
+    return api_server.APIServer('localhost', options.api_port,
                                 configuration.app_id)
-    apis.start()
-    self._running_modules.append(apis)
-
-    self._running_modules.append(self._dispatcher)
-    self._dispatcher.start(apis.port, request_data)
-
-    admin = admin_server.AdminServer(options.admin_host, options.admin_port,
-                                     self._dispatcher, configuration, xsrf_path)
-    admin.start()
-    self._running_modules.append(admin)
-
-  def stop(self):
-    """Stops all running devappserver2 modules."""
-    while self._running_modules:
-      self._running_modules.pop().quit()
 
 
 def main():
