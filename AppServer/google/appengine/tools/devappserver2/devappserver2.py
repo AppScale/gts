@@ -244,14 +244,13 @@ def parse_max_module_instances(value):
   Raises:
     argparse.ArgumentTypeError: the value is invalid.
   """
-  # TODO: disallow negative values.
   return parse_per_module_option(
-      value, int, lambda x: x,
-      'Invalid instance count: %r',
-      'Cannot specify zero instances for all modules',
-      'Expected "module:max_instances": %r',
-      'Cannot specify zero instances for module %s',
-      'Duplicate max instance value for module %s')
+      value, int, lambda instances: instances > 0,
+      'Invalid max instance count: %r',
+      'Max instance count must be greater than zero',
+      'Expected "module:max_instance_count": %r',
+      'Max instance count for module %s must be greater than zero',
+      'Duplicate max instance count for module %s')
 
 
 def parse_threadsafe_override(value):
