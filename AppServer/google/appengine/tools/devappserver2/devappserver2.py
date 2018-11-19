@@ -149,6 +149,81 @@ class PortParser(object):
     return port
 
 
+def parse_per_module_option(
+    value, value_type, value_predicate,
+    single_bad_type_error, single_bad_predicate_error,
+    multiple_bad_type_error, multiple_bad_predicate_error,
+    multiple_duplicate_module_error):
+  """Parses command line options that may be specified per-module.
+
+  Args:
+    value: A str containing the flag value to parse. Two formats are supported:
+        1. A universal value (may not contain a colon as that is use to
+           indicate a per-module value).
+        2. Per-module values. One or more comma separated module-value pairs.
+           Each pair is a module_name:value. An empty module-name is shorthand
+           for "default" to match how not specifying a module name in the yaml
+           is the same as specifying "module: default".
+    value_type: a callable that converts the string representation of the value
+        to the actual value. Should raise ValueError if the string can not
+        be converted.
+    value_predicate: a predicate to call on the converted value to validate
+        the converted value. Use "lambda _: True" if all values are valid.
+    single_bad_type_error: the message to use if a universal value is provided
+        and value_type throws a ValueError. The message must consume a single
+        format parameter (the provided value).
+    single_bad_predicate_error: the message to use if a universal value is
+        provided and value_predicate returns False. The message does not
+        get any format parameters.
+    multiple_bad_type_error: the message to use if a per-module value
+        either does not have two values separated by a single colon or if
+        value_types throws a ValueError on the second string. The message must
+        consume a single format parameter (the module_name:value pair).
+    multiple_bad_predicate_error: the message to use if a per-module value if
+        value_predicate returns False. The message must consume a single format
+        parameter (the module name).
+    multiple_duplicate_module_error: the message to use if the same module is
+        repeated. The message must consume a single formater parameter (the
+        module name).
+
+  Returns:
+    Either a single value of value_type for universal values or a dict of
+    str->value_type for per-module values.
+
+  Raises:
+    argparse.ArgumentTypeError: the value is invalid.
+  """
+  if ':' not in value:
+    try:
+      single_value = value_type(value)
+    except ValueError:
+      raise argparse.ArgumentTypeError(single_bad_type_error % value)
+    else:
+      if not value_predicate(single_value):
+        raise argparse.ArgumentTypeError(single_bad_predicate_error)
+      return single_value
+  else:
+    module_to_value = {}
+    for module_value in value.split(','):
+      try:
+        module_name, single_value = module_value.split(':')
+        single_value = value_type(single_value)
+      except ValueError:
+        raise argparse.ArgumentTypeError(multiple_bad_type_error % module_value)
+      else:
+        module_name = module_name.strip()
+        if not module_name:
+          module_name = 'default'
+        if module_name in module_to_value:
+          raise argparse.ArgumentTypeError(
+              multiple_duplicate_module_error % module_name)
+        if not value_predicate(single_value):
+          raise argparse.ArgumentTypeError(
+              multiple_bad_predicate_error % module_name)
+        module_to_value[module_name] = single_value
+    return module_to_value
+
+
 def parse_max_module_instances(value):
   """Returns the parsed value for the --max_module_instances flag.
 
@@ -169,37 +244,46 @@ def parse_max_module_instances(value):
   Raises:
     argparse.ArgumentTypeError: the value is invalid.
   """
-  if ':' not in value:
-    try:
-      max_module_instances = int(value)
-    except ValueError:
-      raise argparse.ArgumentTypeError('Invalid instance count: %r' % value)
-    else:
-      if not max_module_instances:
-        raise argparse.ArgumentTypeError(
-            'Cannot specify zero instances for all modules')
-      return max_module_instances
-  else:
-    module_to_max_instances = {}
-    for module_instance_max in value.split(','):
-      try:
-        module_name, max_instances = module_instance_max.split(':')
-        max_instances = int(max_instances)
-      except ValueError:
-        raise argparse.ArgumentTypeError(
-            'Expected "module:max_instances": %r' % module_instance_max)
-      else:
-        module_name = module_name.strip()
-        if not module_name:
-          module_name = 'default'
-        if module_name in module_to_max_instances:
-          raise argparse.ArgumentTypeError(
-              'Duplicate max instance value: %r' % module_name)
-        if not max_instances:
-          raise argparse.ArgumentTypeError(
-              'Cannot specify zero instances for module %s' % module_name)
-        module_to_max_instances[module_name] = max_instances
-    return module_to_max_instances
+  # TODO: disallow negative values.
+  return parse_per_module_option(
+      value, int, lambda x: x,
+      'Invalid instance count: %r',
+      'Cannot specify zero instances for all modules',
+      'Expected "module:max_instances": %r',
+      'Cannot specify zero instances for module %s',
+      'Duplicate max instance value for module %s')
+
+
+def parse_threadsafe_override(value):
+  """Returns the parsed value for the --threadsafe_override flag.
+
+  Args:
+    value: A str containing the flag value for parse. The format should follow
+        one of the following examples:
+          1. "False" - All modules override the YAML threadsafe configuration
+             as if the YAML contained False.
+          2. "default:False,backend:True" - The default module overrides the
+             YAML threadsafe configuration as if the YAML contained False, the
+             "backend" module overrides with a value of True and all other
+             modules use the value in the YAML file. An empty name (i.e.
+             ":True") is shorthand for default to match how not specifying a
+             module name in the yaml is the same as specifying
+             "module: default".
+  Returns:
+    The parsed value of the threadsafe_override flag. May either be a bool
+    (for values of the form "False") or a dict of str->bool (for values of the
+    form "default:False,backend:True").
+
+  Raises:
+    argparse.ArgumentTypeError: the value is invalid.
+  """
+  return parse_per_module_option(
+      value, boolean_action.BooleanParse, lambda _: True,
+      'Invalid threadsafe override: %r',
+      None,
+      'Expected "module:threadsafe_override": %r',
+      None,
+      'Duplicate threadsafe override value for module %s')
 
 
 def parse_path(value):
@@ -260,6 +344,13 @@ def create_command_line_parser():
       default=False,
       help='use mtime polling for detecting source code changes - useful if '
       'modifying code from a remote machine using a distributed file system')
+  common_group.add_argument(
+      '--threadsafe_override',
+      type=parse_threadsafe_override,
+      help='override the application\'s threadsafe configuration - the value '
+      'can be a boolean, in which case all modules threadsafe setting will '
+      'be overridden or a comma-separated list of module:threadsafe_override '
+      'e.g. "default:False,backend:True"')
 
   # PHP
   php_group = parser.add_argument_group('PHP')
@@ -636,6 +727,15 @@ class DevelopmentServer(object):
     else:
       module_to_max_instances = options.max_module_instances
 
+    if options.threadsafe_override is None:
+      module_to_threadsafe_override = {}
+    elif isinstance(options.threadsafe_override, bool):
+      module_to_threadsafe_override = {
+          module_configuration.module_name: options.threadsafe_override
+          for module_configuration in configuration.modules}
+    else:
+      module_to_threadsafe_override = options.threadsafe_override
+
     self._dispatcher = dispatcher.Dispatcher(
         configuration,
         options.host,
@@ -650,6 +750,7 @@ class DevelopmentServer(object):
         options.use_mtime_file_watcher,
         options.automatic_restart,
         options.allow_skipped_files,
+        module_to_threadsafe_override,
         options.external_api_port)
 
     request_data = wsgi_request_info.WSGIRequestInfo(self._dispatcher)

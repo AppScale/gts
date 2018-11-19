@@ -74,6 +74,7 @@ class Dispatcher(request_info.Dispatcher):
                use_mtime_file_watcher,
                automatic_restart,
                allow_skipped_files,
+               module_to_threadsafe_override,
                external_api_port=None):
     """Initializer for Dispatcher.
 
@@ -110,6 +111,9 @@ class Dispatcher(request_info.Dispatcher):
       allow_skipped_files: If True then all files in the application's directory
           are readable, even if they appear in a static handler or "skip_files"
           directive.
+      module_to_threadsafe_override: A mapping between the module name and what
+        to override the module's YAML threadsafe configuration (so modules
+        not named continue to use their YAML configuration).
       external_api_port: An integer specifying the location of an external API
           server.
     """
@@ -136,6 +140,7 @@ class Dispatcher(request_info.Dispatcher):
     self._use_mtime_file_watcher = use_mtime_file_watcher
     self._automatic_restart = automatic_restart
     self._allow_skipped_files = allow_skipped_files
+    self._module_to_threadsafe_override = module_to_threadsafe_override
     self._executor = scheduled_executor.ScheduledExecutor(_THREAD_POOL)
     self._port_registry = PortRegistry()
 
@@ -237,6 +242,8 @@ class Dispatcher(request_info.Dispatcher):
   def _create_module(self, module_configuration, port, external_port=None):
     max_instances = self._module_to_max_instances.get(
         module_configuration.module_name)
+    threadsafe_override = self._module_to_threadsafe_override.get(
+        module_configuration.module_name)
     module_args = (module_configuration,
                    self._host,
                    port,
@@ -254,7 +261,8 @@ class Dispatcher(request_info.Dispatcher):
                    max_instances,
                    self._use_mtime_file_watcher,
                    self._automatic_restart,
-                   self._allow_skipped_files)
+                   self._allow_skipped_files,
+                   threadsafe_override)
     module_kwargs = {'external_api_port': external_port}
     if module_configuration.manual_scaling:
       _module = module.ManualScalingModule(*module_args, **module_kwargs)
