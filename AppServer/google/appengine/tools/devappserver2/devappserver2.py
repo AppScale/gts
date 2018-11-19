@@ -27,6 +27,7 @@ import sys
 import tempfile
 import time
 
+from google.appengine.api import appinfo
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.tools import boolean_action
 from google.appengine.tools.devappserver2.admin import admin_server
@@ -213,7 +214,7 @@ def parse_per_module_option(
       else:
         module_name = module_name.strip()
         if not module_name:
-          module_name = 'default'
+          module_name = appinfo.DEFAULT_MODULE
         if module_name in module_to_value:
           raise argparse.ArgumentTypeError(
               multiple_duplicate_module_error % module_name)
