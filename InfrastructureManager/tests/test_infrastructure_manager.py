@@ -1,17 +1,11 @@
 import json
 
-try:
-  from unittest import TestCase
-except ImportError:
-  from unittest.case import TestCase
-
 import appscale.infrastructure as iaas
 
 from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.httpclient import HTTPRequest, HTTPError
 from tornado.ioloop import IOLoop
-from tornado.escape import json_encode, json_decode
-from mock import patch, Mock, PropertyMock, MagicMock
+from mock import patch, MagicMock
 
 from appscale.infrastructure.system_manager import SystemManager
 from appscale.tools.agents.base_agent import AgentRuntimeException
@@ -195,8 +189,8 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
         )
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
-        self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
-        operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
+        self.assertTrue(iaas.PARAM_OPERATION_ID in json.loads(response.body))
+        operation_id = json.loads(response.body)[iaas.PARAM_OPERATION_ID]
 
         vm_info = {
           'public_ips': ['public-ip'],
@@ -228,8 +222,8 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
         )
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
-        self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
-        operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
+        self.assertTrue(iaas.PARAM_OPERATION_ID in json.loads(response.body))
+        operation_id = json.loads(response.body)[iaas.PARAM_OPERATION_ID]
         # operation_id valid.
         status_info = {
           'success': False,
@@ -315,8 +309,8 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
         )
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
-        self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
-        operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
+        self.assertTrue(iaas.PARAM_OPERATION_ID in json.loads(response.body))
+        operation_id = json.loads(response.body)[iaas.PARAM_OPERATION_ID]
 
         # operation_id valid.
 
@@ -347,8 +341,8 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
         )
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
-        self.assertTrue(iaas.PARAM_OPERATION_ID in json_decode(response.body))
-        operation_id = json_decode(response.body)[iaas.PARAM_OPERATION_ID]
+        self.assertTrue(iaas.PARAM_OPERATION_ID in json.loads(response.body))
+        operation_id = json.loads(response.body)[iaas.PARAM_OPERATION_ID]
         # operation_id valid.
         status_info = {
           'success': False,
@@ -626,5 +620,5 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
 
         response = yield self.http_client.fetch(payload_request)
         self.assertEqual(response.code, 200)
-        self.assertTrue('location' in json_decode(response.body))
-        self.assertEqual(json_decode(response.body)['location'], '/dev/sdc')
+        self.assertTrue('location' in json.loads(response.body))
+        self.assertEqual(json.loads(response.body)['location'], '/dev/sdc')

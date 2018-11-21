@@ -4,7 +4,6 @@
 import logging
 import os
 import subprocess
-import sys
 import time
 
 import appscale.datastore.backup.utils as utils

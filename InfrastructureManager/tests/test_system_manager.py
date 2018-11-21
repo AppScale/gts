@@ -1,5 +1,3 @@
-import json
-from flexmock import flexmock
 try:
   from unittest import TestCase
 except ImportError:

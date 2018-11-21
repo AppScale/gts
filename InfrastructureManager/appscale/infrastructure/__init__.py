@@ -409,15 +409,13 @@ class InstanceHandler(web.RequestHandler):
         and self.request.headers['AppScale-Secret'] != options.secret:
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    system_manager = SystemManager()
-
-    cpu_usage = system_manager.get_cpu_usage()
-    disk_usage = system_manager.get_disk_usage()
-    memory_usage = system_manager.get_memory_usage()
-    swap_usage = system_manager.get_swap_usage()
-    loadavg = system_manager.get_loadavg()
+    cpu_usage = SystemManager.get_cpu_usage()
+    disk_usage = SystemManager.get_disk_usage()
+    memory_usage = SystemManager.get_memory_usage()
+    swap_usage = SystemManager.get_swap_usage()
+    loadavg = SystemManager.get_loadavg()
     try:
-      service_summary = system_manager.get_service_summary()
+      service_summary = SystemManager.get_service_summary()
     except ServiceException as e:
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=e.message)
 

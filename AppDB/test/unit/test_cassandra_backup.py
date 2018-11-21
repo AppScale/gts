@@ -2,7 +2,6 @@
 
 import re
 import subprocess
-import sys
 import time
 import unittest
 from flexmock import flexmock

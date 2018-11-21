@@ -53,7 +53,7 @@ class InfrastructureManagerClient
           end
         if response.code != '200'
           log_message = "[IM] Error calling #{uri.hostname}:#{uri.port}#{uri.path}"
-          log_message << ": #{response.message}" if not response.message.nil?
+          log_message << ": #{response.message}" unless response.message.nil?
           Djinn.log_warn(log_message)
           raise AppScaleException.new(log_message)
         end
@@ -61,7 +61,7 @@ class InfrastructureManagerClient
       rescue Net::ReadTimeout, Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
         Djinn.log_warn(
           "[IM] Error when calling #{uri.hostname}:#{uri.port}#{uri.path}. Trying " \
-          "again")
+          "again. Error: #{error.message}")
         sleep(SMALL_WAIT)
     end
   end
@@ -99,7 +99,6 @@ class InfrastructureManagerClient
     Djinn.log_debug('[IM] Terminate instances says [#{terminate_result}]')
     operation_id = terminate_result['operation_id']
 
-    vm_info = {}
     loop {
       describe_result = describe_operation(operation_id)
       Djinn.log_debug("[IM] Describe operation state is #{describe_result['state']}.")
@@ -223,7 +222,7 @@ class InfrastructureManagerClient
         return make_call(request, uri)
       rescue AppScaleException => error
         retries -= 1
-        Djinn.log_warn("[IM] Error getting stats! Trying again.")
+        Djinn.log_warn("[IM] Error getting stats! Trying again. Error: #{error.message}")
         sleep(SMALL_WAIT)
       end
       break if retries.zero?

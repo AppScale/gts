@@ -45,7 +45,8 @@ class SystemManager():
   Monit summary, and number of running appservers, if any.
   """
 
-  def get_cpu_usage(self):
+  @classmethod
+  def get_cpu_usage(cls):
     """ Discovers CPU usage on this node.
 
     Returns:
@@ -65,7 +66,8 @@ class SystemManager():
 
     return cpu_stats_dict
 
-  def get_disk_usage(self):
+  @classmethod
+  def get_disk_usage(cls):
     """ Discovers disk usage per mount point on this node.
 
     Returns:
@@ -94,7 +96,8 @@ class SystemManager():
 
     return disk_stats_dict
 
-  def get_memory_usage(self):
+  @classmethod
+  def get_memory_usage(cls):
     """ Discovers memory usage on this node.
 
     Returns:
@@ -114,7 +117,8 @@ class SystemManager():
 
     return mem_stats_dict
 
-  def get_service_summary(self):
+  @classmethod
+  def get_service_summary(cls):
     """ Retrieves Monit's summary on this node.
 
     Returns:
@@ -143,7 +147,8 @@ class SystemManager():
 
     return monit_stats_dict
 
-  def get_swap_usage(self):
+  @classmethod
+  def get_swap_usage(cls):
     """ Discovers swap usage on this node.
 
     Returns:
@@ -161,7 +166,8 @@ class SystemManager():
 
     return swap_stats_dict
 
-  def get_loadavg(self):
+  @classmethod
+  def get_loadavg(cls):
     """ Returns info from /proc/loadavg.
     See `man proc` for more details.
 
