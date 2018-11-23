@@ -21,13 +21,14 @@ def merge_indexes(zk_client, project_id, new_indexes):
   """
   indexes_node = '/appscale/projects/{}/indexes'.format(project_id)
   zk_client.ensure_path(indexes_node)
-  existing_indexes, znode_stat = zk_client.get(indexes_node)
+  encoded_indexes, znode_stat = zk_client.get(indexes_node)
   node_version = znode_stat.version
-  if existing_indexes is None:
-    existing_indexes = []
-  else:
+
+  if encoded_indexes:
     existing_indexes = [DatastoreIndex.from_dict(project_id, index)
-                        for index in json.loads(existing_indexes)]
+                        for index in json.loads(encoded_indexes)]
+  else:
+    existing_indexes = []
 
   # Disregard index entries that already exist.
   existing_index_defs = {index.encoded_def for index in existing_indexes}
