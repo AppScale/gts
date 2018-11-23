@@ -30,24 +30,23 @@ class ProjectQueueManager(dict):
     self.zk_client = zk_client
     self.project_id = project_id
     self.db_access = db_access
-
     pg_dns_node = '/appscale/projects/{}/postgres_dsn'.format(project_id)
     try:
       pg_dsn = self.zk_client.get(pg_dns_node)
       logger.info('Using PostgreSQL as a backend for Pull Queues of "{}"'
                   .format(project_id))
-      # Import pg_connection_pool (and psycopg2) lazily
-      import pg_connection_pool
-      # TODO: PostgresConnectionPool may need an update when
+      # Import pg_connection_wrapper (and psycopg2) lazily
+      from appscale.taskqueue import pg_connection_wrapper
+      # TODO: PostgresConnectionWrapper may need an update when
       #       TaskQueue becomes concurrent
-      self.pg_connection_pool = pg_connection_pool.PostgresConnectionPool(
-        minconn=1, maxconn=self.MAX_POSTGRES_BACKED_PROJECTS, dsn=pg_dsn[0]
+      self.pg_connection_wrapper = (
+        pg_connection_wrapper.PostgresConnectionWrapper(dsn=pg_dsn[0])
       )
       self._configure_periodical_flush()
     except NoNodeError:
       logger.info('Using Cassandra as a backend for Pull Queues of "{}"'
                   .format(project_id))
-      self.pg_connection_pool = None
+      self.pg_connection_wrapper = None
     self.queues_node = '/appscale/projects/{}/queues'.format(project_id)
     self.watch = zk_client.DataWatch(self.queues_node,
                                      self._update_queues_watch)
@@ -81,9 +80,9 @@ class ProjectQueueManager(dict):
       queue_info['name'] = queue_name
       if 'mode' not in queue_info or queue_info['mode'] == 'push':
         self[queue_name] = PushQueue(queue_info, self.project_id)
-      elif self.pg_connection_pool:
+      elif self.pg_connection_wrapper:
         self[queue_name] = PostgresPullQueue(queue_info, self.project_id,
-                                             self.pg_connection_pool)
+                                             self.pg_connection_wrapper)
       else:
         self[queue_name] = PullQueue(queue_info, self.project_id,
                                      self.db_access)
@@ -114,8 +113,8 @@ class ProjectQueueManager(dict):
     """ Close the Celery and Postgres connections if they still exist. """
     if self.celery is not None:
       self.celery.close()
-    if self.pg_connection_pool is not None:
-      self.pg_connection_pool.closeall()
+    if self.pg_connection_wrapper is not None:
+      self.pg_connection_wrapper.close()
 
   def _update_queues_watch(self, queue_config, _):
     """ Handles updates to a queue configuration node.
