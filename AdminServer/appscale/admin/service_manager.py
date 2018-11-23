@@ -27,7 +27,7 @@ DATASTORE_CGROUP = ['memory', 'appscale-datastore']
 # The characters allowed in a service identifier (eg. datastore)
 SERVICE_ID_CHARS = '[a-z_]'
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 class ServiceTypes(object):

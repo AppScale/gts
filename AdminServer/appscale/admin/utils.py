@@ -2,6 +2,7 @@
 
 import errno
 import json
+import hmac
 import logging
 import os
 import shutil
@@ -27,7 +28,7 @@ from .constants import (
 from .instance_manager.utils import copy_modified_jars
 from .instance_manager.utils import remove_conflicting_jars
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 def assert_fields_in_resource(required_fields, resource_name, resource):
@@ -551,3 +552,30 @@ def queues_from_dict(payload):
     queues[name] = queue
 
   return {'queue': queues}
+
+
+def _constant_time_compare(val_a, val_b):
+  """ Compares the two input values in a way that prevents timing analysis.
+
+  Args:
+    val_a: A string.
+    val_b: A string.
+  Returns:
+    A boolean indicating whether or not the given strings are equal.
+  """
+  if len(val_a) != len(val_b):
+    return False
+
+  values_equal = True
+  for char_a, char_b in zip(val_a, val_b):
+    if char_a != char_b:
+      # Do not break early here in order to keep the compare constant time.
+      values_equal = False
+
+  return values_equal
+
+
+if hasattr(hmac, 'compare_digest'):
+  constant_time_compare = hmac.compare_digest
+else:
+  constant_time_compare = _constant_time_compare

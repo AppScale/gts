@@ -1,146 +1,172 @@
-""" Handlers for accepting HTTP requests. """
-
-import Queue
 import json
 import logging
-import threading
+import time
+from datetime import datetime
 
-from tornado.ioloop import IOLoop
+from tornado import gen
+from tornado.options import options
 from tornado.web import RequestHandler
 
-from appscale.hermes import constants
-from appscale.hermes import helper
-from appscale.hermes.helper import JSONTags
-from appscale.hermes.helper import NodeInfoTags
-from appscale.hermes.helper import TASK_STATUS
-from appscale.hermes.helper import TASK_STATUS_LOCK
+from appscale.hermes.constants import (
+  SECRET_HEADER, HTTP_Codes, ACCEPTABLE_STATS_AGE
+)
+from appscale.hermes.converter import (
+  stats_to_dict, IncludeLists, WrongIncludeLists
+)
+
+logger = logging.getLogger(__name__)
 
 
-class TaskStatus(object):
-  """ A class containing all possible task states. """
-  PENDING = 'pending'
-  FAILED = 'failed'
-  COMPLETE = 'complete'
+class CurrentStatsHandler(RequestHandler):
+  """ Handler for getting current local stats of specific kind.
+  """
 
+  def initialize(self, source, default_include_lists, cache_container):
+    """ Initializes RequestHandler for handling a single request.
 
-class MainHandler(RequestHandler):
-  """ Main handler class. """
+    Args:
+      source: an object with method get_current.
+      default_include_lists: an instance of IncludeLists to use as default.
+      cache_container: a list containing a single element - cached snapshot.
+    """
+    self._stats_source = source
+    self._default_include_lists = default_include_lists
+    self._cache_container = cache_container
 
+  @property
+  def _cached_snapshot(self):
+    return self._cache_container[0]
+
+  @_cached_snapshot.setter
+  def _cached_snapshot(self, newer_snapshot):
+    self._cache_container[0] = newer_snapshot
+
+  @gen.coroutine
   def get(self):
-    """ Main GET method. Reports the status of the server. """
-    self.write(json.dumps({'status': 'up'}))
-
-
-class TaskHandler(RequestHandler):
-  """ Handler that starts operations to complete a task. """
-
-  def post(self):
-    """ POST method that sends a request for action to the
-    corresponding deployment components. """
-    logging.debug("Task request received: {0}, {1}".format(str(self.request),
-      str(self.request.body)))
-
-    if not self.request.body:
-      logging.info("Response from the AppScale Portal empty. No tasks to run.")
-      self.set_status(constants.HTTP_Codes.HTTP_OK)
+    if self.request.headers.get(SECRET_HEADER) != options.secret:
+      logger.warn("Received bad secret from {client}"
+                   .format(client=self.request.remote_ip))
+      self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
+    if self.request.body:
+      payload = json.loads(self.request.body)
+    else:
+      payload = {}
+    include_lists = payload.get('include_lists')
+    max_age = payload.get('max_age', ACCEPTABLE_STATS_AGE)
 
-    try:
-      data = json.loads(self.request.body)
-    except (TypeError, ValueError) as error:
-      logging.exception(error)
-      logging.error("Unable to parse: {0}".format(self.request.body))
-      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
+    if include_lists is not None:
+      try:
+        include_lists = IncludeLists(include_lists)
+      except WrongIncludeLists as err:
+        logger.warn("Bad request from {client} ({error})"
+                     .format(client=self.request.remote_ip, error=err))
+        json.dump({'error': str(err)}, self)
+        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
+        return
+    else:
+      include_lists = self._default_include_lists
+
+    snapshot = None
+
+    # Try to use cached snapshot
+    if self._cached_snapshot:
+      now = time.time()
+      acceptable_time = now - max_age
+      if self._cached_snapshot.utc_timestamp >= acceptable_time:
+        snapshot = self._cached_snapshot
+        logger.info("Returning cached snapshot with age {:.2f}s"
+                     .format(now-self._cached_snapshot.utc_timestamp))
+
+    if not snapshot:
+      snapshot = self._stats_source.get_current()
+      if isinstance(snapshot, gen.Future):
+        snapshot = yield snapshot
+      self._cached_snapshot = snapshot
+
+    json.dump(stats_to_dict(snapshot, include_lists), self)
+
+
+class CurrentClusterStatsHandler(RequestHandler):
+  """ Handler for getting current stats of specific kind.
+  """
+
+  def initialize(self, source, default_include_lists, cache_container):
+    """ Initializes RequestHandler for handling a single request.
+
+    Args:
+      source: an object with method get_current.
+      default_include_lists: an instance of IncludeLists to use as default.
+      cache_container: a dict with cached snapshots.
+    """
+    self._current_cluster_stats_source = source
+    self._default_include_lists = default_include_lists
+    self._cached_snapshots = cache_container
+
+  @gen.coroutine
+  def get(self):
+    if self.request.headers.get(SECRET_HEADER) != options.secret:
+      logger.warn("Received bad secret from {client}"
+                   .format(client=self.request.remote_ip))
+      self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
       return
+    if self.request.body:
+      payload = json.loads(self.request.body)
+    else:
+      payload = {}
+    include_lists = payload.get('include_lists')
+    max_age = payload.get('max_age', ACCEPTABLE_STATS_AGE)
 
-    # Verify all necessary fields are present in request.body.
-    logging.debug("Verifying all necessary parameters are present.")
-    if not set(data.keys()).issuperset(set(constants.REQUIRED_KEYS)):
-      logging.error("Missing args in request: " + self.request.body)
-      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
-      return
+    if include_lists is not None:
+      try:
+        include_lists = IncludeLists(include_lists)
+      except WrongIncludeLists as err:
+        logger.warn("Bad request from {client} ({error})"
+                     .format(client=self.request.remote_ip, error=err))
+        json.dump({'error': str(err)}, self)
+        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
+        return
+    else:
+      include_lists = self._default_include_lists
 
-    # Gather information for sending the requests to start off the current
-    # task at hand.
-    nodes = helper.get_node_info()
+    newer_than = time.mktime(datetime.now().timetuple()) - max_age
 
-    if data[JSONTags.TYPE] not in constants.SUPPORTED_TASKS:
-      logging.error("Unsupported task type: '{0}'".format(data[JSONTags.TYPE]))
-      self.set_status(constants.HTTP_Codes.HTTP_BAD_REQUEST)
-      return
-
-    tasks = [data[JSONTags.TYPE]]
-    logging.info("Tasks to execute: {0}".format(tasks))
-    for task in tasks:
-      # Initiate the task as pending.
-      TASK_STATUS_LOCK.acquire(True)
-      TASK_STATUS[data[JSONTags.TASK_ID]] = {
-        JSONTags.TYPE: task, NodeInfoTags.NUM_NODES: len(nodes),
-        JSONTags.STATUS: TaskStatus.PENDING
+    if (not self._default_include_lists or
+        include_lists.is_subset_of(self._default_include_lists)):
+      # If user didn't specify any non-default fields we can use local cache
+      fresh_local_snapshots = {
+        node_ip: snapshot
+        for node_ip, snapshot in self._cached_snapshots.iteritems()
+        if max_age and snapshot.utc_timestamp > newer_than
       }
-      TASK_STATUS_LOCK.release()
+      if fresh_local_snapshots:
+        logger.debug("Returning cluster stats with {} cached snapshots"
+                      .format(len(fresh_local_snapshots)))
+    else:
+      fresh_local_snapshots = {}
 
-      result_queue = Queue.Queue()
-      threads = []
-      for node in nodes:
-        # Create a br_service compatible JSON object.
-        json_data = helper.create_br_json_data(
-          node[NodeInfoTags.ROLE],
-          task, data[JSONTags.BUCKET_NAME],
-          node[NodeInfoTags.INDEX], data[JSONTags.STORAGE])
-        request = helper.create_request(url=node[NodeInfoTags.HOST],
-                                        method='POST', body=json_data)
+    new_snapshots_dict, failures = (
+      yield self._current_cluster_stats_source.get_current(
+        max_age=max_age, include_lists=include_lists,
+        exclude_nodes=fresh_local_snapshots.keys()
+      )
+    )
 
-        # Start a thread for the request.
-        thread = threading.Thread(
-          target=helper.send_remote_request,
-          name='{0}{1}'.
-            format(data[JSONTags.TYPE], node[NodeInfoTags.HOST]),
-          args=(request, result_queue,))
-        threads.append(thread)
-        thread.start()
+    # Put new snapshots to local cache
+    self._cached_snapshots.update(new_snapshots_dict)
 
-      # Wait for threads to finish.
-      for thread in threads:
-        thread.join()
-      # Harvest results.
-      results = [result_queue.get() for _ in xrange(len(nodes))]
-      logging.debug("Task: {0}. Results: {1}.".format(task, results))
+    # Extend fetched snapshots dict with fresh local snapshots
+    new_snapshots_dict.update(fresh_local_snapshots)
 
-      # Backup source code.
-      app_success = False
-      if task == 'backup':
-        app_success = helper.\
-          backup_apps(data[JSONTags.STORAGE], data[JSONTags.BUCKET_NAME])
-      elif task == 'restore':
-        app_success = helper.\
-          restore_apps(data[JSONTags.STORAGE], data[JSONTags.BUCKET_NAME])
+    rendered_snapshots = {
+      node_ip: stats_to_dict(snapshot, include_lists)
+      for node_ip, snapshot in new_snapshots_dict.iteritems()
+    }
 
-      # Update TASK_STATUS.
-      successful_nodes = 0
-      for result in results:
-        if result[JSONTags.SUCCESS]:
-          successful_nodes += 1
-
-      TASK_STATUS_LOCK.acquire(True)
-      all_nodes = TASK_STATUS[data[JSONTags.TASK_ID]]\
-          [NodeInfoTags.NUM_NODES]
-      if successful_nodes < all_nodes or not app_success:
-        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS] = \
-          TaskStatus.FAILED
-      else:
-        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS] = \
-          TaskStatus.COMPLETE
-
-      logging.info("Task: {0}. Status: {1}.".format(task,
-        TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]))
-      IOLoop.instance().add_callback(callback=lambda:
-        helper.report_status(task, data[JSONTags.TASK_ID],
-                             TASK_STATUS[data[JSONTags.TASK_ID]][JSONTags.STATUS]
-                             ))
-      TASK_STATUS_LOCK.release()
-
-    self.set_status(constants.HTTP_Codes.HTTP_OK)
+    json.dump({
+      "stats": rendered_snapshots,
+      "failures": failures
+    }, self)
 
 
 class Respond404Handler(RequestHandler):

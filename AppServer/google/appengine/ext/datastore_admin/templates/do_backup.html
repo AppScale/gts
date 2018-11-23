@@ -47,6 +47,13 @@
         </p>
       </div>
     {% endif %}
+    {% if remote_job %}
+      <div class="ae-message">
+        <div class="ae-alert">
+          Backup was initiated as a remote job.
+        </div>
+      </div>
+    {% endif %}
     {% if error %}
       <p>There was a problem kicking some off the jobs/tasks:
         <pre><code>{{error|escape}}</code></pre>

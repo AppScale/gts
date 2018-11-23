@@ -150,10 +150,6 @@ class ConfigDefaults(object):
   CHANNEL_CREATE_COST = _to_micropennies_per_op(1, 100)
 
 
-
-  CHANNEL_PRESENCE_COST = _to_micropennies_per_op(10, 100000)
-
-
   XMPP_STANZA_COST = _to_micropennies_per_op(10, 100000)
 
 
@@ -524,10 +520,6 @@ class Recorder(object):
       trace.set_call_cost_microdollars(config.CHANNEL_CREATE_COST)
       _add_billed_op_to_trace(trace, 1,
                               datamodel_pb.BilledOpProto.CHANNEL_OPEN)
-    elif call == 'GetPresence':
-      trace.set_call_cost_microdollars(config.CHANNEL_PRESENCE_COST)
-      _add_billed_op_to_trace(trace, 1,
-                              datamodel_pb.BilledOpProto.CHANNEL_PRESENCE)
 
   def record_mail_details(self, call, request, trace):
     """Records information relating to mail RPCs.

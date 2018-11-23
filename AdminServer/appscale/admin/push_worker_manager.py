@@ -48,7 +48,7 @@ TASK_SOFT_TIME_LIMIT = 600
 # The worker script for Celery to use.
 WORKER_MODULE = 'appscale.taskqueue.push_worker'
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 class ProjectPushWorkerManager(object):

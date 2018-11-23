@@ -20,6 +20,7 @@ from cassandra.query import SimpleStatement
 from collections import deque
 from threading import Lock
 from .constants import AGE_LIMIT_REGEX
+from .constants import EmptyQueue
 from .constants import InvalidQueueConfiguration
 from .constants import RATE_REGEX
 from .constants import TaskNotFound
@@ -925,27 +926,34 @@ class PullQueue(Queue):
     task.enqueueTimestamp = enqueue_time
     task.leaseTimestamp = lease_expires
 
-    # Create an index entry so the task can be queried by ETA. This can't be
-    # done in a batch because the payload from the previous insert can be up
-    # to 1MB, and Cassandra does not approve of large batches.
-    insert_index = SimpleStatement("""
-      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag, tag_exists)
-      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s, %(tag_exists)s)
+    # Create index entries so the task can be queried by ETA and (tag, ETA).
+    # This can't be done in a batch because the payload from the previous
+    # insert can be up to 1MB, and Cassandra does not approve of large batches.
+    try:
+      tag = task.tag
+    except AttributeError:
+      # The API does not differentiate between empty and unspecified tags.
+      tag = ''
+
+    insert_eta_index = SimpleStatement("""
+      INSERT INTO pull_queue_eta_index (app, queue, eta, id, tag)
+      VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s)
     """, retry_policy=BASIC_RETRIES)
     parameters = {
       'app': self.app,
       'queue': self.name,
       'eta': task.get_eta(),
-      'id': task.id
+      'id': task.id,
+      'tag': tag
     }
-    try:
-      parameters['tag'] = task.tag
-    except AttributeError:
-      # Insert an empty string for null values so that Cassandra can query for
-      # tasks where tag is not null.
-      parameters['tag'] = ''
-    parameters['tag_exists'] = parameters['tag'] != ''
-    self.db_access.session.execute(insert_index, parameters)
+    self.db_access.session.execute(insert_eta_index, parameters)
+
+    insert_tag_index = SimpleStatement("""
+      INSERT INTO pull_queue_tags_index (app, queue, tag, eta, id)
+      VALUES (%(app)s, %(queue)s, %(tag)s, %(eta)s, %(id)s)
+    """, retry_policy=BASIC_RETRIES)
+    self.db_access.session.execute(insert_tag_index, parameters)
+
     logger.debug('Added task: {}'.format(task))
 
   def get_task(self, task, omit_payload=False):
@@ -1076,15 +1084,16 @@ class PullQueue(Queue):
 
     tasks = []
     start_date = datetime.datetime.utcfromtimestamp(0)
+    task_id = ''
     while True:
       query_tasks = """
-        SELECT eta, id FROM pull_queue_tasks_index
-        WHERE token(app, queue, eta) > token(%(app)s, %(queue)s, %(eta)s)
-        AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
+        SELECT eta, id, tag FROM pull_queue_eta_index
+        WHERE token(app, queue, eta, id) > token(%(app)s, %(queue)s, %(eta)s, %(id)s)
+        AND token(app, queue, eta, id) < token(%(app)s, %(next_queue)s, 0, '')
         LIMIT {limit}
       """.format(limit=limit)
       parameters = {'app': self.app, 'queue': self.name, 'eta': start_date,
-                    'next_queue': next_key(self.name)}
+                    'id': task_id, 'next_queue': next_key(self.name)}
       results = [result for result in session.execute(query_tasks, parameters)]
 
       if not results:
@@ -1094,7 +1103,7 @@ class PullQueue(Queue):
       for result in results:
         task = self.get_task(Task({'id': result.id}), omit_payload=True)
         if task is None:
-          self._delete_index(result.eta, result.id)
+          self._delete_index(result.eta, result.id, result.tag)
           continue
 
         tasks.append(task)
@@ -1106,6 +1115,7 @@ class PullQueue(Queue):
 
       # Update the cursor.
       start_date = results[-1].eta
+      task_id = results[-1].id
 
     return tasks
 
@@ -1135,8 +1145,9 @@ class PullQueue(Queue):
                  format(num_tasks, lease_seconds, group_by_tag, tag))
     # If not specified, the tag is assumed to be that of the oldest task.
     if group_by_tag and tag is None:
-      tag = self._get_earliest_tag()
-      if tag is None:
+      try:
+        tag = self._get_earliest_tag()
+      except EmptyQueue:
         return []
 
     # Fetch available tasks and try to lease them until the requested number
@@ -1214,9 +1225,9 @@ class PullQueue(Queue):
     """
     session = self.db_access.session
     select_oldest = """
-      SELECT eta FROM pull_queue_tasks_index
-      WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
-      AND token(app, queue, eta) < token(%(app)s, %(next_queue)s, 0)
+      SELECT eta FROM pull_queue_eta_index
+      WHERE token(app, queue, eta, id) >= token(%(app)s, %(queue)s, 0, '')
+      AND token(app, queue, eta, id) < token(%(app)s, %(next_queue)s, 0, '')
       LIMIT 1
     """
     parameters = {'app': self.app, 'queue': self.name,
@@ -1233,7 +1244,7 @@ class PullQueue(Queue):
     selects all the tasks before deleting them one at a time.
     """
     select_tasks = """
-      SELECT id, enqueued, lease_expires FROM pull_queue_tasks
+      SELECT id, enqueued, lease_expires, tag FROM pull_queue_tasks
       WHERE token(app, queue, id) >= token(%(app)s, %(queue)s, '')
       AND token(app, queue, id) < token(%(app)s, %(next_queue)s, '')
     """
@@ -1244,7 +1255,8 @@ class PullQueue(Queue):
     for result in results:
       task_info = {'id': result.id,
                    'enqueueTimestamp': result.enqueued,
-                   'leaseTimestamp': result.lease_expires}
+                   'leaseTimestamp': result.lease_expires,
+                   'tag': result.tag}
       self._delete_task_and_index(Task(task_info))
 
   def to_json(self, include_stats=False, fields=None):
@@ -1388,7 +1400,7 @@ class PullQueue(Queue):
     if not self._task_mutated_by_id(parameters['id'], parameters['op_id']):
       raise InvalidLeaseRequest('The task lease has expired.')
 
-  def _query_index(self, num_tasks, group_by_tag=False, tag=None):
+  def _query_index(self, num_tasks, group_by_tag, tag):
     """ Query the index table for available tasks.
 
     Args:
@@ -1402,26 +1414,25 @@ class PullQueue(Queue):
     """
     if group_by_tag:
       query_tasks = """
-        SELECT eta, id FROM pull_queue_tasks_index
-        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
-        AND token(app, queue, eta) <= token(%(app)s, %(queue)s, dateof(now()))
-        AND tag = %(tag)s
+        SELECT tag, eta, id FROM pull_queue_tags_index
+        WHERE token(app, queue, tag, eta, id) >= token(%(app)s, %(queue)s, %(tag)s, 0, '')
+        AND token(app, queue, tag, eta, id) <= token(%(app)s, %(queue)s, %(tag)s, dateof(now()), '')
         LIMIT {limit}
       """.format(limit=num_tasks)
       parameters = {'app': self.app, 'queue': self.name, 'tag': tag}
       results = self.db_access.session.execute(query_tasks, parameters)
     else:
       query_tasks = """
-        SELECT eta, id FROM pull_queue_tasks_index
-        WHERE token(app, queue, eta) >= token(%(app)s, %(queue)s, 0)
-        AND token(app, queue, eta) <= token(%(app)s, %(queue)s, dateof(now()))
+        SELECT eta, id, tag FROM pull_queue_eta_index
+        WHERE token(app, queue, eta, id) >= token(%(app)s, %(queue)s, 0, '')
+        AND token(app, queue, eta, id) <= token(%(app)s, %(queue)s, dateof(now()), '')
         LIMIT {limit}
       """.format(limit=num_tasks)
       parameters = {'app': self.app, 'queue': self.name}
       results = self.db_access.session.execute(query_tasks, parameters)
     return results
 
-  def _query_available_tasks(self, num_tasks, group_by_tag=False, tag=None):
+  def _query_available_tasks(self, num_tasks, group_by_tag, tag):
     """ Query the cache or index table for available tasks.
 
     Args:
@@ -1483,15 +1494,20 @@ class PullQueue(Queue):
     """ Get the tag with the earliest ETA.
 
     Returns:
-      A string containing a tag or None.
+      A string containing a tag.
+    Raises:
+      EmptyQueue if there are no tasks.
     """
     get_earliest_tag = """
-      SELECT tag FROM pull_queue_tasks_index WHERE tag_exists = true LIMIT 1
+      SELECT tag FROM pull_queue_eta_index
+      WHERE token(app, queue, eta, id) > token(%(app)s, %(queue)s, 0, '')
+      LIMIT 1
     """
+    parameters = {'app': self.app, 'queue': self.name}
     try:
-      tag = self.db_access.session.execute(get_earliest_tag)[0].tag
+      tag = self.db_access.session.execute(get_earliest_tag, parameters)[0].tag
     except IndexError:
-      return None
+      raise EmptyQueue('No entries in queue index')
     return tag
 
   def _increment_count_async(self, task):
@@ -1629,7 +1645,7 @@ class PullQueue(Queue):
     update_index = BatchStatement(retry_policy=BASIC_RETRIES)
 
     statement = """
-      DELETE FROM pull_queue_tasks_index
+      DELETE FROM pull_queue_eta_index
       WHERE app=?
       AND queue=?
       AND eta=?
@@ -1637,40 +1653,65 @@ class PullQueue(Queue):
     """
     if statement not in self.prepared_statements:
       self.prepared_statements[statement] = session.prepare(statement)
-    delete_old_index = self.prepared_statements[statement]
+    delete_old_eta_index = self.prepared_statements[statement]
 
     parameters = [self.app, self.name, old_eta, task.id]
-    update_index.add(delete_old_index, parameters)
+    update_index.add(delete_old_eta_index, parameters)
 
     statement = """
-      INSERT INTO pull_queue_tasks_index (app, queue, eta, id, tag, tag_exists)
-      VALUES (?, ?, ?, ?, ?, ?)
+      DELETE FROM pull_queue_tags_index
+      WHERE app=?
+      AND queue=?
+      AND tag=?
+      AND eta=?
+      AND id=?
     """
     if statement not in self.prepared_statements:
       self.prepared_statements[statement] = session.prepare(statement)
-    create_new_index = self.prepared_statements[statement]
+    delete_old_tag_index = self.prepared_statements[statement]
+
+    parameters = [self.app, self.name, old_index.tag, old_eta, task.id]
+    update_index.add(delete_old_tag_index, parameters)
 
     try:
       tag = task.tag
     except AttributeError:
       tag = ''
-    tag_exists = tag != ''
 
-    parameters = [self.app, self.name, task.leaseTimestamp, task.id, tag,
-                  tag_exists]
-    update_index.add(create_new_index, parameters)
+    statement = """
+      INSERT INTO pull_queue_eta_index (app, queue, eta, id, tag)
+      VALUES (?, ?, ?, ?, ?)
+    """
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = session.prepare(statement)
+    create_new_eta_index = self.prepared_statements[statement]
+
+    parameters = [self.app, self.name, task.leaseTimestamp, task.id, tag]
+    update_index.add(create_new_eta_index, parameters)
+
+    statement = """
+      INSERT INTO pull_queue_tags_index (app, queue, tag, eta, id)
+      VALUES (?, ?, ?, ?, ?)
+    """
+    if statement not in self.prepared_statements:
+      self.prepared_statements[statement] = session.prepare(statement)
+    create_new_tag_index = self.prepared_statements[statement]
+
+    parameters = [self.app, self.name, tag, task.leaseTimestamp, task.id]
+    update_index.add(create_new_tag_index, parameters)
 
     return self.db_access.session.execute_async(update_index)
 
-  def _delete_index(self, eta, task_id):
+  def _delete_index(self, eta, task_id, tag):
     """ Deletes an index entry for a task.
 
     Args:
       eta: A datetime object.
       task_id: A string containing the task ID.
+      tag: A string containing the task tag.
     """
-    delete_index = """
-      DELETE FROM pull_queue_tasks_index
+    delete_eta_index = """
+      DELETE FROM pull_queue_eta_index
       WHERE app = %(app)s
       AND queue = %(queue)s
       AND eta = %(eta)s
@@ -1678,10 +1719,22 @@ class PullQueue(Queue):
     """
     parameters = {'app': self.app, 'queue': self.name, 'eta': eta,
                   'id': task_id}
-    self.db_access.session.execute(delete_index, parameters)
+    self.db_access.session.execute(delete_eta_index, parameters)
+
+    delete_tag_index = """
+      DELETE FROM pull_queue_tags_index
+      WHERE app = %(app)s
+      AND queue = %(queue)s
+      AND tag = %(tag)s
+      AND eta = %(eta)s
+      AND id = %(id)s
+    """
+    parameters = {'app': self.app, 'queue': self.name, 'tag': tag, 'eta': eta,
+                  'id': task_id}
+    self.db_access.session.execute(delete_tag_index, parameters)
 
   def _delete_task_and_index(self, task, retries=5):
-    """ Deletes a task and its index atomically.
+    """ Deletes a task and its index.
 
     Args:
       task: A Task object.
@@ -1702,8 +1755,8 @@ class PullQueue(Queue):
         'Encountered error while deleting task: {}. Retrying.'.format(error))
       return self._delete_task_and_index(task, retries=retries_left)
 
-    delete_task_index = SimpleStatement("""
-      DELETE FROM pull_queue_tasks_index
+    delete_task_eta_index = SimpleStatement("""
+      DELETE FROM pull_queue_eta_index
       WHERE app = %(app)s
       AND queue = %(queue)s
       AND eta = %(eta)s
@@ -1715,7 +1768,29 @@ class PullQueue(Queue):
       'eta': task.get_eta(),
       'id': task.id
     }
-    self.db_access.session.execute(delete_task_index, parameters=parameters)
+    self.db_access.session.execute(delete_task_eta_index, parameters=parameters)
+
+    try:
+      tag = task.tag
+    except AttributeError:
+      tag = ''
+
+    delete_task_tag_index = SimpleStatement("""
+      DELETE FROM pull_queue_tags_index
+      WHERE app = %(app)s
+      AND queue = %(queue)s
+      AND tag = %(tag)s
+      AND eta = %(eta)s
+      AND id = %(id)s
+    """)
+    parameters = {
+      'app': self.app,
+      'queue': self.name,
+      'tag': tag,
+      'eta': task.get_eta(),
+      'id': task.id
+    }
+    self.db_access.session.execute(delete_task_tag_index, parameters=parameters)
 
   def _resolve_task(self, index):
     """ Cleans up expired tasks and indices.
@@ -1725,7 +1800,7 @@ class PullQueue(Queue):
     """
     task = self.get_task(Task({'id': index.id}), omit_payload=True)
     if task is None:
-      self._delete_index(index.eta, index.id)
+      self._delete_index(index.eta, index.id, index.tag)
       return
 
     if self.task_retry_limit != 0 and task.expired(self.task_retry_limit):

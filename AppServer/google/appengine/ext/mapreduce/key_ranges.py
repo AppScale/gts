@@ -155,15 +155,16 @@ class _KeyRangesFromNSRange(KeyRanges):
       raise StopIteration()
 
     self._last_ns = self._iter.next()
+    current_ns_range = self._ns_range
     if self._last_ns == self._ns_range.namespace_end:
       self._ns_range = None
     return key_range.KeyRange(namespace=self._last_ns,
-                              _app=self._ns_range.app)
+                              _app=current_ns_range.app)
 
   def to_json(self):
     json = super(_KeyRangesFromNSRange, self).to_json()
     ns_range = self._ns_range
-    if self._ns_range is not None and self._last_ns:
+    if self._ns_range is not None and self._last_ns is not None:
       ns_range = ns_range.with_start_after(self._last_ns)
     if ns_range is not None:
       json.update({"ns_range": ns_range.to_json_object()})

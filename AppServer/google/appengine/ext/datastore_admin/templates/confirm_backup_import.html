@@ -3,12 +3,12 @@
 {% block body %}
   <h2>Datastore Admin: Import backup information</h2>
   {% if error %}
-    <div class="ae-errorbox">{{error}}</div>
-    <a href="{{ cancel_url|escape }}"><button>Back</button></a>
+    <div class="ae-errorbox">{{ error|escape }}</div>
+    <a href="{{ datastore_admin_home }}"><button>Back</button></a>
   {% else %}
     {% if not other_backup_info_files and not selected_backup_info_file %}
       <div class="ae-errorbox">No backup information files were found.</div>
-      <a href="{{ cancel_url|escape }}"><button>Back</button></a>
+      <a href="{{ datastore_admin_home }}"><button>Back</button></a>
     {% else %}
       <form action="{{base_path}}/{{form_target}}" method="post" style="width:39.39em;">
         <input type="hidden" name="xsrf_token" value="{{xsrf_token|escape}}">
@@ -30,9 +30,12 @@
             <input type="radio" name="gs_handle" value="{{backup_info_file}}">{{backup_info_file|escape}}</br>
           {% endfor %}
         {% endif %}
+        {% if run_as_a_service %}
+          <input type="hidden" name="run_as_a_service" value="{{ run_as_a_service|escape }}">
+        {% endif %}
         <input type="Submit" name="Import" value="Add to backup list">
         <input type="Submit" name="Restore" value="Restore from backup">
-        <a href="{{ cancel_url|escape }}">Cancel</a>
+        <a href="{{ datastore_admin_home }}">Cancel</a>
       </form>
     {% endif %}
   {% endif %}

@@ -22,6 +22,8 @@ from appscale.datastore.backup.br_constants import BACKUP_ROLLBACK_SUFFIX
 from appscale.datastore.backup.br_constants import PADDING_PERCENTAGE
 from appscale.datastore.backup.br_constants import StorageTypes
 
+logger = logging.getLogger(__name__)
+
 
 def delete_local_backup_file(local_file):
   """ Removes the local backup file.
@@ -30,7 +32,7 @@ def delete_local_backup_file(local_file):
     local_file: A str, the path to the backup file to delete.
   """
   if not remove(local_file):
-    logging.warning("No local backup file '{0}' to delete. "
+    logger.warning("No local backup file '{0}' to delete. "
       "Skipping...".format(local_file))
 
 
@@ -42,7 +44,7 @@ def delete_secondary_backup(base_path):
       suffix.
   """
   if not remove("{0}{1}".format(base_path, BACKUP_ROLLBACK_SUFFIX)):
-    logging.warning("No secondary backup to remove. Skipping...")
+    logger.warning("No secondary backup to remove. Skipping...")
 
 
 def does_file_exist(path):
@@ -63,13 +65,13 @@ def enough_disk_space(service):
     True on success, False otherwise.
   """
   available_space = get_available_disk_space()
-  logging.debug("Available space: {0}".format(available_space))
+  logger.debug("Available space: {0}".format(available_space))
 
   backup_size = get_backup_size(service)
-  logging.debug("Backup size: {0}".format(backup_size))
+  logger.debug("Backup size: {0}".format(backup_size))
 
   if backup_size > available_space * PADDING_PERCENTAGE:
-    logging.warning("Not enough space for a backup.")
+    logger.warning("Not enough space for a backup.")
     return False
   return True
 
@@ -116,7 +118,7 @@ def get_snapshot_paths(service):
   for full_path, _, file in os.walk(data_dir):
     if look_for in full_path:
       file_list.append(full_path)
-  logging.debug("List of data paths for '{0}': {1}".format(
+  logger.debug("List of data paths for '{0}': {1}".format(
     service, file_list))
   return file_list
 
@@ -131,7 +133,7 @@ def move_secondary_backup(base_path):
   source = "{0}{1}".format(base_path, BACKUP_ROLLBACK_SUFFIX)
   target = base_path
   if not rename(source, target):
-    logging.warning("No secondary backup to restore. Skipping...")
+    logger.warning("No secondary backup to restore. Skipping...")
 
 
 def mkdir(path):
@@ -145,7 +147,7 @@ def mkdir(path):
   try:
     os.mkdir(path)
   except OSError:
-    logging.error("OSError while creating dir '{0}'".format(path))
+    logger.error("OSError while creating dir '{0}'".format(path))
     return False
   return True
 
@@ -161,7 +163,7 @@ def makedirs(path):
   try:
     os.makedirs(path)
   except OSError:
-    logging.error("OSError while creating dir '{0}'".format(path))
+    logger.error("OSError while creating dir '{0}'".format(path))
     return False
   return True
 
@@ -178,7 +180,7 @@ def rename(source, destination):
   try:
     os.rename(source, destination)
   except OSError:
-    logging.error("OSError while renaming '{0}' to '{1}'".
+    logger.error("OSError while renaming '{0}' to '{1}'".
       format(source, destination))
     return False
   return True
@@ -195,7 +197,7 @@ def remove(path):
   try:
     os.remove(path)
   except OSError:
-    logging.error("OSError while deleting '{0}'".
+    logger.error("OSError while deleting '{0}'".
       format(path))
     return False
   return True
@@ -215,7 +217,7 @@ def tar_backup_files(file_paths, target):
   # Rename previous backup, if it exists.
   if not rename(backup_file_location, "{0}{1}".
       format(backup_file_location, BACKUP_ROLLBACK_SUFFIX)):
-    logging.warning("'{0}' not found. Skipping file rename...".
+    logger.warning("'{0}' not found. Skipping file rename...".
       format(backup_file_location))
 
   # Tar up the backup files.
@@ -236,16 +238,16 @@ def untar_backup_files(source):
   Raises:
     BRException: On untar issues.
   """
-  logging.info("Untarring backup file '{0}'...".format(source))
+  logger.info("Untarring backup file '{0}'...".format(source))
   try:
     tar = tarfile.open(source, "r:gz")
     tar.extractall(path="/")
     tar.close()
   except tarfile.TarError, tar_error:
-    logging.exception(tar_error)
+    logger.exception(tar_error)
     raise backup_exceptions.BRException(
       "Exception while untarring backup file '{0}'.".format(source))
-  logging.info("Done untarring '{0}'.".format(source))
+  logger.info("Done untarring '{0}'.".format(source))
 
 
 def app_backup(storage, full_bucket_name=None):
@@ -260,7 +262,7 @@ def app_backup(storage, full_bucket_name=None):
   """
   # Create app backups dir if it doesn't exist.
   if not makedirs(APP_BACKUP_DIR_LOCATION):
-    logging.warning("Dir '{0}' already exists. Skipping dir creation...".
+    logger.warning("Dir '{0}' already exists. Skipping dir creation...".
       format(APP_BACKUP_DIR_LOCATION))
 
   for dir_path, _, filenames in os.walk(APP_DIR_LOCATION):
@@ -271,7 +273,7 @@ def app_backup(storage, full_bucket_name=None):
       try:
         shutil.copy(source, destination)
       except Exception:
-        logging.error("Error while backing up '{0}'. ".format(source))
+        logger.error("Error while backing up '{0}'. ".format(source))
         delete_app_tars(APP_BACKUP_DIR_LOCATION)
         return False
 
@@ -279,9 +281,9 @@ def app_backup(storage, full_bucket_name=None):
       if storage == StorageTypes.GCS:
         source = '{0}/{1}'.format(APP_DIR_LOCATION, filename)
         destination = '{0}/apps/{1}'.format(full_bucket_name, filename)
-        logging.debug("Destination: {0}".format(destination))
+        logger.debug("Destination: {0}".format(destination))
         if not gcs_helper.upload_to_bucket(destination, source):
-          logging.error("Error while uploading '{0}' to GCS. ".format(source))
+          logger.error("Error while uploading '{0}' to GCS. ".format(source))
           delete_app_tars(APP_BACKUP_DIR_LOCATION)
           return False
   return True
@@ -298,7 +300,7 @@ def app_restore(storage, bucket_name=None):
   """
   # Create app backups dir if it doesn't exist.
   if not makedirs(APP_BACKUP_DIR_LOCATION):
-    logging.warning("Dir '{0}' already exists. Skipping dir creation...".
+    logger.warning("Dir '{0}' already exists. Skipping dir creation...".
       format(APP_BACKUP_DIR_LOCATION))
 
   # Download from GCS to backups location.
@@ -314,7 +316,7 @@ def app_restore(storage, bucket_name=None):
       source = 'gs://{0}/{1}'.format(bucket_name, app_path)
       destination = '{0}/{1}'.format(APP_BACKUP_DIR_LOCATION, app_file)
       if not gcs_helper.download_from_bucket(source, destination):
-        logging.error("Error while downloading '{0}' from GCS.".format(source))
+        logger.error("Error while downloading '{0}' from GCS.".format(source))
         delete_app_tars(APP_BACKUP_DIR_LOCATION)
         return False
 
@@ -322,7 +324,7 @@ def app_restore(storage, bucket_name=None):
   apps_to_deploy = [os.path.join(APP_BACKUP_DIR_LOCATION, app) for app in
     os.listdir(APP_BACKUP_DIR_LOCATION)]
   if not deploy_apps(apps_to_deploy):
-    logging.error("Failed to successfully deploy one or more of the "
+    logger.error("Failed to successfully deploy one or more of the "
       "following apps: {0}".format(apps_to_deploy))
     return False
 
@@ -362,13 +364,13 @@ def deploy_apps(app_paths):
     # Extract app ID.
     app_id = app_path[app_path.rfind('/')+1:app_path.find('.')]
     if not app_id:
-      logging.error("Malformed source code archive. Cannot complete "
+      logger.error("Malformed source code archive. Cannot complete "
         "application recovery for '{}'. Aborting...".format(app_path))
       return False
 
     file_suffix = re.search("\.(.*)\Z", app_path).group(1)
 
-    logging.warning("Restoring app '{}', from '{}'".format(app_id, app_path))
+    logger.warning("Restoring app '{}', from '{}'".format(app_id, app_path))
 
     acc.upload_app(app_path, file_suffix)
 

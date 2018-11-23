@@ -54,7 +54,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_node_stats_json(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_cluster_stats_json(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.stop_version(@app, @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.update([@app], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_all_public_ips(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_all_private_ips(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.job_start(@secret))

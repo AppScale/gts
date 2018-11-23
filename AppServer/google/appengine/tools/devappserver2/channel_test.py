@@ -55,11 +55,7 @@ class MockChannelServiceStub(object):
     del self._messages[token]
 
   def connect_channel(self, token):
-    syntax_valid, time_valid = self.check_token_validity(token)
-    if not syntax_valid:
-      raise channel_service_stub.InvalidTokenError()
-    elif not time_valid:
-      raise channel_service_stub.TokenTimedOutError()
+    self.validate_token_and_extract_client_id(token)
     self._connected_channel_tokens.append(token)
 
   def disconnect_channel(self, client_id):
@@ -71,8 +67,12 @@ class MockChannelServiceStub(object):
   def set_connected_tokens(self, tokens):
     self._connected_tokens = tokens
 
-  def check_token_validity(self, token):
-    return (token != 'bad', token != 'expired')
+  def validate_token_and_extract_client_id(self, token):
+    if token == 'bad':
+      raise channel_service_stub.InvalidTokenError()
+    if token == 'expired':
+      raise channel_service_stub.TokenTimedOutError()
+    return 'dummy-client-id'
 
   def connect_and_pop_first_message(self, token):
     self.connect_channel(token)

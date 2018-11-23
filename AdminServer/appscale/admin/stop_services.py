@@ -11,6 +11,8 @@ from appscale.common.monit_interface import (DEFAULT_RETRIES, MonitOperator,
                                              ProcessNotFound)
 from appscale.common.retrying import retry
 
+logger = logging.getLogger(__name__)
+
 
 def order_services(running_services):
   """ Arranges a list of running services in the order they should be stopped.
@@ -92,7 +94,7 @@ def stop_service():
     send_w_retries = monit_retry(monit_operator.send_command_sync)
     send_w_retries(args.service, 'stop')
   except ProcessNotFound as e:
-    logging.info(str(e))
+    logger.info(str(e))
     sys.exit(1)
 
 
@@ -102,7 +104,7 @@ def main():
   monit_operator = MonitOperator()
   hostname = socket.gethostname()
 
-  logging.info('Waiting for monit to stop services')
+  logger.info('Waiting for monit to stop services')
   logged_service_warning = False
   stopped_count = 0
   while True:
@@ -112,18 +114,18 @@ def main():
     running = {service: state for service, state in services.items()
                if state not in (MonitStates.STOPPED, MonitStates.UNMONITORED)}
     if not running:
-      logging.info('Finished stopping services')
+      logger.info('Finished stopping services')
       break
 
     if len(services) - len(running) != stopped_count:
       stopped_count = len(services) - len(running)
-      logging.info(
+      logger.info(
         'Stopped {}/{} services'.format(stopped_count, len(services)))
 
     try:
       ordered_services, unrecognized_services = order_services(running.keys())
       if unrecognized_services and not logged_service_warning:
-        logging.warning(
+        logger.warning(
           'Unrecognized running services: {}'.format(unrecognized_services))
         logged_service_warning = True
 

@@ -134,7 +134,8 @@ MODULE_VERSION_ID_RE_STRING = (r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' %
                                (MODULE_VERSION_ID_MAX_LEN - 1))
 
 _IDLE_INSTANCES_REGEX = r'^([\d]+|automatic)$'
-_INSTANCES_REGEX = r'^[\d]+$'
+
+_INSTANCES_REGEX = r'^[1-9][\d]*$'
 _INSTANCE_CLASS_REGEX = r'^([fF](1|2|4|4_1G)|[bB](1|2|4|8|4_1G))$'
 
 _CONCURRENT_REQUESTS_REGEX = r'^([1-9]\d*)$'
@@ -252,6 +253,10 @@ MINIMUM_IDLE_INSTANCES = 'min_idle_instances'
 MAXIMUM_IDLE_INSTANCES = 'max_idle_instances'
 MAXIMUM_CONCURRENT_REQUEST = 'max_concurrent_requests'
 
+# AppScale supported standard scaling configuration
+MINIMUM_INSTANCES = 'min_instances'
+MAXIMUM_INSTANCES = 'max_instances'
+
 
 INSTANCES = 'instances'
 
@@ -334,7 +339,9 @@ _SUPPORTED_LIBRARIES = [
         'lxml',
         'http://lxml.de/',
         'A Pythonic binding for the C libraries libxml2 and libxslt.',
-        ['2.3']),
+        ['2.3', '2.3.5'],
+        experimental_versions=['2.3.5'],
+        ),
     _VersionedLibrary(
         'markupsafe',
         'http://pypi.python.org/pypi/MarkupSafe',
@@ -1223,6 +1230,8 @@ class AutomaticScaling(validation.Validated):
   ATTRIBUTES = {
       MINIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
       MAXIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
+      MINIMUM_INSTANCES: validation.Optional(_INSTANCES_REGEX),
+      MAXIMUM_INSTANCES: validation.Optional(_INSTANCES_REGEX),
       MINIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
       MAXIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
       MAXIMUM_CONCURRENT_REQUEST: validation.Optional(

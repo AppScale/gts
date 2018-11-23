@@ -28,6 +28,7 @@ import errno
 import logging
 import os
 import time
+import random
 import socket
 import sys
 import threading
@@ -83,6 +84,24 @@ _MAX_ACTIONS_PER_TXN = 5
 
 _MAX_INT_32 = 2**31-1
 
+# The location of the file that keeps track of available load balancers.
+LOAD_BALANCERS_FILE = "/etc/appscale/load_balancer_ips"
+
+# The port on the load balancer that serves datastore requests.
+PROXY_PORT = 8888
+
+
+def get_random_lb():
+  """ Selects a random location from the load balancers file.
+
+  Returns:
+    A string specifying a load balancer IP.
+  """
+  with open(LOAD_BALANCERS_FILE) as lb_file:
+    return random.choice([':'.join([line.strip(), str(PROXY_PORT)])
+                          for line in lb_file])
+
+
 class InternalCursor():
   """ Keeps track of where we are in a query. Used for when queries are done
   in batches.
@@ -134,6 +153,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       buffers.
 
   """
+  THREADSAFE = True
+
   _ACCEPTS_REQUEST_ID = True
 
   _PROPERTY_TYPE_TAGS = {
@@ -346,25 +367,39 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       api_request.set_request_id(request_id)
 
     api_response = remote_api_pb.Response()
-    try:
-      api_response = api_request.sendCommand(
-        self.__datastore_location,
-        tag,
-        api_response,
-        1,
-        self.__is_encrypted,
-        KEY_LOCATION,
-        CERT_LOCATION)
-    except socket.error as socket_error:
-      if socket_error.errno == errno.ETIMEDOUT:
-        raise apiproxy_errors.ApplicationError(
-          datastore_pb.Error.TIMEOUT,
-          'Connection timed out when making datastore request')
-      raise
-    # AppScale: Interpret ProtocolBuffer.ProtocolBufferReturnError as
-    # datastore_errors.InternalError
-    except ProtocolBuffer.ProtocolBufferReturnError as e:
-      raise datastore_errors.InternalError(e)
+
+    retry_count = 0
+    max_retries = 5
+    location = self.__datastore_location
+    while True:
+      try:
+        api_response = api_request.sendCommand(
+          location,
+          tag,
+          api_response,
+          1,
+          self.__is_encrypted,
+          KEY_LOCATION,
+          CERT_LOCATION)
+        break
+      except socket.error as socket_error:
+        if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
+          retry_count += 1
+          if retry_count > max_retries:
+            raise
+
+          location = get_random_lb()
+          continue
+
+        if socket_error.errno == errno.ETIMEDOUT:
+          raise apiproxy_errors.ApplicationError(
+            datastore_pb.Error.TIMEOUT,
+            'Connection timed out when making datastore request')
+        raise
+      # AppScale: Interpret ProtocolBuffer.ProtocolBufferReturnError as
+      # datastore_errors.InternalError
+      except ProtocolBuffer.ProtocolBufferReturnError as e:
+        raise datastore_errors.InternalError(e)
 
     if not api_response or not api_response.has_response():
       raise datastore_errors.InternalError(

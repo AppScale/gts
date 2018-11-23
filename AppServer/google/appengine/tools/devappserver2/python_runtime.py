@@ -87,7 +87,8 @@ class PythonRuntimeInstanceFactory(instance.InstanceFactory):
         _RUNTIME_ARGS,
         instance_config_getter,
         self._module_configuration,
-        env=dict(os.environ, PYTHONHASHSEED='random'))
+        env=dict(os.environ, PYTHONHASHSEED='random'),
+        start_process_flavor=http_runtime.START_PROCESS_FILE)
     return instance.Instance(self.request_data,
                              instance_id,
                              proxy,

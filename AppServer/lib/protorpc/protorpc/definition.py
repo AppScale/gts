@@ -130,6 +130,13 @@ def define_field(field_descriptor):
   elif field_class in (messages.EnumField, messages.MessageField):
     return field_class(field_descriptor.type_name, **params)
   else:
+    if field_descriptor.default_value:
+      value = field_descriptor.default_value
+      try:
+        value = descriptor._DEFAULT_FROM_STRING_MAP[field_class](value)
+      except (TypeError, ValueError, KeyError):
+        pass  # Let the value pass to the constructor.
+      params['default'] = value
     return field_class(**params)
 
 

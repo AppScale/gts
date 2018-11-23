@@ -7,8 +7,8 @@ from appscale.common import retrying
 class TestRetry(unittest.TestCase):
 
   @patch.object(retrying.time, 'sleep')
-  @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warning')
+  @patch.object(retrying.logger, 'error')
+  @patch.object(retrying.logger, 'warning')
   def test_no_errors(self, warning_mock, error_mock, sleep_mock):
 
     @retrying.retry
@@ -24,8 +24,8 @@ class TestRetry(unittest.TestCase):
     self.assertEqual(error_mock.call_args_list, [])
 
   @patch.object(retrying.time, 'sleep')
-  @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warning')
+  @patch.object(retrying.logger, 'error')
+  @patch.object(retrying.logger, 'warning')
   @patch.object(retrying.random, 'random')
   def test_backoff_and_logging(self, random_mock, warning_mock, error_mock,
                                sleep_mock):
@@ -72,8 +72,8 @@ class TestRetry(unittest.TestCase):
 
   @patch.object(retrying.time, 'time')
   @patch.object(retrying.time, 'sleep')
-  @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warning')
+  @patch.object(retrying.logger, 'error')
+  @patch.object(retrying.logger, 'warning')
   def test_retrying_timeout(self, warning_mock, err_mock, sleep_mock,
                             time_mock):
     times = [

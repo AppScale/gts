@@ -1136,6 +1136,8 @@ class GetServiceAccountNameResponse(ProtocolBuffer.ProtocolMessage):
 class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
   has_service_account_id_ = 0
   service_account_id_ = 0
+  has_service_account_name_ = 0
+  service_account_name_ = ""
 
   def __init__(self, contents=None):
     self.scope_ = []
@@ -1169,11 +1171,25 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_service_account_id(self): return self.has_service_account_id_
 
+  def service_account_name(self): return self.service_account_name_
+
+  def set_service_account_name(self, x):
+    self.has_service_account_name_ = 1
+    self.service_account_name_ = x
+
+  def clear_service_account_name(self):
+    if self.has_service_account_name_:
+      self.has_service_account_name_ = 0
+      self.service_account_name_ = ""
+
+  def has_service_account_name(self): return self.has_service_account_name_
+
 
   def MergeFrom(self, x):
     assert x is not self
     for i in xrange(x.scope_size()): self.add_scope(x.scope(i))
     if (x.has_service_account_id()): self.set_service_account_id(x.service_account_id())
+    if (x.has_service_account_name()): self.set_service_account_name(x.service_account_name())
 
   if _net_proto___parse__python is not None:
     def _CMergeFromString(self, s):
@@ -1209,6 +1225,8 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
       if e1 != e2: return 0
     if self.has_service_account_id_ != x.has_service_account_id_: return 0
     if self.has_service_account_id_ and self.service_account_id_ != x.service_account_id_: return 0
+    if self.has_service_account_name_ != x.has_service_account_name_: return 0
+    if self.has_service_account_name_ and self.service_account_name_ != x.service_account_name_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -1220,6 +1238,7 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
     n += 1 * len(self.scope_)
     for i in xrange(len(self.scope_)): n += self.lengthString(len(self.scope_[i]))
     if (self.has_service_account_id_): n += 1 + self.lengthVarInt64(self.service_account_id_)
+    if (self.has_service_account_name_): n += 1 + self.lengthString(len(self.service_account_name_))
     return n
 
   def ByteSizePartial(self):
@@ -1227,11 +1246,13 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
     n += 1 * len(self.scope_)
     for i in xrange(len(self.scope_)): n += self.lengthString(len(self.scope_[i]))
     if (self.has_service_account_id_): n += 1 + self.lengthVarInt64(self.service_account_id_)
+    if (self.has_service_account_name_): n += 1 + self.lengthString(len(self.service_account_name_))
     return n
 
   def Clear(self):
     self.clear_scope()
     self.clear_service_account_id()
+    self.clear_service_account_name()
 
   def OutputUnchecked(self, out):
     for i in xrange(len(self.scope_)):
@@ -1240,6 +1261,9 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_service_account_id_):
       out.putVarInt32(16)
       out.putVarInt64(self.service_account_id_)
+    if (self.has_service_account_name_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.service_account_name_)
 
   def OutputPartial(self, out):
     for i in xrange(len(self.scope_)):
@@ -1248,6 +1272,9 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_service_account_id_):
       out.putVarInt32(16)
       out.putVarInt64(self.service_account_id_)
+    if (self.has_service_account_name_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.service_account_name_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -1257,6 +1284,9 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 16:
         self.set_service_account_id(d.getVarInt64())
+        continue
+      if tt == 26:
+        self.set_service_account_name(d.getPrefixedString())
         continue
 
 
@@ -1273,6 +1303,7 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
       res+=prefix+("scope%s: %s\n" % (elm, self.DebugFormatString(e)))
       cnt+=1
     if self.has_service_account_id_: res+=prefix+("service_account_id: %s\n" % self.DebugFormatInt64(self.service_account_id_))
+    if self.has_service_account_name_: res+=prefix+("service_account_name: %s\n" % self.DebugFormatString(self.service_account_name_))
     return res
 
 
@@ -1281,25 +1312,28 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
 
   kscope = 1
   kservice_account_id = 2
+  kservice_account_name = 3
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "scope",
     2: "service_account_id",
-  }, 2)
+    3: "service_account_name",
+  }, 3)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.NUMERIC,
-  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.GetAccessTokenRequest'
   _SERIALIZED_DESCRIPTOR = array.array('B')
-  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KIGFwcGhvc3RpbmcuR2V0QWNjZXNzVG9rZW5SZXF1ZXN0ExoFc2NvcGUgASgCMAk4AxQTGhJzZXJ2aWNlX2FjY291bnRfaWQgAigAMAM4ARTCASJhcHBob3N0aW5nLkFwcElkZW50aXR5U2VydmljZUVycm9y"))
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KIGFwcGhvc3RpbmcuR2V0QWNjZXNzVG9rZW5SZXF1ZXN0ExoFc2NvcGUgASgCMAk4AxQTGhJzZXJ2aWNlX2FjY291bnRfaWQgAigAMAM4ARQTGhRzZXJ2aWNlX2FjY291bnRfbmFtZSADKAIwCTgBFMIBImFwcGhvc3RpbmcuQXBwSWRlbnRpdHlTZXJ2aWNlRXJyb3I="))
   if _net_proto___parse__python is not None:
     _net_proto___parse__python.RegisterType(
         _SERIALIZED_DESCRIPTOR.tostring())

@@ -78,6 +78,8 @@ datastore_path = ""
 # A DeploymentConfig accessor.
 deployment_config = None
 
+logger = logging.getLogger(__name__)
+
 
 class MultiPartForm(object):
   """Accumulate the data to be used when posting a form."""
@@ -387,7 +389,7 @@ class UploadHandler(tornado.web.RequestHandler):
       form.add_field(fieldkey, self.request.arguments[fieldkey][0])
       data[fieldkey] = self.request.arguments[fieldkey][0]
 
-    logging.debug("Callback data: \n{}".format(data))
+    logger.debug("Callback data: \n{}".format(data))
     data = urllib.urlencode(data)
     urlrequest.add_header("Content-Length", str(len(data)))
     urlrequest.add_data(data)
@@ -448,5 +450,5 @@ def main():
     acc = AppControllerClient(load_balancer, secret)
     acc.add_routing_for_blob_server()
 
-  logging.info('Starting BlobServer on {}'.format(args.port))
+  logger.info('Starting BlobServer on {}'.format(args.port))
   tornado.ioloop.IOLoop.instance().start()

@@ -2,7 +2,6 @@
 
 import base64
 import hashlib
-import hmac
 import json
 import re
 import time
@@ -14,6 +13,7 @@ from tornado.options import options
 from appscale.common.constants import HTTPCodes
 from appscale.common.ua_client import UAException
 from .constants import CustomHTTPError
+from .utils import constant_time_compare
 
 
 class BaseHandler(web.RequestHandler):
@@ -33,13 +33,13 @@ class BaseHandler(web.RequestHandler):
     Raises:
       CustomHTTPError if the secret or access token is invalid.
     """
-    authorization_header = 'Authorization' in self.request.headers
-    secret_header = 'AppScale-Secret' in self.request.headers
+    authorization_header = self.request.headers.get('Authorization')
+    secret_header = self.request.headers.get('AppScale-Secret')
     if not authorization_header and not secret_header:
       message = 'A required header is missing: AppScale-Secret or Authorization'
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=message)
-    if secret_header and not hmac.compare_digest(self.request.headers['AppScale-Secret'],
-                                                 options.secret):
+    if (secret_header and
+        not constant_time_compare(secret_header, options.secret)):
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
     elif authorization_header:
       self.authenticate_access_token(self.request.headers, project_id,
