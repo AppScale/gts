@@ -1,4 +1,5 @@
 import functools
+import inspect
 import logging
 import random
 import traceback
@@ -115,6 +116,10 @@ class _Retry(object):
     def wrapped(*args, **kwargs):
       check_exception = self.retry_on_exception
 
+      if inspect.isclass(check_exception):
+        if issubclass(check_exception, Exception):
+          check_exception = (check_exception, )
+
       if isinstance(check_exception, (list, tuple)):
         exception_classes = check_exception
 
@@ -140,12 +145,12 @@ class _Retry(object):
           # Check if need to retry
           if self.max_retries is not None and retries > self.max_retries:
             logger.error("Giving up retrying after {} attempts during {:0.1f}s"
-                          .format(retries, time.time()-start_time))
+                         .format(retries, time.time()-start_time))
             raise
           timeout = self.retrying_timeout
           if timeout and time.time() - start_time > timeout:
             logger.error("Giving up retrying after {} attempts during {:0.1f}s"
-                          .format(retries, time.time()-start_time))
+                         .format(retries, time.time()-start_time))
             raise
           if not check_exception(err):
             raise
