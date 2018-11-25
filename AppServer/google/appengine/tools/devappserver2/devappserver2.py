@@ -298,7 +298,10 @@ def create_command_line_parser():
 
   parser = argparse.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument('yaml_files', nargs='+')
+  arg_name = 'yaml_path'
+  arg_help = 'Path to a yaml file, or a directory containing yaml files'
+  parser.add_argument(
+      'config_paths', metavar=arg_name, nargs='+', help=arg_help)
 
   common_group = parser.add_argument_group('Common')
   common_group.add_argument(
@@ -688,7 +691,7 @@ class DevelopmentServer(object):
         _LOG_LEVEL_TO_PYTHON_CONSTANT[options.dev_appserver_log_level])
 
     configuration = application_configuration.ApplicationConfiguration(
-        options.yaml_files, options.app_id)
+        options.config_paths, options.app_id)
 
     if options.skip_sdk_update_check:
       logging.info('Skipping SDK update check.')
