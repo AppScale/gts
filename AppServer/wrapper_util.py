@@ -131,7 +131,10 @@ class Paths(object):
     ]
 
     self.api_server_extra_paths = [
-        os.path.join(dir_path, 'lib', 'argparse'),
+
+        os.path.join(dir_path, 'lib', 'cherrypy'),
+        os.path.join(dir_path, 'lib', 'concurrent'),
+        os.path.join(dir_path, 'lib', 'ipaddr'),
     ]
 
 
@@ -241,6 +244,7 @@ class Paths(object):
     }
 
     self._wrapper_name_to_real_name = {
+        'api_server.py': 'api_server.py',
         'old_dev_appserver.py': 'dev_appserver_main.py',
         'dev_appserver.py': 'devappserver2.py',
         '_php_runtime.py': 'runtime.py',
@@ -254,6 +258,7 @@ class Paths(object):
         dir_path, 'google', 'storage', 'speckle', 'python', 'tool')
 
     self._script_to_dir = {
+        'api_server.py': devappserver2_dir,
         'google_sql.py': self.google_sql_dir,
         'dev_appserver.py': devappserver2_dir,
         '_php_runtime.py': php_runtime_dir,

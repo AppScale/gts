@@ -42,6 +42,7 @@ import yaml
 # Stubs
 from google.appengine.api import datastore_file_stub
 from google.appengine.api import mail_stub
+from google.appengine.api import request_info as request_info_lib
 from google.appengine.api import urlfetch_stub
 from google.appengine.api import user_service_stub
 from google.appengine.api.app_identity import app_identity_stub
@@ -68,7 +69,12 @@ from google.appengine.ext.cloudstorage import stub_dispatcher as gcs_dispatcher
 from google.appengine.ext.remote_api import remote_api_pb
 from google.appengine.ext.remote_api import remote_api_services
 from google.appengine.runtime import apiproxy_errors
+from google.appengine.tools.devappserver2 import application_configuration
+from google.appengine.tools.devappserver2 import cli_parser
+from google.appengine.tools.devappserver2 import constants
 from google.appengine.tools.devappserver2 import login
+from google.appengine.tools.devappserver2 import shutdown
+from google.appengine.tools.devappserver2 import wsgi_request_info
 from google.appengine.tools.devappserver2 import wsgi_server
 
 # AppScale
@@ -80,6 +86,9 @@ from google.appengine.api.blobstore import datastore_blob_storage
 # safety.
 GLOBAL_API_LOCK = threading.RLock()
 
+# The default app id used when launching the api_server.py as a binary, without
+# providing the context of a specific application.
+DEFAULT_API_SERVER_APP_ID = 'dev~app_id'
 
 def _execute_request(request):
   """Executes an API method call and returns the response object.
@@ -717,3 +726,46 @@ def cleanup_stubs():
   # Not necessary in AppScale, since the API services exist outside of the
   # AppServer.
   pass
+
+
+def main():
+  """Parses command line options and launches the API server."""
+  shutdown.install_signal_handlers()
+
+  options = cli_parser.create_command_line_parser(
+      cli_parser.API_SERVER_CONFIGURATION).parse_args()
+  logging.getLogger().setLevel(
+      constants.LOG_LEVEL_TO_PYTHON_CONSTANT[options.dev_appserver_log_level])
+
+  # Parse the application configuration if config_paths are provided, else
+  # provide sensible defaults.
+  if options.config_paths:
+    app_config = application_configuration.ApplicationConfiguration(
+        options.config_paths, options.app_id)
+    app_id = app_config.app_id
+    app_root = app_config.modules[0].application_root
+  else:
+    app_id = ('dev~' + options.app_id if
+              options.app_id else DEFAULT_API_SERVER_APP_ID)
+    app_root = tempfile.mkdtemp()
+
+  # pylint: disable=protected-access
+  # TODO: Rename LocalFakeDispatcher or re-implement for api_server.py.
+  request_info = wsgi_request_info.WSGIRequestInfo(
+      request_info_lib._LocalFakeDispatcher())
+  # pylint: enable=protected-access
+
+  server = create_api_server(
+      request_info=request_info,
+      storage_path=get_storage_path(options.storage_path, app_id),
+      options=options, app_id=app_id, app_root=app_root)
+
+  try:
+    server.start()
+    shutdown.wait_until_shutdown()
+  finally:
+    server.quit()
+
+
+if __name__ == '__main__':
+  main()
