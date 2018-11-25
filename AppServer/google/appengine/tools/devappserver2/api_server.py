@@ -734,6 +734,7 @@ def main():
 
   options = cli_parser.create_command_line_parser(
       cli_parser.API_SERVER_CONFIGURATION).parse_args()
+  os.environ['NGINX_HOST'] = options.nginx_host
   logging.getLogger().setLevel(
       constants.LOG_LEVEL_TO_PYTHON_CONSTANT[options.dev_appserver_log_level])
 
@@ -745,7 +746,7 @@ def main():
     app_id = app_config.app_id
     app_root = app_config.modules[0].application_root
   else:
-    app_id = ('dev~' + options.app_id if
+    app_id = (options.app_id if
               options.app_id else DEFAULT_API_SERVER_APP_ID)
     app_root = tempfile.mkdtemp()
 
