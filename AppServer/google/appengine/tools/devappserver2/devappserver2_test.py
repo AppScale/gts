@@ -18,139 +18,14 @@
 
 
 import argparse
-import getpass
-import itertools
 import os
-import os.path
-import sys
-import tempfile
 import unittest
-
-import google
-import mox
 
 from google.appengine.tools.devappserver2 import devappserver2
 
 
 class WinError(Exception):
   pass
-
-
-class GenerateStoragePathsTest(unittest.TestCase):
-  """Tests for devappserver._generate_storage_paths."""
-
-  def setUp(self):
-    self.mox = mox.Mox()
-    self.mox.StubOutWithMock(getpass, 'getuser')
-    self.mox.StubOutWithMock(tempfile, 'gettempdir')
-
-  def tearDown(self):
-    self.mox.UnsetStubs()
-
-  @unittest.skipUnless(sys.platform.startswith('win'), 'Windows only')
-  def test_windows(self):
-    tempfile.gettempdir().AndReturn('/tmp')
-
-    self.mox.ReplayAll()
-    self.assertEqual(
-        [os.path.join('/tmp', 'appengine.myapp'),
-         os.path.join('/tmp', 'appengine.myapp.1'),
-         os.path.join('/tmp', 'appengine.myapp.2')],
-        list(itertools.islice(devappserver2._generate_storage_paths('myapp'),
-                              3)))
-    self.mox.VerifyAll()
-
-  @unittest.skipIf(sys.platform.startswith('win'), 'not on Windows')
-  def test_working_getuser(self):
-    getpass.getuser().AndReturn('johndoe')
-    tempfile.gettempdir().AndReturn('/tmp')
-
-    self.mox.ReplayAll()
-    self.assertEqual(
-        [os.path.join('/tmp', 'appengine.myapp.johndoe'),
-         os.path.join('/tmp', 'appengine.myapp.johndoe.1'),
-         os.path.join('/tmp', 'appengine.myapp.johndoe.2')],
-        list(itertools.islice(devappserver2._generate_storage_paths('myapp'),
-                              3)))
-    self.mox.VerifyAll()
-
-  @unittest.skipIf(sys.platform.startswith('win'), 'not on Windows')
-  def test_broken_getuser(self):
-    getpass.getuser().AndRaise(Exception())
-    tempfile.gettempdir().AndReturn('/tmp')
-
-    self.mox.ReplayAll()
-    self.assertEqual(
-        [os.path.join('/tmp', 'appengine.myapp'),
-         os.path.join('/tmp', 'appengine.myapp.1'),
-         os.path.join('/tmp', 'appengine.myapp.2')],
-        list(itertools.islice(devappserver2._generate_storage_paths('myapp'),
-                              3)))
-    self.mox.VerifyAll()
-
-
-class GetStoragePathTest(unittest.TestCase):
-  """Tests for devappserver._get_storage_path."""
-
-  def setUp(self):
-    self.mox = mox.Mox()
-    self.mox.StubOutWithMock(devappserver2, '_generate_storage_paths')
-
-  def tearDown(self):
-    self.mox.UnsetStubs()
-
-  def test_no_path_given_directory_does_not_exist(self):
-    path = tempfile.mkdtemp()
-    os.rmdir(path)
-    devappserver2._generate_storage_paths('example.com_myapp').AndReturn([path])
-
-    self.mox.ReplayAll()
-    self.assertEqual(
-        path,
-        devappserver2._get_storage_path(None, 'example.com:myapp'))
-    self.mox.VerifyAll()
-    self.assertTrue(os.path.isdir(path))
-
-  def test_no_path_given_directory_exists(self):
-    path1 = tempfile.mkdtemp()
-    os.chmod(path1, 0777)
-    path2 = tempfile.mkdtemp()  # Made with mode 0700.
-
-    devappserver2._generate_storage_paths('example.com_myapp').AndReturn(
-        [path1, path2])
-
-    self.mox.ReplayAll()
-    if sys.platform == 'win32':
-      expected_path = path1
-    else:
-      expected_path = path2
-    self.assertEqual(
-        expected_path,
-        devappserver2._get_storage_path(None, 'example.com:myapp'))
-    self.mox.VerifyAll()
-
-  def test_path_given_does_not_exist(self):
-    path = tempfile.mkdtemp()
-    os.rmdir(path)
-
-    self.assertEqual(
-        path,
-        devappserver2._get_storage_path(path, 'example.com:myapp'))
-    self.assertTrue(os.path.isdir(path))
-
-  def test_path_given_not_directory(self):
-    _, path = tempfile.mkstemp()
-
-    self.assertRaises(
-        IOError,
-        devappserver2._get_storage_path, path, 'example.com:myapp')
-
-  def test_path_given_exists(self):
-    path = tempfile.mkdtemp()
-
-    self.assertEqual(
-        path,
-        devappserver2._get_storage_path(path, 'example.com:myapp'))
 
 
 class PortParserTest(unittest.TestCase):
