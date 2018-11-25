@@ -213,7 +213,7 @@ class APIServer(wsgi_server.WsgiServer):
       return []
 
 
-def create_api_server(request_info, storage_path, options, configuration):
+def create_api_server(request_info, storage_path, options, app_id, app_root):
   """Creates an API server.
 
   Args:
@@ -221,9 +221,11 @@ def create_api_server(request_info, storage_path, options, configuration):
       lookup information about the request associated with an API call.
     storage_path: A string directory for storing API stub data.
     options: An instance of argparse.Namespace containing command line flags.
-    configuration: An instance of
-      application_configuration.ApplicationConfiguration for configuring API
-      stub settings.
+    app_id: String representing an application ID, used for configuring paths
+      and string constants in API stubs.
+    app_root: The path to the directory containing the user's
+        application e.g. "/home/joe/myapp", used for locating application yaml
+        files, eg index.yaml for the datastore stub.
 
   Returns:
     An instance of APIServer.
@@ -269,12 +271,11 @@ def create_api_server(request_info, storage_path, options, configuration):
     assert 0, ('unknown consistency policy: %r' %
                options.datastore_consistency_policy)
 
-  maybe_convert_datastore_file_stub_data_to_sqlite(
-      configuration.app_id, datastore_path)
+  maybe_convert_datastore_file_stub_data_to_sqlite(app_id, datastore_path)
   setup_stubs(
       request_data=request_info,
-      app_id=configuration.app_id,
-      application_root=configuration.modules[0].application_root,
+      app_id=app_id,
+      application_root=app_root,
       # The "trusted" flag is only relevant for Google administrative
       # applications.
       trusted=getattr(options, 'trusted', False),
@@ -303,7 +304,7 @@ def create_api_server(request_info, storage_path, options, configuration):
 
   # The APIServer must bind to localhost because that is what the runtime
   # instances talk to.
-  return APIServer('localhost', options.api_port, configuration.app_id)
+  return APIServer('localhost', options.api_port, app_id)
 
 
 def _clear_datastore_storage(datastore_path):

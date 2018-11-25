@@ -171,7 +171,8 @@ class DevelopmentServer(object):
         options.storage_path, configuration.app_id)
 
     apis = api_server.create_api_server(
-        request_data, storage_path, options, configuration)
+        request_data, storage_path, options, configuration.app_id,
+        configuration.modules[0].application_root)
     apis.start()
     self._running_modules.append(apis)
 
