@@ -223,7 +223,7 @@ class DatastoreServer(Server):
 
       # With systemd-run, it's possible to start the process within the slice.
       # To keep things simple and maintain backwards compatibility with
-      # pre-systemd distros, move move the process after starting it.
+      # pre-systemd distros, move the process after starting it.
       self.process = psutil.Popen(start_cmd, stdout=self._stdout,
                                   stderr=subprocess.STDOUT)
 
