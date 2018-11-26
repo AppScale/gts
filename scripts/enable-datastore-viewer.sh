@@ -57,19 +57,12 @@ fi
 ADMIN_SERVER_PORT=""
 APPENGINE_IP=""
 for ip in $(cat /etc/appscale/all_ips); do
-    OUTPUT=$(ssh $ip -i /etc/appscale/keys/cloud1/*.key 'ps ax | grep appserver \
-           | grep -E "(grep|$APP_ID)" | grep -- "--admin_port" \
-           | sed "s;.*--admin_port \([0-9]*\).*/var/apps/\(.*\)/app .*;\1 \2;g" \
-           | sort -ru')
-    for i in $OUTPUT ; do
-        if [ "$i" = "$APP_ID" ]; then
-            continue
-        else
-            ADMIN_SERVER_PORT=$i
-            APPENGINE_IP=$ip
-            break
-        fi
-    done
+    FIND_PORT_CMD="ps ax | sed -En \"s;.*--application $APP_ID .* --admin_port ([0-9]+) .*;\1;p\" | head -1"
+    ADMIN_SERVER_PORT=$(ssh $ip -i /etc/appscale/keys/cloud1/*.key "${FIND_PORT_CMD}")
+    if [[ ${ADMIN_SERVER_PORT} ]] ; then
+        APPENGINE_IP=$ip
+        break
+    fi
 done
 if [ -z "$ADMIN_SERVER_PORT" -o -z "$APPENGINE_IP" ]; then
     echo "ERROR: Cannot find appengine node with admin server running on it"
