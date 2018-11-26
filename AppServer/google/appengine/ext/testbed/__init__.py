@@ -130,6 +130,10 @@ try:
 except ImportError:
   logservice_stub = None
 from google.appengine.api.memcache import memcache_stub
+try:
+  from google.appengine.api.search import simple_search_stub
+except ImportError:
+  simple_search_stub = None
 from google.appengine.api.taskqueue import taskqueue_stub
 from google.appengine.api.xmpp import xmpp_service_stub
 try:
@@ -178,6 +182,7 @@ TASKQUEUE_SERVICE_NAME = 'taskqueue'
 URLFETCH_SERVICE_NAME = 'urlfetch'
 USER_SERVICE_NAME = 'user'
 XMPP_SERVICE_NAME = 'xmpp'
+SEARCH_SERVICE_NAME = 'search'
 
 
 INIT_STUB_METHOD_NAMES = {
@@ -195,6 +200,7 @@ INIT_STUB_METHOD_NAMES = {
     URLFETCH_SERVICE_NAME: 'init_urlfetch_stub',
     USER_SERVICE_NAME: 'init_user_stub',
     XMPP_SERVICE_NAME: 'init_xmpp_stub',
+    SEARCH_SERVICE_NAME: 'init_search_stub',
 }
 
 
@@ -635,6 +641,21 @@ class Testbed(object):
       return
     stub = xmpp_service_stub.XmppServiceStub()
     self._register_stub(XMPP_SERVICE_NAME, stub)
+
+  def init_search_stub(self, enable=True):
+    """Enable the search stub.
+
+    Args:
+      enable: True, if the fake service should be enabled, False if real
+              service should be disabled.
+    """
+    if not enable:
+      self._disable_stub(SEARCH_SERVICE_NAME)
+      return
+    if simple_search_stub is None:
+      raise StubNotSupportedError('Could not initialize search API')
+    stub = simple_search_stub.SearchServiceStub()
+    self._register_stub(SEARCH_SERVICE_NAME, stub)
 
   def _init_stub(self, service_name, *args, **kwargs):
     """Enable a stub by service name.

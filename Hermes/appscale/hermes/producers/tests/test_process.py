@@ -84,7 +84,7 @@ class TestCurrentProcessesStats(unittest.TestCase):
 
   @patch.object(process_stats.appscale_info, 'get_private_ip')
   @patch.object(process_stats.subprocess, 'check_output')
-  @patch.object(process_stats.logging, 'warn')
+  @patch.object(process_stats.logger, 'warn')
   def test_process_stats(self, mock_logging_warn, mock_check_output,
                                mock_get_private_ip):
     # Mocking `monit status` output and appscale_info.get_private_ip

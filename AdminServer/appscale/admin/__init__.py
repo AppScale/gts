@@ -74,7 +74,7 @@ from .resource_validator import validate_resource, ResourceValidationError
 from .service_manager import ServiceManager, ServiceManagerHandler
 from .summary import get_combined_services
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 # The state of each operation.
 operations = OperationsCache()
@@ -374,54 +374,6 @@ class ProjectHandler(BaseVersionHandler):
     self.thread_pool = thread_pool
 
   @gen.coroutine
-  def wait_for_delete(self, ports_to_close, project_id):
-    """ Tracks the progress of removing version(s).
-
-    Args:
-      ports_to_close: A list of integers specifying the ports to wait for.
-      project_id: The id of the project we are deleting.
-    Raises:
-      OperationTimeout if the deadline is exceeded.
-    """
-    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
-    update_project_state(self.zk_client, project_id,
-                         LifecycleState.DELETE_IN_PROGRESS)
-    start_time = time.time()
-    deadline = start_time + constants.MAX_OPERATION_TIME
-
-    finished = 0
-    ports = ports_to_close[:]
-    while True:
-      if time.time() > deadline:
-        logger.error('Delete operation took too long (project_id: {}).'
-                     .format(project_id))
-        return
-      to_remove = []
-      for http_port in ports:
-        # If the port is open, continue to process other ports.
-        if utils.port_is_open(options.login_ip, int(http_port)):
-          continue
-        # Otherwise one more port has finished and remove it from the list of
-        # ports to check.
-        finished += 1
-        to_remove.append(http_port)
-      ports = [p for p in ports if p not in to_remove]
-      if finished == len(ports_to_close):
-        break
-
-      yield gen.sleep(1)
-
-    # Cleanup the project in zookeeper.
-    yield self.thread_pool.submit(self.version_update_lock.acquire)
-    try:
-      try:
-        self.zk_client.delete(project_path, recursive=True)
-      except NoNodeError:
-        pass
-    finally:
-      self.version_update_lock.release()
-
-  @gen.coroutine
   def delete(self, project_id):
     """ Deletes a project.
 
@@ -429,22 +381,35 @@ class ProjectHandler(BaseVersionHandler):
       project_id: The id of the project to delete.
     """
     self.authenticate(project_id, self.ua_client)
-    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
-    update_project_state(self.zk_client, project_id,
-                         LifecycleState.DELETE_REQUESTED)
-    ports_to_close = []
-    # Delete each version of each service of the project.
-    for service_id in \
-        self.zk_client.get_children("{0}/services".format(project_path)):
-      for version_id in self.zk_client.get_children(
-          "{0}/services/{1}/versions".format(project_path, service_id)):
+    raise CustomHTTPError(HTTPCodes.NOT_IMPLEMENTED,
+                          message='Project deletion is not supported')
 
-        port = yield self.start_delete_version(project_id, service_id,
-                                               version_id)
-        ports_to_close.append(port)
 
-    IOLoop.current().spawn_callback(self.wait_for_delete,
-                                    ports_to_close, project_id)
+class ServicesHandler(BaseVersionHandler):
+  """ Manages a project's services. """
+  def initialize(self, ua_client, zk_client):
+    self._ua_client = ua_client
+    self._zk_client = zk_client
+
+  def get(self, project_id):
+    """ Lists all the services in a project. """
+    self.authenticate(project_id, self._ua_client)
+    project_node = '/'.join(['/appscale', 'projects', project_id])
+    services_node = '/'.join([project_node, 'services'])
+    if not self._zk_client.exists(project_node):
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Project does not exist')
+
+    try:
+      service_ids = self._zk_client.get_children(services_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Services node not found for project')
+
+    prefix = '/'.join(['apps', project_id, 'services'])
+    services = [{'name': '/'.join([prefix, service_id]), 'id': service_id}
+                for service_id in service_ids]
+    json.dump({'services': services}, self)
 
 
 class ServiceHandler(BaseVersionHandler):
@@ -507,8 +472,15 @@ class ServiceHandler(BaseVersionHandler):
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
 
+  # A rule for validating project IDs.
+  PROJECT_ID_RE = re.compile(r'^[a-z][a-z0-9\-]{5,29}$')
+
   # A rule for validating version IDs.
-  VERSION_ID_RE = re.compile(r'(?!-)[a-z\d\-]{1,100}')
+  VERSION_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
+
+  # A rule for validating service IDs.
+  SERVICE_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
+
 
   # Reserved names for version IDs.
   RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
@@ -580,11 +552,15 @@ class VersionsHandler(BaseHandler):
     # Prevent multiple versions per service.
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Invalid version ID')
+                            message='AppScale currently does not support versions, '
+                                    'so you have to use default version ID, i.e. "v1"')
 
     if not self.VERSION_ID_RE.match(version['id']):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Invalid version ID')
+                            message='Invalid version ID. '
+                                    'May only contain lowercase letters, digits, '
+                                    'and hyphens. Must begin and end with a letter '
+                                    'or digit. Must not exceed 63 characters.')
 
     for reserved_id in self.RESERVED_VERSION_IDS:
       if re.match(reserved_id, version['id']):
@@ -770,6 +746,20 @@ class VersionsHandler(BaseHandler):
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
     """
+
+    if not self.PROJECT_ID_RE.match(project_id):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid project ID. '
+                                    'It must be 6 to 30 lowercase letters, digits, '
+                                    'or hyphens. It must start with a letter.')
+
+    if not self.SERVICE_ID_RE.match(service_id):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid service ID. '
+                                    'May only contain lowercase letters, digits, '
+                                    'and hyphens. Must begin and end with a letter '
+                                    'or digit. Must not exceed 63 characters.')
+
     self.authenticate(project_id, self.ua_client)
     version = self.version_from_payload()
 
@@ -809,7 +799,7 @@ class VersionsHandler(BaseHandler):
     operations[operation.id] = operation
 
     pre_wait = REDEPLOY_WAIT if version_exists else 0
-    logging.debug(
+    logger.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
     IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id)
 
@@ -1281,7 +1271,7 @@ def main():
     return
 
   if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
 
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
@@ -1314,16 +1304,18 @@ def main():
 
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
+    ('/v1/apps/([^/]*)/services/([^/]*)/versions', VersionsHandler,
      {'ua_client': ua_client, 'zk_client': zk_client,
       'version_update_lock': version_update_lock, 'thread_pool': thread_pool}),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)', ServiceHandler,
+    ('/v1/apps/([^/]*)/services', ServicesHandler,
+     {'ua_client': ua_client, 'zk_client': zk_client}),
+    ('/v1/apps/([^/]*)/services/([^/]*)', ServiceHandler,
      all_resources),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
+    ('/v1/apps/([^/]*)/services/([^/]*)/versions/([^/]*)',
      VersionHandler, all_resources),
-    ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler,
+    ('/v1/apps/([^/]*)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
     ('/api/cron/update', UpdateCronHandler,
      {'acc': acc, 'zk_client': zk_client, 'ua_client': ua_client}),

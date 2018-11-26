@@ -52,15 +52,28 @@ def _get_dir_path(sibling):
   Raises:
     ValueError: If no proper path could be determined.
   """
-  py_file = __file__.replace('.pyc', '.py')
-  dir_paths = [os.path.abspath(os.path.dirname(os.path.realpath(py_file))),
-               os.path.abspath(os.path.dirname(py_file))]
-  for dir_path in dir_paths:
-    sibling_path = os.path.join(dir_path, sibling)
-    if os.path.exists(sibling_path):
-      return dir_path
-  raise ValueError('Could not determine directory that contains both, this '
-                   'file and %s.' % sibling)
+  if 'GAE_SDK_ROOT' in os.environ:
+    gae_sdk_root = os.path.abspath(os.environ['GAE_SDK_ROOT'])
+
+
+
+    os.environ['GAE_SDK_ROOT'] = gae_sdk_root
+    for dir_path in [gae_sdk_root,
+                     os.path.join(gae_sdk_root, 'google_appengine')]:
+      if os.path.exists(os.path.join(dir_path, sibling)):
+        return dir_path
+    raise ValueError('GAE_SDK_ROOT %r does not refer to a valid SDK '
+                     'directory' % gae_sdk_root)
+  else:
+    py_file = __file__.replace('.pyc', '.py')
+    dir_paths = [os.path.abspath(os.path.dirname(os.path.realpath(py_file))),
+                 os.path.abspath(os.path.dirname(py_file))]
+    for dir_path in dir_paths:
+      sibling_path = os.path.join(dir_path, sibling)
+      if os.path.exists(sibling_path):
+        return dir_path
+    raise ValueError('Could not determine SDK root; please set GAE_SDK_ROOT '
+                     'environment variable.')
 
 
 

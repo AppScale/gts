@@ -3,6 +3,60 @@ All rights reserved.
 
 App Engine SDK - Release Notes
 
+Version 1.8.4
+
+All
+==============================
+- A Datastore Admin fix in this release improves security by ensuring that
+  scheduled backups can now only be started by a cron or task queue task.
+  Administrators can still start a backup by going to the Datastore Admin
+  in the Admin Console.
+
+Python
+==============================
+- Better support is now provided for the _$folder$ magic cloud storage keyword,
+  and the implementation of basic mkdir()/rmdir() functionality via GCS
+  streams.
+- This release adds the wrappers @transactional_async and @transactonal_tasklet
+  to correct (a) @transactional @tasklet being synchronous despite the
+  decorator, and (b) @tasklet @transactional not running the generator in a
+  transaction.
+    https://code.google.com/p/appengine-ndb-experiment/issues/detail?id=195
+- Fixed a unicode issue associated with expressions in the Search API. A search
+  with snippeted fields was failing on documents containing unicode characters.
+- Fixed an issue with the dev_appserver not auto-detecting the lib/ directory
+  in the SDK.
+    https://code.google.com/p/googleappengine/issues/detail?id=8459
+    https://code.google.com/p/googleappengine/issues/detail?id=9847
+- Fixed an issue where Blobstore usage was being charged even though the
+  actual data was being stored in Cloud Storage. All affected developers have
+  been informed and reimbursements are underway.
+    https://code.google.com/p/googleappengine/issues/detail?id=9659
+- Fixed an issue that ensures all .py files in google.appengine.api that are
+  available in the SDK are also available in the runtime.
+    https://code.google.com/p/googleappengine/issues/detail?id=9755
+- Fixed an issue of warning messages being displayed when running appcfg
+  update (eg. appcfg.py update . --oauth2) from the 1.8.3 Python SDK. The
+  appengine_rpc_httplib2 will work without warnings regardless of which
+  oauth2client library is being used.
+    https://code.google.com/p/googleappengine/issues/detail?id=9807
+
+
+PHP
+==============================
+- The PHP interpreter was upgraded from PHP 5.4.8 to PHP 5.4.17.
+- The is_writable() method now supports Google Cloud Storage files and buckets.
+- You no longer need to specify the PHP runtime on the command line when
+  deploying applications via appcfg.py
+- Backends are disabled for PHP and are no longer supported with the PHP
+  runtime.
+- Upload of PHP apps now ignores any pre-compilation errors. This allows
+  precompilation to be disabled on a per-runtime basis, and defaults to
+  disabled for PHP.
+- Fixed an issue where SYSTEMROOT was not passed to the environment checking
+  script thereby not recognizing the PHP intepreter for Windows in the SDK.
+    https://code.google.com/p/googleappengine/issues/detail?id=9382
+
 Version 1.8.3
 
 Python

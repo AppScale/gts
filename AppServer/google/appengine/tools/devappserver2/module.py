@@ -202,10 +202,14 @@ class Module(object):
     handlers.append(
         wsgi_handler.WSGIHandler(channel.application, url_pattern))
 
-    url_pattern = '/%s' % endpoints.API_SERVING_PATTERN
-    handlers.append(
-        wsgi_handler.WSGIHandler(
-            endpoints.EndpointsDispatcher(self._dispatcher), url_pattern))
+    # Add a handler for Endpoints, only if version == 1.0
+    runtime_config = self._get_runtime_config()
+    for library in runtime_config.libraries:
+      if library.name == 'endpoints' and library.version == '1.0':
+        url_pattern = '/%s' % endpoints.API_SERVING_PATTERN
+        handlers.append(
+            wsgi_handler.WSGIHandler(
+                endpoints.EndpointsDispatcher(self._dispatcher), url_pattern))
 
     found_start_handler = False
     found_warmup_handler = False
@@ -538,7 +542,7 @@ class Module(object):
 
   # AppScale: Check if the instance should be shutting down before handling
   # request.
-  def _handle_request(self, environ, start_response, **kwargs):
+  def _handle_request(self, environ, start_response, *args, **kwargs):
     """ A _handle_request wrapper that keeps track of active requests.
 
     Args:
@@ -556,7 +560,8 @@ class Module(object):
       self.request_count += 1
 
     try:
-      return self._handle_request_impl(environ, start_response, **kwargs)
+      return self._handle_request_impl(environ, start_response, *args,
+                                       **kwargs)
     finally:
       with self.graceful_shutdown_lock:
         self.request_count -= 1

@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ */
+
 namespace google\appengine\api\modules;
 
-require_once 'google/appengine/api/modules/modules_service_pb.php';
-
-use \google\appengine\GetModulesRequest;
-
-class ModulesServiceProtoTest extends\PHPUnit_Framework_TestCase {
-  public function testGetModulesRequestInstantiation() {
-    $req = new GetModulesRequest();
-    $this->assertEquals("", $req->serializePartialToString());
-  }
+/**
+ * Thrown when there is a failure using the Modules API.
+ */
+class ModulesException extends \Exception {
 }

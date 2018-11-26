@@ -11,6 +11,9 @@ from utils import utils
 MOUNTPOINT_WHITELIST = ['/', '/opt/appscale', '/opt/appscale/backups',
   '/opt/appscale/cassandra', '/var/apps']
 
+logger = logging.getLogger(__name__)
+
+
 class JSONTags(object):
   # CPU related JSON tags.
   CPU = "cpu"
@@ -67,7 +70,7 @@ class SystemManager():
         JSONTags.COUNT : len(psutil.cpu_times(percpu=True))
       }
     }
-    logging.debug("CPU stats: {}".format(cpu_stats_dict))
+    logger.debug("CPU stats: {}".format(cpu_stats_dict))
 
     return json.dumps(cpu_stats_dict)
 
@@ -101,7 +104,7 @@ class SystemManager():
       inner_disk_stats_dict.append(partition_stats)
 
     disk_stats_dict = { JSONTags.DISK : inner_disk_stats_dict }
-    logging.debug("Disk stats: {}".format(disk_stats_dict))
+    logger.debug("Disk stats: {}".format(disk_stats_dict))
 
     return json.dumps(disk_stats_dict)
 
@@ -126,7 +129,7 @@ class SystemManager():
         JSONTags.USED : mem_stats.used
       }
     }
-    logging.debug("Memory stats: {}".format(mem_stats_dict))
+    logger.debug("Memory stats: {}".format(mem_stats_dict))
 
     return json.dumps(mem_stats_dict)
 
@@ -145,7 +148,7 @@ class SystemManager():
     try:
       monit_stats = subprocess.check_output(["monit", "summary"])
     except CalledProcessError:
-      logging.warn("get_service_summary: failed to query monit.")
+      logger.warn("get_service_summary: failed to query monit.")
       raise ServiceException('Failed to query monit.')
 
     monit_stats_dict = {}
@@ -155,7 +158,7 @@ class SystemManager():
         process_name = tokens[1][1:-1] # Remove quotes.
         process_status = ' '.join(tokens[2:]).lower()
         monit_stats_dict[process_name] = process_status
-    logging.debug("Monit stats: {}".format(monit_stats_dict))
+    logger.debug("Monit stats: {}".format(monit_stats_dict))
 
     # Get status of processes managed by the ServiceManager.
     monit_stats_dict.update(
@@ -183,7 +186,7 @@ class SystemManager():
         JSONTags.USED : swap_stats.used
       }
     }
-    logging.debug("Swap stats: {}".format(swap_stats_dict))
+    logger.debug("Swap stats: {}".format(swap_stats_dict))
 
     return json.dumps(swap_stats_dict)
 
@@ -214,7 +217,7 @@ class SystemManager():
         JSONTags.SCHEDULING_ENTITIES : int(kernel_entities[1])
       }
     }
-    logging.debug("Loadavg stats: {}".format(' '.join(loadavg)))
+    logger.debug("Loadavg stats: {}".format(' '.join(loadavg)))
 
     return json.dumps(loadavg_stat)
 
@@ -231,7 +234,7 @@ class SystemManager():
     """
     response = "Sending success = {0}, reason = {1}".format(success, message)
     if success:
-      logging.debug(response)
+      logger.debug(response)
     else:
-      logging.warn(response)
+      logger.warn(response)
     return {'success': success, 'reason': message}

@@ -15,7 +15,7 @@ from appscale.common.constants import (
   VERSION_PATH_SEPARATOR)
 from appscale.common.deployment_config import ConfigInaccessible
 
-logger = logging.getLogger('appscale-instance-manager')
+logger = logging.getLogger(__name__)
 
 
 class Instance(object):

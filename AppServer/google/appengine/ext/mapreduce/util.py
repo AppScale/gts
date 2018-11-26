@@ -38,6 +38,7 @@
 __all__ = [
     "create_datastore_write_config",
     "for_name",
+    "get_queue_name",
     "get_short_name",
     "handler_for_name",
     "is_generator",
@@ -45,18 +46,97 @@ __all__ = [
     "total_seconds",
     "try_serialize_handler",
     "try_deserialize_handler",
+    "CALLBACK_MR_ID_TASK_HEADER",
     ]
 
 import inspect
+import os
 import pickle
 import types
 
 from google.appengine.datastore import datastore_rpc
+from google.appengine.ext.mapreduce import parameters
+
+
+_MR_ID_TASK_HEADER = "AE-MR-ID"
+_MR_SHARD_ID_TASK_HEADER = "AE-MR-SHARD-ID"
+
+
+CALLBACK_MR_ID_TASK_HEADER = "Mapreduce-Id"
+
+
+def _get_task_host():
+  """Get the Host header value for all mr tasks.
+
+  Task Host header determines which instance this task would be routed to.
+
+  Current version id format is: v7.368834058928280579
+  Current module id is just the module's name. It could be "default"
+  Default version hostname is app_id.appspot.com
+
+  Returns:
+    A complete host name is of format version.module.app_id.appspot.com
+  If module is the default module, just version.app_id.appspot.com. The reason
+  is if an app doesn't have modules enabled and the url is
+  "version.default.app_id", "version" is ignored and "default" is used as
+  version. If "default" version doesn't exist, the url is routed to the
+  default version.
+  """
+  version = os.environ["CURRENT_VERSION_ID"].split(".")[0]
+  default_host = os.environ["DEFAULT_VERSION_HOSTNAME"]
+  module = os.environ["CURRENT_MODULE_ID"]
+  if os.environ["CURRENT_MODULE_ID"] == "default":
+    return "%s.%s" % (version, default_host)
+  return "%s.%s.%s" % (version, module, default_host)
+
+
+def _get_task_headers(mr_spec, mr_id_header_key=_MR_ID_TASK_HEADER):
+  """Get headers for all mr tasks.
+
+  Args:
+    mr_spec: an instance of model.MapreduceSpec.
+    mr_id_header_key: the key to set mr id with.
+
+  Returns:
+    A dictionary of all headers.
+  """
+  return {mr_id_header_key: mr_spec.mapreduce_id,
+          "Host": _get_task_host()}
 
 
 def _enum(**enums):
   """Helper to create enum."""
   return type("Enum", (), enums)
+
+
+def get_queue_name(queue_name):
+  """Determine which queue MR should run on.
+
+  How to choose the queue:
+  1. If user provided one, use that.
+  2. If we are starting a mr from taskqueue, inherit that queue.
+     If it's a special queue, fall back to the default queue.
+  3. Default queue.
+
+  If user is using any MR pipeline interface, pipeline.start takes a
+  "queue_name" argument. The pipeline will run on that queue and MR will
+  simply inherit the queue_name.
+
+  Args:
+    queue_name: queue_name from user. Maybe None.
+
+  Returns:
+    The queue name to run on.
+  """
+  if queue_name:
+    return queue_name
+  queue_name = os.environ.get("HTTP_X_APPENGINE_QUEUENAME",
+                              parameters.DEFAULT_QUEUE_NAME)
+  if len(queue_name) > 1 and queue_name[0:2] == "__":
+
+    return parameters.DEFAULT_QUEUE_NAME
+  else:
+    return queue_name
 
 
 def total_seconds(td):

@@ -21,9 +21,11 @@ from __future__ import with_statement
 __all__ = []
 
 import datetime
+import errno
 import logging
 import os.path
 import random
+import socket
 import string
 
 import taskqueue_service_pb
@@ -446,22 +448,27 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       api_request.set_request_id(request_id)
 
     tq_locations = self._GetTQLocations()
-    for index, tq_location in enumerate(tq_locations):
-      api_response = remote_api_pb.Response()
-      api_response = api_request.sendCommand(tq_location,
-        tag,
-        api_response,
-        1,
-        False,
-        KEY_LOCATION,
-        CERT_LOCATION)
-
-      if not api_response or not api_response.has_response():
-        if index >= len(tq_locations) - 1:
-          raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
-      else:
+    api_response = remote_api_pb.Response()
+    for tq_location in tq_locations:
+      try:
+        api_request.sendCommand(tq_location,
+          tag,
+          api_response,
+          1,
+          False,
+          KEY_LOCATION,
+          CERT_LOCATION)
         break
+      except socket.error as socket_error:
+        if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
+          api_response = remote_api_pb.Response()
+          continue
+
+        raise
+
+    if not api_response or not api_response.has_response():
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
 
     if api_response.has_application_error():
       error_pb = api_response.application_error()

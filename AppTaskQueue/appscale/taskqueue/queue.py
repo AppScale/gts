@@ -1073,7 +1073,7 @@ class PullQueue(Queue):
     task_id = ''
     while True:
       query_tasks = """
-        SELECT eta, id FROM pull_queue_eta_index
+        SELECT eta, id, tag FROM pull_queue_eta_index
         WHERE token(app, queue, eta, id) > token(%(app)s, %(queue)s, %(eta)s, %(id)s)
         AND token(app, queue, eta, id) < token(%(app)s, %(next_queue)s, 0, '')
         LIMIT {limit}

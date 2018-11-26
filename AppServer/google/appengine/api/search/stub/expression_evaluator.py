@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
 """Expression evaluator for Full Text Search API stub.
 
 An associated ExpressionEvaluator object is created for every scored document in
@@ -43,9 +41,6 @@ Note that this is not used for the production Full Text Search API; this
 provides an approximation to the API for local testing with dev_appserver.
 
 """
-
-
-
 
 
 
@@ -353,6 +348,8 @@ class ExpressionEvaluator(object):
 
     name = expression.name()
     result = self.ValueOf(expression.expression())
+    if isinstance(result, unicode):
+      result = result.encode('utf-8')
     if result != None:
       self._doc.expressions[name] = result
 

@@ -48,8 +48,11 @@ abstract class CloudStorageClient {
   // we can cache the reads.
   const DEFAULT_READ_SIZE = 524288;
 
-  // The default amount of time that reads will be held in the cache
+  // The default amount of time that reads will be held in the cache.
   const DEFAULT_READ_CACHE_EXPIRY_SECONDS = 3600;  // one hour
+
+  // The default time the writable state of a bucket will be cached for.
+  const DEFAULT_WRITABLE_CACHE_EXPIRY_SECONDS = 600;  // ten minutes
 
   // Token scopers for accessing objects in Google Cloud Storage
   const READ_SCOPE = "https://www.googleapis.com/auth/devstorage.read_only";
@@ -89,6 +92,9 @@ abstract class CloudStorageClient {
   // like a regular file system folder.
   const FOLDER_SUFFIX = '_$folder$';
 
+  // Temporary file name we create when checking if a bucket is writable.
+  const WRITABLE_TEMP_FILENAME = "/_ah_is_writable_temp_file";
+
   // Bit fields for the stat mode field
   const S_IFREG = 0100000;
   const S_IFDIR = 0040000;
@@ -123,6 +129,14 @@ abstract class CloudStorageClient {
    */
   const MEMCACHE_KEY_FORMAT = "_ah_gs_read_cache_%s_%s";
 
+  /**
+   * Memcache key format for caching the results of checking if a bucket is
+   * writable. The only way to check if an app can write to a bucket is by
+   * actually writing a file. As the ACL on a bucket is unlikely to change
+   * then we can cache the result.
+   */
+  const WRITABLE_MEMCACHE_KEY_FORMAT = "_ah_gs_write_bucket_cache_%s";
+
   // HTTP status codes that should be retried if they are returned by a request
   // to GCS. Retry should occur with a random exponential back-off.
   protected static $retry_error_codes = [HttpResponse::REQUEST_TIMEOUT,
@@ -139,6 +153,8 @@ abstract class CloudStorageClient {
                                         "bucket-owner-read",
                                         "bucket-owner-full-control"];
 
+ protected static $upload_start_header = ["x-goog-resumable" => "start"];
+
   // Map HTTP request types to URLFetch method enum.
   private static $request_map = [
       "GET" => RequestMethod::GET,
@@ -152,7 +168,9 @@ abstract class CloudStorageClient {
   private static $default_gs_context_options = [
       "enable_cache" => true,
       "enable_optimistic_cache" => false,
-      "cache_expiry_seconds" => self::DEFAULT_READ_CACHE_EXPIRY_SECONDS,
+      "read_cache_expiry_seconds" => self::DEFAULT_READ_CACHE_EXPIRY_SECONDS,
+      "writable_cache_expiry_seconds" =>
+          self::DEFAULT_WRITABLE_CACHE_EXPIRY_SECONDS,
   ];
 
   protected $bucket_name;  // Name of the bucket for this object.

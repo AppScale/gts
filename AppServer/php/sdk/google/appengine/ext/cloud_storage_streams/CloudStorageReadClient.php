@@ -234,7 +234,7 @@ final class CloudStorageReadClient extends CloudStorageClient {
     }
     if (in_array($status_code, self::$valid_status_codes)) {
       $this->memcache_client->set($cache_key, $result, 0,
-          $this->context_options['cache_expiry_seconds']);
+          $this->context_options['read_cache_expiry_seconds']);
     }
     return $result;
   }
