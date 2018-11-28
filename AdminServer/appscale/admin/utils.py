@@ -2,6 +2,7 @@
 
 import errno
 import json
+import hmac
 import logging
 import os
 import shutil
@@ -9,6 +10,7 @@ import socket
 import tarfile
 
 from appscale.common.constants import HTTPCodes
+from appscale.common.constants import InvalidConfiguration
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
@@ -18,7 +20,6 @@ from . import constants
 from .constants import (
   CustomHTTPError,
   GO,
-  InvalidConfiguration,
   JAVA,
   SOURCES_DIRECTORY,
   Types,
@@ -27,7 +28,7 @@ from .constants import (
 from .instance_manager.utils import copy_modified_jars
 from .instance_manager.utils import remove_conflicting_jars
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 def assert_fields_in_resource(required_fields, resource_name, resource):
@@ -385,6 +386,10 @@ def assign_ports(old_version, new_version, zk_client):
 
   taken_locations = assigned_locations(zk_client)
 
+  # Consider the version's old ports as available.
+  taken_locations.discard(old_http_port)
+  taken_locations.discard(old_https_port)
+
   # If ports were requested, make sure they are available.
   if new_http_port is not None and new_http_port in taken_locations:
     raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
@@ -547,3 +552,30 @@ def queues_from_dict(payload):
     queues[name] = queue
 
   return {'queue': queues}
+
+
+def _constant_time_compare(val_a, val_b):
+  """ Compares the two input values in a way that prevents timing analysis.
+
+  Args:
+    val_a: A string.
+    val_b: A string.
+  Returns:
+    A boolean indicating whether or not the given strings are equal.
+  """
+  if len(val_a) != len(val_b):
+    return False
+
+  values_equal = True
+  for char_a, char_b in zip(val_a, val_b):
+    if char_a != char_b:
+      # Do not break early here in order to keep the compare constant time.
+      values_equal = False
+
+  return values_equal
+
+
+if hasattr(hmac, 'compare_digest'):
+  constant_time_compare = hmac.compare_digest
+else:
+  constant_time_compare = _constant_time_compare

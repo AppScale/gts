@@ -26,6 +26,7 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from ..cassandra_env.cassandra_interface import DatastoreProxy
 from ..cassandra_env.large_batch import BatchResolver
 from ..dbconstants import MAX_TX_DURATION
+from ..index_manager import IndexManager
 from ..zkappscale.constants import CONTAINER_PREFIX
 from ..zkappscale.constants import COUNTER_NODE_PREFIX
 from ..zkappscale.constants import MAX_SEQUENCE_COUNTER
@@ -38,7 +39,7 @@ from google.appengine.datastore.entity_pb import CompositeIndex
 # The maximum number of transactions per project to clean up at the same time.
 MAX_CONCURRENCY = 10
 
-logger = logging.getLogger('appscale-transaction-groomer')
+logger = logging.getLogger(__name__)
 
 
 class GroomingCoordinator(object):
@@ -135,7 +136,7 @@ class GroomingCoordinator(object):
 class ProjectGroomer(object):
   """ Cleans up expired transactions for a project. """
   def __init__(self, project_id, coordinator, zk_client, db_access,
-               thread_pool):
+               thread_pool, index_manager):
     """ Creates a new ProjectGroomer.
 
     Args:
@@ -144,6 +145,7 @@ class ProjectGroomer(object):
       zk_client: A KazooClient.
       db_access: A DatastoreProxy.
       thread_pool: A ThreadPoolExecutor.
+      index_manager: An IndexManager object.
     """
     self.project_id = project_id
 
@@ -152,6 +154,7 @@ class ProjectGroomer(object):
     self._tornado_zk = TornadoKazoo(self._zk_client)
     self._db_access = db_access
     self._thread_pool = thread_pool
+    self._index_manager = index_manager
     self._project_node = '/appscale/apps/{}'.format(self.project_id)
     self._containers = []
     self._inactive_containers = set()
@@ -266,7 +269,7 @@ class ProjectGroomer(object):
     try:
       yield self._stop_event.wait(timeout=time_to_wait)
     except gen.TimeoutError:
-      raise gen.Return()
+      return
 
   @gen.coroutine
   def _remove_locks(self, txid, tx_path):
@@ -281,7 +284,7 @@ class ProjectGroomer(object):
       groups_data = yield self._tornado_zk.get(groups_path)
     except NoNodeError:
       # If the group list does not exist, the locks have not been acquired.
-      raise gen.Return()
+      return
 
     group_paths = json.loads(groups_data[0])
     for group_path in group_paths:
@@ -330,7 +333,7 @@ class ProjectGroomer(object):
     try:
       tx_data = yield self._tornado_zk.get(tx_path)
     except NoNodeError:
-      raise gen.Return()
+      return
 
     tx_time = float(tx_data[0])
 
@@ -339,7 +342,7 @@ class ProjectGroomer(object):
     container_count = int(container[len(CONTAINER_PREFIX):] or 1)
     if tx_node_id < 0:
       yield self._remove_path(tx_path)
-      raise gen.Return()
+      return
 
     container_size = MAX_SEQUENCE_COUNTER + 1
     automatic_offset = (container_count - 1) * container_size
@@ -347,7 +350,7 @@ class ProjectGroomer(object):
 
     if txid < 1:
       yield self._remove_path(tx_path)
-      raise gen.Return()
+      return
 
     # If the transaction is still valid, return the time it was created.
     if tx_time + MAX_TX_DURATION >= time.time():
@@ -390,9 +393,8 @@ class ProjectGroomer(object):
       raise gen.Return(self._oldest_valid_tx_time)
 
     # Refresh these each time so that the indexes are fresh.
-    encoded_indexes = yield self._thread_pool.submit(
-      self._db_access.get_indices, self.project_id)
-    composite_indexes = [CompositeIndex(index) for index in encoded_indexes]
+    project_index_manager = self._index_manager.projects[self.project_id]
+    composite_indexes = project_index_manager.indexes_pb
 
     for tx_path in children:
       tx_node_id = int(tx_path.split('/')[-1].lstrip(COUNTER_NODE_PREFIX))
@@ -413,19 +415,21 @@ class ProjectGroomer(object):
 
 class TransactionGroomer(object):
   """ Cleans up expired transactions. """
-  def __init__(self, zk_client, db_access, thread_pool):
+  def __init__(self, zk_client, db_access, thread_pool, index_manager):
     """ Creates a new TransactionGroomer.
 
     Args:
       zk_client: A KazooClient.
       db_access: A DatastoreProxy.
       thread_pool: A ThreadPoolExecutor.
+      index_manager: An IndexManager.
     """
     self.projects = {}
 
     self._zk_client = zk_client
     self._db_access = db_access
     self._thread_pool = thread_pool
+    self._index_manager = index_manager
 
     self._coordinator = GroomingCoordinator(self._zk_client)
 
@@ -474,7 +478,7 @@ def main():
   args = parser.parse_args()
 
   if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
 
   zk_hosts = appscale_info.get_zk_node_ips()
   zk_client = KazooClient(hosts=','.join(zk_hosts),
@@ -486,7 +490,9 @@ def main():
 
   thread_pool = ThreadPoolExecutor(4)
 
-  TransactionGroomer(zk_client, db_access, thread_pool)
+  index_manager = IndexManager(zk_client, None)
+
+  TransactionGroomer(zk_client, db_access, thread_pool, index_manager)
   logger.info('Starting transaction groomer')
 
   IOLoop.current().start()

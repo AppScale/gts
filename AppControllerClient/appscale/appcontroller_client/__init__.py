@@ -302,19 +302,6 @@ class AppControllerClient():
     return self.call(self.MAX_RETRIES, self.server.run_groomer, self.secret)
 
 
-  def add_routing_for_appserver(self, version_key, appserver_ip, port):
-    """ Tells the AppController to begin routing traffic to an AppServer.
-
-    Args:
-      version_key: A string that contains the version key.
-      appserver_ip: A string that contains the IP address of the instance
-        running the AppServer.
-      port: A string that contains the port that the AppServer listens on.
-    """
-    return self.call(self.MAX_RETRIES, self.server.add_routing_for_appserver,
-                     version_key, appserver_ip, port, self.secret)
-
-
   def add_routing_for_blob_server(self):
     """ Tells the AppController to begin routing traffic to the
         BlobServer(s).

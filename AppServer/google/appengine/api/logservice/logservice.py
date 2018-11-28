@@ -277,6 +277,7 @@ class LogsBuffer(object):
     """Internal version of flush() with no locking."""
     logs = self.parse_logs()
     self._clear()
+
     first_iteration = True
     while logs or first_iteration:
       first_iteration = False
@@ -768,6 +769,18 @@ class RequestLog(object):
                       for line in self.__pb.line_list()]
     return self.__lines
 
+  @property
+  def app_engine_release(self):
+    """App Engine Infrastructure release that served this request.
+
+    Returns:
+       A string containing App Engine version that served this request, or None
+       if not available.
+    """
+    if self.__pb.has_app_engine_release():
+      return self.__pb.app_engine_release()
+    return None
+
 
 class AppLog(object):
   """Application log line emitted while processing a request."""
@@ -920,10 +933,12 @@ def fetch(start_time=None,
                                'used at the same time.')
 
   if version_ids is None and module_versions is None:
+    module_version = request.add_module_version()
+    if os.environ['CURRENT_MODULE_ID'] != 'default':
 
-
-    version_id = os.environ['CURRENT_VERSION_ID']
-    request.add_module_version().set_version_id(version_id.split('.')[0])
+      module_version.set_module_id(os.environ['CURRENT_MODULE_ID'])
+    module_version.set_version_id(
+        os.environ['CURRENT_VERSION_ID'].split('.')[0])
 
   if module_versions:
     if not isinstance(module_versions, list):

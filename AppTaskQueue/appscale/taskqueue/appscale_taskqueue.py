@@ -206,7 +206,7 @@ class StatsHandler(RequestHandler):
     except ValueError:
       self.set_status(400, "cursor and last_milliseconds "
                            "arguments should be integers")
-      raise gen.Return()
+      return
 
     with (yield stats_lock.acquire()):
       cumulative_counters = service_stats.get_cumulative_counters()
@@ -283,7 +283,7 @@ def main():
                       help='Output debug-level logging')
   args = parser.parse_args()
   if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
 
   # Configure zookeeper and db access
   zk_client = KazooClient(

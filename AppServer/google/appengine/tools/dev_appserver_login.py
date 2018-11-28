@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+
+
 """Helper CGI for logins/logout in the development application server.
 
 This CGI has these parameters:
@@ -43,12 +46,16 @@ EMAIL_PARAM = 'email'
 ADMIN_PARAM = 'admin'
 ACTION_PARAM = 'action'
 
+
 LOGOUT_ACTION = 'Logout'
 LOGIN_ACTION = 'Login'
 
+
 LOGOUT_PARAM = 'action=%s' % LOGOUT_ACTION
 
+
 COOKIE_NAME = 'dev_appserver_login'
+
 
 
 def GetUserInfo(http_cookie, cookie_name=COOKIE_NAME):
@@ -154,12 +161,11 @@ def LoginRedirect(login_url,
   """
   hostname = os.environ['NGINX_HOST']
 
-  # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
-  version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
-  if ':' not in version_info:
-    version_info = 'default:' + version_info
+  service_id = os.environ.get('CURRENT_MODULE_ID', 'default')
 
-  service_id, version_id = version_info.split(':')
+  # CURRENT_VERSION_ID is formatted as major_version.minor_version.
+  version_id = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
+
   version_key = '_'.join(
     [os.environ['APPLICATION_ID'], service_id, version_id])
 
@@ -212,12 +218,11 @@ def main():
 
   nginx_url = os.environ['NGINX_HOST']
 
-  # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
-  version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
-  if ':' not in version_info:
-    version_info = 'default:' + version_info
+  service_id = os.environ.get('CURRENT_MODULE_ID', 'default')
 
-  service_id, version_id = version_info.split(':')
+  # CURRENT_VERSION_ID is formatted as major_version.minor_version.
+  version_id = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
+
   version_key = '_'.join(
     [os.environ['APPLICATION_ID'], service_id, version_id])
 
@@ -258,4 +263,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-

@@ -785,6 +785,10 @@ class Task(object):
       InvalidTaskError: If the task is invalid.
     """
 
+
+
+
+
     if 'HTTP_HOST' not in os.environ:
       logging.warning(
           'The HTTP_HOST environment variable was not set, but is required '
@@ -860,7 +864,11 @@ class Task(object):
     """
     default_hostname = app_identity.get_default_version_hostname()
     if default_hostname is None:
+
+
+
       return None
+
     # AppScale: We do not support the instance parameter.
     target_info = target.split('.')
     if len(target_info) > 2:
@@ -1879,6 +1887,11 @@ class Queue(object):
     queues in pull mode. Similarly, pull tasks may not be added to queues in
     push mode.
 
+    If a TaskAlreadyExistsError or TombstonedTaskError is raised, the caller can
+    be guaranteed that for each one of the provided tasks, either the
+    corresponding task was successfully added, or a task with the given name was
+    successfully added in the past.
+
     Args:
       task: A Task instance or a list of Task instances that will be added to
         the queue.
@@ -1901,6 +1914,10 @@ class Queue(object):
       InvalidQueueModeError: if a task with method PULL is added to a queue in
         push mode, or a task with method not equal to PULL is added to a queue
         in pull mode.
+      TaskAlreadyExistsError: if a task with the same name as a given name has
+        previously been added to the queue.
+      TombstonedTaskError: if a task with the same name as a given name has
+        previously been added to the queue and deleted.
       TooManyTasksError: if task contains more than MAX_TASKS_PER_ADD tasks.
       TransactionalRequestTooLargeError: if transactional is True and the total
         size of the tasks and supporting request data exceeds
@@ -1937,7 +1954,8 @@ class Queue(object):
         elif (task_result.result() ==
               taskqueue_service_pb.TaskQueueServiceError.SKIPPED):
           pass
-        elif exception is None:
+        elif (exception is None or isinstance(exception, TaskAlreadyExistsError)
+              or isinstance(exception, TombstonedTaskError)):
           exception = _TranslateError(task_result.result())
 
       if exception is not None:

@@ -17,7 +17,7 @@ fi
 
 JAVA_VERSION="java-8-openjdk"
 case "${DIST}" in
-    trusty|wheezy) JAVA_VERSION="java-7-openjdk" ;;
+    wheezy) JAVA_VERSION="java-7-openjdk" ;;
 esac
 
 export UNAME_MACHINE=$(uname -m)
@@ -160,6 +160,17 @@ root            soft    nofile           200000
 *               soft    nofile           200000
 *               -       nproc            32768
 EOF
+
+    # On distros with systemd, the open file limit must be adjusted for each
+    # service.
+    if which systemctl > /dev/null && [ "${IN_DOCKER}" != "yes" ]; then
+        mkdir -p /etc/systemd/system/nginx.service.d
+        cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
+[Service]
+LimitNOFILE=200000
+EOF
+        systemctl daemon-reload
+    fi
 }
 
 installappscaleprofile()
@@ -303,7 +314,7 @@ installgems()
     sleep 1
     gem install json ${GEMOPT} -v 1.8.3
     sleep 1
-    gem install soap4r-ng ${GEMOPT}
+    gem install soap4r-ng ${GEMOPT} -v 2.0.3
     gem install httparty ${GEMOPT} -v 0.14.0
     gem install httpclient ${GEMOPT}
     gem install posixpsutil ${GEMOPT}
@@ -335,8 +346,10 @@ installcassandra()
 {
     CASSANDRA_VER=3.11.2
 
-    CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-bin.tar.gz"
-    CASSANDRA_PACKAGE_MD5="1c1bc0b216f308500e219968acbd625e"
+    # The following is a Cassandra package built from source with the inclusion
+    # of https://issues.apache.org/jira/browse/CASSANDRA-12942.
+    CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-w-12942-bin.tar.gz"
+    CASSANDRA_PACKAGE_MD5="25a9039dba8fe7ffe5e5e560e65c1f6f"
     cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
 
     # Remove old Cassandra environment directory.
@@ -532,20 +545,23 @@ installapiclient()
 installgosdk()
 {
     if [ ${UNAME_MACHINE} = "x86_64" ]; then
-        GO_SDK_PACKAGE="go_appengine_sdk_linux_amd64-1.9.48.zip"
-        GO_SDK_PACKAGE_MD5="b5c1a3eab1ba69993c3a35661ec3043d"
+        GO_SDK_PACKAGE="appscale-go-runtime-1.9.48.zip"
+        GO_SDK_PACKAGE_MD5="3af8c4f6b3a147f99590862d2815025b"
+
+        GO_RUNTIME_DIR="/opt/go_appengine"
+        cachepackage ${GO_SDK_PACKAGE} ${GO_SDK_PACKAGE_MD5}
+
+        echo "Extracting Go SDK"
+        # Remove existing SDK directory in case it's old.
+        rm -rf ${GO_RUNTIME_DIR}
+        mkdir -p ${GO_RUNTIME_DIR}/gopath
+        unzip -q ${PACKAGE_CACHE}/${GO_SDK_PACKAGE} -d ${GO_RUNTIME_DIR}
     else
-        GO_SDK_PACKAGE="go_appengine_sdk_linux_386-1.9.48.zip"
-        GO_SDK_PACKAGE_MD5="b6aad6a3cb2506dfe1067e06fb93f9fb"
+        echo "Warning: There is no binary appscale-go-runtime package"
+        echo "available for ${UNAME_MACHINE}. If you need support for Go"
+        echo "applications, compile github.com/AppScale/appscale-go-runtime"
+        echo "and install in ${GO_RUNTIME_DIR}/goroot."
     fi
-
-    EXTRAS_DIR="/opt"
-    cachepackage ${GO_SDK_PACKAGE} ${GO_SDK_PACKAGE_MD5}
-
-    echo "Extracting Go SDK"
-    # Remove existing SDK directory in case it's old.
-    rm -rf ${EXTRAS_DIR}/go_appengine
-    unzip -q ${PACKAGE_CACHE}/${GO_SDK_PACKAGE} -d ${EXTRAS_DIR}
 }
 
 installpycapnp()
@@ -559,6 +575,14 @@ installpyyaml()
     if [ "${DIST}" = "xenial" ]; then
         pipwrapper PyYAML
     fi
+}
+
+installsoappy()
+{
+    # This particular version is needed for
+    # google.appengine.api.xmpp.unverified_transport, which imports
+    # SOAPpy.HTTPWithTimeout.
+    pipwrapper SOAPpy==0.12.22
 }
 
 preplogserver()
@@ -618,9 +642,20 @@ installapiserver()
 
     # The activate script fails under `set -u`.
     unset_opt=$(shopt -po nounset)
+    case ${DIST} in
+        wheezy|trusty)
+            # Tornado 5 does not work with Python<2.7.9.
+            tornado_package='tornado<5'
+            ;;
+        *)
+            tornado_package='tornado'
+            ;;
+    esac
+
     set +u
     (source /opt/appscale_api_server/bin/activate && \
      pip install -U pip && \
+     pip install "${tornado_package}" && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}
@@ -639,16 +674,17 @@ prepdashboard()
 upgradepip()
 {
     # Versions older than Pip 7 did not correctly parse install commands for
-    # local packages with optional dependencies.
+    # local packages with optional dependencies. Versions greater than Pip 9
+    # do not allow replacing packages installed by the distro.
     case "$DIST" in
         wheezy|trusty)
-            pipwrapper pip
+            pipwrapper 'pip<10'
             # Account for the change in the path to the pip binary.
             hash -r
             ;;
         jessie)
             # The system's pip does not allow updating itself.
-            easy_install --upgrade pip
+            easy_install --upgrade 'pip<10.0.0b1'
             hash -r
             ;;
     esac

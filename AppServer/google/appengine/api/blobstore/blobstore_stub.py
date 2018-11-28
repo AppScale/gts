@@ -194,7 +194,6 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     self.__time_function = time_function
     self.__next_session_id = 1
     self.__uploader_path = uploader_path
-    self.__block_key_cache = None
 
   @classmethod
   def ToDatastoreBlobKey(cls, blobkey):
@@ -289,9 +288,11 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
                                   max_bytes_total,
                                   bucket_name)
 
+    # AppScale: Keep scheme for upload URL consistent with current context.
     scheme = self.request_data.get_scheme(request_id)
     protocol, host, _, _, _, _ = urlparse.urlparse(
       self.request_data.get_request_url(request_id, scheme=scheme))
+    # End AppScale.
 
     response.set_url('%s://%s/%s%s' % (protocol, host, self.__uploader_path,
                                        session))
@@ -304,8 +305,12 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       blobkey: blobkey in str.
       storage: blobstore storage stub.
     """
-    # We need blobinfo to tell us how big the blob is. The delete happens
-    # within DeleteBlob.
+    datastore.Delete(cls.ToDatastoreBlobKey(blobkey))
+
+    blobinfo = datastore_types.Key.from_path(blobstore.BLOB_INFO_KIND,
+                                             blobkey,
+                                             namespace='')
+    datastore.Delete(blobinfo)
     storage.DeleteBlob(blobkey)
 
   def _Dynamic_DeleteBlob(self, request, response, unused_request_id):
@@ -340,78 +345,37 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
           MAX_BLOB_FRAGMENT_SIZE.
         BLOB_NOT_FOUND: If invalid blob-key is provided or is not found.
     """
+
     start_index = request.start_index()
     if start_index < 0:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.DATA_INDEX_OUT_OF_RANGE)
+
 
     end_index = request.end_index()
     if end_index < start_index:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.DATA_INDEX_OUT_OF_RANGE)
 
+
     fetch_size = end_index - start_index + 1
     if fetch_size > blobstore.MAX_BLOB_FETCH_SIZE:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.BLOB_FETCH_SIZE_TOO_LARGE)
-    blob_key = request.blob_key()
 
-    # Get the block we will start from
-    block_count = int(start_index/blobstore.MAX_BLOB_FETCH_SIZE)
 
-    # Get the block's bytes we'll copy
-    block_modulo = int(start_index % blobstore.MAX_BLOB_FETCH_SIZE)
-
-    # This is the last block we'll look at for this request
-    block_count_end = int(end_index/blobstore.MAX_BLOB_FETCH_SIZE)
-
-    block_key = str(blob_key) + "__" + str(block_count)
-    block_key = datastore.Key.from_path("__BlobChunk__",
-                                        block_key,
-                                        namespace='')
-    if self.__block_key_cache != str(block_key):
-      try:
-        block = datastore.Get(block_key)
-      except datastore_errors.EntityNotFoundError:
-        raise apiproxy_errors.ApplicationError(
-           blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
-
-      self.__block_cache = block["block"]
-      self.__block_key_cache = str(block_key)
-
-    # Matching boundaries, start and end are within one fetch
-    if block_count_end == block_count:
-      # Is there enough data to satisfy fetch_size bytes?
-      if len(self.__block_cache[block_modulo:]) >= fetch_size:
-        data = self.__block_cache[block_modulo:block_modulo + fetch_size]
-        response.set_data(data)
-        return
-      else:
-        # Return whatever is left, not fetch_size amount
-        data = self.__block_cache[block_modulo:]
-        response.set_data(data)
-        return
-    
-    data = self.__block_cache[block_modulo:]
-    data_size = len(data)
-
-    # Must fetch the next block
-    block_key = blob_key + "__" + str(block_count + 1)
-    block_key = datastore.Key.from_path("__BlobChunk__",
-                                        block_key,
-                                        namespace='')
+    blobkey = request.blob_key()
+    info_key = self.ToDatastoreBlobKey(blobkey)
     try:
-      block = datastore.Get(block_key)
+      datastore.Get(info_key)
     except datastore_errors.EntityNotFoundError:
-      data = self.__block_cache[block_modulo:]
-      response.set_data(data)
-      return
+      raise apiproxy_errors.ApplicationError(
+          blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
 
-    self.__block_cache = block["block"]
-    self.__block_key_cache = str(block_key)
-    data += self.__block_cache[0: fetch_size - data_size]
-    response.set_data(data)
 
+    blob_file = self.__storage.OpenBlob(blobkey)
+    blob_file.seek(start_index)
+    response.set_data(blob_file.read(fetch_size))
 
   def _Dynamic_DecodeBlobKey(self, request, response, unused_request_id):
     """Decode a given blob key: data is simply base64-decoded.

@@ -109,14 +109,14 @@ mkdir -p /etc/ejabberd && touch /etc/ejabberd/ejabberd.pem
 
 # This will install dependencies from control.$DIST (ie distro specific
 # packages).
-PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +)"
+PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec debian/package-list.sh {} +)"
 if ! ${PKG_CMD} install -y --force-yes ${PACKAGES}; then
     echo "Fail to install depending packages for runtime."
     exit 1
 fi
 
 # This will remove all the conflicts packages.
-PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec mawk -f debian/remove-list.awk {} +)"
+PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec debian/remove-list.sh {} +)"
 if ! ${PKG_CMD} remove --purge -y --force-yes ${PACKAGES}; then
     echo "Fail to remove conflicting packages"
     exit 1
@@ -130,7 +130,7 @@ if [ "${DIST}" = "jessie" ]; then
     fi
     apt-get update
     apt-get -t jessie-backports -y install capnproto
-    apt-get -t jessie-backports -y install openjdk-8-jdk
+    apt-get -t jessie-backports -y install openjdk-8-jdk-headless
 fi
 
 # Let's make sure we use ruby 1.9.

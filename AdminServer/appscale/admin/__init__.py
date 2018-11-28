@@ -8,7 +8,16 @@ import json
 import logging
 import os
 import re
+import six
+import sys
 import time
+
+try:
+  from urllib import quote as urlquote
+except ImportError:
+  from urllib.parse import quote as urlquote
+
+import requests_unixsocket
 
 from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info
@@ -28,15 +37,19 @@ from kazoo.client import KazooClient
 from kazoo.exceptions import NodeExistsError
 from kazoo.exceptions import NoNodeError
 from kazoo.exceptions import NotEmptyError
+from tabulate import tabulate
 from tornado import gen
 from tornado.options import options
 from tornado import web
 from tornado.escape import json_decode
 from tornado.escape import json_encode
+from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
+from tornado.netutil import bind_unix_socket
 from . import utils
 from . import constants
 from .appengine_api import UpdateCronHandler
+from .appengine_api import UpdateIndexesHandler
 from .appengine_api import UpdateQueuesHandler
 from .base_handler import BaseHandler
 from .constants import (
@@ -57,9 +70,11 @@ from .operation import (
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
+from .resource_validator import validate_resource, ResourceValidationError
+from .service_manager import ServiceManager, ServiceManagerHandler
+from .summary import get_combined_services
 
-
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 # The state of each operation.
 operations = OperationsCache()
@@ -109,12 +124,11 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
 
 
 @gen.coroutine
-def wait_for_deploy(operation_id, acc):
+def wait_for_deploy(operation_id):
   """ Tracks the progress of a deployment.
 
   Args:
     operation_id: A string specifying the operation ID.
-    acc: An AppControllerClient instance.
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
@@ -352,54 +366,6 @@ class ProjectHandler(BaseVersionHandler):
     self.thread_pool = thread_pool
 
   @gen.coroutine
-  def wait_for_delete(self, ports_to_close, project_id):
-    """ Tracks the progress of removing version(s).
-
-    Args:
-      ports_to_close: A list of integers specifying the ports to wait for.
-      project_id: The id of the project we are deleting.
-    Raises:
-      OperationTimeout if the deadline is exceeded.
-    """
-    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
-    update_project_state(self.zk_client, project_id,
-                         LifecycleState.DELETE_IN_PROGRESS)
-    start_time = time.time()
-    deadline = start_time + constants.MAX_OPERATION_TIME
-
-    finished = 0
-    ports = ports_to_close[:]
-    while True:
-      if time.time() > deadline:
-        logger.error('Delete operation took too long (project_id: {}).'
-                     .format(project_id))
-        raise gen.Return()
-      to_remove = []
-      for http_port in ports:
-        # If the port is open, continue to process other ports.
-        if utils.port_is_open(options.login_ip, int(http_port)):
-          continue
-        # Otherwise one more port has finished and remove it from the list of
-        # ports to check.
-        finished += 1
-        to_remove.append(http_port)
-      ports = [p for p in ports if p not in to_remove]
-      if finished == len(ports_to_close):
-        break
-
-      yield gen.sleep(1)
-
-    # Cleanup the project in zookeeper.
-    yield self.thread_pool.submit(self.version_update_lock.acquire)
-    try:
-      try:
-        self.zk_client.delete(project_path, recursive=True)
-      except NoNodeError:
-        pass
-    finally:
-      self.version_update_lock.release()
-
-  @gen.coroutine
   def delete(self, project_id):
     """ Deletes a project.
 
@@ -407,22 +373,35 @@ class ProjectHandler(BaseVersionHandler):
       project_id: The id of the project to delete.
     """
     self.authenticate(project_id, self.ua_client)
-    project_path = constants.PROJECT_NODE_TEMPLATE.format(project_id)
-    update_project_state(self.zk_client, project_id,
-                         LifecycleState.DELETE_REQUESTED)
-    ports_to_close = []
-    # Delete each version of each service of the project.
-    for service_id in \
-        self.zk_client.get_children("{0}/services".format(project_path)):
-      for version_id in self.zk_client.get_children(
-          "{0}/services/{1}/versions".format(project_path, service_id)):
+    raise CustomHTTPError(HTTPCodes.NOT_IMPLEMENTED,
+                          message='Project deletion is not supported')
 
-        port = yield self.start_delete_version(project_id, service_id,
-                                               version_id)
-        ports_to_close.append(port)
 
-    IOLoop.current().spawn_callback(self.wait_for_delete,
-                                    ports_to_close, project_id)
+class ServicesHandler(BaseVersionHandler):
+  """ Manages a project's services. """
+  def initialize(self, ua_client, zk_client):
+    self._ua_client = ua_client
+    self._zk_client = zk_client
+
+  def get(self, project_id):
+    """ Lists all the services in a project. """
+    self.authenticate(project_id, self._ua_client)
+    project_node = '/'.join(['/appscale', 'projects', project_id])
+    services_node = '/'.join([project_node, 'services'])
+    if not self._zk_client.exists(project_node):
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Project does not exist')
+
+    try:
+      service_ids = self._zk_client.get_children(services_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Services node not found for project')
+
+    prefix = '/'.join(['apps', project_id, 'services'])
+    services = [{'name': '/'.join([prefix, service_id]), 'id': service_id}
+                for service_id in service_ids]
+    json.dump({'services': services}, self)
 
 
 class ServiceHandler(BaseVersionHandler):
@@ -485,24 +464,28 @@ class ServiceHandler(BaseVersionHandler):
 class VersionsHandler(BaseHandler):
   """ Manages service versions. """
 
+  # A rule for validating project IDs.
+  PROJECT_ID_RE = re.compile(r'^[a-z][a-z0-9\-]{5,29}$')
+
   # A rule for validating version IDs.
-  VERSION_ID_RE = re.compile(r'(?!-)[a-z\d\-]{1,100}')
+  VERSION_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
+
+  # A rule for validating service IDs.
+  SERVICE_ID_RE = re.compile(r'^(?!-)[a-z0-9-]{0,62}[a-z0-9]$')
+
 
   # Reserved names for version IDs.
   RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
 
-  def initialize(self, acc, ua_client, zk_client, version_update_lock,
-                 thread_pool):
+  def initialize(self, ua_client, zk_client, version_update_lock, thread_pool):
     """ Defines required resources to handle requests.
 
     Args:
-      acc: An AppControllerClient.
       ua_client: A UAClient.
       zk_client: A KazooClient.
       version_update_lock: A kazoo lock.
       thread_pool: A ThreadPoolExecutor.
     """
-    self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
     self.version_update_lock = version_update_lock
@@ -561,20 +544,24 @@ class VersionsHandler(BaseHandler):
     # Prevent multiple versions per service.
     if version['id'] != constants.DEFAULT_VERSION:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Invalid version ID')
+                            message='AppScale currently does not support versions, '
+                                    'so you have to use default version ID, i.e. "v1"')
 
     if not self.VERSION_ID_RE.match(version['id']):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Invalid version ID')
+                            message='Invalid version ID. '
+                                    'May only contain lowercase letters, digits, '
+                                    'and hyphens. Must begin and end with a letter '
+                                    'or digit. Must not exceed 63 characters.')
 
     for reserved_id in self.RESERVED_VERSION_IDS:
       if re.match(reserved_id, version['id']):
         raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                               message='Reserved version ID')
 
-    if 'basicScaling' in version or 'manualScaling' in version:
+    if 'basicScaling' in version:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='Only automaticScaling is supported')
+                            message='Invalid scaling, basicScaling is not supported')
 
     for inbound_service in version.get('inboundServices', []):
       if inbound_service not in SUPPORTED_INBOUND_SERVICES:
@@ -595,6 +582,12 @@ class VersionsHandler(BaseHandler):
         https_port not in constants.ALLOWED_HTTPS_PORTS):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Invalid HTTPS port')
+
+    try:
+      validate_resource(version, 'version')
+    except ResourceValidationError as e:
+        resource_message = 'Invalid request: {}'.format(e.message)
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=resource_message)
 
     return version
 
@@ -665,25 +658,6 @@ class VersionsHandler(BaseHandler):
       self.zk_client.set(version_node, json.dumps(new_version))
 
     return new_version
-
-  def begin_deploy(self, project_id, service_id, version_id):
-    """ Triggers the deployment process.
-
-    Args:
-      project_id: A string specifying a project ID.
-      service_id: A string specifying a service ID.
-      version_id: A string specifying a version ID.
-    Raises:
-      CustomHTTPError if unable to start the deployment process.
-    """
-    version_key = VERSION_PATH_SEPARATOR.join(
-      [project_id, service_id, version_id])
-
-    try:
-      self.acc.update([version_key])
-    except AppControllerException as error:
-      message = 'Error while updating version: {}'.format(error)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
   @gen.coroutine
   def identify_as_hoster(self, project_id, service_id, version):
@@ -764,6 +738,20 @@ class VersionsHandler(BaseHandler):
       project_id: A string specifying a project ID.
       service_id: A string specifying a service ID.
     """
+
+    if not self.PROJECT_ID_RE.match(project_id):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid project ID. '
+                                    'It must be 6 to 30 lowercase letters, digits, '
+                                    'or hyphens. It must start with a letter.')
+
+    if not self.SERVICE_ID_RE.match(service_id):
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid service ID. '
+                                    'May only contain lowercase letters, digits, '
+                                    'and hyphens. Must begin and end with a letter '
+                                    'or digit. Must not exceed 63 characters.')
+
     self.authenticate(project_id, self.ua_client)
     version = self.version_from_payload()
 
@@ -779,7 +767,8 @@ class VersionsHandler(BaseHandler):
         version['deployment']['zip']['sourceUrl'])
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
     except constants.InvalidSource as error:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=str(error))
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message=six.text_type(error))
 
     new_path = utils.rename_source_archive(project_id, service_id, version)
     version['deployment']['zip']['sourceUrl'] = new_path
@@ -789,7 +778,7 @@ class VersionsHandler(BaseHandler):
     try:
       version = self.put_version(project_id, service_id, version)
     except VersionNotChanged as warning:
-      logger.info(str(warning))
+      logger.info(six.text_type(warning))
       self.stop_hosting_revision(project_id, service_id, version)
       return
     finally:
@@ -797,16 +786,14 @@ class VersionsHandler(BaseHandler):
 
     self.clean_up_revision_nodes(project_id, service_id, version)
     utils.remove_old_archives(project_id, service_id, version)
-    self.begin_deploy(project_id, service_id, version['id'])
 
     operation = CreateVersionOperation(project_id, service_id, version)
     operations[operation.id] = operation
 
     pre_wait = REDEPLOY_WAIT if version_exists else 0
-    logging.debug(
+    logger.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
-    IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id,
-                                self.acc)
+    IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id)
 
     self.write(json_encode(operation.rest_repr()))
 
@@ -863,8 +850,16 @@ class VersionHandler(BaseVersionHandler):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
     desired_fields = update_mask.split(',')
-    supported_fields = {'appscaleExtensions.httpPort',
-                        'appscaleExtensions.httpsPort'}
+    supported_fields = {
+      'appscaleExtensions.httpPort',
+      'appscaleExtensions.httpsPort',
+      'automaticScaling.standard_scheduler_settings.max_instances',
+      'automaticScaling.standard_scheduler_settings.min_instances'}
+    mapped_fields = {
+      'automaticScaling.standard_scheduler_settings.max_instances':
+        'automaticScaling.standardSchedulerSettings.maxInstances',
+      'automaticScaling.standard_scheduler_settings.min_instances':
+        'automaticScaling.standardSchedulerSettings.minInstances'}
     for field in desired_fields:
       if field not in supported_fields:
         message = ('This operation is only supported on the following '
@@ -876,8 +871,10 @@ class VersionHandler(BaseVersionHandler):
     except ValueError:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message='Payload must be valid JSON')
-
-    masked_version = utils.apply_mask_to_version(given_version, desired_fields)
+    rest_to_json = lambda field : mapped_fields.get(field, field)
+    masked_version = utils.apply_mask_to_version(
+      given_version,
+      list(map(rest_to_json, desired_fields)))
 
     extensions = masked_version.get('appscaleExtensions', {})
     http_port = extensions.get('httpPort', None)
@@ -912,8 +909,20 @@ class VersionHandler(BaseVersionHandler):
       raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Version not found')
 
     version = json.loads(version_json)
+
+    if 'automaticScaling' in new_fields:
+      if 'manualScaling' in version:
+        scaling_error = 'Invalid scaling update for Manual Scaling version'
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=scaling_error)
+
+      (version.setdefault('automaticScaling', {})
+              .setdefault('standardSchedulerSettings',{})
+              .update(new_fields.get('automaticScaling')
+                                .get('standardSchedulerSettings',{})))
+
     new_ports = utils.assign_ports(version, new_fields, self.zk_client)
     version['appscaleExtensions'].update(new_ports)
+
     self.zk_client.set(version_node, json.dumps(version))
     return version
 
@@ -937,6 +946,37 @@ class VersionHandler(BaseVersionHandler):
 
     if https_port is not None:
       new_fields['appscaleExtensions']['httpsPort'] = https_port
+
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      version = self.update_version(project_id, service_id, version_id,
+                                    new_fields)
+    finally:
+      self.version_update_lock.release()
+
+    raise gen.Return(version)
+
+  @gen.coroutine
+  def update_scaling_for_version(self, project_id, service_id, version_id,
+                                 min_instances, max_instances):
+    """ Updates scaling settings for a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+      min_instances: An integer specifying minimum instances.
+      max_instances: An integer specifying maximum instances.
+    Returns:
+      A dictionary containing completed version details.
+    """
+    new_fields = {'automaticScaling': {'standardSchedulerSettings': {}}}
+    scheduler_fields = new_fields['automaticScaling']['standardSchedulerSettings']
+    if min_instances is not None:
+      scheduler_fields['minInstances'] = min_instances
+
+    if max_instances is not None:
+      scheduler_fields['maxInstances'] = max_instances
 
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
@@ -1000,7 +1040,7 @@ class VersionHandler(BaseVersionHandler):
     IOLoop.current().spawn_callback(wait_for_delete,
                                     del_operation.id, ports_to_close)
 
-    self.write(json_encode(del_operation))
+    self.write(json_encode(del_operation.rest_repr()))
 
   @gen.coroutine
   def patch(self, project_id, service_id, version_id):
@@ -1025,6 +1065,17 @@ class VersionHandler(BaseVersionHandler):
       new_https_port = extensions.get('httpsPort')
       version = yield self.relocate_version(
         project_id, service_id, version_id, new_http_port, new_https_port)
+
+    automatic_scaling = version.get('automaticScaling', {})
+    standard_settings = automatic_scaling.get(
+      'standardSchedulerSettings', {})
+    if ('minInstances' in standard_settings or
+        'maxInstances' in standard_settings):
+      new_min_instances = standard_settings.get('minInstances', None)
+      new_max_instances = standard_settings.get('maxInstances', None)
+      version = yield self.update_scaling_for_version(
+        project_id, service_id, version_id, new_min_instances,
+        new_max_instances)
 
     operation = UpdateVersionOperation(project_id, service_id, version)
     self.write(json_encode(operation.rest_repr()))
@@ -1175,15 +1226,44 @@ def main():
   """ Starts the AdminServer. """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
-  parser = argparse.ArgumentParser()
-  parser.add_argument('-p', '--port', type=int, default=constants.DEFAULT_PORT,
-                      help='The port to listen on')
-  parser.add_argument('-v', '--verbose', action='store_true',
-                      help='Output debug-level logging')
+  parser = argparse.ArgumentParser(
+    prog='appscale-admin', description='Manages AppScale-related processes')
+  subparsers = parser.add_subparsers(dest='command')
+  subparsers.required = True
+
+  serve_parser = subparsers.add_parser(
+    'serve', description='Starts the server that manages AppScale processes')
+  serve_parser.add_argument(
+    '-p', '--port', type=int, default=constants.DEFAULT_PORT,
+    help='The port to listen on')
+  serve_parser.add_argument(
+    '-v', '--verbose', action='store_true', help='Output debug-level logging')
+
+  subparsers.add_parser(
+    'summary', description='Lists AppScale processes running on this machine')
+  restart_parser = subparsers.add_parser(
+    'restart',
+    description='Restart AppScale processes running on this machine')
+  restart_parser.add_argument('service', nargs='+',
+                              help='The process or service ID to restart')
+
   args = parser.parse_args()
+  if args.command == 'summary':
+    table = sorted(list(get_combined_services().items()))
+    print(tabulate(table, headers=['Service', 'State']))
+    sys.exit(0)
+
+  if args.command == 'restart':
+    socket_path = urlquote(ServiceManagerHandler.SOCKET_PATH, safe='')
+    session = requests_unixsocket.Session()
+    response = session.post(
+      'http+unix://{}/'.format(socket_path),
+      data={'command': 'restart', 'arg': [args.service]})
+    response.raise_for_status()
+    return
 
   if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
 
   options.define('secret', appscale_info.get_secret())
   options.define('login_ip', appscale_info.get_login_ip())
@@ -1211,24 +1291,39 @@ def main():
     logger.info('Starting push worker manager')
     GlobalPushWorkerManager(zk_client, monit_operator)
 
+  service_manager = ServiceManager(zk_client)
+  service_manager.start()
+
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions', VersionsHandler,
-     all_resources),
+    ('/v1/apps/([^/]*)/services/([^/]*)/versions', VersionsHandler,
+     {'ua_client': ua_client, 'zk_client': zk_client,
+      'version_update_lock': version_update_lock, 'thread_pool': thread_pool}),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)', ServiceHandler,
+    ('/v1/apps/([^/]*)/services', ServicesHandler,
+     {'ua_client': ua_client, 'zk_client': zk_client}),
+    ('/v1/apps/([^/]*)/services/([^/]*)', ServiceHandler,
      all_resources),
-    ('/v1/apps/([a-z0-9-]+)/services/([a-z0-9-]+)/versions/([a-z0-9-]+)',
+    ('/v1/apps/([^/]*)/services/([^/]*)/versions/([^/]*)',
      VersionHandler, all_resources),
-    ('/v1/apps/([a-z0-9-]+)/operations/([a-z0-9-]+)', OperationsHandler,
+    ('/v1/apps/([^/]*)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
     ('/api/cron/update', UpdateCronHandler,
      {'acc': acc, 'zk_client': zk_client, 'ua_client': ua_client}),
+    ('/api/datastore/index/add', UpdateIndexesHandler,
+     {'zk_client': zk_client, 'ua_client': ua_client}),
     ('/api/queue/update', UpdateQueuesHandler,
      {'zk_client': zk_client, 'ua_client': ua_client})
   ])
   logger.info('Starting AdminServer')
   app.listen(args.port)
+
+  management_app = web.Application([
+    ('/', ServiceManagerHandler, {'service_manager': service_manager})])
+  management_server = HTTPServer(management_app)
+  management_socket = bind_unix_socket(ServiceManagerHandler.SOCKET_PATH)
+  management_server.add_socket(management_socket)
+
   io_loop = IOLoop.current()
   io_loop.start()

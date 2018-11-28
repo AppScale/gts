@@ -45,12 +45,14 @@ __all__ = ['CS_XML_NS',
            'local_run',
            'get_access_token',
            'get_metadata',
+           'GCSFileStat',
            'http_time_to_posix',
            'memory_usage',
            'posix_time_to_http',
            'posix_to_dt_str',
            'set_access_token',
            'validate_options',
+           'validate_bucket_name',
            'validate_bucket_path',
            'validate_file_path',
           ]
@@ -70,10 +72,18 @@ except ImportError:
   from google.appengine.api import runtime
 
 
-_CS_BUCKET_REGEX = re.compile(r'/[a-z0-9\.\-_]{3,}$')
-_CS_FULLPATH_REGEX = re.compile(r'/[a-z0-9\.\-_]{3,}/.*')
-_CS_OPTIONS = ('x-goog-acl',
-               'x-goog-meta-')
+_GCS_BUCKET_REGEX_BASE = r'[a-z0-9\.\-_]{3,63}'
+_GCS_BUCKET_REGEX = re.compile(_GCS_BUCKET_REGEX_BASE + r'$')
+_GCS_BUCKET_PATH_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'$')
+_GCS_PATH_PREFIX_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'.*')
+_GCS_FULLPATH_REGEX = re.compile(r'/' + _GCS_BUCKET_REGEX_BASE + r'/.*')
+
+_GCS_METADATA = ['x-goog-meta-',
+                 'content-disposition',
+                 'cache-control',
+                 'content-encoding']
+
+_GCS_OPTIONS = _GCS_METADATA + ['x-goog-acl']
 
 CS_XML_NS = 'http://doc.s3.amazonaws.com/2006-03-01'
 
@@ -82,15 +92,19 @@ LOCAL_API_HOST = 'gcs-magicstring.appspot.com'
 _access_token = ''
 
 
+
+_MAX_GET_BUCKET_RESULT = 1000
+
+
 def set_access_token(access_token):
-  """Set the shared access token to authenticate with Cloud Storage.
+  """Set the shared access token to authenticate with Google Cloud Storage.
 
   When set, the library will always attempt to communicate with the
-  real Cloud Storage with this token even when running on dev appserver.
+  real Google Cloud Storage with this token even when running on dev appserver.
   Note the token could expire so it's up to you to renew it.
 
   When absent, the library will automatically request and refresh a token
-  on appserver, or when on dev appserver, talk to a Cloud Storage
+  on appserver, or when on dev appserver, talk to a Google Cloud Storage
   stub.
 
   Args:
@@ -106,8 +120,8 @@ def get_access_token():
   return _access_token
 
 
-class CSFileStat(object):
-  """Container for CS file stat."""
+class GCSFileStat(object):
+  """Container for GCS file stat."""
 
   def __init__(self,
                filename,
@@ -115,28 +129,43 @@ class CSFileStat(object):
                etag,
                st_ctime,
                content_type=None,
-               metadata=None):
+               metadata=None,
+               is_dir=False):
     """Initialize.
 
+    For files, the non optional arguments are always set.
+    For directories, only filename and is_dir is set.
+
     Args:
-      filename: a Google Storage filename of form '/bucket/filename'.
+      filename: a Google Cloud Storage filename of form '/bucket/filename'.
       st_size: file size in bytes. long compatible.
       etag: hex digest of the md5 hash of the file's content. str.
       st_ctime: posix file creation time. float compatible.
       content_type: content type. str.
-      metadata: a str->str dict of user specified metadata from the
-        x-goog-meta header, e.g. {'x-goog-meta-foo': 'foo'}.
+      metadata: a str->str dict of user specified options when creating
+        the file. Possible keys are x-goog-meta-, content-disposition,
+        content-encoding, and cache-control.
+      is_dir: True if this represents a directory. False if this is a real file.
     """
     self.filename = filename
-    self.st_size = long(st_size)
-    self.st_ctime = float(st_ctime)
-    if etag[0] == '"' and etag[-1] == '"':
-      etag = etag[1:-1]
-    self.etag = etag
+    self.is_dir = is_dir
+    self.st_size = None
+    self.st_ctime = None
+    self.etag = None
     self.content_type = content_type
     self.metadata = metadata
 
+    if not is_dir:
+      self.st_size = long(st_size)
+      self.st_ctime = float(st_ctime)
+      if etag[0] == '"' and etag[-1] == '"':
+        etag = etag[1:-1]
+      self.etag = etag
+
   def __repr__(self):
+    if self.is_dir:
+      return '(directory: %s)' % self.filename
+
     return (
         '(filename: %(filename)s, st_size: %(st_size)s, '
         'st_ctime: %(st_ctime)s, etag: %(etag)s, '
@@ -149,31 +178,65 @@ class CSFileStat(object):
              content_type=self.content_type,
              metadata=self.metadata))
 
+  def __cmp__(self, other):
+    if not isinstance(other, self.__class__):
+      raise ValueError('Argument to cmp must have the same type. '
+                       'Expect %s, got %s', self.__class__.__name__,
+                       other.__class__.__name__)
+    if self.filename > other.filename:
+      return 1
+    elif self.filename < other.filename:
+      return -1
+    return 0
+
+  def __hash__(self):
+    if self.etag:
+      return hash(self.etag)
+    return hash(self.filename)
+
+
+
+CSFileStat = GCSFileStat
+
 
 def get_metadata(headers):
-  """Get user defined metadata from HTTP response headers."""
+  """Get user defined options from HTTP response headers."""
   return dict((k, v) for k, v in headers.iteritems()
-              if k.startswith('x-goog-meta-'))
+              if any(k.lower().startswith(valid) for valid in _GCS_METADATA))
+
+
+def validate_bucket_name(name):
+  """Validate a Google Storage bucket name.
+
+  Args:
+    name: a Google Storage bucket name with no prefix or suffix.
+
+  Raises:
+    ValueError: if name is invalid.
+  """
+  _validate_path(name)
+  if not _GCS_BUCKET_REGEX.match(name):
+    raise ValueError('Bucket should be 3-63 characters long using only a-z,'
+                     '0-9, underscore, dash or dot but got %s' % name)
 
 
 def validate_bucket_path(path):
-  """Validate a Google Storage bucket path.
+  """Validate a Google Cloud Storage bucket path.
 
   Args:
     path: a Google Storage bucket path. It should have form '/bucket'.
-    is_bucket: whether this is a bucket path or file path.
 
   Raises:
     ValueError: if path is invalid.
   """
   _validate_path(path)
-  if not _CS_BUCKET_REGEX.match(path):
+  if not _GCS_BUCKET_PATH_REGEX.match(path):
     raise ValueError('Bucket should have format /bucket '
                      'but got %s' % path)
 
 
 def validate_file_path(path):
-  """Validate a Google Storage file path.
+  """Validate a Google Cloud Storage file path.
 
   Args:
     path: a Google Storage file path. It should have form '/bucket/filename'.
@@ -182,9 +245,35 @@ def validate_file_path(path):
     ValueError: if path is invalid.
   """
   _validate_path(path)
-  if not _CS_FULLPATH_REGEX.match(path):
+  if not _GCS_FULLPATH_REGEX.match(path):
     raise ValueError('Path should have format /bucket/filename '
                      'but got %s' % path)
+
+
+def _process_path_prefix(path_prefix):
+  """Validate and process a Google Cloud Stoarge path prefix.
+
+  Args:
+    path_prefix: a Google Cloud Storage path prefix of format '/bucket/prefix'
+      or '/bucket/' or '/bucket'.
+
+  Raises:
+    ValueError: if path is invalid.
+
+  Returns:
+    a tuple of /bucket and prefix. prefix can be None.
+  """
+  _validate_path(path_prefix)
+  if not _GCS_PATH_PREFIX_REGEX.match(path_prefix):
+    raise ValueError('Path prefix should have format /bucket, /bucket/, '
+                     'or /bucket/prefix but got %s.' % path_prefix)
+  bucket_name_end = path_prefix.find('/', 1)
+  bucket = path_prefix
+  prefix = None
+  if bucket_name_end != -1:
+    bucket = path_prefix[:bucket_name_end]
+    prefix = path_prefix[bucket_name_end + 1:] or None
+  return bucket, prefix
 
 
 def _validate_path(path):
@@ -206,10 +295,10 @@ def _validate_path(path):
 
 
 def validate_options(options):
-  """Validate Cloud Storage options.
+  """Validate Google Cloud Storage options.
 
   Args:
-    options: a str->basestring dict of options to pass to Cloud Storage.
+    options: a str->basestring dict of options to pass to Google Cloud Storage.
 
   Raises:
     ValueError: if option is not supported.
@@ -222,7 +311,7 @@ def validate_options(options):
   for k, v in options.iteritems():
     if not isinstance(k, str):
       raise TypeError('option %r should be a str.' % k)
-    if not any(k.startswith(valid) for valid in _CS_OPTIONS):
+    if not any(k.lower().startswith(valid) for valid in _GCS_OPTIONS):
       raise ValueError('option %s is not supported.' % k)
     if not isinstance(v, basestring):
       raise TypeError('value %r for option %s should be of type basestring.' %
@@ -304,9 +393,15 @@ def posix_to_dt_str(posix):
 
 
 def local_run():
-  """Whether running in dev appserver."""
-  return ('SERVER_SOFTWARE' not in os.environ or
-          os.environ['SERVER_SOFTWARE'].startswith('Development'))
+  """Whether we should hit GCS dev appserver stub."""
+  server_software = os.environ.get('SERVER_SOFTWARE')
+  if server_software is None:
+    return True
+  if 'remote_api' in server_software:
+    return False
+  if server_software.startswith(('Development', 'testutil')):
+    return True
+  return False
 
 
 def memory_usage(method):
@@ -319,3 +414,20 @@ def memory_usage(method):
                  method.__name__, runtime.memory_usage().current())
     return result
   return wrapper
+
+
+def _add_ns(tagname):
+  return '{%(ns)s}%(tag)s' % {'ns': CS_XML_NS,
+                              'tag': tagname}
+
+
+
+_T_CONTENTS = _add_ns('Contents')
+_T_LAST_MODIFIED = _add_ns('LastModified')
+_T_ETAG = _add_ns('ETag')
+_T_KEY = _add_ns('Key')
+_T_SIZE = _add_ns('Size')
+_T_PREFIX = _add_ns('Prefix')
+_T_COMMON_PREFIXES = _add_ns('CommonPrefixes')
+_T_NEXT_MARKER = _add_ns('NextMarker')
+_T_IS_TRUNCATED = _add_ns('IsTruncated')

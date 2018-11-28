@@ -28,7 +28,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(zk.ZKTransaction)
     zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath')
-    
+
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', create='create',
       delete_async='delete_async', connected=lambda: True)
@@ -51,7 +51,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(zk.ZKTransaction)
     zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath')
-    
+
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', create='create',
       delete='delete', connected=lambda: True)
@@ -83,7 +83,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(zk.ZKTransaction)
     zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath')
-    
+
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', create='create',
       connected=lambda: True)
@@ -128,14 +128,14 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
- 
+
     tx_id = 100
     tx_str = zk.APP_TX_PREFIX + "%010d" % tx_id
     zk.ZKTransaction.should_receive('get_app_root_path') \
       .and_return("app_root_path")
 
     expected = zk.PATH_SEPARATOR.join(["app_root_path", zk.APP_TX_PATH,
-      tx_str, zk.XG_PREFIX]) 
+      tx_str, zk.XG_PREFIX])
 
     transaction = zk.ZKTransaction(host="something")
     self.assertEquals(expected, transaction.get_xg_path("xxx", 100))
@@ -217,7 +217,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('is_xg').and_return(False)
 
     transaction = zk.ZKTransaction(host="something")
-    self.assertRaises(zk.ZKTransactionException, transaction.acquire_lock, 
+    self.assertRaises(zk.ZKTransactionException, transaction.acquire_lock,
       self.appid, "txid", "somekey")
 
     # next, test when we're in a XG transaction and we're not in the lock
@@ -255,7 +255,7 @@ class TestZookeeperTransaction(unittest.TestCase):
       acl=None, ephemeral=bool, makepath=bool, sequence=bool)
     fake_zookeeper.should_receive('retry').with_args('create_async', str, value=str,
       acl=str, ephemeral=bool, makepath=bool, sequence=bool)
-    lock_list = ['path1', 'path2', 'path3'] 
+    lock_list = ['path1', 'path2', 'path3']
     lock_list_str = zk.LOCK_LIST_SEPARATOR.join(lock_list)
     fake_zookeeper.should_receive('retry').with_args('get', str) \
       .and_return([lock_list_str])
@@ -296,7 +296,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath')
     zk.ZKTransaction.should_receive('is_blacklisted').and_return(False)
-    
+
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', exists='exists',
       connected=lambda: True)
@@ -320,7 +320,7 @@ class TestZookeeperTransaction(unittest.TestCase):
       .and_return(False)
     self.assertRaises(zk.ZKTransactionException, transaction.check_transaction,
       self.appid, 1)
-  
+
   def test_is_xg(self):
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo', exists='exists',
@@ -421,7 +421,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     fake_zookeeper.should_receive('retry').with_args('create', str, value=str,
       acl=None, ephemeral=bool).and_raise(kazoo.exceptions.NodeExistsError)
     self.assertEquals(False, transaction.get_lock_with_path('some/path'))
-  
+
   def test_release_lock_with_path(self):
     flexmock(zk.ZKTransaction)
 
@@ -440,6 +440,6 @@ class TestZookeeperTransaction(unittest.TestCase):
       and_raise(kazoo.exceptions.NoNodeError)
     self.assertRaises(ZKTransactionException,
       transaction.release_lock_with_path, 'some/path')
-     
+
 if __name__ == "__main__":
-  unittest.main()    
+  unittest.main()

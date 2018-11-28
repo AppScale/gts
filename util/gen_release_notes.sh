@@ -20,7 +20,7 @@ head -7 RELEASE > t_release
 echo "New Release version: $(tail -1 VERSION) - released $(date +'%B %Y')"
 # release line
 echo "$(tail -1 VERSION), released $(date +'%B %Y')" >> t_release
-echo "Highlights of features/bugs in this release:" >> t_release
+echo "Highlights of features and defects fixed in this release:" >> t_release
 
 echo -n "Gathering git logs"
 # Git logs from last tag (eg 3.4.0)

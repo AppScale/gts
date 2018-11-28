@@ -21,9 +21,11 @@ from __future__ import with_statement
 __all__ = []
 
 import datetime
+import errno
 import logging
 import os.path
 import random
+import socket
 import string
 
 import taskqueue_service_pb
@@ -84,6 +86,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   This stub executes tasks when enabled by using the dev_appserver's AddEvent
   capability.
   """
+  THREADSAFE = True
+
   _ACCEPTS_REQUEST_ID = True
 
   def __init__(self, app_id, host, service_name='taskqueue'):
@@ -116,23 +120,16 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
                  for ip in ips]
     return locations
 
-  def _ChooseTaskName(self, app_name, queue_name, user_chosen=None):
+  def _ChooseTaskName(self):
     """ Creates a task name that the system can use to address
         tasks from different apps and queues.
 
-    Args:
-      app_name: The application name.
-      queue_name: A str representing the queue name that the task goes in.
-      user_chosen: A string name the user selected for their application.
     Returns:
       A randomized string representing a task name.
     """
     RAND_LENGTH_SIZE = 32
-    if not user_chosen:
-      user_chosen = ''.join(random.choice(string.ascii_uppercase + \
-        string.digits) for x in range(RAND_LENGTH_SIZE))
-    return 'task_%s_%s_%s' % (app_name, queue_name, user_chosen)
-
+    alphabet = string.ascii_uppercase + string.digits
+    return ''.join(random.choice(alphabet) for _ in range(RAND_LENGTH_SIZE))
 
   def _AddTransactionalBulkTask(self, request, response):
     """ Add a transactional task.
@@ -145,13 +142,18 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     """
     for add_request in request.add_request_list():
       task_result = response.add_taskresult()
+
       task_name = None
       if add_request.has_task_name():
         task_name = add_request.task_name()
-      namespaced_name = self._ChooseTaskName(add_request.app_id(),
-                                            add_request.queue_name(),
-                                            user_chosen=task_name)
-      add_request.set_task_name(namespaced_name)
+
+      if not task_name:
+        task_name = self._ChooseTaskName()
+
+      namespaced_name = '_'.join(['task', self.__app_id,
+                                  add_request.queue_name(), task_name])
+
+      add_request.set_task_name(task_name)
       task_result.set_chosen_task_name(namespaced_name)
 
     for add_request, task_result in zip(request.add_request_list(),
@@ -446,22 +448,27 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       api_request.set_request_id(request_id)
 
     tq_locations = self._GetTQLocations()
-    for index, tq_location in enumerate(tq_locations):
-      api_response = remote_api_pb.Response()
-      api_response = api_request.sendCommand(tq_location,
-        tag,
-        api_response,
-        1,
-        False,
-        KEY_LOCATION,
-        CERT_LOCATION)
-
-      if not api_response or not api_response.has_response():
-        if index >= len(tq_locations) - 1:
-          raise apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
-      else:
+    api_response = remote_api_pb.Response()
+    for tq_location in tq_locations:
+      try:
+        api_request.sendCommand(tq_location,
+          tag,
+          api_response,
+          1,
+          False,
+          KEY_LOCATION,
+          CERT_LOCATION)
         break
+      except socket.error as socket_error:
+        if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
+          api_response = remote_api_pb.Response()
+          continue
+
+        raise
+
+    if not api_response or not api_response.has_response():
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
 
     if api_response.has_application_error():
       error_pb = api_response.application_error()

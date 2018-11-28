@@ -35,7 +35,23 @@ class IdempotentRetryPolicy(RetryPolicy):
       received_responses: The number of responses received.
       data_retrieved: Indicates whether any responses contained data.
       retry_num: The number of times the statement has been tried.
-      """
+    """
+    if retry_num >= BASIC_RETRY_COUNT:
+      return self.RETHROW, None
+    else:
+      return self.RETRY, consistency
+
+  def on_unavailable(self, query, consistency, required_replicas,
+                     alive_replicas, retry_num):
+    """ The coordinator has detected an insufficient number of live replicas.
+
+    Args:
+      query: A statement that timed out.
+      consistency: The consistency level of the statement.
+      required_replicas: The number of replicas required to complete query.
+      alive_replicas: The number of replicas that are ready to complete query.
+      retry_num: The number of times the statement has been tried.
+    """
     if retry_num >= BASIC_RETRY_COUNT:
       return self.RETHROW, None
     else:

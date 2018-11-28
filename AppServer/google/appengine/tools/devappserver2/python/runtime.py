@@ -17,7 +17,6 @@
 """A Python devappserver2 runtime."""
 
 
-import base64
 import os
 import struct
 import sys
@@ -55,6 +54,7 @@ _STARTUP_FAILURE_TEMPLATE = """
 </html>"""
 
 
+# AppScale: Support using an external API server.
 def setup_stubs(config, external_api_port=None):
   """Sets up API stubs using remote API."""
   if external_api_port is None:
@@ -118,14 +118,35 @@ class StartupScriptFailureApplication(object):
         traceback=self._formatted_traceback)
 
 
+class AutoFlush(object):
+  def __init__(self, stream):
+    self.stream = stream
+
+  def write(self, data):
+    self.stream.write(data)
+    self.stream.flush()
+
+  def __getattr__(self, attr):
+    return getattr(self.stream, attr)
+
+
 def expand_user(path):
   """Fake implementation of os.path.expanduser(path)."""
   return path
 
 
 def main():
+  # Required so PDB prompts work properly. Originally tried to disable buffering
+  # (both by adding the -u flag when starting this process and by adding
+  # "stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)" but neither worked).
+  sys.stdout = AutoFlush(sys.stdout)
+  assert len(sys.argv) == 3
+  child_in_path = sys.argv[1]
+  child_out_path = sys.argv[2]
   config = runtime_config_pb2.Config()
-  config.ParseFromString(base64.b64decode(sys.stdin.read()))
+  config.ParseFromString(open(child_in_path, 'rb').read())
+  os.remove(child_in_path)
+  child_out = open(child_out_path, 'wb')
 
   # AppScale: The external port is packed in the same field as the API port.
   external_api_port = None
@@ -172,9 +193,8 @@ def main():
         request_rewriter.runtime_rewriter_middleware(
             request_handler.RequestHandler(config)))
   server.start()
-  print server.port
-  sys.stdout.close()
-  sys.stdout = sys.stderr
+  print >>child_out, server.port
+  child_out.close()
   try:
     while True:
       time.sleep(1)

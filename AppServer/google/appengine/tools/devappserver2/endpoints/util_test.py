@@ -43,5 +43,9 @@ class WSGIHelpersTest(test_utils.TestsWithStartResponse):
                            [('Location', 'http://www.google.com'),
                             ('Content-Length', '0')], '')
 
+  def test_send_wsgi_no_content_response(self):
+    response = util.send_wsgi_no_content_response(self.start_response)
+    self.assert_http_match(response, 204, [('Content-Length', '0')], '')
+
 if __name__ == '__main__':
   unittest.main()

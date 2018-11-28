@@ -53,11 +53,11 @@ except ImportError:
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
-from google.appengine.api import blobstore
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.api import images
+from google.appengine.api.blobstore import blobstore_stub
 from google.appengine.api.images import images_blob_stub
 from google.appengine.api.images import images_service_pb
 from google.appengine.runtime import apiproxy_errors
@@ -145,6 +145,7 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
 
     Args:
       service_name: Service name expected for all calls.
+      # AppScale: Host prefix does not include port since that can change.
       host_prefix: the URL prefix (protocol://host) to prepend to image urls
         on a call to GetUrlBase.
     """
@@ -335,7 +336,6 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
         image = image.convert("RGB")
 
     image.save(image_string, image_encoding)
-
     return image_string.getvalue()
 
   def _OpenImageData(self, image_data):
@@ -397,36 +397,21 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
   def _OpenBlob(self, blob_key):
     """Create an Image from the blob data read from blob_key."""
 
-    storage_key = None
-
     try:
-      gs_info = datastore.Get(
-          datastore.Key.from_path(GS_INFO_KIND,
-                                  blob_key,
-                                  namespace=''))
-      storage_key = gs_info['storage_key']
-    except datastore_errors.EntityNotFoundError:
-      pass
-
-    if not storage_key:
-      try:
-        key = datastore_types.Key.from_path(blobstore.BLOB_INFO_KIND,
-                                            blob_key,
-                                            namespace='')
-        datastore.Get(key)
-        storage_key = blob_key
-      except datastore_errors.Error:
+      _ = datastore.Get(
+          blobstore_stub.BlobstoreServiceStub.ToDatastoreBlobKey(blob_key))
+    except datastore_errors.Error:
 
 
-        logging.exception('Blob with key %r does not exist', blob_key)
-        raise apiproxy_errors.ApplicationError(
-            images_service_pb.ImagesServiceError.UNSPECIFIED_ERROR)
+      logging.exception("Blob with key %r does not exist", blob_key)
+      raise apiproxy_errors.ApplicationError(
+          images_service_pb.ImagesServiceError.UNSPECIFIED_ERROR)
 
-    blobstore_stub = apiproxy_stub_map.apiproxy.GetStub("blobstore")
+    blobstore_storage = apiproxy_stub_map.apiproxy.GetStub("blobstore")
 
 
     try:
-      blob_file = blobstore_stub.storage.OpenBlob(storage_key)
+      blob_file = blobstore_storage.storage.OpenBlob(blob_key)
     except IOError:
       logging.exception("Could not get file for blob_key %r", blob_key)
 
@@ -586,6 +571,8 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
 
 
     degrees = 360 - degrees
+    # AppScale: An update to the pillow library makes the expand parameter
+    # necessary to behave the same way as GAE does.
     return image.rotate(degrees, expand=True)
 
   def _Crop(self, image, transform):

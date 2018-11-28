@@ -6,16 +6,16 @@ import struct
 import sys
 import time
 
-import dbconstants
-import helper_functions
-
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from .appscale_datastore_batch import DatastoreFactory
-from .dbconstants import AppScaleDBConnectionError
-from .dbconstants import ID_KEY_LENGTH
-from .dbconstants import METADATA_TABLE
-from .dbconstants import TERMINATING_STRING
+from tornado import ioloop
+
+from appscale.datastore import dbconstants, helper_functions
+from appscale.datastore.appscale_datastore_batch import DatastoreFactory
+from appscale.datastore.dbconstants import (
+  AppScaleDBConnectionError, BadRequest, ID_KEY_LENGTH, ID_SEPARATOR,
+  KEY_DELIMITER, KIND_SEPARATOR, METADATA_TABLE, TERMINATING_STRING
+)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import appscale_stub_util
@@ -25,7 +25,7 @@ from google.appengine.datastore import sortable_pb_encoder
 
 
 logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-logger = logging.getLogger('appscale-datastore')
+logger = logging.getLogger(__name__)
 
 
 def clean_app_id(app_id):
@@ -203,7 +203,7 @@ def fetch_and_delete_entities(database, table, schema, first_key,
 
   last_key = first_key + '\0' + TERMINATING_STRING
 
-  logging.debug("Deleting application data in the range: {0} - {1}".
+  logger.debug("Deleting application data in the range: {0} - {1}".
     format(first_key, last_key))
 
   db = DatastoreFactory.getDatastore(database)
@@ -213,26 +213,26 @@ def fetch_and_delete_entities(database, table, schema, first_key,
     return
 
   # Loop through the datastore tables and delete data.
-  logging.info("Deleting data from {0}".format(table))
+  logger.info("Deleting data from {0}".format(table))
 
   start_inclusive = True
   while True:
     try:
-      entities = db.range_query(
+      entities = db.range_query_sync(
         table, schema, first_key, last_key, batch_size,
         start_inclusive=start_inclusive)
       if not entities:
-        logging.info("No entities found for {}".format(table))
+        logger.info("No entities found for {}".format(table))
         break
 
       for ii in entities:
-        db.batch_delete(table, ii.keys())
-      logging.info("Deleted {0} entities".format(len(entities)))
+        db.batch_delete_sync(table, ii.keys())
+      logger.info("Deleted {0} entities".format(len(entities)))
 
       first_key = entities[-1].keys()[0]
       start_inclusive = False
     except AppScaleDBConnectionError:
-      logging.exception('Error while deleting data')
+      logger.exception('Error while deleting data')
       time.sleep(backoff_timeout)
 
 
@@ -253,7 +253,13 @@ def encode_index_pb(pb):
         key_id = e.name()
       elif e.has_id():
         key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-      path.append("{0}:{1}".format(e.type(), key_id))
+      else:
+        raise BadRequest('Entity path must contain name or ID')
+
+      if ID_SEPARATOR in e.type():
+        raise BadRequest('Kind names must not include ":"')
+
+      path.append(ID_SEPARATOR.join([e.type(), key_id]))
     val = dbconstants.KIND_SEPARATOR.join(path)
     val += dbconstants.KIND_SEPARATOR
     return val
@@ -700,3 +706,59 @@ def encode_path_from_filter(query_filter):
     path.add_element().MergeFrom(element)
 
   return str(encode_index_pb(path))
+
+
+def tornado_synchronous(coroutine):
+  def synchronous_coroutine(*args, **kwargs):
+    async = lambda: coroutine(*args, **kwargs)
+    # Like synchronous HTTPClient, create separate IOLoop for sync code
+    io_loop = ioloop.IOLoop(make_current=False)
+    try:
+      return io_loop.run_sync(async)
+    finally:
+      io_loop.close()
+  return synchronous_coroutine
+
+
+def decode_path(encoded_path):
+  """ Parse a Cassandra-encoded reference path.
+
+  Args:
+    encoded_path: A string specifying the encoded path.
+  Returns:
+    An entity_pb.Path object.
+  """
+  path = entity_pb.Path()
+
+  for element in encoded_path.split(dbconstants.KIND_SEPARATOR):
+    # For some reason, encoded keys have a trailing separator, so ignore the
+    # last empty element.
+    if not element:
+      continue
+
+    kind, identifier = element.split(dbconstants.ID_SEPARATOR, 1)
+
+    new_element = path.add_element()
+    new_element.set_type(kind)
+
+    # Encoded paths do not differentiate between IDs and names, so we can only
+    # guess which one it is. IDs often exceed the ID_KEY_LENGTH.
+    if len(identifier) >= ID_KEY_LENGTH and identifier.isdigit():
+      new_element.set_id(int(identifier))
+    else:
+      new_element.set_name(identifier)
+
+  return path
+
+
+def kind_from_encoded_key(encoded_key):
+  """ Extract kind from an encoded reference string.
+
+  Args:
+    encoded_key: A string specifying an encoded entity key.
+  Returns:
+    A string specifying an entity kind.
+  """
+  path_section = encoded_key.rsplit(KEY_DELIMITER, 1)[-1]
+  last_element = path_section.split(KIND_SEPARATOR)[-2]
+  return last_element.split(ID_SEPARATOR, 1)[0]

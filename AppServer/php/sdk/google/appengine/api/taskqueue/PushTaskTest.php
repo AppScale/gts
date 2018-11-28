@@ -178,6 +178,36 @@ class PushTaskTest extends ApiProxyTestBase {
                          ['delay_seconds' => 30 * 86400]);
   }
 
+  public function testConstructorUrlTooBig() {
+    $url = '/' . str_repeat('b', 2083);
+    $this->setExpectedException(
+        '\InvalidArgumentException',
+        'URL length greater than maximum of ' . PushTask::MAX_URL_LENGTH) .
+        '. URL: ' . $url;
+    $t = new PushTask($url);
+  }
+
+  public function testConstructorHeaderWrongType() {
+    $this->setExpectedException('\InvalidArgumentException',
+        'header must be a string. Actual type: double');
+    $t = new PushTask('/some-url', ['user-key' => 'user-data'],
+        ['header' => 50.0]);
+  }
+
+  public function testConstructorHeaderWithoutColon() {
+    $this->setExpectedException('\InvalidArgumentException',
+        'Each header must contain a colon. Header: bad-header!');
+    $t = new PushTask('/some-url', ['user-key' => 'user-data'],
+        ['header' => 'bad-header!']);
+  }
+
+  public function testConstructorInvalidContentType() {
+    $this->setExpectedException('\InvalidArgumentException',
+        'Content-type header may not be specified as it is set by the task.');
+    $t = new PushTask('/some-url', ['user-key' => 'user-data'],
+        ['header' => 'content-type: application/pdf']);
+  }
+
   public function testAddInvalidQueue() {
     $this->setExpectedException('\InvalidArgumentException');
     (new PushTask('/someUrl'))->add(999);
@@ -190,15 +220,6 @@ class PushTaskTest extends ApiProxyTestBase {
     // Althought 102400 is the max size, it's for the serialized proto which
     // includes the URL etc.
     (new PushTask('/someUrl', ['field' => str_repeat('a', 102395)]))->add();
-  }
-
-  public function testAddUrlTooBig() {
-    $url = '/' . str_repeat('b', 2083);
-    $this->setExpectedException(
-        '\google\appengine\api\taskqueue\TaskQueueException',
-        'URL length greater than maximum of ' . PushTask::MAX_URL_LENGTH) .
-        '. URL: ' . $url;
-    (new PushTask($url))->add();
   }
 
   public function testPushTaskSimplestAdd() {
@@ -284,6 +305,73 @@ class PushTaskTest extends ApiProxyTestBase {
                          ['delay_seconds' => 5, 'name' => 'customTaskName']);
     $task_name = $task->add();
     $this->assertEquals('customTaskName', $task_name);
+    $this->apiProxyMock->verify();
+  }
+
+  public function testPushTaskAddWithHeader() {
+    $req = self::buildBulkAddRequest();
+    $add_req = $req->getAddRequest(0);
+    $header = $add_req->addHeader();
+    $header->setKey('custom-header');
+    $header->setValue('54321');
+
+    $resp = new TaskQueueBulkAddResponse();
+    $task_result = $resp->addTaskResult();
+    $task_result->setResult(ErrorCode::OK);
+    $task_result->setChosenTaskName('fred');
+
+    $this->apiProxyMock->expectCall('taskqueue', 'BulkAdd', $req, $resp);
+
+    $task_name = (new PushTask('/someUrl', [],
+        ['header' => 'custom-header: 54321']))->add();
+    $this->assertEquals('fred', $task_name);
+    $this->apiProxyMock->verify();
+  }
+
+  public function testPushTaskAddWithHeaderAndQueryData() {
+    $query_data = ['key' => 'some value'];
+    $req = self::buildBulkAddRequest();
+    $add_req = $req->getAddRequest(0);
+    $add_req->setBody(http_build_query($query_data));
+
+    $header = $add_req->addHeader();
+    $header->setKey('content-type');
+    $header->setValue('application/x-www-form-urlencoded');
+    $header = $add_req->addHeader();
+    $header->setKey('custom-header');
+    $header->setValue('xyz');
+
+    $resp = new TaskQueueBulkAddResponse();
+
+    $this->apiProxyMock->expectCall('taskqueue', 'BulkAdd', $req, $resp);
+
+    (new PushTask('/someUrl', $query_data,
+        ['header' => 'custom-header: xyz']))->add();
+    $this->apiProxyMock->verify();
+  }
+
+  public function testPushTaskAddWithTwoHeaders() {
+    $req = self::buildBulkAddRequest();
+    $add_req = $req->getAddRequest(0);
+    $header = $add_req->addHeader();
+    $header->setKey('custom-header');
+    $header->setValue('54321');
+    $header = $add_req->addHeader();
+    $header->setKey('another-custom-header');
+    $header->setValue('abc');
+
+
+    $resp = new TaskQueueBulkAddResponse();
+    $task_result = $resp->addTaskResult();
+    $task_result->setResult(ErrorCode::OK);
+    $task_result->setChosenTaskName('fred');
+
+    $this->apiProxyMock->expectCall('taskqueue', 'BulkAdd', $req, $resp);
+
+    $task_name = (new PushTask('/someUrl', [],
+        ['header' => "custom-header: 54321\r\n" .
+                     "another-custom-header: abc"]))->add();
+    $this->assertEquals('fred', $task_name);
     $this->apiProxyMock->verify();
   }
 

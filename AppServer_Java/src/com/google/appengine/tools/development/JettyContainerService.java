@@ -12,6 +12,7 @@ import com.google.appengine.tools.development.IsolatedAppClassLoader;
 import com.google.appengine.tools.development.LocalHttpRequestEnvironment;
 import com.google.appengine.tools.development.SerializableObjectsOnlyHashSessionManager;
 import com.google.appengine.tools.development.ServiceProvider;
+import com.google.appengine.tools.resources.ResourceLoader;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.utils.config.AppEngineConfigException;
 import com.google.apphosting.utils.config.AppEngineWebXml;
@@ -368,7 +369,13 @@ public class JettyContainerService extends AbstractContainerService {
             Semaphore semaphore = new Semaphore(100);
             LocalHttpRequestEnvironment env = new LocalHttpRequestEnvironment(this.appEngineWebXml.getAppId(), WebModule.getModuleName(this.appEngineWebXml), this.appEngineWebXml.getMajorVersionId(), JettyContainerService.this.instance, Integer.valueOf(JettyContainerService.this.getPort()), request, JettyContainerService.SOFT_DEADLINE_DELAY_MS, JettyContainerService.this.modulesFilterHelper);
             env.getAttributes().put("com.google.appengine.tools.development.api_call_semaphore", semaphore);
-            env.getAttributes().put("com.google.appengine.runtime.default_version_hostname", "localhost:" + JettyContainerService.this.devAppServer.getPort());
+
+            // AppScale: Override default version hostname.
+            String nginxPort = ResourceLoader.getNginxPort();
+            String defaultVersionHostname = System.getProperty("NGINX_ADDR") + ":" + nginxPort;
+            env.getAttributes().put("com.google.appengine.runtime.default_version_hostname", defaultVersionHostname);
+            // End AppScale
+
             ApiProxy.setEnvironmentForCurrentThread(env);
             JettyContainerService.RecordingResponseWrapper wrappedResponse = JettyContainerService.this.new RecordingResponseWrapper(response);
             boolean var43 = false;

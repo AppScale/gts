@@ -12,6 +12,9 @@ from . import file_io
 
 from appscale.appcontroller_client import AppControllerClient
 
+logger = logging.getLogger(__name__)
+
+
 def read_file_contents(path):
   """ Reads the contents of the given file.
 
@@ -135,7 +138,7 @@ def get_db_info():
     A dictionary with database info
   """
   info = file_io.read(constants.DB_INFO_LOC) 
-  return yaml.load(info) 
+  return yaml.safe_load(info)
 
 def get_taskqueue_nodes():
   """ Returns a list of all the taskqueue nodes (including the master). 
@@ -172,16 +175,16 @@ def get_zk_locations_string():
     zk_json = json.loads(info) 
     return ":2181,".join(zk_json['locations']) + ":2181"
   except IOError, io_error:
-    logging.exception(io_error)
+    logger.exception(io_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
   except ValueError, value_error:
-    logging.exception(value_error)
+    logger.exception(value_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
   except TypeError, type_error:
-    logging.exception(type_error)
+    logger.exception(type_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
   except KeyError, key_error:
-    logging.exception(key_error)
+    logger.exception(key_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
 
 def get_zk_node_ips():
@@ -196,16 +199,16 @@ def get_zk_node_ips():
     zk_json = json.loads(info)
     return zk_json['locations']
   except IOError, io_error:
-    logging.exception(io_error)
+    logger.exception(io_error)
     return []
   except ValueError, value_error:
-    logging.exception(value_error)
+    logger.exception(value_error)
     return []
   except TypeError, type_error:
-    logging.exception(type_error)
+    logger.exception(type_error)
     return []
   except KeyError, key_error:
-    logging.exception(key_error)
+    logger.exception(key_error)
     return []
 
 def get_db_master_ip():
@@ -214,7 +217,10 @@ def get_db_master_ip():
   Returns:
     A str, the IP of the datastore master.
   """
-  return file_io.read(constants.MASTERS_FILE_LOC).rstrip()
+  try:
+    return file_io.read(constants.MASTERS_FILE_LOC).rstrip()
+  except IOError:
+    return []
 
 def get_db_slave_ips():
   """ Returns the slave datastore IPs.
@@ -246,5 +252,5 @@ def get_search_location():
   try:
     return file_io.read(constants.SEARCH_FILE_LOC).rstrip()
   except IOError:
-    logging.warning("Search role is not configured.")
+    logger.warning("Search role is not configured.")
     return ""

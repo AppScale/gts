@@ -41,6 +41,8 @@ class SearchServiceError(ProtocolBuffer.ProtocolMessage):
   TRANSIENT_ERROR =    2
   INTERNAL_ERROR =    3
   PERMISSION_DENIED =    4
+  TIMEOUT      =    5
+  CONCURRENT_TRANSACTION =    6
 
   _ErrorCode_NAMES = {
     0: "OK",
@@ -48,6 +50,8 @@ class SearchServiceError(ProtocolBuffer.ProtocolMessage):
     2: "TRANSIENT_ERROR",
     3: "INTERNAL_ERROR",
     4: "PERMISSION_DENIED",
+    5: "TIMEOUT",
+    6: "CONCURRENT_TRANSACTION",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
@@ -3876,7 +3880,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   has_limit_ = 0
   limit_ = 20
   has_matched_count_accuracy_ = 0
-  matched_count_accuracy_ = 100
+  matched_count_accuracy_ = 0
   has_scorer_spec_ = 0
   scorer_spec_ = None
   has_field_spec_ = 0
@@ -3974,7 +3978,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   def clear_matched_count_accuracy(self):
     if self.has_matched_count_accuracy_:
       self.has_matched_count_accuracy_ = 0
-      self.matched_count_accuracy_ = 100
+      self.matched_count_accuracy_ = 0
 
   def has_matched_count_accuracy(self): return self.has_matched_count_accuracy_
 
@@ -4766,7 +4770,7 @@ class SearchResult(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.SearchResult'
-class SearchResponse(ProtocolBuffer.ProtocolMessage):
+class SearchResponse(_ExtendableProtocolMessage):
   has_matched_count_ = 0
   matched_count_ = 0
   has_status_ = 0
@@ -4774,6 +4778,8 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
   cursor_ = ""
 
   def __init__(self, contents=None):
+    if _extension_runtime:
+      self._extension_fields = {}
     self.result_ = []
     self.status_ = RequestStatus()
     if contents is not None: self.MergeFromString(contents)
@@ -4835,6 +4841,7 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
     if (x.has_matched_count()): self.set_matched_count(x.matched_count())
     if (x.has_status()): self.mutable_status().MergeFrom(x.status())
     if (x.has_cursor()): self.set_cursor(x.cursor())
+    if _extension_runtime: self._MergeExtensionFields(x)
 
   def Equals(self, x):
     if x is self: return 1
@@ -4847,6 +4854,7 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
     if self.has_status_ and self.status_ != x.status_: return 0
     if self.has_cursor_ != x.has_cursor_: return 0
     if self.has_cursor_ and self.cursor_ != x.cursor_: return 0
+    if _extension_runtime and not self._ExtensionEquals(x): return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -4871,6 +4879,8 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
     n += self.lengthVarInt64(self.matched_count_)
     n += self.lengthString(self.status_.ByteSize())
     if (self.has_cursor_): n += 1 + self.lengthString(len(self.cursor_))
+    if _extension_runtime:
+      n += self._ExtensionByteSize(False)
     return n + 2
 
   def ByteSizePartial(self):
@@ -4884,6 +4894,8 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
       n += 1
       n += self.lengthString(self.status_.ByteSizePartial())
     if (self.has_cursor_): n += 1 + self.lengthString(len(self.cursor_))
+    if _extension_runtime:
+      n += self._ExtensionByteSize(True)
     return n
 
   def Clear(self):
@@ -4891,8 +4903,12 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
     self.clear_matched_count()
     self.clear_status()
     self.clear_cursor()
+    if _extension_runtime: self._extension_fields.clear()
 
   def OutputUnchecked(self, out):
+    if _extension_runtime:
+      extensions = self._ListExtensions()
+      extension_index = 0
     for i in xrange(len(self.result_)):
       out.putVarInt32(10)
       out.putVarInt32(self.result_[i].ByteSize())
@@ -4905,8 +4921,13 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
     if (self.has_cursor_):
       out.putVarInt32(34)
       out.putPrefixedString(self.cursor_)
+    if _extension_runtime:
+      extension_index = self._OutputExtensionFields(out, False, extensions, extension_index, 10000)
 
   def OutputPartial(self, out):
+    if _extension_runtime:
+      extensions = self._ListExtensions()
+      extension_index = 0
     for i in xrange(len(self.result_)):
       out.putVarInt32(10)
       out.putVarInt32(self.result_[i].ByteSizePartial())
@@ -4921,6 +4942,8 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
     if (self.has_cursor_):
       out.putVarInt32(34)
       out.putPrefixedString(self.cursor_)
+    if _extension_runtime:
+      extension_index = self._OutputExtensionFields(out, True, extensions, extension_index, 10000)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -4943,6 +4966,10 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
       if tt == 34:
         self.set_cursor(d.getPrefixedString())
         continue
+      if _extension_runtime:
+        if (1000 <= tt and tt < 10000):
+          self._ParseOneExtensionField(tt, d)
+          continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -4965,8 +4992,12 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
       res+=self.status_.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
     if self.has_cursor_: res+=prefix+("cursor: %s\n" % self.DebugFormatString(self.cursor_))
+    if _extension_runtime:
+      res+=self._ExtensionDebugString(prefix, printElemNumber)
     return res
 
+  if _extension_runtime:
+    _extensions_by_field_number = {}
 
   def _BuildTagLookupTable(sparse, maxtag, default=None):
     return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])

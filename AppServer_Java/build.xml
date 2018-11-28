@@ -5,6 +5,8 @@
   <property name="gae_version" value="1.8.4" />
   <property name="gae_org" location="appengine-java-sdk-${gae_version}" />
   <property name="gae_dist" location="appengine-java-sdk-repacked" />
+  <property name="java_source_version" value="1.7" />
+  <property name="java_target_version" value="${java_source_version}" />
 
   <path id="gae.classpath">
     <fileset dir="${gae_dist}/lib">
@@ -31,27 +33,28 @@
     <mkdir dir="${gae_dist}" />
     <copy todir="${gae_dist}" overwrite="true">
       <fileset dir="${gae_org}">
-	<include name="**/*" />
-	<exclude name="demos/**" />
-	<exclude name="docs/**" />
-	<exclude name="src/**" />
+      <include name="**/*" />
+      <exclude name="demos/**" />
+      <exclude name="docs/**" />
+      <exclude name="src/**" />
       </fileset>
     </copy>
     <copy todir="${gae_dist}/lib/impl">
       <fileset dir="lib">
-	<include name="*.jar" />
+        <include name="*.jar" />
       </fileset>
     </copy>
     <chmod perm="a+x" verbose="true">
       <fileset dir="${gae_dist}/bin">
-	<include name="*.sh" />
+        <include name="*.sh" />
       </fileset>
     </chmod>
   </target>
 
   <target name="compile" depends="repack-sdk">
     <mkdir dir="${build}" />
-    <javac srcdir="${src}" destdir="${build}" includeantruntime="false">
+    <javac srcdir="${src}" destdir="${build}" source="${java_source_version}" target="${java_target_version}"
+           encoding="utf-8" debug="true" includeantruntime="false">
       <classpath refid="gae.classpath" />
       <include name="com/google/appengine/api/**" />
       <include name="com/google/appengine/tools/**" />
@@ -92,7 +95,7 @@
   <target name="update-api-stubs-jar" depends="compile, repack-sdk">
     <unjar src="${gae_dist}/lib/impl/appengine-api-stubs.jar" dest="${build}" overwrite="true">
       <patternset>
-	<include name="META-INF/services/*" />
+        <include name="META-INF/services/*" />
       </patternset>
     </unjar>
     <jar destfile="${gae_dist}/lib/impl/appengine-api-stubs.jar" basedir="${build}" update="true">
@@ -128,8 +131,13 @@
   <target name="update-tools-api-jar" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/appengine-tools-api.jar" basedir="${build}" update="true">
       <include name="com/google/apphosting/utils/config/*" />
+      <include name="com/google/appengine/tools/development/ApiUtils*" />
+      <include name="com/google/appengine/tools/development/ApiProxyLocalFactory*" />
+      <include name="com/google/appengine/tools/development/ApiServer*" />
+      <include name="com/google/appengine/tools/development/ApiServerFactory*" />
       <include name="com/google/appengine/tools/development/DevAppServerMain*" />
       <include name="com/google/appengine/tools/development/DevAppServerFactory*" />
+      <include name="com/google/appengine/tools/development/SharedMain*" />
     </jar>
   </target>
 

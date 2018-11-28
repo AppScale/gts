@@ -236,7 +236,7 @@ class URLEncodedRequestBuilder(object):
         return None
 
       if isinstance(field, messages.MessageField):
-        message_type = field.type
+        message_type = field.message_type
       else:
         message_type = None
 
@@ -335,8 +335,7 @@ class URLEncodedRequestBuilder(object):
       next_path = parent_path + ((name, index),)
       next_message = self.__messages.get(next_path, None)
       if next_message is None:
-        message_type = field.type
-        next_message = message_type()
+        next_message = field.message_type()
         self.__messages[next_path] = next_message
         if not field.repeated:
           setattr(parent, field.name, next_message)

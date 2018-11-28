@@ -37,6 +37,9 @@ Options:
                              skipped_files (default False)
   --auth_domain              Authorization domain that this app runs in.
                              (Default gmail.com)
+  --auto_id_policy=POLICY    Dictate how automatic IDs are assigned by the
+                             datastore stub, "sequential" or "scattered".
+                             (Default scattered)
   --backends                 Run the dev_appserver with backends support
                              (multiprocess mode).
   --blobstore_path=DIR       Path to directory to use for storing Blobstore
@@ -63,6 +66,12 @@ Options:
                              model. (Default false).
   --history_path=PATH        Path to use for storing Datastore history.
                              (Default %(history_path)s)
+  --persist_logs             Enables storage of all request and application
+                             logs to enable later access. (Default false).
+  --logs_path=LOGS_FILE      Path to use for storing request logs. If this is
+                             set, logs will be persisted to the given path. If
+                             this is not set and --persist_logs is true, logs
+                             are stored in %(logs_path)s.
   --multiprocess_min_port    When running in multiprocess mode, specifies the
                              lowest port value to use when choosing ports. If
                              set to 0, select random ports.
@@ -155,15 +164,18 @@ import traceback
 
 
 
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(levelname)-8s %(asctime)s %(filename)s:%(lineno)s] %(message)s')
 
 from google.appengine.api import yaml_errors
+from google.appengine.dist import py_zipimport
 from google.appengine.tools import appcfg
 from google.appengine.tools import appengine_rpc
 from google.appengine.tools import dev_appserver
 from google.appengine.tools import dev_appserver_multiprocess as multiprocess
+from google.appengine.tools import sdk_update_checker
 
 
 
@@ -176,6 +188,7 @@ ARG_ADMIN_CONSOLE_HOST = 'admin_console_host'
 ARG_ADMIN_CONSOLE_SERVER = 'admin_console_server'
 ARG_ALLOW_SKIPPED_FILES = 'allow_skipped_files'
 ARG_AUTH_DOMAIN = 'auth_domain'
+ARG_AUTO_ID_POLICY = 'auto_id_policy'
 ARG_BACKENDS = 'backends'
 ARG_BLOBSTORE_PATH = 'blobstore_path'
 ARG_CLEAR_DATASTORE = 'clear_datastore'
@@ -190,6 +203,7 @@ ARG_HIGH_REPLICATION = 'high_replication'
 ARG_HISTORY_PATH = 'history_path'
 ARG_LOGIN_URL = 'login_url'
 ARG_LOG_LEVEL = 'log_level'
+ARG_LOGS_PATH = 'logs_path'
 ARG_MULTIPROCESS = multiprocess.ARG_MULTIPROCESS
 ARG_MULTIPROCESS_API_PORT = multiprocess.ARG_MULTIPROCESS_API_PORT
 ARG_MULTIPROCESS_API_SERVER = multiprocess.ARG_MULTIPROCESS_API_SERVER
@@ -246,6 +260,7 @@ DEFAULT_ARGS = {
   ARG_ADMIN_CONSOLE_SERVER: DEFAULT_ADMIN_CONSOLE_SERVER,
   ARG_ALLOW_SKIPPED_FILES: False,
   ARG_AUTH_DOMAIN: 'gmail.com',
+  ARG_AUTO_ID_POLICY: 'scattered',
   ARG_BLOBSTORE_PATH: 'appscale',
   ARG_CLEAR_DATASTORE: False,
   ARG_CLEAR_PROSPECTIVE_SEARCH: False,
@@ -259,6 +274,7 @@ DEFAULT_ARGS = {
                                  'dev_appserver.datastore.history'),
   ARG_LOGIN_URL: '/_ah/login',
   ARG_LOG_LEVEL: logging.INFO,
+  ARG_LOGS_PATH: None,
   ARG_MYSQL_HOST: 'localhost',
   ARG_MYSQL_PASSWORD: '',
   ARG_MYSQL_PORT: 3306,
@@ -296,6 +312,7 @@ LONG_OPTIONS = [
     'admin_console_server=',
     'allow_skipped_files',
     'auth_domain=',
+    'auto_id_policy=',
     'backends',
     'blobstore_path=',
     'clear_datastore',
@@ -311,6 +328,7 @@ LONG_OPTIONS = [
     'help',
     'high_replication',
     'history_path=',
+    'logs_path=',
     'multiprocess',
     'multiprocess_api_port=',
     'multiprocess_api_server',
@@ -324,6 +342,7 @@ LONG_OPTIONS = [
     'mysql_port=',
     'mysql_socket=',
     'mysql_user=',
+    'persist_logs',
     'port=',
     'require_indexes',
     'search_indexes_path=',
@@ -356,6 +375,8 @@ def PrintUsageExit(code):
   """
   render_dict = DEFAULT_ARGS.copy()
   render_dict['script'] = os.path.basename(sys.argv[0])
+  render_dict['logs_path'] = os.path.join(tempfile.gettempdir(),
+                                          'dev_appserver.logs')
   print sys.modules['__main__'].__doc__ % render_dict
   sys.stdout.flush()
   sys.exit(code)
@@ -424,6 +445,9 @@ def ParseArguments(argv):
       option_dict[ARG_PROSPECTIVE_SEARCH_PATH] = expand_path(value)
 
     option_dict[ARG_SKIP_SDK_UPDATE_CHECK] = True
+
+    if option == '--auto_id_policy':
+      option_dict[ARG_AUTO_ID_POLICY] = value.lower()
 
     if option == '--use_sqlite':
       option_dict[ARG_USE_SQLITE] = True
@@ -514,6 +538,12 @@ def ParseArguments(argv):
 
     if option == '--trusted':
       option_dict[ARG_TRUSTED] = True
+
+    if option == '--logs_path':
+      option_dict[ARG_LOGS_PATH] = value
+    if option == '--persist_logs' and not option_dict[ARG_LOGS_PATH]:
+      option_dict[ARG_LOGS_PATH] = os.path.join(tempfile.gettempdir(),
+                                                'dev_appserver.logs')
 
     if option == '--backends':
       option_dict[ARG_BACKENDS] = value
@@ -606,7 +636,7 @@ def MakeRpcServer(option_dict):
   server = appengine_rpc.HttpRpcServer(
       option_dict[ARG_ADMIN_CONSOLE_SERVER],
       lambda: ('unused_email', 'unused_password'),
-      appcfg.GetUserAgent(),
+      appcfg.GetUserAgent(sdk_product='dev_appserver_py'),
       appcfg.GetSourceName(),
       host_override=option_dict[ARG_ADMIN_CONSOLE_HOST])
 
@@ -722,10 +752,9 @@ def main(argv):
           exc_type, exc_value, exc_traceback)))
     return 1
 
-  frontend_port = option_dict.get(ARG_MULTIPROCESS_FRONTEND_PORT, None)
+  frontend_port=option_dict.get(ARG_MULTIPROCESS_FRONTEND_PORT, None)
   if frontend_port is not None:
     frontend_port = int(frontend_port)
-
   http_server = dev_appserver.CreateServer(
       root_path,
       login_url,
@@ -735,7 +764,7 @@ def main(argv):
       allow_skipped_files=allow_skipped_files,
       static_caching=static_caching,
       default_partition=default_partition,
-      frontend_port= None, 
+      frontend_port=None,
       interactive_console=interactive_console,
       secret_hash = hashlib.sha1(appinfo.application + '/' + \
         option_dict['COOKIE_SECRET']).hexdigest())

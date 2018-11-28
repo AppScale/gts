@@ -6,12 +6,18 @@ from kazoo.retry import KazooRetry
 
 
 class HTTPCodes(object):
+  OK = 200
   BAD_REQUEST = 400
   UNAUTHORIZED = 401
   FORBIDDEN = 403
   NOT_FOUND = 404
   INTERNAL_ERROR = 500
   NOT_IMPLEMENTED = 501
+
+
+class InvalidConfiguration(Exception):
+  """ Indicates that a given configuration cannot be enforced. """
+  pass
 
 
 class MonitStates(object):
@@ -24,6 +30,9 @@ class MonitStates(object):
 
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
+
+# The ZooKeeper path for keeping track of assignments by machine.
+ASSIGNMENTS_PATH = '/appscale/assignments'
 
 # Directory where configuration files are stored.
 CONFIG_DIR = os.path.join('/', 'etc', 'appscale')
@@ -82,6 +91,9 @@ UA_SERVER_PORT = 4343
 # The port of the application manager soap server.
 APP_MANAGER_PORT = 17445
 
+# The HAProxy port for the TaskQueue service.
+TASKQUEUE_SERVICE_PORT = 17446
+
 # Python programs.
 PYTHON = "python"
 
@@ -133,11 +145,14 @@ SERVICES_DIR = '/etc/init.d'
 # The AppController's service name.
 CONTROLLER_SERVICE = 'appscale-controller'
 
+# The system's cgroup directory.
+CGROUP_DIR = os.path.join('/', 'sys', 'fs', 'cgroup')
+
 # The default log directory for AppScale services.
 LOG_DIR = os.path.join('/var', 'log', 'appscale')
 
-# The default directory for pidfiles.
-PID_DIR = os.path.join('/', 'var', 'run', 'appscale')
+# The default directory for run-time variable data (eg. pidfiles).
+VAR_DIR = os.path.join('/', 'var', 'run', 'appscale')
 
 # The number of seconds to wait before retrying some operations.
 SMALL_WAIT = 5

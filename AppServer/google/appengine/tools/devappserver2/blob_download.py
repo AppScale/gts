@@ -182,7 +182,7 @@ def blobstore_download_rewriter(state):
         state.status = '206 Partial Content'
         state.headers['Content-Range'] = 'bytes %d-%d/%d' % (start, end - 1,
                                                              blob_size)
- 
+
     blob_stream = _get_blob_storage().OpenBlob(blob_open_key)
     blob_stream.seek(start)
     state.body = [blob_stream.read(content_length)]

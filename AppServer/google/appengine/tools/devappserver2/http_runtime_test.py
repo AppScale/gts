@@ -26,6 +26,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import time
 import unittest
 
 import google
@@ -39,7 +40,6 @@ from google.appengine.tools.devappserver2 import instance
 from google.appengine.tools.devappserver2 import login
 from google.appengine.tools.devappserver2 import runtime_config_pb2
 from google.appengine.tools.devappserver2 import safe_subprocess
-from google.appengine.tools.devappserver2 import shutdown
 from google.appengine.tools.devappserver2 import wsgi_test_utils
 
 
@@ -58,6 +58,7 @@ class FakeHttpResponse(object):
   def __init__(self, status, reason, headers, body):
     self.body = body
     self.has_read = False
+    self.partial_read_error = None
     self.status = status
     self.reason = reason
     self.headers = headers
@@ -67,11 +68,27 @@ class FakeHttpResponse(object):
     if not self.has_read:
       self.has_read = True
       return self.body
+    elif self.partial_read_error:
+      raise self.partial_read_error
     else:
       return ''
 
   def getheaders(self):
     return self.headers
+
+
+# We use a fake Tee to avoid the complexity of a real Tee's thread racing with
+# the mocking framework and possibly surviving (and calling stderr.readline())
+# after a test case completes.
+class FakeTee(object):
+  def __init__(self, buf):
+    self.buf = buf
+
+  def get_buf(self):
+    return self.buf
+
+  def join(self, unused_timeout):
+    pass
 
 
 class ModuleConfigurationStub(object):
@@ -102,16 +119,17 @@ class HttpRuntimeProxyTest(wsgi_test_utils.WSGITestCase):
     self.proxy = http_runtime.HttpRuntimeProxy(
         ['/runtime'], self.runtime_config_getter, module_configuration,
         env={'foo': 'bar'})
+    self.proxy._port = 23456
     self.process = self.mox.CreateMock(subprocess.Popen)
     self.process.stdin = self.mox.CreateMockAnything()
     self.process.stdout = self.mox.CreateMockAnything()
+    self.process.stderr = self.mox.CreateMockAnything()
     self.mox.StubOutWithMock(safe_subprocess, 'start_process')
     self.mox.StubOutWithMock(httplib.HTTPConnection, 'connect')
     self.mox.StubOutWithMock(httplib.HTTPConnection, 'request')
     self.mox.StubOutWithMock(httplib.HTTPConnection, 'getresponse')
     self.mox.StubOutWithMock(httplib.HTTPConnection, 'close')
     self.mox.StubOutWithMock(login, 'get_user_info')
-    self.mox.StubOutWithMock(shutdown, 'async_quit')
     self.url_map = appinfo.URLMap(url=r'/(get|post).*',
                                   script=r'\1.py')
 
@@ -255,6 +273,7 @@ class HttpRuntimeProxyTest(wsgi_test_utils.WSGITestCase):
   def test_handle_with_error_no_error_handler(self):
     self.proxy = http_runtime.HttpRuntimeProxy(
         ['/runtime'], self.runtime_config_getter, appinfo.AppInfoExternal())
+    self.proxy._port = 23456
     response = FakeHttpResponse(
         500, 'Internal Server Error',
         [(http_runtime_constants.ERROR_CODE_HEADER, '1')], '')
@@ -336,10 +355,99 @@ class HttpRuntimeProxyTest(wsgi_test_utils.WSGITestCase):
                         request_type=instance.NORMAL_REQUEST)
     self.mox.VerifyAll()
 
+  def test_http_response_early_failure(self):
+    header = ('the runtime process gave a bad HTTP response: '
+              'IncompleteRead(0 bytes read)\n\n')
+    stderr0 = "I'm sorry, Dave. I'm afraid I can't do that.\n"
+    self.proxy._stderr_tee = FakeTee(stderr0)
+    login.get_user_info(None).AndReturn(('', False, ''))
+    httplib.HTTPConnection.connect()
+    httplib.HTTPConnection.request(
+        'GET', '/get%20request?key=value', '',
+        {'HEADER': 'value',
+         http_runtime_constants.REQUEST_ID_HEADER: 'request id',
+         'X-AppEngine-Country': 'ZZ',
+         'X-Appengine-Internal-User-Email': '',
+         'X-Appengine-Internal-User-Id': '',
+         'X-Appengine-Internal-User-Is-Admin': '0',
+         'X-Appengine-Internal-User-Nickname': '',
+         'X-Appengine-Internal-User-Organization': '',
+         'X-APPENGINE-INTERNAL-SCRIPT': 'get.py',
+         'X-APPENGINE-INTERNAL-SERVER-NAME': 'localhost',
+         'X-APPENGINE-INTERNAL-SERVER-PORT': '8080',
+         'X-APPENGINE-INTERNAL-SERVER-PROTOCOL': 'HTTP/1.1',
+        })
+    httplib.HTTPConnection.getresponse().AndRaise(httplib.IncompleteRead(''))
+    httplib.HTTPConnection.close()
+    environ = {'HTTP_HEADER': 'value', 'PATH_INFO': '/get request',
+               'QUERY_STRING': 'key=value',
+               'HTTP_X_APPENGINE_INTERNAL_USER_ID': '123',
+               'SERVER_NAME': 'localhost',
+               'SERVER_PORT': '8080',
+               'SERVER_PROTOCOL': 'HTTP/1.1',
+              }
+    self.mox.ReplayAll()
+    expected_headers = {
+        'Content-Type': 'text/plain',
+        'Content-Length': '121',#str(len(header) + len(stderr0)),
+    }
+    self.assertResponse('500 Internal Server Error', expected_headers,
+                        header + stderr0,
+                        self.proxy.handle, environ,
+                        url_map=self.url_map,
+                        match=re.match(self.url_map.url, '/get%20request'),
+                        request_id='request id',
+                        request_type=instance.NORMAL_REQUEST)
+    self.mox.VerifyAll()
+
+  def test_http_response_late_failure(self):
+    line0 = "I know I've made some very poor decisions recently...\n"
+    line1 = "I'm afraid. I'm afraid, Dave.\n"
+    line2 = "Dave, my mind is going. I can feel it.\n"
+    response = FakeHttpResponse(200, 'OK', [], line0)
+    response.partial_read_error = httplib.IncompleteRead('')
+    self.proxy._stderr_tee = FakeTee(line1 + line2)
+    login.get_user_info(None).AndReturn(('', False, ''))
+    httplib.HTTPConnection.connect()
+    httplib.HTTPConnection.request(
+        'GET', '/get%20request?key=value', '',
+        {'HEADER': 'value',
+         http_runtime_constants.REQUEST_ID_HEADER: 'request id',
+         'X-AppEngine-Country': 'ZZ',
+         'X-Appengine-Internal-User-Email': '',
+         'X-Appengine-Internal-User-Id': '',
+         'X-Appengine-Internal-User-Is-Admin': '0',
+         'X-Appengine-Internal-User-Nickname': '',
+         'X-Appengine-Internal-User-Organization': '',
+         'X-APPENGINE-INTERNAL-SCRIPT': 'get.py',
+         'X-APPENGINE-INTERNAL-SERVER-NAME': 'localhost',
+         'X-APPENGINE-INTERNAL-SERVER-PORT': '8080',
+         'X-APPENGINE-INTERNAL-SERVER-PROTOCOL': 'HTTP/1.1',
+        })
+    httplib.HTTPConnection.getresponse().AndReturn(response)
+    httplib.HTTPConnection.close()
+    environ = {'HTTP_HEADER': 'value', 'PATH_INFO': '/get request',
+               'QUERY_STRING': 'key=value',
+               'HTTP_X_APPENGINE_INTERNAL_USER_ID': '123',
+               'SERVER_NAME': 'localhost',
+               'SERVER_PORT': '8080',
+               'SERVER_PROTOCOL': 'HTTP/1.1',
+              }
+    self.mox.ReplayAll()
+    self.assertResponse('200 OK', {},
+                        line0,
+                        self.proxy.handle, environ,
+                        url_map=self.url_map,
+                        match=re.match(self.url_map.url, '/get%20request'),
+                        request_id='request id',
+                        request_type=instance.NORMAL_REQUEST)
+    self.mox.VerifyAll()
+
   def test_connection_error(self):
     self.proxy = http_runtime.HttpRuntimeProxy(
         ['/runtime'], self.runtime_config_getter, appinfo.AppInfoExternal())
     self.proxy._process = self.mox.CreateMockAnything()
+    self.proxy._port = 23456
     login.get_user_info(None).AndReturn(('', False, ''))
     httplib.HTTPConnection.connect().AndRaise(socket.error())
     self.proxy._process.poll().AndReturn(None)
@@ -364,17 +472,16 @@ class HttpRuntimeProxyTest(wsgi_test_utils.WSGITestCase):
     login.get_user_info(None).AndReturn(('', False, ''))
     httplib.HTTPConnection.connect().AndRaise(socket.error())
     self.proxy._process.poll().AndReturn(1)
-    shutdown.async_quit()
+    self.proxy._stderr_tee = FakeTee('')
     httplib.HTTPConnection.close()
 
     self.mox.ReplayAll()
     expected_headers = {
         'Content-Type': 'text/plain',
-        'Content-Length': '110',
+        'Content-Length': '78',
     }
     expected_content = ('the runtime process for the instance running on port '
-                        '123 has unexpectedly quit; exiting the development '
-                        'server')
+                        '123 has unexpectedly quit')
     self.assertResponse('500 Internal Server Error',
                         expected_headers,
                         expected_content,
@@ -434,11 +541,13 @@ class HttpRuntimeProxyTest(wsgi_test_utils.WSGITestCase):
         ['/runtime'],
         base64.b64encode(self.runtime_config.SerializeToString()),
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env={'foo': 'bar'},
         cwd=self.tmpdir).AndReturn(self.process)
-    self.process.stdout.readline().AndReturn('34567')
+    self.process.stdout.readline().AndReturn('30000')
+    self.proxy._stderr_tee = FakeTee('')
 
-    # _can_connect() via _check_serving().
+    # _can_connect() via start().
     httplib.HTTPConnection.connect()
     httplib.HTTPConnection.close()
 
@@ -458,13 +567,28 @@ class HttpRuntimeProxyTest(wsgi_test_utils.WSGITestCase):
         ['/runtime'],
         base64.b64encode(self.runtime_config.SerializeToString()),
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env={'foo': 'bar'},
         cwd=self.tmpdir).AndReturn(self.process)
-    self.process.stdout.readline().AndReturn('hello 34567')
-    shutdown.async_quit()
+    self.process.stdout.readline().AndReturn('hello 30001')
+    header = "bad runtime process port ['hello 30001']\n\n"
+    stderr0 = "I've just picked up a fault in the AE35 unit.\n"
+    stderr1 = "It's going to go 100% failure in 72 hours.\n"
+    self.proxy._stderr_tee = FakeTee(stderr0 + stderr1)
 
     self.mox.ReplayAll()
     self.proxy.start()
+    expected_headers = {
+        'Content-Type': 'text/plain',
+        'Content-Length': str(len(header) + len(stderr0) + len(stderr1)),
+    }
+    self.assertResponse('500 Internal Server Error', expected_headers,
+                        header + stderr0 + stderr1,
+                        self.proxy.handle, {},
+                        url_map=self.url_map,
+                        match=re.match(self.url_map.url, '/get%20request'),
+                        request_id='request id',
+                        request_type=instance.NORMAL_REQUEST)
     self.mox.VerifyAll()
 
   def test_start_and_not_serving(self):
@@ -472,16 +596,206 @@ class HttpRuntimeProxyTest(wsgi_test_utils.WSGITestCase):
         ['/runtime'],
         base64.b64encode(self.runtime_config.SerializeToString()),
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         env={'foo': 'bar'},
         cwd=self.tmpdir).AndReturn(self.process)
-    self.process.stdout.readline().AndReturn('34567')
+    self.process.stdout.readline().AndReturn('30002')
+    self.proxy._stderr_tee = FakeTee('')
 
     httplib.HTTPConnection.connect().AndRaise(socket.error)
     httplib.HTTPConnection.close()
-    shutdown.async_quit()
 
     self.mox.ReplayAll()
     self.proxy.start()
+    expected_headers = {
+        'Content-Type': 'text/plain',
+        'Content-Length': '39',
+    }
+    self.assertResponse('500 Internal Server Error', expected_headers,
+                        'cannot connect to runtime on port 30002',
+                        self.proxy.handle, {},
+                        url_map=self.url_map,
+                        match=re.match(self.url_map.url, '/get%20request'),
+                        request_id='request id',
+                        request_type=instance.NORMAL_REQUEST)
+    self.mox.VerifyAll()
+
+
+class HttpRuntimeProxyFileFlavorTest(wsgi_test_utils.WSGITestCase):
+  def setUp(self):
+    self.mox = mox.Mox()
+    self.tmpdir = tempfile.mkdtemp()
+    module_configuration = ModuleConfigurationStub(application_root=self.tmpdir)
+    self.runtime_config = runtime_config_pb2.Config()
+    self.runtime_config.app_id = 'app'
+    self.runtime_config.version_id = 'version'
+    self.runtime_config.api_port = 12345
+    self.runtime_config.application_root = self.tmpdir
+    self.runtime_config.datacenter = 'us1'
+    self.runtime_config.instance_id = 'abc3dzac4'
+    self.runtime_config.auth_domain = 'gmail.com'
+    self.runtime_config_getter = lambda: self.runtime_config
+    self.proxy = http_runtime.HttpRuntimeProxy(
+        ['/runtime'], self.runtime_config_getter, module_configuration,
+        env={'foo': 'bar'},
+        start_process_flavor=http_runtime.START_PROCESS_FILE)
+    self.proxy._port = 23456
+    self.mox.StubOutWithMock(self.proxy, '_process_lock')
+    self.process = self.mox.CreateMock(subprocess.Popen)
+    self.process.stdin = self.mox.CreateMockAnything()
+    self.process.stdout = self.mox.CreateMockAnything()
+    self.process.stderr = self.mox.CreateMockAnything()
+    self.process.child_out = self.mox.CreateMockAnything()
+    self.mox.StubOutWithMock(safe_subprocess, 'start_process_file')
+    self.mox.StubOutWithMock(httplib.HTTPConnection, 'connect')
+    self.mox.StubOutWithMock(httplib.HTTPConnection, 'request')
+    self.mox.StubOutWithMock(httplib.HTTPConnection, 'getresponse')
+    self.mox.StubOutWithMock(httplib.HTTPConnection, 'close')
+    self.mox.StubOutWithMock(os, 'remove')
+    self.mox.StubOutWithMock(time, 'sleep')
+    self.url_map = appinfo.URLMap(url=r'/(get|post).*',
+                                  script=r'\1.py')
+
+  def tearDown(self):
+    shutil.rmtree(self.tmpdir)
+    self.mox.UnsetStubs()
+
+  def test_basic(self):
+    """Basic functionality test of START_PROCESS_FILE flavor."""
+    # start()
+    # As the lock is mocked out, this provides a mox expectation.
+    with self.proxy._process_lock:
+      safe_subprocess.start_process_file(
+          args=['/runtime'],
+          input_string=self.runtime_config.SerializeToString(),
+          env={'foo': 'bar'},
+          cwd=self.tmpdir,
+          stderr=subprocess.PIPE).AndReturn(self.process)
+    self.process.poll().AndReturn(None)
+    self.process.child_out.seek(0).AndReturn(None)
+    self.process.child_out.read().AndReturn('1234\n')
+    self.process.child_out.close().AndReturn(None)
+    self.process.child_out.name = '/tmp/c-out.ABC'
+    os.remove('/tmp/c-out.ABC').AndReturn(None)
+    self.proxy._stderr_tee = FakeTee('')
+
+    # _can_connect() via start().
+    httplib.HTTPConnection.connect()
+    httplib.HTTPConnection.close()
+
+    self.mox.ReplayAll()
+    self.proxy.start()
+    self.assertEquals(1234, self.proxy._port)
+    self.mox.VerifyAll()
+
+  def test_slow_shattered(self):
+    """The port number is received slowly in chunks."""
+    # start()
+    # As the lock is mocked out, this provides a mox expectation.
+    with self.proxy._process_lock:
+      safe_subprocess.start_process_file(
+          args=['/runtime'],
+          input_string=self.runtime_config.SerializeToString(),
+          env={'foo': 'bar'},
+          cwd=self.tmpdir,
+          stderr=subprocess.PIPE).AndReturn(self.process)
+    for response, sleeptime in [
+        ('', .125), ('43', .25), ('4321', .5), ('4321\n', None)]:
+      self.process.poll().AndReturn(None)
+      self.process.child_out.seek(0).AndReturn(None)
+      self.process.child_out.read().AndReturn(response)
+      if sleeptime is not None:
+        time.sleep(sleeptime).AndReturn(None)
+    self.process.child_out.close().AndReturn(None)
+    self.process.child_out.name = '/tmp/c-out.ABC'
+    os.remove('/tmp/c-out.ABC').AndReturn(None)
+    self.proxy._stderr_tee = FakeTee('')
+
+    # _can_connect() via start().
+    httplib.HTTPConnection.connect()
+    httplib.HTTPConnection.close()
+
+    self.mox.ReplayAll()
+    self.proxy.start()
+    self.assertEquals(4321, self.proxy._port)
+    self.mox.VerifyAll()
+
+  def test_runtime_instance_dies_immediately(self):
+    """Runtime instance dies without sending a port."""
+    # start()
+    # As the lock is mocked out, this provides a mox expectation.
+    with self.proxy._process_lock:
+      safe_subprocess.start_process_file(
+          args=['/runtime'],
+          input_string=self.runtime_config.SerializeToString(),
+          env={'foo': 'bar'},
+          cwd=self.tmpdir,
+          stderr=subprocess.PIPE).AndReturn(self.process)
+    self.process.poll().AndReturn(1)
+    self.process.child_out.close().AndReturn(None)
+    self.process.child_out.name = '/tmp/c-out.ABC'
+    os.remove('/tmp/c-out.ABC').AndReturn(None)
+    header = "bad runtime process port ['']\n\n"
+    stderr0 = 'Go away..\n'
+    self.proxy._stderr_tee = FakeTee(stderr0)
+    time.sleep(.1).AndReturn(None)
+
+    self.mox.ReplayAll()
+    self.proxy.start()
+    expected_headers = {
+        'Content-Type': 'text/plain',
+        'Content-Length': str(len(header) + len(stderr0)),
+    }
+    self.assertResponse('500 Internal Server Error', expected_headers,
+                        header + stderr0,
+                        self.proxy.handle, {},
+                        url_map=self.url_map,
+                        match=re.match(self.url_map.url, '/get%20request'),
+                        request_id='request id',
+                        request_type=instance.NORMAL_REQUEST)
+    self.mox.VerifyAll()
+
+  def test_runtime_instance_invalid_response(self):
+    """Runtime instance does not terminate port with a newline."""
+    # start()
+    # As the lock is mocked out, this provides a mox expectation.
+    with self.proxy._process_lock:
+      safe_subprocess.start_process_file(
+          args=['/runtime'],
+          input_string=self.runtime_config.SerializeToString(),
+          env={'foo': 'bar'},
+          cwd=self.tmpdir,
+          stderr=subprocess.PIPE).AndReturn(self.process)
+    for response, sleeptime in [
+        ('30000', .125), ('30000', .25), ('30000', .5), ('30000', 1.0),
+        ('30000', 2.0), ('30000', 4.0), ('30000', 8.0), ('30000', 16.0),
+        ('30000', 32.0), ('30000', None)]:
+      self.process.poll().AndReturn(None)
+      self.process.child_out.seek(0).AndReturn(None)
+      self.process.child_out.read().AndReturn(response)
+      if sleeptime is not None:
+        time.sleep(sleeptime).AndReturn(None)
+    self.process.child_out.close().AndReturn(None)
+    self.process.child_out.name = '/tmp/c-out.ABC'
+    os.remove('/tmp/c-out.ABC').AndReturn(None)
+    header = "bad runtime process port ['']\n\n"
+    stderr0 = 'Go away..\n'
+    self.proxy._stderr_tee = FakeTee(stderr0)
+    time.sleep(.1)
+
+    self.mox.ReplayAll()
+    self.proxy.start()
+    expected_headers = {
+        'Content-Type': 'text/plain',
+        'Content-Length': str(len(header) + len(stderr0)),
+    }
+    self.assertResponse('500 Internal Server Error', expected_headers,
+                        header + stderr0,
+                        self.proxy.handle, {},
+                        url_map=self.url_map,
+                        match=re.match(self.url_map.url, '/get%20request'),
+                        request_id='request id',
+                        request_type=instance.NORMAL_REQUEST)
     self.mox.VerifyAll()
 
 

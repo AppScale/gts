@@ -1,6 +1,10 @@
 import argparse
+import sys
 
 from ..appscale_datastore_batch import DatastoreFactory
+
+# The exit code that indicates the data layout version is unexpected.
+INVALID_VERSION_EXIT_CODE = 64
 
 
 def main():
@@ -11,6 +15,9 @@ def main():
 
   datastore_batch = DatastoreFactory.getDatastore(args.db_type)
   try:
-    assert datastore_batch.valid_data_version()
+    is_valid = datastore_batch.valid_data_version_sync()
   finally:
     datastore_batch.close()
+
+  if not is_valid:
+    sys.exit(INVALID_VERSION_EXIT_CODE)

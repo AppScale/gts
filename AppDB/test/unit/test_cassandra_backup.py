@@ -100,10 +100,10 @@ class TestCassandraBackup(unittest.TestCase):
     flexmock(appscale_utils).should_receive('ssh').with_args(
       re.compile('^192.*'), keyname, re.compile('^tar xf .*'))
     flexmock(appscale_utils).should_receive('ssh').with_args(
-      re.compile('^192.*'), keyname, re.compile('^monit start .*'),
+      re.compile('^192.*'), keyname, re.compile('^appscale-start-service .*'),
       subprocess.call)
     flexmock(appscale_utils).should_receive('ssh').with_args(
-      re.compile('^192.*'), keyname, re.compile('^monit start .*'))
+      re.compile('^192.*'), keyname, re.compile('^appscale-start-service .*'))
     flexmock(appscale_utils).should_receive('ssh').with_args(
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
     flexmock(rebalance).should_receive('get_status').and_return(
@@ -120,4 +120,4 @@ class TestCassandraBackup(unittest.TestCase):
 
 
 if __name__ == "__main__":
-  unittest.main()    
+  unittest.main()

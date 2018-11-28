@@ -22,10 +22,7 @@
 
 import datetime
 
-try:
-  from google.appengine.ext import ndb
-except ImportError:
-  ndb = None
+from google.appengine.ext import ndb
 
 from google.appengine.ext import db
 from google.appengine.ext.mapreduce import errors
@@ -411,21 +408,15 @@ _DISCRETE_PROPERTY_SPLIT_FUNCTIONS = {
     db.IntegerProperty: _split_integer_property,
     db.StringProperty: _split_string_property,
     db.ByteStringProperty: _split_byte_string_property,
-}
 
-if ndb:
-  _DISCRETE_PROPERTY_SPLIT_FUNCTIONS.update({
-      ndb.DateTimeProperty: _split_datetime_property,
-      ndb.IntegerProperty: _split_integer_property,
-      ndb.StringProperty: _split_string_property,
-      ndb.BlobProperty: _split_byte_string_property
-  })
+    ndb.DateTimeProperty: _split_datetime_property,
+    ndb.IntegerProperty: _split_integer_property,
+    ndb.StringProperty: _split_string_property,
+    ndb.BlobProperty: _split_byte_string_property
+}
 
 _CONTINUOUS_PROPERTY_SPLIT_FUNCTIONS = {
     db.FloatProperty: _split_float_property,
-}
 
-if ndb:
-  _CONTINUOUS_PROPERTY_SPLIT_FUNCTIONS.update({
-      ndb.FloatProperty: _split_float_property,
-  })
+    ndb.FloatProperty: _split_float_property,
+}

@@ -11,14 +11,10 @@ from tornado.ioloop import IOLoop
 from tornado.options import options
 
 from appscale.common.async_retrying import (
-  retry_children_watch_coroutine, retry_data_watch_coroutine
+  retry_children_watch_coroutine, retry_coroutine, retry_data_watch_coroutine
 )
-from appscale.common.constants import (
-  LOG_DIR,
-  MonitStates,
-  PID_DIR,
-  CONFIG_DIR
-)
+from appscale.common.constants import (CONFIG_DIR, LOG_DIR, MonitStates,
+                                       VAR_DIR)
 from appscale.common.monit_app_configuration import create_config_file
 from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 
@@ -52,7 +48,7 @@ TASK_SOFT_TIME_LIMIT = 600
 # The worker script for Celery to use.
 WORKER_MODULE = 'appscale.taskqueue.push_worker'
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 class ProjectPushWorkerManager(object):
@@ -83,14 +79,20 @@ class ProjectPushWorkerManager(object):
     self._write_worker_configuration(queue_config)
     status = yield self._wait_for_stable_state()
 
+    pid_location = os.path.join(VAR_DIR, 'celery-{}.pid'.format(self.project_id))
+    try:
+      with open(pid_location) as pidfile:
+        old_pid = int(pidfile.read().strip())
+    except IOError:
+      old_pid = None
+
     # Start the worker if it doesn't exist. Restart it if it does.
     if status == MonitStates.MISSING:
       command = self.celery_command()
       env_vars = {'APP_ID': self.project_id, 'HOST': options.load_balancers[0],
                   'C_FORCE_ROOT': True}
-      pidfile = os.path.join(PID_DIR, 'celery-{}.pid'.format(self.project_id))
-      create_config_file(self.monit_watch, command, pidfile, env_vars=env_vars,
-                         max_memory=CELERY_SAFE_MEMORY)
+      create_config_file(self.monit_watch, command, pid_location,
+                         env_vars=env_vars, max_memory=CELERY_SAFE_MEMORY)
       logger.info('Starting push worker for {}'.format(self.project_id))
       yield self.monit_operator.reload()
     else:
@@ -100,6 +102,27 @@ class ProjectPushWorkerManager(object):
     start_future = self.monit_operator.ensure_running(self.monit_watch)
     yield gen.with_timeout(timedelta(seconds=60), start_future,
                            IOLoop.current())
+
+    try:
+      yield self.ensure_pid_changed(old_pid, pid_location)
+    except AssertionError:
+      # Occasionally, Monit will get interrupted during a restart. Retry the
+      # restart if the Celery worker PID is the same.
+      logger.warning(
+        '{} worker PID did not change. Restarting it.'.format(self.project_id))
+      yield self.update_worker(queue_config)
+
+  @staticmethod
+  @retry_coroutine(retrying_timeout=10, retry_on_exception=[AssertionError])
+  def ensure_pid_changed(old_pid, pid_location):
+    try:
+      with open(pid_location) as pidfile:
+        new_pid = int(pidfile.read().strip())
+    except IOError:
+      new_pid = None
+
+    if new_pid == old_pid:
+      raise AssertionError
 
   @gen.coroutine
   def stop_worker(self):
@@ -117,7 +140,7 @@ class ProjectPushWorkerManager(object):
     """ Generates the Celery command for a project's push worker. """
     log_file = os.path.join(CELERY_WORKER_LOG_DIR,
                             '{}.log'.format(self.project_id))
-    pidfile = os.path.join(PID_DIR, 'celery-{}.pid'.format(self.project_id))
+    pidfile = os.path.join(VAR_DIR, 'celery-{}.pid'.format(self.project_id))
     state_db = os.path.join(CELERY_STATE_DIR,
                             'worker___{}.db'.format(self.project_id))
 

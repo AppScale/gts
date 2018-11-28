@@ -17,6 +17,7 @@
 """Regression tests for Endpoints server in devappserver2."""
 
 
+import base64
 import json
 import os.path
 
@@ -95,7 +96,7 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
 
   def test_echo_datetime_message(self):
     """Test sending and receiving a datetime."""
-    body = json.dumps({'milliseconds': 5000, 'time_zone_offset': 60})
+    body = json.dumps({'milliseconds': '5000', 'time_zone_offset': '60'})
     send_headers = {'content-type': 'application/json'}
     status, content, headers = self.fetch_url(
         'default', 'POST', '/_ah/api/test_service/v1/echo_datetime_message',
@@ -104,7 +105,7 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
     self.assertEqual('application/json', headers['Content-Type'])
 
     response_json = json.loads(content)
-    self.assertEqual({'milliseconds': 5000, 'time_zone_offset': 60},
+    self.assertEqual({'milliseconds': '5000', 'time_zone_offset': '60'},
                      response_json)
 
   def test_echo_datetime_field(self):
@@ -121,6 +122,58 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
     response_json = json.loads(content)
     self.assertEqual(body_json, response_json)
 
+  def test_increment_integers(self):
+    """Test sending and receiving integer values."""
+    body_json = {'var_int32': 100, 'var_int64': '1000',
+                 'var_repeated_int64': ['10', '11', '900'],
+                 'var_sint64': -555, 'var_uint64': 4320}
+    body = json.dumps(body_json)
+    send_headers = {'content-type': 'application/json'}
+    status, content, headers = self.fetch_url(
+        'default', 'POST', '/_ah/api/test_service/v1/increment_integers',
+        body, send_headers)
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    expected_response = {'var_int32': 101, 'var_int64': '1001',
+                         'var_repeated_int64': ['11', '12', '901'],
+                         'var_sint64': '-554', 'var_uint64': '4321'}
+    self.assertEqual(expected_response, response_json)
+
+  def test_echo_bytes(self):
+    """Test sending and receiving a BytesField parameter."""
+    value = 'This is a test of a message encoded as a BytesField.01234\000\001'
+    bytes_value = base64.urlsafe_b64encode(value)
+    body_json = {'bytes_value': bytes_value}
+    body = json.dumps(body_json)
+    send_headers = {'content-type': 'application/json'}
+    status, content, headers = self.fetch_url(
+        'default', 'POST', '/_ah/api/test_service/v1/echo_bytes',
+        body, send_headers)
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    self.assertEqual(response_json, body_json)
+    self.assertEqual(value, base64.urlsafe_b64decode(body_json['bytes_value']))
+
+  def test_empty_test(self):
+    """Test that an empty response that should have an object returns 200."""
+    status, content, headers = self.fetch_url(
+        'default', 'GET', '/_ah/api/test_service/v1/empty_test')
+    self.assertEqual(200, status)
+    self.assertEqual('2', headers['Content-Length'])
+    self.assertEqual('{}', content)
+
+  def test_empty_response(self):
+    """An empty response that should be empty should return 204."""
+    status, content, headers = self.fetch_url(
+        'default', 'GET', '/_ah/api/test_service/v1/empty_response')
+    self.assertEqual(204, status)
+    self.assertEqual('0', headers['Content-Length'])
+    self.assertEqual('', content)
+
   def test_discovery_config(self):
     """Test that the discovery configuration looks right."""
     status, content, headers = self.fetch_url(
@@ -134,6 +187,45 @@ class EndpointsServerRegtest(regtest_utils.BaseTestCase):
         r'^http://localhost(:\d+)?/_ah/api/test_service/v1/$')
     self.assertRegexpMatches(response_json['rootUrl'],
                              r'^http://localhost(:\d+)?/_ah/api/$')
+
+  def test_multiclass_rest_get(self):
+    """Test that a GET request to a second class in the REST API works."""
+    status, content, headers = self.fetch_url(
+        'default', 'GET', '/_ah/api/test_service/v1/extrapath/test')
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    self.assertEqual({'text': 'Extra test response'}, response_json)
+
+  def test_multiclass_rpc(self):
+    """Test that an RPC request to a second class in the API works."""
+    body = json.dumps([{'jsonrpc': '2.0',
+                        'id': 'gapiRpc',
+                        'method': 'testservice.extraname.test',
+                        'params': {},
+                        'apiVersion': 'v1'}])
+    send_headers = {'content-type': 'application-rpc'}
+    status, content, headers = self.fetch_url('default', 'POST',
+                                              '/_ah/api/rpc',
+                                              body, send_headers)
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    self.assertEqual([{'result': {'text': 'Extra test response'},
+                       'id': 'gapiRpc'}], response_json)
+
+  def test_second_api_no_collision(self):
+    """Test that a GET request to a second similar API works."""
+    status, content, headers = self.fetch_url('default', 'GET',
+                                              '/_ah/api/second_service/v1/test')
+    self.assertEqual(200, status)
+    self.assertEqual('application/json', headers['Content-Type'])
+
+    response_json = json.loads(content)
+    self.assertEqual({'text': 'Second response'}, response_json)
+
 
 if __name__ == '__main__':
   googletest.main()

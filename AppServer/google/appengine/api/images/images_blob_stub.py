@@ -27,6 +27,7 @@
 
 
 import logging
+# AppScale: os is needed to read port file.
 import os
 
 from google.appengine.api import datastore
@@ -45,6 +46,7 @@ class ImagesBlobStub(object):
     """Stub implementation of blob-related parts of the images API.
 
     Args:
+      # AppScale: Host prefix does not include port since that can change.
       host_prefix: the URL prefix (protocol://host) to prepend to image urls
         on a call to GetUrlBase.
     """
@@ -67,15 +69,15 @@ class ImagesBlobStub(object):
     entity_info["blob_key"] = request.blob_key()
     datastore.Put(entity_info)
 
-    # Host prefix does not include a port, so retrieve it from the filesystem.
+    # AppScale: Host prefix does not include a port, so retrieve it from the
+    # filesystem.
     full_prefix = self._host_prefix
     if full_prefix:
-      # CURRENT_VERSION_ID is formatted as module:major_version.minor_version.
-      version_info = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
-      if ':' not in version_info:
-        version_info = 'default:' + version_info
+      service_id = os.environ.get('CURRENT_MODULE_ID', 'default')
 
-      service_id, version_id = version_info.split(':')
+      # CURRENT_VERSION_ID is formatted as major_version.minor_version.
+      version_id = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
+
       version_key = '_'.join(
         [os.environ['APPLICATION_ID'], service_id, version_id])
       port_file_location = os.path.join(
@@ -83,6 +85,8 @@ class ImagesBlobStub(object):
       with open(port_file_location) as port_file:
         port = port_file.read().strip()
       full_prefix = '{}:{}'.format(full_prefix, port)
+
+    # End AppScale
 
     response.set_url("%s/_ah/img/%s" % (full_prefix, request.blob_key()))
 

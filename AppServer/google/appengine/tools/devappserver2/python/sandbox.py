@@ -35,6 +35,7 @@ from google.appengine.api.logservice import logservice
 from google.appengine import dist27 as dist27
 from google.appengine.ext.remote_api import remote_api_stub
 from google.appengine.runtime import request_environment
+from google.appengine.tools.devappserver2.python import pdb_sandbox
 from google.appengine.tools.devappserver2.python import request_state
 from google.appengine.tools.devappserver2.python import stubs
 
@@ -49,6 +50,7 @@ NAME_TO_CMODULE_WHITELIST_REGEX = {
     'pycrypto': re.compile(r'Crypto(\..*)?$'),
     'lxml': re.compile(r'lxml(\..*)?$'),
     'PIL': re.compile(r'(PIL(\..*)?|_imaging|_imagingft|_imagingmath)$'),
+    'ssl': re.compile(r'_ssl$'),
 }
 
 # Maps App Engine third-party library names to the Python package name for
@@ -112,6 +114,7 @@ def enable_sandbox(config):
     config: The runtime_config_pb2.Config to use to configure the sandbox.
   """
 
+  devnull = open(os.path.devnull)
   modules = [os, traceback, google, protorpc]
   c_module = _find_shared_object_c_module()
   if c_module:
@@ -122,13 +125,11 @@ def enable_sandbox(config):
   for path in sys.path:
     if any(module_path.startswith(path) for module_path in module_paths):
       python_lib_paths.append(path)
-
   python_lib_paths.extend(_enable_libraries(config.libraries))
   for name in list(sys.modules):
     if not _should_keep_module(name):
       _removed_modules.append(sys.modules[name])
       del sys.modules[name]
-
   path_override_hook = PathOverrideImportHook(
       set(_THIRD_PARTY_LIBRARY_NAME_OVERRIDES.get(lib.name, lib.name)
           for lib in config.libraries).intersection(_C_MODULES))
@@ -173,6 +174,9 @@ def enable_sandbox(config):
   request_environment.PatchOsEnviron(sandboxed_os)
   os.__dict__.update(sandboxed_os.__dict__)
   _init_logging(config.stderr_log_level)
+  pdb_sandbox.install()
+  sys.stdin = devnull
+  sys.stdout = sys.stderr
 
 
 def _find_shared_object_c_module():
@@ -262,8 +266,15 @@ def _enable_libraries(libraries):
   library_pattern = os.path.join(os.path.dirname(
       os.path.dirname(google.__file__)), _THIRD_PARTY_LIBRARY_FORMAT_STRING)
   for library in libraries:
+    # Encode the library name/version to convert the Python type
+    # from unicode to str so that Python doesn't try to decode
+    # library pattern from str to unicode (which can cause problems
+    # when the SDK has non-ASCII data in the directory). Encode as
+    # ASCII should be safe as we control library info and are not
+    # likely to have non-ASCII names/versions.
     library_dir = os.path.abspath(
-        library_pattern % {'name': library.name, 'version': library.version})
+        library_pattern % {'name': library.name.encode('ascii'),
+                           'version': library.version.encode('ascii')})
     library_dirs.append(library_dir)
   return library_dirs
 

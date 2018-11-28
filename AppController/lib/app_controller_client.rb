@@ -57,7 +57,6 @@ class AppControllerClient
     @conn.options['protocol.http.ssl_config.verify_mode'] = nil
     @conn.add_method('set_parameters', 'layout', 'options', 'secret')
     @conn.add_method('upload_app', 'archived_file', 'file_suffix', 'secret')
-    @conn.add_method('update', 'versions', 'secret')
     @conn.add_method('get_all_public_ips', 'secret')
     @conn.add_method('is_done_initializing', 'secret')
     @conn.add_method('add_role', 'new_role', 'secret')
@@ -72,8 +71,6 @@ class AppControllerClient
     @conn.add_method('get_node_stats_json', 'secret')
     @conn.add_method('get_instance_info', 'secret')
     @conn.add_method('get_request_info', 'version_key', 'secret')
-    @conn.add_method('add_routing_for_appserver', 'version_key', 'ip', 'port',
-                     'secret')
     @conn.add_method('update_cron', 'project_id', 'secret')
   end
 
@@ -81,7 +78,6 @@ class AppControllerClient
   # used in few other clients (it should be made in a library):
   #   lib/infrastructure_manager_client.rb
   #   lib/user_app_client.rb
-  #   lib/app_manager_client.rb
   #   lib/app_controller_client.rb
   # Modification in this function should be reflected on the others too.
   #
@@ -143,10 +139,6 @@ class AppControllerClient
     make_call(30, RETRY_ON_FAIL, 'upload_app') {
       @conn.upload_app(archived_file, file_suffix, @secret)
     }
-  end
-
-  def update(app_names)
-    make_call(30, RETRY_ON_FAIL, 'update') { @conn.update(app_names, @secret) }
   end
 
   def is_done_initializing?
@@ -218,13 +210,6 @@ class AppControllerClient
   def get_node_stats_json
     make_call(10, RETRY_ON_FAIL, 'get_node_stats_json') {
       @conn.get_node_stats_json(@secret)
-    }
-  end
-
-  # Adds routing for appserver.
-  def add_routing_for_appserver(version_key, ip, port)
-    make_call(10, RETRY_ON_FAIL, 'add_routing_for_appserver') {
-      @conn.add_routing_for_appserver(version_key, ip, port, @secret)
     }
   end
 

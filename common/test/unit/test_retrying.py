@@ -7,8 +7,8 @@ from appscale.common import retrying
 class TestRetry(unittest.TestCase):
 
   @patch.object(retrying.time, 'sleep')
-  @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warning')
+  @patch.object(retrying.logger, 'error')
+  @patch.object(retrying.logger, 'warning')
   def test_no_errors(self, warning_mock, error_mock, sleep_mock):
 
     @retrying.retry
@@ -24,8 +24,8 @@ class TestRetry(unittest.TestCase):
     self.assertEqual(error_mock.call_args_list, [])
 
   @patch.object(retrying.time, 'sleep')
-  @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warning')
+  @patch.object(retrying.logger, 'error')
+  @patch.object(retrying.logger, 'warning')
   @patch.object(retrying.random, 'random')
   def test_backoff_and_logging(self, random_mock, warning_mock, error_mock,
                                sleep_mock):
@@ -72,8 +72,8 @@ class TestRetry(unittest.TestCase):
 
   @patch.object(retrying.time, 'time')
   @patch.object(retrying.time, 'sleep')
-  @patch.object(retrying.logging, 'error')
-  @patch.object(retrying.logging, 'warning')
+  @patch.object(retrying.logger, 'error')
+  @patch.object(retrying.logger, 'warning')
   def test_retrying_timeout(self, warning_mock, err_mock, sleep_mock,
                             time_mock):
     times = [
@@ -109,6 +109,26 @@ class TestRetry(unittest.TestCase):
 
   @patch.object(retrying.time, 'sleep')
   def test_exception_filter(self, sleep_mock):
+    @retrying.retry(retry_on_exception=ValueError)
+    def func(exc_class, msg, retries_to_success):
+      retries_to_success['counter'] -= 1
+      if retries_to_success['counter'] <= 0:
+        return "Succeeded"
+      raise exc_class(msg)
+
+    # Test retry helps.
+    result = func(ValueError, "Matched", {"counter": 3})
+    self.assertEqual(result, "Succeeded")
+
+    # Test retry not applicable.
+    try:
+      func(IOError, "Failed", {"counter": 3})
+      self.fail("Exception was expected")
+    except IOError:
+      pass
+
+  @patch.object(retrying.time, 'sleep')
+  def test_exception_custom_filter(self, sleep_mock):
     def err_filter(exception):
       return isinstance(exception, ValueError)
 
@@ -128,4 +148,26 @@ class TestRetry(unittest.TestCase):
       func(TypeError, "Failed", {"counter": 3})
       self.fail("Exception was expected")
     except TypeError:
+      pass
+
+  @patch.object(retrying.time, 'sleep')
+  def test_exception_list_filter(self, sleep_mock):
+    @retrying.retry(retry_on_exception=[ValueError, TypeError])
+    def func(exc_class, msg, retries_to_success):
+      retries_to_success['counter'] -= 1
+      if retries_to_success['counter'] <= 0:
+        return "Succeeded"
+      raise exc_class(msg)
+
+    # Test retry helps.
+    result = func(ValueError, "Matched", {"counter": 3})
+    self.assertEqual(result, "Succeeded")
+    result = func(TypeError, "Matched", {"counter": 3})
+    self.assertEqual(result, "Succeeded")
+
+    # Test retry not applicable.
+    try:
+      func(Exception, "Failed", {"counter": 3})
+      self.fail("Exception was expected")
+    except Exception:
       pass
