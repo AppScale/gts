@@ -232,10 +232,10 @@ server {
       proxy_read_timeout 120;
     }
 
+    #{java_blobstore_redirection}
+
     #{combined_http_locations}
     #{non_secure_static_locations}
-
-    #{java_blobstore_redirection}
 }
 
 server {
@@ -270,10 +270,10 @@ server {
       proxy_read_timeout 120;
     }
 
+    #{java_blobstore_redirection}
+
     #{combined_https_locations}
     #{secure_static_locations}
-
-    #{java_blobstore_redirection}
 }
 CONFIG
 
