@@ -108,7 +108,6 @@ module Nginx
     secure_handlers = HelperFunctions.get_secure_handlers(version_key)
     parsing_log += "Secure handlers: #{secure_handlers}.\n"
 
-    always_secure_locations = ""
     never_secure_locations = ""
     
     location_params = \
@@ -131,7 +130,6 @@ module Nginx
       if handler["secure"] == "always"
         handler_location = HelperFunctions.generate_secure_location_config(handler, https_port)
         combined_http_locations += handler_location
-        always_secure_locations += handler_location
         handler_https_location = "\n    location ~ #{handler['url']} {"
         handler_https_location << location_params
         combined_https_locations += handler_https_location
