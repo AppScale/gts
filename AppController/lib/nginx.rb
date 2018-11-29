@@ -274,19 +274,19 @@ server {
     # If they come here using HTTPS, bounce them to the correct scheme.
     error_page 400 http://$host:$server_port$request_uri;
 
-    #{combined_http_locations}
-    #{non_secure_static_locations}
-    #{non_secure_default_location}
-
-    #{java_blobstore_redirection}
-
-    location /reserved-channel-appscale-path {
+    location = /reserved-channel-appscale-path {
       proxy_buffering    off;
       tcp_nodelay        on;
       keepalive_timeout  600;
       proxy_pass         http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
     }
+
+    #{combined_http_locations}
+    #{non_secure_static_locations}
+    #{non_secure_default_location}
+
+    #{java_blobstore_redirection}
 }
 
 server {
@@ -313,19 +313,19 @@ server {
 
     error_page 404 = /404.html;
 
-    #{combined_https_locations}
-    #{secure_static_locations}
-    #{secure_default_location}
-
-    #{java_blobstore_redirection}
-
-    location /reserved-channel-appscale-path {
+    location = /reserved-channel-appscale-path {
       proxy_buffering    off;
       tcp_nodelay        on;
       keepalive_timeout  600;
       proxy_pass         http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
     }
+
+    #{combined_https_locations}
+    #{secure_static_locations}
+    #{secure_default_location}
+
+    #{java_blobstore_redirection}
 }
 CONFIG
 
