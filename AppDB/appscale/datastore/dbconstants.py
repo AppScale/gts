@@ -80,7 +80,6 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   APP_ENTITY_TABLE,
                   APP_KIND_TABLE,
                   COMPOSITE_TABLE,
-                  METADATA_TABLE,
                   USERS_TABLE,
                   SCHEMA_TABLE,
                   DATASTORE_METADATA_TABLE]
@@ -206,6 +205,10 @@ class ConcurrentModificationException(Exception):
 
 class InternalError(Exception):
   """ Indicates that the datastore was unable to perform an operation. """
+  pass
+
+class NeedsIndex(Exception):
+  """ Indicates that a required index is missing or incomplete. """
   pass
 
 class Timeout(Exception):

@@ -15,6 +15,11 @@ class HTTPCodes(object):
   NOT_IMPLEMENTED = 501
 
 
+class InvalidConfiguration(Exception):
+  """ Indicates that a given configuration cannot be enforced. """
+  pass
+
+
 class MonitStates(object):
   MISSING = 'missing'
   PENDING = 'pending'  # Monit is trying to either start or stop the process.
