@@ -2797,12 +2797,6 @@ class Djinn
       return true
     end
 
-    # Usually we don't expect the master node to see a change in the state
-    # (since it is the one which saves it), so we leave a note here.
-    if my_node.is_shadow?
-      Djinn.log_warn("Detected a change in the master state #{json_state}.")
-    end
-
     Djinn.log_debug("Reload state : #{json_state}.")
     @appcontroller_state = json_state.to_s
 
@@ -2833,6 +2827,12 @@ class Djinn
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
     find_me_in_locations
+
+    # Usually we don't expect the master node to see a change in the state
+    # (since it is the one which saves it), so we leave a note here.
+    if my_node.is_shadow?
+      Djinn.log_warn("Detected a change in the master state #{json_state}.")
+    end
 
     return true
   end
