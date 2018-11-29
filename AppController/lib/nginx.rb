@@ -163,6 +163,13 @@ module Nginx
       end
     end
 
+    # At this time, we defer routing and redirects to instances for the Java
+    # runtime. Eventually, we should handle the contents of web.xml here.
+    if secure_handlers.empty? and language == 'java'
+      combined_http_locations = "\n    location ~ /.* {" + http_location_params
+      combined_https_locations = combined_http_locations
+    end
+
     secure_static_handlers = []
     non_secure_static_handlers = []
     static_handlers.map { |handler|
@@ -195,46 +202,6 @@ location ~ /_ah/upload/.* {
       client_max_body_size  2G;
     }
 JAVA_BLOBSTORE_REDIRECTION
-    end
-
-    if never_secure_locations.include?('location / {')
-      secure_default_location = ''
-    else
-      secure_default_location = <<DEFAULT_CONFIG
-location / {
-      proxy_set_header      X-Real-IP $remote_addr;
-      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header      X-Forwarded-Proto $scheme;
-      proxy_set_header      X-Forwarded-Ssl $ssl;
-      proxy_set_header      Host $http_host;
-      proxy_redirect        off;
-      proxy_pass            http://#{HelperFunctions::GAE_PREFIX}ssl_#{version_key};
-      proxy_connect_timeout 600;
-      proxy_read_timeout    600;
-      client_body_timeout   600;
-      client_max_body_size  2G;
-    }
-DEFAULT_CONFIG
-    end
-
-    if always_secure_locations.include?('location / {')
-      non_secure_default_location = ''
-    else
-      non_secure_default_location = <<DEFAULT_CONFIG
-location / {
-      proxy_set_header      X-Real-IP $remote_addr;
-      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header      X-Forwarded-Proto $scheme;
-      proxy_set_header      X-Forwarded-Ssl $ssl;
-      proxy_set_header      Host $http_host;
-      proxy_redirect        off;
-      proxy_pass            http://#{HelperFunctions::GAE_PREFIX}#{version_key};
-      proxy_connect_timeout 600;
-      proxy_read_timeout    600;
-      client_body_timeout   600;
-      client_max_body_size  2G;
-    }
-DEFAULT_CONFIG
     end
 
     config = <<CONFIG
@@ -284,7 +251,6 @@ server {
 
     #{combined_http_locations}
     #{non_secure_static_locations}
-    #{non_secure_default_location}
 
     #{java_blobstore_redirection}
 }
@@ -323,7 +289,6 @@ server {
 
     #{combined_https_locations}
     #{secure_static_locations}
-    #{secure_default_location}
 
     #{java_blobstore_redirection}
 }
