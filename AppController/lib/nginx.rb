@@ -111,30 +111,19 @@ module Nginx
     always_secure_locations = ""
     never_secure_locations = ""
     
-    http_location_params = \
+    location_params = \
         "\n\tproxy_set_header      X-Real-IP $remote_addr;" \
         "\n\tproxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;" \
         "\n\tproxy_set_header      X-Forwarded-Proto $scheme;" \
         "\n\tproxy_set_header      X-Forwarded-Ssl $ssl;" \
-        "\n\tproxy_set_header      Host $http_host;\n\tproxy_redirect        off;" \
-        "\n\tproxy_pass            http://gae_ssl_#{version_key};" \
-        "\n\tproxy_connect_timeout 600;\n\tproxy_read_timeout    600;" \
-        "\n\tclient_body_timeout   600;\n\tclient_max_body_size  2G;" \
+        "\n\tproxy_set_header      Host $http_host;" \
+        "\n\tproxy_redirect        off;" \
+        "\n\tproxy_pass            http://gae_#{version_key};" \
+        "\n\tproxy_connect_timeout 600;" \
+        "\n\tproxy_read_timeout    600;" \
+        "\n\tclient_body_timeout   600;" \
+        "\n\tclient_max_body_size  2G;" \
         "\n    }\n"
-
-    https_location_params = \
-      "\n\tproxy_set_header      X-Real-IP $remote_addr;" \
-      "\n\tproxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;" \
-      "\n\tproxy_set_header      X-Forwarded-Proto $scheme;" \
-      "\n\tproxy_set_header      X-Forwarded-Ssl $ssl;" \
-      "\n\tproxy_set_header      Host $http_host;" \
-      "\n\tproxy_redirect        off;" \
-      "\n\tproxy_pass            http://gae_ssl_#{version_key};" \
-      "\n\tproxy_connect_timeout 600;" \
-      "\n\tproxy_read_timeout    600;" \
-      "\n\tclient_body_timeout   600;" \
-      "\n\tclient_max_body_size  2G;" \
-      "\n    }\n"
 
     combined_http_locations = ""
     combined_https_locations = ""
@@ -144,20 +133,20 @@ module Nginx
         combined_http_locations += handler_location
         always_secure_locations += handler_location
         handler_https_location = "\n    location ~ #{handler['url']} {"
-        handler_https_location << https_location_params
+        handler_https_location << location_params
         combined_https_locations += handler_https_location
 
       elsif handler["secure"] == "never"
         handler_https_location = HelperFunctions.generate_secure_location_config(handler, http_port)
         combined_https_locations += handler_https_location
         handler_http_location = "\n    location ~ #{handler['url']} {"
-        handler_http_location << http_location_params
+        handler_http_location << location_params
         combined_http_locations += handler_http_location
         never_secure_locations += handler_http_location
 
       elsif handler["secure"] == "non_secure"
         handler_http_location = "\n    location ~ #{handler['url']} {"
-        handler_http_location << http_location_params
+        handler_http_location << location_params
         combined_http_locations += handler_http_location
         combined_https_locations += handler_http_location
       end
@@ -166,7 +155,7 @@ module Nginx
     # At this time, we defer routing and redirects to instances for the Java
     # runtime. Eventually, we should handle the contents of web.xml here.
     if secure_handlers.empty? and language == 'java'
-      combined_http_locations = "\n    location ~ /.* {" + http_location_params
+      combined_http_locations = "\n    location ~ /.* {" + location_params
       combined_https_locations = combined_http_locations
     end
 
@@ -207,10 +196,6 @@ JAVA_BLOBSTORE_REDIRECTION
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
 upstream #{HelperFunctions::GAE_PREFIX}#{version_key} {
-    server #{my_private_ip}:#{proxy_port};
-}
-
-upstream #{HelperFunctions::GAE_PREFIX}ssl_#{version_key} {
     server #{my_private_ip}:#{proxy_port};
 }
 
