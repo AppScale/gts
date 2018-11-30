@@ -102,12 +102,14 @@ case "$DIST" in
         ;;
 esac
 
-# Stretch requires ejabberd to be installed before rabbitmq-server because
+# Newer versions of ejabberd must be installed before rabbitmq-server because
 # if RabbitMQ starts first, it will start an incompatible epmd daemon that will
 # prevent ejabberd from being installed.
-if [ "${DIST}" = "stretch" ]; then
-    apt-get install --assume-yes ejabberd
-fi
+case ${DIST} in
+    stretch|bionic)
+        apt-get install --assume-yes ejabberd
+        ;;
+esac
 
 # Ejabberd fails creating a cert on Azure because of domain name length, if
 # the file exists already it will skip creating it and not fail. We use the
