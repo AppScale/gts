@@ -156,8 +156,8 @@ def valid_link(link_name, link_target, base):
   Returns:
     A boolean indicating whether or not the link is valid.
   """
-  tip = canonical_path(os.path.join(base, os.path.dirname(link_name)))
-  target = canonical_path(os.path.join(tip, link_target))
+  tip = canonical_path(os.path.dirname(link_name), base)
+  target = canonical_path(os.path.join(tip, link_target), base)
   return target.startswith(base)
 
 
