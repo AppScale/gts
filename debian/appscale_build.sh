@@ -57,7 +57,7 @@ if grep docker /proc/1/cgroup > /dev/null ; then
     echo "Detected docker container."
     IN_DOCKER="yes"
     # Make sure we have default locale.
-    ${PKG_CMD} install --force-yes locales
+    ${PKG_CMD} install --assume-yes locales
     locale-gen en_US en_US.UTF-8
     # Docker images miss the following.
     mkdir -p /var/run/sshd
@@ -102,6 +102,13 @@ case "$DIST" in
         ;;
 esac
 
+# Stretch requires ejabberd to be installed before rabbitmq-server because
+# if RabbitMQ starts first, it will start an incompatible epmd daemon that will
+# prevent ejabberd from being installed.
+if [ "${DIST}" = "stretch" ]; then
+    apt-get install --assume-yes ejabberd
+fi
+
 # Ejabberd fails creating a cert on Azure because of domain name length, if
 # the file exists already it will skip creating it and not fail. We use the
 # certs we generate and change ejabberd's config file to use that instead.
@@ -110,14 +117,14 @@ mkdir -p /etc/ejabberd && touch /etc/ejabberd/ejabberd.pem
 # This will install dependencies from control.$DIST (ie distro specific
 # packages).
 PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec debian/package-list.sh {} +)"
-if ! ${PKG_CMD} install -y --force-yes ${PACKAGES}; then
+if ! ${PKG_CMD} install --assume-yes ${PACKAGES}; then
     echo "Fail to install depending packages for runtime."
     exit 1
 fi
 
 # This will remove all the conflicts packages.
 PACKAGES="$(find debian -regex ".*\/control\.${DIST}\$" -exec debian/remove-list.sh {} +)"
-if ! ${PKG_CMD} remove --purge -y --force-yes ${PACKAGES}; then
+if ! ${PKG_CMD} remove --purge --assume-yes ${PACKAGES}; then
     echo "Fail to remove conflicting packages"
     exit 1
 fi
