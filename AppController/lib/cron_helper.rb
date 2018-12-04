@@ -16,6 +16,12 @@ module CronHelper
   # A String that tells cron not to e-mail anyone about updates.
   NO_EMAIL_CRON = 'MAILTO=""'.freeze
 
+  # Cron.d folder
+  CRON_CONFIG_DIR = '/etc/cron.d/'.freeze
+
+  # Application capture regex.
+  PROJECT_ID_REGEX = /appscale-(.*)/
+
   # Reads the cron configuration file for the given application, and converts
   # any YAML or XML-specified cron jobs to standard cron format.
   #
@@ -87,6 +93,11 @@ CRON
   def self.clear_app_crontab(app)
     cron_file = "/etc/cron.d/appscale-#{app}"
     Djinn.log_run("rm -f #{cron_file}") if File.exists?(cron_file)
+  end
+
+  def self.list_app_crontabs
+    dir_app_regex = "appscale-*"
+    return Dir.glob(File.join(CRON_CONFIG_DIR, dir_app_regex))
   end
 
   # Checks if a crontab line is valid.
@@ -474,3 +485,4 @@ CRON
     end
   end
 end
+

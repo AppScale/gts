@@ -233,6 +233,22 @@ BOO
     appservers
   end
 
+
+  # This function returns a list of running xmpp services.
+  # Returns:
+  #   A list of xmpp-app records.
+  def self.running_xmpp
+    appservers = []
+    output = run_cmd("#{MONIT} summary | grep -E 'xmpp-.*(Running|Initializing)'")
+    xmpp_entries = []
+    output.each_line { |monit_entry|
+      xmpp_entries << monit_entry.match(/xmpp-(.*)'\s/).captures
+    }
+
+    Djinn.log_debug("Found these xmpp processes running: #{xmpp_entries}.")
+    xmpp_entries
+  end
+
   def self.run_cmd(cmd, sleep = false)
     output = ''
     MONIT_LOCK.synchronize {
@@ -244,3 +260,4 @@ BOO
     output
   end
 end
+
