@@ -240,8 +240,8 @@ class InstancesHandler(web.RequestHandler):
     Raises:
       CustomHTTPError if the necessary parameters are not filled.
     """
-    if 'AppScale-Secret' in self.request.headers \
-        and self.request.headers['AppScale-Secret'] != options.secret:
+    if 'AppScale-Secret' not in self.request.headers \
+        or self.request.headers['AppScale-Secret'] != options.secret:
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
     args = json_decode(self.request.body)
@@ -405,8 +405,8 @@ class InstanceHandler(web.RequestHandler):
     Args:
       AppScale-Secret: Required in header. Authentication to deployment.
     """
-    if 'AppScale-Secret' in self.request.headers \
-        and self.request.headers['AppScale-Secret'] != options.secret:
+    if 'AppScale-Secret' not in self.request.headers \
+        or self.request.headers['AppScale-Secret'] != options.secret:
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
     cpu_usage = SystemManager.get_cpu_usage()
@@ -449,8 +449,8 @@ class InstanceHandler(web.RequestHandler):
           infrastructure: Required in body, infrastructure to construct an agent
             for.
     """
-    if 'AppScale-Secret' in self.request.headers \
-        and self.request.headers['AppScale-Secret'] != options.secret:
+    if 'AppScale-Secret' not in self.request.headers \
+        or self.request.headers['AppScale-Secret'] != options.secret:
       raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
     args = json_decode(self.request.body)
