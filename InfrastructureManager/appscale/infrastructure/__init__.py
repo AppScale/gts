@@ -95,7 +95,7 @@ class InstancesHandler(web.RequestHandler):
 
   def initialize(self, agent_factory):
     """ Defines required resources to handle requests.
-
+4
     Args:
       agent_factory: An Agent Factory.
     """
@@ -399,8 +399,7 @@ class InstanceHandler(web.RequestHandler):
 
   @gen.coroutine
   def get(self):
-    """ Contacts the infrastructure named in 'parameters' and tells it to
-    attach a persistent disk to this machine.
+    """ Gets the statistics of the current machine from the SystemManager.
 
     Args:
       AppScale-Secret: Required in header. Authentication to deployment.

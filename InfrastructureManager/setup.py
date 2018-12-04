@@ -11,7 +11,7 @@ install_requires = [
 setup(
   name='appscale-infrastructure',
   version='0.0.1',
-  description='An implementation of the Google App Engine Admin API',
+  description='AppScale module for communicating with cloud infrastructures.',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
   license='Apache License 2.0',
