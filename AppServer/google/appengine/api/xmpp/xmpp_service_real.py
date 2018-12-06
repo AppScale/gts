@@ -42,17 +42,23 @@ class XmppService(apiproxy_stub.APIProxyStub):
      support is also in this file.
   """
 
-  def __init__(self, 
-              log=logging.info, 
-              service_name='xmpp', 
-              domain="localhost", 
-              uaserver="localhost",
-              uasecret=""):
+  # The port that ejabberd uses for the XMPP API.
+  PORT = 5222
+
+  def __init__(self, xmpp_location, log=logging.info, service_name='xmpp',
+               domain="localhost", uaserver="localhost", uasecret=""):
     """Initializer.
 
     Args:
+      xmpp_location: A string specifying the private IP of the ejabberd node
+        to use.
       log: A logger, used for dependency injection.
       service_name: Service name expected for all calls.
+      domain: A string specifying the domain of the xmpp user used to
+        authenticate.
+      uaserver: A string specifying the private IP address of the UAServer.
+      uasecret: A string specifying the key used to authenticate UAServer
+        requests.
     """
     super(XmppService, self).__init__(service_name)
     self.log = log
@@ -69,6 +75,8 @@ class XmppService(apiproxy_stub.APIProxyStub):
         uasecret = "secret"
 
     self.uasecret = uasecret
+
+    self._xmpp_location = xmpp_location
 
   def _Dynamic_GetPresence(self, request, response):
     """Implementation of XmppService::GetPresence.
@@ -109,7 +117,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
 
     my_jid = xmpppy.protocol.JID(xmpp_username)
     client = xmpppy.Client(my_jid.getDomain(), debug=[])
-    client.connect(secure=False)
+    client.connect((self._xmpp_location, self.PORT), secure=False)
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
     for jid in request.jid_list():
@@ -242,7 +250,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
     xmpp_username = appname + "@" + self.xmpp_domain
     my_jid = xmpppy.protocol.JID(xmpp_username)
     client = xmpppy.Client(my_jid.getDomain(), debug=[])
-    client.connect(secure=False)
+    client.connect((self._xmpp_location, self.PORT), secure=False)
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
     message = xmpppy.protocol.Message(frm=xmpp_username, to=jid, 

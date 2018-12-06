@@ -5,7 +5,7 @@
 # and forwards them to the app, which must have a route
 # exposed at /_ah/xmpp/message/chat/ to receive them
 
-# usage is ./xmpp_receiver.py appname login_ip app-password
+# usage is ./xmpp_receiver.py appname login_ip load_balancer_ip app-password
 
 
 # General-purpose Python libraries
@@ -40,6 +40,8 @@ class XMPPReceiver():
   to presence notifications that users may send to it.
   """
 
+  # The port that ejabberd uses for the XMPP API.
+  PORT = 5222
 
   # The headers necessary for posting XMPP messages to App Engine apps.
   HEADERS = {
@@ -47,7 +49,7 @@ class XMPPReceiver():
   }
 
 
-  def __init__(self, appid, login_ip, app_password):
+  def __init__(self, appid, login_ip, xmpp_location, app_password):
     """Creates a new XMPPReceiver, which will listen for XMPP messages for
     an App Engine app.
 
@@ -57,6 +59,7 @@ class XMPPReceiver():
       login_ip: A str representing the IP address or FQDN that runs the
         full proxy nginx service, sitting in front of the app we'll be
         posting messages to.
+      xmpp_location: The private IP address of the XMPP server to use.
       app_password: A str representing the password associated with the
         XMPP user account for the Google App Engine app that the receiver
         will log in on behalf of.
@@ -64,6 +67,8 @@ class XMPPReceiver():
     self.appid = appid
     self.login_ip = login_ip
     self.app_password = app_password
+
+    self._xmpp_location = xmpp_location
 
     self.my_jid = self.appid + "@" + self.login_ip
     log_file = "/var/log/appscale/xmppreceiver-{0}.log".format(self.my_jid)
@@ -145,17 +150,17 @@ class XMPPReceiver():
     jid = xmpp.protocol.JID(self.my_jid)
     client = xmpp.Client(jid.getDomain(), debug=[])
 
-    if not client.connect():
+    if not client.connect((self._xmpp_location, self.PORT)):
       logging.info("Could not connect")
       raise SystemExit("Could not connect to XMPP server at {0}" \
-        .format(self.login_ip))
+        .format(self._xmpp_location))
 
     if not client.auth(jid.getNode(), self.app_password,
       resource=jid.getResource()):
       logging.info("Could not authenticate with username {0}, password {1}" \
         .format(jid.getNode(), self.app_password))
       raise SystemExit("Could not authenticate to XMPP server at {0}" \
-        .format(self.login_ip))
+        .format(self._xmpp_location))
 
     client.RegisterHandler('message', self.xmpp_message)
     client.RegisterHandler('presence', self.xmpp_presence)
@@ -182,6 +187,6 @@ class XMPPReceiver():
 
 
 if __name__ == "__main__":
-  RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3])
+  RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
   while True:
     RECEIVER.listen_for_messages()
