@@ -242,7 +242,9 @@ BOO
     output = run_cmd("#{MONIT} summary | grep -E 'xmpp-.*(Running|Initializing)'")
     xmpp_entries = []
     output.each_line { |monit_entry|
-      xmpp_entries << monit_entry.match(/xmpp-(.*)'\s/).captures
+      match = monit_entry.match(/xmpp-(.*)'\s/)
+      next if match.nil?
+      xmpp_entries << match.captures.first
     }
 
     Djinn.log_debug("Found these xmpp processes running: #{xmpp_entries}.")
