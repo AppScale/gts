@@ -51,7 +51,9 @@ class CustomHTTPError(web.HTTPError):
                                           reason=reason)
     self.kwargs = kwargs
 
-
+class NoPublicIpsFoundException(Exception):
+  """ An exception indicating no "new" public ips were found."""
+  pass
 
 def get_agent(agent_factory, operation, args, scaling_params=None):
     """ Returns an agent and the parameters reformatted from the given
@@ -289,14 +291,13 @@ class InstancesHandler(web.RequestHandler):
         specified infrastructure.
     Returns:
       If the agent is able to describe instances, return the list of instance
-      ids, public ips, and private ips. If the agent fails, return empty lists.
+      ids, public ips, and private ips.
+    Raises:
+      AgentConfigurationException if there was a problem contacting the
+        infrastructure.
+      AgentRuntimeException if there was a problem describing instances.
     """
-    try:
-      return agent.describe_instances(parameters)
-    except (AgentConfigurationException, AgentRuntimeException) as exception:
-      logger.exception('Agent call to describe instances failed with '
-                       '{0}'.format(str(exception)))
-      return [], [], []
+    return agent.describe_instances(parameters)
 
   @classmethod
   def _spawn_vms(cls, agent, num_vms, parameters, operation_id):
@@ -311,14 +312,23 @@ class InstancesHandler(web.RequestHandler):
       operation_id: Operation ID of the current run request
     """
     status_info = operation_ids[operation_id]
-
-    active_public_ips, active_private_ips, active_instances = \
-      cls._describe_vms(agent, parameters)
+    try:
+      active_public_ips, active_private_ips, active_instances = \
+        cls._describe_vms(agent, parameters)
+    except (AgentConfigurationException, AgentRuntimeException) as exception:
+      status_info['state'] = cls.STATE_FAILED
+      status_info['success'] = False
+      status_info['reason'] = str(exception)
+      logger.info('Updating run instances request with operation id {0} to '
+                  'failed status because: {1}' \
+                  .format(operation_id, str(exception)))
+      return
 
     try:
       security_configured = agent.configure_instance_security(parameters)
       instance_info = agent.run_instances(num_vms, parameters,
-        security_configured, public_ip_needed=False)
+                                          security_configured,
+                                          public_ip_needed=False)
       ids = instance_info[0]
       public_ips = instance_info[1]
       private_ips = instance_info[2]
@@ -333,12 +343,14 @@ class InstancesHandler(web.RequestHandler):
           operation_id))
     except (AgentConfigurationException, AgentRuntimeException) as exception:
       # Check if we have had partial success starting instances.
-      instance_ids, public_ips, private_ips = \
-        cls._describe_vms(agent, parameters)
+      try:
+        instance_ids, public_ips, private_ips = \
+          cls._describe_vms(agent, parameters)
 
-      public_ips = agent.diff(public_ips, active_public_ips)
+        public_ips = agent.diff(public_ips, active_public_ips)
+        if not public_ips:
+          raise NoPublicIpsFoundException
 
-      if public_ips:
         private_ips = agent.diff(private_ips, active_private_ips)
         instance_ids = agent.diff(instance_ids, active_instances)
         status_info['state'] = cls.STATE_SUCCESS
@@ -347,7 +359,8 @@ class InstancesHandler(web.RequestHandler):
           'private_ips': private_ips,
           'instance_ids': instance_ids
         }
-      else:
+      except (AgentConfigurationException, AgentRuntimeException,
+              NoPublicIpsFoundException):
         status_info['state'] = cls.STATE_FAILED
 
       # Mark it as failed either way since the AppController never checks
@@ -355,8 +368,8 @@ class InstancesHandler(web.RequestHandler):
       status_info['success'] = False
       status_info['reason'] = str(exception)
       logger.info('Updating run instances request with operation id {0} to '
-                'failed status because: {1}'\
-                .format(operation_id, str(exception)))
+                  'failed status because: {1}' \
+                  .format(operation_id, str(exception)))
 
   @classmethod
   def _kill_vms(cls, agent, parameters, operation_id):

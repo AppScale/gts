@@ -485,7 +485,6 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
   def test_describe_vms(self):
     agent_exception = AgentRuntimeException("Runtime Exception")
     vm_info_return = (['i-id'], ['public-ip'], ['private-ip'])
-    no_vms = ([], [], [])
     mocked_agent = EC2Agent()
     mocked_agent.describe_instances= MagicMock(side_effect=[vm_info_return,
                                                             agent_exception])
@@ -495,8 +494,9 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
     self.assertEquals(actual, expected)
 
     # Test describe vms runs into exception.
-    expected = no_vms
-    actual = iaas.InstancesHandler._describe_vms(mocked_agent, full_params)
+
+    with self.assertRaises(AgentRuntimeException):
+      iaas.InstancesHandler._describe_vms(mocked_agent, full_params)
     self.assertEquals(actual, expected)
 
   ############################################################
