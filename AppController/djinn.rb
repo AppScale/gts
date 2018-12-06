@@ -1151,8 +1151,9 @@ class Djinn
         if ip == my_node.private_ip
           begin
             node_stats = JSON.load(get_node_stats_json(@@secret))
-          rescue SOAP::FaultError
-            Djinn.log_warn("Failed to get local status update.")
+          rescue FailedNodeException => exception
+            Djinn.log_warn("Failed to get local status update because: " \
+              "#{exception.message}")
             next
           end
         else
@@ -5701,6 +5702,7 @@ HOSTS
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
     system_stats = JSON.load(imc.get_system_stats)
+
     Djinn.log_debug('get_node_stats_json: got system stats.')
 
     # Combine all useful stats and return.

@@ -94,7 +94,14 @@ class InfrastructureManagerClient
     operation_id = terminate_result['operation_id']
 
     loop {
-      describe_result = describe_operation(operation_id)
+      begin
+        describe_result = describe_operation(operation_id)
+      rescue FailedNodeException => error
+        Djinn.log_warn(
+          "[IM] Error describing terminate operation #{operation_id}. Error: " \
+          "#{error.message}")
+        next
+      end
       Djinn.log_debug("[IM] Describe operation state is #{describe_result['state']}.")
 
       if describe_result['state'] == 'success'
@@ -137,7 +144,14 @@ class InfrastructureManagerClient
 
     vm_info = {}
     loop {
-      describe_result = describe_operation(operation_id)
+      begin
+        describe_result = describe_operation(operation_id)
+      rescue FailedNodeException => error
+        Djinn.log_warn(
+          "[IM] Error describing run instances operation #{operation_id}. " \
+          "Error: #{error.message}")
+        next
+      end
       Djinn.log_debug("[IM] Describe operation state is #{describe_result['state']} " \
         "and vm_info is #{describe_result['vm_info'].inspect}.")
 
@@ -219,7 +233,10 @@ class InfrastructureManagerClient
         Djinn.log_warn("[IM] Error getting stats! Trying again. Error: #{error.message}")
         sleep(SMALL_WAIT)
       end
-      break if retries.zero?
+      if retries.zero?
+        Djinn.log_warn("[IM] Could not get system statistics!")
+        raise FailedNodeException("Could not get system statistics")
+      end
     end
   end
 end
