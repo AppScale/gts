@@ -21,9 +21,6 @@ from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.constants import (ASSIGNMENTS_PATH, CGROUP_DIR, HTTPCodes,
                                        LOG_DIR, VAR_DIR)
 
-# The cgroup used to start datastore server processes.
-DATASTORE_CGROUP = ['memory', 'appscale-datastore']
-
 # The characters allowed in a service identifier (eg. datastore)
 SERVICE_ID_CHARS = '[a-z_]'
 
@@ -58,6 +55,46 @@ class ProcessStopped(Exception):
 class StartTimeout(Exception):
   """ Indicates that a server took too long to start. """
   pass
+
+
+def slice_path(slice_name):
+  """ Retrieves the file system path for a slice.
+
+  Args:
+    slice_name: A string specifying the slice name.
+  Returns:
+    A string specifying the location of the slice.
+  """
+  path = [CGROUP_DIR, 'systemd']
+  slice_parts = slice_name.split('-')
+  for index in range(len(slice_parts)):
+    slice_part = '-'.join(slice_parts[:index + 1])
+    path.append('.'.join([slice_part, 'slice']))
+
+  return os.path.join(*path)
+
+
+def pids_in_slice(slice_name):
+  """ Retrieves the PIDs running in a slice.
+
+  Args:
+    slice_name: A string specifying the slice name.
+  Returns:
+    A list of integers specifying the running PIDs.
+  """
+  pids = []
+  for root, _, files in os.walk(slice_path(slice_name)):
+    for file_ in files:
+      if not file_ == 'cgroup.procs':
+        continue
+
+      with open(os.path.join(root, file_)) as procs_file:
+        for line in procs_file:
+          pid_str = line.strip()
+          if pid_str:
+            pids.append(int(pid_str))
+
+  return pids
 
 
 class Server(object):
@@ -108,6 +145,9 @@ class DatastoreServer(Server):
 
   # The datastore backend.
   DATASTORE_TYPE = 'cassandra'
+
+  # The cgroup slice used to start datastore server processes.
+  SLICE = 'appscale-datastore'
 
   # The number of seconds to wait for the server to start.
   START_TIMEOUT = 30
@@ -180,9 +220,16 @@ class DatastoreServer(Server):
       log_file = os.path.join(LOG_DIR,
                               'datastore_server-{}.log'.format(self.port))
       self._stdout = open(log_file, 'a')
-      self.process = psutil.Popen(
-        ['cgexec', '-g', ':'.join(DATASTORE_CGROUP)] + start_cmd,
-        stdout=self._stdout, stderr=subprocess.STDOUT)
+
+      # With systemd-run, it's possible to start the process within the slice.
+      # To keep things simple and maintain backwards compatibility with
+      # pre-systemd distros, move the process after starting it.
+      self.process = psutil.Popen(start_cmd, stdout=self._stdout,
+                                  stderr=subprocess.STDOUT)
+
+      tasks_location = os.path.join(slice_path(self.SLICE), 'tasks')
+      with open(tasks_location, 'w') as tasks_file:
+        tasks_file.write(str(self.process.pid))
 
       yield self._wait_for_service(timeout=self.START_TIMEOUT)
       self.state = ServerStates.RUNNING
@@ -269,8 +316,7 @@ class ServiceManager(object):
   SCHEDULED_STATES = (ServerStates.STARTING, ServerStates.RUNNING)
 
   # Associates service names with server classes.
-  SERVICE_MAP = {'datastore': {'server': DatastoreServer,
-                               'cgroup': DATASTORE_CGROUP}}
+  SERVICE_MAP = {'datastore': DatastoreServer}
 
   # The first port to use when starting a server.
   START_PORT = 4000
@@ -304,22 +350,10 @@ class ServiceManager(object):
       A list of Server objects.
     """
     state = []
-    for service_details in cls.SERVICE_MAP.values():
-      server_class = service_details['server']
-      path = [CGROUP_DIR] + service_details['cgroup'] + ['cgroup.procs']
-      try:
-        with open(os.path.join(*path)) as pid_list:
-          for line in pid_list:
-            try:
-              pid = int(line)
-            except ValueError:
-              continue
-
-            server = server_class.from_pid(pid, http_client)
-            state.append(server)
-      except IOError as error:
-        if error.errno != errno.ENOENT:
-          raise
+    for server_class in cls.SERVICE_MAP.values():
+      for pid in pids_in_slice(server_class.SLICE):
+        server = server_class.from_pid(pid, http_client)
+        state.append(server)
 
     return state
 
@@ -328,10 +362,9 @@ class ServiceManager(object):
     logger.info('Starting ServiceManager')
 
     # Ensure cgroup process containers exist.
-    for service_details in self.SERVICE_MAP.values():
-      cgroup_path = [CGROUP_DIR] + service_details['cgroup']
+    for server_class in self.SERVICE_MAP.values():
       try:
-        os.makedirs(os.path.join(*cgroup_path))
+        os.makedirs(slice_path(server_class.SLICE))
       except OSError as error:
         if error.errno != errno.EEXIST:
           raise
@@ -429,7 +462,7 @@ class ServiceManager(object):
 
     for _ in range(to_start):
       port = self._get_open_port()
-      server_class = self.SERVICE_MAP[service_type]['server']
+      server_class = self.SERVICE_MAP[service_type]
       server = server_class(port, self._http_client, options['verbose'])
       self.state.append(server)
       logger.info('Starting {}'.format(server))
