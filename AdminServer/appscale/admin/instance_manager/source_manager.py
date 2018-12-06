@@ -128,8 +128,8 @@ class SourceManager(object):
 
     host = random.choice(hosts_with_archive)
     host_node = '/apps/{}/{}'.format(revision_key, host)
-    desired_md5 = yield self.thread_pool.submit(
-      self.zk_client.get, host_node)[0]
+    desired_md5, _ = yield self.thread_pool.submit(
+      self.zk_client.get, host_node)
 
     @gen.coroutine
     def valid_local_archive():
