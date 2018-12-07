@@ -21,17 +21,15 @@ from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.cassandra_interface import KEYSPACE
 from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
-from cassandra import (
-  InvalidRequest,
-  OperationTimedOut
-)
+from cassandra import OperationTimedOut
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from .constants import (
   InvalidTarget,
   QueueNotFound,
   TaskNotFound,
-  TARGET_REGEX
+  TARGET_REGEX,
+  TRANSIENT_DS_ERRORS
 )
 from .queue import (
   InvalidLeaseRequest,
@@ -53,7 +51,6 @@ from .service_manager import GlobalServiceManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
-from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api.taskqueue.taskqueue_service_pb import (
@@ -613,7 +610,7 @@ class DistributedTaskQueue():
     """
     try:
       return TaskName.get_by_key_name(task_name)
-    except Exception as error:
+    except TRANSIENT_DS_ERRORS as error:
       retries -= 1
       if retries >= 0:
         logger.warning('Error while checking task name: {}. '
@@ -636,7 +633,7 @@ class DistributedTaskQueue():
     try:
       db.put(entity)
       return
-    except Exception as error:
+    except TRANSIENT_DS_ERRORS as error:
       retries -= 1
       if retries >= 0:
         logger.warning('Error creating task name: {}. Retrying'.format(error))
@@ -664,7 +661,7 @@ class DistributedTaskQueue():
 
     try:
       item = self.__get_task_name(task_name)
-    except Exception:
+    except TRANSIENT_DS_ERRORS:
       logger.exception('Unable to check task name')
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
@@ -685,7 +682,7 @@ class DistributedTaskQueue():
     try:
       self.__create_task_name(request.app_id(), request.queue_name(),
                               task_name)
-    except Exception:
+    except TRANSIENT_DS_ERRORS:
       logger.exception('Unable to create task name')
       raise apiproxy_errors.ApplicationError(
         TaskQueueServiceError.INTERNAL_ERROR)
