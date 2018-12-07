@@ -432,7 +432,7 @@ class Solr(object):
       new_value.set_string_value(value)
       new_value.set_type(FieldValue.ATOM)
     elif ftype == Field.NUMBER:
-      new_value.set_string_value(value)
+      new_value.set_string_value(str(value))
       new_value.set_type(FieldValue.NUMBER)
     elif ftype == Field.GEO:
       geo = new_value.mutable_geo()
