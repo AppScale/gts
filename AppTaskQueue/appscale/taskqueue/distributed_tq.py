@@ -21,17 +21,15 @@ from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.cassandra_interface import KEYSPACE
 from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
-from cassandra import (
-  InvalidRequest,
-  OperationTimedOut
-)
+from cassandra import OperationTimedOut
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from .constants import (
   InvalidTarget,
   QueueNotFound,
   TaskNotFound,
-  TARGET_REGEX
+  TARGET_REGEX,
+  TRANSIENT_DS_ERRORS
 )
 from .queue import (
   InvalidLeaseRequest,
@@ -53,7 +51,6 @@ from .service_manager import GlobalServiceManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
-from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api.taskqueue.taskqueue_service_pb import (
@@ -604,6 +601,47 @@ class DistributedTaskQueue():
     elif method == taskqueue_service_pb.TaskQueueQueryTasksResponse_Task.DELETE:
       return 'DELETE'
 
+  def __get_task_name(self, task_name, retries=3):
+    """ Checks if a given TaskName entity exists.
+
+    Args:
+      task_name: A string specifying the TaskName key.
+      retries: An integer specifying how many times to retry the get.
+    """
+    try:
+      return TaskName.get_by_key_name(task_name)
+    except TRANSIENT_DS_ERRORS as error:
+      retries -= 1
+      if retries >= 0:
+        logger.warning('Error while checking task name: {}. '
+                       'Retrying'.format(error))
+        return self.__get_task_name(task_name, retries)
+
+      raise
+
+  def __create_task_name(self, project_id, queue_name, task_name, retries=3):
+    """ Creates a new TaskName entity.
+
+    Args:
+      project_id: A string specifying a project ID.
+      queue_name: A string specifying a queue name.
+      task_name: A string specifying the TaskName key.
+      retries: An integer specifying how many times to retry the create.
+    """
+    entity = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
+                      queue=queue_name, app_id=project_id)
+    try:
+      db.put(entity)
+      return
+    except TRANSIENT_DS_ERRORS as error:
+      retries -= 1
+      if retries >= 0:
+        logger.warning('Error creating task name: {}. Retrying'.format(error))
+        return self.__create_task_name(project_id, queue_name, task_name,
+                                       retries)
+
+      raise
+
   def __check_and_store_task_names(self, request):
     """ Tries to fetch the taskqueue name, if it exists it will raise an
     exception.
@@ -620,7 +658,14 @@ class DistributedTaskQueue():
       A apiproxy_errors.ApplicationError of TASK_ALREADY_EXISTS.
     """
     task_name = request.task_name()
-    item = TaskName.get_by_key_name(task_name)
+
+    try:
+      item = self.__get_task_name(task_name)
+    except TRANSIENT_DS_ERRORS:
+      logger.exception('Unable to check task name')
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+
     logger.debug("Task name {0}".format(task_name))
     if item:
       if item.state == TASK_STATES.QUEUED:
@@ -633,15 +678,14 @@ class DistributedTaskQueue():
         raise apiproxy_errors.ApplicationError(
           TaskQueueServiceError.TOMBSTONED_TASK)
 
-    new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
-      queue=request.queue_name(), app_id=request.app_id())
-    logger.debug("Creating entity {0}".format(str(new_name)))
+    logger.debug('Creating task name {}'.format(task_name))
     try:
-      db.put(new_name)
-    except datastore_errors.InternalError as internal_error:
-      logger.error(str(internal_error))
+      self.__create_task_name(request.app_id(), request.queue_name(),
+                              task_name)
+    except TRANSIENT_DS_ERRORS:
+      logger.exception('Unable to create task name')
       raise apiproxy_errors.ApplicationError(
-        TaskQueueServiceError.DATASTORE_ERROR)
+        TaskQueueServiceError.INTERNAL_ERROR)
 
   def __enqueue_push_task(self, source_info, request):
     """ Enqueues a batch of push tasks.
