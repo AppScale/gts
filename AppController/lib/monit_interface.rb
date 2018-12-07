@@ -238,7 +238,6 @@ BOO
   # Returns:
   #   A list of xmpp-app records.
   def self.running_xmpp
-    appservers = []
     output = run_cmd("#{MONIT} summary | grep -E 'xmpp-.*(Running|Initializing)'")
     xmpp_entries = []
     output.each_line { |monit_entry|

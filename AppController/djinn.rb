@@ -4586,8 +4586,7 @@ HOSTS
         version_key = match.captures.first
         next if zookeeper_versions.include?(version_key)
 
-        project_id, service_id, version_id = version_key.split(
-          VERSION_PATH_SEPARATOR)
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
         next if RESERVED_APPS.include?(project_id)
 
         Djinn.log_info(
@@ -4620,8 +4619,7 @@ HOSTS
         version_key = match.captures.first
         next if zookeeper_versions.include?(version_key)
 
-        project_id, service_id, version_id = version_key.split(
-          VERSION_PATH_SEPARATOR)
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
         next if RESERVED_APPS.include?(project_id)
 
         Djinn.log_info(
@@ -4636,8 +4634,7 @@ HOSTS
         version_key = match.captures.first
         next if zookeeper_versions.include?(version_key)
 
-        project_id, service_id, version_id = version_key.split(
-          VERSION_PATH_SEPARATOR)
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
         next if RESERVED_APPS.include?(project_id)
 
         Djinn.log_info(
@@ -4652,7 +4649,7 @@ HOSTS
     if my_node.is_shadow?
       removed_versions.each { |version_key|
         @app_info_map.delete(version_key)
-      }      
+      }
     end
 
     # Remove versions from versions_loaded.
