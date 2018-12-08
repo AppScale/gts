@@ -410,7 +410,7 @@ class DatastoreViewer(DatastoreViewerPage):
     self.ensure_user_has_admin(project_id)
 
     ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                     require_indexes=False, trusted=True)
+                                     trusted=True)
 
     kind = self.request.get('kind', None)
     namespace = self.request.get('namespace', '')
@@ -514,7 +514,7 @@ class DatastoreViewer(DatastoreViewerPage):
                                         add={'message': message}))
     elif self.request.get('action:delete_entities'):
       ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                       require_indexes=False, trusted=True)
+                                       trusted=True)
 
       entity_keys = [datastore.Key(key)
                      for key in self.request.params.getall('entity_key')]
@@ -540,7 +540,7 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
     self.ensure_user_has_admin(project_id)
 
     ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                     require_indexes=False, trusted=True)
+                                     trusted=True)
 
     if entity_key_string:
       entity_key = datastore.Key(entity_key_string)

@@ -46,7 +46,7 @@ logger.setLevel(logging.INFO)
 db_proxy = appscale_info.get_db_proxy()
 connection_str = '{}:{}'.format(db_proxy, str(constants.DB_SERVER_PORT))
 ds_distrib = datastore_distributed.DatastoreDistributed(
-  'appscaledashboard', connection_str, require_indexes=False)
+  'appscaledashboard', connection_str)
 apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
 os.environ['APPLICATION_ID'] = 'appscaledashboard'
 
