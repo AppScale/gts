@@ -3,6 +3,7 @@ import sys
 
 from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.index_manager import IndexManager
 from appscale.datastore.utils import tornado_synchronous
 from .. import appscale_datastore_batch
 from ..datastore_distributed import DatastoreDistributed
@@ -50,9 +51,10 @@ def main():
   transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
     datastore_batch, transaction_manager, zookeeper=zookeeper)
+  index_manager = IndexManager(zookeeper.handle, datastore_access)
+  datastore_access.index_manager = index_manager
 
-  pb_indices = datastore_access.datastore_batch.get_indices_sync(args.app_id)
-  indices = [datastore_pb.CompositeIndex(index) for index in pb_indices]
+  indices = index_manager.projects[args.app_id].indexes_pb
   if len(indices) == 0:
     print('No composite indices found for app {}'.format(args.app_id))
     zookeeper.close()

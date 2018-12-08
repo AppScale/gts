@@ -6,6 +6,7 @@ install_requires = [
   'appscale-common',
   'jsonschema',
   'kazoo',
+  'idna>=2.5,<2.8',  # Required for requests.
   'psutil',
   'PyYaml',
   'requests-unixsocket',

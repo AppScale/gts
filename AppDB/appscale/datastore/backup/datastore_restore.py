@@ -9,6 +9,7 @@ from appscale.datastore import appscale_datastore_batch
 from appscale.datastore.backup.datastore_backup import DatastoreBackup
 from appscale.datastore.datastore_distributed import DatastoreDistributed
 from appscale.datastore.dbconstants import InternalError
+from appscale.datastore.index_manager import IndexManager
 from appscale.datastore.utils import tornado_synchronous
 from appscale.datastore.zkappscale import zktransaction as zk
 from appscale.datastore.zkappscale.transaction_manager import (
@@ -67,6 +68,9 @@ class DatastoreRestore(multiprocessing.Process):
     transaction_manager = TransactionManager(self.zoo_keeper.handle)
     self.ds_distributed = DatastoreDistributed(
       datastore_batch, transaction_manager, zookeeper=self.zoo_keeper)
+    index_manager = IndexManager(self.zoo_keeper.handle, self.ds_distributed)
+    self.ds_distributed.index_manager = index_manager
+
     self.dynamic_put_sync = tornado_synchronous(
       self.ds_distributed.dynamic_put)
 

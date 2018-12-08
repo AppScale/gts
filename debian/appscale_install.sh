@@ -58,7 +58,6 @@ case "$1" in
         increaseconnections
         installVersion
         postinstallrsyslog
-        installpsutil
         installapiclient
         installgosdk
         installacc
