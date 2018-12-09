@@ -82,7 +82,8 @@ class ModuleFacade(module.Module):
                module_configuration=ModuleConfigurationStub(),
                instance_factory=None,
                ready=True,
-               allow_skipped_files=False):
+               allow_skipped_files=False,
+               threadsafe_override=None):
     super(ModuleFacade, self).__init__(
         module_configuration,
         host='fakehost',
@@ -101,7 +102,8 @@ class ModuleFacade(module.Module):
         max_instances=None,
         use_mtime_file_watcher=False,
         automatic_restarts=True,
-        allow_skipped_files=allow_skipped_files)
+        allow_skipped_files=allow_skipped_files,
+        threadsafe_override=threadsafe_override)
     if instance_factory is not None:
       self._instance_factory = instance_factory
     self._ready = ready
@@ -140,7 +142,8 @@ class AutoScalingModuleFacade(module.AutoScalingModule):
         max_instances=max_instances,
         use_mtime_file_watcher=False,
         automatic_restarts=True,
-        allow_skipped_files=False)
+        allow_skipped_files=False,
+        threadsafe_override=None)
     if instance_factory is not None:
       self._instance_factory = instance_factory
     self._ready = ready
@@ -178,7 +181,8 @@ class ManualScalingModuleFacade(module.ManualScalingModule):
         max_instances=None,
         use_mtime_file_watcher=False,
         automatic_restarts=True,
-        allow_skipped_files=False)
+        allow_skipped_files=False,
+        threadsafe_override=None)
     if instance_factory is not None:
       self._instance_factory = instance_factory
     self._ready = ready
@@ -217,7 +221,8 @@ class BasicScalingModuleFacade(module.BasicScalingModule):
         max_instances=None,
         use_mtime_file_watcher=False,
         automatic_restarts=True,
-        allow_skipped_files=False)
+        allow_skipped_files=False,
+        threadsafe_override=None)
     if instance_factory is not None:
       self._instance_factory = instance_factory
     self._ready = ready
@@ -426,6 +431,36 @@ class TestModuleGetRuntimeConfig(unittest.TestCase):
     config = servr._get_runtime_config()
     self.assertFalse(config.HasField('skip_files'))
     self.assertFalse(config.HasField('static_files'))
+
+  def test_threadsafe_true_override_none(self):
+    self.module_configuration.threadsafe = True
+    servr = ModuleFacade(instance_factory=self.instance_factory,
+                         module_configuration=self.module_configuration)
+    config = servr._get_runtime_config()
+    self.assertTrue(config.threadsafe)
+
+  def test_threadsafe_false_override_none(self):
+    self.module_configuration.threadsafe = False
+    servr = ModuleFacade(instance_factory=self.instance_factory,
+                         module_configuration=self.module_configuration)
+    config = servr._get_runtime_config()
+    self.assertFalse(config.threadsafe)
+
+  def test_threadsafe_true_override_false(self):
+    self.module_configuration.threadsafe = True
+    servr = ModuleFacade(instance_factory=self.instance_factory,
+                         module_configuration=self.module_configuration,
+                         threadsafe_override=False)
+    config = servr._get_runtime_config()
+    self.assertFalse(config.threadsafe)
+
+  def test_threadsafe_false_override_true(self):
+    self.module_configuration.threadsafe = False
+    servr = ModuleFacade(instance_factory=self.instance_factory,
+                         module_configuration=self.module_configuration,
+                         threadsafe_override=True)
+    config = servr._get_runtime_config()
+    self.assertTrue(config.threadsafe)
 
 
 class TestModuleShutdownInstance(unittest.TestCase):
@@ -2238,7 +2273,8 @@ class TestInteractiveCommandModule(unittest.TestCase):
         request_data=None,
         dispatcher=None,
         use_mtime_file_watcher=False,
-        allow_skipped_files=False)
+        allow_skipped_files=False,
+        threadsafe_override=None)
     self.mox.StubOutWithMock(self.servr._instance_factory, 'new_instance')
     self.mox.StubOutWithMock(self.servr, '_handle_request')
     self.mox.StubOutWithMock(self.servr, 'build_request_environ')
