@@ -270,6 +270,16 @@ installappserverjava()
         # Delete unnecessary files.
         rm -rf ${JAVA_SDK_DIR}/src ${JAVA_SDK_DIR}/lib
     fi
+
+    # Install Java 8 runtime.
+    JAVA8_RUNTIME_PACKAGE="appscale-java8-runtime-1.9.61-1.zip"
+    JAVA8_RUNTIME_MD5="79afa71f0a64c094411e2c16fd349803"
+    cachepackage ${JAVA8_RUNTIME_PACKAGE} ${JAVA8_RUNTIME_MD5}
+
+    rm -rf /opt/appscale-java8-runtime
+
+    echo "Extracting Java 8 runtime"
+    unzip -q "${PACKAGE_CACHE}/${JAVA8_RUNTIME_PACKAGE}" -d /opt
 }
 
 installtornado()

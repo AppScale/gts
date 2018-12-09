@@ -21,6 +21,7 @@ from .constants import (
   CustomHTTPError,
   GO,
   JAVA,
+  JAVA8,
   SOURCES_DIRECTORY,
   Types,
   UNPACK_ROOT
@@ -193,7 +194,7 @@ def extract_source(revision_key, location, runtime):
   app_path = os.path.join(revision_base, 'app')
   ensure_path(app_path)
 
-  if runtime == JAVA:
+  if runtime in (JAVA, JAVA8):
     config_file_name = 'appengine-web.xml'
 
     def is_version_config(path):
@@ -234,7 +235,7 @@ def extract_source(revision_key, location, runtime):
       logger.debug(
         '{} does not have a gopath directory'.format(revision_key))
 
-  if runtime == JAVA:
+  if runtime in (JAVA, JAVA8):
     remove_conflicting_jars(app_path)
     copy_modified_jars(app_path)
 

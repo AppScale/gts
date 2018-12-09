@@ -27,7 +27,7 @@ from appscale.admin.instance_manager.utils import setup_logrotate
 from appscale.common import appscale_info, monit_app_configuration
 from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.constants import (
-  APPS_PATH, GO, HTTPCodes, JAVA, MonitStates, PHP, PYTHON27, VAR_DIR,
+  APPS_PATH, GO, HTTPCodes, JAVA, JAVA8, MonitStates, PHP, PYTHON27, VAR_DIR,
   VERSION_PATH_SEPARATOR)
 from appscale.common.monit_interface import DEFAULT_RETRIES, ProcessNotFound
 from appscale.common.retrying import retry
@@ -185,7 +185,7 @@ class InstanceManager(object):
         api_server_port)
       env_vars.update(create_python_app_env(self._login_server,
                                             version.project_id))
-    elif runtime == JAVA:
+    elif runtime in (JAVA, JAVA8):
       # Account for MaxPermSize (~170MB), the parent process (~50MB), and thread
       # stacks (~20MB).
       max_heap = max_memory - 250
@@ -200,10 +200,12 @@ class InstanceManager(object):
         max_heap,
         pidfile,
         version.revision_key,
-        api_server_port
+        api_server_port,
+        runtime
       )
 
-      env_vars.update(create_java_app_env(self._deployment_config))
+      env_vars.update(create_java_app_env(self._deployment_config, runtime,
+                                          version.project_id))
     else:
       raise BadConfigurationException(
         'Unknown runtime {} for {}'.format(runtime, version.project_id))

@@ -230,7 +230,8 @@ class TestInstanceManager(AsyncTestCase):
 
   def test_create_java_app_env(self):
     deployment_config = flexmock(get_config=lambda x: {})
-    env_vars = instance.create_java_app_env(deployment_config)
+    env_vars = instance.create_java_app_env(deployment_config, 'java',
+                                            'guestbook')
     assert 'appscale' in env_vars['APPSCALE_HOME']
 
   def test_create_java_start_cmd(self):
@@ -241,7 +242,8 @@ class TestInstanceManager(AsyncTestCase):
     max_heap = 260
     pidfile = 'testpid'
     cmd = instance.create_java_start_cmd(
-      app_id, '20000', '127.0.0.2', max_heap, pidfile, revision_key, 19999)
+      app_id, '20000', '127.0.0.2', max_heap, pidfile, revision_key, 19999,
+      'java')
     assert app_id in cmd
 
   @gen_test
