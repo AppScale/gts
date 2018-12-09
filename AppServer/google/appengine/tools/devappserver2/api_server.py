@@ -508,8 +508,7 @@ def setup_stubs(
       channel_service_stub.ChannelServiceStub(request_data=request_data))
 
   datastore = datastore_distributed.DatastoreDistributed(
-      app_id, datastore_path, require_indexes=datastore_require_indexes,
-      trusted=trusted, root_path=application_root)
+      app_id, datastore_path, trusted=trusted)
 
   apiproxy_stub_map.apiproxy.ReplaceStub(
       'datastore_v3', datastore)

@@ -22,7 +22,6 @@ All calls are made to a datastore server for queries, gets, puts, and deletes,
 index functions, transaction functions.
 """
 
-import collections
 import datetime
 import errno
 import logging
@@ -34,10 +33,8 @@ import sys
 import threading
 import warnings
 
-from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
-from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.api import users
@@ -183,23 +180,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
   def __init__(self,
                app_id,
                datastore_location,
-               history_file=None,
-               require_indexes=False,
                service_name='datastore_v3',
-               trusted=False,
-               root_path=None):
+               trusted=False):
     """Constructor.
 
     Args:
       app_id: string
       datastore_location: location of datastore server
-      history_file: DEPRECATED. No-op.
-      require_indexes: bool, default False.  If True, composite indexes must
-          exist in index.yaml for queries that need them.
       service_name: Service name expected for all calls.
       trusted: bool, default False.  If True, this stub allows an app to
         access the data of another app.
-      root_path: A str, the path where index.yaml can be found.
     """
     super(DatastoreDistributed, self).__init__(service_name)
 
@@ -207,7 +197,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     assert isinstance(app_id, basestring) and app_id != ''
     self.project_id = app_id
     self.__datastore_location = datastore_location
-    self.__index_cache = {}
     self.__is_encrypted = True
     res = self.__datastore_location.split(':')
     if len(res) == 2:
@@ -222,12 +211,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     self.__cursor_id = 1
     self.__cursor_lock = threading.Lock()
-
-    self.__require_indexes = require_indexes
-    self.__root_path = root_path
-    self.__cached_yaml = (None, None, None)
-    if require_indexes:
-      self._SetupIndexes()
 
   def __getCursorID(self):
     """ Gets a cursor identifier. """
@@ -419,20 +402,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
   def _Dynamic_Put(self, put_request, put_response, request_id=None):
     """Send a put request to the datastore server. """
     put_request.set_trusted(self.__trusted)
-    
-    ent_kinds = []
-    for ent in put_request.entity_list():
-      last_path = ent.key().path().element_list()[-1]
-      if last_path.type() not in ent_kinds:
-        ent_kinds.append(last_path.type())
-
-    for kind in ent_kinds:
-      indexes = self.__index_cache.get(kind)
-      if indexes:
-        for index in indexes:
-          new_composite = put_request.add_composite_index()
-          new_composite.CopyFrom(index)
-
     self._RemoteSend(put_request, put_response, "Put", request_id)
     return put_response 
 
@@ -452,25 +421,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     Returns:
       A datastore_pb.DeleteResponse from the AppScale datastore server.
     """
-    # Determine if there are composite indexes that need to be deleted.
-    # The datastore service will look up meta data to figure out which
-    # composite indexes apply.
-    ent_kinds = []
-    for key in delete_request.key_list():
-      last_path = key.path().element_list()[-1]
-      if last_path.type() not in ent_kinds:
-        ent_kinds.append(last_path.type())
- 
-    has_composites = False
-    for kind in ent_kinds:
-      indexes = self.__index_cache.get(kind)
-      if indexes:
-        has_composites = True
-        break
-
-    if has_composites:
-      delete_request.set_mark_changes(True)
-
     delete_request.set_trusted(self.__trusted)
     self._RemoteSend(delete_request, delete_response, "Delete", request_id)
     return delete_response
@@ -490,18 +440,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if not query.has_app():
       query.set_app(self.project_id)
     self.__ValidateAppId(query.app())
-
-    # Set the composite index if it applies.
-    indexes = []
-    if query.has_kind():
-      kind_indexes = self.__index_cache.get(query.kind())
-      if kind_indexes:
-        indexes.extend(kind_indexes)
-   
-    index_to_use = _FindIndexToUse(query, indexes)
-    if index_to_use != None:
-      new_index = query.add_composite_index()
-      new_index.MergeFrom(index_to_use)
 
     self._RemoteSend(query, query_result, "RunQuery", request_id)
     results = query_result.result_list()
@@ -747,145 +685,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     return void
 
   def _SetupIndexes(self, _open=open):
-    """Ensure that the set of existing composite indexes matches index.yaml.
-    
-    Create any new indexes, and delete indexes which are no longer required.
+    """ In AppScale, this initialization is not needed.
    
     Args:
       _open: Function used to open a file.
     """
-    if not self.__root_path:
-      logging.warning("No index.yaml was loaded.")
-      return
-    index_yaml_file = os.path.join(self.__root_path, 'index.yaml')
-    if (self.__cached_yaml[0] == index_yaml_file and
-        os.path.exists(index_yaml_file) and
-        os.path.getmtime(index_yaml_file) == self.__cached_yaml[1]):
-      requested_indexes = self.__cached_yaml[2]
-    else:
-      try:
-        index_yaml_mtime = os.path.getmtime(index_yaml_file)
-        fh = _open(index_yaml_file, 'r')
-      except (OSError, IOError):
-        logging.info("Error reading file")
-        index_yaml_data = None
-      else:
-        try:
-          index_yaml_data = fh.read()
-        finally:
-          fh.close()
-      requested_indexes = []
-      if index_yaml_data is not None:
-        index_defs = datastore_index.ParseIndexDefinitions(index_yaml_data)
-        if index_defs is not None and index_defs.indexes is not None:
-          requested_indexes = datastore_index.IndexDefinitionsToProtos(
-              self.project_id,
-              index_defs.indexes)
-          self.__cached_yaml = (index_yaml_file, index_yaml_mtime,
-                               requested_indexes)
-     
-    existing_indexes = datastore_pb.CompositeIndices()
-    app_str = api_base_pb.StringProto()
-    app_str.set_value(self.project_id)
-    self._Dynamic_GetIndices(app_str, existing_indexes)
-
-    requested = dict((x.definition().Encode(), x) for x in requested_indexes)
-    existing = dict((x.definition().Encode(), x) for x in 
-      existing_indexes.index_list())
-
-    # Delete any indexes that are no longer requested.
-    deleted = 0
-    for key, index in existing.iteritems():
-      if key not in requested:
-        self._Dynamic_DeleteIndex(index, api_base_pb.VoidProto())
-        deleted += 1
-
-    # Add existing indexes in the index cache.
-    for key, index in existing.iteritems():
-      new_index = entity_pb.CompositeIndex()
-      new_index.CopyFrom(index)
-      ent_kind = new_index.definition().entity_type()
-      if ent_kind in self.__index_cache:
-        new_indexes = self.__index_cache[ent_kind]
-        new_indexes.append(new_index)
-        self.__index_cache[ent_kind] = new_indexes
-      else:
-        self.__index_cache[ent_kind] = [new_index]
-  
-    # Compared the existing indexes to the requested ones and create any
-    # new indexes requested.
-    created = 0
-    for key, index in requested.iteritems():
-      if key not in existing:
-        new_index = entity_pb.CompositeIndex()
-        new_index.CopyFrom(index)
-        new_index.set_id(self._Dynamic_CreateIndex(new_index, 
-          api_base_pb.Integer64Proto()).value())
-        new_index.set_state(entity_pb.CompositeIndex.READ_WRITE)
-        self._Dynamic_UpdateIndex(new_index, api_base_pb.VoidProto())
-        created += 1
-  
-        ent_kind = new_index.definition().entity_type()
-        if ent_kind in self.__index_cache:
-          new_indexes = self.__index_cache[ent_kind]
-     
-          new_indexes.append(new_index)
-          self.__index_cache[ent_kind] = new_indexes
-        else:
-          self.__index_cache[ent_kind] = [new_index]
-
-    if created or deleted:
-      logging.info('Created %d and deleted %d index(es); total %d',
-                    created, deleted, len(requested))
-
-def _FindIndexToUse(query, indexes):
-  """ Matches the query with one of the composite indexes. 
-
-  Args:
-    query: A datastore_pb.Query.
-    indexes: A list of entity_pb.CompsiteIndex.
-  Returns:
-    The composite index of the list for which the composite index matches 
-    the query. Returns None if there is no match.
-  """
-  if not query.has_kind():
-    return None
-
-  index_list = __IndexListForQuery(query)
-  if index_list == []:
-    return None
-
-  index_match = index_list[0]
-  for index in indexes:
-    if index_match.Equals(index.definition()):
-      return index
-
-  raise apiproxy_errors.ApplicationError(
-    datastore_pb.Error.NEED_INDEX,
-    'Query requires an index')
-
-def __IndexListForQuery(query):
-  """Get the composite index definition used by the query, if any, as a list.
-
-  Args:
-    query: the datastore_pb.Query to compute the index list for
-
-  Returns:
-    A singleton list of the composite index definition pb used by the query,
-  """
-  required, kind, ancestor, props = (
-      datastore_index.CompositeIndexForQuery(query))
-  if not required:
-    return []
-
-  index_pb = entity_pb.Index()
-  index_pb.set_entity_type(kind)
-  index_pb.set_ancestor(bool(ancestor))
-  for name, direction in datastore_index.GetRecommendedIndexProperties(props):
-    prop_pb = entity_pb.Index_Property()
-    prop_pb.set_name(name)
-    prop_pb.set_direction(direction)
-    index_pb.property_list().append(prop_pb)
-  return [index_pb]
-
-
+    pass
