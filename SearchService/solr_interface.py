@@ -487,17 +487,6 @@ class Document(object):
     self.language = language
     self.fields = fields
 
-class Header():
-  """ Represents a header in SOLR. """
-  def __init__(self, status, qtime):
-    """ Constructor for Header type. 
-
-    Args:
-      status: The status for this header.
-      qtime: The reported qtime from SOLR.
-    """
-    self.status = status
-    self.qtime = qtime
 
 class Field():
   """ Field item in a document. """
@@ -528,15 +517,6 @@ class Field():
     self.indexed = indexed
     self.multi_valued = multi_valued
     self.value = value
-
-class Results():
-  """ Results from SOLR. """
-
-  def __init__(self, num_found, docs, header):
-    """ Constructor for Results type. """
-    self.num_found = num_found
-    self.docs = docs
-    self.header = header
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
