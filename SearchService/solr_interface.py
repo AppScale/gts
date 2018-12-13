@@ -115,8 +115,7 @@ class Solr(object):
     for field in response['fields']:
       if field['name'].startswith("{0}_".format(index_name)):
         filtered_fields.append(field)
-    schema = Schema(filtered_fields, response['responseHeader'])
-    return Index(index_name, schema)
+    return Index(index_name, filtered_fields)
 
   def update_schema(self, updates):
     """ Updates the schema of a document.
@@ -227,7 +226,7 @@ class Solr(object):
     solr_doc = self.to_solr_doc(doc)
 
     index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
-    updates = self.compute_updates(index.name, index.schema.fields,
+    updates = self.compute_updates(index.name, index.schema,
       solr_doc.fields)
     if len(updates) > 0:
       try:
@@ -401,7 +400,7 @@ class Solr(object):
       new_field.set_name(field_name)
       new_value = new_field.mutable_value()
       field_type = ""
-      for field in index.schema.fields:
+      for field in index.schema:
         if field['name'] == "{0}_{1}".format(index.name, field_name):
           field_type = field['type']
       if field_type == "":
@@ -448,17 +447,6 @@ class Solr(object):
       new_value.set_string_value(value)
       new_value.set_type(FieldValue.TEXT)
 
-class Schema():
-  """ Represents a schema in SOLR. """
-  def __init__(self, fields , response_header):
-    """ Constructor for SOLR schema. 
-
-    Args:
-      fields: A list of Fields for the schema.
-      response_header: The response header from SOLR.
-    """
-    self.fields = fields
-    self.response_header = response_header
 
 class Index():
   """ Represents an index in SOLR. """
@@ -467,7 +455,7 @@ class Index():
 
     Args:
       name: A str, the name of the index.
-      schema: A Schema for this index.
+      schema: A dict, representing schema for this index.
     """
     self.name = name
     self.schema = schema
