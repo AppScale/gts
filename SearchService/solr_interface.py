@@ -225,7 +225,7 @@ class Solr(object):
     """
     solr_doc = self.to_solr_doc(doc)
 
-    index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
+    index = self._get_index_adapter(app_id, index_spec.namespace(), index_spec.name())
     updates = self.compute_updates(index.name, index.schema,
       solr_doc.fields)
     if len(updates) > 0:
