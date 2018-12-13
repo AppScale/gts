@@ -74,7 +74,7 @@ class Solr(object):
       raise search_exceptions.InternalError(
         "SOLR response status of {0}".format(status))
 
-  def get_index(self, app_id, namespace, name):
+  def _get_index_adapter(self, app_id, namespace, name):
     """ Gets an index from SOLR.
 
     Performs a JSON request to the SOLR schema API to get the list of defined
@@ -115,7 +115,7 @@ class Solr(object):
     for field in response['fields']:
       if field['name'].startswith("{0}_".format(index_name)):
         filtered_fields.append(field)
-    return Index(index_name, filtered_fields)
+    return IndexAdapter(index_name, filtered_fields)
 
   def update_schema(self, updates):
     """ Updates the schema of a document.
@@ -304,19 +304,23 @@ class Solr(object):
     #TODO add fields to delete also.
     return fields_to_update
 
-  def run_query(self, result, index, query,
+  def run_query(self, result, app_id, namespace, index_name, query,
                 projection_fields, sort_fields, limit, offset):
     """ Creates a SOLR query string and runs it on SOLR. 
 
     Args:
       result: A search_service_pb.SearchResponse.
-      index: Index for which we're running the query.
+      app_id: A str, the application identifier.
+      namespace: A str, the application namespace.
+      index_name: A str, the index name.
       query: A str representing query sent by user.
       projection_fields: A list of fields to fetch for each document.
       sort_fields: a list of tuples of form (<FieldName>, "desc"/"asc")
       limit: a max number of document to return.
       offset: an integer representing offset.
     """
+
+    index = self._get_index_adapter(app_id, namespace, index_name)
     solr_query_params = query_converter.prepare_solr_query(
       index, query, projection_fields, sort_fields, limit, offset
     )
@@ -448,7 +452,7 @@ class Solr(object):
       new_value.set_type(FieldValue.TEXT)
 
 
-class Index():
+class IndexAdapter():
   """ Represents an index in SOLR. """
   def __init__(self, name, schema):
     """ Constructor for SOLR index. 
