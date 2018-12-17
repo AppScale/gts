@@ -11,149 +11,14 @@ from kazoo.exceptions import NoNodeError
 from yaml.parser import ParserError
 
 from appscale.appcontroller_client import AppControllerException
-from appscale.common.constants import HTTPCodes
+from appscale.common.constants import HTTPCodes, InvalidConfiguration
+from appscale.common.datastore_index import DatastoreIndex, merge_indexes
 from .base_handler import BaseHandler
 from .constants import CustomHTTPError
-from .constants import InvalidConfiguration
 from .utils import cron_from_dict
 from .utils import queues_from_dict
 
 logger = logging.getLogger(__name__)
-
-
-class IndexProperty(object):
-  """ Represents a datastore index property. """
-
-  __slots__ = ['name', 'direction']
-
-  def __init__(self, name, direction):
-    """ Creates a new IndexProperty object.
-
-    Args:
-      name: A string specifying the property name.
-      direction: A string specifying the index direction (asc or desc).
-    """
-    if not name:
-      raise InvalidConfiguration('Index property missing "name"')
-
-    if direction not in ('asc', 'desc'):
-      raise InvalidConfiguration(
-        'Invalid "direction" value: {}'.format(direction))
-
-    self.name = name
-    self.direction = direction
-
-  @property
-  def id(self):
-    if self.direction == 'asc':
-      return self.name
-    else:
-      return ','.join([self.name, 'desc'])
-
-  def to_dict(self):
-    """ Generates a JSON-safe dictionary representation of the property.
-
-    Returns:
-      A dictionary containing the property details.
-    """
-    return {'name': self.name, 'direction': self.direction}
-
-  @classmethod
-  def from_dict(cls, prop):
-    """ Constructs an IndexProperty from a JSON-derived dictionary.
-
-    Args:
-      prop: A dictionary containing the name and direction fields.
-    Returns:
-      An IndexProperty object.
-    """
-    return cls(prop['name'], prop['direction'])
-
-
-class DatastoreIndex(object):
-  """ Represents a datastore index. """
-
-  __slots__ = ['kind', 'ancestor', 'properties']
-
-  # Separates fields of an encoded index.
-  ENCODING_DELIMITER = '|'
-
-  def __init__(self, kind, ancestor, properties):
-    """ Creates a new DatastoreIndex object.
-
-    Args:
-      kind: A string specifying the datastore kind.
-      ancestor: A boolean indicating whether or not the index is for
-        satisfying ancestor queries.
-      properties: A list of IndexProperty objects.
-    """
-    self.kind = kind
-    self.ancestor = ancestor
-    self.properties = properties
-
-  @property
-  def id(self):
-    encoded_ancestor = '1' if self.ancestor else '0'
-    encoded_properties = self.ENCODING_DELIMITER.join(
-      [prop.id for prop in self.properties])
-    return self.ENCODING_DELIMITER.join(
-      [self.kind, encoded_ancestor, encoded_properties])
-
-  @classmethod
-  def from_yaml(cls, entry):
-    """ Constructs a DatastoreIndex from a parsed index.yaml entry.
-
-    Args:
-      entry: A dictionary generated from a index.yaml file.
-    Returns:
-      A DatastoreIndex object.
-    Raises:
-      InvalidConfiguration exception if entry is invalid.
-    """
-    kind = entry.get('kind')
-    if not kind:
-      raise InvalidConfiguration('Index entry is missing "kind" field')
-
-    ancestor = entry.get('ancestor', False)
-    if not isinstance(ancestor, bool):
-      if ancestor.lower() not in ('yes', 'no', 'true', 'false'):
-        raise InvalidConfiguration(
-          'Invalid "ancestor" value: {}'.format(ancestor))
-
-      ancestor = ancestor.lower() in ('yes', 'true')
-
-    configured_props = entry.get('properties', [])
-    if not configured_props:
-      raise InvalidConfiguration('Index missing properties')
-
-    properties = [IndexProperty(prop.get('name'), prop.get('direction', 'asc'))
-                  for prop in configured_props]
-    return cls(kind, ancestor, properties)
-
-  def to_dict(self):
-    """ Generates a JSON-safe dictionary representation of the index.
-
-    Returns:
-      A dictionary containing the index details.
-    """
-    return {
-      'kind': self.kind,
-      'ancestor': self.ancestor,
-      'properties': [prop.to_dict() for prop in self.properties]
-    }
-
-  @classmethod
-  def from_dict(cls, entry):
-    """ Constructs a DatastoreIndex from a JSON-derived dictionary.
-
-    Args:
-      entry: A dictionary containing the kind, ancestor, and properties fields.
-    Returns:
-      A DatastoreIndex object.
-    """
-    properties = [IndexProperty.from_dict(prop)
-                  for prop in entry['properties']]
-    return cls(entry['kind'], entry['ancestor'], properties)
 
 
 class UpdateIndexesHandler(BaseHandler):
@@ -193,33 +58,13 @@ class UpdateIndexesHandler(BaseHandler):
       return
 
     try:
-      given_indexes = [DatastoreIndex.from_yaml(index)
+      given_indexes = [DatastoreIndex.from_yaml(project_id, index)
                        for index in given_indexes]
     except InvalidConfiguration as error:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message=six.text_type(error))
 
-    indexes_node = '/appscale/projects/{}/indexes'.format(project_id)
-    try:
-      existing_indexes, znode_stat = self.zk_client.get(indexes_node)
-    except NoNodeError:
-      encoded_indexes = json.dumps(
-        [index.to_dict() for index in given_indexes])
-      self.zk_client.create(indexes_node, encoded_indexes)
-      return
-
-    combined_indexes = [DatastoreIndex.from_dict(index)
-                        for index in json.loads(existing_indexes)]
-    existing_index_ids = {index.id for index in combined_indexes}
-    for new_index in given_indexes:
-      if new_index.id not in existing_index_ids:
-        combined_indexes.append(new_index)
-
-    encoded_indexes = json.dumps(
-      [index.to_dict() for index in combined_indexes])
-    self.zk_client.set(indexes_node, encoded_indexes,
-                       version=znode_stat.version)
-
+    merge_indexes(self.zk_client, project_id, given_indexes)
     logger.info('Updated indexes for {}'.format(project_id))
 
 

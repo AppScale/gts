@@ -16,9 +16,6 @@ if [ -z "${APPSCALE_PACKAGE_MIRROR-}" ]; then
 fi
 
 JAVA_VERSION="java-8-openjdk"
-case "${DIST}" in
-    wheezy) JAVA_VERSION="java-7-openjdk" ;;
-esac
 
 export UNAME_MACHINE=$(uname -m)
 if [ -z "${JAVA_HOME_DIRECTORY-}" ]; then
@@ -529,13 +526,6 @@ postinstallejabberd()
     fi
 }
 
-installpsutil()
-{
-    case ${DIST} in
-        wheezy) pipwrapper psutil ;;
-    esac
-}
-
 installapiclient()
 {
     # The InfrastructureManager requires the Google API client.
@@ -643,7 +633,7 @@ installapiserver()
     # The activate script fails under `set -u`.
     unset_opt=$(shopt -po nounset)
     case ${DIST} in
-        wheezy|trusty)
+        trusty)
             # Tornado 5 does not work with Python<2.7.9.
             tornado_package='tornado<5'
             ;;
@@ -677,7 +667,7 @@ upgradepip()
     # local packages with optional dependencies. Versions greater than Pip 9
     # do not allow replacing packages installed by the distro.
     case "$DIST" in
-        wheezy|trusty)
+        trusty)
             pipwrapper 'pip<10'
             # Account for the change in the path to the pip binary.
             hash -r

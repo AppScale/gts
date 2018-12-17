@@ -28,6 +28,12 @@ logger = logging.getLogger(__name__)
 
 
 class AlreadyHoster(Exception):
+  """ Indicates that a valid source archive is already present. """
+  pass
+
+
+class SourceUnavailable(Exception):
+  """ Indicates that a revision's source archive cannot be found. """
   pass
 
 
@@ -110,37 +116,39 @@ class SourceManager(object):
       revision_key: A string specifying a revision key.
       source_location: A string specifying the location of the version's
         source archive.
-    Returns:
-      A string specifying the source archive's MD5 hex digest.
     Raises:
       AlreadyHoster if local machine is hosting archive.
+      InvalidSource if digest of fetched archive does not match record.
+      SourceUnavailable if unable to obtain source archive.
     """
     hosts_with_archive = yield self.thread_pool.submit(
       self.zk_client.get_children, '/apps/{}'.format(revision_key))
-    assert hosts_with_archive, '{} has no hosters'.format(revision_key)
-
-    if options.private_ip in hosts_with_archive:
-      raise AlreadyHoster('{} is already a hoster of {}'
-                         .format(options.private_ip, revision_key))
+    if not hosts_with_archive:
+      raise SourceUnavailable('{} has no hosters'.format(revision_key))
 
     host = random.choice(hosts_with_archive)
     host_node = '/apps/{}/{}'.format(revision_key, host)
-    original_md5, _ = yield self.thread_pool.submit(
+    desired_md5, _ = yield self.thread_pool.submit(
       self.zk_client.get, host_node)
 
-    if os.path.isfile(source_location):
-      md5 = yield self.thread_pool.submit(get_md5, source_location)
-      if md5 == original_md5:
-        raise gen.Return(md5)
+    @gen.coroutine
+    def valid_local_archive():
+      if not os.path.isfile(source_location):
+        raise gen.Return(False)
 
-      logger.warning('Source MD5 does not match. Re-fetching archive.')
+      md5 = yield self.thread_pool.submit(get_md5, source_location)
+      raise gen.Return(md5 == desired_md5)
+
+    valid_local = yield valid_local_archive()
+    if options.private_ip in hosts_with_archive and valid_local:
+      raise AlreadyHoster('{} already exists'.format(source_location))
 
     yield self.thread_pool.submit(fetch_file, host, source_location)
-    md5 = yield self.thread_pool.submit(get_md5, source_location)
-    if md5 != original_md5:
+    valid_local = yield valid_local_archive()
+    if not valid_local:
       raise InvalidSource('Source MD5 does not match')
 
-    raise gen.Return(md5)
+    yield self.register_as_hoster(revision_key, desired_md5)
 
   @gen.coroutine
   def register_as_hoster(self, revision_key, md5):
@@ -169,16 +177,14 @@ class SourceManager(object):
     """
     source_extracted = False
     try:
-      md5 = yield self.fetch_archive(revision_key, location)
+      yield self.fetch_archive(revision_key, location)
     except AlreadyHoster as already_hoster_err:
       logger.info(already_hoster_err)
       source_extracted = os.path.isdir(os.path.join(UNPACK_ROOT, revision_key))
-    else:
-      yield self.register_as_hoster(revision_key, md5)
 
     if not source_extracted:
       yield self.thread_pool.submit(extract_source, revision_key, location,
-                                  runtime)
+                                    runtime)
 
     project_id = revision_key.split(VERSION_PATH_SEPARATOR)[0]
     if project_id == DASHBOARD_APP_ID:
