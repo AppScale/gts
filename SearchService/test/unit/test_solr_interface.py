@@ -64,7 +64,7 @@ class TestSolrInterface(unittest.TestCase):
     solr = solr_interface.Solr()
     solr = flexmock(solr)
     flexmock(solr_interface)
-    solr_interface.should_receive("get_index_adapter_name").and_return("index_ns_name")
+    solr_interface.should_receive("get_index_name").and_return("index_ns_name")
     flexmock(urllib2)
     urllib2.should_receive("urlopen").and_return(FakeConnection(False))
     self.assertRaises(search_exceptions.InternalError, solr._get_index_adapter, "app_id", "ns", "name")
@@ -84,7 +84,7 @@ class TestSolrInterface(unittest.TestCase):
     dictionary = {'responseHeader':{'status': 0}, "fields": fields}
     json.should_receive("load").and_return(dictionary)
     index = solr._get_index_adapter("app_id", "ns", "name")
-    self.assertEquals(index.fields[0]['name'], "index_ns_name_")
+    self.assertEquals(index.schema[0]['name'], "index_ns_name_")
 
   def test_update_schema(self):
     appscale_info = flexmock()
