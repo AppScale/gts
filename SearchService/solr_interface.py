@@ -225,9 +225,10 @@ class Solr(object):
     """
     solr_doc = self.to_solr_doc(doc)
 
-    index = self._get_index_adapter(app_id, index_spec.namespace(), index_spec.name())
-    updates = self.compute_updates(index.name, index.schema,
-      solr_doc.fields)
+    index = self._get_index_adapter(
+      app_id, index_spec.namespace(), index_spec.name()
+    )
+    updates = self.compute_updates(index.name, index.schema, solr_doc.fields)
     if len(updates) > 0:
       try:
         self.update_schema(updates)
@@ -452,7 +453,7 @@ class Solr(object):
       new_value.set_type(FieldValue.TEXT)
 
 
-class IndexAdapter():
+class IndexAdapter(object):
   """ Represents an index in SOLR. """
   def __init__(self, name, schema):
     """ Constructor for SOLR index. 
