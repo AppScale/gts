@@ -60,25 +60,29 @@ class TestSolrInterface(unittest.TestCase):
   """
   def test_get_index_adapter(self):
     appscale_info = flexmock()
-    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    appscale_info.should_receive("get_search_location").\
+      and_return("somelocation")
     solr = solr_interface.Solr()
     solr = flexmock(solr)
     flexmock(solr_interface)
     solr_interface.should_receive("get_index_name").and_return("index_ns_name")
     flexmock(urllib2)
     urllib2.should_receive("urlopen").and_return(FakeConnection(False))
-    self.assertRaises(search_exceptions.InternalError, solr._get_index_adapter, "app_id", "ns", "name")
+    self.assertRaises(search_exceptions.InternalError,
+                      solr._get_index_adapter, "app_id", "ns", "name")
 
     # Test the case of ValueError on a json.load.
     urllib2.should_receive("urlopen").and_return(FakeConnection(True))
     flexmock(json)
     json.should_receive("load").and_raise(ValueError)
-    self.assertRaises(search_exceptions.InternalError, solr._get_index_adapter, "app_id", "ns", "name")
+    self.assertRaises(search_exceptions.InternalError,
+                      solr._get_index_adapter, "app_id", "ns", "name")
 
     # Test a bad status from SOLR.
     dictionary = {'responseHeader':{'status': 1}}
     json.should_receive("load").and_return(dictionary)
-    self.assertRaises(search_exceptions.InternalError, solr._get_index_adapter, "app_id", "ns", "name")
+    self.assertRaises(search_exceptions.InternalError,
+                      solr._get_index_adapter, "app_id", "ns", "name")
 
     fields = [{'name':"index_ns_name_"}]
     dictionary = {'responseHeader':{'status': 0}, "fields": fields}
@@ -88,23 +92,27 @@ class TestSolrInterface(unittest.TestCase):
 
   def test_update_schema(self):
     appscale_info = flexmock()
-    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    appscale_info.should_receive("get_search_location").\
+      and_return("somelocation")
     solr = solr_interface.Solr()
 
     flexmock(urllib2)
     urllib2.should_receive("urlopen").and_return(FakeConnection(False))
     updates = []
-    self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
+    self.assertRaises(search_exceptions.InternalError,
+                      solr.update_schema, updates)
 
     updates = [{'name': 'name1', 'type':'type1'}]
     flexmock(json)
     json.should_receive("load").and_raise(ValueError)
     urllib2.should_receive("urlopen").and_return(FakeConnection(True))
-    self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
+    self.assertRaises(search_exceptions.InternalError,
+                      solr.update_schema, updates)
 
     dictionary = {"responseHeader":{"status":1}}
     json.should_receive("load").and_return(dictionary)
-    self.assertRaises(search_exceptions.InternalError, solr.update_schema, updates)
+    self.assertRaises(search_exceptions.InternalError,
+                      solr.update_schema, updates)
 
     dictionary = {"responseHeader":{"status":0}}
     json.should_receive("load").and_return(dictionary)
@@ -112,13 +120,15 @@ class TestSolrInterface(unittest.TestCase):
 
   def test_to_solr_hash_map(self):
     appscale_info = flexmock()
-    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    appscale_info.should_receive("get_search_location").\
+      and_return("somelocation")
     solr = solr_interface.Solr()
     self.assertNotEqual(solr.to_solr_hash_map(FakeIndex(), FakeDocument()), {})
 
   def test_commit_update(self):
     appscale_info = flexmock()
-    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    appscale_info.should_receive("get_search_location").\
+      and_return("somelocation")
     solr = solr_interface.Solr()
 
     flexmock(json)
@@ -142,7 +152,8 @@ class TestSolrInterface(unittest.TestCase):
 
   def test_update_document(self):
     appscale_info = flexmock()
-    appscale_info.should_receive("get_search_location").and_return("somelocation")
+    appscale_info.should_receive("get_search_location").\
+      and_return("somelocation")
     solr = solr_interface.Solr()
     solr = flexmock(solr)
     solr.should_receive("to_solr_doc").and_return(FakeSolrDoc())
