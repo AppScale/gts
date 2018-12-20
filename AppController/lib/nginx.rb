@@ -36,6 +36,9 @@ module Nginx
   # Nginx sites-enabled path.
   SITES_ENABLED_PATH = File.join(NGINX_PATH, 'sites-enabled')
 
+  # Application capture regex.
+  VERSION_KEY_REGEX = /appscale-(.*_.*_.*).conf/
+
   # These ports are the one visible from outside, ie the ones that we
   # attach to running applications. Default is to have a maximum of 21
   # applications (8080-8100).
@@ -110,7 +113,7 @@ module Nginx
 
     always_secure_locations = ""
     never_secure_locations = ""
-    
+
     http_location_params = \
         "\n\tproxy_set_header      X-Real-IP $remote_addr;" \
         "\n\tproxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;" \
@@ -363,6 +366,11 @@ CONFIG
     Nginx.reload
   end
 
+  def self.list_sites_enabled
+    dir_app_regex = "appscale-*_*_*.#{CONFIG_EXTENSION}"
+    return Dir.glob(File.join(SITES_ENABLED_PATH, dir_app_regex))
+  end
+
   # Removes all the enabled sites
   def self.clear_sites_enabled
     if File.directory?(SITES_ENABLED_PATH)
@@ -522,3 +530,4 @@ CONFIG
     HelperFunctions.shell('service nginx restart')
   end
 end
+

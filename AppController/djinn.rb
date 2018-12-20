@@ -1606,54 +1606,6 @@ class Djinn
     end
   end
 
-  # Removes a version and stops all AppServers hosting it.
-  #
-  # Args:
-  #   version_key: The version to stop
-  #   secret: Shared key for authentication
-  #
-  def stop_version(version_key, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    unless my_node.is_shadow?
-      Djinn.log_debug(
-        "Sending stop_version call for #{version_key} to shadow.")
-      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
-      begin
-        return acc.stop_version(version_key)
-      rescue FailedNodeException
-        Djinn.log_warn(
-          "Failed to forward stop_version call to shadow (#{get_shadow}).")
-        return NOT_READY
-      end
-    end
-
-    project_id, _service_id, _version_id = version_key.split(
-      VERSION_PATH_SEPARATOR)
-    if RESERVED_APPS.include?(project_id)
-      return "false: #{project_id} is a reserved app."
-    end
-    Djinn.log_info("Shutting down #{version_key}")
-
-    # Since stopping an application can take some time, we do it in a
-    # thread.
-    Thread.new {
-      # If this node has any information about AppServers for this version,
-      # clear that information out.
-      APPS_LOCK.synchronize {
-        @app_info_map.delete(version_key)
-        @versions_loaded = @versions_loaded - [version_key]
-      }
-
-      # To prevent future deploys from using the old application code, we
-      # force a removal of the application status on disk (for example the
-      # code and cronjob) right now.
-      check_stopped_apps
-    }
-
-    'true'
-  end
-
   def get_all_public_ips(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
@@ -1885,11 +1837,13 @@ class Djinn
         }
       end
 
-      # Detect applications that have been undeployed and terminate all
-      # running AppServers.
-      check_stopped_apps
-
-      # Load balancers and shadow need to check/update nginx/haproxy.
+      # Load balancers and shadow need to check/update applications that have
+      # been undeployed and nginx/haproxy.
+      if my_node.is_shadow? or my_node.is_load_balancer?
+        APPS_LOCK.synchronize {
+          check_stopped_apps
+        }
+      end
       if my_node.is_load_balancer?
         update_db_haproxy
         APPS_LOCK.synchronize {
@@ -4075,13 +4029,6 @@ HOSTS
         version_details = ZKInterface.get_version_details(
           project_id, service_id, version_id)
       rescue VersionNotFound
-        Djinn.log_debug("Removing routing for #{version_key} since it " \
-                        "should not be running.")
-        Nginx.remove_version(version_key)
-        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-          CronHelper.clear_app_crontab(project_id)
-        end
-        HAProxy.remove_version(version_key)
         next
       end
 
@@ -4609,49 +4556,110 @@ HOSTS
 
   # This function ensures that applications we are not aware of (that is
   # they are not accounted for) will be terminated and, potentially old
-  # sources, will be removed.
+  # sources, will be removed. Must be called under APPS_LOCK.
   def check_stopped_apps
     Djinn.log_debug("Checking applications that have been stopped.")
-    version_list = HelperFunctions.get_loaded_versions
     begin
-      configured_versions = ZKInterface.get_versions
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn(
-        'Failed to fetch configured versions when checking stopped apps')
+      zookeeper_versions = ZKInterface.get_versions
+    rescue FailedZooKeeperOperationException => e
+      Djinn.log_warn("Failed to get list of versions in zookeeper. Error: " \
+        "#{e}.message")
       return
     end
+    Djinn.log_info("check_stopped_apps: Versions running: #{zookeeper_versions}")
+    removed_versions = []
+    if my_node.is_shadow?
+      CronHelper.list_app_crontabs.each { |app|
+        match = app.match(CronHelper::PROJECT_ID_REGEX)
+        next if match.nil?
 
-    version_list.each { |version_key|
-      project_id, service_id, version_id = version_key.split(
-        VERSION_PATH_SEPARATOR)
-      next if configured_versions.include?(version_key)
-      next if RESERVED_APPS.include?(project_id)
+        project_id = match.captures.first
+        default_version_key = "#{project_id}_#{DEFAULT_SERVICE}_#{DEFAULT_VERSION}"
 
-      Djinn.log_info(
-        "#{version_key} is no longer running: removing old states.")
+        next if zookeeper_versions.include?(default_version_key)
 
-      if my_node.is_load_balancer?
-        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-          stop_xmpp_for_app(project_id)
-        end
-        Nginx.remove_version(version_key)
+        next if RESERVED_APPS.include?(project_id)
 
-        # Since the removal of an app from HAProxy can cause a reset of
-        # the drain flags, let's set them again.
-        HAProxy.remove_version(version_key)
-      end
+        Djinn.log_info(
+          "#{default_version_key} is no longer running: removing crontabs.")
+        CronHelper.clear_app_crontab(project_id)
+        removed_versions << default_version_key
+      }
+      Dir.glob("/etc/rsyslog.d/10-*_*_*.conf").each { |app|
+        match = app.match(/10-(.*_.*_.*).conf/)
+        next if match.nil?
 
-      if my_node.is_shadow?
-        Djinn.log_info("Removing log configuration for #{version_key}.")
+        version_key = match.captures.first
+        next if zookeeper_versions.include?(version_key)
+
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+        next if RESERVED_APPS.include?(project_id)
+
+        Djinn.log_info(
+          "#{version_key} is no longer running: removing log configuration.")
         FileUtils.rm_f(get_rsyslog_conf(version_key))
         HelperFunctions.shell("service rsyslog restart")
-      end
+        removed_versions << version_key
+      }
+    end
+    if my_node.is_load_balancer?
+      MonitInterface.running_xmpp.each { |xmpp_app|
+        match = xmpp_app.match(/xmpp-(.*)/)
+        next if match.nil?
 
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        CronHelper.clear_app_crontab(project_id)
-      end
-      Djinn.log_debug("Done cleaning up after stopped version #{version_key}.")
-    }
+        project_id = match.captures.first
+        default_version_key = "#{project_id}_#{DEFAULT_SERVICE}_#{DEFAULT_VERSION}"
+        next if zookeeper_versions.include?(default_version_key)
+
+        next if RESERVED_APPS.include?(project_id)
+
+        Djinn.log_info(
+          "#{default_version_key} is no longer running: stopping xmpp for application.")
+        stop_xmpp_for_app(project_id)
+        removed_versions << default_version_key
+      }
+      HAProxy.list_sites_enabled.each { |site|
+        match = site.match(HAProxy::VERSION_KEY_REGEX)
+        next if match.nil?
+
+        version_key = match.captures.first
+        next if zookeeper_versions.include?(version_key)
+
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+        next if RESERVED_APPS.include?(project_id)
+
+        Djinn.log_info(
+          "#{version_key} is no longer running: removing HAProxy state.")
+        HAProxy.remove_version(version_key)
+        removed_versions << version_key
+      }
+      Nginx.list_sites_enabled.each { |site|
+        match = site.match(Nginx::VERSION_KEY_REGEX)
+        next if match.nil?
+
+        version_key = match.captures.first
+        next if zookeeper_versions.include?(version_key)
+
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+        next if RESERVED_APPS.include?(project_id)
+
+        Djinn.log_info(
+          "#{version_key} is no longer running: removing Nginx state.")
+        Nginx.remove_version(version_key)
+        removed_versions << version_key
+      }
+    end
+
+    # If this node has any information about AppServers for this version,
+    # clear that information out.
+    if my_node.is_shadow?
+      removed_versions.each { |version_key|
+        @app_info_map.delete(version_key)
+      }
+    end
+
+    # Remove versions from versions_loaded.
+    @versions_loaded = @versions_loaded - removed_versions
   end
 
   # Small utility function that returns the full path for the rsyslog
@@ -5824,3 +5832,4 @@ HOSTS
     JSON.dump(content)
   end
 end
+

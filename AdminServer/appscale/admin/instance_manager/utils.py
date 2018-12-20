@@ -103,25 +103,21 @@ def remove_conflicting_jars(source_path):
         os.remove(os.path.join(lib_dir, file))
 
 
-def remove_logrotate(app_name):
-  """ Removes logrotate script for the given application.
+def remove_logrotate(project_id):
+  """ Removes logrotate script for the given project.
 
   Args:
-    app_name: A string, the name of the application to remove logrotate for.
-  Returns:
-    True on success, False otherwise.
+    project_id: A string, the name of the project to remove logrotate for.
   """
   app_logrotate_script = "{0}/appscale-{1}".\
-    format(LOGROTATE_CONFIG_DIR, app_name)
+    format(LOGROTATE_CONFIG_DIR, project_id)
   logger.debug("Removing script: {}".format(app_logrotate_script))
 
   try:
     os.remove(app_logrotate_script)
   except OSError:
-    logger.error("Error deleting {0}".format(app_logrotate_script))
-    return False
-
-  return True
+    logging.error("Error while removing log rotation for application: {}".
+                  format(project_id))
 
 
 def setup_logrotate(app_name, log_size):

@@ -274,18 +274,6 @@ class AppControllerClient():
       roles_to_nodes, self.secret)
 
 
-  def stop_version(self, version_key):
-    """Tells the AppController to no longer host the named version.
-
-    Args:
-      version_key: A str that indicates which version should be stopped.
-    Returns:
-      The result of telling the AppController to no longer host the version.
-    """
-    return self.call(self.MAX_RETRIES, self.server.stop_version, version_key,
-                     self.secret)
-
-
   def update(self, versions):
     """Tells the AppController which versions to run, which we assume have
     already been uploaded to that machine.

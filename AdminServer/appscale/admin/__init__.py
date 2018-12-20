@@ -238,9 +238,9 @@ class BaseVersionHandler(BaseHandler):
 
   @gen.coroutine
   def start_delete_version(self, project_id, service_id, version_id):
-    """ Starts the process of deleting a version by calling stop_version on
-    the AppController and deleting the version node. Returns the version's
-    port that will be closing, the caller should wait for this port to close.
+    """ Starts the process of deleting a version by deleting the version
+    node. Returns the version's port that will be closing, the caller should
+    wait for this port to close.
 
     Args:
       project_id: A string specifying a project ID.
@@ -267,14 +267,6 @@ class BaseVersionHandler(BaseHandler):
         pass
     finally:
       self.version_update_lock.release()
-
-    version_key = VERSION_PATH_SEPARATOR.join([project_id, service_id,
-                                               version_id])
-    try:
-      self.acc.stop_version(version_key)
-    except AppControllerException as error:
-      message = 'Error while stopping version: {}'.format(error)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
     raise gen.Return(http_port)
 
