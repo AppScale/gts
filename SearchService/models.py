@@ -1,13 +1,9 @@
 """ This module stores data models for Search API. """
 
-import datetime
 import re
+import time
 
-from search_exceptions import (
-  InvalidFieldException, InvalidNameException, UnknownFieldTypeException
-)
-
-from google.appengine.datastore.document_pb import Field
+from google.appengine.datastore.document_pb import Field, FieldValue
 
 class Field(object):
   """ Class repressenting basic field object. """
@@ -32,20 +28,8 @@ class Field(object):
 
     Args:
       pb_field: An object of Protocol Buffer Field class.
-    Raises:
-      InvalidFieldException: If passed field has no value.
-      InvalidNameException: If passed fields' name is not valid.
     """
 
-    if not pb_field.has_value():
-      raise InvalidFieldException("Invalid field: field without a value.")
-
-    if not self.FIELD_NAME_RE.match(pb_field.name()):
-      raise InvalidNameException("Invalid field name. "
-                                 "Must begin with a letter, contain only "
-                                 "letters, digits, and underscores, "
-                                 "and be no longer than 500 characters.")
-    self.name = pb_field.name()
     pb_value = pb_field.value()
 
     if pb_field.value().has_language():
@@ -59,61 +43,19 @@ class Field(object):
 
     Args:
       pb_value: An object of Protocol Buffer FieldValue class.
-    Raises:
-      ValueError: If value is invalid.
-      TypeError: If value type does not match expected.
-      UnknownFieldTypeException: If default field is not found.
     """
 
-    # Integer from 0 to 5
-    field_type = pb_value.type()
+    field_type = FieldValue.ContentType_Name(pb_value.type())
+    self.type = field_type
 
-    if field_type == 0:
-      if len(pb_value.string_value()) > self.MAX_VALUE_LEN:
-        raise ValueError("Value exceeds maximum allowable length: "
-                         "{} characters." % (self.MAX_VALUE_LEN))
+    if field_type in ["TEXT", "HTML", "ATOM"]:
       self.value = pb_value.string_value()
-      self.type = "TEXT"
-    elif field_type == 1:
-      if len(pb_value.string_value()) > self.MAX_VALUE_LEN:
-        raise ValueError("Value exceeds maximum allowable length: "
-                         "{} characters." % (self.MAX_VALUE_LEN))
-      self.value = pb_value.string_value()
-      self.type = "HTML"
-    elif field_type == 2:
-      if len(pb_value.string_value()) > self.MAX_ATOM_LENGTH:
-        raise ValueError("Value exceeds maximum allowable length: "
-                         "{} characters." % (self.MAX_ATOM_LENGTH))
-      self.value = pb_value.string_value()
-      self.type = "ATOM"
-    elif field_type == 3:
-      if len(pb_value.string_value()) > self.MAX_VALUE_LEN:
-        raise ValueError("Value exceeds maximum allowable length: "
-                         "{} characters." % (self.MAX_VALUE_LEN))
-      try:
-        self.value = float(pb_value.string_value())
-        self.type = "NUMBER"
-      except TypeError:
-        raise TypeError("Value supplied is not numeric.")
-    elif field_type == 4:
-      # TODO: implement it
-      pass
-    elif field_type == 5:
-      if not pb_value.has_geo():
-        raise ValueError("No geo data.")
+    elif field_type == "NUMBER":
+      self.value = float(pb_value.string_value())
+    elif field_type == "DATE":
+      self.value = time.gmtime(int(pb_value.string_value()) // 1000)
+    elif field_type == "GEO":
       geo = pb_value.geo()
-      if not geo.has_lat():
-        raise ValueError("No latitude.")
-      if not geo.has_lng():
-        raise ValueError("No longitude.")
       lat = geo.lat()
       lng = geo.lng()
-      if lat < -90 or lat > 90:
-        raise ValueError("Invalid latitude.")
-      if lng < -180 or lng > 180:
-        raise ValueError("Invalid longitude.")
       self.value = (lat, lng)
-      self.type = "GEO"
-    else:
-      raise UnknownFieldTypeException("Unknown field type: {}".
-                                      format(field_type))
