@@ -3,26 +3,22 @@
 import calendar
 import time
 
-from google.appengine.datastore.document_pb import Field, FieldValue
+from google.appengine.datastore import document_pb
 
 class Field(object):
-  """ Class repressenting basic field object. """
+  """ Class representing basic field object. """
 
-  def __init__(self, init_field=None):
+  def __init__(self):
     """ Constructor for Field type.
-
-    Args:
-        init_field: Protocol Buffer Field object or dict with SOLR data
     """
-    if init_field != None:
-      if isinstance(init_field, Field):
-        self.from_pb()
+    pass
 
-  def from_pb(self, pb_field):
+  def from_pb(self, pb_field, doc_lang):
     """ Converter from Protocol Buffer field.
 
     Args:
       pb_field: An object of Protocol Buffer Field class.
+      doc_lang: Documents' language.
     """
 
     self.name = pb_field.name()
@@ -30,11 +26,12 @@ class Field(object):
 
     if pb_field.value().has_language():
       self.language = pb_value.language()
-    # TODO: handle the case when passed field has no language
+    else:
+      self.language = doc_lang
 
-    self.set_pb_value(pb_value)
+    self._set_pb_value(pb_value)
 
-  def set_pb_value(self, pb_value):
+  def _set_pb_value(self, pb_value):
     """ Sets value for Field object.
 
     Args:
@@ -44,7 +41,7 @@ class Field(object):
     # Number between 0 and 5
     field_type = pb_value.type()
     self.type = field_type
-    field_type = FieldValue.ContentType_Name(field_type)
+    field_type = document_pb.FieldValue.ContentType_Name(field_type)
 
     if field_type in ["TEXT", "HTML", "ATOM"]:
       self.value = pb_value.string_value()
@@ -65,15 +62,15 @@ class Field(object):
       pb_field: An object of Protocol Buffer Field class.
     """
 
-    pb_field = Field()
+    pb_field = document_pb.Field()
 
     pb_field.set_name(self.name)
 
-    pb_value = FieldValue()
+    pb_value = pb_field.mutable_value()
     pb_value.set_language(self.language)
     pb_value.set_type(self.type)
 
-    field_type = FieldValue.ContentType_Name(self.type)
+    field_type = document_pb.FieldValue.ContentType_Name(self.type)
 
     if field_type in ["TEXT", "HTML", "ATOM"]:
       pb_value.set_string_value(self.value)
@@ -88,6 +85,45 @@ class Field(object):
       geo.set_lat(lat)
       geo.set_lng(lng)
 
-    pb_field.set_pb_value(pb_value)
-
     return pb_field
+
+
+class Document(object):
+  """ Class representing basic document object. """
+
+  def __init__(self):
+    """ Constructor for Document type.
+    """
+    pass
+
+  def from_pb(self, pb_doc):
+    """ Converter from Protocol Buffer document.
+
+    Args:
+      pb_doc: An object of Protocol Buffer Document class.
+    """
+
+    self.id = pb_doc.id()
+    self.language = pb_doc.language()
+    self.fields = []
+
+    for field in pb_doc.field_list():
+      self.fields.append(Field().from_pb(field, self.language))
+
+  def to_pb(self):
+    """ Converter to Protocol Buffer document.
+
+    Returns:class Doc
+      pb_doc: An object of Protocol Buffer Field class.
+    """
+
+    pb_doc = document_pb.Document()
+
+    pb_doc.set_id(self.id)
+    pb_doc.set_language(self.language)
+
+    for field in self.fields:
+      f = pb_doc.add_field()
+      f = field.to_pb()
+
+    return pb_doc
