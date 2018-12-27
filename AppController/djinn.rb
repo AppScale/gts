@@ -4503,8 +4503,11 @@ HOSTS
 
     datastore_location = [get_load_balancer.private_ip,
                           DatastoreServer::PROXY_PORT].join(':')
+    taskqueue_location = [get_load_balancer.private_ip,
+                          TaskQueue::HAPROXY_PORT].join(':')
     source_archive = AppDashboard.prep(
-      my_public, my_private, PERSISTENT_MOUNT_POINT, datastore_location)
+      my_public, my_private, PERSISTENT_MOUNT_POINT, datastore_location,
+      taskqueue_location)
 
     self.deploy_dashboard(source_archive)
   end
