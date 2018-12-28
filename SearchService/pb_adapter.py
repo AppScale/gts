@@ -2,11 +2,11 @@
     data models to unified data models.
 """
 
-
 import calendar
 import time
 
 from google.appengine.datastore import document_pb
+from google.appengine.datastore.document_pb import FieldValue
 
 import models
 
@@ -45,15 +45,14 @@ def _set_pb_value(pb_value):
   # Number between 0 and 5
   field_type = pb_value.type()
   result_type = field_type
-  field_type = document_pb.FieldValue.ContentType_Name(field_type)
 
-  if field_type in ["TEXT", "HTML", "ATOM"]:
+  if field_type in [FieldValue.TEXT, FieldValue.HTML, FieldValue.ATOM]:
     result_value = pb_value.string_value()
-  elif field_type == "NUMBER":
+  elif field_type == FieldValue.NUMBER:
     result_value = float(pb_value.string_value())
-  elif field_type == "DATE":
+  elif field_type == FieldValue.DATE:
     result_value = time.gmtime(int(pb_value.string_value()) // 1000)
-  elif field_type == "GEO":
+  elif field_type == FieldValue.GEO:
     geo = pb_value.geo()
     lat = float(geo.lat())
     lng = float(geo.lng())
@@ -81,14 +80,14 @@ def to_pb_field(field):
 
   field_type = document_pb.FieldValue.ContentType_Name(field.type)
 
-  if field_type in ["TEXT", "HTML", "ATOM"]:
+  if field_type in [FieldValue.TEXT, FieldValue.HTML, FieldValue.ATOM]:
     pb_value.set_string_value(field.value)
-  elif field_type == "NUMBER":
+  elif field_type == FieldValue.NUMBER:
     pb_value.set_string_value(str(field.value))
-  elif field_type == "DATE":
+  elif field_type == FieldValue.DATE:
     value = calendar.timegm(field.value)
     pb_value.set_string_value(str(int(value * 1000)))
-  elif field_type == "GEO":
+  elif field_type == FieldValue.GEO:
     geo = pb_value.mutable_geo()
     lat, lng = field.value
     geo.set_lat(lat)
