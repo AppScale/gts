@@ -118,8 +118,10 @@ def from_pb_document(pb_doc):
 def to_pb_document(doc):
   """ Converter to Protocol Buffer document.
 
+  Args:
+    doc:  An object of unified Document type.
   Returns:
-    An object of Protocol Buffer Field class.
+    An object of Protocol Buffer Document class.
   """
 
   pb_doc = document_pb.Document()
@@ -128,7 +130,6 @@ def to_pb_document(doc):
   pb_doc.set_language(doc.language)
 
   for field in doc.fields:
-    f = pb_doc.add_field()
-    f = to_pb_field(field)
+    pb_doc.field_.append(to_pb_field(field))
 
   return pb_doc
