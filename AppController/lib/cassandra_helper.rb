@@ -3,6 +3,7 @@ require 'djinn'
 require 'djinn_job_data'
 require 'helperfunctions'
 require 'monit_interface'
+require 'set'
 
 # A String that indicates where we write the process ID that Cassandra runs
 # on at this machine.
@@ -93,7 +94,7 @@ end
 def wait_for_desired_nodes(needed, desired)
   sleep(Djinn::SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
   loop do
-    ready = nodes_ready
+    ready = nodes_ready.length
     Djinn.log_debug("#{ready} nodes are up. #{needed} are needed.")
     break if ready >= needed
     sleep(Djinn::SMALL_WAIT)
@@ -103,7 +104,7 @@ def wait_for_desired_nodes(needed, desired)
   begin
     Timeout.timeout(60) {
       loop do
-        ready = nodes_ready
+        ready = nodes_ready.length
         Djinn.log_debug("#{ready} nodes are up. #{desired} are desired.")
         break if ready >= desired
         sleep(Djinn::SMALL_WAIT)
@@ -174,12 +175,19 @@ def needed_for_quorum(total_nodes, replication)
   total_nodes - can_fail
 end
 
-# Returns the number of nodes in 'Up Normal' state.
+# Returns an array of nodes in 'Up Normal' state.
 def nodes_ready
-  output = `"#{NODETOOL}" status`
-  nodes_ready = 0
+  output = `"#{NODETOOL}" gossipinfo`
+  return [] unless $?.exitstatus == 0
+
+  live_nodes = Set[]
+  current_node = nil
   output.split("\n").each { |line|
-    nodes_ready += 1 if line.start_with?('UN')
+    current_node = line[1..-1] if line.start_with?('/')
+    next if current_node.nil?
+    if line.include?('STATUS') && line.include?('NORMAL')
+      live_nodes.add(current_node)
+    end
   }
-  nodes_ready
+  live_nodes.to_a
 end
