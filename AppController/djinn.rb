@@ -1534,7 +1534,7 @@ class Djinn
       }
       return "#{ready}"
     ensure
-      NODETOOL_LOCK.unlock
+      NODETOOL_LOCK.unlock if lock_obtained
     end
   end
 
