@@ -60,6 +60,21 @@ def _set_pb_value(pb_value):
 
   return (result_type, result_value)
 
+def _fill_pb_field(pb_field, field):
+  """ Fills Protocol Buffer field with values from unified Field class.
+
+  Args:
+    pb_field: An object of document_pb.Field class to fill in.
+    field: An object of unified Field class.
+  """
+
+  converted = to_pb_field(field)
+  pb_field.set_name(converted.name())
+  value = pb_field.mutable_value()
+  value.set_type(converted.value().type())
+  value.set_language(converted.value().language())
+  value.set_string_value(converted.value().string_value())
+
 
 def to_pb_field(field):
   """ Converter to Protocol Buffer field.
@@ -129,6 +144,7 @@ def to_pb_document(doc):
   pb_doc.set_language(doc.language)
 
   for field in doc.fields:
-    pb_doc.field_.append(to_pb_field(field))
+    pb_field = pb_doc.add_field()
+    _fill_pb_field(pb_field, field)
 
   return pb_doc
