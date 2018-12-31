@@ -44,7 +44,7 @@ def _set_pb_value(pb_value):
 
   # Number between 0 and 5
   field_type = pb_value.type()
-  result_type = field_type
+  result_type = document_pb.FieldValue.ContentType_Name(field_type)
 
   if field_type in [FieldValue.TEXT, FieldValue.HTML, FieldValue.ATOM]:
     result_value = pb_value.string_value()
@@ -76,9 +76,9 @@ def to_pb_field(field):
 
   pb_value = pb_field.mutable_value()
   pb_value.set_language(field.language)
-  pb_value.set_type(field.type)
 
-  field_type = document_pb.FieldValue.ContentType_Name(field.type)
+  field_type = field.get_type_number()
+  pb_value.set_type(field_type)
 
   if field_type in [FieldValue.TEXT, FieldValue.HTML, FieldValue.ATOM]:
     pb_value.set_string_value(field.value)
