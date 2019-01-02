@@ -245,7 +245,7 @@ def get_login_server(instance):
 
   for index, arg in enumerate(args):
     if '--login_server=' in arg:
-      return arg.split('=', 1)[1]
+      return arg.rsplit('=', 1)[1]
 
     if arg == '--login_server':
       try:
