@@ -102,7 +102,7 @@ module Nginx
   # Returns:
   #   boolean: indicates if the nginx configuration has been written.
   def self.write_fullproxy_version_config(version_key, http_port, https_port,
-    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
+    my_public_ip, my_private_ip, proxy_port, static_handlers, load_balancer_ip,
     language)
 
     parsing_log = "Writing proxy for #{version_key} with language " \
@@ -287,7 +287,7 @@ server {
       proxy_buffering    off;
       tcp_nodelay        on;
       keepalive_timeout  600;
-      proxy_pass         http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
+      proxy_pass         http://#{load_balancer_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
     }
 }
@@ -326,7 +326,7 @@ server {
       proxy_buffering    off;
       tcp_nodelay        on;
       keepalive_timeout  600;
-      proxy_pass         http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
+      proxy_pass         http://#{load_balancer_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
     }
 }

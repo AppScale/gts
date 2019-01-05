@@ -100,7 +100,7 @@ hosts:
 listen: 
   - 
     port: 5222
-    ip: "::"
+    ip: "APPSCALE-PRIVATE-IP"
     module: ejabberd_c2s
     ##
     ## If TLS is compiled in and you installed a SSL
@@ -127,7 +127,7 @@ listen:
     resend_on_timeout: if_offline
   - 
     port: 5269
-    ip: "::"
+    ip: "APPSCALE-PRIVATE-IP"
     module: ejabberd_s2s_in
   ##
   ## ejabberd_service: Interact with external components (transports, ...)
@@ -161,7 +161,7 @@ listen:
   ##   access_commands: {}
   - 
     port: 5280
-    ip: "::"
+    ip: "APPSCALE-PRIVATE-IP"
     module: ejabberd_http
     request_handlers:
       "/websocket": ejabberd_http_ws
