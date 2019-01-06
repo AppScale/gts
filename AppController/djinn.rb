@@ -627,12 +627,6 @@ class Djinn
 
     project_id, service_id, version_id = version_key.split(
       VERSION_PATH_SEPARATOR)
-    begin
-      version_details = ZKInterface.get_version_details(
-        project_id, service_id, version_id)
-    rescue VersionNotFound => error
-      return "false: #{error.message}"
-    end
 
     # Forward relocate as a patch request to the AdminServer.
     version = {:appscaleExtensions => {:httpPort => http_port.to_i,
@@ -652,9 +646,10 @@ class Djinn
     end
     return "false: #{response.body}" if response.code != '200'
 
-    if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-      CronHelper.update_cron(
-        get_load_balancer.public_ip, http_port, project_id)
+    begin
+      CronHelper.update_cron(get_load_balancer.public_ip, project_id)
+    rescue VersionNotFound => error
+      return "false: #{error.message}"
     end
 
     'OK'
@@ -1408,15 +1403,10 @@ class Djinn
     end
 
     begin
-      version_details = ZKInterface.get_version_details(
-        project_id, DEFAULT_SERVICE, DEFAULT_VERSION)
+      CronHelper.update_cron(get_load_balancer.public_ip, project_id)
     rescue VersionNotFound => error
       return "false: #{error.message}"
     end
-
-    CronHelper.update_cron(get_load_balancer.public_ip,
-                           version_details['appscaleExtensions']['httpPort'],
-                           project_id)
 
     return 'OK'
   end
