@@ -1527,14 +1527,10 @@ class Djinn
     lock_obtained = NODETOOL_LOCK.try_lock
     begin
       return NOT_READY unless lock_obtained
-      output = `"#{NODETOOL}" status`
-      ready = false
-      output.split("\n").each { |line|
-        ready = true if line.start_with?('UN') && line.include?(primary_ip)
-      }
+      ready = nodes_ready.include?(primary_ip)
       return "#{ready}"
     ensure
-      NODETOOL_LOCK.unlock
+      NODETOOL_LOCK.unlock if lock_obtained
     end
   end
 
