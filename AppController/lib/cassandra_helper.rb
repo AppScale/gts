@@ -177,6 +177,14 @@ end
 
 # Returns an array of nodes in 'Up Normal' state.
 def nodes_ready
+  # Example output of `nodetool gossipinfo`:
+  # /192.168.33.10
+  #   ...
+  #   STATUS:15272:NORMAL,f02dd17...
+  #   LOAD:263359:1.29168682182E11
+  #   ...
+  # /192.168.33.11
+  # ...
   output = `"#{NODETOOL}" gossipinfo`
   return [] unless $?.exitstatus == 0
 
