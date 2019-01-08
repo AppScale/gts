@@ -4018,7 +4018,6 @@ HOSTS
   # App Engine apps.
   def regenerate_routing_config
     Djinn.log_debug("Regenerating nginx and haproxy config files for apps.")
-    my_public = my_node.public_ip
     my_private = my_node.private_ip
 
     @versions_loaded.each { |version_key|
@@ -4099,7 +4098,7 @@ HOSTS
         end
 
         Nginx.write_fullproxy_version_config(
-          version_key, http_port, https_port, my_public, my_private,
+          version_key, http_port, https_port, @options['login'], my_private,
           proxy_port, static_handlers, get_load_balancer.private_ip,
           app_language)
       end
