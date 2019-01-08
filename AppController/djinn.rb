@@ -653,8 +653,7 @@ class Djinn
     return "false: #{response.body}" if response.code != '200'
 
     if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-      CronHelper.update_cron(
-        get_load_balancer.public_ip, http_port, project_id)
+      CronHelper.update_cron(@options['login'], http_port, project_id)
     end
 
     'OK'
@@ -1414,7 +1413,7 @@ class Djinn
       return "false: #{error.message}"
     end
 
-    CronHelper.update_cron(get_load_balancer.public_ip,
+    CronHelper.update_cron(@options['login'],
                            version_details['appscaleExtensions']['httpPort'],
                            project_id)
 
