@@ -260,6 +260,11 @@ map $scheme $ssl {
 }
 
 server {
+    listen #{http_port} default_server;
+    return 444;
+}
+
+server {
     listen      #{http_port};
     server_name #{server_name};
 
@@ -290,6 +295,15 @@ server {
       proxy_pass         http://#{load_balancer_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
     }
+}
+
+server {
+    listen #{https_port} default_server;
+    ssl on;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
+    ssl_certificate     #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+    return 444;
 }
 
 server {
