@@ -1,0 +1,11 @@
+<div class="page-header"><h1>Pull Queue Viewer</h1></div>
+{% if owned_projects %}
+  <ul>
+  {% for project_id in owned_projects %}
+    <li><a href="/pull_queue_viewer/{{ project_id }}">{{ project_id }}</a></li>
+  {% endfor %}
+  </ul>
+{% else %}
+  <p>There are either no deployed projects, or you do not have ownership of any
+      of them.</p>
+{% endif %}

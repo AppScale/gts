@@ -146,6 +146,10 @@ public class DevAppServerMain extends SharedMain {
             public void apply() {
                 System.setProperty("TQ_PROXY", this.getValue());
             }
+        }, new Option((String)null, "xmpp_path", false) {
+            public void apply() {
+                System.setProperty("XMPP_PATH", this.getValue());
+            }
         }, new Option((String)null, "pidfile", false) {
             public void apply() {
                 System.setProperty("PIDFILE", this.getValue());

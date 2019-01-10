@@ -27,6 +27,7 @@ configuration has changed.
 
 
 
+import httplib
 import json
 import logging
 import re
@@ -37,6 +38,7 @@ from google.appengine.tools.devappserver2.endpoints import api_request
 from google.appengine.tools.devappserver2.endpoints import discovery_api_proxy
 from google.appengine.tools.devappserver2.endpoints import discovery_service
 from google.appengine.tools.devappserver2.endpoints import errors
+from google.appengine.tools.devappserver2.endpoints import parameter_converter
 from google.appengine.tools.devappserver2.endpoints import util
 
 
@@ -141,7 +143,10 @@ class EndpointsDispatcher(object):
                                start_response)
 
     # Call the service.
-    return self.call_spi(request, start_response)
+    try:
+      return self.call_spi(request, start_response)
+    except errors.RequestError as error:
+      return self._handle_request_error(request, error, start_response)
 
   def dispatch_non_api_requests(self, request, start_response):
     """Dispatch this request if this is a request to a reserved URL.
@@ -287,12 +292,7 @@ class EndpointsDispatcher(object):
                                                cors_handler=cors_handler)
 
     # Prepare the request for the back end.
-    try:
-      spi_request = self.transform_request(orig_request, params, method_config)
-    except errors.RequestRejectionError, rejection_error:
-      cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
-      return util.send_wsgi_rejected_response(rejection_error, start_response,
-                                              cors_handler=cors_handler)
+    spi_request = self.transform_request(orig_request, params, method_config)
 
     # Check if this SPI call is for the Discovery service.  If so, route
     # it to our Discovery handler.
@@ -310,7 +310,7 @@ class EndpointsDispatcher(object):
                                             spi_request.body,
                                             spi_request.source_ip)
     return self.handle_spi_response(orig_request, spi_request, response,
-                                    start_response)
+                                    method_config, start_response)
 
   class __CheckCorsHeaders(object):
     """Track information about CORS headers and our response to them."""
@@ -351,7 +351,7 @@ class EndpointsDispatcher(object):
         headers[_CORS_HEADER_ALLOW_HEADERS] = self.cors_request_headers
 
   def handle_spi_response(self, orig_request, spi_request, response,
-                          start_response):
+                          method_config, start_response):
     """Handle SPI response, transforming output as needed.
 
     This calls start_response and returns the response body.
@@ -361,6 +361,7 @@ class EndpointsDispatcher(object):
       spi_request: An ApiRequest, the transformed request that was sent to the
         SPI handler.
       response: A ResponseTuple, the response from the SPI handler.
+      method_config: A dict, the API config of the method to be called.
       start_response: A function with semantics defined in PEP-333.
 
     Returns:
@@ -375,13 +376,21 @@ class EndpointsDispatcher(object):
                                  'Non-JSON reply: %s' % response.content,
                                  start_response)
 
-    body = response.content
+    self.check_error_response(response)
+
     # Need to check is_rpc() against the original request, because the
     # incoming request here has had its path modified.
     if orig_request.is_rpc():
-      body = self.transform_jsonrpc_response(spi_request, body)
+      body = self.transform_jsonrpc_response(spi_request, response.content)
     else:
-      body = self.transform_rest_response(body)
+      # Check if the response from the SPI was empty.  Empty REST responses
+      # generate a HTTP 204.
+      empty_response = self.check_empty_response(orig_request, method_config,
+                                                 start_response)
+      if empty_response is not None:
+        return empty_response
+
+      body = self.transform_rest_response(response.content)
 
     cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
     return util.send_wsgi_response(response.status, response.headers, body,
@@ -461,66 +470,6 @@ class EndpointsDispatcher(object):
       request = self.transform_rest_request(orig_request, params, method_params)
     request.path = method_config.get('rosyMethod', '')
     return request
-
-  def _check_enum(self, parameter_name, value, field_parameter):
-    """Checks if the parameter value is valid if an enum.
-
-    If the parameter is not an enum, does nothing. If it is, verifies that
-    its value is valid.
-
-    Args:
-      parameter_name: A string containing the name of the parameter, which is
-        either just a variable name or the name with the index appended. For
-        example 'var' or 'var[2]'.
-      value: A string or list of strings containing the value(s) to be used as
-        enum(s) for the parameter.
-      field_parameter: The dictionary containing information specific to the
-        field in question. This is retrieved from request.parameters in the
-        method config.
-
-    Raises:
-      EnumRejectionError: If the given value is not among the accepted
-        enum values in the field parameter.
-    """
-    if 'enum' not in field_parameter:
-      return
-
-    enum_values = [enum['backendValue']
-                   for enum in field_parameter['enum'].values()
-                   if 'backendValue' in enum]
-    if value not in enum_values:
-      raise errors.EnumRejectionError(parameter_name, value, enum_values)
-
-  def _check_parameter(self, parameter_name, value, field_parameter):
-    """Checks if the parameter value is valid against all parameter rules.
-
-    If the value is a list this will recursively call _check_parameter
-    on the values in the list. Otherwise, it checks all parameter rules for the
-    the current value.
-
-    In the list case, '[index-of-value]' is appended to the parameter name for
-    error reporting purposes.
-
-    Currently only checks if value adheres to enum rule, but more checks may be
-    added.
-
-    Args:
-      parameter_name: A string containing the name of the parameter, which is
-        either just a variable name or the name with the index appended, in the
-        recursive case. For example 'var' or 'var[2]'.
-      value: A string or list of strings containing the value(s) to be used for
-        the parameter.
-      field_parameter: The dictionary containing information specific to the
-        field in question. This is retrieved from request.parameters in the
-        method config.
-    """
-    if isinstance(value, list):
-      for index, element in enumerate(value):
-        parameter_name_index = '%s[%d]' % (parameter_name, index)
-        self._check_parameter(parameter_name_index, element, field_parameter)
-      return
-
-    self._check_enum(parameter_name, value, field_parameter)
 
   def _add_message_field(self, field_name, value, params):
     """Converts a . delimitied field name to a message field in parameters.
@@ -639,10 +588,11 @@ class EndpointsDispatcher(object):
 
       # Order is important here.  Parameter names are dot-delimited in
       # parameters instead of nested in dictionaries as a message field is, so
-      # we need to call _check_parameter on them before calling
+      # we need to call transform_parameter_value on them before calling
       # _add_message_field.
 
-      self._check_parameter(key, body_json[key], current_parameter)
+      body_json[key] = parameter_converter.transform_parameter_value(
+          key, body_json[key], current_parameter)
       # Remove the old key and try to convert to nested message value
       message_value = body_json.pop(key)
       self._add_message_field(key, message_value, body_json)
@@ -669,6 +619,41 @@ class EndpointsDispatcher(object):
     request.body_json = request.body_json.get('params', {})
     request.body = json.dumps(request.body_json)
     return request
+
+  def check_error_response(self, response):
+    """Raise an exception if the response from the SPI was an error.
+
+    Args:
+      response: A ResponseTuple containing the backend response.
+
+    Raises:
+      BackendError if the response is an error.
+    """
+    status_code = int(response.status.split(' ', 1)[0])
+    if status_code >= 300:
+      raise errors.BackendError(response)
+
+  def check_empty_response(self, orig_request, method_config, start_response):
+    """If the response from the SPI is empty, return a HTTP 204 No Content.
+
+    Args:
+      orig_request: An ApiRequest, the original request from the user.
+      method_config: A dict, the API config of the method to be called.
+      start_response: A function with semantics defined in PEP-333.
+
+    Returns:
+      If the SPI response was empty, this returns a string containing the
+      response body that should be returned to the user.  If the SPI response
+      wasn't empty, this returns None, indicating that we should not exit early
+      with a 204.
+    """
+    response_config = method_config.get('response', {}).get('body')
+    if response_config == 'empty':
+      # The response to this function should be empty.  We should return a 204.
+      # Note that it's possible that the SPI returned something, but we'll
+      # ignore it.  This matches the behavior in the Endpoints server.
+      cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
+      return util.send_wsgi_no_content_response(start_response, cors_handler)
 
   def transform_rest_response(self, response_body):
     """Translates an apiserving REST response so it's ready to return.
@@ -698,8 +683,53 @@ class EndpointsDispatcher(object):
       A string with the updated, JsonRPC-formatted request body.
     """
     body_json = {'result': json.loads(response_body)}
-    if spi_request.request_id is not None:
-      body_json['id'] = spi_request.request_id
-    if spi_request.is_batch():
+    return self._finish_rpc_response(spi_request.request_id,
+                                     spi_request.is_batch(), body_json)
+
+  def _finish_rpc_response(self, request_id, is_batch, body_json):
+    """Finish adding information to a JSON RPC response.
+
+    Args:
+      request_id: None if the request didn't have a request ID.  Otherwise, this
+        is a string containing the request ID for the request.
+      is_batch: A boolean indicating whether the request is a batch request.
+      body_json: A dict containing the JSON body of the response.
+
+    Returns:
+      A string with the updated, JsonRPC-formatted request body.
+    """
+    if request_id is not None:
+      body_json['id'] = request_id
+    if is_batch:
       body_json = [body_json]
     return json.dumps(body_json, indent=1, sort_keys=True)
+
+  def _handle_request_error(self, orig_request, error, start_response):
+    """Handle a request error, converting it to a WSGI response.
+
+    Args:
+      orig_request: An ApiRequest, the original request from the user.
+      error: A RequestError containing information about the error.
+      start_response: A function with semantics defined in PEP-333.
+
+    Returns:
+      A string containing the response body.
+    """
+    headers = [('Content-Type', 'application/json')]
+    if orig_request.is_rpc():
+      # JSON RPC errors are returned with status 200 OK and the
+      # error details in the body.
+      status_code = 200
+      body = self._finish_rpc_response(orig_request.body_json.get('id'),
+                                       orig_request.is_batch(),
+                                       error.rpc_error())
+    else:
+      status_code = error.status_code()
+      body = error.rest_error()
+
+    response_status = '%d %s' % (status_code,
+                                 httplib.responses.get(status_code,
+                                                       'Unknown Error'))
+    cors_handler = EndpointsDispatcher.__CheckCorsHeaders(orig_request)
+    return util.send_wsgi_response(response_status, headers, body,
+                                   start_response, cors_handler=cors_handler)

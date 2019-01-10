@@ -1637,20 +1637,6 @@ def ExecuteCGI(config,
     exec_py27_handler: Used for dependency injection.
   """
 
-
-
-
-
-
-
-
-
-  if handler_path == '_go_app':
-    from google.appengine.ext.go import execute_go_cgi
-    return execute_go_cgi(root_path, config, handler_path, cgi_path,
-        env, infile, outfile)
-
-
   old_module_dict = sys.modules.copy()
   old_builtin = __builtin__.__dict__.copy()
   old_argv = sys.argv
@@ -3630,7 +3616,8 @@ def SetupStubs(app_id, **config):
 
     apiproxy_stub_map.apiproxy.RegisterStub(
         'xmpp',
-        xmpp_service_real.XmppService(domain=xmpp_path, uaserver=uaserver_path))
+        xmpp_service_real.XmppService(xmpp_path, domain=login_server,
+                                      uaserver=uaserver_path))
 
     apiproxy_stub_map.apiproxy.RegisterStub(
         'logservice',

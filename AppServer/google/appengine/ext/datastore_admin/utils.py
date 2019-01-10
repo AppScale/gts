@@ -22,7 +22,6 @@
 
 
 import base64
-import collections
 import datetime
 import logging
 import os
@@ -31,15 +30,15 @@ import webapp2
 
 from google.appengine.datastore import entity_pb
 from google.appengine.api import datastore
-from google.appengine.api import lib_config
 from google.appengine.api import memcache
 from google.appengine.api import users
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import db
+from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.db import stats
 from google.appengine.ext.mapreduce import control
 from google.appengine.ext.mapreduce import model
-from google.appengine.ext.mapreduce import operation
+from google.appengine.ext.mapreduce import operation as mr_operation
 from google.appengine.ext.mapreduce import util
 from google.appengine.ext.webapp import _template
 
@@ -51,7 +50,6 @@ MAPREDUCE_DEFAULT_SHARDS = 32
 MAPREDUCE_MAX_SHARDS = 256
 RESERVE_KEY_POOL_MAX_SIZE = 1000
 
-
 DATASTORE_ADMIN_OPERATION_KIND = '_AE_DatastoreAdmin_Operation'
 BACKUP_INFORMATION_KIND = '_AE_Backup_Information'
 BACKUP_INFORMATION_FILES_KIND = '_AE_Backup_Information_Kind_Files'
@@ -62,34 +60,10 @@ DATASTORE_ADMIN_KINDS = (DATASTORE_ADMIN_OPERATION_KIND,
                          BACKUP_INFORMATION_KIND_TYPE_INFO)
 
 
-class ConfigDefaults(object):
-  """Configurable constants.
-
-  To override datastore_admin configuration values, define values like this
-  in your appengine_config.py file (in the root of your app):
-
-    datastore_admin_MAPREDUCE_PATH = /_ah/mapreduce
-  """
-
-  BASE_PATH = '/_ah/datastore_admin'
-  MAPREDUCE_PATH = '/_ah/mapreduce'
-  DEFERRED_PATH = BASE_PATH + '/queue/deferred'
-  CLEANUP_MAPREDUCE_STATE = True
-
-
-
-config = lib_config.register('datastore_admin', ConfigDefaults.__dict__)
-
-
-
-
-config.BASE_PATH
-
-
-
-
 def IsKindNameVisible(kind_name):
-  return not (kind_name.startswith('__') or kind_name in DATASTORE_ADMIN_KINDS)
+  return not (kind_name.startswith('__') or
+              kind_name in DATASTORE_ADMIN_KINDS or
+              kind_name in model._MAP_REDUCE_KINDS)
 
 
 def RenderToResponse(handler, template_file, template_params):
@@ -101,6 +75,18 @@ def RenderToResponse(handler, template_file, template_params):
     template_params: the parameters used to render the given template
   """
   template_params = _GetDefaultParams(template_params)
+
+
+
+
+
+
+
+
+  handler.response.headers['X-FRAME-OPTIONS'] = ('ALLOW-FROM %s' %
+                                                 config.ADMIN_CONSOLE_URL)
+  template_params['admin_console_url'] = config.ADMIN_CONSOLE_URL
+
   rendered = _template.render(_GetTemplatePath(template_file), template_params)
   handler.response.out.write(rendered)
 
@@ -336,6 +322,26 @@ def _CreateDatastoreConfig():
   return datastore_rpc.Configuration(force_writes=True)
 
 
+def GenerateHomeUrl(request):
+  """Generates a link to the Datastore Admin main page.
+
+  Primarily intended to be used for cancel buttons or links on error pages. To
+  avoid any XSS security vulnerabilities the URL should not use any
+  user-defined strings (unless proper precautions are taken).
+
+  Args:
+    request: the webapp.Request object (to determine if certain query
+      parameters need to be used).
+
+  Returns:
+    domain-relative URL for the main Datastore Admin page.
+  """
+  datastore_admin_home = config.BASE_PATH
+  if request and request.get('run_as_a_service'):
+    datastore_admin_home += '?run_as_a_service=True'
+  return datastore_admin_home
+
+
 class MapreduceDoneHandler(webapp2.RequestHandler):
   """Handler to delete data associated with successful MapReduce jobs."""
 
@@ -397,6 +403,11 @@ class MapreduceDoneHandler(webapp2.RequestHandler):
       logging.error('Done callback called without Mapreduce Id.')
 
 
+class Error(Exception):
+  """Base DatastoreAdmin error type."""
+
+
+
 class DatastoreAdminOperation(db.Model):
   """An entity to keep progress and status of datastore admin operation."""
   STATUS_CREATED = 'Created'
@@ -417,6 +428,7 @@ class DatastoreAdminOperation(db.Model):
   last_updated = db.DateTimeProperty(default=DEFAULT_LAST_UPDATED_VALUE,
                                      auto_now=True)
   status_info = db.StringProperty(default='', indexed=False)
+  service_job_id = db.StringProperty()
 
   @classmethod
   def kind(cls):
@@ -453,6 +465,7 @@ def StartOperation(description):
   return operation
 
 
+@db.non_transactional(allow_existing=False)
 def StartMap(operation_key,
              job_name,
              handler_spec,
@@ -460,7 +473,6 @@ def StartMap(operation_key,
              writer_spec,
              mapper_params,
              mapreduce_params=None,
-             start_transaction=True,
              queue_name=None,
              shard_count=MAPREDUCE_DEFAULT_SHARDS):
   """Start map as part of datastore admin operation.
@@ -475,7 +487,6 @@ def StartMap(operation_key,
     writer_spec: Output writer specification.
     mapper_params: Custom mapper parameters.
     mapreduce_params: Custom mapreduce parameters.
-    start_transaction: Specify if a new transaction should be started.
     queue_name: the name of the queue that will be used by the M/R.
     shard_count: the number of shards the M/R will try to use.
 
@@ -493,8 +504,17 @@ def StartMap(operation_key,
     mapreduce_params['done_callback_queue'] = queue_name
   mapreduce_params['force_writes'] = 'True'
 
-  def tx():
-    operation = DatastoreAdminOperation.get(operation_key)
+  def tx(is_xg_transaction):
+    """Start MapReduce job and update datastore admin state.
+
+    Args:
+      is_xg_transaction: True if we are running inside a xg-enabled
+        transaction, else False if we are running inside a non-xg-enabled
+        transaction (which means the datastore admin state is updated in one
+        transaction and the MapReduce job in an indepedent transaction).
+    Returns:
+      result MapReduce job id as a string.
+    """
     job_id = control.start_map(
         job_name, handler_spec, reader_spec,
         mapper_params,
@@ -502,18 +522,27 @@ def StartMap(operation_key,
         mapreduce_parameters=mapreduce_params,
         base_path=config.MAPREDUCE_PATH,
         shard_count=shard_count,
-        transactional=True,
-        queue_name=queue_name,
-        transactional_parent=operation)
+        in_xg_transaction=is_xg_transaction,
+        queue_name=queue_name)
+    operation = DatastoreAdminOperation.get(operation_key)
     operation.status = DatastoreAdminOperation.STATUS_ACTIVE
     operation.active_jobs += 1
     operation.active_job_ids = list(set(operation.active_job_ids + [job_id]))
     operation.put(config=_CreateDatastoreConfig())
     return job_id
-  if start_transaction:
-    return db.run_in_transaction(tx)
+
+
+
+
+
+
+  datastore_type = datastore_rpc._GetDatastoreType()
+
+  if datastore_type != datastore_rpc.BaseConnection.MASTER_SLAVE_DATASTORE:
+    return db.run_in_transaction_options(
+        db.create_transaction_options(xg=True), tx, True)
   else:
-    return tx()
+    return db.run_in_transaction(tx, False)
 
 
 def RunMapForKinds(operation_key,
@@ -656,7 +685,7 @@ class ReserveKeyPool(object):
     self.keys = []
 
 
-class ReserveKey(operation.Operation):
+class ReserveKey(mr_operation.Operation):
   """Mapper operation to reserve key ids."""
 
   def __init__(self, key, app_id):

@@ -59,6 +59,9 @@ SERVICE_PB_MAP = {
         'GetServiceAccountName': (
             app_identity_service_pb.GetServiceAccountNameRequest,
             app_identity_service_pb.GetServiceAccountNameResponse),
+        'GetDefaultGcsBucketName': (
+            app_identity_service_pb.GetDefaultGcsBucketNameRequest,
+            app_identity_service_pb.GetDefaultGcsBucketNameResponse),
         'GetAccessToken': (app_identity_service_pb.GetAccessTokenRequest,
                            app_identity_service_pb.GetAccessTokenResponse),
     },
@@ -89,7 +92,6 @@ SERVICE_PB_MAP = {
         'Get':        (datastore_pb.GetRequest, datastore_pb.GetResponse),
         'Put':        (datastore_pb.PutRequest, datastore_pb.PutResponse),
         'Delete':     (datastore_pb.DeleteRequest, datastore_pb.DeleteResponse),
-        'Count':      (datastore_pb.Query, api_base_pb.Integer64Proto),
         'AllocateIds':(datastore_pb.AllocateIdsRequest,
                        datastore_pb.AllocateIdsResponse),
         'RunQuery':   (datastore_pb.Query,
@@ -285,13 +287,13 @@ SERVICE_PB_MAP = {
         'PurgeQueue': (taskqueue_service_pb.TaskQueuePurgeQueueRequest,
                        taskqueue_service_pb.TaskQueuePurgeQueueResponse),
         'DeleteQueue': (taskqueue_service_pb.TaskQueueDeleteQueueRequest,
-                        taskqueue_service_pb.TaskQueueDeleteQueueRequest),
+                        taskqueue_service_pb.TaskQueueDeleteQueueResponse),
         'DeleteGroup': (taskqueue_service_pb.TaskQueueDeleteGroupRequest,
-                        taskqueue_service_pb.TaskQueueDeleteGroupRequest),
+                        taskqueue_service_pb.TaskQueueDeleteGroupResponse),
         'QueryTasks': (taskqueue_service_pb.TaskQueueQueryTasksRequest,
                        taskqueue_service_pb.TaskQueueQueryTasksResponse),
-        'FetchTasks': (taskqueue_service_pb.TaskQueueFetchTaskRequest,
-                       taskqueue_service_pb.TaskQueueFetchTaskRequest),
+        'FetchTask': (taskqueue_service_pb.TaskQueueFetchTaskRequest,
+                      taskqueue_service_pb.TaskQueueFetchTaskResponse),
         'QueryAndOwnTasks': (
             taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest,
             taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse),
@@ -331,7 +333,5 @@ SERVICE_PB_MAP = {
                           channel_service_pb.CreateChannelResponse),
         'SendChannelMessage': (channel_service_pb.SendMessageRequest,
                                api_base_pb.VoidProto),
-        'GetChannelPresence': (channel_service_pb.ChannelPresenceRequest,
-                               channel_service_pb.ChannelPresenceResponse),
     },
 }

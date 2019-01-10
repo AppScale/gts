@@ -30,6 +30,7 @@ import urllib
 
 import google
 
+from google.appengine.api import appinfo
 from google.appengine.tools.devappserver2 import http_runtime_constants
 from google.appengine.tools.devappserver2 import php
 from google.appengine.tools.devappserver2 import request_rewriter
@@ -53,13 +54,19 @@ class PHPRuntime(object):
         port_bytes = struct.pack('I', config.api_port)
         config.api_port, external_api_port = struct.unpack('HH', port_bytes)
 
+    if appinfo.MODULE_SEPARATOR not in config.version_id:
+      module_id = appinfo.DEFAULT_MODULE
+      version_id = config.version_id
+    else:
+      module_id, version_id = config.version_id.split(appinfo.MODULE_SEPARATOR)
     self.environ_template = {
         'APPLICATION_ID': str(config.app_id),
-        'CURRENT_VERSION_ID': str(config.version_id),
-        'DATACENTER': config.datacenter,
-        'INSTANCE_ID': config.instance_id,
+        'CURRENT_MODULE_ID': module_id,
+        'CURRENT_VERSION_ID': version_id,
+        'DATACENTER': str(config.datacenter),
+        'INSTANCE_ID': str(config.instance_id),
         'APPENGINE_RUNTIME': 'php',
-        'AUTH_DOMAIN': config.auth_domain,
+        'AUTH_DOMAIN': str(config.auth_domain),
         'HTTPS': 'off',
         # By default php-cgi does not allow .php files to be run directly so
         # REDIRECT_STATUS must be set. See:
@@ -88,6 +95,15 @@ class PHPRuntime(object):
     user_environ['REQUEST_METHOD'] = environ.get('REQUEST_METHOD', 'GET')
     user_environ['PATH_INFO'] = environ['PATH_INFO']
     user_environ['QUERY_STRING'] = environ['QUERY_STRING']
+
+    # Construct the partial URL that PHP expects for REQUEST_URI
+    # (http://php.net/manual/en/reserved.variables.server.php) using part of
+    # the process described in PEP-333
+    # (http://www.python.org/dev/peps/pep-0333/#url-reconstruction).
+    user_environ['REQUEST_URI'] = urllib.quote(user_environ['PATH_INFO'])
+    if user_environ['QUERY_STRING']:
+      user_environ['REQUEST_URI'] += '?' + user_environ['QUERY_STRING']
+
     # Modify the SCRIPT_FILENAME to specify the setup script that readies the
     # PHP environment. Put the user script in REAL_SCRIPT_FILENAME.
     user_environ['REAL_SCRIPT_FILENAME'] = environ[
@@ -96,17 +112,33 @@ class PHPRuntime(object):
     user_environ['REMOTE_REQUEST_ID'] = environ[
         http_runtime_constants.REQUEST_ID_ENVIRON]
 
+    # Pass the APPLICATION_ROOT so we can use it in the setup script. We will
+    # remove it from the environment before we execute the user script.
+    user_environ['APPLICATION_ROOT'] = self.config.application_root
+
     if 'CONTENT_TYPE' in environ:
       user_environ['CONTENT_TYPE'] = environ['CONTENT_TYPE']
+      user_environ['HTTP_CONTENT_TYPE'] = environ['CONTENT_TYPE']
 
     if 'CONTENT_LENGTH' in environ:
       user_environ['CONTENT_LENGTH'] = environ['CONTENT_LENGTH']
+      user_environ['HTTP_CONTENT_LENGTH'] = environ['CONTENT_LENGTH']
       content = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
     else:
       content = None
 
-    include_path = 'include_path=%s:%s' % (self.config.application_root,
-                                           SDK_PATH)
+    # On Windows, in order to run a side-by-side assembly the specified env
+    # must include a valid SystemRoot.
+    if 'SYSTEMROOT' in os.environ:
+      user_environ['SYSTEMROOT'] = os.environ['SYSTEMROOT']
+
+    # See http://www.php.net/manual/en/ini.core.php#ini.include-path.
+    include_paths = [self.config.application_root, SDK_PATH]
+    if sys.platform == 'win32':
+      # See https://bugs.php.net/bug.php?id=46034 for quoting requirements.
+      include_path = 'include_path="%s"' % ';'.join(include_paths)
+    else:
+      include_path = 'include_path=%s' % ':'.join(include_paths)
 
     args = [self.config.php_config.php_executable_path, '-d', include_path]
 
@@ -114,19 +146,27 @@ class PHPRuntime(object):
       args.extend(['-d', 'xdebug.remote_enable="1"'])
       user_environ['XDEBUG_CONFIG'] = os.environ.get('XDEBUG_CONFIG', '')
 
-    p = subprocess.Popen(args,
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE,
-                         env=user_environ,
-                         cwd=self.config.application_root)
-    stdout, stderr = p.communicate(content)
-
-    if p.returncode:
-      logging.error('php failure (%r) with:\n%s', p.returncode, stdout+stderr)
+    try:
+      p = subprocess.Popen(args,
+                           stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE,
+                           env=user_environ,
+                           cwd=self.config.application_root)
+      stdout, stderr = p.communicate(content)
+    except Exception as e:
+      logging.exception('Failure to start PHP with: %s', args)
       start_response('500 Internal Server Error',
                      [(http_runtime_constants.ERROR_CODE_HEADER, '1')])
-      return []
+      return ['Failure to start the PHP subprocess with %r:\n%s' % (args, e)]
+
+    if p.returncode:
+      logging.error('php failure (%r) with:\nstdout:\n%sstderr:\n%s',
+                    p.returncode, stdout, stderr)
+      start_response('500 Internal Server Error',
+                     [(http_runtime_constants.ERROR_CODE_HEADER, '1')])
+      return ['php failure (%r) with:\nstdout:%s\nstderr:\n%s' %
+              (p.returncode, stdout, stderr)]
 
     message = httplib.HTTPMessage(cStringIO.StringIO(stdout))
     assert 'Content-Type' in message, 'invalid CGI response: %r' % stdout

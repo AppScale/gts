@@ -6,12 +6,18 @@ from kazoo.retry import KazooRetry
 
 
 class HTTPCodes(object):
+  OK = 200
   BAD_REQUEST = 400
   UNAUTHORIZED = 401
   FORBIDDEN = 403
   NOT_FOUND = 404
   INTERNAL_ERROR = 500
   NOT_IMPLEMENTED = 501
+
+
+class InvalidConfiguration(Exception):
+  """ Indicates that a given configuration cannot be enforced. """
+  pass
 
 
 class MonitStates(object):

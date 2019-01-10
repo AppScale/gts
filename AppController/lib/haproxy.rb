@@ -78,6 +78,9 @@ module HAProxy
   # The number of seconds HAProxy should wait for a server response.
   HAPROXY_SERVER_TIMEOUT = 600
 
+  # The version key regex.
+  VERSION_KEY_REGEX = /#{HelperFunctions::GAE_PREFIX}(.*_.*_.*).#{CONFIG_EXTENSION}/
+
   # Start HAProxy for API services.
   def self.services_start
     start_cmd = "#{HAPROXY_BIN} -f #{SERVICE_MAIN_FILE} -D " \
@@ -336,3 +339,4 @@ CONFIG
     }
   end
 end
+

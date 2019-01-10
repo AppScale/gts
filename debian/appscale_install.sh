@@ -42,6 +42,7 @@ case "$1" in
         installpycrypto 
         installpycapnp
         installpyyaml
+        installsoappy
         installzookeeper
         postinstallzookeeper
         installcassandra
@@ -57,7 +58,6 @@ case "$1" in
         increaseconnections
         installVersion
         postinstallrsyslog
-        installpsutil
         installapiclient
         installgosdk
         installacc

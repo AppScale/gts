@@ -20,17 +20,16 @@ from appscale.common import (
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.cassandra_env.cassandra_interface import KEYSPACE
-from cassandra import (
-  InvalidRequest,
-  OperationTimedOut
-)
+from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
+from cassandra import OperationTimedOut
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy
 from .constants import (
   InvalidTarget,
   QueueNotFound,
   TaskNotFound,
-  TARGET_REGEX
+  TARGET_REGEX,
+  TRANSIENT_DS_ERRORS
 )
 from .queue import (
   InvalidLeaseRequest,
@@ -52,7 +51,6 @@ from .service_manager import GlobalServiceManager
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import apiproxy_stub_map
-from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api.taskqueue.taskqueue_service_pb import (
@@ -62,6 +60,53 @@ from google.appengine.runtime import apiproxy_errors
 
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
+
+
+def rebuild_task_indexes(session):
+  """ Creates index entries for all pull queue tasks.
+
+  Args:
+    session: A cassandra-driver session.
+  """
+  logger.info('Rebuilding task indexes')
+  batch_size = 100
+  total_tasks = 0
+  app = ''
+  queue = ''
+  id_ = ''
+  while True:
+    results = session.execute("""
+      SELECT app, queue, id, lease_expires, tag FROM pull_queue_tasks
+      WHERE token(app, queue, id) > token(%(app)s, %(queue)s, %(id)s)
+      LIMIT {}
+    """.format(batch_size), {'app': app, 'queue': queue, 'id': id_})
+    results_list = list(results)
+    for result in results_list:
+      parameters = {'app': result.app, 'queue': result.queue,
+                    'eta': result.lease_expires, 'id': result.id,
+                    'tag': result.tag or ''}
+
+      insert_eta_index = SimpleStatement("""
+        INSERT INTO pull_queue_eta_index (app, queue, eta, id, tag)
+        VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s)
+      """, retry_policy=BASIC_RETRIES)
+      session.execute(insert_eta_index, parameters)
+
+      insert_tag_index = SimpleStatement("""
+        INSERT INTO pull_queue_tags_index (app, queue, tag, eta, id)
+        VALUES (%(app)s, %(queue)s, %(tag)s, %(eta)s, %(id)s)
+      """, retry_policy=BASIC_RETRIES)
+      session.execute(insert_tag_index, parameters)
+
+    total_tasks += len(results_list)
+    if len(results_list) < batch_size:
+      break
+
+    app = results_list[-1].app
+    queue = results_list[-1].queue
+    id_ = results_list[-1].id
+
+  logger.info('Created entries for {} tasks'.format(total_tasks))
 
 
 def create_pull_queue_tables(cluster, session):
@@ -108,16 +153,31 @@ def create_pull_queue_tables(cluster, session):
       time.sleep(SCHEMA_CHANGE_TIMEOUT)
       raise
 
-  logger.info('Trying to create pull_queue_tasks_index')
+  rebuild_indexes = False
+  if ('pull_queue_tasks_index' in keyspace_metadata.tables and
+      'tag_exists' in keyspace_metadata.tables['pull_queue_tasks_index'].columns):
+    rebuild_indexes = True
+    logger.info('Dropping outdated pull_queue_tags index')
+    session.execute('DROP INDEX IF EXISTS pull_queue_tags',
+                    timeout=SCHEMA_CHANGE_TIMEOUT)
+
+    logger.info('Dropping outdated pull_queue_tag_exists index')
+    session.execute('DROP INDEX IF EXISTS pull_queue_tag_exists',
+                    timeout=SCHEMA_CHANGE_TIMEOUT)
+
+    logger.info('Dropping outdated pull_queue_tasks_index table')
+    session.execute('DROP TABLE pull_queue_tasks_index',
+                    timeout=SCHEMA_CHANGE_TIMEOUT)
+
+  logger.info('Trying to create pull_queue_eta_index')
   create_index_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_tasks_index (
+    CREATE TABLE IF NOT EXISTS pull_queue_eta_index (
       app text,
       queue text,
       eta timestamp,
       id text,
       tag text,
-      tag_exists boolean,
-      PRIMARY KEY ((app, queue, eta), id)
+      PRIMARY KEY ((app, queue, eta, id))
     ) WITH gc_grace_seconds = 120
   """
   statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
@@ -125,40 +185,36 @@ def create_pull_queue_tables(cluster, session):
     session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except OperationTimedOut:
     logger.warning(
-      'Encountered an operation timeout while creating pull_queue_tasks_index.'
+      'Encountered an operation timeout while creating pull_queue_eta_index.'
       ' Waiting {} seconds for schema to settle.'
         .format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
-  logger.info('Trying to create pull_queue_tags index')
-  create_index = """
-    CREATE INDEX IF NOT EXISTS pull_queue_tags ON pull_queue_tasks_index (tag);
+  logger.info('Trying to create pull_queue_tags_index')
+  create_tags_index_table = """
+    CREATE TABLE IF NOT EXISTS pull_queue_tags_index (
+      app text,
+      queue text,
+      tag text,
+      eta timestamp,
+      id text,
+      PRIMARY KEY ((app, queue, tag, eta, id))
+    ) WITH gc_grace_seconds = 120
   """
+  statement = SimpleStatement(create_tags_index_table, retry_policy=NO_RETRIES)
   try:
-    session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except (OperationTimedOut, InvalidRequest):
+    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
+  except OperationTimedOut:
     logger.warning(
-      'Encountered error while creating pull_queue_tags index. Waiting {} '
-      'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
+      'Encountered an operation timeout while creating pull_queue_tags_index.'
+      ' Waiting {} seconds for schema to settle.'
+        .format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
 
-  # This additional index is needed for groupByTag=true,tag=None queries
-  # because Cassandra can only do '=' queries on secondary indices.
-  logger.info('Trying to create pull_queue_tag_exists index')
-  create_index = """
-    CREATE INDEX IF NOT EXISTS pull_queue_tag_exists
-    ON pull_queue_tasks_index (tag_exists);
-  """
-  try:
-    session.execute(create_index, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except (OperationTimedOut, InvalidRequest):
-    logger.warning(
-      'Encountered error while creating pull_queue_tag_exists index. '
-      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
+  if rebuild_indexes:
+    rebuild_task_indexes(session)
 
   logger.info('Trying to create pull_queue_leases')
   create_leases_table = """
@@ -545,6 +601,47 @@ class DistributedTaskQueue():
     elif method == taskqueue_service_pb.TaskQueueQueryTasksResponse_Task.DELETE:
       return 'DELETE'
 
+  def __get_task_name(self, task_name, retries=3):
+    """ Checks if a given TaskName entity exists.
+
+    Args:
+      task_name: A string specifying the TaskName key.
+      retries: An integer specifying how many times to retry the get.
+    """
+    try:
+      return TaskName.get_by_key_name(task_name)
+    except TRANSIENT_DS_ERRORS as error:
+      retries -= 1
+      if retries >= 0:
+        logger.warning('Error while checking task name: {}. '
+                       'Retrying'.format(error))
+        return self.__get_task_name(task_name, retries)
+
+      raise
+
+  def __create_task_name(self, project_id, queue_name, task_name, retries=3):
+    """ Creates a new TaskName entity.
+
+    Args:
+      project_id: A string specifying a project ID.
+      queue_name: A string specifying a queue name.
+      task_name: A string specifying the TaskName key.
+      retries: An integer specifying how many times to retry the create.
+    """
+    entity = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
+                      queue=queue_name, app_id=project_id)
+    try:
+      db.put(entity)
+      return
+    except TRANSIENT_DS_ERRORS as error:
+      retries -= 1
+      if retries >= 0:
+        logger.warning('Error creating task name: {}. Retrying'.format(error))
+        return self.__create_task_name(project_id, queue_name, task_name,
+                                       retries)
+
+      raise
+
   def __check_and_store_task_names(self, request):
     """ Tries to fetch the taskqueue name, if it exists it will raise an
     exception.
@@ -561,7 +658,14 @@ class DistributedTaskQueue():
       A apiproxy_errors.ApplicationError of TASK_ALREADY_EXISTS.
     """
     task_name = request.task_name()
-    item = TaskName.get_by_key_name(task_name)
+
+    try:
+      item = self.__get_task_name(task_name)
+    except TRANSIENT_DS_ERRORS:
+      logger.exception('Unable to check task name')
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+
     logger.debug("Task name {0}".format(task_name))
     if item:
       if item.state == TASK_STATES.QUEUED:
@@ -574,15 +678,14 @@ class DistributedTaskQueue():
         raise apiproxy_errors.ApplicationError(
           TaskQueueServiceError.TOMBSTONED_TASK)
 
-    new_name = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
-      queue=request.queue_name(), app_id=request.app_id())
-    logger.debug("Creating entity {0}".format(str(new_name)))
+    logger.debug('Creating task name {}'.format(task_name))
     try:
-      db.put(new_name)
-    except datastore_errors.InternalError as internal_error:
-      logger.error(str(internal_error))
+      self.__create_task_name(request.app_id(), request.queue_name(),
+                              task_name)
+    except TRANSIENT_DS_ERRORS:
+      logger.exception('Unable to create task name')
       raise apiproxy_errors.ApplicationError(
-        TaskQueueServiceError.DATASTORE_ERROR)
+        TaskQueueServiceError.INTERNAL_ERROR)
 
   def __enqueue_push_task(self, source_info, request):
     """ Enqueues a batch of push tasks.

@@ -17,7 +17,7 @@ from appscale.common.constants import LOG_FORMAT
 from appscale.common.constants import VAR_DIR
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 
-logger = logging.getLogger('appscale-api-server')
+logger = logging.getLogger(__name__)
 
 
 class MainHandler(web.RequestHandler):
@@ -73,7 +73,7 @@ def main():
     with open(pidfile_location, 'w') as pidfile:
         pidfile.write(str(os.getpid()))
 
-    logger.setLevel(logging.INFO)
+    logging.getLogger('appscale').setLevel(logging.INFO)
 
     zk_client = KazooClient(hosts=','.join(args.zookeeper_locations),
                             connection_retry=ZK_PERSISTENT_RECONNECTS)

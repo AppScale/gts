@@ -296,18 +296,17 @@ class Solr():
     Returns:
       A list of dictionaries with SOLR field names that require updates.
     """
+    known_fields = {current_field['name'] for current_field in current_fields}
     fields_to_update = []
     for doc_field in doc_fields:
-      doc_name = doc_field.name
-      found = False
-      for current_field in current_fields:
-        current_name = current_field['name']
-        if current_name == index_name + "_" + doc_name:
-          found = True
-      if not found:
-        new_field = {'name': index_name + "_" + doc_name, 'type':
-          doc_field.field_type}
-        fields_to_update.append(new_field)
+      full_field_name = index_name + '_' + doc_field.name
+      if full_field_name in known_fields:
+        continue
+      fields_to_update.append({
+        'name': full_field_name,
+        'type': doc_field.field_type
+      })
+      known_fields.add(full_field_name)
     #TODO add fields to delete also.
     return fields_to_update
 
@@ -440,7 +439,7 @@ class Solr():
       new_value.set_string_value(value)
       new_value.set_type(FieldValue.ATOM)
     elif ftype == Field.NUMBER:
-      new_value.set_string_value(value)
+      new_value.set_string_value(str(value))
       new_value.set_type(FieldValue.NUMBER)
     elif ftype == Field.GEO:
       geo = new_value.mutable_geo()

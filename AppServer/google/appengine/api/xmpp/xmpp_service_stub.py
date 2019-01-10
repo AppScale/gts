@@ -48,6 +48,8 @@ class XmppServiceStub(apiproxy_stub.APIProxyStub):
   instead of sending any stanzas.
   """
 
+  THREADSAFE = True
+
   def __init__(self, log=logging.info, service_name='xmpp'):
     """Initializer.
 

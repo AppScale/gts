@@ -47,7 +47,13 @@ from protorpc import messages
 from protorpc import remote
 from protorpc import util
 
-from google.appengine.api import app_identity
+try:
+
+  from google.appengine.api import app_identity
+except ImportError:
+
+  from google.appengine.api import app_identity
+
 from google.appengine.ext.endpoints import message_parser
 from google.appengine.ext.endpoints import users_id_token
 
@@ -57,6 +63,8 @@ __all__ = [
     'ApiAuth',
     'ApiConfigGenerator',
     'ApiConfigurationError',
+    'ApiFrontEndLimitRule',
+    'ApiFrontEndLimits',
     'CacheControl',
     'EMAIL_SCOPE',
     'api',
@@ -226,6 +234,36 @@ class _ApiInfo(object):
     return self.__common_info.auth
 
   @property
+  def owner_domain(self):
+    """Domain of the owner of this API."""
+    return self.__common_info.owner_domain
+
+  @property
+  def owner_name(self):
+    """Name of the owner of this API."""
+    return self.__common_info.owner_name
+
+  @property
+  def package_path(self):
+    """Package this API belongs to, '/' delimited.  Used by client libs."""
+    return self.__common_info.package_path
+
+  @property
+  def frontend_limits(self):
+    """Optional query limits for unregistered developers."""
+    return self.__common_info.frontend_limits
+
+  @property
+  def title(self):
+    """Human readable name of this API."""
+    return self.__common_info.title
+
+  @property
+  def documentation(self):
+    """Link to the documentation for this version of the API."""
+    return self.__common_info.documentation
+
+  @property
   def resource_name(self):
     """Resource name for the class this decorates."""
     return self.__resource_name
@@ -240,14 +278,16 @@ class _ApiDecorator(object):
   """Decorator for single- or multi-class APIs.
 
   An instance of this class can be used directly as a decorator for a
-  single-class API.  Or call the collection() method to decorate a multi-class
+  single-class API.  Or call the api_class() method to decorate a multi-class
   API.
   """
 
   @util.positional(3)
   def __init__(self, name, version, description=None, hostname=None,
                audiences=None, scopes=None, allowed_client_ids=None,
-               canonical_name=None, auth=None):
+               canonical_name=None, auth=None, owner_domain=None,
+               owner_name=None, package_path=None, frontend_limits=None,
+               title=None, documentation=None):
     """Constructor for _ApiDecorator.
 
     Args:
@@ -262,12 +302,32 @@ class _ApiDecorator(object):
         readable version of the name.
       auth: ApiAuth instance, the authentication configuration information
         for this API.
+      owner_domain: string, the domain of the person or company that owns
+        this API.  Along with owner_name, this provides hints to properly
+        name client libraries for this API.
+      owner_name: string, the name of the owner of this API.  Along with
+        owner_domain, this provides hints to properly name client libraries
+        for this API.
+      package_path: string, the "package" this API belongs to.  This '/'
+        delimited value specifies logical groupings of APIs.  This is used by
+        client libraries of this API.
+      frontend_limits: ApiFrontEndLimits, optional query limits for unregistered
+        developers.
+      title: string, the human readable title of your API. It is exposed in the
+        discovery service.
+      documentation: string, a URL where users can find documentation about this
+        version of the API. This will be surfaced in the API Explorer and GPE
+        plugin to allow users to learn about your service.
     """
     self.__common_info = self.__ApiCommonInfo(
         name, version, description=description, hostname=hostname,
         audiences=audiences, scopes=scopes,
         allowed_client_ids=allowed_client_ids,
-        canonical_name=canonical_name, auth=auth)
+        canonical_name=canonical_name, auth=auth, owner_domain=owner_domain,
+        owner_name=owner_name, package_path=package_path,
+        frontend_limits=frontend_limits, title=title,
+        documentation=documentation)
+    self.__classes = []
 
   class __ApiCommonInfo(object):
     """API information that's common among all classes that implement an API.
@@ -288,7 +348,9 @@ class _ApiDecorator(object):
     @util.positional(3)
     def __init__(self, name, version, description=None, hostname=None,
                  audiences=None, scopes=None, allowed_client_ids=None,
-                 canonical_name=None, auth=None):
+                 canonical_name=None, auth=None, owner_domain=None,
+                 owner_name=None, package_path=None, frontend_limits=None,
+                 title=None, documentation=None):
       """Constructor for _ApiCommonInfo.
 
       Args:
@@ -303,6 +365,22 @@ class _ApiDecorator(object):
           readable version of the name.
         auth: ApiAuth instance, the authentication configuration information
           for this API.
+        owner_domain: string, the domain of the person or company that owns
+          this API.  Along with owner_name, this provides hints to properly
+          name client libraries for this API.
+        owner_name: string, the name of the owner of this API.  Along with
+          owner_domain, this provides hints to properly name client libraries
+          for this API.
+        package_path: string, the "package" this API belongs to.  This '/'
+          delimited value specifies logical groupings of APIs.  This is used by
+          client libraries of this API.
+        frontend_limits: ApiFrontEndLimits, optional query limits for
+          unregistered developers.
+        title: string, the human readable title of your API. It is exposed in
+          the discovery service.
+        documentation: string, a URL where users can find documentation about
+          this version of the API. This will be surfaced in the API Explorer and
+          GPE plugin to allow users to learn about your service.
       """
       _CheckType(name, basestring, 'name', allow_none=False)
       _CheckType(version, basestring, 'version', allow_none=False)
@@ -313,6 +391,12 @@ class _ApiDecorator(object):
       _CheckListType(allowed_client_ids, basestring, 'allowed_client_ids')
       _CheckType(canonical_name, basestring, 'canonical_name')
       _CheckType(auth, ApiAuth, 'auth')
+      _CheckType(owner_domain, basestring, 'owner_domain')
+      _CheckType(owner_name, basestring, 'owner_name')
+      _CheckType(package_path, basestring, 'package_path')
+      _CheckType(frontend_limits, ApiFrontEndLimits, 'frontend_limits')
+      _CheckType(title, basestring, 'title')
+      _CheckType(documentation, basestring, 'documentation')
 
       if hostname is None:
         hostname = app_identity.get_default_version_hostname()
@@ -332,6 +416,12 @@ class _ApiDecorator(object):
       self.__allowed_client_ids = allowed_client_ids
       self.__canonical_name = canonical_name
       self.__auth = auth
+      self.__owner_domain = owner_domain
+      self.__owner_name = owner_name
+      self.__package_path = package_path
+      self.__frontend_limits = frontend_limits
+      self.__title = title
+      self.__documentation = documentation
 
     @property
     def name(self):
@@ -378,19 +468,49 @@ class _ApiDecorator(object):
       """Authentication configuration for this API."""
       return self.__auth
 
-  def __call__(self, api_class):
+    @property
+    def owner_domain(self):
+      """Domain of the owner of this API."""
+      return self.__owner_domain
+
+    @property
+    def owner_name(self):
+      """Name of the owner of this API."""
+      return self.__owner_name
+
+    @property
+    def package_path(self):
+      """Package this API belongs to, '/' delimited.  Used by client libs."""
+      return self.__package_path
+
+    @property
+    def frontend_limits(self):
+      """Optional query limits for unregistered developers."""
+      return self.__frontend_limits
+
+    @property
+    def title(self):
+      """Human readable name of this API."""
+      return self.__title
+
+    @property
+    def documentation(self):
+      """Link to the documentation for this version of the API."""
+      return self.__documentation
+
+  def __call__(self, service_class):
     """Decorator for ProtoRPC class that configures Google's API server.
 
     Args:
-      api_class: remote.Service class, ProtoRPC service class being wrapped.
+      service_class: remote.Service class, ProtoRPC service class being wrapped.
 
     Returns:
       Same class with API attributes assigned in api_info.
     """
-    return self.collection()(api_class)
+    return self.api_class()(service_class)
 
-  def collection(self, resource_name=None, path=None, audiences=None,
-                 scopes=None, allowed_client_ids=None):
+  def api_class(self, resource_name=None, path=None, audiences=None,
+                scopes=None, allowed_client_ids=None):
     """Get a decorator for a class that implements an API.
 
     This can be used for single-class or multi-class implementations.  It's
@@ -421,6 +541,7 @@ class _ApiDecorator(object):
       Returns:
         Same class with API attributes assigned in api_info.
       """
+      self.__classes.append(api_class)
       api_class.api_info = _ApiInfo(
           self.__common_info, resource_name=resource_name,
           path=path, audiences=audiences, scopes=scopes,
@@ -429,11 +550,15 @@ class _ApiDecorator(object):
 
     return apiserving_api_decorator
 
+  def get_api_classes(self):
+    """Get the list of remote.Service classes that implement this API."""
+    return self.__classes
+
 
 class ApiAuth(object):
   """Optional authorization configuration information for an API."""
 
-  def __init__(self, allow_cookie_auth=None):
+  def __init__(self, allow_cookie_auth=None, blocked_regions=None):
     """Constructor for ApiAuth, authentication information for an API.
 
     Args:
@@ -444,21 +569,134 @@ class ApiAuth(object):
         potentially dangerous results. Please be very cautious in enabling
         this setting, and make sure to require appropriate XSRF tokens to
         protect your API.
+      blocked_regions: list of Strings, a list of 2-letter ISO region codes
+        to block.
     """
     _CheckType(allow_cookie_auth, bool, 'allow_cookie_auth')
+    _CheckListType(blocked_regions, basestring, 'blocked_regions')
 
     self.__allow_cookie_auth = allow_cookie_auth
+    self.__blocked_regions = blocked_regions
 
   @property
   def allow_cookie_auth(self):
     """Whether cookie authentication is allowed for this API."""
     return self.__allow_cookie_auth
 
+  @property
+  def blocked_regions(self):
+    """List of 2-letter ISO region codes to block."""
+    return self.__blocked_regions
+
+
+class ApiFrontEndLimitRule(object):
+  """Custom rule to limit unregistered traffic."""
+
+  def __init__(self, match=None, qps=None, user_qps=None, daily=None,
+               analytics_id=None):
+    """Constructor for ApiFrontEndLimitRule.
+
+    Args:
+      match: string, the matching rule that defines this traffic segment.
+      qps: int, the aggregate QPS for this segment.
+      user_qps: int, the per-end-user QPS for this segment.
+      daily: int, the aggregate daily maximum for this segment.
+      analytics_id: string, the project ID under which traffic for this segment
+        will be logged.
+    """
+    _CheckType(match, basestring, 'match')
+    _CheckType(qps, int, 'qps')
+    _CheckType(user_qps, int, 'user_qps')
+    _CheckType(daily, int, 'daily')
+    _CheckType(analytics_id, basestring, 'analytics_id')
+
+    self.__match = match
+    self.__qps = qps
+    self.__user_qps = user_qps
+    self.__daily = daily
+    self.__analytics_id = analytics_id
+
+  @property
+  def match(self):
+    """The matching rule that defines this traffic segment."""
+    return self.__match
+
+  @property
+  def qps(self):
+    """The aggregate QPS for this segment."""
+    return self.__qps
+
+  @property
+  def user_qps(self):
+    """The per-end-user QPS for this segment."""
+    return self.__user_qps
+
+  @property
+  def daily(self):
+    """The aggregate daily maximum for this segment."""
+    return self.__daily
+
+  @property
+  def analytics_id(self):
+    """Project ID under which traffic for this segment will be logged."""
+    return self.__analytics_id
+
+
+class ApiFrontEndLimits(object):
+  """Optional front end limit information for an API."""
+
+  def __init__(self, unregistered_user_qps=None, unregistered_qps=None,
+               unregistered_daily=None, rules=None):
+    """Constructor for ApiFrontEndLimits, front end limit info for an API.
+
+    Args:
+      unregistered_user_qps: int, the per-end-user QPS.  Users are identified
+        by their IP address. A value of 0 will block unregistered requests.
+      unregistered_qps: int, an aggregate QPS upper-bound for all unregistered
+        traffic. A value of 0 currently means unlimited, though it might change
+        in the future. To block unregistered requests, use unregistered_user_qps
+        or unregistered_daily instead.
+      unregistered_daily: int, an aggregate daily upper-bound for all
+        unregistered traffic. A value of 0 will block unregistered requests.
+      rules: A list or tuple of ApiFrontEndLimitRule instances: custom rules
+        used to apply limits to unregistered traffic.
+    """
+    _CheckType(unregistered_user_qps, int, 'unregistered_user_qps')
+    _CheckType(unregistered_qps, int, 'unregistered_qps')
+    _CheckType(unregistered_daily, int, 'unregistered_daily')
+    _CheckListType(rules, ApiFrontEndLimitRule, 'rules')
+
+    self.__unregistered_user_qps = unregistered_user_qps
+    self.__unregistered_qps = unregistered_qps
+    self.__unregistered_daily = unregistered_daily
+    self.__rules = rules
+
+  @property
+  def unregistered_user_qps(self):
+    """Per-end-user QPS limit."""
+    return self.__unregistered_user_qps
+
+  @property
+  def unregistered_qps(self):
+    """Aggregate QPS upper-bound for all unregistered traffic."""
+    return self.__unregistered_qps
+
+  @property
+  def unregistered_daily(self):
+    """Aggregate daily upper-bound for all unregistered traffic."""
+    return self.__unregistered_daily
+
+  @property
+  def rules(self):
+    """Custom rules used to apply limits to unregistered traffic."""
+    return self.__rules
+
 
 @util.positional(2)
 def api(name, version, description=None, hostname=None, audiences=None,
         scopes=None, allowed_client_ids=None, canonical_name=None,
-        auth=None):
+        auth=None, owner_domain=None, owner_name=None, package_path=None,
+        frontend_limits=None, title=None, documentation=None):
   """Decorate a ProtoRPC Service class for use by the framework above.
 
   This decorator can be used to specify an API name, version, description, and
@@ -479,11 +717,11 @@ def api(name, version, description=None, hostname=None, audiences=None,
   Sample usage if multiple classes implement one API:
     api_root = endpoints.api(name='library', version='v1.0')
 
-    @api_root.collection(resource_name='shelves')
+    @api_root.api_class(resource_name='shelves')
     class Shelves(remote.Service):
       ...
 
-    @api_root.collection(resource_name='books', path='books')
+    @api_root.api_class(resource_name='books', path='books')
     class Books(remote.Service):
       ...
 
@@ -499,6 +737,22 @@ def api(name, version, description=None, hostname=None, audiences=None,
       readable version of the name.
     auth: ApiAuth instance, the authentication configuration information
       for this API.
+    owner_domain: string, the domain of the person or company that owns
+      this API.  Along with owner_name, this provides hints to properly
+      name client libraries for this API.
+    owner_name: string, the name of the owner of this API.  Along with
+      owner_domain, this provides hints to properly name client libraries
+      for this API.
+    package_path: string, the "package" this API belongs to.  This '/'
+      delimited value specifies logical groupings of APIs.  This is used by
+      client libraries of this API.
+    frontend_limits: ApiFrontEndLimits, optional query limits for unregistered
+      developers.
+    title: string, the human readable title of your API. It is exposed in the
+      discovery service.
+    documentation: string, a URL where users can find documentation about this
+      version of the API. This will be surfaced in the API Explorer and GPE
+      plugin to allow users to learn about your service.
 
   Returns:
     Class decorated with api_info attribute, an instance of ApiInfo.
@@ -507,7 +761,11 @@ def api(name, version, description=None, hostname=None, audiences=None,
   return _ApiDecorator(name, version, description=description,
                        hostname=hostname, audiences=audiences, scopes=scopes,
                        allowed_client_ids=allowed_client_ids,
-                       canonical_name=canonical_name, auth=auth)
+                       canonical_name=canonical_name, auth=auth,
+                       owner_domain=owner_domain, owner_name=owner_name,
+                       package_path=package_path,
+                       frontend_limits=frontend_limits, title=title,
+                       documentation=documentation)
 
 
 class CacheControl(object):
@@ -1374,8 +1632,46 @@ class ApiConfigGenerator(object):
     auth_descriptor = {}
     if api_info.auth.allow_cookie_auth is not None:
       auth_descriptor['allowCookieAuth'] = api_info.auth.allow_cookie_auth
+    if api_info.auth.blocked_regions:
+      auth_descriptor['blockedRegions'] = api_info.auth.blocked_regions
 
     return auth_descriptor
+
+  def __frontend_limit_descriptor(self, api_info):
+    if api_info.frontend_limits is None:
+      return None
+
+    descriptor = {}
+    for propname, descname in (('unregistered_user_qps', 'unregisteredUserQps'),
+                               ('unregistered_qps', 'unregisteredQps'),
+                               ('unregistered_daily', 'unregisteredDaily')):
+      if getattr(api_info.frontend_limits, propname) is not None:
+        descriptor[descname] = getattr(api_info.frontend_limits, propname)
+
+    rules = self.__frontend_limit_rules_descriptor(api_info)
+    if rules:
+      descriptor['rules'] = rules
+
+    return descriptor
+
+  def __frontend_limit_rules_descriptor(self, api_info):
+    if not api_info.frontend_limits.rules:
+      return None
+
+    rules = []
+    for rule in api_info.frontend_limits.rules:
+      descriptor = {}
+      for propname, descname in (('match', 'match'),
+                                 ('qps', 'qps'),
+                                 ('user_qps', 'userQps'),
+                                 ('daily', 'daily'),
+                                 ('analytics_id', 'analyticsId')):
+        if getattr(rule, propname) is not None:
+          descriptor[descname] = getattr(rule, propname)
+      if descriptor:
+        rules.append(descriptor)
+
+    return rules
 
   def __api_descriptor(self, services, hostname=None):
     """Builds a description of an API.
@@ -1409,8 +1705,14 @@ class ApiConfigGenerator(object):
     if auth_descriptor:
       descriptor['auth'] = auth_descriptor
 
+    frontend_limit_descriptor = self.__frontend_limit_descriptor(
+        merged_api_info)
+    if frontend_limit_descriptor:
+      descriptor['frontendLimits'] = frontend_limit_descriptor
+
     method_map = {}
     method_collision_tracker = {}
+    rest_collision_tracker = {}
 
     for service in services:
       remote_methods = service.all_remote_methods()
@@ -1428,11 +1730,23 @@ class ApiConfigGenerator(object):
 
         if method_id in method_collision_tracker:
           raise ApiConfigurationError(
-              'Method %s used in multiple classes: %s and %s' %
+              'Method %s used multiple times, in classes %s and %s' %
               (method_id, method_collision_tracker[method_id],
                service.__name__))
         else:
           method_collision_tracker[method_id] = service.__name__
+
+
+        rest_identifier = (method_info.http_method,
+                           method_info.get_path(service.api_info))
+        if rest_identifier in rest_collision_tracker:
+          raise ApiConfigurationError(
+              '%s path "%s" used multiple times, in classes %s and %s' %
+              (method_info.http_method, method_info.get_path(service.api_info),
+               rest_collision_tracker[rest_identifier],
+               service.__name__))
+        else:
+          rest_collision_tracker[rest_identifier] = service.__name__
 
     if method_map:
       descriptor['methods'] = method_map
@@ -1461,11 +1775,22 @@ class ApiConfigGenerator(object):
         'abstract': False,
         'adapter': {
             'bns': 'https://%s/_ah/spi' % hostname,
-            'type': 'lily'
+            'type': 'lily',
+            'deadline': 10.0
         }
     }
     if api_info.canonical_name:
       defaults['canonicalName'] = api_info.canonical_name
+    if api_info.owner_domain:
+      defaults['ownerDomain'] = api_info.owner_domain
+    if api_info.owner_name:
+      defaults['ownerName'] = api_info.owner_name
+    if api_info.package_path:
+      defaults['packagePath'] = api_info.package_path
+    if api_info.title:
+      defaults['title'] = api_info.title
+    if api_info.documentation:
+      defaults['documentation'] = api_info.documentation
     return defaults
 
   def pretty_print_config_to_json(self, services, hostname=None):

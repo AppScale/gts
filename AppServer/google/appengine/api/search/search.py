@@ -49,6 +49,7 @@ from google.appengine.runtime import apiproxy_errors
 
 __all__ = [
     'AtomField',
+    'ConcurrentTransactionError',
     'Cursor',
     'DateField',
     'DeleteError',
@@ -103,6 +104,7 @@ __all__ = [
     'SortExpression',
     'SortOptions',
     'TextField',
+    'Timeout',
     'TIMESTAMP_FIELD_NAME',
     'TransientError',
     ]
@@ -188,6 +190,14 @@ class ExpressionError(Error):
   """An error occurred while parsing an expression input string."""
 
 
+class Timeout(Error):
+  """Indicates a call on the search API could not finish before its deadline."""
+
+
+class ConcurrentTransactionError(Error):
+  """Indicates a call on the search API failed due to concurrent updates."""
+
+
 def _ConvertToUnicode(some_string):
   """Convert UTF-8 encoded string to unicode."""
   if some_string is None:
@@ -210,10 +220,13 @@ class OperationResult(object):
   This is an abstract class.
   """
 
-  OK, INVALID_REQUEST, TRANSIENT_ERROR, INTERNAL_ERROR = (
-      'OK', 'INVALID_REQUEST', 'TRANSIENT_ERROR', 'INTERNAL_ERROR')
+  (OK, INVALID_REQUEST, TRANSIENT_ERROR, INTERNAL_ERROR,
+  TIMEOUT,  CONCURRENT_TRANSACTION) = (
+      'OK', 'INVALID_REQUEST', 'TRANSIENT_ERROR', 'INTERNAL_ERROR',
+      'TIMEOUT', 'CONCURRENT_TRANSACTION')
 
-  _CODES = frozenset([OK, INVALID_REQUEST, TRANSIENT_ERROR, INTERNAL_ERROR])
+  _CODES = frozenset([OK, INVALID_REQUEST, TRANSIENT_ERROR, INTERNAL_ERROR,
+                      TIMEOUT, CONCURRENT_TRANSACTION])
 
   def __init__(self, code, message=None, id=None):
     """Initializer.
@@ -261,7 +274,11 @@ _ERROR_OPERATION_CODE_MAP = {
     search_service_pb.SearchServiceError.TRANSIENT_ERROR:
     OperationResult.TRANSIENT_ERROR,
     search_service_pb.SearchServiceError.INTERNAL_ERROR:
-    OperationResult.INTERNAL_ERROR
+    OperationResult.INTERNAL_ERROR,
+    search_service_pb.SearchServiceError.TIMEOUT:
+    OperationResult.TIMEOUT,
+    search_service_pb.SearchServiceError.CONCURRENT_TRANSACTION:
+    OperationResult.CONCURRENT_TRANSACTION,
     }
 
 
@@ -318,7 +335,10 @@ class DeleteError(Error):
 _ERROR_MAP = {
     search_service_pb.SearchServiceError.INVALID_REQUEST: InvalidRequest,
     search_service_pb.SearchServiceError.TRANSIENT_ERROR: TransientError,
-    search_service_pb.SearchServiceError.INTERNAL_ERROR: InternalError
+    search_service_pb.SearchServiceError.INTERNAL_ERROR: InternalError,
+    search_service_pb.SearchServiceError.TIMEOUT: Timeout,
+    search_service_pb.SearchServiceError.CONCURRENT_TRANSACTION:
+    ConcurrentTransactionError,
     }
 
 
@@ -613,14 +633,21 @@ def _CheckDocument(document):
     ValueError if the document is invalid in a way that would trigger an
     PutError from the server.
   """
-  no_repeat_names = set()
+  no_repeat_date_names = set()
+  no_repeat_number_names = set()
   for field in document.fields:
-    if isinstance(field, NumberField) or isinstance(field, DateField):
-      if field.name in no_repeat_names:
+    if isinstance(field, NumberField):
+      if field.name in no_repeat_number_names:
         raise ValueError(
             'Invalid document %s: field %s with type date or number may not '
             'be repeated.' % (document.doc_id, field.name))
-      no_repeat_names.add(field.name)
+      no_repeat_number_names.add(field.name)
+    elif isinstance(field, DateField):
+      if field.name in no_repeat_date_names:
+        raise ValueError(
+            'Invalid document %s: field %s with type date or number may not '
+            'be repeated.' % (document.doc_id, field.name))
+      no_repeat_date_names.add(field.name)
 
 
 def _CheckSortLimit(limit):
@@ -910,7 +937,7 @@ class AtomField(Field):
 class DateField(Field):
   """A Field that has a date value.
 
-  The following example shows an date field named creation_date:
+  The following example shows a date field named creation_date:
     DateField(name='creation_date', value=datetime.date(2011, 03, 11))
   """
 
@@ -1996,7 +2023,7 @@ class QueryOptions(object):
       QueryOptions(limit=page_size, offset=next_page))
   """
 
-  def __init__(self, limit=20, number_found_accuracy=100, cursor=None,
+  def __init__(self, limit=20, number_found_accuracy=None, cursor=None,
                offset=None, sort_options=None, returned_fields=None,
                ids_only=False, snippeted_fields=None,
                returned_expressions=None):
@@ -2143,7 +2170,7 @@ def _CopyQueryOptionsObjectToProtocolBuffer(query, options, params):
   """Copies a QueryOptions object to a SearchParams proto buff."""
   offset = 0
   web_safe_string = None
-  cursor_type = search_service_pb.SearchParams.NONE
+  cursor_type = None
   offset = options.offset
   if options.cursor:
     cursor = options.cursor
@@ -2168,11 +2195,12 @@ def _CopyQueryOptionsToProtocolBuffer(
   if offset:
     params.set_offset(offset)
   params.set_limit(limit)
-  params.set_matched_count_accuracy(number_found_accuracy)
+  if number_found_accuracy is not None:
+    params.set_matched_count_accuracy(number_found_accuracy)
   if cursor:
     params.set_cursor(cursor.encode('utf-8'))
-
-  params.set_cursor_type(cursor_type)
+  if cursor_type is not None:
+    params.set_cursor_type(cursor_type)
   if ids_only:
     params.set_keys_only(ids_only)
   if returned_fields or snippeted_fields or returned_expressions:
@@ -2406,7 +2434,8 @@ class Index(object):
     message = None
     if status_pb.has_error_detail():
       message = _DecodeUTF8(status_pb.error_detail())
-    code = _ERROR_OPERATION_CODE_MAP[status_pb.code()]
+    code = _ERROR_OPERATION_CODE_MAP.get(status_pb.code(),
+                                         OperationResult.INTERNAL_ERROR)
     return PutResult(code=code, message=message, id=_DecodeUTF8(doc_id))
 
   def _NewPutResultList(self, response):
@@ -2495,7 +2524,8 @@ class Index(object):
     message = None
     if status_pb.has_error_detail():
       message = _DecodeUTF8(status_pb.error_detail())
-    code = _ERROR_OPERATION_CODE_MAP[status_pb.code()]
+    code = _ERROR_OPERATION_CODE_MAP.get(status_pb.code(),
+                                         OperationResult.INTERNAL_ERROR)
 
     return DeleteResult(code=code, message=message, id=doc_id)
 

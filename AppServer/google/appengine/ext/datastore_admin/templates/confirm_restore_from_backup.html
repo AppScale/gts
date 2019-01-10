@@ -7,9 +7,12 @@
     <br/>Restore does not delete any new entities added since the backup.
     However, it will replace existing entities with the backed-up version for the following kinds:
     <form action="{{base_path}}/{{form_target}}" method="post" style="width:39.39em;">
+      {% if run_as_a_service %}
+        <input type="hidden" name="run_as_a_service" value="{{ run_as_a_service|escape }}">
+      {% endif %}
       <input type="hidden" name="backup_id" value="{{backup.key}}">
       <input type="hidden" name="xsrf_token" value="{{xsrf_token|escape}}">
-      <input type="hidden" name="delete_backup_after_restore" value="{{delete_backup_after_restore}}">
+      <input type="hidden" name="delete_backup_after_restore" value="{{ delete_backup_after_restore|escape }}">
       <ul>
         {% for kind in backup.kinds %}
           <li><input type="checkbox" name="kind" value="{{kind}}" checked="checked"/>{{ kind }}</li>
@@ -62,7 +65,7 @@
         {% endif %}
       </p>
       <input type="submit" value="Restore">
-      <a href="{{ cancel_url|escape }}">Cancel</a>
+      <a href="{{ datastore_admin_home }}">Cancel</a>
     </form>
   {% else %}
     <div class="ae-errorbox">Backup was not found.</div>

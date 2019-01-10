@@ -86,7 +86,7 @@ def AddFieldsToDocumentPb(doc_id, fields, document):
     field = document.add_field()
     field.set_name(name)
     field_value = field.mutable_value()
-    field_value.set_string_value(value)
+    field_value.set_string_value(value.encode("utf-8"))
     if len(field_tuple) > 2:
       field_value.set_type(field_tuple[2])
 

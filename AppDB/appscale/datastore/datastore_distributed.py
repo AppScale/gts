@@ -3,15 +3,15 @@ import datetime
 import itertools
 import logging
 import md5
-import random
 import sys
-import time
+import uuid
 
 from tornado import gen
 from tornado.ioloop import IOLoop
 
 from appscale.datastore import dbconstants, helper_functions
 
+from appscale.common.datastore_index import DatastoreIndex, merge_indexes
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
 from appscale.datastore.dbconstants import (
@@ -25,6 +25,7 @@ from appscale.datastore.cassandra_env.entity_id_allocator import ScatteredAlloca
 from appscale.datastore.cassandra_env.large_batch import BatchNotApplied
 from appscale.datastore.cassandra_env.utils import deletions_for_entity
 from appscale.datastore.cassandra_env.utils import mutations_for_entity
+from appscale.datastore.index_manager import IndexInaccessible
 from appscale.datastore.taskqueue_client import EnqueueError, TaskQueueClient
 from appscale.datastore.utils import clean_app_id
 from appscale.datastore.utils import decode_path
@@ -46,7 +47,8 @@ from appscale.datastore.zkappscale import zktransaction
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.api import datastore_errors
-from google.appengine.api.datastore_distributed import _MAX_ACTIONS_PER_TXN
+from google.appengine.api.datastore_distributed import (
+  _FindIndexToUse, _MAX_ACTIONS_PER_TXN)
 from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
@@ -58,6 +60,8 @@ from google.appengine.runtime import apiproxy_errors
 from google.appengine.ext import db
 from google.appengine.ext.db.metadata import Namespace
 from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
+
+logger = logging.getLogger(__name__)
 
 
 class DatastoreDistributed():
@@ -144,6 +148,7 @@ class DatastoreDistributed():
 
     self.taskqueue_client = TaskQueueClient(taskqueue_locations)
     self.transaction_manager = transaction_manager
+    self.index_manager = None
     self.zookeeper.handle.add_listener(self._zk_state_listener)
 
   def get_limit(self, query):
@@ -318,7 +323,7 @@ class DatastoreDistributed():
       elif name == "__key__":
         value = ent_key
       else:
-        logging.warning("Given entity {0} is missing a property value {1}.".\
+        logger.warning("Given entity {0} is missing a property value {1}.".\
           format(entity, prop.name()))
       if prop.direction() == entity_pb.Index_Property.DESCENDING:
         value = helper_functions.reverse_lex(value)
@@ -393,12 +398,13 @@ class DatastoreDistributed():
       index: A entity_pb.CompositeIndex object.
     """
     self.logger.info('Deleting composite index:\n{}'.format(index))
-    index_keys = []
-    composite_id = str(index.id())
-    index_keys.append(self._SEPARATOR.join([app_id, 'index', composite_id]))
-    yield self.datastore_batch.batch_delete(
-      dbconstants.METADATA_TABLE, index_keys,
-      column_names=dbconstants.METADATA_TABLE)
+    try:
+      project_index_manager = self.index_manager.projects[app_id]
+    except KeyError:
+      raise BadRequest('project_id: {} not found'.format(app_id))
+
+    # TODO: Remove actual index entries.
+    project_index_manager.delete_index_definition(index.id())
 
   @gen.coroutine
   def create_composite_index(self, app_id, index):
@@ -410,18 +416,12 @@ class DatastoreDistributed():
     Returns:
       A unique number representing the composite index ID.
     """
-    # Generate a random number based on time of creation.
-    rand = int(str(int(time.time())) + str(random.randint(0, 999999)))
-    index.set_id(rand)
-    encoded_entity = index.Encode()
-    row_key = self._SEPARATOR.join([app_id, 'index', str(rand)])
-    row_keys = [row_key]
-    row_values = {}
-    row_values[row_key] = {dbconstants.METADATA_SCHEMA[0]: encoded_entity}
-    yield self.datastore_batch.batch_put_entity(
-      dbconstants.METADATA_TABLE, row_keys,
-      dbconstants.METADATA_SCHEMA, row_values)
-    raise gen.Return(rand)
+    new_index = DatastoreIndex.from_pb(index)
+
+    # The ID must be a positive number that fits in a signed 64-bit int.
+    new_index.id = uuid.uuid1().int >> 65
+    merge_indexes(self.zookeeper.handle, app_id, [new_index])
+    raise gen.Return(new_index.id)
 
   @gen.coroutine
   def update_composite_index(self, app_id, index):
@@ -536,16 +536,17 @@ class DatastoreDistributed():
       yield allocator.set_min_counter(counter)
 
   @gen.coroutine
-  def put_entities(self, app, entities, composite_indexes=()):
+  def put_entities(self, app, entities):
     """ Updates indexes of existing entities, inserts new entities and
         indexes for them.
 
     Args:
       app: A string containing the application ID.
       entities: List of entities.
-      composite_indexes: A list or tuple of CompositeIndex objects.
     """
     self.logger.debug('Inserting {} entities'.format(len(entities)))
+
+    composite_indexes = self.get_indexes(app)
 
     by_group = {}
     for entity in entities:
@@ -703,8 +704,7 @@ class DatastoreDistributed():
       yield self.datastore_batch.put_entities_tx(
         app_id, put_request.transaction().handle(), entities)
     else:
-      yield self.put_entities(
-        app_id, entities, put_request.composite_index_list())
+      yield self.put_entities(app_id, entities)
       self.logger.debug('Updated {} entities'.format(len(entities)))
 
     put_response.key_list().extend([e.key() for e in entities])
@@ -910,21 +910,8 @@ class DatastoreDistributed():
       if last_path.type() not in ent_kinds:
         ent_kinds.append(last_path.type())
 
-    # We use the marked changes field to signify if we should
-    # look up composite indexes because delete request do not
-    # include that information.
-    composite_indexes = []
-    filtered_indexes = []
-    if delete_request.has_mark_changes():
-      all_composite_indexes = yield self.datastore_batch.get_indices(app_id)
-      for index in all_composite_indexes:
-        new_index = entity_pb.CompositeIndex()
-        new_index.ParseFromString(index)
-        composite_indexes.append(new_index)
-      # Only get composites of the correct kinds.
-      for index in composite_indexes:
-        if index.definition().entity_type() in ent_kinds:
-          filtered_indexes.append(index)
+    filtered_indexes = [index for index in self.get_indexes(app_id)
+                        if index.definition().entity_type() in ent_kinds]
 
     if delete_request.has_transaction():
       txid = delete_request.transaction().handle()
@@ -2258,20 +2245,17 @@ class DatastoreDistributed():
     """
     return query.composite_index_size() > 0
 
-  def get_range_composite_query(self, query, filter_info):
+  def get_range_composite_query(self, query, filter_info, composite_index):
     """ Gets the start and end key of a composite query.
 
     Args:
       query: A datastore_pb.Query object.
       filter_info: A dictionary mapping property names to tuples of filter
         operators and values.
-      composite_id: An int, the composite index ID,
+      composite_index: An entity_pb.CompositeIndex object.
     Returns:
       A tuple of strings, the start and end key for the composite table.
     """
-    start_key = ''
-    end_key = ''
-    composite_index = query.composite_index_list()[0]
     index_id = composite_index.id()
     definition = composite_index.definition()
     app_id = clean_app_id(query.app())
@@ -2476,13 +2460,31 @@ class DatastoreDistributed():
       List of entities retrieved from the given query.
     """
     self.logger.debug('Composite Query:\n{}'.format(query))
+
+    app_id = clean_app_id(query.app())
+    if query.composite_index_list():
+      given_index = query.composite_index(0)
+      try:
+        composite_index = next(index for index in self.get_indexes(app_id)
+                               if index.id() == given_index.id())
+      except StopIteration:
+        raise dbconstants.BadRequest('The given index was not found')
+    else:
+      composite_index = _FindIndexToUse(query, self.get_indexes(app_id))
+      if composite_index is None:
+        raise dbconstants.NeedsIndex('This composite query requires an index')
+
+    if composite_index.state() != entity_pb.CompositeIndex.READ_WRITE:
+      raise dbconstants.NeedsIndex(
+        'The relevant composite index has not finished building')
+
     start_inclusive = True
-    startrow, endrow = self.get_range_composite_query(query, filter_info)
+    startrow, endrow = self.get_range_composite_query(query, filter_info,
+                                                      composite_index)
     # Override the start_key with a cursor if given.
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
-      composite_index = query.composite_index_list()[0]
 
       startrow = self.get_composite_index_key(composite_index, last_result,
         position_list=query.compiled_cursor().position_list(),
@@ -2495,7 +2497,6 @@ class DatastoreDistributed():
       end_compiled_cursor = query.end_compiled_cursor()
       list_cursor = appscale_stub_util.ListCursor(query)
       last_result, _ = list_cursor._DecodeCompiledCursor(end_compiled_cursor)
-      composite_index = query.composite_index_list()[0]
       endrow = self.get_composite_index_key(composite_index, last_result,
         position_list=end_compiled_cursor.position_list(),
         filters=query.filter_list())
@@ -2521,7 +2522,7 @@ class DatastoreDistributed():
       # This is a projection query.
       if query.property_name_size() > 0:
         potential_entities = self._extract_entities_from_composite_indexes(
-          query, references)
+          query, references, composite_index)
       else:
         potential_entities = yield self.__fetch_entities(references)
 
@@ -2758,7 +2759,8 @@ class DatastoreDistributed():
 
     return cleaned_results
 
-  def _extract_entities_from_composite_indexes(self, query, index_result):
+  def _extract_entities_from_composite_indexes(self, query, index_result,
+                                               composite_index):
     """ Takes index values and creates partial entities out of them.
 
     This is required for projection queries where the query specifies certain
@@ -2770,10 +2772,11 @@ class DatastoreDistributed():
     Args:
       query: A datastore_pb.Query object.
       index_result: A list of index strings.
+      composite_index: An entity_pb.CompositeIndex object.
     Returns:
       A list of EntityProtos.
     """
-    definition = query.composite_index_list()[0].definition()
+    definition = composite_index.definition()
     prop_name_list = query.property_name_list()
 
     distinct_checker = []
@@ -2926,7 +2929,14 @@ class DatastoreDistributed():
       if results or results == []:
         raise gen.Return(results)
 
-    raise gen.Return([])
+    # The client may not have given a composite index, but there may be one
+    # that still works.
+    index_to_use = _FindIndexToUse(query, self.get_indexes(app_id))
+    if index_to_use is not None:
+      result = yield self.__composite_query(query, filter_info, order_info)
+      raise gen.Return(result)
+
+    raise BadRequest('The query cannot be satisfied')
 
   @gen.coroutine
   def _dynamic_run_query(self, query, query_result):
@@ -3066,9 +3076,7 @@ class DatastoreDistributed():
       raise dbconstants.TooManyGroupsException(
         'Too many groups in transaction')
 
-    indices = yield self.datastore_batch.get_indices(app)
-    composite_indices = [entity_pb.CompositeIndex(index) for index in indices]
-
+    composite_indices = self.get_indexes(app)
     decoded_groups = [entity_pb.Reference(group) for group in tx_groups]
     self.transaction_manager.set_groups(app, txn, decoded_groups)
 
@@ -3227,6 +3235,29 @@ class DatastoreDistributed():
       self.zookeeper.notify_failed_transaction(app_id, txid)
     except zktransaction.ZKTransactionException as error:
       raise InternalError(str(error))
+
+  def get_indexes(self, project_id):
+    """ Retrieves list of indexes for a project.
+
+    Args:
+      project_id: A string specifying a project ID.
+    Returns:
+      A list of entity_pb.CompositeIndex objects.
+    Raises:
+      BadRequest if project_id is not found.
+      InternalError if ZooKeeper is not accessible.
+    """
+    try:
+      project_index_manager = self.index_manager.projects[project_id]
+    except KeyError:
+      raise BadRequest('project_id: {} not found'.format(project_id))
+
+    try:
+      indexes = project_index_manager.indexes_pb
+    except IndexInaccessible:
+      raise InternalError('ZooKeeper is not accessible')
+
+    return indexes
 
   def _zk_state_listener(self, state):
     """ Handles changes to the ZooKeeper connection state.
