@@ -1,0 +1,21 @@
+<div class="page-header"><h1>Tasks for {{ project_id }}/{{ queue_name }}</h1></div>
+{% if tasks %}
+<table id="taskTable">
+  <tr>
+    <th>Task Name</th>
+    <th>ETA (UTC)</th>
+    <th>Enqueue time</th>
+    <th>Times leased</th>
+  </tr>
+  {% for task in tasks %}
+  <tr>
+    <td>{{ task.name }}</td>
+    <td>{{ task.eta.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+    <td>{{ task.enqueue_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+    <td>{{ task.retry_count }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>There are no tasks in the queue.</p>
+{% endif %}

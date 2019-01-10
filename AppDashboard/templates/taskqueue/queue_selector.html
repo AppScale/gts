@@ -1,0 +1,11 @@
+<div class="page-header"><h1>Pull Queues for {{ project_id }}</h1></div>
+{% if queue_names %}
+  <ul>
+  {% for queue_name in queue_names %}
+    <li><a href="/pull_queue_viewer/{{ project_id }}/{{ queue_name }}">{{ queue_name }}</a></li>
+  {% endfor %}
+  </ul>
+{% else %}
+  <p>There are either no configured pull queues, or you do not have ownership
+     of any of them.</p>
+{% endif %}

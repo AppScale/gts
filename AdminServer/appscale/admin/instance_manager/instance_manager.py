@@ -23,7 +23,8 @@ from appscale.admin.instance_manager.instance import (
   create_java_app_env, create_java_start_cmd, create_python_app_env,
   create_python27_start_cmd, get_login_server, Instance)
 from appscale.admin.instance_manager.stop_instance import stop_instance
-from appscale.admin.instance_manager.utils import setup_logrotate
+from appscale.admin.instance_manager.utils import setup_logrotate, \
+  remove_logrotate
 from appscale.common import appscale_info, monit_app_configuration
 from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.constants import (
@@ -479,6 +480,7 @@ class InstanceManager(object):
                          if instance_.project_id == instance.project_id]
     if not project_instances:
       yield self._stop_api_server(instance.project_id)
+      remove_logrotate(instance.project_id)
 
     yield self._monit_operator.reload(self._thread_pool)
     yield self._clean_old_sources()

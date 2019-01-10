@@ -240,6 +240,19 @@ class PushQueue(Queue):
     return '<PushQueue {}: {}>'.format(self.name, attr_str)
 
 
+def is_connection_error(err):
+  """ This function is used as retry criteria.
+  It also makes possible lazy load of psycopg2 package.
+
+  Args:
+    err: an instance of Exception.
+  Returns:
+    True if error is related to connection, False otherwise.
+  """
+  from psycopg2 import InterfaceError
+  return isinstance(err, InterfaceError)
+
+
 class PostgresPullQueue(Queue):
   """
   Before using Postgres implementation, make sure that
@@ -247,49 +260,51 @@ class PostgresPullQueue(Queue):
   /etc/postgresql/9.5/main/pg_hba.conf
   """
 
+  retry_pg_connection = retrying.retry(
+    retrying_timeout=10, retry_on_exception=is_connection_error
+  )
+
   TTL_INTERVAL_AFTER_DELETED = '7 days'
 
-  def __init__(self, queue_info, app, pg_connection=None):
+  def __init__(self, queue_info, app, pg_connection_wrapper):
     """ Create a PostgresPullQueue object.
 
     Args:
       queue_info: A dictionary containing queue info.
       app: A string containing the application ID.
-      pg_connection: A psycopg2 connection to PostgreSQL.
+      pg_connection_wrapper: A psycopg2 connection wrapper.
     """
     from psycopg2 import IntegrityError  # Import psycopg2 lazily
     super(PostgresPullQueue, self).__init__(queue_info, app)
-    self.pg_connection = pg_connection
+    self.connection_key = self.app
+    self.pg_connection_wrapper = pg_connection_wrapper
 
     # When multiple TQ servers are notified by ZK about new queue
     # they sometimes get IntegrityError despite 'IF NOT EXISTS'
     @retrying.retry(max_retries=5, retry_on_exception=IntegrityError)
     def ensure_tables_created():
-      try:
-        self.pg_connection.cursor().execute(
-          'CREATE TABLE IF NOT EXISTS "{table_name}" ('
-          '  task_name varchar(500) NOT NULL,'
-          '  time_deleted timestamp DEFAULT NULL,'
-          '  time_enqueued timestamp NOT NULL,'
-          '  lease_count integer NOT NULL,'
-          '  lease_expires timestamp NOT NULL,'
-          '  payload bytea,'
-          '  tag varchar(500),'
-          '  PRIMARY KEY (task_name)'
-          ');'
-          'CREATE INDEX IF NOT EXISTS "{table_name}-eta-retry-tag-index" '
-          '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
-          '  WHERE time_deleted IS NULL;'
-          'CREATE INDEX IF NOT EXISTS "{table_name}-retry-eta-tag-index" '
-          '  ON "{table_name}" (lease_count, lease_expires, tag) '
-          '  WHERE time_deleted IS NULL;'
+      pg_connection = self.pg_connection_wrapper.get_connection()
+      with pg_connection:
+        with pg_connection.cursor() as pg_cursor:
+          pg_cursor.execute(
+            'CREATE TABLE IF NOT EXISTS "{table_name}" ('
+            '  task_name varchar(500) NOT NULL,'
+            '  time_deleted timestamp DEFAULT NULL,'
+            '  time_enqueued timestamp NOT NULL,'
+            '  lease_count integer NOT NULL,'
+            '  lease_expires timestamp NOT NULL,'
+            '  payload bytea,'
+            '  tag varchar(500),'
+            '  PRIMARY KEY (task_name)'
+            ');'
+            'CREATE INDEX IF NOT EXISTS "{table_name}-eta-retry-tag-index" '
+            '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
+            '  WHERE time_deleted IS NULL;'
+            'CREATE INDEX IF NOT EXISTS "{table_name}-retry-eta-tag-index" '
+            '  ON "{table_name}" (lease_count, lease_expires, tag) '
+            '  WHERE time_deleted IS NULL;'
             .format(table_name=self.tasks_table_name)
-        )
-        self.pg_connection.commit()
-      except Exception as err:
-        logger.error('Rolling back transaction ({err})'.format(err=err))
-        self.pg_connection.rollback()
-        raise
+          )
 
     ensure_tables_created()
 
@@ -297,6 +312,7 @@ class PostgresPullQueue(Queue):
   def tasks_table_name(self):
     return 'pullqueue-{}'.format(self.name)
 
+  @retry_pg_connection
   def add_task(self, task):
     """ Adds a task to the queue.
 
@@ -325,41 +341,35 @@ class PostgresPullQueue(Queue):
     except AttributeError:
       lease_expires = 'current_timestamp'
 
-    pg_cursor = self.pg_connection.cursor()
+    pg_connection = self.pg_connection_wrapper.get_connection()
     try:
-      pg_cursor.execute(
-        'INSERT INTO "{table}" ( '
-        '  task_name, payload, time_enqueued, '
-        '  lease_expires, lease_count, tag '
-        ')'
-        'VALUES ( '
-        '  %(task_name)s, %(payload)s, current_timestamp, '
-        '  {lease_expires}, %(lease_count)s, %(tag)s '
-        ') '
-        'RETURNING time_enqueued, lease_expires'
-        .format(table=self.tasks_table_name, lease_expires=lease_expires),
-        vars=params
-      )
-      row = pg_cursor.fetchone()
-
-      self.pg_connection.commit()
-      logger.debug('Added task: {}'.format(task))
-
-    except psycopg2.IntegrityError as err:
+      with pg_connection:
+        with pg_connection.cursor() as pg_cursor:
+          pg_cursor.execute(
+            'INSERT INTO "{table}" ( '
+            '  task_name, payload, time_enqueued, '
+            '  lease_expires, lease_count, tag '
+            ')'
+            'VALUES ( '
+            '  %(task_name)s, %(payload)s, current_timestamp, '
+            '  {lease_expires}, %(lease_count)s, %(tag)s '
+            ') '
+            'RETURNING time_enqueued, lease_expires'
+            .format(table=self.tasks_table_name, lease_expires=lease_expires),
+            vars=params
+          )
+          row = pg_cursor.fetchone()
+    except psycopg2.IntegrityError:
       name_taken_msg = 'Task name already taken: {}'.format(task.id)
-      logger.warning('{msg}. Rolling back transaction({err})'
-                     .format(msg=name_taken_msg, err=err))
-      self.pg_connection.rollback()
       raise InvalidTaskInfo(name_taken_msg)
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+
+    logger.debug('Added task: {}'.format(task))
 
     task.queueName = self.name
     task.enqueueTimestamp = row[0]  # time_enqueued is generated on PG side
     task.leaseTimestamp = row[1]    # lease_expires is generated on PG side
 
+  @retry_pg_connection
   def get_task(self, task, omit_payload=False):
     """ Gets a task from the queue.
 
@@ -376,28 +386,25 @@ class PostgresPullQueue(Queue):
     else:
       columns = ['payload', 'task_name', 'time_enqueued',
                  'lease_expires', 'lease_count', 'tag']
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        'SELECT {columns} FROM "{tasks_table}" '
-        'WHERE task_name = %(task_name)s AND time_deleted IS NULL'
-        .format(columns=', '.join(columns),
-                tasks_table=self.tasks_table_name),
-        vars={
-          'task_name': task.id,
-        }
-      )
-      row = pg_cursor.fetchone()
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT {columns} FROM "{tasks_table}" '
+          'WHERE task_name = %(task_name)s AND time_deleted IS NULL'
+          .format(columns=', '.join(columns),
+                  tasks_table=self.tasks_table_name),
+          vars={
+            'task_name': task.id,
+          }
+        )
+        row = pg_cursor.fetchone()
 
     if not row:
       return None
     return self._task_from_row(columns, row, id=task.id)
 
+  @retry_pg_connection
   def delete_task(self, task):
     """ Marks a task as deleted. It will be permanently removed later
      (after TTL_INTERVAL_AFTER_DELETED).
@@ -405,22 +412,20 @@ class PostgresPullQueue(Queue):
     Args:
       task: A Task object.
     """
-    try:
-      self.pg_connection.cursor().execute(
-        'UPDATE "{tasks_table}" '
-        'SET time_deleted = current_timestamp '
-        'WHERE "{tasks_table}".task_name = %(task_name)s'
-        .format(tasks_table=self.tasks_table_name),
-        vars={
-          'task_name': task.id,
-        }
-      )
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{tasks_table}" '
+          'SET time_deleted = current_timestamp '
+          'WHERE "{tasks_table}".task_name = %(task_name)s'
+          .format(tasks_table=self.tasks_table_name),
+          vars={
+            'task_name': task.id,
+          }
+        )
 
+  @retry_pg_connection
   def update_lease(self, task, new_lease_seconds):
     """ Updates the duration of a task lease.
 
@@ -431,40 +436,36 @@ class PostgresPullQueue(Queue):
     Returns:
       A Task object.
     """
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        'UPDATE "{tasks_table}" '
-        'SET lease_expires = '
-        '  current_timestamp + interval \'%(lease_seconds)s seconds\' '
-        'WHERE task_name = %(task_name)s '
-        '  AND lease_expires > current_timestamp '
-        '  AND lease_expires = %(old_eta)s '
-        '  AND time_deleted IS NULL '
-        'RETURNING lease_expires'
-        .format(tasks_table=self.tasks_table_name),
-        vars={
-          'task_name': task.id,
-          'old_eta': task.get_eta(),
-          'lease_seconds': new_lease_seconds
-        }
-      )
-      if pg_cursor.statusmessage != 'UPDATE 1':
-        logger.info('Expected to get status "UPDATE 1", got: "{}"'
-                    .format(pg_cursor.statusmessage))
-        raise InvalidLeaseRequest('The task lease has expired')
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{tasks_table}" '
+          'SET lease_expires = '
+          '  current_timestamp + interval \'%(lease_seconds)s seconds\' '
+          'WHERE task_name = %(task_name)s '
+          '  AND lease_expires > current_timestamp '
+          '  AND lease_expires = %(old_eta)s '
+          '  AND time_deleted IS NULL '
+          'RETURNING lease_expires'
+          .format(tasks_table=self.tasks_table_name),
+          vars={
+            'task_name': task.id,
+            'old_eta': task.get_eta(),
+            'lease_seconds': new_lease_seconds
+          }
+        )
+        if pg_cursor.statusmessage != 'UPDATE 1':
+          logger.info('Expected to get status "UPDATE 1", got: "{}"'
+                      .format(pg_cursor.statusmessage))
+          raise InvalidLeaseRequest('The task lease has expired')
 
-      row = pg_cursor.fetchone()
-      self.pg_connection.commit()
-
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+        row = pg_cursor.fetchone()
 
     task.leaseTimestamp = row[0]
     return task
 
+  @retry_pg_connection
   def update_task(self, task, new_lease_seconds):
     """ Updates leased tasks.
 
@@ -500,29 +501,25 @@ class PostgresPullQueue(Queue):
     else:
       old_eta_verification = ''
 
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        statement.format(tasks_table=self.tasks_table_name,
-                         old_eta_verification=old_eta_verification),
-        vars=parameters
-      )
-      if pg_cursor.statusmessage != 'UPDATE 1':
-        logger.info('Expected to get status "UPDATE 1", got: "{}"'
-                    .format(pg_cursor.statusmessage))
-        raise InvalidLeaseRequest('The task lease has expired')
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          statement.format(tasks_table=self.tasks_table_name,
+                           old_eta_verification=old_eta_verification),
+          vars=parameters
+        )
+        if pg_cursor.statusmessage != 'UPDATE 1':
+          logger.info('Expected to get status "UPDATE 1", got: "{}"'
+                      .format(pg_cursor.statusmessage))
+          raise InvalidLeaseRequest('The task lease has expired')
 
-      row = pg_cursor.fetchone()
-      self.pg_connection.commit()
-
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+        row = pg_cursor.fetchone()
 
     task.leaseTimestamp = row[0]
     return task
 
+  @retry_pg_connection
   def list_tasks(self, limit=100):
     """ List all non-deleted tasks in the queue.
 
@@ -533,25 +530,22 @@ class PostgresPullQueue(Queue):
     """
     columns = ['task_name', 'time_enqueued',
                'lease_expires', 'lease_count', 'tag']
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        'SELECT {columns} FROM "{tasks_table}" '
-        'WHERE time_deleted IS NULL '
-        'ORDER BY lease_expires'
-        .format(columns=', '.join(columns),
-                tasks_table=self.tasks_table_name)
-      )
-      rows = pg_cursor.fetchmany(size=limit)
-      tasks = [self._task_from_row(columns, row) for row in rows]
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT {columns} FROM "{tasks_table}" '
+          'WHERE time_deleted IS NULL '
+          'ORDER BY lease_expires'
+          .format(columns=', '.join(columns),
+                  tasks_table=self.tasks_table_name)
+        )
+        rows = pg_cursor.fetchmany(size=limit)
+        tasks = [self._task_from_row(columns, row) for row in rows]
 
     return tasks
 
+  @retry_pg_connection
   def lease_tasks(self, num_tasks, lease_seconds, group_by_tag=False,
                   tag=None):
     """ Acquires a lease on tasks from the queue.
@@ -598,60 +592,54 @@ class PostgresPullQueue(Queue):
       '"{table}".{col}'.format(table=self.tasks_table_name, col=column)
       for column in columns
     ]
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        'UPDATE "{tasks_table}" '
-        'SET lease_expires = '
-        '      current_timestamp + interval \'%(lease_seconds)s seconds\', '
-        '    lease_count = lease_count + 1 '
-        'FROM ( '
-        '  SELECT task_name FROM "{tasks_table}" '
-        '  WHERE time_deleted IS NULL '        # Tell PG to use partial index
-        '        AND lease_expires < current_timestamp '
-        '        {retry_limit} '
-        '        {tag_filter} '
-        '  ORDER BY lease_expires '
-        '  FOR UPDATE SKIP LOCKED '
-        '  LIMIT {num_tasks} '
-        ') as tasks_to_update '
-        'WHERE "{tasks_table}".task_name = tasks_to_update.task_name '
-        'RETURNING {columns}'
-        .format(columns=', '.join(full_column_names),
-                retry_limit=max_retries_condition, tag_filter=tag_condition,
-                num_tasks=num_tasks, tasks_table=self.tasks_table_name),
-        vars={
-          'lease_seconds': lease_seconds,
-          'max_retries': self.task_retry_limit,
-          'tag': tag
-        }
-      )
-      rows = pg_cursor.fetchall()
-      leased = [self._task_from_row(columns, row) for row in rows]
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{tasks_table}" '
+          'SET lease_expires = '
+          '      current_timestamp + interval \'%(lease_seconds)s seconds\', '
+          '    lease_count = lease_count + 1 '
+          'FROM ( '
+          '  SELECT task_name FROM "{tasks_table}" '
+          '  WHERE time_deleted IS NULL '        # Tell PG to use partial index
+          '        AND lease_expires < current_timestamp '
+          '        {retry_limit} '
+          '        {tag_filter} '
+          '  ORDER BY lease_expires '
+          '  FOR UPDATE SKIP LOCKED '
+          '  LIMIT {num_tasks} '
+          ') as tasks_to_update '
+          'WHERE "{tasks_table}".task_name = tasks_to_update.task_name '
+          'RETURNING {columns}'
+          .format(columns=', '.join(full_column_names),
+                  retry_limit=max_retries_condition, tag_filter=tag_condition,
+                  num_tasks=num_tasks, tasks_table=self.tasks_table_name),
+          vars={
+            'lease_seconds': lease_seconds,
+            'max_retries': self.task_retry_limit,
+            'tag': tag
+          }
+        )
+        rows = pg_cursor.fetchall()
+        leased = [self._task_from_row(columns, row) for row in rows]
 
     time_elapsed = datetime.datetime.utcnow() - start_time
     logger.debug('Leased {} tasks [time elapsed: {}]'
                  .format(len(leased), str(time_elapsed)))
     return leased
 
+  @retry_pg_connection
   def purge(self):
     """ Remove all tasks from queue.
     """
-    try:
-      self.pg_connection.cursor().execute(
-        'TRUNCATE TABLE "{tasks_table}"'
-        .format(tasks_table=self.tasks_table_name)
-      )
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'TRUNCATE TABLE "{tasks_table}"'
+          .format(tasks_table=self.tasks_table_name)
+        )
 
   def to_json(self, include_stats=False, fields=None):
     """ Generate a JSON representation of the queue.
@@ -686,26 +674,24 @@ class PostgresPullQueue(Queue):
 
     return json.dumps(queue)
 
+  @retry_pg_connection
   def total_tasks(self):
     """ Get the total number of tasks in the queue.
 
     Returns:
       An integer specifying the number of tasks in the queue.
     """
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        'SELECT count(*) FROM "{tasks_table}" WHERE time_deleted IS NULL'
-        .format(tasks_table=self.tasks_table_name)
-      )
-      tasks_count = pg_cursor.fetchone()[0]
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT count(*) FROM "{tasks_table}" WHERE time_deleted IS NULL'
+          .format(tasks_table=self.tasks_table_name)
+        )
+        tasks_count = pg_cursor.fetchone()[0]
     return tasks_count
 
+  @retry_pg_connection
   def oldest_eta(self):
     """ Get the ETA of the oldest task
 
@@ -713,39 +699,32 @@ class PostgresPullQueue(Queue):
       A datetime object specifying the oldest ETA or None if there are no
       tasks.
     """
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        'SELECT min(lease_expires) FROM "{tasks_table}" '
-        'WHERE time_deleted IS NULL'
-        .format(tasks_table=self.tasks_table_name)
-      )
-      oldest_eta = pg_cursor.fetchone()[0]
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT min(lease_expires) FROM "{tasks_table}" '
+          'WHERE time_deleted IS NULL'
+          .format(tasks_table=self.tasks_table_name)
+        )
+        oldest_eta = pg_cursor.fetchone()[0]
     return oldest_eta
 
+  @retry_pg_connection
   def flush_deleted(self):
     """ Removes all tasks which were deleted more than week ago.
     """
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        'DELETE FROM "{tasks_table}" '
-        'WHERE time_deleted < current_timestamp - interval \'{ttl}\''
-        .format(tasks_table=self.tasks_table_name,
-                ttl=self.TTL_INTERVAL_AFTER_DELETED)
-      )
-      logger.info('Flushed deleted tasks from {} with status: {}'
-                  .format(self.tasks_table_name, pg_cursor.statusmessage))
-      self.pg_connection.commit()
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'DELETE FROM "{tasks_table}" '
+          'WHERE time_deleted < current_timestamp - interval \'{ttl}\''
+          .format(tasks_table=self.tasks_table_name,
+                  ttl=self.TTL_INTERVAL_AFTER_DELETED)
+        )
+        logger.info('Flushed deleted tasks from {} with status: {}'
+                    .format(self.tasks_table_name, pg_cursor.statusmessage))
 
   COLUMN_ATTR_MAPPING = {
     'task_name': 'id',
@@ -780,28 +759,25 @@ class PostgresPullQueue(Queue):
 
     return Task(task_info)
 
+  @retry_pg_connection
   def _get_earliest_tag(self):
     """ Get the tag with the earliest ETA.
 
     Returns:
       A string containing a tag or None.
     """
-    pg_cursor = self.pg_connection.cursor()
-    try:
-      pg_cursor.execute(
-        'SELECT tag FROM "{tasks_table}" '
-        'WHERE time_deleted IS NULL '
-        'ORDER BY lease_expires'
-        .format(tasks_table=self.tasks_table_name)
-      )
-      row = pg_cursor.fetchone()
-      tag = row[0] if row else None
-      self.pg_connection.commit()
-      return tag
-    except Exception as err:
-      logger.error('Rolling back transaction ({err})'.format(err=err))
-      self.pg_connection.rollback()
-      raise
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT tag FROM "{tasks_table}" '
+          'WHERE time_deleted IS NULL '
+          'ORDER BY lease_expires'
+          .format(tasks_table=self.tasks_table_name)
+        )
+        row = pg_cursor.fetchone()
+        tag = row[0] if row else None
+        return tag
 
   def _get_stats(self, fields):
     """ Fetch queue statistics.

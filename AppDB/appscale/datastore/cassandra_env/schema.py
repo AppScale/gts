@@ -2,12 +2,18 @@
 
 import cassandra
 import logging
+import sys
 import time
+from collections import defaultdict
+
+from kazoo.client import KazooClient
 
 import cassandra_interface
 
 from appscale.common import appscale_info
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
+from appscale.common.datastore_index import DatastoreIndex, merge_indexes
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.taskqueue.distributed_tq import create_pull_queue_tables
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
@@ -20,6 +26,10 @@ from .cassandra_interface import ScatterPropStates
 from .cassandra_interface import ThriftColumn
 from .constants import CURRENT_VERSION, LB_POLICY
 from .. import dbconstants
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.datastore import entity_pb
+from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
@@ -208,6 +218,43 @@ def current_datastore_version(session):
     return None
 
 
+def migrate_composite_index_metadata(cluster, session, zk_client):
+  """  Moves any existing datastore index metadata to ZooKeeper.
+
+  Args:
+    cluster: A cassandra.cluster.Cluster object.
+    session: A cassandra.cluster.Session object.
+    zk_client: A kazoo.client.KazooClient object.
+  """
+  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
+  if dbconstants.METADATA_TABLE not in keyspace_metadata.tables:
+    return
+
+  logging.info('Fetching previously-defined index definitions')
+  results = session.execute(
+    'SELECT * FROM "{}"'.format(dbconstants.METADATA_TABLE))
+  indexes_by_project = defaultdict(list)
+  for result in results:
+    try:
+      index_pb = entity_pb.CompositeIndex(result.value)
+    except ProtocolBufferDecodeError:
+      logging.warning('Invalid composite index: {}'.format(result.value))
+      continue
+
+    index = DatastoreIndex.from_pb(index_pb)
+    # Assume the index is complete.
+    index.ready = True
+    indexes_by_project[index.project_id].append(index)
+
+  for project_id, indexes in indexes_by_project.items():
+    logging.info('Adding indexes for {}'.format(project_id))
+    merge_indexes(zk_client, project_id, indexes)
+
+  logging.info('Removing previously-defined index definitions from Cassandra')
+  session.execute('DROP TABLE "{}"'.format(dbconstants.METADATA_TABLE),
+                  timeout=SCHEMA_CHANGE_TIMEOUT)
+
+
 def prime_cassandra(replication):
   """ Create Cassandra keyspace and initial tables.
 
@@ -222,6 +269,9 @@ def prime_cassandra(replication):
 
   if int(replication) <= 0:
     raise dbconstants.AppScaleBadArg('Replication must be greater than zero')
+
+  zk_client = KazooClient(hosts=appscale_info.get_zk_node_ips())
+  zk_client.start()
 
   hosts = appscale_info.get_db_ips()
 
@@ -285,6 +335,7 @@ def prime_cassandra(replication):
       time.sleep(SCHEMA_CHANGE_TIMEOUT)
       raise
 
+  migrate_composite_index_metadata(cluster, session, zk_client)
   create_batch_tables(cluster, session)
   create_groups_table(session)
   create_transactions_table(session)

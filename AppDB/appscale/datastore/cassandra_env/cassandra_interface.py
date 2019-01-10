@@ -159,7 +159,6 @@ class DatastoreProxy(AppDBInterface):
     self.range_query_sync = tornado_synchronous(self.range_query)
     self.get_metadata_sync = tornado_synchronous(self.get_metadata)
     self.set_metadata_sync = tornado_synchronous(self.set_metadata)
-    self.get_indices_sync = tornado_synchronous(self.get_indices)
     self.delete_table_sync = tornado_synchronous(self.delete_table)
 
   def close(self):
@@ -787,33 +786,6 @@ class DatastoreProxy(AppDBInterface):
       yield self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
                               dbconstants.DATASTORE_METADATA_SCHEMA)
       yield self.tornado_cassandra.execute(statement, parameters)
-
-  @gen.coroutine
-  def get_indices(self, app_id):
-    """ Gets the indices of the given application.
-
-    Args:
-      app_id: Name of the application.
-    Returns:
-      Returns a list of encoded entity_pb.CompositeIndex objects.
-    """
-    start_key = dbconstants.KEY_DELIMITER.join([app_id, 'index', ''])
-    end_key = dbconstants.KEY_DELIMITER.join(
-      [app_id, 'index', dbconstants.TERMINATING_STRING])
-    result = yield self.range_query(
-      dbconstants.METADATA_TABLE,
-      dbconstants.METADATA_SCHEMA,
-      start_key,
-      end_key,
-      dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES,
-      offset=0,
-      start_inclusive=True,
-      end_inclusive=True)
-    list_result = []
-    for list_item in result:
-      for key, value in list_item.iteritems():
-        list_result.append(value['data'])
-    raise gen.Return(list_result)
 
   @gen.coroutine
   def valid_data_version(self):

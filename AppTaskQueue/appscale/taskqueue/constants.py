@@ -1,4 +1,12 @@
 import re
+import socket
+import sys
+
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.ext import db
+from google.appengine.runtime import apiproxy_errors
 
 
 class EmptyQueue(Exception):
@@ -66,3 +74,7 @@ SUPPORTED_PUSH_QUEUE_FIELDS = {
 }
 
 SHUTTING_DOWN_TIMEOUT = 10  # Limit time for finishing request
+
+# Exceptions that the datastore client might raise.
+TRANSIENT_DS_ERRORS = (db.InternalError, db.Timeout, socket.error,
+                       apiproxy_errors.ApplicationError)
