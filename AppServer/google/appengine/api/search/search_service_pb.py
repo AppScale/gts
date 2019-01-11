@@ -3889,6 +3889,8 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   keys_only_ = 0
   has_parsing_mode_ = 0
   parsing_mode_ = 0
+  has_faceted_search_ = 0
+  faceted_search_ = 0
 
   def __init__(self, contents=None):
     self.index_spec_ = IndexSpec()
@@ -4062,6 +4064,19 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
 
   def has_parsing_mode(self): return self.has_parsing_mode_
 
+  def faceted_search(self): return self.faceted_search_
+
+  def set_faceted_search(self, x):
+    self.has_faceted_search_ = 1
+    self.faceted_search_ = x
+
+  def clear_faceted_search(self):
+    if self.has_faceted_search_:
+      self.has_faceted_search_ = 0
+      self.faceted_search_ = 0
+
+  def has_faceted_search(self): return self.has_faceted_search_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -4077,6 +4092,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (x.has_field_spec()): self.mutable_field_spec().MergeFrom(x.field_spec())
     if (x.has_keys_only()): self.set_keys_only(x.keys_only())
     if (x.has_parsing_mode()): self.set_parsing_mode(x.parsing_mode())
+    if (x.has_faceted_search()): self.set_faceted_search(x.faceted_search())
 
   def Equals(self, x):
     if x is self: return 1
@@ -4105,6 +4121,8 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if self.has_keys_only_ and self.keys_only_ != x.keys_only_: return 0
     if self.has_parsing_mode_ != x.has_parsing_mode_: return 0
     if self.has_parsing_mode_ and self.parsing_mode_ != x.parsing_mode_: return 0
+    if self.has_faceted_search_ != x.has_faceted_search_: return 0
+    if self.has_faceted_search_ and self.faceted_search_ != x.faceted_search_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -4139,6 +4157,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_field_spec_): n += 1 + self.lengthString(self.field_spec_.ByteSize())
     if (self.has_keys_only_): n += 2
     if (self.has_parsing_mode_): n += 1 + self.lengthVarInt64(self.parsing_mode_)
+    if (self.has_faceted_search_): n += 2
     return n + 2
 
   def ByteSizePartial(self):
@@ -4160,6 +4179,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_field_spec_): n += 1 + self.lengthString(self.field_spec_.ByteSizePartial())
     if (self.has_keys_only_): n += 2
     if (self.has_parsing_mode_): n += 1 + self.lengthVarInt64(self.parsing_mode_)
+    if (self.has_faceted_search_): n += 2
     return n
 
   def Clear(self):
@@ -4175,6 +4195,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     self.clear_field_spec()
     self.clear_keys_only()
     self.clear_parsing_mode()
+    self.clear_faceted_search()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -4215,6 +4236,9 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_parsing_mode_):
       out.putVarInt32(104)
       out.putVarInt32(self.parsing_mode_)
+    if (self.has_faceted_search_):
+      out.putVarInt32(112)
+      out.putBoolean(self.faceted_search_)
 
   def OutputPartial(self, out):
     if (self.has_index_spec_):
@@ -4257,6 +4281,9 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_parsing_mode_):
       out.putVarInt32(104)
       out.putVarInt32(self.parsing_mode_)
+    if (self.has_faceted_search_):
+      out.putVarInt32(112)
+      out.putBoolean(self.faceted_search_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -4309,6 +4336,9 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
       if tt == 104:
         self.set_parsing_mode(d.getVarInt32())
         continue
+      if tt == 112:
+        self.set_faceted_search(d.getBoolean())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -4345,6 +4375,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
       res+=prefix+">\n"
     if self.has_keys_only_: res+=prefix+("keys_only: %s\n" % self.DebugFormatBool(self.keys_only_))
     if self.has_parsing_mode_: res+=prefix+("parsing_mode: %s\n" % self.DebugFormatInt32(self.parsing_mode_))
+    if self.has_faceted_search_: res+=prefix+("faceted_search: %s\n" % self.DebugFormatBool(self.faceted_search_))
     return res
 
 
@@ -4363,6 +4394,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   kfield_spec = 10
   kkeys_only = 12
   kparsing_mode = 13
+  kfaceted_search = 14
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -4378,7 +4410,8 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     11: "offset",
     12: "keys_only",
     13: "parsing_mode",
-  }, 13)
+    14: "faceted_search",
+  }, 14)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -4394,7 +4427,8 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     11: ProtocolBuffer.Encoder.NUMERIC,
     12: ProtocolBuffer.Encoder.NUMERIC,
     13: ProtocolBuffer.Encoder.NUMERIC,
-  }, 13, ProtocolBuffer.Encoder.MAX_TYPE)
+    14: ProtocolBuffer.Encoder.NUMERIC,
+  }, 14, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -4538,6 +4572,341 @@ class SearchRequest(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.SearchRequest'
+class FacetResultValue(ProtocolBuffer.ProtocolMessage):
+  has_name_ = 0
+  name_ = ""
+  has_count_ = 0
+  count_ = 0
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def name(self): return self.name_
+
+  def set_name(self, x):
+    self.has_name_ = 1
+    self.name_ = x
+
+  def clear_name(self):
+    if self.has_name_:
+      self.has_name_ = 0
+      self.name_ = ""
+
+  def has_name(self): return self.has_name_
+
+  def count(self): return self.count_
+
+  def set_count(self, x):
+    self.has_count_ = 1
+    self.count_ = x
+
+  def clear_count(self):
+    if self.has_count_:
+      self.has_count_ = 0
+      self.count_ = 0
+
+  def has_count(self): return self.has_count_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_name()): self.set_name(x.name())
+    if (x.has_count()): self.set_count(x.count())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_name_ != x.has_name_: return 0
+    if self.has_name_ and self.name_ != x.name_: return 0
+    if self.has_count_ != x.has_count_: return 0
+    if self.has_count_ and self.count_ != x.count_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_name_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: name not set.')
+    if (not self.has_count_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: count not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.name_))
+    n += self.lengthVarInt64(self.count_)
+    return n + 2
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_name_):
+      n += 1
+      n += self.lengthString(len(self.name_))
+    if (self.has_count_):
+      n += 1
+      n += self.lengthVarInt64(self.count_)
+    return n
+
+  def Clear(self):
+    self.clear_name()
+    self.clear_count()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.name_)
+    out.putVarInt32(16)
+    out.putVarInt32(self.count_)
+
+  def OutputPartial(self, out):
+    if (self.has_name_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.name_)
+    if (self.has_count_):
+      out.putVarInt32(16)
+      out.putVarInt32(self.count_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_name(d.getPrefixedString())
+        continue
+      if tt == 16:
+        self.set_count(d.getVarInt32())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_name_: res+=prefix+("name: %s\n" % self.DebugFormatString(self.name_))
+    if self.has_count_: res+=prefix+("count: %s\n" % self.DebugFormatInt32(self.count_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kname = 1
+  kcount = 2
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "name",
+    2: "count",
+  }, 2)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    2: ProtocolBuffer.Encoder.NUMERIC,
+  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.FacetResultValue'
+class FacetResult(ProtocolBuffer.ProtocolMessage):
+  has_name_ = 0
+  name_ = ""
+  has_type_ = 0
+
+  def __init__(self, contents=None):
+    self.type_ = ContentType()
+    self.value_ = []
+    if contents is not None: self.MergeFromString(contents)
+
+  def name(self): return self.name_
+
+  def set_name(self, x):
+    self.has_name_ = 1
+    self.name_ = x
+
+  def clear_name(self):
+    if self.has_name_:
+      self.has_name_ = 0
+      self.name_ = ""
+
+  def has_name(self): return self.has_name_
+
+  def type(self): return self.type_
+
+  def mutable_type(self): self.has_type_ = 1; return self.type_
+
+  def clear_type(self):self.has_type_ = 0; self.type_.Clear()
+
+  def has_type(self): return self.has_type_
+
+  def value_size(self): return len(self.value_)
+  def value_list(self): return self.value_
+
+  def value(self, i):
+    return self.value_[i]
+
+  def mutable_value(self, i):
+    return self.value_[i]
+
+  def add_value(self):
+    x = FacetResultValue()
+    self.value_.append(x)
+    return x
+
+  def clear_value(self):
+    self.value_ = []
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_name()): self.set_name(x.name())
+    if (x.has_type()): self.mutable_type().MergeFrom(x.type())
+    for i in xrange(x.value_size()): self.add_value().CopyFrom(x.value(i))
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_name_ != x.has_name_: return 0
+    if self.has_name_ and self.name_ != x.name_: return 0
+    if self.has_type_ != x.has_type_: return 0
+    if self.has_type_ and self.type_ != x.type_: return 0
+    if len(self.value_) != len(x.value_): return 0
+    for e1, e2 in zip(self.value_, x.value_):
+      if e1 != e2: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_name_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: name not set.')
+    if (not self.has_type_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: type not set.')
+    elif not self.type_.IsInitialized(debug_strs): initialized = 0
+    for p in self.value_:
+      if not p.IsInitialized(debug_strs): initialized=0
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.name_))
+    n += self.lengthString(self.type_.ByteSize())
+    n += 1 * len(self.value_)
+    for i in xrange(len(self.value_)): n += self.lengthString(self.value_[i].ByteSize())
+    return n + 2
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_name_):
+      n += 1
+      n += self.lengthString(len(self.name_))
+    if (self.has_type_):
+      n += 1
+      n += self.lengthString(self.type_.ByteSizePartial())
+    n += 1 * len(self.value_)
+    for i in xrange(len(self.value_)): n += self.lengthString(self.value_[i].ByteSizePartial())
+    return n
+
+  def Clear(self):
+    self.clear_name()
+    self.clear_type()
+    self.clear_value()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.name_)
+    out.putVarInt32(18)
+    out.putVarInt32(self.type_.ByteSize())
+    self.type_.OutputUnchecked(out)
+    for i in xrange(len(self.value_)):
+      out.putVarInt32(26)
+      out.putVarInt32(self.value_[i].ByteSize())
+      self.value_[i].OutputUnchecked(out)
+
+  def OutputPartial(self, out):
+    if (self.has_name_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.name_)
+    if (self.has_type_):
+      out.putVarInt32(18)
+      out.putVarInt32(self.type_.ByteSizePartial())
+      self.type_.OutputPartial(out)
+    for i in xrange(len(self.value_)):
+      out.putVarInt32(26)
+      out.putVarInt32(self.value_[i].ByteSizePartial())
+      self.value_[i].OutputPartial(out)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_name(d.getPrefixedString())
+        continue
+      if tt == 18:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.mutable_type().TryMerge(tmp)
+        continue
+      if tt == 26:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.add_value().TryMerge(tmp)
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_name_: res+=prefix+("name: %s\n" % self.DebugFormatString(self.name_))
+    if self.has_type_:
+      res+=prefix+"type <\n"
+      res+=self.type_.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+    cnt=0
+    for e in self.value_:
+      elm=""
+      if printElemNumber: elm="(%d)" % cnt
+      res+=prefix+("value%s <\n" % elm)
+      res+=e.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+      cnt+=1
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kname = 1
+  ktype = 2
+  kvalue = 3
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "name",
+    2: "type",
+    3: "value",
+  }, 3)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    2: ProtocolBuffer.Encoder.STRING,
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.FacetResult'
 class SearchResult(ProtocolBuffer.ProtocolMessage):
   has_document_ = 0
   has_cursor_ = 0
@@ -4782,6 +5151,7 @@ class SearchResponse(_ExtendableProtocolMessage):
       self._extension_fields = {}
     self.result_ = []
     self.status_ = RequestStatus()
+    self.facet_result_ = []
     if contents is not None: self.MergeFromString(contents)
 
   def result_size(self): return len(self.result_)
@@ -4834,6 +5204,22 @@ class SearchResponse(_ExtendableProtocolMessage):
 
   def has_cursor(self): return self.has_cursor_
 
+  def facet_result_size(self): return len(self.facet_result_)
+  def facet_result_list(self): return self.facet_result_
+
+  def facet_result(self, i):
+    return self.facet_result_[i]
+
+  def mutable_facet_result(self, i):
+    return self.facet_result_[i]
+
+  def add_facet_result(self):
+    x = FacetResult()
+    self.facet_result_.append(x)
+    return x
+
+  def clear_facet_result(self):
+    self.facet_result_ = []
 
   def MergeFrom(self, x):
     assert x is not self
@@ -4841,6 +5227,7 @@ class SearchResponse(_ExtendableProtocolMessage):
     if (x.has_matched_count()): self.set_matched_count(x.matched_count())
     if (x.has_status()): self.mutable_status().MergeFrom(x.status())
     if (x.has_cursor()): self.set_cursor(x.cursor())
+    for i in xrange(x.facet_result_size()): self.add_facet_result().CopyFrom(x.facet_result(i))
     if _extension_runtime: self._MergeExtensionFields(x)
 
   def Equals(self, x):
@@ -4854,6 +5241,9 @@ class SearchResponse(_ExtendableProtocolMessage):
     if self.has_status_ and self.status_ != x.status_: return 0
     if self.has_cursor_ != x.has_cursor_: return 0
     if self.has_cursor_ and self.cursor_ != x.cursor_: return 0
+    if len(self.facet_result_) != len(x.facet_result_): return 0
+    for e1, e2 in zip(self.facet_result_, x.facet_result_):
+      if e1 != e2: return 0
     if _extension_runtime and not self._ExtensionEquals(x): return 0
     return 1
 
@@ -4870,6 +5260,8 @@ class SearchResponse(_ExtendableProtocolMessage):
       if debug_strs is not None:
         debug_strs.append('Required field: status not set.')
     elif not self.status_.IsInitialized(debug_strs): initialized = 0
+    for p in self.facet_result_:
+      if not p.IsInitialized(debug_strs): initialized=0
     return initialized
 
   def ByteSize(self):
@@ -4879,6 +5271,8 @@ class SearchResponse(_ExtendableProtocolMessage):
     n += self.lengthVarInt64(self.matched_count_)
     n += self.lengthString(self.status_.ByteSize())
     if (self.has_cursor_): n += 1 + self.lengthString(len(self.cursor_))
+    n += 1 * len(self.facet_result_)
+    for i in xrange(len(self.facet_result_)): n += self.lengthString(self.facet_result_[i].ByteSize())
     if _extension_runtime:
       n += self._ExtensionByteSize(False)
     return n + 2
@@ -4894,6 +5288,8 @@ class SearchResponse(_ExtendableProtocolMessage):
       n += 1
       n += self.lengthString(self.status_.ByteSizePartial())
     if (self.has_cursor_): n += 1 + self.lengthString(len(self.cursor_))
+    n += 1 * len(self.facet_result_)
+    for i in xrange(len(self.facet_result_)): n += self.lengthString(self.facet_result_[i].ByteSizePartial())
     if _extension_runtime:
       n += self._ExtensionByteSize(True)
     return n
@@ -4903,6 +5299,7 @@ class SearchResponse(_ExtendableProtocolMessage):
     self.clear_matched_count()
     self.clear_status()
     self.clear_cursor()
+    self.clear_facet_result()
     if _extension_runtime: self._extension_fields.clear()
 
   def OutputUnchecked(self, out):
@@ -4921,6 +5318,10 @@ class SearchResponse(_ExtendableProtocolMessage):
     if (self.has_cursor_):
       out.putVarInt32(34)
       out.putPrefixedString(self.cursor_)
+    for i in xrange(len(self.facet_result_)):
+      out.putVarInt32(42)
+      out.putVarInt32(self.facet_result_[i].ByteSize())
+      self.facet_result_[i].OutputUnchecked(out)
     if _extension_runtime:
       extension_index = self._OutputExtensionFields(out, False, extensions, extension_index, 10000)
 
@@ -4942,6 +5343,10 @@ class SearchResponse(_ExtendableProtocolMessage):
     if (self.has_cursor_):
       out.putVarInt32(34)
       out.putPrefixedString(self.cursor_)
+    for i in xrange(len(self.facet_result_)):
+      out.putVarInt32(42)
+      out.putVarInt32(self.facet_result_[i].ByteSizePartial())
+      self.facet_result_[i].OutputPartial(out)
     if _extension_runtime:
       extension_index = self._OutputExtensionFields(out, True, extensions, extension_index, 10000)
 
@@ -4965,6 +5370,12 @@ class SearchResponse(_ExtendableProtocolMessage):
         continue
       if tt == 34:
         self.set_cursor(d.getPrefixedString())
+        continue
+      if tt == 42:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.add_facet_result().TryMerge(tmp)
         continue
       if _extension_runtime:
         if (1000 <= tt and tt < 10000):
@@ -4992,6 +5403,14 @@ class SearchResponse(_ExtendableProtocolMessage):
       res+=self.status_.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
     if self.has_cursor_: res+=prefix+("cursor: %s\n" % self.DebugFormatString(self.cursor_))
+    cnt=0
+    for e in self.facet_result_:
+      elm=""
+      if printElemNumber: elm="(%d)" % cnt
+      res+=prefix+("facet_result%s <\n" % elm)
+      res+=e.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+      cnt+=1
     if _extension_runtime:
       res+=self._ExtensionDebugString(prefix, printElemNumber)
     return res
@@ -5006,6 +5425,7 @@ class SearchResponse(_ExtendableProtocolMessage):
   kmatched_count = 2
   kstatus = 3
   kcursor = 4
+  kfacet_result = 5
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -5013,7 +5433,8 @@ class SearchResponse(_ExtendableProtocolMessage):
     2: "matched_count",
     3: "status",
     4: "cursor",
-  }, 4)
+    5: "facet_result",
+  }, 5)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -5021,7 +5442,8 @@ class SearchResponse(_ExtendableProtocolMessage):
     2: ProtocolBuffer.Encoder.NUMERIC,
     3: ProtocolBuffer.Encoder.STRING,
     4: ProtocolBuffer.Encoder.STRING,
-  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
+    5: ProtocolBuffer.Encoder.STRING,
+  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -5030,4 +5452,4 @@ class SearchResponse(_ExtendableProtocolMessage):
 if _extension_runtime:
   pass
 
-__all__ = ['SearchServiceError','RequestStatus','IndexSpec','IndexMetadata','IndexDocumentParams','IndexDocumentRequest','IndexDocumentResponse','DeleteDocumentParams','DeleteDocumentRequest','DeleteDocumentResponse','ListDocumentsParams','ListDocumentsRequest','ListDocumentsResponse','ListIndexesParams','ListIndexesRequest','ListIndexesResponse','DeleteSchemaParams','DeleteSchemaRequest','DeleteSchemaResponse','SortSpec','ScorerSpec','FieldSpec','FieldSpec_Expression','SearchParams','SearchRequest','SearchResult','SearchResponse']
+__all__ = ['SearchServiceError','RequestStatus','IndexSpec','IndexMetadata','IndexDocumentParams','IndexDocumentRequest','IndexDocumentResponse','DeleteDocumentParams','DeleteDocumentRequest','DeleteDocumentResponse','ListDocumentsParams','ListDocumentsRequest','ListDocumentsResponse','ListIndexesParams','ListIndexesRequest','ListIndexesResponse','DeleteSchemaParams','DeleteSchemaRequest','DeleteSchemaResponse','SortSpec','ScorerSpec','FieldSpec','FieldSpec_Expression','SearchParams','SearchRequest','FacetResultValue','FacetResult','SearchResult','SearchResponse']
