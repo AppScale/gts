@@ -83,3 +83,35 @@ class TestMergeJoinQueries(AsyncTestCase):
       pass
     else:
       raise Exception('Expected BadRequest. No error was thrown.')
+
+
+class TestQueryLimit(AsyncTestCase):
+  CASSANDRA_PAGE_SIZE = 5000
+
+  def setUp(self):
+    super(TestQueryLimit, self).setUp()
+    locations = os.environ['DATASTORE_LOCATIONS'].split()
+    self.datastore = Datastore(locations, PROJECT_ID)
+
+  def tearDown(self):
+    self.tear_down_helper()
+    super(TestQueryLimit, self).tearDown()
+
+  @gen_test
+  def tear_down_helper(self):
+    query = Query('Greeting', _app=PROJECT_ID)
+    results = yield self.datastore.run_query(query)
+    for entity in results:
+      yield self.datastore.delete([entity.key()])
+
+  @gen_test
+  def test_cassandra_page_size(self):
+    entity_count = self.CASSANDRA_PAGE_SIZE + 1
+    for _ in range(entity_count):
+      entity = Entity('Greeting', _app=PROJECT_ID)
+      yield self.datastore.put(entity)
+
+    query = Query('Greeting', _app=PROJECT_ID)
+    results = yield self.datastore.run_query(query)
+    self.assertEqual(len(results), entity_count)
+    self.assertTrue(True)
