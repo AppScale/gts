@@ -1,5 +1,5 @@
-""" 
-This file contains functions for getting and setting information related 
+"""
+This file contains functions for getting and setting information related
 to AppScale and the current node/machine.
 """
 import json
@@ -101,7 +101,7 @@ def get_tq_proxy():
 
 def get_private_ip():
   """ Get the private IP of the current machine.
-  
+
   Returns:
     String containing the private IP of the current machine.
   """
@@ -109,7 +109,7 @@ def get_private_ip():
 
 def get_public_ip():
   """ Get the public IP of the current machine.
-  
+
   Returns:
     String containing the public IP of the current machine.
   """
@@ -117,31 +117,31 @@ def get_public_ip():
 
 def get_secret():
   """ Get AppScale shared security key for authentication.
-    
+
   Returns:
     String containing the secret key.
   """
   return file_io.read(constants.SECRET_LOC).rstrip()
- 
+
 def get_num_cpus():
   """ Get the number of CPU processes on the current machine.
-  
+
   Returns:
     Integer of the number of CPUs on the current machine
   """
-  return multiprocessing.cpu_count() 
+  return multiprocessing.cpu_count()
 
 def get_db_info():
   """ Get information on the database being used.
-  
+
   Returns:
     A dictionary with database info
   """
-  info = file_io.read(constants.DB_INFO_LOC) 
+  info = file_io.read(constants.DB_INFO_LOC)
   return yaml.safe_load(info)
 
 def get_taskqueue_nodes():
-  """ Returns a list of all the taskqueue nodes (including the master). 
+  """ Returns a list of all the taskqueue nodes (including the master).
       Strips off any empty lines
 
   Returns:
@@ -155,7 +155,7 @@ def get_taskqueue_nodes():
 
 def get_app_path(app_id):
   """ Returns the application path.
-  
+
   Args:
     app_id: The application id.
   Returns:
@@ -164,16 +164,16 @@ def get_app_path(app_id):
   return constants.APPS_PATH + app_id + '/app/'
 
 def get_zk_locations_string():
-  """ Returns the ZooKeeper connection host string. 
+  """ Returns the ZooKeeper connection host string.
 
   Returns:
-    A string containing one or more host:port listings, separated by commas. 
+    A string containing one or more host:port listings, separated by commas.
     None is returned if there was a problem getting the location string.
   """
   try:
-    info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE) 
-    zk_json = json.loads(info) 
-    return ":2181,".join(zk_json['locations']) + ":2181"
+    with open(constants.ZK_LOCATIONS_FILE) as locations_file:
+      return ''.join('{}:2181'.format(line.strip())
+                     for line in locations_file if line.strip())
   except IOError, io_error:
     logger.exception(io_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
@@ -195,9 +195,8 @@ def get_zk_node_ips():
     AppScale deployment.
   """
   try:
-    info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE)
-    zk_json = json.loads(info)
-    return zk_json['locations']
+    with open(constants.ZK_LOCATIONS_FILE) as locations_file:
+      return [line.strip() for line in locations_file if line.strip()]
   except IOError, io_error:
     logger.exception(io_error)
     return []

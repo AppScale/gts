@@ -88,10 +88,15 @@ INVALID_REQUEST = 'false: invalid request'.freeze
 # Engine applications via the AppController.
 APP_UPLOAD_TIMEOUT = 180
 
+# TODO get rid of json version of zookeeper locations file
 # The location on the local file system where we store information about
-# where ZooKeeper clients are located, used to backup and restore
+# where ZooKeeper servers are located, used to backup and restore
 # AppController information.
-ZK_LOCATIONS_FILE = '/etc/appscale/zookeeper_locations.json'.freeze
+ZK_LOCATIONS_JSON_FILE = '/etc/appscale/zookeeper_locations.json'.freeze
+
+# The location on the local file system where we store information about
+# where ZooKeeper servers are located.
+ZK_LOCATIONS_FILE = '/etc/appscale/zookeeper_locations'.freeze
 
 # The location of the logrotate scripts.
 LOGROTATE_DIR = '/etc/logrotate.d'.freeze
@@ -1661,6 +1666,14 @@ class Djinn
       @my_public_ip = nil
     end
 
+    # If deprecated ZK_LOCATIONS_JSON_FILE is used,
+    # convert it to regular ZK_LOCATIONS_FILE
+    if not File.exists?(ZK_LOCATIONS_FILE) and File.exists?(ZK_LOCATIONS_JSON_FILE)
+      # Read deprecated json file with zookeeper nodes.
+      zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_JSON_FILE)
+      HelperFunctions.write_file(ZK_LOCATIONS_FILE, zookeeper_data['locations'].join('\n'))
+    end
+
     # If we have the ZK_LOCATIONS_FILE, the deployment has already been
     # configured and started. We need to check if we are a zookeeper host
     # and start it if needed.
@@ -1673,8 +1686,11 @@ class Djinn
       end
 
       # Restore the initial list of zookeeper nodes.
-      zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
-      @zookeeper_data = zookeeper_data['locations']
+      zookeeper_data = []
+      File.foreach(ZK_LOCATIONS_FILE) { |line|
+        zookeeper_data << line.strip() unless line.strip().empty?
+      }
+      @zookeeper_data = zookeeper_data
       if @zookeeper_data.include?(@my_private_ip) && !is_zookeeper_running?
         # We are a zookeeper host and we need to start it.
         begin
@@ -2726,7 +2742,7 @@ class Djinn
     json_state = ''
 
     unless File.exists?(ZK_LOCATIONS_FILE)
-      Djinn.log_info("#{ZK_LOCATIONS_FILE} doesn't exist: not restoring data.")
+      Djinn.log_info("#{ZK_LOCATIONS_FILE} don't exist: not restoring data.")
       return false
     end
 
@@ -2879,27 +2895,25 @@ class Djinn
   # located so that this node has the most up-to-date info if it needs to
   # restore the data down the line.
   def write_zookeeper_locations
-    zookeeper_data = { 'last_updated_at' => Time.now.to_i,
-      'locations' => []
-    }
+    zookeeper_data = []
 
     @state_change_lock.synchronize {
       @nodes.each { |node|
         if node.is_zookeeper?
-          unless zookeeper_data['locations'].include? node.private_ip
-            zookeeper_data['locations'] << node.private_ip
+          unless zookeeper_data.include? node.private_ip
+            zookeeper_data << node.private_ip
           end
         end
       }
     }
 
     # Let's see if it changed since last time we got the list.
-    zookeeper_data['locations'].sort!
-    if zookeeper_data['locations'] != @zookeeper_data
+    zookeeper_data.sort!
+    if zookeeper_data != @zookeeper_data
       # Save the latest list of zookeeper nodes: needed to restart the
       # deployment.
-      HelperFunctions.write_json_file(ZK_LOCATIONS_FILE, zookeeper_data)
-      @zookeeper_data = zookeeper_data['locations']
+      HelperFunctions.write_file(ZK_LOCATIONS_FILE, zookeeper_data.join('\n'))
+      @zookeeper_data = zookeeper_data
       Djinn.log_debug("write_zookeeper_locations: updated list of zookeeper servers")
     end
   end
