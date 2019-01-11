@@ -5764,8 +5764,10 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
   name_ = ""
   has_count_ = 0
   count_ = 0
+  has_refinement_ = 0
 
   def __init__(self, contents=None):
+    self.refinement_ = FacetRefinement()
     if contents is not None: self.MergeFromString(contents)
 
   def name(self): return self.name_
@@ -5794,11 +5796,20 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
 
   def has_count(self): return self.has_count_
 
+  def refinement(self): return self.refinement_
+
+  def mutable_refinement(self): self.has_refinement_ = 1; return self.refinement_
+
+  def clear_refinement(self):self.has_refinement_ = 0; self.refinement_.Clear()
+
+  def has_refinement(self): return self.has_refinement_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_name()): self.set_name(x.name())
     if (x.has_count()): self.set_count(x.count())
+    if (x.has_refinement()): self.mutable_refinement().MergeFrom(x.refinement())
 
   def Equals(self, x):
     if x is self: return 1
@@ -5806,6 +5817,8 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
     if self.has_name_ and self.name_ != x.name_: return 0
     if self.has_count_ != x.has_count_: return 0
     if self.has_count_ and self.count_ != x.count_: return 0
+    if self.has_refinement_ != x.has_refinement_: return 0
+    if self.has_refinement_ and self.refinement_ != x.refinement_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -5818,13 +5831,19 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: count not set.')
+    if (not self.has_refinement_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: refinement not set.')
+    elif not self.refinement_.IsInitialized(debug_strs): initialized = 0
     return initialized
 
   def ByteSize(self):
     n = 0
     n += self.lengthString(len(self.name_))
     n += self.lengthVarInt64(self.count_)
-    return n + 2
+    n += self.lengthString(self.refinement_.ByteSize())
+    return n + 3
 
   def ByteSizePartial(self):
     n = 0
@@ -5834,17 +5853,24 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
     if (self.has_count_):
       n += 1
       n += self.lengthVarInt64(self.count_)
+    if (self.has_refinement_):
+      n += 1
+      n += self.lengthString(self.refinement_.ByteSizePartial())
     return n
 
   def Clear(self):
     self.clear_name()
     self.clear_count()
+    self.clear_refinement()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.name_)
     out.putVarInt32(16)
     out.putVarInt32(self.count_)
+    out.putVarInt32(26)
+    out.putVarInt32(self.refinement_.ByteSize())
+    self.refinement_.OutputUnchecked(out)
 
   def OutputPartial(self, out):
     if (self.has_name_):
@@ -5853,6 +5879,10 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
     if (self.has_count_):
       out.putVarInt32(16)
       out.putVarInt32(self.count_)
+    if (self.has_refinement_):
+      out.putVarInt32(26)
+      out.putVarInt32(self.refinement_.ByteSizePartial())
+      self.refinement_.OutputPartial(out)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -5862,6 +5892,12 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 16:
         self.set_count(d.getVarInt32())
+        continue
+      if tt == 26:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.mutable_refinement().TryMerge(tmp)
         continue
 
 
@@ -5873,6 +5909,10 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
     res=""
     if self.has_name_: res+=prefix+("name: %s\n" % self.DebugFormatString(self.name_))
     if self.has_count_: res+=prefix+("count: %s\n" % self.DebugFormatInt32(self.count_))
+    if self.has_refinement_:
+      res+=prefix+"refinement <\n"
+      res+=self.refinement_.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
     return res
 
 
@@ -5881,18 +5921,21 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
 
   kname = 1
   kcount = 2
+  krefinement = 3
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "name",
     2: "count",
-  }, 2)
+    3: "refinement",
+  }, 3)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.NUMERIC,
-  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
