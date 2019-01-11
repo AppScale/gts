@@ -4291,12 +4291,10 @@ class FacetAutoDetectParam(ProtocolBuffer.ProtocolMessage):
 class FacetRequest(ProtocolBuffer.ProtocolMessage):
   has_name_ = 0
   name_ = ""
-  has_type_ = 0
   has_params_ = 0
   params_ = None
 
   def __init__(self, contents=None):
-    self.type_ = ContentType()
     self.lazy_init_lock_ = thread.allocate_lock()
     if contents is not None: self.MergeFromString(contents)
 
@@ -4312,14 +4310,6 @@ class FacetRequest(ProtocolBuffer.ProtocolMessage):
       self.name_ = ""
 
   def has_name(self): return self.has_name_
-
-  def type(self): return self.type_
-
-  def mutable_type(self): self.has_type_ = 1; return self.type_
-
-  def clear_type(self):self.has_type_ = 0; self.type_.Clear()
-
-  def has_type(self): return self.has_type_
 
   def params(self):
     if self.params_ is None:
@@ -4344,15 +4334,12 @@ class FacetRequest(ProtocolBuffer.ProtocolMessage):
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_name()): self.set_name(x.name())
-    if (x.has_type()): self.mutable_type().MergeFrom(x.type())
     if (x.has_params()): self.mutable_params().MergeFrom(x.params())
 
   def Equals(self, x):
     if x is self: return 1
     if self.has_name_ != x.has_name_: return 0
     if self.has_name_ and self.name_ != x.name_: return 0
-    if self.has_type_ != x.has_type_: return 0
-    if self.has_type_ and self.type_ != x.type_: return 0
     if self.has_params_ != x.has_params_: return 0
     if self.has_params_ and self.params_ != x.params_: return 0
     return 1
@@ -4363,45 +4350,32 @@ class FacetRequest(ProtocolBuffer.ProtocolMessage):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: name not set.')
-    if (not self.has_type_):
-      initialized = 0
-      if debug_strs is not None:
-        debug_strs.append('Required field: type not set.')
-    elif not self.type_.IsInitialized(debug_strs): initialized = 0
     if (self.has_params_ and not self.params_.IsInitialized(debug_strs)): initialized = 0
     return initialized
 
   def ByteSize(self):
     n = 0
     n += self.lengthString(len(self.name_))
-    n += self.lengthString(self.type_.ByteSize())
     if (self.has_params_): n += 1 + self.lengthString(self.params_.ByteSize())
-    return n + 2
+    return n + 1
 
   def ByteSizePartial(self):
     n = 0
     if (self.has_name_):
       n += 1
       n += self.lengthString(len(self.name_))
-    if (self.has_type_):
-      n += 1
-      n += self.lengthString(self.type_.ByteSizePartial())
     if (self.has_params_): n += 1 + self.lengthString(self.params_.ByteSizePartial())
     return n
 
   def Clear(self):
     self.clear_name()
-    self.clear_type()
     self.clear_params()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.name_)
-    out.putVarInt32(18)
-    out.putVarInt32(self.type_.ByteSize())
-    self.type_.OutputUnchecked(out)
     if (self.has_params_):
-      out.putVarInt32(26)
+      out.putVarInt32(18)
       out.putVarInt32(self.params_.ByteSize())
       self.params_.OutputUnchecked(out)
 
@@ -4409,12 +4383,8 @@ class FacetRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_name_):
       out.putVarInt32(10)
       out.putPrefixedString(self.name_)
-    if (self.has_type_):
-      out.putVarInt32(18)
-      out.putVarInt32(self.type_.ByteSizePartial())
-      self.type_.OutputPartial(out)
     if (self.has_params_):
-      out.putVarInt32(26)
+      out.putVarInt32(18)
       out.putVarInt32(self.params_.ByteSizePartial())
       self.params_.OutputPartial(out)
 
@@ -4425,12 +4395,6 @@ class FacetRequest(ProtocolBuffer.ProtocolMessage):
         self.set_name(d.getPrefixedString())
         continue
       if tt == 18:
-        length = d.getVarInt32()
-        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
-        d.skip(length)
-        self.mutable_type().TryMerge(tmp)
-        continue
-      if tt == 26:
         length = d.getVarInt32()
         tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
         d.skip(length)
@@ -4445,10 +4409,6 @@ class FacetRequest(ProtocolBuffer.ProtocolMessage):
   def __str__(self, prefix="", printElemNumber=0):
     res=""
     if self.has_name_: res+=prefix+("name: %s\n" % self.DebugFormatString(self.name_))
-    if self.has_type_:
-      res+=prefix+"type <\n"
-      res+=self.type_.__str__(prefix + "  ", printElemNumber)
-      res+=prefix+">\n"
     if self.has_params_:
       res+=prefix+"params <\n"
       res+=self.params_.__str__(prefix + "  ", printElemNumber)
@@ -4460,22 +4420,19 @@ class FacetRequest(ProtocolBuffer.ProtocolMessage):
     return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
 
   kname = 1
-  ktype = 2
-  kparams = 3
+  kparams = 2
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "name",
-    2: "type",
-    3: "params",
-  }, 3)
+    2: "params",
+  }, 2)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.STRING,
-    3: ProtocolBuffer.Encoder.STRING,
-  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -4613,14 +4570,12 @@ class FacetRefinement_Range(ProtocolBuffer.ProtocolMessage):
 class FacetRefinement(ProtocolBuffer.ProtocolMessage):
   has_name_ = 0
   name_ = ""
-  has_type_ = 0
   has_value_ = 0
   value_ = ""
   has_range_ = 0
   range_ = None
 
   def __init__(self, contents=None):
-    self.type_ = ContentType()
     self.lazy_init_lock_ = thread.allocate_lock()
     if contents is not None: self.MergeFromString(contents)
 
@@ -4636,14 +4591,6 @@ class FacetRefinement(ProtocolBuffer.ProtocolMessage):
       self.name_ = ""
 
   def has_name(self): return self.has_name_
-
-  def type(self): return self.type_
-
-  def mutable_type(self): self.has_type_ = 1; return self.type_
-
-  def clear_type(self):self.has_type_ = 0; self.type_.Clear()
-
-  def has_type(self): return self.has_type_
 
   def value(self): return self.value_
 
@@ -4681,7 +4628,6 @@ class FacetRefinement(ProtocolBuffer.ProtocolMessage):
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_name()): self.set_name(x.name())
-    if (x.has_type()): self.mutable_type().MergeFrom(x.type())
     if (x.has_value()): self.set_value(x.value())
     if (x.has_range()): self.mutable_range().MergeFrom(x.range())
 
@@ -4689,8 +4635,6 @@ class FacetRefinement(ProtocolBuffer.ProtocolMessage):
     if x is self: return 1
     if self.has_name_ != x.has_name_: return 0
     if self.has_name_ and self.name_ != x.name_: return 0
-    if self.has_type_ != x.has_type_: return 0
-    if self.has_type_ and self.type_ != x.type_: return 0
     if self.has_value_ != x.has_value_: return 0
     if self.has_value_ and self.value_ != x.value_: return 0
     if self.has_range_ != x.has_range_: return 0
@@ -4703,51 +4647,38 @@ class FacetRefinement(ProtocolBuffer.ProtocolMessage):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: name not set.')
-    if (not self.has_type_):
-      initialized = 0
-      if debug_strs is not None:
-        debug_strs.append('Required field: type not set.')
-    elif not self.type_.IsInitialized(debug_strs): initialized = 0
     if (self.has_range_ and not self.range_.IsInitialized(debug_strs)): initialized = 0
     return initialized
 
   def ByteSize(self):
     n = 0
     n += self.lengthString(len(self.name_))
-    n += self.lengthString(self.type_.ByteSize())
     if (self.has_value_): n += 1 + self.lengthString(len(self.value_))
     if (self.has_range_): n += 1 + self.lengthString(self.range_.ByteSize())
-    return n + 2
+    return n + 1
 
   def ByteSizePartial(self):
     n = 0
     if (self.has_name_):
       n += 1
       n += self.lengthString(len(self.name_))
-    if (self.has_type_):
-      n += 1
-      n += self.lengthString(self.type_.ByteSizePartial())
     if (self.has_value_): n += 1 + self.lengthString(len(self.value_))
     if (self.has_range_): n += 1 + self.lengthString(self.range_.ByteSizePartial())
     return n
 
   def Clear(self):
     self.clear_name()
-    self.clear_type()
     self.clear_value()
     self.clear_range()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.name_)
-    out.putVarInt32(18)
-    out.putVarInt32(self.type_.ByteSize())
-    self.type_.OutputUnchecked(out)
     if (self.has_value_):
-      out.putVarInt32(26)
+      out.putVarInt32(18)
       out.putPrefixedString(self.value_)
     if (self.has_range_):
-      out.putVarInt32(34)
+      out.putVarInt32(26)
       out.putVarInt32(self.range_.ByteSize())
       self.range_.OutputUnchecked(out)
 
@@ -4755,15 +4686,11 @@ class FacetRefinement(ProtocolBuffer.ProtocolMessage):
     if (self.has_name_):
       out.putVarInt32(10)
       out.putPrefixedString(self.name_)
-    if (self.has_type_):
-      out.putVarInt32(18)
-      out.putVarInt32(self.type_.ByteSizePartial())
-      self.type_.OutputPartial(out)
     if (self.has_value_):
-      out.putVarInt32(26)
+      out.putVarInt32(18)
       out.putPrefixedString(self.value_)
     if (self.has_range_):
-      out.putVarInt32(34)
+      out.putVarInt32(26)
       out.putVarInt32(self.range_.ByteSizePartial())
       self.range_.OutputPartial(out)
 
@@ -4774,15 +4701,9 @@ class FacetRefinement(ProtocolBuffer.ProtocolMessage):
         self.set_name(d.getPrefixedString())
         continue
       if tt == 18:
-        length = d.getVarInt32()
-        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
-        d.skip(length)
-        self.mutable_type().TryMerge(tmp)
-        continue
-      if tt == 26:
         self.set_value(d.getPrefixedString())
         continue
-      if tt == 34:
+      if tt == 26:
         length = d.getVarInt32()
         tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
         d.skip(length)
@@ -4797,10 +4718,6 @@ class FacetRefinement(ProtocolBuffer.ProtocolMessage):
   def __str__(self, prefix="", printElemNumber=0):
     res=""
     if self.has_name_: res+=prefix+("name: %s\n" % self.DebugFormatString(self.name_))
-    if self.has_type_:
-      res+=prefix+"type <\n"
-      res+=self.type_.__str__(prefix + "  ", printElemNumber)
-      res+=prefix+">\n"
     if self.has_value_: res+=prefix+("value: %s\n" % self.DebugFormatString(self.value_))
     if self.has_range_:
       res+=prefix+"range <\n"
@@ -4813,25 +4730,22 @@ class FacetRefinement(ProtocolBuffer.ProtocolMessage):
     return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
 
   kname = 1
-  ktype = 2
-  kvalue = 3
-  krange = 4
+  kvalue = 2
+  krange = 3
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "name",
-    2: "type",
-    3: "value",
-    4: "range",
-  }, 4)
+    2: "value",
+    3: "range",
+  }, 3)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.STRING,
     3: ProtocolBuffer.Encoder.STRING,
-    4: ProtocolBuffer.Encoder.STRING,
-  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -5944,10 +5858,8 @@ class FacetResultValue(ProtocolBuffer.ProtocolMessage):
 class FacetResult(ProtocolBuffer.ProtocolMessage):
   has_name_ = 0
   name_ = ""
-  has_type_ = 0
 
   def __init__(self, contents=None):
-    self.type_ = ContentType()
     self.value_ = []
     if contents is not None: self.MergeFromString(contents)
 
@@ -5963,14 +5875,6 @@ class FacetResult(ProtocolBuffer.ProtocolMessage):
       self.name_ = ""
 
   def has_name(self): return self.has_name_
-
-  def type(self): return self.type_
-
-  def mutable_type(self): self.has_type_ = 1; return self.type_
-
-  def clear_type(self):self.has_type_ = 0; self.type_.Clear()
-
-  def has_type(self): return self.has_type_
 
   def value_size(self): return len(self.value_)
   def value_list(self): return self.value_
@@ -5992,15 +5896,12 @@ class FacetResult(ProtocolBuffer.ProtocolMessage):
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_name()): self.set_name(x.name())
-    if (x.has_type()): self.mutable_type().MergeFrom(x.type())
     for i in xrange(x.value_size()): self.add_value().CopyFrom(x.value(i))
 
   def Equals(self, x):
     if x is self: return 1
     if self.has_name_ != x.has_name_: return 0
     if self.has_name_ and self.name_ != x.name_: return 0
-    if self.has_type_ != x.has_type_: return 0
-    if self.has_type_ and self.type_ != x.type_: return 0
     if len(self.value_) != len(x.value_): return 0
     for e1, e2 in zip(self.value_, x.value_):
       if e1 != e2: return 0
@@ -6012,11 +5913,6 @@ class FacetResult(ProtocolBuffer.ProtocolMessage):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: name not set.')
-    if (not self.has_type_):
-      initialized = 0
-      if debug_strs is not None:
-        debug_strs.append('Required field: type not set.')
-    elif not self.type_.IsInitialized(debug_strs): initialized = 0
     for p in self.value_:
       if not p.IsInitialized(debug_strs): initialized=0
     return initialized
@@ -6024,36 +5920,28 @@ class FacetResult(ProtocolBuffer.ProtocolMessage):
   def ByteSize(self):
     n = 0
     n += self.lengthString(len(self.name_))
-    n += self.lengthString(self.type_.ByteSize())
     n += 1 * len(self.value_)
     for i in xrange(len(self.value_)): n += self.lengthString(self.value_[i].ByteSize())
-    return n + 2
+    return n + 1
 
   def ByteSizePartial(self):
     n = 0
     if (self.has_name_):
       n += 1
       n += self.lengthString(len(self.name_))
-    if (self.has_type_):
-      n += 1
-      n += self.lengthString(self.type_.ByteSizePartial())
     n += 1 * len(self.value_)
     for i in xrange(len(self.value_)): n += self.lengthString(self.value_[i].ByteSizePartial())
     return n
 
   def Clear(self):
     self.clear_name()
-    self.clear_type()
     self.clear_value()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.name_)
-    out.putVarInt32(18)
-    out.putVarInt32(self.type_.ByteSize())
-    self.type_.OutputUnchecked(out)
     for i in xrange(len(self.value_)):
-      out.putVarInt32(26)
+      out.putVarInt32(18)
       out.putVarInt32(self.value_[i].ByteSize())
       self.value_[i].OutputUnchecked(out)
 
@@ -6061,12 +5949,8 @@ class FacetResult(ProtocolBuffer.ProtocolMessage):
     if (self.has_name_):
       out.putVarInt32(10)
       out.putPrefixedString(self.name_)
-    if (self.has_type_):
-      out.putVarInt32(18)
-      out.putVarInt32(self.type_.ByteSizePartial())
-      self.type_.OutputPartial(out)
     for i in xrange(len(self.value_)):
-      out.putVarInt32(26)
+      out.putVarInt32(18)
       out.putVarInt32(self.value_[i].ByteSizePartial())
       self.value_[i].OutputPartial(out)
 
@@ -6077,12 +5961,6 @@ class FacetResult(ProtocolBuffer.ProtocolMessage):
         self.set_name(d.getPrefixedString())
         continue
       if tt == 18:
-        length = d.getVarInt32()
-        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
-        d.skip(length)
-        self.mutable_type().TryMerge(tmp)
-        continue
-      if tt == 26:
         length = d.getVarInt32()
         tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
         d.skip(length)
@@ -6097,10 +5975,6 @@ class FacetResult(ProtocolBuffer.ProtocolMessage):
   def __str__(self, prefix="", printElemNumber=0):
     res=""
     if self.has_name_: res+=prefix+("name: %s\n" % self.DebugFormatString(self.name_))
-    if self.has_type_:
-      res+=prefix+"type <\n"
-      res+=self.type_.__str__(prefix + "  ", printElemNumber)
-      res+=prefix+">\n"
     cnt=0
     for e in self.value_:
       elm=""
@@ -6116,22 +5990,19 @@ class FacetResult(ProtocolBuffer.ProtocolMessage):
     return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
 
   kname = 1
-  ktype = 2
-  kvalue = 3
+  kvalue = 2
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "name",
-    2: "type",
-    3: "value",
-  }, 3)
+    2: "value",
+  }, 2)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.STRING,
-    3: ProtocolBuffer.Encoder.STRING,
-  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
