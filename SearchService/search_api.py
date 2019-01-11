@@ -74,7 +74,7 @@ class SearchService():
     elif method == "Search":
       response, errcode, errdetail = self.search(http_request_data)
 
-    if response:
+    if response is not None:
       apiresponse.set_response(response)
 
     # If there was an error add it to the response.
@@ -94,7 +94,7 @@ class SearchService():
       A tuple of an encoded response, error code, and error detail.
     """
     request = search_service_pb.IndexDocumentRequest(data)
-    logging.debug("APP ID: {0}".format(request.app_id())) 
+    logging.debug("APP ID: {0}".format(request.app_id()))
     response = search_service_pb.IndexDocumentResponse()
     params = request.params()
 
@@ -152,9 +152,11 @@ class SearchService():
     Returns:
       A tuple of an encoded response, error code, and error detail.
     """
-    request = search_service_pb.ListIndexesRequest(data)
-    response = search_service_pb.ListIndexesResponse()
-    return response, 0, ""
+    return (
+      '',
+      search_service_pb.SearchServiceError.INTERNAL_ERROR,
+      "List indexes method is not implemented in AppScale SearchService yet"
+    )
   
   def list_documents(self, data):
     """ List all documents for an application.
@@ -164,12 +166,11 @@ class SearchService():
     Returns:
       A tuple of an encoded response, error code, and error detail.
     """
-    request = search_service_pb.ListDocumentsRequest(data)
-    response = search_service_pb.ListDocumentsResponse()
-    status = response.mutable_status()
-    status.set_code(
-      search_service_pb.SearchServiceError.OK)
-    return response, 0, ""
+    return (
+      '',
+      search_service_pb.SearchServiceError.INTERNAL_ERROR,
+      "List documents method is not implemented in AppScale SearchService yet"
+    )
 
   def search(self, data):
     """ Search within a document.

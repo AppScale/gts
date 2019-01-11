@@ -34,6 +34,7 @@ if not hasattr(options, 'private_ip'):
   options.define('private_ip', '<private_ip>')
 
 options.define('db_proxy', '<private_ip>')
+options.define('load_balancer_ip', '<private_ip>')
 options.define('tq_proxy', '<private_ip>')
 
 

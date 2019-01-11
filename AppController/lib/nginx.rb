@@ -36,6 +36,9 @@ module Nginx
   # Nginx sites-enabled path.
   SITES_ENABLED_PATH = File.join(NGINX_PATH, 'sites-enabled')
 
+  # Application capture regex.
+  VERSION_KEY_REGEX = /appscale-(.*_.*_.*).conf/
+
   # These ports are the one visible from outside, ie the ones that we
   # attach to running applications. Default is to have a maximum of 21
   # applications (8080-8100).
@@ -99,7 +102,7 @@ module Nginx
   # Returns:
   #   boolean: indicates if the nginx configuration has been written.
   def self.write_fullproxy_version_config(version_key, http_port, https_port,
-    my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip,
+    my_public_ip, my_private_ip, proxy_port, static_handlers, load_balancer_ip,
     language)
 
     parsing_log = "Writing proxy for #{version_key} with language " \
@@ -109,7 +112,7 @@ module Nginx
     parsing_log += "Secure handlers: #{secure_handlers}.\n"
 
     never_secure_locations = ""
-    
+
     location_params = \
         "\n\tproxy_set_header      X-Real-IP $remote_addr;" \
         "\n\tproxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;" \
@@ -228,7 +231,7 @@ server {
       proxy_buffering    off;
       tcp_nodelay        on;
       keepalive_timeout  600;
-      proxy_pass         http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
+      proxy_pass         http://#{load_balancer_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
     }
 
@@ -266,7 +269,7 @@ server {
       proxy_buffering    off;
       tcp_nodelay        on;
       keepalive_timeout  600;
-      proxy_pass         http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
+      proxy_pass         http://#{load_balancer_ip}:#{CHANNELSERVER_PORT}/http-bind;
       proxy_read_timeout 120;
     }
 
@@ -309,6 +312,11 @@ CONFIG
     config_name = "appscale-#{version_key}.#{CONFIG_EXTENSION}"
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
     Nginx.reload
+  end
+
+  def self.list_sites_enabled
+    dir_app_regex = "appscale-*_*_*.#{CONFIG_EXTENSION}"
+    return Dir.glob(File.join(SITES_ENABLED_PATH, dir_app_regex))
   end
 
   # Removes all the enabled sites
@@ -470,3 +478,4 @@ CONFIG
     HelperFunctions.shell('service nginx restart')
   end
 end
+

@@ -16,9 +16,6 @@ if [ -z "${APPSCALE_PACKAGE_MIRROR-}" ]; then
 fi
 
 JAVA_VERSION="java-8-openjdk"
-case "${DIST}" in
-    wheezy) JAVA_VERSION="java-7-openjdk" ;;
-esac
 
 export UNAME_MACHINE=$(uname -m)
 if [ -z "${JAVA_HOME_DIRECTORY-}" ]; then
@@ -312,7 +309,11 @@ installgems()
         gem install --local ${PACKAGE_CACHE}/${CUSTOM_ZK_GEM}
     fi
     sleep 1
-    gem install json ${GEMOPT} -v 1.8.3
+    if [ "${ruby_major_version}" -lt "2" ]; then
+        gem install json ${GEMOPT} -v 1.8.3
+    else
+        gem install json ${GEMOPT}
+    fi
     sleep 1
     gem install soap4r-ng ${GEMOPT} -v 2.0.3
     gem install httparty ${GEMOPT} -v 0.14.0
@@ -529,13 +530,6 @@ postinstallejabberd()
     fi
 }
 
-installpsutil()
-{
-    case ${DIST} in
-        wheezy) pipwrapper psutil ;;
-    esac
-}
-
 installapiclient()
 {
     # The InfrastructureManager requires the Google API client.
@@ -643,7 +637,7 @@ installapiserver()
     # The activate script fails under `set -u`.
     unset_opt=$(shopt -po nounset)
     case ${DIST} in
-        wheezy|trusty)
+        trusty)
             # Tornado 5 does not work with Python<2.7.9.
             tornado_package='tornado<5'
             ;;
@@ -677,7 +671,7 @@ upgradepip()
     # local packages with optional dependencies. Versions greater than Pip 9
     # do not allow replacing packages installed by the distro.
     case "$DIST" in
-        wheezy|trusty)
+        trusty)
             pipwrapper 'pip<10'
             # Account for the change in the path to the pip binary.
             hash -r

@@ -1527,14 +1527,10 @@ class Djinn
     lock_obtained = NODETOOL_LOCK.try_lock
     begin
       return NOT_READY unless lock_obtained
-      output = `"#{NODETOOL}" status`
-      ready = false
-      output.split("\n").each { |line|
-        ready = true if line.start_with?('UN') && line.include?(primary_ip)
-      }
+      ready = nodes_ready.include?(primary_ip)
       return "#{ready}"
     ensure
-      NODETOOL_LOCK.unlock
+      NODETOOL_LOCK.unlock if lock_obtained
     end
   end
 
@@ -1604,54 +1600,6 @@ class Djinn
       Djinn.log_warn("Failed to talk to the UserAppServer while setting admin role " \
         "for the user #{username}.")
     end
-  end
-
-  # Removes a version and stops all AppServers hosting it.
-  #
-  # Args:
-  #   version_key: The version to stop
-  #   secret: Shared key for authentication
-  #
-  def stop_version(version_key, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-
-    unless my_node.is_shadow?
-      Djinn.log_debug(
-        "Sending stop_version call for #{version_key} to shadow.")
-      acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
-      begin
-        return acc.stop_version(version_key)
-      rescue FailedNodeException
-        Djinn.log_warn(
-          "Failed to forward stop_version call to shadow (#{get_shadow}).")
-        return NOT_READY
-      end
-    end
-
-    project_id, _service_id, _version_id = version_key.split(
-      VERSION_PATH_SEPARATOR)
-    if RESERVED_APPS.include?(project_id)
-      return "false: #{project_id} is a reserved app."
-    end
-    Djinn.log_info("Shutting down #{version_key}")
-
-    # Since stopping an application can take some time, we do it in a
-    # thread.
-    Thread.new {
-      # If this node has any information about AppServers for this version,
-      # clear that information out.
-      APPS_LOCK.synchronize {
-        @app_info_map.delete(version_key)
-        @versions_loaded = @versions_loaded - [version_key]
-      }
-
-      # To prevent future deploys from using the old application code, we
-      # force a removal of the application status on disk (for example the
-      # code and cronjob) right now.
-      check_stopped_apps
-    }
-
-    'true'
   end
 
   def get_all_public_ips(secret)
@@ -1806,6 +1754,9 @@ class Djinn
     # Check that services are up before proceeding into the duty cycle.
     check_api_services
 
+    # Make sure we have the first state saved in zookeeper.
+    backup_appcontroller_state if my_node.is_shadow?
+
     # This variable is used to keep track of the last time we printed some
     # statistics to the log.
     last_print = Time.now.to_i
@@ -1834,26 +1785,31 @@ class Djinn
       # restore_appcontroller_state modifies them.
       old_options = @options.clone
       old_jobs = my_node.jobs
-
-      # The following is the core of the duty cycle: start new apps,
-      # restart apps, terminate non-responsive AppServers, and autoscale.
-
-      # Every other node syncs its state with the login node state. The
-      # load_balancers need to check the applications that got loaded
-      # this time, to setup the routing.
       my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
-      if my_node.is_shadow?
-        write_tools_config
-        update_node_info_cache
-        backup_appcontroller_state
-      elsif !restore_appcontroller_state
-        @state = "Couldn't reach the deployment state: now in isolated mode"
-        Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
-        next
+
+      # The appcontroller state is a misnomer, since it contains the state
+      # of the deployment that each node needs to reload. For example it
+      # contains the current listing of AppServers and Nodes.
+      unless restore_appcontroller_state
+        # Master is responsible to populate the state for the other nodes
+        # consumption, and since we know we could talk to zookeeper,
+        # master needs to go ahead and write the state.
+        unless my_node.is_shadow?
+          @state = "Couldn't reach the deployment state: now in isolated mode"
+          Djinn.log_warn("Cannot talk to zookeeper: in isolated mode.")
+          next
+        end
       end
 
       # We act here if options or roles for this node changed.
       check_role_change(old_options, old_jobs)
+
+      # The master node has more work to do.
+      if my_node.is_shadow?
+        write_tools_config
+        update_node_info_cache
+        backup_appcontroller_state
+      end
 
       # Load balancers (and shadow) needs to setup new applications.
       if my_node.is_load_balancer?
@@ -1877,11 +1833,13 @@ class Djinn
         }
       end
 
-      # Detect applications that have been undeployed and terminate all
-      # running AppServers.
-      check_stopped_apps
-
-      # Load balancers and shadow need to check/update nginx/haproxy.
+      # Load balancers and shadow need to check/update applications that have
+      # been undeployed and nginx/haproxy.
+      if my_node.is_shadow? or my_node.is_load_balancer?
+        APPS_LOCK.synchronize {
+          check_stopped_apps
+        }
+      end
       if my_node.is_load_balancer?
         update_db_haproxy
         APPS_LOCK.synchronize {
@@ -2820,6 +2778,12 @@ class Djinn
     # which node in @nodes is ours
     find_me_in_locations
 
+    # Usually we don't expect the master node to see a change in the state
+    # (since it is the one which saves it), so we leave a note here.
+    if my_node.is_shadow?
+      Djinn.log_warn("Detected a change in the master state #{json_state}.")
+    end
+
     return true
   end
 
@@ -3254,18 +3218,18 @@ class Djinn
         end
       }
     else
-      stop_groomer_service
-      GroomerService.stop_transaction_groomer
+      threads << Thread.new {
+        stop_groomer_service
+        GroomerService.stop_transaction_groomer
+      }
     end
 
     start_admin_server
 
     if my_node.is_memcache?
-      threads << Thread.new {
-        start_memcache
-      }
+      threads << Thread.new { start_memcache }
     else
-      stop_memcache
+      threads << Thread.new { stop_memcache }
     end
 
     if my_node.is_load_balancer?
@@ -3274,8 +3238,10 @@ class Djinn
         configure_tq_routing
       }
     else
-      remove_tq_endpoints
-      stop_ejabberd
+      threads << Thread.new {
+        remove_tq_endpoints
+        stop_ejabberd
+      }
     end
 
     # The headnode needs to ensure we have the appscale user, and it needs
@@ -3293,35 +3259,31 @@ class Djinn
         start_blobstore_server
       }
     else
-      stop_app_manager_server
-      stop_blobstore_server
+      threads << Thread.new {
+        stop_app_manager_server
+        stop_blobstore_server
+      }
     end
 
     if my_node.is_search?
-      threads << Thread.new {
-        start_search_role
-      }
+      threads << Thread.new { start_search_role }
     else
-      stop_search_role
+      threads << Thread.new { stop_search_role }
     end
 
     if my_node.is_taskqueue_master?
-      threads << Thread.new {
-        start_taskqueue_master
-      }
+      threads << Thread.new { start_taskqueue_master }
     elsif my_node.is_taskqueue_slave?
-      threads << Thread.new {
-        start_taskqueue_slave
-      }
+      threads << Thread.new { start_taskqueue_slave }
     else
-      stop_taskqueue
+      threads << Thread.new { stop_taskqueue }
     end
 
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
-    Djinn.log_info("Waiting for all services to finish starting up")
+    Djinn.log_info("Waiting for relevant services to finish starting up,")
     threads.each { |t| t.join }
-    Djinn.log_info("API services have started on this node")
+    Djinn.log_info("API services have started on this node.")
 
     # Start Hermes with integrated stats service
     start_hermes
@@ -4054,7 +4016,6 @@ HOSTS
     Djinn.log_debug("Regenerating nginx and haproxy config files for apps.")
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    login_ip = @options['login']
 
     @versions_loaded.each { |version_key|
       project_id, service_id, version_id = version_key.split(
@@ -4063,13 +4024,6 @@ HOSTS
         version_details = ZKInterface.get_version_details(
           project_id, service_id, version_id)
       rescue VersionNotFound
-        Djinn.log_debug("Removing routing for #{version_key} since it " \
-                        "should not be running.")
-        Nginx.remove_version(version_key)
-        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-          CronHelper.clear_app_crontab(project_id)
-        end
-        HAProxy.remove_version(version_key)
         next
       end
 
@@ -4142,7 +4096,8 @@ HOSTS
 
         Nginx.write_fullproxy_version_config(
           version_key, http_port, https_port, my_public, my_private,
-          proxy_port, static_handlers, login_ip, app_language)
+          proxy_port, static_handlers, get_load_balancer.private_ip,
+          app_language)
       end
     }
     Djinn.log_debug("Done updating nginx and haproxy config files.")
@@ -4426,7 +4381,7 @@ HOSTS
     @state = "Starting up XMPP server"
     my_public = my_node.public_ip
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_config_file(my_public)
+    Ejabberd.write_config_file(my_public, my_node.private_ip)
     Ejabberd.update_ctl_config
 
     # Monit does not have an entry for ejabberd yet. This allows a restart
@@ -4544,8 +4499,11 @@ HOSTS
 
     datastore_location = [get_load_balancer.private_ip,
                           DatastoreServer::PROXY_PORT].join(':')
+    taskqueue_location = [get_load_balancer.private_ip,
+                          TaskQueue::HAPROXY_PORT].join(':')
     source_archive = AppDashboard.prep(
-      my_public, my_private, PERSISTENT_MOUNT_POINT, datastore_location)
+      my_public, my_private, PERSISTENT_MOUNT_POINT, datastore_location,
+      taskqueue_location)
 
     self.deploy_dashboard(source_archive)
   end
@@ -4597,49 +4555,110 @@ HOSTS
 
   # This function ensures that applications we are not aware of (that is
   # they are not accounted for) will be terminated and, potentially old
-  # sources, will be removed.
+  # sources, will be removed. Must be called under APPS_LOCK.
   def check_stopped_apps
     Djinn.log_debug("Checking applications that have been stopped.")
-    version_list = HelperFunctions.get_loaded_versions
     begin
-      configured_versions = ZKInterface.get_versions
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn(
-        'Failed to fetch configured versions when checking stopped apps')
+      zookeeper_versions = ZKInterface.get_versions
+    rescue FailedZooKeeperOperationException => e
+      Djinn.log_warn("Failed to get list of versions in zookeeper. Error: " \
+        "#{e}.message")
       return
     end
+    Djinn.log_info("check_stopped_apps: Versions running: #{zookeeper_versions}")
+    removed_versions = []
+    if my_node.is_shadow?
+      CronHelper.list_app_crontabs.each { |app|
+        match = app.match(CronHelper::PROJECT_ID_REGEX)
+        next if match.nil?
 
-    version_list.each { |version_key|
-      project_id, service_id, version_id = version_key.split(
-        VERSION_PATH_SEPARATOR)
-      next if configured_versions.include?(version_key)
-      next if RESERVED_APPS.include?(project_id)
+        project_id = match.captures.first
+        default_version_key = "#{project_id}_#{DEFAULT_SERVICE}_#{DEFAULT_VERSION}"
 
-      Djinn.log_info(
-        "#{version_key} is no longer running: removing old states.")
+        next if zookeeper_versions.include?(default_version_key)
 
-      if my_node.is_load_balancer?
-        if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-          stop_xmpp_for_app(project_id)
-        end
-        Nginx.remove_version(version_key)
+        next if RESERVED_APPS.include?(project_id)
 
-        # Since the removal of an app from HAProxy can cause a reset of
-        # the drain flags, let's set them again.
-        HAProxy.remove_version(version_key)
-      end
+        Djinn.log_info(
+          "#{default_version_key} is no longer running: removing crontabs.")
+        CronHelper.clear_app_crontab(project_id)
+        removed_versions << default_version_key
+      }
+      Dir.glob("/etc/rsyslog.d/10-*_*_*.conf").each { |app|
+        match = app.match(/10-(.*_.*_.*).conf/)
+        next if match.nil?
 
-      if my_node.is_shadow?
-        Djinn.log_info("Removing log configuration for #{version_key}.")
+        version_key = match.captures.first
+        next if zookeeper_versions.include?(version_key)
+
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+        next if RESERVED_APPS.include?(project_id)
+
+        Djinn.log_info(
+          "#{version_key} is no longer running: removing log configuration.")
         FileUtils.rm_f(get_rsyslog_conf(version_key))
         HelperFunctions.shell("service rsyslog restart")
-      end
+        removed_versions << version_key
+      }
+    end
+    if my_node.is_load_balancer?
+      MonitInterface.running_xmpp.each { |xmpp_app|
+        match = xmpp_app.match(/xmpp-(.*)/)
+        next if match.nil?
 
-      if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION
-        CronHelper.clear_app_crontab(project_id)
-      end
-      Djinn.log_debug("Done cleaning up after stopped version #{version_key}.")
-    }
+        project_id = match.captures.first
+        default_version_key = "#{project_id}_#{DEFAULT_SERVICE}_#{DEFAULT_VERSION}"
+        next if zookeeper_versions.include?(default_version_key)
+
+        next if RESERVED_APPS.include?(project_id)
+
+        Djinn.log_info(
+          "#{default_version_key} is no longer running: stopping xmpp for application.")
+        stop_xmpp_for_app(project_id)
+        removed_versions << default_version_key
+      }
+      HAProxy.list_sites_enabled.each { |site|
+        match = site.match(HAProxy::VERSION_KEY_REGEX)
+        next if match.nil?
+
+        version_key = match.captures.first
+        next if zookeeper_versions.include?(version_key)
+
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+        next if RESERVED_APPS.include?(project_id)
+
+        Djinn.log_info(
+          "#{version_key} is no longer running: removing HAProxy state.")
+        HAProxy.remove_version(version_key)
+        removed_versions << version_key
+      }
+      Nginx.list_sites_enabled.each { |site|
+        match = site.match(Nginx::VERSION_KEY_REGEX)
+        next if match.nil?
+
+        version_key = match.captures.first
+        next if zookeeper_versions.include?(version_key)
+
+        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+        next if RESERVED_APPS.include?(project_id)
+
+        Djinn.log_info(
+          "#{version_key} is no longer running: removing Nginx state.")
+        Nginx.remove_version(version_key)
+        removed_versions << version_key
+      }
+    end
+
+    # If this node has any information about AppServers for this version,
+    # clear that information out.
+    if my_node.is_shadow?
+      removed_versions.each { |version_key|
+        @app_info_map.delete(version_key)
+      }
+    end
+
+    # Remove versions from versions_loaded.
+    @versions_loaded = @versions_loaded - removed_versions
   end
 
   # Small utility function that returns the full path for the rsyslog
@@ -5651,7 +5670,8 @@ HOSTS
 
     if Ejabberd.does_app_need_receive?(app)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/" \
-        "xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+        "xmpp_receiver.py #{app} #{login_ip} " \
+        "#{get_load_balancer.private_ip} #{@@secret}"
       MonitInterface.start(watch_name, start_cmd)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
@@ -5812,3 +5832,4 @@ HOSTS
     JSON.dump(content)
   end
 end
+

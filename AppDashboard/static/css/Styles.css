@@ -647,3 +647,9 @@ ol.ae-even {
   padding: 1em;
   display: inline-block;
 }
+
+/* Pull Queue Viewer */
+#taskTable td, th {
+  padding: .5em 1.5em .5em 0;
+  border-bottom: 1px solid #c6c6c6;
+}

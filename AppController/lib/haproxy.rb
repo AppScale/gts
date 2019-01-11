@@ -78,6 +78,9 @@ module HAProxy
   # The number of seconds HAProxy should wait for a server response.
   HAPROXY_SERVER_TIMEOUT = 600
 
+  # The version key regex.
+  VERSION_KEY_REGEX = /#{HelperFunctions::GAE_PREFIX}(.*_.*_.*).#{CONFIG_EXTENSION}/
+
   # Start HAProxy for API services.
   def self.services_start
     start_cmd = "#{HAPROXY_BIN} -f #{SERVICE_MAIN_FILE} -D " \
@@ -277,6 +280,11 @@ module HAProxy
     HAProxy.regenerate_config
   end
 
+  def self.list_sites_enabled
+    dir_app_regex = "#{HelperFunctions::GAE_PREFIX}*_*_*.#{CONFIG_EXTENSION}"
+    return Dir.glob(File.join(SITES_ENABLED_PATH, dir_app_regex))
+  end
+
   # Removes all the enabled sites
   def self.clear_sites_enabled
     [SITES_ENABLED_PATH, SERVICE_SITES_PATH].each { |path|
@@ -375,3 +383,4 @@ CONFIG
     }
   end
 end
+

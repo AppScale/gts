@@ -67,14 +67,6 @@ fi
 export APPSCALE_HOME_RUNTIME=`pwd`
 export CONFIG_DIR="/etc/appscale"
 
-# Wheezy does not have HAProxy in its main repositories.
-if [ "${DIST}" = "wheezy" ]; then
-    echo deb http://httpredir.debian.org/debian wheezy-backports main > \
-      /etc/apt/sources.list.d/backports.list
-    curl https://haproxy.debian.net/bernat.debian.org.gpg | apt-key add -
-fi
-
-
 # Ensure we have apt-add-repository. On some very small/custom builds it
 # may be missing (for example docker).
 if ! which apt-add-repository > /dev/null ; then
@@ -83,7 +75,7 @@ if ! which apt-add-repository > /dev/null ; then
     echo "done."
 fi
 
-# Trusty and Wheezy do not have Java 8.
+# Trusty does not have Java 8.
 case "$DIST" in
     trusty)
         apt-add-repository -y ppa:openjdk-r/ppa
@@ -91,23 +83,16 @@ case "$DIST" in
         ${PKG_CMD} update > /dev/null
         echo "done."
         ;;
-    wheezy)
-        echo "This script does not automatically install Java 8 on Debian "\
-        "Wheezy due to the lack of official support for OpenJDK 8 in the "\
-        "distro. Since a Java 8 runtime is needed for Cassandra, please "\
-        "install one manually and change the JAVA path defined in "\
-        "AppDB/appscale/datastore/cassandra_env/templates/cassandra-env.sh "\
-        "before starting AppScale."
-        read -p "Press [Enter] to continue build."
-        ;;
 esac
 
-# Stretch requires ejabberd to be installed before rabbitmq-server because
+# Newer versions of ejabberd must be installed before rabbitmq-server because
 # if RabbitMQ starts first, it will start an incompatible epmd daemon that will
 # prevent ejabberd from being installed.
-if [ "${DIST}" = "stretch" ]; then
-    apt-get install --assume-yes ejabberd
-fi
+case ${DIST} in
+    stretch|bionic)
+        apt-get install --assume-yes ejabberd
+        ;;
+esac
 
 # Ejabberd fails creating a cert on Azure because of domain name length, if
 # the file exists already it will skip creating it and not fail. We use the
@@ -139,22 +124,6 @@ if [ "${DIST}" = "jessie" ]; then
     apt-get -t jessie-backports -y install capnproto
     apt-get -t jessie-backports -y install openjdk-8-jdk-headless
 fi
-
-# Let's make sure we use ruby 1.9.
-case ${DIST} in
-    wheezy)
-        ${PKG_CMD} install -y ruby1.9.1 ruby1.9.1-dev rubygems1.9.1 irb1.9.1 \
-            ri1.9.1 rdoc1.9.1 build-essential libopenssl-ruby1.9.1 libssl-dev \
-            zlib1g-dev
-        update-alternatives --install /usr/bin/ruby ruby /usr/bin/ruby1.9.1 400 \
-            --slave   /usr/share/man/man1/ruby.1.gz ruby.1.gz \
-                          /usr/share/man/man1/ruby1.9.1.1.gz \
-            --slave   /usr/bin/ri ri /usr/bin/ri1.9.1 \
-            --slave /usr/bin/irb irb /usr/bin/irb1.9.1 \
-            --slave /usr/bin/rdoc rdoc /usr/bin/rdoc1.9.1
-        update-alternatives --install /usr/bin/gem gem /usr/bin/gem1.9.1 400
-        ;;
-esac
 
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
