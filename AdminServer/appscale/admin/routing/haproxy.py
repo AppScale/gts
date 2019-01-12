@@ -63,7 +63,7 @@ class HAProxyAppVersion(object):
     bind_location = ':'.join([self._private_ip, str(self.port)])
     return self.VERSION_TEMPLATE.format(
       version=self.version_key, bind_location=bind_location,
-      servers='\n'.join(server_lines))
+      servers='\n  '.join(server_lines))
 
 
 class HAProxy(object):
