@@ -97,7 +97,7 @@ class InstancesHandler(web.RequestHandler):
 
   def initialize(self, agent_factory):
     """ Defines required resources to handle requests.
-4
+
     Args:
       agent_factory: An Agent Factory.
     """
