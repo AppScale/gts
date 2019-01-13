@@ -27,7 +27,7 @@ class VersionRoutingManager(object):
       haproxy: An HAProxy object.
     """
     # Indicates that the watch is still needed.
-    self.active = True
+    self._active = True
 
     self._version_key = version_key
     self._haproxy = haproxy
@@ -46,6 +46,14 @@ class VersionRoutingManager(object):
       project_id, service_id, version_id)
     self._zk_client.DataWatch(version_node, self._update_version_watch)
 
+  def stop(self):
+    """ Stops routing all instances for the version. """
+    self._active = False
+    self._instances = []
+    self._port = None
+    self._max_connections = None
+    self._update_version_block()
+
   def _update_instances(self, instances):
     """ Handles changes to list of registered instances.
 
@@ -61,7 +69,7 @@ class VersionRoutingManager(object):
     Args:
       versions: A list of strings specifying registered instances.
     """
-    if not self.active:
+    if not self._active:
       return False
 
     IOLoop.instance().add_callback(self._update_instances, instances)
@@ -72,13 +80,13 @@ class VersionRoutingManager(object):
     Args:
       encoded_version: A JSON-encoded string containing version details.
     """
-    try:
-      version_details = json.loads(encoded_version)
-    except (TypeError, ValueError):
+    if encoded_version is None:
       self._port = None
       self._max_connections = None
-      logger.warning('Invalid version details: {}'.format(encoded_version))
+      self._update_version_block()
       return
+
+    version_details = json.loads(encoded_version)
 
     # If the threadsafe value is not defined, the application can handle
     # concurrent requests.
@@ -98,7 +106,10 @@ class VersionRoutingManager(object):
 
     # If the port or max_connections is not known, it's not possible to route
     # the version.
-    if not self._port or not self._max_connections:
+    if (self._port is None or self._max_connections is None or
+        not self._instances):
+      self._haproxy.versions.pop(self._version_key, None)
+      self._haproxy.reload()
       return
 
     if self._version_key not in self._haproxy.versions:
@@ -117,7 +128,7 @@ class VersionRoutingManager(object):
     Args:
       version_details: A JSON-encoded string containing version details.
     """
-    if not self.active:
+    if not self._active:
       return False
 
     IOLoop.instance().add_callback(self._update_version, version_details)
@@ -156,7 +167,7 @@ class RoutingManager(object):
     to_stop = [version for version in self._versions
                if version not in new_version_list]
     for version_key in to_stop:
-      self._versions[version_key].active = False
+      self._versions[version_key].stop()
       del self._versions[version_key]
 
     for version_key in new_version_list:
