@@ -61,7 +61,6 @@ from .constants import (
   VALID_RUNTIMES,
   VersionNotChanged
 )
-from .controller_state import ControllerState
 from .operation import (
   DeleteServiceOperation,
   CreateVersionOperation,
@@ -1294,8 +1293,7 @@ def main():
 
   if options.private_ip in appscale_info.get_load_balancer_ips():
     logger.info('Starting RoutingManager')
-    controller_state = ControllerState(zk_client)
-    routing_manager = RoutingManager(zk_client, controller_state)
+    routing_manager = RoutingManager(zk_client)
     routing_manager.start()
 
   service_manager = ServiceManager(zk_client)

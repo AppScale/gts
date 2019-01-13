@@ -2,10 +2,13 @@
 import json
 import logging
 
+from tornado import gen
 from tornado.ioloop import IOLoop
 
+from appscale.admin.constants import CONTROLLER_STATE_NODE
 from appscale.admin.routing.haproxy import HAProxy, HAProxyAppVersion
-from appscale.common.async_retrying import retry_children_watch_coroutine
+from appscale.common.async_retrying import (
+  retry_children_watch_coroutine, retry_data_watch_coroutine)
 from appscale.common.constants import (VERSION_PATH_SEPARATOR,
                                        VERSION_REGISTRATION_NODE)
 
@@ -46,14 +49,16 @@ class VersionRoutingManager(object):
       project_id, service_id, version_id)
     self._zk_client.DataWatch(version_node, self._update_version_watch)
 
+  @gen.coroutine
   def stop(self):
     """ Stops routing all instances for the version. """
     self._active = False
     self._instances = []
     self._port = None
     self._max_connections = None
-    self._update_version_block()
+    yield self._update_version_block()
 
+  @gen.coroutine
   def _update_instances(self, instances):
     """ Handles changes to list of registered instances.
 
@@ -61,7 +66,7 @@ class VersionRoutingManager(object):
       versions: A list of strings specifying registered instances.
     """
     self._instances = instances
-    self._update_version_block()
+    yield self._update_version_block()
 
   def _update_instances_watch(self, instances):
     """ Handles changes to list of registered instances.
@@ -74,6 +79,7 @@ class VersionRoutingManager(object):
 
     IOLoop.instance().add_callback(self._update_instances, instances)
 
+  @gen.coroutine
   def _update_version(self, encoded_version):
     """ Handles changes to the version details.
 
@@ -83,7 +89,7 @@ class VersionRoutingManager(object):
     if encoded_version is None:
       self._port = None
       self._max_connections = None
-      self._update_version_block()
+      yield self._update_version_block()
       return
 
     version_details = json.loads(encoded_version)
@@ -99,8 +105,9 @@ class VersionRoutingManager(object):
     self._port = version_details.get('appscaleExtensions', {}).\
       get('haproxyPort')
 
-    self._update_version_block()
+    yield self._update_version_block()
 
+  @gen.coroutine
   def _update_version_block(self):
     """ Updates HAProxy's version configuration and triggers a reload. """
 
@@ -109,7 +116,7 @@ class VersionRoutingManager(object):
     if (self._port is None or self._max_connections is None or
         not self._instances):
       self._haproxy.versions.pop(self._version_key, None)
-      self._haproxy.reload()
+      yield self._haproxy.reload()
       return
 
     if self._version_key not in self._haproxy.versions:
@@ -120,7 +127,7 @@ class VersionRoutingManager(object):
     haproxy_app_version.port = self._port
     haproxy_app_version.max_connections = self._max_connections
     haproxy_app_version.servers = self._instances
-    self._haproxy.reload()
+    yield self._haproxy.reload()
 
   def _update_version_watch(self, version_details, _):
     """ Handles changes to the version details.
@@ -136,26 +143,28 @@ class VersionRoutingManager(object):
 
 class RoutingManager(object):
   """ Configures routing for AppServer instances. """
-  def __init__(self, zk_client, controller_state):
+  def __init__(self, zk_client):
     """ Creates a new RoutingManager object.
 
     Args:
       zk_client: A KazooClient.
-      controller_state: A ControllerState object.
     """
-    self._controller_state = controller_state
     self._haproxy = HAProxy()
     self._versions = {}
     self._zk_client = zk_client
 
   def start(self):
     """ Starts updating routing configuration. """
-    self._controller_state.add_callback(self._handle_controller_update)
+    # Subscribe to changes in controller state, which includes the HAProxy
+    # connect timeout.
+    self._zk_client.DataWatch(CONTROLLER_STATE_NODE,
+                              self._controller_state_watch)
 
     self._zk_client.ensure_path(VERSION_REGISTRATION_NODE)
     self._zk_client.ChildrenWatch(VERSION_REGISTRATION_NODE,
                                   self._update_versions_watch)
 
+  @gen.coroutine
   def _update_versions(self, new_version_list):
     """ Handles changes to list of registered versions.
 
@@ -167,7 +176,7 @@ class RoutingManager(object):
     to_stop = [version for version in self._versions
                if version not in new_version_list]
     for version_key in to_stop:
-      self._versions[version_key].stop()
+      yield self._versions[version_key].stop()
       del self._versions[version_key]
 
     for version_key in new_version_list:
@@ -185,21 +194,34 @@ class RoutingManager(object):
       VERSION_REGISTRATION_NODE, self._update_versions)
     IOLoop.instance().add_callback(persistent_update_versions, versions)
 
-  def _handle_controller_update(self, state):
-    """ Handles changes to the controller state.
+  @gen.coroutine
+  def _update_controller_state(self, encoded_controller_state):
+    """ Handles updates to controller state.
 
     Args:
-      state: A dictionary containing the updated controller state.
+      encoded_controller_state: A JSON-encoded string containing controller
+        state.
     """
-    connect_timeout_ms = state.get('@options', {}).\
-      get('lb_connect_timeout', HAProxy.DEFAULT_CONNECT_TIMEOUT * 1000)
-    try:
-      connect_timeout_ms = int(connect_timeout_ms)
-    except ValueError:
-      logger.warning(
-        'Invalid lb_connect_timeout value: {}'.format(connect_timeout_ms))
-      connect_timeout_ms = HAProxy.DEFAULT_CONNECT_TIMEOUT * 1000
+    if not encoded_controller_state:
+      return
+
+    controller_state = json.loads(encoded_controller_state)
+
+    connect_timeout_ms = int(controller_state.get('@options', {}).\
+      get('lb_connect_timeout', HAProxy.DEFAULT_CONNECT_TIMEOUT * 1000))
 
     if connect_timeout_ms != self._haproxy.connect_timeout_ms:
       self._haproxy.connect_timeout_ms = connect_timeout_ms
-      self._haproxy.reload()
+      yield self._haproxy.reload()
+
+  def _controller_state_watch(self, encoded_controller_state, _):
+    """ Handles updates to controller state.
+
+    Args:
+      encoded_controller_state: A JSON-encoded string containing controller
+        state.
+    """
+    persistent_update_controller_state = retry_data_watch_coroutine(
+      CONTROLLER_STATE_NODE, self._update_controller_state)
+    IOLoop.instance().add_callback(
+      persistent_update_controller_state, encoded_controller_state)
