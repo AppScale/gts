@@ -116,7 +116,7 @@ class HAProxy(object):
       A string containing a complete HAProxy configuration.
     """
     unique_ports = set()
-    for version_key, version in self.versions.items():
+    for version in self.versions.values():
       if version.port in unique_ports:
         raise InvalidConfig('Port {} is used by more than one '
                             'version'.format(version.port))
