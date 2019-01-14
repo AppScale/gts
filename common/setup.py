@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name='appscale-common',
-  version='0.0.3',
+  version='0.0.5',
   description='Modules used by multiple AppScale packages',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
@@ -12,7 +12,9 @@ setup(
   install_requires=[
     'kazoo',
     'PyYAML',
-    'future'
+    'future',
+    'mock==2.0.0'
+
   ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
