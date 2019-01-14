@@ -477,15 +477,18 @@ class VersionsHandler(BaseHandler):
   # Reserved names for version IDs.
   RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
 
-  def initialize(self, ua_client, zk_client, version_update_lock, thread_pool):
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
     """ Defines required resources to handle requests.
 
     Args:
+      acc: An AppControllerClient.
       ua_client: A UAClient.
       zk_client: A KazooClient.
       version_update_lock: A kazoo lock.
       thread_pool: A ThreadPoolExecutor.
     """
+    self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
     self.version_update_lock = version_update_lock
@@ -794,6 +797,20 @@ class VersionsHandler(BaseHandler):
     logger.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
     IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id)
+
+    # Update the project's cron configuration. This is a bit messy  because it
+    # means acc.update_cron is often called twice when deploying a version.
+    # However, it's needed for now to handle the following case:
+    # 1. The user updates a project's cron config, referencing a module that
+    #    isn't deployed yet.
+    # 2. The user deploys the referenced module from a directory that does not
+    #    have any cron configuration.
+    # In order for the cron entries to use the correct location,
+    # acc.update_cron needs to be called again even though the client did not
+    # request a cron configuration update. This can be eliminated in the
+    # future by routing requests based on the host header like in GAE.
+    if not version_exists:
+      self.acc.update_cron(project_id)
 
     self.write(json_encode(operation.rest_repr()))
 
@@ -1297,8 +1314,7 @@ def main():
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
     ('/v1/apps/([^/]*)/services/([^/]*)/versions', VersionsHandler,
-     {'ua_client': ua_client, 'zk_client': zk_client,
-      'version_update_lock': version_update_lock, 'thread_pool': thread_pool}),
+     all_resources),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
     ('/v1/apps/([^/]*)/services', ServicesHandler,
