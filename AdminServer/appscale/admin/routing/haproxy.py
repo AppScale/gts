@@ -170,6 +170,28 @@ class HAProxy(object):
     with open(self.APP_CONFIG, 'w') as app_config_file:
       app_config_file.write(new_content)
 
-    subprocess.check_call(['haproxy', '-f', self.APP_CONFIG, '-D',
-                           '-p', self.APP_PID])
+    try:
+      with open(self.APP_PID) as pid_file:
+        pid = int(pid_file.read())
+
+    except IOError as error:
+      if error.errno != errno.ENOENT:
+        raise
+
+      pid = None
+
+    # Check if the process is running.
+    if pid is not None:
+      try:
+        os.kill(pid, 0)
+      except OSError:
+        pid = None
+
+    if pid is None:
+      subprocess.check_call(['haproxy', '-f', self.APP_CONFIG, '-D',
+                             '-p', self.APP_PID])
+    else:
+      subprocess.check_call(['haproxy', '-f', self.APP_CONFIG, '-D',
+                             '-p', self.APP_PID, '-sf', str(pid)])
+
     logger.info('Updated HAProxy config')
