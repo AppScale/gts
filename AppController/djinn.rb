@@ -1351,8 +1351,6 @@ class Djinn
           Djinn.log_warn('Cannot set a negative timeout.')
           next
         end
-        Djinn.log_info('Reload haproxy with new connect timeout.')
-        HAProxy.initialize_config(val)
       end
 
       @options[key] = val
@@ -2261,7 +2259,6 @@ class Djinn
     end
 
     Nginx.clear_sites_enabled()
-    HAProxy.clear_sites_enabled()
   end
 
   def wait_for_nodes_to_finish_loading(nodes)
@@ -4003,7 +4000,7 @@ HOSTS
   # method whenever there is a change in the number of machines hosting
   # App Engine apps.
   def regenerate_routing_config
-    Djinn.log_debug("Regenerating nginx and haproxy config files for apps.")
+    Djinn.log_debug("Regenerating nginx config files for apps.")
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
@@ -4046,7 +4043,6 @@ HOSTS
         Djinn.log_debug(
           "Removing routing for #{version_key} since no AppServer is running.")
         Nginx.remove_version(version_key)
-        HAProxy.remove_version(version_key)
       else
         begin
           # Make sure we have the latest revision.
@@ -4069,28 +4065,13 @@ HOSTS
           static_handlers = []
         end
 
-        # Reload haproxy first, to ensure we have the backend ready when
-        # nginx routing is enabled. We need to get the appservers in a
-        # hash with ip, port for the haproxy call.
-        servers = []
-        appservers.each { |location|
-          host, port = location.split(':')
-          next if Integer(port) < 0
-          servers << { 'ip' => host, 'port' => port }
-        }
-        unless HAProxy.create_app_config(servers, my_private, proxy_port,
-                                         version_key)
-          Djinn.log_warn("No AppServer in haproxy for #{version_key}.")
-          next
-        end
-
         Nginx.write_fullproxy_version_config(
           version_key, http_port, https_port, my_public, my_private,
           proxy_port, static_handlers, get_load_balancer.private_ip,
           app_language)
       end
     }
-    Djinn.log_debug("Done updating nginx and haproxy config files.")
+    Djinn.log_debug("Done updating nginx config files.")
   end
 
   def my_node
@@ -4606,21 +4587,6 @@ HOSTS
           "#{default_version_key} is no longer running: stopping xmpp for application.")
         stop_xmpp_for_app(project_id)
         removed_versions << default_version_key
-      }
-      HAProxy.list_sites_enabled.each { |site|
-        match = site.match(HAProxy::VERSION_KEY_REGEX)
-        next if match.nil?
-
-        version_key = match.captures.first
-        next if zookeeper_versions.include?(version_key)
-
-        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
-        next if RESERVED_APPS.include?(project_id)
-
-        Djinn.log_info(
-          "#{version_key} is no longer running: removing HAProxy state.")
-        HAProxy.remove_version(version_key)
-        removed_versions << version_key
       }
       Nginx.list_sites_enabled.each { |site|
         match = site.match(Nginx::VERSION_KEY_REGEX)

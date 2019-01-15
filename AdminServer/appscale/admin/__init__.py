@@ -19,7 +19,6 @@ except ImportError:
 
 import requests_unixsocket
 
-from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
@@ -71,6 +70,7 @@ from .operation import (
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
 from .resource_validator import validate_resource, ResourceValidationError
+from .routing.routing_manager import RoutingManager
 from .service_manager import ServiceManager, ServiceManagerHandler
 from .summary import get_combined_services
 
@@ -1307,6 +1307,11 @@ def main():
   if options.private_ip in appscale_info.get_taskqueue_nodes():
     logger.info('Starting push worker manager')
     GlobalPushWorkerManager(zk_client, monit_operator)
+
+  if options.private_ip in appscale_info.get_load_balancer_ips():
+    logger.info('Starting RoutingManager')
+    routing_manager = RoutingManager(zk_client)
+    routing_manager.start()
 
   service_manager = ServiceManager(zk_client)
   service_manager.start()
