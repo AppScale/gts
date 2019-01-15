@@ -11,7 +11,7 @@ from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.locks import Lock as AsyncLock
 
-from appscale.admin.constants import UNPACK_ROOT
+from appscale.admin.constants import CONTROLLER_STATE_NODE, UNPACK_ROOT
 from appscale.admin.instance_manager.constants import (
   API_SERVER_LOCATION, API_SERVER_PREFIX, APP_LOG_SIZE, BACKOFF_TIME,
   BadConfigurationException, DASHBOARD_LOG_SIZE, DASHBOARD_PROJECT_ID,
@@ -78,9 +78,6 @@ class InstanceManager(object):
   # The seconds to wait between performing health checks.
   HEALTH_CHECK_INTERVAL = 60
 
-  # The ZooKeeper node that keeps track of the head node's state.
-  CONTROLLER_STATE_NODE = '/appcontroller/state'
-
   def __init__(self, zk_client, monit_operator, routing_client,
                projects_manager, deployment_config, source_manager,
                syslog_server, thread_pool, private_ip):
@@ -130,7 +127,7 @@ class InstanceManager(object):
 
     # Subscribe to changes in controller state, which includes assignments and
     # the 'login' property.
-    self._zk_client.DataWatch(self.CONTROLLER_STATE_NODE,
+    self._zk_client.DataWatch(CONTROLLER_STATE_NODE,
                               self._controller_state_watch)
 
     # Subscribe to changes in project configuration, including relevant
@@ -667,7 +664,7 @@ class InstanceManager(object):
         state.
     """
     persistent_update_controller_state = retry_data_watch_coroutine(
-      self.CONTROLLER_STATE_NODE, self._update_controller_state)
+      CONTROLLER_STATE_NODE, self._update_controller_state)
     IOLoop.instance().add_callback(
       persistent_update_controller_state, encoded_controller_state)
 
