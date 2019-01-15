@@ -2742,7 +2742,7 @@ class Djinn
     json_state = ''
 
     unless File.exists?(ZK_LOCATIONS_FILE)
-      Djinn.log_info("#{ZK_LOCATIONS_FILE} don't exist: not restoring data.")
+      Djinn.log_info("#{ZK_LOCATIONS_FILE} doesn't exist: not restoring data.")
       return false
     end
 
