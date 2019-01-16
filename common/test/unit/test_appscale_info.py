@@ -17,7 +17,7 @@ class TestAppScaleInfo(unittest.TestCase):
 
   @patch.object(file_io, 'read')
   def test_get_db_info(self, read_mock):
-    read_mock.return_value = '''--- 
+    read_mock.return_value = '''---
 :keyname: appscale
 :replication: '1'
 :table: cassandra
