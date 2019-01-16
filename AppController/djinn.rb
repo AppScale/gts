@@ -647,7 +647,7 @@ class Djinn
     return "false: #{response.body}" if response.code != '200'
 
     begin
-      CronHelper.update_cron(get_load_balancer.public_ip, project_id)
+      CronHelper.update_cron(@options['login'], project_id)
     rescue VersionNotFound => error
       return "false: #{error.message}"
     end
@@ -1401,7 +1401,7 @@ class Djinn
     end
 
     begin
-      CronHelper.update_cron(get_load_balancer.public_ip, project_id)
+      CronHelper.update_cron(@options['login'], project_id)
     rescue VersionNotFound => error
       return "false: #{error.message}"
     end
