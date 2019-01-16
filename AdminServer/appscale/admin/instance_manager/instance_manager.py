@@ -11,7 +11,7 @@ from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.locks import Lock as AsyncLock
 
-from appscale.admin.constants import UNPACK_ROOT
+from appscale.admin.constants import CONTROLLER_STATE_NODE, UNPACK_ROOT
 from appscale.admin.instance_manager.constants import (
   API_SERVER_LOCATION, API_SERVER_PREFIX, APP_LOG_SIZE, BACKOFF_TIME,
   BadConfigurationException, DASHBOARD_LOG_SIZE, DASHBOARD_PROJECT_ID,
@@ -23,7 +23,8 @@ from appscale.admin.instance_manager.instance import (
   create_java_app_env, create_java_start_cmd, create_python_app_env,
   create_python27_start_cmd, get_login_server, Instance)
 from appscale.admin.instance_manager.stop_instance import stop_instance
-from appscale.admin.instance_manager.utils import setup_logrotate
+from appscale.admin.instance_manager.utils import setup_logrotate, \
+  remove_logrotate
 from appscale.common import appscale_info, monit_app_configuration
 from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.constants import (
@@ -77,9 +78,6 @@ class InstanceManager(object):
   # The seconds to wait between performing health checks.
   HEALTH_CHECK_INTERVAL = 60
 
-  # The ZooKeeper node that keeps track of the head node's state.
-  CONTROLLER_STATE_NODE = '/appcontroller/state'
-
   def __init__(self, zk_client, monit_operator, routing_client,
                projects_manager, deployment_config, source_manager,
                syslog_server, thread_pool, private_ip):
@@ -129,7 +127,7 @@ class InstanceManager(object):
 
     # Subscribe to changes in controller state, which includes assignments and
     # the 'login' property.
-    self._zk_client.DataWatch(self.CONTROLLER_STATE_NODE,
+    self._zk_client.DataWatch(CONTROLLER_STATE_NODE,
                               self._controller_state_watch)
 
     # Subscribe to changes in project configuration, including relevant
@@ -479,6 +477,7 @@ class InstanceManager(object):
                          if instance_.project_id == instance.project_id]
     if not project_instances:
       yield self._stop_api_server(instance.project_id)
+      remove_logrotate(instance.project_id)
 
     yield self._monit_operator.reload(self._thread_pool)
     yield self._clean_old_sources()
@@ -665,7 +664,7 @@ class InstanceManager(object):
         state.
     """
     persistent_update_controller_state = retry_data_watch_coroutine(
-      self.CONTROLLER_STATE_NODE, self._update_controller_state)
+      CONTROLLER_STATE_NODE, self._update_controller_state)
     IOLoop.instance().add_callback(
       persistent_update_controller_state, encoded_controller_state)
 

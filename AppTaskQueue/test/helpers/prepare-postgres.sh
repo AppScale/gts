@@ -109,9 +109,17 @@ cp ~/.pgpass /root/.pgpass
 
 
 log "Updating Postgres configs to accept host connections to the Database"
+PG_MAJOR_VER=$(psql --version | awk '{ print $3 }' | awk -F '.' '{ print $1 }')
 PG_VERSION=$(psql --version | awk '{ print $3 }' | awk -F '.' '{ print $1 "." $2 }')
-PG_CONF="/etc/postgresql/${PG_VERSION}/main/postgresql.conf"
-PG_HBA="/etc/postgresql/${PG_VERSION}/main/pg_hba.conf"
+
+if [ "${PG_MAJOR_VER}" = "10" ]; then
+    PG_CONFIG_DIR="/etc/postgresql/${PG_MAJOR_VER}"
+else
+    PG_CONFIG_DIR="/etc/postgresql/${PG_VERSION}"
+fi
+
+PG_CONF="${PG_CONFIG_DIR}/main/postgresql.conf"
+PG_HBA="${PG_CONFIG_DIR}/main/pg_hba.conf"
 
 # Configure postgres to listen on the specified host
 if grep -q -E "^listen_addresses *=" "${PG_CONF}"

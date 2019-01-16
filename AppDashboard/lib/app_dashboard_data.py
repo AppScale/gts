@@ -141,6 +141,8 @@ class AppDashboardData():
                   "link": self.get_monit_url()},
         "taskqueue": {"title": "TaskQueue",
                       "link": self.get_flower_url()},
+        "pull_queue_viewer": {"title": "Pull Queue Viewer",
+                              "link": "/pull_queue_viewer"},
         "cron": {"title": "Cron",
                  "link": "/cron",
                  "template": "cron/console.html"},
@@ -165,8 +167,8 @@ class AppDashboardData():
                                                {"manage_users": lookup_dict[
                                                    "manage_users"]}]}
       if user_info.owned_apps or user_info.is_user_cloud_admin:
-        sections = ['monit', 'taskqueue', 'logging', 'app_console', 'cron',
-                    'datastore_viewer']
+        sections = ['monit', 'taskqueue', 'pull_queue_viewer', 'logging',
+                    'app_console', 'cron', 'datastore_viewer']
         lookup_dict["debugging_monitoring"] = {
           "Debugging/Monitoring": [{section: lookup_dict[section]}
                                    for section in sections]

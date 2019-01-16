@@ -182,17 +182,28 @@ class SearchService():
     """
     request = search_service_pb.SearchRequest(data)
     logging.debug("Search request: {0}".format(request))
-    params = request.params()
     app_id = request.app_id()
+    # Extract params
+    params = request.params()
+    query = params.query()
+    projection_fields = params.field_spec().name_list()
+    sort_fields = [
+      (field.sort_expression(), 'desc' if field.sort_descending() else 'asc')
+      for field in params.sort_spec_list()
+    ]
+    limit = params.limit()
+    offset = params.offset()
     index_spec = params.index_spec()
     namespace = index_spec.namespace()
+    index_name = index_spec.name()
+    # Instantiate response to fill it below
     response = search_service_pb.SearchResponse()
     try:
-      index = self.solr_conn.get_index(app_id, index_spec.namespace(),
-        index_spec.name())
-      self.solr_conn.run_query(response, index, app_id, namespace,
-        request.params())
-    except search_exceptions.InternalError, internal_error:
+      index = self.solr_conn.get_index(app_id, namespace, index_name)
+      self.solr_conn.run_query(
+        response, index, query, projection_fields, sort_fields, limit, offset
+      )
+    except search_exceptions.InternalError as internal_error:
       logging.error("Exception while doing a search.")
       logging.exception(internal_error)
       status = response.mutable_status()
