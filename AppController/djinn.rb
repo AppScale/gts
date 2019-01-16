@@ -1671,7 +1671,7 @@ class Djinn
     if not File.exists?(ZK_LOCATIONS_FILE) and File.exists?(ZK_LOCATIONS_JSON_FILE)
       # Read deprecated json file with zookeeper nodes.
       zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_JSON_FILE)
-      HelperFunctions.write_file(ZK_LOCATIONS_FILE, zookeeper_data['locations'].join('\n'))
+      HelperFunctions.write_file(ZK_LOCATIONS_FILE, zookeeper_data['locations'].join("\n"))
     end
 
     # If we have the ZK_LOCATIONS_FILE, the deployment has already been
@@ -2912,7 +2912,7 @@ class Djinn
     if zookeeper_data != @zookeeper_data
       # Save the latest list of zookeeper nodes: needed to restart the
       # deployment.
-      HelperFunctions.write_file(ZK_LOCATIONS_FILE, zookeeper_data.join('\n'))
+      HelperFunctions.write_file(ZK_LOCATIONS_FILE, zookeeper_data.join("\n"))
       @zookeeper_data = zookeeper_data
       Djinn.log_debug("write_zookeeper_locations: updated list of zookeeper servers")
     end

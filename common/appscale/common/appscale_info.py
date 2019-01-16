@@ -172,8 +172,8 @@ def get_zk_locations_string():
   """
   try:
     with open(constants.ZK_LOCATIONS_FILE) as locations_file:
-      return ''.join('{}:2181'.format(line.strip())
-                     for line in locations_file if line.strip())
+      return ','.join('{}:2181'.format(line.strip())
+                      for line in locations_file if line.strip())
   except IOError, io_error:
     logger.exception(io_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
