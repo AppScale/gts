@@ -19,7 +19,6 @@ except ImportError:
 
 import requests_unixsocket
 
-from appscale.appcontroller_client import AppControllerException
 from appscale.common import appscale_info
 from appscale.common.constants import (
   HTTPCodes,
@@ -71,6 +70,7 @@ from .operation import (
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
 from .resource_validator import validate_resource, ResourceValidationError
+from .routing.routing_manager import RoutingManager
 from .service_manager import ServiceManager, ServiceManagerHandler
 from .summary import get_combined_services
 
@@ -238,9 +238,9 @@ class BaseVersionHandler(BaseHandler):
 
   @gen.coroutine
   def start_delete_version(self, project_id, service_id, version_id):
-    """ Starts the process of deleting a version by calling stop_version on
-    the AppController and deleting the version node. Returns the version's
-    port that will be closing, the caller should wait for this port to close.
+    """ Starts the process of deleting a version by deleting the version
+    node. Returns the version's port that will be closing, the caller should
+    wait for this port to close.
 
     Args:
       project_id: A string specifying a project ID.
@@ -267,14 +267,6 @@ class BaseVersionHandler(BaseHandler):
         pass
     finally:
       self.version_update_lock.release()
-
-    version_key = VERSION_PATH_SEPARATOR.join([project_id, service_id,
-                                               version_id])
-    try:
-      self.acc.stop_version(version_key)
-    except AppControllerException as error:
-      message = 'Error while stopping version: {}'.format(error)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
 
     raise gen.Return(http_port)
 
@@ -485,15 +477,18 @@ class VersionsHandler(BaseHandler):
   # Reserved names for version IDs.
   RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
 
-  def initialize(self, ua_client, zk_client, version_update_lock, thread_pool):
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
     """ Defines required resources to handle requests.
 
     Args:
+      acc: An AppControllerClient.
       ua_client: A UAClient.
       zk_client: A KazooClient.
       version_update_lock: A kazoo lock.
       thread_pool: A ThreadPoolExecutor.
     """
+    self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
     self.version_update_lock = version_update_lock
@@ -803,6 +798,20 @@ class VersionsHandler(BaseHandler):
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
     IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id)
 
+    # Update the project's cron configuration. This is a bit messy  because it
+    # means acc.update_cron is often called twice when deploying a version.
+    # However, it's needed for now to handle the following case:
+    # 1. The user updates a project's cron config, referencing a module that
+    #    isn't deployed yet.
+    # 2. The user deploys the referenced module from a directory that does not
+    #    have any cron configuration.
+    # In order for the cron entries to use the correct location,
+    # acc.update_cron needs to be called again even though the client did not
+    # request a cron configuration update. This can be eliminated in the
+    # future by routing requests based on the host header like in GAE.
+    if not version_exists:
+      self.acc.update_cron(project_id)
+
     self.write(json_encode(operation.rest_repr()))
 
 
@@ -862,7 +871,8 @@ class VersionHandler(BaseVersionHandler):
       'appscaleExtensions.httpPort',
       'appscaleExtensions.httpsPort',
       'automaticScaling.standard_scheduler_settings.max_instances',
-      'automaticScaling.standard_scheduler_settings.min_instances'}
+      'automaticScaling.standard_scheduler_settings.min_instances',
+      'servingStatus'}
     mapped_fields = {
       'automaticScaling.standard_scheduler_settings.max_instances':
         'automaticScaling.standardSchedulerSettings.maxInstances',
@@ -928,6 +938,17 @@ class VersionHandler(BaseVersionHandler):
               .update(new_fields.get('automaticScaling')
                                 .get('standardSchedulerSettings',{})))
 
+    if 'servingStatus' in new_fields:
+      if not 'manualScaling' in version:
+        scaling_error = ('Serving status cannot be changed for Automatic '
+                         'Scaling versions')
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=scaling_error)
+
+      if ServingStatus.STOPPED == new_fields['servingStatus']:
+        version['servingStatus'] = ServingStatus.STOPPED
+      elif 'servingStatus' in version:
+        del version['servingStatus']
+
     new_ports = utils.assign_ports(version, new_fields, self.zk_client)
     version['appscaleExtensions'].update(new_ports)
 
@@ -986,6 +1007,29 @@ class VersionHandler(BaseVersionHandler):
     if max_instances is not None:
       scheduler_fields['maxInstances'] = max_instances
 
+    yield self.thread_pool.submit(self.version_update_lock.acquire)
+    try:
+      version = self.update_version(project_id, service_id, version_id,
+                                    new_fields)
+    finally:
+      self.version_update_lock.release()
+
+    raise gen.Return(version)
+
+  @gen.coroutine
+  def update_serving_status_for_version(self, project_id, service_id,
+                                        version_id, serving_status):
+    """ Updates service status for a version.
+
+    Args:
+      project_id: A string specifying a project ID.
+      service_id: A string specifying a service ID.
+      version_id: A string specifying a version ID.
+      serving_status: The desired status (SERVING|STOPPED)
+    Returns:
+      A dictionary containing completed version details.
+    """
+    new_fields = {'servingStatus': serving_status}
     yield self.thread_pool.submit(self.version_update_lock.acquire)
     try:
       version = self.update_version(project_id, service_id, version_id,
@@ -1084,6 +1128,11 @@ class VersionHandler(BaseVersionHandler):
       version = yield self.update_scaling_for_version(
         project_id, service_id, version_id, new_min_instances,
         new_max_instances)
+
+    serving_status = version.get('servingStatus', None)
+    if serving_status:
+      version = yield self.update_serving_status_for_version(
+        project_id, service_id, version_id, serving_status)
 
     operation = UpdateVersionOperation(project_id, service_id, version)
     self.write(json_encode(operation.rest_repr()))
@@ -1299,14 +1348,18 @@ def main():
     logger.info('Starting push worker manager')
     GlobalPushWorkerManager(zk_client, monit_operator)
 
+  if options.private_ip in appscale_info.get_load_balancer_ips():
+    logger.info('Starting RoutingManager')
+    routing_manager = RoutingManager(zk_client)
+    routing_manager.start()
+
   service_manager = ServiceManager(zk_client)
   service_manager.start()
 
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
     ('/v1/apps/([^/]*)/services/([^/]*)/versions', VersionsHandler,
-     {'ua_client': ua_client, 'zk_client': zk_client,
-      'version_update_lock': version_update_lock, 'thread_pool': thread_pool}),
+     all_resources),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
     ('/v1/apps/([^/]*)/services', ServicesHandler,

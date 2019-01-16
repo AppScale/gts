@@ -40,6 +40,7 @@ public final class LocalXMPPService extends AbstractLocalRpcService
   public static String UASERVER;
   public static String UASECRET;
   public static String USERNAME;
+  public static String XMPP_PATH;
   
 
   public void start()
@@ -57,6 +58,7 @@ public final class LocalXMPPService extends AbstractLocalRpcService
       DOMAIN = properties.get("LOGIN_SERVER");
       UASERVER = "https://" + properties.get("DB_LOCATION");
       USERNAME = APPID;
+      XMPP_PATH = properties.get("XMPP_PATH");
   }
 
   public String getPackage()
@@ -66,7 +68,7 @@ public final class LocalXMPPService extends AbstractLocalRpcService
 
   public XMPPServicePb.BulkPresenceResponse bulkGetPresence(LocalRpcService.Status status, XMPPServicePb.BulkPresenceRequest request)
   {
-    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(USERNAME, UASECRET, DOMAIN, XMPP_PORT);
+    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(USERNAME, UASECRET, XMPP_PATH, XMPP_PORT, DOMAIN);
     XMPPServicePb.BulkPresenceResponse response = new XMPPServicePb.BulkPresenceResponse();
     for (String jid : request.jids()) {
       XMPPServicePb.PresenceResponse subresponse = response.addPresenceResponse();
@@ -76,7 +78,7 @@ public final class LocalXMPPService extends AbstractLocalRpcService
   }
 
   public XMPPServicePb.PresenceResponse getPresence(LocalRpcService.Status status, XMPPServicePb.PresenceRequest request) {
-    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(USERNAME, UASECRET, DOMAIN, XMPP_PORT);
+    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(USERNAME, UASECRET, XMPP_PATH, XMPP_PORT, DOMAIN);
     XMPPServicePb.PresenceResponse response = new XMPPServicePb.PresenceResponse();
     String requestedUser = request.getJid();
     boolean available =  xmppClient.getPresence(requestedUser, DOMAIN);
@@ -86,7 +88,7 @@ public final class LocalXMPPService extends AbstractLocalRpcService
   }
 
   public XMPPServicePb.XmppMessageResponse sendMessage(LocalRpcService.Status status, XMPPServicePb.XmppMessageRequest request) {
-    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(USERNAME, UASECRET, DOMAIN, XMPP_PORT);
+    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(USERNAME, UASECRET, XMPP_PATH, XMPP_PORT, DOMAIN);
     XMPPServicePb.XmppMessageResponse response = new XMPPServicePb.XmppMessageResponse();
     for (String jid : request.jids()) 
     {
@@ -114,7 +116,7 @@ public final class LocalXMPPService extends AbstractLocalRpcService
   }
 
   public XMPPServicePb.XmppSendPresenceResponse sendPresence(LocalRpcService.Status status, XMPPServicePb.XmppSendPresenceRequest request) {
-    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(USERNAME, UASECRET, DOMAIN, XMPP_PORT);
+    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(USERNAME, UASECRET, XMPP_PATH, XMPP_PORT, DOMAIN);
     try
     {
         xmppClient.sendPresence(request.getJid(), request.getFromJid(), request.getStatus(), request.getType(), request.getShow());

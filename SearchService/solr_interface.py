@@ -320,7 +320,6 @@ class Solr(object):
       limit: a max number of document to return.
       offset: an integer representing offset.
     """
-
     index = self._get_index_adapter(app_id, namespace, index_name)
     solr_query_params = query_converter.prepare_solr_query(
       index, query, projection_fields, sort_fields, limit, offset

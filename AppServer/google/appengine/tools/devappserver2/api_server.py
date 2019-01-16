@@ -235,7 +235,8 @@ def setup_stubs(
     user_logout_url,
     default_gcs_bucket_name,
     uaserver_path,
-    xmpp_path):
+    xmpp_path,
+    xmpp_domain):
   """Configures the APIs hosted by this server.
 
   Args:
@@ -292,6 +293,7 @@ def setup_stubs(
         of the machine that runs a UserAppServer.
     xmpp_path: (AppScale-specific) A str containing the FQDN or IP address of
         the machine that runs ejabberd, where XMPP clients should connect to.
+    xmpp_domain: A string specifying the domain portion of the XMPP user.
   """
 
   identity_stub = app_identity_stub.AppIdentityServiceStub()
@@ -396,7 +398,8 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'xmpp',
-      xmpp_service_real.XmppService(domain=xmpp_path, uaserver=uaserver_path))
+      xmpp_service_real.XmppService(xmpp_path, domain=xmpp_domain,
+                                    uaserver=uaserver_path))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'matcher',
@@ -488,7 +491,8 @@ def test_setup_stubs(
     user_logout_url='/_ah/login?continue=%s',
     default_gcs_bucket_name=None,
     uaserver_path='localhost',
-    xmpp_path='localhost'):
+    xmpp_path='localhost',
+    xmpp_domain='localhost'):
   """Similar to setup_stubs with reasonable test defaults and recallable."""
 
   # Reset the stub map between requests because a stub map only allows a
@@ -524,7 +528,8 @@ def test_setup_stubs(
               user_logout_url,
               default_gcs_bucket_name,
               uaserver_path,
-              xmpp_path)
+              xmpp_path,
+              xmpp_domain)
 
 
 def cleanup_stubs():

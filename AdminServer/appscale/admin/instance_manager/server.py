@@ -37,6 +37,7 @@ def main():
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('syslog_server', appscale_info.get_headnode_ip())
   options.define('db_proxy', appscale_info.get_db_proxy())
+  options.define('load_balancer_ip', appscale_info.get_load_balancer_ips()[0])
   options.define('tq_proxy', appscale_info.get_tq_proxy())
   options.define('secret', appscale_info.get_secret())
 

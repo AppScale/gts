@@ -79,6 +79,31 @@ class TrackedRequestHandler(RequestHandler):
       self.stats_info.finalize(rest_status=self.get_status())
 
 
+class QueueList(TrackedRequestHandler):
+  """ Provides a list of all pull queues.
+
+  This method was never part of the v1beta2 API. """
+  def initialize(self, queue_handler):
+    """ Provide access to the queue handler. """
+    self.queue_handler = queue_handler
+
+  def get(self, project_id):
+    """ Returns a list of existing pull queues.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    try:
+      project_queues = self.queue_handler.queue_manager[project_id]
+    except KeyError:
+      write_error(self, HTTPCodes.NOT_FOUND, 'Project ID not found')
+      return
+
+    pull_queues = [queue_name for queue_name, queue in project_queues.items()
+                   if isinstance(queue, PullQueue)]
+    json.dump(pull_queues, self)
+
+
 class RESTQueue(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)'.format(REST_PREFIX)
   AREA = 'queue'  # Area name is used in stats

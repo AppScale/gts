@@ -11,8 +11,6 @@ import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.Chat;
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.MessageListener;
-import org.jivesoftware.smack.Roster;
-import org.jivesoftware.smack.RosterEntry;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Message;
@@ -24,15 +22,17 @@ public class AppScaleXMPPClient implements MessageListener
     private String defaultUserName = null;
     private String userName;
     private String password;
-    private String url;
+    private String location;
     private int port;
+    private String serviceDomain;
 
-    public AppScaleXMPPClient(String _userName, String _password, String _url, int _port)
+    public AppScaleXMPPClient(String userName, String password, String location, int port, String serviceDomain)
     {
-        userName = _userName;
-        password = _password;
-        url = _url;
-        port = _port;
+        this.userName = userName;
+        this.password = password;
+        this.location = location;
+        this.port = port;
+        this.serviceDomain = serviceDomain;
     }
 
     /*
@@ -40,11 +40,11 @@ public class AppScaleXMPPClient implements MessageListener
      */
     private void connectAndLogin() throws XMPPException
     {
-        logger.info("Logging into xmpp server: username: " + userName + ", url: " + url + "port: " + port);
-        ConnectionConfiguration config = new ConnectionConfiguration(url, port);
+        logger.info("Logging into xmpp server: username: " + userName + ", location: " + location + "port: " + port);
+        ConnectionConfiguration config = new ConnectionConfiguration(location, port, serviceDomain);
         connection = new XMPPConnection(config);
         connection.connect();
-        defaultUserName = userName + "@" + url;
+        defaultUserName = userName + "@" + serviceDomain;
         connection.login(userName, password);
     }
 
@@ -237,23 +237,28 @@ public class AppScaleXMPPClient implements MessageListener
         logger.info("MSG RECEIVED - body: " + msg.getBody() + ", subj: " + msg.getSubject());
     }
 
-    public void setUserName(String _userName)
+    public void setUserName(String userName)
     {
-        userName = _userName;
+        this.userName = userName;
     }
 
-    public void setPassword(String _password)
+    public void setPassword(String password)
     {
-        password = _password;
+        this.password = password;
     }
 
-    public void setUrl(String _url)
+    public void setLocation(String location)
     {
-        url = _url;
+        this.location = location;
     }
 
-    public void setPort(int _port)
+    public void setPort(int port)
     {
-         port = _port;
+         this.port = port;
+    }
+
+    public void setServiceDomain(String serviceDomain)
+    {
+        this.serviceDomain = serviceDomain;
     }
 }

@@ -6,7 +6,8 @@ import socket
 import time
 
 import attr
-from tornado.httpclient import HTTPClient
+from tornado import gen
+from tornado.httpclient import AsyncHTTPClient
 
 from appscale.hermes.converter import Meta, include_list_name
 
@@ -62,6 +63,7 @@ class RabbitMQStatsSource(object):
   first_run = True
 
   @staticmethod
+  @gen.coroutine
   def get_current():
     """ Retrieves RabbitMQ stats for the current node.
 
@@ -74,9 +76,9 @@ class RabbitMQStatsSource(object):
     url = 'http://localhost:{}{}/{}'.format(API_PORT, NODES_API, node_name)
     creds = base64.b64encode(':'.join([USER, PASS]))
     headers = {'Authorization': 'Basic {}'.format(creds)}
-    client = HTTPClient()
+    async_client = AsyncHTTPClient()
     try:
-      response = client.fetch(url, headers=headers)
+      response = yield async_client.fetch(url, headers=headers)
     except Exception as error:
       raise APICallFailed('Call to {} failed: {}'.format(url, error))
 
@@ -93,8 +95,8 @@ class RabbitMQStatsSource(object):
       name=node_info['name']
     )
     logger.info('Prepared RabbitMQ node stats in '
-                 '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
-    return snapshot
+                '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
+    raise gen.Return(snapshot)
 
 
 class PushQueueStatsSource(object):
@@ -103,6 +105,7 @@ class PushQueueStatsSource(object):
   first_run = True
 
   @staticmethod
+  @gen.coroutine
   def get_current():
     """ Retrieves push queue stats.
 
@@ -114,9 +117,9 @@ class PushQueueStatsSource(object):
     url = 'http://localhost:{}{}'.format(API_PORT, QUEUES_API)
     creds = base64.b64encode(':'.join([USER, PASS]))
     headers = {'Authorization': 'Basic {}'.format(creds)}
-    client = HTTPClient()
+    async_client = AsyncHTTPClient()
     try:
-      response = client.fetch(url, headers=headers)
+      response = yield async_client.fetch(url, headers=headers)
     except Exception as error:
       raise APICallFailed('Call to {} failed: {}'.format(url, error))
 
@@ -134,5 +137,5 @@ class PushQueueStatsSource(object):
       queues=queue_stats
     )
     logger.info('Prepared push queue stats in '
-                 '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
-    return snapshot
+                '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
+    raise gen.Return(snapshot)
