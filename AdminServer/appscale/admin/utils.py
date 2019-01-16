@@ -432,7 +432,7 @@ def validate_job(job):
     InvalidConfiguration if configuration is invalid.
   """
   required_fields = ('schedule', 'url')
-  supported_fields = ('description', 'schedule', 'url')
+  supported_fields = ('description', 'schedule', 'url', 'target')
 
   for field in required_fields:
     if field not in job:

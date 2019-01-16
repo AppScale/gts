@@ -20,7 +20,6 @@ class MainHandler(tornado.web.RequestHandler):
     """ Class for initializing search service web handler. """
     self.search_service = search_service
 
-  @tornado.web.asynchronous
   def post(self):
     """ A POST handler for request to this server. """
     request = self.request
@@ -35,7 +34,6 @@ class MainHandler(tornado.web.RequestHandler):
       tornado.httputil.ResponseStartLine('HTTP/1.1', 200, 'OK'),
       tornado.httputil.HTTPHeaders({"Content-Length": str(len(response))}))
     request.connection.write(response)
-    request.connection.finish()
 
 
 if __name__ == "__main__":

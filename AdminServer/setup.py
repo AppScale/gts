@@ -39,8 +39,10 @@ setup(
   namespace_packages=['appscale'],
   packages=['appscale',
             'appscale.admin',
-            'appscale.admin.instance_manager'],
-  package_data={'': ['*.json']},
+            'appscale.admin.instance_manager',
+            'appscale.admin.routing'],
+  package_data={'': ['*.json'],
+                'appscale.admin.routing': ['templates/*']},
   include_package_data=True,
   entry_points={'console_scripts': [
     'appscale-admin=appscale.admin:main',

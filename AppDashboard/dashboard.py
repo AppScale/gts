@@ -38,6 +38,8 @@ from dashboard_logs import RequestLogLine
 from datastore_viewer import DatastoreEditRequestHandler
 from datastore_viewer import DatastoreViewer
 from datastore_viewer import DatastoreViewerSelector
+from pull_queue_viewer import (PQProjectSelector, PQQueueSelector,
+                               PQTaskSelector)
 
 
 # The maximum number of datapoints we send to be rendered in a graph
@@ -1203,6 +1205,9 @@ dashboard_pages = [
   ('/datastore_viewer/(.+)/edit/(.*)', DatastoreEditRequestHandler),
   ('/datastore_viewer/(.+)/edit', DatastoreEditRequestHandler),
   ('/datastore_viewer/(.+)', DatastoreViewer),
+  ('/pull_queue_viewer', PQProjectSelector),
+  ('/pull_queue_viewer/(.+)/(.+)', PQTaskSelector),
+  ('/pull_queue_viewer/(.+)', PQQueueSelector),
   ('/ajax/panel/render', AjaxRenderPanel),
   ('/ajax/layout/save', AjaxSaveLayoutSettings),
   ('/ajax/layout/reset', AjaxResetLayoutSettings)

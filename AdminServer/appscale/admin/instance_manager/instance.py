@@ -115,7 +115,17 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     '--jvm_flag=-Djdk.tls.client.protocols=TLSv1.1,TLSv1.2',
     "--disable_update_check",
     "--address=" + options.private_ip,
-    "--pidfile={}".format(pidfile)
+    "--datastore_path=" + options.db_proxy,
+    "--login_server=" + load_balancer_host,
+    "--appscale_version=1",
+    "--APP_NAME=" + app_name,
+    "--NGINX_ADDRESS=" + load_balancer_host,
+    "--TQ_PROXY=" + options.tq_proxy,
+    "--xmpp_path=" + options.load_balancer_ip,
+    "--pidfile={}".format(pidfile),
+    "--external_api_port={}".format(api_server_port),
+    "--api_using_python_stub=app_identity_service",
+    os.path.dirname(web_inf_directory)
   ]
 
   if runtime == JAVA8:
@@ -127,7 +137,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
         ':'.join([options.db_proxy, str(DB_SERVER_PORT)])),
       '--login_server={}'.format(load_balancer_host),
       '--nginx_host={}'.format(load_balancer_host),
-      '--xmpp_path={}'.format(load_balancer_host),
+      '--xmpp_path={}'.format(options.load_balancer_ip),
       '--uaserver_path={}'.format(
         ':'.join([options.db_proxy, str(UA_SERVER_PORT)]))
     ]
@@ -199,7 +209,7 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
     "--nginx_host " + str(login_ip),
     "--require_indexes",
     "--enable_sendmail",
-    "--xmpp_path " + login_ip,
+    "--xmpp_path " + options.load_balancer_ip,
     "--php_executable_path=" + str(PHP_CGI_LOCATION),
     "--uaserver_path " + options.db_proxy + ":" + str(UA_SERVER_PORT),
     "--datastore_path " + options.db_proxy + ":" + str(DB_SERVER_PORT),

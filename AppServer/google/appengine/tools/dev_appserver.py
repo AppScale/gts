@@ -3615,7 +3615,8 @@ def SetupStubs(app_id, **config):
 
     apiproxy_stub_map.apiproxy.RegisterStub(
         'xmpp',
-        xmpp_service_real.XmppService(domain=xmpp_path, uaserver=uaserver_path))
+        xmpp_service_real.XmppService(xmpp_path, domain=login_server,
+                                      uaserver=uaserver_path))
 
     apiproxy_stub_map.apiproxy.RegisterStub(
         'logservice',

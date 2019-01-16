@@ -146,8 +146,7 @@ class FunctionalTestAppDashboard(unittest.TestCase):
       {'table':'fake_database', 'replication':1}
       )
     acc.should_receive('upload_tgz').and_return('true')
-    acc.should_receive('stop_version').and_return('true')
-   
+
     fake_soap = flexmock(name='fake_soap')
     soap = flexmock(SOAPpy)
     soap.should_receive('SOAPProxy').and_return(fake_soap)
@@ -185,7 +184,7 @@ class FunctionalTestAppDashboard(unittest.TestCase):
 
     self.request = self.fakeRequest()
     self.response = self.fakeResponse()
-    self.set_user()  
+    self.set_user()
 
     fake_tq = flexmock(taskqueue)
     fake_tq.should_receive('add').and_return()
@@ -305,7 +304,7 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     res.deleted_cookies = {}
     res.redirect_location = None
     res.out = StringIO.StringIO()
-    def fake_set_cookie(key, value='', max_age=None, path='/', domain=None, 
+    def fake_set_cookie(key, value='', max_age=None, path='/', domain=None,
       secure=None, httponly=False, comment=None, expires=None, overwrite=False):
       res.cookies[key] = value
     def fake_delete_cookie(key, path='/', domain=None):

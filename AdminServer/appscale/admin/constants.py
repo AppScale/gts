@@ -74,6 +74,9 @@ class Types(object):
 # The parent directory for source code extraction.
 UNPACK_ROOT = os.path.join('/', 'var', 'apps')
 
+# The ZooKeeper node that keeps track of the head node's state.
+CONTROLLER_STATE_NODE = '/appcontroller/state'
+
 # The default port for the AdminServer.
 DEFAULT_PORT = 17442
 

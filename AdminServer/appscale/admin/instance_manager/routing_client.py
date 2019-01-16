@@ -10,7 +10,7 @@ from tornado.httpclient import AsyncHTTPClient
 from appscale.admin.instance_manager.constants import VERSION_REGISTRATION_NODE
 from appscale.admin.instance_manager.instance import Instance
 from appscale.common import appscale_info
-from appscale.common.constants import VERSION_PATH_SEPARATOR
+from appscale.common.constants import GAE_PREFIX, VERSION_PATH_SEPARATOR
 from appscale.hermes.constants import HERMES_PORT
 
 logger = logging.getLogger(__name__)
@@ -51,10 +51,10 @@ class RoutingClient(object):
     proxy_stats = json.loads(response.body)['proxies_stats']
 
     routed_versions = [server for server in proxy_stats
-                       if server['name'].startswith('gae_')]
+                       if server['name'].startswith(GAE_PREFIX)]
     failed_instances = set()
     for version in routed_versions:
-      version_key = version['name'][len('gae_'):]
+      version_key = version['name'][len(GAE_PREFIX):]
       for server in version['servers']:
         if server['private_ip'] != self._private_ip:
           continue

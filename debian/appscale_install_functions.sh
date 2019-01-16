@@ -319,7 +319,11 @@ installgems()
         gem install --local ${PACKAGE_CACHE}/${CUSTOM_ZK_GEM}
     fi
     sleep 1
-    gem install json ${GEMOPT} -v 1.8.3
+    if [ "${ruby_major_version}" -lt "2" ]; then
+        gem install json ${GEMOPT} -v 1.8.3
+    else
+        gem install json ${GEMOPT}
+    fi
     sleep 1
     gem install soap4r-ng ${GEMOPT} -v 2.0.3
     gem install httparty ${GEMOPT} -v 0.14.0
