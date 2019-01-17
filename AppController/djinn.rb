@@ -765,8 +765,8 @@ class Djinn
     # Now we can check if we have the needed roles to start the
     # deployment.
     all_roles.uniq!
-    ['compute', 'shadow', 'load_balancer', 'login', 'zookeeper',
-      'memcache', 'db_master', 'taskqueue_master'].each { |role|
+    ['compute', 'shadow', 'load_balancer', 'zookeeper', 'memcache',
+     'db_master', 'taskqueue_master'].each { |role|
       unless all_roles.include?(role)
         msg = "Error: layout is missing role #{role}."
         Djinn.log_error(msg)
