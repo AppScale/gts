@@ -4647,8 +4647,15 @@ HOSTS
     Djinn.log_debug("setup_appengine_version: info for #{version_key}: " \
                     "#{@app_info_map[version_key]}.")
 
-    version_details = ZKInterface.get_version_details(
-      project_id, service_id, version_id)
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      Djinn.log_debug(
+        "Version #{version_key} not found, exiting setup_appengine_version")
+      return
+    end
+
     nginx_port = version_details['appscaleExtensions']['httpPort']
     https_port = version_details['appscaleExtensions']['httpsPort']
     proxy_port = version_details['appscaleExtensions']['haproxyPort']
