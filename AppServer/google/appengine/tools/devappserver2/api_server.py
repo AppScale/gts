@@ -309,7 +309,8 @@ def create_api_server(request_info, storage_path, options, app_id, app_root):
       user_logout_url=user_logout_url,
       default_gcs_bucket_name=options.default_gcs_bucket_name,
       uaserver_path=options.uaserver_path,
-      xmpp_path=options.xmpp_path)
+      xmpp_path=options.xmpp_path,
+      xmpp_domain=options.login_server)
 
   # The APIServer must bind to localhost because that is what the runtime
   # instances talk to.

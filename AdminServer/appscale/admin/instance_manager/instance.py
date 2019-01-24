@@ -115,17 +115,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     '--jvm_flag=-Djdk.tls.client.protocols=TLSv1.1,TLSv1.2',
     "--disable_update_check",
     "--address=" + options.private_ip,
-    "--datastore_path=" + options.db_proxy,
-    "--login_server=" + load_balancer_host,
-    "--appscale_version=1",
-    "--APP_NAME=" + app_name,
-    "--NGINX_ADDRESS=" + load_balancer_host,
-    "--TQ_PROXY=" + options.tq_proxy,
-    "--xmpp_path=" + options.load_balancer_ip,
-    "--pidfile={}".format(pidfile),
-    "--external_api_port={}".format(api_server_port),
-    "--api_using_python_stub=app_identity_service",
-    os.path.dirname(web_inf_directory)
+    "--pidfile={}".format(pidfile)
   ]
 
   if runtime == JAVA8:

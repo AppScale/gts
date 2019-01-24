@@ -155,7 +155,7 @@ module Nginx
 
     # At this time, we defer routing and redirects to instances for the Java
     # runtime. Eventually, we should handle the contents of web.xml here.
-    if secure_handlers.empty? and language == 'java'
+    if secure_handlers.empty? and ['java', 'java8'].include? language
       combined_http_locations = "\n    location ~ /.* {" + location_params
       combined_https_locations = combined_http_locations
     end
@@ -182,7 +182,7 @@ module Nginx
 
     # Java application needs a redirection for the blobstore.
     java_blobstore_redirection = ''
-    if language == 'java'
+    if ['java', 'java8'].include? language
       java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
 location ~ /_ah/upload/.* {
       proxy_pass            http://#{HelperFunctions::GAE_PREFIX}#{version_key}_blobstore;
