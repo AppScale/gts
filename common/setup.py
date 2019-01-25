@@ -3,7 +3,7 @@ import sys
 
 install_requires = [
   'kazoo==2.6.0',
-  'PyYAML==3.13'
+  'PyYAML>=4.2b1'
 ]
 
 if sys.version_info < (3,):
