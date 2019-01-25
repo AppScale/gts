@@ -57,38 +57,26 @@ def count_rest_requests(requests):
   return sum(1 for request in requests if request.api == REST_API)
 
 
-# Instantiate request matchers
-FAILED_REQUEST = summarize_failed_request
-PROTOBUFF_REQUEST = summarize_protobuffer_request
-REST_REQUEST = summarize_rest_request
-
-# Instantiate request categorizers
-PB_METHOD_CATEGORIZER = categorize_by_pb_method
-REST_METHOD_CATEGORIZER = categorize_by_rest_method
-PB_STATUS_CATEGORIZER = categorize_by_pb_status
-REST_STATUS_CATEGORIZER = categorize_by_rest_status
-
-
 # Configure ServiceStats
 REQUEST_STATS_FIELDS = [
   "pb_method", "pb_status", "rest_method", "rest_status", "api"
 ]
 CUMULATIVE_COUNTERS = {
-  "all": samples.summarize_any,
-  "failed": FAILED_REQUEST,
-  "pb_reqs": PROTOBUFF_REQUEST,
-  "rest_reqs": REST_REQUEST
+  "all": samples.summarize_all,
+  "failed": summarize_failed_request,
+  "pb_reqs": summarize_protobuffer_request,
+  "rest_reqs": summarize_rest_request
 }
 METRICS_CONFIG = {
-  "all": samples.count_any,
+  "all": samples.count_all,
   "failed": count_failed_requests,
   "avg_latency": samples.count_avg_latency,
   "pb_reqs": count_protobuff_requests,
   "rest_reqs": count_rest_requests,
-  PB_METHOD_CATEGORIZER: samples.count_any,
-  REST_METHOD_CATEGORIZER: samples.count_any,
-  PB_STATUS_CATEGORIZER: samples.count_any,
-  REST_STATUS_CATEGORIZER: samples.count_any
+  ("by_pb_method", categorize_by_pb_method): samples.count_all,
+  ("by_rest_method", categorize_by_rest_method): samples.count_all,
+  ("by_pb_status", categorize_by_pb_status): samples.count_all,
+  ("by_rest_status", categorize_by_rest_status): samples.count_all
 }
 # Instantiate singleton ServiceStats
 service_stats = stats_manager.ServiceStats(

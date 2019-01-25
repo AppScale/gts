@@ -237,17 +237,17 @@ class TestCustomCumulativeCounters(unittest.TestCase):
       return request_info.preproc_time + request_info.postproc_time
 
     counters_config = {
-      "all": samples.summarize_any,
+      "all": samples.summarize_all,
       "total": data_proc_summarizer,
       ("by_app", samples.categorize_by_app): {
-        "all": samples.summarize_any,
+        "all": samples.summarize_all,
         "default_ns": lambda req_info: req_info.namespace == "default",
         ("by_ns", lambda req_info: req_info.namespace): {
-          "all": samples.summarize_any,
+          "all": samples.summarize_all,
           "4xx": samples.summarize_client_error,
           "5xx": samples.summarize_server_error,
         },
-        ("by_status", samples.categorize_by_status): samples.summarize_any,
+        ("by_status", samples.categorize_by_status): samples.summarize_all,
         ("by_method", samples.categorize_by_method): data_proc_summarizer
       }
     }
@@ -516,7 +516,7 @@ class TestScrollingRecent(unittest.TestCase):
     cls.stats = stats_manager.ServiceStats(
       "my_service", history_size=6,
       default_metrics_for_recent={
-        "all": samples.count_any,
+        "all": samples.count_all,
         "4xx": samples.count_client_errors,
         "5xx": samples.count_server_errors
       })

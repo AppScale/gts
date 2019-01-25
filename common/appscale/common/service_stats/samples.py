@@ -17,7 +17,7 @@ def categorize_by_status(req_info):
   return req_info.status
 
 
-def summarize_any(req_info):
+def summarize_all(req_info):
   """ Can be also used as matcher. """
   return True
 
@@ -36,7 +36,7 @@ def summarize_latency(req_info):
   return req_info.latency
 
 
-def count_any(requests):
+def count_all(requests):
   return len(requests)
 
 

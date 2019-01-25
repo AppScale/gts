@@ -25,12 +25,12 @@ DEFAULT_REQUEST_FIELDS = (
 )
 
 DEFAULT_CUMULATIVE_COUNTERS = {
-  "all": samples.summarize_any,
+  "all": samples.summarize_all,
   "4xx": samples.summarize_client_error,
   "5xx": samples.summarize_server_error,
   "latency": samples.summarize_latency,
   ("by_app", samples.categorize_by_app): {
-    "all": samples.summarize_any,
+    "all": samples.summarize_all,
     "4xx": samples.summarize_client_error,
     "5xx": samples.summarize_server_error,
     "latency": samples.summarize_latency
@@ -51,7 +51,7 @@ DEFAULT_CUMULATIVE_COUNTERS = {
 # }
 
 SINGLE_APP_METRICS_MAP = {
-  "all": samples.count_any,
+  "all": samples.count_all,
   "4xx": samples.count_client_errors,
   "5xx": samples.count_server_errors,
   "avg_latency": samples.count_avg_latency
@@ -67,18 +67,18 @@ SINGLE_APP_METRICS_MAP = {
 # }
 
 PER_APP_DETAILED_METRICS_MAP = {
-  "all": samples.count_any,
+  "all": samples.count_all,
   "4xx": samples.count_client_errors,
   "5xx": samples.count_server_errors,
   "avg_latency": samples.count_avg_latency,
   ("by_app", samples.categorize_by_app): {
     ("by_resource", samples.categorize_by_resource): {
-      "all": samples.count_any,
+      "all": samples.count_all,
       "4xx": samples.count_client_errors,
       "5xx": samples.count_server_errors,
       "avg_latency": samples.count_avg_latency
     },
-    "all": samples.count_any,
+    "all": samples.count_all,
     "4xx": samples.count_client_errors,
     "5xx": samples.count_server_errors,
     "avg_latency": samples.count_avg_latency
@@ -277,9 +277,9 @@ class ServiceStats(object):
   def _increment_counters(self, counters_config, counters_dict, request_info):
     for counter_name, categorizer, summarizer, nested_config in counters_config:
       # Counters config can contain following types of items:
-      #  - str, callable(summarizer)
-      #  - str, callable(categorizer), callable(summarizer)
-      #  - str, callable(categorizer), nested config(tuple)
+      #  - str, None, callable(summarizer), None
+      #  - str, callable(categorizer), callable(summarizer), None
+      #  - str, callable(categorizer), None, nested config(tuple)
 
       if nested_config is None:
         # Stop as soon as possible if we know that matcher doesn't match
@@ -366,9 +366,9 @@ class ServiceStats(object):
     stats_dict = {}
     for metric_name, categorizer, metric, nested_config in metrics_config:
       # Metrics config can contain following types of items:
-      #  - str, callable(metric)
-      #  - str, callable(categorizer), callable(metric)
-      #  - str, callable(categorizer), nested config(tuple)
+      #  - str, None, callable(metric), None
+      #  - str, callable(categorizer), callable(metric), None
+      #  - str, callable(categorizer), None, nested config(tuple)
 
       if categorizer is None:
         # Compute single metric if key is str
@@ -475,9 +475,9 @@ def _fill_zero_counters_dict(counters_config, counters_dict):
   """
   for counter_name, categorizer, _, _ in counters_config:
     # Counters config can contain following types of items:
-      #  - str, callable(summarizer)
-      #  - str, callable(categorizer), callable(summarizer)
-      #  - str, callable(categorizer), nested config(tuple)
+      #  - str, None, callable(summarizer), None
+      #  - str, callable(categorizer), callable(summarizer), None
+      #  - str, callable(categorizer), None, nested config(tuple)
     if categorizer is None:
       # Set single counter if key is str
       counters_dict[counter_name] = 0
