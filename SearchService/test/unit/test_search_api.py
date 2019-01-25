@@ -107,7 +107,8 @@ class TestSearchApi(unittest.TestCase):
    
     search_service = search_api.SearchService() 
     search_service = flexmock(search_service)
-    search_service.should_receive("index_document").and_return("response_data", 0, "").once()
+    search_service.should_receive("index_document").\
+      and_return("response_data", 0, "").once()
 
     self.assertEquals(search_service.remote_request("app_data"), "encoded")
 
@@ -118,10 +119,13 @@ class TestSearchApi(unittest.TestCase):
     solr_interface.should_receive("update_document") 
     fake_response = FakeIndexDocumentResponse()
     flexmock(search_service_pb) 
-    search_service_pb.should_receive("IndexDocumentRequest").and_return(FakeIndexDocumentRequest("data"))
-    search_service_pb.should_receive("IndexDocumentResponse").and_return(fake_response)
+    search_service_pb.should_receive("IndexDocumentRequest").\
+      and_return(FakeIndexDocumentRequest("data"))
+    search_service_pb.should_receive("IndexDocumentResponse").\
+      and_return(fake_response)
     search_service = search_api.SearchService() 
     search_service = flexmock(search_service)
 
-    self.assertEquals(search_service.index_document("app_data"), ("encoded", 0, ""))
+    self.assertEquals(search_service.index_document("app_data"),
+                      ("encoded", 0, ""))
 

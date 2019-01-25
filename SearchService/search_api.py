@@ -199,9 +199,9 @@ class SearchService():
     # Instantiate response to fill it below
     response = search_service_pb.SearchResponse()
     try:
-      index = self.solr_conn.get_index(app_id, namespace, index_name)
       self.solr_conn.run_query(
-        response, index, query, projection_fields, sort_fields, limit, offset
+        response, app_id, namespace, index_name, query, projection_fields,
+        sort_fields, limit, offset
       )
     except search_exceptions.InternalError as internal_error:
       logging.error("Exception while doing a search.")
