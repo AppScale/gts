@@ -237,7 +237,7 @@ def extract_source(revision_key, location, runtime):
 
   if runtime in (JAVA, JAVA8):
     remove_conflicting_jars(app_path)
-    copy_modified_jars(app_path)
+    copy_modified_jars(app_path, runtime)
 
 
 def port_is_open(host, port):
