@@ -520,7 +520,8 @@ class DistributedTaskQueue():
 
     # Assign names if needed and validate tasks.
     error_found = False
-    for add_request in request.add_request_list():
+    namespaced_names = [None for _ in request.add_request_list()]
+    for index, add_request in enumerate(request.add_request_list()):
       task_result = response.add_taskresult()
 
       if (add_request.has_mode() and
@@ -559,15 +560,18 @@ class DistributedTaskQueue():
                                                   add_request.queue_name(),
                                                   user_chosen=task_name)
         add_request.set_task_name(namespaced_name)
-        task_result.set_chosen_task_name(namespaced_name)
+
+        # Wait until the result is known before setting the chosen task name on
+        # the response.
+        namespaced_names[index] = namespaced_name
       else:
         error_found = True
         task_result.set_result(result)
     if error_found:
       return
 
-    for add_request, task_result in zip(request.add_request_list(),
-                                        response.taskresult_list()):
+    for index, add_request in enumerate(request.add_request_list()):
+      task_result = response.taskresult(index)
       if (add_request.has_mode() and
           add_request.mode() == taskqueue_service_pb.TaskQueueMode.PULL):
         continue
@@ -581,6 +585,8 @@ class DistributedTaskQueue():
         task_result.set_result(TaskQueueServiceError.INVALID_REQUEST)
       else:
         task_result.set_result(TaskQueueServiceError.OK)
+        if namespaced_names[index] is not None:
+          task_result.set_chosen_task_name(namespaced_names[index])
 
   def __method_mapping(self, method):
     """ Maps an int index to a string.
