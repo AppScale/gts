@@ -1,7 +1,6 @@
-import io
 from collections import namedtuple
 
-from mock import MagicMock, patch
+from mock import MagicMock, mock_open, patch
 from tornado.gen import Future
 from tornado.httpclient import AsyncHTTPClient
 from tornado.testing import AsyncTestCase, gen_test
@@ -43,15 +42,18 @@ class TestDatastoreServer(AsyncTestCase):
 
     fake_process = FakeProcess()
     fake_process.is_running = MagicMock(return_value=True)
+    fake_process.pid = 10000
 
     server = DatastoreServer(4000, client, False)
 
     # Test that a Datastore server process is started.
-    with patch.object(psutil, 'Popen', return_value=fake_process) as mock_popen:
-      yield server.start()
+    with patch('appscale.admin.service_manager.open', mock_open(),
+               create=True):
+      with patch.object(psutil, 'Popen',
+                        return_value=fake_process) as mock_popen:
+        yield server.start()
 
-    cmd = ['cgexec', '-g', 'memory:appscale-datastore',
-           'appscale-datastore', '--type', 'cassandra', '--port', '4000']
+    cmd = ['appscale-datastore', '--type', 'cassandra', '--port', '4000']
     self.assertEqual(mock_popen.call_count, 1)
     self.assertEqual(mock_popen.call_args[0][0], cmd)
 
@@ -73,10 +75,9 @@ class TestDatastoreServer(AsyncTestCase):
 class TestServiceManager(AsyncTestCase):
   @gen_test
   def test_get_state(self):
-    cgroup_file = io.StringIO(u'10000\n10001')
-
     # Test that server objects are created with the correct PIDs.
-    with patch('appscale.admin.service_manager.open', return_value=cgroup_file):
+    with patch('appscale.admin.service_manager.pids_in_slice',
+               return_value=[10000, 10001]):
       with patch.object(DatastoreServer, 'from_pid') as mock_from_pid:
         ServiceManager.get_state()
 

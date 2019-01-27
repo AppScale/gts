@@ -24,6 +24,8 @@ class TestXMPP(unittest.TestCase):
     # and set up some instance variables to clean up our tests
     self.appid = "my-app"
     self.domain = "domain"
+    self.ejabberd_ip = 'ejabberd_ip'
+    self.xmpp_port = 5222
     self.uasecret = "boo"
     self.message = "the message"
     self.message_type = 'chat'
@@ -55,8 +57,8 @@ class TestXMPP(unittest.TestCase):
 
     # set up a fake xmpp client
     fake_xmpp_client = flexmock(name='xmpp')
-    fake_xmpp_client.should_receive('connect').with_args(secure=False) \
-      .and_return()
+    fake_xmpp_client.should_receive('connect').with_args(
+      (self.ejabberd_ip, self.xmpp_port), secure=False)
     fake_xmpp_client.should_receive('auth').with_args(self.appid, self.uasecret,
       resource='').and_return()
     fake_xmpp_client.should_receive('send').with_args(
@@ -66,7 +68,8 @@ class TestXMPP(unittest.TestCase):
     xmpppy.should_receive('Client').with_args(self.domain, debug=[]) \
       .and_return(fake_xmpp_client)
 
-    xmpp = xmpp_service_real.XmppService(log=logging.info, service_name='xmpp',
+    xmpp = xmpp_service_real.XmppService(
+      self.ejabberd_ip, log=logging.info, service_name='xmpp',
       domain=self.domain, uaserver='public-ip', uasecret=self.uasecret)
 
     # Set up a mocked XMPPRequest, that contains the message we want to send and
@@ -104,8 +107,8 @@ class TestXMPP(unittest.TestCase):
 
     # set up a fake xmpp client
     fake_xmpp_client = flexmock(name='xmpp')
-    fake_xmpp_client.should_receive('connect').with_args(secure=False) \
-      .and_return()
+    fake_xmpp_client.should_receive('connect').with_args(
+      (self.ejabberd_ip, self.xmpp_port), secure=False)
     fake_xmpp_client.should_receive('auth').with_args(self.appid, self.uasecret,
       resource='').and_return()
     fake_xmpp_client.should_receive('send').with_args(
@@ -115,7 +118,8 @@ class TestXMPP(unittest.TestCase):
     xmpppy.should_receive('Client').with_args(self.domain, debug=[]) \
       .and_return(fake_xmpp_client)
 
-    xmpp = xmpp_service_real.XmppService(log=logging.info, service_name='xmpp',
+    xmpp = xmpp_service_real.XmppService(
+      self.ejabberd_ip, log=logging.info, service_name='xmpp',
       domain=self.domain, uaserver='public-ip', uasecret=self.uasecret)
 
     # Set up a mocked XMPPRequest, that contains the message we want to send and

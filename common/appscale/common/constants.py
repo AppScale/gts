@@ -15,6 +15,11 @@ class HTTPCodes(object):
   NOT_IMPLEMENTED = 501
 
 
+class InvalidConfiguration(Exception):
+  """ Indicates that a given configuration cannot be enforced. """
+  pass
+
+
 class MonitStates(object):
   MISSING = 'missing'
   PENDING = 'pending'  # Monit is trying to either start or stop the process.
@@ -46,6 +51,9 @@ LOAD_BALANCER_IPS_LOC = '/etc/appscale/load_balancer_ips'
 
 # The location of the file which specifies all the ips for this deployment.
 ALL_IPS_LOC = '/etc/appscale/all_ips'
+
+# A prefix used to indicate that a config file is AppServer-related.
+GAE_PREFIX = 'gae_'
 
 # The location of the file which specifies the public IP of the head node.
 HEADNODE_IP_LOC = '/etc/appscale/head_node_private_ip'
@@ -158,3 +166,6 @@ TINY_WAIT = .1
 # The character used to separate portions of a complete version string.
 # (e.g. guestbook_default_v1)
 VERSION_PATH_SEPARATOR = '_'
+
+# The ZooKeeper node that keeps track of running AppServers by version.
+VERSION_REGISTRATION_NODE = '/appscale/instances_by_version'

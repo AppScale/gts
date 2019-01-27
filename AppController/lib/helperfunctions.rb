@@ -504,7 +504,7 @@ module HelperFunctions
     # Normally we would scan for 'inet addr:', but in non-English locales,
     # 'addr' gets translated to the native language, which messes up that
     # regex.
-    bound_addrs = ifconfig.scan(/inet .*?:(\d+.\d+.\d+.\d+) /).flatten
+    bound_addrs = ifconfig.scan(/inet .*?(\d+.\d+.\d+.\d+) /).flatten
 
     Djinn.log_debug('ifconfig reports bound IP addresses as ' \
       "[#{bound_addrs.join(', ')}]")
@@ -669,7 +669,7 @@ module HelperFunctions
       vms_up_already = describe_instances.scan(/(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).length
 
       # crucial for hybrid cloud, where one box may not be running yet
-      break if vms_up_already > 0 || new_cloud 
+      break if vms_up_already > 0 || new_cloud
     }
 
     args = "-k #{keyname} -n #{num_of_vms_to_spawn} --instance-type #{instance_type} --group #{group} #{image_id}"
@@ -856,18 +856,6 @@ module HelperFunctions
     result << "\n" << "    }" << "\n"
 
     return result
-  end
-
-  def self.get_loaded_versions
-    version_keys = []
-    Dir["#{APPLICATIONS_DIR}/*"].each{ |revision_dir|
-      revision_key = File.basename(revision_dir)
-
-      # Ignore project directories.
-      next unless revision_key.include?(Djinn::VERSION_PATH_SEPARATOR)
-      version_keys << revision_key.rpartition(Djinn::VERSION_PATH_SEPARATOR)[0]
-    }
-    return version_keys
   end
 
   # Retrieves the latest revision directory for a project.

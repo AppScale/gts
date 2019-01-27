@@ -46,11 +46,6 @@ class OperationTimeout(Exception):
   pass
 
 
-class InvalidConfiguration(Exception):
-  """ Indicates that a given configuration cannot be enforced. """
-  pass
-
-
 class InvalidSource(Exception):
   """ Indicates that a revision's source code is invalid. """
   pass
@@ -77,6 +72,9 @@ class Types(object):
 
 # The parent directory for source code extraction.
 UNPACK_ROOT = os.path.join('/', 'var', 'apps')
+
+# The ZooKeeper node that keeps track of the head node's state.
+CONTROLLER_STATE_NODE = '/appcontroller/state'
 
 # The default port for the AdminServer.
 DEFAULT_PORT = 17442

@@ -16,6 +16,12 @@ module CronHelper
   # A String that tells cron not to e-mail anyone about updates.
   NO_EMAIL_CRON = 'MAILTO=""'.freeze
 
+  # Cron.d folder
+  CRON_CONFIG_DIR = '/etc/cron.d/'.freeze
+
+  # Application capture regex.
+  PROJECT_ID_REGEX = /appscale-(.*)/
+
   # Reads the cron configuration file for the given application, and converts
   # any YAML or XML-specified cron jobs to standard cron format.
   #
@@ -23,13 +29,12 @@ module CronHelper
   #   ip: A String that points to the IP address or FQDN where the login node is
   #     running, and thus is the location where cron web requests should be sent
   #     to.
-  #   port: An Integer that indicates what port number the given Google App
-  #     Engine application runs on, so that we send cron web requests to the
-  #     correct application.
   #   app: A String that names the appid of this application.
-  def self.update_cron(ip, port, app)
+  # Raises:
+  #   VersionNotFound if a port cannot be found for a cron entry's target.
+  def self.update_cron(ip, app)
     app_crontab = NO_EMAIL_CRON + "\n"
-    parsing_log = "saw a cron request with args [#{ip}][#{port}][#{app}]\n"
+    parsing_log = "saw a cron request with args [#{ip}][#{app}]\n"
 
     begin
       yaml_file = ZKInterface.get_cron_config(app)
@@ -44,6 +49,8 @@ module CronHelper
       return
     end
 
+    # Keep track of ports to minimize ZooKeeper requests.
+    ports = {}
     cron_routes.each { |item|
       next if item['url'].nil?
       description = item['description']
@@ -56,6 +63,24 @@ module CronHelper
         Djinn.log_warn("Invalid cron URL: #{item['url']}. Skipping entry.")
         next
       end
+
+      # Determine the port from the target. Use the default service if the
+      # target is not defined or does not exist.
+      target = item.fetch('target', Djinn::DEFAULT_SERVICE)
+      unless ports.key?(target)
+        begin
+          version_details = ZKInterface.get_version_details(
+            app, target, Djinn::DEFAULT_VERSION)
+        rescue VersionNotFound
+          Djinn.log_warn(
+            "Invalid target: #{target}. Using #{Djinn::DEFAULT_SERVICE}.")
+          target = Djinn::DEFAULT_SERVICE
+          version_details = ZKInterface.get_version_details(
+            app, target, Djinn::DEFAULT_VERSION)
+        end
+        ports[target] = version_details['appscaleExtensions']['httpPort']
+      end
+      port = ports[target]
 
       schedule = item['schedule']
       cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
@@ -87,6 +112,11 @@ CRON
   def self.clear_app_crontab(app)
     cron_file = "/etc/cron.d/appscale-#{app}"
     Djinn.log_run("rm -f #{cron_file}") if File.exists?(cron_file)
+  end
+
+  def self.list_app_crontabs
+    dir_app_regex = "appscale-*"
+    return Dir.glob(File.join(CRON_CONFIG_DIR, dir_app_regex))
   end
 
   # Checks if a crontab line is valid.
@@ -474,3 +504,4 @@ CRON
     end
   end
 end
+

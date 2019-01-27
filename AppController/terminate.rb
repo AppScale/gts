@@ -1,3 +1,4 @@
+require 'find'
 require 'pty'
 
 $:.unshift File.join(File.dirname(__FILE__), "lib")
@@ -36,10 +37,14 @@ module TerminateHelper
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
 
     # Stop datastore servers.
-    datastore_cgroup = '/sys/fs/cgroup/memory/appscale-datastore/cgroup.procs'
+    datastore_slice = '/sys/fs/cgroup/systemd/appscale.slice'\
+                      '/appscale-datastore.slice'
     begin
-      File.readlines(datastore_cgroup).each do |pid|
-        `kill #{pid}`
+      Find.find(datastore_slice) do |path|
+        next unless File.basename(path) == 'cgroup.procs'
+        File.readlines(path).each do |pid|
+          `kill #{pid}`
+        end
       end
     rescue Errno::ENOENT
       # If there are no processes running, there is no need to stop them.

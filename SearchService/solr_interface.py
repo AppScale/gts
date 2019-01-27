@@ -1,48 +1,47 @@
 """ Top level functions for SOLR functions. """
 import calendar
+import urllib
+from datetime import datetime
 import logging
 import os
 import json
 import sys
 import urllib2
 
-import query_parser
-import search_exceptions
-
-from datetime import datetime
-
-from query_parser import Document
-
 from appscale.common import appscale_info
+
+import query_converter
+import search_exceptions
+from constants import (
+  HTTP_OK, INDEX_NAME_FIELD, INDEX_LOCALE_FIELD, SOLR_SERVER_PORT
+)
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.datastore.document_pb import FieldValue
 from google.appengine.api.search import search_service_pb
 
-# HTTP OK code.
-HTTP_OK = 200
 
-class Solr():
-  """ Class for doing solar operations. """
+def get_index_name(app_id, namespace, name):
+  """ Gets the internal index name.
 
-  # The port SOLR is running on.
-  SOLR_SERVER_PORT = 8983
+  Args:
+    app_id: A str, the application identifier.
+    namespace: A str, the application namespace.
+    name: A str, the index name.
+  Returns:
+    A str, the internal name of the index.
+  """
+  return '{}_{}_{}'.format(app_id, namespace, name)
+
+
+class Solr(object):
+  """ Class for doing solr operations. """
 
   def __init__(self):
     """ Constructor for solr interface. """
-    self._search_location = appscale_info.get_search_location()
-
-  def __get_index_name(self, app_id, namespace, name):
-    """ Gets the internal index name.
-
-    Args:
-      app_id: A str, the application identifier.
-      namespace: A str, the application namespace.
-      name: A str, the index name.
-    Returns:
-      A str, the internal name of the index.
-    """
-    return app_id + "_" + namespace + "_" + name
+    self._search_location = 'http://{}:{}'.format(
+      appscale_info.get_search_location(), SOLR_SERVER_PORT
+    )
 
   def delete_doc(self, doc_id):
     """ Deletes a document by doc ID.
@@ -53,8 +52,7 @@ class Solr():
       search_exceptions.InternalError on internal errors.
     """
     solr_request = {"delete": {"id": doc_id}}
-    solr_url = "http://{0}:{1}/solr/update?commit=true".format(self._search_location,
-      self.SOLR_SERVER_PORT)
+    solr_url = "{}/solr/update?commit=true".format(self._search_location)
     logging.debug("SOLR URL: {0}".format(solr_url))
     json_request = json.dumps(solr_request)
     logging.debug("SOLR JSON: {0}".format(json_request))
@@ -76,7 +74,7 @@ class Solr():
       raise search_exceptions.InternalError(
         "SOLR response status of {0}".format(status))
 
-  def get_index(self, app_id, namespace, name):
+  def _get_index_adapter(self, app_id, namespace, name):
     """ Gets an index from SOLR.
 
     Performs a JSON request to the SOLR schema API to get the list of defined
@@ -92,9 +90,8 @@ class Solr():
     Returns:
       An index item. 
     """
-    index_name = self.__get_index_name(app_id, namespace, name)
-    solr_url = "http://{0}:{1}/solr/schema/fields".format(self._search_location,
-      self.SOLR_SERVER_PORT)
+    index_name = get_index_name(app_id, namespace, name)
+    solr_url = "{}/solr/schema/fields".format(self._search_location)
     logging.debug("URL: {0}".format(solr_url))
     try:
       conn = urllib2.urlopen(solr_url)
@@ -118,8 +115,7 @@ class Solr():
     for field in response['fields']:
       if field['name'].startswith("{0}_".format(index_name)):
         filtered_fields.append(field)
-    schema = Schema(filtered_fields, response['responseHeader'])
-    return Index(index_name, schema)
+    return IndexAdapter(index_name, filtered_fields)
 
   def update_schema(self, updates):
     """ Updates the schema of a document.
@@ -134,8 +130,7 @@ class Solr():
       field_list.append({'name': update['name'], 'type': update['type'],
         'stored': 'true', 'indexed': 'true', 'multiValued': 'false'})
 
-    solr_url = "http://{0}:{1}/solr/schema/fields".format(
-      self._search_location, self.SOLR_SERVER_PORT)
+    solr_url = "{}/solr/schema/fields".format(self._search_location)
     json_request = json.dumps(field_list)
     try:
       req = urllib2.Request(solr_url, data=json_request)
@@ -166,9 +161,9 @@ class Solr():
     """
     hash_map = {}
     hash_map['id'] = solr_doc.id
-    hash_map[Document.INDEX_NAME] = index.name
+    hash_map[INDEX_NAME_FIELD] = index.name
     if solr_doc.language:
-      hash_map[Document.INDEX_LOCALE] = solr_doc.language
+      hash_map[INDEX_LOCALE_FIELD] = solr_doc.language
 
     for field in solr_doc.fields:
       value = field.value
@@ -199,8 +194,7 @@ class Solr():
     docs = []
     docs.append(hash_map)
     json_payload = json.dumps(docs)
-    solr_url = "http://{0}:{1}/solr/update/json?commit=true".format(
-      self._search_location, self.SOLR_SERVER_PORT)
+    solr_url = "{}/solr/update/json?commit=true".format(self._search_location)
     try:
       req = urllib2.Request(solr_url, data=json_payload)
       req.add_header('Content-Type', 'application/json')
@@ -231,9 +225,10 @@ class Solr():
     """
     solr_doc = self.to_solr_doc(doc)
 
-    index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
-    updates = self.compute_updates(index.name, index.schema.fields,
-      solr_doc.fields)
+    index = self._get_index_adapter(
+      app_id, index_spec.namespace(), index_spec.name()
+    )
+    updates = self.compute_updates(index.name, index.schema, solr_doc.fields)
     if len(updates) > 0:
       try:
         self.update_schema(updates)
@@ -296,58 +291,57 @@ class Solr():
     Returns:
       A list of dictionaries with SOLR field names that require updates.
     """
+    known_fields = {current_field['name'] for current_field in current_fields}
     fields_to_update = []
     for doc_field in doc_fields:
-      doc_name = doc_field.name
-      found = False
-      for current_field in current_fields:
-        current_name = current_field['name']
-        if current_name == index_name + "_" + doc_name:
-          found = True
-      if not found:
-        new_field = {'name': index_name + "_" + doc_name, 'type':
-          doc_field.field_type}
-        fields_to_update.append(new_field)
+      full_field_name = index_name + '_' + doc_field.name
+      if full_field_name in known_fields:
+        continue
+      fields_to_update.append({
+        'name': full_field_name,
+        'type': doc_field.field_type
+      })
+      known_fields.add(full_field_name)
     #TODO add fields to delete also.
     return fields_to_update
 
-  def run_query(self, result, index, app_id, namespace, search_params):
+  def run_query(self, result, app_id, namespace, index_name, query,
+                projection_fields, sort_fields, limit, offset):
     """ Creates a SOLR query string and runs it on SOLR. 
 
     Args:
       result: A search_service_pb.SearchResponse.
-      index: Index for which we're running the query.
       app_id: A str, the application identifier.
-      namespace: A str, the namespace.
-      search_params: A search_service_pb.SearchParams.
+      namespace: A str, the application namespace.
+      index_name: A str, the index name.
+      query: A str representing query sent by user.
+      projection_fields: A list of fields to fetch for each document.
+      sort_fields: a list of tuples of form (<FieldName>, "desc"/"asc")
+      limit: a max number of document to return.
+      offset: an integer representing offset.
     """
-    query = search_params.query()
-    field_spec = search_params.field_spec()
-    sort_list = search_params.sort_spec_list()
-    parser = query_parser.SolrQueryParser(index, app_id, namespace,
-      field_spec, sort_list, search_params.limit(),
-      search_params.offset())
-    solr_query = parser.get_solr_query_string(query)
-    logging.debug("Solr query: {0}".format(solr_query))
-    solr_results = self.__execute_query(solr_query)
+    index = self._get_index_adapter(app_id, namespace, index_name)
+    solr_query_params = query_converter.prepare_solr_query(
+      index, query, projection_fields, sort_fields, limit, offset
+    )
+    solr_results = self.__execute_query(solr_query_params)
     logging.debug("Solr results: {0}".format(solr_results))
     self.__convert_to_gae_results(result, solr_results, index)
-    logging.debug("GAE results: {0}".format(result))
 
-  def __execute_query(self, solr_query):
-    """ Executes query string on SOLR. 
+  def __execute_query(self, solr_query_params):
+    """ Executes query on SOLR.
 
     Args:
-      solr_query: A str, the query to run.
+      solr_query_params: a dict containing query params to send in request.
     Returns:
       The results from the query executing.
     Raises:
       search_exceptions.InternalError on internal SOLR error.
     """
-    solr_url = "http://{0}:{1}/solr/select/?wt=json&{2}"\
-      .format(self._search_location, self.SOLR_SERVER_PORT,
-      solr_query)
-    logging.debug("SOLR URL: {0}".format(solr_url))
+    solr_query_params['wt'] = 'json'
+    solr_url = "{}/solr/select/?{}".format(
+      self._search_location, urllib.urlencode(solr_query_params)
+    )
     try:
       req = urllib2.Request(solr_url)
       req.add_header('Content-Type', 'application/json')
@@ -358,7 +352,6 @@ class Solr():
         raise search_exceptions.InternalError("Bad request sent to SOLR.")
       response = json_load_byteified(conn)
       status = response['responseHeader']['status']
-      logging.debug("Response: {0}".format(response))
     except ValueError, exception:
       logging.error("Unable to decode json from SOLR server: {0}".format(
         exception))
@@ -382,8 +375,10 @@ class Solr():
       solr_results: A dictionary returned from SOLR on a search query.
       index: A Index that we are querying for.
     """
-    result.set_matched_count(len(solr_results['response']['docs']) + \
-      int(solr_results['response']['start']))
+    result.set_matched_count(
+      len(solr_results['response']['docs']) +
+      int(solr_results['response']['start'])
+    )
     result.mutable_status().set_code(search_service_pb.SearchServiceError.OK)
     for doc in solr_results['response']['docs']:
       new_result = result.add_result()
@@ -399,8 +394,8 @@ class Solr():
     """
     new_doc = new_result.mutable_document()
     new_doc.set_id(doc['id'])
-    if Document.INDEX_LOCALE in doc:
-      new_doc.set_language(doc[Document.INDEX_LOCALE][0])
+    if INDEX_LOCALE_FIELD in doc:
+      new_doc.set_language(doc[INDEX_LOCALE_FIELD][0])
     for key in doc.keys():
       if not key.startswith(index.name):
         continue
@@ -409,7 +404,7 @@ class Solr():
       new_field.set_name(field_name)
       new_value = new_field.mutable_value()
       field_type = ""
-      for field in index.schema.fields:
+      for field in index.schema:
         if field['name'] == "{0}_{1}".format(index.name, field_name):
           field_type = field['type']
       if field_type == "":
@@ -440,7 +435,7 @@ class Solr():
       new_value.set_string_value(value)
       new_value.set_type(FieldValue.ATOM)
     elif ftype == Field.NUMBER:
-      new_value.set_string_value(value)
+      new_value.set_string_value(str(value))
       new_value.set_type(FieldValue.NUMBER)
     elif ftype == Field.GEO:
       geo = new_value.mutable_geo()
@@ -455,43 +450,35 @@ class Solr():
       logging.warning("Default field found! {0}".format(ftype))
       new_value.set_string_value(value)
       new_value.set_type(FieldValue.TEXT)
-    logging.debug("New value: {0}".format(new_value))
 
-class Schema():
-  """ Represents a schema in SOLR. """
-  def __init__(self, fields , response_header):
-    """ Constructor for SOLR schema. 
 
-    Args:
-      fields: A list of Fields for the schema.
-      response_header: The response header from SOLR.
-    """
-    self.fields = fields
-    self.response_header = response_header
-
-class Index():
+class IndexAdapter(object):
   """ Represents an index in SOLR. """
   def __init__(self, name, schema):
     """ Constructor for SOLR index. 
 
     Args:
       name: A str, the name of the index.
-      schema: A Schema for this index.
+      schema: A dict, representing schema for this index.
     """
     self.name = name
     self.schema = schema
 
-class Header():
-  """ Represents a header in SOLR. """
-  def __init__(self, status, qtime):
-    """ Constructor for Header type. 
+
+class Document(object):
+  """ Represents a document stored in SOLR. """
+  def __init__(self, identifier, language, fields):
+    """ Constructor for Document in SOLR.
 
     Args:
-      status: The status for this header.
-      qtime: The reported qtime from SOLR.
+      identifier: A str, the ID of the document.
+      language: The language the document is in.
+      fields: Field list for the document.
     """
-    self.status = status
-    self.qtime = qtime
+    self.id = identifier
+    self.language = language
+    self.fields = fields
+
 
 class Field():
   """ Field item in a document. """
@@ -522,15 +509,6 @@ class Field():
     self.indexed = indexed
     self.multi_valued = multi_valued
     self.value = value
-
-class Results():
-  """ Results from SOLR. """
-
-  def __init__(self, num_found, docs, header):
-    """ Constructor for Results type. """
-    self.num_found = num_found
-    self.docs = docs
-    self.header = header
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

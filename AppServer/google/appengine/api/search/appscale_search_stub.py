@@ -141,7 +141,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
     return
 
   def _RemoteSend(self, request, response, method):
-    """ Sends a request remotely to the datstore server. 
+    """ Sends a request remotely to the search server.
 
     Args:
       request: A request object.
@@ -165,10 +165,6 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       KEY_LOCATION,
       CERT_LOCATION)
 
-    if not api_response or not api_response.has_response():
-      raise search.InternalError(
-          'No response from db server on %s requests.' % method)
-
     if api_response.has_application_error():
       error_pb = api_response.application_error()
       logging.error(error_pb.detail())
@@ -177,5 +173,9 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
     if api_response.has_exception():
       raise api_response.exception()
+
+    if not api_response or not api_response.has_response():
+      raise search.InternalError(
+          'No response from search server on %s requests.' % method)
 
     response.ParseFromString(api_response.response())

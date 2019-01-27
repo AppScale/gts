@@ -48,6 +48,9 @@ from google.appengine.datastore import entity_pb
 # The directory Cassandra is installed to.
 CASSANDRA_INSTALL_DIR = '/opt/cassandra'
 
+# The maximum amount of entities to fetch concurrently.
+ENTITY_FETCH_THRESHOLD = 100
+
 # Full path for the nodetool binary.
 NODE_TOOL = '{}/cassandra/bin/nodetool'.format(CASSANDRA_INSTALL_DIR)
 
@@ -159,7 +162,6 @@ class DatastoreProxy(AppDBInterface):
     self.range_query_sync = tornado_synchronous(self.range_query)
     self.get_metadata_sync = tornado_synchronous(self.get_metadata)
     self.set_metadata_sync = tornado_synchronous(self.set_metadata)
-    self.get_indices_sync = tornado_synchronous(self.get_indices)
     self.delete_table_sync = tornado_synchronous(self.delete_table)
 
   def close(self):
@@ -196,23 +198,36 @@ class DatastoreProxy(AppDBInterface):
                   column=ThriftColumn.COLUMN_NAME,
                 )
     query = SimpleStatement(statement, retry_policy=BASIC_RETRIES)
-    parameters = (ValueSequence(row_keys_bytes), ValueSequence(column_names))
 
-    try:
-      results = yield self.tornado_cassandra.execute(
-        query, parameters=parameters)
+    results = []
+    # Split the rows up into chunks to reduce the likelihood of timeouts.
+    chunk_indexes = [
+      (n, n + ENTITY_FETCH_THRESHOLD)
+      for n in xrange(0, len(row_keys_bytes), ENTITY_FETCH_THRESHOLD)]
 
-      results_dict = {row_key: {} for row_key in row_keys}
-      for (key, column, value) in results:
-        if key not in results_dict:
-          results_dict[key] = {}
-        results_dict[key][column] = value
+    # TODO: This can be made more efficient by maintaining a constant number
+    # of concurrent requests rather than waiting for each batch to complete.
+    for start, end in chunk_indexes:
+      parameters = (ValueSequence(row_keys_bytes[start:end]),
+                    ValueSequence(column_names))
+      try:
+        batch_results = yield self.tornado_cassandra.execute(
+          query, parameters=parameters)
+      except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
+        message = 'Exception during batch_get_entity'
+        logger.exception(message)
+        raise AppScaleDBConnectionError(message)
 
-      raise gen.Return(results_dict)
-    except dbconstants.TRANSIENT_CASSANDRA_ERRORS:
-      message = 'Exception during batch_get_entity'
-      logger.exception(message)
-      raise AppScaleDBConnectionError(message)
+      results.extend(list(batch_results))
+
+    results_dict = {row_key: {} for row_key in row_keys}
+    for (key, column, value) in results:
+      if key not in results_dict:
+        results_dict[key] = {}
+
+      results_dict[key][column] = value
+
+    raise gen.Return(results_dict)
 
   @gen.coroutine
   def batch_put_entity(self, table_name, row_keys, column_names, cell_values,
@@ -787,33 +802,6 @@ class DatastoreProxy(AppDBInterface):
       yield self.create_table(dbconstants.DATASTORE_METADATA_TABLE,
                               dbconstants.DATASTORE_METADATA_SCHEMA)
       yield self.tornado_cassandra.execute(statement, parameters)
-
-  @gen.coroutine
-  def get_indices(self, app_id):
-    """ Gets the indices of the given application.
-
-    Args:
-      app_id: Name of the application.
-    Returns:
-      Returns a list of encoded entity_pb.CompositeIndex objects.
-    """
-    start_key = dbconstants.KEY_DELIMITER.join([app_id, 'index', ''])
-    end_key = dbconstants.KEY_DELIMITER.join(
-      [app_id, 'index', dbconstants.TERMINATING_STRING])
-    result = yield self.range_query(
-      dbconstants.METADATA_TABLE,
-      dbconstants.METADATA_SCHEMA,
-      start_key,
-      end_key,
-      dbconstants.MAX_NUMBER_OF_COMPOSITE_INDEXES,
-      offset=0,
-      start_inclusive=True,
-      end_inclusive=True)
-    list_result = []
-    for list_item in result:
-      for key, value in list_item.iteritems():
-        list_result.append(value['data'])
-    raise gen.Return(list_result)
 
   @gen.coroutine
   def valid_data_version(self):
