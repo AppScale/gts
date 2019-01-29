@@ -456,8 +456,6 @@ class Djinn
     'EC2_SECRET_KEY' => [String, nil, false],
     'EC2_URL' => [String, nil, false],
     'flower_password' => [String, nil, false],
-    'gce_instance_type' => [String, nil],
-    'gce_user' => [String, nil, false],
     'group' => [String, nil, true],
     'keyname' => [String, nil, false],
     'infrastructure' => [String, nil, true],
@@ -996,17 +994,6 @@ class Djinn
       @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
       @options['ec2_url'] = @options['EC2_URL']
     end
-
-    @nodes.each { |node|
-      if node.jobs.include? 'compute'
-        if node.instance_type.nil?
-          @options['compute_instance_type'] = @options['instance_type']
-        else
-          @options['compute_instance_type'] = node.instance_type
-        end
-        break
-      end
-    }
 
     'OK'
   end
@@ -2177,6 +2164,14 @@ class Djinn
           "aquire more nodes - failing the caller's request.")
         return NOT_ENOUGH_OPEN_NODES
       end
+
+      # Ensure we have the default type to use for the autoscaled nodes.
+      if @options['instance_type'].nil?
+        Djinn.log_warn('instance_type is undefined, hence no ' \
+                       'spawning of instance is possible.')
+        return NOT_ENOUGH_OPEN_NODES
+      end
+
       Djinn.log_info("Need to spawn #{new_nodes_roles.length} VMs.")
 
       # We create here the needed nodes, with open role and no disk.
