@@ -59,12 +59,12 @@ APPS_LOCK = Monitor.new
 # applications.
 AMS_LOCK = Mutex.new
 
+# Prevents nodetool from being invoked concurrently.
+NODETOOL_LOCK = Mutex.new
+
 # This lock is to ensure that only one thread is trying to start/stop
 # new nodes (it takes a long time to spawn a new VM).
 SCALE_LOCK = Mutex.new
-
-# Prevents nodetool from being invoked concurrently.
-NODETOOL_LOCK = Mutex.new
 
 # The name of the user to be used with reserved applications.
 APPSCALE_USER = 'appscale-user@local.appscale'.freeze
@@ -88,10 +88,15 @@ INVALID_REQUEST = 'false: invalid request'.freeze
 # Engine applications via the AppController.
 APP_UPLOAD_TIMEOUT = 180
 
+# TODO get rid of json version of zookeeper locations file
 # The location on the local file system where we store information about
-# where ZooKeeper clients are located, used to backup and restore
+# where ZooKeeper servers are located, used to backup and restore
 # AppController information.
-ZK_LOCATIONS_FILE = '/etc/appscale/zookeeper_locations.json'.freeze
+ZK_LOCATIONS_JSON_FILE = '/etc/appscale/zookeeper_locations.json'.freeze
+
+# The location on the local file system where we store information about
+# where ZooKeeper servers are located.
+ZK_LOCATIONS_FILE = '/etc/appscale/zookeeper_locations'.freeze
 
 # The location of the logrotate scripts.
 LOGROTATE_DIR = '/etc/logrotate.d'.freeze
@@ -1132,38 +1137,46 @@ class Djinn
       end
     end
 
-    JSON.dump(@cluster_stats)
+    @state_change_lock.synchronize { return JSON.dump(@cluster_stats) }
   end
 
   # Updates our locally cached information about the CPU, memory, and disk
   # usage of each machine in this AppScale deployment.
   def update_node_info_cache
+    threads = []
     new_stats = []
+    ips = []
 
-    Thread.new {
-      @nodes.each { |node|
-        ip = node.private_ip
-        if ip == my_node.private_ip
-          begin
-            node_stats = JSON.load(get_node_stats_json(@@secret))
-          rescue SOAP::FaultError
-            Djinn.log_warn("Failed to get local status update.")
-            next
-          end
-        else
+    @state_change_lock.synchronize {
+      @nodes.each { |node| ips << node.private_ip }
+    }
+    ips.each { |ip|
+      if ip == my_node.private_ip
+        begin
+          new_stats << JSON.load(get_node_stats_json(@@secret))
+        rescue SOAP::FaultError
+          Djinn.log_warn("Failed to get local status update.")
+        end
+      else
+        threads << Thread.new {
           acc = AppControllerClient.new(ip, @@secret)
           begin
-            node_stats = JSON.load(acc.get_node_stats_json)
+            Thread.current[:new_stat] = JSON.load(acc.get_node_stats_json)
           rescue FailedNodeException, SOAP::FaultError
             Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
               "not adding it to our cached info.")
-            next
+            Thread.current[:new_stat] = nil
           end
-        end
-        new_stats << node_stats
-      }
-      @cluster_stats = new_stats
+        }
+      end
     }
+    threads.each { |t|
+      t.join
+      new_stats << t[:new_stat] unless t[:new_stat].nil?
+    }
+
+    @state_change_lock.synchronize { @cluster_stats = new_stats }
+    Djinn.log_debug("Updated cluster stats.")
   end
 
   # Gets the database information of the AppScale deployment.
@@ -1594,9 +1607,7 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     public_ips = []
-    @nodes.each { |node|
-      public_ips << node.public_ip
-    }
+    @nodes.each { |node| public_ips << node.public_ip }
     JSON.dump(public_ips)
   end
 
@@ -1604,9 +1615,7 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     private_ips = []
-    @nodes.each { |node|
-      private_ips << node.private_ip
-    }
+    @nodes.each { |node| private_ips << node.private_ip }
     JSON.dump(private_ips)
   end
 
@@ -1649,6 +1658,14 @@ class Djinn
       @my_public_ip = nil
     end
 
+    # If deprecated ZK_LOCATIONS_JSON_FILE is used,
+    # convert it to regular ZK_LOCATIONS_FILE
+    if not File.exists?(ZK_LOCATIONS_FILE) and File.exists?(ZK_LOCATIONS_JSON_FILE)
+      # Read deprecated json file with zookeeper nodes.
+      zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_JSON_FILE)
+      HelperFunctions.write_file(ZK_LOCATIONS_FILE, zookeeper_data['locations'].join("\n"))
+    end
+
     # If we have the ZK_LOCATIONS_FILE, the deployment has already been
     # configured and started. We need to check if we are a zookeeper host
     # and start it if needed.
@@ -1661,8 +1678,11 @@ class Djinn
       end
 
       # Restore the initial list of zookeeper nodes.
-      zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
-      @zookeeper_data = zookeeper_data['locations']
+      zookeeper_data = []
+      File.foreach(ZK_LOCATIONS_FILE) { |line|
+        zookeeper_data << line.strip() unless line.strip().empty?
+      }
+      @zookeeper_data = zookeeper_data
       if @zookeeper_data.include?(@my_private_ip) && !is_zookeeper_running?
         # We are a zookeeper host and we need to start it.
         begin
@@ -1749,6 +1769,12 @@ class Djinn
     # statistics to the log.
     last_print = Time.now.to_i
 
+    # We use a thread to check the status of the cluster to ensure we
+    # don't block waiting for the status.
+    if my_node.is_shadow?
+      update_stats_thread = Thread.new { update_node_info_cache }
+    end
+
     until @kill_sig_received do
       # Mark the beginning of the duty cycle.
       start_work_time = Time.now.to_i
@@ -1756,7 +1782,7 @@ class Djinn
       # We want to ensure monit stays up all the time, since we rely on
       # it for services and AppServers.
       unless MonitInterface.start_monit
-        Djinn.log_warn("Monit was not running: restarted it.")
+        Djinn.log_warn('Monit was not running: restarted it.')
       end
 
       write_database_info
@@ -1795,7 +1821,11 @@ class Djinn
       # The master node has more work to do.
       if my_node.is_shadow?
         write_tools_config
-        update_node_info_cache
+        if update_stats_thread.alive?
+          Djinn.log_debug('Update thread still running: skipping updates.')
+        else
+          update_stats_thread = Thread.new { update_node_info_cache }
+        end
         backup_appcontroller_state
       end
 
@@ -2866,27 +2896,25 @@ class Djinn
   # located so that this node has the most up-to-date info if it needs to
   # restore the data down the line.
   def write_zookeeper_locations
-    zookeeper_data = { 'last_updated_at' => Time.now.to_i,
-      'locations' => []
-    }
+    zookeeper_data = []
 
     @state_change_lock.synchronize {
       @nodes.each { |node|
         if node.is_zookeeper?
-          unless zookeeper_data['locations'].include? node.private_ip
-            zookeeper_data['locations'] << node.private_ip
+          unless zookeeper_data.include? node.private_ip
+            zookeeper_data << node.private_ip
           end
         end
       }
     }
 
     # Let's see if it changed since last time we got the list.
-    zookeeper_data['locations'].sort!
-    if zookeeper_data['locations'] != @zookeeper_data
+    zookeeper_data.sort!
+    if zookeeper_data != @zookeeper_data
       # Save the latest list of zookeeper nodes: needed to restart the
       # deployment.
-      HelperFunctions.write_json_file(ZK_LOCATIONS_FILE, zookeeper_data)
-      @zookeeper_data = zookeeper_data['locations']
+      HelperFunctions.write_file(ZK_LOCATIONS_FILE, zookeeper_data.join("\n"))
+      @zookeeper_data = zookeeper_data
       Djinn.log_debug("write_zookeeper_locations: updated list of zookeeper servers")
     end
   end
@@ -2959,18 +2987,18 @@ class Djinn
   end
 
   # Removes information associated with the given IP address from our local
-  # cache (@nodes) as well as the remote node storage mechanism (in ZooKeeper).
+  # cache (@nodes) as well as the remote node storage mechanism (in
+  # ZooKeeper).
   def remove_node_from_local_and_zookeeper(ip)
     # First, remove our local copy
     index_to_remove = nil
     @state_change_lock.synchronize {
       @nodes.each_index { |i|
-        if @nodes[i].private_ip == ip
-          index_to_remove = i
-          break
-        end
+        next unless @nodes[i].private_ip == ip
+        index_to_remove = i
+        break
       }
-      @nodes.delete(@nodes[index_to_remove])
+      @nodes.delete_at(index_to_remove) if index_to_remove
     }
 
     # Then remove the remote copy
@@ -3279,7 +3307,6 @@ class Djinn
     if my_node.is_shadow?
       @state = "Assigning Datastore processes"
       assign_datastore_processes
-      update_node_info_cache
       TaskQueue.start_flower(@options['flower_password'])
     else
       TaskQueue.stop_flower
@@ -4647,8 +4674,15 @@ HOSTS
     Djinn.log_debug("setup_appengine_version: info for #{version_key}: " \
                     "#{@app_info_map[version_key]}.")
 
-    version_details = ZKInterface.get_version_details(
-      project_id, service_id, version_id)
+    begin
+      version_details = ZKInterface.get_version_details(
+        project_id, service_id, version_id)
+    rescue VersionNotFound
+      Djinn.log_debug(
+        "Version #{version_key} not found, exiting setup_appengine_version")
+      return
+    end
+
     nginx_port = version_details['appscaleExtensions']['httpPort']
     https_port = version_details['appscaleExtensions']['httpsPort']
     proxy_port = version_details['appscaleExtensions']['haproxyPort']
@@ -5271,43 +5305,45 @@ HOSTS
 
     # Let's consider the last system load readings we have, to see if the
     # node can run another AppServer.
-    get_all_compute_nodes.each { |host|
-      @cluster_stats.each { |node|
-        next if node['private_ip'] != host
+    @state_change_lock.synchronize {
+      get_all_compute_nodes.each { |host|
+        @cluster_stats.each { |node|
+          next if node['private_ip'] != host
 
-        # Check how many new AppServers of this app, we can run on this
-        # node (as theoretical maximum memory usage goes).  First convert
-        # total memory to MB.
-        total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
-        allocated_memory[host] = 0 if allocated_memory[host].nil?
-        max_new_total = Integer(
-          (total - allocated_memory[host] - SAFE_MEM) / max_app_mem)
-        Djinn.log_debug("Check for total memory usage: #{host} can run " \
-                        "#{max_new_total} AppServers for #{version_key}.")
-        break if max_new_total <= 0
+          # Check how many new AppServers of this app, we can run on this
+          # node (as theoretical maximum memory usage goes).  First convert
+          # total memory to MB.
+          total = Float(node['memory']['total']/MEGABYTE_DIVISOR)
+          allocated_memory[host] = 0 if allocated_memory[host].nil?
+          max_new_total = Integer(
+            (total - allocated_memory[host] - SAFE_MEM) / max_app_mem)
+          Djinn.log_debug("Check for total memory usage: #{host} can run " \
+                          "#{max_new_total} AppServers for #{version_key}.")
+          break if max_new_total <= 0
 
-        # Now we do a similar calculation but for the current amount of
-        # available memory on this node. First convert bytes to MB.
-        host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
-        max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
-        Djinn.log_debug("Check for free memory usage: #{host} can run " \
-                        "#{max_new_free} AppServers for #{version_key}.")
-        break if max_new_free <= 0
+          # Now we do a similar calculation but for the current amount of
+          # available memory on this node. First convert bytes to MB.
+          host_available_mem = Float(node['memory']['available']/MEGABYTE_DIVISOR)
+          max_new_free = Integer((host_available_mem - SAFE_MEM) / max_app_mem)
+          Djinn.log_debug("Check for free memory usage: #{host} can run " \
+                          "#{max_new_free} AppServers for #{version_key}.")
+          break if max_new_free <= 0
 
-        # The host needs to have normalized average load less than MAX_LOAD_AVG.
-        if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
-          Djinn.log_debug("#{host} CPUs are too busy.")
+          # The host needs to have normalized average load less than MAX_LOAD_AVG.
+          if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
+            Djinn.log_debug("#{host} CPUs are too busy.")
+            break
+          end
+
+          # We add the host as many times as AppServers it can run.
+          (max_new_total > max_new_free ? max_new_free : max_new_total).downto(1) {
+            available_hosts << host
+          }
+
+          # Since we already found the stats for this node, no need to look
+          # further.
           break
-        end
-
-        # We add the host as many times as AppServers it can run.
-        (max_new_total > max_new_free ? max_new_free : max_new_total).downto(1) {
-          available_hosts << host
         }
-
-        # Since we already found the stats for this node, no need to look
-        # further.
-        break
       }
     }
     Djinn.log_debug(

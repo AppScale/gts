@@ -40,6 +40,7 @@ class RabbitMQStatsSnapshot(object):
   disk_free_alarm = attr.ib()
   mem_alarm = attr.ib()
   name = attr.ib()
+  partitions = attr.ib()
 
 
 @include_list_name('queue')
@@ -92,7 +93,8 @@ class RabbitMQStatsSource(object):
       utc_timestamp=int(time.time()),
       disk_free_alarm=node_info['disk_free_alarm'],
       mem_alarm=node_info['mem_alarm'],
-      name=node_info['name']
+      name=node_info['name'],
+      partitions=node_info['partitions']
     )
     logger.info('Prepared RabbitMQ node stats in '
                 '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
