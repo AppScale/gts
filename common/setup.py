@@ -1,4 +1,14 @@
 from setuptools import setup
+import sys
+
+install_requires = [
+  'kazoo==2.6.0',
+  'PyYAML==3.13',
+  'mock==2.0.0'
+]
+
+if sys.version_info < (3,):
+  install_requires.append('future==0.17.1')
 
 setup(
   name='appscale-common',
@@ -9,13 +19,7 @@ setup(
   license='Apache License 2.0',
   keywords='appscale google-app-engine python',
   platforms='Posix',
-  install_requires=[
-    'kazoo',
-    'PyYAML',
-    'future',
-    'mock==2.0.0'
-
-  ],
+  install_requires=install_requires,
   classifiers=[
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Developers',

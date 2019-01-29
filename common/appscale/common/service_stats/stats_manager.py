@@ -5,7 +5,7 @@ import time
 import copy
 from future.utils import iteritems
 
-from appscale.common.service_stats import matchers, metrics, categorizers
+from appscale.common.service_stats import samples
 
 
 class UnknownRequestField(AttributeError):
@@ -16,19 +16,24 @@ class ReservedRequestField(Exception):
   pass
 
 
+# This category doesn't appear in stats returned by ServiceStats
+HIDDEN_CATEGORY = object()
+
 DEFAULT_REQUEST_FIELDS = (
   "app", "service", "version", "method", "resource",
   "status", "response_size"
 )
 
 DEFAULT_CUMULATIVE_COUNTERS = {
-  "all": matchers.ANY,
-  "4xx": matchers.CLIENT_ERROR,
-  "5xx": matchers.SERVER_ERROR,
-  categorizers.ExactValueCategorizer("by_app", field="app"): {
-    "all": matchers.ANY,
-    "4xx": matchers.CLIENT_ERROR,
-    "5xx": matchers.SERVER_ERROR
+  "all": samples.summarize_all,
+  "4xx": samples.summarize_client_error,
+  "5xx": samples.summarize_server_error,
+  "latency": samples.summarize_latency,
+  ("by_app", samples.categorize_by_app): {
+    "all": samples.summarize_all,
+    "4xx": samples.summarize_client_error,
+    "5xx": samples.summarize_server_error,
+    "latency": samples.summarize_latency
   }
 }
 # This counters config corresponds to the following output:
@@ -38,17 +43,18 @@ DEFAULT_CUMULATIVE_COUNTERS = {
 #   "all": 27365,
 #   "4xx": 97,
 #   "5xx": 15,
+#   "latency": 139297199,
 #   "by_app": {
-#     "guestbook": {"all": 18321, "4xx": 90, "5xx": 13},
-#     "validity": {"all": 9044, "4xx": 7, "5xx": 2}
+#     "guestbook": {"all": 18321, "4xx": 90, "5xx": 13, "latency": 92864799},
+#     "validity": {"all": 9044, "4xx": 7, "5xx": 2, "latency": 46432400}
 #   }
 # }
 
 SINGLE_APP_METRICS_MAP = {
-  "all": metrics.CountOf(matchers.ANY),
-  "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
-  "5xx": metrics.CountOf(matchers.SERVER_ERROR),
-  "avg_latency": metrics.Avg("latency")
+  "all": samples.count_all,
+  "4xx": samples.count_client_errors,
+  "5xx": samples.count_server_errors,
+  "avg_latency": samples.count_avg_latency
 }
 # This metrics map corresponds to following output:
 # {
@@ -61,21 +67,21 @@ SINGLE_APP_METRICS_MAP = {
 # }
 
 PER_APP_DETAILED_METRICS_MAP = {
-  "all": metrics.CountOf(matchers.ANY),
-  "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
-  "5xx": metrics.CountOf(matchers.SERVER_ERROR),
-  "avg_latency": metrics.Avg("latency"),
-  categorizers.ExactValueCategorizer("by_app", field="app"): {
-    categorizers.ExactValueCategorizer("by_resource", field="resource"): {
-      "all": metrics.CountOf(matchers.ANY),
-      "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
-      "5xx": metrics.CountOf(matchers.SERVER_ERROR),
-      "avg_latency": metrics.Avg("latency")
+  "all": samples.count_all,
+  "4xx": samples.count_client_errors,
+  "5xx": samples.count_server_errors,
+  "avg_latency": samples.count_avg_latency,
+  ("by_app", samples.categorize_by_app): {
+    ("by_resource", samples.categorize_by_resource): {
+      "all": samples.count_all,
+      "4xx": samples.count_client_errors,
+      "5xx": samples.count_server_errors,
+      "avg_latency": samples.count_avg_latency
     },
-    "all": metrics.CountOf(matchers.ANY),
-    "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
-    "5xx": metrics.CountOf(matchers.SERVER_ERROR),
-    "avg_latency": metrics.Avg("latency")
+    "all": samples.count_all,
+    "4xx": samples.count_client_errors,
+    "5xx": samples.count_server_errors,
+    "avg_latency": samples.count_avg_latency
   }
 }
 # This metrics map corresponds to following output:
@@ -168,12 +174,14 @@ class ServiceStats(object):
 
     # Configure cumulative counters
     self._start_time = now
-    self._cumulative_counters_config = cumulative_counters
+    self._cumulative_counters_config = _convert_config_dict(cumulative_counters)
     self._cumulative_counters = {}
-    _fill_zero_counters_dict(cumulative_counters, self._cumulative_counters)
+    _fill_zero_counters_dict(self._cumulative_counters_config,
+                             self._cumulative_counters)
 
     # Configure metrics for recent requests
-    self._metrics_for_recent_config = default_metrics_for_recent
+    self._metrics_for_recent_config = \
+      _convert_config_dict(default_metrics_for_recent)
 
   @property
   def service_name(self):
@@ -204,40 +212,24 @@ class ServiceStats(object):
       __slots__ = set(list(request_fields) +
                       list(ServiceStats.RESERVED_REQUEST_FIELDS))
 
-      def __init__(self, **fields_dict):
-        # Make sure that new object has all request fields
-        for field in self.__slots__:
-          setattr(self, field, None)
-        self._update(fields_dict)
+      def __init__(self, request_no, start_time, _request_finalizer):
+        self.request_no = request_no
+        self.start_time = start_time
+        self._request_finalizer = _request_finalizer
 
-      def _update(self, fields_dict):
-        for field, value in iteritems(fields_dict):
-          try:
-            setattr(self, field, value)
-          except AttributeError as e:
-            raise UnknownRequestField(str(e))
-
-      def __getattr__(self, field):
-        try:
-          object.__getattribute__(self, field)
-        except AttributeError as e:
-          raise UnknownRequestField(str(e))
 
       @property
       def is_finalized(self):
         return self.latency is not None
 
-      def finalize(self, **new_properties):
-        self._update(new_properties)
+      def finalize(self):
         self._request_finalizer(self.request_no)
 
     return RequestInfo
 
-  def start_request(self, **request_info_dict):
+  def start_request(self):
     """ Adds request to a collection of currently running requests.
 
-    Args:
-      request_info_dict: a dictionary containing initial request info.
     Returns:
       an instance of self._request_info_class
     """
@@ -246,8 +238,7 @@ class ServiceStats(object):
     # Instantiate a request_info object and fill its start_time
     new_request = self._request_info_class(
       request_no=self._last_request_no, start_time=now,
-      _request_finalizer=self._finalize_request, **request_info_dict
-    )
+      _request_finalizer=self._finalize_request)
     # Add currently running request
     self._current_requests[self._last_request_no] = new_request
 
@@ -284,38 +275,36 @@ class ServiceStats(object):
                              self._cumulative_counters, request_info)
 
   def _increment_counters(self, counters_config, counters_dict, request_info):
-    for counter_pair in iteritems(counters_config):
+    for counter_name, categorizer, summarizer, nested_config in counters_config:
       # Counters config can contain following types of items:
-      #  - str->Matcher
-      #  - Categorizer->Matcher
-      #  - Categorizer->nested config with the same structure
+      #  - str, None, callable(summarizer), None
+      #  - str, callable(categorizer), callable(summarizer), None
+      #  - str, callable(categorizer), None, nested config(tuple)
 
-      if isinstance(counter_pair[1], matchers.RequestMatcher):
+      if nested_config is None:
         # Stop as soon as possible if we know that matcher doesn't match
-        matcher = counter_pair[1]
-        if not matcher.matches(request_info):
+        value_to_add = summarizer(request_info)
+        if not value_to_add:
           continue
 
-      if isinstance(counter_pair[0], str):
-        # Increment single counter if key is str
-        counter_name = counter_pair[0]
-        counters_dict[counter_name] += 1
+      if categorizer is None:
+        # if no categorizer => str - summarizer
+        counters_dict[counter_name] += value_to_add
         continue
 
-      # counter_pair[0] is instance of categorizers.Categorizer
-      categorizer = counter_pair[0]
-      category = categorizer.category_of(request_info)
-      if category is categorizers.HIDDEN_CATEGORY:
+      # if categorizer
+      category = categorizer(request_info)
+      if category is HIDDEN_CATEGORY:
         continue
-      category_counters = _get_nested_dict(counters_dict, categorizer.name)
-      if isinstance(counter_pair[1], dict):
-        # Update nested counters
-        nested_config = counter_pair[1]
-        nested_counters = _get_nested_dict(category_counters, category, nested_config)
-        self._increment_counters(nested_config, nested_counters, request_info)
+      category_counters = _get_nested_dict(counters_dict, counter_name)
+      if nested_config is None:
+        category_counters[category] = category_counters.get(category, 0) + \
+                                      value_to_add
       else:
-        # Update category counter
-        category_counters[category] = category_counters.get(category, 0) + 1
+        # Update nested counters
+        nested_counters = _get_nested_dict(category_counters,
+                                           category, nested_config)
+        self._increment_counters(nested_config, nested_counters, request_info)
 
   def get_cumulative_counters(self):
     """
@@ -353,6 +342,8 @@ class ServiceStats(object):
     requests = self._get_requests(since=cursor)
     if not metrics_map:
       metrics_map = self._metrics_for_recent_config
+    else:
+      metrics_map = _convert_config_dict(metrics_map)
     stats = self._render_recent(metrics_map, requests)
     if not requests:
       now = _now()
@@ -367,45 +358,39 @@ class ServiceStats(object):
     """ Computes configured metrics according to metrics_config for requests.
 
     Args:
-      metrics_config: a dictionary describing what metrics should be computed.
+      metrics_config: a tuple describing what metrics should be computed.
       requests: a list of requests to compute metrics for.
     Returns:
       a dictionary containing computed metrics.
     """
     stats_dict = {}
-    for metric_pair in iteritems(metrics_config):
+    for metric_name, categorizer, metric, nested_config in metrics_config:
       # Metrics config can contain following types of items:
-      #  - str->Metric
-      #  - Categorizer->Metric
-      #  - Categorizer->nested config with the same structure
+      #  - str, None, callable(metric), None
+      #  - str, callable(categorizer), callable(metric), None
+      #  - str, callable(categorizer), None, nested config(tuple)
 
-      if isinstance(metric_pair[0], str):
+      if categorizer is None:
         # Compute single metric if key is str
-        metric_name = metric_pair[0]
-        metric = metric_pair[1]
-        stats_dict[metric_name] = metric.compute(requests)
+        stats_dict[metric_name] = metric(requests)
         continue
 
-      # metric_pair[0] is instance of categorizers.Categorizer
-      categorizer = metric_pair[0]
-      stats_dict[categorizer.name] = categories_stats = {}
+      stats_dict[metric_name] = categories_stats = {}
 
       # Grouping requests by category
       grouped_by_category = defaultdict(list)
       for request_info in requests:
-        category = categorizer.category_of(request_info)
-        if category is categorizers.HIDDEN_CATEGORY:
+        category = categorizer(request_info)
+        if category is HIDDEN_CATEGORY:
           continue
         grouped_by_category[category].append(request_info)
 
-      if isinstance(metric_pair[1], metrics.Metric):
+      if nested_config is None:
         # Compute single metric for each category
-        metric = metric_pair[1]
         for category, requests_group in iteritems(grouped_by_category):
-          categories_stats[category] = metric.compute(requests_group)
+          categories_stats[category] = metric(requests_group)
       else:
         # Render nested stats for each category
-        nested_config = metric_pair[1]
         for category, requests_group in iteritems(grouped_by_category):
           categories_stats[category] = self._render_recent(
             nested_config, requests_group
@@ -465,7 +450,7 @@ def _get_nested_dict(dictionary, key, nested_config=None):
   Args:
     dictionary: an instance of dict.
     key: a key.
-    nested_config: a dictionary containing counters config.
+    nested_config: a tuple containing counters config.
       It's used for initialization of new counters dict.
   Returns:
     a dictionary got by key (newly created dict if it was missed).
@@ -483,23 +468,49 @@ def _fill_zero_counters_dict(counters_config, counters_dict):
   """ A util function for filling counters dict with all counters set to 0.
 
   Args:
-    counters_config: a dict containing cumulative counters configuration.
+    counters_config: a tuple containing cumulative counters configuration.
     counters_dict: an empty dict to fill with zero counters.
   Returns:
     a filled dictionary with zero counters.
   """
-  for counter_pair in iteritems(counters_config):
+  for counter_name, categorizer, _, _ in counters_config:
     # Counters config can contain following types of items:
-    #  - str->Matcher
-    #  - Categorizer->Matcher
-    #  - Categorizer->nested config with the same structure
-    if isinstance(counter_pair[0], str):
-      # Increment single counter if key is str
-      counter_name = counter_pair[0]
+      #  - str, None, callable(summarizer), None
+      #  - str, callable(categorizer), callable(summarizer), None
+      #  - str, callable(categorizer), None, nested config(tuple)
+    if categorizer is None:
+      # Set single counter if key is str
       counters_dict[counter_name] = 0
     else:
-      # counter_pair[0] is instance of categorizers.Categorizer
-      categorizer = counter_pair[0]
-      counters_dict[categorizer.name] = {}
+      # if categorizer
+      counters_dict[counter_name] = {}
   return counters_dict
 
+def _convert_config_dict(init_dict):
+  """ Converts initialized by user dict to the tuples model for
+  more effective use of Service Stats.
+
+  Args:
+    init_dict: dict of cumulative counters or metrics
+  Returns:
+    tuple of tuples in format
+    (name, categorizer, summarizer/metric, nested_config)
+  """
+  result = []
+  for key, value in iteritems(init_dict):
+    if isinstance(key, str):
+      # if key is string => value is summarizer or metric
+      result.append((key, None, value, None))
+      continue
+
+    # otherwise key is categorizer
+    name, categorizer = key
+    if isinstance(value, dict):
+      # value is nested config
+      nested_config = _convert_config_dict(value)
+      result.append((name, categorizer, None, nested_config))
+    else:
+      # value is summarizer or metric
+      result.append((name, categorizer, value, None))
+
+  return tuple(result)
