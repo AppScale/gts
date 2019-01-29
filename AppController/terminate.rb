@@ -70,8 +70,9 @@ module TerminateHelper
     FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/slaves")
     FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/taskqueue_nodes")
 
-    # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
+    # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_JSON_FILE)
     `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
+    `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations`
     `rm -f /opt/appscale/appcontroller-state.json`
     `rm -f /opt/appscale/appserver-state.json`
     print "OK"

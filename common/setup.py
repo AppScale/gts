@@ -3,7 +3,8 @@ import sys
 
 install_requires = [
   'kazoo==2.6.0',
-  'PyYAML==3.13'
+  'PyYAML==3.13',
+  'mock==2.0.0'
 ]
 
 if sys.version_info < (3,):
@@ -11,7 +12,7 @@ if sys.version_info < (3,):
 
 setup(
   name='appscale-common',
-  version='0.0.4',
+  version='0.0.5',
   description='Modules used by multiple AppScale packages',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',

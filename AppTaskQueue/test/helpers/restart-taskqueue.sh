@@ -91,7 +91,7 @@ fi
 log "Filling /etc/appscale/* files with addresses of required services"
 echo ${DB_IP} > /etc/appscale/masters
 echo ${DB_IP} > /etc/appscale/slaves
-echo "{\"locations\":[\"${ZK_IP}\"]}" > /etc/appscale/zookeeper_locations.json
+echo ${ZK_IP} > /etc/appscale/zookeeper_locations
 echo ${LB_IP} > /etc/appscale/load_balancer_ips
 
 
