@@ -10,8 +10,6 @@ import yaml
 from . import constants
 from . import file_io
 
-from appscale.appcontroller_client import AppControllerClient
-
 logger = logging.getLogger(__name__)
 
 
@@ -33,6 +31,7 @@ def get_appcontroller_client():
   secret_file = '/etc/appscale/secret.key'
   secret = read_file_contents(secret_file)
 
+  from appscale.appcontroller_client import AppControllerClient
   return AppControllerClient(head_node, secret)
 
 def get_keyname():
@@ -174,16 +173,16 @@ def get_zk_locations_string():
     info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE) 
     zk_json = json.loads(info) 
     return ":2181,".join(zk_json['locations']) + ":2181"
-  except IOError, io_error:
+  except IOError as io_error:
     logger.exception(io_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
-  except ValueError, value_error:
+  except ValueError as value_error:
     logger.exception(value_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
-  except TypeError, type_error:
+  except TypeError as type_error:
     logger.exception(type_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
-  except KeyError, key_error:
+  except KeyError as key_error:
     logger.exception(key_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
 
@@ -198,16 +197,16 @@ def get_zk_node_ips():
     info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE)
     zk_json = json.loads(info)
     return zk_json['locations']
-  except IOError, io_error:
+  except IOError as io_error:
     logger.exception(io_error)
     return []
-  except ValueError, value_error:
+  except ValueError as value_error:
     logger.exception(value_error)
     return []
-  except TypeError, type_error:
+  except TypeError as type_error:
     logger.exception(type_error)
     return []
-  except KeyError, key_error:
+  except KeyError as key_error:
     logger.exception(key_error)
     return []
 

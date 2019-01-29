@@ -1,70 +1,60 @@
 from tornado import locks
 
-from appscale.common.service_stats import (
-  categorizers, metrics, matchers, stats_manager
-)
+from appscale.common.service_stats import stats_manager, samples
 
 PROTOBUFFER_API = "protobuffer"
 REST_API = "rest"
 
 # Define matcher for detecting different types of request
-class FailedRequestMatcher(matchers.RequestMatcher):
-  def matches(self, request_info):
-    return request_info.pb_status != "OK" and request_info.rest_status != 200
+def summarize_failed_request(request_info):
+  return request_info.pb_status != "OK" and request_info.rest_status != 200
 
 
-class ProtobufferRequestMatcher(matchers.RequestMatcher):
-  def matches(self, request_info):
-    return request_info.api == PROTOBUFFER_API
+def summarize_protobuffer_request(request_info):
+  return request_info.api == PROTOBUFFER_API
 
 
-class RestRequestMatcher(matchers.RequestMatcher):
-  def matches(self, request_info):
-    return request_info.api == REST_API
+def summarize_rest_request(request_info):
+  return request_info.api == REST_API
 
 
 # Define categorizers for grouping requests
-class PBMethodCategorizer(categorizers.Categorizer):
-  def category_of(self, req_info):
-    if req_info.api != PROTOBUFFER_API:
-      return categorizers.HIDDEN_CATEGORY
-    return req_info.pb_method
+def categorize_by_pb_method(request_info):
+  if request_info.api != PROTOBUFFER_API:
+    return stats_manager.HIDDEN_CATEGORY
+  return request_info.pb_method
 
 
-class RestMethodCategorizer(categorizers.Categorizer):
-  def category_of(self, req_info):
-    if req_info.api != REST_API:
-      return categorizers.HIDDEN_CATEGORY
-    return req_info.rest_method
+def categorize_by_rest_method(request_info):
+  if request_info.api != REST_API:
+    return stats_manager.HIDDEN_CATEGORY
+  return request_info.rest_method
 
 
-class PBStatusCategorizer(categorizers.Categorizer):
-  def category_of(self, req_info):
-    if req_info.api != PROTOBUFFER_API:
-      return categorizers.HIDDEN_CATEGORY
-    return req_info.pb_status
-
-class RestStatusCategorizer(categorizers.Categorizer):
-  def category_of(self, req_info):
-    if req_info.api != REST_API:
-      return categorizers.HIDDEN_CATEGORY
-    return req_info.rest_status
+def categorize_by_pb_status(request_info):
+  if request_info.api != PROTOBUFFER_API:
+    return stats_manager.HIDDEN_CATEGORY
+  return request_info.pb_status
 
 
-# Instantiate request matchers
-FAILED_REQUEST = FailedRequestMatcher()
-PROTOBUFF_REQUEST = ProtobufferRequestMatcher()
-REST_REQUEST = RestRequestMatcher()
+def categorize_by_rest_status(request_info):
+  if request_info.api != REST_API:
+    return stats_manager.HIDDEN_CATEGORY
+  return request_info.rest_status
 
-# Instantiate request categorizers
-PB_METHOD_CATEGORIZER = PBMethodCategorizer(
-  categorizer_name="by_pb_method")
-REST_METHOD_CATEGORIZER = RestMethodCategorizer(
-  categorizer_name="by_rest_method")
-PB_STATUS_CATEGORIZER = PBStatusCategorizer(
-  categorizer_name="by_pb_status")
-REST_STATUS_CATEGORIZER = RestStatusCategorizer(
-  categorizer_name="by_rest_status")
+
+# define metrics
+def count_failed_requests(requests):
+  return sum(1 for request in requests
+             if request.pb_status != "OK" and request.rest_status != 200)
+
+
+def count_protobuff_requests(requests):
+  return sum(1 for request in requests if request.api == PROTOBUFFER_API)
+
+
+def count_rest_requests(requests):
+  return sum(1 for request in requests if request.api == REST_API)
 
 
 # Configure ServiceStats
@@ -72,21 +62,21 @@ REQUEST_STATS_FIELDS = [
   "pb_method", "pb_status", "rest_method", "rest_status", "api"
 ]
 CUMULATIVE_COUNTERS = {
-  "all": matchers.ANY,
-  "failed": FAILED_REQUEST,
-  "pb_reqs": PROTOBUFF_REQUEST,
-  "rest_reqs": REST_REQUEST
+  "all": samples.summarize_all,
+  "failed": summarize_failed_request,
+  "pb_reqs": summarize_protobuffer_request,
+  "rest_reqs": summarize_rest_request
 }
 METRICS_CONFIG = {
-  "all": metrics.CountOf(matchers.ANY),
-  "failed": metrics.CountOf(FAILED_REQUEST),
-  "avg_latency": metrics.Avg("latency"),
-  "pb_reqs": metrics.CountOf(PROTOBUFF_REQUEST),
-  "rest_reqs": metrics.CountOf(REST_REQUEST),
-  PB_METHOD_CATEGORIZER: metrics.CountOf(matchers.ANY),
-  REST_METHOD_CATEGORIZER: metrics.CountOf(matchers.ANY),
-  PB_STATUS_CATEGORIZER: metrics.CountOf(matchers.ANY),
-  REST_STATUS_CATEGORIZER: metrics.CountOf(matchers.ANY)
+  "all": samples.count_all,
+  "failed": count_failed_requests,
+  "avg_latency": samples.count_avg_latency,
+  "pb_reqs": count_protobuff_requests,
+  "rest_reqs": count_rest_requests,
+  ("by_pb_method", categorize_by_pb_method): samples.count_all,
+  ("by_rest_method", categorize_by_rest_method): samples.count_all,
+  ("by_pb_status", categorize_by_pb_status): samples.count_all,
+  ("by_rest_status", categorize_by_rest_status): samples.count_all
 }
 # Instantiate singleton ServiceStats
 service_stats = stats_manager.ServiceStats(

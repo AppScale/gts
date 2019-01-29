@@ -13,8 +13,6 @@ from ..dbconstants import COMPOSITE_TABLE
 from ..dbconstants import DATASTORE_METADATA_SCHEMA
 from ..dbconstants import DATASTORE_METADATA_TABLE
 from ..dbconstants import DSC_PROPERTY_TABLE
-from ..dbconstants import METADATA_SCHEMA
-from ..dbconstants import METADATA_TABLE
 from ..dbconstants import PROPERTY_SCHEMA
 from ..dbconstants import TERMINATING_STRING
 
@@ -75,7 +73,6 @@ def main():
     DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
     COMPOSITE_TABLE: COMPOSITE_SCHEMA,
     APP_KIND_TABLE: APP_KIND_SCHEMA,
-    METADATA_TABLE: METADATA_SCHEMA,
     DATASTORE_METADATA_TABLE: DATASTORE_METADATA_SCHEMA,
   }
 
