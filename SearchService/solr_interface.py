@@ -74,7 +74,7 @@ class Solr(object):
       raise search_exceptions.InternalError(
         "SOLR response status of {0}".format(status))
 
-  def get_index(self, app_id, namespace, name):
+  def _get_index_adapter(self, app_id, namespace, name):
     """ Gets an index from SOLR.
 
     Performs a JSON request to the SOLR schema API to get the list of defined
@@ -115,8 +115,7 @@ class Solr(object):
     for field in response['fields']:
       if field['name'].startswith("{0}_".format(index_name)):
         filtered_fields.append(field)
-    schema = Schema(filtered_fields, response['responseHeader'])
-    return Index(index_name, schema)
+    return IndexAdapter(index_name, filtered_fields)
 
   def update_schema(self, updates):
     """ Updates the schema of a document.
@@ -226,9 +225,10 @@ class Solr(object):
     """
     solr_doc = self.to_solr_doc(doc)
 
-    index = self.get_index(app_id, index_spec.namespace(), index_spec.name())
-    updates = self.compute_updates(index.name, index.schema.fields,
-      solr_doc.fields)
+    index = self._get_index_adapter(
+      app_id, index_spec.namespace(), index_spec.name()
+    )
+    updates = self.compute_updates(index.name, index.schema, solr_doc.fields)
     if len(updates) > 0:
       try:
         self.update_schema(updates)
@@ -305,19 +305,22 @@ class Solr(object):
     #TODO add fields to delete also.
     return fields_to_update
 
-  def run_query(self, result, index, query,
+  def run_query(self, result, app_id, namespace, index_name, query,
                 projection_fields, sort_fields, limit, offset):
     """ Creates a SOLR query string and runs it on SOLR. 
 
     Args:
       result: A search_service_pb.SearchResponse.
-      index: Index for which we're running the query.
+      app_id: A str, the application identifier.
+      namespace: A str, the application namespace.
+      index_name: A str, the index name.
       query: A str representing query sent by user.
       projection_fields: A list of fields to fetch for each document.
       sort_fields: a list of tuples of form (<FieldName>, "desc"/"asc")
       limit: a max number of document to return.
       offset: an integer representing offset.
     """
+    index = self._get_index_adapter(app_id, namespace, index_name)
     solr_query_params = query_converter.prepare_solr_query(
       index, query, projection_fields, sort_fields, limit, offset
     )
@@ -401,7 +404,7 @@ class Solr(object):
       new_field.set_name(field_name)
       new_value = new_field.mutable_value()
       field_type = ""
-      for field in index.schema.fields:
+      for field in index.schema:
         if field['name'] == "{0}_{1}".format(index.name, field_name):
           field_type = field['type']
       if field_type == "":
@@ -448,26 +451,15 @@ class Solr(object):
       new_value.set_string_value(value)
       new_value.set_type(FieldValue.TEXT)
 
-class Schema():
-  """ Represents a schema in SOLR. """
-  def __init__(self, fields , response_header):
-    """ Constructor for SOLR schema. 
 
-    Args:
-      fields: A list of Fields for the schema.
-      response_header: The response header from SOLR.
-    """
-    self.fields = fields
-    self.response_header = response_header
-
-class Index():
+class IndexAdapter(object):
   """ Represents an index in SOLR. """
   def __init__(self, name, schema):
     """ Constructor for SOLR index. 
 
     Args:
       name: A str, the name of the index.
-      schema: A Schema for this index.
+      schema: A dict, representing schema for this index.
     """
     self.name = name
     self.schema = schema
@@ -487,17 +479,6 @@ class Document(object):
     self.language = language
     self.fields = fields
 
-class Header():
-  """ Represents a header in SOLR. """
-  def __init__(self, status, qtime):
-    """ Constructor for Header type. 
-
-    Args:
-      status: The status for this header.
-      qtime: The reported qtime from SOLR.
-    """
-    self.status = status
-    self.qtime = qtime
 
 class Field():
   """ Field item in a document. """
@@ -528,15 +509,6 @@ class Field():
     self.indexed = indexed
     self.multi_valued = multi_valued
     self.value = value
-
-class Results():
-  """ Results from SOLR. """
-
-  def __init__(self, num_found, docs, header):
-    """ Constructor for Results type. """
-    self.num_found = num_found
-    self.docs = docs
-    self.header = header
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

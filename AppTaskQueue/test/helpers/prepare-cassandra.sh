@@ -53,7 +53,7 @@ fi
 
 echo ${PRIVATE_IP} > /etc/appscale/masters
 echo ${PRIVATE_IP} > /etc/appscale/slaves
-echo "{\"locations\":[\"${ZK_IP}\"]}" > /etc/appscale/zookeeper_locations.json
+echo ${ZK_IP} > /etc/appscale/zookeeper_locations
 
 
 log "Configuring Cassandra"

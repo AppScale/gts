@@ -1,74 +1,91 @@
-import json
 import unittest
-from flexmock import flexmock
 
-from appscale.common import appscale_info
-from appscale.common import file_io
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
+from mock import patch, MagicMock
+
+from appscale.common import appscale_info, file_io
 
 
 class TestAppScaleInfo(unittest.TestCase):
+
   def test_get_num_cpus(self):
     self.assertNotEqual(0, appscale_info.get_num_cpus())
 
-  def test_stop(self):
-    YAML_INFO="""--- 
+  @patch.object(file_io, 'read')
+  def test_get_db_info(self, read_mock):
+    read_mock.return_value = '''---
 :keyname: appscale
-:replication: "1"
+:replication: '1'
 :table: cassandra
-"""
-    flexmock(file_io).should_receive('read').and_return(YAML_INFO)
-    self.assertEqual('cassandra', appscale_info.get_db_info()[':table'])
-    self.assertEqual( '1', appscale_info.get_db_info()[':replication'])
-    self.assertEqual( 'appscale', appscale_info.get_db_info()[':keyname'])
-    self.assertEqual(True, isinstance(appscale_info.get_db_info(), dict))
+'''
+    db_info = appscale_info.get_db_info()
+    self.assertIsInstance(db_info, dict)
+    self.assertEqual(db_info[':table'], 'cassandra')
+    self.assertEqual(db_info[':replication'], '1')
+    self.assertEqual(db_info[':keyname'], 'appscale')
+    read_mock.assert_called_once_with('/etc/appscale/database_info.yaml')
 
-  def test_get_all_ips(self):
-    flexmock(file_io).should_receive("read"). \
-      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    self.assertEquals(["192.168.0.1", "129.168.0.2", "184.48.65.89"],
-      appscale_info.get_all_ips())
+  @patch.object(file_io, 'read')
+  def test_get_all_ips(self, read_mock):
+    read_mock.return_value = '192.168.0.1\n129.168.0.2\n184.48.65.89'
+    self.assertEquals(
+      appscale_info.get_all_ips(),
+      ['192.168.0.1', '129.168.0.2', '184.48.65.89'],
+    )
+    read_mock.assert_called_once_with('/etc/appscale/all_ips')
 
-  def test_get_taskqueue_nodes(self):
-    flexmock(file_io).should_receive("mkdir").and_return(None)
-    flexmock(file_io).should_receive("read").\
-      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    self.assertEquals(["192.168.0.1","129.168.0.2","184.48.65.89"],
-      appscale_info.get_taskqueue_nodes())
-
-    flexmock(file_io).should_receive("read").\
-      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89\n")
-    self.assertEquals(["192.168.0.1","129.168.0.2","184.48.65.89"],
-      appscale_info.get_taskqueue_nodes())
-
-    flexmock(file_io).should_receive("read").and_return("")
+  @patch.object(file_io, 'read')
+  def test_get_taskqueue_nodes(self, read_mock):
+    # Not empty
+    read_mock.return_value = '192.168.0.1\n129.168.0.2\n184.48.65.89'
+    self.assertEquals(
+      appscale_info.get_taskqueue_nodes(),
+      ['192.168.0.1','129.168.0.2','184.48.65.89'],
+    )
+    read_mock.assert_called_once_with('/etc/appscale/taskqueue_nodes')
+    # Empty
+    read_mock.return_value = ''
     self.assertEquals(appscale_info.get_taskqueue_nodes(), [])
 
-  def test_get_db_proxy(self):
-    flexmock(file_io).should_receive("read").\
-      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    self.assertEquals("192.168.0.1", appscale_info.get_db_proxy())
+  @patch.object(file_io, 'read')
+  def test_get_db_proxy(self, read_mock):
+    read_mock.return_value = '192.168.0.1\n129.168.0.2\n184.48.65.89'
+    self.assertEquals(appscale_info.get_db_proxy(), '192.168.0.1')
+    read_mock.assert_called_once_with('/etc/appscale/load_balancer_ips')
 
-  def test_get_tq_proxy(self):
-    flexmock(file_io).should_receive("read").\
-      and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    self.assertEquals("192.168.0.1", appscale_info.get_db_proxy())
+  @patch.object(file_io, 'read')
+  def test_get_tq_proxy(self, read_mock):
+    read_mock.return_value = '192.168.0.1\n129.168.0.2\n184.48.65.89'
+    self.assertEquals(appscale_info.get_db_proxy(), '192.168.0.1')
+    read_mock.assert_called_once_with('/etc/appscale/load_balancer_ips')
 
   def test_get_zk_node_ips(self):
-    flexmock(file_io).should_receive("read").\
-      and_return({"locations":["ip1", "ip2"],"last_updated_at":0})
-    flexmock(json).should_receive("loads").\
-      and_return({"locations":[u'ip1', u'ip2'],"last_updated_at":0})
-    self.assertEquals(appscale_info.get_zk_node_ips(), [u'ip1', u'ip2'])
+    # File exists
+    open_mock = MagicMock()
+    open_mock.return_value.__enter__.return_value = StringIO('ip1\nip2')
+    with patch.object(appscale_info, 'open', open_mock):
+      self.assertEquals(appscale_info.get_zk_node_ips(), [u'ip1', u'ip2'])
+      open_mock.assert_called_once_with('/etc/appscale/zookeeper_locations')
 
-    flexmock(file_io).should_receive("read").and_raise(IOError)
-    self.assertEquals(appscale_info.get_zk_node_ips(), [])
+    # IO Error
+    open_mock = MagicMock()
+    open_mock.return_value.__enter__.side_effect = IOError('Boom')
+    with patch.object(appscale_info, 'open', open_mock):
+      self.assertEquals(appscale_info.get_zk_node_ips(), [])
+      open_mock.assert_called_once_with('/etc/appscale/zookeeper_locations')
 
-  def test_get_search_location(self):
-    flexmock(file_io).should_receive("read").and_return("private_ip:port")
-    self.assertEquals(appscale_info.get_search_location(), "private_ip:port")
+  @patch.object(file_io, 'read')
+  def test_get_search_location(self, read_mock):
+    # File exists
+    read_mock.return_value = 'private_ip:port'
+    self.assertEquals(appscale_info.get_search_location(), 'private_ip:port')
+    # IO Error
+    read_mock.side_effect = IOError('Boom')
+    self.assertEquals(appscale_info.get_search_location(), '')
 
-    flexmock(file_io).should_receive("read").and_raise(IOError)
-    self.assertEquals(appscale_info.get_search_location(), "")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
   unittest.main()
