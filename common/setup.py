@@ -3,7 +3,7 @@ import sys
 
 install_requires = [
   'kazoo==2.6.0',
-  'PyYAML==3.13',
+  'PyYAML>=4.2b1'
   'mock==2.0.0'
 ]
 

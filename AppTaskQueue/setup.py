@@ -18,7 +18,7 @@ setup(
     'kazoo',
     'mock',
     'psycopg2-binary',
-    'PyYaml',
+    'PyYaml>=4.2b1',
     'tornado==4.2.0'
   ],
   extras_require={'celery_gui': ['flower']},
