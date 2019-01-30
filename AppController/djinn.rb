@@ -578,7 +578,9 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     all_nodes = []
-    @nodes.each { |node| all_nodes << node.to_hash }
+    @state_change_lock.synchronize {
+      @nodes.each { |node| all_nodes << node.to_hash }
+    }
     JSON.dump(all_nodes)
   end
 
@@ -683,13 +685,16 @@ class Djinn
     Djinn.log_info('Received a stop request.')
 
     if my_node.is_shadow? && stop_deployment
+      threads = []
       Djinn.log_info('Stopping all other nodes.')
-      # Let's stop all other nodes.
-      Thread.new {
-        @nodes.each { |node|
-          next if node.private_ip == my_node.private_ip
-          ip = node.private_ip
-          acc = AppControllerClient.new(ip, @@secret)
+      ips = []
+      @state_change_lock.synchronize {
+        @nodes.each { |node| ips << node.private_ip }
+      }
+      ips.each { |ip|
+        next if ip == my_node.private_ip
+        acc = AppControllerClient.new(ip, @@secret)
+        threads << Threads.new {
           begin
             acc.kill(stop_deployment)
             Djinn.log_info("kill: sent kill command to node at #{ip}.")
@@ -698,6 +703,8 @@ class Djinn
           end
         }
       }
+      Djinn.log_info('Waiting for other nodes to acknoledge stop ... ')
+      threads.each { |t| t.join }
     end
 
     Djinn.log_info('---- Stopping AppController ----')
@@ -938,13 +945,13 @@ class Djinn
       Djinn.log_error(msg)
       return msg
     else
-      @options = check_options(opts)
+      @state_change_lock.synchronize { @options = check_options(opts) }
     end
 
     # Let's validate we have the needed options defined.
     ['keyname', 'login', 'table'].each { |key|
       unless @options[key]
-        msg = "Error: cannot find #{key} in options!" unless @options[key]
+        msg = "Error: cannot find #{key} in options!"
         Djinn.log_error(msg)
         return msg
       end
@@ -962,15 +969,16 @@ class Djinn
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
     PARAMETERS_AND_CLASS.each { |key, _|
-      if @options[key]
+      @state_change_lock.synchronize {
         # The parameter 'key' is defined, no need to do anything.
-        next
-      end
-      if PARAMETERS_AND_CLASS[key][1]
-         # The parameter has a default, and it's not defined. Adding
-         # default value.
-         @options[key] = PARAMETERS_AND_CLASS[key][1]
-      end
+        next if @options[key]
+
+        if PARAMETERS_AND_CLASS[key][1]
+           # The parameter has a default, and it's not defined. Adding
+           # default value.
+           @options[key] = PARAMETERS_AND_CLASS[key][1]
+        end
+      }
     }
     enforce_options
 
@@ -978,39 +986,43 @@ class Djinn
     # The first one is to check that max and min are set appropriately.
     # Max and min needs to be at least the number of started nodes, it
     # needs to be positive. Max needs to be no smaller than min.
-    if Integer(@options['max_machines']) < @nodes.length
-      Djinn.log_warn("max_machines is less than the number of nodes!")
-      @options['max_machines'] = @nodes.length.to_s
-    end
-    if Integer(@options['min_machines']) < @nodes.length
-      Djinn.log_warn("min_machines is less than the number of nodes!")
-      @options['min_machines'] = @nodes.length.to_s
-    end
-    if Integer(@options['max_machines']) < Integer(@options['min_machines'])
-      Djinn.log_warn("min_machines is bigger than max_machines!")
-      @options['max_machines'] = @options['min_machines']
-    end
+    @state_change_lock.synchronize {
+      if Integer(@options['max_machines']) < @nodes.length
+        Djinn.log_warn("max_machines is less than the number of nodes!")
+        @options['max_machines'] = @nodes.length.to_s
+      end
+      if Integer(@options['min_machines']) < @nodes.length
+        Djinn.log_warn("min_machines is less than the number of nodes!")
+        @options['min_machines'] = @nodes.length.to_s
+      end
+      if Integer(@options['max_machines']) < Integer(@options['min_machines'])
+        Djinn.log_warn("min_machines is bigger than max_machines!")
+        @options['max_machines'] = @options['min_machines']
+      end
+    }
 
     # We need to make sure this node is listed in the started nodes.
     find_me_in_locations
     return "Error: Couldn't find me in the node map" if @my_index.nil?
 
-    ENV['EC2_URL'] = @options['ec2_url']
-    if @options['ec2_access_key'].nil?
-      @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
-      @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
-      @options['ec2_url'] = @options['EC2_URL']
-    end
-
-    @nodes.each { |node|
-      if node.jobs.include? 'compute'
-        if node.instance_type.nil?
-          @options['compute_instance_type'] = @options['instance_type']
-        else
-          @options['compute_instance_type'] = node.instance_type
-        end
-        break
+    @state_change_lock.synchronize {
+      ENV['EC2_URL'] = @options['ec2_url']
+      if @options['ec2_access_key'].nil?
+        @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
+        @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
+        @options['ec2_url'] = @options['EC2_URL']
       end
+
+      @nodes.each { |node|
+        if node.jobs.include? 'compute'
+          if node.instance_type.nil?
+            @options['compute_instance_type'] = @options['instance_type']
+          else
+            @options['compute_instance_type'] = node.instance_type
+          end
+          break
+        end
+      }
     }
 
     'OK'
@@ -1493,11 +1505,18 @@ class Djinn
       http.request(request)
     }
 
-    @nodes.each { | node |
-      if node.is_db_master? or node.is_db_slave?
-        acc = AppControllerClient.new(node.private_ip, @@secret)
-        response = acc.set_node_read_only(read_only)
-        return response unless response == 'OK'
+    ips = []
+    @state_change_lock.synchronize {
+      @nodes.each { | node |
+        ips << node.private_ip if node.is_db_master? || node.is_db_slave?
+      }
+    }
+    ips.each { |ip|
+      acc = AppControllerClient.new(ip, @@secret)
+      response = acc.set_node_read_only(read_only)
+      unless response == 'OK'
+        Djinn.log_warn("set_read_only: #{ip} responded with #{response}.")
+        return response
       end
     }
 
@@ -1607,7 +1626,9 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     public_ips = []
-    @nodes.each { |node| public_ips << node.public_ip }
+    @state_change_lock.synchronize {
+      @nodes.each { |node| public_ips << node.public_ip }
+    }
     JSON.dump(public_ips)
   end
 
@@ -1615,7 +1636,9 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     private_ips = []
-    @nodes.each { |node| private_ips << node.private_ip }
+    @state_change_lock.synchronize {
+      @nodes.each { |node| private_ips << node.private_ip }
+    }
     JSON.dump(private_ips)
   end
 
@@ -1623,7 +1646,7 @@ class Djinn
     # LoadBalancers needs to setup the routing for the datastore before
     # proceeding.
     while my_node.is_load_balancer? && !update_db_haproxy
-      Djinn.log_info("Waiting for Datastore assignements ...")
+      Djinn.log_info('Waiting for Datastore assignements ...')
       sleep(SMALL_WAIT)
     end
 
@@ -1631,10 +1654,10 @@ class Djinn
     loop do
       break if HelperFunctions.is_port_open?(get_load_balancer.private_ip,
                                              DatastoreServer::PROXY_PORT)
-      Djinn.log_debug("Waiting for Datastore to be active...")
+      Djinn.log_debug('Waiting for Datastore to be active...')
       sleep(SMALL_WAIT)
     end
-    Djinn.log_info("Datastore service is active.")
+    Djinn.log_info('Datastore service is active.')
 
     # At this point all nodes are fully functional, so the Shadow will do
     # another assignments of the datastore processes to ensure we got the
@@ -1740,7 +1763,7 @@ class Djinn
     if my_node.is_shadow?
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
-      initialize_nodes_in_parallel(@nodes)
+      @state_change_lock.synchronize { initialize_nodes_in_parallel(@nodes) }
     end
 
     # Initialize the current server and starts all the API and essential
@@ -1757,7 +1780,7 @@ class Djinn
 
     pick_zookeeper(@zookeeper_data)
     write_our_node_info
-    wait_for_nodes_to_finish_loading(@nodes)
+    @state_change_lock.synchronize { wait_for_nodes_to_finish_loading(@nodes) }
 
     # Check that services are up before proceeding into the duty cycle.
     check_api_services
@@ -1799,7 +1822,10 @@ class Djinn
       # restore_appcontroller_state modifies them.
       old_options = @options.clone
       old_jobs = my_node.jobs
-      my_versions_loaded = @versions_loaded if my_node.is_load_balancer?
+      my_versions_loaded = []
+      APPS_LOCK.synchronize {
+        my_versions_loaded = @versions_loaded.clone if my_node.is_load_balancer?
+      }
 
       # The appcontroller state is a misnomer, since it contains the state
       # of the deployment that each node needs to reload. For example it
@@ -1831,24 +1857,27 @@ class Djinn
 
       # Load balancers (and shadow) needs to setup new applications.
       if my_node.is_load_balancer?
-        APPS_LOCK.synchronize {
-          # Starts apps that are not running yet but they should.
-          if my_node.is_shadow?
-            begin
-              versions_to_load = ZKInterface.get_versions - @versions_loaded
-            rescue FailedZooKeeperOperationException
-              versions_to_load = []
-            end
-          else
-            versions_to_load = @versions_loaded - my_versions_loaded
+        versions_loaded_now = []
+        APPS_LOCK.synchronize { versions_loaded_now = @versions_loaded.clone }
+
+        # Starts apps that are not running yet but they should.
+        if my_node.is_shadow?
+          begin
+            versions_to_load = ZKInterface.get_versions - versions_loaded_now
+          rescue FailedZooKeeperOperationException
+            versions_to_load = []
           end
-          versions_to_load.each { |version_key|
+        else
+          versions_to_load = versions_loaded_now - my_versions_loaded
+        end
+        versions_to_load.each { |version_key|
+          APPS_LOCK.synchronize {
             setup_app_dir(version_key, true)
             setup_appengine_version(version_key)
           }
-          # In addition only shadow kick off the autoscaler.
-          scale_deployment if my_node.is_shadow?
         }
+        # In addition only shadow kick off the autoscaler.
+        APPS_LOCK.synchronize { scale_deployment if my_node.is_shadow? }
       end
 
       # Load balancers and shadow need to check/update applications that have
@@ -1860,9 +1889,7 @@ class Djinn
       end
       if my_node.is_load_balancer?
         update_db_haproxy
-        APPS_LOCK.synchronize {
-          regenerate_routing_config
-        }
+        APPS_LOCK.synchronize { regenerate_routing_config }
       end
       @state = "Done starting up AppScale, now in heartbeat mode"
 
@@ -1961,12 +1988,14 @@ class Djinn
   def terminate_appscale_in_parallel(clean)
     # Let's stop all other nodes.
     threads = []
-    @nodes.each { |node|
-      if node.private_ip != my_node.private_ip
-        threads << Thread.new {
-          Thread.current[:output] = terminate_appscale(node, clean)
-        }
-      end
+    @state_change_lock.synchronize {
+      @nodes.each { |node|
+        if node.private_ip != my_node.private_ip
+          threads << Thread.new {
+            Thread.current[:output] = terminate_appscale(node, clean)
+          }
+        end
+      }
     }
 
     threads.each do |t|
@@ -2292,7 +2321,7 @@ class Djinn
   end
 
   def wait_for_nodes_to_finish_loading(nodes)
-    Djinn.log_info("Waiting for nodes to finish loading")
+    Djinn.log_info('Waiting for nodes to finish loading.')
 
     nodes.each { |node|
       if ZKInterface.is_node_done_loading?(node.private_ip)
@@ -2306,7 +2335,7 @@ class Djinn
       end
     }
 
-    Djinn.log_info("Nodes have finished loading")
+    Djinn.log_info('Nodes have finished loading.')
     return
   end
 
@@ -2412,9 +2441,7 @@ class Djinn
 
   def get_shadow
     @state_change_lock.synchronize {
-      @nodes.each { |node|
-        return node if node.is_shadow?
-      }
+      @nodes.each { |node| return node if node.is_shadow?  }
     }
 
     @state = "No shadow nodes found."
@@ -2423,9 +2450,7 @@ class Djinn
 
   def get_db_master
     @state_change_lock.synchronize {
-      @nodes.each { |node|
-        return node if node.is_db_master?
-      }
+      @nodes.each { |node| return node if node.is_db_master?  }
     }
 
     @state = "No DB master nodes found."
@@ -2435,11 +2460,7 @@ class Djinn
   def get_all_compute_nodes
     ae_nodes = []
     @state_change_lock.synchronize {
-      @nodes.each { |node|
-        if node.is_compute?
-          ae_nodes << node.private_ip
-        end
-      }
+      @nodes.each { |node| ae_nodes << node.private_ip if node.is_compute?  }
     }
     return ae_nodes
   end
@@ -2701,10 +2722,12 @@ class Djinn
         local_state[var] = value
       }
     }
-    if @appcontroller_state == local_state.to_s
-      Djinn.log_debug("backup_appcontroller_state: no changes.")
-      return
-    end
+    @state_change_lock.synchronize {
+      if @appcontroller_state == local_state.to_s
+        Djinn.log_debug("backup_appcontroller_state: no changes.")
+        return
+      end
+    }
 
     begin
       ZKInterface.write_appcontroller_state(local_state)
@@ -2712,7 +2735,7 @@ class Djinn
       Djinn.log_warn("Couldn't talk to zookeeper whle backing up " \
         "appcontroller state with #{e.message}.")
     end
-    @appcontroller_state = local_state.to_s
+    @state_change_lock.synchronize { @appcontroller_state = local_state.to_s }
     Djinn.log_debug("backup_appcontroller_state: updated state.")
   end
 
@@ -2785,7 +2808,7 @@ class Djinn
       # old ones were present.
       unless HelperFunctions.get_all_local_ips.include?(@my_private_ip)
         Djinn.log_info("IP changed old private:#{@my_private_ip} public:#{@my_public_ip}.")
-        update_state_with_new_local_ip
+        @state_change_lock.synchronize { update_state_with_new_local_ip }
         Djinn.log_info("IP changed new private:#{@my_private_ip} public:#{@my_public_ip}.")
       end
       Djinn.log_debug("app_info_map after restore is #{@app_info_map}.")
@@ -3014,10 +3037,10 @@ class Djinn
     loop {
       break if got_all_data
       if @kill_sig_received
-        Djinn.log_fatal("Received kill signal, aborting startup")
-        HelperFunctions.log_and_crash("Received kill signal, aborting startup")
+        Djinn.log_fatal('Received kill signal, aborting startup')
+        HelperFunctions.log_and_crash('Received kill signal, aborting startup.')
       else
-        Djinn.log_info("Waiting for data from the load balancer or cmdline tools")
+        Djinn.log_info('Waiting for data from the load balancer or cmdline tools.')
         Kernel.sleep(SMALL_WAIT)
       end
     }
@@ -3109,7 +3132,9 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         unless is_zookeeper_running?
-          configure_zookeeper(@nodes, @my_index)
+          @state_change_lock.synchronize {
+            configure_zookeeper(@nodes, @my_index)
+          }
           begin
             start_zookeeper(false)
           rescue FailedZooKeeperOperationException
@@ -3172,7 +3197,7 @@ class Djinn
     end
 
     # We now wait for the essential services to go up.
-    Djinn.log_info("Waiting for DB services ... ")
+    Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
     Djinn.log_info('Ensuring necessary database tables are present')
@@ -3296,16 +3321,16 @@ class Djinn
 
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
-    Djinn.log_info("Waiting for relevant services to finish starting up,")
+    Djinn.log_info('Waiting for relevant services to finish starting up,')
     threads.each { |t| t.join }
-    Djinn.log_info("API services have started on this node.")
+    Djinn.log_info('API services have started on this node.')
 
     # Start Hermes with integrated stats service
     start_hermes
 
     # Leader node starts additional services.
     if my_node.is_shadow?
-      @state = "Assigning Datastore processes"
+      @state = 'Assigning Datastore processes'
       assign_datastore_processes
       TaskQueue.start_flower(@options['flower_password'])
     else
@@ -4101,9 +4126,7 @@ HOSTS
   end
 
   def my_node
-    if @my_index.nil?
-      find_me_in_locations
-    end
+    find_me_in_locations if @my_index.nil?
 
     if @my_index.nil?
       Djinn.log_debug("My index is nil - is nodes nil? #{@nodes.nil?}")
@@ -5719,62 +5742,68 @@ HOSTS
     node_stats = system_stats
     node_stats['apps'] = {}
     if my_node.is_shadow?
+      my_versions_loaded  = []
       APPS_LOCK.synchronize {
-        @versions_loaded.each { |version_key|
-          project_id, service_id, version_id = version_key.split(
-            VERSION_PATH_SEPARATOR)
+        my_versions_loaded = @versions_loaded.clone if my_node.is_load_balancer?
+      }
+      my_versions_loaded.each { |version_key|
+        project_id, service_id, version_id = version_key.split(
+          VERSION_PATH_SEPARATOR)
+
+        appservers = 0
+        pending = 0
+        APPS_LOCK.synchronize {
           if @app_info_map[version_key].nil? ||
               @app_info_map[version_key]['appservers'].nil?
             Djinn.log_debug(
               "#{version_key} not setup yet: skipping getting stats.")
             next
           end
+          @app_info_map[version_key]['appservers'].each { |location|
+            _host, port = location.split(':')
+            if Integer(port) > 0
+              appservers += 1
+            else
+              pending += 1
+            end
+          }
+        }
 
-          begin
-            version_details = ZKInterface.get_version_details(
-              project_id, service_id, version_id)
-          rescue VersionNotFound
-            next
-          end
+        begin
+          version_details = ZKInterface.get_version_details(
+            project_id, service_id, version_id)
+        rescue VersionNotFound
+          next
+        end
 
-          # Get HAProxy requests.
-          Djinn.log_debug("Getting HAProxy stats for #{version_key}")
-          total_reqs, reqs_enqueued, _,
-            collection_time = get_application_load_stats(version_key)
-          # Create the apps hash with useful information containing
-          # HAProxy stats.
-          begin
+        # Get HAProxy requests.
+        Djinn.log_debug("Getting HAProxy stats for #{version_key}")
+        total_reqs, reqs_enqueued, _,
+          collection_time = get_application_load_stats(version_key)
+        # Create the apps hash with useful information containing
+        # HAProxy stats.
+        begin
+          if collection_time == :no_backend
+            total_reqs = 0
+            reqs_enqueued = 0
             appservers = 0
             pending = 0
-            if collection_time == :no_backend
-              total_reqs = 0
-              reqs_enqueued = 0
-            else
-
-              @app_info_map[version_key]['appservers'].each { |location|
-                _host, port = location.split(':')
-                if Integer(port) > 0
-                  appservers += 1
-                else
-                  pending += 1
-                end
-              }
-            end
-            node_stats['apps'][version_key] = {
-              'language' => version_details['runtime'].tr('^A-Za-z', ''),
-              'appservers' => appservers,
-              'pending_appservers' => pending,
-              'http' => version_details['appscaleExtensions']['httpPort'],
-              'https' => version_details['appscaleExtensions']['httpsPort'],
-              'total_reqs' => total_reqs,
-              'reqs_enqueued' => reqs_enqueued
-            }
-          rescue => except
-            backtrace = except.backtrace.join("\n")
-            message = "Unforseen exception: #{except} \nBacktrace: #{backtrace}"
-            Djinn.log_warn("Unable to get application stats: #{message}")
           end
-        }
+
+          node_stats['apps'][version_key] = {
+            'language' => version_details['runtime'].tr('^A-Za-z', ''),
+            'appservers' => appservers,
+            'pending_appservers' => pending,
+            'http' => version_details['appscaleExtensions']['httpPort'],
+            'https' => version_details['appscaleExtensions']['httpsPort'],
+            'total_reqs' => total_reqs,
+            'reqs_enqueued' => reqs_enqueued
+          }
+        rescue => except
+          backtrace = except.backtrace.join("\n")
+          message = "Unforseen exception: #{except} \nBacktrace: #{backtrace}"
+          Djinn.log_warn("Unable to get application stats: #{message}")
+        end
       }
     end
 
@@ -5803,7 +5832,10 @@ HOSTS
     total_requests, requests_in_queue, sessions = 0, 0, 0
     pxname = "#{HelperFunctions::GAE_PREFIX}#{version_key}"
     time = :no_stats
-    lb_nodes = @nodes.select{|node| node.is_load_balancer?}
+    lb_nodes = []
+    @state_change_lock.synchronize {
+      lb_nodes = @nodes.select { |node| node.is_load_balancer? }
+    }
     lb_nodes.each { |node|
       begin
         ip = node.private_ip
