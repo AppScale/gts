@@ -33,7 +33,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
-        'instance_type' => 'boocomputeinstancetype',
+        'instance_type' => 'booinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '1',
         'cloud' => 'cloud1',
@@ -75,7 +75,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
           'public_ips' => ['public-ip'],
           'private_ips' => ['private-ip'],
           'instance_ids' => ['i-id'],
-          'instance_type' => ['boocomputeinstancetype']
+          'instance_type' => ['booinstancetype']
         }
       }
 
@@ -130,7 +130,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
-        'instance_type' => 'boocomputeinstancetype',
+        'instance_type' => 'booinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '3',
         'cloud' => 'cloud1',
@@ -172,7 +172,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
           'public_ips' => ['public-ip1', 'public-ip2', 'public-ip3'],
           'private_ips' => ['private-ip1', 'private-ip2', 'private-ip3'],
           'instance_ids' => ['i-id1', 'i-id2', 'i-id3'],
-          'instance_type' => ['boocomputeinstancetype', 'boocomputeinstancetype', 'boocomputeinstancetype']
+          'instance_type' => ['booinstancetype', 'booinstancetype', 'booinstancetype']
         }
       }
 
@@ -243,7 +243,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
-        'instance_type' => 'boocomputeinstancetype',
+        'instance_type' => 'booinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '3',
         'cloud' => 'cloud1',
@@ -285,7 +285,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
           'public_ips' => ['public-ip1', 'public-ip2', 'public-ip3'],
           'private_ips' => ['private-ip1', 'private-ip2', 'private-ip3'],
           'instance_ids' => ['i-id1', 'i-id2', 'i-id3'],
-          'instance_type' => ['boocomputeinstancetype', 'boocomputeinstancetype', 'boocomputeinstancetype']
+          'instance_type' => ['booinstancetype', 'booinstancetype', 'booinstancetype']
         }
       }
 
@@ -318,14 +318,14 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'jobs' => 'a',
       'instance_id' => 'i-id1',
       'disk' => nil,
-      'instance_type' => 'boocomputeinstancetype'
+      'instance_type' => 'booinstancetype'
     }, {
       'public_ip' => 'public-ip2',
       'private_ip' => 'private-ip2',
       'jobs' => 'b',
       'instance_id' => 'i-id2',
       'disk' => nil,
-      'instance_type' => 'boocomputeinstancetype'
+      'instance_type' => 'booinstancetype'
 
     }, {
       'public_ip' => 'public-ip3',
@@ -333,7 +333,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'jobs' => 'c',
       'instance_id' => 'i-id3',
       'disk' => nil,
-      'instance_type' => 'boocomputeinstancetype'
+      'instance_type' => 'booinstancetype'
     }]
     actual = imc.spawn_vms(3, options, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
@@ -353,7 +353,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'group' => nil,
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
-        'instance_type' => 'boocomputeinstancetype',
+        'instance_type' => 'booinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '1',
         'cloud' => 'cloud1',
@@ -395,7 +395,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
           'public_ips' => ['public_ip'],
           'private_ips' => ['private_ip'],
           'instance_ids' => ['i-id'],
-          'instance_type' => ['boocomputeinstancetype']
+          'instance_type' => ['booinstancetype']
         }
       }
 
