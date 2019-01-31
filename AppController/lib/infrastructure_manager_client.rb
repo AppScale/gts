@@ -199,7 +199,7 @@ class InfrastructureManagerClient
     parameters['zone'] = options['zone']
     parameters['region'] = options['region']
     parameters['IS_VERBOSE'] = options['verbose']
-    parameters['instance_type'] = options ['compute_instance_type']
+    parameters['instance_type'] = options ['instance_type']
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
