@@ -1010,6 +1010,7 @@ class Djinn
         @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
         @options['ec2_url'] = @options['EC2_URL']
       end
+    }
 
     'OK'
   end
