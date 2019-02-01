@@ -17,6 +17,9 @@
 """Constants used by the devappserver2."""
 
 
+
+import logging
+
 # These statuses must not include a response body (RFC 2616).
 NO_BODY_RESPONSE_STATUSES = frozenset([100, 101, 204, 304])
 
@@ -77,3 +80,23 @@ FAKE_IS_ADMIN_HEADER = 'HTTP_X_APPENGINE_FAKE_IS_ADMIN'
 # A header that indicates to the authorization system that the request should
 # be considered to have been made by a logged-in user.
 FAKE_LOGGED_IN_HEADER = 'HTTP_X_APPENGINE_FAKE_LOGGED_IN'
+
+# Valid choices for --log_level and their corresponding constants in
+# runtime_config_pb2.Config.stderr_log_level.
+LOG_LEVEL_TO_RUNTIME_CONSTANT = {
+    'debug': 0,
+    'info': 1,
+    'warning': 2,
+    'error': 3,
+    'critical': 4,
+}
+
+# Valid choices for --dev_appserver_log_level and their corresponding Python
+# logging levels
+LOG_LEVEL_TO_PYTHON_CONSTANT = {
+    'debug': logging.DEBUG,
+    'info': logging.INFO,
+    'warning': logging.WARNING,
+    'error': logging.ERROR,
+    'critical': logging.CRITICAL,
+}
