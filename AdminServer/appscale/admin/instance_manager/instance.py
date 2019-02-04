@@ -152,7 +152,10 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
   Returns:
     A string of the start command.
   """
-  source_directory = os.path.join(UNPACK_ROOT, revision_key, 'app')
+  service_id = revision_key.split(VERSION_PATH_SEPARATOR)[1]
+
+  # When deploying the service, the tools rename the service yaml to app.yaml.
+  config_file = os.path.join(UNPACK_ROOT, revision_key, 'app', 'app.yaml')
 
   cmd = [
     "/usr/bin/python2", APPSCALE_HOME + "/AppServer/dev_appserver.py",
@@ -168,12 +171,13 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
     "--php_executable_path=" + str(PHP_CGI_LOCATION),
     "--uaserver_path " + options.db_proxy + ":" + str(UA_SERVER_PORT),
     "--datastore_path " + options.db_proxy + ":" + str(DB_SERVER_PORT),
-    source_directory,
     "--host " + options.private_ip,
     "--admin_host " + options.private_ip,
     "--automatic_restart", "no",
     "--pidfile", pidfile,
-    "--external_api_port", str(api_server_port)]
+    "--external_api_port", str(api_server_port),
+    config_file
+  ]
 
   if app_name in TRUSTED_APPS:
     cmd.append('--trusted')
