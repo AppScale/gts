@@ -1,125 +1,53 @@
 package com.google.appengine.api.datastore.dev;
 
 
-import com.google.appengine.api.datastore.EntityProtoComparators;
-import com.google.appengine.api.datastore.EntityProtoComparators.EntityProtoComparator;
 import com.google.appengine.api.datastore.EntityTranslator;
-import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.taskqueue.TaskQueuePb;
-import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
-import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueBulkAddRequest;
 import com.google.appengine.repackaged.com.google.common.base.Preconditions;
-import com.google.appengine.repackaged.com.google.common.base.Predicate;
-import com.google.appengine.repackaged.com.google.common.base.Predicates;
-import com.google.appengine.repackaged.com.google.common.collect.HashMultimap;
-import com.google.appengine.repackaged.com.google.common.collect.Iterables;
-import com.google.appengine.repackaged.com.google.common.collect.Iterators;
-import com.google.appengine.repackaged.com.google.common.collect.Lists;
 import com.google.appengine.repackaged.com.google.common.collect.Maps;
-import com.google.appengine.repackaged.com.google.common.collect.Multimap;
-import com.google.appengine.repackaged.com.google.common.collect.Sets;
-import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.Clock;
 import com.google.appengine.tools.development.LocalRpcService;
-import com.google.appengine.tools.development.LocalRpcService.Status;
-import com.google.appengine.tools.development.LocalServerEnvironment;
 import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.appengine.tools.development.ServiceProvider;
 import com.google.apphosting.api.ApiBasePb;
 import com.google.apphosting.api.ApiBasePb.Integer64Proto;
-import com.google.apphosting.api.ApiBasePb.StringProto;
 import com.google.apphosting.api.ApiBasePb.VoidProto;
 import com.google.apphosting.api.ApiProxy;
-import com.google.apphosting.api.ApiProxy.ApplicationException;
-import com.google.apphosting.api.DatastorePb;
 import com.google.apphosting.datastore.DatastoreV3Pb;
-import com.google.apphosting.datastore.DatastoreV3Pb.AllocateIdsRequest;
-import com.google.apphosting.datastore.DatastoreV3Pb.AllocateIdsResponse;
-import com.google.apphosting.datastore.DatastoreV3Pb.BeginTransactionRequest;
-import com.google.apphosting.datastore.DatastoreV3Pb.CommitResponse;
-import com.google.apphosting.datastore.DatastoreV3Pb.CompositeIndices;
-import com.google.apphosting.datastore.DatastoreV3Pb.Cost;
-import com.google.apphosting.datastore.DatastoreV3Pb.Cursor;
-import com.google.apphosting.datastore.DatastoreV3Pb.DeleteRequest;
-import com.google.apphosting.datastore.DatastoreV3Pb.DeleteResponse;
-import com.google.apphosting.datastore.DatastoreV3Pb.Error.ErrorCode;
-import com.google.apphosting.datastore.DatastoreV3Pb.GetRequest;
 import com.google.apphosting.datastore.DatastoreV3Pb.GetResponse;
-import com.google.apphosting.datastore.DatastoreV3Pb.GetResponse.Entity;
-import com.google.apphosting.datastore.DatastoreV3Pb.NextRequest;
-import com.google.apphosting.datastore.DatastoreV3Pb.PutRequest;
-import com.google.apphosting.datastore.DatastoreV3Pb.PutResponse;
-import com.google.apphosting.datastore.DatastoreV3Pb.Query;
-import com.google.apphosting.datastore.DatastoreV3Pb.Query.Order;
-import com.google.apphosting.datastore.DatastoreV3Pb.Query.Order.Direction;
-import com.google.apphosting.datastore.DatastoreV3Pb.QueryResult;
-import com.google.apphosting.datastore.DatastoreV3Pb.Transaction;
-import com.google.apphosting.utils.config.GenerationDirectory;
-import com.google.apphosting.utils.config.IndexesXmlReader;
-import com.google.apphosting.utils.config.IndexesXml;
 import com.google.storage.onestore.v3.OnestoreEntity;
-import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex;
-import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex.State;
-import com.google.storage.onestore.v3.OnestoreEntity.EntityProto;
-import com.google.storage.onestore.v3.OnestoreEntity.Index;
-import com.google.storage.onestore.v3.OnestoreEntity.Path;
-import com.google.storage.onestore.v3.OnestoreEntity.Path.Element;
 import com.google.storage.onestore.v3.OnestoreEntity.Property;
-import com.google.storage.onestore.v3.OnestoreEntity.Property.Meaning;
-import com.google.storage.onestore.v3.OnestoreEntity.PropertyValue;
-import com.google.storage.onestore.v3.OnestoreEntity.PropertyValue.UserValue;
-import com.google.storage.onestore.v3.OnestoreEntity.Reference;
 import java.io.Serializable;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.security.AccessController;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
  * AppScale addition to #end
  */
 import com.google.appengine.tools.resources.ResourceLoader;
-import org.apache.http.*;
-
-
 /* #end */
 
 @ServiceProvider(LocalRpcService.class)
 public final class LocalDatastoreService extends AbstractLocalRpcService
 {
     private static final Logger                 logger                             = Logger.getLogger(LocalDatastoreService.class.getName());
-    private static final long                   CURRENT_STORAGE_VERSION            = 1L;
-    private final String                        APPLICATION_ID_PROPERTY            = "APPLICATION_ID";
     static final int                            DEFAULT_BATCH_SIZE                 = 20;
     public static final int                     MAXIMUM_RESULTS_SIZE               = 300;
     public static final String                  PACKAGE                            = "datastore_v3";
@@ -147,24 +75,14 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     static final String                         TRANSACTION_NOT_FOUND              = "transaction has expired or is invalid";
     static final String                         NAME_TOO_LONG                      = "name in key path element must be under 500 characters";
     static final String                         QUERY_NOT_FOUND                    = "query has expired or is invalid. Please restart it with the last cursor to read more results.";
-    private final AtomicLong                    entityId                           = new AtomicLong(1L);
 
-    private static final long                   MAX_SEQUENTIAL_BIT                 = 52L;
-    private static final long                   MAX_SEQUENTIAL_COUNTER             = 4503599627370495L;
-    private static final long                   MAX_SEQUENTIAL_ID                  = 4503599627370495L;
-    private static final long                   MAX_SCATTERED_COUNTER              = 2251799813685247L;
-    private static final long                   SCATTER_SHIFT                      = 13L;
     public static final String                  AUTO_ID_ALLOCATION_POLICY_PROPERTY = "datastore.auto_id_allocation_policy";
-    private final AtomicLong                    entityIdSequential                 = new AtomicLong(1L);
-    private final AtomicLong                    entityIdScattered                  = new AtomicLong(1L);
-    private LocalDatastoreService.AutoIdAllocationPolicy       autoIdAllocationPolicy             = LocalDatastoreService.AutoIdAllocationPolicy.SEQUENTIAL;
 
     private final AtomicLong                    queryId                            = new AtomicLong(0L);
     private String                              backingStore;
     private Map<String, Profile>                profiles                           = Collections.synchronizedMap(new HashMap());
     private Clock                               clock;
     private static final long                   MAX_BATCH_GET_KEYS                 = 1000000000L;
-    private static final long                   MAX_ACTIONS_PER_TXN                = 5L;
     private int                                 maxQueryLifetimeMs;
     private int                                 maxTransactionLifetimeMs;
     private final ScheduledThreadPoolExecutor   scheduler                          = new ScheduledThreadPoolExecutor(2, new ThreadFactory()
@@ -189,13 +107,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     private int                                 storeDelayMs;
     private boolean                             noStorage;
     private Thread                              shutdownHook;
-    private PseudoKinds                         pseudoKinds;
-    private HighRepJobPolicy                    highRepJobPolicy;
-    private boolean                             isHighRep;
     private LocalDatastoreCostAnalysis          costAnalysis;
     private Map<String, LocalDatastoreService.SpecialProperty>  specialPropertyMap = Maps.newHashMap();
-    private IndexesXml                          indexes                           = null;
-    private HashMap<String, List<OnestoreEntity.CompositeIndex>>   compositeIndexCache    = new HashMap<String, List<OnestoreEntity.CompositeIndex>>();
     private String appID;
 
     public void clearProfiles()
@@ -254,196 +167,15 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         this.appID = properties.get("APP_NAME");
 
-        String autoIdAllocationPolicyString = (String)properties.get("datastore.auto_id_allocation_policy");
-        if (autoIdAllocationPolicyString != null) {
-          try {
-            this.autoIdAllocationPolicy = AutoIdAllocationPolicy.valueOf(autoIdAllocationPolicyString.toUpperCase());
-          }
-          catch (IllegalArgumentException e) {
-            throw new IllegalStateException(String.format("Invalid value \"%s\" for property \"%s\"", new Object[] { 
-              autoIdAllocationPolicyString, "datastore.auto_id_allocation_policy" }), e);
-          }
-
-        }
-
         LocalCompositeIndexManager.getInstance().setAppDir(context.getLocalServerEnvironment().getAppDir());
 
         LocalCompositeIndexManager.getInstance().setClock(this.clock);
 
         LocalCompositeIndexManager.getInstance().setNoIndexAutoGen(false);
-        initHighRepJobPolicy(properties);
-
-        this.pseudoKinds = new PseudoKinds();
-        this.pseudoKinds.register(new KindPseudoKind(this));
-        this.pseudoKinds.register(new PropertyPseudoKind(this));
-        this.pseudoKinds.register(new NamespacePseudoKind(this));
-        if (isHighRep())
-        {
-            this.pseudoKinds.register(new EntityGroupPseudoKind());
-        }
 
         this.costAnalysis = new LocalDatastoreCostAnalysis(LocalCompositeIndexManager.getInstance());
 
-        setupIndexes(properties.get("user.dir"));
-        
-        logger.info(String.format("Local Datastore initialized: \n\tType: %s\n\tStorage: %s", 
-          new Object[] { isHighRep() ? "High Replication" : "Master/Slave", 
-          this.noStorage ? "In-memory" : this.backingStore }));
-    }
-
-    private void setupIndexes(String appDir)
-    {
-        IndexesXmlReader xmlReader = new IndexesXmlReader(appDir);
-        indexes = xmlReader.readIndexesXml();
-        DatastoreV3Pb.CompositeIndices requestedCompositeIndices = new DatastoreV3Pb.CompositeIndices();
-        for (IndexesXml.Index index : indexes)
-        {
-            OnestoreEntity.CompositeIndex newCompositeIndex = requestedCompositeIndices.addIndex();
-            newCompositeIndex.setAppId(this.appID);
-            OnestoreEntity.Index requestedIndex = newCompositeIndex.getMutableDefinition();
-            requestedIndex.setAncestor(index.doIndexAncestors());
-            requestedIndex.setEntityType(index.getKind());
-            for (IndexesXml.PropertySort propSort : index.getProperties())
-            {
-                OnestoreEntity.Index.Property newProp = requestedIndex.addProperty();
-                newProp.setName(propSort.getPropertyName());
-                if (propSort.isAscending()) 
-                {
-                    //ENUM IS IN ONESTOREENTITY in Appengine-api.jar
-                    newProp.setDirection(1);
-                }
-                else 
-                { 
-                    newProp.setDirection(2);
-                }
-            }
-      }
-        
-      ApiBasePb.StringProto appId = new ApiBasePb.StringProto();
-      appId.setValue(this.appID);
-      DatastoreV3Pb.CompositeIndices existing = getIndices( null, appId);  
-      
-      createAndDeleteIndexes(existing, requestedCompositeIndices);
-    }
-
-    private void createAndDeleteIndexes( DatastoreV3Pb.CompositeIndices existing, DatastoreV3Pb.CompositeIndices requested)
-    {
-        HashMap existingMap = new HashMap<String, OnestoreEntity.CompositeIndex>();
-        HashMap requestedMap = new HashMap<String, OnestoreEntity.CompositeIndex>();
-        // Convert CompositeIndices into hash maps to get the diff of existing and requested indices. 
-        for (int ctr = 0; ctr < existing.indexSize(); ctr++)
-        {
-            OnestoreEntity.CompositeIndex compIndex = existing.getIndex(ctr);
-            existingMap.put(compIndex.getDefinition().toFlatString(), compIndex);
-        }
-        for (int ctr = 0; ctr < requested.indexSize(); ctr++)
-        {
-            OnestoreEntity.CompositeIndex compIndex = requested.getIndex(ctr);
-            requestedMap.put(compIndex.getDefinition().toFlatString(), compIndex);
-        }
-
-        int deletedCounter = 0;
-        for (String key : (Set<String>)existingMap.keySet())
-        {
-            if (requestedMap.containsKey(key) == false)
-            {
-                //Need to map the composite index id into the requested deleted thing.
-                OnestoreEntity.CompositeIndex tmpCompIndex = (OnestoreEntity.CompositeIndex)existingMap.get(key);
-                deleteIndex(null, tmpCompIndex);
-                deletedCounter++;
-            }
-            else
-            {
-                OnestoreEntity.CompositeIndex tmpCompIndex = (OnestoreEntity.CompositeIndex)existingMap.get(key);
-                String kind = tmpCompIndex.getDefinition().getEntityType();
-                List<OnestoreEntity.CompositeIndex> list = compositeIndexCache.get(kind);
-                if (list == null)
-                {
-                    List<OnestoreEntity.CompositeIndex> newList = new ArrayList<OnestoreEntity.CompositeIndex>();
-                    newList.add(tmpCompIndex);
-                    compositeIndexCache.put(kind, newList);
-                }
-                else
-                {
-                    list.add(tmpCompIndex);
-                }
-            }
-        }
-
-        int createdCounter = 0;
-        for (String key : (Set<String>)requestedMap.keySet())
-        {
-            if (existingMap.containsKey(key) == false)
-            {
-                ApiBasePb.Integer64Proto id = createIndex( null, (OnestoreEntity.CompositeIndex)requestedMap.get(key));
-                createdCounter++;
-                //Add to the cache
-                OnestoreEntity.CompositeIndex tmpCompIndex = (OnestoreEntity.CompositeIndex)requestedMap.get(key);
-                tmpCompIndex.setId(id.getValue());
-                String kind = tmpCompIndex.getDefinition().getEntityType();
-                List<OnestoreEntity.CompositeIndex> list = compositeIndexCache.get(kind);
-                if (list == null)
-                {
-                    List<OnestoreEntity.CompositeIndex> newList = new ArrayList<OnestoreEntity.CompositeIndex>();
-                    newList.add(tmpCompIndex);
-                    compositeIndexCache.put(kind, newList);
-                }
-                else
-                {
-                    list.add(tmpCompIndex);
-                }
-            }
-        }
-    }
-
-    boolean isHighRep()
-    {
-        return this.isHighRep;
-    }
-
-    private void initHighRepJobPolicy( Map<String, String> properties )
-    {
-        String highRepJobPolicyStr = (String)properties.get(HIGH_REP_JOB_POLICY_CLASS_PROPERTY);
-        if (highRepJobPolicyStr == null)
-        {
-            DefaultHighRepJobPolicy defaultPolicy = new DefaultHighRepJobPolicy(properties);
-
-            this.isHighRep = true;
-            this.highRepJobPolicy = defaultPolicy;
-        }
-        else
-        {
-            this.isHighRep = true;
-            try
-            {
-                Class highRepJobPolicyCls = Class.forName(highRepJobPolicyStr);
-                Constructor ctor = highRepJobPolicyCls.getDeclaredConstructor(new Class[0]);
-
-                ctor.setAccessible(true);
-
-                this.highRepJobPolicy = ((HighRepJobPolicy)ctor.newInstance(new Object[0]));
-            }
-            catch (ClassNotFoundException e)
-            {
-                throw new IllegalArgumentException(e);
-            }
-            catch (InvocationTargetException e)
-            {
-                throw new IllegalArgumentException(e);
-            }
-            catch (NoSuchMethodException e)
-            {
-                throw new IllegalArgumentException(e);
-            }
-            catch (InstantiationException e)
-            {
-                throw new IllegalArgumentException(e);
-            }
-            catch (IllegalAccessException e)
-            {
-                throw new IllegalArgumentException(e);
-            }
-        }
+        logger.info("Datastore initialized");
     }
 
     private static int parseInt( String valStr, int defaultVal, String propName )
@@ -585,25 +317,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             }
     }
 
-    public DatastoreV3Pb.PutResponse putImpl( LocalRpcService.Status status, DatastoreV3Pb.PutRequest request )
+    private DatastoreV3Pb.PutResponse putImpl( LocalRpcService.Status status, DatastoreV3Pb.PutRequest request )
     {
-        Set<String> entityKinds = new HashSet<String>();
-        for (OnestoreEntity.EntityProto entity : request.entitys())
-        {
-            String kind = entity.getKey().getPath().getElement(entity.getKey().getPath().elementSize()-1).getType();
-            entityKinds.add(kind);
-        }
-        for (String kind : entityKinds)
-        {
-            List<OnestoreEntity.CompositeIndex> compIndexes = compositeIndexCache.get(kind);
-            if (compIndexes != null)
-            {
-                for (OnestoreEntity.CompositeIndex index : compIndexes)
-                {
-                    request.addCompositeIndex(index);    
-                }
-            }
-        }
         DatastoreV3Pb.PutResponse response = new DatastoreV3Pb.PutResponse();
         if (request.entitySize() == 0)
         {
@@ -687,25 +402,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         return new ApiBasePb.VoidProto();
     }
 
-    public DatastoreV3Pb.DeleteResponse deleteImpl( LocalRpcService.Status status, DatastoreV3Pb.DeleteRequest request )
+    private DatastoreV3Pb.DeleteResponse deleteImpl( LocalRpcService.Status status, DatastoreV3Pb.DeleteRequest request )
     {
-        Set<String> entityKinds = new HashSet<String>();
-        for (OnestoreEntity.Reference key : request.keys())
-        {
-            String kind = key.getPath().getElement(key.getPath().elementSize()-1).getType();
-            entityKinds.add(kind);
-        }
-        for (String kind : entityKinds)
-        {
-            List<OnestoreEntity.CompositeIndex> compIndexes = compositeIndexCache.get(kind);
-            if (compIndexes != null)
-            {
-                for (OnestoreEntity.CompositeIndex index : compIndexes)
-                {
-                    request.setMarkChanges(true);    
-                }
-            }
-        }         
         DatastoreV3Pb.DeleteResponse response = new DatastoreV3Pb.DeleteResponse();
         if (request.keySize() == 0)
         {
@@ -759,31 +457,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         throw new ApiProxy.ApplicationException(DatastoreV3Pb.Error.ErrorCode.NEED_INDEX.getValue(), "Missing composite index for given query");
     }
 
-    private OnestoreEntity.CompositeIndex findIndexToUse( DatastoreV3Pb.Query query)
-    {
-        if (!query.hasKind())
-        {
-            return null;
-        }
-        List<OnestoreEntity.Index> indexList = LocalCompositeIndexManager.getInstance().queryIndexList(query);
-        if (indexList.isEmpty())
-        {
-            return null;
-        }
-        List<OnestoreEntity.CompositeIndex> compIndexes = compositeIndexCache.get(query.getKind());
-        return fetchMatchingIndex(compIndexes, indexList.get(0));
-    }
-
     public DatastoreV3Pb.QueryResult runQuery( LocalRpcService.Status status, DatastoreV3Pb.Query query )
     {
         final LocalCompositeIndexManager.ValidatedQuery validatedQuery = new LocalCompositeIndexManager.ValidatedQuery(query);
 
         query = validatedQuery.getV3Query();
-        OnestoreEntity.CompositeIndex compositeIndex = findIndexToUse(query);
-        if (compositeIndex != null)
-        {
-            query.addCompositeIndex(compositeIndex);
-        }
         String app = query.getApp();
 
         DatastoreV3Pb.QueryResult queryResult = new DatastoreV3Pb.QueryResult();
