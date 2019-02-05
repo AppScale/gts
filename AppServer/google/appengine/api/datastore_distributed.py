@@ -495,10 +495,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         compiled_query.mutable_primaryscan().set_index_name(query.Encode())
       del self.__queries[cursor_handle]
       return
- 
-    count = _BATCH_SIZE
+
+    if query.limit():
+      max_remaining_results = query.limit() - internal_cursor.get_offset()
+    else:
+      max_remaining_results = sys.maxint
+
     if next_request.has_count():
-      count = next_request.count()
+      count = min(next_request.count(), max_remaining_results)
+    else:
+      count = min(_BATCH_SIZE, max_remaining_results)
 
     query.set_count(count)
     if next_request.has_offset():
