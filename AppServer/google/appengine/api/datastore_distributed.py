@@ -486,7 +486,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       del self.__queries[cursor_handle]
       return
 
-    if internal_cursor.get_offset() >= internal_cursor.get_count():
+    if query.limit() and internal_cursor.get_offset() >= query.limit():
       query_result.set_more_results(False)
       query_result.mutable_compiled_cursor().CopyFrom(last_cursor)
       if next_request.compile():
