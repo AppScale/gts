@@ -1767,7 +1767,11 @@ class Djinn
 
     pick_zookeeper(@zookeeper_data)
     write_our_node_info
-    @state_change_lock.synchronize { wait_for_nodes_to_finish_loading(@nodes) }
+
+    # We wait only for non autoscaled nodes.
+    skip_nodes = get_autoscaled_nodes
+    @state_change_lock.synchronize { nodes_to_wait = @nodes - skip_nodes }
+    wait_for_nodes_to_finish_loading(nodes_to_wait)
 
     # Check that services are up before proceeding into the duty cycle.
     check_api_services
