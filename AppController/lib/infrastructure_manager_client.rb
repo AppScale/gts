@@ -45,18 +45,18 @@ class InfrastructureManagerClient
         raise AppScaleException.new(log_message)
       end
       return response.body
-    rescue Net::ReadTimeout, Errno::ETIMEDOUT => error
+    rescue Net::OpenTimeout, Net::ReadTimeout, Errno::ETIMEDOUT => error
       Djinn.log_warn(
         "[IM] Timeout when calling #{uri.hostname}:#{uri.port}#{uri.path}." \
         "Trying again. Error: #{error.message}")
-      raise FailedNodeException.new("Time out calling IaaS on " \
+      raise Djinn::FailedNodeException.new("Time out calling IaaS on " \
         "#{@ip}:#{SERVER_PORT}")
     rescue Errno::ECONNREFUSED => error
       Djinn.log_warn(
         "[IM] Connection refused when calling #{uri.hostname}:#{uri.port}" \
         "#{uri.path}. IaaS Manager may be down? Trying again. Error: " \
         "#{error.message}")
-      raise FailedNodeException.new("Connection refused calling IaaS on " \
+      raise Djinn::FailedNodeException.new("Connection refused calling IaaS on " \
         "#{@ip}:#{SERVER_PORT}")
     end
   end
@@ -73,7 +73,7 @@ class InfrastructureManagerClient
     request.body = JSON.dump({'operation_id' => operation_id})
 
     run_result = JSON.parse(make_call(request, uri))
-    Djinn.log_debug('[IM] Describe operation info says [#{run_result}]')
+    Djinn.log_debug("[IM] Operation #{operation_id} returned #{run_result}")
     return run_result
   end
 
@@ -96,7 +96,7 @@ class InfrastructureManagerClient
     loop {
       begin
         describe_result = describe_operation(operation_id)
-      rescue FailedNodeException => error
+      rescue Djinn::FailedNodeException => error
         Djinn.log_warn(
           "[IM] Error describing terminate operation #{operation_id}. Error: " \
           "#{error.message}")
@@ -146,14 +146,14 @@ class InfrastructureManagerClient
     loop {
       begin
         describe_result = describe_operation(operation_id)
-      rescue FailedNodeException => error
+      rescue Djinn::FailedNodeException => error
         Djinn.log_warn(
           "[IM] Error describing run instances operation #{operation_id}. " \
           "Error: #{error.message}")
         next
       end
-      Djinn.log_debug("[IM] Describe operation state is #{describe_result['state']} " \
-        "and vm_info is #{describe_result['vm_info'].inspect}.")
+      Djinn.log_debug("[IM] Describe run operation has vm_info " \
+        "#{describe_result['vm_info'].inspect}.")
 
       if describe_result['state'] == 'success'
         vm_info = describe_result['vm_info']
@@ -235,7 +235,7 @@ class InfrastructureManagerClient
       end
       if retries.zero?
         Djinn.log_warn("[IM] Could not get system statistics!")
-        raise FailedNodeException("Could not get system statistics")
+        raise Djinn::FailedNodeException("Could not get system statistics")
       end
     end
   end
