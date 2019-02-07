@@ -19,6 +19,7 @@
 
 import cgi
 import datetime
+import json
 import math
 import time
 import types
@@ -272,6 +273,26 @@ class BlobType(StringType):
 class EmbeddedEntityType(BlobType):
   def name(self):
     return 'entity:proto'
+
+  def input_field(self, name, value, sample_values, back_uri):
+    if value is None:
+      return '&lt;null&gt;'
+
+    entity = datastore.Entity.FromPb(value)
+    try:
+      return json.dumps(entity)
+    except TypeError:
+      return '&lt;binary&gt;'
+
+  def format(self, value):
+    if value is None:
+      return '<null>'
+
+    entity = datastore.Entity.FromPb(value)
+    try:
+      return json.dumps(entity)
+    except TypeError:
+      return '<binary>'
 
 
 class TimeType(DataType):
