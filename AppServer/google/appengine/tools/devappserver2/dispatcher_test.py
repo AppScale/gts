@@ -104,7 +104,8 @@ class AutoScalingModuleFacade(module.AutoScalingModule):
         max_instances=None,
         use_mtime_file_watcher=False,
         automatic_restarts=True,
-        allow_skipped_files=False)
+        allow_skipped_files=False,
+        threadsafe_override=None)
 
   def start(self):
     pass
@@ -144,7 +145,8 @@ class ManualScalingModuleFacade(module.ManualScalingModule):
         max_instances=None,
         use_mtime_file_watcher=False,
         automatic_restarts=True,
-        allow_skipped_files=False)
+        allow_skipped_files=False,
+        threadsafe_override=None)
 
   def start(self):
     pass
@@ -186,7 +188,8 @@ class DispatcherTest(unittest.TestCase):
         module_to_max_instances={},
         use_mtime_file_watcher=False,
         automatic_restart=True,
-        allow_skipped_files=False)
+        allow_skipped_files=False,
+        module_to_threadsafe_override={})
     self.module1 = AutoScalingModuleFacade(app_config.modules[0],
                                            balanced_port=1,
                                            host='localhost')

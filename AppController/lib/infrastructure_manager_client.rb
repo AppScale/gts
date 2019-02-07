@@ -129,7 +129,6 @@ class InfrastructureManagerClient
   def run_instances(num_vms, options, jobs, disks)
     options['num_vms'] = num_vms.to_s
     options['cloud'] = 'cloud1'
-    options['instance_type'] = options['compute_instance_type']
 
     uri = URI("http://#{@ip}:#{SERVER_PORT}/instances")
     headers = {'Content-Type' => 'application/json',

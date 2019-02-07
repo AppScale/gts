@@ -85,13 +85,14 @@ fi
 
 if [ ! -z ${TQ_SOURCE_DIR} ]; then
     log "Installing TaskQueue from specified sources"
-    pip install --upgrade "${TQ_SOURCE_DIR}"
+    pip install --upgrade --no-deps "${TQ_SOURCE_DIR}"
+    pip install "${TQ_SOURCE_DIR}"
 fi
 
 log "Filling /etc/appscale/* files with addresses of required services"
 echo ${DB_IP} > /etc/appscale/masters
 echo ${DB_IP} > /etc/appscale/slaves
-echo "{\"locations\":[\"${ZK_IP}\"]}" > /etc/appscale/zookeeper_locations.json
+echo ${ZK_IP} > /etc/appscale/zookeeper_locations
 echo ${LB_IP} > /etc/appscale/load_balancer_ips
 
 

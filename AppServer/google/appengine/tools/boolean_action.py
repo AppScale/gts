@@ -26,13 +26,22 @@ an optional value.
 These syntaxes result a True value being assigned for the argument:
 --boolean_flag=yes    # "yes" is not case sensitive.
 --boolean_flag=true   # "true" is not case sensitive.
+--boolean_flag=1
 
 These syntaxes result a False value being assigned for the argument:
 --boolean_flag=no     # "no" is not case sensitive.
 --boolean_flag=false  # "false" is not case sensitive.
+--boolean_flag=0
+
+This syntax results in the value of the const parameter specified in the
+call to add_argument being assigned for the argument:
+--boolean_flag
 """
 
 import argparse
+
+_TRUE_VALUES = ['true', 'yes', '1']
+_FALSE_VALUES = ['false', 'no', '0']
 
 
 class BooleanAction(argparse.Action):
@@ -55,17 +64,21 @@ class BooleanAction(argparse.Action):
         help=help)
 
   def __call__(self, parser, namespace, values, option_string=None):
-    if isinstance(values, bool):
-      value = values
-    elif values:
-      value = values.lower()
-      if value in ['true', 'yes']:
-        value = True
-      elif value in ['false', 'no']:
-        value = False
-      else:
-        raise ValueError('must be "yes" or "no", not %r' % values)
-    else:
-      value = True
+    setattr(namespace, self.dest, BooleanParse(values))
 
-    setattr(namespace, self.dest, value)
+
+def BooleanParse(values):
+  if isinstance(values, bool):
+    return values
+  if values:
+    value = values.lower()
+    if value in _TRUE_VALUES:
+      return True
+    if value in _FALSE_VALUES:
+      return False
+    repr_values = (repr(value) for value in _TRUE_VALUES + _FALSE_VALUES)
+
+    raise ValueError('%r unrecognized boolean; known booleans are %s.' %
+                     (values, ', '.join(repr_values)))
+
+  return True

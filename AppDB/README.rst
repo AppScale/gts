@@ -32,12 +32,17 @@ How to set up
      remaining machines in the cluster. Each address should be on a different
      line.
 
-5. Create a file called /etc/appscale/zookeeper_locations.json with the content
-   ``{"locations":["zk-ip-1", "zk-ip-2"]}`` (where zk-ip-1 and zk-ip-2 are the
-   locations of the machines in the ZooKeeper cluster).
-5. Run ``appscale-prime-cassandra --replication x`` where "x" is the
+5. Create a file called /etc/appscale/zookeeper_locations with the content
+   ::
+
+      zk-ip-1
+      zk-ip-2
+
+   (where zk-ip-1 and zk-ip-2 are the locations of the machines
+   in the ZooKeeper cluster).
+6. Run ``appscale-prime-cassandra --replication x`` where "x" is the
    replication factor you want for the datastore's keyspace.
-6. Start the datastore server with ``appscale-datastore -p x`` where "x" is the
+7. Start the datastore server with ``appscale-datastore -p x`` where "x" is the
    port you would like to start the server on. You probably want to start more
    than one since each can currently only handle one request at a time.
    AppScale starts 2x the number of cores on the machine.

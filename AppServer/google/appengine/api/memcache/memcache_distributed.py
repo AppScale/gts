@@ -188,8 +188,12 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     if value is None:
       if not request.has_initial_value():
         return None
-      flags, cas_id, stored_value = (
-        TYPE_INT, cas_id, str(request.initial_value()))
+
+      flags = TYPE_INT
+      if request.has_initial_flags():
+        flags = request.initial_flags()
+
+      stored_value = str(request.initial_value())
     else:
       flags, cas_id, stored_value = cPickle.loads(value)
 
