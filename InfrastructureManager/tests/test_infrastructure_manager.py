@@ -368,6 +368,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
   def test_spawn_vms(self):
     no_vms = ([], [], [])
     vm_info_return = (['i-id'], ['public-ip'], ['private-ip'])
+    describe_vms_return = (['public-ip'], ['private-ip'], ['i-id'])
     agent_exception = AgentRuntimeException("Runtime Exception")
     mocked_agent = EC2Agent()
     mocked_agent.assert_credentials_are_valid = MagicMock()
@@ -375,7 +376,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
                                                         agent_exception,
                                                         agent_exception])
     mocked_agent.describe_instances = MagicMock(side_effect=[no_vms,
-                                                             vm_info_return])
+                                                             describe_vms_return])
     mocked_agent.configure_instance_security = MagicMock()
 
     initial_status_info = {
@@ -402,7 +403,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
 
     # Exception happened but vms were started.
     mocked_agent.describe_instances = MagicMock(side_effect=[no_vms,
-                                                             vm_info_return])
+                                                             describe_vms_return])
     initial_status_info = {
       'success': False,
       'reason': 'received run request',
@@ -484,7 +485,7 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
   @gen_test
   def test_describe_vms(self):
     agent_exception = AgentRuntimeException("Runtime Exception")
-    vm_info_return = (['i-id'], ['public-ip'], ['private-ip'])
+    vm_info_return = (['public-ip'], ['private-ip'], ['i-id'])
     mocked_agent = EC2Agent()
     mocked_agent.describe_instances= MagicMock(side_effect=[vm_info_return,
                                                             agent_exception])
