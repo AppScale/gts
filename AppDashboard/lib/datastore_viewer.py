@@ -647,13 +647,8 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
         # property was already empty.
         continue
 
-      if form_value:
-        # TODO: Handle parse exceptions.
-        entity[property_name] = data_type.parse(form_value)
-      elif property_name in entity:
-        # TODO: Treating empty input as deletion is a not a good
-        # interface.
-        del entity[property_name]
+      # TODO: Handle parse exceptions.
+      entity[property_name] = data_type.parse(form_value)
 
     _put_entity(ds_access, entity)
     redirect_url = self.request.get(
