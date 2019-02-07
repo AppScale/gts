@@ -181,7 +181,7 @@ class DataType(object):
       return format
 
   def input_field(self, name, value, sample_values, back_uri):
-    string_value = self.format(value) if value else ''
+    string_value = self.format(value) if value is not None else ''
     return (
         '<input class="%s" name="%s" type="text" size="%d" value="%s" %s/>' % (
             cgi.escape(self.name()),
