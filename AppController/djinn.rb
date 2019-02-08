@@ -1757,7 +1757,9 @@ class Djinn
     if my_node.is_shadow?
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
-      initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
+      @state_change_lock.synchronize {
+        initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
+      }
     end
 
     # Initialize the current server and starts all the API and essential
@@ -2300,7 +2302,7 @@ class Djinn
     Djinn.log_debug("Changed nodes to #{@nodes}")
 
     update_firewall
-    initialize_nodes_in_parallel(new_nodes)
+    initialize_nodes_in_parallel(new_nodes, [])
     update_hosts_info
   end
 
@@ -3773,11 +3775,21 @@ class Djinn
         initialize_node(slave)
       }
     }
+
+    # If we cannot reconnect with autoscaled nodes, we will have to clean
+    # up the state.
     nice_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
       Thread.new {
         Djinn.log_info("Trying to initialize scaled node #{slave}.")
-        initialize_node(slave)
+        begin
+          Timeout::timeout(SCALEDOWN_THRESHOLD * DUTY_CYCLE * SMALL_WAIT) {
+            initialize_node(slave)
+          }
+        rescue Timeout::Error
+          Djinn.warn("Couldn't initialize #{slave} in time.")
+          terminate_node_from_deployment(slave)
+        end
       }
     }
 
@@ -4994,19 +5006,22 @@ HOSTS
       return 0
     end
 
-    imc = InfrastructureManagerClient.new(@@secret)
-    begin
-      imc.terminate_instances(@options, node_to_remove.instance_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to call terminate_instances")
-      return 0
-    rescue AppScaleException
-      Djinn.log_warn("Failed to terminate #{node_to_remove}. Not removing it.")
-      return 0
+    # Terminate instance if we are in cloud.
+    if is_cloud?
+      imc = InfrastructureManagerClient.new(@@secret)
+      begin
+        imc.terminate_instances(@options, node_to_remove.instance_id)
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to call terminate_instances")
+        return 0
+      rescue AppScaleException
+        Djinn.log_warn("Failed to terminate #{node_to_remove}. Not removing it.")
+        return 0
+      end
     end
 
+    # And then clean up the internal state.
     remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
-
     to_remove = {}
     @app_info_map.each { |version_key, info|
       next if info['appservers'].nil?
