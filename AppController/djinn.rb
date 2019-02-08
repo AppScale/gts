@@ -1153,8 +1153,9 @@ class Djinn
       if ip == my_node.private_ip
         begin
           new_stats << JSON.load(get_node_stats_json(@@secret))
-        rescue SOAP::FaultError
-          Djinn.log_warn("Failed to get local status update.")
+        rescue FailedNodeException => exception
+          Djinn.log_warn("Failed to get local status update because: " \
+            "#{exception.message}")
         end
       else
         threads << Thread.new {
@@ -1730,6 +1731,10 @@ class Djinn
     # We reset the kill signal received since we are starting now.
     @kill_sig_received = false
 
+    # If we have uncommitted changes, we rebuild/reinstall the
+    # corresponding packages to ensure we are using the latest code.
+    build_uncommitted_changes
+
     # From here on we have the basic local state that allows to operate.
     # In particular we know our roles, and the deployment layout. Let's
     # start attaching any permanent disk we may have associated with us.
@@ -1739,10 +1744,6 @@ class Djinn
     find_me_in_locations
     write_database_info
     update_firewall
-
-    # If we have uncommitted changes, we rebuild/reinstall the
-    # corresponding packages to ensure we are using the latest code.
-    build_uncommitted_changes
 
     # Let's account for the autoscaled nodes differently since we don't
     # have to wait for them (they could have been downscaled).
@@ -2049,15 +2050,13 @@ class Djinn
   # a SOAP interface by which we can dynamically add and remove nodes in this
   # AppScale deployment.
   def start_infrastructure_manager
-    iaas_script = "#{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
-    start_cmd = "#{PYTHON27} #{iaas_script}"
-    env = {
-      'APPSCALE_HOME' => APPSCALE_HOME,
-      'EC2_HOME' => ENV['EC2_HOME'],
-      'JAVA_HOME' => ENV['JAVA_HOME']
-    }
+    script = `which appscale-infrastructure`.chomp
+    service_port = 17444
+    start_cmd = "#{script} -p #{service_port}"
+    start_cmd << ' --autoscaler' if my_node.is_shadow?
+    start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
 
-    MonitInterface.start(:iaas_manager, start_cmd, nil, env)
+    MonitInterface.start(:iaas_manager, start_cmd)
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
 
@@ -2245,7 +2244,7 @@ class Djinn
       disks = Array.new(new_nodes_roles.length, nil)
       imc = InfrastructureManagerClient.new(@@secret)
       begin
-        new_nodes_info = imc.spawn_vms(new_nodes_roles.length, @options,
+        new_nodes_info = imc.run_instances(new_nodes_roles.length, @options,
            new_nodes_roles.values, disks)
       rescue FailedNodeException, AppScaleException => exception
         Djinn.log_error("Couldn't spawn #{new_nodes_roles.length} VMs " \
@@ -3656,6 +3655,20 @@ class Djinn
     Djinn.log_info('Finished building AdminServer.')
   end
 
+  def build_infrastructure_manager
+    Djinn.log_info('Building uncommitted InfrastructureManager changes')
+    unless system('pip install --upgrade --no-deps ' +
+                  "#{APPSCALE_HOME}/InfrastructureManager > /dev/null 2>&1")
+      Djinn.log_error('Unable to build InfrastructureManager (install failed).')
+      return
+    end
+    unless system("pip install #{APPSCALE_HOME}/InfrastructureManager > /dev/null 2>&1")
+      Djinn.log_error('Unable to build InfrastructureManager (install dependencies failed).')
+      return
+    end
+    Djinn.log_info('Finished building InfrastructureManager.')
+  end
+
   def build_java_appserver
     Djinn.log_info('Building uncommitted Java AppServer changes')
 
@@ -3731,6 +3744,7 @@ class Djinn
     build_taskqueue if status.include?('AppTaskQueue')
     build_datastore if status.include?('AppDB')
     build_common if status.include?('common')
+    build_infrastructure_manager if status.include?('InfrastructureManager')
     build_java_appserver if status.include?('AppServer_Java')
     build_hermes if status.include?('Hermes')
     build_api_server if status.include?('APIServer')

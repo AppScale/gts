@@ -39,7 +39,7 @@ case "$1" in
         installjavajdk
         installappserverjava
         installtornado
-        installpycrypto 
+        installpycrypto
         installpycapnp
         installpyyaml
         installsoappy
@@ -64,6 +64,7 @@ case "$1" in
         installcommon
         installadminserver
         installhermes
+        installinfrastructuremanager
         installtaskqueue
         installdatastore
         installapiserver
