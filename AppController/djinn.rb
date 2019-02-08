@@ -1747,6 +1747,7 @@ class Djinn
     # Let's account for the autoscaled nodes differently since we don't
     # have to wait for them (they could have been downscaled).
     skip_nodes = get_autoscaled_nodes
+    nodes_to_wait = []
     @state_change_lock.synchronize { nodes_to_wait = @nodes - skip_nodes }
 
     # If we are the headnode, we may need to start/setup all other nodes.
