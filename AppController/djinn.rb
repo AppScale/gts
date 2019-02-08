@@ -1744,13 +1744,18 @@ class Djinn
     # corresponding packages to ensure we are using the latest code.
     build_uncommitted_changes
 
+    # Let's account for the autoscaled nodes differently since we don't
+    # have to wait for them (they could have been downscaled).
+    skip_nodes = get_autoscaled_nodes
+    @state_change_lock.synchronize { nodes_to_wait = @nodes - skip_nodes }
+
     # If we are the headnode, we may need to start/setup all other nodes.
     # Better do it early on, since it may take some time for the other
     # nodes to start up.
     if my_node.is_shadow?
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
-      @state_change_lock.synchronize { initialize_nodes_in_parallel(@nodes) }
+      initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
     end
 
     # Initialize the current server and starts all the API and essential
@@ -1769,8 +1774,6 @@ class Djinn
     write_our_node_info
 
     # We wait only for non autoscaled nodes.
-    skip_nodes = get_autoscaled_nodes
-    @state_change_lock.synchronize { nodes_to_wait = @nodes - skip_nodes }
     wait_for_nodes_to_finish_loading(nodes_to_wait)
 
     # Check that services are up before proceeding into the duty cycle.
@@ -3747,17 +3750,24 @@ class Djinn
     end
   end
 
-  def initialize_nodes_in_parallel(node_info)
+  def initialize_nodes_in_parallel(must_have, nice_have)
     threads = []
-    node_info.each { |slave|
+    must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
       threads << Thread.new {
         initialize_node(slave)
       }
     }
+    nice_have.each { |slave|
+      next if slave.private_ip == my_node.private_ip
+      Thread.new {
+        Djinn.log_info("Trying to initialize scaled node #{slave}.")
+        initialize_node(slave)
+      }
+    }
 
     threads.each { |t| t.join }
-    Djinn.log_info("Done initializing nodes.")
+    Djinn.log_info("Done initializing must have nodes.")
   end
 
   def initialize_node(node)
@@ -3899,7 +3909,8 @@ class Djinn
       locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {
         break if File.exists?(locations_json)
-        Djinn.log_warn("Locations JSON file does not exist on head node yet, #{dest_node.private_ip} is waiting ")
+        Djinn.log_warn('Locations JSON file does not exist on head node' \
+                       " yet, #{dest_node.private_ip} is waiting ")
         Kernel.sleep(SMALL_WAIT)
       }
       Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
