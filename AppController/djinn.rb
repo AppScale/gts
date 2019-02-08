@@ -3787,7 +3787,7 @@ class Djinn
             initialize_node(slave)
           }
         rescue Timeout::Error
-          Djinn.warn("Couldn't initialize #{slave} in time.")
+          Djinn.log_warn("Couldn't initialize #{slave} in time.")
           terminate_node_from_deployment(slave)
         end
       }
