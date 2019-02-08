@@ -234,7 +234,7 @@ class InfrastructureManagerClient
       end
       if retries.zero?
         Djinn.log_warn("[IM] Could not get system statistics!")
-        raise Djinn::FailedNodeException("Could not get system statistics")
+        raise Djinn::FailedNodeException.new("Could not get system statistics")
       end
     end
   end
