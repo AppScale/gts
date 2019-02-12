@@ -157,6 +157,9 @@ LOG_DIR = os.path.join('/var', 'log', 'appscale')
 # The default directory for run-time variable data (eg. pidfiles).
 VAR_DIR = os.path.join('/', 'var', 'run', 'appscale')
 
+# A directory that contains miscellaneous helper scripts.
+SCRIPTS_DIR = os.path.join(APPSCALE_HOME, 'scripts')
+
 # The number of seconds to wait before retrying some operations.
 SMALL_WAIT = 5
 
