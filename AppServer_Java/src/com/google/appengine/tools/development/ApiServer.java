@@ -1,5 +1,6 @@
 package com.google.appengine.tools.development;
 
+import com.google.appengine.repackaged.com.google.common.base.Splitter;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.HttpClient;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.ByteArrayRequestEntity;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.GetMethod;
@@ -12,6 +13,10 @@ import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -50,11 +55,20 @@ public class ApiServer {
                     "--api_port", String.valueOf(this.port),
                     "--clear_datastore",
                     "--datastore_consistency_policy", "consistent",
-                    "--application", "test",
                     "--application_prefix", "",
                     "--datastore_path", (new StringBuilder(16)).append("/tmp/").append(this.port).toString()};
 
-            this.process = new ProcessBuilder().command(cmd).redirectErrorStream(true).start();
+            List apiServerCommand = new ArrayList(Arrays.asList(cmd));
+            if (System.getProperty("appengine.pythonApiServerFlags") != null) {
+                Iterator var19 = Splitter.on('|').split(System.getProperty("appengine.pythonApiServerFlags")).iterator();
+
+                while(var19.hasNext()) {
+                    String apiServerFlag = (String)var19.next();
+                    apiServerCommand.add(apiServerFlag);
+                }
+            }
+
+            this.process = new ProcessBuilder().command(apiServerCommand).redirectErrorStream(true).start();
             BufferedReader stdInput = new BufferedReader(new InputStreamReader(this.process.getInputStream(), StandardCharsets.UTF_8));
 
             String stdInputLine;
