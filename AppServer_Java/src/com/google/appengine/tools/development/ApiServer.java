@@ -67,12 +67,6 @@ public class ApiServer {
         }
     }
 
-    // AppScale: Use an existing server without starting it.
-    ApiServer(int externalServerPort) {
-        this.port = externalServerPort;
-        this.process = null;
-    }
-
     public Integer getPort() {
         return this.port;
     }
@@ -88,11 +82,6 @@ public class ApiServer {
     }
 
     public void close() {
-        // AppScale: If a server was not started, there is nothing to stop.
-        if (this.process == null) {
-            return;
-        }
-
         try {
             int exitValue = this.process.exitValue();
             if (exitValue != 0) {
