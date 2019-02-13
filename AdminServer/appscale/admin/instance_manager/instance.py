@@ -94,7 +94,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
   """
   if runtime == JAVA8:
     java_start_script = os.path.join(JAVA8_RUNTIME_DIR, 'bin',
-                                     'dev_appserver.sh')
+                                     'appscale_java8_runtime.sh')
   else:
     java_start_script = os.path.join(
       JAVA_APPSERVER, 'appengine-java-sdk-repacked', 'bin',
@@ -119,7 +119,7 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
   ]
 
   if runtime == JAVA8:
-    api_server = os.path.join(PYTHON27_RUNTIME_DIR, 'api_server.py')
+    api_server = os.path.join(JAVA8_RUNTIME_DIR, 'bin', 'appscale_java8_apiserver.sh')
     cmd.append('--path_to_python_api_server={}'.format(api_server))
 
     api_server_flags = [
