@@ -107,8 +107,7 @@ MODIFIED_JARS = [
 ]
 
 JAVA8_MODIFIED_JARS = [
-  os.path.join(JAVA8_RUNTIME_DIR, 'lib', 'user', '*.jar'),
-  os.path.join(REPACKED_LIB_DIR, 'impl', 'appscale-*.jar'),
+  os.path.join(JAVA8_RUNTIME_DIR, 'lib', 'user', '*.jar'),  # not modified, but copied for use
   os.path.join('/', 'usr', 'share', 'appscale', 'ext', '*')
 ]
 
