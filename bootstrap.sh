@@ -8,8 +8,10 @@ set -e
 # Defaults values for repositories and branches.
 APPSCALE_REPO="git://github.com/AppScale/appscale.git"
 APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
+AGENTS_REPO="git://github.com/AppScale/appscale-agents.git"
 APPSCALE_BRANCH="master"
 APPSCALE_TOOLS_BRANCH="master"
+AGENTS_BRANCH="master"
 FORCE_UPGRADE="N"
 UNIT_TEST="n"
 GIT_TAG=""
@@ -87,6 +89,24 @@ while [ $# -gt 0 ]; do
             usage
         fi
         APPSCALE_TOOLS_BRANCH="${1}"
+        shift
+        continue
+    fi
+    if [ "${1}" = "--agents-repo" ]; then
+        shift
+        if [ -z "${1}" ]; then
+            usage
+        fi
+        AGENTS_REPO="${1}"
+        shift
+        continue
+    fi
+    if [ "${1}" = "--agents-branch" ]; then
+        shift
+        if [ -z "${1}" ]; then
+            usage
+        fi
+        AGENTS_BRANCH="${1}"
         shift
         continue
     fi
@@ -170,8 +190,8 @@ if [ ! -d appscale ]; then
     git clone ${APPSCALE_TOOLS_REPO} appscale-tools
     (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
 
-    git clone ${APPSCALE_AGENTS_REPO} appscale-agents
-    (cd appscale-agents; git checkout ${APPSCALE_AGENTS_BRANCH})
+    git clone ${AGENTS_REPO} appscale-agents
+    (cd appscale-agents; git checkout ${AGENTS_BRANCH})
 
 
     # Use tags if we specified it.
@@ -216,7 +236,7 @@ if [ -d /etc/appscale/certs ]; then
     # available tags first.
     (cd appscale; git fetch ${APPSCALE_REPO} -t)
     (cd appscale-tools; git fetch ${APPSCALE_TOOLS_REPO} -t)
-    (cd appscale-agents; git fetch ${APPSCALE_AGENTS_REPO} -t)
+    (cd appscale-agents; git fetch ${AGENTS_REPO} -t)
 
     if [ "$GIT_TAG" = "last" ]; then
         GIT_TAG="$(cd appscale; git tag | tail -n 1)"
