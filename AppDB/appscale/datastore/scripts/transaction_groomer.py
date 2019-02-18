@@ -456,7 +456,7 @@ class TransactionGroomer(object):
       if new_project not in self.projects:
         self.projects[new_project] = ProjectGroomer(
           new_project, self._coordinator, self._zk_client, self._db_access,
-          self._thread_pool)
+          self._thread_pool, self._index_manager)
 
   def _update_projects_watch(self, new_projects):
     """ Handles project additions or deletions.
