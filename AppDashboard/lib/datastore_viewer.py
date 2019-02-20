@@ -630,7 +630,7 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
     else:
       kind = self.request.get('kind')
       namespace = self.request.get('namespace', None)
-      entity = datastore.Entity(kind, _namespace=namespace)
+      entity = datastore.Entity(kind, _namespace=namespace, _app=project_id)
 
     for arg_name in self.request.arguments():
       # Arguments are in <property_type>|<property_name>=<value> format.
