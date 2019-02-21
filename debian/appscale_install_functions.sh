@@ -263,13 +263,6 @@ installappserverjava()
     rm ${EXTRACTED_SDK}/lib/tools/jsp/${OLD_JAR}
     cp ${PACKAGE_CACHE}/${JSP_JAR} ${EXTRACTED_SDK}/lib/tools/jsp/${JSP_JAR}
 
-    # The ApiServer class requires ApiProxyUtils from the 1.9.55 SDK.
-    TESTING_JAR="appengine-testing.jar"
-    TESTING_JAR_MD5="b561cc6feda52107cb764bb8a6d530e7"
-    cachepackage ${TESTING_JAR} ${TESTING_JAR_MD5}
-    rm ${EXTRACTED_SDK}/lib/testing/${TESTING_JAR}
-    cp ${PACKAGE_CACHE}/${TESTING_JAR} ${EXTRACTED_SDK}/lib/testing/${TESTING_JAR}
-
     # Compile source file.
     (cd ${JAVA_SDK_DIR} && ant install && ant clean-build)
 

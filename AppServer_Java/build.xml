@@ -135,7 +135,6 @@
       <include name="com/google/appengine/tools/development/ApiProxyLocalFactory*" />
       <include name="com/google/appengine/tools/development/ApiServer*" />
       <include name="com/google/appengine/tools/development/ApiServerFactory*" />
-      <include name="com/google/appengine/tools/development/DevAppServerClassLoader*" />
       <include name="com/google/appengine/tools/development/DevAppServerMain*" />
       <include name="com/google/appengine/tools/development/DevAppServerFactory*" />
       <include name="com/google/appengine/tools/development/SharedMain*" />
