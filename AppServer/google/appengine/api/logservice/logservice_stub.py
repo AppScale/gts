@@ -140,6 +140,7 @@ def _cleanup_logserver_connection(connection):
   except socket.error:
     pass
 
+
 def _fill_request_log(requestLog, log, include_app_logs):
   log.set_request_id(requestLog.requestId)
   log.set_app_id(requestLog.appId)
@@ -186,9 +187,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
 
   _ACCEPTS_REQUEST_ID = True
 
-
   _DEFAULT_READ_COUNT = 20
-
 
   def __init__(self, persist=False, logs_path=None, request_data=None):
     """Initializer.
@@ -206,11 +205,16 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     self._pending_requests = defaultdict(logging_capnp.RequestLog.new_message)
     self._pending_requests_applogs = dict()
     self._log_server = defaultdict(Queue)
-    #get head node_private ip from /etc/appscale/head_node_private_ip
+    # get head node_private ip from /etc/appscale/head_node_private_ip
     self._log_server_ip = file_io.read("/etc/appscale/head_node_private_ip").rstrip()
 
-    self._requests_logger = RequestsLogger()
-    self._requests_logger.start()
+    if os.path.exists('/etc/appscale/elk-enabled'):
+      self._requests_logger = RequestsLogger()
+      self._requests_logger.start()
+      self.is_elk_enabled = True
+    else:
+      self._requests_logger = None
+      self.is_elk_enabled = False
 
   def stop_requests_logger(self):
     self._requests_logger.stop()
@@ -344,58 +348,58 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     rl.responseSize = response_size
     rl.endTime = end_time
     self._pending_requests_applogs[request_id].finish()
-    #rl.finished = 1
-    #rl.appLogs = self._pending_requests_applogs[request_id]
-    start_time = rl.startTime
-    start_time_ms = float(start_time) / 1000
-    end_time_ms = float(end_time) / 1000
 
-    # Render app logs:
-    try:
-      app_logs_str = u'\n'.join([
-        u'{} {} {}'.format(
-          LEVELS[log.level],
-          datetime.utcfromtimestamp(log.time/1000000)
-            .strftime('%Y-%m-%d %H:%M:%S'),
-          log.message
-        )
-        for log in rl.appLogs
-      ])
-    except UnicodeError:
-      app_logs_str = u'\n'.join([
-        u'{} {} {}'.format(
-          LEVELS[log.level],
-          datetime.utcfromtimestamp(log.time/1000000)
-            .strftime('%Y-%m-%d %H:%M:%S'),
-          unicode(log.message, 'ascii', 'ignore')
-        )
-        for log in rl.appLogs
-      ])
+    if self.is_elk_enabled:
+      start_time = rl.startTime
+      start_time_ms = float(start_time) / 1000
+      end_time_ms = float(end_time) / 1000
 
-    request_info = {
-      'generated_id': '{}-{}'.format(start_time, request_id),
-      'serviceName': get_current_module_name(),
-      'versionName': get_current_version_name(),
-      'startTime': start_time_ms,
-      'endTime': end_time_ms,
-      'latency': int(end_time_ms - start_time_ms),
-      'level': max(0, 0, *[
-         log.level for log in rl.appLogs
-       ]),
-      'appId': rl.appId,
-      'appscale-host': os.environ['MY_IP_ADDRESS'],
-      'port': int(os.environ['MY_PORT']),
-      'ip': rl.ip,
-      'method': rl.method,
-      'requestId': request_id,
-      'resource': rl.resource,
-      'responseSize': rl.responseSize,
-      'status': rl.status,
-      'userAgent': rl.userAgent,
-      'appLogs': app_logs_str
-    }
+      # Render app logs:
+      try:
+        app_logs_str = u'\n'.join([
+          u'{} {} {}'.format(
+            LEVELS[log.level],
+            datetime.utcfromtimestamp(log.time/1000000)
+              .strftime('%Y-%m-%d %H:%M:%S'),
+            log.message
+          )
+          for log in rl.appLogs
+        ])
+      except UnicodeError:
+        app_logs_str = u'\n'.join([
+          u'{} {} {}'.format(
+            LEVELS[log.level],
+            datetime.utcfromtimestamp(log.time/1000000)
+              .strftime('%Y-%m-%d %H:%M:%S'),
+            unicode(log.message, 'ascii', 'ignore')
+          )
+          for log in rl.appLogs
+        ])
 
-    self._requests_logger.write(request_info)
+      request_info = {
+        'generated_id': '{}-{}'.format(start_time, request_id),
+        'serviceName': get_current_module_name(),
+        'versionName': get_current_version_name(),
+        'startTime': start_time_ms,
+        'endTime': end_time_ms,
+        'latency': int(end_time_ms - start_time_ms),
+        'level': max(0, 0, *[
+           log.level for log in rl.appLogs
+         ]),
+        'appId': rl.appId,
+        'appscale-host': os.environ['MY_IP_ADDRESS'],
+        'port': int(os.environ['MY_PORT']),
+        'ip': rl.ip,
+        'method': rl.method,
+        'requestId': request_id,
+        'resource': rl.resource,
+        'responseSize': rl.responseSize,
+        'status': rl.status,
+        'userAgent': rl.userAgent,
+        'appLogs': app_logs_str
+      }
+
+      self._requests_logger.write(request_info)
 
     buf = rl.to_bytes()
     packet = 'l%s%s' % (struct.pack('I', len(buf)), buf)

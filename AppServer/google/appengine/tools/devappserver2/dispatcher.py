@@ -24,6 +24,7 @@ import time
 import urlparse
 import wsgiref.headers
 
+from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import request_info
 from google.appengine.tools.devappserver2 import constants
 from google.appengine.tools.devappserver2 import instance
@@ -225,6 +226,13 @@ class Dispatcher(request_info.Dispatcher):
             requests_in_progress = True
 
       if not requests_in_progress:
+        logservice = apiproxy_stub_map.apiproxy.GetStub('logservice')
+        if logservice.is_elk_enabled:
+          logging.info('Waiting for Request Logger to finish.')
+          logservice.stop_requests_logger()
+          while logservice.is_requests_logger_alive():
+            time.sleep(.5)
+          logging.info('Request Logger has finished.')
         break
 
       time.sleep(.5)

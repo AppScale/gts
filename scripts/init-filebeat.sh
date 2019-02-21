@@ -44,6 +44,9 @@ output.logstash:
 FILEBEAT_YML
 
 
+# It's just a flag used in AppServer/../logservice_stub
+touch /etc/appscale/elk-enabled
+
 echo "Starting Filebeat service..."
 systemctl enable filebeat.service
 systemctl start filebeat.service
