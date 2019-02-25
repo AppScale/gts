@@ -4482,7 +4482,7 @@ HOSTS
             "AdminServer was unable to deploy dashboard: #{response.body}")
         end
         break
-      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Net::ReadTimeout => error
         Djinn.log_warn(
           "Error when deploying dashboard: #{error.message}. Trying again.")
         sleep(SMALL_WAIT)
@@ -4506,7 +4506,7 @@ HOSTS
         Djinn.log_warn(
           "Error updating dashboard cron: #{response.body}. Trying again.")
         sleep(SMALL_WAIT)
-      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT => error
+      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Net::ReadTimeout => error
         Djinn.log_warn(
           "Error updating dashboard cron: #{error.message}. Trying again.")
         sleep(SMALL_WAIT)
