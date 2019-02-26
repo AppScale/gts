@@ -441,6 +441,7 @@ class Djinn
   PARAMETER_SHOW = 2
   PARAMETERS_AND_CLASS = {
     'aws_subnet_id' => [String, nil, true],
+    'aws_vpc_id' => [String, nil, true],
     'azure_subscription_id' => [String, nil, false],
     'azure_app_id' => [String, nil, false],
     'azure_app_secret_key' => [String, nil, false],
