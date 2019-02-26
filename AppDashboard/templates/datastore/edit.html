@@ -1,8 +1,8 @@
 <div id="datastore-viewer">
   <div class="page-header">
-    <h1>Datastore Editor - {% if key %}View Entity{% else %}New Entity{% endif %}</h1>
+    <h1>Datastore Editor - {% if key %}Edit Entity{% else %}New Entity{% endif %}</h1>
     <h3>{{ project_id }} >
-      {% if key %}View &quot;{{ kind }}&quot; Entity{% else %}New &quot;{{ kind }}&quot; Entity{% endif %}</h3>
+      {% if key %}Edit &quot;{{ kind }}&quot; Entity{% else %}New &quot;{{ kind }}&quot; Entity{% endif %}</h3>
   </div>
 
   <form action="{{ request.path }}" method="post">
@@ -72,6 +72,14 @@
         <div>{{ field.2|safe }}</div>
       </div>
     {% endfor %}
+    <div class="ae-settings-block">
+      <div>
+        <input class="ae-button ae-button-submit" type="submit" value="Save Changes"/>
+        {% if key %}
+          <input id="delete_button" class="ae-button" type="submit" name="action:delete" value="Delete"/>
+        {% endif %}
+      </div>
+    </div>
   </form>
 </div>
 <script>{% include "datastore/edit.js" %}</script>
