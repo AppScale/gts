@@ -906,6 +906,16 @@ class Djinn
     new_level = Logger::INFO
     new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
     @@log.level = new_level if @@log.level != new_level
+
+    # Make sure we have the minimum number of machines.
+    missing_nodes = 0
+    @state_change_lock.synchronize {
+      missing_nodes = @nodes.length - Integer(@options['min_machines'])
+    }
+    if missing_nodes > 0
+      Djinn.log_info("We are below the requested min machines.")
+      APPS_LOCK.synchronize { scale_up_instances(missing_nodes) }
+    end
   end
 
   # This is the method needed to get the current layout and options for
@@ -4806,7 +4816,6 @@ HOSTS
   # on the statistics of the application and the loads of the various
   # services.
   def scale_deployment
-    needed_appservers = 0
     begin
       configured_versions = ZKInterface.get_versions
     rescue FailedZooKeeperOperationException
@@ -4824,8 +4833,10 @@ HOSTS
       # Get the desired changes in the number of AppServers.
       delta_appservers = get_scaling_info_for_version(version_key)
       if delta_appservers > 0
-        needed_appservers += try_to_scale_up(version_key, delta_appservers)
-        scale_up_instances(needed_appservers)
+        # try_to_scale_up returns back the number of instances desired
+        # based on the current application requirements (memory and cpu)
+        # and the instance_type we have for autoscaling.
+        scale_up_instances(try_to_scale_up(version_key, delta_appservers))
       elsif delta_appservers < 0
         try_to_scale_down(version_key, delta_appservers.abs)
         scale_down_instances
@@ -4838,8 +4849,8 @@ HOSTS
   # application and the additional AppServers we need to accomodate.
   #
   # Args:
-  #   needed_appservers: The number of additional AppServers needed.
-  def scale_up_instances(needed_appservers)
+  #   needed_nodes: The number of additional nodes desired.
+  def scale_up_instances(needed_nodes)
     # Here we count the number of machines we need to spawn, and the roles
     # we need.
     vms_to_spawn = 0
@@ -4848,21 +4859,15 @@ HOSTS
 
     Djinn.log_info("Need to start VMs for #{needed_appservers} more AppServers.")
 
-    if needed_appservers > 0
-      # TODO: Here we use 3 as an arbitrary number to calculate the number of machines
-      # needed to run those number of appservers. That will change in the next step
-      # to improve autoscaling/downscaling by using the capacity as a measure.
-
-      Integer(needed_appservers/3).downto(0) {
-        vms_to_spawn += 1
-        if vm_scaleup_capacity < vms_to_spawn
-          Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" \
-            " vms, so spawning only maximum allowable nodes.")
-          break
-        end
-        roles_needed["compute"] = [] unless roles_needed["compute"]
-        roles_needed["compute"] << "node-#{vms_to_spawn}"
-      }
+    needed_nodes.downto(1) {
+      vms_to_spawn += 1
+      if vm_scaleup_capacity < vms_to_spawn
+        Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" \
+          " vms, so spawning only maximum allowable nodes.")
+        break
+      end
+      roles_needed["compute"] = [] unless roles_needed["compute"]
+      roles_needed["compute"] << "node-#{vms_to_spawn}"
     end
 
     # Check if we need to spawn VMs and the InfrastructureManager is
@@ -5298,15 +5303,21 @@ HOSTS
     return current_hosts
   end
 
-  # Try to add an AppServer for the specified version, ensuring
-  # that a minimum number of AppServers is always kept.
+  def get_scale_needs(delta, max_app_mem)
+    # TODO: We should check the cores/RAM of @options['instance_type'],
+    # then understand how many AppServers of max_app_mem each we can fit.
+    return Integer(delta/3)
+  end
+
+  # Try to add an AppServer for the specified version, ensuring that a
+  # minimum number of AppServers is always kept.
   #
   # Args:
   #   version_key: A String containing the version key.
   #   delta_appservers: The desired number of new AppServers.
   # Returns:
-  #   An Integer indicating the number of AppServers we didn't start (0
-  #     if we started all).
+  #   An Interger indicating the number of nodes we need to scale to
+  #     accomodate the request.
   def try_to_scale_up(version_key, delta_appservers)
     # Select an compute machine if it has enough resources to support
     # another AppServer for this version.
@@ -5326,7 +5337,7 @@ HOSTS
         project_id, service_id, version_id)
     rescue VersionNotFound
       Djinn.log_info("Not scaling #{version_key} because it no longer exists")
-      return false
+      return 0
     end
 
     max_app_mem = Integer(@options['default_max_appserver_memory'])
@@ -5391,7 +5402,7 @@ HOSTS
       if available_hosts.empty?
         Djinn.log_info(
           "No compute node is available to scale #{version_key}.")
-        return delta
+        return get_scale_needs(delta, max_app_mem)
       end
 
       appserver_to_use = nil
