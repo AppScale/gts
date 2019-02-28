@@ -90,7 +90,7 @@ class InfrastructureManagerClient
     request.body = JSON.dump(options)
 
     terminate_result = JSON.parse(make_call(request, uri))
-    Djinn.log_debug('[IM] Terminate instances says [#{terminate_result}]')
+    Djinn.log_debug("[IM] Terminate instances says [#{terminate_result}]")
     operation_id = terminate_result['operation_id']
 
     loop {
