@@ -4868,7 +4868,7 @@ HOSTS
       end
       roles_needed["compute"] = [] unless roles_needed["compute"]
       roles_needed["compute"] << "node-#{vms_to_spawn}"
-    end
+    }
 
     # Check if we need to spawn VMs and the InfrastructureManager is
     # available to do so.
