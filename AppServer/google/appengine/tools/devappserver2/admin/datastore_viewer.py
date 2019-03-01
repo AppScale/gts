@@ -19,6 +19,7 @@
 
 import cgi
 import datetime
+import json
 import math
 import time
 import types
@@ -181,9 +182,9 @@ class DataType(object):
       return format
 
   def input_field(self, name, value, sample_values, back_uri):
-    string_value = self.format(value) if value else ''
+    string_value = self.format(value) if value is not None else ''
     return (
-        '<input disabled class="%s" name="%s" type="text" size="%d" value="%s" %s/>' % (
+        '<input class="%s" name="%s" type="text" size="%d" value="%s" %s/>' % (
             cgi.escape(self.name()),
             cgi.escape(name),
             self.input_field_size(),
@@ -272,6 +273,26 @@ class BlobType(StringType):
 class EmbeddedEntityType(BlobType):
   def name(self):
     return 'entity:proto'
+
+  def input_field(self, name, value, sample_values, back_uri):
+    if value is None:
+      return '&lt;null&gt;'
+
+    entity = datastore.Entity.FromPb(value)
+    try:
+      return json.dumps(entity)
+    except TypeError:
+      return '&lt;binary&gt;'
+
+  def format(self, value):
+    if value is None:
+      return '<null>'
+
+    entity = datastore.Entity.FromPb(value)
+    try:
+      return json.dumps(entity)
+    except TypeError:
+      return '<binary>'
 
 
 class TimeType(DataType):
