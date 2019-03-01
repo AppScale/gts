@@ -4857,7 +4857,7 @@ HOSTS
     roles_needed = {}
     vm_scaleup_capacity = Integer(@options['max_machines']) - @nodes.length
 
-    Djinn.log_info("Need to start VMs for #{needed_appservers} more AppServers.")
+    Djinn.log_info("Need to start VMs for #{needed_nodes} more AppServers.")
 
     needed_nodes.downto(1) {
       vms_to_spawn += 1
