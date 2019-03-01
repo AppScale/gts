@@ -906,16 +906,6 @@ class Djinn
     new_level = Logger::INFO
     new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
     @@log.level = new_level if @@log.level != new_level
-
-    # Make sure we have the minimum number of machines.
-    missing_nodes = 0
-    @state_change_lock.synchronize {
-      missing_nodes = @nodes.length - Integer(@options['min_machines'])
-    }
-    if missing_nodes > 0
-      Djinn.log_info("We are below the requested min machines.")
-      APPS_LOCK.synchronize { scale_up_instances(missing_nodes) }
-    end
   end
 
   # This is the method needed to get the current layout and options for
@@ -1859,14 +1849,13 @@ class Djinn
         APPS_LOCK.synchronize { versions_loaded_now = @versions_loaded.clone }
 
         # Starts apps that are not running yet but they should.
+        versions_to_load = versions_loaded_now - my_versions_loaded
         if my_node.is_shadow?
           begin
             versions_to_load = ZKInterface.get_versions - versions_loaded_now
           rescue FailedZooKeeperOperationException
             versions_to_load = []
           end
-        else
-          versions_to_load = versions_loaded_now - my_versions_loaded
         end
         versions_to_load.each { |version_key|
           APPS_LOCK.synchronize {
@@ -1874,18 +1863,23 @@ class Djinn
             setup_appengine_version(version_key)
           }
         }
-        # In addition only shadow kick off the autoscaler.
-        APPS_LOCK.synchronize { scale_deployment if my_node.is_shadow? }
-      end
 
-      # Load balancers and shadow need to check/update applications that have
-      # been undeployed and nginx/haproxy.
-      if my_node.is_shadow? or my_node.is_load_balancer?
-        APPS_LOCK.synchronize {
-          check_stopped_apps
-        }
-      end
-      if my_node.is_load_balancer?
+        # In addition only shadow kick off the autoscaler and manages
+        # running instances.
+        if my_node.is_shadow?
+          missing_nodes = 0
+          @state_change_lock.synchronize {
+            missing_nodes = Integer(@options['min_machines']) - @nodes.length
+          }
+          APPS_LOCK.synchronize {
+            scale_deployment
+            scale_up_instances(missing_nodes) if missing_nodes > 0
+          }
+        end
+
+        # Load balancers need to check/update applications that have been
+        # undeployed and nginx/haproxy.
+        APPS_LOCK.synchronize { check_stopped_apps }
         update_db_haproxy
         APPS_LOCK.synchronize { regenerate_routing_config }
       end
@@ -4857,7 +4851,7 @@ HOSTS
     roles_needed = {}
     vm_scaleup_capacity = Integer(@options['max_machines']) - @nodes.length
 
-    Djinn.log_info("Need to start VMs for #{needed_nodes} more AppServers.")
+    Djinn.log_info("Asked to start #{needed_nodes} more VMs.")
 
     needed_nodes.downto(1) {
       vms_to_spawn += 1
@@ -4889,7 +4883,7 @@ HOSTS
 
     Thread.new {
       SCALE_LOCK.synchronize {
-        Djinn.log_info("We need #{vms_to_spawn} more VMs.")
+        Djinn.log_info("Starting #{vms_to_spawn} more VMs.")
 
         result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
         if result != "OK"
