@@ -5084,13 +5084,12 @@ HOSTS
     min, max = get_min_max_from_version_details(version_details)
 
     # Let's make sure we have the minimum number of AppServers running.
-    Djinn.log_debug("Evaluating #{version_key} for scaling " \
-                    "(#{num_appservers} AppServers allocated).")
-    if @app_info_map[version_key]['appservers'].nil?
-      num_appservers = 0
-    else
+    num_appservers = 0
+    unless @app_info_map[version_key]['appservers'].nil?
       num_appservers = @app_info_map[version_key]['appservers'].length
     end
+    Djinn.log_debug("Evaluating #{version_key} for scaling " \
+                    "(#{num_appservers} AppServers allocated).")
 
     if num_appservers < min
       Djinn.log_info(
