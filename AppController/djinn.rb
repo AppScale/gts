@@ -1329,9 +1329,9 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn('min_machines is not used in non-cloud infrastructures.')
         end
-        if Integer(val) < Integer(@options['min_machines'])
+        unless can_we_scale_down?(Integer(val))
           Djinn.log_warn('Invalid input: cannot lower min_machines!')
-          return 'min_machines cannot be less than the nodes defined in ips_layout'
+          return 'Cannot lower min_machines past non-autoscaled nodes'
         end
       elsif key == 'max_machines'
         unless is_cloud?
@@ -2457,6 +2457,18 @@ class Djinn
       @nodes.each { |node| ae_nodes << node.private_ip if node.is_compute?  }
     }
     return ae_nodes
+  end
+
+  # This method checks that nodes above index are compute only and thus
+  # can be easily terminated.
+  def can_we_scale_down?(index)
+    @state_change_lock.synchronize {
+      nodes_to_check = @nodes.drop(min_machines)
+    }
+    nodes_to_check.each { |node|
+      return false if node['jobs'] != ['compute']
+    }
+    return true
   end
 
   # Gets a list of autoscaled nodes by going through the nodes array
