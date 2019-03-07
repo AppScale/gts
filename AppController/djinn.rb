@@ -5297,10 +5297,20 @@ HOSTS
     return current_hosts
   end
 
-  def get_scale_needs(delta, max_app_mem)
+  # This method computes how many nodes will be needed to satisfy a
+  # request to start a num_appservers AppServers each with a certain
+  # memory requirement.
+  #
+  # Args:
+  #   num_appservers: An Integer indicationg the desired number of
+  #     AppServers.
+  #   max_app_mem: An Integer indicating the maximum memory per AppServer.
+  # Returns:
+  #   An Integer indicating the needed number of nodes.
+  def appservers_to_nodes(num_appservers, max_app_mem)
     # TODO: We should check the cores/RAM of @options['instance_type'],
     # then understand how many AppServers of max_app_mem each we can fit.
-    return Integer(delta/3)
+    return Integer(num_appservers/3)
   end
 
   # Try to add an AppServer for the specified version, ensuring that a
@@ -5394,9 +5404,9 @@ HOSTS
     # ensure redundancy for the application.
     delta_appservers.downto(1) { |delta|
       if available_hosts.empty?
-        Djinn.log_info(
-          "No compute node is available to scale #{version_key}.")
-        return get_scale_needs(delta, max_app_mem)
+        Djinn.log_info("No compute node is available to scale #{version_key}: " \
+                       "still need #{delta} AppServers.")
+        return appservers_to_nodes(delta, max_app_mem)
       end
 
       appserver_to_use = nil
