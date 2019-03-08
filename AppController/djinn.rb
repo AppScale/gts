@@ -5310,7 +5310,7 @@ HOSTS
   def appservers_to_nodes(num_appservers, max_app_mem)
     # TODO: We should check the cores/RAM of @options['instance_type'],
     # then understand how many AppServers of max_app_mem each we can fit.
-    return (num_appservers/3).ceil
+    return (num_appservers/3.0).ceil
   end
 
   # Try to add an AppServer for the specified version, ensuring that a
