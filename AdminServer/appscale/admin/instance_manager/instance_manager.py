@@ -410,8 +410,6 @@ class InstanceManager(object):
       logger.debug('Instance at port {} is not ready yet'.format(port))
       yield gen.sleep(BACKOFF_TIME)
 
-    logger.error('Instance at port {} did not come up after {} '
-                 'seconds'.format(port, START_APP_TIMEOUT))
     raise gen.Return(False)
 
   @gen.coroutine
@@ -424,8 +422,11 @@ class InstanceManager(object):
     logger.info('Waiting for {}'.format(instance))
     start_successful = yield self._wait_for_app(instance.port)
     if not start_successful:
-      # In case the AppServer fails we let the AppController to detect it
-      # and remove it if it still show in monit.
+      monit_watch = ''.join(
+        [MONIT_INSTANCE_PREFIX, instance.revision_key, '-',
+         str(instance.port)])
+      yield self._unmonitor_and_terminate(monit_watch)
+      yield self._monit_operator.reload(self._thread_pool)
       logger.warning('{} did not come up in time'.format(instance))
       return
 
