@@ -1,4 +1,5 @@
 """ Fulfills AppServer instance assignments from the scheduler. """
+import httplib
 import logging
 import math
 import json
@@ -370,6 +371,25 @@ class InstanceManager(object):
 
     stop_instance(watch, MAX_INSTANCE_RESPONSE_TIME)
 
+  def _instance_healthy(self, port):
+    """ Determines the health of an instance with an HTTP request.
+
+    Args:
+      port: An integer specifying the port the instance is listening on.
+    Returns:
+      A boolean indicating whether or not the instance is healthy.
+    """
+    url = "http://" + self._private_ip + ":" + str(port) + FETCH_PATH
+    try:
+      opener = urllib2.build_opener(NoRedirection)
+      response = opener.open(url, timeout=HEALTH_CHECK_TIMEOUT)
+      if response.code == httplib.SERVICE_UNAVAILABLE:
+        return False
+    except IOError:
+      return False
+
+    return True
+
   @gen.coroutine
   def _wait_for_app(self, port):
     """ Waits for the application hosted on this machine, on the given port,
@@ -382,22 +402,16 @@ class InstanceManager(object):
     """
     retries = math.ceil(START_APP_TIMEOUT / BACKOFF_TIME)
 
-    url = "http://" + self._private_ip + ":" + str(port) + FETCH_PATH
     while retries > 0:
-      try:
-        opener = urllib2.build_opener(NoRedirection)
-        response = opener.open(url, timeout=HEALTH_CHECK_TIMEOUT)
-        if response.code != HTTPCodes.OK:
-          logger.warning('{} returned {}. Headers: {}'.
-                          format(url, response.code, response.headers.headers))
+      if self._instance_healthy(port):
         raise gen.Return(True)
-      except IOError:
-        retries -= 1
 
+      retries -= 1
+      logger.debug('Instance at port {} is not ready yet'.format(port))
       yield gen.sleep(BACKOFF_TIME)
 
-    logger.error('Application did not come up on {} after {} seconds'.
-                  format(url, START_APP_TIMEOUT))
+    logger.error('Instance at port {} did not come up after {} '
+                 'seconds'.format(port, START_APP_TIMEOUT))
     raise gen.Return(False)
 
   @gen.coroutine
