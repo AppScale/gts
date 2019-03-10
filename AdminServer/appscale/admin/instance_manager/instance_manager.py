@@ -6,6 +6,7 @@ import json
 import os
 import psutil
 import signal
+import time
 import urllib2
 
 from tornado import gen
@@ -400,13 +401,12 @@ class InstanceManager(object):
     Returns:
       True on success, False otherwise
     """
-    retries = math.ceil(START_APP_TIMEOUT / BACKOFF_TIME)
+    deadline = time.time() + START_APP_TIMEOUT
 
-    while retries > 0:
+    while time.time() < deadline:
       if self._instance_healthy(port):
         raise gen.Return(True)
 
-      retries -= 1
       logger.debug('Instance at port {} is not ready yet'.format(port))
       yield gen.sleep(BACKOFF_TIME)
 
