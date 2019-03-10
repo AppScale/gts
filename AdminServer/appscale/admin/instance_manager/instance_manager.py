@@ -540,9 +540,29 @@ class InstanceManager(object):
         yield self._start_instance(version, instance.port)
 
   @gen.coroutine
+  def _restart_unavailable_instances(self):
+    """ Restarts instances that fail health check requests. """
+    with (yield self._work_lock.acquire()):
+      for instance in self._running_instances:
+        # TODO: Add a threshold to avoid restarting on a transient error.
+        if not self._instance_healthy(instance.port):
+          try:
+            version = self._projects_manager.version_from_key(
+              instance.version_key)
+          except KeyError:
+            # If the version no longer exists, avoid doing any work. The
+            # scheduler should remove any assignments for it.
+            continue
+
+          logger.warning('Restarting failed instance: {}'.format(instance))
+          yield self._stop_app_instance(instance)
+          yield self._start_instance(version, instance.port)
+
+  @gen.coroutine
   def _ensure_health(self):
     """ Checks to make sure all required instances are running and healthy. """
     yield self._restart_unrouted_instances()
+    yield self._restart_unavailable_instances()
 
     # Just as an infrequent sanity check, fulfill assignments and enforce
     # instance details.
