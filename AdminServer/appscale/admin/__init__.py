@@ -98,30 +98,32 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
   except KeyError:
     raise OperationTimeout('Operation no longer in cache')
 
+  all_lbs = set(appscale_info.get_load_balancer_ips())
+  passed_lbs = set()
   while True:
-    if time.time() > deadline:
-      message = 'Deploy operation took too long.'
-      operation.set_error(message)
-      raise OperationTimeout(message)
-
-    if utils.port_is_open(options.login_ip, http_port):
-      break
-
-    yield gen.sleep(1)
-
-  for load_balancer in appscale_info.get_load_balancer_ips():
-    while True:
-      if time.time() > deadline:
-        # The version is reachable from the login IP, but it's not reachable
-        # from every registered load balancer. It makes more sense to mark the
-        # operation as a success than a failure because the lagging load
-        # balancers should eventually reflect the registered instances.
-        break
+    for load_balancer in all_lbs:
+      if load_balancer in passed_lbs or time.time() > deadline:
+        continue
 
       if utils.port_is_open(load_balancer, http_port):
+        passed_lbs.add(load_balancer)
+
+    if len(passed_lbs) == len(all_lbs):
+      break
+
+    if time.time() > deadline:
+      # If the version is reachable, but it's not reachable from every
+      # registered load balancer. It makes more sense to mark the
+      # operation as a success than a failure because the lagging load
+      # balancers should eventually reflect the registered instances.
+      if not passed_lbs:
+        message = 'Deploy operation took too long.'
+        operation.set_error(message)
+        raise OperationTimeout(message)
+      else:
         break
 
-      yield gen.sleep(1)
+    yield gen.sleep(1)
 
 
 @gen.coroutine
