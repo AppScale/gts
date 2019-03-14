@@ -56,7 +56,7 @@ module HermesClient
         'proxy.frontend' => ['req_tot'],
         'proxy.backend' => ['qcur']
       },
-      'max_age' => 0
+      'max_age' => 5
     }
     if fetch_servers
       data['include_lists']['proxy.server'] = [
