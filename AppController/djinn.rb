@@ -3783,7 +3783,7 @@ class Djinn
       Thread.new {
         Djinn.log_info("Trying to initialize scaled node #{slave}.")
         begin
-          Timeout::timeout(SCALEDOWN_THRESHOLD * DUTY_CYCLE * SMALL_WAIT) {
+          Timeout.timeout(SCALEDOWN_THRESHOLD * DUTY_CYCLE * SMALL_WAIT) {
             initialize_node(slave)
           }
         rescue Timeout::Error
