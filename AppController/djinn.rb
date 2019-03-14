@@ -535,6 +535,7 @@ class Djinn
     @total_req_seen = {}
     @current_req_rate = {}
     @average_req_rate = {}
+    @curr_sessions_list = []
     @last_sampling_time = {}
     @last_scaling_time = Time.now.to_i
     @app_upload_reservations = {}
@@ -5127,8 +5128,17 @@ HOSTS
       return max - num_appservers
     end
 
+    # We have seen the current_sessions to amply fluctuate from reading to
+    # reading, so we smooth it out picking the max we have seen over the
+    # last 10 reads.
+    @curr_sessions_list.delete_at(0)  if @curr_sessions_list.length >= 10
+    @curr_sessions_list << current_sessions
+    scale_sessions = @curr_sessions_list.max
+    Djinn.log_debug("Using #{scale_sessions} as current_sessions value "
+                    "for scaling #{version_key}.")
+
     allow_concurrency = version_details.fetch('threadsafe', true)
-    current_load = calculate_current_load(num_appservers, current_sessions,
+    current_load = calculate_current_load(num_appservers, scale_sessions,
                                           allow_concurrency)
     if current_load >= MAX_LOAD_THRESHOLD
       if num_appservers == max
@@ -5137,7 +5147,7 @@ HOSTS
         return 0
       end
       appservers_to_scale = calculate_appservers_needed(
-          num_appservers, current_sessions, allow_concurrency)
+          num_appservers, scale_sessions, allow_concurrency)
 
       # Let's make sure we don't get over the user define maximum.
       if num_appservers + appservers_to_scale > max
@@ -5157,7 +5167,7 @@ HOSTS
         return 0
       end
       appservers_to_scale = calculate_appservers_needed(
-          num_appservers, current_sessions, allow_concurrency)
+          num_appservers, scale_sessions, allow_concurrency)
       Djinn.log_debug("The deployment is below its minimum load threshold " \
                       "for #{version_key} - Advising that we scale down " \
                       "#{appservers_to_scale.abs} AppServers.")
