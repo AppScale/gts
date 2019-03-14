@@ -5134,7 +5134,7 @@ HOSTS
     @curr_sessions_list.delete_at(0)  if @curr_sessions_list.length >= 10
     @curr_sessions_list << current_sessions
     scale_sessions = @curr_sessions_list.max
-    Djinn.log_debug("Using #{scale_sessions} as current_sessions value "
+    Djinn.log_debug("Using #{scale_sessions} as current_sessions value " \
                     "for scaling #{version_key}.")
 
     allow_concurrency = version_details.fetch('threadsafe', true)
