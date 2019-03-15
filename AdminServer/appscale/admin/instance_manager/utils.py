@@ -7,12 +7,12 @@ import os
 import shutil
 import subprocess
 
+from appscale.admin.constants import InvalidSource
+from appscale.admin.instance_manager.constants import (
+  CONFLICTING_JARS, LOGROTATE_CONFIG_DIR, MODIFIED_JARS, MONIT_INSTANCE_PREFIX)
 from appscale.common.constants import CONFIG_DIR
-from .constants import CONFLICTING_JARS
-from .constants import MODIFIED_JARS
-from ..constants import InvalidSource
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 def fetch_file(host, location):
@@ -101,3 +101,57 @@ def remove_conflicting_jars(source_path):
     for pattern in CONFLICTING_JARS:
       if fnmatch.fnmatch(file, pattern):
         os.remove(os.path.join(lib_dir, file))
+
+
+def remove_logrotate(project_id):
+  """ Removes logrotate script for the given project.
+
+  Args:
+    project_id: A string, the name of the project to remove logrotate for.
+  """
+  app_logrotate_script = "{0}/appscale-{1}".\
+    format(LOGROTATE_CONFIG_DIR, project_id)
+  logger.debug("Removing script: {}".format(app_logrotate_script))
+
+  try:
+    os.remove(app_logrotate_script)
+  except OSError:
+    logging.error("Error while removing log rotation for application: {}".
+                  format(project_id))
+
+
+def setup_logrotate(app_name, log_size):
+  """ Creates a logrotate script for the logs that the given application
+      will create.
+
+  Args:
+    app_name: A string, the application ID.
+    log_size: An integer, the size of logs that are kept per application server.
+      The size should be in bytes.
+  Returns:
+    True on success, False otherwise.
+  """
+  # Write application specific logrotation script.
+  app_logrotate_script = "{0}/appscale-{1}".\
+    format(LOGROTATE_CONFIG_DIR, app_name)
+
+  log_prefix = ''.join([MONIT_INSTANCE_PREFIX, app_name])
+
+  # Application logrotate script content.
+  contents = """/var/log/appscale/{log_prefix}*.log {{
+  size {size}
+  missingok
+  rotate 7
+  compress
+  delaycompress
+  notifempty
+  copytruncate
+}}
+""".format(log_prefix=log_prefix, size=log_size)
+  logger.debug("Logrotate file: {} - Contents:\n{}".
+    format(app_logrotate_script, contents))
+
+  with open(app_logrotate_script, 'w') as app_logrotate_fd:
+    app_logrotate_fd.write(contents)
+
+  return True

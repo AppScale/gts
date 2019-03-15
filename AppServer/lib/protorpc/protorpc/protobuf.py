@@ -33,14 +33,11 @@ __author__ = 'rafek@google.com (Rafe Kaplan)'
 
 
 import array
-import cStringIO
-import datetime
 
 from . import message_types
 from . import messages
 from . import util
-# TODO(rafek): Do something about this dependency maybe.
-from google.net.proto import ProtocolBuffer
+from .google_imports import ProtocolBuffer
 
 
 __all__ = ['ALTERNATIVE_CONTENT_TYPES',

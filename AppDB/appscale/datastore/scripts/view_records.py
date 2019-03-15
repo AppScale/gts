@@ -13,8 +13,6 @@ from ..dbconstants import COMPOSITE_TABLE
 from ..dbconstants import DATASTORE_METADATA_SCHEMA
 from ..dbconstants import DATASTORE_METADATA_TABLE
 from ..dbconstants import DSC_PROPERTY_TABLE
-from ..dbconstants import METADATA_SCHEMA
-from ..dbconstants import METADATA_TABLE
 from ..dbconstants import PROPERTY_SCHEMA
 from ..dbconstants import TERMINATING_STRING
 
@@ -33,7 +31,8 @@ def get_entities(table, schema, db, first_key, last_key):
   Returns: 
     The entire table up to _MAX_ENTITIES.
   """
-  return db.range_query(table, schema, first_key, last_key, _MAX_ENTITIES)
+  return db.range_query_sync(
+    table, schema, first_key, last_key, _MAX_ENTITIES)
 
 
 def view_all(entities, table, db):
@@ -44,7 +43,7 @@ def view_all(entities, table, db):
     table: The table these entities are from
     db: database accessor
   """
-  print 
+  print
   print "TABLE:",table
   for ii in entities:
     print ii
@@ -64,7 +63,7 @@ def main():
   if len(sys.argv) == 2:
     first_key = sys.argv[1]
     last_key = first_key + TERMINATING_STRING
-  
+
   # Fetch entities.
   db = appscale_datastore_batch.DatastoreFactory.getDatastore(DB_TYPE)
 
@@ -74,11 +73,10 @@ def main():
     DSC_PROPERTY_TABLE: PROPERTY_SCHEMA,
     COMPOSITE_TABLE: COMPOSITE_SCHEMA,
     APP_KIND_TABLE: APP_KIND_SCHEMA,
-    METADATA_TABLE: METADATA_SCHEMA,
-    DATASTORE_METADATA_TABLE: DATASTORE_METADATA_SCHEMA, 
+    DATASTORE_METADATA_TABLE: DATASTORE_METADATA_SCHEMA,
   }
 
   for table in tables_to_schemas:
-    entities = get_entities(table, tables_to_schemas[table], 
+    entities = get_entities(table, tables_to_schemas[table],
                             db, first_key, last_key)
     view_all(entities, table, db)

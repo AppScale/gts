@@ -8,7 +8,7 @@
   {% block head %}{% endblock %}
   <script src="{{base_path}}/static/js/compiled.js"></script>
 </head>
-<body>
+<body style="visibility: hidden;">
 <script type="text/javascript">
   {% comment %}
     The below section is used to detect whether or not we're inside of an
@@ -24,6 +24,23 @@
   else {
     document.write('<div id="ae-content" class="g-unit" style="padding-left: 0em;">')
     document.write('<div id="ae-datastore-admin-body" class="g-doc-1024" style="margin-left: 0px; min-width: 700px; width: 775px;">')
+  }
+
+  {% comment %}
+    The section below is used to prevent clickjacking by ensuring if this page
+    is inside an iframe, the top parent frame is the admin console. The check
+    is skipped if the browser does not support ancestorOrigins or there are no
+    ancestorOrigins (this page is the top level frame).
+  {% endcomment %}
+  var allowedOrigins = ['{{ admin_console_url }}'];
+  if (location && location.ancestorOrigins &&
+      location.ancestorOrigins.length > 0) {
+    var topOrigin = Array.prototype.pop.call(location.ancestorOrigins);
+    if (allowedOrigins.indexOf(topOrigin) > -1) {
+      document.body.style.visibility = "visible";
+    }
+  } else {
+    document.body.style.visibility = "visible";
   }
 </script>
 <div id="bd">

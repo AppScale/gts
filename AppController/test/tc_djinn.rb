@@ -47,22 +47,17 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
 
     assert_equal(BAD_SECRET_MSG, djinn.is_done_initializing(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.is_done_loading(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_role_info(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_node_stats_json(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_cluster_stats_json(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.stop_version(@app, @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.update([@app], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_all_public_ips(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_all_private_ips(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.job_start(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_online_users_list(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.add_routing_for_appserver(@app, 'baz',
-      'baz', @secret))
     assert_equal(BAD_SECRET_MSG, djinn.run_groomer(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_property('baz', @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_property('baz', 'qux', @secret))
@@ -166,7 +161,8 @@ class TestDjinn < Test::Unit::TestCase
       'private_ip' => 'private_ip',
       'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
-      'instance_id' => 'instance_id'
+      'instance_id' => 'instance_id',
+      'instance_type' => 'instance_type'
     }])
 
     djinn = Djinn.new
@@ -198,7 +194,8 @@ class TestDjinn < Test::Unit::TestCase
       'private_ip' => '1.2.3.4',
       'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
-      'instance_id' => 'instance_id'
+      'instance_id' => 'instance_id',
+      'instance_type' => 'instance_type'
     }])
 
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
@@ -331,19 +328,10 @@ class TestDjinn < Test::Unit::TestCase
       and_return({:rc => 0, :data => ZKInterface::DUMMY_DATA,
         :stat => flexmock(:exists => true)})
 
-    # Mocks for writing the IP list
-    json_data = '{"ips":[],"last_updated":1331849005}'
-    baz.should_receive(:get).
-      with(:path => ZKInterface::IP_LIST).
-      and_return({:rc => 0, :data => json_data,
-          :stat => flexmock(:exists => true)})
-
-    baz.should_receive(:set).and_return(all_ok)
-
     # Mocks for the appcontroller lock
     baz.should_receive(:get).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return({:rc => 0, :data => JSON.dump("private_ip")})
+      and_return({:rc => 0, :data => 'private_ip'})
 
     # Mocks for writing node information
     baz.should_receive(:get).with(
@@ -379,7 +367,7 @@ class TestDjinn < Test::Unit::TestCase
 
     baz.should_receive(:set).with(
       :path => node_path + "/done_loading",
-      :data => JSON.dump(true)).and_return(all_ok)
+      :data => 'true').and_return(all_ok)
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
@@ -621,7 +609,8 @@ class TestDjinn < Test::Unit::TestCase
       'private_ip' => '1.2.3.4',
       'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
-      'instance_id' => 'instance_id'
+      'instance_id' => 'instance_id',
+      'instance_type' => 'instance_type'
     }])
     flexmock(Djinn).should_receive(:log_run).with(
       "mkdir -p /opt/appscale/apps")
@@ -659,7 +648,8 @@ class TestDjinn < Test::Unit::TestCase
       'private_ip' => '1.2.3.4',
       'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
         'load_balancer', 'login', 'zookeeper', 'memcache'],
-      'instance_id' => 'instance_id'
+      'instance_id' => 'instance_id',
+      'instance_type' => 'instance_type'
     }])
     flexmock(Djinn).should_receive(:log_run).with(
       "mkdir -p /opt/appscale/apps")
@@ -744,7 +734,6 @@ class TestDjinn < Test::Unit::TestCase
     djinn = flexmock(Djinn.new())
     djinn.my_index = 0
     djinn.nodes = [NodeInfo.new(role, "appscale")]
-    djinn.last_updated = 0
     djinn.done_loading = true
     djinn
   end

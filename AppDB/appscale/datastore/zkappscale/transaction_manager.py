@@ -1,12 +1,12 @@
 """ Generates and keeps track of transaction IDs. """
 from __future__ import division
 
+import json
 import logging
 import time
 
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import NodeExistsError
-from kazoo.exceptions import NotEmptyError
 from tornado.ioloop import IOLoop
 
 from appscale.common.async_retrying import retry_children_watch_coroutine
@@ -14,10 +14,11 @@ from .constants import CONTAINER_PREFIX
 from .constants import COUNTER_NODE_PREFIX
 from .constants import MAX_SEQUENCE_COUNTER
 from .constants import OFFSET_NODE
+from .entity_lock import zk_group_path
 from ..dbconstants import BadRequest
 from ..dbconstants import InternalError
 
-logger = logging.getLogger('appscale-datastore')
+logger = logging.getLogger(__name__)
 
 # Nodes that indicate a cross-group transaction start with this string.
 XG_PREFIX = 'xg'
@@ -103,20 +104,8 @@ class ProjectTransactionManager(object):
     Args:
       txid: An integer specifying a transaction ID.
     """
-    corrected_counter = txid - self._txid_manual_offset
-
-    # The number of counters a container can store (including 0).
-    container_size = MAX_SEQUENCE_COUNTER + 1
-
-    container_count = int(corrected_counter / container_size) + 1
-    container_suffix = '' if container_count == 1 else str(container_count)
-    container_name = CONTAINER_PREFIX + container_suffix
-    container_path = '/'.join([self._project_node, container_name])
-
-    counter_value = corrected_counter % container_size
-    node_name = COUNTER_NODE_PREFIX + str(counter_value).zfill(10)
-    full_path = '/'.join([container_path, node_name])
-    self._delete_counter(full_path)
+    path = self._txid_to_path(txid)
+    self._delete_counter(path)
 
   def get_open_transactions(self):
     """ Fetches a list of active transactions.
@@ -152,6 +141,23 @@ class ProjectTransactionManager(object):
 
     return txids
 
+  def set_groups(self, txid, groups):
+    """ Defines which groups will be involved in a transaction.
+
+    Args:
+      txid: An integer specifying a transaction ID.
+      groups: An iterable of entity group Reference objects.
+    """
+    txid_path = self._txid_to_path(txid)
+    groups_path = '/'.join([txid_path, 'groups'])
+    encoded_groups = [zk_group_path(group) for group in groups]
+    try:
+      self.zk_client.create(groups_path, value=json.dumps(encoded_groups))
+    except KazooException:
+      message = 'Unable to set lock list for transaction'
+      logger.exception(message)
+      raise InternalError(message)
+
   def _delete_counter(self, path):
     """ Removes a counter node.
 
@@ -159,11 +165,7 @@ class ProjectTransactionManager(object):
       path: A string specifying a ZooKeeper path.
     """
     try:
-      try:
-        self.zk_client.delete(path)
-      except NotEmptyError:
-        # Cross-group transaction nodes have a child node.
-        self.zk_client.delete(path, recursive=True)
+      self.zk_client.delete(path, recursive=True)
     except KazooException:
       # Let the transaction groomer clean it up.
       logger.exception('Unable to delete counter')
@@ -184,6 +186,28 @@ class ProjectTransactionManager(object):
     return tuple('/'.join([self._project_node, container])
                  for container in all_containers
                  if container not in self._inactive_containers)
+
+  def _txid_to_path(self, txid):
+    """ Determines the ZooKeeper path for a given transaction ID.
+
+    Args:
+      txid: An integer specifying a transaction ID.
+    Returns:
+      A strings specifying the transaction's ZooKeeper path.
+    """
+    corrected_counter = txid - self._txid_manual_offset
+
+    # The number of counters a container can store (including 0).
+    container_size = MAX_SEQUENCE_COUNTER + 1
+
+    container_count = int(corrected_counter / container_size) + 1
+    container_suffix = '' if container_count == 1 else str(container_count)
+    container_name = CONTAINER_PREFIX + container_suffix
+    container_path = '/'.join([self._project_node, container_name])
+
+    counter_value = corrected_counter % container_size
+    node_name = COUNTER_NODE_PREFIX + str(counter_value).zfill(10)
+    return '/'.join([container_path, node_name])
 
   def _update_auto_offset(self):
     """ Ensures there is a usable sequence container. """
@@ -307,6 +331,21 @@ class TransactionManager(object):
       raise BadRequest('The project {} was not found'.format(project_id))
 
     return project_tx_manager.get_open_transactions()
+
+  def set_groups(self, project_id, txid, groups):
+    """ Defines which groups will be involved in a transaction.
+
+    Args:
+      project_id: A string specifying a project ID.
+      txid: An integer specifying a transaction ID.
+      groups: An iterable of entity group Reference objects.
+    """
+    try:
+      project_tx_manager = self.projects[project_id]
+    except KeyError:
+      raise BadRequest('The project {} was not found'.format(project_id))
+
+    return project_tx_manager.set_groups(txid, groups)
 
   def _update_projects_sync(self, new_project_ids):
     """ Updates the available projects for starting transactions.

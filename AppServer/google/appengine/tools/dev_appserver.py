@@ -57,17 +57,16 @@ import logging
 import mimetools
 import mimetypes
 import os
-import random
 import select
 import shutil
 import simplejson
+import StringIO
 import struct
 import tempfile
+import wsgiref.headers
 import yaml
 
-# AppScale
-# Imported for checking memory usage
-import resource
+
 
 
 
@@ -87,6 +86,15 @@ import zlib
 
 import google
 
+
+
+try:
+  from google.third_party.apphosting.python.webapp2 import v2_3 as tmp
+  sys.path.append(os.path.dirname(tmp.__file__))
+  del tmp
+except ImportError:
+  pass
+
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import appinfo
 from google.appengine.api import appinfo_includes
@@ -94,9 +102,11 @@ from google.appengine.api import app_logging
 from google.appengine.api import blobstore
 from google.appengine.api import croninfo
 from google.appengine.api import datastore
+from google.appengine.api import datastore_file_stub
 from google.appengine.api import lib_config
 from google.appengine.api import mail
 from google.appengine.api import namespace_manager
+from google.appengine.api import request_info
 from google.appengine.api import urlfetch_stub
 from google.appengine.api import user_service_stub
 from google.appengine.api import yaml_errors
@@ -113,6 +123,7 @@ from google.appengine.api.remote_socket import _remote_socket_stub
 from google.appengine.api import rdbms_mysqldb
 
 from google.appengine.api.system import system_stub
+from google.appengine.datastore import datastore_sqlite_stub
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.ext.cloudstorage import stub_dispatcher as gcs_dispatcher
 from google.appengine import dist
@@ -141,7 +152,9 @@ from google.appengine.tools import dev_appserver_blobstore
 from google.appengine.tools import dev_appserver_channel
 from google.appengine.tools import dev_appserver_import_hook
 from google.appengine.tools import dev_appserver_login
+from google.appengine.tools import dev_appserver_multiprocess as multiprocess
 from google.appengine.tools import dev_appserver_oauth
+from google.appengine.tools import dev_appserver_upload
 
 from google.storage.speckle.python.api import rdbms
 
@@ -850,7 +863,6 @@ def SetupEnvironment(cgi_path,
   env['USER_IS_ADMIN'] = '0'
   if admin and valid_cookie:
     env['USER_IS_ADMIN'] = '1'
-
   if env['AUTH_DOMAIN'] == '*':
 
     auth_domain = 'gmail.com'
@@ -1000,6 +1012,13 @@ SHARED_MODULE_PREFIXES = set([
     'wsgiref',
 
     'MySQLdb',
+
+
+
+
+
+
+
     'decimal',
 ])
 
@@ -1618,19 +1637,6 @@ def ExecuteCGI(config,
     exec_py27_handler: Used for dependency injection.
   """
 
-
-
-
-
-
-
-
-  if handler_path == '_go_app':
-    from google.appengine.ext.go import execute_go_cgi
-    return execute_go_cgi(root_path, handler_path, cgi_path,
-        env, infile, outfile)
-
-
   old_module_dict = sys.modules.copy()
   old_builtin = __builtin__.__dict__.copy()
   old_argv = sys.argv
@@ -1732,7 +1738,6 @@ def ExecuteCGI(config,
     sys.argv = old_argv
     sys.stdin = old_stdin
     sys.stdout = old_stdout
-
 
     sys.stderr = old_stderr
     logging.getLogger().removeHandler(app_log_handler)
@@ -2584,6 +2589,7 @@ class ModuleManager(object):
     Returns:
       True if one or more files have been modified, False otherwise.
     """
+    self._dirty = True
     for name, (mtime, fname) in self._modification_times.iteritems():
 
       if name not in self._modules:
@@ -2779,7 +2785,7 @@ def CreateRequestHandler(root_path,
         args: Positional arguments passed to the superclass constructor.
         kwargs: Keyword arguments passed to the superclass constructor.
       """
-      self._log_record_writer = logservice_stub.RequestLogWriter()
+      self._log_record_writer = apiproxy_stub_map.apiproxy.GetStub('logservice')
       BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def version_string(self):
@@ -2983,18 +2989,24 @@ def CreateRequestHandler(root_path,
         os.environ['REQUEST_ID_HASH'] = request_id_hash
 
 
+        multiprocess.GlobalProcess().UpdateEnv(env_dict)
 
         cookies = ', '.join(self.headers.getheaders('cookie'))
         email_addr, user_id, admin, valid_cookie = \
                 dev_appserver_login.GetUserInfo(cookies)
 
-        self._log_record_writer.write_request_info(
+        self._log_record_writer.start_request(
+            request_id=None,
+            user_request_id=_GenerateRequestLogId(),
             ip=env_dict['REMOTE_ADDR'],
             app_id=env_dict['APPLICATION_ID'],
             version_id=env_dict['CURRENT_VERSION_ID'],
             nickname=email_addr.split('@')[0],
-            user_agent=self.headers.get('user-agent'),
-            host=host_name)
+            user_agent=self.headers.get('user-agent', ''),
+            host=host_name,
+            method=self.command,
+            resource=self.path,
+            http_version=self.request_version)
 
         dispatcher = MatcherDispatcher(config, login_url, self.module_manager,
                                        [implicit_matcher, explicit_matcher])
@@ -3002,6 +3014,8 @@ def CreateRequestHandler(root_path,
 
 
 
+        if multiprocess.GlobalProcess().HandleRequest(self):
+          return
 
         outfile = cStringIO.StringIO()
         try:
@@ -3037,6 +3051,7 @@ def CreateRequestHandler(root_path,
           response.body = cStringIO.StringIO(new_response)
 
 
+        multiprocess.GlobalProcess().RequestComplete(self, response)
 
       except yaml_errors.EventListenerError, e:
         title = 'Fatal error when loading application configuration'
@@ -3079,6 +3094,16 @@ def CreateRequestHandler(root_path,
 
           shutil.copyfileobj(response.body, self.wfile, COPY_BLOCK_SIZE)
         except (IOError, OSError), e:
+
+
+
+
+
+
+
+
+
+
           if e.errno not in [errno.EPIPE, os_compat.WSAECONNABORTED]:
             raise e
         except socket.error, e:
@@ -3098,7 +3123,6 @@ def CreateRequestHandler(root_path,
       else:
         logging.info(format, *args)
 
-
     def log_request(self, code='-', size='-'):
       """Indicate that this request has completed."""
       BaseHTTPServer.BaseHTTPRequestHandler.log_request(self, code, size)
@@ -3107,11 +3131,9 @@ def CreateRequestHandler(root_path,
       if size == '-':
         size = 0
 
+
       logservice.logs_buffer().flush()
-
-      self._log_record_writer.write(self.command, self.path, code, size,
-                                    self.request_version)
-
+      self._log_record_writer.end_request(None, code, size)
   return DevAppServerRequestHandler
 
 
@@ -3331,6 +3353,7 @@ def LoadAppConfig(root_path,
 
       config = read_app_config(appinfo_path, appinfo_includes.Parse)
 
+
       # AppScale
       # Commenting this out because this function adds "~dev" to the application
       # name.
@@ -3338,6 +3361,7 @@ def LoadAppConfig(root_path,
       # if config.application:
       #   config.application = AppIdWithDefaultPartition(config.application,
       #                                                  default_partition)
+      multiprocess.GlobalProcess().NewAppInfo(config)
 
       if static_caching:
         if config.default_expiration:
@@ -3475,7 +3499,7 @@ def SetupStubs(app_id, **config):
     address: The host that this dev_appsever is running on. Defaults to
       localhost.
     search_index_path: Path to the file to store search indexes in.
-    clear_search_index: If the search indeces should be cleared on startup.
+    clear_search_index: If the search indices should be cleared on startup.
   """
 
 
@@ -3538,54 +3562,65 @@ def SetupStubs(app_id, **config):
     _RemoveFile(search_index_path)
 
 
+  if multiprocess.GlobalProcess().MaybeConfigureRemoteDataApis():
+
+
+
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'logservice',
+        logservice_stub.LogServiceStub(logs_path=':memory:'))
+  else:
 
 
 
 
 
 
-  apiproxy_stub_map.apiproxy = apiproxy_stub_map.APIProxyStubMap()
+    apiproxy_stub_map.apiproxy = apiproxy_stub_map.APIProxyStubMap()
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'app_identity_service',
-      app_identity_stub.AppIdentityServiceStub())
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'app_identity_service',
+        app_identity_stub.AppIdentityServiceStub())
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'capability_service',
-      capability_stub.CapabilityServiceStub())
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'capability_service',
+        capability_stub.CapabilityServiceStub())
 
-  datastore = datastore_distributed.DatastoreDistributed(
-        app_id, datastore_path, require_indexes=require_indexes,
-        trusted=trusted, root_path=root_path)
+    datastore = datastore_distributed.DatastoreDistributed(
+        app_id, datastore_path, trusted=trusted)
 
-  apiproxy_stub_map.apiproxy.ReplaceStub(
-      'datastore_v3', datastore)
+    apiproxy_stub_map.apiproxy.ReplaceStub(
+        'datastore_v3', datastore)
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'mail',
-      mail_stub.MailServiceStub(smtp_host,
-                                smtp_port,
-                                smtp_user,
-                                smtp_password,
-                                enable_sendmail=enable_sendmail,
-                                show_mail_body=show_mail_body))
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'mail',
+        mail_stub.MailServiceStub(smtp_host,
+                                  smtp_port,
+                                  smtp_user,
+                                  smtp_password,
+                                  enable_sendmail=enable_sendmail,
+                                  show_mail_body=show_mail_body))
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'memcache',
-      memcache_distributed.MemcacheService())
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'memcache',
+        memcache_distributed.MemcacheService())
 
-  hash_secret = hashlib.sha1(app_id + '/'+ cookie_secret).hexdigest()
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'taskqueue',
-      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address))
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'taskqueue',
+        taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address))
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'urlfetch',
-      urlfetch_stub.URLFetchServiceStub())
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'urlfetch',
+        urlfetch_stub.URLFetchServiceStub())
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'xmpp',
-      xmpp_service_real.XmppService(domain=xmpp_path, uaserver=uaserver_path))
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'xmpp',
+        xmpp_service_real.XmppService(xmpp_path, domain=login_server,
+                                      uaserver=uaserver_path))
+
+    apiproxy_stub_map.apiproxy.RegisterStub(
+        'logservice',
+        logservice_stub.LogServiceStub(logs_path=logs_path))
 
 
 
@@ -3659,11 +3694,8 @@ def SetupStubs(app_id, **config):
       'file',
       file_service_stub.FileServiceStub(blob_storage))
 
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'logservice',
-      logservice_stub.LogServiceStub(True))
-
   system_service_stub = system_stub.SystemServiceStub()
+  multiprocess.GlobalProcess().UpdateSystemStub(system_service_stub)
   apiproxy_stub_map.apiproxy.RegisterStub('system', system_service_stub)
 
 
@@ -3916,20 +3948,19 @@ def CreateServer(root_path,
 
     python_path_list.insert(0, absolute_root_path)
 
-  server = HTTPServerWithScheduler((serve_address, port), handler_class)
+  if multiprocess.Enabled():
+    server = HttpServerWithMultiProcess((serve_address, port), handler_class)
+  else:
+    server = HTTPServerWithScheduler((serve_address, port), handler_class)
 
 
 
   queue_stub = apiproxy_stub_map.apiproxy.GetStub('taskqueue')
   if queue_stub and hasattr(queue_stub, 'StartBackgroundExecution'):
-    queue_stub.StartBackgroundExecution()
+      queue_stub.StartBackgroundExecution()
 
-
-  channel_stub = apiproxy_stub_map.apiproxy.GetStub('channel')
-  if channel_stub:
-    channel_stub._add_event = server.AddEvent
-    channel_stub._update_event = server.UpdateEvent
-
+  request_info._local_dispatcher = DevAppserverDispatcher(server,
+                                                          frontend_port or port)
   server.frontend_hostport = '%s:%d' % (serve_address or 'localhost',
                                         frontend_port or port)
 
@@ -4021,7 +4052,7 @@ class HTTPServerWithScheduler(BaseHTTPServer.HTTPServer):
 
   def UpdateEvent(self, service, event_id, eta):
     """Update a runnable event in the heap with a new eta.
-    TODO(moishel): come up with something better than a linear scan to
+    TODO: come up with something better than a linear scan to
     update items. For the case this is used for now -- updating events to
     "time out" channels -- this works fine because those events are always
     soon (within seconds) and thus found quickly towards the front of the heap.
@@ -4042,4 +4073,158 @@ class HTTPServerWithScheduler(BaseHTTPServer.HTTPServer):
         break
 
 
+class HttpServerWithMultiProcess(HTTPServerWithScheduler):
+  """Class extending HTTPServerWithScheduler with multi-process handling."""
 
+  def __init__(self, server_address, request_handler_class):
+    """Constructor.
+
+    Args:
+      server_address: the bind address of the server.
+      request_handler_class: class used to handle requests.
+    """
+    HTTPServerWithScheduler.__init__(self, server_address,
+                                     request_handler_class)
+    multiprocess.GlobalProcess().SetHttpServer(self)
+
+  def process_request(self, request, client_address):
+    """Overrides the SocketServer process_request call."""
+    multiprocess.GlobalProcess().ProcessRequest(request, client_address)
+
+
+class FakeRequestSocket(object):
+  """A socket object to fake an HTTP request."""
+
+  def __init__(self, method, relative_url, headers, body):
+    payload = cStringIO.StringIO()
+    payload.write('%s %s HTTP/1.1\r\n' % (method, relative_url))
+    payload.write('Content-Length: %d\r\n' % len(body))
+    for key, value in headers:
+      payload.write('%s: %s\r\n' % (key, value))
+    payload.write('\r\n')
+    payload.write(body)
+    self.rfile = cStringIO.StringIO(payload.getvalue())
+    self.wfile = StringIO.StringIO()
+    self.wfile_close = self.wfile.close
+    self.wfile.close = self.connection_done
+
+  def connection_done(self):
+    self.wfile_close()
+
+  def makefile(self, mode, buffsize):
+    if mode.startswith('w'):
+      return self.wfile
+    else:
+      return self.rfile
+
+  def close(self):
+    pass
+
+  def shutdown(self, how):
+    pass
+
+
+class DevAppserverDispatcher(request_info._LocalFakeDispatcher):
+  """A dev_appserver Dispatcher implementation."""
+
+  def __init__(self, server, port):
+    self._server = server
+    self._port = port
+
+  def add_event(self, runnable, eta, service=None, event_id=None):
+    """Add a callable to be run at the specified time.
+
+    Args:
+      runnable: A callable object to call at the specified time.
+      eta: An int containing the time to run the event, in seconds since the
+          epoch.
+      service: A str containing the name of the service that owns this event.
+          This should be set if event_id is set.
+      event_id: A str containing the id of the event. If set, this can be passed
+          to update_event to change the time at which the event should run.
+    """
+    self._server.AddEvent(eta, runnable, service, event_id)
+
+  def update_event(self, eta, service, event_id):
+    """Update the eta of a scheduled event.
+
+    Args:
+      eta: An int containing the time to run the event, in seconds since the
+          epoch.
+      service: A str containing the name of the service that owns this event.
+      event_id: A str containing the id of the event to update.
+    """
+    self._server.UpdateEvent(service, event_id, eta)
+
+  def add_async_request(self, method, relative_url, headers, body, source_ip,
+                        module_name=None, version=None, instance_id=None):
+    """Dispatch an HTTP request asynchronously.
+
+    Args:
+      method: A str containing the HTTP method of the request.
+      relative_url: A str containing path and query string of the request.
+      headers: A list of (key, value) tuples where key and value are both str.
+      body: A str containing the request body.
+      source_ip: The source ip address for the request.
+      module_name: An optional str containing the module name to service this
+          request. If unset, the request will be dispatched to the default
+          module.
+      version: An optional str containing the version to service this request.
+          If unset, the request will be dispatched to the default version.
+      instance_id: An optional str containing the instance_id of the instance to
+          service this request. If unset, the request will be dispatched to
+          according to the load-balancing for the module and version.
+    """
+    fake_socket = FakeRequestSocket(method, relative_url, headers, body)
+    self._server.AddEvent(0, lambda: (fake_socket, (source_ip, self._port)))
+
+  def add_request(self, method, relative_url, headers, body, source_ip,
+                  module_name=None, version=None, instance_id=None):
+    """Process an HTTP request.
+
+    Args:
+      method: A str containing the HTTP method of the request.
+      relative_url: A str containing path and query string of the request.
+      headers: A list of (key, value) tuples where key and value are both str.
+      body: A str containing the request body.
+      source_ip: The source ip address for the request.
+      module_name: An optional str containing the module name to service this
+          request. If unset, the request will be dispatched to the default
+          module.
+      version: An optional str containing the version to service this request.
+          If unset, the request will be dispatched to the default version.
+      instance_id: An optional str containing the instance_id of the instance to
+          service this request. If unset, the request will be dispatched to
+          according to the load-balancing for the module and version.
+
+    Returns:
+      A request_info.ResponseTuple containing the response information for the
+      HTTP request.
+    """
+    try:
+      header_dict = wsgiref.headers.Headers(headers)
+      connection_host = header_dict.get('host')
+      connection = httplib.HTTPConnection(connection_host)
+
+
+      connection.putrequest(
+          method, relative_url,
+          skip_host='host' in header_dict,
+          skip_accept_encoding='accept-encoding' in header_dict)
+
+      for header_key, header_value in headers:
+        connection.putheader(header_key, header_value)
+      connection.endheaders()
+      connection.send(body)
+
+      response = connection.getresponse()
+      response.read()
+      response.close()
+
+      return request_info.ResponseTuple(
+          '%d %s' % (response.status, response.reason), [], '')
+    except (httplib.HTTPException, socket.error):
+      logging.exception(
+          'An error occured while sending a %s request to "%s%s"',
+          method, connection_host, relative_url)
+      return request_info.ResponseTuple('0', [], '')

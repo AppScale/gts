@@ -5,6 +5,190 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.6.0, released August 2018
+Highlights of features and defects fixed in this release:
+ - Close PG connection when cleaning up project
+ - Catch QueueNotFound error in TQ REST API
+ - Use security token when making Monit API calls
+ - Add E2E test for queries involving ID separator
+ - Error handling for starting or terminating instances
+ - Handle UpdateIndexes calls
+ - Add appscale-admin restart command
+ - Use hmac helper for authentication check
+ - Stop services in a particular order
+ - Handle ID separator in key name
+ - Do not delete push task names immediately
+ - Fix nginx config for handlers with secure field
+ - Reduce diffs with the 1.8.0 SDK (Part 2)
+ - Autoscale logs
+ - Remove BR service
+ - Do not validate SSL certs for SOAP services
+ - PullQueueus on postgresql
+ - Copy PATH variable from controller environment
+ - Detect missing row when applying transaction
+ - Install older tornado when Python is too old
+ - Add transactional counter test
+ - Remove indexless sorted ancestor queries
+ - Counts only ESTABLISHED connections
+ - Reject lease modifications that specify wrong ETA
+ - Controller application upload error output now escaped
+ - AppManager should not re-extract source for an application revision
+ - Determine new_eta for leased tasks later
+ - Use ranges to keep track of merge join queries
+ - AppDashboard redirect cleanup
+ - Java app server disable TLSv1 protocol
+ - Use yaml.safe_load rather than yaml.load
+ - Simplify rollback_transaction method
+ - Install headless OpenJDK package
+ - Remove sshguard
+ - Java AppServer javac build options update for version and debug
+ - Continue preparing archive despite being a hoster
+ - Limit version of soap4r-ng
+ - Disable TLS for ejabberd's http_bind module
+ - Add more logging to pull queue operations
+ - Restart rsyslog so the app logs can be recreated
+ - Clean up group locks when possible
+ - Fix blobstore-backed GCS operations
+ - Use HTTP API to stop Monit services
+ - Skip Nginx connection change for Docker build
+ - Define proper Java version for Trusty
+ - Assign the proper number of datastore to machines
+ - RM-626 Fetch application archive as soon as it's available in deployment
+ - Handle NoSuchProcess error as success when terminating process
+ - Increase open file limit for nginx
+ - Handle reads with the index past the last block
+ - Replace stub with TaskQueue client
+ - Wait for all hosts before creating tables
+ - RM-550 Hermes taskqueue stats
+ - Reduce diffs with the 1.8.0 SDK
+ - Handle timeouts when querying available tasks
+ - Ensure Celery worker gets restarted
+ - Allow PHP instances to use external API server
+ - Skip stats generation on undeployed projects
+ - AppController appserver check thread should exit when there is no work
+ - Handle "service" element
+ - Use external App Identity service for Java apps
+ - Install OpenJDK 8 on Trusty
+ - Allow Go instances to use external API server
+ - Continue starting deployment if system user exists
+ - Handle exception when fetching datastore servers
+ - Use the ServiceManager to start datastore servers
+ - Retry creating system users when AppScale starts
+ - RM-542 Async datastore (communication with Cassandra)
+ - Fix the version delete API method
+ - Give more informative messages for GQL errors
+ - Fix dashboard app list
+ - Issue-2731 Increase Hermes concurrency
+ - Consider the version's previous ports as available
+ - RM-616: Use project_id not versions_key to list apps
+ - Retry operations when nodes are not available
+ - RM-624 Start AppManager on compute nodes only
+ - Define the Cassandra cluster load balancing policy
+ - Register instances with ZooKeeper
+ - Allow Java AppServer to use an external API Server
+ - Upgrade to Cassandra 3.11.2
+ - Add option to update all composite indexes
+ - RM-592 - Ensure haproxy configuration is up-to-date
+ - Adjustable max appservers
+ - Simplify datastore error handling
+ - Pin eventlet version
+ - Replace usages of execute_concurrent
+ - Add a scatter property to some entities
+ - Use datastore server registry to toggle read-only mode
+ - Handle docker as a provider
+ - Wait for all load balancers to route instances
+ - RM-589 handle failure on fetching local stats
+
+
+Known Issues:
+
+
+AppScale version 3.5.3, released June 2018
+Highlights of features/bugs in this release:
+ - Issue-2813 - Controller won't start with latest version of soap4r-ng (2.0.4) 
+
+Known Issues:
+
+
+AppScale version 3.5.2, released May 2018
+Highlights of features/bugs in this release:
+
+ - Issue-2770 - Groups are not locked during commit
+
+Known Issues:
+
+
+AppScale version 3.5.1, released April 2018
+Highlights of features/bugs in this release:
+ - Upgrade to Cassandra 3.11.2
+ - Handle Docker as a provider
+
+Known Issues:
+
+
+AppScale version 3.5.0, released March 2018
+Highlights of features/bugs in this release:
+
+ - Add datastore viewer to the dashboard
+ - Improve lb responsiveness
+ - Transaction groomer
+ - Add push queue stats to Hermes
+ - Allow group locks to persist when commits fail
+ - Allow different instance type per role
+ - Handle key inequality filter within property value
+ - Change appengine role to compute
+ - Whitelist inbound service warmup
+ - Run apps without application element in app.yaml
+ - Use prefix for the haproxy app config file
+ - Prevent ProjectGroomer worker from stopping
+ - Stick to the duty cycle length
+ - Capture Net::ReadTimeout when using Net::HTTP
+ - Haproxy consolidate apps
+ - Patch for GAE Issue # 12783 - Conditional import of RAND_egd from _ssl
+ - Don't clear cron jobs during an up
+ - Remove tcp_tw_recycle option
+ - Replace reference to deprecated role
+ - Reduce Cassandra memory if running other services
+ - Allow the dashboard to be updated
+ - Differentiate between project IDs and version keys
+ - Encode entity names when acquiring lock
+ - Add external API server
+ - Allow Hermes to check RabbitMQ status
+ - Fix JSP compilation under Java 8
+ - Handle missing WEB-INF directory
+ - Account properly for pending AppServer.
+ - Handle UpdateCron requests
+ - Quote environment variables
+ - Don't wait for taskqueue master to start rabbitmq
+ - Autoscale with N load balancer nodes
+ - Set log after restart
+ - Clear logs when flushing
+ - Add support for Jessie
+ - Remove support for precise
+ - Use tornado coroutines when performing retries. 
+ - Add bin, bout, hrsp_4xx, hrsp_5xx to proxy.frontend include list
+ - Retrieve inbound services from ZooKeeper
+ - Start proper epmd service even without RabbitMQ
+ - Perform ZK operations off of the Kazoo thread
+ - Keep track of ZooKeeper state with TransactionManager
+ - Move AppControllerClient to separate package
+ - Kill instances when they exceed memory limit
+ - Set up blobstore routing on each load balancer
+ - Wait after a restore for cluster to be ready
+ - Access Tokens for Admin API
+ - Forward add_routing_for_appserver
+ - Include version headers when making TQ requests
+ - Do not raise HttpError outside context of HTTP request
+ - Use custom template for combined app log messages
+ - Define property name based on rsyslog version
+ - Return appropriate error when a queue is not found
+ - Fix pidfile for RabbitMQ in Docker
+ - Add sandbox function for expanduser.
+
+
+Known Issues:
+
+
 AppScale version 3.4.0, released Oct, 2017
 Highlights of features/bugs in this release:
 - Upgraded Appscale images to Xenial

@@ -1,5 +1,35 @@
 <?php
+
+function _gae_syslog($priority, $format_string, $message) {
+  // TODO(bquinlan): Use the logs service to persist this message.
+}
+
 $setup = function() {
+  $setupGaeExtension = function() {
+    $allowed_buckets = '';
+    $ini_file = getenv('APPLICATION_ROOT') . DIRECTORY_SEPARATOR . 'php.ini';
+    $config_values = @parse_ini_file($ini_file);
+    if ($config_values &&
+        array_key_exists('google_app_engine.allow_include_gs_buckets',
+                         $config_values)) {
+      $allowed_buckets =
+          $config_values['google_app_engine.allow_include_gs_buckets'];
+    }
+    define('GAE_INCLUDE_REQUIRE_GS_STREAMS',
+           // All values are considered true except the empty string.
+           $allowed_buckets ? 1 : 0);
+    define('GAE_INCLUDE_GS_BUCKETS', $allowed_buckets);
+
+    unset($_ENV['APPLICATION_ROOT']);
+    unset($_SERVER['APPLICATION_ROOT']);
+  };
+
+  $configureDefaults = function() {
+    if (!ini_get('date.timezone')) {
+      date_default_timezone_set('UTC');
+    }
+  };
+
   $updateScriptFilename = function() {
     putenv('SCRIPT_FILENAME=' . getenv('REAL_SCRIPT_FILENAME'));
     $_ENV['SCRIPT_FILENAME'] = getenv('REAL_SCRIPT_FILENAME');
@@ -22,18 +52,24 @@ $setup = function() {
     require_once 'google/appengine/runtime/RemoteApiProxy.php';
     \google\appengine\runtime\ApiProxy::setApiProxy(
       new \google\appengine\runtime\RemoteApiProxy(
-        getenv('REMOTE_API_PORT'), getenv('REMOTE_REQUEST_ID')));
+        getenv('REMOTE_API_PORT'), getenv('EXTERNAL_API_PORT'),
+        getenv('REMOTE_REQUEST_ID')));
     putenv('REMOTE_API_PORT');
+    putenv('EXTERNAL_API_PORT');
     putenv('REMOTE_REQUEST_ID');
     unset($_SERVER['REMOTE_API_PORT']);
+    unset($_SERVER['EXTERNAL_API_PORT']);
     unset($_SERVER['REMOTE_REQUEST_ID']);
     unset($_ENV['REMOTE_API_PORT']);
+    unset($_ENV['EXTERNAL_API_PORT']);
     unset($_ENV['REMOTE_REQUEST_ID']);
   };
 
   $setupBuiltins = function() {
     require_once 'google/appengine/runtime/Setup.php';
   };
+  $setupGaeExtension();
+  $configureDefaults();
   $updateScriptFilename();
   $setupApiProxy();
   $setupBuiltins();

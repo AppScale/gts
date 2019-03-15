@@ -6,12 +6,18 @@ from kazoo.retry import KazooRetry
 
 
 class HTTPCodes(object):
+  OK = 200
   BAD_REQUEST = 400
   UNAUTHORIZED = 401
   FORBIDDEN = 403
   NOT_FOUND = 404
   INTERNAL_ERROR = 500
   NOT_IMPLEMENTED = 501
+
+
+class InvalidConfiguration(Exception):
+  """ Indicates that a given configuration cannot be enforced. """
+  pass
 
 
 class MonitStates(object):
@@ -24,6 +30,9 @@ class MonitStates(object):
 
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
+
+# The ZooKeeper path for keeping track of assignments by machine.
+ASSIGNMENTS_PATH = '/appscale/assignments'
 
 # Directory where configuration files are stored.
 CONFIG_DIR = os.path.join('/', 'etc', 'appscale')
@@ -42,6 +51,9 @@ LOAD_BALANCER_IPS_LOC = '/etc/appscale/load_balancer_ips'
 
 # The location of the file which specifies all the ips for this deployment.
 ALL_IPS_LOC = '/etc/appscale/all_ips'
+
+# A prefix used to indicate that a config file is AppServer-related.
+GAE_PREFIX = 'gae_'
 
 # The location of the file which specifies the public IP of the head node.
 HEADNODE_IP_LOC = '/etc/appscale/head_node_private_ip'
@@ -82,6 +94,9 @@ UA_SERVER_PORT = 4343
 # The port of the application manager soap server.
 APP_MANAGER_PORT = 17445
 
+# The HAProxy port for the TaskQueue service.
+TASKQUEUE_SERVICE_PORT = 17446
+
 # Python programs.
 PYTHON = "python"
 
@@ -100,8 +115,8 @@ PHP = "php"
 # Location where applications are stored.
 APPS_PATH = "/var/apps/"
 
-# Locations of ZooKeeper in json format.
-ZK_LOCATIONS_JSON_FILE = "/etc/appscale/zookeeper_locations.json"
+# Locations of ZooKeeper.
+ZK_LOCATIONS_FILE = "/etc/appscale/zookeeper_locations"
 
 # Default location for connecting to ZooKeeper.
 ZK_DEFAULT_CONNECTION_STR = "localhost:2181"
@@ -133,11 +148,14 @@ SERVICES_DIR = '/etc/init.d'
 # The AppController's service name.
 CONTROLLER_SERVICE = 'appscale-controller'
 
+# The system's cgroup directory.
+CGROUP_DIR = os.path.join('/', 'sys', 'fs', 'cgroup')
+
 # The default log directory for AppScale services.
 LOG_DIR = os.path.join('/var', 'log', 'appscale')
 
-# The default directory for pidfiles.
-PID_DIR = os.path.join('/', 'var', 'run', 'appscale')
+# The default directory for run-time variable data (eg. pidfiles).
+VAR_DIR = os.path.join('/', 'var', 'run', 'appscale')
 
 # The number of seconds to wait before retrying some operations.
 SMALL_WAIT = 5
@@ -148,3 +166,6 @@ TINY_WAIT = .1
 # The character used to separate portions of a complete version string.
 # (e.g. guestbook_default_v1)
 VERSION_PATH_SEPARATOR = '_'
+
+# The ZooKeeper node that keeps track of running AppServers by version.
+VERSION_REGISTRATION_NODE = '/appscale/instances_by_version'

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name='appscale-datastore',
-  version='0.0.1',
+  version='0.1.0',
   description='An implementation of the Google Cloud Datastore API',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
@@ -35,7 +35,6 @@ setup(
   entry_points={'console_scripts': [
     'appscale-backup-data=appscale.datastore.scripts.backup_data:main',
     'appscale-blobstore-server=appscale.datastore.scripts.blobstore:main',
-    'appscale-br-server=appscale.datastore.scripts.br_server:main',
     'appscale-cassandra-backup='
       'appscale.datastore.scripts.cassandra_backup:main',
     'appscale-data-layout=appscale.datastore.scripts.data_layout:main',

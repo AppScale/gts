@@ -16,7 +16,7 @@ CONTENTS
 
 INSTALLING ON Mac OSX
 =====================
-1) Download and install Python 2.5 from http://www.python.org/download/
+1) Download and install Python 2.7 from http://www.python.org/download/
 2) Download the SDK installer from
 https://developers.google.com/appengine/downloads
 3) Install the SDK by double-clicking on the GoogleAppEngine.dmg file and
@@ -25,7 +25,7 @@ running the installer.
 
 INSTALLING ON WINDOWS
 =====================
-1) Download and install Python 2.5 from http://www.python.org/download/
+1) Download and install Python 2.7 from http://www.python.org/download/
 2) Download the SDK installer from
 https://developers.google.com/appengine/downloads
 3) Install the SDK by double-clicking on the GoogleAppEngine.msi file and
@@ -34,7 +34,7 @@ running the installer.
 
 INSTALLING ON LINUX AND OTHER PLATFORMS
 ===============================
-1) Download and install Python 2.5 from http://www.python.org/download/
+1) Download and install Python 2.7 from http://www.python.org/download/
 2) Download the SDK zip file from
 https://developers.google.com/appengine/downloads
 3) Unpack the zip file.

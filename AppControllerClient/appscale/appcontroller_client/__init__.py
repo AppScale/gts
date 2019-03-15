@@ -274,18 +274,6 @@ class AppControllerClient():
       roles_to_nodes, self.secret)
 
 
-  def stop_version(self, version_key):
-    """Tells the AppController to no longer host the named version.
-
-    Args:
-      version_key: A str that indicates which version should be stopped.
-    Returns:
-      The result of telling the AppController to no longer host the version.
-    """
-    return self.call(self.MAX_RETRIES, self.server.stop_version, version_key,
-                     self.secret)
-
-
   def update(self, versions):
     """Tells the AppController which versions to run, which we assume have
     already been uploaded to that machine.
@@ -312,19 +300,6 @@ class AppControllerClient():
     the Datastore (which can be viewed in the AppDashboard).
     """
     return self.call(self.MAX_RETRIES, self.server.run_groomer, self.secret)
-
-
-  def add_routing_for_appserver(self, version_key, appserver_ip, port):
-    """ Tells the AppController to begin routing traffic to an AppServer.
-
-    Args:
-      version_key: A string that contains the version key.
-      appserver_ip: A string that contains the IP address of the instance
-        running the AppServer.
-      port: A string that contains the port that the AppServer listens on.
-    """
-    return self.call(self.MAX_RETRIES, self.server.add_routing_for_appserver,
-                     version_key, appserver_ip, port, self.secret)
 
 
   def add_routing_for_blob_server(self):

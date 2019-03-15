@@ -33,7 +33,7 @@ module Ejabberd
   end
 
   def self.stop
-    MonitInterface.stop(:ejabberd)
+    MonitInterface.stop(:ejabberd) if MonitInterface.is_running?(:ejabberd)
   end
 
   def self.clear_online_users
@@ -121,7 +121,7 @@ module Ejabberd
     end
   end
 
-  def self.write_config_file(my_private_ip)
+  def self.write_config_file(domain, my_private_ip)
     config_file = 'ejabberd.yml'
     begin
       ejabberd_version = get_ejabberd_version
@@ -133,7 +133,14 @@ module Ejabberd
     template = "#{APPSCALE_HOME}/AppController/templates/#{config_file}"
     config = File.read(template)
 
-    config.gsub!('APPSCALE-HOST', my_private_ip)
+    config.gsub!('APPSCALE-HOST', domain)
+    if config_file == 'ejabberd.yml'
+      config.gsub!('APPSCALE-PRIVATE-IP', my_private_ip)
+    else
+      # Convert IP address to Erlang tuple.
+      ip_tuple = "{#{my_private_ip.gsub('.', ',')}}"
+      config.gsub!('APPSCALE-PRIVATE-IP', ip_tuple)
+    end
     config.gsub!('APPSCALE-CERTFILE',
                  "#{Djinn::APPSCALE_CONFIG_DIR}/ejabberd.pem")
     config.gsub!('APPSCALE-AUTH-SCRIPT', AUTH_SCRIPT_LOCATION)

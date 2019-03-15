@@ -1,0 +1,75 @@
+{
+  "10.10.7.86:17447": {
+    "current_requests": 3,
+    "cumulative_counters": {
+      "from": 1494240000000,
+      "10": 1494260000000,
+      "all": 15,
+      "failed": 5,
+      "pb_reqs": 6,
+      "rest_reqs": 9
+    },
+    "recent_stats": {
+      "from": 1494250000000,
+      "10": 1494260000000,
+      "all": 13,
+      "failed": 5,
+      "avg_latency": 64,
+      "pb_reqs": 6,
+      "rest_reqs": 7,
+      "by_rest_method": {
+        "get_tasks": 2,
+        "post_tasks": 5
+      },
+      "by_rest_status": {
+        "200": 4,
+        "404": 3
+      },
+      "by_pb_method": {
+        "BulkAdd": 4,
+        "PauseQueue": 2
+      },
+      "by_pb_status": {
+        "OK": 4,
+        "UNKNOWN_TASK": 2
+      }
+    }
+  },
+
+  "10.10.7.86:17448": {
+    "current_requests": 1,
+    "cumulative_counters": {
+      "from": 1494240000250,
+      "10": 1494260000250,
+      "all": 25,
+      "failed": 4,
+      "pb_reqs": 16,
+      "rest_reqs": 9
+    },
+    "recent_stats": {
+      "from": 1494250000350,
+      "10": 1494260000350,
+      "all": 20,
+      "failed": 3,
+      "avg_latency": 96,
+      "pb_reqs": 13,
+      "rest_reqs": 7,
+      "by_rest_method": {
+        "patch_task": 6,
+        "post_tasks": 1
+      },
+      "by_rest_status": {
+        "200": 5,
+        "500": 2
+      },
+      "by_pb_method": {
+        "PauseQueue": 2,
+        "FetchTask": 11
+      },
+      "by_pb_status": {
+        "OK": 12,
+        "UNKNOWN_QUEUE": 1
+      }
+    }
+  }
+}

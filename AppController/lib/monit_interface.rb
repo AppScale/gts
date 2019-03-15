@@ -52,8 +52,11 @@ module MonitInterface
       Djinn.log_info("Starting #{process_name} with command #{full_start_cmd}")
     }
 
-    run_cmd('monit reload', true) if reload_monit
-    run_cmd("#{MONIT} start -g #{watch}")
+    run_cmd("#{MONIT} reload", true) if reload_monit
+    ports.each { |port|
+      process_name = if port.nil? then watch.to_s else "#{watch.to_s}-#{port}" end
+      run_cmd("appscale-start-service #{process_name}")
+    }
   end
 
   # Starts a daemonized service. The start_cmd should be designed to start a
@@ -70,8 +73,8 @@ CONFIG
 
     monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
     reload_required = update_config(monit_file, config)
-    run_cmd('monit reload', true) if reload_required
-    run_cmd("#{MONIT} start #{watch}")
+    run_cmd("#{MONIT} reload", true) if reload_required
+    run_cmd("appscale-start-service #{watch}")
   end
 
   # Starts a custom service. The start_cmd should be designed to start a
@@ -86,8 +89,8 @@ CONFIG
 
     monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
     reload_required = update_config(monit_file, config)
-    run_cmd('monit reload', true) if reload_required
-    run_cmd("#{MONIT} start #{watch}")
+    run_cmd("#{MONIT} reload", true) if reload_required
+    run_cmd("appscale-start-service #{watch}")
   end
 
   def self.update_config(monit_file, config)
@@ -113,7 +116,7 @@ CONFIG
     while running
       if stop
         Djinn.log_info("stop_monitoring: stopping service #{watch}.")
-        run_cmd("#{MONIT} stop -g #{watch}")
+        run_cmd("appscale-stop-service #{watch}")
       else
         Djinn.log_info("stop_monitoring: unmonitor service #{watch}.")
         run_cmd("#{MONIT} unmonitor -g #{watch}")
@@ -136,7 +139,7 @@ CONFIG
                      " #{config}.")
     end
     FileUtils.rm_rf(config)
-    run_cmd('monit reload', true)
+    run_cmd("#{MONIT} reload", true)
   end
 
   def self.service_config(process_name, group, start_cmd, env_vars, mem)
@@ -191,7 +194,7 @@ BOO
 
   def self.is_running?(watch)
     output = run_cmd("#{MONIT} summary | grep #{watch} | grep -E "\
-                     '"(Running|Initializing)"')
+                     '"(Running|Initializing|OK)"')
     (output != '')
   end
 
@@ -230,6 +233,23 @@ BOO
     appservers
   end
 
+
+  # This function returns a list of running xmpp services.
+  # Returns:
+  #   A list of xmpp-app records.
+  def self.running_xmpp
+    output = run_cmd("#{MONIT} summary | grep -E 'xmpp-.*(Running|Initializing)'")
+    xmpp_entries = []
+    output.each_line { |monit_entry|
+      match = monit_entry.match(/xmpp-(.*)'\s/)
+      next if match.nil?
+      xmpp_entries << match.captures.first
+    }
+
+    Djinn.log_debug("Found these xmpp processes running: #{xmpp_entries}.")
+    xmpp_entries
+  end
+
   def self.run_cmd(cmd, sleep = false)
     output = ''
     MONIT_LOCK.synchronize {
@@ -241,3 +261,4 @@ BOO
     output
   end
 end
+

@@ -2,6 +2,7 @@
 
 import errno
 import json
+import hmac
 import logging
 import os
 import shutil
@@ -9,6 +10,7 @@ import socket
 import tarfile
 
 from appscale.common.constants import HTTPCodes
+from appscale.common.constants import InvalidConfiguration
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.taskqueue import constants as tq_constants
 from appscale.taskqueue.constants import InvalidQueueConfiguration
@@ -18,7 +20,6 @@ from . import constants
 from .constants import (
   CustomHTTPError,
   GO,
-  InvalidConfiguration,
   JAVA,
   SOURCES_DIRECTORY,
   Types,
@@ -27,7 +28,7 @@ from .constants import (
 from .instance_manager.utils import copy_modified_jars
 from .instance_manager.utils import remove_conflicting_jars
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 
 def assert_fields_in_resource(required_fields, resource_name, resource):
@@ -133,15 +134,16 @@ def apply_mask_to_version(given_version, desired_fields):
   return masked_version
 
 
-def canonical_path(path):
+def canonical_path(path, base=os.curdir):
   """ Resolves a path, following symlinks.
 
   Args:
     path: A string specifying a file system location.
+    base: The path against which to resolve relative paths.
   Returns:
     A string specifying a file system location.
   """
-  return os.path.realpath(os.path.abspath(path))
+  return os.path.realpath(os.path.abspath(os.path.join(base, path)))
 
 
 def valid_link(link_name, link_target, base):
@@ -154,8 +156,8 @@ def valid_link(link_name, link_target, base):
   Returns:
     A boolean indicating whether or not the link is valid.
   """
-  tip = canonical_path(os.path.join(base, os.path.dirname(link_name)))
-  target = canonical_path(os.path.join(tip, link_target))
+  tip = canonical_path(os.path.dirname(link_name), base)
+  target = canonical_path(os.path.join(tip, link_target), base)
   return target.startswith(base)
 
 
@@ -175,7 +177,7 @@ def ensure_path(path):
 
 
 def extract_source(revision_key, location, runtime):
-  """ Unpacks an archive to a given location.
+  """ Unpacks an archive from a given location.
 
   Args:
     revision_key: A string specifying the revision key.
@@ -190,9 +192,6 @@ def extract_source(revision_key, location, runtime):
 
   app_path = os.path.join(revision_base, 'app')
   ensure_path(app_path)
-  # The working directory must be the target in order to validate paths.
-  original_cwd = os.getcwd()
-  os.chdir(app_path)
 
   if runtime == JAVA:
     config_file_name = 'appengine-web.xml'
@@ -203,44 +202,41 @@ def extract_source(revision_key, location, runtime):
     config_file_name = 'app.yaml'
 
     def is_version_config(path):
-      return canonical_path(path) == os.path.join(app_path, config_file_name)
+      return canonical_path(path, app_path) == os.path.join(app_path, config_file_name)
 
-  try:
-    with tarfile.open(location, 'r:gz') as archive:
-      # Check if the archive is valid before extracting it.
-      has_config = False
-      for file_info in archive:
-        file_name = file_info.name
-        if not canonical_path(file_name).startswith(app_path):
-          raise constants.InvalidSource(
-            'Invalid location in archive: {}'.format(file_name))
-
-        if file_info.issym() or file_info.islnk():
-          if not valid_link(file_name, file_info.linkname, app_path):
-            raise constants.InvalidSource(
-              'Invalid link in archive: {}'.format(file_name))
-
-        if is_version_config(file_name):
-          has_config = True
-
-      if not has_config:
+  with tarfile.open(location, 'r:gz') as archive:
+    # Check if the archive is valid before extracting it.
+    has_config = False
+    for file_info in archive:
+      file_name = file_info.name
+      if not canonical_path(file_name, app_path).startswith(app_path):
         raise constants.InvalidSource(
-          'Archive must have {}'.format(config_file_name))
+          'Invalid location in archive: {}'.format(file_name))
 
-      archive.extractall(path=app_path)
+      if file_info.issym() or file_info.islnk():
+        if not valid_link(file_name, file_info.linkname, app_path):
+          raise constants.InvalidSource(
+            'Invalid link in archive: {}'.format(file_name))
 
-    if runtime == GO:
-      try:
-        shutil.move(os.path.join(app_path, 'gopath'), revision_base)
-      except IOError:
-        logger.debug(
-          '{} does not have a gopath directory'.format(revision_key))
+      if is_version_config(file_name):
+        has_config = True
 
-    if runtime == JAVA:
-      remove_conflicting_jars(app_path)
-      copy_modified_jars(app_path)
-  finally:
-    os.chdir(original_cwd)
+    if not has_config:
+      raise constants.InvalidSource(
+        'Archive must have {}'.format(config_file_name))
+
+    archive.extractall(path=app_path)
+
+  if runtime == GO:
+    try:
+      shutil.move(os.path.join(app_path, 'gopath'), revision_base)
+    except IOError:
+      logger.debug(
+        '{} does not have a gopath directory'.format(revision_key))
+
+  if runtime == JAVA:
+    remove_conflicting_jars(app_path)
+    copy_modified_jars(app_path)
 
 
 def port_is_open(host, port):
@@ -385,6 +381,10 @@ def assign_ports(old_version, new_version, zk_client):
 
   taken_locations = assigned_locations(zk_client)
 
+  # Consider the version's old ports as available.
+  taken_locations.discard(old_http_port)
+  taken_locations.discard(old_https_port)
+
   # If ports were requested, make sure they are available.
   if new_http_port is not None and new_http_port in taken_locations:
     raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
@@ -431,7 +431,7 @@ def validate_job(job):
     InvalidConfiguration if configuration is invalid.
   """
   required_fields = ('schedule', 'url')
-  supported_fields = ('description', 'schedule', 'url')
+  supported_fields = ('description', 'schedule', 'url', 'target')
 
   for field in required_fields:
     if field not in job:
@@ -547,3 +547,30 @@ def queues_from_dict(payload):
     queues[name] = queue
 
   return {'queue': queues}
+
+
+def _constant_time_compare(val_a, val_b):
+  """ Compares the two input values in a way that prevents timing analysis.
+
+  Args:
+    val_a: A string.
+    val_b: A string.
+  Returns:
+    A boolean indicating whether or not the given strings are equal.
+  """
+  if len(val_a) != len(val_b):
+    return False
+
+  values_equal = True
+  for char_a, char_b in zip(val_a, val_b):
+    if char_a != char_b:
+      # Do not break early here in order to keep the compare constant time.
+      values_equal = False
+
+  return values_equal
+
+
+if hasattr(hmac, 'compare_digest'):
+  constant_time_compare = hmac.compare_digest
+else:
+  constant_time_compare = _constant_time_compare

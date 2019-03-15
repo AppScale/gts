@@ -719,9 +719,27 @@ namespace google\appengine {
     public function hasServiceAccountId() {
       return isset($this->service_account_id);
     }
+    public function getServiceAccountName() {
+      if (!isset($this->service_account_name)) {
+        return '';
+      }
+      return $this->service_account_name;
+    }
+    public function setServiceAccountName($val) {
+      $this->service_account_name = $val;
+      return $this;
+    }
+    public function clearServiceAccountName() {
+      unset($this->service_account_name);
+      return $this;
+    }
+    public function hasServiceAccountName() {
+      return isset($this->service_account_name);
+    }
     public function clear() {
       $this->clearScope();
       $this->clearServiceAccountId();
+      $this->clearServiceAccountName();
     }
     public function byteSizePartial() {
       $res = 0;
@@ -733,6 +751,10 @@ namespace google\appengine {
       if (isset($this->service_account_id)) {
         $res += 1;
         $res += $this->lengthVarInt64($this->service_account_id);
+      }
+      if (isset($this->service_account_name)) {
+        $res += 1;
+        $res += $this->lengthString(strlen($this->service_account_name));
       }
       return $res;
     }
@@ -746,6 +768,10 @@ namespace google\appengine {
         $out->putVarInt32(16);
         $out->putVarInt64($this->service_account_id);
       }
+      if (isset($this->service_account_name)) {
+        $out->putVarInt32(26);
+        $out->putPrefixedString($this->service_account_name);
+      }
     }
     public function tryMerge($d) {
       while($d->avail() > 0) {
@@ -758,6 +784,11 @@ namespace google\appengine {
             break;
           case 16:
             $this->setServiceAccountId($d->getVarInt64());
+            break;
+          case 26:
+            $length = $d->getVarInt32();
+            $this->setServiceAccountName(substr($d->buffer(), $d->pos(), $length));
+            $d->skip($length);
             break;
           case 0:
             throw new \google\net\ProtocolBufferDecodeError();
@@ -778,6 +809,9 @@ namespace google\appengine {
       if ($x->hasServiceAccountId()) {
         $this->setServiceAccountId($x->getServiceAccountId());
       }
+      if ($x->hasServiceAccountName()) {
+        $this->setServiceAccountName($x->getServiceAccountName());
+      }
     }
     public function equals($x) {
       if ($x === $this) { return true; }
@@ -787,6 +821,8 @@ namespace google\appengine {
       }
       if (isset($this->service_account_id) !== isset($x->service_account_id)) return false;
       if (isset($this->service_account_id) && !$this->integerEquals($this->service_account_id, $x->service_account_id)) return false;
+      if (isset($this->service_account_name) !== isset($x->service_account_name)) return false;
+      if (isset($this->service_account_name) && $this->service_account_name !== $x->service_account_name) return false;
       return true;
     }
     public function shortDebugString($prefix = "") {
@@ -796,6 +832,9 @@ namespace google\appengine {
       }
       if (isset($this->service_account_id)) {
         $res .= $prefix . "service_account_id: " . $this->debugFormatInt64($this->service_account_id) . "\n";
+      }
+      if (isset($this->service_account_name)) {
+        $res .= $prefix . "service_account_name: " . $this->debugFormatString($this->service_account_name) . "\n";
       }
       return $res;
     }
@@ -914,6 +953,121 @@ namespace google\appengine {
       }
       if (isset($this->expiration_time)) {
         $res .= $prefix . "expiration_time: " . $this->debugFormatInt64($this->expiration_time) . "\n";
+      }
+      return $res;
+    }
+  }
+}
+namespace google\appengine {
+  class GetDefaultGcsBucketNameRequest extends \google\net\ProtocolMessage {
+    public function clear() {
+    }
+    public function byteSizePartial() {
+      $res = 0;
+      return $res;
+    }
+    public function outputPartial($out) {
+    }
+    public function tryMerge($d) {
+      while($d->avail() > 0) {
+        $tt = $d->getVarInt32();
+        switch ($tt) {
+          case 0:
+            throw new \google\net\ProtocolBufferDecodeError();
+            break;
+          default:
+            $d->skipData($tt);
+        }
+      };
+    }
+    public function checkInitialized() {
+      return null;
+    }
+    public function mergeFrom($x) {
+      if ($x === $this) { throw new \IllegalArgumentException('Cannot copy message to itself'); }
+    }
+    public function equals($x) {
+      if ($x === $this) { return true; }
+      return true;
+    }
+    public function shortDebugString($prefix = "") {
+      $res = '';
+      return $res;
+    }
+  }
+}
+namespace google\appengine {
+  class GetDefaultGcsBucketNameResponse extends \google\net\ProtocolMessage {
+    public function getDefaultGcsBucketName() {
+      if (!isset($this->default_gcs_bucket_name)) {
+        return '';
+      }
+      return $this->default_gcs_bucket_name;
+    }
+    public function setDefaultGcsBucketName($val) {
+      $this->default_gcs_bucket_name = $val;
+      return $this;
+    }
+    public function clearDefaultGcsBucketName() {
+      unset($this->default_gcs_bucket_name);
+      return $this;
+    }
+    public function hasDefaultGcsBucketName() {
+      return isset($this->default_gcs_bucket_name);
+    }
+    public function clear() {
+      $this->clearDefaultGcsBucketName();
+    }
+    public function byteSizePartial() {
+      $res = 0;
+      if (isset($this->default_gcs_bucket_name)) {
+        $res += 1;
+        $res += $this->lengthString(strlen($this->default_gcs_bucket_name));
+      }
+      return $res;
+    }
+    public function outputPartial($out) {
+      if (isset($this->default_gcs_bucket_name)) {
+        $out->putVarInt32(10);
+        $out->putPrefixedString($this->default_gcs_bucket_name);
+      }
+    }
+    public function tryMerge($d) {
+      while($d->avail() > 0) {
+        $tt = $d->getVarInt32();
+        switch ($tt) {
+          case 10:
+            $length = $d->getVarInt32();
+            $this->setDefaultGcsBucketName(substr($d->buffer(), $d->pos(), $length));
+            $d->skip($length);
+            break;
+          case 0:
+            throw new \google\net\ProtocolBufferDecodeError();
+            break;
+          default:
+            $d->skipData($tt);
+        }
+      };
+    }
+    public function checkInitialized() {
+      return null;
+    }
+    public function mergeFrom($x) {
+      if ($x === $this) { throw new \IllegalArgumentException('Cannot copy message to itself'); }
+      if ($x->hasDefaultGcsBucketName()) {
+        $this->setDefaultGcsBucketName($x->getDefaultGcsBucketName());
+      }
+    }
+    public function equals($x) {
+      if ($x === $this) { return true; }
+      if (isset($this->default_gcs_bucket_name) !== isset($x->default_gcs_bucket_name)) return false;
+      if (isset($this->default_gcs_bucket_name) && $this->default_gcs_bucket_name !== $x->default_gcs_bucket_name) return false;
+      return true;
+    }
+    public function shortDebugString($prefix = "") {
+      $res = '';
+      if (isset($this->default_gcs_bucket_name)) {
+        $res .= $prefix . "default_gcs_bucket_name: " . $this->debugFormatString($this->default_gcs_bucket_name) . "\n";
       }
       return $res;
     }

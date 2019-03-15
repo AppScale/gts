@@ -25,19 +25,105 @@ blobs into the AppScale backends. Blobs are split into chunks of
 1MB segments. 
 
 """
-from google.appengine.ext.blobstore.blobstore import BlobReader
 from google.appengine.api import blobstore
-from google.appengine.api.blobstore import blobstore_stub
-from google.appengine.api import datastore
-from google.appengine.api import datastore_errors
-from google.appengine.api import datastore_types
+from google.appengine.api.blobstore import MAX_BLOB_FETCH_SIZE
+from google.appengine.api.blobstore import blobstore_service_pb, blobstore_stub
+from google.appengine.api import datastore, datastore_errors, datastore_types
+from google.appengine.ext.blobstore.blobstore import BlobReader
 from google.appengine.runtime import apiproxy_errors
-from google.appengine.api.blobstore import blobstore_service_pb
 
 __all__ = ['DatastoreBlobStorage']
 
 # The datastore kind used for storing chunks of a blob
 _BLOB_CHUNK_KIND_ = "__BlobChunk__"
+
+
+class DatastoreBlobReader(BlobReader):
+  """ A reader that fetches from the datastore instead of the blobstore. """
+
+  @staticmethod
+  @datastore.NonTransactional
+  def _fetch_data(blob_key, start_index, end_index):
+    """ Retrieves a chunk of blob data from datastore entities.
+
+    Args:
+      blob_key: A BlobKey used to identify which blob to fetch data from.
+      start_index: An integer specifying the start index in bytes of blob data.
+      end_index: An integer specifying the end index (inclusive) of blob data.
+    Returns:
+      A raw bytes string containing the blob data.
+    """
+    fetch_size = end_index - start_index + 1
+
+    # Get the block we will start from
+    block_count = int(start_index / MAX_BLOB_FETCH_SIZE)
+
+    # Get the block's bytes we'll copy
+    block_modulo = int(start_index % MAX_BLOB_FETCH_SIZE)
+
+    # This is the last block we'll look at for this request
+    block_count_end = int(end_index / MAX_BLOB_FETCH_SIZE)
+
+    block_key = '__'.join([str(blob_key), str(block_count)])
+    block_key = datastore.Key.from_path(
+      _BLOB_CHUNK_KIND_, block_key, namespace='')
+
+    try:
+      block = datastore.Get(block_key)
+    except datastore_errors.EntityNotFoundError:
+      # If this is the first block, the blob does not exist.
+      if block_count == 0:
+        raise apiproxy_errors.ApplicationError(
+           blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
+
+      # If the first block exists, the index is just past the last block.
+      first_block_key = datastore.Key.from_path(
+        _BLOB_CHUNK_KIND_, '__'.join([str(blob_key), '0']), namespace='')
+      try:
+        datastore.Get(first_block_key)
+      except datastore_errors.EntityNotFoundError:
+        raise apiproxy_errors.ApplicationError(
+           blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
+
+      return ''
+
+    data = block['block'][block_modulo:]
+
+    # Matching boundaries, start and end are within one fetch
+    if block_count_end == block_count:
+      return data[:fetch_size]
+
+    # Must fetch the next block
+    block_key = '__'.join([str(blob_key), str(block_count + 1)])
+    block_key = datastore.Key.from_path(
+      _BLOB_CHUNK_KIND_, block_key, namespace='')
+
+    try:
+      block = datastore.Get(block_key)
+      data += block['block']
+    except datastore_errors.EntityNotFoundError:
+      # If the second block is not found, assume the first block was the final
+      # block.
+      pass
+
+    return data[:fetch_size]
+
+  def _BlobReader__fill_buffer(self, size=0):
+    """Fills the internal buffer.
+
+    Args:
+      size: Number of bytes to read. Will be clamped to
+        [self.__buffer_size, MAX_BLOB_FETCH_SIZE].
+    """
+    read_size = min(max(size, self._BlobReader__buffer_size),
+                    MAX_BLOB_FETCH_SIZE)
+
+    self._BlobReader__buffer = self._fetch_data(
+      self._BlobReader__blob_key, self._BlobReader__position,
+      self._BlobReader__position + read_size - 1)
+    self._BlobReader__buffer_position = 0
+    self._BlobReader__eof = len(self._BlobReader__buffer) < read_size
+
 
 class DatastoreBlobStorage(blobstore_stub.BlobStorage):
   """Storage mechanism for storing blob data in datastore."""
@@ -76,7 +162,7 @@ class DatastoreBlobStorage(blobstore_stub.BlobStorage):
       block = blob_stream.read(blobstore.MAX_BLOB_FETCH_SIZE)
       if not block:
         break
-      entity = datastore.Entity(_BLOB_CHUNK_KIND_, 
+      entity = datastore.Entity(_BLOB_CHUNK_KIND_,
                                 name=str(blob_key_object) + "__" + str(block_count), 
                                 namespace='')
       entity.update({'block': datastore_types.Blob(block)})
@@ -92,36 +178,27 @@ class DatastoreBlobStorage(blobstore_stub.BlobStorage):
     Returns:
       Open file stream for reading blob from the datastore.
     """
-    return BlobReader(blob_key, blobstore.MAX_BLOB_FETCH_SIZE, 0)
+    return DatastoreBlobReader(blob_key, blobstore.MAX_BLOB_FETCH_SIZE, 0)
 
+  @datastore.NonTransactional
   def DeleteBlob(self, blob_key):
     """Delete blob data from the datastore.
 
     Args:
       blob_key: Blob-key of existing blob to delete.
     Raises:
-      ApplicationError: When a blob is not found or unable to be read.  
+      ApplicationError: When there is a datastore issue when deleting a blob.
     """
-    blob_info_key = datastore.Key.from_path(blobstore.BLOB_INFO_KIND,
-                                            str(blob_key),
-                                            namespace='')
-    try:
-      blob_info = datastore.Get(blob_info_key)
-    except datastore_errors.EntityNotFoundError:
-      raise apiproxy_errors.ApplicationError(
-          blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
+    # Discover all the keys associated with the blob.
+    start_key_name = ''.join([str(blob_key), '__'])
+    # The chunk key suffixes are all digits, so 'a' is past them.
+    end_key_name = ''.join([start_key_name, 'a'])
+    start_key = datastore.Key.from_path(_BLOB_CHUNK_KIND_, start_key_name,
+                                        namespace='')
+    end_key = datastore.Key.from_path(_BLOB_CHUNK_KIND_, end_key_name,
+                                      namespace='')
+    filters = {'__key__ >': start_key, '__key__ <': end_key}
+    query = datastore.Query(filters=filters, keys_only=True)
 
-    block_count = blob_info["size"]/blobstore.MAX_BLOB_FETCH_SIZE
-    block_set = []
-    try:
-      while block_count >= 0:
-        entity = datastore.Entity(_BLOB_CHUNK_KIND_, 
-                                  name=str(blob_key) + "__" + str(block_count),
-                                  namespace='')
-        block_set.append(entity) 
-        block_count -= 1
-      datastore.Delete(block_set)
-      datastore.Delete(blob_info_key)
-    except:
-      raise apiproxy_errors.ApplicationError(
-          blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
+    keys = list(query.Run())
+    datastore.Delete(keys)

@@ -1,4 +1,5 @@
 from __future__ import division
+import argparse
 import logging
 import os
 
@@ -14,27 +15,7 @@ from ..cassandra_env.cassandra_interface import KEYSPACE
 # The percentage difference allowed between an actual and ideal load.
 MAX_DRIFT = .3
 
-
-class InvalidUnits(Exception):
-  """ Indicates an unexpected units value. """
-  pass
-
-
-def load_bytes(value, units):
-  """ Convert a human-friendly size to bytes.
-
-  Args:
-    value: A float containing a size.
-    units: A string specifying the units.
-  Returns:
-    An integer representing the number of bytes.
-  Raises:
-    InvalidUnits if the units string is not recognized.
-  """
-  magnitudes = {'KiB': 1, 'MiB': 2, 'GiB': 3, 'TiB': 4}
-  if units not in magnitudes:
-    raise InvalidUnits('{} not a recognized unit'.format(units))
-  return int(value * 1024 ** magnitudes[units])
+logger = logging.getLogger(__name__)
 
 
 def get_status():
@@ -57,42 +38,70 @@ def get_status():
   return nodes
 
 
-def get_ring():
-  """ Return the ring status in a structured way.
+def get_gossip():
+  """ Return the cluster gossip in a structured way.
 
   Returns:
     A list of nodes represented by dictionaries.
   """
-  ring_output = check_output([NODE_TOOL, 'ring', KEYSPACE])
-  ring = []
-  index = 0
-  for line in ring_output.splitlines():
-    fields = line.split()
-    if len(fields) != 8:
-      continue
+  nodes = []
+  current_node = None
+  for line in check_output([NODE_TOOL, 'gossipinfo']).splitlines():
+    if line.startswith('/'):
+      if current_node is not None:
+        nodes.append(current_node)
 
-    ring.append({
-      'index': index,
-      'ip': fields[0],
-      'status': fields[2],
-      'state': fields[3],
-      'load': load_bytes(float(fields[4]), fields[5]),
-      'token': fields[7]
-    })
-    index += 1
+      current_node = {'ip': line.strip()[1:]}
 
-  assert len(ring) > 0
+    if line.strip().startswith('STATUS'):
+      current_node['ready'] = 'NORMAL' in line
+      current_node['token'] = line.split(',')[-1]
+
+    if line.strip().startswith('LOAD'):
+      current_node['load'] = float(line.split(':')[-1])
+
+  if current_node is not None:
+    nodes.append(current_node)
+
+  if not nodes:
+    raise Exception('Unable to collect gossip for any nodes')
+
+  required_fields = ['ip', 'ready', 'load', 'token']
+  for node in nodes:
+    for required_field in required_fields:
+      if required_field not in node:
+        raise Exception('Unable to parse all fields for {}'.format(node))
+
+  return nodes
+
+
+def get_ring(gossip):
+  """ Return the ring status in a structured way.
+
+  Args:
+    gossip: A list of gossip info for each node.
+
+  Returns:
+    A list of nodes represented by dictionaries.
+  """
+  nodes = sorted(gossip, key=lambda node: node['token'])
+  for index, node in enumerate(nodes):
+    node['index'] = index
+
+  if not nodes:
+    raise Exception('Unable to find nodes in ring')
 
   # Calculate skew and diff for each node in ring.
-  ideal_load = sum(node['load'] for node in ring) / len(ring)
-  for index, node in enumerate(ring):
+  ideal_load = sum(node['load'] for node in nodes) / len(nodes)
+  for index, node in enumerate(nodes):
     try:
       node['skew'] = abs(node['load'] - ideal_load) / ideal_load
     except ZeroDivisionError:
       node['skew'] = 0
-    node['diff'] = abs(node['load'] - ring[index - 1]['load'])
 
-  return ring
+    node['diff'] = abs(node['load'] - nodes[index - 1]['load'])
+
+  return nodes
 
 
 def equalize(node1, node2):
@@ -108,7 +117,7 @@ def equalize(node1, node2):
   to_move = abs(node1['load'] - node2['load']) / 2
   mb_to_move = round(to_move / 1024 ** 2, 2)
   if node1['load'] > node2['load']:
-    logging.info('Moving {} MiB from {} to {}'.format(
+    logger.info('Moving {} MiB from {} to {}'.format(
       mb_to_move, node1['ip'], node2['ip']))
     percentile = 100 - int((to_move / node1['load']) * 100)
     new_token = ssh(node1['ip'], keyname,
@@ -117,7 +126,7 @@ def equalize(node1, node2):
     repair = [new_token, node1['token']]
     cleanup_ip = node1['ip']
   else:
-    logging.info('Moving {} MiB from {} to {}'.format(
+    logger.info('Moving {} MiB from {} to {}'.format(
       mb_to_move, node2['ip'], node1['ip']))
     percentile = int((to_move / node2['load']) * 100)
     new_token = ssh(node2['ip'], keyname,
@@ -126,36 +135,51 @@ def equalize(node1, node2):
     repair = [node1['token'], new_token]
     cleanup_ip = node2['ip']
 
-  logging.info('Moving {} to {}'.format(node1['ip'], new_token[:60] + '...'))
+  logger.info('Moving {} to {}'.format(node1['ip'], new_token[:60] + '...'))
   ssh(node1['ip'], keyname, '{} move {}'.format(NODE_TOOL, new_token))
 
   start = repair[0][:60] + '...'
   end = repair[1][:60] + '...'
-  logging.info('Repairing {} to {}'.format(start, end))
+  logger.info('Repairing {} to {}'.format(start, end))
   check_output([NODE_TOOL, 'repair', '-st', repair[0], '-et', repair[1]])
 
-  logging.info('Cleaning up {}'.format(cleanup_ip))
+  logger.info('Cleaning up {}'.format(cleanup_ip))
   ssh(cleanup_ip, keyname, '{} cleanup'.format(NODE_TOOL))
 
 
 def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-  logging.info('Fetching status')
-  status = get_status()
 
-  # All nodes must have just one token.
-  assert {node['tokens'] for node in status} == {1}
+  parser = argparse.ArgumentParser()
+  parser.add_argument(
+    '--skip-tokens-check', action='store_true',
+    help='Assume that all nodes own one token')
+  parser.add_argument(
+    '--skip-ownership-check', action='store_true',
+    help='Assume that the node count exceeds the replication factor')
+  args = parser.parse_args()
 
-  # There must be more than one node up to balance.
-  assert len([node for node in status if node['state'] == 'UN']) > 1
+  if not args.skip_tokens_check or not args.skip_ownership_check:
+    logger.info('Fetching status')
+    status = get_status()
 
-  # If all nodes own everything, a rebalance is not possible.
-  assert {node['owns'] for node in status} != {float(100)}
+    if (not args.skip_tokens_check and
+        any(node['tokens'] != 1 for node in status)):
+      raise Exception('All nodes must have exactly one token')
 
-  logging.info('Fetching ring')
-  ring = get_ring()
+    if (not args.skip_ownership_check and
+        any(node['owns'] != float(100) for node in status)):
+      raise Exception('All nodes already own every key')
+
+  logger.info('Fetching gossip')
+  gossip = get_gossip()
+
+  if sum(node['ready'] for node in gossip) <= 1:
+    raise Exception('There must be more than one node up to balance')
+
+  ring = get_ring(gossip)
   if max(node['skew'] for node in ring) < MAX_DRIFT:
-    logging.info('All nodes within {}% of ideal load'.format(MAX_DRIFT * 100))
+    logger.info('All nodes within {}% of ideal load'.format(MAX_DRIFT * 100))
     return
 
   # Pick two neighboring nodes with the largest difference in load. If the

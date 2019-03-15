@@ -46,13 +46,13 @@ class OperationTimeout(Exception):
   pass
 
 
-class InvalidConfiguration(Exception):
-  """ Indicates that a given configuration cannot be enforced. """
+class InvalidSource(Exception):
+  """ Indicates that a revision's source code is invalid. """
   pass
 
 
-class InvalidSource(Exception):
-  """ Indicates that a revision's source code is invalid. """
+class VersionNotChanged(Exception):
+  """ Indicates that the version node was not updated. """
   pass
 
 
@@ -73,6 +73,9 @@ class Types(object):
 # The parent directory for source code extraction.
 UNPACK_ROOT = os.path.join('/', 'var', 'apps')
 
+# The ZooKeeper node that keeps track of the head node's state.
+CONTROLLER_STATE_NODE = '/appcontroller/state'
+
 # The default port for the AdminServer.
 DEFAULT_PORT = 17442
 
@@ -83,7 +86,7 @@ DEFAULT_VERSION = 'v1'
 DEFAULT_SERVICE = 'default'
 
 # The number of seconds to wait before giving up on an operation.
-MAX_OPERATION_TIME = 100
+MAX_OPERATION_TIME = 120
 
 # Supported runtimes.
 VALID_RUNTIMES = {PYTHON27, JAVA, GO, PHP}
@@ -98,7 +101,8 @@ IMMUTABLE_PROJECTS = [DASHBOARD_APP_ID]
 SOURCES_DIRECTORY = os.path.join('/', 'opt', 'appscale', 'apps')
 
 # The inbound services that are supported.
-SUPPORTED_INBOUND_SERVICES = ('INBOUND_SERVICE_XMPP_MESSAGE',
+SUPPORTED_INBOUND_SERVICES = ('INBOUND_SERVICE_WARMUP',
+                              'INBOUND_SERVICE_XMPP_MESSAGE',
                               'INBOUND_SERVICE_XMPP_SUBSCRIBE',
                               'INBOUND_SERVICE_XMPP_PRESENCE')
 

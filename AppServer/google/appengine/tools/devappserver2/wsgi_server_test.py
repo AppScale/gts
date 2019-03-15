@@ -88,7 +88,7 @@ class SharedCherryPyThreadPoolTest(unittest.TestCase):
   def setUp(self):
     self.mox = mox.Mox()
     self.mox.StubOutWithMock(wsgi_server._THREAD_POOL, 'submit')
-    self.thread_pool = wsgi_server.SharedCherryPyThreadPool()
+    self.thread_pool = wsgi_server._SharedCherryPyThreadPool()
 
   def tearDown(self):
     self.mox.UnsetStubs()
@@ -351,6 +351,27 @@ class WsgiServerStartupTest(unittest.TestCase):
     self.assertRaises(wsgi_server.BindError, self.server.start)
     self.mox.VerifyAll()
 
+  def test_remove_duplicates(self):
+    foo_server = self.mox.CreateMock(wsgi_server._SingleAddressWsgiServer)
+    foo2_server = self.mox.CreateMock(wsgi_server._SingleAddressWsgiServer)
+    self.mox.StubOutWithMock(wsgi_server, '_SingleAddressWsgiServer')
+    self.mox.StubOutWithMock(socket, 'getaddrinfo')
+    socket.getaddrinfo('localhost', 123, socket.AF_UNSPEC, socket.SOCK_STREAM,
+                       0, socket.AI_PASSIVE).AndReturn(
+                           [(0, 0, 0, '', ('127.0.0.1', 123)),
+                            (0, 0, 0, '', ('::1', 123, 0, 0)),
+                            (0, 0, 0, '', ('127.0.0.1', 123))])
+    wsgi_server._SingleAddressWsgiServer(('127.0.0.1', 123), None).AndReturn(
+        foo_server)
+    foo_server.start()
+    wsgi_server._SingleAddressWsgiServer(('::1', 123), None).AndReturn(
+        foo2_server)
+    foo2_server.start()
+
+    self.mox.ReplayAll()
+    self.server.start()
+    self.mox.VerifyAll()
+
   def test_quit(self):
     running_server = self.mox.CreateMock(
         wsgi_server._SingleAddressWsgiServer)
@@ -516,7 +537,7 @@ class _SingleAddressWsgiServerStartupTest(unittest.TestCase):
     self.mox.StubOutWithMock(wsgi_server._SELECT_THREAD, 'remove_socket')
     self.server.socket = object()
     self.server.requests = self.mox.CreateMock(
-        wsgi_server.SharedCherryPyThreadPool)
+        wsgi_server._SharedCherryPyThreadPool)
     wsgi_server._SELECT_THREAD.remove_socket(self.server.socket)
     self.server.requests.stop(timeout=1)
     self.mox.ReplayAll()

@@ -19,6 +19,8 @@ from appscale.datastore.zkappscale import zktransaction as zk
 # The location to look at in order to verify that an app is deployed.
 _SOURCE_LOCATION = '/opt/appscale/apps/'
 
+logger = logging.getLogger(__name__)
+
 
 class DatastoreBackup(multiprocessing.Process):
   """ Backs up all the entities for a set application ID. """
@@ -96,29 +98,29 @@ class DatastoreBackup(multiprocessing.Process):
         self.app_id, self.backup_timestamp)
       try:
         os.makedirs(self.backup_dir)
-        logging.info("Backup dir created: {0}".format(self.backup_dir))
+        logger.info("Backup dir created: {0}".format(self.backup_dir))
       except OSError, os_error:
         if os_error.errno == errno.EEXIST:
-          logging.warn("OSError: Backup directory already exists.")
-          logging.error(os_error.message)
+          logger.warn("OSError: Backup directory already exists.")
+          logger.error(os_error.message)
         elif os_error.errno == errno.ENOSPC:
-          logging.error("OSError: No space left to create backup directory.")
-          logging.error(os_error.message)
+          logger.error("OSError: No space left to create backup directory.")
+          logger.error(os_error.message)
           return False
         elif os_error.errno == errno.EROFS:
-          logging.error("OSError: READ-ONLY filesystem detected.")
-          logging.error(os_error.message)
+          logger.error("OSError: READ-ONLY filesystem detected.")
+          logger.error(os_error.message)
           return False
       except IOError, io_error:
-        logging.error("IOError while creating backup dir.")
-        logging.error(io_error.message)
+        logger.error("IOError while creating backup dir.")
+        logger.error(io_error.message)
         return False
 
     file_name = '{0}-{1}-{2}{3}'.format(self.app_id, self.backup_timestamp,
       self.current_fileno, self.BACKUP_FILE_SUFFIX)
     self.filename = '{0}{1}'.format(self.backup_dir, file_name)
 
-    logging.info("Backup file: {0}".format(self.filename))
+    logger.info("Backup file: {0}".format(self.filename))
 
     return True
 
@@ -130,19 +132,19 @@ class DatastoreBackup(multiprocessing.Process):
     if os.path.isfile(sourcefile):
       try:
         shutil.copy(sourcefile, self.backup_dir)
-        logging.info("Source code has been successfully backed up.")
+        logger.info("Source code has been successfully backed up.")
       except shutil.Error, error:
-        logging.error("Error: {0} while backing up source code. Skipping...".\
+        logger.error("Error: {0} while backing up source code. Skipping...".\
           format(error))
     else:
-      logging.error("Couldn't find the source code for this app. Skipping...")
+      logger.error("Couldn't find the source code for this app. Skipping...")
 
   def run(self):
     """ Starts the main loop of the backup thread. """
     while True:
-      logging.debug("Trying to get backup lock.")
+      logger.debug("Trying to get backup lock.")
       if self.get_backup_lock():
-        logging.info("Got the backup lock.")
+        logger.info("Got the backup lock.")
 
         self.db_access = appscale_datastore_batch.DatastoreFactory.\
           getDatastore(self.table)
@@ -154,11 +156,11 @@ class DatastoreBackup(multiprocessing.Process):
         try:
           self.zoo_keeper.release_lock_with_path(zk.DS_BACKUP_LOCK_PATH)
         except zk.ZKTransactionException, zk_exception:
-          logging.error("Unable to release zk lock {0}.".\
+          logger.error("Unable to release zk lock {0}.".\
             format(str(zk_exception)))
         break
       else:
-        logging.info("Did not get the backup lock. Another instance may be "
+        logger.info("Did not get the backup lock. Another instance may be "
           "running.")
         time.sleep(random.randint(1, self.LOCK_POLL_PERIOD))
 
@@ -180,12 +182,12 @@ class DatastoreBackup(multiprocessing.Process):
     Returns:
       A list of entities.
     """
-    batch =  self.db_access.range_query(dbconstants.APP_ENTITY_TABLE,
-      dbconstants.APP_ENTITY_SCHEMA, first_key, self.last_key,
-      batch_size, start_inclusive=start_inclusive)
+    batch =  self.db_access.range_query_sync(
+      dbconstants.APP_ENTITY_TABLE, dbconstants.APP_ENTITY_SCHEMA,
+      first_key, self.last_key, batch_size, start_inclusive=start_inclusive)
 
     if batch:
-      logging.debug("Retrieved entities from {0} to {1}".
+      logger.debug("Retrieved entities from {0} to {1}".
         format(batch[0].keys()[0], batch[-1].keys()[0]))
 
     return batch
@@ -211,22 +213,22 @@ class DatastoreBackup(multiprocessing.Process):
       self.entities_backed_up += 1
       self.current_file_size += len(entity)
     except IOError as io_error:
-      logging.error(
+      logger.error(
         "Encountered IOError while accessing backup file {0}".
         format(self.filename))
-      logging.error(io_error.message)
+      logger.error(io_error.message)
       return False
     except OSError as os_error:
-      logging.error(
+      logger.error(
         "Encountered OSError while accessing backup file {0}".
         format(self.filename))
-      logging.error(os_error.message)
+      logger.error(os_error.message)
       return False
     except Exception as exception:
-      logging.error(
+      logger.error(
         "Encountered an unexpected error while accessing backup file {0}".
         format(self.filename))
-      logging.error(exception.message)
+      logger.error(exception.message)
       return False
 
     return True
@@ -248,7 +250,7 @@ class DatastoreBackup(multiprocessing.Process):
       # Do not skip blob entities.
       if not re.match(self.BLOB_CHUNK_REGEX, kind) and\
           not re.match(self.BLOB_INFO_REGEX, kind):
-        logging.debug("Skipping key: {0}".format(key))
+        logger.debug("Skipping key: {0}".format(key))
         return False
 
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
@@ -259,13 +261,13 @@ class DatastoreBackup(multiprocessing.Process):
     while True:
       try:
         if self.dump_entity(one_entity):
-          logging.debug("Backed up key: {0}".format(key))
+          logger.debug("Backed up key: {0}".format(key))
           success = True
         else:
           success = False
       finally:
         if not success:
-          logging.error("Failed to backup entity. Retrying shortly...")
+          logger.error("Failed to backup entity. Retrying shortly...")
 
       if success:
         break
@@ -278,7 +280,7 @@ class DatastoreBackup(multiprocessing.Process):
     """ Runs the backup process. Loops on the entire dataset and dumps it into
     a file.
     """
-    logging.info("Backup started")
+    logger.info("Backup started")
     start = time.time()
 
     first_key = '{0}\x00'.format(self.app_id)
@@ -289,7 +291,7 @@ class DatastoreBackup(multiprocessing.Process):
         # Fetch batch.
         entities = entities_remaining + self.get_entity_batch(first_key,
           self.BATCH_SIZE, start_inclusive)
-        logging.info("Processing {0} entities".format(self.BATCH_SIZE))
+        logger.info("Processing {0} entities".format(self.BATCH_SIZE))
 
         if not entities:
           break
@@ -299,17 +301,17 @@ class DatastoreBackup(multiprocessing.Process):
         for entity in entities:
           first_key = entity.keys()[0]
           kind = entity_utils.get_kind_from_entity_key(first_key)
-          logging.debug("Processing key: {0}".format(first_key))
+          logger.debug("Processing key: {0}".format(first_key))
 
           index = 1
           for skip_kind in self.skip_kinds:
             if re.match(skip_kind, kind):
-              logging.warn("Skipping entities of kind: {0}".format(skip_kind))
+              logger.warn("Skipping entities of kind: {0}".format(skip_kind))
 
               skip = True
               first_key = first_key[:first_key.find(skip_kind)+
                  len(skip_kind)+1] + dbconstants.TERMINATING_STRING
- 
+
               self.skip_kinds = self.skip_kinds[index:]
               break
             index += 1
@@ -321,11 +323,11 @@ class DatastoreBackup(multiprocessing.Process):
           first_key = entities[-1].keys()[0]
         start_inclusive = False
       except dbconstants.AppScaleDBConnectionError, connection_error:
-        logging.error("Error getting a batch: {0}".format(connection_error))
+        logger.error("Error getting a batch: {0}".format(connection_error))
         time.sleep(self.DB_ERROR_PERIOD)
 
     del self.db_access
 
     time_taken = time.time() - start
-    logging.info("Backed up {0} entities".format(self.entities_backed_up))
-    logging.info("Backup took {0} seconds".format(str(time_taken)))
+    logger.info("Backed up {0} entities".format(self.entities_backed_up))
+    logger.info("Backup took {0} seconds".format(str(time_taken)))

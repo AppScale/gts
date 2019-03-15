@@ -134,7 +134,8 @@ MODULE_VERSION_ID_RE_STRING = (r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' %
                                (MODULE_VERSION_ID_MAX_LEN - 1))
 
 _IDLE_INSTANCES_REGEX = r'^([\d]+|automatic)$'
-_INSTANCES_REGEX = r'^[\d]+$'
+
+_INSTANCES_REGEX = r'^[1-9][\d]*$'
 _INSTANCE_CLASS_REGEX = r'^([fF](1|2|4|4_1G)|[bB](1|2|4|8|4_1G))$'
 
 _CONCURRENT_REQUESTS_REGEX = r'^([1-9]\d*)$'
@@ -211,6 +212,7 @@ APPLICATION_READABLE = 'application_readable'
 
 APPLICATION = 'application'
 MODULE = 'module'
+SERVICE = 'service'
 AUTOMATIC_SCALING = 'automatic_scaling'
 MANUAL_SCALING = 'manual_scaling'
 BASIC_SCALING = 'basic_scaling'
@@ -250,6 +252,10 @@ MAXIMUM_PENDING_LATENCY = 'max_pending_latency'
 MINIMUM_IDLE_INSTANCES = 'min_idle_instances'
 MAXIMUM_IDLE_INSTANCES = 'max_idle_instances'
 MAXIMUM_CONCURRENT_REQUEST = 'max_concurrent_requests'
+
+# AppScale supported standard scaling configuration
+MINIMUM_INSTANCES = 'min_instances'
+MAXIMUM_INSTANCES = 'max_instances'
 
 
 INSTANCES = 'instances'
@@ -333,7 +339,9 @@ _SUPPORTED_LIBRARIES = [
         'lxml',
         'http://lxml.de/',
         'A Pythonic binding for the C libraries libxml2 and libxslt.',
-        ['2.3']),
+        ['2.3', '2.3.5'],
+        experimental_versions=['2.3.5'],
+        ),
     _VersionedLibrary(
         'markupsafe',
         'http://pypi.python.org/pypi/MarkupSafe',
@@ -1222,6 +1230,8 @@ class AutomaticScaling(validation.Validated):
   ATTRIBUTES = {
       MINIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
       MAXIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
+      MINIMUM_INSTANCES: validation.Optional(_INSTANCES_REGEX),
+      MAXIMUM_INSTANCES: validation.Optional(_INSTANCES_REGEX),
       MINIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
       MAXIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
       MAXIMUM_CONCURRENT_REQUEST: validation.Optional(
@@ -1501,8 +1511,10 @@ class AppInfoExternal(validation.Validated):
   ATTRIBUTES = {
 
 
-      APPLICATION: APPLICATION_RE_STRING,
+      APPLICATION: validation.Optional(APPLICATION_RE_STRING),
       MODULE: validation.Optional(MODULE_ID_RE_STRING),
+
+      SERVICE: validation.Optional(MODULE_ID_RE_STRING),
       VERSION: validation.Optional(MODULE_VERSION_ID_RE_STRING),
       RUNTIME: RUNTIME_RE_STRING,
 
@@ -1559,6 +1571,7 @@ class AppInfoExternal(validation.Validated):
       - If the runtime is python27 and threadsafe is set, then no CGI handlers
         can be used.
       - That the version name doesn't start with BUILTIN_NAME_PREFIX
+      - That module and service aren't both set
 
     Raises:
       DuplicateLibrary: if the name library name is specified more than once.
@@ -1570,6 +1583,7 @@ class AppInfoExternal(validation.Validated):
           and CGI handlers are specified.
       TooManyScalingSettingsError: if more than one scaling settings block is
           present.
+      ModuleAndServiceDefined: if both 'module' and 'service' keywords are used.
     """
     super(AppInfoExternal, self).CheckInitialized()
     if not self.handlers and not self.builtins and not self.includes:
@@ -1579,6 +1593,9 @@ class AppInfoExternal(validation.Validated):
       raise appinfo_errors.TooManyURLMappings(
           'Found more than %d URLMap entries in application configuration' %
           MAX_URL_MAPS)
+    if self.service and self.module:
+      raise appinfo_errors.ModuleAndServiceDefined(
+          'Cannot define both "module" and "service" in configuration')
 
     if (self.threadsafe is None and
         self.runtime == 'python27' and

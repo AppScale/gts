@@ -28,7 +28,9 @@ Homepage: https://github.com/AppScale/appscale
 Package: appscale-core
 Architecture: any
 Depends: appscale-tools,
+         autoconf,
          bzip2,
+         cgroup-tools,
          cron,
          curl,
          dnsutils,
@@ -44,6 +46,7 @@ Depends: appscale-tools,
          libpcre++-dev,
          libprotobuf-java,
          libssl-dev,
+         libtool,
          libxml2-dev,
          libxslt-dev,
          lsb-release,
@@ -65,6 +68,7 @@ Depends: appscale-tools,
          python-lxml,
          python-m2crypto,
          python-memcache,
+         python-mysqldb,
          python-numpy,
          python-openssl,
          python-pika,
@@ -94,6 +98,7 @@ Depends: appscale-tools,
          zookeeper-bin,
          zookeeperd
 Conflicts: apache2-utils,
-           python-protobuf
+           python-protobuf,
+           sshguard
 Description: An open-source implementation of Google App Engine
 

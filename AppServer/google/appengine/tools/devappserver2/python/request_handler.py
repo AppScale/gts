@@ -33,6 +33,7 @@ import google
 
 from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub_map
+from google.appengine.api import appinfo
 from google.appengine.api.logservice import log_service_pb
 from google.appengine.api.logservice import logservice
 from google.appengine.ext.remote_api import remote_api_stub
@@ -51,9 +52,16 @@ class RequestHandler(object):
 
   def __init__(self, config):
     self.config = config
+    if appinfo.MODULE_SEPARATOR not in config.version_id:
+      module_id = appinfo.DEFAULT_MODULE
+      version_id = config.version_id
+    else:
+      module_id, version_id = config.version_id.split(appinfo.MODULE_SEPARATOR)
+
     self.environ_template = {
         'APPLICATION_ID': config.app_id,
-        'CURRENT_VERSION_ID': config.version_id,
+        'CURRENT_MODULE_ID': module_id,
+        'CURRENT_VERSION_ID': version_id,
         'DATACENTER': config.datacenter.encode('ascii'),
         'INSTANCE_ID': config.instance_id.encode('ascii'),
         'APPENGINE_RUNTIME': 'python27',

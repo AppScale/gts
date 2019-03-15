@@ -94,7 +94,7 @@ module Search
   # Stops the AppScale search server.
   def self.stop_search_server
     Djinn.log_debug('Stopping search_server on this node.')
-    MonitInterface.stop(:search)
+    MonitInterface.stop(:search) if MonitInterface.is_running?(:search)
     Djinn.log_debug('Done stopping search_server on this node.')
   end
 

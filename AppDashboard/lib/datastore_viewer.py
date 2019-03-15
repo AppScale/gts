@@ -10,6 +10,7 @@ from google.appengine.api import datastore
 from google.appengine.api import memcache
 from google.appengine.api.datastore_distributed import DatastoreDistributed
 from google.appengine.datastore import datastore_pb
+from google.appengine.ext import gql
 from google.appengine.tools.devappserver2.admin.datastore_viewer import (
   DataType)
 
@@ -175,16 +176,15 @@ class DatastoreViewerPage(AppDashboard):
       project_id: A string specifying a project ID.
     """
     if self.helper.is_user_cloud_admin():
-      version_keys = self.helper.get_application_info().keys()
+      version_keys = self.helper.get_version_info().keys()
       owned_projects = [version.split('_')[0] for version in version_keys]
     else:
       owned_projects = self.helper.get_owned_apps()
 
     if project_id not in owned_projects:
-      self.response.set_status(403)
       self.response.write(
         'You do not have permission to view data for {}.'.format(project_id))
-      return
+      self.abort(403)
 
 
 class DatastoreViewerSelector(AppDashboard):
@@ -194,7 +194,7 @@ class DatastoreViewerSelector(AppDashboard):
   def get(self):
     """ Presents a list of projects to view data for. """
     if self.helper.is_user_cloud_admin():
-      version_keys = self.helper.get_application_info().keys()
+      version_keys = self.helper.get_version_info().keys()
       owned_projects = [version.split('_')[0] for version in version_keys
                         if version.split('_')[0] != self.PROJECT_ID]
     else:
@@ -292,24 +292,18 @@ class DatastoreViewer(DatastoreViewerPage):
                           urllib.urlencode(sorted(params.iteritems()))))
 
   @classmethod
-  def _get_entity_template_data(cls, ds_access, request_uri, kind, namespace,
-                                order, start):
+  def _format_entity_template_data(cls, ds_access, request_uri, entities,
+                                   total_entities):
     """ Fetches template variables for datastore viewer page for a given kind.
 
     Args:
       ds_access: A DatastoreDistributed client.
       request_uri: A string specifying the current request location.
-      kind: A string specifying the entity kind.
-      namespace: A string specifying the datastore namespace.
-      order: A string containing the name of the property to sorted the results
-        by. A "-" prefix indicates descending order e.g. "-age".
-      start: The number of initial entities to skip in the result set.
+      entities: A list of datastore.Entity objects.
+      total_entities: An integer specifying the total number of entities.
     Returns:
       A tuple containing headers, entities, and total entity count.
     """
-    entities, total_entities = _get_entities(
-      ds_access, kind, namespace, order, start, cls.NUM_ENTITIES_PER_PAGE)
-
     prop_names = sorted({prop for entity in entities for prop in entity})
 
     headers = [{'name': property_name}
@@ -416,12 +410,13 @@ class DatastoreViewer(DatastoreViewerPage):
     self.ensure_user_has_admin(project_id)
 
     ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                     require_indexes=False, trusted=True)
+                                     trusted=True)
 
     kind = self.request.get('kind', None)
     namespace = self.request.get('namespace', '')
     order = self.request.get('order', None)
     message = self.request.get('message', None)
+    gql_string = self.request.get('gql', None)
 
     try:
       page = int(self.request.get('page', '1'))
@@ -429,29 +424,59 @@ class DatastoreViewer(DatastoreViewerPage):
       page = 1
 
     kinds = self._get_kinds(ds_access, namespace)
-    if not kind and kinds:
-      self.redirect(self._construct_url(add={'kind': kinds[0]}))
-      return
 
-    if kind:
-      start = (page-1) * self.NUM_ENTITIES_PER_PAGE
+    if gql_string is not None:
+      start = (page - 1) * self.NUM_ENTITIES_PER_PAGE
+
+      total_entities = 0
+      entities = []
+      try:
+        gql_query = gql.GQL(gql_string, _app=project_id, namespace=namespace)
+        kind = gql_query.kind()
+        query = gql_query.Bind([], {})
+
+        total_entities = query.Count()
+        entities = list(
+          query.Run(limit=self.NUM_ENTITIES_PER_PAGE, offset=start))
+      except datastore.datastore_errors.NeedIndexError as error:
+        message = ('Error during GQL query: <pre>{}</pre> Note: Queries '
+                   'requiring a composite index are not yet supported by the '
+                   'AppScale datastore viewer.'.format(error))
+      except datastore.datastore_errors.Error as error:
+        message = 'Error during GQL query: <pre>{}</pre>'.format(error)
+
       headers, template_entities, total_entities = (
-          self._get_entity_template_data(ds_access, self.request.uri, kind,
-                                         namespace, order, start))
+        self._format_entity_template_data(ds_access, self.request.uri,
+                                          entities, total_entities))
       num_pages = int(math.ceil(float(total_entities) /
                                 self.NUM_ENTITIES_PER_PAGE))
     else:
-      start = 0
-      headers = []
-      template_entities = []
-      total_entities = 0
-      num_pages = 0
+      if not kind and kinds:
+        self.redirect(self._construct_url(add={'kind': kinds[0]}))
+        return
+
+      if kind:
+        start = (page-1) * self.NUM_ENTITIES_PER_PAGE
+        entities, total_entities = _get_entities(
+          ds_access, kind, namespace, order, start, self.NUM_ENTITIES_PER_PAGE)
+        headers, template_entities, total_entities = (
+          self._format_entity_template_data(ds_access, self.request.uri,
+                                            entities, total_entities))
+        num_pages = int(math.ceil(float(total_entities) /
+                                  self.NUM_ENTITIES_PER_PAGE))
+      else:
+        start = 0
+        headers = []
+        template_entities = []
+        total_entities = 0
+        num_pages = 0
 
     select_namespace_url = self._construct_url(
       remove=['message'],
       add={'namespace': self.request.get('namespace')})
     context = {
       'entities': template_entities,
+      'gql_string': gql_string,
       'headers': headers,
       'kind': kind,
       'kinds': kinds,
@@ -489,7 +514,7 @@ class DatastoreViewer(DatastoreViewerPage):
                                         add={'message': message}))
     elif self.request.get('action:delete_entities'):
       ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                       require_indexes=False, trusted=True)
+                                       trusted=True)
 
       entity_keys = [datastore.Key(key)
                      for key in self.request.params.getall('entity_key')]
@@ -515,7 +540,7 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
     self.ensure_user_has_admin(project_id)
 
     ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                     require_indexes=False, trusted=True)
+                                     trusted=True)
 
     if entity_key_string:
       entity_key = datastore.Key(entity_key_string)
@@ -588,7 +613,7 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
     self.ensure_user_has_admin(project_id)
 
     ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                     require_indexes=False, trusted=True)
+                                     trusted=True)
 
     if self.request.get('action:delete'):
       if entity_key_string:
@@ -605,7 +630,7 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
     else:
       kind = self.request.get('kind')
       namespace = self.request.get('namespace', None)
-      entity = datastore.Entity(kind, _namespace=namespace)
+      entity = datastore.Entity(kind, _namespace=namespace, _app=project_id)
 
     for arg_name in self.request.arguments():
       # Arguments are in <property_type>|<property_name>=<value> format.
@@ -622,13 +647,8 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
         # property was already empty.
         continue
 
-      if form_value:
-        # TODO: Handle parse exceptions.
-        entity[property_name] = data_type.parse(form_value)
-      elif property_name in entity:
-        # TODO: Treating empty input as deletion is a not a good
-        # interface.
-        del entity[property_name]
+      # TODO: Handle parse exceptions.
+      entity[property_name] = data_type.parse(form_value)
 
     _put_entity(ds_access, entity)
     redirect_url = self.request.get(

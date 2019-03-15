@@ -10,6 +10,7 @@ import unittest
 from appscale.datastore import appscale_datastore_batch
 from appscale.datastore import datastore_distributed
 from appscale.datastore.backup.datastore_restore import DatastoreRestore
+from appscale.datastore.index_manager import IndexManager
 from appscale.datastore.zkappscale.zktransaction import ZKTransactionException
 from appscale.datastore.zkappscale.transaction_manager import (
   TransactionManager)
@@ -32,7 +33,7 @@ class FakeDatastore(object):
     start_inclusive=True, end_inclusive=True):
     return []
 
-  def valid_data_version(self):
+  def valid_data_version_sync(self):
     return True
 
 
@@ -87,6 +88,7 @@ class TestRestore(unittest.TestCase):
     flexmock(datastore_distributed).should_receive(
       'DatastoreDistributed').and_return()
     flexmock(TransactionManager).should_receive('__new__')
+    flexmock(IndexManager).should_receive('__new__')
     fake_restore = flexmock(DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
@@ -129,8 +131,6 @@ class TestRestore(unittest.TestCase):
     fake_restore = flexmock(DatastoreRestore('app_id', 'backup/dir',
       zookeeper, "cassandra"))
 
-    flexmock(fake_restore.ds_distributed).should_receive(
-      'get_indices').and_return([])
     flexmock(glob).should_receive('glob').and_return(['some/file.backup'])
     fake_restore.should_receive('read_from_file_and_restore').and_return()
 

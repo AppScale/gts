@@ -8,19 +8,19 @@
                 <h1>{{ app_page_title }}</h1>
             </div><!--close header-->
         {% endif %}
-    {% set apps=apps_user_is_admin_on %}
+    {% set apps=apps_user_owns %}
         <!-- Build page from here: -->
         <div class="row-fluid">
-            <div class="well">
+          <div class="well">
+          {% if flash_message %}
+            <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+          {% endif %}
           {% if apps|length > 0 %}
-              {% if flash_message %}
-              <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
-              {% endif %}
                <form action="/apps/delete" method="post"><div style="margin:0;padding:0;display:inline">
               <p>
                 <select id="appname" name="appname">
-                {% for app_name in apps.keys()|sort  %}
-                    <option value="{{ app_name }}">{{ app_name }}</option>
+                {% for app in apps|sort  %}
+                    <option value="{{ app }}">{{ app }}</option>
                 {% endfor %}
                 </select>
               </p>

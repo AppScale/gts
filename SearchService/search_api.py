@@ -74,7 +74,7 @@ class SearchService():
     elif method == "Search":
       response, errcode, errdetail = self.search(http_request_data)
 
-    if response:
+    if response is not None:
       apiresponse.set_response(response)
 
     # If there was an error add it to the response.
@@ -94,7 +94,7 @@ class SearchService():
       A tuple of an encoded response, error code, and error detail.
     """
     request = search_service_pb.IndexDocumentRequest(data)
-    logging.debug("APP ID: {0}".format(request.app_id())) 
+    logging.debug("APP ID: {0}".format(request.app_id()))
     response = search_service_pb.IndexDocumentResponse()
     params = request.params()
 
@@ -152,9 +152,11 @@ class SearchService():
     Returns:
       A tuple of an encoded response, error code, and error detail.
     """
-    request = search_service_pb.ListIndexesRequest(data)
-    response = search_service_pb.ListIndexesResponse()
-    return response, 0, ""
+    return (
+      '',
+      search_service_pb.SearchServiceError.INTERNAL_ERROR,
+      "List indexes method is not implemented in AppScale SearchService yet"
+    )
   
   def list_documents(self, data):
     """ List all documents for an application.
@@ -164,12 +166,11 @@ class SearchService():
     Returns:
       A tuple of an encoded response, error code, and error detail.
     """
-    request = search_service_pb.ListDocumentsRequest(data)
-    response = search_service_pb.ListDocumentsResponse()
-    status = response.mutable_status()
-    status.set_code(
-      search_service_pb.SearchServiceError.OK)
-    return response, 0, ""
+    return (
+      '',
+      search_service_pb.SearchServiceError.INTERNAL_ERROR,
+      "List documents method is not implemented in AppScale SearchService yet"
+    )
 
   def search(self, data):
     """ Search within a document.
@@ -181,17 +182,28 @@ class SearchService():
     """
     request = search_service_pb.SearchRequest(data)
     logging.debug("Search request: {0}".format(request))
-    params = request.params()
     app_id = request.app_id()
+    # Extract params
+    params = request.params()
+    query = params.query()
+    projection_fields = params.field_spec().name_list()
+    sort_fields = [
+      (field.sort_expression(), 'desc' if field.sort_descending() else 'asc')
+      for field in params.sort_spec_list()
+    ]
+    limit = params.limit()
+    offset = params.offset()
     index_spec = params.index_spec()
     namespace = index_spec.namespace()
+    index_name = index_spec.name()
+    # Instantiate response to fill it below
     response = search_service_pb.SearchResponse()
     try:
-      index = self.solr_conn.get_index(app_id, index_spec.namespace(),
-        index_spec.name())
-      self.solr_conn.run_query(response, index, app_id, namespace,
-        request.params())
-    except search_exceptions.InternalError, internal_error:
+      self.solr_conn.run_query(
+        response, app_id, namespace, index_name, query, projection_fields,
+        sort_fields, limit, offset
+      )
+    except search_exceptions.InternalError as internal_error:
       logging.error("Exception while doing a search.")
       logging.exception(internal_error)
       status = response.mutable_status()

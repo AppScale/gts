@@ -504,7 +504,7 @@ module HelperFunctions
     # Normally we would scan for 'inet addr:', but in non-English locales,
     # 'addr' gets translated to the native language, which messes up that
     # regex.
-    bound_addrs = ifconfig.scan(/inet .*?:(\d+.\d+.\d+.\d+) /).flatten
+    bound_addrs = ifconfig.scan(/inet .*?(\d+.\d+.\d+.\d+) /).flatten
 
     Djinn.log_debug('ifconfig reports bound IP addresses as ' \
       "[#{bound_addrs.join(', ')}]")
@@ -858,18 +858,6 @@ module HelperFunctions
     return result
   end
 
-  def self.get_loaded_versions
-    version_keys = []
-    Dir["#{APPLICATIONS_DIR}/*"].each{ |revision_dir|
-      revision_key = File.basename(revision_dir)
-
-      # Ignore project directories.
-      next unless revision_key.include?(Djinn::VERSION_PATH_SEPARATOR)
-      version_keys << revision_key.rpartition(Djinn::VERSION_PATH_SEPARATOR)[0]
-    }
-    return version_keys
-  end
-
   # Retrieves the latest revision directory for a project.
   #
   # Args:
@@ -1002,17 +990,17 @@ module HelperFunctions
 
         handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
 
-        next unless copy_files
+        if copy_files
+          cache_static_dir_path = File.join(cache_path,handler["static_dir"])
+          FileUtils.mkdir_p cache_static_dir_path
 
-        cache_static_dir_path = File.join(cache_path,handler["static_dir"])
-        FileUtils.mkdir_p cache_static_dir_path
+          filenames = Dir.glob(File.join(untar_dir, handler["static_dir"],"*"))
 
-        filenames = Dir.glob(File.join(untar_dir, handler["static_dir"],"*"))
+          # Remove all files which match the skip file regex so they do not get copied
+          filenames.delete_if { |f| File.expand_path(f).match(skip_files_regex) }
 
-        # Remove all files which match the skip file regex so they do not get copied
-        filenames.delete_if { |f| File.expand_path(f).match(skip_files_regex) }
-
-        FileUtils.cp_r filenames, cache_static_dir_path
+          FileUtils.cp_r filenames, cache_static_dir_path
+        end
       elsif handler["static_files"]
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
@@ -1025,25 +1013,25 @@ module HelperFunctions
 
         handler["expiration"] = expires_duration(handler["expiration"]) || default_expiration
 
-        next unless copy_files
+        if copy_files
+          upload_regex = Regexp.new(handler["upload"])
 
-        upload_regex = Regexp.new(handler["upload"])
+          filenames = Dir.glob(File.join(untar_dir,"**","*"))
 
-        filenames = Dir.glob(File.join(untar_dir,"**","*"))
+          filenames.each do |filename|
+            relative_filename = get_relative_filename(filename, untar_dir)
 
-        filenames.each do |filename|
-          relative_filename = get_relative_filename(filename, untar_dir)
+            # Only include files that match the provided upload regular expression
+            next unless relative_filename.match(upload_regex)
 
-          # Only include files that match the provided upload regular expression
-          next unless relative_filename.match(upload_regex)
+            # Skip all files which match the skip file regex so they do not get copied
+            next if relative_filename.match(skip_files_regex)
 
-          # Skip all files which match the skip file regex so they do not get copied
-          next if relative_filename.match(skip_files_regex)
+            file_cache_path = File.join(cache_path, File.dirname(relative_filename))
+            FileUtils.mkdir_p file_cache_path unless File.exists?(file_cache_path)
 
-          file_cache_path = File.join(cache_path, File.dirname(relative_filename))
-          FileUtils.mkdir_p file_cache_path unless File.exists?(file_cache_path)
-
-          FileUtils.cp_r filename, File.join(file_cache_path,File.basename(filename))
+            FileUtils.cp_r filename, File.join(file_cache_path,File.basename(filename))
+          end
         end
       end
       handler
@@ -1126,10 +1114,7 @@ module HelperFunctions
     project_id, service_id, version_id = version_key.split(
       Djinn::VERSION_PATH_SEPARATOR)
 
-    secure_handlers = {
-        always:  [],
-        never:  []
-    }
+    secure_handlers = []
 
     begin
       version_details = ZKInterface.get_version_details(
@@ -1155,12 +1140,9 @@ module HelperFunctions
     handlers = tree['handlers']
 
     handlers.map! do |handler|
-      next unless handler.key?('secure')
-
-      if handler['secure'] == 'always'
-        secure_handlers[:always] << handler
-      elsif handler['secure'] == 'never'
-        secure_handlers[:never] << handler
+      if !handler.key?("static_dir") && !handler.key?("static_files")
+        handler['secure'] = 'non_secure' unless handler.key?('secure')
+        secure_handlers.push(handler)
       end
     end
     secure_handlers

@@ -1,17 +1,21 @@
 """ Handlers for implementing v1beta2 of the taskqueue REST API. """
 import json
 import re
+
 import tornado.escape
+from tornado import gen
+from tornado.web import MissingArgumentError, RequestHandler
 
 from appscale.common.constants import HTTPCodes
-from task import InvalidTaskInfo
-from task import Task
-from task import TASK_FIELDS
-from tornado.web import MissingArgumentError
-from tornado.web import RequestHandler
+
+from appscale.taskqueue.constants import QueueNotFound
+from appscale.taskqueue.statistics import service_stats, stats_lock, REST_API
+
+from .constants import TaskNotFound
+from .task import InvalidTaskInfo, Task, TASK_FIELDS
 from .queue import (InvalidLeaseRequest,
                     LONG_QUEUE_FORM,
-                    PullQueue,
+                    PullQueue, PostgresPullQueue,
                     QUEUE_FIELDS,
                     TransientError)
 
@@ -59,8 +63,55 @@ def write_error(request, code, message):
   request.write(json.dumps(error))
 
 
-class RESTQueue(RequestHandler):
+class TrackedRequestHandler(RequestHandler):
+  AREA = None
+
+  @gen.coroutine
+  def prepare(self):
+    rest_method = "{}_{}".format(self.request.method, self.AREA).lower()
+    with (yield stats_lock.acquire()):
+      self.stats_info = service_stats.start_request()
+      self.stats_info.api = REST_API
+      self.stats_info.rest_method = rest_method
+      self.stats_info.pb_method = None
+      self.stats_info.pb_status = None
+      self.stats_info.rest_status = None
+
+  @gen.coroutine
+  def on_finish(self):
+    with (yield stats_lock.acquire()):
+      self.stats_info.rest_status = self.get_status()
+      self.stats_info.finalize()
+
+
+class QueueList(TrackedRequestHandler):
+  """ Provides a list of all pull queues.
+
+  This method was never part of the v1beta2 API. """
+  def initialize(self, queue_handler):
+    """ Provide access to the queue handler. """
+    self.queue_handler = queue_handler
+
+  def get(self, project_id):
+    """ Returns a list of existing pull queues.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    try:
+      project_queues = self.queue_handler.queue_manager[project_id]
+    except KeyError:
+      write_error(self, HTTPCodes.NOT_FOUND, 'Project ID not found')
+      return
+
+    pull_queues = [queue_name for queue_name, queue in project_queues.items()
+                   if isinstance(queue, PullQueue)]
+    json.dump(pull_queues, self)
+
+
+class RESTQueue(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)'.format(REST_PREFIX)
+  AREA = 'queue'  # Area name is used in stats
 
   def initialize(self, queue_handler):
     """ Provide access to the queue handler. """
@@ -73,12 +124,13 @@ class RESTQueue(RequestHandler):
       project: A string containing an application ID.
       queue: A string containing a queue name.
     """
-    queue = self.queue_handler.get_queue(project, queue)
-    if queue is None:
+    try:
+      queue = self.queue_handler.get_queue(project, queue)
+    except QueueNotFound:
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
-    if not isinstance(queue, PullQueue):
+    if not isinstance(queue, (PullQueue, PostgresPullQueue)):
       write_error(self, HTTPCodes.BAD_REQUEST,
                   'The REST API is only applicable to pull queues.')
       return
@@ -94,8 +146,9 @@ class RESTQueue(RequestHandler):
     self.write(queue.to_json(include_stats=get_stats, fields=fields))
 
 
-class RESTTasks(RequestHandler):
+class RESTTasks(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)/tasks'.format(REST_PREFIX)
+  AREA = 'tasks'  # Area name is used in stats
 
   def initialize(self, queue_handler):
     """ Provide access to the queue handler. """
@@ -178,12 +231,15 @@ class RESTTasks(RequestHandler):
     except InvalidTaskInfo as insert_error:
       write_error(self, HTTPCodes.BAD_REQUEST, insert_error.message)
       return
+    except TransientError as error:
+      write_error(self, HTTPCodes.INTERNAL_ERROR, str(error))
 
     self.write(json.dumps(task.json_safe_dict(fields=fields)))
 
 
-class RESTLease(RequestHandler):
+class RESTLease(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)/tasks/lease'.format(REST_PREFIX)
+  AREA = 'lease'  # Area name is used in stats
 
   def initialize(self, queue_handler):
     """ Provide access to the queue handler. """
@@ -261,8 +317,9 @@ class RESTLease(RequestHandler):
     self.write(json.dumps(task_list))
 
 
-class RESTTask(RequestHandler):
+class RESTTask(TrackedRequestHandler):
   PATH = '{}/([a-zA-Z0-9-]+)/tasks/([a-zA-Z0-9_-]+)'.format(REST_PREFIX)
+  AREA = 'task'  # Area name is used in stats
 
   def initialize(self, queue_handler):
     """ Provide access to the queue handler. """
@@ -348,6 +405,9 @@ class RESTTask(RequestHandler):
     except InvalidLeaseRequest as lease_error:
       write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
       return
+    except TaskNotFound as error:
+      write_error(self, HTTPCodes.NOT_FOUND, str(error))
+      return
 
     self.write(json.dumps(task.json_safe_dict(fields=fields)))
 
@@ -428,6 +488,9 @@ class RESTTask(RequestHandler):
       task = queue.update_task(new_task, new_lease_seconds)
     except InvalidLeaseRequest as lease_error:
       write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
+      return
+    except TaskNotFound as error:
+      write_error(self, HTTPCodes.NOT_FOUND, str(error))
       return
 
     self.write(json.dumps(task.json_safe_dict(fields=fields)))

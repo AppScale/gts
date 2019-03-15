@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 /**
- * AppIdentityService
- *
  */
 
 namespace google\appengine\api\app_identity;
@@ -50,23 +48,24 @@ require_once 'google/appengine/runtime/ApplicationError.php';
  * periodically. App Engine never releases these private keys externally.
  *
  * Since private keys are rotated periodically,
- * {@link #getPublicCertificatesForApp} could return a list of public
+ * getPublicCertificates() could return a list of public
  * certificates. It's the caller's responsibility to try these
  * certificates one by one when doing signature verification.
  */
-class AppIdentityService {
+final class AppIdentityService {
 
   const PACKAGE_NAME = 'app_identity_service';
   const PARTITION_SEPARATOR = "~";
   const DOMAIN_SEPARATOR = ":";
+  const MEMCACHE_KEY_PREFIX = '_ah_app_identity_';
 
   /**
    * Signs arbitrary byte array using per app private key.
    *
    * @param string $bytes_to_sign The bytes to generate the signature for.
    *
-   * @throws InvalidArgumentException if $bytes_to_sign is not a string.
-   * @throws AppIdentityException if there is an error using the AppIdentity
+   * @throws \InvalidArgumentException If $bytes_to_sign is not a string.
+   * @throws AppIdentityException If there is an error using the AppIdentity
    * service.
    *
    * @return array An array containing the elements
@@ -87,7 +86,7 @@ class AppIdentityService {
     try {
       ApiProxy::makeSyncCall(self::PACKAGE_NAME, 'SignForApp', $req, $resp);
     } catch (ApplicationError $e) {
-      throw AppIdentityService::ApplicationErrorToException($e);
+      throw AppIdentityService::applicationErrorToException($e);
     }
 
     return [
@@ -99,7 +98,7 @@ class AppIdentityService {
   /**
    * Get the service account name for the application.
    *
-   * @throws AppIdentityException if there is an error using the AppIdentity
+   * @throws AppIdentityException If there is an error using the AppIdentity
    * service.
    *
    * @return string The service account name.
@@ -112,7 +111,7 @@ class AppIdentityService {
       ApiProxy::makeSyncCall(self::PACKAGE_NAME, 'GetServiceAccountName', $req,
           $resp);
     } catch (ApplicationError $e) {
-      throw AppIdentityService::ApplicationErrorToException($e);
+      throw AppIdentityService::applicationErrorToException($e);
     }
 
     return $resp->getServiceAccountName();
@@ -121,7 +120,7 @@ class AppIdentityService {
   /**
    * Get the list of public certifates for the application.
    *
-   * @throws AppIdentityException if there is an error using the AppIdentity
+   * @throws AppIdentityException If there is an error using the AppIdentity
    * service.
    *
    * @return PublicCertificate[] An array of the applications public
@@ -135,7 +134,7 @@ class AppIdentityService {
       ApiProxy::makeSyncCall(self::PACKAGE_NAME, 'GetPublicCertificatesForApp',
           $req, $resp);
     } catch (ApplicationError $e) {
-      throw AppIdentityService::ApplicationErrorToException($e);
+      throw AppIdentityService::applicationErrorToException($e);
     }
 
     $result = [];
@@ -149,21 +148,69 @@ class AppIdentityService {
   }
 
   /**
-   * Get an OAuth2 access token for the applications service account.
+   * Gets an OAuth2 access token for the application's service account from
+   * memcache or generates and caches one by calling
+   * getAccessTokenUncached($scopes)
+   *
+   * Each application has an associated Google account. This function returns
+   * OAuth2 access token corresponding to the running app. Access tokens are
+   * safe to cache and reuse until they expire.
    *
    * @param array $scopes The scopes to acquire the access token for.
    * Can be either a single string or an array of strings.
    *
-   * @throws InvalidArgumentException if $scopes is not a string or an array of
+   * @throws \InvalidArgumentException If $scopes is not a string or an array of
    * strings.
-   * @throws AppIdentityException if there is an error using the AppIdentity
+   * @throws AppIdentityException If there is an error using the AppIdentity
    * service.
    *
-   * @result array An array with the following key/value pairs.
+   * @return array An array with the following key/value pairs.
    * 'access_token' - The access token for the application.
    * 'expiration_time' - The expiration time for the access token.
    */
   public static function getAccessToken($scopes) {
+    $memcache_key = self::MEMCACHE_KEY_PREFIX . self::DOMAIN_SEPARATOR;
+    if (is_string($scopes)) {
+       $memcache_key .= $scopes;
+    } else if (is_array($scopes)) {
+      $memcache_key .= implode(self::DOMAIN_SEPARATOR, $scopes);
+    } else {
+      throw new \InvalidArgumentException('Invalid scope ' . $scopes);
+    }
+
+    $memcache = new \Memcache();
+    $result = $memcache->get($memcache_key);
+
+    if ($result === False) {
+      $result = self::getAccessTokenUncached($scopes);
+
+      // Cache in memcache allowing for 5 minute clock skew.
+      $memcache->set($memcache_key,
+                     $result,
+                     null,
+                     $result['expiration_time'] - 300);
+    }
+    return $result;
+  }
+
+  /**
+   * Get an OAuth2 access token for the applications service account without
+   * caching the result. Usually getAccessToken($scopes) should be used instead
+   * which calls this method and caches the result in memcache.
+   *
+   * @param array $scopes The scopes to acquire the access token for.
+   * Can be either a single string or an array of strings.
+   *
+   * @throws InvalidArgumentException If $scopes is not a string or an array of
+   * strings.
+   * @throws AppIdentityException If there is an error using the AppIdentity
+   * service.
+   *
+   * @return array An array with the following key/value pairs.
+   * 'access_token' - The access token for the application.
+   * 'expiration_time' - The expiration time for the access token.
+   */
+  private static function getAccessTokenUncached($scopes) {
     $req = new GetAccessTokenRequest();
     $resp = new GetAccessTokenResponse();
 
@@ -179,26 +226,25 @@ class AppIdentityService {
         }
       }
     } else {
-      throw new \InvalidArgumentException(
-        'Invalid scope ' . $scopes);
+      throw new \InvalidArgumentException('Invalid scope ' . $scopes);
     }
 
     try {
       ApiProxy::makeSyncCall(self::PACKAGE_NAME, 'GetAccessToken', $req, $resp);
     } catch (ApplicationError $e) {
-      throw AppIdentityService::ApplicationErrorToException($e);
+      throw AppIdentityService::applicationErrorToException($e);
     }
 
     return [
-      'access_token' => $resp->getAccessToken(),
-      'expiration_time' => $resp->getExpirationTime(),
+        'access_token' => $resp->getAccessToken(),
+        'expiration_time' => $resp->getExpirationTime(),
     ];
   }
 
   /**
    * Get the application id of an app.
    *
-   * @returns string The application id of the app.
+   * @return string The application id of the app.
    */
   public static function getApplicationId() {
     $app_id = getenv("APPLICATION_ID");
@@ -212,7 +258,7 @@ class AppIdentityService {
   /**
    * Get the standard hostname of the default version of the app.
    *
-   * @result string The standard hostname of the default version of the
+   * @return string The standard hostname of the default version of the
    * application, or FALSE if the call failed.
    */
   public static function getDefaultVersionHostname() {
@@ -228,7 +274,7 @@ class AppIdentityService {
    *
    * @access private
    */
-  private static function ApplicationErrorToException($application_error) {
+  private static function applicationErrorToException($application_error) {
     switch ($application_error->getApplicationError()) {
       case ErrorCode::UNKNOWN_SCOPE:
         return new \InvalidArgumentException(
@@ -245,7 +291,7 @@ class AppIdentityService {
       case ErrorCode::UNKNOWN_ERROR:
         return new AppIdentityException(
           'There was an unknown error using the AppIdentity service.');
-      case ErrorCode::GAIAMINT_NOT_INITIALIZED:
+      case ErrorCode::GAIAMINT_NOT_INITIAILIZED:
         return new AppIdentityException(
           'There was a GAIA error using the AppIdentity service.');
       case ErrorCode::NOT_ALLOWED:

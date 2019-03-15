@@ -2,21 +2,18 @@
 
 import re
 import subprocess
-import sys
 import time
 import unittest
 from flexmock import flexmock
 
+import appscale.datastore.backup.utils as utils
+
 from appscale.common import appscale_info
 from appscale.common import appscale_utils
-from appscale.common.unpackaged import INFRASTRUCTURE_MANAGER_DIR
 from appscale.datastore.backup import backup_exceptions
 from appscale.datastore.backup import cassandra_backup
 from appscale.datastore.cassandra_env import rebalance
 from appscale.datastore.cassandra_env.cassandra_interface import NODE_TOOL
-
-sys.path.append(INFRASTRUCTURE_MANAGER_DIR)
-from utils import utils
 
 
 class TestCassandraBackup(unittest.TestCase):
@@ -100,10 +97,10 @@ class TestCassandraBackup(unittest.TestCase):
     flexmock(appscale_utils).should_receive('ssh').with_args(
       re.compile('^192.*'), keyname, re.compile('^tar xf .*'))
     flexmock(appscale_utils).should_receive('ssh').with_args(
-      re.compile('^192.*'), keyname, re.compile('^monit start .*'),
+      re.compile('^192.*'), keyname, re.compile('^appscale-start-service .*'),
       subprocess.call)
     flexmock(appscale_utils).should_receive('ssh').with_args(
-      re.compile('^192.*'), keyname, re.compile('^monit start .*'))
+      re.compile('^192.*'), keyname, re.compile('^appscale-start-service .*'))
     flexmock(appscale_utils).should_receive('ssh').with_args(
       re.compile('^192.*'), keyname, re.compile('^chown -R cassandra /opt/.*'))
     flexmock(rebalance).should_receive('get_status').and_return(
@@ -120,4 +117,4 @@ class TestCassandraBackup(unittest.TestCase):
 
 
 if __name__ == "__main__":
-  unittest.main()    
+  unittest.main()

@@ -39,9 +39,10 @@ case "$1" in
         installjavajdk
         installappserverjava
         installtornado
-        installpycrypto 
+        installpycrypto
         installpycapnp
         installpyyaml
+        installsoappy
         installzookeeper
         postinstallzookeeper
         installcassandra
@@ -57,15 +58,16 @@ case "$1" in
         increaseconnections
         installVersion
         postinstallrsyslog
-        installpsutil
         installapiclient
         installgosdk
         installacc
         installcommon
         installadminserver
         installhermes
+        installinfrastructuremanager
         installtaskqueue
         installdatastore
+        installapiserver
         preplogserver
         prepdashboard
         fetchclientjars

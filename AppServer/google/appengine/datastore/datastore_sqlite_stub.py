@@ -1385,7 +1385,7 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
     end = max(max_id, start - 1)
     return start, end
 
-  def _AllocateIds(self, reference, size=1, max_id=None):
+  def _AllocateSequentialIds(self, reference, size=1, max_id=None):
     conn = self._GetConnection()
     try:
       datastore_stub_util.CheckAppId(self._trusted, self._app_id,
@@ -1407,11 +1407,11 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
     finally:
       self._ReleaseConnection(conn)
 
-  def _AllocateScatteredIds(self, keys):
+  def _AllocateIds(self, references):
     conn = self._GetConnection()
     try:
       full_keys = []
-      for key in keys:
+      for key in references:
         datastore_stub_util.CheckAppId(self._trusted, self._app_id, key.app())
         prefix = self._GetTablePrefix(key)
         last_element = key.path().element_list()[-1]

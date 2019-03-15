@@ -1,16 +1,23 @@
+import errno
+import httplib
 import logging
+import os
+import socket
 import subprocess
 import time
 import urllib
+import uuid
 from datetime import timedelta
 from xml.etree import ElementTree
 
 from tornado import gen
 from tornado.httpclient import AsyncHTTPClient
+from tornado.httpclient import HTTPClient
 from tornado.httpclient import HTTPError
 from tornado.ioloop import IOLoop
 
 from appscale.common.async_retrying import retry_coroutine
+from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
 from appscale.common.retrying import retry
 from . import constants
 from . import misc
@@ -25,13 +32,21 @@ charge of creating configuration files for the process they want started.
 MONIT = "/usr/bin/monit"
 
 NUM_RETRIES = 10
+DEFAULT_RETRIES = lambda err: not isinstance(err, ProcessNotFound)
 
 SMALL_WAIT = 3
 RETRYING_TIMEOUT = 60
 
+logger = logging.getLogger(__name__)
+
 
 class ProcessNotFound(Exception):
   """ Indicates that Monit has no entry for a process. """
+  pass
+
+
+class MonitUnavailable(Exception):
+  """ Indicates that Monit is not currently accepting commands. """
   pass
 
 
@@ -74,7 +89,7 @@ def safe_monit_run(args):
     monit_run(args)
     return True
   except NonZeroReturnStatus as err:
-    logging.error(err)
+    logger.error(err)
     return False
 
 
@@ -92,15 +107,15 @@ def start(watch, is_group=True):
     configuration file, or (3) monit could not start the new program.
   """
   if not misc.is_string_secure(watch):
-    logging.error("Watch string [{0}] is a possible security violation".format(
+    logger.error("Watch string [{0}] is a possible security violation".format(
       watch))
     return False
 
-  logging.info("Reloading monit.")
+  logger.info("Reloading monit.")
   if not safe_monit_run(['reload']):
     return False
 
-  logging.info("Starting watch {0}".format(watch))
+  logger.info("Starting watch {0}".format(watch))
   if is_group:
     safe_monit_run(['monitor', '-g', watch])
     return safe_monit_run(['start', '-g', watch])
@@ -123,10 +138,10 @@ def stop(watch, is_group=True):
     stopped, or (3) the programs could not be unmonitored.
   """
   if not misc.is_string_secure(watch):
-    logging.error("Watch string (%s) is a possible security violation" % watch)
+    logger.error("Watch string (%s) is a possible security violation" % watch)
     return False
 
-  logging.info("Stopping watch {0}".format(watch))
+  logger.info("Stopping watch {0}".format(watch))
   if is_group:
     stop_command = ['stop', '-g', watch]
   else:
@@ -145,11 +160,11 @@ def restart(watch):
     valid program name, (2) monit could not restart the new program.
   """
   if not misc.is_string_secure(watch):
-    logging.error("Watch string [{0}] is a possible security violation".format(
+    logger.error("Watch string [{0}] is a possible security violation".format(
       watch))
     return False
 
-  logging.info("Restarting watch {0}".format(watch))
+  logger.info("Restarting watch {0}".format(watch))
   return safe_monit_run(['restart', '-g', watch])
 
 
@@ -189,19 +204,30 @@ class MonitOperator(object):
   # The number of seconds to wait between each reload operation.
   RELOAD_COOLDOWN = 1
 
+  # Monit's endpoint for fetching the status of each service.
+  STATUS_URL = '{}/_status?format=xml'.format(LOCATION)
+
   def __init__(self):
     """ Creates a new MonitOperator. There should only be one. """
     self.reload_future = None
-    self.client = AsyncHTTPClient()
     self.last_reload = time.time()
+    self._async_client = AsyncHTTPClient()
+    self._client = HTTPClient()
 
   @gen.coroutine
-  def reload(self):
+  def reload(self, thread_pool=None):
     """ Groups closely-timed reload operations. """
     if self.reload_future is None or self.reload_future.done():
-      self.reload_future = self._reload()
+      self.reload_future = self._reload(thread_pool)
+    else:
+      logger.info('Using future of active monit reload')
 
     yield self.reload_future
+
+  @staticmethod
+  def reload_sync():
+    """ Reloads Monit. """
+    subprocess.check_call([MONIT, 'reload'])
 
   @retry_coroutine(retrying_timeout=RETRYING_TIMEOUT)
   def get_entries(self):
@@ -210,14 +236,35 @@ class MonitOperator(object):
     Returns:
       A dictionary mapping Monit entries to their state.
     """
-    status_url = '{}/_status?format=xml'.format(self.LOCATION)
-    response = yield self.client.fetch(status_url)
+    response = yield self._async_client.fetch(self.STATUS_URL)
     monit_entries = parse_entries(response.body)
     raise gen.Return(monit_entries)
 
+  def get_entries_sync(self):
+    """ Retrieves the status for each Monit entry.
+
+    Returns:
+      A dictionary mapping Monit entries to their state.
+    """
+    response = self._client.fetch(self.STATUS_URL)
+    monit_entries = parse_entries(response.body)
+    return monit_entries
+
+  @retry_coroutine(
+      retrying_timeout=RETRYING_TIMEOUT)
+  def send_command_retry_process(self, process_name, command):
+    """ Sends a command to the Monit API.
+
+    Args:
+      process_name: A string specifying a monit watch.
+      command: A string specifying the command to send.
+    """
+    yield self._send_command(process_name, command)
+
+
   @retry_coroutine(
     retrying_timeout=RETRYING_TIMEOUT,
-    retry_on_exception=lambda err: not isinstance(err, ProcessNotFound))
+    retry_on_exception=DEFAULT_RETRIES)
   def send_command(self, process_name, command):
     """ Sends a command to the Monit API.
 
@@ -225,14 +272,52 @@ class MonitOperator(object):
       process_name: A string specifying a monit watch.
       command: A string specifying the command to send.
     """
+    yield self._send_command(process_name, command)
+
+  @gen.coroutine
+  def _send_command(self, process_name, command):
     process_url = '{}/{}'.format(self.LOCATION, process_name)
-    payload = urllib.urlencode({'action': command})
+    csrf_token = str(uuid.uuid4())
+    headers = {'Cookie': 'securitytoken={}'.format(csrf_token)}
+    payload = urllib.urlencode({'action': command,
+                                'securitytoken': csrf_token})
     try:
-      yield self.client.fetch(process_url, method='POST', body=payload)
+      yield self._async_client.fetch(process_url, method='POST',
+                                     headers=headers, body=payload)
     except HTTPError as error:
-      if error.code == 404:
+      if error.code == httplib.NOT_FOUND:
         raise ProcessNotFound('{} is not monitored'.format(process_name))
       raise
+
+  def send_command_sync(self, process_name, command):
+    """ Sends a command to the Monit API.
+
+    Args:
+      process_name: A string specifying a monit watch.
+      command: A string specifying the command to send.
+    Raises:
+      ProcessNotFound if Monit cannot find the specified process_name.
+      MonitUnavailable if Monit is not accepting commands.
+    """
+    process_url = '/'.join([self.LOCATION, process_name])
+    csrf_token = str(uuid.uuid4())
+    headers = {'Cookie': 'securitytoken={}'.format(csrf_token)}
+    payload = urllib.urlencode({'action': command,
+                                'securitytoken': csrf_token})
+
+    try:
+      self._client.fetch(process_url, method='POST',
+                         headers=headers, body=payload)
+    except HTTPError as error:
+      if error.code == httplib.NOT_FOUND:
+        raise ProcessNotFound('{} is not monitored'.format(process_name))
+
+      if error.code == httplib.SERVICE_UNAVAILABLE:
+        raise MonitUnavailable('Monit is not currently available')
+
+      raise
+    except socket.error:
+      raise MonitUnavailable('Monit is not currently available')
 
   @gen.coroutine
   def wait_for_status(self, process_name, acceptable_states):
@@ -242,7 +327,7 @@ class MonitOperator(object):
       process_name: A string specifying a monit watch.
       acceptable_states: An iterable of strings specifying states.
     """
-    logging.info(
+    logger.info(
       "Waiting until process '{}' gets to one of acceptable states: {}"
        .format(process_name, acceptable_states)
     )
@@ -255,13 +340,13 @@ class MonitOperator(object):
       elapsed = time.time() - start_time
 
       if status in acceptable_states:
-        logging.info("Status of '{}' became '{}' after {:0.1f}s"
+        logger.info("Status of '{}' became '{}' after {:0.1f}s"
                      .format(process_name, status, elapsed))
         raise gen.Return(status)
 
       if elapsed > 1:
         # Keep logs informative and don't report too early
-        logging.info("Status of '{}' is not acceptable ('{}') after {:0.1f}s."
+        logger.info("Status of '{}' is not acceptable ('{}') after {:0.1f}s."
                      "Checking again in {:0.1f}s."
                      .format(process_name, status, elapsed, backoff))
 
@@ -284,20 +369,39 @@ class MonitOperator(object):
                                       IOLoop.current())
 
       if status == constants.MonitStates.RUNNING:
-        raise gen.Return()
+        return
 
       if status == constants.MonitStates.UNMONITORED:
         yield self.send_command(process_name, 'start')
 
       yield gen.sleep(1)
 
+  @staticmethod
+  def remove_configuration(entry):
+    """ Removes the configuration file for an entry.
+
+    Args:
+      entry: A string specifying a Monit entry.
+    """
+    monit_config_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, entry)
+    try:
+      os.remove(monit_config_file)
+    except OSError as error:
+      if error.errno != errno.ENOENT:
+        raise
+
+      logger.error('Error deleting {}'.format(monit_config_file))
+
   @retry_coroutine(
     retrying_timeout=RETRYING_TIMEOUT,
     retry_on_exception=[subprocess.CalledProcessError])
-  def _reload(self):
+  def _reload(self, thread_pool):
     """ Reloads Monit. """
     time_since_reload = time.time() - self.last_reload
     wait_time = max(self.RELOAD_COOLDOWN - time_since_reload, 0)
     yield gen.sleep(wait_time)
     self.last_reload = time.time()
-    subprocess.check_call(['monit', 'reload'])
+    if thread_pool:
+      yield thread_pool.submit(subprocess.check_call, [MONIT, 'reload'])
+    else:
+      subprocess.check_call([MONIT, 'reload'])

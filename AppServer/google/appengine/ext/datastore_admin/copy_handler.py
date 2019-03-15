@@ -39,6 +39,7 @@ from google.appengine.api import capabilities
 from google.appengine.api import datastore
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import blobstore
+from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import remote_api_put_stub
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.ext.mapreduce import context
@@ -79,7 +80,7 @@ class ConfirmCopyHandler(webapp2.RequestHandler):
         'sizes_known': sizes_known,
         'size_total': size_total,
         'app_id': handler.request.get('app_id'),
-        'cancel_url': handler.request.get('cancel_url'),
+        'datastore_admin_home': utils.GenerateHomeUrl(handler.request),
         'kind_str': kind_str,
         'namespace_str': namespace_str,
         'xsrf_token': utils.CreateXsrfToken(XSRF_ACTION),
@@ -100,8 +101,8 @@ class DoCopyHandler(webapp2.RequestHandler):
   COPY_HANDLER = ('google.appengine.ext.datastore_admin.copy_handler.'
                   'RemoteCopyEntity.map')
   INPUT_READER = ('google.appengine.ext.mapreduce.input_readers.'
-                  'ConsistentKeyReader')
-  MAPREDUCE_DETAIL = utils.config.MAPREDUCE_PATH + '/detail?mapreduce_id='
+                  'DatastoreKeyInputReader')
+  MAPREDUCE_DETAIL = config.MAPREDUCE_PATH + '/detail?mapreduce_id='
 
   def get(self):
     """Handler for get requests to datastore_admin/copy.do.
@@ -117,7 +118,7 @@ class DoCopyHandler(webapp2.RequestHandler):
         'mapreduce_detail': self.MAPREDUCE_DETAIL,
         'error': error,
         'xsrf_error': xsrf_error,
-        'datastore_admin_home': utils.config.BASE_PATH,
+        'datastore_admin_home': config.BASE_PATH,
     }
     utils.RenderToResponse(self, 'do_copy.html', template_params)
 
@@ -177,7 +178,7 @@ class DoCopyHandler(webapp2.RequestHandler):
         parameters.append(('error', error))
 
     query = urllib.urlencode(parameters)
-    self.redirect('%s/%s?%s' % (utils.config.BASE_PATH, self.SUFFIX, query))
+    self.redirect('%s/%s?%s' % (config.BASE_PATH, self.SUFFIX, query))
 
   def _HandleException(self, e):
     """Make exception handling overrideable by tests.

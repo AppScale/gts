@@ -12,7 +12,7 @@ namespace :appcontroller do
 
   desc "Generates AppController rdoc"
   Rake::RDocTask.new(:doc) { |rd|
-    rd.rdoc_files.include("AppController/djinn.rb", 
+    rd.rdoc_files.include("AppController/djinn.rb",
       "AppController/djinnServer.rb", "AppController/lib")
     rd.rdoc_dir = "AppController/doc"
   }
@@ -28,21 +28,13 @@ namespace :appcontroller do
 
 end
 
-namespace :appmanager do
-  
-  task :test do
-   sh 'python -m unittest discover -b -v -s AppManager/test/unit'
-  end
-
-end
-
 namespace :apps do
 
   task :test do
     sh 'python -m unittest discover -b -v -s Apps/sensor/tests'
     sh 'python -m unittest discover -b -v -s Apps/sensor/common/tests'
   end
-  
+
 end
 
 namespace :infrastructuremanager do
@@ -100,7 +92,7 @@ end
 namespace :common do
 
   task :test do
-    sh 'python -m unittest discover -b -v -s common/test/unit'
+    sh 'python -m unittest discover -b -v -s common/test/unit -t common/'
   end
 
 end
@@ -149,7 +141,6 @@ end
 python_tests = [
   'appdashboard:test',
   'appdb:test',
-  'appmanager:test',
   'appserver:test',
   'apptaskqueue:test',
   'common:test',

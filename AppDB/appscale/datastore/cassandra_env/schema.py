@@ -2,12 +2,18 @@
 
 import cassandra
 import logging
+import sys
 import time
+from collections import defaultdict
+
+from kazoo.client import KazooClient
 
 import cassandra_interface
 
 from appscale.common import appscale_info
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
+from appscale.common.datastore_index import DatastoreIndex, merge_indexes
+from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.taskqueue.distributed_tq import create_pull_queue_tables
 from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
@@ -16,14 +22,19 @@ from cassandra.policies import FallthroughRetryPolicy
 from .cassandra_interface import IndexStates
 from .cassandra_interface import INITIAL_CONNECT_RETRIES
 from .cassandra_interface import KEYSPACE
+from .cassandra_interface import ScatterPropStates
 from .cassandra_interface import ThriftColumn
+from .constants import CURRENT_VERSION, LB_POLICY
 from .. import dbconstants
 
-# The data layout version to set after removing the journal table.
-POST_JOURNAL_VERSION = 1.0
+sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.datastore import entity_pb
+from google.net.proto.ProtocolBuffer import ProtocolBufferDecodeError
 
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
+
+logger = logging.getLogger(__name__)
 
 
 def define_ua_schema(session):
@@ -65,7 +76,7 @@ def create_batch_tables(cluster, session):
         columns['transaction'].cql_type != 'bigint'):
       session.execute('DROP TABLE batches', timeout=SCHEMA_CHANGE_TIMEOUT)
 
-  logging.info('Trying to create batches')
+  logger.info('Trying to create batches')
   create_table = """
     CREATE TABLE IF NOT EXISTS batches (
       app text,
@@ -82,7 +93,7 @@ def create_batch_tables(cluster, session):
   try:
     session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
-    logging.warning(
+    logger.warning(
       'Encountered an operation timeout while creating batches table. '
       'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
@@ -92,7 +103,7 @@ def create_batch_tables(cluster, session):
       'txid_hash' not in keyspace_metadata.tables['batch_status'].columns):
     session.execute('DROP TABLE batch_status', timeout=SCHEMA_CHANGE_TIMEOUT)
 
-  logging.info('Trying to create batch_status')
+  logger.info('Trying to create batch_status')
   create_table = """
     CREATE TABLE IF NOT EXISTS batch_status (
       txid_hash blob PRIMARY KEY,
@@ -104,11 +115,12 @@ def create_batch_tables(cluster, session):
   try:
     session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
-    logging.warning(
+    logger.warning(
       'Encountered an operation timeout while creating batch_status table. '
       'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
+
 
 def create_groups_table(session):
   create_table = """
@@ -121,7 +133,7 @@ def create_groups_table(session):
   try:
     session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
-    logging.warning(
+    logger.warning(
       'Encountered an operation timeout while creating group_updates table. '
       'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
@@ -152,7 +164,7 @@ def create_transactions_table(session):
   try:
     session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
-    logging.warning(
+    logger.warning(
       'Encountered an operation timeout while creating transactions table. '
       'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
@@ -173,11 +185,74 @@ def create_entity_ids_table(session):
   try:
     session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
   except cassandra.OperationTimedOut:
-    logging.warning(
+    logger.warning(
       'Encountered an operation timeout while creating entity_ids table. '
       'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
     time.sleep(SCHEMA_CHANGE_TIMEOUT)
     raise
+
+
+def current_datastore_version(session):
+  """ Retrieves the existing datastore version value.
+
+  Args:
+    session: A cassandra-driver session.
+  Returns:
+    A float specifying the existing datastore version or None.
+  """
+  key = cassandra_interface.VERSION_INFO_KEY
+  statement = """
+    SELECT {value} FROM "{table}"
+    WHERE {key} = %s
+    AND {column} = %s
+  """.format(
+    value=ThriftColumn.VALUE,
+    table=dbconstants.DATASTORE_METADATA_TABLE,
+    key=ThriftColumn.KEY,
+    column=ThriftColumn.COLUMN_NAME
+  )
+  results = session.execute(statement, (bytearray(key), key))
+  try:
+    return float(results[0].value)
+  except IndexError:
+    return None
+
+
+def migrate_composite_index_metadata(cluster, session, zk_client):
+  """  Moves any existing datastore index metadata to ZooKeeper.
+
+  Args:
+    cluster: A cassandra.cluster.Cluster object.
+    session: A cassandra.cluster.Session object.
+    zk_client: A kazoo.client.KazooClient object.
+  """
+  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
+  if dbconstants.METADATA_TABLE not in keyspace_metadata.tables:
+    return
+
+  logging.info('Fetching previously-defined index definitions')
+  results = session.execute(
+    'SELECT * FROM "{}"'.format(dbconstants.METADATA_TABLE))
+  indexes_by_project = defaultdict(list)
+  for result in results:
+    try:
+      index_pb = entity_pb.CompositeIndex(result.value)
+    except ProtocolBufferDecodeError:
+      logging.warning('Invalid composite index: {}'.format(result.value))
+      continue
+
+    index = DatastoreIndex.from_pb(index_pb)
+    # Assume the index is complete.
+    index.ready = True
+    indexes_by_project[index.project_id].append(index)
+
+  for project_id, indexes in indexes_by_project.items():
+    logging.info('Adding indexes for {}'.format(project_id))
+    merge_indexes(zk_client, project_id, indexes)
+
+  logging.info('Removing previously-defined index definitions from Cassandra')
+  session.execute('DROP TABLE "{}"'.format(dbconstants.METADATA_TABLE),
+                  timeout=SCHEMA_CHANGE_TIMEOUT)
 
 
 def prime_cassandra(replication):
@@ -195,14 +270,15 @@ def prime_cassandra(replication):
   if int(replication) <= 0:
     raise dbconstants.AppScaleBadArg('Replication must be greater than zero')
 
+  zk_client = KazooClient(hosts=appscale_info.get_zk_node_ips())
+  zk_client.start()
+
   hosts = appscale_info.get_db_ips()
 
-  cluster = None
-  session = None
   remaining_retries = INITIAL_CONNECT_RETRIES
   while True:
     try:
-      cluster = Cluster(hosts)
+      cluster = Cluster(hosts, load_balancing_policy=LB_POLICY)
       session = cluster.connect()
       break
     except cassandra.cluster.NoHostAvailable as connection_error:
@@ -222,6 +298,19 @@ def prime_cassandra(replication):
                   timeout=SCHEMA_CHANGE_TIMEOUT)
   session.set_keyspace(KEYSPACE)
 
+  logger.info('Waiting for all hosts to be connected')
+  deadline = time.time() + SCHEMA_CHANGE_TIMEOUT
+  while True:
+    if time.time() > deadline:
+      logger.warning('Timeout when waiting for hosts to join. Continuing '
+                      'with connected hosts.')
+      break
+
+    if len(session.get_pool_state()) == len(hosts):
+      break
+
+    time.sleep(1)
+
   for table in dbconstants.INITIAL_TABLES:
     create_table = """
       CREATE TABLE IF NOT EXISTS "{table}" (
@@ -236,16 +325,17 @@ def prime_cassandra(replication):
                value=ThriftColumn.VALUE)
     statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
 
-    logging.info('Trying to create {}'.format(table))
+    logger.info('Trying to create {}'.format(table))
     try:
       session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
     except cassandra.OperationTimedOut:
-      logging.warning(
+      logger.warning(
         'Encountered an operation timeout while creating {} table. Waiting {} '
         'seconds for schema to settle.'.format(table, SCHEMA_CHANGE_TIMEOUT))
       time.sleep(SCHEMA_CHANGE_TIMEOUT)
       raise
 
+  migrate_composite_index_metadata(cluster, session, zk_client)
   create_batch_tables(cluster, session)
   create_groups_table(session)
   create_transactions_table(session)
@@ -268,10 +358,23 @@ def prime_cassandra(replication):
     value=ThriftColumn.VALUE
   )
 
-  if not existing_entities:
+  if existing_entities:
+    current_version = current_datastore_version(session)
+    if current_version == 1.0:
+      # Instruct the groomer to reclean the indexes.
+      parameters = {'key': bytearray(cassandra_interface.INDEX_STATE_KEY),
+                    'column': cassandra_interface.INDEX_STATE_KEY,
+                    'value': bytearray(str(IndexStates.DIRTY))}
+      session.execute(metadata_insert, parameters)
+
+      parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
+                    'column': cassandra_interface.VERSION_INFO_KEY,
+                    'value': bytearray(str(CURRENT_VERSION))}
+      session.execute(metadata_insert, parameters)
+  else:
     parameters = {'key': bytearray(cassandra_interface.VERSION_INFO_KEY),
                   'column': cassandra_interface.VERSION_INFO_KEY,
-                  'value': bytearray(str(POST_JOURNAL_VERSION))}
+                  'value': bytearray(str(CURRENT_VERSION))}
     session.execute(metadata_insert, parameters)
 
     # Mark the newly created indexes as clean.
@@ -280,12 +383,18 @@ def prime_cassandra(replication):
                   'value': bytearray(str(IndexStates.CLEAN))}
     session.execute(metadata_insert, parameters)
 
+    # Indicate that scatter property values do not need to be populated.
+    parameters = {'key': bytearray(cassandra_interface.SCATTER_PROP_KEY),
+                  'column': cassandra_interface.SCATTER_PROP_KEY,
+                  'value': bytearray(ScatterPropStates.POPULATED)}
+    session.execute(metadata_insert, parameters)
+
   # Indicate that the database has been successfully primed.
   parameters = {'key': bytearray(cassandra_interface.PRIMED_KEY),
                 'column': cassandra_interface.PRIMED_KEY,
-                'value': bytearray('true')}
+                'value': bytearray(str(CURRENT_VERSION))}
   session.execute(metadata_insert, parameters)
-  logging.info('Cassandra is primed.')
+  logger.info('Cassandra is primed.')
 
 
 def primed():
@@ -300,6 +409,7 @@ def primed():
     return False
 
   try:
-    return db_access.get_metadata(cassandra_interface.PRIMED_KEY) == 'true'
+    primed_version = db_access.get_metadata_sync(cassandra_interface.PRIMED_KEY)
+    return primed_version == str(CURRENT_VERSION)
   finally:
     db_access.close()

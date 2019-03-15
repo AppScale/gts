@@ -29,7 +29,7 @@ $(document).ready(function() {
   $('#allkeys').click(checkAllEntities);
 
   $('#create_button').click(function() {
-    params = {'kind' : $('#kind_input').attr('value'),
+    params = {'kind' : $('#kind_input').find(":selected").val(),
               'next': '{{ request.uri }}'};
 
     if ($('#namespace_input').length) {

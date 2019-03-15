@@ -1,5 +1,5 @@
-""" 
-This file contains functions for getting and setting information related 
+"""
+This file contains functions for getting and setting information related
 to AppScale and the current node/machine.
 """
 import json
@@ -10,7 +10,8 @@ import yaml
 from . import constants
 from . import file_io
 
-from appscale.appcontroller_client import AppControllerClient
+logger = logging.getLogger(__name__)
+
 
 def read_file_contents(path):
   """ Reads the contents of the given file.
@@ -30,6 +31,7 @@ def get_appcontroller_client():
   secret_file = '/etc/appscale/secret.key'
   secret = read_file_contents(secret_file)
 
+  from appscale.appcontroller_client import AppControllerClient
   return AppControllerClient(head_node, secret)
 
 def get_keyname():
@@ -98,7 +100,7 @@ def get_tq_proxy():
 
 def get_private_ip():
   """ Get the private IP of the current machine.
-  
+
   Returns:
     String containing the private IP of the current machine.
   """
@@ -106,7 +108,7 @@ def get_private_ip():
 
 def get_public_ip():
   """ Get the public IP of the current machine.
-  
+
   Returns:
     String containing the public IP of the current machine.
   """
@@ -114,31 +116,31 @@ def get_public_ip():
 
 def get_secret():
   """ Get AppScale shared security key for authentication.
-    
+
   Returns:
     String containing the secret key.
   """
   return file_io.read(constants.SECRET_LOC).rstrip()
- 
+
 def get_num_cpus():
   """ Get the number of CPU processes on the current machine.
-  
+
   Returns:
     Integer of the number of CPUs on the current machine
   """
-  return multiprocessing.cpu_count() 
+  return multiprocessing.cpu_count()
 
 def get_db_info():
   """ Get information on the database being used.
-  
+
   Returns:
     A dictionary with database info
   """
-  info = file_io.read(constants.DB_INFO_LOC) 
-  return yaml.load(info) 
+  info = file_io.read(constants.DB_INFO_LOC)
+  return yaml.safe_load(info)
 
 def get_taskqueue_nodes():
-  """ Returns a list of all the taskqueue nodes (including the master). 
+  """ Returns a list of all the taskqueue nodes (including the master).
       Strips off any empty lines
 
   Returns:
@@ -152,7 +154,7 @@ def get_taskqueue_nodes():
 
 def get_app_path(app_id):
   """ Returns the application path.
-  
+
   Args:
     app_id: The application id.
   Returns:
@@ -161,27 +163,27 @@ def get_app_path(app_id):
   return constants.APPS_PATH + app_id + '/app/'
 
 def get_zk_locations_string():
-  """ Returns the ZooKeeper connection host string. 
+  """ Returns the ZooKeeper connection host string.
 
   Returns:
-    A string containing one or more host:port listings, separated by commas. 
+    A string containing one or more host:port listings, separated by commas.
     None is returned if there was a problem getting the location string.
   """
   try:
-    info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE) 
-    zk_json = json.loads(info) 
-    return ":2181,".join(zk_json['locations']) + ":2181"
-  except IOError, io_error:
-    logging.exception(io_error)
+    with open(constants.ZK_LOCATIONS_FILE) as locations_file:
+      return ','.join('{}:2181'.format(line.strip())
+                      for line in locations_file if line.strip())
+  except IOError as io_error:
+    logger.exception(io_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
-  except ValueError, value_error:
-    logging.exception(value_error)
+  except ValueError as value_error:
+    logger.exception(value_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
-  except TypeError, type_error:
-    logging.exception(type_error)
+  except TypeError as type_error:
+    logger.exception(type_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
-  except KeyError, key_error:
-    logging.exception(key_error)
+  except KeyError as key_error:
+    logger.exception(key_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
 
 def get_zk_node_ips():
@@ -192,20 +194,19 @@ def get_zk_node_ips():
     AppScale deployment.
   """
   try:
-    info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE)
-    zk_json = json.loads(info)
-    return zk_json['locations']
-  except IOError, io_error:
-    logging.exception(io_error)
+    with open(constants.ZK_LOCATIONS_FILE) as locations_file:
+      return [line.strip() for line in locations_file if line.strip()]
+  except IOError as io_error:
+    logger.exception(io_error)
     return []
-  except ValueError, value_error:
-    logging.exception(value_error)
+  except ValueError as value_error:
+    logger.exception(value_error)
     return []
-  except TypeError, type_error:
-    logging.exception(type_error)
+  except TypeError as type_error:
+    logger.exception(type_error)
     return []
-  except KeyError, key_error:
-    logging.exception(key_error)
+  except KeyError as key_error:
+    logger.exception(key_error)
     return []
 
 def get_db_master_ip():
@@ -214,7 +215,10 @@ def get_db_master_ip():
   Returns:
     A str, the IP of the datastore master.
   """
-  return file_io.read(constants.MASTERS_FILE_LOC).rstrip()
+  try:
+    return file_io.read(constants.MASTERS_FILE_LOC).rstrip()
+  except IOError:
+    return []
 
 def get_db_slave_ips():
   """ Returns the slave datastore IPs.
@@ -246,5 +250,5 @@ def get_search_location():
   try:
     return file_io.read(constants.SEARCH_FILE_LOC).rstrip()
   except IOError:
-    logging.warning("Search role is not configured.")
+    logger.warning("Search role is not configured.")
     return ""

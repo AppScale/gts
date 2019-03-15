@@ -30,6 +30,7 @@ from google.appengine.api import xmpp
 from google.appengine.api.xmpp import xmpp_service_pb
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.channel import channel_service_pb
+from google.appengine.api.xmpp.unverified_transport import UnverifiedTransport
 from google.appengine.runtime import apiproxy_errors
 
 
@@ -41,17 +42,23 @@ class XmppService(apiproxy_stub.APIProxyStub):
      support is also in this file.
   """
 
-  def __init__(self, 
-              log=logging.info, 
-              service_name='xmpp', 
-              domain="localhost", 
-              uaserver="localhost",
-              uasecret=""):
+  # The port that ejabberd uses for the XMPP API.
+  PORT = 5222
+
+  def __init__(self, xmpp_location, log=logging.info, service_name='xmpp',
+               domain="localhost", uaserver="localhost", uasecret=""):
     """Initializer.
 
     Args:
+      xmpp_location: A string specifying the private IP of the ejabberd node
+        to use.
       log: A logger, used for dependency injection.
       service_name: Service name expected for all calls.
+      domain: A string specifying the domain of the xmpp user used to
+        authenticate.
+      uaserver: A string specifying the private IP address of the UAServer.
+      uasecret: A string specifying the key used to authenticate UAServer
+        requests.
     """
     super(XmppService, self).__init__(service_name)
     self.log = log
@@ -69,6 +76,8 @@ class XmppService(apiproxy_stub.APIProxyStub):
 
     self.uasecret = uasecret
 
+    self._xmpp_location = xmpp_location
+
   def _Dynamic_GetPresence(self, request, response):
     """Implementation of XmppService::GetPresence.
 
@@ -80,7 +89,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
       response: A PresenceResponse.
     """
     jid = request.jid()
-    server = SOAPpy.SOAPProxy(self.login)
+    server = SOAPpy.SOAPProxy(self.login, transport=UnverifiedTransport)
     online_users = server.get_online_users_list(self.uasecret)
     user_is_online = False
     try:
@@ -108,7 +117,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
 
     my_jid = xmpppy.protocol.JID(xmpp_username)
     client = xmpppy.Client(my_jid.getDomain(), debug=[])
-    client.connect(secure=False)
+    client.connect((self._xmpp_location, self.PORT), secure=False)
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
     for jid in request.jid_list():
@@ -199,7 +208,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
                                       application_key,
                                       self.xmpp_domain)
 
-    server = SOAPpy.SOAPProxy(self.uaserver) 
+    server = SOAPpy.SOAPProxy(self.uaserver, transport=UnverifiedTransport)
     password = application_key
     encry_pw = hashlib.sha1(client_id+password)
     ret = server.commit_new_user(client_id, 
@@ -241,7 +250,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
     xmpp_username = appname + "@" + self.xmpp_domain
     my_jid = xmpppy.protocol.JID(xmpp_username)
     client = xmpppy.Client(my_jid.getDomain(), debug=[])
-    client.connect(secure=False)
+    client.connect((self._xmpp_location, self.PORT), secure=False)
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
     message = xmpppy.protocol.Message(frm=xmpp_username, to=jid, 

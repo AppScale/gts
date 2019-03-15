@@ -28,6 +28,7 @@ import os.path
 import random
 import re
 import string
+import struct
 import threading
 import time
 import urllib
@@ -201,10 +202,14 @@ class Module(object):
     handlers.append(
         wsgi_handler.WSGIHandler(channel.application, url_pattern))
 
-    url_pattern = '/%s' % endpoints.API_SERVING_PATTERN
-    handlers.append(
-        wsgi_handler.WSGIHandler(
-            endpoints.EndpointsDispatcher(self._dispatcher), url_pattern))
+    # Add a handler for Endpoints, only if version == 1.0
+    runtime_config = self._get_runtime_config()
+    for library in runtime_config.libraries:
+      if library.name == 'endpoints' and library.version == '1.0':
+        url_pattern = '/%s' % endpoints.API_SERVING_PATTERN
+        handlers.append(
+            wsgi_handler.WSGIHandler(
+                endpoints.EndpointsDispatcher(self._dispatcher), url_pattern))
 
     found_start_handler = False
     found_warmup_handler = False
@@ -252,14 +257,25 @@ class Module(object):
     runtime_config = runtime_config_pb2.Config()
     runtime_config.app_id = self._module_configuration.application
     runtime_config.version_id = self._module_configuration.version_id
-    runtime_config.threadsafe = self._module_configuration.threadsafe or False
+    if self._threadsafe_override is None:
+      runtime_config.threadsafe = self._module_configuration.threadsafe or False
+    else:
+      runtime_config.threadsafe = self._threadsafe_override
     runtime_config.application_root = (
         self._module_configuration.application_root)
     if not self._allow_skipped_files:
       runtime_config.skip_files = str(self._module_configuration.skip_files)
       runtime_config.static_files = _static_files_regex_from_handlers(
           self._module_configuration.handlers)
-    runtime_config.api_port = self._api_port
+
+    # AppScale: Pack both API ports into the same field.
+    if (self._external_api_port is not None and
+        self._module_configuration.runtime in ('python27', 'go', 'php')):
+      port_bytes = struct.pack('HH', self._api_port, self._external_api_port)
+      runtime_config.api_port = struct.unpack('I', port_bytes)[0]
+    else:
+      runtime_config.api_port = self._api_port
+
     runtime_config.stderr_log_level = self._runtime_stderr_loglevel
     runtime_config.datacenter = 'us1'
     runtime_config.auth_domain = self._auth_domain
@@ -352,7 +368,9 @@ class Module(object):
                max_instances,
                use_mtime_file_watcher,
                automatic_restarts,
-               allow_skipped_files):
+               allow_skipped_files,
+               threadsafe_override,
+               external_api_port=None):
     """Initializer for Module.
 
     Args:
@@ -394,11 +412,16 @@ class Module(object):
       allow_skipped_files: If True then all files in the application's directory
           are readable, even if they appear in a static handler or "skip_files"
           directive.
+      threadsafe_override: If not None, ignore the YAML file value of threadsafe
+          and use this value instead.
+      external_api_port: An integer specifying the location of an external API
+          server.
     """
     self._module_configuration = module_configuration
     self._name = module_configuration.module_name
     self._host = host
     self._api_port = api_port
+    self._external_api_port = external_api_port
     self._auth_domain = auth_domain
     self._runtime_stderr_loglevel = runtime_stderr_loglevel
     self._balanced_port = balanced_port
@@ -407,15 +430,17 @@ class Module(object):
     self._python_config = python_config
     self._cloud_sql_config = cloud_sql_config
     self._request_data = request_data
-    # _create_instance_factory() transitively calls _get_runtime_config, which
-    # uses self._allow_skipped_files.
     self._allow_skipped_files = allow_skipped_files
-    self._instance_factory = self._create_instance_factory(
-        self._module_configuration)
+    self._threadsafe_override = threadsafe_override
     self._dispatcher = dispatcher
     self._max_instances = max_instances
     self._automatic_restarts = automatic_restarts
     self._use_mtime_file_watcher = use_mtime_file_watcher
+    self._default_version_port = default_version_port
+    self._port_registry = port_registry
+
+    self._instance_factory = self._create_instance_factory(
+        self._module_configuration)
     if self._automatic_restarts:
       self._watcher = file_watcher.get_file_watcher(
           [self._module_configuration.application_root] +
@@ -425,9 +450,6 @@ class Module(object):
       self._watcher = None
     self._handler_lock = threading.Lock()
     self._handlers = self._create_url_handlers()
-    self._default_version_port = default_version_port
-    self._port_registry = port_registry
-
     self._balanced_module = wsgi_server.WsgiServer(
         (self._host, self._balanced_port), self)
     self._quit_event = threading.Event()  # Set when quit() has been called.
@@ -527,7 +549,7 @@ class Module(object):
 
   # AppScale: Check if the instance should be shutting down before handling
   # request.
-  def _handle_request(self, environ, start_response, **kwargs):
+  def _handle_request(self, environ, start_response, *args, **kwargs):
     """ A _handle_request wrapper that keeps track of active requests.
 
     Args:
@@ -545,7 +567,8 @@ class Module(object):
       self.request_count += 1
 
     try:
-      return self._handle_request_impl(environ, start_response, **kwargs)
+      return self._handle_request_impl(environ, start_response, *args,
+                                       **kwargs)
     finally:
       with self.graceful_shutdown_lock:
         self.request_count -= 1
@@ -791,7 +814,8 @@ class Module(object):
                                       self._request_data,
                                       self._dispatcher,
                                       self._use_mtime_file_watcher,
-                                      self._allow_skipped_files)
+                                      self._allow_skipped_files,
+                                      self._threadsafe_override)
     else:
       raise NotImplementedError('runtime does not support interactive commands')
 
@@ -895,7 +919,9 @@ class AutoScalingModule(Module):
                max_instances,
                use_mtime_file_watcher,
                automatic_restarts,
-               allow_skipped_files):
+               allow_skipped_files,
+               threadsafe_override,
+               external_api_port=None):
     """Initializer for AutoScalingModule.
 
     Args:
@@ -937,6 +963,10 @@ class AutoScalingModule(Module):
       allow_skipped_files: If True then all files in the application's directory
           are readable, even if they appear in a static handler or "skip_files"
           directive.
+      threadsafe_override: If not None, ignore the YAML file value of threadsafe
+          and use this value instead.
+      external_api_port: An integer specifying the location of an external API
+          server.
     """
     super(AutoScalingModule, self).__init__(module_configuration,
                                             host,
@@ -955,7 +985,9 @@ class AutoScalingModule(Module):
                                             max_instances,
                                             use_mtime_file_watcher,
                                             automatic_restarts,
-                                            allow_skipped_files)
+                                            allow_skipped_files,
+                                            threadsafe_override,
+                                            external_api_port)
 
     self._process_automatic_scaling(
         self._module_configuration.automatic_scaling)
@@ -1327,7 +1359,9 @@ class ManualScalingModule(Module):
                max_instances,
                use_mtime_file_watcher,
                automatic_restarts,
-               allow_skipped_files):
+               allow_skipped_files,
+               threadsafe_override,
+               external_api_port=None):
     """Initializer for ManualScalingModule.
 
     Args:
@@ -1369,6 +1403,10 @@ class ManualScalingModule(Module):
       allow_skipped_files: If True then all files in the application's directory
           are readable, even if they appear in a static handler or "skip_files"
           directive.
+      threadsafe_override: If not None, ignore the YAML file value of threadsafe
+          and use this value instead.
+      external_api_port: An integer specifying the location of an external API
+          server.
     """
     super(ManualScalingModule, self).__init__(module_configuration,
                                               host,
@@ -1387,7 +1425,9 @@ class ManualScalingModule(Module):
                                               max_instances,
                                               use_mtime_file_watcher,
                                               automatic_restarts,
-                                              allow_skipped_files)
+                                              allow_skipped_files,
+                                              threadsafe_override,
+                                              external_api_port)
 
     self._process_manual_scaling(module_configuration.manual_scaling)
 
@@ -1823,7 +1863,9 @@ class BasicScalingModule(Module):
                max_instances,
                use_mtime_file_watcher,
                automatic_restarts,
-               allow_skipped_files):
+               allow_skipped_files,
+               threadsafe_override,
+               external_api_port=None):
     """Initializer for BasicScalingModule.
 
     Args:
@@ -1865,6 +1907,10 @@ class BasicScalingModule(Module):
       allow_skipped_files: If True then all files in the application's directory
           are readable, even if they appear in a static handler or "skip_files"
           directive.
+      threadsafe_override: If not None, ignore the YAML file value of threadsafe
+          and use this value instead.
+      external_api_port: An integer specifying the location of an external API
+          server.
     """
     super(BasicScalingModule, self).__init__(module_configuration,
                                              host,
@@ -1883,7 +1929,9 @@ class BasicScalingModule(Module):
                                              max_instances,
                                              use_mtime_file_watcher,
                                              automatic_restarts,
-                                             allow_skipped_files)
+                                             allow_skipped_files,
+                                             threadsafe_override,
+                                             external_api_port)
     self._process_basic_scaling(module_configuration.basic_scaling)
 
     self._instances = []  # Protected by self._condition.
@@ -2243,7 +2291,8 @@ class InteractiveCommandModule(Module):
                request_data,
                dispatcher,
                use_mtime_file_watcher,
-               allow_skipped_files):
+               allow_skipped_files,
+               threadsafe_override):
     """Initializer for InteractiveCommandModule.
 
     Args:
@@ -2283,6 +2332,8 @@ class InteractiveCommandModule(Module):
       allow_skipped_files: If True then all files in the application's directory
           are readable, even if they appear in a static handler or "skip_files"
           directive.
+      threadsafe_override: If not None, ignore the YAML file value of threadsafe
+          and use this value instead.
     """
     super(InteractiveCommandModule, self).__init__(
         module_configuration,
@@ -2302,7 +2353,8 @@ class InteractiveCommandModule(Module):
         max_instances=1,
         use_mtime_file_watcher=use_mtime_file_watcher,
         automatic_restarts=True,
-        allow_skipped_files=allow_skipped_files)
+        allow_skipped_files=allow_skipped_files,
+        threadsafe_override=threadsafe_override)
     # Use a single instance so that state is consistent across requests.
     self._inst_lock = threading.Lock()
     self._inst = None

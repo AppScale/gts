@@ -33,6 +33,9 @@ import cgi
 import os
 import urlparse
 
+from google.appengine.api.channel.channel_service_stub import InvalidTokenError
+from google.appengine.api.channel.channel_service_stub import TokenTimedOutError
+
 
 
 CHANNEL_POLL_PATTERN = '/_ah/channel/dev(?:/.*)?'
@@ -105,15 +108,18 @@ def CreateChannelDispatcher(channel_service_stub):
         outfile.write(open(path).read())
       elif page == 'dev':
         token = param_dict['channel'][0]
-        (syntax_valid, time_valid) = (
-            self._channel_service_stub.check_token_validity(token))
-        if not (syntax_valid and time_valid):
+
+        token_error = None
+        try:
+          self._channel_service_stub.validate_token_and_extract_client_id(token)
 
 
-          if not syntax_valid:
-            token_error = 'Invalid+token.'
-          else:
-            token_error = 'Token+timed+out.'
+        except InvalidTokenError:
+          token_error = 'Invalid+token.'
+        except TokenTimedOutError:
+          token_error = 'Token+timed+out.'
+
+        if token_error is not None:
           outfile.write('Status: 401 %s\r\n\r\n' % token_error)
           return
 

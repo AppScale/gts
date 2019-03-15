@@ -57,13 +57,12 @@ class AppControllerClient
     @conn.options['protocol.http.ssl_config.verify_mode'] = nil
     @conn.add_method('set_parameters', 'layout', 'options', 'secret')
     @conn.add_method('upload_app', 'archived_file', 'file_suffix', 'secret')
-    @conn.add_method('update', 'versions', 'secret')
-    @conn.add_method('stop_version', 'version_key', 'secret')
     @conn.add_method('get_all_public_ips', 'secret')
-    @conn.add_method('is_done_loading', 'secret')
     @conn.add_method('is_done_initializing', 'secret')
     @conn.add_method('add_role', 'new_role', 'secret')
     @conn.add_method('remove_role', 'old_role', 'secret')
+    @conn.add_method('get_property', 'property_regex', 'secret')
+    @conn.add_method('set_property', 'property_name', 'property_value', 'secret')
     @conn.add_method('get_queues_in_use', 'secret')
     @conn.add_method('set_node_read_only', 'read_only', 'secret')
     @conn.add_method('primary_db_is_up', 'secret')
@@ -72,8 +71,6 @@ class AppControllerClient
     @conn.add_method('get_node_stats_json', 'secret')
     @conn.add_method('get_instance_info', 'secret')
     @conn.add_method('get_request_info', 'version_key', 'secret')
-    @conn.add_method('add_routing_for_appserver', 'version_key', 'ip', 'port',
-                     'secret')
     @conn.add_method('update_cron', 'project_id', 'secret')
   end
 
@@ -81,7 +78,6 @@ class AppControllerClient
   # used in few other clients (it should be made in a library):
   #   lib/infrastructure_manager_client.rb
   #   lib/user_app_client.rb
-  #   lib/app_manager_client.rb
   #   lib/app_controller_client.rb
   # Modification in this function should be reflected on the others too.
   #
@@ -145,22 +141,8 @@ class AppControllerClient
     }
   end
 
-  def stop_version(version_key)
-    make_call(30, RETRY_ON_FAIL, 'stop_version') {
-      @conn.stop_version(version_key, @secret)
-    }
-  end
-
-  def update(app_names)
-    make_call(30, RETRY_ON_FAIL, 'update') { @conn.update(app_names, @secret) }
-  end
-
   def is_done_initializing?
     make_call(30, RETRY_ON_FAIL, 'is_done_initializing') { @conn.is_done_initializing(@secret) }
-  end
-
-  def is_done_loading?
-    make_call(30, RETRY_ON_FAIL, 'is_done_loading') { @conn.is_done_loading(@secret) }
   end
 
   def get_all_public_ips
@@ -176,6 +158,18 @@ class AppControllerClient
   # case
   def remove_role(role)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'remove_role') { @conn.remove_role(role, @secret) }
+  end
+
+  def get_property(property_regex)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'get_property') {
+      @conn.get_queues_in_use(property_regex, @secret)
+    }
+  end
+
+  def set_property(property_name, property_value)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'set_property') {
+      @conn.get_queues_in_use(property_name, property_value, @secret)
+    }
   end
 
   def get_queues_in_use
@@ -219,17 +213,10 @@ class AppControllerClient
     }
   end
 
-  # Adds routing for appserver.
-  def add_routing_for_appserver(version_key, ip, port)
-    make_call(10, RETRY_ON_FAIL, 'add_routing_for_appserver') {
-      @conn.add_routing_for_appserver(version_key, ip, port, @secret)
-    }
-  end
-
   # Gets the statistics of this node
   def update_cron(project_id)
-    make_call(10, RETRY_ON_FAIL, 'update_project') {
-      @conn.get_node_stats_json(project_id, @secret)
+    make_call(10, RETRY_ON_FAIL, 'update_cron') {
+      @conn.update_cron(project_id, @secret)
     }
   end
 

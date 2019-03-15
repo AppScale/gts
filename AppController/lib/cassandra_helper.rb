@@ -3,6 +3,7 @@ require 'djinn'
 require 'node_info'
 require 'helperfunctions'
 require 'monit_interface'
+require 'set'
 
 # A String that indicates where we write the process ID that Cassandra runs
 # on at this machine.
@@ -53,10 +54,12 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 #   desired: The total number of database nodes.
-def start_db_master(clear_datastore, needed, desired)
+#   heap_reduction: A decimal representing a reduction factor for max heap
+#     (eg. .2 = 80% of normal calculation).
+def start_db_master(clear_datastore, needed, desired, heap_reduction)
   @state = 'Starting up Cassandra seed node'
   Djinn.log_info(@state)
-  start_cassandra(clear_datastore, needed, desired)
+  start_cassandra(clear_datastore, needed, desired, heap_reduction)
 end
 
 # Starts Cassandra on this machine. This is identical to starting Cassandra as a
@@ -67,7 +70,9 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 #   desired: The total number of database nodes.
-def start_db_slave(clear_datastore, needed, desired)
+#   heap_reduction: A decimal representing a reduction factor for max heap
+#     (eg. .2 = 80% of normal calculation).
+def start_db_slave(clear_datastore, needed, desired, heap_reduction)
   seed_node = get_db_master.private_ip
   @state = "Waiting for Cassandra seed node at #{seed_node} to start"
   Djinn.log_info(@state)
@@ -82,14 +87,14 @@ def start_db_slave(clear_datastore, needed, desired)
     sleep(Djinn::SMALL_WAIT)
   end
 
-  start_cassandra(clear_datastore, needed, desired)
+  start_cassandra(clear_datastore, needed, desired, heap_reduction)
 end
 
 # Waits for enough database nodes to be up.
 def wait_for_desired_nodes(needed, desired)
   sleep(Djinn::SMALL_WAIT) until system("#{NODETOOL} status > /dev/null 2>&1")
   loop do
-    ready = nodes_ready
+    ready = nodes_ready.length
     Djinn.log_debug("#{ready} nodes are up. #{needed} are needed.")
     break if ready >= needed
     sleep(Djinn::SMALL_WAIT)
@@ -99,7 +104,7 @@ def wait_for_desired_nodes(needed, desired)
   begin
     Timeout.timeout(60) {
       loop do
-        ready = nodes_ready
+        ready = nodes_ready.length
         Djinn.log_debug("#{ready} nodes are up. #{desired} are desired.")
         break if ready >= desired
         sleep(Djinn::SMALL_WAIT)
@@ -117,7 +122,9 @@ end
 #   clear_datastore: Remove any pre-existent data in the database.
 #   needed: The number of nodes required for quorum.
 #   desired: The total number of database nodes.
-def start_cassandra(clear_datastore, needed, desired)
+#   heap_reduction: A decimal representing a reduction factor for max heap
+#     (eg. .2 = 80% of normal calculation).
+def start_cassandra(clear_datastore, needed, desired, heap_reduction)
   if clear_datastore
     Djinn.log_info('Erasing datastore contents')
     Djinn.log_run("rm -rf #{CASSANDRA_DATA_DIR}")
@@ -128,7 +135,12 @@ def start_cassandra(clear_datastore, needed, desired)
   Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
 
   su = `which su`.chomp
-  start_cmd = "#{su} -c '#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}' cassandra"
+  cmd = "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}"
+  if heap_reduction > 0
+    cmd = "HEAP_REDUCTION=#{heap_reduction} #{cmd}"
+  end
+
+  start_cmd = "#{su} -c '#{cmd}' cassandra"
   stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
   MonitInterface.start_daemon(:cassandra, start_cmd, stop_cmd, PID_FILE)
 
@@ -163,12 +175,27 @@ def needed_for_quorum(total_nodes, replication)
   total_nodes - can_fail
 end
 
-# Returns the number of nodes in 'Up Normal' state.
+# Returns an array of nodes in 'Up Normal' state.
 def nodes_ready
-  output = `"#{NODETOOL}" status`
-  nodes_ready = 0
+  # Example output of `nodetool gossipinfo`:
+  # /192.168.33.10
+  #   ...
+  #   STATUS:15272:NORMAL,f02dd17...
+  #   LOAD:263359:1.29168682182E11
+  #   ...
+  # /192.168.33.11
+  # ...
+  output = `"#{NODETOOL}" gossipinfo`
+  return [] unless $?.exitstatus == 0
+
+  live_nodes = Set[]
+  current_node = nil
   output.split("\n").each { |line|
-    nodes_ready += 1 if line.start_with?('UN')
+    current_node = line[1..-1] if line.start_with?('/')
+    next if current_node.nil?
+    if line.include?('STATUS') && line.include?('NORMAL')
+      live_nodes.add(current_node)
+    end
   }
-  nodes_ready
+  live_nodes.to_a
 end

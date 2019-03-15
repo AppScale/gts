@@ -6,26 +6,27 @@ import struct
 import sys
 import time
 
-import dbconstants
-import helper_functions
-
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from .appscale_datastore_batch import DatastoreFactory
-from .dbconstants import AppScaleDBConnectionError
-from .dbconstants import ID_KEY_LENGTH
-from .dbconstants import METADATA_TABLE
-from .dbconstants import TERMINATING_STRING
+from tornado import ioloop
+
+from appscale.datastore import dbconstants, helper_functions
+from appscale.datastore.appscale_datastore_batch import DatastoreFactory
+from appscale.datastore.dbconstants import (
+  AppScaleDBConnectionError, BadRequest, ID_KEY_LENGTH, ID_SEPARATOR,
+  KEY_DELIMITER, KIND_SEPARATOR, METADATA_TABLE, TERMINATING_STRING
+)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import appscale_stub_util
+from google.appengine.datastore import datastore_index
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import sortable_pb_encoder
 
 
 logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
-logger = logging.getLogger('appscale-datastore')
+logger = logging.getLogger(__name__)
 
 
 def clean_app_id(app_id):
@@ -203,7 +204,7 @@ def fetch_and_delete_entities(database, table, schema, first_key,
 
   last_key = first_key + '\0' + TERMINATING_STRING
 
-  logging.debug("Deleting application data in the range: {0} - {1}".
+  logger.debug("Deleting application data in the range: {0} - {1}".
     format(first_key, last_key))
 
   db = DatastoreFactory.getDatastore(database)
@@ -213,26 +214,26 @@ def fetch_and_delete_entities(database, table, schema, first_key,
     return
 
   # Loop through the datastore tables and delete data.
-  logging.info("Deleting data from {0}".format(table))
+  logger.info("Deleting data from {0}".format(table))
 
   start_inclusive = True
   while True:
     try:
-      entities = db.range_query(
+      entities = db.range_query_sync(
         table, schema, first_key, last_key, batch_size,
         start_inclusive=start_inclusive)
       if not entities:
-        logging.info("No entities found for {}".format(table))
+        logger.info("No entities found for {}".format(table))
         break
 
       for ii in entities:
-        db.batch_delete(table, ii.keys())
-      logging.info("Deleted {0} entities".format(len(entities)))
+        db.batch_delete_sync(table, ii.keys())
+      logger.info("Deleted {0} entities".format(len(entities)))
 
       first_key = entities[-1].keys()[0]
       start_inclusive = False
     except AppScaleDBConnectionError:
-      logging.exception('Error while deleting data')
+      logger.exception('Error while deleting data')
       time.sleep(backoff_timeout)
 
 
@@ -253,7 +254,13 @@ def encode_index_pb(pb):
         key_id = e.name()
       elif e.has_id():
         key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-      path.append("{0}:{1}".format(e.type(), key_id))
+      else:
+        raise BadRequest('Entity path must contain name or ID')
+
+      if ID_SEPARATOR in e.type():
+        raise BadRequest('Kind names must not include ":"')
+
+      path.append(ID_SEPARATOR.join([e.type(), key_id]))
     val = dbconstants.KIND_SEPARATOR.join(path)
     val += dbconstants.KIND_SEPARATOR
     return val
@@ -319,6 +326,41 @@ def get_index_key_from_params(params):
   return key
 
 
+def get_scatter_prop(element_list):
+  """ Gets the scatter property for an entity's key path.
+
+  This will return a property for only a small percentage of entities.
+
+  Args:
+    element_list: A list of entity_pb.Path_Element objects.
+  Returns:
+    An entity_pb.Property object or None.
+  """
+  def id_from_element(element):
+    if element.has_name():
+      return element.name()
+    elif element.has_id():
+      return str(element.id())
+    else:
+      return ''
+
+  to_hash = ''.join([id_from_element(element) for element in element_list])
+  full_hash = mmh3.hash(to_hash)
+  hash_bytes = struct.pack('i', full_hash)[0:2]
+  hash_int = struct.unpack('H', hash_bytes)[0]
+  if hash_int >= dbconstants.SCATTER_PROPORTION:
+    return None
+
+  scatter_property = entity_pb.Property()
+  scatter_property.set_name('__scatter__')
+  scatter_property.set_meaning(entity_pb.Property.BYTESTRING)
+  scatter_property.set_multiple(False)
+  property_value = scatter_property.mutable_value()
+  property_value.set_stringvalue(hash_bytes)
+
+  return scatter_property
+
+
 def get_index_kv_from_tuple(tuple_list, reverse=False):
   """ Returns keys/value of indexes for a set of entities.
 
@@ -329,25 +371,33 @@ def get_index_kv_from_tuple(tuple_list, reverse=False):
      A list of keys and values of indexes
   """
   all_rows = []
-  for prefix, e in tuple_list:
-    for p in e.property_list():
-      val = str(encode_index_pb(p.value()))
+  for prefix, entity in tuple_list:
+    # Give some entities a property that makes it easy to sample keys.
+    scatter_prop = get_scatter_prop(entity.key().path().element_list())
+    if scatter_prop is not None:
+      # Prevent the original entity from being modified.
+      prop_list = [prop for prop in entity.property_list()] + [scatter_prop]
+    else:
+      prop_list = entity.property_list()
+
+    for prop in prop_list:
+      val = str(encode_index_pb(prop.value()))
 
       if reverse:
         val = helper_functions.reverse_lex(val)
 
       params = [prefix,
-                get_entity_kind(e),
-                p.name(),
+                get_entity_kind(entity),
+                prop.name(),
                 val,
-                str(encode_index_pb(e.key().path()))]
+                str(encode_index_pb(entity.key().path()))]
 
       index_key = get_index_key_from_params(params)
       p_vals = [index_key,
                 buffer(prefix + dbconstants.KEY_DELIMITER) + \
-                encode_index_pb(e.key().path())]
+                encode_index_pb(entity.key().path())]
       all_rows.append(p_vals)
-  return tuple(ii for ii in all_rows)
+  return tuple(all_rows)
 
 
 def get_ancestor_paths_from_ent_key(ent_key):
@@ -641,3 +691,125 @@ def get_write_time(txid):
   offset = datetime.datetime(2022, 2, 1) - epoch
   usec_offset = offset.total_seconds() * 1000000
   return int(usec_offset + txid)
+
+
+def encode_path_from_filter(query_filter):
+  """ Encode a reference path from a query filter.
+
+  Args:
+    query_filter: A datastore_pb.Query_Filter.
+  Returns:
+    A string containing an encoded reference path.
+  """
+  path = entity_pb.Path()
+  ref_value = query_filter.property(0).value().referencevalue()
+  for element in ref_value.pathelement_list():
+    path.add_element().MergeFrom(element)
+
+  return str(encode_index_pb(path))
+
+
+def tornado_synchronous(coroutine):
+  def synchronous_coroutine(*args, **kwargs):
+    async = lambda: coroutine(*args, **kwargs)
+    # Like synchronous HTTPClient, create separate IOLoop for sync code
+    io_loop = ioloop.IOLoop(make_current=False)
+    try:
+      return io_loop.run_sync(async)
+    finally:
+      io_loop.close()
+  return synchronous_coroutine
+
+
+def decode_path(encoded_path):
+  """ Parse a Cassandra-encoded reference path.
+
+  Args:
+    encoded_path: A string specifying the encoded path.
+  Returns:
+    An entity_pb.Path object.
+  """
+  path = entity_pb.Path()
+
+  for element in encoded_path.split(dbconstants.KIND_SEPARATOR):
+    # For some reason, encoded keys have a trailing separator, so ignore the
+    # last empty element.
+    if not element:
+      continue
+
+    kind, identifier = element.split(dbconstants.ID_SEPARATOR, 1)
+
+    new_element = path.add_element()
+    new_element.set_type(kind)
+
+    # Encoded paths do not differentiate between IDs and names, so we can only
+    # guess which one it is. IDs often exceed the ID_KEY_LENGTH.
+    if len(identifier) >= ID_KEY_LENGTH and identifier.isdigit():
+      new_element.set_id(int(identifier))
+    else:
+      new_element.set_name(identifier)
+
+  return path
+
+
+def kind_from_encoded_key(encoded_key):
+  """ Extract kind from an encoded reference string.
+
+  Args:
+    encoded_key: A string specifying an encoded entity key.
+  Returns:
+    A string specifying an entity kind.
+  """
+  path_section = encoded_key.rsplit(KEY_DELIMITER, 1)[-1]
+  last_element = path_section.split(KIND_SEPARATOR)[-2]
+  return last_element.split(ID_SEPARATOR, 1)[0]
+
+
+def __IndexListForQuery(query):
+  """Get the composite index definition used by the query, if any, as a list.
+
+  Args:
+    query: the datastore_pb.Query to compute the index list for
+
+  Returns:
+    A singleton list of the composite index definition pb used by the query,
+  """
+  required, kind, ancestor, props = (
+      datastore_index.CompositeIndexForQuery(query))
+  if not required:
+    return []
+
+  index_pb = entity_pb.Index()
+  index_pb.set_entity_type(kind)
+  index_pb.set_ancestor(bool(ancestor))
+  for name, direction in datastore_index.GetRecommendedIndexProperties(props):
+    prop_pb = entity_pb.Index_Property()
+    prop_pb.set_name(name)
+    prop_pb.set_direction(direction)
+    index_pb.property_list().append(prop_pb)
+  return [index_pb]
+
+
+def _FindIndexToUse(query, indexes):
+  """ Matches the query with one of the composite indexes.
+
+  Args:
+    query: A datastore_pb.Query.
+    indexes: A list of entity_pb.CompsiteIndex.
+  Returns:
+    The composite index of the list for which the composite index matches
+    the query. Returns None if there is no match.
+  """
+  if not query.has_kind():
+    return None
+
+  index_list = __IndexListForQuery(query)
+  if index_list == []:
+    return None
+
+  index_match = index_list[0]
+  for index in indexes:
+    if index_match.Equals(index.definition()):
+      return index
+
+  raise dbconstants.NeedsIndex('Query requires an index')

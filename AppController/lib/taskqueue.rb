@@ -240,9 +240,11 @@ module TaskQueue
 
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server
-    Djinn.log_debug('Stopping taskqueue_server on this node')
-    MonitInterface.stop(:taskqueue)
-    Djinn.log_debug('Done stopping taskqueue_server on this node')
+    Djinn.log_debug('Stopping taskqueue servers on this node')
+    self.get_server_ports.each do |port|
+      MonitInterface.stop("taskqueue-#{port}")
+    end
+    Djinn.log_debug('Done stopping taskqueue servers on this node')
   end
 
   # Erlang processes use a secret value as a password to authenticate between

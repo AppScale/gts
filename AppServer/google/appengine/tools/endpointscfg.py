@@ -28,7 +28,7 @@ The gen_client_lib subcommand takes a discovery document and calls a cloud
 service to generate a client library for a target language (currently just Java)
 
 Example:
-  endpointscfg.py gen_client_lib java -o . greetings-v0.1-rest.api
+  endpointscfg.py gen_client_lib java -o . greetings-v0.1.discovery
 
 The get_client_lib subcommand does both of the above commands at once.
 
@@ -45,6 +45,7 @@ Example:
 from __future__ import with_statement
 
 
+import collections
 import contextlib
 
 try:
@@ -132,8 +133,11 @@ def GenApiConfig(service_class_names, generator=None, hostname=None):
     A map from service names to a string containing the API configuration of the
       service in JSON format.
   """
-  service_map = {}
-  generator = generator or api_config.ApiConfigGenerator()
+
+
+
+
+  api_service_map = collections.OrderedDict()
   for service_class_name in service_class_names:
     module_name, base_service_class_name = service_class_name.rsplit('.', 1)
     module = __import__(module_name, fromlist=base_service_class_name)
@@ -141,10 +145,21 @@ def GenApiConfig(service_class_names, generator=None, hostname=None):
     if not (isinstance(service, type) and issubclass(service, remote.Service)):
       raise TypeError('%s is not a ProtoRPC service' % service_class_name)
 
+    services = api_service_map.setdefault((service.api_info.name,
+                                           service.api_info.version),
+                                          [])
+    services.append(service)
 
-    hostname = service.api_info.hostname or hostname
-    service_map[service_class_name] = generator.pretty_print_config_to_json(
-        service, hostname=hostname)
+  service_map = collections.OrderedDict()
+  generator = generator or api_config.ApiConfigGenerator()
+  for api_info, services in api_service_map.iteritems():
+
+
+    hostname = services[0].api_info.hostname or hostname
+
+
+    service_map['%s-%s' % api_info] = generator.pretty_print_config_to_json(
+        services, hostname=hostname)
 
   return service_map
 
@@ -165,11 +180,11 @@ def GenDiscoveryDoc(service_class_names, doc_format,
     ServerRequestException: If fetching the generated discovery doc fails.
 
   Returns:
-    A mapping from service names to discovery docs.
+    A list of discovery doc filenames.
   """
   output_files = []
   service_configs = GenApiConfig(service_class_names, hostname=hostname)
-  for service_class_name, config in service_configs.iteritems():
+  for api_name_version, config in service_configs.iteritems():
     body = json.dumps({'config': config}, indent=2, sort_keys=True)
     request = urllib2.Request(DISCOVERY_DOC_BASE + doc_format, body)
     request.add_header('content-type', 'application/json')
@@ -177,8 +192,7 @@ def GenDiscoveryDoc(service_class_names, doc_format,
     try:
       with contextlib.closing(urllib2.urlopen(request)) as response:
         content = response.read()
-        _, base_service_class_name = service_class_name.rsplit('.', 1)
-        discovery_name = base_service_class_name + '.discovery'
+        discovery_name = api_name_version + '.discovery'
         output_files.append(_WriteFile(output_path, discovery_name, content))
     except urllib2.HTTPError, error:
       raise ServerRequestException(error)
@@ -279,9 +293,8 @@ def _GenApiConfigCallback(args, api_func=GenApiConfig):
       args.service, args.output, args.hostname)
   service_configs = api_func(service_class_names, hostname=hostname)
 
-  for service_class_name, config in service_configs.iteritems():
-    _, base_service_class_name = service_class_name.rsplit('.', 1)
-    api_name = base_service_class_name + '.api'
+  for api_name_version, config in service_configs.iteritems():
+    api_name = api_name_version + '.api'
     _WriteFile(output_path, api_name, config)
 
 

@@ -141,6 +141,8 @@ class AppDashboardData():
                   "link": self.get_monit_url()},
         "taskqueue": {"title": "TaskQueue",
                       "link": self.get_flower_url()},
+        "pull_queue_viewer": {"title": "Pull Queue Viewer",
+                              "link": "/pull_queue_viewer"},
         "cron": {"title": "Cron",
                  "link": "/cron",
                  "template": "cron/console.html"},
@@ -165,8 +167,8 @@ class AppDashboardData():
                                                {"manage_users": lookup_dict[
                                                    "manage_users"]}]}
       if user_info.owned_apps or user_info.is_user_cloud_admin:
-        sections = ['monit', 'taskqueue', 'logging', 'app_console', 'cron',
-                    'datastore_viewer']
+        sections = ['monit', 'taskqueue', 'pull_queue_viewer', 'logging',
+                    'app_console', 'cron', 'datastore_viewer']
         lookup_dict["debugging_monitoring"] = {
           "Debugging/Monitoring": [{section: lookup_dict[section]}
                                    for section in sections]
@@ -288,15 +290,15 @@ class AppDashboardData():
       logging.exception(err)
       return None
 
-  def update_request_info(self, app_id):
+  def update_request_info(self, version_key):
     """ Queries the AppController to get request information for the given
-    application, storing it in the Datastore for later viewing.
+    version, storing it in the Datastore for later viewing.
 
     Args:
-      app_id: A string, the application identifier.
+      version_key: A string specifying the version key in the form
+        project-id_service-id_version-id.
     """
-    version_key = '_'.join([app_id, AppDashboardHelper.DEFAULT_SERVICE,
-                            AppDashboardHelper.DEFAULT_VERSION])
+    app_id = version_key.split('_')[0]
     try:
       acc = self.helper.get_appcontroller_client()
       request_info = acc.get_request_info(version_key)

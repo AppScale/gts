@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name='appscale-hermes',
-  version='0.0.6',
+  version='0.1.2',
   description='AppScale module which takes care of periodical backup and '
               'restore tasks and provides statistics API.',
   author='AppScale Systems, Inc.',
@@ -15,8 +15,7 @@ setup(
     'kazoo',
     'tornado',
     'psutil==5.1.3',
-    'attrs>=16',
-    'flexmock',
+    'attrs>=18.1.0',
     'mock',
   ],
   test_suite='appscale.hermes',
@@ -29,7 +28,8 @@ setup(
   namespace_packages=['appscale'],
   packages=['appscale',
             'appscale.hermes',
-            'appscale.hermes.stats',
-            'appscale.hermes.stats.producers'],
-  entry_points={'console_scripts': ['appscale-hermes=appscale.hermes:main']}
+            'appscale.hermes.producers'],
+  entry_points={'console_scripts': [
+    'appscale-hermes=appscale.hermes.hermes_server:main'
+  ]}
 )
