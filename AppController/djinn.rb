@@ -1745,13 +1745,21 @@ class Djinn
     write_database_info
     update_firewall
 
+    # Let's account for the autoscaled nodes differently since we don't
+    # have to wait for them (they could have been downscaled).
+    skip_nodes = get_autoscaled_nodes
+    nodes_to_wait = []
+    @state_change_lock.synchronize { nodes_to_wait = @nodes - skip_nodes }
+
     # If we are the headnode, we may need to start/setup all other nodes.
     # Better do it early on, since it may take some time for the other
     # nodes to start up.
     if my_node.is_shadow?
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
-      @state_change_lock.synchronize { initialize_nodes_in_parallel(@nodes) }
+      @state_change_lock.synchronize {
+        initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
+      }
     end
 
     # Initialize the current server and starts all the API and essential
@@ -1768,7 +1776,9 @@ class Djinn
 
     pick_zookeeper(@zookeeper_data)
     write_our_node_info
-    @state_change_lock.synchronize { wait_for_nodes_to_finish_loading(@nodes) }
+
+    # We wait only for non autoscaled nodes.
+    wait_for_nodes_to_finish_loading(nodes_to_wait)
 
     # Check that services are up before proceeding into the duty cycle.
     check_api_services
@@ -2292,7 +2302,7 @@ class Djinn
     Djinn.log_debug("Changed nodes to #{@nodes}")
 
     update_firewall
-    initialize_nodes_in_parallel(new_nodes)
+    initialize_nodes_in_parallel(new_nodes, [])
     update_hosts_info
   end
 
@@ -3757,17 +3767,34 @@ class Djinn
     end
   end
 
-  def initialize_nodes_in_parallel(node_info)
+  def initialize_nodes_in_parallel(must_have, nice_have)
     threads = []
-    node_info.each { |slave|
+    must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
       threads << Thread.new {
         initialize_node(slave)
       }
     }
 
+    # If we cannot reconnect with autoscaled nodes, we will have to clean
+    # up the state.
+    nice_have.each { |slave|
+      next if slave.private_ip == my_node.private_ip
+      Thread.new {
+        Djinn.log_info("Trying to initialize scaled node #{slave}.")
+        begin
+          Timeout.timeout(SCALEDOWN_THRESHOLD * DUTY_CYCLE * SMALL_WAIT) {
+            initialize_node(slave)
+          }
+        rescue Timeout::Error
+          Djinn.log_warn("Couldn't initialize #{slave} in time.")
+          terminate_node_from_deployment(slave)
+        end
+      }
+    }
+
     threads.each { |t| t.join }
-    Djinn.log_info("Done initializing nodes.")
+    Djinn.log_info("Done initializing must have nodes.")
   end
 
   def initialize_node(node)
@@ -3909,7 +3936,8 @@ class Djinn
       locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
       loop {
         break if File.exists?(locations_json)
-        Djinn.log_warn("Locations JSON file does not exist on head node yet, #{dest_node.private_ip} is waiting ")
+        Djinn.log_warn('Locations JSON file does not exist on head node' \
+                       " yet, #{dest_node.private_ip} is waiting ")
         Kernel.sleep(SMALL_WAIT)
       }
       Djinn.log_info("Copying locations.json to #{dest_node.private_ip}")
@@ -4978,19 +5006,22 @@ HOSTS
       return 0
     end
 
-    imc = InfrastructureManagerClient.new(@@secret)
-    begin
-      imc.terminate_instances(@options, node_to_remove.instance_id)
-    rescue FailedNodeException
-      Djinn.log_warn("Failed to call terminate_instances")
-      return 0
-    rescue AppScaleException
-      Djinn.log_warn("Failed to terminate #{node_to_remove}. Not removing it.")
-      return 0
+    # Terminate instance if we are in cloud.
+    if is_cloud?
+      imc = InfrastructureManagerClient.new(@@secret)
+      begin
+        imc.terminate_instances(@options, node_to_remove.instance_id)
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to call terminate_instances")
+        return 0
+      rescue AppScaleException
+        Djinn.log_warn("Failed to terminate #{node_to_remove}. Not removing it.")
+        return 0
+      end
     end
 
+    # And then clean up the internal state.
     remove_node_from_local_and_zookeeper(node_to_remove.private_ip)
-
     to_remove = {}
     @app_info_map.each { |version_key, info|
       next if info['appservers'].nil?
