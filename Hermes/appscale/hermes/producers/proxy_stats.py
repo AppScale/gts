@@ -628,13 +628,14 @@ def _convert_ints_and_missing(row):
       row[index] = int(cell_value) if cell_value else None
 
 
-def get_stats_from_one_haproxy(socket_path, configs_dir):
+def get_stats_from_one_haproxy(socket_path, configs_dir, net_connections):
   """ Reads and parses data from haproxy socket and builds
   structured stats objects.
 
   Args:
     socket_path: A str - path to the haproxy socket on the file system.
     configs_dir: A str - path to the haproxy configs dir.
+    net_connections: A list of net connections provided by psutil.
   Returns:
     A list of ProxyStats.
   """
@@ -686,8 +687,6 @@ def get_stats_from_one_haproxy(socket_path, configs_dir):
     else:
       stats = HAProxyListenerStats.from_stats_csv_row(row)
     parsed_objects[proxy_name].append(stats)
-
-  net_connections = psutil.net_connections()
 
   # Attempt to merge separate stats object to ProxyStats instances
   proxy_stats_list = []
@@ -754,11 +753,13 @@ class ProxiesStatsSource(object):
     """
     start = time.time()
 
+    net_connections = psutil.net_connections()
     proxy_stats_list = []
     for haproxy_process_name, info in HAPROXY_PROCESSES.iteritems():
       logger.debug("Processing {} haproxy stats".format(haproxy_process_name))
       proxy_stats_list += get_stats_from_one_haproxy(
-        info['socket'], info['configs'])
+        info['socket'], info['configs'], net_connections
+      )
 
     stats = ProxiesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.now().timetuple()),
