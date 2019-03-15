@@ -31,6 +31,10 @@ class HAProxyStatsParsingError(Exception):
   pass
 
 
+class InvalidHAProxyStats(ValueError):
+  pass
+
+
 HEADER_1_5_PLUS = [
   "pxname", "svname", "qcur", "qmax", "scur", "smax", "slim", "stot", "bin",
   "bout", "dreq", "dresp", "ereq", "econ", "eresp", "wretr", "wredis", "status",
@@ -136,191 +140,399 @@ HAPROXY_STATS_INT_COLUMNS = [
 ]
 
 
+def att():
+  """ A short for `attr.ib(default=None)` which helps to leave
+  some place for descriptive comment.
+  """
+  return attr.ib(default=None)
+
+
 @include_list_name('proxy.listener')
-@attr.s(hash=False, slots=True, frozen=True)
+@attr.s(hash=False, slots=True)
 class HAProxyListenerStats(object):
   """
   For more details see
   https://cbonte.github.io/haproxy-dconv/1.5/configuration.html#9.1
   """
-  pxname = attr.ib()  # proxy name
-  svname = attr.ib()  # service name (FRONTEND, BACKEND or name of server/listener)
-  scur = attr.ib()  # current sessions
-  smax = attr.ib()  # max sessions
-  slim = attr.ib()  # configured session limit
-  stot = attr.ib()  # cumulative num of connections
-  bin = attr.ib()  # bytes in
-  bout = attr.ib()  # bytes out
-  dreq = attr.ib()  # reqs denied because of security concerns
-  dresp = attr.ib()  # resps denied because of security concerns
-  ereq = attr.ib()  # request errors
-  status = attr.ib()  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
-  pid = attr.ib()  # process id (0 for first instance, 1 for second, ...)
-  iid = attr.ib()  # unique proxy id
-  sid = attr.ib()  # server id (unique inside a proxy)
-  type = attr.ib()  # (0=frontend, 1=backend, 2=server, 3=socket/listener)
+  pxname = att()  # proxy name
+  svname = att()  # service name (FRONTEND, BACKEND or server/listener name)
+  scur = att()  # current sessions
+  smax = att()  # max sessions
+  slim = att()  # configured session limit
+  stot = att()  # cumulative num of connections
+  bin = att()  # bytes in
+  bout = att()  # bytes out
+  dreq = att()  # reqs denied because of security concerns
+  dresp = att()  # resps denied because of security concerns
+  ereq = att()  # request errors
+  status = att()  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
+  pid = att()  # process id (instance serial number, e.g.: 0, 1, ..)
+  iid = att()  # unique proxy id
+  sid = att()  # server id (unique inside a proxy)
+  type = att()  # (0=frontend, 1=backend, 2=server, 3=socket/listener)
+
+  @staticmethod
+  def from_stats_csv_row(row):
+    """ Creates an instance of HAProxyListenerStats using empty
+    constructor and manual filling of all attributes.
+    It works ~150% faster than keyword arguments.
+
+    Args:
+      row: A list of values in stats CSV row.
+    Returns:
+      An instance HAProxyListenerStats.
+    """
+    stats = HAProxyListenerStats()
+    stats.pxname = row[PXNAME]
+    stats.svname = row[SVNAME]
+    stats.scur = row[SCUR]
+    stats.smax = row[SMAX]
+    stats.slim = row[SLIM]
+    stats.stot = row[STOT]
+    stats.bin = row[BIN]
+    stats.bout = row[BOUT]
+    stats.dreq = row[DREQ]
+    stats.dresp = row[DRESP]
+    stats.ereq = row[EREQ]
+    stats.status = row[STATUS]
+    stats.pid = row[PID]
+    stats.iid = row[IID]
+    stats.sid = row[SID]
+    stats.type = row[TYPE]
+    return stats
 
 
 @include_list_name('proxy.frontend')
-@attr.s(hash=False, slots=True, frozen=True)
+@attr.s(hash=False, slots=True)
 class HAProxyFrontendStats(object):
   """
   For more details see
   https://cbonte.github.io/haproxy-dconv/1.5/configuration.html#9.1
   """
-  pxname = attr.ib()  # proxy name
-  svname = attr.ib()  # service name (FRONTEND, BACKEND or name of server/listener)
-  scur = attr.ib()  # current sessions
-  smax = attr.ib()  # max sessions
-  slim = attr.ib()  # configured session limit
-  stot = attr.ib()  # cumulative num of connections
-  bin = attr.ib()  # bytes in
-  bout = attr.ib()  # bytes out
-  dreq = attr.ib()  # reqs denied because of security concerns
-  dresp = attr.ib()  # resps denied because of security concerns
-  ereq = attr.ib()  # request errors
-  status = attr.ib()  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
-  pid = attr.ib()  # process id (0 for first instance, 1 for second, ...)
-  iid = attr.ib()  # unique proxy id
-  type = attr.ib()  # (0=frontend, 1=backend, 2=server, 3=socket/listener)
-  rate = attr.ib()  # num of sessions per second over last elapsed second
-  rate_lim = attr.ib()  # configured limit on new sessions per second
-  rate_max = attr.ib()  # max num of new sessions per second
-  hrsp_1xx = attr.ib()  # http resps with 1xx code
-  hrsp_2xx = attr.ib()  # http resps with 2xx code
-  hrsp_3xx = attr.ib()  # http resps with 3xx code
-  hrsp_4xx = attr.ib()  # http resps with 4xx code
-  hrsp_5xx = attr.ib()  # http resps with 5xx code
-  hrsp_other = attr.ib()  # http resps with other codes (protocol error)
-  req_rate = attr.ib()  # HTTP reqs per second over last elapsed second
-  req_rate_max = attr.ib()  # max num of HTTP reqs per second observed
-  req_tot = attr.ib()  # total num of HTTP reqs received
-  comp_in = attr.ib()  # num of HTTP resp bytes fed to the compressor
-  comp_out = attr.ib()  # num of HTTP resp bytes emitted by the compressor
-  comp_byp = attr.ib()  # num of bytes that bypassed the HTTP compressor
-  comp_rsp = attr.ib()  # num of HTTP resps that were compressed
+  pxname = att()  # proxy name
+  svname = att()  # service name (FRONTEND, BACKEND or server/listener name)
+  scur = att()  # current sessions
+  smax = att()  # max sessions
+  slim = att()  # configured session limit
+  stot = att()  # cumulative num of connections
+  bin = att()  # bytes in
+  bout = att()  # bytes out
+  dreq = att()  # reqs denied because of security concerns
+  dresp = att()  # resps denied because of security concerns
+  ereq = att()  # request errors
+  status = att()  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
+  pid = att()  # process id (0 for first instance, 1 for second, ...)
+  iid = att()  # unique proxy id
+  type = att()  # (0=frontend, 1=backend, 2=server, 3=socket/listener)
+  rate = att()  # num of sessions per second over last elapsed second
+  rate_lim = att()  # configured limit on new sessions per second
+  rate_max = att()  # max num of new sessions per second
+  hrsp_1xx = att()  # http resps with 1xx code
+  hrsp_2xx = att()  # http resps with 2xx code
+  hrsp_3xx = att()  # http resps with 3xx code
+  hrsp_4xx = att()  # http resps with 4xx code
+  hrsp_5xx = att()  # http resps with 5xx code
+  hrsp_other = att()  # http resps with other codes (protocol error)
+  req_rate = att()  # HTTP reqs per second over last elapsed second
+  req_rate_max = att()  # max num of HTTP reqs per second observed
+  req_tot = att()  # total num of HTTP reqs received
+  comp_in = att()  # num of HTTP resp bytes fed to the compressor
+  comp_out = att()  # num of HTTP resp bytes emitted by the compressor
+  comp_byp = att()  # num of bytes that bypassed the HTTP compressor
+  comp_rsp = att()  # num of HTTP resps that were compressed
+
+  @staticmethod
+  def from_stats_csv_row(row):
+    """ Creates an instance of HAProxyFrontendStats using empty
+    constructor and manual filling of all attributes.
+    It works ~150% faster than keyword arguments.
+
+    Args:
+      row: A list of values in stats CSV row.
+    Returns:
+      An instance HAProxyFrontendStats.
+    """
+    stats = HAProxyFrontendStats()
+    stats.pxname = row[PXNAME]
+    stats.svname = row[SVNAME]
+    stats.scur = row[SCUR]
+    stats.smax = row[SMAX]
+    stats.slim = row[SLIM]
+    stats.stot = row[STOT]
+    stats.bin = row[BIN]
+    stats.bout = row[BOUT]
+    stats.dreq = row[DREQ]
+    stats.dresp = row[DRESP]
+    stats.ereq = row[EREQ]
+    stats.status = row[STATUS]
+    stats.pid = row[PID]
+    stats.iid = row[IID]
+    stats.type = row[TYPE]
+    stats.rate = row[RATE]
+    stats.rate_lim = row[RATE_LIM]
+    stats.rate_max = row[RATE_MAX]
+    stats.hrsp_1xx = row[HRSP_1XX]
+    stats.hrsp_2xx = row[HRSP_2XX]
+    stats.hrsp_3xx = row[HRSP_3XX]
+    stats.hrsp_4xx = row[HRSP_4XX]
+    stats.hrsp_5xx = row[HRSP_5XX]
+    stats.hrsp_other = row[HRSP_OTHER]
+    stats.req_rate = row[REQ_RATE]
+    stats.req_rate_max = row[REQ_RATE_MAX]
+    stats.req_tot = row[REQ_TOT]
+    stats.comp_in = row[COMP_IN]
+    stats.comp_out = row[COMP_OUT]
+    stats.comp_byp = row[COMP_BYP]
+    stats.comp_rsp = row[COMP_RSP]
+    return stats
 
 
 @include_list_name('proxy.backend')
-@attr.s(hash=False, slots=True, frozen=True)
+@attr.s(hash=False, slots=True)
 class HAProxyBackendStats(object):
   """
   For more details see
   https://cbonte.github.io/haproxy-dconv/1.5/configuration.html#9.1
   """
-  pxname = attr.ib()  # proxy name
-  svname = attr.ib()  # service name (FRONTEND, BACKEND or name of server/listener)
-  qcur = attr.ib()  # current queued reqs. For the backend this reports the
-  qmax = attr.ib()  # max value of qcur
-  scur = attr.ib()  # current sessions
-  smax = attr.ib()  # max sessions
-  slim = attr.ib()  # configured session limit
-  stot = attr.ib()  # cumulative num of connections
-  bin = attr.ib()  # bytes in
-  bout = attr.ib()  # bytes out
-  dreq = attr.ib()  # reqs denied because of security concerns
-  dresp = attr.ib()  # resps denied because of security concerns
-  econ = attr.ib()  # num of reqs that encountered an error
-  eresp = attr.ib()  # resp errors. srv_abrt will be counted here also
-  wretr = attr.ib()  # num of times a connection to a server was retried
-  wredis = attr.ib()  # num of times a request was redispatched
-  status = attr.ib()  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
-  weight = attr.ib()  # total weight
-  act = attr.ib()  # num of active servers
-  bck = attr.ib()  # num of backup servers
-  chkdown = attr.ib()  # num of UP->DOWN transitions. The backend counter counts
-  lastchg = attr.ib()  # num of seconds since the last UP<->DOWN transition
-  downtime = attr.ib()  # total downtime (in seconds). The value for the backend
-  pid = attr.ib()  # process id (0 for first instance, 1 for second, ...)
-  iid = attr.ib()  # unique proxy id
-  lbtot = attr.ib()  # total num of times a server was selected, either for new
-  type = attr.ib()  # (0=frontend, 1=backend, 2=server, 3=socket/listener)
-  rate = attr.ib()  # num of sessions per second over last elapsed second
-  rate_max = attr.ib()  # max num of new sessions per second
-  hrsp_1xx = attr.ib()  # http resps with 1xx code
-  hrsp_2xx = attr.ib()  # http resps with 2xx code
-  hrsp_3xx = attr.ib()  # http resps with 3xx code
-  hrsp_4xx = attr.ib()  # http resps with 4xx code
-  hrsp_5xx = attr.ib()  # http resps with 5xx code
-  hrsp_other = attr.ib()  # http resps with other codes (protocol error)
-  cli_abrt = attr.ib()  # num of data transfers aborted by the client
-  srv_abrt = attr.ib()  # num of data transfers aborted by the server
-  comp_in = attr.ib()  # num of HTTP resp bytes fed to the compressor
-  comp_out = attr.ib()  # num of HTTP resp bytes emitted by the compressor
-  comp_byp = attr.ib()  # num of bytes that bypassed the HTTP compressor
-  comp_rsp = attr.ib()  # num of HTTP resps that were compressed
-  lastsess = attr.ib()  # num of seconds since last session assigned to
-  qtime = attr.ib()  # the avg queue time in ms over the 1024 last reqs
-  ctime = attr.ib()  # the avg connect time in ms over the 1024 last reqs
-  rtime = attr.ib()  # the avg resp time in ms over the 1024 last reqs
-  ttime = attr.ib()  # the avg total session time in ms over the 1024 last
+  pxname = att()  # proxy name
+  svname = att()  # service name (FRONTEND, BACKEND or name of server/listener)
+  qcur = att()  # current queued reqs. For the backend this reports the
+  qmax = att()  # max value of qcur
+  scur = att()  # current sessions
+  smax = att()  # max sessions
+  slim = att()  # configured session limit
+  stot = att()  # cumulative num of connections
+  bin = att()  # bytes in
+  bout = att()  # bytes out
+  dreq = att()  # reqs denied because of security concerns
+  dresp = att()  # resps denied because of security concerns
+  econ = att()  # num of reqs that encountered an error
+  eresp = att()  # resp errors. srv_abrt will be counted here also
+  wretr = att()  # num of times a connection to a server was retried
+  wredis = att()  # num of times a request was redispatched
+  status = att()  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
+  weight = att()  # total weight
+  act = att()  # num of active servers
+  bck = att()  # num of backup servers
+  chkdown = att()  # num of UP->DOWN transitions. The backend counter counts
+  lastchg = att()  # num of seconds since the last UP<->DOWN transition
+  downtime = att()  # total downtime (in seconds). The value for the backend
+  pid = att()  # process id (0 for first instance, 1 for second, ...)
+  iid = att()  # unique proxy id
+  lbtot = att()  # total num of times a server was selected, either for new
+  type = att()  # (0=frontend, 1=backend, 2=server, 3=socket/listener)
+  rate = att()  # num of sessions per second over last elapsed second
+  rate_max = att()  # max num of new sessions per second
+  hrsp_1xx = att()  # http resps with 1xx code
+  hrsp_2xx = att()  # http resps with 2xx code
+  hrsp_3xx = att()  # http resps with 3xx code
+  hrsp_4xx = att()  # http resps with 4xx code
+  hrsp_5xx = att()  # http resps with 5xx code
+  hrsp_other = att()  # http resps with other codes (protocol error)
+  cli_abrt = att()  # num of data transfers aborted by the client
+  srv_abrt = att()  # num of data transfers aborted by the server
+  comp_in = att()  # num of HTTP resp bytes fed to the compressor
+  comp_out = att()  # num of HTTP resp bytes emitted by the compressor
+  comp_byp = att()  # num of bytes that bypassed the HTTP compressor
+  comp_rsp = att()  # num of HTTP resps that were compressed
+  lastsess = att()  # num of seconds since last session assigned to
+  qtime = att()  # the avg queue time in ms over the 1024 last reqs
+  ctime = att()  # the avg connect time in ms over the 1024 last reqs
+  rtime = att()  # the avg resp time in ms over the 1024 last reqs
+  ttime = att()  # the avg total session time in ms over the 1024 last
+
+  @staticmethod
+  def from_stats_csv_row(row):
+    """ Creates an instance of HAProxyBackendStats using empty
+    constructor and manual filling of all attributes.
+    It works ~150% faster than keyword arguments.
+
+    Args:
+      row: A list of values in stats CSV row.
+    Returns:
+      An instance HAProxyBackendStats.
+    """
+    stats = HAProxyBackendStats()
+    stats.pxname = row[PXNAME]
+    stats.svname = row[SVNAME]
+    stats.qcur = row[QCUR]
+    stats.qmax = row[QMAX]
+    stats.scur = row[SCUR]
+    stats.smax = row[SMAX]
+    stats.slim = row[SLIM]
+    stats.stot = row[STOT]
+    stats.bin = row[BIN]
+    stats.bout = row[BOUT]
+    stats.dreq = row[DREQ]
+    stats.dresp = row[DRESP]
+    stats.econ = row[ECON]
+    stats.eresp = row[ERESP]
+    stats.wretr = row[WRETR]
+    stats.wredis = row[WREDIS]
+    stats.status = row[STATUS]
+    stats.weight = row[WEIGHT]
+    stats.act = row[ACT]
+    stats.bck = row[BCK]
+    stats.chkdown = row[CHKDOWN]
+    stats.lastchg = row[LASTCHG]
+    stats.downtime = row[DOWNTIME]
+    stats.pid = row[PID]
+    stats.iid = row[IID]
+    stats.lbtot = row[LBTOT]
+    stats.type = row[TYPE]
+    stats.rate = row[RATE]
+    stats.rate_max = row[RATE_MAX]
+    stats.hrsp_1xx = row[HRSP_1XX]
+    stats.hrsp_2xx = row[HRSP_2XX]
+    stats.hrsp_3xx = row[HRSP_3XX]
+    stats.hrsp_4xx = row[HRSP_4XX]
+    stats.hrsp_5xx = row[HRSP_5XX]
+    stats.hrsp_other = row[HRSP_OTHER]
+    stats.cli_abrt = row[CLI_ABRT]
+    stats.srv_abrt = row[SRV_ABRT]
+    stats.comp_in = row[COMP_IN]
+    stats.comp_out = row[COMP_OUT]
+    stats.comp_byp = row[COMP_BYP]
+    stats.comp_rsp = row[COMP_RSP]
+    stats.lastsess = row[LASTSESS]
+    stats.qtime = row[QTIME]
+    stats.ctime = row[CTIME]
+    stats.rtime = row[RTIME]
+    stats.ttime = row[TTIME]
+    return stats
 
 
 @include_list_name('proxy.server')
-@attr.s(hash=False, slots=True, frozen=True)
+@attr.s(hash=False, slots=True)
 class HAProxyServerStats(object):
   """
   For more details see
   https://cbonte.github.io/haproxy-dconv/1.5/configuration.html#9.1
   """
-  private_ip = attr.ib()
-  port = attr.ib()
-  pxname = attr.ib()  # proxy name
-  svname = attr.ib()  # service name (FRONTEND, BACKEND or name of server/listener)
-  qcur = attr.ib()  # current queued reqs. For the backend this reports the
-  qmax = attr.ib()  # max value of qcur
-  scur = attr.ib()  # current sessions
-  smax = attr.ib()  # max sessions
-  slim = attr.ib()  # configured session limit
-  stot = attr.ib()  # cumulative num of connections
-  bin = attr.ib()  # bytes in
-  bout = attr.ib()  # bytes out
-  dresp = attr.ib()  # resps denied because of security concerns.
-  econ = attr.ib()  # num of reqs that encountered an error trying to
-  eresp = attr.ib()  # resp errors. srv_abrt will be counted here also.
-  wretr = attr.ib()  # num of times a connection to a server was retried.
-  wredis = attr.ib()  # num of times a request was redispatched to another
-  status = attr.ib()  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
-  weight = attr.ib()  # server weight
-  act = attr.ib()  # server is active
-  bck = attr.ib()  # server is backup
-  chkfail = attr.ib()  # num of failed checks
-  chkdown = attr.ib()  # num of UP->DOWN transitions
-  lastchg = attr.ib()  # num of seconds since the last UP<->DOWN transition
-  downtime = attr.ib()  # total downtime (in seconds)
-  qlimit = attr.ib()  # configured maxqueue for the server
-  pid = attr.ib()  # process id (0 for first instance, 1 for second, ...)
-  iid = attr.ib()  # unique proxy id
-  sid = attr.ib()  # server id (unique inside a proxy)
-  throttle = attr.ib()  # current throttle percentage for the server
-  lbtot = attr.ib()  # total num of times a server was selected
-  tracked = attr.ib()  # id of proxy/server if tracking is enabled.
-  type = attr.ib()  # (0=frontend, 1=backend, 2=server, 3=socket/listener)
-  rate = attr.ib()  # num of sessions per second over last elapsed second
-  rate_max = attr.ib()  # max num of new sessions per second
-  check_status = attr.ib()  # status of last health check
-  check_code = attr.ib()  # layer5-7 code, if available
-  check_duration = attr.ib()  # time in ms took to finish last health check
-  hrsp_1xx = attr.ib()  # http resps with 1xx code
-  hrsp_2xx = attr.ib()  # http resps with 2xx code
-  hrsp_3xx = attr.ib()  # http resps with 3xx code
-  hrsp_4xx = attr.ib()  # http resps with 4xx code
-  hrsp_5xx = attr.ib()  # http resps with 5xx code
-  hrsp_other = attr.ib()  # http resps with other codes (protocol error)
-  hanafail = attr.ib()  # failed health checks details
-  cli_abrt = attr.ib()  # num of data transfers aborted by the client
-  srv_abrt = attr.ib()  # num of data transfers aborted by the server
-  lastsess = attr.ib()  # num of seconds since last session assigned to
-  last_chk = attr.ib()  # last health check contents or textual error
-  last_agt = attr.ib()  # last agent check contents or textual error
-  qtime = attr.ib()  # the avg queue time in ms over the 1024 last reqs
-  ctime = attr.ib()  # the avg connect time in ms over the 1024 last reqs
-  rtime = attr.ib()  # the avg resp time in ms over the 1024 last reqs
-  ttime = attr.ib()  # the avg total session time in ms over the 1024 last
+  private_ip = att()
+  port = att()
+  pxname = att()  # proxy name
+  svname = att()  # service name (FRONTEND, BACKEND or name of server/listener)
+  qcur = att()  # current queued reqs. For the backend this reports the
+  qmax = att()  # max value of qcur
+  scur = att()  # current sessions
+  smax = att()  # max sessions
+  slim = att()  # configured session limit
+  stot = att()  # cumulative num of connections
+  bin = att()  # bytes in
+  bout = att()  # bytes out
+  dresp = att()  # resps denied because of security concerns.
+  econ = att()  # num of reqs that encountered an error trying to
+  eresp = att()  # resp errors. srv_abrt will be counted here also.
+  wretr = att()  # num of times a connection to a server was retried.
+  wredis = att()  # num of times a request was redispatched to another
+  status = att()  # status (UP/DOWN/NOLB/MAINT/MAINT(via)...)
+  weight = att()  # server weight
+  act = att()  # server is active
+  bck = att()  # server is backup
+  chkfail = att()  # num of failed checks
+  chkdown = att()  # num of UP->DOWN transitions
+  lastchg = att()  # num of seconds since the last UP<->DOWN transition
+  downtime = att()  # total downtime (in seconds)
+  qlimit = att()  # configured maxqueue for the server
+  pid = att()  # process id (0 for first instance, 1 for second, ...)
+  iid = att()  # unique proxy id
+  sid = att()  # server id (unique inside a proxy)
+  throttle = att()  # current throttle percentage for the server
+  lbtot = att()  # total num of times a server was selected
+  tracked = att()  # id of proxy/server if tracking is enabled.
+  type = att()  # (0=frontend, 1=backend, 2=server, 3=socket/listener)
+  rate = att()  # num of sessions per second over last elapsed second
+  rate_max = att()  # max num of new sessions per second
+  check_status = att()  # status of last health check
+  check_code = att()  # layer5-7 code, if available
+  check_duration = att()  # time in ms took to finish last health check
+  hrsp_1xx = att()  # http resps with 1xx code
+  hrsp_2xx = att()  # http resps with 2xx code
+  hrsp_3xx = att()  # http resps with 3xx code
+  hrsp_4xx = att()  # http resps with 4xx code
+  hrsp_5xx = att()  # http resps with 5xx code
+  hrsp_other = att()  # http resps with other codes (protocol error)
+  hanafail = att()  # failed health checks details
+  cli_abrt = att()  # num of data transfers aborted by the client
+  srv_abrt = att()  # num of data transfers aborted by the server
+  lastsess = att()  # num of seconds since last session assigned to
+  last_chk = att()  # last health check contents or textual error
+  last_agt = att()  # last agent check contents or textual error
+  qtime = att()  # the avg queue time in ms over the 1024 last reqs
+  ctime = att()  # the avg connect time in ms over the 1024 last reqs
+  rtime = att()  # the avg resp time in ms over the 1024 last reqs
+  ttime = att()  # the avg total session time in ms over the 1024 last
 
+  @staticmethod
+  def from_stats_csv_row(private_ip, port, row):
+    """ Creates an instance of HAProxyServerStats using empty
+    constructor and manual filling of all attributes.
+    It works ~150% faster than keyword arguments.
 
-class InvalidHAProxyStats(ValueError):
-  pass
+    Args:
+      private_ip: A str - private IP server listens on.
+      port: An int - port server listens on
+      row: A list of values in stats CSV row.
+    Returns:
+      An instance HAProxyServerStats.
+    """
+    stats = HAProxyServerStats()
+    stats.private_ip = private_ip
+    stats.port = port
+    stats.pxname = row[PXNAME]
+    stats.svname = row[SVNAME]
+    stats.qcur = row[QCUR]
+    stats.qmax = row[QMAX]
+    stats.scur = row[SCUR]
+    stats.smax = row[SMAX]
+    stats.slim = row[SLIM]
+    stats.stot = row[STOT]
+    stats.bin = row[BIN]
+    stats.bout = row[BOUT]
+    stats.dresp = row[DRESP]
+    stats.econ = row[ECON]
+    stats.eresp = row[ERESP]
+    stats.wretr = row[WRETR]
+    stats.wredis = row[WREDIS]
+    stats.status = row[STATUS]
+    stats.weight = row[WEIGHT]
+    stats.act = row[ACT]
+    stats.bck = row[BCK]
+    stats.chkfail = row[CHKFAIL]
+    stats.chkdown = row[CHKDOWN]
+    stats.lastchg = row[LASTCHG]
+    stats.downtime = row[DOWNTIME]
+    stats.qlimit = row[QLIMIT]
+    stats.pid = row[PID]
+    stats.iid = row[IID]
+    stats.sid = row[SID]
+    stats.throttle = row[THROTTLE]
+    stats.lbtot = row[LBTOT]
+    stats.tracked = row[TRACKED]
+    stats.type = row[TYPE]
+    stats.rate = row[RATE]
+    stats.rate_max = row[RATE_MAX]
+    stats.check_status = row[CHECK_STATUS]
+    stats.check_code = row[CHECK_CODE]
+    stats.check_duration = row[CHECK_DURATION]
+    stats.hrsp_1xx = row[HRSP_1XX]
+    stats.hrsp_2xx = row[HRSP_2XX]
+    stats.hrsp_3xx = row[HRSP_3XX]
+    stats.hrsp_4xx = row[HRSP_4XX]
+    stats.hrsp_5xx = row[HRSP_5XX]
+    stats.hrsp_other = row[HRSP_OTHER]
+    stats.hanafail = row[HANAFAIL]
+    stats.cli_abrt = row[CLI_ABRT]
+    stats.srv_abrt = row[SRV_ABRT]
+    stats.lastsess = row[LASTSESS]
+    stats.last_chk = row[LAST_CHK]
+    stats.last_agt = row[LAST_AGT]
+    stats.qtime = row[QTIME]
+    stats.ctime = row[CTIME]
+    stats.rtime = row[RTIME]
+    stats.ttime = row[TTIME]
+    return stats
 
 
 @include_list_name('proxy')
@@ -351,6 +563,13 @@ class ProxiesStatsSnapshot(object):
 
 
 def get_stats(socket_path):
+  """ Reads haproxy statistics from haproxy stats socket.
+
+  Args:
+    socket_path: A str - path to the haproxy socket on the file system.
+  Returns:
+    A cStringIO buffer containing data from socket.
+  """
   client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
   client.connect(socket_path)
   try:
@@ -368,6 +587,14 @@ def get_stats(socket_path):
 
 
 def get_frontend_ip_port(configs_dir, proxy_name):
+  """ Finds IP and port bound with a proxy.
+
+  Args:
+    configs_dir: A str - path to the haproxy configs dir.
+    proxy_name: A str - proxy name.
+  Returns:
+    A tuple (IP, port).
+  """
   proxy_conf_path = os.path.join(configs_dir, '{}.cfg'.format(proxy_name))
   with open(proxy_conf_path) as proxy_conf:
     for line in proxy_conf:
@@ -380,7 +607,14 @@ def get_frontend_ip_port(configs_dir, proxy_name):
 
 
 def _convert_ints_and_missing(row):
+  """ Converts cells containing numeric values (but as strings) to integers.
+  It also appends MISSED if row does not contain all cell.
+
+  Args:
+    row: A list representing stats row.
+  """
   if row[-1] == '':
+    # Last cell is usually empty, we should consider it as MISSED.
     row[-1] = MISSED
   if len(row) < COLUMNS_NUMBER:
     row += [MISSED] * (COLUMNS_NUMBER - len(row))
@@ -395,6 +629,15 @@ def _convert_ints_and_missing(row):
 
 
 def get_stats_from_one_haproxy(socket_path, configs_dir):
+  """ Reads and parses data from haproxy socket and builds
+  structured stats objects.
+
+  Args:
+    socket_path: A str - path to the haproxy socket on the file system.
+    configs_dir: A str - path to the haproxy configs dir.
+  Returns:
+    A list of ProxyStats.
+  """
   # Get CSV table with haproxy stats
   csv_buf = get_stats(socket_path)
   csv_buf.seek(2)  # Seek to the beginning but skip "# " in the first row
@@ -433,170 +676,15 @@ def get_stats_from_one_haproxy(socket_path, configs_dir):
     service = find_service_by_pxname(proxy_name)
     svname = row[SVNAME]
     if svname == 'FRONTEND':
-      # User positional args to get performance improvement from slots
-      stats = HAProxyFrontendStats(
-        row[PXNAME],
-        row[SVNAME],
-        row[SCUR],
-        row[SMAX],
-        row[SLIM],
-        row[STOT],
-        row[BIN],
-        row[BOUT],
-        row[DREQ],
-        row[DRESP],
-        row[EREQ],
-        row[STATUS],
-        row[PID],
-        row[IID],
-        row[TYPE],
-        row[RATE],
-        row[RATE_LIM],
-        row[RATE_MAX],
-        row[HRSP_1XX],
-        row[HRSP_2XX],
-        row[HRSP_3XX],
-        row[HRSP_4XX],
-        row[HRSP_5XX],
-        row[HRSP_OTHER],
-        row[REQ_RATE],
-        row[REQ_RATE_MAX],
-        row[REQ_TOT],
-        row[COMP_IN],
-        row[COMP_OUT],
-        row[COMP_BYP],
-        row[COMP_RSP]
-      )
+      stats = HAProxyFrontendStats.from_stats_csv_row(row)
     elif svname == 'BACKEND':
-      # User positional args to get performance improvement from slots
-      stats = HAProxyBackendStats(
-        row[PXNAME],
-        row[SVNAME],
-        row[QCUR],
-        row[QMAX],
-        row[SCUR],
-        row[SMAX],
-        row[SLIM],
-        row[STOT],
-        row[BIN],
-        row[BOUT],
-        row[DREQ],
-        row[DRESP],
-        row[ECON],
-        row[ERESP],
-        row[WRETR],
-        row[WREDIS],
-        row[STATUS],
-        row[WEIGHT],
-        row[ACT],
-        row[BCK],
-        row[CHKDOWN],
-        row[LASTCHG],
-        row[DOWNTIME],
-        row[PID],
-        row[IID],
-        row[LBTOT],
-        row[TYPE],
-        row[RATE],
-        row[RATE_MAX],
-        row[HRSP_1XX],
-        row[HRSP_2XX],
-        row[HRSP_3XX],
-        row[HRSP_4XX],
-        row[HRSP_5XX],
-        row[HRSP_OTHER],
-        row[CLI_ABRT],
-        row[SRV_ABRT],
-        row[COMP_IN],
-        row[COMP_OUT],
-        row[COMP_BYP],
-        row[COMP_RSP],
-        row[LASTSESS],
-        row[QTIME],
-        row[CTIME],
-        row[RTIME],
-        row[TTIME]
-      )
+      stats = HAProxyBackendStats.from_stats_csv_row(row)
     elif row[QCUR] is not None:
       # Listener stats doesn't have "current queued requests" property
       private_ip, port = service.get_ip_port_by_svname(svname)
-      # User positional args to get performance improvement from slots
-      stats = HAProxyServerStats(
-        private_ip,
-        port,
-        row[PXNAME],
-        row[SVNAME],
-        row[QCUR],
-        row[QMAX],
-        row[SCUR],
-        row[SMAX],
-        row[SLIM],
-        row[STOT],
-        row[BIN],
-        row[BOUT],
-        row[DRESP],
-        row[ECON],
-        row[ERESP],
-        row[WRETR],
-        row[WREDIS],
-        row[STATUS],
-        row[WEIGHT],
-        row[ACT],
-        row[BCK],
-        row[CHKFAIL],
-        row[CHKDOWN],
-        row[LASTCHG],
-        row[DOWNTIME],
-        row[QLIMIT],
-        row[PID],
-        row[IID],
-        row[SID],
-        row[THROTTLE],
-        row[LBTOT],
-        row[TRACKED],
-        row[TYPE],
-        row[RATE],
-        row[RATE_MAX],
-        row[CHECK_STATUS],
-        row[CHECK_CODE],
-        row[CHECK_DURATION],
-        row[HRSP_1XX],
-        row[HRSP_2XX],
-        row[HRSP_3XX],
-        row[HRSP_4XX],
-        row[HRSP_5XX],
-        row[HRSP_OTHER],
-        row[HANAFAIL],
-        row[CLI_ABRT],
-        row[SRV_ABRT],
-        row[LASTSESS],
-        row[LAST_CHK],
-        row[LAST_AGT],
-        row[QTIME],
-        row[CTIME],
-        row[RTIME],
-        row[TTIME]
-      )
+      stats = HAProxyServerStats.from_stats_csv_row(private_ip, port, row)
     else:
-      # User positional args to get performance improvement from slots
-      stats = HAProxyListenerStats(
-        row[PXNAME],
-        row[SVNAME],
-        row[SCUR],
-        row[SMAX],
-        row[SLIM],
-        row[STOT],
-        row[BIN],
-        row[BOUT],
-        row[DREQ],
-        row[DRESP],
-        row[EREQ],
-        row[STATUS],
-        row[PID],
-        row[IID],
-        row[SID],
-        row[TYPE],
-      )
+      stats = HAProxyListenerStats.from_stats_csv_row(row)
     parsed_objects[proxy_name].append(stats)
 
   net_connections = psutil.net_connections()
