@@ -1151,26 +1151,28 @@ class Djinn
       @nodes.each { |node| ips << node.private_ip }
     }
     ips.each { |ip|
-      if ip == my_node.private_ip
-        begin
-          new_stats << JSON.load(get_node_stats_json(@@secret))
-        rescue FailedNodeException => exception
-          Djinn.log_warn("Failed to get local status update because: " \
-            "#{exception.message}")
-        end
-      else
-        threads << Thread.new {
+      threads << Thread.new {
+        Thread.current[:new_stat] = nil
+        if ip == my_node.private_ip
+          ret = get_node_stats_json(@@secret)
+        else
           acc = AppControllerClient.new(ip, @@secret)
+          ret = acc.get_node_stats_json
+        end
+        if ret == BAD_SECRET_MSG
+          Djinn.log_warn("Bad secret while getting stats from #{ip}!")
+        elsif ret == INVALID_REQUEST
+          Djinn.log_warn("Failed to retrieve stats from #{ip}.")
+        else
           begin
-            Thread.current[:new_stat] = JSON.load(acc.get_node_stats_json)
-          rescue FailedNodeException, SOAP::FaultError
-            Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
-              "not adding it to our cached info.")
-            Thread.current[:new_stat] = nil
+            Thread.current[:new_stat] = JSON.load(ret)
+          rescue JSON::ParserError
+            Djinn.log_warn("Failed to parse stats JSON from #{ip}: #{ret}")
           end
-        }
-      end
+        end
+      }
     }
+
     threads.each { |t|
       t.join
       new_stats << t[:new_stat] unless t[:new_stat].nil?
@@ -1897,16 +1899,26 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        begin
-          stats = JSON.parse(get_node_stats_json(secret))
+        stats = nil
+        ret = get_node_stats_json(secret)
+        if ret == BAD_SECRET_MSG
+          Djinn.log_warn("Bad secret while getting local stats!")
+        elsif ret == INVALID_REQUEST
+          Djinn.log_warn("Failed to retrieve local stats!")
+        else
+          begin
+            stats = JSON.parse(ret)
+          rescue JSON::ParserError
+            Djinn.log_warn("Failed to parse local stats JSON.")
+          end
+        end
+        unless stats.nil?
           Djinn.log_info("--- Node at #{stats['public_ip']} has " \
             "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " \
             "and knows about these apps #{stats['apps']}.")
           Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
-          last_print = Time.now.to_i
-        rescue SOAP::FaultError
-          Djinn.log_warn("Failed to get local node stats: skipping stats")
         end
+        last_print = Time.now.to_i
       end
 
       # Let's make sure we don't drift the duty cycle too much.
@@ -5785,7 +5797,13 @@ HOSTS
 
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret)
-    system_stats = JSON.load(imc.get_system_stats)
+    begin
+      system_stats = JSON.load(imc.get_system_stats)
+    rescue SOAP::FaultError, FailedNodeException => exception
+      Djinn.log_warn("Failed to talk to [IM]: #{exception.message}")
+      return INVALID_REQUEST
+    end
+
     Djinn.log_debug('get_node_stats_json: got system stats.')
 
     # Combine all useful stats and return.
