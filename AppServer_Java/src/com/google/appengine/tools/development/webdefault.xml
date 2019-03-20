@@ -143,6 +143,11 @@
   </servlet>
 
   <servlet>
+    <servlet-name>_ah_blobImage</servlet-name>
+    <servlet-class>com.google.appengine.api.images.dev.LocalBlobImageServlet</servlet-class>
+  </servlet>
+
+  <servlet>
     <servlet-name>_ah_channelServeScript</servlet-name>
     <servlet-class>com.google.appengine.api.channel.dev.ServeScriptServlet</servlet-class>
   </servlet>
@@ -268,6 +273,11 @@
     <servlet-class>com.google.appengine.api.users.dev.LocalLogoutServlet</servlet-class>
   </servlet>
 
+  <servlet>
+    <servlet-name>_ah_queue_deferred</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.DeferredTaskServlet</servlet-class>
+  </servlet>
+
   <!-- Servlet mappings -->
   <servlet-mapping>
     <servlet-name>_ah_default</servlet-name>
@@ -285,8 +295,18 @@
   </servlet-mapping>
 
   <servlet-mapping>
+    <servlet-name>_ah_blobImage</servlet-name>
+    <url-pattern>/_ah/img/*</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
     <servlet-name>_ah_channelServeScript</servlet-name>
     <url-pattern>/_ah/channel/jsapi</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_queue_deferred</servlet-name>
+    <url-pattern>/_ah/queue/__deferred__</url-pattern>
   </servlet-mapping>
 
   <security-constraint>
