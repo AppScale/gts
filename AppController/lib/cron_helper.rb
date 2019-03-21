@@ -426,6 +426,47 @@ CRON
     cron_lines
   end
 
+  # Generates one or more cron lines in standard cron format for an interval
+  # of the given minutes or hours.
+  #
+  # Where values do not repeat evenly in a 24 hour period the last run for the
+  # day is dropped to avoid a short interval.
+  #
+  # Args:
+  #   num: The interval length.
+  #   time: The interval units (mins, minutes, hours)
+  # Returns:
+  #   An Array of Strings, where each String is a cron line in standard cron
+  #   format, that can be applied to a crontab.
+  def self.simple_cron_lines(num, time)
+    time_in_minutes = num * (time == 'hours' ? 60 : 1)
+
+    if time_in_minutes % 60 == 0 and 1440 % time_in_minutes == 0 and time_in_minutes < 1440
+      cron_lines = ["0 */#{time_in_minutes/60} * * *"]
+    elsif 60 % time_in_minutes == 0 and time_in_minutes < 60
+      cron_lines = ["*/#{time_in_minutes} * * * *"]
+    else
+      # break into multiple cron entries, one for each minute past the hour
+      cron_hours_by_minute_past = {0 => [0]}
+      for minute_of_day in (time_in_minutes..(1440-time_in_minutes)).step(time_in_minutes)
+        hours_for_minute_past = cron_hours_by_minute_past[minute_of_day % 60] || []
+        hours_for_minute_past << (minute_of_day / 60)
+        cron_hours_by_minute_past[minute_of_day % 60] = hours_for_minute_past
+      end
+      # if there are multiple minutes with the same hours collapse them
+      cron_minutes_past_by_hours = cron_hours_by_minute_past.map{|min,hours|
+        {hours => [min]}
+      }.reduce({}){|hash, single_hash| hash.merge(single_hash){|key, v1, v2|
+        [].concat(v1).concat(v2).uniq().sort()
+      }}
+      cron_lines = cron_minutes_past_by_hours.map{|hours,mins|
+        "#{mins.join(",")} #{hours.join(",")} * * *"
+      }
+    end
+
+    cron_lines
+  end
+
   # Takes a single cron line specified in the Google App Engine cron format
   # and converts it to one or more cron lines in standard cron format.
   #
@@ -457,10 +498,7 @@ CRON
       cron_lines = convert_messy_format(schedule)
     else
       Djinn.log_debug("Simple format: #{simple_format}")
-      num = $1
-      time = $2
-
-      cron_lines = time == 'hours' ? ["0 */#{num} * * *"] : ["*/#{num} * * * *"] 
+      cron_lines = simple_cron_lines($1.to_i, $2)
     end
     Djinn.log_debug(cron_lines)
     Djinn.log_debug('----------------------')
