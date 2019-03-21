@@ -1,4 +1,5 @@
 """ Fulfills AppServer instance assignments from the scheduler. """
+import hashlib
 import logging
 import math
 import json
@@ -210,6 +211,9 @@ class InstanceManager(object):
     logger.info("Start command: " + str(start_cmd))
     logger.info("Environment variables: " + str(env_vars))
 
+    base_version = version.revision_key.rsplit(VERSION_PATH_SEPARATOR, 1)[0]
+    log_tag = "app_{}".format(hashlib.sha1(base_version).hexdigest()[:28])
+
     monit_app_configuration.create_config_file(
       watch,
       start_cmd,
@@ -219,7 +223,9 @@ class InstanceManager(object):
       max_memory,
       self._syslog_server,
       check_port=True,
-      kill_exceeded_memory=True)
+      kill_exceeded_memory=True,
+      log_tag=log_tag,
+    )
 
     full_watch = '{}-{}'.format(watch, port)
 
