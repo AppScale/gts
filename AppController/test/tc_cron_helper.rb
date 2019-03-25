@@ -88,6 +88,25 @@ class TestCronHelper < Test::Unit::TestCase
     # Test format:
     # ("every"|ordinal) (days) ["of" (monthspec)] (time)
     # TODO
+    schedule = '2 of month 16:00'
+    expected = ['0 16 2 * *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    schedule = '2 of jan,feb,march,april,may,june,july,aug,sep,oct,nov,dec 16:00'
+    expected = ['0 16 2 jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    schedule = '2 of jan, feb, march, april, may, june, july, aug, sep, oct, nov, dec 16:00'
+    expected = ['0 16 2 jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    schedule = '2 of jan , feb , march, april, may, june, july, aug, sep, oct, nov, dec 16:00'
+    expected = ['0 16 2 jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
 
     # Test format:
     # every N (hours|mins|minutes) "from" (time) "to" (time)

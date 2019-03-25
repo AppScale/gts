@@ -262,7 +262,7 @@ CRON
   #   standard cron format. It cannot be applied to a crontab because it only
   #   specifies the frequency of the job, and not the action to perform.
   def self.convert_messy_format(schedule)
-    splitted = schedule.split
+    splitted = schedule.gsub(/[[:space:]]*,[[:space:]]*/, ',').split
 
     # Only 3, 4, 5 or 7-token schedules are supported.
     # Examples:
