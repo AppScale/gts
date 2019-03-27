@@ -2874,15 +2874,15 @@ class DatastoreDistributed():
     filter_info = self.generate_filter_info(filters)
     order_info = self.generate_order_info(orders)
 
-    for strategy in DatastoreDistributed._QUERY_STRATEGIES:
-      results = yield strategy(self, query, filter_info, order_info)
-      if results or results == []:
-        raise gen.Return(results)
-
     index_to_use = _FindIndexToUse(query, self.get_indexes(app_id))
     if index_to_use is not None:
       result = yield self.composite_v2(query, filter_info, index_to_use)
       raise gen.Return(result)
+
+    for strategy in DatastoreDistributed._QUERY_STRATEGIES:
+      results = yield strategy(self, query, filter_info, order_info)
+      if results or results == []:
+        raise gen.Return(results)
 
     raise dbconstants.NeedsIndex(
       'An additional index is required to satisfy the query')

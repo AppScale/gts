@@ -694,7 +694,7 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
     if count >= self._IdCounter(id_space):
       self._SetIdCounter(id_space, count + 1)
 
-  def _AllocateIds(self, reference, size=1, max_id=None):
+  def _AllocateSequentialIds(self, reference, size=1, max_id=None):
     datastore_stub_util.Check(not (size and max_id),
                               'Both size and max cannot be set.')
 
@@ -715,7 +715,7 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
 
     return (start, end)
 
-  def _AllocateScatteredIds(self, keys):
+  def _AllocateIds(self, keys):
     self.__id_lock.acquire()
     full_keys = []
     try:

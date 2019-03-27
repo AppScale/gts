@@ -70,13 +70,18 @@ class TrackedRequestHandler(RequestHandler):
   def prepare(self):
     rest_method = "{}_{}".format(self.request.method, self.AREA).lower()
     with (yield stats_lock.acquire()):
-      self.stats_info = service_stats.start_request(
-        api=REST_API, rest_method=rest_method)
+      self.stats_info = service_stats.start_request()
+      self.stats_info.api = REST_API
+      self.stats_info.rest_method = rest_method
+      self.stats_info.pb_method = None
+      self.stats_info.pb_status = None
+      self.stats_info.rest_status = None
 
   @gen.coroutine
   def on_finish(self):
     with (yield stats_lock.acquire()):
-      self.stats_info.finalize(rest_status=self.get_status())
+      self.stats_info.rest_status = self.get_status()
+      self.stats_info.finalize()
 
 
 class QueueList(TrackedRequestHandler):

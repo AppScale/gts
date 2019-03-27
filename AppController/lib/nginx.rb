@@ -102,7 +102,7 @@ module Nginx
   # Returns:
   #   boolean: indicates if the nginx configuration has been written.
   def self.write_fullproxy_version_config(version_key, http_port, https_port,
-    my_public_ip, my_private_ip, proxy_port, static_handlers, load_balancer_ip,
+    server_name, my_private_ip, proxy_port, static_handlers, load_balancer_ip,
     language)
 
     parsing_log = "Writing proxy for #{version_key} with language " \
@@ -210,8 +210,13 @@ map $scheme $ssl {
 }
 
 server {
+    listen #{http_port} default_server;
+    return 444;
+}
+
+server {
     listen      #{http_port};
-    server_name #{my_public_ip}-#{version_key};
+    server_name #{server_name};
 
     # Uncomment these lines to enable logging, and comment out the following two
     #access_log #{NGINX_LOG_PATH}/appscale-#{version_key}.access.log upstream;
@@ -242,8 +247,17 @@ server {
 }
 
 server {
+    listen #{https_port} default_server;
+    ssl on;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
+    ssl_certificate     #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+    return 444;
+}
+
+server {
     listen      #{https_port};
-    server_name #{my_public_ip}-#{version_key}-ssl;
+    server_name #{server_name};
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
     ssl_certificate     #{NGINX_PATH}/mycert.pem;

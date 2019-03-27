@@ -1217,8 +1217,10 @@ class PullQueue(Queue):
     for result in results:
       task_info = {'id': result.id,
                    'enqueueTimestamp': result.enqueued,
-                   'leaseTimestamp': result.lease_expires,
-                   'tag': result.tag}
+                   'leaseTimestamp': result.lease_expires}
+      if result.tag:
+        task_info['tag'] = result.tag
+
       self._delete_task_and_index(Task(task_info))
 
   def to_json(self, include_stats=False, fields=None):

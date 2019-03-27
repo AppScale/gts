@@ -313,7 +313,8 @@ class TestInstanceManager(AsyncTestCase):
     ip = '127.0.0.1'
     testing.disable_logging()
     fake_opener = flexmock(
-      open=lambda opener: flexmock(code=200, headers=flexmock(headers=[])))
+      open=lambda url, timeout: flexmock(code=200,
+                                         headers=flexmock(headers=[])))
     flexmock(urllib2).should_receive('build_opener').and_return(fake_opener)
     flexmock(appscale_info).should_receive('get_private_ip').and_return(ip)
 

@@ -1,12 +1,8 @@
-import json
 import logging
 import psutil
 import subprocess
 
 from appscale.admin.service_manager import ServiceManager
-
-from infrastructure_manager import InfrastructureManager
-from utils import utils
 
 MOUNTPOINT_WHITELIST = ['/', '/opt/appscale', '/opt/appscale/backups',
   '/opt/appscale/cassandra', '/var/apps']
@@ -14,7 +10,7 @@ MOUNTPOINT_WHITELIST = ['/', '/opt/appscale', '/opt/appscale/backups',
 logger = logging.getLogger(__name__)
 
 
-class JSONTags(object):
+class StatsKeys(object):
   # CPU related JSON tags.
   CPU = "cpu"
   IDLE = "idle"
@@ -39,6 +35,9 @@ class JSONTags(object):
   RUNNABLE_ENTITIES = "runnable_entities"
   SCHEDULING_ENTITIES = "scheduling_entities"
 
+class ServiceException(Exception):
+  pass
+
 class SystemManager():
   """ SystemManager class is the entry point for queries regarding system stats.
 
@@ -46,46 +45,35 @@ class SystemManager():
   Monit summary, and number of running appservers, if any.
   """
 
-  def __init__(self):
-    self.secret = utils.get_secret()
-
-  def get_cpu_usage(self, secret):
+  @classmethod
+  def get_cpu_usage(cls):
     """ Discovers CPU usage on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing the idle, system and user percentages.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     cpu_stats = psutil.cpu_times_percent(percpu=False)
-    cpu_stats_dict = { JSONTags.CPU :
+    cpu_stats_dict = { StatsKeys.CPU :
       {
-        JSONTags.IDLE : cpu_stats.idle,
-        JSONTags.SYSTEM : cpu_stats.system,
-        JSONTags.USER : cpu_stats.user,
-        JSONTags.COUNT : len(psutil.cpu_times(percpu=True))
+        StatsKeys.IDLE : cpu_stats.idle,
+        StatsKeys.SYSTEM : cpu_stats.system,
+        StatsKeys.USER : cpu_stats.user,
+        StatsKeys.COUNT : len(psutil.cpu_times(percpu=True))
       }
     }
     logger.debug("CPU stats: {}".format(cpu_stats_dict))
 
-    return json.dumps(cpu_stats_dict)
+    return cpu_stats_dict
 
-  def get_disk_usage(self, secret):
+  @classmethod
+  def get_disk_usage(cls):
     """ Discovers disk usage per mount point on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing free bytes and bytes used per disk
       partition.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     inner_disk_stats_dict = []
     relevant_mountpoints = [
@@ -98,56 +86,48 @@ class SystemManager():
 
     for partition in relevant_mountpoints:
       disk_stats = psutil.disk_usage(partition)
-      partition_stats = {partition: {JSONTags.TOTAL: disk_stats.total,
-                                     JSONTags.FREE: disk_stats.free,
-                                     JSONTags.USED: disk_stats.used}}
+      partition_stats = {partition: {StatsKeys.TOTAL: disk_stats.total,
+                                     StatsKeys.FREE: disk_stats.free,
+                                     StatsKeys.USED: disk_stats.used}}
       inner_disk_stats_dict.append(partition_stats)
 
-    disk_stats_dict = { JSONTags.DISK : inner_disk_stats_dict }
+    disk_stats_dict = { StatsKeys.DISK : inner_disk_stats_dict }
     logger.debug("Disk stats: {}".format(disk_stats_dict))
 
-    return json.dumps(disk_stats_dict)
+    return disk_stats_dict
 
-  def get_memory_usage(self, secret):
+  @classmethod
+  def get_memory_usage(cls):
     """ Discovers memory usage on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing memory bytes available and used.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     mem_stats = psutil.virtual_memory()
 
-    mem_stats_dict = { JSONTags.MEMORY :
+    mem_stats_dict = { StatsKeys.MEMORY :
       {
-        JSONTags.TOTAL : mem_stats.total,
-        JSONTags.AVAILABLE : mem_stats.available,
-        JSONTags.USED : mem_stats.used
+        StatsKeys.TOTAL : mem_stats.total,
+        StatsKeys.AVAILABLE : mem_stats.available,
+        StatsKeys.USED : mem_stats.used
       }
     }
     logger.debug("Memory stats: {}".format(mem_stats_dict))
 
-    return json.dumps(mem_stats_dict)
+    return mem_stats_dict
 
-  def get_service_summary(self, secret):
+  @classmethod
+  def get_service_summary(cls):
     """ Retrieves Monit's summary on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing Monit's summary as a string.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     try:
       monit_stats = subprocess.check_output(["monit", "summary"])
-    except CalledProcessError:
+    except subprocess.CalledProcessError:
       logger.warn("get_service_summary: failed to query monit.")
       raise ServiceException('Failed to query monit.')
 
@@ -165,76 +145,50 @@ class SystemManager():
       {'-'.join([server.type, str(server.port)]): server.state
        for server in ServiceManager.get_state()})
 
-    return json.dumps(monit_stats_dict)
+    return monit_stats_dict
 
-  def get_swap_usage(self, secret):
+  @classmethod
+  def get_swap_usage(cls):
     """ Discovers swap usage on this node.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing free bytes and bytes used for swap.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     swap_stats = psutil.swap_memory()
-    swap_stats_dict = { JSONTags.SWAP :
+    swap_stats_dict = { StatsKeys.SWAP :
       {
-        JSONTags.FREE : swap_stats.free,
-        JSONTags.USED : swap_stats.used
+        StatsKeys.FREE : swap_stats.free,
+        StatsKeys.USED : swap_stats.used
       }
     }
     logger.debug("Swap stats: {}".format(swap_stats_dict))
 
-    return json.dumps(swap_stats_dict)
+    return swap_stats_dict
 
-  def get_loadavg(self, secret):
+  @classmethod
+  def get_loadavg(cls):
     """ Returns info from /proc/loadavg.
     See `man proc` for more details.
 
-    Args:
-      secret: The secret of the deployment; used for authentication.
     Returns:
       A dictionary containing average load for last 1, 5 and 15 minutes,
       and information about running and scheduled entities,
       and PID of the most recently added process.
     """
-    if self.secret != secret:
-      return self.__generate_response(False,
-        InfrastructureManager.REASON_BAD_SECRET)
 
     with open("/proc/loadavg") as loadavg:
       loadavg = loadavg.read().split()
     kernel_entities = loadavg[3].split("/")
-    loadavg_stat = { JSONTags.LOADAVG :
+    loadavg_stat = { StatsKeys.LOADAVG :
       {
-        JSONTags.LAST_1_MIN : float(loadavg[0]),
-        JSONTags.LAST_5_MIN : float(loadavg[1]),
-        JSONTags.LAST_15_MIN : float(loadavg[2]),
-        JSONTags.RUNNABLE_ENTITIES : int(kernel_entities[0]),
-        JSONTags.SCHEDULING_ENTITIES : int(kernel_entities[1])
+        StatsKeys.LAST_1_MIN : float(loadavg[0]),
+        StatsKeys.LAST_5_MIN : float(loadavg[1]),
+        StatsKeys.LAST_15_MIN : float(loadavg[2]),
+        StatsKeys.RUNNABLE_ENTITIES : int(kernel_entities[0]),
+        StatsKeys.SCHEDULING_ENTITIES : int(kernel_entities[1])
       }
     }
     logger.debug("Loadavg stats: {}".format(' '.join(loadavg)))
 
-    return json.dumps(loadavg_stat)
-
-
-  def __generate_response(self, success, message):
-    """ Generate a system manager service response
-
-    Args:
-      success:  A boolean value indicating the success status.
-      message: A str, the reason of failure.
-
-    Returns:
-      A dictionary containing the operation response.
-    """
-    response = "Sending success = {0}, reason = {1}".format(success, message)
-    if success:
-      logger.debug(response)
-    else:
-      logger.warn(response)
-    return {'success': success, 'reason': message}
+    return loadavg_stat

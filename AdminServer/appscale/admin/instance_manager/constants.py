@@ -89,6 +89,9 @@ PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
 REPACKED_LIB_DIR = os.path.join(
   APPSCALE_HOME, 'AppServer_Java', 'appengine-java-sdk-repacked', 'lib')
 
+# The number of seconds to wait for a health check response.
+HEALTH_CHECK_TIMEOUT = 2
+
 # The highest available port to assign to an API server.
 MAX_API_SERVER_PORT = 19999
 

@@ -123,8 +123,8 @@ PHP = "php"
 # Location where applications are stored.
 APPS_PATH = "/var/apps/"
 
-# Locations of ZooKeeper in json format.
-ZK_LOCATIONS_JSON_FILE = "/etc/appscale/zookeeper_locations.json"
+# Locations of ZooKeeper.
+ZK_LOCATIONS_FILE = "/etc/appscale/zookeeper_locations"
 
 # Default location for connecting to ZooKeeper.
 ZK_DEFAULT_CONNECTION_STR = "localhost:2181"

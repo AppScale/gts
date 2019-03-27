@@ -3,8 +3,7 @@ from time import time
 
 from mock import patch
 
-from appscale.common.service_stats import matchers, metrics, stats_manager, \
-  categorizers
+from appscale.common.service_stats import stats_manager, samples
 
 def request_simulator(service_stats, time_mock=None):
   """ Builds quick request reported for simulating
@@ -16,15 +15,15 @@ def request_simulator(service_stats, time_mock=None):
   Returns:
     a function for reporting requests
   """
-  def parametrized(latency=None, end_time=None, start_kwargs=None,
-                   **finish_kwargs):
+  def parametrized(latency=None, end_time=None, app=None, status=None,
+                   resource=None):
     """ Util function for quick reporting request with wanted latency.
 
     Args:
       latency: an integer number representing wanted latency in ms.
       end_time: unix epoch time in ms.
-      start_kwargs: a dict containing items to use for starting request.
-      finish_kwargs: a dict containing items to use for finalizing request.
+      app: a string representing application name.
+      status: an integer representing request status.
     """
     if latency:
       if end_time:
@@ -34,12 +33,15 @@ def request_simulator(service_stats, time_mock=None):
         start_time = time()
         end_time_s = start_time + float(latency)/1000
       time_mock.return_value = start_time
-      request_info = service_stats.start_request(**(start_kwargs or {}))
+      request_info = service_stats.start_request()
+      request_info.app = app
+      request_info.resource = resource
       time_mock.return_value = end_time_s
-      request_info.finalize(**finish_kwargs)
+      request_info.status = status
+      request_info.finalize()
     else:
-      request_info = service_stats.start_request(**(start_kwargs or {}))
-      request_info.finalize(**finish_kwargs)
+      request_info = service_stats.start_request()
+      request_info.finalize()
 
   return parametrized
 
@@ -55,6 +57,7 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
     self.start_time = int((current_time - 0.001) * 1000)
     self.stats = stats_manager.ServiceStats("my_service")
     self.time_mock.return_value = current_time
+    self.request_simulation = request_simulator(self.stats, self.time_mock)
 
   def tearDown(self):
     self.time_patcher.stop()
@@ -68,24 +71,28 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
       "all": 0,
       "4xx": 0,
       "5xx": 0,
+      "latency": 0,
       "by_app": {
       }
     })
 
     # Starting new request shouldn't affect counters
-    req_info = self.stats.start_request(app="guestbook")
+    req_info = self.stats.start_request()
+    req_info.app = "guestbook"
     self.assertEqual(self.stats.get_cumulative_counters(), {
       "from": self.start_time,
       "to": int(in_mock_time * 1000),
       "all": 0,
       "4xx": 0,
       "5xx": 0,
+      "latency": 0,
       "by_app": {
       }
     })
 
     # Only finishing request should change things
-    req_info.finalize(status=200)
+    req_info.status = 200
+    req_info.finalize()
     self.time_mock.return_value = in_mock_time = int(time() * 1000)
     self.assertEqual(self.stats.get_cumulative_counters(), {
       "from": self.start_time,
@@ -93,13 +100,15 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
       "all": 1,
       "4xx": 0,
       "5xx": 0,
+      "latency": 0,
       "by_app": {
-        "guestbook": {"all": 1, "4xx": 0, "5xx": 0}
+        "guestbook": {"all": 1, "4xx": 0, "5xx": 0, "latency": 0}
       }
     })
 
     # Reporting client error in guestbook
-    req_info = self.stats.start_request(app="guestbook")
+    req_info = self.stats.start_request()
+    req_info.app = "guestbook"
     req_info.status = 401  # You can fill request fields manually
     req_info.finalize()
     self.time_mock.return_value = in_mock_time = int(time() * 1000)
@@ -109,14 +118,23 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
       "all": 2,
       "4xx": 1,
       "5xx": 0,
+      "latency": 0,
       "by_app": {
-        "guestbook": {"all": 2, "4xx": 1, "5xx": 0}
+        "guestbook": {"all": 2, "4xx": 1, "5xx": 0, "latency": 0}
       }
     })
 
     # Reporting client and then server errors in new application ghostbook
-    self.stats.start_request(app="ghostbook").finalize(status=404)
-    self.stats.start_request(app="ghostbook").finalize(status=503)
+    req_info = self.stats.start_request()
+    req_info.app = "ghostbook"
+    req_info.status=404
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "ghostbook"
+    req_info.status = 503
+    req_info.finalize()
+
     self.time_mock.return_value = in_mock_time = int(time() * 1000)
     self.assertEqual(self.stats.get_cumulative_counters(), {
       "from": self.start_time,
@@ -124,9 +142,87 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
       "all": 4,
       "4xx": 2,
       "5xx": 1,
+      "latency": 0,
       "by_app": {
-        "guestbook": {"all": 2, "4xx": 1, "5xx": 0},
-        "ghostbook": {"all": 2, "4xx": 1, "5xx": 1}
+        "guestbook": {"all": 2, "4xx": 1, "5xx": 0, "latency": 0},
+        "ghostbook": {"all": 2, "4xx": 1, "5xx": 1, "latency": 0}
+      }
+    })
+
+    # Testing latency using request_simulator function
+    self.request_simulation(latency=100, app="guestbook", status=200,
+                            end_time=1515595821111)
+    self.assertEqual(self.stats.get_cumulative_counters(), {
+      "from": self.start_time,
+      "to": 1515595821111,
+      "all": 5,
+      "4xx": 2,
+      "5xx": 1,
+      "latency": 100,
+      "by_app": {
+        "guestbook": {"all": 3, "4xx": 1, "5xx": 0, "latency": 100},
+        "ghostbook": {"all": 2, "4xx": 1, "5xx": 1, "latency": 0}
+      }
+    })
+
+    self.request_simulation(latency=150, app="guestbook", status=200,
+                            end_time=1515595821111)
+    self.assertEqual(self.stats.get_cumulative_counters(), {
+      "from": self.start_time,
+      "to": 1515595821111,
+      "all": 6,
+      "4xx": 2,
+      "5xx": 1,
+      "latency": 250,
+      "by_app": {
+        "guestbook": {"all": 4, "4xx": 1, "5xx": 0, "latency": 250},
+        "ghostbook": {"all": 2, "4xx": 1, "5xx": 1, "latency": 0}
+      }
+    })
+
+    self.request_simulation(latency=200, app="guestbook", status=404,
+                            end_time=1515595821111)
+    self.assertEqual(self.stats.get_cumulative_counters(), {
+      "from": self.start_time,
+      "to": 1515595821111,
+      "all": 7,
+      "4xx": 3,
+      "5xx": 1,
+      "latency": 450,
+      "by_app": {
+        "guestbook": {"all": 5, "4xx": 2, "5xx": 0, "latency": 450},
+        "ghostbook": {"all": 2, "4xx": 1, "5xx": 1, "latency": 0}
+      }
+    })
+
+    self.request_simulation(latency=200, app="ghostbook", status=503,
+                            end_time=1515595821111)
+    self.assertEqual(self.stats.get_cumulative_counters(), {
+      "from": self.start_time,
+      "to": 1515595821111,
+      "all": 8,
+      "4xx": 3,
+      "5xx": 2,
+      "latency": 650,
+      "by_app": {
+        "guestbook": {"all": 5, "4xx": 2, "5xx": 0, "latency": 450},
+        "ghostbook": {"all": 3, "4xx": 1, "5xx": 2, "latency": 200}
+      }
+    })
+
+    self.request_simulation(latency=350, app="mybook", status=404,
+                            end_time=1515595821111)
+    self.assertEqual(self.stats.get_cumulative_counters(), {
+      "from": self.start_time,
+      "to": 1515595821111,
+      "all": 9,
+      "4xx": 4,
+      "5xx": 2,
+      "latency": 1000,
+      "by_app": {
+        "guestbook": {"all": 5, "4xx": 2, "5xx": 0, "latency": 450},
+        "ghostbook": {"all": 3, "4xx": 1, "5xx": 2, "latency": 200},
+        "mybook": {"all": 1, "4xx": 1, "5xx": 0, "latency": 350},
       }
     })
 
@@ -134,27 +230,25 @@ class TestDefaultCumulativeCounters(unittest.TestCase):
 class TestCustomCumulativeCounters(unittest.TestCase):
 
   def setUp(self):
-    request_fields = ["app", "namespace", "status"]
+    request_fields = ["app", "namespace", "status", "method",
+                      "preproc_time", "postproc_time"]
 
-    class DefaultNsMatcher(matchers.RequestMatcher):
-      def matches(self, request_info):
-        return request_info.namespace == "default"
-
-    by_app = categorizers.ExactValueCategorizer("by_app", field="app")
-    by_ns = categorizers.ExactValueCategorizer("by_ns", field="namespace")
-    by_status = categorizers.ExactValueCategorizer("by_status", field="status")
+    def data_proc_summarizer(request_info):
+      return request_info.preproc_time + request_info.postproc_time
 
     counters_config = {
-      "all": matchers.ANY,
-      by_app: {
-        "all": matchers.ANY,
-        "default_ns": DefaultNsMatcher(),
-        by_ns: {
-          "all": matchers.ANY,
-          "4xx": matchers.CLIENT_ERROR,
-          "5xx": matchers.SERVER_ERROR,
+      "all": samples.summarize_all,
+      "total": data_proc_summarizer,
+      ("by_app", samples.categorize_by_app): {
+        "all": samples.summarize_all,
+        "default_ns": lambda req_info: req_info.namespace == "default",
+        ("by_ns", lambda req_info: req_info.namespace): {
+          "all": samples.summarize_all,
+          "4xx": samples.summarize_client_error,
+          "5xx": samples.summarize_server_error,
         },
-        by_status: matchers.ANY,
+        ("by_status", samples.categorize_by_status): samples.summarize_all,
+        ("by_method", samples.categorize_by_method): data_proc_summarizer
       }
     }
 
@@ -170,29 +264,92 @@ class TestCustomCumulativeCounters(unittest.TestCase):
       "from": counters["from"],  # it's not an object of the test
       "to": counters["to"],  # it's not an object of the test
       "all": 0,
+      "total": 0,
       "by_app": {
       }
     })
 
     # Report requests
-    self.stats.start_request(app="guestbook", namespace="friends")\
-      .finalize(status=500)
-    self.stats.start_request(app="guestbook", namespace="friends")\
-      .finalize(status=200)
-    self.stats.start_request(app="guestbook", namespace="default")\
-      .finalize(status=400)
-    self.stats.start_request(app="guestbook", namespace="default")\
-      .finalize(status=201)
-    self.stats.start_request(app="guestbook", namespace="default")\
-      .finalize(status=201)
-    self.stats.start_request(app="other", namespace="ghosts")\
-      .finalize(status=200)
-    self.stats.start_request(app="other", namespace="ghosts")\
-      .finalize(status=200)
-    self.stats.start_request(app="other", namespace="ghosts")\
-      .finalize(status=200)
-    self.stats.start_request(app="guestbook", namespace="friends")\
-      .finalize(status=200)
+    req_info = self.stats.start_request()
+    req_info.app = "guestbook"
+    req_info.namespace = "friends"
+    req_info.method = "POST"
+    req_info.preproc_time = 6
+    req_info.status = 500
+    req_info.postproc_time = 0
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "guestbook"
+    req_info.namespace = "friends"
+    req_info.method = "GET"
+    req_info.preproc_time = 12
+    req_info.status = 200
+    req_info.postproc_time = 12
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "guestbook"
+    req_info.namespace = "default"
+    req_info.method = "GET"
+    req_info.preproc_time = 12
+    req_info.status = 400
+    req_info.postproc_time = 0
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "guestbook"
+    req_info.namespace = "default"
+    req_info.method = "GET"
+    req_info.preproc_time = 10
+    req_info.status = 201
+    req_info.postproc_time = 10
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "guestbook"
+    req_info.namespace = "default"
+    req_info.method = "POST"
+    req_info.preproc_time = 5
+    req_info.status = 201
+    req_info.postproc_time = 10
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "other"
+    req_info.namespace = "ghosts"
+    req_info.method = "POST"
+    req_info.preproc_time = 20
+    req_info.status = 200
+    req_info.postproc_time = 10
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "other"
+    req_info.namespace = "ghosts"
+    req_info.method = "GET"
+    req_info.preproc_time = 10
+    req_info.status = 200
+    req_info.postproc_time = 10
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "other"
+    req_info.namespace = "ghosts"
+    req_info.method = "GET"
+    req_info.preproc_time = 15
+    req_info.status = 200
+    req_info.postproc_time = 10
+    req_info.finalize()
+
+    req_info = self.stats.start_request()
+    req_info.app = "guestbook"
+    req_info.namespace = "friends"
+    req_info.method = "POST"
+    req_info.preproc_time = 10
+    req_info.status = 200
+    req_info.postproc_time = 10
+    req_info.finalize()
 
     # Check counters
     counters = self.stats.get_cumulative_counters()
@@ -201,6 +358,7 @@ class TestCustomCumulativeCounters(unittest.TestCase):
       "from": counters["from"],  # it's not an object of the test
       "to": counters["to"],  # it's not an object of the test
       "all": 9,
+      "total": 172,
       "by_app": {
         "guestbook": {
           "all": 6,
@@ -209,7 +367,8 @@ class TestCustomCumulativeCounters(unittest.TestCase):
             "friends": {"all": 3, "4xx": 0, "5xx": 1},
             "default": {"all": 3, "4xx": 1, "5xx": 0},
           },
-          "by_status": {200: 2, 201: 2, 400: 1, 500: 1}
+          "by_status": {200: 2, 201: 2, 400: 1, 500: 1},
+          "by_method": {"GET": 56, "POST": 41}
         },
         "other": {
           "all": 3,
@@ -217,7 +376,8 @@ class TestCustomCumulativeCounters(unittest.TestCase):
           "by_ns": {
             "ghosts": {"all": 3, "4xx": 0, "5xx": 0},
           },
-          "by_status": {200: 3}
+          "by_status": {200: 3},
+          "by_method": {"GET": 45, "POST": 30}
         }
       }
     })
@@ -356,9 +516,9 @@ class TestScrollingRecent(unittest.TestCase):
     cls.stats = stats_manager.ServiceStats(
       "my_service", history_size=6,
       default_metrics_for_recent={
-        "all": metrics.CountOf(matchers.ANY),
-        "4xx": metrics.CountOf(matchers.CLIENT_ERROR),
-        "5xx": metrics.CountOf(matchers.SERVER_ERROR),
+        "all": samples.count_all,
+        "4xx": samples.count_client_errors,
+        "5xx": samples.count_server_errors
       })
 
     # Start and finalize requests to fill recent requests history
@@ -366,21 +526,42 @@ class TestScrollingRecent(unittest.TestCase):
     # First two are finished in the same time,
     # but one with status 500 was reported first
     cls.time_mock.return_value = 151550002
-    cls.stats.start_request(app="my_app").finalize(status=500)
+    req_info = cls.stats.start_request()
+    req_info.app = "my_app"
+    req_info.status = 500
+    req_info.finalize()
     cls.time_mock.return_value = 151550002
-    cls.stats.start_request(app="my_app").finalize(status=400)
+    req_info = cls.stats.start_request()
+    req_info.app = "my_app"
+    req_info.status = 400
+    req_info.finalize()
 
     # Then one request every second (only 2 latest has status 200)
     cls.time_mock.return_value = 151550003
-    cls.stats.start_request(app="my_app").finalize(status=400)
+    req_info = cls.stats.start_request()
+    req_info.app = "my_app"
+    req_info.status = 400
+    req_info.finalize()
     cls.time_mock.return_value = 151550004
-    cls.stats.start_request(app="my_app").finalize(status=400)
+    req_info = cls.stats.start_request()
+    req_info.app = "my_app"
+    req_info.status = 400
+    req_info.finalize()
     cls.time_mock.return_value = 151550005
-    cls.stats.start_request(app="my_app").finalize(status=400)
+    req_info = cls.stats.start_request()
+    req_info.app = "my_app"
+    req_info.status = 400
+    req_info.finalize()
     cls.time_mock.return_value = 151550006
-    cls.stats.start_request(app="my_app").finalize(status=200)
+    req_info = cls.stats.start_request()
+    req_info.app = "my_app"
+    req_info.status = 200
+    req_info.finalize()
     cls.time_mock.return_value = 151550007
-    cls.stats.start_request(app="my_app").finalize(status=200)
+    req_info = cls.stats.start_request()
+    req_info.app = "my_app"
+    req_info.status = 200
+    req_info.finalize()
 
   @classmethod
   def tearDownClass(cls):
@@ -427,9 +608,18 @@ class TestProperties(unittest.TestCase):
     stats = stats_manager.ServiceStats("my_service")
 
     # Start and finalize 3 requests
-    stats.start_request().finalize()
-    stats.start_request().finalize()
-    stats.start_request().finalize()
+    req_info = stats.start_request()
+    req_info.app = "app"
+    req_info.status = 404
+    req_info.finalize()
+    req_info = stats.start_request()
+    req_info.app = "app"
+    req_info.status = 404
+    req_info.finalize()
+    req_info = stats.start_request()
+    req_info.app = "app"
+    req_info.status = 404
+    req_info.finalize()
 
     # Start without finalization 4 requests
     stats.start_request()
