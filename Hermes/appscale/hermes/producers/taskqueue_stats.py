@@ -95,7 +95,7 @@ class TaskqueueStatsSource(object):
           resp.raise_for_status()
           stats_body = await resp.json()
     except aiohttp.ClientError as err:
-      msg = u"Failed to get {url} ({err})".format(url=url, err=err)
+      msg = "Failed to get {url} ({err})".format(url=url, err=err)
       logger.error(msg)
       failure = FailureSnapshot(ip_port=ip_port, error=str(err))
       return failure
@@ -129,7 +129,7 @@ class TaskqueueStatsSource(object):
       )
       return instance_stats_snapshot
     except (TypeError, KeyError) as err:
-      msg = u"Can't parse taskqueue ({})".format(err)
+      msg = "Can't parse taskqueue ({})".format(err)
       raise BadTaskqueueStatsFormat(msg) from err
 
   @staticmethod
@@ -156,13 +156,13 @@ class TaskqueueStatsSource(object):
     by_pb_status_sum = collections.defaultdict(int)
     by_rest_status_sum = collections.defaultdict(int)
     for recent in recent_stats:
-      for pb_method, calls in recent.by_pb_method.iteritems():
+      for pb_method, calls in recent.by_pb_method.items():
         by_pb_method_sum[pb_method] += calls
-      for rest_method, calls in recent.by_rest_method.iteritems():
+      for rest_method, calls in recent.by_rest_method.items():
         by_rest_method_sum[rest_method] += calls
-      for pb_status, calls in recent.by_pb_status.iteritems():
+      for pb_status, calls in recent.by_pb_status.items():
         by_pb_status_sum[pb_status] += calls
-      for rest_status, calls in recent.by_rest_status.iteritems():
+      for rest_status, calls in recent.by_rest_status.items():
         by_rest_status_sum[rest_status] += calls
     # Return snapshot
     return RecentStatsSnapshot(

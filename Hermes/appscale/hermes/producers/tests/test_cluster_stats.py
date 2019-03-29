@@ -19,7 +19,7 @@ def get_stats_from_file(json_file_name, stats_class):
     raw_dict = json.load(json_file)
     stats_dict = {
       ip: converter.stats_from_dict(stats_class, snapshot)
-      for ip, snapshot in raw_dict.iteritems()
+      for ip, snapshot in raw_dict.items()
     }
     return raw_dict, stats_dict
 
@@ -130,7 +130,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     mock_get_private_ip.return_value = '192.168.33.10'
     mock_ips_getter.return_value = ['192.168.33.10']
     # Mock local source
-    mock_get_current.side_effect = ValueError(u"Something strange \u2234")
+    mock_get_current.side_effect = ValueError("Something strange \u2234")
 
     # ^^^ ALL INPUTS ARE SPECIFIED (or mocked) ^^^
     # Call method under test
@@ -138,7 +138,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
 
     # ASSERTING EXPECTATIONS
     self.assertEqual(stats, {})
-    self.assertEqual(failures, {'192.168.33.10': u"Something strange \u2234"})
+    self.assertEqual(failures, {'192.168.33.10': "Something strange \u2234"})
 
   @patch.object(cluster_stats, 'options')
   @patch.object(cluster_stats.appscale_info, 'get_private_ip')
@@ -166,7 +166,7 @@ class TestClusterNodeStatsProducer(testing.AsyncTestCase):
     future_response = gen.Future()
     future_response.set_result(response)
     mock_fetch.return_value = future_response
-    #Prepare raw dict with include lists
+    # Prepare raw dict with include lists
     raw_include_lists = {
       'node': ['cpu', 'memory'],
       'node.cpu': ['percent', 'count'],

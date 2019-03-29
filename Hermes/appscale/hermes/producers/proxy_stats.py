@@ -1,9 +1,7 @@
 import asyncio
-
-import StringIO
+import io
 import csv
 import logging
-import socket
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -213,10 +211,10 @@ class HAProxyServerStats(object):
 
 
 ALL_HAPROXY_FIELDS = set(
-  attr.fields_dict(HAProxyListenerStats).keys() +
-  attr.fields_dict(HAProxyFrontendStats).keys() +
-  attr.fields_dict(HAProxyBackendStats).keys() +
-  attr.fields_dict(HAProxyServerStats).keys()
+  list(attr.fields_dict(HAProxyListenerStats).keys()) +
+  list(attr.fields_dict(HAProxyFrontendStats).keys()) +
+  list(attr.fields_dict(HAProxyBackendStats).keys()) +
+  list(attr.fields_dict(HAProxyServerStats).keys())
 ) - {'private_ip', 'port'}    # HAProxy stats doesn't include IP/Port columns
                               # But we add these values by ourselves
 
@@ -272,7 +270,7 @@ def _get_field_value(row, field_name):
 async def get_stats(socket_path):
   reader, writer = await asyncio.open_unix_connection(socket_path)
   try:
-    stats_output = StringIO.StringIO()
+    stats_output = io.StringIO()
     writer.write(b'show stat\n')
     stats_output.write(await reader.read())
     stats_output.seek(0)
@@ -342,7 +340,7 @@ async def get_stats_from_one_haproxy(socket_path, configs_dir):
 
   # Attempt to merge separate stats object to ProxyStats instances
   proxy_stats_list = []
-  for proxy_name, stats_objects in parsed_objects.iteritems():
+  for proxy_name, stats_objects in parsed_objects.items():
     service = find_service_by_pxname(proxy_name)
     frontends = [stats for stats in stats_objects
                  if isinstance(stats, HAProxyFrontendStats)]

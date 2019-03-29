@@ -166,7 +166,7 @@ class ClusterStatsHandler(object):
     new_snapshots_dict, failures = (
       await self._cluster_stats_source.get_current(
         max_age=max_age, include_lists=include_lists,
-        exclude_nodes=fresh_local_snapshots.keys()
+        exclude_nodes=list(fresh_local_snapshots.keys())
       )
     )
 
@@ -178,7 +178,7 @@ class ClusterStatsHandler(object):
 
     rendered_snapshots = {
       node_ip: stats_to_dict(snapshot, include_lists)
-      for node_ip, snapshot in new_snapshots_dict.iteritems()
+      for node_ip, snapshot in new_snapshots_dict.items()
     }
 
     return web.json_response({

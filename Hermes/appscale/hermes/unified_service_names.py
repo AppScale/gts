@@ -172,7 +172,7 @@ class ServicesEnum(object):
 
 
 KNOWN_SERVICES = [
-  value for value in ServicesEnum.__dict__.itervalues()
+  value for value in ServicesEnum.__dict__.values()
   if isinstance(value, Service)
 ]
 KNOWN_SERVICES_DICT = {

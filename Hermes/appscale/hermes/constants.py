@@ -27,7 +27,7 @@ class _MissedValue(object):
   in haproxy stats.
   """
 
-  def __nonzero__(self):
+  def __bool__(self):
     return False
 
   def __repr__(self):

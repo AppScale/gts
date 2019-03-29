@@ -83,7 +83,7 @@ class ClusterStatsSource(object):
           snapshot = await snapshot
         return snapshot
       except Exception as err:
-        logger.error(u"Failed to prepare local stats: {err}".format(err=err))
+        logger.error("Failed to prepare local stats: {err}".format(err=err))
         raise RemoteHermesError(str(err))
     else:
       snapshot = await self._fetch_remote_stats_async(

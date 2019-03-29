@@ -30,7 +30,7 @@ class TestMonitNames(unittest.TestCase):
       'memcached': ServicesEnum.MEMCACHED,
       'appmanagerserver': ServicesEnum.APPMANAGER,
     }
-    for monit_name, expected in monit_name_to_expectation.iteritems():
+    for monit_name, expected in monit_name_to_expectation.items():
       self.assertEqual(find_service_by_monit_name(monit_name), expected)
 
   def test_search_for_unknown_service(self):
@@ -75,7 +75,7 @@ class TestHAProxyNames(unittest.TestCase):
       'as_blob_server': ServicesEnum.BLOBSTORE,
       'gae_app3-3': ServicesEnum.APPLICATION,
     }
-    for proxy_name, expected in proxy_name_to_expectation.iteritems():
+    for proxy_name, expected in proxy_name_to_expectation.items():
       self.assertEqual(find_service_by_pxname(proxy_name), expected)
 
   def test_search_for_unknown_service(self):

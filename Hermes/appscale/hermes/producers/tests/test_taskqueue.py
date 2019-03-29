@@ -37,7 +37,7 @@ class TestTaskqueueStatsSource(testing.AsyncTestCase):
       ),
       '10.10.7.86:17450': socket.error("Connection refused")
     }
-    mock_get_instances.return_value = tq_responses.keys()
+    mock_get_instances.return_value = list(tq_responses.keys())
 
     # Mock taskqueue service stats API
     def fetch(request, **kwargs):
