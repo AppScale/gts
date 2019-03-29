@@ -6,6 +6,7 @@ from datetime import datetime
 
 from aiohttp import web
 
+from appscale.common import appscale_info
 from appscale.hermes.constants import SECRET_HEADER, ACCEPTABLE_STATS_AGE
 from appscale.hermes.converter import (
   stats_to_dict, IncludeLists, WrongIncludeLists
@@ -55,16 +56,13 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
 })
 
 
-def verify_secret_middleware(secret):
-  async def verify_secret(request, handler):
-    if request.headers.get(SECRET_HEADER) != secret:
-      logger.warn("Received bad secret from {client}"
-                  .format(client=request.remote))
-      return web.Response(status=http.HTTPStatus.FORBIDDEN,
-                          reason="Bad secret")
-    return await handler(request)
-
-  return verify_secret
+async def verify_secret_middleware(request, handler):
+  if request.headers.get(SECRET_HEADER) != appscale_info.get_secret():
+    logger.warn("Received bad secret from {client}"
+                .format(client=request.remote))
+    return web.Response(status=http.HTTPStatus.FORBIDDEN,
+                        reason="Bad secret")
+  return await handler(request)
 
 
 class LocalStatsHandler(object):

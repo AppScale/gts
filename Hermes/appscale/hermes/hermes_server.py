@@ -142,9 +142,7 @@ def main():
   is_tq = (my_ip in appscale_info.get_taskqueue_nodes())
   is_db = (my_ip in appscale_info.get_db_ips())
 
-  secret = appscale_info.get_secret()
-  security_middleware = handlers.verify_secret_middleware(secret)
-  app = web.Application(middlewares=[security_middleware])
+  app = web.Application(middlewares=[handlers.verify_secret_middleware])
 
   route_items = []
   route_items += get_local_stats_api_routes(is_lb, is_tq, is_db)

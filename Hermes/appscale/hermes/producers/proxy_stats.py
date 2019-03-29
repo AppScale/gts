@@ -1,3 +1,5 @@
+import asyncio
+
 import StringIO
 import csv
 import logging
@@ -267,21 +269,17 @@ def _get_field_value(row, field_name):
   return value
 
 
-def get_stats(socket_path):
-  client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-  client.connect(socket_path)
+async def get_stats(socket_path):
+  reader, writer = await asyncio.open_unix_connection(socket_path)
   try:
     stats_output = StringIO.StringIO()
-    client.send('show stat\n')
-    while True:
-      data = client.recv(1024)
-      if not data:
-        break
-      stats_output.write(data)
+    writer.write(b'show stat\n')
+    stats_output.write(await reader.read())
     stats_output.seek(0)
     return stats_output
   finally:
-    client.close()
+    reader.close()
+    writer.close()
 
 
 def get_frontend_ip_port(configs_dir, proxy_name):
@@ -301,9 +299,9 @@ def get_connections(ip, port):
              if conn.laddr == (ip, port) and conn.status == 'ESTABLISHED')
 
 
-def get_stats_from_one_haproxy(socket_path, configs_dir):
+async def get_stats_from_one_haproxy(socket_path, configs_dir):
   # Get CSV table with haproxy stats
-  csv_buf = get_stats(socket_path)
+  csv_buf = await get_stats(socket_path)
   csv_buf.seek(2)  # Seek to the beginning but skip "# " in the first row
   table = csv.DictReader(csv_buf, delimiter=',')
   if ProxiesStatsSource.first_run:
@@ -395,7 +393,7 @@ class ProxiesStatsSource(object):
   first_run = True
 
   @staticmethod
-  def get_current():
+  async def get_current():
     """ Method which parses haproxy stats and returns detailed
     proxy statistics for all proxies.
 
@@ -405,27 +403,29 @@ class ProxiesStatsSource(object):
     start = time.time()
 
     proxy_stats_list = []
-    for haproxy_process_name, info in HAPROXY_PROCESSES.iteritems():
+    for haproxy_process_name, info in HAPROXY_PROCESSES.items():
       logger.debug("Processing {} haproxy stats".format(haproxy_process_name))
-      proxy_stats_list += get_stats_from_one_haproxy(
-        info['socket'], info['configs'])
+      proxy_stats_list += await get_stats_from_one_haproxy(
+        info['socket'], info['configs']
+      )
 
     stats = ProxiesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.now().timetuple()),
       proxies_stats=proxy_stats_list
     )
-    logger.info("Prepared stats about {prox} proxies in {elapsed:.1f}s."
-                 .format(prox=len(proxy_stats_list), elapsed=time.time()-start))
+    logger.info("Prepared stats about {prox} proxies in {elapsed:.2f}s."
+                .format(prox=len(proxy_stats_list), elapsed=time.time()-start))
     return stats
 
 
-def get_service_instances(stats_socket_path, pxname):
+async def get_service_instances(stats_socket_path, pxname):
   safe_pxname = re.escape(pxname)
   ip_port_list = []
   ip_port_pattern = re.compile(
     "\n{proxy},{proxy}-(?P<port_ip>[.\w]+:\d+)".format(proxy=safe_pxname)
   )
-  stats_csv = get_stats(stats_socket_path).read()
+  stats_buf = await get_stats(stats_socket_path)
+  stats_csv = stats_buf.read()
   for match in re.finditer(ip_port_pattern, stats_csv):
     ip_port_list.append(match.group("port_ip"))
   return ip_port_list

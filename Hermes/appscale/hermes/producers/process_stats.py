@@ -129,8 +129,8 @@ class ProcessesStatsSource(object):
         stats = _process_stats(pid, service, monit_name, private_ip)
         processes_stats.append(stats)
       except psutil.Error as err:
-        logger.warn(u"Unable to get process stats for {monit_name} ({err})"
-                     .format(monit_name=monit_name, err=err))
+        logger.warn("Unable to get process stats for {monit_name} ({err})"
+                    .format(monit_name=monit_name, err=err))
 
     # Add processes managed by the ServiceManager.
     for server in ServiceManager.get_state():
@@ -140,8 +140,8 @@ class ProcessesStatsSource(object):
                                private_ip)
         processes_stats.append(stats)
       except psutil.Error as error:
-        logger.warning(u'Unable to get process stats for '
-                        u'{} ({})'.format(server, error))
+        logger.warning('Unable to get process stats for '
+                       '{} ({})'.format(server, error))
 
     stats = ProcessesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.now().timetuple()),
