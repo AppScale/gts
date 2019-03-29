@@ -1,15 +1,12 @@
-import json
+import http
+import inspect
 import logging
 import time
 from datetime import datetime
 
-from tornado import gen
-from tornado.options import options
-from tornado.web import RequestHandler
+from aiohttp import web
 
-from appscale.hermes.constants import (
-  SECRET_HEADER, HTTP_Codes, ACCEPTABLE_STATS_AGE
-)
+from appscale.hermes.constants import SECRET_HEADER, ACCEPTABLE_STATS_AGE
 from appscale.hermes.converter import (
   stats_to_dict, IncludeLists, WrongIncludeLists
 )
@@ -17,39 +14,74 @@ from appscale.hermes.converter import (
 logger = logging.getLogger(__name__)
 
 
-class CurrentStatsHandler(RequestHandler):
+DEFAULT_INCLUDE_LISTS = IncludeLists({
+  # Node stats
+  'node': ['utc_timestamp', 'cpu', 'memory',
+           'partitions_dict', 'loadavg'],
+  'node.cpu': ['percent', 'count'],
+  'node.memory': ['available', 'total'],
+  'node.partition': ['free', 'used'],
+  'node.loadavg': ['last_5min'],
+  # Processes stats
+  'process': ['monit_name', 'unified_service_name', 'application_id',
+              'port', 'cpu', 'memory', 'children_stats_sum'],
+  'process.cpu': ['user', 'system', 'percent'],
+  'process.memory': ['resident', 'virtual', 'unique'],
+  'process.children_stats_sum': ['cpu', 'memory'],
+  # Proxies stats
+  'proxy': ['name', 'unified_service_name', 'application_id',
+            'frontend', 'backend', 'servers_count'],
+  'proxy.frontend': ['bin', 'bout', 'scur', 'smax', 'rate',
+                     'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
+  'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
+  # Taskqueue service stats
+  'taskqueue': ['utc_timestamp', 'current_requests', 'cumulative', 'recent',
+                'instances_count', 'failures'],
+  'taskqueue.instance': ['start_timestamp_ms', 'current_requests',
+                         'cumulative', 'recent'],
+  'taskqueue.cumulative': ['total', 'failed', 'pb_reqs', 'rest_reqs'],
+  'taskqueue.recent': ['total', 'failed', 'avg_latency',
+                       'pb_reqs', 'rest_reqs'],
+  # RabbitMQ stats
+  'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name',
+               'partitions'],
+  # Push queue stats
+  'queue': ['name', 'messages'],
+  # Cassandra stats
+  'cassandra': ['utc_timestamp', 'nodes', 'missing_nodes', 'unknown_nodes'],
+  # Cassandra node stats
+  'cassandra.node': ['address', 'status', 'state', 'load', 'owns_pct',
+                     'tokens_num'],
+})
+
+
+def verify_secret_middleware(secret):
+  async def verify_secret(request, handler):
+    if request.headers.get(SECRET_HEADER) != secret:
+      logger.warn("Received bad secret from {client}"
+                  .format(client=request.remote))
+      return web.Response(status=http.HTTPStatus.FORBIDDEN,
+                          reason="Bad secret")
+    return await handler(request)
+
+  return verify_secret
+
+
+class LocalStatsHandler(object):
   """ Handler for getting current local stats of specific kind.
   """
-
-  def initialize(self, source, default_include_lists, cache_container):
-    """ Initializes RequestHandler for handling a single request.
+  def __init__(self, source):
+    """ Initializes request handler for providing current stats.
 
     Args:
       source: an object with method get_current.
-      default_include_lists: an instance of IncludeLists to use as default.
-      cache_container: a list containing a single element - cached snapshot.
     """
     self._stats_source = source
-    self._default_include_lists = default_include_lists
-    self._cache_container = cache_container
+    self._cached_snapshot = None
 
-  @property
-  def _cached_snapshot(self):
-    return self._cache_container[0]
-
-  @_cached_snapshot.setter
-  def _cached_snapshot(self, newer_snapshot):
-    self._cache_container[0] = newer_snapshot
-
-  @gen.coroutine
-  def get(self):
-    if self.request.headers.get(SECRET_HEADER) != options.secret:
-      logger.warn("Received bad secret from {client}"
-                   .format(client=self.request.remote_ip))
-      self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
-      return
-    if self.request.body:
-      payload = json.loads(self.request.body)
+  async def get(self, request):
+    if request.has_body:
+      payload = await request.json()
     else:
       payload = {}
     include_lists = payload.get('include_lists')
@@ -60,12 +92,11 @@ class CurrentStatsHandler(RequestHandler):
         include_lists = IncludeLists(include_lists)
       except WrongIncludeLists as err:
         logger.warn("Bad request from {client} ({error})"
-                     .format(client=self.request.remote_ip, error=err))
-        json.dump({'error': str(err)}, self)
-        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
-        return
+                    .format(client=request.remote, error=err))
+        return web.Response(status=http.HTTPStatus.BAD_REQUEST,
+                            reason='Wrong include_lists', text=str(err))
     else:
-      include_lists = self._default_include_lists
+      include_lists = DEFAULT_INCLUDE_LISTS
 
     snapshot = None
 
@@ -76,42 +107,32 @@ class CurrentStatsHandler(RequestHandler):
       if self._cached_snapshot.utc_timestamp >= acceptable_time:
         snapshot = self._cached_snapshot
         logger.info("Returning cached snapshot with age {:.2f}s"
-                     .format(now-self._cached_snapshot.utc_timestamp))
+                    .format(now-self._cached_snapshot.utc_timestamp))
 
     if not snapshot:
       snapshot = self._stats_source.get_current()
-      if isinstance(snapshot, gen.Future):
-        snapshot = yield snapshot
+      if inspect.isawaitable(snapshot):
+        snapshot = await snapshot
       self._cached_snapshot = snapshot
 
-    json.dump(stats_to_dict(snapshot, include_lists), self)
+    return web.json_response(stats_to_dict(snapshot, include_lists))
 
 
-class CurrentClusterStatsHandler(RequestHandler):
+class ClusterStatsHandler(object):
   """ Handler for getting current stats of specific kind.
   """
-
-  def initialize(self, source, default_include_lists, cache_container):
-    """ Initializes RequestHandler for handling a single request.
+  def __init__(self, source):
+    """ Initializes request handler for providing current stats.
 
     Args:
       source: an object with method get_current.
-      default_include_lists: an instance of IncludeLists to use as default.
-      cache_container: a dict with cached snapshots.
     """
-    self._current_cluster_stats_source = source
-    self._default_include_lists = default_include_lists
-    self._cached_snapshots = cache_container
+    self._cluster_stats_source = source
+    self._cached_snapshots = {}
 
-  @gen.coroutine
-  def get(self):
-    if self.request.headers.get(SECRET_HEADER) != options.secret:
-      logger.warn("Received bad secret from {client}"
-                   .format(client=self.request.remote_ip))
-      self.set_status(HTTP_Codes.HTTP_DENIED, "Bad secret")
-      return
-    if self.request.body:
-      payload = json.loads(self.request.body)
+  async def get(self, request):
+    if request.has_body:
+      payload = await request.json()
     else:
       payload = {}
     include_lists = payload.get('include_lists')
@@ -122,31 +143,30 @@ class CurrentClusterStatsHandler(RequestHandler):
         include_lists = IncludeLists(include_lists)
       except WrongIncludeLists as err:
         logger.warn("Bad request from {client} ({error})"
-                     .format(client=self.request.remote_ip, error=err))
-        json.dump({'error': str(err)}, self)
-        self.set_status(HTTP_Codes.HTTP_BAD_REQUEST, 'Wrong include_lists')
-        return
+                    .format(client=request.remote, error=err))
+        return web.Response(status=http.HTTPStatus.BAD_REQUEST,
+                            reason='Wrong include_lists', text=str(err))
     else:
-      include_lists = self._default_include_lists
+      include_lists = DEFAULT_INCLUDE_LISTS
 
     newer_than = time.mktime(datetime.now().timetuple()) - max_age
 
-    if (not self._default_include_lists or
-        include_lists.is_subset_of(self._default_include_lists)):
+    if (not DEFAULT_INCLUDE_LISTS or
+        include_lists.is_subset_of(DEFAULT_INCLUDE_LISTS)):
       # If user didn't specify any non-default fields we can use local cache
       fresh_local_snapshots = {
         node_ip: snapshot
-        for node_ip, snapshot in self._cached_snapshots.iteritems()
+        for node_ip, snapshot in self._cached_snapshots.items()
         if max_age and snapshot.utc_timestamp > newer_than
       }
       if fresh_local_snapshots:
         logger.debug("Returning cluster stats with {} cached snapshots"
-                      .format(len(fresh_local_snapshots)))
+                     .format(len(fresh_local_snapshots)))
     else:
       fresh_local_snapshots = {}
 
     new_snapshots_dict, failures = (
-      yield self._current_cluster_stats_source.get_current(
+      await self._cluster_stats_source.get_current(
         max_age=max_age, include_lists=include_lists,
         exclude_nodes=fresh_local_snapshots.keys()
       )
@@ -163,24 +183,21 @@ class CurrentClusterStatsHandler(RequestHandler):
       for node_ip, snapshot in new_snapshots_dict.iteritems()
     }
 
-    json.dump({
+    return web.json_response({
       "stats": rendered_snapshots,
       "failures": failures
-    }, self)
+    })
 
 
-class Respond404Handler(RequestHandler):
+def not_found(reason):
   """
-  This class is aimed to stub unavailable route.
+  This function creates handler is aimed to stub unavailable route.
   Hermes master has some extra routes which are not available on slaves,
   also Hermes stats can work in lightweight or verbose mode and verbose
   mode has extra routes.
   This handlers is configured with a reason why specific resource
   is not available on the instance of Hermes.
   """
-
-  def initialize(self, reason):
-    self.reason = reason
-
-  def get(self):
-    self.set_status(404, self.reason)
+  def handler(request):
+    return web.Response(status=http.HTTPStatus.NOT_FOUND, reason=reason)
+  return handler
