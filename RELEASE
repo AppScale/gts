@@ -53,7 +53,7 @@ Highlights of features and defects fixed in this release:
  - Exit early if version is not found in zookeeper
  - Use zookeeper for stopped versions
  - Ec2 private ips
- - Defer to vendored framework for endpoints
+ - Defer to vendored framework for endpoints 2
  - Accept all arguments to _handle_request
  - Move blob fetching work to DatastoreBlobReader
  - Use a fallback mechanism on connection failures
