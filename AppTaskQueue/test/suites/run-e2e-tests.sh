@@ -177,12 +177,15 @@ PYTHON=
 for PYTHON_EXECUTABLE in python python3 python3.6 python3.7
 do
     # Get exact version of python interpreter
-    HAVE=$(${PYTHON_EXECUTABLE} --version 2> null | awk '{ print $2 }')
-    # Stop if version is new enough
-    if echo -e "${HAVE}\n3.6" | sort -V | head -1 | grep "^3.6$"
-    then
-        PYTHON=$(which ${PYTHON_EXECUTABLE})
-        break
+    possible_python=$(which ${PYTHON_EXECUTABLE})
+    if [ -n "$possible_python" ]; then
+        HAVE=$(${possible_python} --version 2>&1 | awk '{ print $2 }')
+        # Stop if version is new enough
+        if echo -e "${HAVE}\n3.6" | sort -V | head -1 | grep "^3.6$"
+        then
+            PYTHON=${possible_python}
+            break
+        fi
     fi
 done
 if [ -z "${PYTHON}" ]
