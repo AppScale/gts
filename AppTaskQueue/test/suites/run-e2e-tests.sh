@@ -193,6 +193,8 @@ then
     log "Python 3.6 or greater was not found." "ERROR"
     log "Please install it and try again."
     exit 1
+else
+    log "Using python: ${PYTHON} version: ${HAVE}"
 fi
 
 cd "${E2E_TEST_DIR}"
