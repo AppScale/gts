@@ -93,7 +93,7 @@ class TaskqueueStatsSource(object):
         awaitable_get = session.get(url, timeout=REMOTE_REQUEST_TIMEOUT)
         async with awaitable_get as resp:
           resp.raise_for_status()
-          stats_body = await resp.json()
+          stats_body = await resp.json(content_type=None)
     except aiohttp.ClientError as err:
       msg = "Failed to get {url} ({err})".format(url=url, err=err)
       logger.error(msg)
@@ -164,12 +164,16 @@ class TaskqueueStatsSource(object):
         by_pb_status_sum[pb_status] += calls
       for rest_status, calls in recent.by_rest_status.items():
         by_rest_status_sum[rest_status] += calls
+
+    avg_latency = None
+    if total_recent_reqs:
+      avg_latency = int(weighted_avg_latency_sum / total_recent_reqs)
+
     # Return snapshot
     return RecentStatsSnapshot(
       total=total_recent_reqs,
       failed=sum(recent.failed for recent in recent_stats),
-      avg_latency=(weighted_avg_latency_sum / total_recent_reqs)
-                  if total_recent_reqs else None,
+      avg_latency=avg_latency,
       pb_reqs=sum(recent.pb_reqs for recent in recent_stats),
       rest_reqs=sum(recent.rest_reqs for recent in recent_stats),
       by_pb_method=by_pb_method_sum,
@@ -185,7 +189,7 @@ class TaskqueueStatsSource(object):
       proxy_stats.HAPROXY_SERVICES_STATS_SOCKET_PATH, "TaskQueue"
     )
     # Query all TQ servers
-    instances_responses = await asyncio.wait([
+    instances_responses = await asyncio.gather(*[
       self.fetch_stats_from_instance(ip_port)
       for ip_port in tq_instances
     ])

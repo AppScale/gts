@@ -272,11 +272,10 @@ async def get_stats(socket_path):
   try:
     stats_output = io.StringIO()
     writer.write(b'show stat\n')
-    stats_output.write(await reader.read())
+    stats_output.write((await reader.read()).decode())
     stats_output.seek(0)
     return stats_output
   finally:
-    reader.close()
     writer.close()
 
 
@@ -305,8 +304,10 @@ async def get_stats_from_one_haproxy(socket_path, configs_dir):
   if ProxiesStatsSource.first_run:
     missed = ALL_HAPROXY_FIELDS - set(table.fieldnames)
     if missed:
-      logger.warn("HAProxy stats fields {} are missed. Old version of HAProxy "
-                   "is probably used (v1.5+ is expected)".format(list(missed)))
+      logger.warning(
+        "HAProxy stats fields {} are missed. Old version of HAProxy "
+        "is probably used (v1.5+ is expected)".format(list(missed))
+      )
     ProxiesStatsSource.first_run = False
 
   # Parse haproxy stats output line by line

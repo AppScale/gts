@@ -41,7 +41,7 @@ class ClusterStatsSource(object):
     and collects current stats. Local stats is got from local stats source.
 
     Args:
-      max_age: UTC timestamp, allow to use cached snapshot if it's newer.
+      max_age: An int - max age of cached snapshot to use (in seconds).
       include_lists: An instance of IncludeLists.
       exclude_nodes: A list of node IPs to ignore when fetching stats.
     Returns:
@@ -54,8 +54,10 @@ class ClusterStatsSource(object):
     stats_per_node = {}
     failures = {}
 
-    # Do multiple requests asynchronously and wait for all results
     async def get_remote_result(node_ip):
+      """ Helper coroutine for issuing async request for
+      remote/local statistics and filling stats_per_node and failures.
+      """
       try:
         stats_per_node[node_ip] = await self._stats_from_node_async(
           node_ip, max_age, include_lists
@@ -63,8 +65,9 @@ class ClusterStatsSource(object):
       except RemoteHermesError as err:
         failures[node_ip] = str(err)
 
+    # Do multiple requests asynchronously and wait for all results
     async with max_concurrency:
-      await asyncio.wait([
+      await asyncio.gather(*[
         get_remote_result(node_ip)
         for node_ip in self.ips_getter() if node_ip not in exclude_nodes
       ])
@@ -76,6 +79,15 @@ class ClusterStatsSource(object):
     return stats_per_node, failures
 
   async def _stats_from_node_async(self, node_ip, max_age, include_lists):
+    """ Fetches statistics from  either local or remote node.
+
+    Args:
+      node_ip: A string  - remote node IP.
+      max_age: An int - max age of cached snapshot to use (in seconds).
+      include_lists: An instance of IncludeLists.
+    Returns:
+      An instance of stats snapshot.
+    """
     if node_ip == appscale_info.get_private_ip():
       try:
         snapshot = self.local_stats_source.get_current()
@@ -92,6 +104,15 @@ class ClusterStatsSource(object):
     return snapshot
 
   async def _fetch_remote_stats_async(self, node_ip, max_age, include_lists):
+    """ Fetches statistics from a single remote node.
+
+    Args:
+      node_ip: a string  - remote node IP.
+      max_age: An int - max age of cached snapshot to use (in seconds).
+      include_lists: An instance of IncludeLists.
+    Returns:
+      An instance of stats snapshot.
+    """
     # Security header
     headers = {constants.SECRET_HEADER: appscale_info.get_secret()}
     # Build query arguments
@@ -112,11 +133,13 @@ class ClusterStatsSource(object):
         )
         async with awaitable_get as resp:
           if resp.status >= 400:
+            err_message = 'HTTP {}: {}'.format(resp.status, resp.reason)
             resp_text = await resp.text()
-            err_message = resp_text or resp.reason
+            if resp_text:
+              err_message += '. {}'.format(resp_text)
             logger.error("Failed to get {} ({})".format(url, err_message))
             raise RemoteHermesError(err_message)
-          snapshot = await resp.json()
+          snapshot = await resp.json(content_type=None)
           return converter.stats_from_dict(self.stats_model, snapshot)
 
     except aiohttp.ClientError as err:
@@ -124,11 +147,11 @@ class ClusterStatsSource(object):
       raise RemoteHermesError(str(err))
 
 
-async def get_random_lb_node():
+def get_random_lb_node():
   return [random.choice(appscale_info.get_load_balancer_ips())]
 
 
-async def get_random_db_node():
+def get_random_db_node():
   return [random.choice(appscale_info.get_db_ips())]
 
 

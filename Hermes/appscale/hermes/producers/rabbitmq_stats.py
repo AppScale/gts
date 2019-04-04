@@ -14,8 +14,8 @@ from appscale.hermes.converter import Meta, include_list_name
 API_PORT = 15672
 
 # Credentials used to access the RabbitMQ API.
-USER = 'guest'
-PASS = 'guest'
+USER = b'guest'
+PASS = b'guest'
 
 # The endpoint used for retrieving node stats.
 NODES_API = '/api/nodes'
@@ -73,8 +73,8 @@ class RabbitMQStatsSource(object):
 
     node_name = 'rabbit@{}'.format(socket.gethostname())
     url = 'http://localhost:{}{}/{}'.format(API_PORT, NODES_API, node_name)
-    creds = base64.b64encode(':'.join([USER, PASS]))
-    headers = {'Authorization': 'Basic {}'.format(creds)}
+    creds = base64.b64encode(b':'.join([USER, PASS]))
+    headers = {'Authorization': 'Basic {}'.format(creds.decode())}
 
     try:
       async with aiohttp.ClientSession() as session:
