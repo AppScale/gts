@@ -118,7 +118,7 @@ class ProcessesStatsSource(object):
       An instance ofProcessesStatsSnapshot.
     """
     start = time.time()
-    monit_status = subprocess.check_output('monit status', shell=True)
+    monit_status = subprocess.check_output('monit status', shell=True).decode()
     processes_stats = []
     private_ip = appscale_info.get_private_ip()
     for match in MONIT_PROCESS_PATTERN.finditer(monit_status):
@@ -129,8 +129,8 @@ class ProcessesStatsSource(object):
         stats = _process_stats(pid, service, monit_name, private_ip)
         processes_stats.append(stats)
       except psutil.Error as err:
-        logger.warn("Unable to get process stats for {monit_name} ({err})"
-                    .format(monit_name=monit_name, err=err))
+        logger.warning("Unable to get process stats for {monit_name} ({err})"
+                       .format(monit_name=monit_name, err=err))
 
     # Add processes managed by the ServiceManager.
     for server in ServiceManager.get_state():
@@ -148,7 +148,7 @@ class ProcessesStatsSource(object):
       processes_stats=processes_stats
     )
     logger.info("Prepared stats about {proc} processes in {elapsed:.1f}s."
-                 .format(proc=len(processes_stats), elapsed=time.time()-start))
+                .format(proc=len(processes_stats), elapsed=time.time()-start))
     return stats
 
 

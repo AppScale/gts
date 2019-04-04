@@ -119,8 +119,8 @@ class CassandraStatsSource(object):
         .format(NODETOOL_STATUS_COMMAND, process.pid)
       )
 
-    output = stdout.encode()
-    error = stderr.encode()
+    output = stdout.decode()
+    error = stderr.decode()
     if error:
       logger.warning(error)
     if process.returncode != 0:
