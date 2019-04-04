@@ -7,7 +7,7 @@
 
 AppScale version 3.7.0, released April 2019
 Highlights of features and defects fixed in this release:
- - IaaS restructure
+ - InfrastructureManager restructure
  - Change jobs to roles
  - Raise API server errors as Java exceptions
  - Don't add tag data to task if the task has none
