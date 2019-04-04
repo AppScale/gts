@@ -15,48 +15,17 @@ from appscale.hermes.converter import (
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_INCLUDE_LISTS = IncludeLists({
-  # Node stats
-  'node': ['utc_timestamp', 'cpu', 'memory',
-           'partitions_dict', 'loadavg'],
-  'node.cpu': ['percent', 'count'],
-  'node.memory': ['available', 'total'],
-  'node.partition': ['free', 'used'],
-  'node.loadavg': ['last_5min'],
-  # Processes stats
-  'process': ['monit_name', 'unified_service_name', 'application_id',
-              'port', 'cpu', 'memory', 'children_stats_sum'],
-  'process.cpu': ['user', 'system', 'percent'],
-  'process.memory': ['resident', 'virtual', 'unique'],
-  'process.children_stats_sum': ['cpu', 'memory'],
-  # Proxies stats
-  'proxy': ['name', 'unified_service_name', 'application_id',
-            'frontend', 'backend', 'servers_count'],
-  'proxy.frontend': ['bin', 'bout', 'scur', 'smax', 'rate',
-                     'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
-  'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
-  # Taskqueue service stats
-  'taskqueue': ['utc_timestamp', 'current_requests', 'cumulative', 'recent',
-                'instances_count', 'failures'],
-  'taskqueue.instance': ['start_timestamp_ms', 'current_requests',
-                         'cumulative', 'recent'],
-  'taskqueue.cumulative': ['total', 'failed', 'pb_reqs', 'rest_reqs'],
-  'taskqueue.recent': ['total', 'failed', 'avg_latency',
-                       'pb_reqs', 'rest_reqs'],
-  # RabbitMQ stats
-  'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name',
-               'partitions'],
-  # Push queue stats
-  'queue': ['name', 'messages'],
-  # Cassandra stats
-  'cassandra': ['utc_timestamp', 'nodes', 'missing_nodes', 'unknown_nodes'],
-  # Cassandra node stats
-  'cassandra.node': ['address', 'status', 'state', 'load', 'owns_pct',
-                     'tokens_num'],
-})
-
-
+@web.middleware
 async def verify_secret_middleware(request, handler):
+  """ Security middleware for secret verification.
+
+  Args:
+    request: an instance of Request.
+    handler: a callable handler for further request processing.
+  Return:
+    403 Response if secret is incorrect,
+    Response provided by handler otherwise.
+  """
   if request.headers.get(SECRET_HEADER) != appscale_info.get_secret():
     logger.warn("Received bad secret from {client}"
                 .format(client=request.remote))
@@ -65,19 +34,75 @@ async def verify_secret_middleware(request, handler):
   return await handler(request)
 
 
-class LocalStatsHandler(object):
+def get_default_include_lists():
+  """ Creates an instance of IncludeLists with default values.
+  It is not a constant because all model classes should be imported before
+  creating an instance of IncludeLists.
+  We're planning to get rid of complicated include lists logic
+  by splitting composite models into smaller.
+  """
+  return IncludeLists({
+    # Node stats
+    'node': ['utc_timestamp', 'cpu', 'memory',
+             'partitions_dict', 'loadavg'],
+    'node.cpu': ['percent', 'count'],
+    'node.memory': ['available', 'total'],
+    'node.partition': ['free', 'used'],
+    'node.loadavg': ['last_5min'],
+    # Processes stats
+    'process': ['monit_name', 'unified_service_name', 'application_id',
+                'port', 'cpu', 'memory', 'children_stats_sum'],
+    'process.cpu': ['user', 'system', 'percent'],
+    'process.memory': ['resident', 'virtual', 'unique'],
+    'process.children_stats_sum': ['cpu', 'memory'],
+    # Proxies stats
+    'proxy': ['name', 'unified_service_name', 'application_id',
+              'frontend', 'backend', 'servers_count'],
+    'proxy.frontend': ['bin', 'bout', 'scur', 'smax', 'rate',
+                       'req_rate', 'req_tot', 'hrsp_4xx', 'hrsp_5xx'],
+    'proxy.backend': ['qcur', 'scur', 'hrsp_5xx', 'qtime', 'rtime'],
+    # Taskqueue service stats
+    'taskqueue': ['utc_timestamp', 'current_requests', 'cumulative', 'recent',
+                  'instances_count', 'failures'],
+    'taskqueue.instance': ['start_timestamp_ms', 'current_requests',
+                           'cumulative', 'recent'],
+    'taskqueue.cumulative': ['total', 'failed', 'pb_reqs', 'rest_reqs'],
+    'taskqueue.recent': ['total', 'failed', 'avg_latency',
+                         'pb_reqs', 'rest_reqs'],
+    # RabbitMQ stats
+    'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name',
+                 'partitions'],
+    # Push queue stats
+    'queue': ['name', 'messages'],
+    # Cassandra stats
+    'cassandra': ['utc_timestamp', 'nodes', 'missing_nodes', 'unknown_nodes'],
+    # Cassandra node stats
+    'cassandra.node': ['address', 'status', 'state', 'load', 'owns_pct',
+                       'tokens_num'],
+  })
+
+
+class LocalStatsHandler:
   """ Handler for getting current local stats of specific kind.
   """
-  def __init__(self, source):
+  def __init__(self, stats_source):
     """ Initializes request handler for providing current stats.
 
     Args:
-      source: an object with method get_current.
+      stats_source: an object with method get_current.
     """
-    self._stats_source = source
-    self._cached_snapshot = None
+    self.stats_source = stats_source
+    self.cached_snapshot = None
+    self.default_include_lists = get_default_include_lists()
 
-  async def get(self, request):
+  async def __call__(self, request):
+    """ Handles HTTP request.
+
+    Args:
+      request: an instance of Request.
+    Returns:
+      An instance of Resposne.
+    """
     if request.has_body:
       payload = await request.json()
     else:
@@ -94,41 +119,50 @@ class LocalStatsHandler(object):
         return web.Response(status=http.HTTPStatus.BAD_REQUEST,
                             reason='Wrong include_lists', text=str(err))
     else:
-      include_lists = DEFAULT_INCLUDE_LISTS
+      include_lists = self.default_include_lists
 
     snapshot = None
 
     # Try to use cached snapshot
-    if self._cached_snapshot:
+    if self.cached_snapshot:
       now = time.time()
       acceptable_time = now - max_age
-      if self._cached_snapshot.utc_timestamp >= acceptable_time:
-        snapshot = self._cached_snapshot
+      if self.cached_snapshot.utc_timestamp >= acceptable_time:
+        snapshot = self.cached_snapshot
         logger.info("Returning cached snapshot with age {:.2f}s"
-                    .format(now-self._cached_snapshot.utc_timestamp))
+                    .format(now-self.cached_snapshot.utc_timestamp))
 
     if not snapshot:
-      snapshot = self._stats_source.get_current()
+      snapshot = self.stats_source.get_current()
       if inspect.isawaitable(snapshot):
         snapshot = await snapshot
-      self._cached_snapshot = snapshot
+      self.cached_snapshot = snapshot
 
     return web.json_response(stats_to_dict(snapshot, include_lists))
 
 
-class ClusterStatsHandler(object):
-  """ Handler for getting current stats of specific kind.
+class ClusterStatsHandler:
+  """ Handler for getting current cluster stats of specific kind.
   """
-  def __init__(self, source):
+
+  def __init__(self, stats_source):
     """ Initializes request handler for providing current stats.
 
     Args:
-      source: an object with method get_current.
+      stats_source: an object with method get_current.
     """
-    self._cluster_stats_source = source
-    self._cached_snapshots = {}
+    self.stats_source = stats_source
+    self.cached_snapshots = {}
+    self.default_include_lists = get_default_include_lists()
 
-  async def get(self, request):
+  async def __call__(self, request):
+    """ Handles HTTP request.
+
+    Args:
+      request: an instance of Request.
+    Returns:
+      An instance of Response.
+    """
     if request.has_body:
       payload = await request.json()
     else:
@@ -145,16 +179,16 @@ class ClusterStatsHandler(object):
         return web.Response(status=http.HTTPStatus.BAD_REQUEST,
                             reason='Wrong include_lists', text=str(err))
     else:
-      include_lists = DEFAULT_INCLUDE_LISTS
+      include_lists = self.default_include_lists
 
     newer_than = time.mktime(datetime.now().timetuple()) - max_age
 
-    if (not DEFAULT_INCLUDE_LISTS or
-        include_lists.is_subset_of(DEFAULT_INCLUDE_LISTS)):
+    if (not self.default_include_lists or
+        include_lists.is_subset_of(self.default_include_lists)):
       # If user didn't specify any non-default fields we can use local cache
       fresh_local_snapshots = {
         node_ip: snapshot
-        for node_ip, snapshot in self._cached_snapshots.items()
+        for node_ip, snapshot in self.cached_snapshots.items()
         if max_age and snapshot.utc_timestamp > newer_than
       }
       if fresh_local_snapshots:
@@ -164,14 +198,14 @@ class ClusterStatsHandler(object):
       fresh_local_snapshots = {}
 
     new_snapshots_dict, failures = (
-      await self._cluster_stats_source.get_current(
+      await self.stats_source.get_current(
         max_age=max_age, include_lists=include_lists,
         exclude_nodes=list(fresh_local_snapshots.keys())
       )
     )
 
     # Put new snapshots to local cache
-    self._cached_snapshots.update(new_snapshots_dict)
+    self.cached_snapshots.update(new_snapshots_dict)
 
     # Extend fetched snapshots dict with fresh local snapshots
     new_snapshots_dict.update(fresh_local_snapshots)

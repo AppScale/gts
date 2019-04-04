@@ -9,15 +9,13 @@ from aiohttp import web
 from appscale.common import appscale_info
 from appscale.common.constants import LOG_FORMAT
 
-from appscale.hermes import constants, handlers
-
+from appscale.hermes import constants
 from appscale.hermes.handlers import (
-  LocalStatsHandler, ClusterStatsHandler, not_found
+  verify_secret_middleware, LocalStatsHandler, ClusterStatsHandler, not_found
 )
 from appscale.hermes.producers.cluster_stats import (
   cluster_nodes_stats, cluster_processes_stats, cluster_proxies_stats,
-  cluster_rabbitmq_stats, cluster_push_queues_stats,
-  cluster_taskqueue_stats,
+  cluster_rabbitmq_stats, cluster_push_queues_stats, cluster_taskqueue_stats,
   cluster_cassandra_stats
 )
 from appscale.hermes.producers.cassandra_stats import CassandraStatsSource
@@ -32,8 +30,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_local_stats_api_routes(is_lb_node, is_tq_node, is_db_node):
-  """ Creates stats sources and API handlers for providing local
-  node, processes and proxies (only on LB nodes) stats.
+  """ Creates stats sources and API handlers for providing local stats.
+  Routes which are not applicable for node role are stubbed with
+  404 handler.
 
   Args:
     is_lb_node: A boolean indicating whether this node is load balancer.
@@ -83,9 +82,9 @@ def get_local_stats_api_routes(is_lb_node, is_tq_node, is_db_node):
 
 
 def get_cluster_stats_api_routes(is_lb):
-  """ Creates stats sources and API handlers for providing cluster
-  node, processes and proxies stats (on master node only).
-  If this node is slave, it creates stub handlers for cluster stats routes.
+  """ Creates stats sources and API handlers for providing cluster nodes.
+  If this node is not Load balancer,
+  it creates stub handlers for cluster stats routes.
 
   Args:
     is_lb: A boolean indicating whether this node is load balancer.
@@ -142,13 +141,13 @@ def main():
   is_tq = (my_ip in appscale_info.get_taskqueue_nodes())
   is_db = (my_ip in appscale_info.get_db_ips())
 
-  app = web.Application(middlewares=[handlers.verify_secret_middleware])
+  app = web.Application(middlewares=[verify_secret_middleware])
 
   route_items = []
   route_items += get_local_stats_api_routes(is_lb, is_tq, is_db)
   route_items += get_cluster_stats_api_routes(is_master)
   for route, handler in route_items:
-    app.router.add_get(route, handlers)
+    app.router.add_get(route, handler)
 
   logger.info("Starting Hermes on port: {}.".format(args.port))
   web.run_app(app, port=args.port, access_log=logger)
