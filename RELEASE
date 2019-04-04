@@ -5,7 +5,7 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
-AppScale version 3.7.0, released March 2019
+AppScale version 3.7.0, released April 2019
 Highlights of features and defects fixed in this release:
  - IaaS restructure
  - Change jobs to roles
