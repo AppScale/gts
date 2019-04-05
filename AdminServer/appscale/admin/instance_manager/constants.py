@@ -133,3 +133,6 @@ TRUSTED_APPS = ["appscaledashboard"]
 
 # The ZooKeeper node that keeps track of running AppServers by version.
 VERSION_REGISTRATION_NODE = '/appscale/instances_by_version'
+
+# The port Hermes listens on.
+HERMES_PORT = 4378

@@ -7,11 +7,11 @@ from kazoo.exceptions import NodeExistsError, NoNodeError
 from tornado import gen
 from tornado.httpclient import AsyncHTTPClient
 
-from appscale.admin.instance_manager.constants import VERSION_REGISTRATION_NODE
+from appscale.admin.instance_manager.constants import VERSION_REGISTRATION_NODE, \
+  HERMES_PORT
 from appscale.admin.instance_manager.instance import Instance
 from appscale.common import appscale_info
 from appscale.common.constants import GAE_PREFIX, VERSION_PATH_SEPARATOR
-from appscale.hermes.constants import HERMES_PORT
 
 logger = logging.getLogger(__name__)
 
