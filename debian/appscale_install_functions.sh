@@ -608,8 +608,17 @@ installadminserver()
 
 installhermes()
 {
-    pip install --upgrade --no-deps ${APPSCALE_HOME}/Hermes
-    pip install ${APPSCALE_HOME}/Hermes
+    # Create virtual environment based on Python 3
+    rm -rf /opt/appscale_hermes
+    python3 -m venv /opt/appscale_hermes/
+    # Install Hermes and its dependencies in it
+    HERMES_PIP=/opt/appscale_hermes/bin/pip
+    ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/common
+    ${HERMES_PIP} install ${APPSCALE_HOME}/common
+    ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/AdminServer
+    ${HERMES_PIP} install ${APPSCALE_HOME}/AdminServer
+    ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/Hermes
+    ${HERMES_PIP} install ${APPSCALE_HOME}/Hermes
 }
 
 installinfrastructuremanager()
