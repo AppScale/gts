@@ -3434,8 +3434,7 @@ class Djinn
   def start_hermes
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    script = `which appscale-hermes`.chomp
-    start_cmd = "/usr/bin/python2 #{script}"
+    start_cmd = "/opt/appscale_hermes/bin/appscale-hermes"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:hermes, start_cmd)
     if my_node.is_shadow?
@@ -3700,12 +3699,13 @@ class Djinn
 
   def build_hermes
     Djinn.log_info('Building uncommitted Hermes changes')
-    unless system('pip install --upgrade --no-deps ' +
+    unless system('/opt/appscale_hermes/bin/pip install --upgrade --no-deps ' +
                   "#{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
       Djinn.log_error('Unable to build Hermes (install failed).')
       return
     end
-    unless system("pip install #{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
+    unless system('/opt/appscale_hermes/bin/pip install ' +
+                  "#{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
       Djinn.log_error('Unable to build Hermes (install dependencies failed).')
       return
     end
