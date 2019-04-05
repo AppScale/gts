@@ -19,6 +19,7 @@ from appscale.datastore.dbconstants import (
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import appscale_stub_util
+from google.appengine.datastore import datastore_index
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import sortable_pb_encoder
@@ -762,3 +763,53 @@ def kind_from_encoded_key(encoded_key):
   path_section = encoded_key.rsplit(KEY_DELIMITER, 1)[-1]
   last_element = path_section.split(KIND_SEPARATOR)[-2]
   return last_element.split(ID_SEPARATOR, 1)[0]
+
+
+def __IndexListForQuery(query):
+  """Get the composite index definition used by the query, if any, as a list.
+
+  Args:
+    query: the datastore_pb.Query to compute the index list for
+
+  Returns:
+    A singleton list of the composite index definition pb used by the query,
+  """
+  required, kind, ancestor, props = (
+      datastore_index.CompositeIndexForQuery(query))
+  if not required:
+    return []
+
+  index_pb = entity_pb.Index()
+  index_pb.set_entity_type(kind)
+  index_pb.set_ancestor(bool(ancestor))
+  for name, direction in datastore_index.GetRecommendedIndexProperties(props):
+    prop_pb = entity_pb.Index_Property()
+    prop_pb.set_name(name)
+    prop_pb.set_direction(direction)
+    index_pb.property_list().append(prop_pb)
+  return [index_pb]
+
+
+def _FindIndexToUse(query, indexes):
+  """ Matches the query with one of the composite indexes.
+
+  Args:
+    query: A datastore_pb.Query.
+    indexes: A list of entity_pb.CompsiteIndex.
+  Returns:
+    The composite index of the list for which the composite index matches
+    the query. Returns None if there is no match.
+  """
+  if not query.has_kind():
+    return None
+
+  index_list = __IndexListForQuery(query)
+  if index_list == []:
+    return None
+
+  index_match = index_list[0]
+  for index in indexes:
+    if index_match.Equals(index.definition()):
+      return index
+
+  raise dbconstants.NeedsIndex('Query requires an index')

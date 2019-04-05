@@ -133,7 +133,7 @@ class ZKInterface
     revision_hosters = get_children("#{ROOT_APP_PATH}/#{revision_key}")
     converted = []
     revision_hosters.each { |host|
-      converted << DjinnJobData.new(get_job_data_for_ip(host), keyname)
+      converted << NodeInfo.new(get_job_data_for_ip(host), keyname)
     }
     converted
   end

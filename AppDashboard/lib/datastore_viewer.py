@@ -410,7 +410,7 @@ class DatastoreViewer(DatastoreViewerPage):
     self.ensure_user_has_admin(project_id)
 
     ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                     require_indexes=False, trusted=True)
+                                     trusted=True)
 
     kind = self.request.get('kind', None)
     namespace = self.request.get('namespace', '')
@@ -514,7 +514,7 @@ class DatastoreViewer(DatastoreViewerPage):
                                         add={'message': message}))
     elif self.request.get('action:delete_entities'):
       ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                       require_indexes=False, trusted=True)
+                                       trusted=True)
 
       entity_keys = [datastore.Key(key)
                      for key in self.request.params.getall('entity_key')]
@@ -540,7 +540,7 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
     self.ensure_user_has_admin(project_id)
 
     ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
-                                     require_indexes=False, trusted=True)
+                                     trusted=True)
 
     if entity_key_string:
       entity_key = datastore.Key(entity_key_string)
@@ -610,5 +610,47 @@ class DatastoreEditRequestHandler(DatastoreViewerPage):
       project_id: A string specifying the project ID.
       entity_key_string: A string specifying the entity key.
     """
-    raise NotImplementedError(
-      'Editing entities with the datastore viewer is not supported')
+    self.ensure_user_has_admin(project_id)
+
+    ds_access = DatastoreDistributed(project_id, DATASTORE_LOCATION,
+                                     trusted=True)
+
+    if self.request.get('action:delete'):
+      if entity_key_string:
+        _delete_entities(ds_access, [datastore.Key(entity_key_string)])
+        redirect_url = self.request.get(
+          'next', '/datastore_viewer/{}'.format(project_id))
+        self.redirect(str(redirect_url))
+      else:
+        self.response.set_status(400)
+      return
+
+    if entity_key_string:
+      entity = _get_entity_by_key(ds_access, datastore.Key(entity_key_string))
+    else:
+      kind = self.request.get('kind')
+      namespace = self.request.get('namespace', None)
+      entity = datastore.Entity(kind, _namespace=namespace, _app=project_id)
+
+    for arg_name in self.request.arguments():
+      # Arguments are in <property_type>|<property_name>=<value> format.
+      if '|' not in arg_name:
+        continue
+      data_type_name, property_name = arg_name.split('|')
+      form_value = self.request.get(arg_name)
+      data_type = DataType.get_by_name(data_type_name)
+      if (entity and
+          property_name in entity and
+          data_type.format(entity[property_name]) == form_value):
+        # If the property is unchanged then don't update it. This will prevent
+        # empty form values from causing the property to be deleted if the
+        # property was already empty.
+        continue
+
+      # TODO: Handle parse exceptions.
+      entity[property_name] = data_type.parse(form_value)
+
+    _put_entity(ds_access, entity)
+    redirect_url = self.request.get(
+      'next', '/datastore_viewer/{}'.format(project_id))
+    self.redirect(str(redirect_url))

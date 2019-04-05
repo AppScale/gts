@@ -68,12 +68,12 @@ class _RetryCoroutine(_Retry):
           # Check if need to retry
           if self.max_retries is not None and retries > self.max_retries:
             logger.error("Giving up retrying after {} attempts during {:0.1f}s"
-                         .format(retries,  - start_time))
+                         .format(retries, time.time()-start_time))
             raise
           timeout = self.retrying_timeout
           if timeout and time.time() - start_time > timeout:
             logger.error("Giving up retrying after {} attempts during {:0.1f}s"
-                         .format(retries, time.time() - start_time))
+                         .format(retries, time.time()-start_time))
             raise
           if not check_exception(err):
             raise

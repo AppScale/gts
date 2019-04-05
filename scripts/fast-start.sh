@@ -23,7 +23,6 @@ PROVIDER=""
 CURL="$(which curl)"
 IP="$(which ip)"
 APPSCALE_CMD="$(which appscale)"
-APPSCALE_UPLOAD="$(which appscale-upload-app)"
 GOOGLE_METADATA="http://169.254.169.254/computeMetadata/v1/instance/"
 GUESTBOOK_URL="https://www.appscale.com/wp-content/uploads/2017/09/guestbook.tar.gz"
 GUESTBOOK_APP="${HOME}/guestbook.tar.gz"
@@ -299,8 +298,7 @@ KEYNAME=$(grep keyname "${HOME}/AppScalefile" | cut -f 2 -d ":")
 [ -z "${KEYNAME}" ] && { echo "Cannot discover keyname: is AppScale deployed?" ; exit 1 ; }
 
 # Deploy sample app.
-[ -z "${ADMIN_EMAIL}" ] && ADMIN_EMAIL="a@a.com"
-[ -e ${GUESTBOOK_APP} ] && ${APPSCALE_UPLOAD} --keyname ${KEYNAME} --file ${GUESTBOOK_APP}
+${APPSCALE_CMD} deploy ${GUESTBOOK_APP}
 
 # Relocate to port 80.
 ${APPSCALE_CMD} relocate guestbook 80 443

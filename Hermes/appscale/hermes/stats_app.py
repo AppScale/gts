@@ -65,7 +65,8 @@ DEFAULT_INCLUDE_LISTS = IncludeLists({
   'taskqueue.recent': ['total', 'failed', 'avg_latency',
                        'pb_reqs', 'rest_reqs'],
   # RabbitMQ stats
-  'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name'],
+  'rabbitmq': ['utc_timestamp', 'disk_free_alarm', 'mem_alarm', 'name',
+               'partitions'],
   # Push queue stats
   'queue': ['name', 'messages'],
   # Cassandra stats

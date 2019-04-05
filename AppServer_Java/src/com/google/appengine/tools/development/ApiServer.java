@@ -4,6 +4,7 @@ import com.google.appengine.repackaged.org.apache.commons.httpclient.HttpClient;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.ByteArrayRequestEntity;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.GetMethod;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.PostMethod;
+import com.google.apphosting.api.ApiProxy.ApplicationException;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Request;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Response;
 import java.io.BufferedReader;
@@ -131,6 +132,8 @@ public class ApiServer {
         boolean parsed = response.mergeFrom(post.getResponseBodyAsStream());
         if (!parsed) {
             throw new IOException("Error parsing the response from the HTTP API server.");
+        } else if (response.hasApplicationError()) {
+            throw new ApplicationException(response.getApplicationError().getCode(), response.getApplicationError().getDetail());
         } else {
             return response.getResponseAsBytes();
         }

@@ -54,7 +54,12 @@ class ProtobufferHandler(RequestHandler):
   @gen.coroutine
   def prepare(self):
     with (yield stats_lock.acquire()):
-      self.stats_info = service_stats.start_request(api=PROTOBUFFER_API)
+      self.stats_info = service_stats.start_request()
+      self.stats_info.api = PROTOBUFFER_API
+      self.stats_info.pb_method = None
+      self.stats_info.rest_method = None
+      self.stats_info.pb_status = None
+      self.stats_info.rest_status = None
 
   @gen.coroutine
   def on_finish(self):

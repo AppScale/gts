@@ -14,171 +14,83 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-
-
 """Convenience wrapper for starting an appengine tool."""
 
 
+
 import os
-import re
 import sys
 
 
-if not hasattr(sys, 'version_info'):
-  sys.stderr.write('Very old versions of Python are not supported. Please '
-                   'use version 2.5 or greater.\n')
-  sys.exit(1)
-version_tuple = tuple(sys.version_info[:2])
-if version_tuple < (2, 5):
-  sys.stderr.write('Error: Python %d.%d is not supported. Please use '
-                   'version 2.5 or greater.\n' % version_tuple)
-  sys.exit(1)
 
 
-def get_dir_path(sibling):
-  """Get a path to the directory of this script.
+sys_path = sys.path
+try:
+  sys.path = [os.path.dirname(__file__)] + sys.path
 
-  By default, the canonical path (symlinks resolved) will be returned. In some
-  environments the canonical directory is not sufficient because different
-  parts of the SDK are referenced by symlinks, including this very module's
-  file. In this case, the non-canonical path to this file's directory will be
-  returned (i.e., the directory where the symlink lives, not the directory
-  where it points).
+  import wrapper_util
 
-  Args:
-    sibling: Relative path to a sibiling of this module file. Choose a sibling
-    that is potentially symlinked into the parent directory.
+finally:
+  sys.path = sys_path
 
-  Returns:
-    A directory name.
+wrapper_util.reject_old_python_versions((2, 7))
 
-  Raises:
-    ValueError: If no proper path could be determined.
-  """
-  if 'GAE_SDK_ROOT' in os.environ:
-    gae_sdk_root = os.path.abspath(os.environ['GAE_SDK_ROOT'])
-
-
-
-    os.environ['GAE_SDK_ROOT'] = gae_sdk_root
-    for dir_path in [gae_sdk_root,
-                     os.path.join(gae_sdk_root, 'google_appengine')]:
-      if os.path.exists(os.path.join(dir_path, sibling)):
-        return dir_path
-    raise ValueError('GAE_SDK_ROOT %r does not refer to a valid SDK '
-                     'directory' % gae_sdk_root)
-  else:
-    py_file = __file__.replace('.pyc', '.py')
-    dir_paths = [os.path.abspath(os.path.dirname(os.path.realpath(py_file))),
-                 os.path.abspath(os.path.dirname(py_file))]
-    for dir_path in dir_paths:
-      sibling_path = os.path.join(dir_path, sibling)
-      if os.path.exists(sibling_path):
-        return dir_path
-    raise ValueError('Could not determine SDK root; please set GAE_SDK_ROOT '
-                     'environment variable.')
+_DIR_PATH = wrapper_util.get_dir_path(__file__, os.path.join('lib', 'ipaddr'))
+_PATHS = wrapper_util.Paths(_DIR_PATH)
 
 
 
 
 
+EXTRA_PATHS = _PATHS.v2_extra_paths
 
 
-
-
-DIR_PATH = get_dir_path(os.path.join('lib', 'ipaddr'))
-SCRIPT_DIR = os.path.join(DIR_PATH, 'google', 'appengine', 'tools')
-GOOGLE_SQL_DIR = os.path.join(
-    DIR_PATH, 'google', 'storage', 'speckle', 'python', 'tool')
-
-EXTRA_PATHS = [
-  DIR_PATH,
-  os.path.join(DIR_PATH, 'lib', 'antlr3'),
-  os.path.join(DIR_PATH, 'lib', 'django-0.96'),
-  os.path.join(DIR_PATH, 'lib', 'fancy_urllib'),
-  os.path.join(DIR_PATH, 'lib', 'ipaddr'),
-  os.path.join(DIR_PATH, 'lib', 'jinja2-2.6'),
-  os.path.join(DIR_PATH, 'lib', 'protorpc'),
-  os.path.join(DIR_PATH, 'lib', 'PyAMF'),
-  os.path.join(DIR_PATH, 'lib', 'markupsafe'),
-  os.path.join(DIR_PATH, 'lib', 'webob_0_9'),
-  os.path.join(DIR_PATH, 'lib', 'webapp2-2.5.2'),
-  os.path.join(DIR_PATH, 'lib', 'yaml', 'lib'),
-  os.path.join(DIR_PATH, 'lib', 'simplejson'),
-]
-
-API_SERVER_EXTRA_PATHS = [
-  os.path.join(DIR_PATH, 'lib', 'argparse'),
-]
-API_SERVER_EXTRA_PATH_SCRIPTS = 'api_server'
-
-
-OAUTH_CLIENT_EXTRA_PATHS = [
-  os.path.join(DIR_PATH, 'lib', 'google-api-python-client'),
-  os.path.join(DIR_PATH, 'lib', 'httplib2'),
-  os.path.join(DIR_PATH, 'lib', 'python-gflags'),
-]
-
-OAUTH_CLIENT_EXTRA_PATH_SCRIPTS = '(appcfg|bulkloader)'
-
-
-GOOGLE_SQL_EXTRA_PATHS = OAUTH_CLIENT_EXTRA_PATHS + [
-  os.path.join(DIR_PATH, 'lib', 'enum'),
-  os.path.join(DIR_PATH, 'lib', 'grizzled'),
-  os.path.join(DIR_PATH, 'lib', 'oauth2'),
-  os.path.join(DIR_PATH, 'lib', 'prettytable'),
-  os.path.join(DIR_PATH, 'lib', 'sqlcmd'),
-]
-
-GOOGLE_SQL_EXTRA_PATH_SCRIPTS = 'google_sql'
-
-
-
-SCRIPT_EXCEPTIONS = {
-  "old_dev_appserver.py" : "dev_appserver_main.py"
-}
-
-SCRIPT_DIR_EXCEPTIONS = {
-  'google_sql.py': GOOGLE_SQL_DIR,
-}
-
-
-def fix_sys_path(extra_extra_paths=()):
-  """Fix the sys.path to include our extra paths."""
-  extra_paths = EXTRA_PATHS[:]
-  extra_paths.extend(extra_extra_paths)
-  sys.path = extra_paths + sys.path
-
-
-def run_file(file_path, globals_, script_dir=SCRIPT_DIR):
-  """Execute the file at the specified path with the passed-in globals."""
-  script_name = os.path.basename(file_path)
-
-  if re.match(OAUTH_CLIENT_EXTRA_PATH_SCRIPTS, script_name):
-    extra_extra_paths = OAUTH_CLIENT_EXTRA_PATHS
-  elif re.match(GOOGLE_SQL_EXTRA_PATH_SCRIPTS, script_name):
-    extra_extra_paths = GOOGLE_SQL_EXTRA_PATHS
-  elif re.match(API_SERVER_EXTRA_PATH_SCRIPTS, script_name):
-    extra_extra_paths = API_SERVER_EXTRA_PATHS
-  else:
-    extra_extra_paths = []
-  fix_sys_path(extra_extra_paths)
-
-
-
-
-
+def fix_google_path():
 
 
   if 'google' in sys.modules:
-    del sys.modules['google']
+    google_path = os.path.join(os.path.dirname(__file__), 'google')
+    google_module = sys.modules['google']
+    google_module.__path__.append(google_path)
 
-  script_name = SCRIPT_EXCEPTIONS.get(script_name, script_name)
-  script_dir = SCRIPT_DIR_EXCEPTIONS.get(script_name, script_dir)
-  script_path = os.path.join(script_dir, script_name)
-  execfile(script_path, globals_)
+
+
+
+
+
+    if not hasattr(google_module, '__file__') or not google_module.__file__:
+      google_module.__file__ = os.path.join(google_path, '__init__.py')
+
+
+def fix_sys_path(extra_extra_paths=()):
+  """Fix the sys.path to include our extra paths.
+
+  fix_sys_path should be called before running testbed-based unit tests so that
+  third-party modules are correctly added to sys.path.
+  """
+  sys.path[1:1] = EXTRA_PATHS
+  fix_google_path()
+
+
+def _run_file(file_path, globals_):
+  """Execute the given script with the passed-in globals.
+
+  Args:
+    file_path: the path to the wrapper for the given script. This will usually
+      be a copy of this file.
+    globals_: the global bindings to be used while executing the wrapped script.
+  """
+  script_name = os.path.basename(file_path)
+
+  sys.path = (_PATHS.script_paths(script_name) +
+              _PATHS.scrub_path(script_name, sys.path))
+
+  fix_google_path()
+
+  execfile(_PATHS.script_file(script_name), globals_)
 
 
 if __name__ == '__main__':
-  run_file(__file__, globals())
+
+  assert sys.version_info[0] == 2
+  _run_file(__file__, globals())

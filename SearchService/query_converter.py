@@ -43,7 +43,7 @@ def prepare_solr_query(index, gae_query, projection_fields,
   params['defType'] = 'edismax'
 
   # Restrict to only known index fields.
-  search_fields = ['id'] + [field['name'] for field in index.schema.fields]
+  search_fields = ['id'] + [field['name'] for field in index.schema]
   params['qf'] = ' '.join(search_fields)
 
   # Get the field list for the query.

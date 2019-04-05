@@ -612,6 +612,12 @@ installhermes()
     pip install ${APPSCALE_HOME}/Hermes
 }
 
+installinfrastructuremanager()
+{
+    pip install --upgrade --no-deps ${APPSCALE_HOME}/InfrastructureManager
+    pip install ${APPSCALE_HOME}/InfrastructureManager
+}
+
 installtaskqueue()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
