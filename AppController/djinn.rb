@@ -477,14 +477,6 @@ class Djinn
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
-    'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Fixnum, '15', true],
-    'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Fixnum, '65', true],
-    'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Fixnum, '35', true],
-    'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
-    'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true]
   }.freeze
 
@@ -1368,27 +1360,6 @@ class Djinn
       end
 
       @options[key] = val
-
-      if key.include? 'stats_log'
-        if key.include? 'nodes'
-          ZKInterface.update_hermes_nodes_profiling_conf(
-            @options['write_nodes_stats_log'].downcase == 'true',
-            @options['nodes_stats_log_interval'].to_i
-          )
-        elsif key.include? 'processes'
-          ZKInterface.update_hermes_processes_profiling_conf(
-            @options['write_processes_stats_log'].downcase == 'true',
-            @options['processes_stats_log_interval'].to_i,
-            @options['write_detailed_processes_stats_log'].downcase == 'true'
-          )
-        elsif key.include? 'proxies'
-          ZKInterface.update_hermes_proxies_profiling_conf(
-            @options['write_proxies_stats_log'].downcase == 'true',
-            @options['proxies_stats_log_interval'].to_i,
-            @options['write_detailed_proxies_stats_log'].downcase == 'true'
-          )
-        end
-      end
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
