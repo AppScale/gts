@@ -352,11 +352,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     api_response = remote_api_pb.Response()
 
     retry_count = 0
-    max_retries = 5
+    max_retries = 3
     location = self.__datastore_location
     while True:
       try:
-        api_response = api_request.sendCommand(
+        api_request.sendCommand(
           location,
           tag,
           api_response,
@@ -367,11 +367,17 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         break
       except socket.error as socket_error:
         if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
+          backoff_ms = 500 * 3**retry_count   # 0.5s, 1.5s, 4.5s
           retry_count += 1
           if retry_count > max_retries:
             raise
 
+          logging.warning(
+            'Failed to call {} method of Datastore ({}). Retry #{} in {}ms.'
+            .format(method, socket_error, retry_count, backoff_ms))
+          time.sleep(float(backoff_ms) / 1000)
           location = get_random_lb()
+          api_response = remote_api_pb.Response()
           continue
 
         if socket_error.errno == errno.ETIMEDOUT:
