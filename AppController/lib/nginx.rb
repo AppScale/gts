@@ -105,6 +105,9 @@ module Nginx
     server_name, my_private_ip, proxy_port, static_handlers, load_balancer_ip,
     language)
 
+    # Get project id (needed to look for certificates).
+    project_id, _, _ = version_key.split(Djinn::VERSION_PATH_SEPARATOR)
+
     parsing_log = "Writing proxy for #{version_key} with language " \
       "#{language}.\n"
 
@@ -250,8 +253,8 @@ server {
     listen #{https_port} default_server;
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate     #{NGINX_PATH}/mycert.pem;
-    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+    ssl_certificate     #{NGINX_PATH}/#{project_id}.pem;
+    ssl_certificate_key #{NGINX_PATH}/#{project_id}.key;
     return 444;
 }
 
@@ -260,8 +263,8 @@ server {
     server_name #{server_name};
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate     #{NGINX_PATH}/mycert.pem;
-    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+    ssl_certificate     #{NGINX_PATH}/#{project_id}.pem;
+    ssl_certificate_key #{NGINX_PATH}/#{project_id}.key;
 
     # If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
@@ -433,6 +436,27 @@ LOCATION
     Nginx.reload
   end
 
+  def self.ensure_certs_are_in_place(project_id=nil)
+    # If project is not specified, or it doesn't have certificates, we'll
+    # use the default cert (the one used or internal communication).
+    cert_files = ["mycert.pem", "mykey.pem"]
+    if !project_id.nil? && !project_id.empty? && project_id != "mycert"
+        && File.exist?("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem"
+        && File.exist?("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key"
+      cert_files = ["#{project_id}.pem", "#{project_id}.key"]
+    end
+
+    # Make sure the cert and key are within use for nginx.
+    cert_files.each { |cert_file|
+      cert_to_use = "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_file}"
+      next if File.exist?("#{NGINX_PATH}/#{cert_file}") &&
+              File.cmp("#{NGINX_PATH}/#{cert_file}", cert_to_use)
+
+      FileUtils.cp(cert_to_use, "#{NGINX_PATH}/#{cert_file}")
+      File.chmod(0400, "#{NGINX_PATH}/#{cert_file}")
+    }
+  end
+
   # Set up the folder structure and creates the configuration files
   # necessary for nginx.
   def self.initialize_config
@@ -473,14 +497,8 @@ CONFIG
     # Create the sites enabled folder
     FileUtils.mkdir_p SITES_ENABLED_PATH unless File.exists? SITES_ENABLED_PATH
 
-    # Copy certs for ssl. Just copy files once to keep the certificate static.
-    ['mykey.pem', 'mycert.pem'].each { |cert_file|
-      next if File.exist?("#{NGINX_PATH}/#{cert_file}") &&
-              !File.zero?("#{NGINX_PATH}/#{cert_file}")
-
-      FileUtils.cp("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_file}",
-                   "#{NGINX_PATH}/#{cert_file}")
-    }
+    # Copy the internal certificate (default for internal communication).
+    ensure_certs_are_in_place
 
     # Write the main configuration file which sets default configuration
     # parameters
