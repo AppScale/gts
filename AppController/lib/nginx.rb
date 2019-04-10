@@ -441,28 +441,35 @@ LOCATION
   end
 
   def self.ensure_certs_are_in_place(project_id=nil)
-    # If the project is nil, we'll set up the certs for the internal
-    # communication.
+    # If the project is nil, we'll set up the self-signed certs for the
+    # internal communication.
     cert_files = ["mycert.pem", "mykey.pem"]
     target_certs = ["#{NGINX_PATH}/mycert.pem", "#{NGINX_PATH}/mykey.pem"]
+    src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/mycert.pem",
+                 "#{Djinn::APPSCALE_CONFIG_DIR}/certs/mykey.pem"]
+
+    # Validate and use the project specified certs for the project.
     if !project_id.nil?
-      # Use the project specified certs or the default ones if no specific
-      # cert is available.
       target_certs = ["#{NGINX_PATH}/#{project_id}.pem",
                       "#{NGINX_PATH}/#{project_id}.key"]
-      if File.exist?("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem") &&
-          File.exist?("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key")
-        cert_files = ["#{project_id}.pem", "#{project_id}.key"]
+      src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem",
+                   "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key"]
+      if File.exist?(src_certs[0]) && File.exist?(src_certs[1])
+        if system("openssl x509 -in #{src_certs[0]} -noout") &&
+            system("openssl rsa -in #{src_certs[1]} -noout")
+          cert_files = ["#{project_id}.pem", "#{project_id}.key"]
+        else
+          Djinn.log_warn("Not using invalid certificate for #{project_id}.")
+        end
       end
     end
 
-    target_certs.each_with_index { |cert_file, index|
-      cert_to_use = "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_files[index]}"
-      next if File.exist?(cert_file) && FileUtils.cmp(cert_file, cert_to_use)
+    target_certs.each_with_index { |cert, index|
+      next if File.exist?(cert) && FileUtils.cmp(cert, src_certs[index])
 
-      FileUtils.cp(cert_to_use, cert_file)
-      File.chmod(0400, cert_file)
-      Djinn.log_info("Installed certificate/key in #{cert_file}.")
+      FileUtils.cp(src_certs[index], cert)
+      File.chmod(0400, cert)
+      Djinn.log_info("Installed certificate/key in #{cert}.")
     }
   end
 
