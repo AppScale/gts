@@ -454,11 +454,12 @@ LOCATION
     if !project_id.nil?
       target_certs = ["#{NGINX_PATH}/#{project_id}.pem",
                       "#{NGINX_PATH}/#{project_id}.key"]
-      if File.exist?(src_certs[0]) && File.exist?(src_certs[1])
-        if system("openssl x509 -in #{src_certs[0]} -noout") &&
-            system("openssl rsa -in #{src_certs[1]} -noout")
-          src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem",
+      new_src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem",
                        "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key"]
+      if File.exist?(new_src_certs[0]) && File.exist?(new_src_certs[1])
+        if system("openssl x509 -in #{new_src_certs[0]} -noout") &&
+            system("openssl rsa -in #{new_src_certs[1]} -noout")
+          src_certs = new_src_cert
         else
           Djinn.log_warn("Not using invalid certificate for #{project_id}.")
         end
@@ -466,8 +467,7 @@ LOCATION
     end
 
     target_certs.each_with_index { |cert, index|
-      next if File.exist?(cert) && File.exists?(src_certs[index]) &&
-          FileUtils.cmp(cert, src_certs[index])
+      next if File.exist?(cert) && FileUtils.cmp(cert, src_certs[index])
 
       FileUtils.cp(src_certs[index], cert)
       File.chmod(0400, cert)
