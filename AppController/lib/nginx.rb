@@ -443,7 +443,6 @@ LOCATION
   def self.ensure_certs_are_in_place(project_id=nil)
     # If the project is nil, we'll set up the self-signed certs for the
     # internal communication.
-    cert_files = ["mycert.pem", "mykey.pem"]
     target_certs = ["#{NGINX_PATH}/mycert.pem", "#{NGINX_PATH}/mykey.pem"]
     src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/mycert.pem",
                  "#{Djinn::APPSCALE_CONFIG_DIR}/certs/mykey.pem"]
@@ -452,12 +451,11 @@ LOCATION
     if !project_id.nil?
       target_certs = ["#{NGINX_PATH}/#{project_id}.pem",
                       "#{NGINX_PATH}/#{project_id}.key"]
-      src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem",
-                   "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key"]
       if File.exist?(src_certs[0]) && File.exist?(src_certs[1])
         if system("openssl x509 -in #{src_certs[0]} -noout") &&
             system("openssl rsa -in #{src_certs[1]} -noout")
-          cert_files = ["#{project_id}.pem", "#{project_id}.key"]
+          src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem",
+                       "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key"]
         else
           Djinn.log_warn("Not using invalid certificate for #{project_id}.")
         end
