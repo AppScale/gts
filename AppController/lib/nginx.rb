@@ -463,7 +463,8 @@ LOCATION
     end
 
     target_certs.each_with_index { |cert, index|
-      next if File.exist?(cert) && FileUtils.cmp(cert, src_certs[index])
+      next if File.exist?(cert) && File.exists?(src_certs[index]) &&
+          FileUtils.cmp(cert, src_certs[index])
 
       FileUtils.cp(src_certs[index], cert)
       File.chmod(0400, cert)
