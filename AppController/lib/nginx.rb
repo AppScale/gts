@@ -304,10 +304,10 @@ CONFIG
     # Let's reload and overwrite only if something changed, or new
     # certificates have been installed.
     current = ''
+    current = File.read(config_path) if File.exists?(config_path)
 
     # Make sure we have the proper certificates in place.
-    current = File.read(config_path) if File.exists?(config_path) &&
-        ensure_certs_are_in_place(project_id)
+    current = '' if ensure_certs_are_in_place(project_id)
 
     if current != config
       Djinn.log_debug(parsing_log)
