@@ -184,9 +184,6 @@ module Nginx
     }.join
 
 
-    # Make sure we have the proper certificates in place.
-    ensure_certs_are_in_place(project_id)
-
     # Java application needs a redirection for the blobstore.
     java_blobstore_redirection = ''
     if language == 'java'
@@ -304,9 +301,14 @@ CONFIG
     config_path = File.join(SITES_ENABLED_PATH,
                             "appscale-#{version_key}.#{CONFIG_EXTENSION}")
 
-    # Let's reload and overwrite only if something changed.
+    # Let's reload and overwrite only if something changed, or new
+    # certificates have been installed.
     current = ''
-    current = File.read(config_path) if File.exists?(config_path)
+
+    # Make sure we have the proper certificates in place.
+    current = File.read(config_path) if File.exists?(config_path) &&
+        ensure_certs_are_in_place(project_id)
+
     if current != config
       Djinn.log_debug(parsing_log)
       File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
@@ -446,6 +448,7 @@ LOCATION
     target_certs = ["#{NGINX_PATH}/mycert.pem", "#{NGINX_PATH}/mykey.pem"]
     src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/mycert.pem",
                  "#{Djinn::APPSCALE_CONFIG_DIR}/certs/mykey.pem"]
+    ret = false
 
     # Validate and use the project specified certs for the project.
     if !project_id.nil?
@@ -469,7 +472,9 @@ LOCATION
       FileUtils.cp(src_certs[index], cert)
       File.chmod(0400, cert)
       Djinn.log_info("Installed certificate/key in #{cert}.")
+      ret = true
     }
+    return ret
   end
 
   # Set up the folder structure and creates the configuration files
