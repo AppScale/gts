@@ -776,8 +776,8 @@ class Djinn
     # Now we can check if we have the needed roles to start the
     # deployment.
     all_roles.uniq!
-    ['compute', 'shadow', 'load_balancer', 'login', 'zookeeper',
-      'memcache', 'db_master', 'taskqueue_master'].each { |role|
+    ['compute', 'shadow', 'load_balancer', 'zookeeper', 'memcache',
+     'db_master', 'taskqueue_master'].each { |role|
       unless all_roles.include?(role)
         msg = "Error: layout is missing role #{role}."
         Djinn.log_error(msg)
@@ -4417,7 +4417,7 @@ HOSTS
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd, nil,
                          {'PATH' => ENV['PATH']})
-    if my_node.is_shadow?
+    if my_node.is_load_balancer?
       Nginx.add_service_location('appscale-administration', my_node.private_ip,
                                  service_port, nginx_port, '/')
     end

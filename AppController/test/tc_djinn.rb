@@ -160,7 +160,7 @@ class TestDjinn < Test::Unit::TestCase
       'public_ip' => 'public_ip',
       'private_ip' => 'private_ip',
       'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
-        'load_balancer', 'login', 'zookeeper', 'memcache'],
+                  'load_balancer', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id',
       'instance_type' => 'instance_type'
     }])
@@ -193,7 +193,7 @@ class TestDjinn < Test::Unit::TestCase
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
       'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
-        'load_balancer', 'login', 'zookeeper', 'memcache'],
+                  'load_balancer', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id',
       'instance_type' => 'instance_type'
     }])
@@ -450,7 +450,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
-      "roles" => ["login","shadow"],
+      "roles" => ["shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -486,7 +486,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
-      "roles" => ["login","shadow"],
+      "roles" => ["shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -523,7 +523,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
-      "roles" => ["login","shadow"],
+      "roles" => ["shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -560,7 +560,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
-      "roles" => ["login","shadow"],
+      "roles" => ["shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -608,7 +608,7 @@ class TestDjinn < Test::Unit::TestCase
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
       'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
-        'load_balancer', 'login', 'zookeeper', 'memcache'],
+                  'load_balancer', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id',
       'instance_type' => 'instance_type'
     }])
@@ -647,7 +647,7 @@ class TestDjinn < Test::Unit::TestCase
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
       'roles' => ['compute', 'shadow', 'taskqueue_master', 'db_master',
-        'load_balancer', 'login', 'zookeeper', 'memcache'],
+                  'load_balancer', 'zookeeper', 'memcache'],
       'instance_id' => 'instance_id',
       'instance_type' => 'instance_type'
     }])
@@ -729,7 +729,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
         "public_ip" => "my public ip",
         "private_ip" => "my private ip",
-        "roles" => ["login"]
+        "roles" => []
     }
     djinn = flexmock(Djinn.new())
     djinn.my_index = 0
