@@ -456,9 +456,9 @@ LOCATION
       end
     end
 
-    taget_certs.each_with_index { |cert_file, index|
+    target_certs.each_with_index { |cert_file, index|
       cert_to_use = "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_files[index]}"
-      next if File.exist?(cert_file) && File.cmp(cert_file, cert_to_use)
+      next if File.exist?(cert_file) && FileUtils.cmp(cert_file, cert_to_use)
 
       FileUtils.cp(cert_to_use, cert_file)
       File.chmod(0400, cert_file)
