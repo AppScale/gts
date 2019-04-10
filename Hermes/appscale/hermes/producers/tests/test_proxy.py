@@ -1,8 +1,9 @@
+import asyncio
 import os
 from os import path
-import unittest
 
 import attr
+import pytest
 from mock import patch, MagicMock
 
 from appscale.hermes.constants import MISSED
@@ -12,179 +13,223 @@ CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 TEST_DATA_DIR = os.path.join(CUR_DIR, 'test-data')
 
 
-class TestCurrentProxiesStats(unittest.TestCase):
+def future(value=None):
+  future_obj = asyncio.Future()
+  future_obj.set_result(value)
+  return future_obj
 
-  def setUp(self):
-    self.stats_file = None
 
-  def tearDown(self):
-    if self.stats_file:
-      self.stats_file.close()
+class TestCurrentProxiesStats:
 
-  @patch.object(proxy_stats.socket, 'socket')
-  def test_haproxy_stats_v1_5(self, mock_socket):
-    # Mocking haproxy stats socket with csv file
-    self.stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.5.csv'))
-    fake_socket = MagicMock(recv=self.stats_file.read)
-    mock_socket.return_value = fake_socket
+  @staticmethod
+  @pytest.mark.asyncio
+  async def test_haproxy_stats_v1_5():
+    with open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.5.csv')) as stats_file:
+      stats_bytes = stats_file.read().encode()
+    # Mocking haproxy stats socket with csv content
+    fake_reader = MagicMock(read=MagicMock(
+      side_effect=[
+        future(stats_bytes),  # First call
+        future(b'')           # Second call
+      ]
+    ))
+    fake_writer = MagicMock(write=MagicMock(return_value=None))
+    socket_patcher = patch(
+      'asyncio.open_unix_connection',
+      return_value=future((fake_reader, fake_writer))
+    )
 
-    # Running method under test
-    stats_snapshot = proxy_stats.ProxiesStatsSource.get_current()
+    with socket_patcher:
+      # Running method under test
+      stats_snapshot = await proxy_stats.ProxiesStatsSource.get_current()
 
     # Verifying outcomes
-    self.assertIsInstance(stats_snapshot.utc_timestamp, float)
+    assert isinstance(stats_snapshot.utc_timestamp, float)
     proxies_stats = stats_snapshot.proxies_stats
-    self.assertEqual(len(proxies_stats), 5)
+    assert len(proxies_stats) == 5
     proxies_stats_dict = {
-      proxy_stats.name: proxy_stats for proxy_stats in proxies_stats
+      px_stats.name: px_stats for px_stats in proxies_stats
     }
-    self.assertEqual(set(proxies_stats_dict), {
+    assert set(proxies_stats_dict) == {
       'TaskQueue', 'UserAppServer', 'appscale-datastore_server',
       'as_blob_server', 'gae_appscaledashboard'
-    })
+    }
 
     # There are 5 proxies, let's choose one for deeper verification
     dashboard = proxies_stats_dict['gae_appscaledashboard']
-    self.assertEqual(dashboard.name, 'gae_appscaledashboard')
-    self.assertEqual(dashboard.unified_service_name, 'application')
-    self.assertEqual(dashboard.application_id, 'appscaledashboard')
+    assert dashboard.name == 'gae_appscaledashboard'
+    assert dashboard.unified_service_name == 'application'
+    assert dashboard.application_id == 'appscaledashboard'
 
     # Frontend stats shouldn't have Nones
     frontend = dashboard.frontend
     for field in list(attr.fields_dict(proxy_stats.HAProxyFrontendStats).keys()):
-      self.assertIsNotNone(getattr(frontend, field))
+      assert getattr(frontend, field) is not None
 
     # Backend stats shouldn't have Nones
     backend = dashboard.backend
     for field in list(attr.fields_dict(proxy_stats.HAProxyBackendStats).keys()):
-      self.assertIsNotNone(getattr(backend, field))
+      assert getattr(backend, field) is not None
 
     # Backend stats can have Nones only in some fields
     servers = dashboard.servers
-    self.assertIsInstance(servers, list)
-    self.assertEqual(len(servers), 3)
+    assert isinstance(servers, list)
+    assert len(servers) == 3
     for server in servers:
       for field in list(attr.fields_dict(proxy_stats.HAProxyServerStats).keys()):
         if field in {'qlimit', 'throttle', 'tracked', 'check_code',
                      'last_chk', 'last_agt'}:
           continue
-        self.assertIsNotNone(getattr(server, field))
+        assert getattr(server, field) is not None
 
     # We don't have listeners on stats
-    self.assertEqual(dashboard.listeners, [])
+    assert dashboard.listeners == []
 
-  @patch.object(proxy_stats.socket, 'socket')
-  @patch.object(proxy_stats.logger, 'warn')
-  def test_haproxy_stats_v1_4(self, mock_logging_warn, mock_socket):
-    # Mocking "echo 'show stat' | socat stdio unix-connect:{}" with csv file
-    self.stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.4.csv'))
-    fake_socket = MagicMock(recv=self.stats_file.read)
-    mock_socket.return_value = fake_socket
+  @staticmethod
+  @pytest.mark.asyncio
+  async def test_haproxy_stats_v1_4():
+    with open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.4.csv')) as stats_file:
+      stats_bytes = stats_file.read().encode()
+    # Mocking haproxy stats socket with csv content
+    fake_reader = MagicMock(read=MagicMock(
+      side_effect=[
+        future(stats_bytes),  # First call
+        future(b'')           # Second call
+      ]
+    ))
+    fake_writer = MagicMock(write=MagicMock(return_value=None))
+    socket_patcher = patch(
+      'asyncio.open_unix_connection',
+      return_value=future((fake_reader, fake_writer))
+    )
 
-    # Running method under test
-    stats_snapshot = proxy_stats.ProxiesStatsSource.get_current()
+    # Mock logger warning method
+    warning_patcher = patch(
+      'appscale.hermes.producers.proxy_stats.logger.warning'
+    )
+
+    with socket_patcher:
+      with warning_patcher as mock_logging_warn:
+        # Running method under test
+        proxy_stats.ProxiesStatsSource.first_run = True
+        stats_snapshot = await proxy_stats.ProxiesStatsSource.get_current()
 
     # Verifying outcomes
-    self.assertIsInstance(stats_snapshot.utc_timestamp, float)
+    assert isinstance(stats_snapshot.utc_timestamp, float)
     proxies_stats = stats_snapshot.proxies_stats
-    mock_logging_warn.assert_called_once_with(
-      "HAProxy stats fields ['rtime', 'ctime', 'comp_in', 'qtime', 'comp_byp', "
-      "'lastsess', 'comp_rsp', 'last_chk', 'ttime', 'comp_out', 'last_agt'] "
-      "are missed. Old version of HAProxy is probably used (v1.5+ is expected)"
+    assert (
+      'Old version of HAProxy is probably used (v1.5+ is expected)' in
+      mock_logging_warn.call_args[0][0]
     )
-    self.assertEqual(len(proxies_stats), 5)
+    assert len(proxies_stats) == 5
     proxies_stats_dict = {
-      proxy_stats.name: proxy_stats for proxy_stats in proxies_stats
+      px_stats.name: px_stats for px_stats in proxies_stats
     }
-    self.assertEqual(set(proxies_stats_dict), {
+    assert set(proxies_stats_dict) == {
       'TaskQueue', 'UserAppServer', 'appscale-datastore_server',
       'as_blob_server', 'gae_appscaledashboard'
-    })
+    }
 
     # There are 5 proxies, let's choose one for deeper verification
     dashboard = proxies_stats_dict['gae_appscaledashboard']
-    self.assertEqual(dashboard.name, 'gae_appscaledashboard')
-    self.assertEqual(dashboard.unified_service_name, 'application')
-    self.assertEqual(dashboard.application_id, 'appscaledashboard')
+    assert dashboard.name == 'gae_appscaledashboard'
+    assert dashboard.unified_service_name == 'application'
+    assert dashboard.application_id == 'appscaledashboard'
 
     # Frontend stats shouldn't have Nones
     frontend = dashboard.frontend
     for field in list(attr.fields_dict(proxy_stats.HAProxyFrontendStats).keys()):
-      self.assertIsNotNone(getattr(frontend, field))
+      assert getattr(frontend, field) is not None
     # New columns should be highlighted
     for new_in_v1_5 in ('comp_byp', 'comp_rsp', 'comp_out', 'comp_in'):
-      self.assertIs(getattr(frontend, new_in_v1_5), MISSED)
+      assert getattr(frontend, new_in_v1_5) is MISSED
 
     # Backend stats shouldn't have Nones
     backend = dashboard.backend
     for field in list(attr.fields_dict(proxy_stats.HAProxyBackendStats).keys()):
-      self.assertIsNotNone(getattr(backend, field))
+      assert getattr(backend, field) is not None
     # New columns should be highlighted
     for new_in_v1_5 in ('comp_byp', 'lastsess', 'comp_rsp', 'comp_out',
                         'comp_in', 'ttime', 'rtime', 'ctime', 'qtime'):
-      self.assertIs(getattr(backend, new_in_v1_5), MISSED)
+      assert getattr(backend, new_in_v1_5) is MISSED
 
     # Backend stats can have Nones only in some fields
     servers = dashboard.servers
-    self.assertIsInstance(servers, list)
-    self.assertEqual(len(servers), 3)
+    assert isinstance(servers, list)
+    assert len(servers) == 3
     for server in servers:
       for field in list(attr.fields_dict(proxy_stats.HAProxyServerStats).keys()):
         if field in {'qlimit', 'throttle', 'tracked', 'check_code',
                      'last_chk', 'last_agt'}:
           continue
-        self.assertIsNotNone(getattr(server, field))
+        assert getattr(server, field) is not None
       # New columns should be highlighted
       for new_in_v1_5 in ('lastsess', 'last_chk', 'ttime', 'last_agt',
                           'rtime', 'ctime', 'qtime'):
-        self.assertIs(getattr(server, new_in_v1_5), MISSED)
+        assert getattr(server, new_in_v1_5) is MISSED
 
     # We don't have listeners on stats
-    self.assertEqual(dashboard.listeners, [])
+    assert dashboard.listeners == []
 
 
-class TestGetServiceInstances(unittest.TestCase):
-  def setUp(self):
-    stats_file = open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.5.csv'))
-    fake_socket = MagicMock(recv=stats_file.read)
-    self.socket_patcher = patch.object(proxy_stats.socket, 'socket')
-    socket_mock = self.socket_patcher.start()
-    socket_mock.return_value = fake_socket
+class TestGetServiceInstances:
+  @staticmethod
+  @pytest.fixture(autouse=True)
+  def haproxy_stats_v1_5():
+    with open(path.join(TEST_DATA_DIR, 'haproxy-stats-v1.5.csv')) as stats_file:
+      stats_bytes = stats_file.read().encode()
+    # Mocking haproxy stats socket with csv content
+    fake_reader = MagicMock(read=MagicMock(return_value=future(stats_bytes)))
+    fake_writer = MagicMock(write=MagicMock(return_value=None))
+    socket_patcher = patch(
+      'asyncio.open_unix_connection',
+      return_value=future((fake_reader, fake_writer))
+    )
+    socket_patcher.start()
+    yield socket_patcher
+    socket_patcher.stop()
 
-  def tearDown(self):
-    self.socket_patcher.stop()
-
-  def test_taskqueue_instances(self):
-    taskqueue = proxy_stats.get_service_instances('mocked', 'TaskQueue')
-    self.assertEqual(taskqueue, [
+  @staticmethod
+  @pytest.mark.asyncio
+  async def test_taskqueue_instances():
+    taskqueue = await proxy_stats.get_service_instances('mocked', 'TaskQueue')
+    assert taskqueue == [
       '10.10.7.86:17447',
       '10.10.7.86:17448',
       '10.10.7.86:17449',
       '10.10.7.86:17450'
-    ])
+    ]
 
-  def test_datastore_instances(self):
-    datastore = proxy_stats.get_service_instances(
+  @staticmethod
+  @pytest.mark.asyncio
+  async def test_datastore_instances():
+    datastore = await proxy_stats.get_service_instances(
       'mocked', 'appscale-datastore_server'
     )
-    self.assertEqual(datastore, [
+    assert datastore == [
       '10.10.7.86:4000',
       '10.10.7.86:4001',
       '10.10.7.86:4002',
       '10.10.7.86:4003'
-    ])
+    ]
 
-  def test_dashboard_instances(self):
-    dashboard = proxy_stats.get_service_instances(
+  @staticmethod
+  @pytest.mark.asyncio
+  async def test_dashboard_instances():
+    dashboard = await proxy_stats.get_service_instances(
       'mocked', 'gae_appscaledashboard'
     )
-    self.assertEqual(dashboard, [
+    assert dashboard == [
       '10.10.9.111:20000',
       '10.10.9.111:20001',
       '10.10.9.111:20002'
-    ])
+    ]
 
-  def test_unknown_proxy(self):
-    unknown = proxy_stats.get_service_instances('mocked', 'gae_not_running')
-    self.assertEqual(unknown, [])
+  @staticmethod
+  @pytest.mark.asyncio
+  async def test_unknown_proxy():
+    unknown = await proxy_stats.get_service_instances(
+      'mocked', 'gae_not_running'
+    )
+    assert unknown == []
 
