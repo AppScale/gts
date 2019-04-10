@@ -61,6 +61,7 @@ from .constants import (
   VALID_RUNTIMES,
   VersionNotChanged
 )
+from .controller_state import ControllerState
 from .operation import (
   DeleteServiceOperation,
   CreateVersionOperation,
@@ -124,11 +125,12 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
 
 
 @gen.coroutine
-def wait_for_deploy(operation_id):
+def wait_for_deploy(operation_id, controller_state):
   """ Tracks the progress of a deployment.
 
   Args:
     operation_id: A string specifying the operation ID.
+    controller_state: A ControllerState object.
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
@@ -143,7 +145,11 @@ def wait_for_deploy(operation_id):
   http_port = operation.version['appscaleExtensions']['httpPort']
   yield wait_for_port_to_open(http_port, operation_id, deadline)
 
-  url = 'http://{}:{}'.format(options.login_ip, http_port)
+  login_host = options.login_ip
+  if controller_state.options is not None:
+    login_host = controller_state.options.get('login', login_host)
+
+  url = 'http://{}:{}'.format(login_host, http_port)
   operation.finish(url)
 
   logger.info('Finished operation {}'.format(operation_id))
@@ -478,7 +484,7 @@ class VersionsHandler(BaseHandler):
   RESERVED_VERSION_IDS = ('^default$', '^latest$', '^ah-.*$')
 
   def initialize(self, acc, ua_client, zk_client, version_update_lock,
-                 thread_pool):
+                 thread_pool, controller_state):
     """ Defines required resources to handle requests.
 
     Args:
@@ -487,12 +493,14 @@ class VersionsHandler(BaseHandler):
       zk_client: A KazooClient.
       version_update_lock: A kazoo lock.
       thread_pool: A ThreadPoolExecutor.
+      controller_state: A ControllerState object.
     """
     self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
     self.version_update_lock = version_update_lock
     self.thread_pool = thread_pool
+    self.controller_state = controller_state
 
   def get_current_user(self):
     """ Retrieves the current user.
@@ -796,7 +804,8 @@ class VersionsHandler(BaseHandler):
     pre_wait = REDEPLOY_WAIT if version_exists else 0
     logger.debug(
       'Starting operation {} in {}s'.format(operation.id, pre_wait))
-    IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id)
+    IOLoop.current().call_later(pre_wait, wait_for_deploy, operation.id,
+                                self.controller_state)
 
     # Update the project's cron configuration. This is a bit messy  because it
     # means acc.update_cron is often called twice when deploying a version.
@@ -819,7 +828,7 @@ class VersionHandler(BaseVersionHandler):
   """ Manages particular service versions. """
 
   def initialize(self, acc, ua_client, zk_client, version_update_lock,
-                 thread_pool):
+                 thread_pool, controller_state):
     """ Defines required resources to handle requests.
 
     Args:
@@ -828,12 +837,14 @@ class VersionHandler(BaseVersionHandler):
       zk_client: A KazooClient.
       version_update_lock: A kazoo lock.
       thread_pool: A ThreadPoolExecutor.
+      controller_state: A ControllerState object.
     """
     self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
     self.version_update_lock = version_update_lock
     self.thread_pool = thread_pool
+    self.controller_state = controller_state
 
   def get_version(self, project_id, service_id, version_id):
     """ Fetches a version node.
@@ -1051,6 +1062,10 @@ class VersionHandler(BaseVersionHandler):
 
     version_details = self.get_version(project_id, service_id, version_id)
 
+    login_host = options.login_ip
+    if self.controller_state.options is not None:
+      login_host = self.controller_state.options.get('login', login_host)
+
     # Hide details that aren't needed for the public API.
     version_details.pop('revision', None)
     version_details.get('appscaleExtensions', {}).pop('haproxyPort', None)
@@ -1060,7 +1075,7 @@ class VersionHandler(BaseVersionHandler):
       'name': 'apps/{}/services/{}/versions/{}'.format(project_id, service_id,
                                                        version_id),
       'servingStatus': ServingStatus.SERVING,
-      'versionUrl': 'http://{}:{}'.format(options.login_ip, http_port)
+      'versionUrl': 'http://{}:{}'.format(login_host, http_port)
     }
     response.update(version_details)
     self.write(json_encode(response))
@@ -1357,10 +1372,14 @@ def main():
   service_manager = ServiceManager(zk_client)
   service_manager.start()
 
+  controller_state = ControllerState(zk_client)
+
   app = web.Application([
     ('/oauth/token', OAuthHandler, {'ua_client': ua_client}),
     ('/v1/apps/([^/]*)/services/([^/]*)/versions', VersionsHandler,
-     all_resources),
+     {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client,
+      'version_update_lock': version_update_lock, 'thread_pool': thread_pool,
+      'controller_state': controller_state}),
     ('/v1/projects', ProjectsHandler, all_resources),
     ('/v1/projects/([a-z0-9-]+)', ProjectHandler, all_resources),
     ('/v1/apps/([^/]*)/services', ServicesHandler,
@@ -1368,7 +1387,10 @@ def main():
     ('/v1/apps/([^/]*)/services/([^/]*)', ServiceHandler,
      all_resources),
     ('/v1/apps/([^/]*)/services/([^/]*)/versions/([^/]*)',
-     VersionHandler, all_resources),
+     VersionHandler,
+     {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client,
+      'version_update_lock': version_update_lock, 'thread_pool': thread_pool,
+      'controller_state': controller_state}),
     ('/v1/apps/([^/]*)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
     ('/api/cron/update', UpdateCronHandler,
