@@ -183,6 +183,10 @@ module Nginx
       HelperFunctions.generate_location_config(handler)
     }.join
 
+
+    # Make sure we have the proper certificates in place.
+    ensure_certs_are_in_place(project_id)
+
     # Java application needs a redirection for the blobstore.
     java_blobstore_redirection = ''
     if language == 'java'
@@ -437,23 +441,28 @@ LOCATION
   end
 
   def self.ensure_certs_are_in_place(project_id=nil)
-    # If project is not specified, or it doesn't have certificates, we'll
-    # use the default cert (the one used or internal communication).
+    # If the project is nil, we'll set up the certs for the internal
+    # communication.
     cert_files = ["mycert.pem", "mykey.pem"]
-    if !project_id.nil? && !project_id.empty? && project_id != "mycert"
-        && File.exist?("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem"
-        && File.exist?("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key"
-      cert_files = ["#{project_id}.pem", "#{project_id}.key"]
+    target_certs = ["#{NGINX_PATH}/mycert.pem", "#{NGINX_PATH}/mykey.pem"]
+    if !project_id.nil?
+      # Use the project specified certs or the default ones if no specific
+      # cert is available.
+      target_certs = ["#{NGINX_PATH}/#{project_id}.pem",
+                      "#{NGINX_PATH}/#{project_id}.key"]
+      if File.exist?("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem") &&
+          File.exist?("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key")
+        cert_files = ["#{project_id}.pem", "#{project_id}.key"]
+      end
     end
 
-    # Make sure the cert and key are within use for nginx.
-    cert_files.each { |cert_file|
-      cert_to_use = "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_file}"
-      next if File.exist?("#{NGINX_PATH}/#{cert_file}") &&
-              File.cmp("#{NGINX_PATH}/#{cert_file}", cert_to_use)
+    taget_certs.each_with_index { |cert_file, index|
+      cert_to_use = "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_files[index]}"
+      next if File.exist?(cert_file) && File.cmp(cert_file, cert_to_use)
 
-      FileUtils.cp(cert_to_use, "#{NGINX_PATH}/#{cert_file}")
-      File.chmod(0400, "#{NGINX_PATH}/#{cert_file}")
+      FileUtils.cp(cert_to_use, cert_file)
+      File.chmod(0400, cert_file)
+      Djinn.log_info("Installed certificate/key in #{cert_file}.")
     }
   end
 
