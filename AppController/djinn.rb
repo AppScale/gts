@@ -3098,9 +3098,12 @@ class Djinn
         all_local_ips.each { |ip|
           if ip == node.private_ip
             @my_index = index
-            HelperFunctions.set_local_ip(node.private_ip)
             @my_public_ip = node.public_ip
             @my_private_ip = node.private_ip
+            if ip != HelperFunction.local_ip
+              Djinn.log_warn("Local IP recorded is not the default " \
+                  "(#{ip} <=> #{HelperFunction.local_ip}")
+            end
             return
           end
         }
@@ -3569,20 +3572,8 @@ class Djinn
     Djinn.log_info("Done stopping groomer service.")
   end
 
-  def is_hybrid_cloud?
-    if @options['infrastructure'].nil?
-      false
-    else
-      @options['infrastructure'] == "hybrid"
-    end
-  end
-
   def is_cloud?
     return ['ec2', 'euca', 'gce', 'azure'].include?(@options['infrastructure'])
-  end
-
-  def restore_from_db?
-    @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
   def build_appcontroller_client
