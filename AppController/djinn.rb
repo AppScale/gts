@@ -3100,9 +3100,9 @@ class Djinn
             @my_index = index
             @my_public_ip = node.public_ip
             @my_private_ip = node.private_ip
-            if ip != HelperFunction.local_ip
+            if ip != HelperFunctions.local_ip
               Djinn.log_warn("Local IP recorded is not the default " \
-                  "(#{ip} <=> #{HelperFunction.local_ip}")
+                  "(#{ip} <=> #{HelperFunctions.local_ip}")
             end
             return
           end
