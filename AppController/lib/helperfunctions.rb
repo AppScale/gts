@@ -830,23 +830,6 @@ module HelperFunctions
     Digest::SHA1.hexdigest(user + pass)
   end
 
-  def self.obscure_string(string)
-    return string if string.nil? or string.length < 4
-    last_four = string[string.length-4, string.length]
-    obscured = "*" * (string.length-4)
-    return obscured + last_four
-  end
-
-  def self.obscure_array(array)
-    return array.map {|s|
-      if CLOUDY_CREDS.include?(s)
-        obscure_string(string)
-      else
-        string
-      end
-    }
-  end
-
   def self.does_image_have_location?(ip, location, key)
     retries_left = 10
     begin
