@@ -23,8 +23,11 @@ import cPickle
 import logging
 import hashlib
 import os
+import socket
 import time
 
+import six
+from pymemcache.exceptions import MemcacheError, MemcacheClientError
 from pymemcache.client.hash import HashClient
 
 from google.appengine.api import apiproxy_stub
@@ -40,6 +43,13 @@ MemcacheDeleteResponse = memcache_service_pb.MemcacheDeleteResponse
 from google.appengine.api.memcache import TYPE_INT
 from google.appengine.api.memcache import TYPE_LONG
 from google.appengine.api.memcache import MAX_KEY_SIZE
+
+# Exceptions that indicate a temporary issue with the backend.
+TRANSIENT_ERRORS = (MemcacheError, socket.error, socket.timeout)
+
+INVALID_VALUE = memcache_service_pb.MemcacheServiceError.INVALID_VALUE
+UNSPECIFIED_ERROR = memcache_service_pb.MemcacheServiceError.UNSPECIFIED_ERROR
+
 
 class MemcacheService(apiproxy_stub.APIProxyStub):
   """Python only memcache service.
@@ -76,6 +86,10 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     self._memcache = HashClient(memcaches, connect_timeout=5, timeout=1,
                                 use_pooling=True)
 
+    # The GAE API expects return values for all mutate operations.
+    for client in six.itervalues(self._memcache.clients):
+      client.default_noreply = False
+
   def _Dynamic_Get(self, request, response):
     """Implementation of gets for memcache.
      
@@ -83,20 +97,29 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheGetRequest protocol buffer.
       response: A MemcacheGetResponse protocol buffer.
     """
-    for key in set(request.key_list()):
-      internal_key = self._GetKey(request.name_space(), key)
-      value = self._memcache.get(internal_key)
-      if value is None:
-        continue
-      flags = 0
-      stored_flags, cas_id, stored_value = cPickle.loads(value)
-      flags |= stored_flags
+    key_dict = {self._GetKey(request.name_space(), key): key
+                for key in request.key_list()}
+    try:
+      backend_response = self._memcache.get_many(
+        key_dict.keys(), gets=request.for_cas())
+    except MemcacheClientError as error:
+      raise apiproxy_errors.ApplicationError(
+        UNSPECIFIED_ERROR, 'Bad request: {}'.format(error))
+    except TRANSIENT_ERRORS as error:
+      raise apiproxy_errors.ApplicationError(
+        UNSPECIFIED_ERROR, 'Transient memcache error: {}'.format(error))
+
+    for encoded_key, encoded_val in six.iteritems(backend_response):
       item = response.add_item()
+      key = key_dict[encoded_key]
       item.set_key(key)
-      item.set_value(stored_value)
-      item.set_flags(flags)
       if request.for_cas():
-        item.set_cas_id(cas_id)
+        item.set_cas_id(int(encoded_val[1]))
+        encoded_val = encoded_val[0]
+
+      flags, val = cPickle.loads(encoded_val)
+      item.set_value(val)
+      item.set_flags(flags)
 
   def _Dynamic_Set(self, request, response):
     """Implementation of sets for memcache. 
@@ -105,42 +128,46 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheSetRequest.
       response: A MemcacheSetResponse.
     """
+    client_methods = {MemcacheSetRequest.SET: self._memcache.set,
+                      MemcacheSetRequest.ADD: self._memcache.add,
+                      MemcacheSetRequest.REPLACE: self._memcache.replace,
+                      MemcacheSetRequest.CAS: self._memcache.cas}
+    namespace = request.name_space()
+    invalid_policy = next((item.set_policy() for item in request.item_list()
+                           if item.set_policy() not in client_methods), None)
+    if invalid_policy is not None:
+      raise apiproxy_errors.ApplicationError(
+        UNSPECIFIED_ERROR, 'Unsupported set_policy'.format(invalid_policy))
+
+    if not all(item.has_cas_id() for item in request.item_list()
+               if item.set_policy() == MemcacheSetRequest.CAS):
+      raise apiproxy_errors.ApplicationError(
+        UNSPECIFIED_ERROR, 'All CAS items must have a cas_id')
+
     for item in request.item_list():
-      key = self._GetKey(request.name_space(), item.key())
-      set_policy = item.set_policy()
-      old_entry = self._memcache.get(key)
-      cas_id = 0
-      if old_entry:
-        _, cas_id, _ = cPickle.loads(old_entry)
-      set_status = MemcacheSetResponse.NOT_STORED
+      encoded_key = self._GetKey(namespace, item.key())
+      args = {'key': encoded_key,
+              'value': cPickle.dumps([item.flags(), item.value()]),
+              'expire': int(item.expiration_time())}
+      is_cas = item.set_policy() == MemcacheSetRequest.CAS
+      if is_cas:
+        args['cas'] = six.binary_type(item.cas_id())
 
-      if ((set_policy == MemcacheSetRequest.SET) or
-        (set_policy == MemcacheSetRequest.ADD and old_entry is None) or
-        (set_policy == MemcacheSetRequest.REPLACE and
-        old_entry is not None)):
+      try:
+        backend_response = client_methods[item.set_policy()](**args)
+      except (TRANSIENT_ERRORS + (MemcacheClientError,)):
+        response.add_set_status(MemcacheSetResponse.ERROR)
+        continue
 
-        if (old_entry is None or set_policy == MemcacheSetRequest.SET):
-          set_status = MemcacheSetResponse.STORED
+      if backend_response:
+        response.add_set_status(MemcacheSetResponse.STORED)
+        continue
 
-      elif (set_policy == MemcacheSetRequest.CAS and item.has_cas_id()):
-        if old_entry is None:
-          set_status = MemcacheSetResponse.NOT_STORED
-        elif cas_id != item.cas_id():
-          set_status = MemcacheSetResponse.EXISTS
-        else:
-          set_status = MemcacheSetResponse.STORED
+      if is_cas and backend_response is False:
+        response.add_set_status(MemcacheSetResponse.EXISTS)
+        continue
 
-      if (set_status == MemcacheSetResponse.STORED
-        or set_policy == MemcacheSetRequest.REPLACE):
-
-        set_value = cPickle.dumps(
-          [item.flags(), cas_id + 1, item.value()])
-        if set_policy == MemcacheSetRequest.REPLACE:
-          self._memcache.replace(key, set_value)
-        else:
-          self._memcache.set(key, set_value, item.expiration_time())
-
-      response.add_set_status(set_status)
+      response.add_set_status(MemcacheSetResponse.NOT_STORED)
 
   def _Dynamic_Delete(self, request, response):
     """Implementation of delete in memcache.
@@ -150,16 +177,18 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       response: A MemcacheDeleteResponse protocol buffer.
     """
     for item in request.item_list():
-      key = self._GetKey(request.name_space(), item.key())
-      entry = self._memcache.get(key)
-      delete_status = MemcacheDeleteResponse.DELETED
+      encoded_key = self._GetKey(request.name_space(), item.key())
+      try:
+        key_existed = self._memcache.delete(encoded_key)
+      except MemcacheClientError as error:
+        raise apiproxy_errors.ApplicationError(
+          UNSPECIFIED_ERROR, 'Bad request: {}'.format(error))
+      except TRANSIENT_ERRORS as error:
+        raise apiproxy_errors.ApplicationError(
+          UNSPECIFIED_ERROR, 'Transient memcache error: {}'.format(error))
 
-      if entry is None:
-        delete_status = MemcacheDeleteResponse.NOT_FOUND
-      else:
-        self._memcache.delete(key)
-
-      response.add_delete_status(delete_status)
+      response.add_delete_status(MemcacheDeleteResponse.DELETED if key_existed
+                                 else MemcacheDeleteResponse.NOT_FOUND)
 
   def _Increment(self, namespace, request):
     """Internal function for incrementing from a MemcacheIncrementRequest.
@@ -175,10 +204,8 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     if not request.delta():
       return None
 
-    cas_id = 0
-
     key = self._GetKey(namespace, request.key())
-    value, real_cas_id = self._memcache.gets(key)
+    value, cas_id = self._memcache.gets(key)
     if value is None and not request.has_initial_value():
       return
 
@@ -187,17 +214,16 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       if request.has_initial_flags():
         flags = request.initial_flags()
 
-      initial_value = cPickle.dumps(
-        [flags, cas_id, str(request.initial_value())])
+      initial_value = cPickle.dumps([flags, str(request.initial_value())])
       success = self._memcache.add(key, initial_value)
       if not success:
         return
 
-      value, real_cas_id = self._memcache.gets(key)
+      value, cas_id = self._memcache.gets(key)
       if value is None:
         return
 
-    flags, cas_id, stored_value = cPickle.loads(value)
+    flags, stored_value = cPickle.loads(value)
     if flags == TYPE_INT:
       new_value = int(stored_value)
     elif flags == TYPE_LONG:
@@ -208,12 +234,15 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     elif request.direction() == MemcacheIncrementRequest.DECREMENT:
       new_value = max(new_value-request.delta(), 0)
 
-    new_stored_value = cPickle.dumps([flags, cas_id + 1, str(new_value)])
+    new_stored_value = cPickle.dumps([flags, str(new_value)])
     try:
-      self._memcache.cas(key, new_stored_value, real_cas_id)
-    except Exception, e:
-      logging.error(str(e))
+      response = self._memcache.cas(key, new_stored_value, cas_id)
+    except (TRANSIENT_ERRORS + (MemcacheClientError,)) as error:
+      logging.error(str(error))
       return None
+
+    if not response:
+      return
 
     return new_value
 
