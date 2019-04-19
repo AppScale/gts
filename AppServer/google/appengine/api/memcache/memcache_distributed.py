@@ -16,15 +16,16 @@
 #
 
 """ Non-stub version of the memcache API, keeping all data in memcached.
-Uses the python-memcached library to interface with memcached.
+Uses the pymemcache library to interface with memcached.
 """
 import base64
 import cPickle
 import logging
 import hashlib
-import memcache
 import os
 import time
+
+from pymemcache.client.hash import HashClient
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.memcache import memcache_service_pb
@@ -46,7 +47,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
   This service keeps all data in any external servers running memcached.
   """
   # The memcached default port.
-  MEMCACHE_PORT = "11211"
+  MEMCACHE_PORT = 11211
 
   # An AppScale file which has a list of IPs running memcached.
   APPSCALE_MEMCACHE_FILE = "/etc/appscale/memcache_ips"
@@ -70,9 +71,10 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     else:
       all_ips = ['localhost']
 
-    memcaches = [ip + ":" + self.MEMCACHE_PORT for ip in all_ips if ip != '']
+    memcaches = [(ip, self.MEMCACHE_PORT) for ip in all_ips if ip]
     memcaches.sort()    
-    self._memcache = memcache.Client(memcaches, debug=0)
+    self._memcache = HashClient(memcaches, connect_timeout=5, timeout=1,
+                                use_pooling=True)
 
   def _Dynamic_Get(self, request, response):
     """Implementation of gets for memcache.
@@ -176,19 +178,26 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     cas_id = 0
 
     key = self._GetKey(namespace, request.key())
-    value = self._memcache.get(key)
-    if value is None:
-      if not request.has_initial_value():
-        return None
+    value, real_cas_id = self._memcache.gets(key)
+    if value is None and not request.has_initial_value():
+      return
 
+    if value is None:
       flags = TYPE_INT
       if request.has_initial_flags():
         flags = request.initial_flags()
 
-      stored_value = str(request.initial_value())
-    else:
-      flags, cas_id, stored_value = cPickle.loads(value)
+      initial_value = cPickle.dumps(
+        [flags, cas_id, str(request.initial_value())])
+      success = self._memcache.add(key, initial_value)
+      if not success:
+        return
 
+      value, real_cas_id = self._memcache.gets(key)
+      if value is None:
+        return
+
+    flags, cas_id, stored_value = cPickle.loads(value)
     if flags == TYPE_INT:
       new_value = int(stored_value)
     elif flags == TYPE_LONG:
@@ -201,7 +210,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
 
     new_stored_value = cPickle.dumps([flags, cas_id + 1, str(new_value)])
     try:
-      self._memcache.cas(key, new_stored_value)
+      self._memcache.cas(key, new_stored_value, real_cas_id)
     except Exception, e:
       logging.error(str(e))
       return None
@@ -271,7 +280,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
         logging.warn("No stats for key '%s'." % key) 
       return _type(stats_dict.get(key, '0'))
    
-    for server, server_stats in self._memcache.get_stats():
+    for server, server_stats in self._memcache.stats():
       num_servers += 1
       hits_total += get_stats_value(server_stats, 'get_hits')
       misses_total += get_stats_value(server_stats, 'get_misses')
