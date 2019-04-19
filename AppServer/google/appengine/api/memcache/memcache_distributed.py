@@ -51,11 +51,6 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
   # An AppScale file which has a list of IPs running memcached.
   APPSCALE_MEMCACHE_FILE = "/etc/appscale/memcache_ips"
 
-  # The minimum frequency by which memcache clients will update their list of
-  # clients that they connect to (which can change if AppScale scales up or
-  # down).
-  UPDATE_WINDOW = 60  # seconds
-
   def __init__(self, gettime=time.time, service_name='memcache'):
     """Initializer.
 
