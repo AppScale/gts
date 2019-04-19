@@ -141,8 +141,9 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     cmd.extend(['--APP_NAME={}'.format(app_name),
                 '--NGINX_ADDRESS={}'.format(load_balancer_host),
                 '--datastore_path={}'.format(options.db_proxy),
-                '--TQ_PROXY={}'.format(options.tq_proxy),
                 '--login_server={}'.format(load_balancer_host),
+                '--TQ_PROXY={}'.format(options.tq_proxy),
+                '--xmpp_path={}'.format(options.load_balancer_ip),
                 '--external_api_port={}'.format(api_server_port),
                 '--appscale_version=1'])
     apis_using_external_server = ['app_identity_service']
