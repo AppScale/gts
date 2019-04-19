@@ -127,8 +127,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
         if (old_entry is None or set_policy == MemcacheSetRequest.SET):
           set_status = MemcacheSetResponse.STORED
 
-      elif (set_policy == MemcacheSetRequest.CAS and item.for_cas() and
-        item.has_cas_id()):
+      elif (set_policy == MemcacheSetRequest.CAS and item.has_cas_id()):
         if old_entry is None:
           set_status = MemcacheSetResponse.NOT_STORED
         elif cas_id != item.cas_id():
