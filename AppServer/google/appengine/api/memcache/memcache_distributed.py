@@ -19,11 +19,9 @@
 Uses the pymemcache library to interface with memcached.
 """
 import base64
-import logging
 import hashlib
 import os
 import socket
-import time
 
 import six
 from pymemcache.exceptions import MemcacheError, MemcacheClientError
@@ -297,6 +295,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheFlushRequest.
       response: A MemcacheFlushResponse.
     """
+    # TODO: Prevent a project from clearing another project's namespace.
     self._memcache.flush_all()
 
   def _Dynamic_Stats(self, request, response):
@@ -306,42 +305,37 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheStatsRequest.
       response: A MemcacheStatsResponse.
     """
+    # TODO: Gather stats for a project rather than the deployment.
+    hits = 0
+    misses = 0
+    byte_hits = 0
+    items = 0
+    bytes = 0
+    oldest_item_age = 0
+    for server in six.itervalues(self._memcache.clients):
+      server_stats = server.stats()
+      hits += server_stats.get('get_hits', 0)
+      misses += server_stats.get('get_misses', 0)
+      byte_hits += server_stats.get('bytes_read', 0)
+      items += server_stats.get('curr_items', 0)
+      bytes += server_stats.get('bytes', 0)
+
+      # Using the "age" field may not be correct here. The GAE docs claim this
+      # should specify "how long in seconds since the oldest item in the cache
+      # was accessed" rather than when it was created.
+      item_stats = server.stats('items')
+      oldest_server_item = max(age for key, age in six.iteritems(item_stats)
+                               if key.endswith(':age'))
+      oldest_item_age = max(oldest_item_age, oldest_server_item)
+
     stats = response.mutable_stats()
-    
-    num_servers = 0
-    hits_total = 0
-    misses_total = 0
-    byte_hits_total = 0
-    items_total = 0
-    bytes_total = 0
-    time_total = 0
-   
-    def get_stats_value(stats_dict, key, _type=int):
-      """ Gets statisical values and makes sure the key is in the dict. """
-      if key not in stats_dict:
-        logging.warn("No stats for key '%s'." % key) 
-      return _type(stats_dict.get(key, '0'))
-   
-    for server, server_stats in self._memcache.stats():
-      num_servers += 1
-      hits_total += get_stats_value(server_stats, 'get_hits')
-      misses_total += get_stats_value(server_stats, 'get_misses')
-      byte_hits_total += get_stats_value(server_stats, 'bytes_read') 
-      items_total += get_stats_value(server_stats, 'curr_items') 
-      bytes_total += get_stats_value(server_stats, 'bytes') 
-      time_total += get_stats_value(server_stats, 'time', float) 
-   
-    stats.set_hits(hits_total)
-    stats.set_misses(misses_total)
-    stats.set_byte_hits(byte_hits_total)
-    stats.set_items(items_total)
-    stats.set_bytes(bytes_total)
-   
-    # With the Python 2.7 GAE runtime, it expects all fields here to be ints.
-    # Python 2.5 was fine with this being a float, so callers in that runtime
-    # may not be expecting an int.
-    stats.set_oldest_item_age(int(time.time() - time_total / num_servers))
-   
+    stats.set_hits(hits)
+    stats.set_misses(misses)
+    stats.set_byte_hits(byte_hits)
+    stats.set_items(items)
+    stats.set_bytes(bytes)
+    stats.set_oldest_item_age(oldest_item_age)
+
   def _GetKey(self, namespace, key):
     """Used to get the Memcache key. It is encoded because the sdk
     allows special characters but the Memcache client does not.
