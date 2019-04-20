@@ -19,7 +19,6 @@
 Uses the pymemcache library to interface with memcached.
 """
 import base64
-import cPickle
 import logging
 import hashlib
 import os
@@ -49,6 +48,14 @@ TRANSIENT_ERRORS = (MemcacheError, socket.error, socket.timeout)
 
 INVALID_VALUE = memcache_service_pb.MemcacheServiceError.INVALID_VALUE
 UNSPECIFIED_ERROR = memcache_service_pb.MemcacheServiceError.UNSPECIFIED_ERROR
+
+
+def serializer(key, value_and_flags):
+  return value_and_flags[0], value_and_flags[1]
+
+
+def deserializer(key, value, flags):
+  return value, flags
 
 
 class MemcacheService(apiproxy_stub.APIProxyStub):
@@ -83,8 +90,9 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
 
     memcaches = [(ip, self.MEMCACHE_PORT) for ip in all_ips if ip]
     memcaches.sort()    
-    self._memcache = HashClient(memcaches, connect_timeout=5, timeout=1,
-                                use_pooling=True)
+    self._memcache = HashClient(
+      memcaches, serializer=serializer, deserializer=deserializer,
+      connect_timeout=5, timeout=1, use_pooling=True)
 
     # The GAE API expects return values for all mutate operations.
     for client in six.itervalues(self._memcache.clients):
@@ -109,17 +117,16 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       raise apiproxy_errors.ApplicationError(
         UNSPECIFIED_ERROR, 'Transient memcache error: {}'.format(error))
 
-    for encoded_key, encoded_val in six.iteritems(backend_response):
+    for encoded_key, value_tuple in six.iteritems(backend_response):
       item = response.add_item()
       key = key_dict[encoded_key]
       item.set_key(key)
       if request.for_cas():
-        item.set_cas_id(int(encoded_val[1]))
-        encoded_val = encoded_val[0]
+        item.set_cas_id(int(value_tuple[1]))
+        value_tuple = value_tuple[0]
 
-      flags, val = cPickle.loads(encoded_val)
-      item.set_value(val)
-      item.set_flags(flags)
+      item.set_value(value_tuple[0])
+      item.set_flags(value_tuple[1])
 
   def _Dynamic_Set(self, request, response):
     """Implementation of sets for memcache. 
@@ -147,7 +154,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     for item in request.item_list():
       encoded_key = self._GetKey(namespace, item.key())
       args = {'key': encoded_key,
-              'value': cPickle.dumps([item.flags(), item.value()]),
+              'value': (item.value(), item.flags()),
               'expire': int(item.expiration_time())}
       is_cas = item.set_policy() == MemcacheSetRequest.CAS
       if is_cas:
@@ -205,36 +212,36 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       return None
 
     key = self._GetKey(namespace, request.key())
-    value, cas_id = self._memcache.gets(key)
-    if value is None and not request.has_initial_value():
+    value_tuple, cas_id = self._memcache.gets(key)
+    if value_tuple is None and not request.has_initial_value():
       return
 
-    if value is None:
+    if value_tuple is None:
       flags = TYPE_INT
       if request.has_initial_flags():
         flags = request.initial_flags()
 
-      initial_value = cPickle.dumps([flags, str(request.initial_value())])
+      initial_value = (request.initial_value(), flags)
       success = self._memcache.add(key, initial_value)
       if not success:
         return
 
-      value, cas_id = self._memcache.gets(key)
-      if value is None:
+      value_tuple, cas_id = self._memcache.gets(key)
+      if value_tuple is None:
         return
 
-    flags, stored_value = cPickle.loads(value)
+    value, flags = value_tuple
     if flags == TYPE_INT:
-      new_value = int(stored_value)
+      new_value = int(value)
     elif flags == TYPE_LONG:
-      new_value = long(stored_value)
+      new_value = long(value)
 
     if request.direction() == MemcacheIncrementRequest.INCREMENT:
       new_value += request.delta()
     elif request.direction() == MemcacheIncrementRequest.DECREMENT:
       new_value = max(new_value-request.delta(), 0)
 
-    new_stored_value = cPickle.dumps([flags, str(new_value)])
+    new_stored_value = (str(new_value), flags)
     try:
       response = self._memcache.cas(key, new_stored_value, cas_id)
     except (TRANSIENT_ERRORS + (MemcacheClientError,)) as error:
