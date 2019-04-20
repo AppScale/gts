@@ -39,8 +39,6 @@ MemcacheIncrementRequest = memcache_service_pb.MemcacheIncrementRequest
 MemcacheIncrementResponse = memcache_service_pb.MemcacheIncrementResponse
 MemcacheDeleteResponse = memcache_service_pb.MemcacheDeleteResponse
 
-from google.appengine.api.memcache import TYPE_INT
-from google.appengine.api.memcache import TYPE_LONG
 from google.appengine.api.memcache import MAX_KEY_SIZE
 
 # Exceptions that indicate a temporary issue with the backend.
@@ -48,6 +46,12 @@ TRANSIENT_ERRORS = (MemcacheError, socket.error, socket.timeout)
 
 INVALID_VALUE = memcache_service_pb.MemcacheServiceError.INVALID_VALUE
 UNSPECIFIED_ERROR = memcache_service_pb.MemcacheServiceError.UNSPECIFIED_ERROR
+
+# The maximum value that memcached will increment to before wrapping around.
+MAX_INCR = 2 ** 64 - 1
+
+# The minimum value that memcached will decrement to.
+MIN_DECR = 0
 
 
 def serializer(key, value_and_flags):
@@ -206,52 +210,53 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheIncrementRequest instance.
 
     Returns:
-      An integer or long if the offset was successful, None on error.
+      An integer indicating the new value.
+    Raises:
+      ApplicationError if unable to perform the mutation.
     """
-    if not request.delta():
-      return None
+    encoded_key = self._GetKey(namespace, request.key())
+    method = self._memcache.incr
+    if request.direction() == MemcacheIncrementRequest.DECREMENT:
+      method = self._memcache.decr
 
-    key = self._GetKey(namespace, request.key())
-    value_tuple, cas_id = self._memcache.gets(key)
-    if value_tuple is None and not request.has_initial_value():
-      return
+    try:
+      response = method(encoded_key, request.delta())
+    except MemcacheClientError as error:
+      raise apiproxy_errors.ApplicationError(INVALID_VALUE, str(error))
+    except TRANSIENT_ERRORS as error:
+      raise apiproxy_errors.ApplicationError(
+        UNSPECIFIED_ERROR, 'Transient memcache error: {}'.format(error))
 
-    if value_tuple is None:
-      flags = TYPE_INT
-      if request.has_initial_flags():
-        flags = request.initial_flags()
+    if response is None and not request.has_initial_value():
+      raise apiproxy_errors.ApplicationError(
+        UNSPECIFIED_ERROR, 'Key does not exist')
 
-      initial_value = (request.initial_value(), flags)
-      success = self._memcache.add(key, initial_value)
-      if not success:
-        return
+    if response is not None:
+      return response
 
-      value_tuple, cas_id = self._memcache.gets(key)
-      if value_tuple is None:
-        return
-
-    value, flags = value_tuple
-    if flags == TYPE_INT:
-      new_value = int(value)
-    elif flags == TYPE_LONG:
-      new_value = long(value)
+    # If the key was not present and an initial value was provided, perform
+    # the mutation client-side and set the key if it still doesn't exist.
+    flags = 0
+    if request.has_initial_flags():
+      flags = request.initial_flags()
 
     if request.direction() == MemcacheIncrementRequest.INCREMENT:
-      new_value += request.delta()
-    elif request.direction() == MemcacheIncrementRequest.DECREMENT:
-      new_value = max(new_value-request.delta(), 0)
+      updated_val = request.initial_value() + request.delta()
+    else:
+      updated_val = request.initial_value() - request.delta()
 
-    new_stored_value = (str(new_value), flags)
+    updated_val = max(updated_val, 0) % (MAX_INCR + 1)
     try:
-      response = self._memcache.cas(key, new_stored_value, cas_id)
-    except (TRANSIENT_ERRORS + (MemcacheClientError,)) as error:
-      logging.error(str(error))
-      return None
+      response = self._memcache.add(encoded_key, (str(updated_val), flags))
+    except (TRANSIENT_ERRORS + (MemcacheClientError,)):
+      raise apiproxy_errors.ApplicationError(
+        UNSPECIFIED_ERROR, 'Unable to set initial value')
 
-    if not response:
-      return
+    if response is False:
+      raise apiproxy_errors.ApplicationError(
+        UNSPECIFIED_ERROR, 'Unable to set initial value')
 
-    return new_value
+    return updated_val
 
   def _Dynamic_Increment(self, request, response):
     """Implementation of increment for memcache.
@@ -261,11 +266,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       response: A MemcacheIncrementResponse protocol buffer.
     """
     new_value = self._Increment(request.name_space(), request)
-    if new_value is None:
-      raise apiproxy_errors.ApplicationError(
-        memcache_service_pb.MemcacheServiceError.UNSPECIFIED_ERROR)
     response.set_new_value(new_value)
-
 
   def _Dynamic_BatchIncrement(self, request, response):
     """Implementation of batch increment for memcache.
@@ -274,15 +275,20 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheBatchIncrementRequest protocol buffer.
       response: A MemcacheBatchIncrementResponse protocol buffer.
     """
-    namespace = request.name_space()
     for request_item in request.item_list():
-      new_value = self._Increment(namespace, request_item)
       item = response.add_item()
-      if new_value is None:
-        item.set_increment_status(MemcacheIncrementResponse.NOT_CHANGED)
-      else:
-        item.set_increment_status(MemcacheIncrementResponse.OK)
-        item.set_new_value(new_value)
+      try:
+        new_value = self._Increment(request.name_space(), request_item)
+      except apiproxy_errors.ApplicationError as error:
+        if error.application_error == INVALID_VALUE:
+          item.set_increment_status(MemcacheIncrementResponse.NOT_CHANGED)
+        else:
+          item.set_increment_status(MemcacheIncrementResponse.ERROR)
+
+        continue
+
+      item.set_increment_status(MemcacheIncrementResponse.OK)
+      item.set_new_value(new_value)
 
   def _Dynamic_FlushAll(self, request, response):
     """Implementation of MemcacheService::FlushAll().
