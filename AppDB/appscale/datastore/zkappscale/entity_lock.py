@@ -203,7 +203,7 @@ class EntityLock(object):
         # resolve deadlocks.
         if current_txid > child_txid:
           # TODO: Implement a more graceful deadlock detection.
-          self.client.retry(self._delete_nodes(self.nodes))
+          self.client.retry(self._delete_nodes, self.nodes)
           raise ForceRetryError()
 
   def _inner_acquire(self):
