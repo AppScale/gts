@@ -504,10 +504,17 @@ class Djinn
   ].freeze
 
   # The amount of memory in MB for each instance class.
-  INSTANCE_CLASSES = { F1: 128,
-                       F2: 256,
-                       F4: 512,
-                       F4_1G: 1024 }.freeze
+  INSTANCE_CLASSES = {
+    F1: 128,
+    F2: 256,
+    F4: 512,
+    F4_1G: 1024,
+    B1: 128,
+    B2: 256,
+    B4: 512,
+    B4_1G: 1024,
+    B8: 1024,
+  }.freeze
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
