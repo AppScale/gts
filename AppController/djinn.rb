@@ -1832,7 +1832,8 @@ class Djinn
       # We act here if options or roles for this node changed.
       check_role_change(old_options, old_jobs)
 
-      # The master node has more work to do.
+      # The master node needs first to update the stats of the nodes, and
+      # backup the deployment state for all other nodes to read.
       if my_node.is_shadow?
         write_tools_config
         if update_stats_thread.alive?
@@ -1844,7 +1845,7 @@ class Djinn
       end
 
       # Load balancers (and shadow) needs to setup new applications.
-      if my_node.is_load_balancer?
+      if my_node.is_load_balancer? || my_node.is_shadow?
         versions_loaded_now = []
         APPS_LOCK.synchronize { versions_loaded_now = @versions_loaded.clone }
 
@@ -1877,9 +1878,11 @@ class Djinn
           }
         end
 
-        # Load balancers need to check/update applications that have been
-        # undeployed and nginx/haproxy.
+        # Nodes need to clean up after removed applications.
         APPS_LOCK.synchronize { check_stopped_apps }
+      end
+      if my_node.is_load_balancer?
+        # Load balancers need to regenerate nginx/haproxy configuration if needed.
         update_db_haproxy
         APPS_LOCK.synchronize { regenerate_routing_config }
       end
@@ -4599,40 +4602,50 @@ HOSTS
     end
     Djinn.log_info("check_stopped_apps: Versions running: #{zookeeper_versions}")
     removed_versions = []
-    if my_node.is_shadow?
-      CronHelper.list_app_crontabs.each { |app|
-        match = app.match(CronHelper::PROJECT_ID_REGEX)
-        next if match.nil?
 
-        project_id = match.captures.first
-        default_version_key = "#{project_id}_#{DEFAULT_SERVICE}_#{DEFAULT_VERSION}"
+    # Remove old crontab and syslog configuration. Only the master node
+    # should do it, but since the role could be assumed by different
+    # nodes, we make sure the removal are idempotent and we run it on all
+    # nodes running this method.
+    CronHelper.list_app_crontabs.each { |app|
+      match = app.match(CronHelper::PROJECT_ID_REGEX)
+      next if match.nil?
 
-        next if zookeeper_versions.include?(default_version_key)
+      project_id = match.captures.first
+      default_version_key = "#{project_id}_#{DEFAULT_SERVICE}_#{DEFAULT_VERSION}"
 
-        next if RESERVED_APPS.include?(project_id)
+      next if zookeeper_versions.include?(default_version_key)
 
-        Djinn.log_info(
-          "#{default_version_key} is no longer running: removing crontabs.")
-        CronHelper.clear_app_crontab(project_id)
-        removed_versions << default_version_key
-      }
-      Dir.glob("/etc/rsyslog.d/10-*_*_*.conf").each { |app|
-        match = app.match(/10-(.*_.*_.*).conf/)
-        next if match.nil?
+      next if RESERVED_APPS.include?(project_id)
 
-        version_key = match.captures.first
-        next if zookeeper_versions.include?(version_key)
+      Djinn.log_info(
+        "#{default_version_key} is no longer running: removing crontabs.")
+      CronHelper.clear_app_crontab(project_id)
+      removed_versions << default_version_key
+    }
+    Dir.glob("/etc/rsyslog.d/10-*_*_*.conf").each { |app|
+      match = app.match(/10-(.*_.*_.*).conf/)
+      next if match.nil?
 
-        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
-        next if RESERVED_APPS.include?(project_id)
+      version_key = match.captures.first
+      next if zookeeper_versions.include?(version_key)
 
-        Djinn.log_info(
-          "#{version_key} is no longer running: removing log configuration.")
-        FileUtils.rm_f(get_rsyslog_conf(version_key))
+      project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+      next if RESERVED_APPS.include?(project_id)
+
+      Djinn.log_info(
+        "#{version_key} is no longer running: removing log configuration.")
+      begin
+        FileUtils.rm(get_rsyslog_conf(version_key))
         HelperFunctions.shell("service rsyslog restart")
-        removed_versions << version_key
-      }
-    end
+      rescue Errno::ENOENT, Errno::EACCES
+        Djinn.log_debug("Old syslog for #{version_key} wasn't there.")
+      end
+      removed_versions << version_key
+    }
+
+    # Load balancers have to adjust nginx and haproxy to remove the
+    # application routings.
     if my_node.is_load_balancer?
       MonitInterface.running_xmpp.each { |xmpp_app|
         match = xmpp_app.match(/xmpp-(.*)/)
