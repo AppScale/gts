@@ -5320,7 +5320,7 @@ HOSTS
   #   version_key: A String containing the version key.
   #   delta_appservers: The desired number of new AppServers.
   # Returns:
-  #   An Interger indicating the number of nodes we need to scale to
+  #   An Integer indicating the number of nodes we need to scale to
   #     accomodate the request.
   def try_to_scale_up(version_key, delta_appservers)
     # Select an compute machine if it has enough resources to support
