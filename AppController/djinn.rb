@@ -2960,7 +2960,7 @@ class Djinn
 
       ip = zk_list.sample
       Djinn.log_info("Trying to use zookeeper server at #{ip}.")
-      ZKInterface.init_to_ip(HelperFunctions.local_ip, ip.to_s)
+      ZKInterface.init_to_ip(@my_private_ip, ip.to_s)
     }
     Djinn.log_debug("Found zookeeper server.")
   end
@@ -3089,9 +3089,10 @@ class Djinn
   def find_me_in_locations
     @my_index = nil
     all_local_ips = HelperFunctions.get_all_local_ips
-    Djinn.log_debug("Searching for a node with any of these private IPs: " \
-      "#{all_local_ips.join(', ')}")
-    Djinn.log_debug("All nodes are: #{@nodes.join(', ')}")
+    if all_local_ips.length > 1
+      Djinn.log_warn("These node has multiple private IPs: " \
+        "#{all_local_ips.join(', ')}")
+    end
 
     @state_change_lock.synchronize {
       @nodes.each_with_index { |node, index|
@@ -3100,10 +3101,7 @@ class Djinn
             @my_index = index
             @my_public_ip = node.public_ip
             @my_private_ip = node.private_ip
-            if ip != HelperFunctions.local_ip
-              Djinn.log_warn("Local IP recorded is not the default " \
-                  "(#{ip} <=> #{HelperFunctions.local_ip}")
-            end
+            Djinn.log_info("Local IP recorded and used is #{ip}.")
             return
           end
         }
