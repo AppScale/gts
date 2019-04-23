@@ -303,13 +303,11 @@ CONFIG
 
     # Let's reload and overwrite only if something changed, or new
     # certificates have been installed.
-    current = ''
-    current = File.read(config_path) if File.exists?(config_path)
+    current = File.exists?(config_path) ? File.read(config_path) : ''
 
-    # Make sure we have the proper certificates in place.
-    current = '' if ensure_certs_are_in_place(project_id)
-
-    if current != config
+    # Make sure we have the proper certificates in place and re-write
+    # nginx config if needed.
+    if ensure_certs_are_in_place(project_id) || current != config
       Djinn.log_debug(parsing_log)
       File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
       reload_nginx(config_path, version_key)
@@ -448,7 +446,7 @@ LOCATION
     target_certs = ["#{NGINX_PATH}/mycert.pem", "#{NGINX_PATH}/mykey.pem"]
     src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/mycert.pem",
                  "#{Djinn::APPSCALE_CONFIG_DIR}/certs/mykey.pem"]
-    ret = false
+    certs_modified = false
 
     # Validate and use the project specified certs for the project.
     if !project_id.nil?
@@ -459,7 +457,7 @@ LOCATION
       if File.exist?(new_src_certs[0]) && File.exist?(new_src_certs[1])
         if system("openssl x509 -in #{new_src_certs[0]} -noout") &&
             system("openssl rsa -in #{new_src_certs[1]} -noout")
-          src_certs = new_src_cert
+          src_certs = new_src_certs
         else
           Djinn.log_warn("Not using invalid certificate for #{project_id}.")
         end
@@ -472,9 +470,9 @@ LOCATION
       FileUtils.cp(src_certs[index], cert)
       File.chmod(0400, cert)
       Djinn.log_info("Installed certificate/key in #{cert}.")
-      ret = true
+      certs_modified = true
     }
-    return ret
+    return certs_modified
   end
 
   # Set up the folder structure and creates the configuration files
