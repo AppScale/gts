@@ -29,6 +29,8 @@ module HermesClient
       return JSON.load(response.body)
     rescue Errno::ETIMEDOUT, Timeout::Error
       raise FailedNodeException.new("Failed to call Hermes: timed out")
+    rescue Errno::EHOSTUNREACH
+      raise FailedNodeException.new("Failed to call Hermes: host unreachable")
     rescue Errno::ECONNREFUSED
       raise FailedNodeException.new("Failed to call Hermes: connection refused")
     end
@@ -56,7 +58,7 @@ module HermesClient
         'proxy.frontend' => ['req_tot'],
         'proxy.backend' => ['qcur']
       },
-      'max_age' => 0
+      'max_age' => 5
     }
     if fetch_servers
       data['include_lists']['proxy.server'] = [

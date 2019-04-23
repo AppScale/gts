@@ -119,14 +119,14 @@ class InfrastructureManagerClient
   #   num_vms: the number of VMs to create.
   #   options: a hash containing information needed by the agent
   #     (credentials etc ...).
-  #   jobs: an Array containing the roles for each VM to be created.
+  #   roles: an Array containing the roles for each VM to be created.
   #   disks: an Array specifying the disks to be associated with the VMs
   #     (if any, it can be nil).
   #
   # Returns
   #   An Array containing the nodes information, suitable to be converted
   #   into Node.
-  def run_instances(num_vms, options, jobs, disks)
+  def run_instances(num_vms, options, roles, disks)
     options['num_vms'] = num_vms.to_s
     options['cloud'] = 'cloud1'
 
@@ -163,15 +163,15 @@ class InfrastructureManagerClient
       Kernel.sleep(SMALL_WAIT)
     }
 
-    # ip:job:instance-id
+    # ip:role:instance-id
     instances_created = []
     vm_info['public_ips'].each_index { |index|
-      tmp_jobs = jobs[index]
-      tmp_jobs = 'open' if jobs[index].nil?
+      tmp_roles = roles[index]
+      tmp_roles = 'open' if roles[index].nil?
       instances_created << {
         'public_ip' => vm_info['public_ips'][index],
         'private_ip' => vm_info['private_ips'][index],
-        'jobs' => tmp_jobs,
+        'roles' => tmp_roles,
         'instance_id' => vm_info['instance_ids'][index],
         'disk' => disks[index],
         'instance_type' => options['instance_type']

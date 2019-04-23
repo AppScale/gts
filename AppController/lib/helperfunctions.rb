@@ -131,10 +131,6 @@ module HelperFunctions
     File.open(location, 'w+') { |file| file.write(contents) }
   end
 
-  def self.write_json_file(location, contents)
-    write_file(location, JSON.dump(contents))
-  end
-
   def self.read_file(location, chomp = true)
     file = File.open(location) { |f| f.read }
     return file.chomp if chomp
@@ -170,26 +166,6 @@ module HelperFunctions
     random
   end
 
-  def self.deserialize_info_from_tools(ips)
-    JSON.load(ips)
-  end
-
-  # Queries the operating system to see if the named process is running.
-  #
-  # Note: Since this does a 'grep -v grep', callers should not call this
-  # method with a name of 'grep'.
-  #
-  # Args:
-  #   name: A String naming the process that may or may not be running.
-  def self.is_process_running?(name)
-    return false if `ps ax | grep #{name} | grep -v grep`.empty?
-    true
-  end
-
-  def self.kill_process(name)
-    `ps ax | grep #{name} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
-  end
-
   def self.sleep_until_port_is_open(ip, port,
                                     use_ssl = DONT_USE_SSL,
                                     timeout = nil)
@@ -208,27 +184,6 @@ module HelperFunctions
 
       if !timeout.nil? && total_time_slept > timeout
         raise "Waited too long for #{ip}:#{port} to open!"
-      end
-    }
-  end
-
-  def self.sleep_until_port_is_closed(ip, port, use_ssl = DONT_USE_SSL,
-                                      timeout = nil)
-    total_time_slept = 0
-    sleep_time = 1
-
-    loop {
-      return unless HelperFunctions.is_port_open?(ip, port, use_ssl)
-
-      Kernel.sleep(sleep_time)
-      if (total_time_slept % 5).zero?
-        Djinn.log_debug("Waiting on #{ip}:#{port} to be closed " \
-                        '(currently open).')
-      end
-      total_time_slept += sleep_time
-
-      if !timeout.nil? and total_time_slept > timeout
-        raise "Waited too long for #{ip}:#{port} to close!"
       end
     }
   end
@@ -353,25 +308,6 @@ module HelperFunctions
     # We get here only if scp failed RETRIES times.
     Djinn.log_warn("\n[#{cmd}] failed #{RETRIES} times.")
     raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
-  end
-
-  def self.get_remote_appscale_home(ip, key)
-    cat = 'cat /etc/appscale/home'
-    remote_cmd = "ssh -i #{key} -o NumberOfPasswordPrompts=0 -o " \
-                 "StrictHostkeyChecking=no 2>&1 root@#{ip} '#{cat}'"
-    possible_home = shell(remote_cmd.to_s).chomp
-    return '/root/appscale/' if possible_home.nil? || possible_home.empty?
-    possible_home
-  end
-
-  def self.get_appscale_id
-    # This needs to be ec2 or euca 2ools.
-    image_info = `ec2-describe-images`
-
-    log_and_crash("ec2 tools can't find appscale image") unless image_info.include?('appscale')
-    image_id = image_info.scan(/([a|e]mi-[0-9a-zA-Z]+)\sappscale/).flatten.to_s
-
-    image_id
   end
 
   def self.get_cert(filename)
@@ -499,7 +435,6 @@ module HelperFunctions
   #     this virtual machine.
   def self.get_all_local_ips(remove_lo = true)
     ifconfig = HelperFunctions.shell('ifconfig')
-    Djinn.log_debug("ifconfig returned the following: [#{ifconfig}]")
 
     # Normally we would scan for 'inet addr:', but in non-English locales,
     # 'addr' gets translated to the native language, which messes up that
@@ -612,199 +547,6 @@ module HelperFunctions
     return actual_public, actual_private
   end
 
-  # Queries Amazon EC2's Spot Instance pricing history to see how much other
-  # users have paid for the given instance type (assumed to be a Linux box),
-  # so that we can place a bid that is similar to the average price. How
-  # similar to the average price to pay is a bit of an open problem - for now,
-  # we pay 20% more so that in case the market price goes up a little bit, we
-  # still get to keep our instances.
-  def self.get_optimal_spot_price(instance_type)
-    command = "ec2-describe-spot-price-history -t #{instance_type} | " +
-      "grep 'Linux/UNIX' | awk '{print $2}'".split("\n")
-    prices = `#{command}`
-
-    average = prices.reduce(0.0) { |sum, price|
-      sum += Float(price)
-    }
-
-    average /= prices.length
-    plus_twenty = average * 1.20
-
-    Djinn.log_debug("The average spot instance price for a #{instance_type} " \
-      "machine is $#{average}, and 20% more is $#{plus_twenty}")
-    plus_twenty
-  end
-
-  def self.spawn_vms(num_of_vms_to_spawn, job, image_id, instance_type,
-                     keyname, infrastructure, cloud, group, spot = false)
-    start_time = Time.now
-
-    return [] if num_of_vms_to_spawn < 1
-
-    ssh_key = File.expand_path("#{APPSCALE_CONFIG_DIR}/keys/#{cloud}/#{keyname}.key")
-    Djinn.log_debug("About to spawn VMs, expecting to find a key at #{ssh_key}")
-
-    log_obscured_env
-
-    new_cloud = !File.exists?(ssh_key)
-    if new_cloud # need to create security group and key
-      Djinn.log_debug("Creating keys/security group for #{cloud}")
-      generate_ssh_key(ssh_key, keyname, infrastructure)
-      create_appscale_security_group(infrastructure, group)
-    else
-      Djinn.log_debug("Not creating keys/security group for #{cloud}")
-    end
-
-    instance_ids_up = []
-    public_up_already = []
-    private_up_already = []
-    Djinn.log_debug("[#{num_of_vms_to_spawn}] [#{job}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]")
-    Djinn.log_debug("EC2_URL = [#{ENV['EC2_URL']}]")
-    loop { # need to make sure ec2 doesn't return an error message here
-      describe_instances = `#{infrastructure}-describe-instances 2>&1`
-      Djinn.log_debug("describe-instances says [#{describe_instances}]")
-      all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/).flatten
-      instance_ids_up = describe_instances.scan(/INSTANCE\s+(i-\w+)/).flatten
-      public_up_already, private_up_already = HelperFunctions.get_ips(all_ip_addrs)
-      vms_up_already = describe_instances.scan(/(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).length
-
-      # crucial for hybrid cloud, where one box may not be running yet
-      break if vms_up_already > 0 || new_cloud
-    }
-
-    args = "-k #{keyname} -n #{num_of_vms_to_spawn} --instance-type #{instance_type} --group #{group} #{image_id}"
-    if spot
-      price = HelperFunctions.get_optimal_spot_price(instance_type)
-      command_to_run = "ec2-request-spot-instances -p #{price} #{args}"
-    else
-      command_to_run = "#{infrastructure}-run-instances #{args}"
-    end
-
-    loop {
-      Djinn.log_debug(command_to_run)
-      run_instances = `#{command_to_run} 2>&1`
-      Djinn.log_debug("run_instances says [#{run_instances}]")
-      if run_instances =~ /Please try again later./
-        Djinn.log_debug("Error with run_instances: #{run_instances}. Will try again in a moment.")
-      elsif run_instances =~ /try --addressing private/
-        Djinn.log_debug('Need to retry with addressing private. Will try again in a moment.')
-        command_to_run << " --addressing private"
-      elsif run_instances =~ /PROBLEM/
-        Djinn.log_debug("Error: #{run_instances}")
-        log_and_crash("Saw the following error message from EC2 tools." \
-          "Please resolve the issue and try again:\n#{run_instances}")
-      else
-        Djinn.log_debug('Run instances message sent successfully. Waiting for the image to start up.')
-        break
-      end
-      Djinn.log_debug('sleepy time')
-      sleep(SLEEP_TIME)
-    }
-
-    instance_ids = []
-    public_ips = []
-    private_ips = []
-
-    end_time = Time.now + MAX_VM_CREATION_TIME
-    while (now = Time.now) < end_time
-      describe_instances = `#{infrastructure}-describe-instances`
-      Djinn.log_debug("[#{Time.now}] #{end_time - now} seconds left...")
-      Djinn.log_debug(describe_instances)
-
-      # TODO: match on instance id
-
-      # changed regexes so ensure we are only checking for instances created
-      # for appscale only (don't worry about other instances created)
-      all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).flatten
-      public_ips, private_ips = HelperFunctions.get_ips(all_ip_addrs)
-      public_ips -= public_up_already
-      private_ips -= private_up_already
-      instance_ids = describe_instances.scan(/INSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/).flatten - instance_ids_up
-      break if public_ips.length == num_of_vms_to_spawn
-      sleep(SLEEP_TIME)
-    end
-
-    log_and_crash('No public IPs were able to be procured within the time' \
-                  ' limit.') if public_ips.length.zero?
-
-    if public_ips.length != num_of_vms_to_spawn
-      potential_dead_ips = HelperFunctions.get_ips(all_ip_addrs) - public_up_already
-      potential_dead_ips.each_index { |index|
-        if potential_dead_ips[index] == '0.0.0.0'
-          instance_to_term = instance_ids[index]
-          Djinn.log_debug("Instance #{instance_to_term} failed to get a " \
-                          'public IP address and is being terminated.')
-          shell("#{infrastructure}-terminate-instances #{instance_to_term}")
-        end
-      }
-    end
-
-    jobs = []
-    if job.is_a?(String)
-      # We only got one job, so just repeat it for each one of the nodes
-      public_ips.length.times { jobs << job }
-    else
-      jobs = job
-    end
-
-    # ip:job:instance-id
-    instances_created = []
-    public_ips.each_index { |index|
-      instances_created << "#{public_ips[index]}:#{private_ips[index]}:#{jobs[index]}:#{instance_ids[index]}:#{cloud}"
-    }
-
-    end_time = Time.now
-    total_time = end_time - start_time
-
-    if spot
-      Djinn.log_debug("TIMING: It took #{total_time} seconds to spawn " \
-        "#{num_of_vms_to_spawn} spot instances")
-    else
-      Djinn.log_debug("TIMING: It took #{total_time} seconds to spawn " \
-        "#{num_of_vms_to_spawn} regular instances")
-    end
-
-    return instances_created
-  end
-
-  def self.generate_ssh_key(output_location, name, infrastructure)
-    ec2_output = ""
-    loop {
-      ec2_output = `#{infrastructure}-add-keypair #{name} 2>&1`
-      break if ec2_output.include?("BEGIN RSA PRIVATE KEY")
-      Djinn.log_debug("Trying again. Saw this from #{infrastructure}-add-keypair: #{ec2_output}")
-      self.shell("#{infrastructure}-delete-keypair #{name} 2>&1")
-    }
-
-    output_location = [output_location] if output_location.class == String
-    output_location.each { |path|
-      full_path = File.expand_path(path)
-      File.open(full_path, "w") { |file|
-        file.puts(ec2_output)
-      }
-      FileUtils.chmod(0600, full_path) # else ssh won't use the key
-    }
-
-    return
-  end
-
-  def self.create_appscale_security_group(infrastructure, group)
-    self.shell("#{infrastructure}-add-group #{group} -d appscale 2>&1")
-    self.shell("#{infrastructure}-authorize #{group} -p 1-65535 -P udp 2>&1")
-    self.shell("#{infrastructure}-authorize #{group} -p 1-65535 -P tcp 2>&1")
-    self.shell("#{infrastructure}-authorize #{group} -s 0.0.0.0/0 -P icmp -t -1:-1 2>&1")
-  end
-
-  def self.terminate_vms(nodes, infrastructure)
-    instances = []
-    nodes.each { |node|
-      instance_id = node.instance_id
-      instances << instance_id
-    }
-
-    self.shell("#{infrastructure}-terminate-instances #{instances.join(' ')}")
-  end
-
   def self.generate_location_config handler
     return "" if !handler.key?("static_dir") && !handler.key?("static_files")
 
@@ -858,29 +600,6 @@ module HelperFunctions
     return result
   end
 
-  # Retrieves the latest revision directory for a project.
-  #
-  # Args:
-  #   project_id: A string specifying a project ID.
-  # Returns:
-  #   A string specifying the location of the source directory.
-  # Raises:
-  #   AppScaleException when unable to find the source directory.
-  def self.get_source_for_project(project_id)
-    begin
-      version_details = ZKInterface.get_version_details(
-        project_id, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION)
-    rescue VersionNotFound
-      raise AppScaleException.new('Version not found')
-    end
-
-    revision_key = [
-      project_id, Djinn::DEFAULT_SERVICE, Djinn::DEFAULT_VERSION,
-      version_details['revision'].to_s].join(Djinn::VERSION_PATH_SEPARATOR)
-    self.setup_revision(revision_key)
-    return "#{APPLICATIONS_DIR}/#{revision_key}/app"
-  end
-
   # Locates WEB-INF folder in an untarred Java app directory.
   #
   # Args:
@@ -906,17 +625,6 @@ module HelperFunctions
       end
     }
     return shortest_match
-  end
-
-  # Finds the path to appengine-web.xml configuration file.
-  #
-  # Args:
-  #  source_dir: The location of the revision's source code.
-  #
-  # Returns:
-  #  The absolute path of the appengine-web.xml configuration file.
-  def self.get_appengine_web_xml(source_dir)
-    return File.join(self.get_web_inf_dir(source_dir), "/appengine-web.xml")
   end
 
   # We have the files full path (e.g. ./data/myappname/static/file.txt) but we want is
@@ -1174,16 +882,6 @@ module HelperFunctions
     return obscured + last_four
   end
 
-  def self.obscure_array(array)
-    return array.map {|s|
-      if CLOUDY_CREDS.include?(s)
-        obscure_string(string)
-      else
-        string
-      end
-    }
-  end
-
   # Searches through the key/value pairs given for items that may
   # be too sensitive to log in cleartext. If any of these items are
   # found, a sanitized version of the item is returned in its place.
@@ -1266,18 +964,6 @@ module HelperFunctions
       Djinn.log_debug(fail_msg)
       log_and_crash(fail_msg)
     end
-  end
-
-  def self.log_obscured_env
-    env = `env`
-
-    %w[EC2_ACCESS_KEY EC2_SECRET_KEY].each { |cred|
-      if env =~ /#{cred}=(.*)/
-        env.gsub!(/#{cred}=(.*)/, "#{cred}=#{obscure_string($1)}")
-      end
-    }
-
-    Djinn.log_debug(env)
   end
 
   # Examines the configuration file for the given version to see if it is

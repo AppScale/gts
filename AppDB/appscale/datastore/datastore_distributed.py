@@ -2116,15 +2116,21 @@ class DatastoreDistributed():
 
   @staticmethod
   @gen.coroutine
-  def _common_refs_from_ranges(ranges, limit):
+  def _common_refs_from_ranges(ranges, limit, path=None):
     """ Find common entries across multiple index ranges.
 
     Args:
       ranges: A list of RangeIterator objects.
       limit: An integer specifying the maximum number of references to find.
+      path: An entity_pb.Path object that restricts the query to a single key.
     Returns:
       A dictionary mapping entity references to index entries.
     """
+    if path is not None:
+      limit = 1
+      for range_ in ranges:
+        range_.set_cursor(path, inclusive=True)
+
     reference_hash = {}
     min_common_path = ranges[0].get_cursor()
     entries_exhausted = False
@@ -2201,9 +2207,24 @@ class DatastoreDistributed():
     # We only use references from the ascending property table.
     direction = datastore_pb.Query_Order.ASCENDING
 
+    prop_filters = [filter_ for filter_ in query.filter_list()
+                    if filter_.property(0).name() != '__key__']
     ranges = [RangeIterator.from_filter(self.datastore_batch, app_id,
                                         query.name_space(), kind, filter_)
-              for filter_ in query.filter_list()]
+              for filter_ in prop_filters]
+
+    # Check if the query is restricted to a single key.
+    path = None
+    key_filters = [filter_ for filter_ in query.filter_list()
+                   if filter_.property(0).name() == '__key__']
+    if len(key_filters) > 1:
+      raise BadRequest('Queries can only specify one key')
+
+    if key_filters:
+      path = entity_pb.Path()
+      ref_val = key_filters[0].property(0).value().referencevalue()
+      for element in ref_val.pathelement_list():
+        path.add_element().MergeFrom(element)
 
     if query.has_ancestor():
       for range_ in ranges:
@@ -2217,7 +2238,7 @@ class DatastoreDistributed():
 
     entities = []
     while True:
-      reference_hash = yield self._common_refs_from_ranges(ranges, limit)
+      reference_hash = yield self._common_refs_from_ranges(ranges, limit, path)
       new_entities = yield self.__fetch_and_validate_entity_set(
         reference_hash, limit, app_id, direction)
       entities.extend(new_entities)
