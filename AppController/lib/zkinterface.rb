@@ -117,7 +117,6 @@ class ZKInterface
   # connection was disconnected.
   def self.reinitialize
     init_to_ip(@@client_ip, @@ip)
-    set_live_node_ephemeral_link(@@client_ip)
   end
 
   def self.add_revision_entry(revision_key, ip, md5)
@@ -130,12 +129,7 @@ class ZKInterface
   end
 
   def self.get_revision_hosters(revision_key, keyname)
-    revision_hosters = get_children("#{ROOT_APP_PATH}/#{revision_key}")
-    converted = []
-    revision_hosters.each { |host|
-      converted << NodeInfo.new(get_job_data_for_ip(host), keyname)
-    }
-    converted
+    get_children("#{ROOT_APP_PATH}/#{revision_key}")
   end
 
   def self.get_revision_md5(revision_key, ip)
@@ -245,17 +239,9 @@ class ZKInterface
                   data: DUMMY_DATA)
     }
 
-    # Create an ephemeral link associated with this node, which other
-    # AppControllers can use to quickly detect dead nodes.
-    set_live_node_ephemeral_link(node.private_ip)
-
     # Since we're reporting on the roles we've started, we are done loading
     # roles right now, so write that information for others to read and act on.
     set_done_loading(node.private_ip, done_loading)
-
-    # Finally, dump the data from this node to ZK, so that other nodes can
-    # reconstruct it as needed.
-    set_job_data_for_ip(node.private_ip, node.to_hash)
   end
 
   # Deletes all information for a given node, whose data is stored in ZooKeeper.
@@ -279,16 +265,6 @@ class ZKInterface
     end
   end
 
-  # Writes the ephemeral link in ZooKeeper that represents a given node
-  # being alive. Callers should only use this method to indicate that their
-  # own node is alive, and not do it on behalf of other nodes.
-  def self.set_live_node_ephemeral_link(ip)
-    run_zookeeper_operation {
-      @@zk.create(path: "#{APPCONTROLLER_NODE_PATH}/#{ip}/live",
-                  ephemeral: EPHEMERAL, data: DUMMY_DATA)
-    }
-  end
-
   # Provides a convenience function that callers can use to indicate that their
   # node is done loading (if they have finished starting/stopping roles), or is
   # not done loading (if they have roles they need to start or stop).
@@ -296,21 +272,6 @@ class ZKInterface
     zk_value = val ? 'true' : 'false'
     set("#{APPCONTROLLER_NODE_PATH}/#{ip}/done_loading",
         zk_value, NOT_EPHEMERAL)
-  end
-
-  # Checks ZooKeeper to see if the given node is alive, by checking if the
-  # ephemeral file it has created is still present.
-  def self.is_node_live?(ip)
-    exists?("#{APPCONTROLLER_NODE_PATH}/#{ip}/live")
-  end
-
-  def self.get_job_data_for_ip(ip)
-    JSON.load(get("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data"))
-  end
-
-  def self.set_job_data_for_ip(ip, job_data)
-    set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data",
-        JSON.dump(job_data), NOT_EPHEMERAL)
   end
 
   def self.get_versions

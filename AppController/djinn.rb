@@ -5675,21 +5675,27 @@ HOSTS
 
     RETRIES.downto(0) { ||
       begin
-        remote_machine = ZKInterface.get_revision_hosters(
+        ip = ZKInterface.get_revision_hosters(
           revision_key, @options['keyname']).sample
       rescue FailedZooKeeperOperationException
         sleep(SMALL_WAIT)
         next
       end
 
-      if remote_machine.nil?
+      if ip.nil?
         Djinn.log_info("Waiting for a machine to have a copy of #{app_path}")
         Kernel.sleep(SMALL_WAIT)
         next
       end
 
-      ssh_key = remote_machine.ssh_key
-      ip = remote_machine.private_ip
+      # Get the ssh key to use for the remote machine.
+      ssh_key = ''
+      @nodes.each { |node| ssh_key = node.ssh_key if node.private_ip == ip }
+      if ssh_key.empty?
+        Djinn.log_info("Got invalid machine to retrieve code (#{ip}).")
+        next
+      end
+
       md5 = ZKInterface.get_revision_md5(revision_key, ip)
       Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
       RETRIES.downto(0) {
