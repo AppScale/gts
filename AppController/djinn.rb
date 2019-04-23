@@ -3090,7 +3090,7 @@ class Djinn
     @my_index = nil
     all_local_ips = HelperFunctions.get_all_local_ips
     if all_local_ips.length > 1
-      Djinn.log_warn("These node has multiple private IPs: " \
+      Djinn.log_warn("This node has multiple private IPs: " \
         "#{all_local_ips.join(', ')}")
     end
 
