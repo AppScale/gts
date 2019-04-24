@@ -378,57 +378,6 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_get_lock_when_somebody_else_has_it
-    # this test ensures that if we don't initially have the lock, we
-    # wait for it and try again
-
-    boo = 1
-
-    mocked_zk = flexmock("zk")
-    mocked_zk.should_receive(:connected?).and_return(false)
-    mocked_zk.should_receive(:close!)
-
-    # Mocks for Appcontroller root node
-    file_exists = {:rc => 0, :data => ZKInterface::DUMMY_DATA,
-      :stat => flexmock(:exists => true)}
-    mocked_zk.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_PATH).and_return(file_exists)
-
-    # Mocks for AppController lock file - the create should fail the first
-    # time since the file already exists, and the second time, it should
-    # succeed because the file doesn't exist (they've released the lock)
-    does_not_exist = {:rc => -1}
-    all_ok = {:rc => 0}
-    mocked_zk.should_receive(:create).times(2).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH,
-      :ephemeral => ZKInterface::EPHEMERAL, :data => "private_ip").
-      and_return(does_not_exist, all_ok)
-
-    # On the first get, the file exists (user2 has it)
-    get_response = {:rc => 0, :data => "private_ip2"}
-    mocked_zk.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return(get_response)
-
-    # Finally, we should get rid of the lock once we're done with it
-    mocked_zk.should_receive(:delete).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return(all_ok)
-
-    # mock out ZooKeeper's init stuff
-    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
-      and_return()
-    flexmock(Zookeeper).should_receive(:new).with("private_ip:2181",
-      ZKInterface::TIMEOUT).and_return(mocked_zk)
-
-    ZKInterface.init_to_ip("private_ip", "private_ip")
-    ZKInterface.lock_and_run {
-      boo = 2
-    }
-
-    assert_equal(2, boo)
-  end
-
   def test_start_roles_on_nodes_bad_input
     # Calling start_roles_on_nodes with something other than a Hash
     # isn't acceptable

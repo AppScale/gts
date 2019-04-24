@@ -57,15 +57,6 @@ class ZKInterface
   # for, to use as a lock.
   APPCONTROLLER_LOCK_PATH = "#{APPCONTROLLER_PATH}/lock".freeze
 
-  # The location in ZooKeeper that AppControllers write information about
-  # which Google App Engine apps require additional (or fewer) AppServers to
-  # handle the amount of traffic they are receiving.
-  SCALING_DECISION_PATH = "#{APPCONTROLLER_PATH}/scale".freeze
-
-  # The name of the file that nodes use to store the list of Google App Engine
-  # instances that the given node runs.
-  APP_INSTANCE = 'app_instance'.freeze
-
   ROOT_APP_PATH = '/apps'.freeze
 
   # The contents of files in ZooKeeper whose contents we don't care about
@@ -171,53 +162,6 @@ class ZKInterface
   # which was acquired via self.get_appcontroller_lock().
   def self.release_appcontroller_lock
     delete(APPCONTROLLER_LOCK_PATH)
-  end
-
-  # This method provides callers with an easier way to read and write to
-  # AppController data in ZooKeeper. This is useful for methods that aren't
-  # sure if they already have the ZooKeeper lock or not, but definitely need
-  # it and don't want to accidentally cause a deadlock (grabbing the lock when
-  # they already have it).
-  def self.lock_and_run(&block)
-    # Create the ZK lock path if it doesn't exist.
-    unless exists?(APPCONTROLLER_PATH)
-      set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
-    end
-
-    # Try to get the lock, and if we can't get it, see if we already have
-    # it. If we do, move on (but don't release it later since this block
-    # didn't grab it), and if we don't have it, try again.
-    got_lock = false
-    begin
-      if get_appcontroller_lock
-        got_lock = true
-      else # it may be that we already have the lock
-        info = run_zookeeper_operation {
-          @@zk.get(path: APPCONTROLLER_LOCK_PATH)
-        }
-        owner = JSON.load(info[:data])
-        if @@client_ip == owner
-          got_lock = false
-        else
-          raise "Tried to get the lock, but it's currently owned by #{owner}."
-        end
-      end
-    rescue => e
-      sleep_time = 5
-      Djinn.log_warn("Saw #{e.inspect}. Retrying in #{sleep_time} seconds.")
-      Kernel.sleep(sleep_time)
-      retry
-    end
-
-    begin
-      yield  # invoke the user's block, and catch any uncaught exceptions
-    rescue => except
-      Djinn.log_error("Ran caller's block but saw an Exception of class " \
-        "#{except.class}")
-      raise except
-    ensure
-      release_appcontroller_lock if got_lock
-    end
   end
 
   # Creates files in ZooKeeper that relate to a given AppController's

@@ -1785,7 +1785,7 @@ class Djinn
     @done_loading = true
 
     pick_zookeeper(@zookeeper_data)
-    write_our_node_info
+    set_done_status
 
     # We wait only for non autoscaled nodes.
     wait_for_nodes_to_finish_loading(nodes_to_wait)
@@ -2974,20 +2974,17 @@ class Djinn
     Djinn.log_debug("Found zookeeper server.")
   end
 
-  # Backs up information about what this node is doing (roles, apps it is
-  # running) to ZooKeeper, for later recovery or updates by other nodes.
-  def write_our_node_info
-    # Since more than one AppController could write its data at the same
-    # time, get a lock before we write to it.
-    begin
-      ZKInterface.lock_and_run {
+  # Set the done status in zookeeper.
+  def set_done_status
+    RETRIES.downto(0) { ||
+      begin
         ZKInterface.write_node_information(my_node, @done_loading)
-      }
-    rescue => e
-      Djinn.log_info("(write_our_node_info) saw exception #{e.message}")
-    end
-
-    return
+        return
+      rescue => e
+        Djinn.log_info("(set_done_status) retry after exception #{e.message}.")
+        next
+      end
+    }
   end
 
   # Returns information about the AppServer processes hosting App Engine apps on
