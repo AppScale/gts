@@ -3158,38 +3158,6 @@ class DatastoreDistributed():
       IOLoop.current().spawn_callback(self.enqueue_transactional_tasks, app,
                                       metadata['tasks'])
 
-  @gen.coroutine
-  def commit_transaction(self, app_id, http_request_data):
-    """ Handles the commit phase of a transaction.
-
-    Args:
-      app_id: The application ID requesting the transaction commit.
-      http_request_data: The encoded request of datastore_pb.Transaction.
-    Returns:
-      An encoded protocol buffer commit response.
-    """
-    transaction_pb = datastore_pb.Transaction(http_request_data)
-    txn_id = transaction_pb.handle()
-
-    try:
-      yield self.apply_txn_changes(app_id, txn_id)
-    except (dbconstants.TxTimeoutException, dbconstants.Timeout) as timeout:
-      raise gen.Return(('', datastore_pb.Error.TIMEOUT, str(timeout)))
-    except dbconstants.AppScaleDBConnectionError:
-      self.logger.exception('DB connection error during commit')
-      raise gen.Return(
-        ('', datastore_pb.Error.INTERNAL_ERROR,
-         'Datastore connection error on Commit request.'))
-    except dbconstants.ConcurrentModificationException as error:
-      raise gen.Return(
-        ('', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)))
-    except (dbconstants.TooManyGroupsException,
-            dbconstants.BadRequest) as error:
-      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
-
-    commitres_pb = datastore_pb.CommitResponse()
-    raise gen.Return((commitres_pb.Encode(), 0, ''))
-
   def rollback_transaction(self, app_id, txid):
     """ Handles the rollback phase of a transaction.
 
