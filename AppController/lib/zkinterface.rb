@@ -53,10 +53,6 @@ class ZKInterface
   # they've taken on.
   APPCONTROLLER_NODE_PATH = "#{APPCONTROLLER_PATH}/nodes".freeze
 
-  # The location in ZooKeeper that nodes will try to acquire an ephemeral node
-  # for, to use as a lock.
-  APPCONTROLLER_LOCK_PATH = "#{APPCONTROLLER_PATH}/lock".freeze
-
   ROOT_APP_PATH = '/apps'.freeze
 
   # The contents of files in ZooKeeper whose contents we don't care about
@@ -138,37 +134,14 @@ class ZKInterface
     set(APPCONTROLLER_STATE_PATH, JSON.dump(state), NOT_EPHEMERAL)
   end
 
-  # Gets a lock that AppControllers can use to have exclusive write access
-  # (between other AppControllers) to the ZooKeeper hierarchy located at
-  # APPCONTROLLER_PATH. It returns a boolean that indicates whether or not
-  # it was able to acquire the lock or not.
-  def self.get_appcontroller_lock
-    unless exists?(APPCONTROLLER_PATH)
-      set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
-    end
-
-    info = run_zookeeper_operation {
-      @@zk.create(path: APPCONTROLLER_LOCK_PATH, ephemeral: EPHEMERAL,
-                  data: @@client_ip)
-    }
-    return true if info[:rc].zero?
-
-    Djinn.log_warn("Couldn't get the AppController lock, saw info " \
-                   "#{info.inspect}")
-    false
-  end
-
-  # Releases the lock that AppControllers use to have exclusive write access,
-  # which was acquired via self.get_appcontroller_lock().
-  def self.release_appcontroller_lock
-    delete(APPCONTROLLER_LOCK_PATH)
-  end
-
   # Creates files in ZooKeeper that relate to a given AppController's
   # role information, so that other AppControllers can detect if it has
   # failed, and if so, what functionality it was providing at the time.
   def self.write_node_information(node, done_loading)
     # Create the folder for all nodes if it doesn't exist.
+    unless exists?(APPCONTROLLER_PATH)
+      set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
+    end
     unless exists?(APPCONTROLLER_NODE_PATH)
       run_zookeeper_operation {
         @@zk.create(path: APPCONTROLLER_NODE_PATH,
