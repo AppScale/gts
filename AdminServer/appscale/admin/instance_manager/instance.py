@@ -60,7 +60,10 @@ def create_java_app_env(deployment_config, runtime, project_id):
     A dictionary containing the environment variables
   """
   if runtime == JAVA8:
-    env_vars = {'APPLICATION_ID': project_id}
+    env_vars = {
+        'APPLICATION_ID': project_id,
+        'APPNAME': project_id  # Used by API proxy xmpp/channel implementation
+    }
   else:
     env_vars = {'APPSCALE_HOME': APPSCALE_HOME}
 
@@ -76,7 +79,7 @@ def create_java_app_env(deployment_config, runtime, project_id):
   return env_vars
 
 
-def create_java_start_cmd(app_name, port, external_port, load_balancer_host,
+def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host,
                           max_heap, pidfile, revision_key, api_server_port,
                           runtime):
   """ Creates the start command to run the java application server.
@@ -133,6 +136,7 @@ def create_java_start_cmd(app_name, port, external_port, load_balancer_host,
       '--login_server={}'.format(load_balancer_host),
       '--nginx_host={}'.format(load_balancer_host),
       '--xmpp_path={}'.format(options.load_balancer_ip),
+      '--external_api_port={}'.format(api_server_port),
       '--uaserver_path={}'.format(
         ':'.join([options.db_proxy, str(UA_SERVER_PORT)]))
     ]
