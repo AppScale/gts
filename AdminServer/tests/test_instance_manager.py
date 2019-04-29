@@ -243,8 +243,8 @@ class TestInstanceManager(AsyncTestCase):
     max_heap = 260
     pidfile = 'testpid'
     cmd = instance.create_java_start_cmd(
-      app_id, '20000', '127.0.0.2', max_heap, pidfile, revision_key, 19999,
-      'java')
+      app_id, '20000', '8080', '127.0.0.2', max_heap, pidfile, revision_key,
+      19999, 'java')
     assert app_id in cmd
 
   @gen_test

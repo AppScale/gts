@@ -76,13 +76,15 @@ def create_java_app_env(deployment_config, runtime, project_id):
   return env_vars
 
 
-def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
-                          pidfile, revision_key, api_server_port, runtime):
+def create_java_start_cmd(app_name, port, external_port, load_balancer_host,
+                          max_heap, pidfile, revision_key, api_server_port,
+                          runtime):
   """ Creates the start command to run the java application server.
 
   Args:
     app_name: The name of the application to run
     port: The local port the application server will bind to
+    load_balancer_port: The port of the load balancer
     load_balancer_host: The host of the load balancer
     max_heap: An integer specifying the max heap size in MB.
     pidfile: A string specifying the pidfile location.
@@ -119,8 +121,11 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
   ]
 
   if runtime == JAVA8:
-    api_server = os.path.join(JAVA8_RUNTIME_DIR, 'bin', 'appscale_java8_apiserver.sh')
+    api_server = os.path.join(JAVA8_RUNTIME_DIR, 'bin',
+                              'appscale_java8_apiserver.sh')
     cmd.append('--path_to_python_api_server={}'.format(api_server))
+    cmd.append('--default_hostname={}:{}'.format(load_balancer_host,
+                                                 load_balancer_port))
 
     api_server_flags = [
       '--datastore_path={}'.format(

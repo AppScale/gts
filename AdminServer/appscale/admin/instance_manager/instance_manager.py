@@ -159,6 +159,7 @@ class InstanceManager(object):
                                         max_memory)
 
     source_archive = version_details['deployment']['zip']['sourceUrl']
+    http_port = version_details['appscaleExtensions']['httpPort']
 
     api_server_port = yield self._ensure_api_server(version.project_id)
     yield self._source_manager.ensure_source(
@@ -195,6 +196,7 @@ class InstanceManager(object):
       start_cmd = create_java_start_cmd(
         version.project_id,
         port,
+        http_port,
         self._login_server,
         max_heap,
         pidfile,
