@@ -1129,7 +1129,7 @@ class DatastoreGroomer(threading.Thread):
 
     self.update_groomer_state([])
 
-    timestamp = datetime.datetime.utcnow()
+    timestamp = datetime.datetime.utcnow().replace(microsecond=0)
 
     self.update_statistics(timestamp)
     self.update_namespaces(timestamp)

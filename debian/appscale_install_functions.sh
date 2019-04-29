@@ -161,6 +161,11 @@ EOF
     # On distros with systemd, the open file limit must be adjusted for each
     # service.
     if which systemctl > /dev/null && [ "${IN_DOCKER}" != "yes" ]; then
+        mkdir -p /etc/systemd/system/monit.service.d
+        cat <<EOF > /etc/systemd/system/monit.service.d/override.conf
+[Service]
+LimitNOFILE=200000
+EOF
         mkdir -p /etc/systemd/system/nginx.service.d
         cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
 [Service]
