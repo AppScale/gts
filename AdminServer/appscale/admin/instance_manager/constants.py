@@ -3,7 +3,7 @@
 import os
 import urllib2
 
-from appscale.common.constants import APPSCALE_HOME, JAVA8_RUNTIME_DIR
+from appscale.common.constants import APPSCALE_HOME
 
 
 class BadConfigurationException(Exception):
@@ -106,11 +106,6 @@ MAX_INSTANCE_RESPONSE_TIME = 600
 MODIFIED_JARS = [
   os.path.join(REPACKED_LIB_DIR, 'user', '*.jar'),
   os.path.join(REPACKED_LIB_DIR, 'impl', 'appscale-*.jar'),
-  os.path.join('/', 'usr', 'share', 'appscale', 'ext', '*')
-]
-
-JAVA8_MODIFIED_JARS = [
-  os.path.join(JAVA8_RUNTIME_DIR, 'lib', 'user', '*.jar'),  # not modified, but copied for use
   os.path.join('/', 'usr', 'share', 'appscale', 'ext', '*')
 ]
 

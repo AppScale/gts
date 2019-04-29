@@ -235,9 +235,9 @@ def extract_source(revision_key, location, runtime):
       logger.debug(
         '{} does not have a gopath directory'.format(revision_key))
 
-  if runtime in (JAVA, JAVA8):
+  if runtime == JAVA:
     remove_conflicting_jars(app_path)
-    copy_modified_jars(app_path, runtime)
+    copy_modified_jars(app_path)
 
 
 def port_is_open(host, port):

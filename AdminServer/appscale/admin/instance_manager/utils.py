@@ -9,9 +9,8 @@ import subprocess
 
 from appscale.admin.constants import InvalidSource
 from appscale.admin.instance_manager.constants import (
-  CONFLICTING_JARS, JAVA8_MODIFIED_JARS, LOGROTATE_CONFIG_DIR, MODIFIED_JARS,
-  MONIT_INSTANCE_PREFIX)
-from appscale.common.constants import CONFIG_DIR, JAVA8
+  CONFLICTING_JARS, LOGROTATE_CONFIG_DIR, MODIFIED_JARS, MONIT_INSTANCE_PREFIX)
+from appscale.common.constants import CONFIG_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -69,12 +68,11 @@ def copy_files_matching_pattern(file_path_pattern, dest):
     shutil.copy(file, dest)
 
 
-def copy_modified_jars(source_path, runtime):
+def copy_modified_jars(source_path):
   """ Copies AppScale SDK modifications to the lib folder.
 
   Args:
     source_path: A string specifying the location of the source code.
-    runtime: A string specifying the runtime.
   """
   web_inf_dir = find_web_inf(source_path)
   lib_dir = os.path.join(web_inf_dir, 'lib')
@@ -83,11 +81,7 @@ def copy_modified_jars(source_path, runtime):
     logger.info('Creating lib directory: {}'.format(lib_dir))
     os.mkdir(lib_dir)
 
-  source_jars = MODIFIED_JARS
-  if runtime == JAVA8:
-    source_jars = JAVA8_MODIFIED_JARS
-
-  for pattern in source_jars:
+  for pattern in MODIFIED_JARS:
     copy_files_matching_pattern(pattern, lib_dir)
 
 
