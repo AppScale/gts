@@ -47,7 +47,7 @@ JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
 PYTHON27_RUNTIME_DIR = os.path.join(APPSCALE_HOME, 'AppServer')
 
 # The directory where the java8 runtime is installed.
-JAVA8_RUNTIME_DIR = os.path.join('/opt', 'appscale-java8-runtime')
+JAVA8_RUNTIME_DIR = os.path.join('/opt', 'appscale_java8_runtime')
 
 # The format each service should use for logging.
 LOG_FORMAT = '%(asctime)s %(levelname)s %(filename)s:%(lineno)s %(message)s '
