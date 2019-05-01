@@ -6,6 +6,7 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require 'cron_helper'
 
 require 'rubygems'
+require 'test/unit'
 require 'flexmock/test_unit'
 
 
@@ -87,6 +88,25 @@ class TestCronHelper < Test::Unit::TestCase
     # Test format:
     # ("every"|ordinal) (days) ["of" (monthspec)] (time)
     # TODO
+    schedule = '2 of month 16:00'
+    expected = ['0 16 2 * *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    schedule = '2 of jan,feb,march,april,may,june,july,aug,sep,oct,nov,dec 16:00'
+    expected = ['0 16 2 jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    schedule = '2 of jan, feb, march, april, may, june, july, aug, sep, oct, nov, dec 16:00'
+    expected = ['0 16 2 jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+
+    schedule = '2 of jan , feb , march, april, may, june, july, aug, sep, oct, nov, dec 16:00'
+    expected = ['0 16 2 jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec *']
+    actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
 
     # Test format:
     # every N (hours|mins|minutes) "from" (time) "to" (time)
@@ -266,6 +286,82 @@ class TestCronHelper < Test::Unit::TestCase
       '0 5 * * *'
     ]
     actual = CronHelper.convert_messy_format(schedule)
+    self.assert_equal(expected, actual)
+  end
+
+  def test_generate_simple_cron
+    expected = ['0 0 * * *']
+    actual = CronHelper.simple_cron_lines(24, 'hours')
+    self.assert_equal(expected, actual)
+
+    expected = ['0 0 * * *']
+    actual = CronHelper.simple_cron_lines(1440, 'mins')
+    self.assert_equal(expected, actual)
+
+    expected = ['0 0 * * *']
+    actual = CronHelper.simple_cron_lines(1440, 'minutes')
+    self.assert_equal(expected, actual)
+
+    expected = ['0 */1 * * *']
+    actual = CronHelper.simple_cron_lines(1, 'hours')
+    self.assert_equal(expected, actual)
+
+    expected = ['0 */3 * * *']
+    actual = CronHelper.simple_cron_lines(180, 'mins')
+    self.assert_equal(expected, actual)
+
+    expected = ['*/15 * * * *']
+    actual = CronHelper.simple_cron_lines(15, 'minutes')
+    self.assert_equal(expected, actual)
+
+    expected = ['*/30 * * * *']
+    actual = CronHelper.simple_cron_lines(30, 'minutes')
+    self.assert_equal(expected, actual)
+
+    expected = [
+        '0,45 0,3,6,9,12,15,18,21 * * *',
+        '30 1,4,7,10,13,16,19,22 * * *',
+        '15 2,5,8,11,14,17,20,23 * * *',
+    ]
+    actual = CronHelper.simple_cron_lines(45, 'minutes')
+    self.assert_equal(expected, actual)
+
+    expected = [
+        '0 0,3,6,9,12,15,18,21 * * *',
+        '30 1,4,7,10,13,16,19,22 * * *',
+    ]
+    actual = CronHelper.simple_cron_lines(90, 'minutes')
+    self.assert_equal(expected, actual)
+
+    expected = [
+        '0 0 * * *'
+    ]
+    actual = CronHelper.simple_cron_lines(13, 'hours')
+    self.assert_equal(expected, actual)
+
+    expected = [
+        '0,19,38,57 0,19 * * *',
+        '16,35,54 1,20 * * *',
+        '13,32,51 2,21 * * *',
+        '10,29,48 3,22 * * *',
+        '7,26 4,23 * * *',
+        '45 4 * * *',
+        '4,23,42 5 * * *',
+        '1,20,39,58 6 * * *',
+        '17,36,55 7 * * *',
+        '14,33,52 8 * * *',
+        '11,30,49 9 * * *',
+        '8,27,46 10 * * *',
+        '5,24,43 11 * * *',
+        '2,21,40,59 12 * * *',
+        '18,37,56 13 * * *',
+        '15,34,53 14 * * *',
+        '12,31,50 15 * * *',
+        '9,28,47 16 * * *',
+        '6,25,44 17 * * *',
+        '3,22,41 18 * * *'
+    ]
+    actual = CronHelper.simple_cron_lines(19, 'mins')
     self.assert_equal(expected, actual)
   end
 
