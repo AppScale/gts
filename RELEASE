@@ -5,6 +5,13 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.7.1, released April 2019
+Highlights of features and defects fixed in this release:
+ - Update cron when login property is changed
+
+Known Issues:
+
+
 AppScale version 3.7.0, released April 2019
 Highlights of features and defects fixed in this release:
  - InfrastructureManager restructure
