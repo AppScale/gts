@@ -355,7 +355,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     misses = 0
     byte_hits = 0
     items = 0
-    bytes = 0
+    byte_count = 0
     oldest_item_age = 0
     for server in six.itervalues(self._memcache.clients):
       server_stats = server.stats()
@@ -363,7 +363,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       misses += server_stats.get('get_misses', 0)
       byte_hits += server_stats.get('bytes_read', 0)
       items += server_stats.get('curr_items', 0)
-      bytes += server_stats.get('bytes', 0)
+      byte_count += server_stats.get('bytes', 0)
 
       # Using the "age" field may not be correct here. The GAE docs claim this
       # should specify "how long in seconds since the oldest item in the cache
@@ -378,5 +378,5 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     stats.set_misses(misses)
     stats.set_byte_hits(byte_hits)
     stats.set_items(items)
-    stats.set_bytes(bytes)
+    stats.set_bytes(byte_count)
     stats.set_oldest_item_age(oldest_item_age)
