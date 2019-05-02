@@ -51,10 +51,10 @@ class TestZKInterface < Test::Unit::TestCase
       and_return(file_does_not_exist)
 
     # creating those files should be fine
-    zk.should_receive(:create).with(:path => ip1_path, 
+    zk.should_receive(:create).with(:path => ip1_path,
       :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "md5-1").
       and_return(all_ok)
-    zk.should_receive(:create).with(:path => ip2_path, 
+    zk.should_receive(:create).with(:path => ip2_path,
       :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "md5-1").
       and_return(all_ok)
 
@@ -67,7 +67,7 @@ class TestZKInterface < Test::Unit::TestCase
     ip1_data = {
       'public_ip' => 'ip1',
       'private_ip' => 'ip1',
-      'jobs' => 'compute',
+      'roles' => 'compute',
       'instance_id' => 'i-id1',
       'disk' => nil
     }
@@ -79,7 +79,7 @@ class TestZKInterface < Test::Unit::TestCase
     ip2_data = {
       'public_ip' => 'ip2',
       'private_ip' => 'ip2',
-      'jobs' => 'compute',
+      'roles' => 'compute',
       'instance_id' => 'i-id2',
       'disk' => nil
     }
@@ -96,11 +96,11 @@ class TestZKInterface < Test::Unit::TestCase
 
     # mocks for zookeeper initialization
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
-      and_return() 
+      and_return()
     flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
       ZKInterface::TIMEOUT).and_return(zk)
 
-    # first, make a connection to zookeeper 
+    # first, make a connection to zookeeper
     ZKInterface.init_to_ip("public_ip", "public_ip")
 
     # next, add two app entries

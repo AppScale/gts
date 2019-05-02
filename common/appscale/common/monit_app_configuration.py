@@ -19,7 +19,7 @@ MONIT_CONFIG_DIR = '/etc/monit/conf.d'
 
 def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
                        max_memory=None, syslog_server=None, check_port=False,
-                       kill_exceeded_memory=False):
+                       kill_exceeded_memory=False, log_tag=None):
   """ Writes a monit configuration file for a service.
 
   Args:
@@ -35,6 +35,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
     kill_exceeded_memory: A boolean indicating that a process should be killed
       (instead of terminated). This is used when the process exceeds its memory
       limit.
+    log_tag: The tag to use with logging. Default is to derive from watch.
   """
   if check_port:
     assert port is not None, 'When using check_port, port must be defined'
@@ -64,15 +65,18 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
   logfile = os.path.join(
     '/', 'var', 'log', 'appscale', '{}.log'.format(process_name))
 
+  if not log_tag:
+    log_tag = version_group
+
   if syslog_server is None:
     bash_exec = 'exec env {vars} {start_cmd} >> {log} 2>&1'.format(
       vars=env_vars_str, start_cmd=start_cmd, log=logfile)
   else:
     bash_exec = (
       'exec env {vars} {start_cmd} 2>&1 | tee -a {log} | '
-      'logger -t {version} -u /tmp/ignored -n {syslog_server} -P 514'
+      'logger -t {log_tag} -u /tmp/ignored -n {syslog_server} -P 514'
     ).format(vars=env_vars_str, start_cmd=start_cmd, log=logfile,
-             version=version_group, syslog_server=syslog_server)
+             log_tag=log_tag, syslog_server=syslog_server)
 
   start_line = ' '.join([
     start_stop_daemon,

@@ -45,12 +45,12 @@
   </context-param>
 
   <filter>
-    <filter-name>_ah_DevAppServerServersFilter</filter-name>
+    <filter-name>_ah_DevAppServerModulesFilter</filter-name>
     <filter-class>
-      com.google.appengine.tools.development.DevAppServerServersFilter
+      com.google.appengine.tools.development.DevAppServerModulesFilter
     </filter-class>
   </filter>
-  
+
   <filter>
     <filter-name>_ah_StaticFileFilter</filter-name>
     <filter-class>
@@ -77,12 +77,6 @@
     </filter-class>
   </filter>
 
-<!-- add for AppScale -->
-  <filter>
-    <filter-name>appscale-java-blobRedirect</filter-name>
-    <filter-class>com.google.appengine.api.blobstore.dev.BlobServiceRedirectFilter</filter-class>
-  </filter>
-
   <filter>
     <filter-name>_ah_HeaderVerificationFilter</filter-name>
     <filter-class>
@@ -90,8 +84,22 @@
     </filter-class>
   </filter>
 
+  <filter>
+    <filter-name>_ah_DevSocketFilter</filter-name>
+    <filter-class>
+      com.google.appengine.api.socket.dev.DevSocketFilter
+    </filter-class>
+  </filter>
+
+  <filter>
+    <filter-name>_ah_ResponseRewriterFilter</filter-name>
+    <filter-class>
+      com.google.appengine.tools.development.ResponseRewriterFilter
+    </filter-class>
+  </filter>
+
   <filter-mapping>
-    <filter-name>_ah_DevAppServerServersFilter</filter-name>
+    <filter-name>_ah_DevAppServerModulesFilter</filter-name>
     <url-pattern>/*</url-pattern>
     <!-- match both real and forwarded requests -->
     <dispatcher>FORWARD</dispatcher>
@@ -118,20 +126,20 @@
     <url-pattern>/*</url-pattern>
   </filter-mapping>
 
-<!-- add for AppScale -->
   <filter-mapping>
-    <filter-name>appscale-java-blobRedirect</filter-name>
+    <filter-name>_ah_ResponseRewriterFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <!-- Note that filters after this point must not use java sockets. -->
+  <filter-mapping>
+    <filter-name>_ah_DevSocketFilter</filter-name>
     <url-pattern>/*</url-pattern>
   </filter-mapping>
 
   <servlet>
     <servlet-name>_ah_default</servlet-name>
     <servlet-class>com.google.appengine.tools.development.LocalResourceFileServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_blobUpload</servlet-name>
-    <servlet-class>com.google.appengine.api.blobstore.dev.UploadBlobServlet</servlet-class>
   </servlet>
 
   <servlet>
@@ -142,11 +150,6 @@
   <servlet>
     <servlet-name>_ah_channelServeScript</servlet-name>
     <servlet-class>com.google.appengine.api.channel.dev.ServeScriptServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_channelLocalChannel</servlet-name>
-    <servlet-class>com.google.appengine.api.channel.dev.LocalChannelServlet</servlet-class>
   </servlet>
 
   <!-- ==================================================================== -->
@@ -271,244 +274,11 @@
   </servlet>
 
   <servlet>
-    <servlet-name>_ah_oauthGetRequestToken</servlet-name>
-    <servlet-class>com.google.appengine.api.users.dev.LocalOAuthRequestTokenServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>_ah_oauthAuthorizeToken</servlet-name>
-    <servlet-class>com.google.appengine.api.users.dev.LocalOAuthAuthorizeTokenServlet</servlet-class>
-  </servlet>
-  <servlet>
-    <servlet-name>_ah_oauthGetAccessToken</servlet-name>
-    <servlet-class>com.google.appengine.api.users.dev.LocalOAuthAccessTokenServlet</servlet-class>
-  </servlet>
-
-  <servlet>
     <servlet-name>_ah_queue_deferred</servlet-name>
     <servlet-class>com.google.apphosting.utils.servlet.DeferredTaskServlet</servlet-class>
   </servlet>
 
-  <servlet>
-    <servlet-name>_ah_sessioncleanup</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.SessionCleanupServlet</servlet-class>
-  </servlet>
-
-  <!-- Admin console servlets -->
-  <servlet>
-    <servlet-name>_ah_capabilitiesViewer</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.CapabilitiesStatusServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_datastoreViewer</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.DatastoreViewerServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_backends</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.ServersServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_taskqueueViewer</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.TaskQueueViewerServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_xmpp</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.XmppServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_inboundMail</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.InboundMailServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_search</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.SearchServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_resources</servlet-name>
-    <servlet-class>com.google.apphosting.utils.servlet.AdminConsoleResourceServlet</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_adminConsole</servlet-name>
-    <servlet-class>org.apache.jsp.ah.adminConsole_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_datastoreViewerHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.datastoreViewerHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_datastoreViewerBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.datastoreViewerBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_datastoreViewerFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.datastoreViewerFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchIndexesListHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchIndexesListHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchIndexesListBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchIndexesListBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchIndexesListFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchIndexesListFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchIndexHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchIndexHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchIndexBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchIndexBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchIndexFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchIndexFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchDocumentHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchDocumentHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchDocumentBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchDocumentBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_searchDocumentFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.searchDocumentFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_capabilitiesStatusHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.capabilitiesStatusHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_capabilitiesStatusBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.capabilitiesStatusBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_capabilitiesStatusFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.capabilitiesStatusFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_entityDetailsHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.entityDetailsHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_entityDetailsBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.entityDetailsBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_entityDetailsFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.entityDetailsFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_indexDetailsHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.indexDetailsHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_indexDetailsBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.indexDetailsBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_indexDetailsFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.indexDetailsFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_backendsHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.backendsHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_backendsBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.backendsBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_backendsFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.backendsFinal_jsp</servlet-class>
-  </servlet>
-  
-  <servlet>
-    <servlet-name>_ah_taskqueueViewerHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.taskqueueViewerHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_taskqueueViewerBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.taskqueueViewerBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_taskqueueViewerFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.taskqueueViewerFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_xmppHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.xmppHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_xmppBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.xmppBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_xmppFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.xmppFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_inboundMailHead</servlet-name>
-    <servlet-class>org.apache.jsp.ah.inboundMailHead_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_inboundMailBody</servlet-name>
-    <servlet-class>org.apache.jsp.ah.inboundMailBody_jsp</servlet-class>
-  </servlet>
-
-  <servlet>
-    <servlet-name>_ah_inboundMailFinal</servlet-name>
-    <servlet-class>org.apache.jsp.ah.inboundMailFinal_jsp</servlet-class>
-  </servlet>
-
-  <servlet-mapping>
-    <servlet-name>_ah_sessioncleanup</servlet-name>
-    <url-pattern>/_ah/sessioncleanup</url-pattern>
-  </servlet-mapping>
-
+  <!-- Servlet mappings -->
   <servlet-mapping>
     <servlet-name>_ah_default</servlet-name>
     <url-pattern>/</url-pattern>
@@ -525,239 +295,6 @@
   </servlet-mapping>
 
   <servlet-mapping>
-    <servlet-name>_ah_oauthGetRequestToken</servlet-name>
-    <url-pattern>/_ah/OAuthGetRequestToken</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>_ah_oauthAuthorizeToken</servlet-name>
-    <url-pattern>/_ah/OAuthAuthorizeToken</url-pattern>
-  </servlet-mapping>
-  <servlet-mapping>
-    <servlet-name>_ah_oauthGetAccessToken</servlet-name>
-    <url-pattern>/_ah/OAuthGetAccessToken</url-pattern>
-  </servlet-mapping>
-
-  <!-- Admin console servlet mappings -->
-
-  <!-- "External" mappings.  These need to remain stable. -->
-  <servlet-mapping>
-    <!-- Datastore viewer is the default admin console ui.-->
-    <servlet-name>_ah_datastoreViewer</servlet-name>
-    <url-pattern>/_ah/admin</url-pattern>
-  </servlet-mapping>
-
-  <!-- Second mapping with trailing slash since users may type URL manually -->
-  <servlet-mapping>
-    <servlet-name>_ah_datastoreViewer</servlet-name>
-    <url-pattern>/_ah/admin/</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_datastoreViewer</servlet-name>
-    <url-pattern>/_ah/admin/datastore</url-pattern>
-  </servlet-mapping>
-
-      <servlet-mapping>
-    <servlet-name>_ah_capabilitiesViewer</servlet-name>
-    <url-pattern>/_ah/admin/capabilitiesstatus</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_backends</servlet-name>
-    <url-pattern>/_ah/admin/backends</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_taskqueueViewer</servlet-name>
-    <url-pattern>/_ah/admin/taskqueue</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_xmpp</servlet-name>
-    <url-pattern>/_ah/admin/xmpp</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_inboundMail</servlet-name>
-    <url-pattern>/_ah/admin/inboundmail</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_search</servlet-name>
-    <url-pattern>/_ah/admin/search</url-pattern>
-  </servlet-mapping>
-
-  <!-- "Internal" mappings - should only be invoked from within other pages.
-       These can change. -->
-
-  <!-- Prepares all admin console pages for rendering. All servlets should
-       forward to this url. -->
-  <servlet-mapping>
-    <servlet-name>_ah_adminConsole</servlet-name>
-    <url-pattern>/_ah/adminConsole</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_resources</servlet-name>
-    <url-pattern>/_ah/resources</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_datastoreViewerHead</servlet-name>
-    <url-pattern>/_ah/datastoreViewerHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_datastoreViewerBody</servlet-name>
-    <url-pattern>/_ah/datastoreViewerBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_datastoreViewerFinal</servlet-name>
-    <url-pattern>/_ah/datastoreViewerFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchIndexesListHead</servlet-name>
-    <url-pattern>/_ah/searchIndexesListHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchIndexesListBody</servlet-name>
-    <url-pattern>/_ah/searchIndexesListBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchIndexesListFinal</servlet-name>
-    <url-pattern>/_ah/searchIndexesListFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchIndexHead</servlet-name>
-    <url-pattern>/_ah/searchIndexHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchIndexBody</servlet-name>
-    <url-pattern>/_ah/searchIndexBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchIndexFinal</servlet-name>
-    <url-pattern>/_ah/searchIndexFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchDocumentHead</servlet-name>
-    <url-pattern>/_ah/searchDocumentHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchDocumentBody</servlet-name>
-    <url-pattern>/_ah/searchDocumentBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_searchDocumentFinal</servlet-name>
-    <url-pattern>/_ah/searchDocumentFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_entityDetailsHead</servlet-name>
-    <url-pattern>/_ah/entityDetailsHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_entityDetailsBody</servlet-name>
-    <url-pattern>/_ah/entityDetailsBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_entityDetailsFinal</servlet-name>
-    <url-pattern>/_ah/entityDetailsFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_indexDetailsHead</servlet-name>
-    <url-pattern>/_ah/indexDetailsHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_indexDetailsBody</servlet-name>
-    <url-pattern>/_ah/indexDetailsBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_indexDetailsFinal</servlet-name>
-    <url-pattern>/_ah/indexDetailsFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_backendsHead</servlet-name>
-    <url-pattern>/_ah/backendsHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_backendsBody</servlet-name>
-    <url-pattern>/_ah/backendsBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_backendsFinal</servlet-name>
-    <url-pattern>/_ah/backendsFinal</url-pattern>
-  </servlet-mapping>
-  
-  <servlet-mapping>
-    <servlet-name>_ah_taskqueueViewerHead</servlet-name>
-    <url-pattern>/_ah/taskqueueViewerHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_taskqueueViewerBody</servlet-name>
-    <url-pattern>/_ah/taskqueueViewerBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_taskqueueViewerFinal</servlet-name>
-    <url-pattern>/_ah/taskqueueViewerFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_xmppHead</servlet-name>
-    <url-pattern>/_ah/xmppHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_xmppBody</servlet-name>
-    <url-pattern>/_ah/xmppBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_xmppFinal</servlet-name>
-    <url-pattern>/_ah/xmppFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_inboundMailHead</servlet-name>
-    <url-pattern>/_ah/inboundmailHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_inboundMailBody</servlet-name>
-    <url-pattern>/_ah/inboundmailBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_inboundMailFinal</servlet-name>
-    <url-pattern>/_ah/inboundmailFinal</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_blobUpload</servlet-name>
-    <url-pattern>/_ah/upload/*</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
     <servlet-name>_ah_blobImage</servlet-name>
     <url-pattern>/_ah/img/*</url-pattern>
   </servlet-mapping>
@@ -768,28 +305,8 @@
   </servlet-mapping>
 
   <servlet-mapping>
-    <servlet-name>_ah_channelLocalChannel</servlet-name>
-    <url-pattern>/_ah/channel/dev</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
     <servlet-name>_ah_queue_deferred</servlet-name>
     <url-pattern>/_ah/queue/__deferred__</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_capabilitiesStatusHead</servlet-name>
-    <url-pattern>/_ah/capabilitiesstatusHead</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_capabilitiesStatusBody</servlet-name>
-    <url-pattern>/_ah/capabilitiesstatusBody</url-pattern>
-  </servlet-mapping>
-
-  <servlet-mapping>
-    <servlet-name>_ah_capabilitiesStatusFinal</servlet-name>
-    <url-pattern>/_ah/capabilitiesstatusFinal</url-pattern>
   </servlet-mapping>
 
   <security-constraint>
