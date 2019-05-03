@@ -74,14 +74,16 @@ public class DatastoreSessionManager extends AbstractSessionManager {
         session._invalid = (boolean)entity.getProperty("_invalid");
 
         Blob blob = (Blob)entity.getProperty("_values");
-        try {
-            ByteArrayInputStream bais = new ByteArrayInputStream(blob.getBytes());
-            ObjectInputStream ois = new ObjectInputStream(bais);
-            session._values = (HashMap<String, Object>)ois.readObject();
-            ois.close();
-            bais.close();
-        } catch (ClassNotFoundException | IOException error) {
-            throw new RuntimeException(error);
+        if (blob != null) {
+            try {
+                ByteArrayInputStream bais = new ByteArrayInputStream(blob.getBytes());
+                ObjectInputStream ois = new ObjectInputStream(bais);
+                session._values = (HashMap<String, Object>)ois.readObject();
+                ois.close();
+                bais.close();
+            } catch (ClassNotFoundException | IOException error) {
+                throw new RuntimeException(error);
+            }
         }
 
         return session;
