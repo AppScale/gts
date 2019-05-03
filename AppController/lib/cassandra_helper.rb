@@ -1,6 +1,6 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 require 'djinn'
-require 'djinn_job_data'
+require 'node_info'
 require 'helperfunctions'
 require 'monit_interface'
 require 'set'

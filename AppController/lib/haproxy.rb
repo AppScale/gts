@@ -313,15 +313,6 @@ defaults
   # The maximum inactivity time allowed for a server.
   timeout server #{HAPROXY_SERVER_TIMEOUT}s
 
-  # Enable the statistics page
-  stats enable
-  stats uri     /haproxy?stats
-  stats realm   Haproxy\ Statistics
-  stats auth    haproxy:stats
-
-  # Create a monitorable URI which returns a 200 if haproxy is up
-  # monitor-uri /haproxy?monitor
-
   # Amount of time after which a health check is considered to have timed out
   timeout check 5000
 

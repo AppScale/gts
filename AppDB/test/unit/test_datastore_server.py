@@ -281,26 +281,6 @@ class TestDatastoreServer(testing.AsyncTestCase):
     })
     self.assertEqual(fetched[1], ['test\x00blah\x00test_kind:bob\x01'])
 
-  @testing.gen_test
-  def test_commit_transaction(self):
-    db_batch = flexmock()
-    db_batch.should_receive('valid_data_version_sync').and_return(True)
-
-    zk_client = flexmock()
-    zk_client.should_receive('add_listener')
-
-    zookeeper = flexmock(handle=zk_client)
-    transaction_manager = flexmock(
-      delete_transaction_id=lambda project, txid: None)
-    dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
-    flexmock(dd).should_receive('apply_txn_changes').and_return(ASYNC_NONE)
-    commit_request = datastore_pb.Transaction()
-    commit_request.set_handle(123)
-    commit_request.set_app("aaa")
-    http_request = commit_request.Encode()
-    result = yield dd.commit_transaction("app_id", http_request)
-    self.assertEquals(result, (datastore_pb.CommitResponse().Encode(), 0, ""))
-
   def test_rollback_transcation(self):
     db_batch = flexmock()
     db_batch.should_receive('valid_data_version_sync').and_return(True)

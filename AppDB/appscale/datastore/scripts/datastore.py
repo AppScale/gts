@@ -339,9 +339,26 @@ class MainHandler(tornado.web.RequestHandler):
         ('', datastore_pb.Error.CAPABILITY_DISABLED,
          'Datastore is in read-only mode.'))
 
-    result = yield datastore_access.commit_transaction(
-      app_id, http_request_data)
-    raise gen.Return(result)
+    txid = datastore_pb.Transaction(http_request_data).handle()
+
+    try:
+      yield datastore_access.apply_txn_changes(app_id, txid)
+    except (dbconstants.TxTimeoutException, dbconstants.Timeout) as timeout:
+      raise gen.Return(('', datastore_pb.Error.TIMEOUT, str(timeout)))
+    except dbconstants.AppScaleDBConnectionError:
+      logger.exception('DB connection error during commit')
+      raise gen.Return(
+        ('', datastore_pb.Error.INTERNAL_ERROR,
+         'Datastore connection error on Commit request.'))
+    except dbconstants.ConcurrentModificationException as error:
+      raise gen.Return(
+        ('', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)))
+    except (dbconstants.TooManyGroupsException,
+            dbconstants.BadRequest) as error:
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
+
+    commitres_pb = datastore_pb.CommitResponse()
+    raise gen.Return((commitres_pb.Encode(), 0, ''))
 
   def rollback_transaction_request(self, app_id, http_request_data):
     """ Handles the rollback phase of a transaction.

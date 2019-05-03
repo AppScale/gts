@@ -2171,15 +2171,21 @@ class DatastoreDistributed():
 
   @staticmethod
   @gen.coroutine
-  def _common_refs_from_ranges(ranges, limit):
+  def _common_refs_from_ranges(ranges, limit, path=None):
     """ Find common entries across multiple index ranges.
 
     Args:
       ranges: A list of RangeIterator objects.
       limit: An integer specifying the maximum number of references to find.
+      path: An entity_pb.Path object that restricts the query to a single key.
     Returns:
       A dictionary mapping entity references to index entries.
     """
+    if path is not None:
+      limit = 1
+      for range_ in ranges:
+        range_.set_cursor(path, inclusive=True)
+
     reference_hash = {}
     min_common_path = ranges[0].get_cursor()
     entries_exhausted = False
@@ -2264,9 +2270,24 @@ class DatastoreDistributed():
     # We only use references from the ascending property table.
     direction = datastore_pb.Query_Order.ASCENDING
 
+    prop_filters = [filter_ for filter_ in query.filter_list()
+                    if filter_.property(0).name() != '__key__']
     ranges = [RangeIterator.from_filter(self.datastore_batch, app_id,
                                         query.name_space(), kind, filter_)
-              for filter_ in query.filter_list()]
+              for filter_ in prop_filters]
+
+    # Check if the query is restricted to a single key.
+    path = None
+    key_filters = [filter_ for filter_ in query.filter_list()
+                   if filter_.property(0).name() == '__key__']
+    if len(key_filters) > 1:
+      raise BadRequest('Queries can only specify one key')
+
+    if key_filters:
+      path = entity_pb.Path()
+      ref_val = key_filters[0].property(0).value().referencevalue()
+      for element in ref_val.pathelement_list():
+        path.add_element().MergeFrom(element)
 
     if query.has_ancestor():
       for range_ in ranges:
@@ -2280,7 +2301,8 @@ class DatastoreDistributed():
 
     entities = []
     while True:
-      reference_hash = yield self._common_refs_from_ranges(ranges, fetch_count)
+      reference_hash = yield self._common_refs_from_ranges(
+        ranges, fetch_count, path)
       new_entities = yield self.__fetch_and_validate_entity_set(
         reference_hash, fetch_count, app_id, direction)
       entities.extend(new_entities)
@@ -3210,38 +3232,6 @@ class DatastoreDistributed():
     if metadata['tasks']:
       IOLoop.current().spawn_callback(self.enqueue_transactional_tasks, app,
                                       metadata['tasks'])
-
-  @gen.coroutine
-  def commit_transaction(self, app_id, http_request_data):
-    """ Handles the commit phase of a transaction.
-
-    Args:
-      app_id: The application ID requesting the transaction commit.
-      http_request_data: The encoded request of datastore_pb.Transaction.
-    Returns:
-      An encoded protocol buffer commit response.
-    """
-    transaction_pb = datastore_pb.Transaction(http_request_data)
-    txn_id = transaction_pb.handle()
-
-    try:
-      yield self.apply_txn_changes(app_id, txn_id)
-    except (dbconstants.TxTimeoutException, dbconstants.Timeout) as timeout:
-      raise gen.Return(('', datastore_pb.Error.TIMEOUT, str(timeout)))
-    except dbconstants.AppScaleDBConnectionError:
-      self.logger.exception('DB connection error during commit')
-      raise gen.Return(
-        ('', datastore_pb.Error.INTERNAL_ERROR,
-         'Datastore connection error on Commit request.'))
-    except dbconstants.ConcurrentModificationException as error:
-      raise gen.Return(
-        ('', datastore_pb.Error.CONCURRENT_TRANSACTION, str(error)))
-    except (dbconstants.TooManyGroupsException,
-            dbconstants.BadRequest) as error:
-      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST, str(error)))
-
-    commitres_pb = datastore_pb.CommitResponse()
-    raise gen.Return((commitres_pb.Encode(), 0, ''))
 
   def rollback_transaction(self, app_id, txid):
     """ Handles the rollback phase of a transaction.
