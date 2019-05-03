@@ -83,7 +83,7 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
     '--start',
     '--background',
     '--pidfile', pidfile,
-    '--startas', "{} -- -c '{}'".format(bash, bash_exec)
+    '--startas', "{} -- -c 'unset \"${{!MONIT_@}}\"; {}'".format(bash, bash_exec)
   ])
   stop_line = '{} --watch {}'.format(stop_instance, process_name)
 
