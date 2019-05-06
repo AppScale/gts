@@ -806,14 +806,14 @@ class TestDatastoreServer(testing.AsyncTestCase):
     dd = DatastoreDistributed(db_batch, transaction_manager, zookeeper)
     flexmock(dd).should_receive("is_zigzag_merge_join").and_return(False)
     result = yield dd.zigzag_merge_join(None, None, None)
-    self.assertEquals(result, None)
+    self.assertEquals(result, (None, False))
 
     filter_info = {
       "prop1": [(datastore_pb.Query_Filter.EQUAL, "1")],
       "prop2": [(datastore_pb.Query_Filter.EQUAL, "2")]
     }
     result = yield dd.zigzag_merge_join(query, filter_info, [])
-    self.assertEquals(result, None)
+    self.assertEquals(result, (None, False))
 
   def test_index_deletions(self):
     old_entity = self.get_new_entity_proto(*self.BASIC_ENTITY)

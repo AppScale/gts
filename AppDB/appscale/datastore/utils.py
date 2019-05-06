@@ -180,7 +180,6 @@ class UnprocessedQueryCursor(appscale_stub_util.QueryCursor):
     else:
       result_list = []
     result.set_keys_only(self.__query.keys_only())
-    result.set_more_results(offset < count)
     if self.__binary_results or self.__last_ent:
       self._EncodeCompiledCursor(result.mutable_compiled_cursor())
 
