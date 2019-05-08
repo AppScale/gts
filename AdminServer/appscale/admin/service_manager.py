@@ -282,7 +282,7 @@ class DatastoreServer(Server):
     Raises:
       StartTimeout if start time exceeds given timeout.
     """
-    server_url = 'http://localhost:{}'.format(self.port)
+    server_url = 'http://{}:{}'.format(options.private_ip, self.port)
     start_time = time.time()
     try:
       while True:
