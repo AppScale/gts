@@ -85,12 +85,10 @@ class TestCassandraBackup(unittest.TestCase):
       method=subprocess.call).and_return(0)
 
     flexmock(appscale_utils).should_receive('ssh').with_args(
-      re.compile('^192.*'), keyname, 'monit summary',
-      method=subprocess.check_output).and_return('summary output')
-    status_outputs = (['Not monitored'] * len(db_ips)) +\
-                     (['Running'] * len(db_ips))
-    flexmock(utils).should_receive('monit_status').\
-      and_return(*status_outputs).one_by_one()
+      re.compile('^192.*'), keyname, 'appscale-admin summary',
+      method=subprocess.check_output).and_return(
+      ['cassandra unmonitored'] * len(db_ips) +
+      ['cassandra running'] * len(db_ips)).one_by_one()
 
     flexmock(appscale_utils).should_receive('ssh').with_args(
       re.compile('^192.*'), keyname, re.compile('^find.* -exec rm .*'))
