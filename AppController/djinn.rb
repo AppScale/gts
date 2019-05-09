@@ -134,7 +134,7 @@ INVALID_VERSION_EXIT_CODE = 64
 # be hosting, and exposes these methods via a SOAP interface (as is provided
 # in DjinnServer).
 class Djinn
-  # An Array of DjinnJobData objects, each of which containing information about
+  # An Array of NodeInfo objects, each of which containing information about
   # a node in the currently running AppScale deployment.
   attr_accessor :nodes
 
@@ -440,6 +440,8 @@ class Djinn
   PARAMETER_DEFAULT = 1
   PARAMETER_SHOW = 2
   PARAMETERS_AND_CLASS = {
+    'aws_subnet_id' => [String, nil, true],
+    'aws_vpc_id' => [String, nil, true],
     'azure_subscription_id' => [String, nil, false],
     'azure_app_id' => [String, nil, false],
     'azure_app_secret_key' => [String, nil, false],
@@ -502,10 +504,17 @@ class Djinn
   ].freeze
 
   # The amount of memory in MB for each instance class.
-  INSTANCE_CLASSES = { F1: 128,
-                       F2: 256,
-                       F4: 512,
-                       F4_1G: 1024 }.freeze
+  INSTANCE_CLASSES = {
+    F1: 128,
+    F2: 256,
+    F4: 512,
+    F4_1G: 1024,
+    B1: 128,
+    B2: 256,
+    B4: 512,
+    B4_1G: 1024,
+    B8: 1024,
+  }.freeze
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
@@ -719,10 +728,10 @@ class Djinn
   #     informations (IPs, roles, instance ID etc...). These are the nodes
   #     specified in the AppScalefile at startup time.
   #   keyname: the key of this deployment, needed to initialize
-  #     DjinnJobData.
+  #     NodeInfo.
   #
   # Returns:
-  #   A DjinnJobData array suitale to be used in @nodes.
+  #   A NodeInfo array suitale to be used in @nodes.
   #
   # Exception:
   #   AppScaleException: returns a message if the layout is not valid.
@@ -751,23 +760,23 @@ class Djinn
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       end
-      if !node['public_ip'] || !node['private_ip'] || !node['jobs'] ||
+      if !node['public_ip'] || !node['private_ip'] || !node['roles'] ||
         !node['instance_id']
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       elsif node['public_ip'].empty? || node['private_ip'].empty? ||
-         node['jobs'].empty? || node['instance_id'].empty?
+         node['roles'].empty? || node['instance_id'].empty?
         msg = "Error: node layout is missing information #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       end
-      if node['jobs'].class == String
-        all_roles << node['jobs']
-      elsif node['jobs'].class == Array
-        all_roles += node['jobs']
+      if node['roles'].class == String
+        all_roles << node['roles']
+      elsif node['roles'].class == Array
+        all_roles += node['roles']
       else
-        msg = "Error: node jobs is not String or Array for #{node}."
+        msg = "Error: node roles is not String or Array for #{node}."
         Djinn.log_error(msg)
         raise AppScaleException.new(msg)
       end
@@ -776,8 +785,8 @@ class Djinn
     # Now we can check if we have the needed roles to start the
     # deployment.
     all_roles.uniq!
-    ['compute', 'shadow', 'load_balancer', 'login', 'zookeeper',
-      'memcache', 'db_master', 'taskqueue_master'].each { |role|
+    ['compute', 'shadow', 'load_balancer', 'zookeeper', 'memcache',
+     'db_master', 'taskqueue_master'].each { |role|
       unless all_roles.include?(role)
         msg = "Error: layout is missing role #{role}."
         Djinn.log_error(msg)
@@ -785,7 +794,7 @@ class Djinn
       end
     }
 
-    # Transform the hash into DjinnJobData and return it.
+    # Transform the hash into NodeInfo and return it.
     nodes = Djinn.convert_location_array_to_class(locations, keyname)
     return nodes
   end
@@ -816,7 +825,7 @@ class Djinn
         begin
           Djinn.log_warn("Removing unknown parameter '" + key.to_s + "'.")
         rescue
-          Djinn.log_warn("Removing unknown paramete.")
+          Djinn.log_warn("Removing unknown parameter.")
         end
         next
       end
@@ -1828,7 +1837,7 @@ class Djinn
       # We save the current @options and roles to check if
       # restore_appcontroller_state modifies them.
       old_options = @options.clone
-      old_jobs = my_node.jobs
+      old_roles = my_node.roles
       my_versions_loaded = []
       APPS_LOCK.synchronize {
         my_versions_loaded = @versions_loaded.clone if my_node.is_load_balancer?
@@ -1849,9 +1858,10 @@ class Djinn
       end
 
       # We act here if options or roles for this node changed.
-      check_role_change(old_options, old_jobs)
+      check_role_change(old_options, old_roles)
 
-      # The master node has more work to do.
+      # The master node needs first to update the stats of the nodes, and
+      # backup the deployment state for all other nodes to read.
       if my_node.is_shadow?
         write_tools_config
         if update_stats_thread.alive?
@@ -1863,19 +1873,18 @@ class Djinn
       end
 
       # Load balancers (and shadow) needs to setup new applications.
-      if my_node.is_load_balancer?
+      if my_node.is_load_balancer? || my_node.is_shadow?
         versions_loaded_now = []
         APPS_LOCK.synchronize { versions_loaded_now = @versions_loaded.clone }
 
         # Starts apps that are not running yet but they should.
+        versions_to_load = versions_loaded_now - my_versions_loaded
         if my_node.is_shadow?
           begin
             versions_to_load = ZKInterface.get_versions - versions_loaded_now
           rescue FailedZooKeeperOperationException
             versions_to_load = []
           end
-        else
-          versions_to_load = versions_loaded_now - my_versions_loaded
         end
         versions_to_load.each { |version_key|
           APPS_LOCK.synchronize {
@@ -1883,18 +1892,25 @@ class Djinn
             setup_appengine_version(version_key)
           }
         }
-        # In addition only shadow kick off the autoscaler.
-        APPS_LOCK.synchronize { scale_deployment if my_node.is_shadow? }
-      end
 
-      # Load balancers and shadow need to check/update applications that have
-      # been undeployed and nginx/haproxy.
-      if my_node.is_shadow? or my_node.is_load_balancer?
-        APPS_LOCK.synchronize {
-          check_stopped_apps
-        }
+        # In addition only shadow kick off the autoscaler and manages
+        # running instances.
+        if my_node.is_shadow?
+          missing_nodes = 0
+          @state_change_lock.synchronize {
+            missing_nodes = Integer(@options['min_machines']) - @nodes.length
+          }
+          APPS_LOCK.synchronize {
+            scale_deployment
+            scale_up_instances(missing_nodes) if missing_nodes > 0
+          }
+        end
+
+        # Nodes need to clean up after removed applications.
+        APPS_LOCK.synchronize { check_stopped_apps }
       end
       if my_node.is_load_balancer?
+        # Load balancers need to regenerate nginx/haproxy configuration if needed.
         update_db_haproxy
         APPS_LOCK.synchronize { regenerate_routing_config }
       end
@@ -2142,7 +2158,7 @@ class Djinn
       @nodes.each { |node|
         if node.is_open?
           Djinn.log_debug("New roles #{roles} will be assumed by open node #{node}.")
-          node.jobs = roles
+          node.roles = roles
           return true
         end
       }
@@ -2217,7 +2233,7 @@ class Djinn
         found = false
         node_roles.each { |node|
           if node['private_ip'] == ip
-            node.jobs << role
+            node.roles << role
             found = true
             break
           end
@@ -2226,7 +2242,7 @@ class Djinn
           node_roles << {
             "public_ip" => ip,
             "private_ip" => ip,
-            "jobs" => role,
+            "roles" => role,
             "disk" => nil
           }
         end
@@ -2285,8 +2301,8 @@ class Djinn
         delete_index = nil
         new_nodes_info.each_with_index { |new_node, index|
           if new_node['private_ip'] == node.private_ip
-            Djinn.log_info("Node at #{node.private_ip} changed role to #{new_node['jobs']}.")
-            node.jobs = new_node['jobs']
+            Djinn.log_info("Node at #{node.private_ip} changed role to #{new_node['roles']}.")
+            node.roles = new_node['roles']
             delete_index = index
             break
           end
@@ -2433,13 +2449,13 @@ class Djinn
   end
 
   # This method converts an Array of Strings (where each String contains all the
-  # information about a single node) to an Array of DjinnJobData objects, which
+  # information about a single node) to an Array of NodeInfo objects, which
   # provide convenience methods that make them easier to operate on than just
   # raw String objects.
   def self.convert_location_array_to_class(nodes, keyname)
     array_of_nodes = []
     nodes.each { |node|
-      converted = DjinnJobData.new(node, keyname)
+      converted = NodeInfo.new(node, keyname)
       array_of_nodes << converted
     }
 
@@ -2448,7 +2464,7 @@ class Djinn
 
   # This method is the opposite of the previous method, and is needed when an
   # AppController wishes to pass node information to other AppControllers via
-  # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
+  # SOAP (as SOAP accepts Arrays and Strings but not NodeInfo objects).
   def self.convert_location_class_to_json(layout)
     if layout.class != Array
       @state = "Locations is not an Array, but a #{layout.class}."
@@ -2767,11 +2783,11 @@ class Djinn
   # Args:
   #   old_options: this is a clone of @options. We will compare it with
   #     the current value.
-  #   old_jobs: this is a list of roles. It will be compared against the
-  #     current list of jobs for this node.
-  def check_role_change(old_options, old_jobs)
-    if old_jobs != my_node.jobs
-      Djinn.log_info("Roles for this node are now: #{my_node.jobs}.")
+  #   old_roles: this is a list of roles. It will be compared against the
+  #     current list of roles for this node.
+  def check_role_change(old_options, old_roles)
+    if old_roles != my_node.roles
+      Djinn.log_info("Roles for this node are now: #{my_node.roles}.")
       start_stop_api_services
     end
 
@@ -3184,7 +3200,7 @@ class Djinn
       db_master = nil
       @state_change_lock.synchronize {
         @nodes.each { |node|
-          db_master = node.private_ip if node.jobs.include?('db_master')
+          db_master = node.private_ip if node.roles.include?('db_master')
         }
       }
       setup_db_config_files(db_master)
@@ -4323,7 +4339,7 @@ HOSTS
   # machine.
   #
   # Args:
-  # - node: A DjinnJobData that represents the machine where the given commands
+  # - node: A NodeInfo that represents the machine where the given commands
   #   should be executed.
   def run_user_commands(node)
     if @options['user_commands'].class == String
@@ -4360,7 +4376,7 @@ HOSTS
     stop_cmd = "#{service} appscale-controller stop"
     pidfile = '/var/run/appscale/controller.pid'
 
-    # Let's make sure we don't have 2 jobs monitoring the controller.
+    # Let's make sure we don't have 2 roles monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
 
     begin
@@ -4435,7 +4451,7 @@ HOSTS
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:admin_server, start_cmd, nil,
                          {'PATH' => ENV['PATH']})
-    if my_node.is_shadow?
+    if my_node.is_load_balancer?
       Nginx.add_service_location('appscale-administration', my_node.private_ip,
                                  service_port, nginx_port, '/')
     end
@@ -4577,7 +4593,7 @@ HOSTS
     taskqueue_location = [get_load_balancer.private_ip,
                           TaskQueue::HAPROXY_PORT].join(':')
     source_archive = AppDashboard.prep(
-      my_public, my_private, PERSISTENT_MOUNT_POINT, datastore_location,
+      my_private, PERSISTENT_MOUNT_POINT, datastore_location,
       taskqueue_location)
 
     self.deploy_dashboard(source_archive)
@@ -4642,40 +4658,50 @@ HOSTS
     end
     Djinn.log_info("check_stopped_apps: Versions running: #{zookeeper_versions}")
     removed_versions = []
-    if my_node.is_shadow?
-      CronHelper.list_app_crontabs.each { |app|
-        match = app.match(CronHelper::PROJECT_ID_REGEX)
-        next if match.nil?
 
-        project_id = match.captures.first
-        default_version_key = "#{project_id}_#{DEFAULT_SERVICE}_#{DEFAULT_VERSION}"
+    # Remove old crontab and syslog configuration. Only the master node
+    # should do it, but since the role could be assumed by different
+    # nodes, we make sure the removal are idempotent and we run it on all
+    # nodes running this method.
+    CronHelper.list_app_crontabs.each { |app|
+      match = app.match(CronHelper::PROJECT_ID_REGEX)
+      next if match.nil?
 
-        next if zookeeper_versions.include?(default_version_key)
+      project_id = match.captures.first
+      default_version_key = "#{project_id}_#{DEFAULT_SERVICE}_#{DEFAULT_VERSION}"
 
-        next if RESERVED_APPS.include?(project_id)
+      next if zookeeper_versions.include?(default_version_key)
 
-        Djinn.log_info(
-          "#{default_version_key} is no longer running: removing crontabs.")
-        CronHelper.clear_app_crontab(project_id)
-        removed_versions << default_version_key
-      }
-      Dir.glob("/etc/rsyslog.d/10-*_*_*.conf").each { |app|
-        match = app.match(/10-(.*_.*_.*).conf/)
-        next if match.nil?
+      next if RESERVED_APPS.include?(project_id)
 
-        version_key = match.captures.first
-        next if zookeeper_versions.include?(version_key)
+      Djinn.log_info(
+        "#{default_version_key} is no longer running: removing crontabs.")
+      CronHelper.clear_app_crontab(project_id)
+      removed_versions << default_version_key
+    }
+    Dir.glob("/etc/rsyslog.d/10-*_*_*.conf").each { |app|
+      match = app.match(/10-(.*_.*_.*).conf/)
+      next if match.nil?
 
-        project_id = version_key.split(VERSION_PATH_SEPARATOR).first
-        next if RESERVED_APPS.include?(project_id)
+      version_key = match.captures.first
+      next if zookeeper_versions.include?(version_key)
 
-        Djinn.log_info(
-          "#{version_key} is no longer running: removing log configuration.")
-        FileUtils.rm_f(get_rsyslog_conf(version_key))
+      project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+      next if RESERVED_APPS.include?(project_id)
+
+      Djinn.log_info(
+        "#{version_key} is no longer running: removing log configuration.")
+      begin
+        FileUtils.rm(get_rsyslog_conf(version_key))
         HelperFunctions.shell("service rsyslog restart")
-        removed_versions << version_key
-      }
-    end
+      rescue Errno::ENOENT, Errno::EACCES
+        Djinn.log_debug("Old syslog for #{version_key} wasn't there.")
+      end
+      removed_versions << version_key
+    }
+
+    # Load balancers have to adjust nginx and haproxy to remove the
+    # application routings.
     if my_node.is_load_balancer?
       MonitInterface.running_xmpp.each { |xmpp_app|
         match = xmpp_app.match(/xmpp-(.*)/)
@@ -4782,9 +4808,11 @@ HOSTS
     rsyslog_prop = ':syslogtag'
     rsyslog_version = Gem::Version.new(`rsyslogd -v`.split[1].chomp(','))
     rsyslog_prop = ':programname' if rsyslog_version < Gem::Version.new('8.12')
+    rsyslog_propval = "app_#{Digest::SHA1.hexdigest(version_key)[0...28]}"
 
     app_log_template = HelperFunctions.read_file(RSYSLOG_TEMPLATE_LOCATION)
     app_log_config = app_log_template.gsub('{property}', rsyslog_prop)
+    app_log_config = app_log_config.gsub('{property_value}', rsyslog_propval)
     app_log_config = app_log_config.gsub('{version}', version_key)
     unless existing_app_log_config == app_log_config
       Djinn.log_info("Installing log configuration for #{version_key}.")
@@ -4853,7 +4881,6 @@ HOSTS
   # on the statistics of the application and the loads of the various
   # services.
   def scale_deployment
-    needed_appservers = 0
     begin
       configured_versions = ZKInterface.get_versions
     rescue FailedZooKeeperOperationException
@@ -4871,8 +4898,10 @@ HOSTS
       # Get the desired changes in the number of AppServers.
       delta_appservers = get_scaling_info_for_version(version_key)
       if delta_appservers > 0
-        needed_appservers += try_to_scale_up(version_key, delta_appservers)
-        scale_up_instances(needed_appservers)
+        # try_to_scale_up returns back the number of instances desired
+        # based on the current application requirements (memory and cpu)
+        # and the instance_type we have for autoscaling.
+        scale_up_instances(try_to_scale_up(version_key, delta_appservers))
       elsif delta_appservers < 0
         try_to_scale_down(version_key, delta_appservers.abs)
         scale_down_instances
@@ -4885,32 +4914,26 @@ HOSTS
   # application and the additional AppServers we need to accomodate.
   #
   # Args:
-  #   needed_appservers: The number of additional AppServers needed.
-  def scale_up_instances(needed_appservers)
+  #   needed_nodes: The number of additional nodes desired.
+  def scale_up_instances(needed_nodes)
     # Here we count the number of machines we need to spawn, and the roles
     # we need.
     vms_to_spawn = 0
     roles_needed = {}
     vm_scaleup_capacity = Integer(@options['max_machines']) - @nodes.length
 
-    Djinn.log_info("Need to start VMs for #{needed_appservers} more AppServers.")
+    Djinn.log_info("Asked to start #{needed_nodes} more VMs.")
 
-    if needed_appservers > 0
-      # TODO: Here we use 3 as an arbitrary number to calculate the number of machines
-      # needed to run those number of appservers. That will change in the next step
-      # to improve autoscaling/downscaling by using the capacity as a measure.
-
-      Integer(needed_appservers/3).downto(0) {
-        vms_to_spawn += 1
-        if vm_scaleup_capacity < vms_to_spawn
-          Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" \
-            " vms, so spawning only maximum allowable nodes.")
-          break
-        end
-        roles_needed["compute"] = [] unless roles_needed["compute"]
-        roles_needed["compute"] << "node-#{vms_to_spawn}"
-      }
-    end
+    needed_nodes.downto(1) {
+      vms_to_spawn += 1
+      if vm_scaleup_capacity < vms_to_spawn
+        Djinn.log_warn("Only have capacity to start #{vm_scaleup_capacity}" \
+          " vms, so spawning only maximum allowable nodes.")
+        break
+      end
+      roles_needed["compute"] = [] unless roles_needed["compute"]
+      roles_needed["compute"] << "node-#{vms_to_spawn}"
+    }
 
     # Check if we need to spawn VMs and the InfrastructureManager is
     # available to do so.
@@ -4931,7 +4954,7 @@ HOSTS
 
     Thread.new {
       SCALE_LOCK.synchronize {
-        Djinn.log_info("We need #{vms_to_spawn} more VMs.")
+        Djinn.log_info("Starting #{vms_to_spawn} more VMs.")
 
         result = start_roles_on_nodes(JSON.dump(roles_needed), @@secret)
         if result != "OK"
@@ -4998,7 +5021,7 @@ HOSTS
           # compute role, so we check specifically for that during downscaling
           # to make sure we only downscale the new machines added.
           node_to_remove = nil
-          if node.jobs == ['compute']
+          if node.roles == ['compute']
             Djinn.log_info("Removing node #{node}")
             node_to_remove = node
           end
@@ -5135,12 +5158,12 @@ HOSTS
     min, max = get_min_max_from_version_details(version_details)
 
     # Let's make sure we have the minimum number of AppServers running.
-    Djinn.log_debug("Evaluating #{version_key} for scaling.")
-    if @app_info_map[version_key]['appservers'].nil?
-      num_appservers = 0
-    else
+    num_appservers = 0
+    unless @app_info_map[version_key]['appservers'].nil?
       num_appservers = @app_info_map[version_key]['appservers'].length
     end
+    Djinn.log_debug("Evaluating #{version_key} for scaling " \
+                    "(#{num_appservers} AppServers allocated).")
 
     if num_appservers < min
       Djinn.log_info(
@@ -5357,15 +5380,31 @@ HOSTS
     return current_hosts
   end
 
-  # Try to add an AppServer for the specified version, ensuring
-  # that a minimum number of AppServers is always kept.
+  # This method computes how many nodes will be needed to satisfy a
+  # request to start a num_appservers AppServers each with a certain
+  # memory requirement.
+  #
+  # Args:
+  #   num_appservers: An Integer indicationg the desired number of
+  #     AppServers.
+  #   max_app_mem: An Integer indicating the maximum memory per AppServer.
+  # Returns:
+  #   An Integer indicating the needed number of nodes.
+  def appservers_to_nodes(num_appservers, max_app_mem)
+    # TODO: We should check the cores/RAM of @options['instance_type'],
+    # then understand how many AppServers of max_app_mem each we can fit.
+    return (num_appservers/3.0).ceil
+  end
+
+  # Try to add an AppServer for the specified version, ensuring that a
+  # minimum number of AppServers is always kept.
   #
   # Args:
   #   version_key: A String containing the version key.
   #   delta_appservers: The desired number of new AppServers.
   # Returns:
-  #   An Integer indicating the number of AppServers we didn't start (0
-  #     if we started all).
+  #   An Integer indicating the number of nodes we need to scale to
+  #     accomodate the request.
   def try_to_scale_up(version_key, delta_appservers)
     # Select an compute machine if it has enough resources to support
     # another AppServer for this version.
@@ -5385,7 +5424,7 @@ HOSTS
         project_id, service_id, version_id)
     rescue VersionNotFound
       Djinn.log_info("Not scaling #{version_key} because it no longer exists")
-      return false
+      return 0
     end
 
     max_app_mem = Integer(@options['default_max_appserver_memory'])
@@ -5448,9 +5487,9 @@ HOSTS
     # ensure redundancy for the application.
     delta_appservers.downto(1) { |delta|
       if available_hosts.empty?
-        Djinn.log_info(
-          "No compute node is available to scale #{version_key}.")
-        return delta
+        Djinn.log_info("No compute node is available to scale #{version_key}: " \
+                       "still need #{delta} AppServers.")
+        return appservers_to_nodes(delta, max_app_mem)
       end
 
       appserver_to_use = nil
@@ -5889,7 +5928,7 @@ HOSTS
     node_stats['is_loaded'] = @done_loading
     node_stats['public_ip'] = my_node.public_ip
     node_stats['private_ip'] = my_node.private_ip
-    node_stats['roles'] = my_node.jobs || ['none']
+    node_stats['roles'] = my_node.roles || ['none']
 
     JSON.dump(node_stats)
   end
