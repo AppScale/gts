@@ -755,7 +755,6 @@ def main():
 
   options = cli_parser.create_command_line_parser(
       cli_parser.API_SERVER_CONFIGURATION).parse_args()
-  os.environ['NGINX_HOST'] = options.nginx_host
   logging.getLogger().setLevel(
       constants.LOG_LEVEL_TO_PYTHON_CONSTANT[options.dev_appserver_log_level])
 
@@ -776,6 +775,9 @@ def main():
   request_info = wsgi_request_info.WSGIRequestInfo(
       request_info_lib._LocalFakeDispatcher())
   # pylint: enable=protected-access
+
+  os.environ['APPNAME'] = app_id
+  os.environ['NGINX_HOST'] = options.nginx_host
 
   server = create_api_server(
       request_info=request_info,
