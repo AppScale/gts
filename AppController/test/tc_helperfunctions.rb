@@ -17,30 +17,6 @@ class TestHelperFunctions < Test::Unit::TestCase
     @appengine_web_xml_stripped = "/appengine-web.xml"
   end
 
-  def test_obscure_options
-    options = {
-      'ec2_access_key' => 'ABCDEFG',
-      'ec2_secret_key' => 'HIJKLMN',
-      'CLOUD_EC2_ACCESS_KEY' => 'OPQRSTU',
-      'CLOUD_EC2_SECRET_KEY' => 'VWXYZAB'
-    }
-
-    expected = {
-      'ec2_access_key' => '***DEFG',
-      'ec2_secret_key' => '***KLMN',
-      'CLOUD_EC2_ACCESS_KEY' => '***RSTU',
-      'CLOUD_EC2_SECRET_KEY' => '***YZAB'
-    }
-
-    actual = HelperFunctions.obscure_options(options)
-    assert_equal(expected['ec2_access_key'], actual['ec2_access_key'])
-    assert_equal(expected['ec2_secret_key'], actual['ec2_secret_key'])
-    assert_equal(expected['CLOUD_EC2_ACCESS_KEY'],
-      actual['CLOUD_EC2_ACCESS_KEY'])
-    assert_equal(expected['CLOUD_EC2_SECRET_KEY'],
-      actual['CLOUD_EC2_SECRET_KEY'])
-  end
- 
   def test_app_has_config_file_with_no_config_file
     location = "/boo/baz.tar.gz"
     tar_output = <<BAZ

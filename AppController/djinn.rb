@@ -2976,7 +2976,7 @@ class Djinn
 
       ip = zk_list.sample
       Djinn.log_info("Trying to use zookeeper server at #{ip}.")
-      ZKInterface.init_to_ip(HelperFunctions.local_ip, ip.to_s)
+      ZKInterface.init_to_ip(@my_private_ip, ip.to_s)
     }
     Djinn.log_debug("Found zookeeper server.")
   end
@@ -3105,18 +3105,19 @@ class Djinn
   def find_me_in_locations
     @my_index = nil
     all_local_ips = HelperFunctions.get_all_local_ips
-    Djinn.log_debug("Searching for a node with any of these private IPs: " \
-      "#{all_local_ips.join(', ')}")
-    Djinn.log_debug("All nodes are: #{@nodes.join(', ')}")
+    if all_local_ips.length > 1
+      Djinn.log_warn("This node has multiple private IPs: " \
+        "#{all_local_ips.join(', ')}")
+    end
 
     @state_change_lock.synchronize {
       @nodes.each_with_index { |node, index|
         all_local_ips.each { |ip|
           if ip == node.private_ip
             @my_index = index
-            HelperFunctions.set_local_ip(node.private_ip)
             @my_public_ip = node.public_ip
             @my_private_ip = node.private_ip
+            Djinn.log_info("Local IP recorded and used is #{ip}.")
             return
           end
         }
@@ -3585,20 +3586,8 @@ class Djinn
     Djinn.log_info("Done stopping groomer service.")
   end
 
-  def is_hybrid_cloud?
-    if @options['infrastructure'].nil?
-      false
-    else
-      @options['infrastructure'] == "hybrid"
-    end
-  end
-
   def is_cloud?
     return ['ec2', 'euca', 'gce', 'azure'].include?(@options['infrastructure'])
-  end
-
-  def restore_from_db?
-    @options['restore_from_tar'] || @options['restore_from_ebs']
   end
 
   def build_appcontroller_client

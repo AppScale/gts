@@ -41,14 +41,6 @@ module HelperFunctions
 
   APPSCALE_KEYS_DIR = "#{APPSCALE_CONFIG_DIR}/keys/cloud1".freeze
 
-  # The maximum amount of time, in seconds, that we are willing to wait for
-  # a virtual machine to start up, from the initial run-instances request.
-  # Setting this value is a bit of an art, but we choose the value below
-  # because our image is roughly 10GB in size, and if Eucalyptus doesn't
-  # have the image cached, it could take half an hour to get our image
-  # started.
-  MAX_VM_CREATION_TIME = 1800
-
   # Generic sleep time to take while waiting for remote operation to
   # complete.
   SLEEP_TIME = 10
@@ -71,10 +63,6 @@ module HelperFunctions
                       'm' => 60,
                       's' => 1 }.freeze
 
-  CLOUDY_CREDS = %w[ec2_access_key ec2_secret_key EC2_ACCESS_KEY
-                    EC2_SECRET_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-                    CLOUD_EC2_ACCESS_KEY CLOUD_EC2_SECRET_KEY].freeze
-
   # A constant that indicates that SSL should be used when checking if a given
   # port is open.
   USE_SSL = true
@@ -90,10 +78,6 @@ module HelperFunctions
   # can read or write to it (necessary for SSH keys).
   CHMOD_READ_ONLY = 0600
 
-  # A class variable that is used to locally cache our own IP address, so that
-  # we don't keep asking the system for it.
-  @@my_local_ip = nil
-
   # A prefix used to distinguish gae apps from appscale apps
   GAE_PREFIX = 'gae_'.freeze
 
@@ -102,14 +86,6 @@ module HelperFunctions
   # along to the user.
   APPCONTROLLER_CRASHLOG_LOCATION = '/var/log/appscale/appcontroller' \
                                     '_crashlog.txt'.freeze
-
-  # The location on the filesystem where the AppController backs up its
-  # internal state, in case it isn't able to contact ZooKeeper to retrieve it.
-  APPCONTROLLER_STATE_LOCATION = '/opt/appscale/appcontroller-state.json'.freeze
-
-  # The location on the filesystem where the resolv.conf file can be found,
-  # that we may alter if the user requests.
-  RESOLV_CONF = '/etc/resolv.conf'.freeze
 
   # Where we store the applications code.
   APPLICATIONS_DIR = '/var/apps'.freeze
@@ -447,37 +423,16 @@ module HelperFunctions
     bound_addrs
   end
 
-  # Sets the locally cached IP address to the provided value. Callers
-  # should use this if they believe the IP address on this machine
-  # is not the first IP returned by 'ifconfig', which can occur if
-  # the IP to reach this machine on is eth1, eth2, etc.
-  # Args:
-  #   ip: The IP address that other AppScale nodes can reach this
-  #     machine via.
-  def self.set_local_ip(ip)
-    @@my_local_ip = ip
-  end
-
   # Returns the IP address associated with this machine. To get around
   # issues where a VM may forget its IP address
   # (https://github.com/AppScale/appscale/issues/84), we locally cache it
   # to not repeatedly ask the system for this IP (which shouldn't be changing).
-  # TODO: Consider the implications of caching the IP address if
-  # VLAN tagging is used, and the IP address may be used.
-  # TODO: This doesn't solve the problem if the IP address isn't there
-  # the first time around - should we sleep and retry in that case?
   def self.local_ip
-    unless @@my_local_ip.nil?
-      Djinn.log_debug("Returning cached ip #{@@my_local_ip}")
-      return @@my_local_ip
-    end
-
     bound_addrs = get_all_local_ips
     raise 'Couldn\'t get our local IP address' if bound_addrs.length.zero?
 
     addr = bound_addrs[0]
     Djinn.log_debug("Returning #{addr} as our local IP address")
-    @@my_local_ip = addr
     addr
   end
 
@@ -873,39 +828,6 @@ module HelperFunctions
 
   def self.encrypt_password(user, pass)
     Digest::SHA1.hexdigest(user + pass)
-  end
-
-  def self.obscure_string(string)
-    return string if string.nil? or string.length < 4
-    last_four = string[string.length-4, string.length]
-    obscured = "*" * (string.length-4)
-    return obscured + last_four
-  end
-
-  # Searches through the key/value pairs given for items that may
-  # be too sensitive to log in cleartext. If any of these items are
-  # found, a sanitized version of the item is returned in its place.
-  # Args:
-  #   options: The item to sanitize. As we are expecting Hashes here,
-  #     callers that pass in non-Hash items can expect no change to
-  #     be performed on their argument.
-  # Returns:
-  #   A sanitized version of the given Hash, that can be safely
-  #     logged via stdout or saved in log files. In the case of
-  #     non-Hash items, the original item is returned.
-  def self.obscure_options(options)
-    return options if options.class != Hash
-
-    obscured = {}
-    options.each { |k, v|
-      if CLOUDY_CREDS.include?(k)
-        obscured[k] = obscure_string(v)
-      else
-        obscured[k] = v
-      end
-    }
-
-    obscured
   end
 
   def self.does_image_have_location?(ip, location, key)
