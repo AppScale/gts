@@ -103,7 +103,8 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     '--nginx_host={}'.format(load_balancer_host),
     '--xmpp_path={}'.format(load_balancer_host),
     '--uaserver_path={}'.format(
-      ':'.join([options.db_proxy, str(UA_SERVER_PORT)]))
+      ':'.join([options.db_proxy, str(UA_SERVER_PORT)])),
+    '--external_api_port={}'.format(api_server_port)
   ]
 
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
