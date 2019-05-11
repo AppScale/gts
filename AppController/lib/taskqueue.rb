@@ -203,7 +203,7 @@ module TaskQueue
                           ' come up')
           HelperFunctions.sleep_until_port_is_open('localhost', STARTING_PORT)
           Djinn.log_debug('Done waiting for TaskQueue servers')
-          return false
+          return true
         end
       rescue Timeout::Error
         tries_left -= 1
@@ -216,7 +216,6 @@ module TaskQueue
         Djinn.log_fatal('CRITICAL ERROR: RabbitMQ slave failed to come up')
         abort
       end
-      true
     }
   end
 
