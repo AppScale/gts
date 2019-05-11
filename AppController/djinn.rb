@@ -1163,20 +1163,18 @@ class Djinn
     ips.each { |ip|
       threads << Thread.new {
         Thread.current[:new_stat] = nil
-        if ip == my_node.private_ip
-          ret = get_node_stats_json(@@secret)
-        else
-          acc = AppControllerClient.new(ip, @@secret)
-          begin
+        begin
+          if ip == my_node.private_ip
+            ret = get_node_stats_json(@@secret)
+          else
+            acc = AppControllerClient.new(ip, @@secret)
             ret = acc.get_node_stats_json
-            begin
-              Thread.current[:new_stat] = JSON.load(ret)
-            rescue JSON::ParserError
-              Djinn.log_warn("Failed to parse stats JSON from #{ip}: #{ret}")
-            end
-          rescue FailedNodeException => e
-            Djinn.log_warn("Failed to get stats from #{ip}: #{e.to_s}.")
           end
+          Thread.current[:new_stat] = JSON.load(ret)
+        rescue JSON::ParserError
+            Djinn.log_warn("Failed to parse stats JSON from #{ip}: #{ret}")
+        rescue FailedNodeException => e
+          Djinn.log_warn("Failed to get stats from #{ip}: #{e.to_s}.")
         end
       }
     }
@@ -4306,14 +4304,6 @@ HOSTS
     if my_node.is_shadow? and not my_node.is_compute?
       write_app_logrotate
       Djinn.log_info("Copying logrotate script for centralized app logs")
-    end
-
-    if my_node.is_load_balancer?
-      # Make HAProxy instance stats accessible after a reboot.
-      if HAProxy.valid_config?(HAProxy::MAIN_CONFIG_FILE) &&
-          !MonitInterface.is_running?(:apps_haproxy)
-        HAProxy.apps_start
-      end
     end
 
     write_locations
