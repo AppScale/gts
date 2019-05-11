@@ -173,12 +173,19 @@ module TaskQueue
     # could cause issues on private clusters.
     master_tq_host = nil
     begin
-      master_tq_host = AddrInfo.ip(master_ip).getnameinfo.split('.')[0]
+      master_tq_host = AddrInfo.ip(master_ip).getnameinfo[0]
+      if (master_tq_host =~ /[[:digit:]]/).nil?
+        Djinn.log_warn("#{master_ip} didn't resolve to a hostname! Expect" \
+                       " problems with rabbitmq clustering.")
+      else
+        master_tq_host = master_tq_host.split('.')[0]
+      end
     rescue SocketError
-      Djinn.log_warn("Cannot reolv #{master_ip}!")
+      Djinn.log_error("Cannot resolv #{master_ip}!")
       return false
     end
 
+    # Now we try to cluster with the master node.
     HelperFunctions::RETRIES.downto(0) { |tries_left|
       Djinn.log_debug('Waiting for RabbitMQ on local node to come up')
       begin
