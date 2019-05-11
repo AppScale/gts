@@ -2,7 +2,6 @@
 
 # First-party Ruby libraries
 require 'posixpsutil'
-require 'resolv'
 require 'socket'
 require 'timeout'
 
@@ -168,19 +167,16 @@ module TaskQueue
     Djinn.log_debug('Waiting for RabbitMQ on master node to come up')
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
-    # we now reset it to join the head node. To do this we need the
-    # hostname of the master node. We go through few options:
-    # - the old one is to look into /etc/hosts for it
-    # - another one is to just try to resolve it
-    # - finally we give up and use the IP address
-    master_tq_host = `cat /etc/hosts | grep #{master_ip} | tr -s \" \" | cut -d \" \" -f2`.chomp
-    if master_tq_host.empty?
-      begin
-        master_tq_host = Resolv.getname(master_ip)
-      rescue Resolv::ResolvError
-        # We couldn't get the name: let's try to use the IP address.
-        master_tq_host = master_ip
-      end
+    # We need not to contact the master node, and we need to use its name
+    # (just the hostname not the fqdn).  To resolve it we use
+    # Addrinfo.getnameingo since Resolv will not use /etc/hosts and this
+    # could cause issues on private clusters.
+    master_tq_host = nil
+    begin
+      master_tq_host = AddrInfo.ip(master_ip).getnameinfo.split('.')[0]
+    rescue SocketError
+      Djinn.log_warn("Cannot reolv #{master_ip}!")
+      return false
     end
 
     HelperFunctions::RETRIES.downto(0) { |tries_left|
@@ -200,7 +196,7 @@ module TaskQueue
                           ' come up')
           HelperFunctions.sleep_until_port_is_open('localhost', STARTING_PORT)
           Djinn.log_debug('Done waiting for TaskQueue servers')
-          return
+          return false
         end
       rescue Timeout::Error
         tries_left -= 1
@@ -213,6 +209,7 @@ module TaskQueue
         Djinn.log_fatal('CRITICAL ERROR: RabbitMQ slave failed to come up')
         abort
       end
+      true
     }
   end
 

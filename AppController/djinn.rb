@@ -2320,7 +2320,6 @@ class Djinn
 
     update_firewall
     initialize_nodes_in_parallel(new_nodes, [])
-    update_hosts_info
   end
 
   # Cleans out temporary files that may have been written by a previous
@@ -3434,8 +3433,10 @@ class Djinn
     }
 
     verbose = @options['verbose'].downcase == "true"
-    TaskQueue.start_slave(master_ip, false, verbose)
-    return true
+    unless TaskQueue.start_slave(master_ip, false, verbose)
+      HelperFunctions.log_and_crash("Cannot start TQ slave!")
+    end
+    true
   end
 
   # Starts the application manager which is a SOAP service in charge of
@@ -4055,41 +4056,6 @@ class Djinn
     end
   end
 
-  # Updates files on this machine with information about our hostname
-  # and a mapping of where other machines are located.
-  def update_hosts_info
-    # If we are running in Docker, don't try to set the hostname.
-    return if system("grep docker /proc/1/cgroup > /dev/null")
-
-    all_nodes = ''
-    @state_change_lock.synchronize {
-      @nodes.each_with_index { |node, index|
-        all_nodes << "#{node.private_ip} appscale-image#{index}\n"
-      }
-    }
-
-    new_etc_hosts = <<HOSTS
-127.0.0.1 localhost.localdomain localhost
-127.0.1.1 localhost
-::1     ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-ff02::3 ip6-allhosts
-#{all_nodes}
-HOSTS
-
-    etc_hosts = "/etc/hosts"
-    File.open(etc_hosts, "w+") { |file| file.write(new_etc_hosts) }
-
-    etc_hostname = "/etc/hostname"
-    my_hostname = "appscale-image#{@my_index}"
-    File.open(etc_hostname, "w+") { |file| file.write(my_hostname) }
-
-    Djinn.log_run("/bin/hostname #{my_hostname}")
-  end
-
   # Writes new nginx and haproxy configuration files for the App Engine
   # applications hosted in this deployment. Callers should invoke this
   # method whenever there is a change in the number of machines hosting
@@ -4289,7 +4255,6 @@ HOSTS
 
     write_locations
 
-    update_hosts_info
     if FIREWALL_IS_ON
       Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
     end
