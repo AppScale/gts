@@ -173,7 +173,7 @@ module TaskQueue
     # could cause issues on private clusters.
     master_tq_host = nil
     begin
-      master_tq_host = AddrInfo.ip(master_ip).getnameinfo[0]
+      master_tq_host = Addrinfo.ip(master_ip).getnameinfo[0]
       if (master_tq_host =~ /[[:digit:]]/).nil?
         Djinn.log_warn("#{master_ip} didn't resolve to a hostname! Expect" \
                        " problems with rabbitmq clustering.")
