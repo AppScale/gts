@@ -28,7 +28,6 @@ GUESTBOOK_URL="https://www.appscale.com/wp-content/uploads/2017/09/guestbook.tar
 GUESTBOOK_APP="${HOME}/guestbook.tar.gz"
 MD5_SUMS="${HOME}/appscale/md5sums.txt"
 USE_DEMO_APP="Y"
-FORCE_PRIVATE="N"
 AZURE_METADATA="http://169.254.169.254/metadata/v1/InstanceInfo"
 
 # Print help screen.
@@ -39,7 +38,6 @@ usage() {
     echo "  --user <email>          administrator's email"
     echo "  --passwd <password>     administrator's password"
     echo "  --no-demo-app           don't start the demo application"
-    echo "  --force-private         don't use public IP (needed for marketplace)"
     echo "  --no-metadata-server    don't try to contact metadata servers"
     echo
 }
@@ -89,11 +87,6 @@ while [ $# -gt 0 ]; do
     if [ "$1" = "--no-demo-app" ]; then
         shift
         USE_DEMO_APP="N"
-        continue
-    fi
-    if [ "$1" = "--force-private" ]; then
-        shift
-        FORCE_PRIVATE="Y"
         continue
     fi
     if [ "$1" = "--no-metadata-server" ]; then
