@@ -273,9 +273,6 @@ fi
 # Start AppScale.
 ${APPSCALE_CMD} up
 
-# We need to set the login after AppScale is up for marketplace.
-${APPSCALE_CMD} set login ${LOGIN}
-
 # If we don't need to deploy the demo app, we are done.
 if [ "${USE_DEMO_APP}" != "Y" ]; then
     exit 0
