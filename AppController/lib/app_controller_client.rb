@@ -59,11 +59,8 @@ class AppControllerClient
     @conn.add_method('upload_app', 'archived_file', 'file_suffix', 'secret')
     @conn.add_method('get_all_public_ips', 'secret')
     @conn.add_method('is_done_initializing', 'secret')
-    @conn.add_method('add_role', 'new_role', 'secret')
-    @conn.add_method('remove_role', 'old_role', 'secret')
     @conn.add_method('get_property', 'property_regex', 'secret')
     @conn.add_method('set_property', 'property_name', 'property_value', 'secret')
-    @conn.add_method('get_queues_in_use', 'secret')
     @conn.add_method('set_node_read_only', 'read_only', 'secret')
     @conn.add_method('primary_db_is_up', 'secret')
     @conn.add_method('get_app_upload_status', 'reservation_id', 'secret')
@@ -149,32 +146,15 @@ class AppControllerClient
     make_call(30, RETRY_ON_FAIL, 'get_all_public_ips') { @conn.get_all_public_ips(@secret) }
   end
 
-  def add_role(role)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'add_role') { @conn.add_role(role, @secret) }
-  end
-
-  # Removed timeout here - removing cassandra slave requires it to port
-  # the data it owns to somebody else, which takes ~30 seconds in the trivial
-  # case
-  def remove_role(role)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'remove_role') { @conn.remove_role(role, @secret) }
-  end
-
   def get_property(property_regex)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'get_property') {
-      @conn.get_queues_in_use(property_regex, @secret)
+      @conn.get_property(property_regex, @secret)
     }
   end
 
   def set_property(property_name, property_value)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'set_property') {
-      @conn.get_queues_in_use(property_name, property_value, @secret)
-    }
-  end
-
-  def get_queues_in_use
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'get_queues_in_use') {
-      @conn.get_queues_in_use(@secret)
+      @conn.set_property(property_name, property_value, @secret)
     }
   end
 
