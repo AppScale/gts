@@ -4592,7 +4592,7 @@ class Djinn
         "#{e}.message")
       return
     end
-    Djinn.log_info("check_stopped_apps: Versions running: #{zookeeper_versions}")
+    Djinn.log_debug("check_stopped_apps: Versions running: #{zookeeper_versions}")
     removed_versions = []
 
     # Remove old crontab and syslog configuration. Only the master node
