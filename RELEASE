@@ -5,12 +5,14 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
-AppScale version 3.7.1, released April 2019
+AppScale version 3.7.1, released May 2019
 Highlights of features and defects fixed in this release:
  - Update cron when login property is changed
+ - Remove --force-private from fast-start.sh
+ - use dns for ec2 since it resolves to the private ip for marketplace
+ - Other clouds will use public ips for login property
 
 Known Issues:
-
 
 AppScale version 3.7.0, released April 2019
 Highlights of features and defects fixed in this release:
