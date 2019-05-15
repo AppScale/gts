@@ -2261,7 +2261,7 @@ class Djinn
 
       # We create here the needed nodes, with open role and no disk.
       disks = Array.new(new_nodes_roles.length, nil)
-      imc = InfrastructureManagerClient.new(@@secret)
+      imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
       begin
         new_nodes_info = imc.run_instances(new_nodes_roles.length, @options,
            new_nodes_roles.values, disks)
@@ -3186,7 +3186,7 @@ class Djinn
           db_master = node.private_ip if node.roles.include?('db_master')
         }
       }
-      setup_db_config_files(db_master)
+      setup_db_config_files(db_master, my_node.private_ip)
 
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
@@ -4192,7 +4192,7 @@ HOSTS
       return
     end
 
-    imc = InfrastructureManagerClient.new(@@secret)
+    imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
     begin
       device_name = imc.attach_disk(@options, my_node.disk, my_node.instance_id)
     rescue FailedNodeException
@@ -5021,7 +5021,7 @@ HOSTS
 
     # Terminate instance if we are in cloud.
     if is_cloud?
-      imc = InfrastructureManagerClient.new(@@secret)
+      imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
       begin
         imc.terminate_instances(@options, node_to_remove.instance_id)
       rescue FailedNodeException
@@ -5812,7 +5812,7 @@ HOSTS
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Get stats from SystemManager.
-    imc = InfrastructureManagerClient.new(secret)
+    imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
     system_stats = JSON.load(imc.get_system_stats)
     Djinn.log_debug('get_node_stats_json: got system stats.')
 
