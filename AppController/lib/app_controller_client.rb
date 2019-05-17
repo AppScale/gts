@@ -98,7 +98,20 @@ class AppControllerClient
     begin
       Timeout.timeout(time) {
         begin
-          yield if block_given?
+          if block_given?
+            ret = yield
+            msg = ''
+            if ret == BAD_SECRET_MSG
+              msg = "Bad secret talking with #{@ip}."
+            elsif ret == INVALID_REQUEST
+              msg = "Got INVALID_REQUEST from #{@ip}."
+            end
+            unless msg.empty?
+              Djinn.log_warn(msg)
+              raise FailedNodeException.new(msg)
+            end
+            return ret
+          end
         rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH,
           OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
           Errno::ECONNRESET, SOAP::EmptyResponseError, StandardError => e
