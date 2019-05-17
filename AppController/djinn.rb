@@ -692,8 +692,8 @@ class Djinn
 
     Djinn.log_info('Received a stop request.')
 
+    threads = []
     if my_node.is_shadow? && stop_deployment
-      threads = []
       Djinn.log_info('Stopping all other nodes.')
       ips = []
       @state_change_lock.synchronize {
@@ -711,11 +711,44 @@ class Djinn
           end
         }
       }
-      Djinn.log_info('Waiting for other nodes to acknoledge stop ... ')
-      threads.each { |t| t.join }
     end
 
-    Djinn.log_info('---- Stopping AppController ----')
+    threads << Threads.new {
+      TaskQueue.stop_flower
+    }
+    threads << Threads.new {
+      stop_hermes
+    }
+    threads << Threads.new {
+      stop_taskqueue
+    }
+    threads << Threads.new {
+      stop_app_manager_server
+      stop_blobstore_server
+    }
+    threads << Threads.new {
+      stop_memcache
+    }
+    threads << Threads.new {
+      remove_tq_endpoints
+      stop_ejabberd
+    }
+    threads << Threads.new {
+      stop_groomer_service
+    }
+    threads << Threads.new {
+      stop_admin_server
+    }
+    Djinn.log_info('Waiting for services to stop and nodes to ack stop ... ')
+    threads.each { |t| t.join }
+
+    stop_soap_server
+    stop_db_slave
+    stop_db_master
+    stop_log_server
+    HAProxy.services_stop
+    stop_zookeeper
+    Djinn.log_info('---- Stopped all local services ----')
 
     'OK'
   end
@@ -3481,6 +3514,11 @@ class Djinn
     Djinn.log_info("Done starting Hermes service.")
   end
 
+  def stop_hermes
+    Djinn.log_info("Stopping Hermes service.")
+    MonitInterface.stop(:hermes)
+  end
+
   # Starts the groomer service on this node. The groomer cleans the datastore of deleted
   # items and removes old logs.
   def start_groomer_service
@@ -4284,10 +4322,7 @@ HOSTS
     configure_uaserver
 
     # HAProxy must be running so that the UAServer can be accessed.
-    if HAProxy.valid_config?(HAProxy::SERVICE_MAIN_FILE) &&
-        !MonitInterface.is_running?(:service_haproxy)
-      HAProxy.services_start
-    end
+    HAProxy.services_start
 
     # Volume is mounted, let's finish the configuration of static files.
     if my_node.is_shadow? and not my_node.is_compute?
@@ -4298,9 +4333,7 @@ HOSTS
     write_locations
 
     update_hosts_info
-    if FIREWALL_IS_ON
-      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
-    end
+    Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf") if FIREWALL_IS_ON
     write_zookeeper_locations
   end
 
@@ -4434,6 +4467,11 @@ HOSTS
       Nginx.add_service_location('appscale-administration', my_node.private_ip,
                                  service_port, nginx_port, '/')
     end
+  end
+
+  def stop_admin_server
+    Djinn.log_info('Stopping AdminServer')
+    MonitInterface.stop(:admin_server)
   end
 
   def start_memcache
