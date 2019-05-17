@@ -85,7 +85,12 @@ module TerminateHelper
       # Nothing should still be running after the controller got stopped,
       # so we unceremoniously kill them.
       pid = File.read(pidfile).chomp
-      Process.kill("KILL", pid)
+      begin
+        Process.kill("KILL", Integer(pid))
+      rescue ArgumentError, Errno::EPERM, Errno::EINVAL
+        next
+      rescue Errno::ESRCH, RangeError
+      end
       FileUtils.rm_f(pidfile)
     }
   end

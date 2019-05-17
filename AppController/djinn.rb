@@ -702,7 +702,7 @@ class Djinn
       ips.each { |ip|
         next if ip == my_node.private_ip
         acc = AppControllerClient.new(ip, @@secret)
-        threads << Threads.new {
+        threads << Thread.new {
           begin
             acc.kill(stop_deployment)
             Djinn.log_info("kill: sent kill command to node at #{ip}.")
@@ -713,32 +713,22 @@ class Djinn
       }
     end
 
-    threads << Threads.new {
-      TaskQueue.stop_flower
-    }
-    threads << Threads.new {
-      stop_hermes
-    }
-    threads << Threads.new {
-      stop_taskqueue
-    }
-    threads << Threads.new {
+    Djinn.log_devug("Stopping local services ...")
+    threads << Thread.new { TaskQueue.stop_flower }
+    threads << Thread.new { stop_hermes }
+    threads << Thread.new { stop_taskqueue }
+    threads << Thread.new {
       stop_app_manager_server
       stop_blobstore_server
     }
-    threads << Threads.new {
-      stop_memcache
-    }
-    threads << Threads.new {
+    threads << Thread.new { stop_memcache }
+    threads << Thread.new {
       remove_tq_endpoints
       stop_ejabberd
     }
-    threads << Threads.new {
-      stop_groomer_service
-    }
-    threads << Threads.new {
-      stop_admin_server
-    }
+    threads << Thread.new { stop_groomer_service }
+    threads << Thread.new { stop_admin_server }
+
     Djinn.log_info('Waiting for services to stop and nodes to ack stop ... ')
     threads.each { |t| t.join }
 
