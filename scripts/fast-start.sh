@@ -28,7 +28,6 @@ GUESTBOOK_URL="https://www.appscale.com/wp-content/uploads/2017/09/guestbook.tar
 GUESTBOOK_APP="${HOME}/guestbook.tar.gz"
 MD5_SUMS="${HOME}/appscale/md5sums.txt"
 USE_DEMO_APP="Y"
-FORCE_PRIVATE="N"
 AZURE_METADATA="http://169.254.169.254/metadata/v1/InstanceInfo"
 
 # Print help screen.
@@ -39,7 +38,6 @@ usage() {
     echo "  --user <email>          administrator's email"
     echo "  --passwd <password>     administrator's password"
     echo "  --no-demo-app           don't start the demo application"
-    echo "  --force-private         don't use public IP (needed for marketplace)"
     echo "  --no-metadata-server    don't try to contact metadata servers"
     echo
 }
@@ -91,11 +89,6 @@ while [ $# -gt 0 ]; do
         USE_DEMO_APP="N"
         continue
     fi
-    if [ "$1" = "--force-private" ]; then
-        shift
-        FORCE_PRIVATE="Y"
-        continue
-    fi
     if [ "$1" = "--no-metadata-server" ]; then
         shift
         PROVIDER="CLUSTER"
@@ -113,7 +106,7 @@ else
 fi
 
 # Let's try to detect the environment we are using.
-PUBLIC_IP=""
+LOGIN=""
 PRIVATE_IP=""
 
 if [ -z "${PROVIDER}" ]; then
@@ -132,17 +125,17 @@ if [ -z "${PROVIDER}" ]; then
         PROVIDER="Azure"
     else
         # Get the public and private IP of this instance.
-        PUBLIC_IP="$(ec2metadata --public-ipv4 2> /dev/null)"
+        LOGIN="$(ec2metadata --public-hostname 2> /dev/null)"
         PRIVATE_IP="$(ec2metadata --local-ipv4 2> /dev/null)"
 
-        if [ "$PUBLIC_IP" = "unavailable" ]; then
-            PUBLIC_IP=""
+        if [ "$LOGIN" = "unavailable" ]; then
+            LOGIN=""
         fi
         if [ "$PRIVATE_IP" = "unavailable" ]; then
             PRIVATE_IP=""
         fi
 
-        if [ -n "$PUBLIC_IP" -a -n "$PRIVATE_IP" ]; then
+        if [ -n "$LOGIN" -a -n "$PRIVATE_IP" ]; then
             PROVIDER="AWS"
         else
             # Let's assume virtualized cluster.
@@ -160,7 +153,7 @@ case "$PROVIDER" in
     ;;
 "GCE" )
     # We assume a single interface here.
-    PUBLIC_IP="$(${CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/access-configs/0/external-ip)"
+    LOGIN="$(${CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/access-configs/0/external-ip)"
     PRIVATE_IP="$(${CURL} -sH 'Metadata-Flavor: Google' ${GOOGLE_METADATA}/network-interfaces/0/ip)"
     # Let's use a sane hostname.
     ${CURL} -Lo /tmp/hostname -sH "Metadata-Flavor: Google" ${GOOGLE_METADATA}/hostname
@@ -182,7 +175,7 @@ case "$PROVIDER" in
     # Let's find the IP address to use.
     for device in $($IP route list scope link | awk '{print $3}') ; do
         if [ ${device} != ${DEFAULT_DEV} ]; then
-            PUBLIC_IP="$($IP addr show dev ${device} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
+            LOGIN="$($IP addr show dev ${device} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
             break
         fi
     done
@@ -190,7 +183,7 @@ case "$PROVIDER" in
     ;;
 "Azure")
     DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/' | uniq)"
-    PUBLIC_IP="$(wget http://ipinfo.io/ip -qO -)"
+    LOGIN="$(wget http://ipinfo.io/ip -qO -)"
     PRIVATE_IP="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
     ADMIN_EMAIL="a@a.com"
     ADMIN_PASSWD="$(cat /etc/hostname)"
@@ -202,9 +195,9 @@ case "$PROVIDER" in
     DEFAULT_DEV="$($IP route list scope global | sed 's/.*dev \b\([A-Za-z0-9_]*\).*/\1/' | uniq)"
     [ -z "$DEFAULT_DEV" ] && { echo "error: cannot detect the default route"; exit 1; }
     # Let's find the IP address to use.
-    PUBLIC_IP="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
+    LOGIN="$($IP addr show dev ${DEFAULT_DEV} scope global | sed -n 's;.*inet \([0-9.]*\).*;\1;p')"
     # There is no private/public IPs in this configuration.
-    PRIVATE_IP="${PUBLIC_IP}"
+    PRIVATE_IP="${LOGIN}"
     ;;
 * )
     echo "Couldn't detect infrastructure ($PROVIDER)"
@@ -215,13 +208,13 @@ esac
 # Let's make sure we don't overwrite and existing AppScalefile.
 if [ ! -e AppScalefile ]; then
     # Let's make sure we detected the IPs.
-    [ -z "$PUBLIC_IP" ] && { echo "Cannot get public IP of instance!" ; exit 1 ; }
+    [ -z "$LOGIN" ] && { echo "Cannot get public IP of instance!" ; exit 1 ; }
     [ -z "$PRIVATE_IP" ] && { echo "Cannot get private IP of instance!" ; exit 1 ; }
 
     # Tell the user what we detected.
     echo "Detected enviroment: ${PROVIDER}"
     echo "Private IP found: ${PRIVATE_IP}"
-    echo "Public IP found:  ${PUBLIC_IP}"
+    echo "Public IP found:  ${LOGIN}"
 
     # This is to create the minimum AppScalefile.
     echo -n "Creating AppScalefile..."
@@ -233,11 +226,8 @@ if [ ! -e AppScalefile ]; then
     echo "      - database" >> AppScalefile
     echo "      - zookeeper" >> AppScalefile
     echo "    nodes: ${PRIVATE_IP}" >> AppScalefile
-    if [ "${FORCE_PRIVATE}" = "Y" ]; then
-        echo "login : ${PRIVATE_IP}" >> AppScalefile
-    else
-        echo "login : ${PUBLIC_IP}" >> AppScalefile
-    fi
+    echo "login : ${LOGIN}" >> AppScalefile
+
     if [ -z "${ADMIN_EMAIL}" ]; then
         echo "test : true" >> AppScalefile
     else
@@ -259,10 +249,10 @@ if [ ! -e AppScalefile ]; then
 
     # Make sure the localhost is known to ssh.
     if [ -e "${HOME}/.ssh/known_hosts" ]; then
-      ssh-keygen -R $PUBLIC_IP
+      ssh-keygen -R $LOGIN
       ssh-keygen -R $PRIVATE_IP
     fi
-    ssh-keyscan $PUBLIC_IP $PRIVATE_IP 2> /dev/null >> "${HOME}/.ssh/known_hosts"
+    ssh-keyscan $LOGIN $PRIVATE_IP 2> /dev/null >> "${HOME}/.ssh/known_hosts"
 
     # Download sample app.
     if [ ! -e ${GUESTBOOK_APP} ]; then
@@ -282,11 +272,6 @@ fi
 
 # Start AppScale.
 ${APPSCALE_CMD} up
-
-# We need to set the login after AppScale is up for marketplace.
-if [ "${FORCE_PRIVATE}" = "Y" ]; then
-    ${APPSCALE_CMD} set login ${PUBLIC_IP}
-fi
 
 # If we don't need to deploy the demo app, we are done.
 if [ "${USE_DEMO_APP}" != "Y" ]; then

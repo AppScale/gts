@@ -1379,6 +1379,18 @@ class Djinn
 
       @options[key] = val
 
+      if key == 'login'
+        Djinn.log_debug('[set_property] Regenerating cron for applications ' \
+          'since login changed')
+        versions_loaded_now = []
+        APPS_LOCK.synchronize { versions_loaded_now = @versions_loaded.clone }
+        Djinn.log_info("[set_property] Regenerating cron for #{versions_loaded_now}")
+        versions_loaded_now.each { |version_key|
+          project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+          update_cron(project_id, @@secret)
+        }
+      end
+
       if key.include? 'stats_log'
         if key.include? 'nodes'
           ZKInterface.update_hermes_nodes_profiling_conf(
