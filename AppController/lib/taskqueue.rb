@@ -173,7 +173,7 @@ module TaskQueue
     master_tq_host = nil
     begin
       master_tq_host = Addrinfo.ip(master_ip).getnameinfo[0]
-      unless (master_tq_host =~ /^[[:digit:]]/).nil?
+      if master_tq_host =~ /^[[:digit:]]/
         Djinn.log_warn("#{master_ip} didn't resolve to a hostname! Expect" \
                        " problems with rabbitmq clustering.")
       else
