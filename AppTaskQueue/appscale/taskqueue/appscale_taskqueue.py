@@ -15,7 +15,6 @@ from tornado.web import Application, RequestHandler
 from appscale.common import appscale_info
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 
 from appscale.taskqueue import distributed_tq
 from appscale.taskqueue.constants import SHUTTING_DOWN_TIMEOUT
@@ -110,7 +109,7 @@ class ProtobufferHandler(RequestHandler):
     method = ""
     http_request_data = ""
     app_id = app_info['app_id']
-    if not apirequest.HasField("message"):
+    if not apirequest.HasField("method"):
       errcode = taskqueue_service_pb2.TaskQueueServiceError.INVALID_REQUEST
       errdetail = "Method was not set in request"
       apirequest.method = "NOT_FOUND"
@@ -187,7 +186,7 @@ class ProtobufferHandler(RequestHandler):
       apperror_pb.code = errcode
       apperror_pb.detail = errdetail
 
-    self.write(apiresponse.Encode())
+    self.write(apiresponse.SerializeToString())
     status = taskqueue_service_pb2.TaskQueueServiceError.ErrorCode.Name(errcode)
     return method, status
 
@@ -298,10 +297,9 @@ def main():
     hosts=','.join(appscale_info.get_zk_node_ips()),
     connection_retry=ZK_PERSISTENT_RECONNECTS)
   zk_client.start()
-  db_access = DatastoreProxy()
 
   # Initialize tornado server
-  task_queue = distributed_tq.DistributedTaskQueue(db_access, zk_client)
+  task_queue = distributed_tq.DistributedTaskQueue(zk_client)
   tq_application = prepare_taskqueue_application(task_queue)
   # Automatically decompress incoming requests.
   server = httpserver.HTTPServer(tq_application, decompress_request=True)

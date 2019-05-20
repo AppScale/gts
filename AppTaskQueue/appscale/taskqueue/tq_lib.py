@@ -66,12 +66,12 @@ def verify_task_queue_add_request(app_id, request, now):
   if request.eta_usec < 0:
     return taskqueue_service_pb2.TaskQueueServiceError.INVALID_ETA
 
-  eta = datetime.datetime.utcfromtimestamp(_usec_to_sec(request.eta_usec()))
+  eta = datetime.datetime.utcfromtimestamp(_usec_to_sec(request.eta_usec))
   max_eta = now + MAX_ETA
   if eta > max_eta:
     return taskqueue_service_pb2.TaskQueueServiceError.INVALID_ETA
 
-  if request.HasField("CronTimetable") and app_id is None:
+  if request.HasField("crontimetable") and app_id is None:
     return taskqueue_service_pb2.TaskQueueServiceError.PERMISSION_DENIED
 
   if request.mode == taskqueue_service_pb2.TaskQueueMode.PULL:
