@@ -13,17 +13,8 @@ import sys
 import time
 import tq_lib
 
-from appscale.common import (
-  appscale_info,
-  constants
-)
-from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
+from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.cassandra_env.cassandra_interface import KEYSPACE
-from appscale.datastore.cassandra_env.retry_policies import BASIC_RETRIES
-from cassandra import OperationTimedOut
-from cassandra.cluster import SimpleStatement
-from cassandra.policies import FallthroughRetryPolicy
 from .constants import (
   InvalidTarget,
   QueueNotFound,
@@ -31,6 +22,7 @@ from .constants import (
   TARGET_REGEX,
   TRANSIENT_DS_ERRORS
 )
+from .datastore_client import ApplicationError, DatastoreClient, Entity
 from .queue import (
   InvalidLeaseRequest,
   PostgresPullQueue,
@@ -39,7 +31,6 @@ from .queue import (
   TransientError
 )
 from .task import Task
-from .task_name import TaskName
 from .tq_lib import TASK_STATES
 from .utils import (
   get_celery_queue_name,
@@ -54,187 +45,6 @@ from .protocols.taskqueue_service_pb2 import (
 )
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api import apiproxy_stub_map
-from google.appengine.api import datastore_distributed
-from google.appengine.ext import db
-from google.appengine.runtime import apiproxy_errors
-
-# A policy that does not retry statements.
-NO_RETRIES = FallthroughRetryPolicy()
-
-
-def rebuild_task_indexes(session):
-  """ Creates index entries for all pull queue tasks.
-
-  Args:
-    session: A cassandra-driver session.
-  """
-  logger.info('Rebuilding task indexes')
-  batch_size = 100
-  total_tasks = 0
-  app = ''
-  queue = ''
-  id_ = ''
-  while True:
-    results = session.execute("""
-      SELECT app, queue, id, lease_expires, tag FROM pull_queue_tasks
-      WHERE token(app, queue, id) > token(%(app)s, %(queue)s, %(id)s)
-      LIMIT {}
-    """.format(batch_size), {'app': app, 'queue': queue, 'id': id_})
-    results_list = list(results)
-    for result in results_list:
-      parameters = {'app': result.app, 'queue': result.queue,
-                    'eta': result.lease_expires, 'id': result.id,
-                    'tag': result.tag or ''}
-
-      insert_eta_index = SimpleStatement("""
-        INSERT INTO pull_queue_eta_index (app, queue, eta, id, tag)
-        VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s)
-      """, retry_policy=BASIC_RETRIES)
-      session.execute(insert_eta_index, parameters)
-
-      insert_tag_index = SimpleStatement("""
-        INSERT INTO pull_queue_tags_index (app, queue, tag, eta, id)
-        VALUES (%(app)s, %(queue)s, %(tag)s, %(eta)s, %(id)s)
-      """, retry_policy=BASIC_RETRIES)
-      session.execute(insert_tag_index, parameters)
-
-    total_tasks += len(results_list)
-    if len(results_list) < batch_size:
-      break
-
-    app = results_list[-1].app
-    queue = results_list[-1].queue
-    id_ = results_list[-1].id
-
-  logger.info('Created entries for {} tasks'.format(total_tasks))
-
-
-def create_pull_queue_tables(cluster, session):
-  """ Create the required tables for pull queues.
-
-  Args:
-    cluster: A cassandra-driver cluster.
-    session: A cassandra-driver session.
-  """
-  logger.info('Trying to create pull_queue_tasks')
-  create_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_tasks (
-      app text,
-      queue text,
-      id text,
-      payload text,
-      enqueued timestamp,
-      lease_expires timestamp,
-      retry_count int,
-      tag text,
-      op_id uuid,
-      PRIMARY KEY ((app, queue, id))
-    )
-  """
-  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
-  try:
-    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except OperationTimedOut:
-    logger.warning(
-      'Encountered an operation timeout while creating pull_queue_tasks. '
-      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
-
-  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
-  if 'op_id' not in keyspace_metadata.tables['pull_queue_tasks'].columns:
-    try:
-      session.execute('ALTER TABLE pull_queue_tasks ADD op_id uuid',
-                      timeout=SCHEMA_CHANGE_TIMEOUT)
-    except OperationTimedOut:
-      logger.warning(
-        'Encountered a timeout when altering pull_queue_tasks. Waiting {} '
-        'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
-      time.sleep(SCHEMA_CHANGE_TIMEOUT)
-      raise
-
-  rebuild_indexes = False
-  if ('pull_queue_tasks_index' in keyspace_metadata.tables and
-      'tag_exists' in keyspace_metadata.tables['pull_queue_tasks_index'].columns):
-    rebuild_indexes = True
-    logger.info('Dropping outdated pull_queue_tags index')
-    session.execute('DROP INDEX IF EXISTS pull_queue_tags',
-                    timeout=SCHEMA_CHANGE_TIMEOUT)
-
-    logger.info('Dropping outdated pull_queue_tag_exists index')
-    session.execute('DROP INDEX IF EXISTS pull_queue_tag_exists',
-                    timeout=SCHEMA_CHANGE_TIMEOUT)
-
-    logger.info('Dropping outdated pull_queue_tasks_index table')
-    session.execute('DROP TABLE pull_queue_tasks_index',
-                    timeout=SCHEMA_CHANGE_TIMEOUT)
-
-  logger.info('Trying to create pull_queue_eta_index')
-  create_index_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_eta_index (
-      app text,
-      queue text,
-      eta timestamp,
-      id text,
-      tag text,
-      PRIMARY KEY ((app, queue, eta, id))
-    ) WITH gc_grace_seconds = 120
-  """
-  statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
-  try:
-    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except OperationTimedOut:
-    logger.warning(
-      'Encountered an operation timeout while creating pull_queue_eta_index.'
-      ' Waiting {} seconds for schema to settle.'
-        .format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
-
-  logger.info('Trying to create pull_queue_tags_index')
-  create_tags_index_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_tags_index (
-      app text,
-      queue text,
-      tag text,
-      eta timestamp,
-      id text,
-      PRIMARY KEY ((app, queue, tag, eta, id))
-    ) WITH gc_grace_seconds = 120
-  """
-  statement = SimpleStatement(create_tags_index_table, retry_policy=NO_RETRIES)
-  try:
-    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except OperationTimedOut:
-    logger.warning(
-      'Encountered an operation timeout while creating pull_queue_tags_index.'
-      ' Waiting {} seconds for schema to settle.'
-        .format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
-
-  if rebuild_indexes:
-    rebuild_task_indexes(session)
-
-  logger.info('Trying to create pull_queue_leases')
-  create_leases_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_leases (
-      app text,
-      queue text,
-      leased timestamp,
-      PRIMARY KEY ((app, queue, leased))
-    ) WITH gc_grace_seconds = 120
-  """
-  statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
-  try:
-    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except OperationTimedOut:
-    logger.warning(
-      'Encountered an operation timeout while creating pull_queue_leases. '
-      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
 
 
 def setup_env():
@@ -243,6 +53,7 @@ def setup_env():
   os.environ['USER_EMAIL'] = ""
   os.environ['USER_NICKNAME'] = ""
   os.environ['APPLICATION_ID'] = ""
+
 
 class DistributedTaskQueue():
   """ AppScale taskqueue layer for the TaskQueue API. """
@@ -264,26 +75,18 @@ class DistributedTaskQueue():
   # Kind used for storing task names.
   TASK_NAME_KIND = "__task_name__"
 
-  def __init__(self, db_access, zk_client):
+  def __init__(self, zk_client):
     """ DistributedTaskQueue Constructor.
 
     Args:
-      db_access: A DatastoreProxy object.
       zk_client: A KazooClient.
     """
     setup_env()
 
-    db_proxy = appscale_info.get_db_proxy()
-    connection_str = '{}:{}'.format(db_proxy, str(constants.DB_SERVER_PORT))
-    ds_distrib = datastore_distributed.DatastoreDistributed(
-      constants.DASHBOARD_APP_ID, connection_str)
-    apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
-    os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
-
-    self.db_access = db_access
     self.load_balancers = appscale_info.get_load_balancer_ips()
-    self.queue_manager = GlobalQueueManager(zk_client, db_access)
+    self.queue_manager = GlobalQueueManager(zk_client)
     self.service_manager = GlobalServiceManager(zk_client)
+    self.datastore_client = DatastoreClient()
 
   def get_queue(self, app, queue):
     """ Fetches a Queue object.
@@ -301,7 +104,7 @@ class DistributedTaskQueue():
         'The queue {} is not defined for {}'.format(queue, app))
 
   def __parse_json_and_validate_tags(self, json_request, tags):
-    """ Parses JSON and validates that it contains the proper tags.
+    """ Parses JSON and validates t hat it contains the proper tags.
 
     Args:
       json_request: A JSON string.
@@ -333,7 +136,8 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     epoch = datetime.datetime.utcfromtimestamp(0)
-    request = taskqueue_service_pb2.TaskQueueFetchQueueStatsRequest(http_data)
+    request = taskqueue_service_pb2.TaskQueueFetchQueueStatsRequest()
+    request.MergeFromString(http_data)
     response = taskqueue_service_pb2.TaskQueueFetchQueueStatsResponse()
 
     for queue_name in request.queue_name:
@@ -348,11 +152,10 @@ class DistributedTaskQueue():
         num_tasks = queue.total_tasks()
         oldest_eta = queue.oldest_eta()
       else:
-        num_tasks = TaskName.all().\
-          filter("state =", tq_lib.TASK_STATES.QUEUED).\
-          filter("queue =", queue_name).\
-          filter("app_id =", app_id).count()
-
+        num_tasks = self.datastore_client.query_count(app_id,
+          [("state =", tq_lib.TASK_STATES.QUEUED),
+           ("queue =", queue_name),
+           ("app_id =", app_id)])
         # This is not supported for push queues yet.
         oldest_eta = None
 
@@ -374,7 +177,8 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    request = taskqueue_service_pb2.TaskQueuePurgeQueueRequest(http_data)
+    request = taskqueue_service_pb2.TaskQueuePurgeQueueRequest()
+    request.MergeFromString(http_data)
     response = taskqueue_service_pb2.TaskQueuePurgeQueueResponse()
 
     try:
@@ -394,7 +198,8 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    request = taskqueue_service_pb2.TaskQueueDeleteRequest(http_data)
+    request = taskqueue_service_pb2.TaskQueueDeleteRequest()
+    request.MergeFromString(http_data)
     response = taskqueue_service_pb2.TaskQueueDeleteResponse()
 
     try:
@@ -405,8 +210,7 @@ class DistributedTaskQueue():
     for task_name in request.task_name:
       queue.delete_task(Task({'id': task_name}))
 
-      result = response.result.add()
-      result.ErrorCode = TaskQueueServiceError.OK
+      response.result.append(TaskQueueServiceError.OK)
 
     return response.SerializeToString(), 0, ""
 
@@ -419,7 +223,8 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    request = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksRequest(http_data)
+    request = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksRequest()
+    request.MergeFromString(http_data)
     response = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksResponse()
 
     try:
@@ -455,7 +260,8 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     # Just call bulk add with one task.
-    request = taskqueue_service_pb2.TaskQueueAddRequest(http_data)
+    request = taskqueue_service_pb2.TaskQueueAddRequest()
+    request.MergeFromString(http_data)
     request.app_id = source_info['app_id']
     response = taskqueue_service_pb2.TaskQueueAddResponse()
     bulk_request = taskqueue_service_pb2.TaskQueueBulkAddRequest()
@@ -492,7 +298,8 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    request = taskqueue_service_pb2.TaskQueueBulkAddRequest(http_data)
+    request = taskqueue_service_pb2.TaskQueueBulkAddRequest()
+    request.MergeFromString(http_data)
     response = taskqueue_service_pb2.TaskQueueBulkAddResponse()
 
     try:
@@ -524,7 +331,7 @@ class DistributedTaskQueue():
     error_found = False
     namespaced_names = [None for _ in request.add_request]
     for index, add_request in enumerate(request.add_request):
-      task_result = response.TaskResult.add()
+      task_result = response.taskresult.add()
 
       if (add_request.HasField("mode") and
           add_request.mode == taskqueue_service_pb2.TaskQueueMode.PULL):
@@ -580,7 +387,7 @@ class DistributedTaskQueue():
 
       try:
         self.__enqueue_push_task(source_info, add_request)
-      except apiproxy_errors.ApplicationError as error:
+      except ApplicationError as error:
         task_result.result = error.application_error
       except InvalidTarget as e:
         logger.error(e.message)
@@ -609,15 +416,16 @@ class DistributedTaskQueue():
     elif method == taskqueue_service_pb2.TaskQueueQueryTasksResponse.Task.DELETE:
       return 'DELETE'
 
-  def __get_task_name(self, task_name, retries=3):
-    """ Checks if a given TaskName entity exists.
+  def __get_task_name(self, project_id, task_name, retries=3):
+    """ Checks if a given task name entity exists.
 
     Args:
-      task_name: A string specifying the TaskName key.
+      project_id: A string specifying a project ID.
+      task_name: A string specifying the task name key.
       retries: An integer specifying how many times to retry the get.
     """
     try:
-      return TaskName.get_by_key_name(task_name)
+      return self.datastore_client.get(project_id, task_name)
     except TRANSIENT_DS_ERRORS as error:
       retries -= 1
       if retries >= 0:
@@ -628,18 +436,18 @@ class DistributedTaskQueue():
       raise
 
   def __create_task_name(self, project_id, queue_name, task_name, retries=3):
-    """ Creates a new TaskName entity.
+    """ Creates a new datastore_client.Entity object.
 
     Args:
       project_id: A string specifying a project ID.
       queue_name: A string specifying a queue name.
-      task_name: A string specifying the TaskName key.
+      task_name: A string specifying the task name key.
       retries: An integer specifying how many times to retry the create.
     """
-    entity = TaskName(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
-                      queue=queue_name, app_id=project_id)
+    entity = Entity(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
+                    queue=queue_name, app_id=project_id)
     try:
-      db.put(entity)
+      self.datastore_client.put(project_id, entity)
       return
     except TRANSIENT_DS_ERRORS as error:
       retries -= 1
@@ -663,27 +471,27 @@ class DistributedTaskQueue():
     Args:
       request: A taskqueue_service_pb2.TaskQueueAddRequest.
     Raises:
-      A apiproxy_errors.ApplicationError of TASK_ALREADY_EXISTS.
+      An ApplicationError of TASK_ALREADY_EXISTS.
     """
     task_name = request.task_name
 
     try:
-      item = self.__get_task_name(task_name)
+      item = self.__get_task_name(request.app_id, task_name)
     except TRANSIENT_DS_ERRORS:
       logger.exception('Unable to check task name')
-      raise apiproxy_errors.ApplicationError(
+      raise ApplicationError(
         taskqueue_service_pb2.TaskQueueServiceError.INTERNAL_ERROR)
 
     logger.debug("Task name {0}".format(task_name))
     if item:
       if item.state == TASK_STATES.QUEUED:
         logger.warning("Task already exists")
-        raise apiproxy_errors.ApplicationError(
+        raise ApplicationError(
           TaskQueueServiceError.TASK_ALREADY_EXISTS)
       else:
         # If a task with the same name has already been processed, it should
         # be tombstoned for some time to prevent a duplicate task.
-        raise apiproxy_errors.ApplicationError(
+        raise ApplicationError(
           TaskQueueServiceError.TOMBSTONED_TASK)
 
     logger.debug('Creating task name {}'.format(task_name))
@@ -692,7 +500,7 @@ class DistributedTaskQueue():
                               task_name)
     except TRANSIENT_DS_ERRORS:
       logger.exception('Unable to create task name')
-      raise apiproxy_errors.ApplicationError(
+      raise ApplicationError(
         TaskQueueServiceError.INTERNAL_ERROR)
 
   def __enqueue_push_task(self, source_info, request):
@@ -741,7 +549,6 @@ class DistributedTaskQueue():
     args['queue_name'] = request.queue_name
     args['method'] = self.__method_mapping(request.method)
     args['body'] = request.body
-    args['payload'] = request.payload
     args['description'] = request.description
 
     # Set defaults.
@@ -800,7 +607,7 @@ class DistributedTaskQueue():
       target_url = self.get_target_url(app_id, source_info, host)
 
 
-    args['url'] = "{target}{url}".format(target=target_url, url=request.url())
+    args['url'] = "{target}{url}".format(target=target_url, url=request.url)
     return args
 
   def get_target_url(self, app_id, source_info, target):
@@ -858,7 +665,7 @@ class DistributedTaskQueue():
       A dictionary of key/values for a web request.
     """
     headers = {}
-    for header in request.Header:
+    for header in request.header:
       headers[header.key] = header.value
 
     eta = self.__when_to_run(request)
@@ -912,22 +719,22 @@ class DistributedTaskQueue():
     Args:
       request: A taskqueue_service_pb2.TaskQueueAddRequest.
     Raises:
-      apiproxy_errors.ApplicationError upon invalid tasks.
+      ApplicationError upon invalid tasks.
     """
     if not request.HasField("queue_name"):
-      raise apiproxy_errors.ApplicationError(
+      raise ApplicationError(
         TaskQueueServiceError.INVALID_QUEUE_NAME)
     if not request.HasField("task_name"):
-      raise apiproxy_errors.ApplicationError(
+      raise ApplicationError(
         TaskQueueServiceError.INVALID_TASK_NAME)
     if not request.HasField("app_id"):
-      raise apiproxy_errors.ApplicationError(
+      raise ApplicationError(
         TaskQueueServiceError.UNKNOWN_QUEUE)
     if not request.HasField("url"):
-      raise apiproxy_errors.ApplicationError(TaskQueueServiceError.INVALID_URL)
+      raise ApplicationError(TaskQueueServiceError.INVALID_URL)
     if (request.HasField("mode") and
         request.mode == taskqueue_service_pb2.TaskQueueMode.PULL):
-      raise apiproxy_errors.ApplicationError(
+      raise ApplicationError(
         TaskQueueServiceError.INVALID_QUEUE_MODE)
 
   def modify_task_lease(self, app_id, http_data):
@@ -939,7 +746,8 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    request = taskqueue_service_pb2.TaskQueueModifyTaskLeaseRequest(http_data)
+    request = taskqueue_service_pb2.TaskQueueModifyTaskLeaseRequest()
+    request.MergeFromString(http_data)
 
     try:
       queue = self.get_queue(app_id, request.queue_name)

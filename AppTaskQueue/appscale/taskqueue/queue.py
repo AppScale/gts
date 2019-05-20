@@ -4,19 +4,22 @@ import base64
 import json
 import re
 import sys
+import time
 import uuid
 
+from appscale.common import appscale_info
 from appscale.common import retrying
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.cassandra_env.retry_policies import (
-  BASIC_RETRIES,
-  NO_RETRIES
-)
-from appscale.datastore.dbconstants import TRANSIENT_CASSANDRA_ERRORS
-from cassandra import DriverException
+import cassandra
+from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
 from cassandra.query import ConsistencyLevel
 from cassandra.query import SimpleStatement
+from cassandra.policies import (
+  DCAwareRoundRobinPolicy,
+  FallthroughRetryPolicy,
+  RetryPolicy
+)
 from collections import deque
 from threading import Lock
 from .constants import AGE_LIMIT_REGEX
@@ -29,7 +32,79 @@ from .task import Task
 from .utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.taskqueue.taskqueue import MAX_QUEUE_NAME_LENGTH
+
+
+# The number of times to retry idempotent statements.
+BASIC_RETRY_COUNT = 5
+
+
+class IdempotentRetryPolicy(RetryPolicy):
+  """ A policy used for retrying idempotent statements. """
+  def on_read_timeout(self, query, consistency, required_responses,
+                      received_responses, data_retrieved, retry_num):
+    """ This is called when a ReadTimeout occurs.
+
+    Args:
+      query: A statement that timed out.
+      consistency: The consistency level of the statement.
+      required_responses: The number of responses required.
+      received_responses: The number of responses received.
+      data_retrieved: Indicates whether any responses contained data.
+      retry_num: The number of times the statement has been tried.
+    """
+    if retry_num >= BASIC_RETRY_COUNT:
+      return self.RETHROW, None
+    else:
+      return self.RETRY, consistency
+
+  def on_write_timeout(self, query, consistency, write_type,
+                       required_responses, received_responses, retry_num):
+    """ This is called when a WriteTimeout occurs.
+
+    Args:
+      query: A statement that timed out.
+      consistency: The consistency level of the statement.
+      required_responses: The number of responses required.
+      received_responses: The number of responses received.
+      data_retrieved: Indicates whether any responses contained data.
+      retry_num: The number of times the statement has been tried.
+    """
+    if retry_num >= BASIC_RETRY_COUNT:
+      return self.RETHROW, None
+    else:
+      return self.RETRY, consistency
+
+  def on_unavailable(self, query, consistency, required_replicas,
+                     alive_replicas, retry_num):
+    """ The coordinator has detected an insufficient number of live replicas.
+
+    Args:
+      query: A statement that timed out.
+      consistency: The consistency level of the statement.
+      required_replicas: The number of replicas required to complete query.
+      alive_replicas: The number of replicas that are ready to complete query.
+      retry_num: The number of times the statement has been tried.
+    """
+    if retry_num >= BASIC_RETRY_COUNT:
+      return self.RETHROW, None
+    else:
+      return self.RETRY, consistency
+
+
+# A basic policy that retries idempotent operations.
+BASIC_RETRIES = IdempotentRetryPolicy()
+
+# A policy that does not retry statements.
+NO_RETRIES = FallthroughRetryPolicy()
+
+MAX_QUEUE_NAME_LENGTH = 100
+
+TRANSIENT_CASSANDRA_ERRORS = (
+  cassandra.Unavailable, cassandra.Timeout, cassandra.CoordinationFailure,
+  cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)
+
+# The load balancing policy to use when connecting to a cluster.
+LB_POLICY = DCAwareRoundRobinPolicy()
 
 # This format is used when returning the long name of a queue as
 # part of a leased task. This is to mimic a GCP oddity/bug.
@@ -835,17 +910,38 @@ class PullQueue(Queue):
   # The seconds to wait after fetching 0 index results before retrying.
   EMPTY_RESULTS_COOLDOWN = 5
 
-  def __init__(self, queue_info, app, db_access=None):
+  # The number of times to retry connecting to Cassandra.
+  INITIAL_CONNECT_RETRIES = 20
+
+  # The keyspace used for all tables
+  KEYSPACE = "Keyspace1"
+
+  def __init__(self, queue_info, app):
     """ Create a PullQueue object.
 
     Args:
       queue_info: A dictionary containing queue info.
       app: A string containing the application ID.
-      db_access: A DatastoreProxy object.
     """
-    self.db_access = db_access
     self.index_cache = {'global': {}, 'by_tag': {}}
     self.index_cache_lock = Lock()
+
+    hosts = appscale_info.get_db_ips()
+    remaining_retries = self.INITIAL_CONNECT_RETRIES
+    while True:
+      try:
+        self.cluster = Cluster(hosts, default_retry_policy=BASIC_RETRIES,
+                               load_balancing_policy=LB_POLICY)
+        self.session = self.cluster.connect(self.KEYSPACE)
+        break
+      except cassandra.cluster.NoHostAvailable as connection_error:
+        remaining_retries -= 1
+        if remaining_retries < 0:
+          raise connection_error
+        time.sleep(3)
+
+    self.session.default_consistency_level = ConsistencyLevel.QUORUM
+
     super(PullQueue, self).__init__(queue_info, app)
 
   def add_task(self, task, retries=5):
@@ -908,13 +1004,13 @@ class PullQueue(Queue):
       'id': task.id,
       'tag': tag
     }
-    self.db_access.session.execute(insert_eta_index, parameters)
+    self.session.execute(insert_eta_index, parameters)
 
     insert_tag_index = SimpleStatement("""
       INSERT INTO pull_queue_tags_index (app, queue, tag, eta, id)
       VALUES (%(app)s, %(queue)s, %(tag)s, %(eta)s, %(id)s)
     """, retry_policy=BASIC_RETRIES)
-    self.db_access.session.execute(insert_tag_index, parameters)
+    self.session.execute(insert_tag_index, parameters)
 
     logger.debug('Added task: {}'.format(task))
 
@@ -940,7 +1036,7 @@ class PullQueue(Queue):
                                 consistency_level=ConsistencyLevel.SERIAL)
     parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
     try:
-      response = self.db_access.session.execute(statement, parameters)[0]
+      response = self.session.execute(statement, parameters)[0]
     except IndexError:
       return None
 
@@ -1042,7 +1138,7 @@ class PullQueue(Queue):
     Returns:
       A list of Task objects.
     """
-    session = self.db_access.session
+    session = self.session
 
     tasks = []
     start_date = datetime.datetime.utcfromtimestamp(0)
@@ -1176,7 +1272,7 @@ class PullQueue(Queue):
     """
     parameters = {'app': self.app, 'queue': self.name,
                   'next_queue': next_key(self.name)}
-    return self.db_access.session.execute(select_count, parameters)[0].count
+    return self.session.execute(select_count, parameters)[0].count
 
   def oldest_eta(self):
     """ Get the ETA of the oldest task
@@ -1185,7 +1281,7 @@ class PullQueue(Queue):
       A datetime object specifying the oldest ETA or None if there are no
       tasks.
     """
-    session = self.db_access.session
+    session = self.session
     select_oldest = """
       SELECT eta FROM pull_queue_eta_index
       WHERE token(app, queue, eta, id) >= token(%(app)s, %(queue)s, 0, '')
@@ -1212,7 +1308,7 @@ class PullQueue(Queue):
     """
     parameters = {'app': self.app, 'queue': self.name,
                   'next_queue': next_key(self.name)}
-    results = self.db_access.session.execute(select_tasks, parameters)
+    results = self.session.execute(select_tasks, parameters)
 
     for result in results:
       task_info = {'id': result.id,
@@ -1275,7 +1371,7 @@ class PullQueue(Queue):
       'op_id': op_id
     }
     try:
-      result = self.db_access.session.execute(select_statement, parameters)[0]
+      result = self.session.execute(select_statement, parameters)[0]
     except IndexError:
       raise TaskNotFound('Task does not exist: {}'.format(task_id))
 
@@ -1302,7 +1398,7 @@ class PullQueue(Queue):
       IF NOT EXISTS
     """, retry_policy=NO_RETRIES)
     try:
-      result = self.db_access.session.execute(insert_statement, parameters)
+      result = self.session.execute(insert_statement, parameters)
     except TRANSIENT_CASSANDRA_ERRORS as error:
       retries_left = retries - 1
       if retries_left <= 0:
@@ -1348,7 +1444,7 @@ class PullQueue(Queue):
 
     update_statement = SimpleStatement(update_task, retry_policy=NO_RETRIES)
     try:
-      result = self.db_access.session.execute(update_statement, parameters)
+      result = self.session.execute(update_statement, parameters)
     except TRANSIENT_CASSANDRA_ERRORS as error:
       retries_left = retries - 1
       if retries_left <= 0:
@@ -1384,7 +1480,7 @@ class PullQueue(Queue):
         LIMIT {limit}
       """.format(limit=num_tasks)
       parameters = {'app': self.app, 'queue': self.name, 'tag': tag}
-      results = self.db_access.session.execute(query_tasks, parameters)
+      results = self.session.execute(query_tasks, parameters)
     else:
       query_tasks = """
         SELECT eta, id, tag FROM pull_queue_eta_index
@@ -1393,7 +1489,7 @@ class PullQueue(Queue):
         LIMIT {limit}
       """.format(limit=num_tasks)
       parameters = {'app': self.app, 'queue': self.name}
-      results = self.db_access.session.execute(query_tasks, parameters)
+      results = self.session.execute(query_tasks, parameters)
     return results
 
   def _query_available_tasks(self, num_tasks, group_by_tag, tag):
@@ -1469,7 +1565,7 @@ class PullQueue(Queue):
     """
     parameters = {'app': self.app, 'queue': self.name}
     try:
-      tag = self.db_access.session.execute(get_earliest_tag, parameters)[0].tag
+      tag = self.session.execute(get_earliest_tag, parameters)[0].tag
     except IndexError:
       raise EmptyQueue('No entries in queue index')
     return tag
@@ -1480,7 +1576,7 @@ class PullQueue(Queue):
     Args:
       task: A Task object.
     """
-    session = self.db_access.session
+    session = self.session
 
     statement = """
       UPDATE pull_queue_tasks
@@ -1497,7 +1593,7 @@ class PullQueue(Queue):
     params = [new_count, self.app, self.name, task.id, old_count]
     bound_update = update_count.bind(params)
     bound_update.retry_policy = NO_RETRIES
-    self.db_access.session.execute_async(bound_update)
+    self.session.execute_async(bound_update)
 
   def _lease_batch(self, indexes, new_eta):
     """ Acquires a lease on tasks in the queue.
@@ -1510,7 +1606,7 @@ class PullQueue(Queue):
       A list of task objects or None if unable to acquire a lease.
     """
     leased = [None for _ in indexes]
-    session = self.db_access.session
+    session = self.session
     op_id = uuid.uuid4()
 
     lease_statement = """
@@ -1545,7 +1641,7 @@ class PullQueue(Queue):
       try:
         result = update_future.result()
         success = True
-      except DriverException:
+      except cassandra.DriverException:
         result = None
         success = False
 
@@ -1603,7 +1699,7 @@ class PullQueue(Queue):
     Returns:
       A cassandra-driver future.
     """
-    session = self.db_access.session
+    session = self.session
 
     old_eta = old_index.eta
     update_index = BatchStatement(retry_policy=BASIC_RETRIES)
@@ -1664,7 +1760,7 @@ class PullQueue(Queue):
     parameters = [self.app, self.name, tag, task.leaseTimestamp, task.id]
     update_index.add(create_new_tag_index, parameters)
 
-    return self.db_access.session.execute_async(update_index)
+    return self.session.execute_async(update_index)
 
   def _delete_index(self, eta, task_id, tag):
     """ Deletes an index entry for a task.
@@ -1683,7 +1779,7 @@ class PullQueue(Queue):
     """
     parameters = {'app': self.app, 'queue': self.name, 'eta': eta,
                   'id': task_id}
-    self.db_access.session.execute(delete_eta_index, parameters)
+    self.session.execute(delete_eta_index, parameters)
 
     delete_tag_index = """
       DELETE FROM pull_queue_tags_index
@@ -1695,7 +1791,7 @@ class PullQueue(Queue):
     """
     parameters = {'app': self.app, 'queue': self.name, 'tag': tag, 'eta': eta,
                   'id': task_id}
-    self.db_access.session.execute(delete_tag_index, parameters)
+    self.session.execute(delete_tag_index, parameters)
 
   def _delete_task_and_index(self, task, retries=5):
     """ Deletes a task and its index.
@@ -1710,7 +1806,7 @@ class PullQueue(Queue):
     """, retry_policy=NO_RETRIES)
     parameters = {'app': self.app, 'queue': self.name, 'id': task.id}
     try:
-      self.db_access.session.execute(delete_task, parameters=parameters)
+      self.session.execute(delete_task, parameters=parameters)
     except TRANSIENT_CASSANDRA_ERRORS as error:
       retries_left = retries - 1
       if retries_left <= 0:
@@ -1732,7 +1828,7 @@ class PullQueue(Queue):
       'eta': task.get_eta(),
       'id': task.id
     }
-    self.db_access.session.execute(delete_task_eta_index, parameters=parameters)
+    self.session.execute(delete_task_eta_index, parameters=parameters)
 
     try:
       tag = task.tag
@@ -1754,7 +1850,7 @@ class PullQueue(Queue):
       'eta': task.get_eta(),
       'id': task.id
     }
-    self.db_access.session.execute(delete_task_tag_index, parameters=parameters)
+    self.session.execute(delete_task_tag_index, parameters=parameters)
 
   def _resolve_task(self, index):
     """ Cleans up expired tasks and indices.
@@ -1777,7 +1873,7 @@ class PullQueue(Queue):
 
   def _update_stats(self):
     """ Write queue metadata for keeping track of statistics. """
-    session = self.db_access.session
+    session = self.session
     # Stats are only kept for one hour.
     ttl = 60 * 60
     statement = """
@@ -1790,7 +1886,7 @@ class PullQueue(Queue):
     record_lease = self.prepared_statements[statement]
 
     parameters = [self.app, self.name, datetime.datetime.utcnow()]
-    self.db_access.session.execute_async(record_lease, parameters)
+    self.session.execute_async(record_lease, parameters)
 
   def _get_stats(self, fields):
     """ Fetch queue statistics.
@@ -1800,7 +1896,7 @@ class PullQueue(Queue):
     Returns:
       A dictionary containing queue statistics.
     """
-    session = self.db_access.session
+    session = self.session
     stats = {}
 
     if 'totalTasks' in fields:
