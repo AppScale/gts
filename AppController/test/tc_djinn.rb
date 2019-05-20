@@ -297,9 +297,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
 
-    flexmock(Djinn).should_receive(:log_run).and_return()
-    flexmock(Djinn).should_receive(:log_run).and_return()
-    flexmock(Djinn).should_receive(:log_run).and_return()
+    flexmock(Djinn).should_receive(:log_run).and_return().times(3)
 
     assert_equal(true, djinn.start_taskqueue_slave())
   end
