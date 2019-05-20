@@ -492,7 +492,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       del self.__queries[cursor_handle]
       return
 
-    if internal_cursor.get_offset() >= internal_cursor.get_count():
+    if query.has_limit() and internal_cursor.get_offset() >= query.limit():
       query_result.set_more_results(False)
       query_result.mutable_compiled_cursor().CopyFrom(last_cursor)
       if next_request.compile():
@@ -501,10 +501,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         compiled_query.mutable_primaryscan().set_index_name(query.Encode())
       del self.__queries[cursor_handle]
       return
- 
-    count = _BATCH_SIZE
+
+    if query.has_limit():
+      max_remaining_results = query.limit() - internal_cursor.get_offset()
+    else:
+      max_remaining_results = sys.maxint
+
     if next_request.has_count():
-      count = next_request.count()
+      count = min(next_request.count(), max_remaining_results)
+    else:
+      count = min(_BATCH_SIZE, max_remaining_results)
 
     query.set_count(count)
     if next_request.has_offset():

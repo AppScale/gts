@@ -11,7 +11,7 @@ import time
 import uuid
 
 from appscale.common import appscale_info
-from appscale.common.async_retrying import retry_coroutine
+from appscale.common.async_retrying import retry_raw_coroutine
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 import cassandra
@@ -492,7 +492,7 @@ class DatastoreProxy(AppDBInterface):
 
     # Since failing after this point is expensive and time consuming, retry
     # operations to make a failure less likely.
-    custom_retry_coroutine = retry_coroutine(
+    custom_retry_coroutine = retry_raw_coroutine(
       backoff_threshold=5, retrying_timeout=10,
       retry_on_exception=dbconstants.TRANSIENT_CASSANDRA_ERRORS)
 
