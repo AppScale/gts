@@ -74,8 +74,7 @@ class Dispatcher(request_info.Dispatcher):
                use_mtime_file_watcher,
                automatic_restart,
                allow_skipped_files,
-               module_to_threadsafe_override,
-               external_api_port=None):
+               module_to_threadsafe_override):
     """Initializer for Dispatcher.
 
     Args:
@@ -114,8 +113,6 @@ class Dispatcher(request_info.Dispatcher):
       module_to_threadsafe_override: A mapping between the module name and what
         to override the module's YAML threadsafe configuration (so modules
         not named continue to use their YAML configuration).
-      external_api_port: An integer specifying the location of an external API
-          server.
     """
     self._configuration = configuration
     self._php_executable_path = php_executable_path
@@ -124,7 +121,6 @@ class Dispatcher(request_info.Dispatcher):
     self._cloud_sql_config = cloud_sql_config
     self._request_data = None
     self._api_port = None
-    self._external_api_port = external_api_port
     self._running_modules = []
     self._module_configurations = {}
     self._host = host
@@ -168,8 +164,7 @@ class Dispatcher(request_info.Dispatcher):
     for module_configuration in self._configuration.modules:
       self._module_configurations[
           module_configuration.module_name] = module_configuration
-      _module, port = self._create_module(module_configuration, port,
-                                          self._external_api_port)
+      _module, port = self._create_module(module_configuration, port)
       _module.start()
       self._module_name_to_module[module_configuration.module_name] = _module
       logging.info('Starting module "%s" running at: http://%s',
@@ -239,7 +234,7 @@ class Dispatcher(request_info.Dispatcher):
     for _module in self._module_name_to_module.values():
       _module.quit()
 
-  def _create_module(self, module_configuration, port, external_port=None):
+  def _create_module(self, module_configuration, port):
     max_instances = self._module_to_max_instances.get(
         module_configuration.module_name)
     threadsafe_override = self._module_to_threadsafe_override.get(
@@ -263,13 +258,12 @@ class Dispatcher(request_info.Dispatcher):
                    self._automatic_restart,
                    self._allow_skipped_files,
                    threadsafe_override)
-    module_kwargs = {'external_api_port': external_port}
     if module_configuration.manual_scaling:
-      _module = module.ManualScalingModule(*module_args, **module_kwargs)
+      _module = module.ManualScalingModule(*module_args)
     elif module_configuration.basic_scaling:
-      _module = module.BasicScalingModule(*module_args, **module_kwargs)
+      _module = module.BasicScalingModule(*module_args)
     else:
-      _module = module.AutoScalingModule(*module_args, **module_kwargs)
+      _module = module.AutoScalingModule(*module_args)
 
     if port != 0:
       port += 1000

@@ -43,12 +43,10 @@ class RemoteApiProxy extends ApiProxyBase{
   /**
    * Constructs an instance of RemoteApiProxy.
    * @param int $apiPort Port to use
-   * @param int $externalApiPort Port of external API server
    * @param string $requestId ID of the request
    */
-  function __construct($apiPort, $externalApiPort, $requestId) {
+  function __construct($apiPort, $requestId) {
     $this->apiPort = $apiPort;
-    $this->externalApiPort = $externalApiPort;
     $this->requestId = $requestId;
   }
 
@@ -89,14 +87,9 @@ class RemoteApiProxy extends ApiProxyBase{
       )
     );
 
-    $port_to_use = $this->apiPort;
-    if ($package == 'app_identity_service' && $this->externalApiPort != '0') {
-      $port_to_use = $this->externalApiPort;
-    }
-
     $context = stream_context_create($opts);
     $serialized_remote_respone = file_get_contents(
-        'http://localhost:' . $port_to_use, false, $context);
+        'http://localhost:' . $this->apiPort, false, $context);
     $remote_response = new Response();
     $remote_response->parseFromString($serialized_remote_respone);
 

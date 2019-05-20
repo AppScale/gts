@@ -16,10 +16,11 @@ from appscale.appcontroller_client import AppControllerClient
 from google.appengine.api import urlfetch
 from google.appengine.api import users
 
+from admin_server_location import ADMIN_SERVER_LOCATION
+from controller_location import CONTROLLER_LOCATION
 from custom_exceptions import BadConfigurationException
 from local_state import LocalState
 from secret_key import GLOBAL_SECRET_KEY
-from local_host import MY_PUBLIC_IP
 from uaserver_host import UA_SERVER_IP
 
 
@@ -173,7 +174,7 @@ class AppDashboardHelper(object):
       'user_caps': {}
     }
 
-  def get_appcontroller_client(self, server_ip=MY_PUBLIC_IP):
+  def get_appcontroller_client(self, server_ip=CONTROLLER_LOCATION):
     """ Retrieves our saved AppController connection, creating a new one if none
     currently exist.
 
@@ -349,7 +350,7 @@ class AppDashboardHelper(object):
         logging.exception(err)
         return ''
     for node in nodes:
-      if role in node['jobs']:
+      if role in node['roles']:
         return node['public_ip']
     return ''
 
@@ -400,7 +401,8 @@ class AppDashboardHelper(object):
     """
     project_id, service_id, version_id = version_key.split(
       self.VERSION_PATH_SEPARATOR)
-    admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
+    admin_server = 'https://{}:{}'.format(ADMIN_SERVER_LOCATION,
+                                          self.ADMIN_SERVER_PORT)
     version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
       admin_server, project_id, service_id, version_id)
     result = urlfetch.fetch(version_url,
@@ -531,7 +533,8 @@ class AppDashboardHelper(object):
       A str indicating whether or not the application was successfully removed
         from this AppScale deployment.
     """
-    admin_server = 'https://{}:{}'.format(MY_PUBLIC_IP, self.ADMIN_SERVER_PORT)
+    admin_server = 'https://{}:{}'.format(ADMIN_SERVER_LOCATION,
+                                          self.ADMIN_SERVER_PORT)
     version_url = '{}/v1/apps/{}/services/{}/versions/{}'.format(
       admin_server, appname, self.DEFAULT_SERVICE, self.DEFAULT_VERSION)
     result = urlfetch.fetch(version_url,

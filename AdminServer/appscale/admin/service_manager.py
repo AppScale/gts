@@ -199,17 +199,17 @@ def datastore_start_cmd(port, assignment_options):
 
 
 @gen.coroutine
-def datastore_health_probe(host_port):
+def datastore_health_probe(base_url):
   """ Verifies if datastore server is responsive.
 
   Args:
-    host_port: A str - location of datastore server to test.
+    base_url: A str - location of datastore server to test.
   Returns:
     True if the serve is responsive and False otherwise.
   """
   http_client = AsyncHTTPClient()
   try:
-    response = yield http_client.fetch('http://{}'.format(host_port))
+    response = yield http_client.fetch(base_url)
     raise gen.Return(response.code == 200)
   except socket.error as error:
     if error.errno != errno.ECONNREFUSED:
@@ -371,7 +371,7 @@ class ServerManager(object):
     Raises:
       StartTimeout if start time exceeds given timeout.
     """
-    server_location = '{}:{}'.format(options.private_ip, self.port)
+    server_url = 'http://{}:{}'.format(options.private_ip, self.port)
     start_time = time.time()
     try:
       while True:
@@ -381,7 +381,7 @@ class ServerManager(object):
         if time.time() > start_time + timeout:
           raise StartTimeout('{} took too long to start'.format(self))
 
-        health_result = self.service.health_probe(server_location)
+        health_result = self.service.health_probe(server_url)
         if isinstance(health_result, gen.Future):
           health_result = yield health_result
         if health_result:

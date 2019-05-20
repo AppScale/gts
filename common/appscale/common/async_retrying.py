@@ -18,22 +18,23 @@ from appscale.common.retrying import (
 logger = logging.getLogger(__name__)
 
 
-class _RetryCoroutine(_Retry):
+class _RetryRawCoroutine(_Retry):
 
-  def wrap(self, generator):
-    """ Wraps python generator with tornado coroutine and retry mechanism
-    which runs up to max_retries attempts with exponential backoff
+  def wrap(self, coroutine):
+    """ Wraps a tornado coroutine with a retry mechanism which runs up to
+    max_retries attempts with exponential backoff
     (sleep = backoff_multiplier * backoff_base**X).
 
     Args:
-      generator: python generator to wrap.
+      coroutine: tornado coroutine to wrap.
     Returns:
       A wrapped coroutine.
     """
+    return self._wrap(coroutine, coroutine)
 
-    coroutine = gen.coroutine(generator)
+  def _wrap(self, coroutine, wrapped):
 
-    @functools.wraps(generator)
+    @functools.wraps(wrapped)
     @gen.coroutine
     def wrapped(*args, **kwargs):
       check_exception = self.retry_on_exception
@@ -93,6 +94,32 @@ class _RetryCoroutine(_Retry):
       raise gen.Return(result)
 
     return wrapped
+
+
+class _RetryCoroutine(_RetryRawCoroutine):
+
+  def wrap(self, generator):
+    """ Wraps python generator with tornado coroutine and retry mechanism
+    which runs up to max_retries attempts with exponential backoff
+    (sleep = backoff_multiplier * backoff_base**X).
+
+    Args:
+      generator: python generator to wrap.
+    Returns:
+      A wrapped coroutine.
+    """
+    coroutine = gen.coroutine(generator)
+    return _RetryRawCoroutine._wrap(self, coroutine, generator)
+
+
+retry_raw_coroutine = _RetryRawCoroutine(
+    backoff_base=DEFAULT_BACKOFF_BASE,
+    backoff_multiplier=DEFAULT_BACKOFF_MULTIPLIER,
+    backoff_threshold=DEFAULT_BACKOFF_THRESHOLD,
+    max_retries=DEFAULT_MAX_RETRIES,
+    retrying_timeout=DEFAULT_RETRYING_TIMEOUT,
+    retry_on_exception=DEFAULT_RETRY_ON_EXCEPTION
+)
 
 retry_coroutine = _RetryCoroutine(
   backoff_base=DEFAULT_BACKOFF_BASE,

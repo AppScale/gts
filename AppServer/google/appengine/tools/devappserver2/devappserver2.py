@@ -163,8 +163,7 @@ class DevelopmentServer(object):
         options.use_mtime_file_watcher,
         options.automatic_restart,
         options.allow_skipped_files,
-        module_to_threadsafe_override,
-        options.external_api_port)
+        module_to_threadsafe_override)
 
     request_data = wsgi_request_info.WSGIRequestInfo(self._dispatcher)
     storage_path = api_server.get_storage_path(

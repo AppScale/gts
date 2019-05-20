@@ -168,7 +168,7 @@ CONFIG
                   '--background',
                   '--make-pidfile',
                   '--pidfile', pidfile,
-                  '--startas', "#{bash} -- -c '#{bash_exec}'"]
+                  '--startas', "#{bash} -- -c 'unset \"${!MONIT_@}\"; #{bash_exec}'"]
 
     stop_cmd = "#{start_stop_daemon} --stop --pidfile #{pidfile} " \
                "--retry=TERM/20/KILL/5 && #{rm} #{pidfile}"
