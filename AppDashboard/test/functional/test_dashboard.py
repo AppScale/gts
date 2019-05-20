@@ -140,7 +140,7 @@ class FunctionalTestAppDashboard(unittest.TestCase):
       }
     ])
     acc.should_receive('get_role_info').and_return(
-     [{'jobs': ['shadow', 'login'], 'public_ip':'1.1.1.1'} ]
+     [{'roles': ['shadow', 'login'], 'public_ip':'1.1.1.1'} ]
      )
     acc.should_receive('get_database_information').and_return(
       {'table':'fake_database', 'replication':1}

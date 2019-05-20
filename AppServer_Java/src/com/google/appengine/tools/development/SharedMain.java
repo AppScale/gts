@@ -24,6 +24,7 @@ public abstract class SharedMain {
     private List<String> apisUsingPythonStubs = null;
     private String externalResourceDir = null;
     private List<String> propertyOptions = null;
+    private List pythonApiServerFlags = null;
 
     protected List<Option> getSharedOptions() {
         return Arrays.asList(new Option("h", "help", true) {
@@ -75,6 +76,14 @@ public abstract class SharedMain {
         }, new Option((String)null, "no_java_agent", true) {
             public void apply() {
                 SharedMain.this.noJavaAgent = true;
+            }
+        }, new Option((String)null, "python_api_server_flag", false) {
+            public void apply() {
+                SharedMain.this.pythonApiServerFlags = this.getValues();
+                if (!SharedMain.this.pythonApiServerFlags.isEmpty()) {
+                    System.setProperty("appengine.pythonApiServerFlags", Joiner.on('|').join((Iterable)SharedMain.this.pythonApiServerFlags));
+                }
+
             }
         });
     }

@@ -25,19 +25,19 @@ module AppDashboard
   # Prepares the dashboard's source archive.
   #
   # Args:
-  #   public_ip: This machine's public IP address or FQDN.
   #   private_ip: This machine's private IP address or FQDN.
   #   persistent_storage: Where we store the application tarball.
   #   datastore_location: The location of a datastore load balancer.
   #   taskqueue_location: The location of a taskqueue load balancer.
   # Returns:
   #   A string specifying the location of the prepared archive.
-  def self.prep(public_ip, private_ip, persistent_storage, datastore_location,
+  def self.prep(private_ip, persistent_storage, datastore_location,
                 taskqueue_location)
     # Write deployment-specific information that the dashboard needs.
     lib_dir = File.join(APPSCALE_HOME, 'AppDashboard', 'lib')
     lib_contents = {
-      'local_host.py' => "MY_PUBLIC_IP = '#{public_ip}'",
+      'admin_server_location.py' => "ADMIN_SERVER_LOCATION = '#{private_ip}'",
+      'controller_location.py' => "CONTROLLER_LOCATION = '#{private_ip}'",
       'uaserver_host.py' => "UA_SERVER_IP = '#{private_ip}'",
       'datastore_location.py' => "DATASTORE_LOCATION = '#{datastore_location}'",
       'taskqueue_location.py' => "TASKQUEUE_LOCATION = '#{taskqueue_location}'"

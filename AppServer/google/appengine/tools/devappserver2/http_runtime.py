@@ -190,6 +190,8 @@ class HttpRuntimeProxy(instance.RuntimeProxy):
       environ[http_runtime_constants.REQUEST_TYPE_HEADER] = 'shutdown'
     elif request_type == instance.INTERACTIVE_REQUEST:
       environ[http_runtime_constants.REQUEST_TYPE_HEADER] = 'interactive'
+    elif http_runtime_constants.REQUEST_TYPE_HEADER in environ:
+      del environ[http_runtime_constants.REQUEST_TYPE_HEADER]
 
     for name in http_runtime_constants.ENVIRONS_TO_PROPAGATE:
       if http_runtime_constants.INTERNAL_ENVIRON_PREFIX + name not in environ:

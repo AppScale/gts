@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import time
 import unittest
 import urllib2
 
@@ -13,6 +14,7 @@ from tornado.options import options
 from tornado.testing import AsyncTestCase
 from tornado.testing import gen_test
 
+from appscale.admin.instance_manager.constants import START_APP_TIMEOUT
 from appscale.admin.instance_manager import (
   instance_manager as instance_manager_module)
 from appscale.admin.instance_manager import InstanceManager
@@ -322,6 +324,9 @@ class TestInstanceManager(AsyncTestCase):
     instance_started = yield instance_manager._wait_for_app(port)
     self.assertEqual(True, instance_started)
 
+    current_time = time.time()
+    flexmock(time).should_receive('time').and_return(current_time).\
+      and_return(current_time + START_APP_TIMEOUT + 1)
     response = Future()
     response.set_result(None)
     flexmock(gen).should_receive('sleep').and_return(response)

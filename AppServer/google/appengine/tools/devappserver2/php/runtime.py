@@ -22,7 +22,6 @@ import cStringIO
 import httplib
 import logging
 import os
-import struct
 import subprocess
 import sys
 import time
@@ -49,11 +48,6 @@ class PHPRuntime(object):
     logging.debug('Initializing runtime with %s', config)
     self.config = config
 
-    external_api_port = 0
-    if config.api_port > 65535:
-        port_bytes = struct.pack('I', config.api_port)
-        config.api_port, external_api_port = struct.unpack('HH', port_bytes)
-
     if appinfo.MODULE_SEPARATOR not in config.version_id:
       module_id = appinfo.DEFAULT_MODULE
       version_id = config.version_id
@@ -73,7 +67,6 @@ class PHPRuntime(object):
         # http://php.net/manual/en/security.cgi-bin.force-redirect.php
         'REDIRECT_STATUS': '1',
         'REMOTE_API_PORT': str(config.api_port),
-        'EXTERNAL_API_PORT': str(external_api_port),
         'SERVER_SOFTWARE': http_runtime_constants.SERVER_SOFTWARE,
         'TZ': 'UTC',
         }

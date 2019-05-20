@@ -11,7 +11,7 @@ from appscale.admin.instance_manager.constants import (
 from appscale.admin.instance_manager.utils import find_web_inf
 from appscale.common import appscale_info
 from appscale.common.constants import (
-  APPSCALE_HOME, DB_SERVER_PORT, JAVA_APPSERVER, UA_SERVER_PORT,
+  APPSCALE_HOME, DB_SERVER_PORT, JAVA_APPSERVER, SCRIPTS_DIR, UA_SERVER_PORT,
   VERSION_PATH_SEPARATOR)
 from appscale.common.deployment_config import ConfigInaccessible
 
@@ -92,6 +92,21 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
   revision_base = os.path.join(UNPACK_ROOT, revision_key)
   web_inf_directory = find_web_inf(revision_base)
 
+  api_server = os.path.join(SCRIPTS_DIR, 'appscale_java8_apiserver.sh')
+  apis_using_external_server = ['app_identity_service', 'datastore_v3',
+                                'memcache', 'taskqueue']
+  api_server_flags = [
+    '--application={}'.format(app_name),
+    '--datastore_path={}'.format(
+      ':'.join([options.db_proxy, str(DB_SERVER_PORT)])),
+    '--login_server={}'.format(load_balancer_host),
+    '--nginx_host={}'.format(load_balancer_host),
+    '--xmpp_path={}'.format(load_balancer_host),
+    '--uaserver_path={}'.format(
+      ':'.join([options.db_proxy, str(UA_SERVER_PORT)])),
+    '--external_api_port={}'.format(api_server_port)
+  ]
+
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
   # local FS and see what port it's running on. The value doesn't matter.
   cmd = [
@@ -112,10 +127,16 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     "--TQ_PROXY=" + options.tq_proxy,
     "--xmpp_path=" + options.load_balancer_ip,
     "--pidfile={}".format(pidfile),
-    "--external_api_port={}".format(api_server_port),
-    "--api_using_python_stub=app_identity_service",
-    os.path.dirname(web_inf_directory)
+    "--path_to_python_api_server={}".format(api_server)
   ]
+
+  for flag in api_server_flags:
+    cmd.append('--python_api_server_flag="{}"'.format(flag))
+
+  for api in apis_using_external_server:
+    cmd.append('--api_using_python_stub={}'.format(api))
+
+  cmd.append(os.path.dirname(web_inf_directory))
 
   return ' '.join(cmd)
 
@@ -152,7 +173,10 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
   Returns:
     A string of the start command.
   """
-  source_directory = os.path.join(UNPACK_ROOT, revision_key, 'app')
+  service_id = revision_key.split(VERSION_PATH_SEPARATOR)[1]
+
+  # When deploying the service, the tools rename the service yaml to app.yaml.
+  config_file = os.path.join(UNPACK_ROOT, revision_key, 'app', 'app.yaml')
 
   cmd = [
     "/usr/bin/python2", APPSCALE_HOME + "/AppServer/dev_appserver.py",
@@ -166,14 +190,16 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
     "--enable_sendmail",
     "--xmpp_path " + options.load_balancer_ip,
     "--php_executable_path=" + str(PHP_CGI_LOCATION),
+    "--max_module_instances", "{}:1".format(service_id),
     "--uaserver_path " + options.db_proxy + ":" + str(UA_SERVER_PORT),
     "--datastore_path " + options.db_proxy + ":" + str(DB_SERVER_PORT),
-    source_directory,
     "--host " + options.private_ip,
     "--admin_host " + options.private_ip,
     "--automatic_restart", "no",
     "--pidfile", pidfile,
-    "--external_api_port", str(api_server_port)]
+    "--external_api_port", str(api_server_port),
+    config_file
+  ]
 
   if app_name in TRUSTED_APPS:
     cmd.append('--trusted')
@@ -209,7 +235,7 @@ def get_login_server(instance):
     return None
 
   for index, arg in enumerate(args):
-    if '--login_server=' in arg:
+    if '--login_server=' in arg and 'python_api_server_flag' not in arg:
       return arg.split('=', 1)[1]
 
     if arg == '--login_server':
