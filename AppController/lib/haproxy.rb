@@ -32,11 +32,6 @@ module HAProxy
   SERVICE_MAIN_FILE = File.join(HAPROXY_PATH, "service-haproxy.#{CONFIG_EXTENSION}")
   SERVICE_BASE_FILE = File.join(HAPROXY_PATH, "service-base.#{CONFIG_EXTENSION}")
   SERVICE_PIDFILE = '/var/run/service-haproxy.pid'.freeze
-  # These are for the AppServer haproxy.
-  SITES_ENABLED_PATH = File.join(HAPROXY_PATH, 'app-sites-enabled')
-  MAIN_CONFIG_FILE = File.join(HAPROXY_PATH, "app-haproxy.#{CONFIG_EXTENSION}")
-  BASE_CONFIG_FILE = File.join(HAPROXY_PATH, "app-base.#{CONFIG_EXTENSION}")
-  PIDFILE = '/var/run/app-haproxy.pid'.freeze
 
   # Maximum AppServer threaded connections
   MAX_APPSERVER_CONN = 7
@@ -90,13 +85,6 @@ module HAProxy
       :service_haproxy, start_cmd, stop_cmd, SERVICE_PIDFILE)
   end
 
-  # Start HAProxy for AppServer instances.
-  def self.apps_start
-    start_cmd = "#{HAPROXY_BIN} -f #{MAIN_CONFIG_FILE} -D -p #{PIDFILE}"
-    stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{PIDFILE})'"
-    MonitInterface.start_daemon(:app_haproxy, start_cmd, stop_cmd, PIDFILE)
-  end
-
   # Create the config file for UserAppServer.
   def self.create_ua_server_config(server_ips, my_ip, listen_port)
     # We reach out to UserAppServers on the DB nodes.
@@ -141,19 +129,16 @@ module HAProxy
       return false
     end
 
-    # Internal services uses a different haproxy. Normal application gets
-    # prepended with 'gae_' to avoid possible collisions.
-    if [TaskQueue::NAME, DatastoreServer::NAME,
+    # We only serve internal services here.
+    unless [TaskQueue::NAME, DatastoreServer::NAME,
         UserAppClient::NAME, BlobServer::NAME].include?(name)
-      full_version_name = "#{name}"
-      config_path = File.join(SERVICE_SITES_PATH,
-                              "#{full_version_name}.#{CONFIG_EXTENSION}")
-    else
-      full_version_name = "#{HelperFunctions::GAE_PREFIX}#{name}"
-      config_path = File.join(SITES_ENABLED_PATH,
-                              "#{full_version_name}.#{CONFIG_EXTENSION}")
+      Djinn.log_warn('create_app_config called for unknown service: #{name}.')
+      return false
     end
 
+    full_version_name = "#{name}"
+    config_path = File.join(SERVICE_SITES_PATH,
+                            "#{full_version_name}.#{CONFIG_EXTENSION}")
     config = "# Create a load balancer for #{name}.\n"
     config << "listen #{full_version_name}\n"
     config << "  bind #{my_private_ip}:#{listen_port}\n"
@@ -312,15 +297,6 @@ defaults
 
   # The maximum inactivity time allowed for a server.
   timeout server #{HAPROXY_SERVER_TIMEOUT}s
-
-  # Enable the statistics page
-  stats enable
-  stats uri     /haproxy?stats
-  stats realm   Haproxy\ Statistics
-  stats auth    haproxy:stats
-
-  # Create a monitorable URI which returns a 200 if haproxy is up
-  # monitor-uri /haproxy?monitor
 
   # Amount of time after which a health check is considered to have timed out
   timeout check 5000

@@ -1,9 +1,11 @@
 package com.google.appengine.tools.development;
 
+import com.google.appengine.repackaged.com.google.common.base.Splitter;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.HttpClient;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.ByteArrayRequestEntity;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.GetMethod;
 import com.google.appengine.repackaged.org.apache.commons.httpclient.methods.PostMethod;
+import com.google.apphosting.api.ApiProxy.ApplicationException;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Request;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Response;
 import java.io.BufferedReader;
@@ -12,6 +14,10 @@ import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -50,11 +56,20 @@ public class ApiServer {
                     "--api_port", String.valueOf(this.port),
                     "--clear_datastore",
                     "--datastore_consistency_policy", "consistent",
-                    "--application", "test",
                     "--application_prefix", "",
                     "--datastore_path", (new StringBuilder(16)).append("/tmp/").append(this.port).toString()};
 
-            this.process = new ProcessBuilder().command(cmd).redirectErrorStream(true).start();
+            List apiServerCommand = new ArrayList(Arrays.asList(cmd));
+            if (System.getProperty("appengine.pythonApiServerFlags") != null) {
+                Iterator var19 = Splitter.on('|').split(System.getProperty("appengine.pythonApiServerFlags")).iterator();
+
+                while(var19.hasNext()) {
+                    String apiServerFlag = (String)var19.next();
+                    apiServerCommand.add(apiServerFlag);
+                }
+            }
+
+            this.process = new ProcessBuilder().command(apiServerCommand).redirectErrorStream(true).start();
             BufferedReader stdInput = new BufferedReader(new InputStreamReader(this.process.getInputStream(), StandardCharsets.UTF_8));
 
             String stdInputLine;
@@ -65,12 +80,6 @@ public class ApiServer {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    // AppScale: Use an existing server without starting it.
-    ApiServer(int externalServerPort) {
-        this.port = externalServerPort;
-        this.process = null;
     }
 
     public Integer getPort() {
@@ -88,11 +97,6 @@ public class ApiServer {
     }
 
     public void close() {
-        // AppScale: If a server was not started, there is nothing to stop.
-        if (this.process == null) {
-            return;
-        }
-
         try {
             int exitValue = this.process.exitValue();
             if (exitValue != 0) {
@@ -131,6 +135,8 @@ public class ApiServer {
         boolean parsed = response.mergeFrom(post.getResponseBodyAsStream());
         if (!parsed) {
             throw new IOException("Error parsing the response from the HTTP API server.");
+        } else if (response.hasApplicationError()) {
+            throw new ApplicationException(response.getApplicationError().getCode(), response.getApplicationError().getDetail());
         } else {
             return response.getResponseAsBytes();
         }

@@ -70,7 +70,9 @@ SUPPORTED_PUSH_QUEUE_FIELDS = {
     'min_backoff_seconds': non_negative_int,
     'max_backoff_seconds': non_negative_int,
     'max_doublings': non_negative_int
-  }
+  },
+  'bucket_size': non_negative_int,
+  'max_concurrent_requests': non_negative_int,
 }
 
 SHUTTING_DOWN_TIMEOUT = 10  # Limit time for finishing request

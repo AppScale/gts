@@ -26,6 +26,7 @@ import tornado.ioloop
 import tornado.web
 import urllib
 import urllib2
+import urlparse
 
 from appscale.appcontroller_client import AppControllerClient
 from appscale.common import appscale_info
@@ -207,7 +208,7 @@ class Application(tornado.web.Application):
   def __init__(self):
     """ Constructor. """
     handlers = [
-      (r"/_ah/upload/(.*)/(.*)", UploadHandler),
+      (r"/_ah/upload/(.*)", UploadHandler),
       (r"/", HealthCheck)
     ]   
     tornado.web.Application.__init__(self, handlers)
@@ -245,13 +246,13 @@ class HealthCheck(tornado.web.RequestHandler):
  
 class UploadHandler(tornado.web.RequestHandler):
   """ Tornado handler for uploads. """
-  def post(self, app_id="blob", session_id = "session"):
+  def post(self, session_id = "session"):
     """ Handler a post request from a user uploading a blob. 
     
     Args:
-      app_id: The application triggering the upload.
       session_id: Authentication token to validate the upload.
     """
+    app_id = self.request.headers.get('X-Appengine-Inbound-Appid', '')
     global datastore_path
     db = datastore_distributed.DatastoreDistributed(
       app_id, datastore_path)
@@ -267,6 +268,8 @@ class UploadHandler(tornado.web.RequestHandler):
       return
 
     success_path = blob_session["success_path"]
+    if success_path.startswith('/'):
+      success_path = urlparse.urljoin(self.request.full_url(), success_path)
 
     server_host = success_path[:success_path.rfind("/", 3)]
     if server_host.startswith("http://"):
@@ -440,7 +443,7 @@ def main():
   setup_env()
 
   http_server = tornado.httpserver.HTTPServer(
-    Application(), max_buffer_size=MAX_REQUEST_BUFF_SIZE)
+    Application(), max_buffer_size=MAX_REQUEST_BUFF_SIZE, xheaders=True)
 
   http_server.listen(args.port)
 

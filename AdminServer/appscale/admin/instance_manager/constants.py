@@ -89,6 +89,9 @@ PIDFILE_TEMPLATE = os.path.join('/', 'var', 'run', 'appscale',
 REPACKED_LIB_DIR = os.path.join(
   APPSCALE_HOME, 'AppServer_Java', 'appengine-java-sdk-repacked', 'lib')
 
+# The number of seconds to wait for a health check response.
+HEALTH_CHECK_TIMEOUT = 2
+
 # The highest available port to assign to an API server.
 MAX_API_SERVER_PORT = 19999
 
@@ -114,10 +117,17 @@ PYTHON_APPSERVER = os.path.join(APPSCALE_HOME, 'AppServer',
                                 'dev_appserver.py')
 
 # A mapping of instance classes to memory limits in MB.
-INSTANCE_CLASSES = {'F1': 128,
-                    'F2': 256,
-                    'F4': 512,
-                    'F4_1G': 1024}
+INSTANCE_CLASSES = {
+    'F1': 128,
+    'F2': 256,
+    'F4': 512,
+    'F4_1G': 1024,
+    'B1': 128,
+    'B2': 256,
+    'B4': 512,
+    'B4_1G': 1024,
+    'B8': 1024,
+}
 
 # The amount of seconds to wait for an application to start up.
 START_APP_TIMEOUT = 180
