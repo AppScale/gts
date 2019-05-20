@@ -45,7 +45,8 @@ from google.appengine.api import mail_stub
 from google.appengine.api import request_info as request_info_lib
 from google.appengine.api import urlfetch_stub
 from google.appengine.api import user_service_stub
-from google.appengine.api.app_identity import app_identity_stub
+from google.appengine.api.app_identity import (app_identity_stub,
+                                               app_identity_external_stub)
 from google.appengine.api.blobstore import blobstore_stub
 from google.appengine.api.capabilities import capability_stub
 from google.appengine.api.channel import channel_service_stub
@@ -280,6 +281,11 @@ def create_api_server(request_info, storage_path, options, app_id, app_root):
     assert 0, ('unknown consistency policy: %r' %
                options.datastore_consistency_policy)
 
+  app_identity_location = None
+  if options.external_api_port:
+    app_identity_location = ':'.join(['localhost',
+                                      str(options.external_api_port)])
+
   maybe_convert_datastore_file_stub_data_to_sqlite(app_id, datastore_path)
   setup_stubs(
       request_data=request_info,
@@ -310,7 +316,8 @@ def create_api_server(request_info, storage_path, options, app_id, app_root):
       default_gcs_bucket_name=options.default_gcs_bucket_name,
       uaserver_path=options.uaserver_path,
       xmpp_path=options.xmpp_path,
-      xmpp_domain=options.login_server)
+      xmpp_domain=options.login_server,
+      app_identity_location=app_identity_location)
 
   # The APIServer must bind to localhost because that is what the runtime
   # instances talk to.
@@ -431,7 +438,8 @@ def setup_stubs(
     default_gcs_bucket_name,
     uaserver_path,
     xmpp_path,
-    xmpp_domain):
+    xmpp_domain,
+    app_identity_location):
   """Configures the APIs hosted by this server.
 
   Args:
@@ -489,11 +497,17 @@ def setup_stubs(
     xmpp_path: (AppScale-specific) A str containing the FQDN or IP address of
         the machine that runs ejabberd, where XMPP clients should connect to.
     xmpp_domain: A string specifying the domain portion of the XMPP user.
+    app_identity_location: The location of a server that handles App Identity
+        requests.
   """
 
-  identity_stub = app_identity_stub.AppIdentityServiceStub()
-  if default_gcs_bucket_name is not None:
-    identity_stub.SetDefaultGcsBucketName(default_gcs_bucket_name)
+  if app_identity_location is None:
+    identity_stub = app_identity_stub.AppIdentityServiceStub()
+    if default_gcs_bucket_name is not None:
+      identity_stub.SetDefaultGcsBucketName(default_gcs_bucket_name)
+  else:
+    identity_stub = app_identity_external_stub.AppIdentityExternalStub(
+        app_identity_location)
   apiproxy_stub_map.apiproxy.RegisterStub('app_identity_service', identity_stub)
 
   blob_storage = datastore_blob_storage.DatastoreBlobStorage(app_id)
@@ -686,7 +700,8 @@ def test_setup_stubs(
     default_gcs_bucket_name=None,
     uaserver_path='localhost',
     xmpp_path='localhost',
-    xmpp_domain='localhost'):
+    xmpp_domain='localhost',
+    app_identity_location=None):
   """Similar to setup_stubs with reasonable test defaults and recallable."""
 
   # Reset the stub map between requests because a stub map only allows a
@@ -723,7 +738,8 @@ def test_setup_stubs(
               default_gcs_bucket_name,
               uaserver_path,
               xmpp_path,
-              xmpp_domain)
+              xmpp_domain,
+              app_identity_location)
 
 
 def cleanup_stubs():
@@ -739,7 +755,6 @@ def main():
 
   options = cli_parser.create_command_line_parser(
       cli_parser.API_SERVER_CONFIGURATION).parse_args()
-  os.environ['NGINX_HOST'] = options.nginx_host
   logging.getLogger().setLevel(
       constants.LOG_LEVEL_TO_PYTHON_CONSTANT[options.dev_appserver_log_level])
 
@@ -760,6 +775,9 @@ def main():
   request_info = wsgi_request_info.WSGIRequestInfo(
       request_info_lib._LocalFakeDispatcher())
   # pylint: enable=protected-access
+
+  os.environ['APPNAME'] = app_id
+  os.environ['NGINX_HOST'] = options.nginx_host
 
   server = create_api_server(
       request_info=request_info,

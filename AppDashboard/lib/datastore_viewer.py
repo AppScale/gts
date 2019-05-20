@@ -177,7 +177,8 @@ class DatastoreViewerPage(AppDashboard):
     """
     if self.helper.is_user_cloud_admin():
       version_keys = self.helper.get_version_info().keys()
-      owned_projects = [version.split('_')[0] for version in version_keys]
+      owned_projects = list({version.split('_')[0]
+                             for version in version_keys})
     else:
       owned_projects = self.helper.get_owned_apps()
 
@@ -195,8 +196,8 @@ class DatastoreViewerSelector(AppDashboard):
     """ Presents a list of projects to view data for. """
     if self.helper.is_user_cloud_admin():
       version_keys = self.helper.get_version_info().keys()
-      owned_projects = [version.split('_')[0] for version in version_keys
-                        if version.split('_')[0] != self.PROJECT_ID]
+      owned_projects = list({version.split('_')[0] for version in version_keys
+                             if version.split('_')[0] != self.PROJECT_ID})
     else:
       owned_projects = self.helper.get_owned_apps()
 
