@@ -160,11 +160,6 @@ class Djinn
   # The human-readable state that this AppController is in.
   attr_accessor :state
 
-  # A boolean that is used to let remote callers start the shutdown process
-  # on this AppController, which will cleanly shut down and terminate all
-  # services on this node.
-  attr_accessor :kill_sig_received
-
   # An Integer that indexes into @nodes, to return information about this node.
   attr_accessor :my_index
 
@@ -529,7 +524,6 @@ class Djinn
     @my_index = nil
     @my_public_ip = nil
     @my_private_ip = nil
-    @kill_sig_received = false
     @done_initializing = false
     @done_terminating = false
     @waiting_messages = []
@@ -666,79 +660,6 @@ class Djinn
     rescue VersionNotFound => error
       return "false: #{error.message}"
     end
-
-    'OK'
-  end
-
-  # A SOAP-exposed method that tells the AppController to terminate all services
-  # in this AppScale deployment.
-  #
-  # Args:
-  #   stop_deployment: A boolean to indicate if the whole deployment
-  #                    should be stopped.
-  #   secret         : A String used to authenticate callers.
-  # Returns:
-  #   A String indicating that the termination has started, or the reason why it
-  #   failed.
-  def kill(stop_deployment, secret)
-    begin
-      return BAD_SECRET_MSG unless valid_secret?(secret)
-    rescue Errno::ENOENT
-      # On appscale down, terminate may delete our secret key before we
-      # can check it here.
-      Djinn.log_debug('kill(): didn\'t find secret file. Continuing.')
-    end
-    @kill_sig_received = true
-
-    Djinn.log_info('Received a stop request.')
-
-    threads = []
-    if my_node.is_shadow? && stop_deployment
-      Djinn.log_info('Stopping all other nodes.')
-      ips = []
-      @state_change_lock.synchronize {
-        @nodes.each { |node| ips << node.private_ip }
-      }
-      ips.each { |ip|
-        next if ip == my_node.private_ip
-        acc = AppControllerClient.new(ip, @@secret)
-        threads << Thread.new {
-          begin
-            acc.kill(stop_deployment)
-            Djinn.log_info("kill: sent kill command to node at #{ip}.")
-          rescue FailedNodeException => e
-            Djinn.log_warn("kill: exception talking to #{ip}: #{e.to_s}.")
-          end
-        }
-      }
-    end
-
-    Djinn.log_devug("Stopping local services ...")
-    threads << Thread.new { TaskQueue.stop_flower }
-    threads << Thread.new { stop_hermes }
-    threads << Thread.new { stop_taskqueue }
-    threads << Thread.new {
-      stop_app_manager_server
-      stop_blobstore_server
-    }
-    threads << Thread.new { stop_memcache }
-    threads << Thread.new {
-      remove_tq_endpoints
-      stop_ejabberd
-    }
-    threads << Thread.new { stop_groomer_service }
-    threads << Thread.new { stop_admin_server }
-
-    Djinn.log_info('Waiting for services to stop and nodes to ack stop ... ')
-    threads.each { |t| t.join }
-
-    stop_soap_server
-    stop_db_slave
-    stop_db_master
-    stop_log_server
-    HAProxy.services_stop
-    stop_zookeeper
-    Djinn.log_info('---- Stopped all local services ----')
 
     'OK'
   end
@@ -1767,9 +1688,6 @@ class Djinn
         " Please verify datastore type: #{e}\n#{backtrace}")
     end
 
-    # We reset the kill signal received since we are starting now.
-    @kill_sig_received = false
-
     # If we have uncommitted changes, we rebuild/reinstall the
     # corresponding packages to ensure we are using the latest code.
     build_uncommitted_changes
@@ -1835,7 +1753,7 @@ class Djinn
       update_stats_thread = Thread.new { update_node_info_cache }
     end
 
-    until @kill_sig_received do
+    loop do
       # Mark the beginning of the duty cycle.
       start_work_time = Time.now.to_i
 
@@ -3096,13 +3014,8 @@ class Djinn
   def wait_for_data
     loop {
       break if got_all_data
-      if @kill_sig_received
-        Djinn.log_fatal('Received kill signal, aborting startup')
-        HelperFunctions.log_and_crash('Received kill signal, aborting startup.')
-      else
-        Djinn.log_info('Waiting for data from the load balancer or cmdline tools.')
-        Kernel.sleep(SMALL_WAIT)
-      end
+      Djinn.log_info('Waiting for data from the load balancer or cmdline tools.')
+      Kernel.sleep(SMALL_WAIT)
     }
 
   end

@@ -54,6 +54,12 @@ do_stop()
    return "$RETVAL"
 }
 
+do_force_stop()
+{
+   log_daemon_msg "Stopping all local AppScale services"
+   ruby -w #{DIR}/terminate.rb
+}
+
 case "$1" in
  
     start)
@@ -73,6 +79,10 @@ case "$1" in
         esac
         ;;
         
+    force-stop)
+        do_force_stop
+        ;;
+
     restart|reload|force-reload)
         do_stop
         do_start
