@@ -3417,11 +3417,6 @@ class Djinn
     Djinn.log_info("Done starting Hermes service.")
   end
 
-  def stop_hermes
-    Djinn.log_info("Stopping Hermes service.")
-    MonitInterface.stop(:hermes)
-  end
-
   # Starts the groomer service on this node. The groomer cleans the datastore of deleted
   # items and removes old logs.
   def start_groomer_service
@@ -4288,8 +4283,8 @@ HOSTS
     Djinn.log_debug("Configuring AppController monit.")
     service = `which service`.chomp
     start_cmd = "#{service} appscale-controller start"
-    stop_cmd = "#{service} appscale-controller stop"
     pidfile = '/var/run/appscale/controller.pid'
+    stop_cmd = "start-stop-daemon --stop --pidfile #{pidfile} --retry=TERM/30/KILL/5"
 
     # Let's make sure we don't have 2 roles monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
@@ -4370,11 +4365,6 @@ HOSTS
       Nginx.add_service_location('appscale-administration', my_node.private_ip,
                                  service_port, nginx_port, '/')
     end
-  end
-
-  def stop_admin_server
-    Djinn.log_info('Stopping AdminServer')
-    MonitInterface.stop(:admin_server)
   end
 
   def start_memcache

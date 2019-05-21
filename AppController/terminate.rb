@@ -84,10 +84,10 @@ module TerminateHelper
     Dir["/var/run/appscale/*.pid"].each { |pidfile|
       # Nothing should still be running after the controller got stopped,
       # so we unceremoniously kill them.
-      pid = File.read(pidfile).chomp
       begin
+        pid = File.read(pidfile).chomp
         Process.kill("KILL", Integer(pid))
-      rescue ArgumentError, Errno::EPERM, Errno::EINVAL
+      rescue ArgumentError, Errno::EPERM, Errno::EINVAL, Errno::ENOENT
         next
       rescue Errno::ESRCH, RangeError
       end

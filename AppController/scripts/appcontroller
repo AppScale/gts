@@ -44,7 +44,7 @@ do_start()
 do_stop()
 {
    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
-   start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
+   monit stop controller
    RETVAL="$?"
 
    if [ "${RETVAL}" = "0" ]; then
