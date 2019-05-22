@@ -4284,7 +4284,7 @@ HOSTS
     service = `which service`.chomp
     start_cmd = "#{service} appscale-controller start"
     pidfile = '/var/run/appscale/controller.pid'
-    stop_cmd = "start-stop-daemon --stop --pidfile #{pidfile} --retry=TERM/30/KILL/5"
+    stop_cmd = "/sbin/start-stop-daemon --stop --pidfile #{pidfile} --retry=TERM/30/KILL/5"
 
     # Let's make sure we don't have 2 roles monitoring the controller.
     FileUtils.rm_rf("/etc/monit/conf.d/controller-17443.cfg")
