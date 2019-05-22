@@ -2260,7 +2260,7 @@ class Djinn
 
       # We create here the needed nodes, with open role and no disk.
       disks = Array.new(new_nodes_roles.length, nil)
-      imc = InfrastructureManagerClient.new(@@secret)
+      imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
       begin
         new_nodes_info = imc.run_instances(new_nodes_roles.length, @options,
            new_nodes_roles.values, disks)
@@ -3185,7 +3185,7 @@ class Djinn
           db_master = node.private_ip if node.roles.include?('db_master')
         }
       }
-      setup_db_config_files(db_master)
+      setup_db_config_files(db_master, my_node.private_ip)
 
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
@@ -3588,91 +3588,24 @@ class Djinn
     return ['ec2', 'euca', 'gce', 'azure'].include?(@options['infrastructure'])
   end
 
-  def build_appcontroller_client
-    Djinn.log_info('Building uncommitted appcontroller client changes')
-    unless system('pip install --upgrade --no-deps ' \
-                  "#{APPSCALE_HOME}/AppControllerClient > /dev/null 2>&1")
-      Djinn.log_error('Unable to build appcontroller client (install failed).')
+  def update_python_package(target, pip="pip")
+    Djinn.log_info("Building uncommitted changes for '#{target}' using #{pip}")
+    log_file = '/var/log/appscale/pip_installation.log'
+    cmd = "#{pip} install --upgrade --no-deps #{target}"
+    system("echo \"$(date '+\%F \%T') Executing '#{cmd}'\" >> #{log_file}")
+    unless system("#{cmd}" + " >> #{log_file} 2>&1")
+      Djinn.log_error("Unable to update '#{target}' using #{pip} " \
+                      "(install failed).")
       return
     end
-    unless system('pip install ' \
-                  "#{APPSCALE_HOME}/AppControllerClient > /dev/null 2>&1")
-      Djinn.log_error('Unable to build appcontroller client (install dependencies failed).')
+    cmd = "#{pip} install #{target}"
+    system("echo \"$(date '+\%F \%T') Executing '#{cmd}'\" >> #{log_file}")
+    unless system("#{cmd}" + " >> #{log_file} 2>&1")
+      Djinn.log_error("Unable to update '#{target}' using #{pip} " \
+                      "(install dependencies failed).")
       return
     end
-    Djinn.log_info('Finished building appcontroller client.')
-  end
-
-  def build_taskqueue
-    Djinn.log_info('Building uncommitted taskqueue changes')
-    extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-    unless system('pip install --upgrade --no-deps ' \
-                  "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
-      Djinn.log_error('Unable to build taskqueue (install failed).')
-      return
-    end
-    unless system('pip install ' \
-                  "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
-      Djinn.log_error('Unable to build taskqueue (install dependencies failed).')
-      return
-    end
-    Djinn.log_info('Finished building taskqueue.')
-  end
-
-  def build_datastore
-    Djinn.log_info('Building uncommitted datastore changes')
-    unless system('pip install --upgrade --no-deps ' \
-                  "#{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
-      Djinn.log_error('Unable to build datastore (install failed).')
-      return
-    end
-    unless system("pip install #{APPSCALE_HOME}/AppDB > /dev/null 2>&1")
-      Djinn.log_error('Unable to build datastore (install dependencies failed).')
-      return
-    end
-    Djinn.log_info('Finished building datastore.')
-  end
-
-  def build_common
-    Djinn.log_info('Building uncommitted common changes')
-    unless system('pip install --upgrade --no-deps ' \
-                  "#{APPSCALE_HOME}/common > /dev/null 2>&1")
-      Djinn.log_error('Unable to build common (install failed).')
-      return
-    end
-    unless system("pip install #{APPSCALE_HOME}/common > /dev/null 2>&1")
-      Djinn.log_error('Unable to build common (install dependencies failed).')
-      return
-    end
-    Djinn.log_info('Finished building common.')
-  end
-
-  def build_admin_server
-    Djinn.log_info('Building uncommitted AdminServer changes')
-    unless system('pip install --upgrade --no-deps ' \
-                  "#{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
-      Djinn.log_error('Unable to build AdminServer (install failed).')
-      return
-    end
-    unless system("pip install #{APPSCALE_HOME}/AdminServer > /dev/null 2>&1")
-      Djinn.log_error('Unable to build AdminServer (install dependencies failed).')
-      return
-    end
-    Djinn.log_info('Finished building AdminServer.')
-  end
-
-  def build_infrastructure_manager
-    Djinn.log_info('Building uncommitted InfrastructureManager changes')
-    unless system('pip install --upgrade --no-deps ' +
-                  "#{APPSCALE_HOME}/InfrastructureManager > /dev/null 2>&1")
-      Djinn.log_error('Unable to build InfrastructureManager (install failed).')
-      return
-    end
-    unless system("pip install #{APPSCALE_HOME}/InfrastructureManager > /dev/null 2>&1")
-      Djinn.log_error('Unable to build InfrastructureManager (install dependencies failed).')
-      return
-    end
-    Djinn.log_info('Finished building InfrastructureManager.')
+    Djinn.log_info("Finished building target '#{target}' using #{pip}.")
   end
 
   def build_java_appserver
@@ -3701,23 +3634,8 @@ class Djinn
     end
   end
 
-  def build_hermes
-    Djinn.log_info('Building uncommitted Hermes changes')
-    unless system('/opt/appscale_hermes/bin/pip install --upgrade --no-deps ' +
-                  "#{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
-      Djinn.log_error('Unable to build Hermes (install failed).')
-      return
-    end
-    unless system('/opt/appscale_hermes/bin/pip install ' +
-                  "#{APPSCALE_HOME}/Hermes > /dev/null 2>&1")
-      Djinn.log_error('Unable to build Hermes (install dependencies failed).')
-      return
-    end
-    Djinn.log_info('Finished building Hermes.')
-  end
-
   def build_api_server
-    Djinn.log_info('Building uncommitted APIServer changes')
+    Djinn.log_info('Compiling APIServer proto files')
     src = File.join(APPSCALE_HOME, 'APIServer')
     proto_dest = File.join(src, 'appscale', 'api_server')
     unless system("protoc --proto_path=#{src} --python_out=#{proto_dest} " \
@@ -3725,36 +3643,44 @@ class Djinn
       Djinn.log_error('Unable to compile APIServer proto files')
       return
     end
-
-    api_server_venv = File.join('/', 'opt', 'appscale_api_server')
-    upgrade_package = "source #{api_server_venv}/bin/activate && " \
-      "pip install --upgrade --no-deps #{src} > /dev/null 2>&1"
-    unless system("bash -c '#{upgrade_package}'")
-      Djinn.log_error('Unable to build APIServer (install failed).')
-      return
-    end
-    upgrade_deps = "source #{api_server_venv}/bin/activate && " \
-      "pip install #{src} > /dev/null 2>&1"
-    unless system("bash -c '#{upgrade_deps}'")
-      Djinn.log_error(
-        'Unable to build APIServer (install dependencies failed).')
-      return
-    end
-    Djinn.log_info('Finished building APIServer.')
+    update_python_package(src, '/opt/appscale_venvs/api_server/bin/pip')
   end
 
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
     status = `git -C #{APPSCALE_HOME} status`
-    build_appcontroller_client if status.include?('AppControllerClient')
-    build_admin_server if status.include?('AdminServer')
-    build_taskqueue if status.include?('AppTaskQueue')
-    build_datastore if status.include?('AppDB')
-    build_common if status.include?('common')
-    build_infrastructure_manager if status.include?('InfrastructureManager')
+
+    # Update Python packages across corresponding virtual environments
+    if status.include?('common')
+      update_python_package("#{APPSCALE_HOME}/common")
+      update_python_package("#{APPSCALE_HOME}/common",
+                            '/opt/appscale_venvs/api_server/bin/pip')
+    end
+    if status.include?('AppControllerClient')
+      update_python_package("#{APPSCALE_HOME}/AppControllerClient")
+    end
+    if status.include?('AdminServer')
+      update_python_package("#{APPSCALE_HOME}/AdminServer")
+    end
+    if status.include?('AppTaskQueue')
+      extras = TaskQueue::OPTIONAL_FEATURES.join(',')
+      update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]")
+    end
+    if status.include?('AppDB')
+      update_python_package("#{APPSCALE_HOME}/AppDB")
+    end
+    if status.include?('InfrastructureManager')
+      update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
+    end
+    if status.include?('Hermes')
+      update_python_package("#{APPSCALE_HOME}/Hermes")
+    end
+    if status.include?('APIServer')
+      build_api_server
+    end
+
+    # Update Java AppServer
     build_java_appserver if status.include?('AppServer_Java')
-    build_hermes if status.include?('Hermes')
-    build_api_server if status.include?('APIServer')
   end
 
   def configure_ejabberd_cert
@@ -4191,7 +4117,7 @@ HOSTS
       return
     end
 
-    imc = InfrastructureManagerClient.new(@@secret)
+    imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
     begin
       device_name = imc.attach_disk(@options, my_node.disk, my_node.instance_id)
     rescue FailedNodeException
@@ -5012,7 +4938,7 @@ HOSTS
 
     # Terminate instance if we are in cloud.
     if is_cloud?
-      imc = InfrastructureManagerClient.new(@@secret)
+      imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
       begin
         imc.terminate_instances(@options, node_to_remove.instance_id)
       rescue FailedNodeException
@@ -5803,7 +5729,7 @@ HOSTS
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Get stats from SystemManager.
-    imc = InfrastructureManagerClient.new(secret)
+    imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
     begin
       system_stats = JSON.load(imc.get_system_stats)
     rescue SOAP::FaultError, FailedNodeException => exception
