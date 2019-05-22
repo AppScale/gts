@@ -3636,12 +3636,12 @@ class Djinn
   def build_taskqueue
     Djinn.log_info('Building uncommitted taskqueue changes')
     extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-    unless system('pip install --upgrade --no-deps ' \
+    unless system('/opt/appscale_taskqueue/bin/pip install --upgrade --no-deps ' \
                   "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
       Djinn.log_error('Unable to build taskqueue (install failed).')
       return
     end
-    unless system('pip install ' \
+    unless system('/opt/appscale_taskqueue/bin/pip install ' \
                   "#{APPSCALE_HOME}/AppTaskQueue[#{extras}] > /dev/null 2>&1")
       Djinn.log_error('Unable to build taskqueue (install dependencies failed).')
       return
