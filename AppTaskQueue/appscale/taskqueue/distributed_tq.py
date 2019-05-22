@@ -275,8 +275,8 @@ class DistributedTaskQueue():
     except QueueNotFound as error:
       return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
-    if len(bulk_response.TaskResult) == 1:
-      result = bulk_response.TaskResult[0].result
+    if len(bulk_response.taskresult) == 1:
+      result = bulk_response.taskresult[0].result
     else:
       return (response.SerializeToString(), TaskQueueServiceError.INTERNAL_ERROR,
               "Task did not receive a task response.")
@@ -284,7 +284,7 @@ class DistributedTaskQueue():
     if result != TaskQueueServiceError.OK:
       return (response.SerializeToString(), result, "Task did not get an OK status.")
     elif bulk_response.taskresult[0].HasField("chosen_task_name"):
-      response.chosen_task_name = bulk_response.TaskResult[0].chosen_task_name
+      response.chosen_task_name = bulk_response.taskresult[0].chosen_task_name
 
     return (response.SerializeToString(), 0, "")
 
@@ -380,7 +380,7 @@ class DistributedTaskQueue():
       return
 
     for index, add_request in enumerate(request.add_request):
-      task_result = response.taskresult(index)
+      task_result = response.taskresult[index]
       if (add_request.HasField("mode") and
           add_request.mode == taskqueue_service_pb2.TaskQueueMode.PULL):
         continue
