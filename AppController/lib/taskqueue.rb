@@ -183,6 +183,7 @@ module TaskQueue
       Djinn.log_error("Cannot resolv #{master_ip}!")
       return false
     end
+    Djinn.log_info("Using #{master_tq_host} as master taskqueue hostname.")
 
     # Now we try to cluster with the master node.
     HelperFunctions::RETRIES.downto(0) { |tries_left|

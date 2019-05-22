@@ -294,10 +294,9 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(MonitInterface).should_receive(:start).and_return()
     flexmock(Addrinfo).should_receive('ip.getnameinfo').and_return(["hostname-ip1"])
 
-    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
-      and_return()
+    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).and_return()
 
-    flexmock(Djinn).should_receive(:log_run).and_return().times(3)
+    flexmock(Djinn).should_receive(:log_run).and_return()
 
     assert_equal(true, djinn.start_taskqueue_slave())
   end
