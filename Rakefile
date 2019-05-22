@@ -56,7 +56,7 @@ end
 namespace :apptaskqueue do
 
   task :test do
-    sh 'python -m unittest discover -b -v -s AppTaskQueue/test/unit'
+    sh '/opt/appscale_taskqueue/bin/python -m unittest discover -b -v -s AppTaskQueue/test/unit'
   end
 
 end
