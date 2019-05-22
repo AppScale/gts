@@ -46,7 +46,7 @@ module TaskQueue
   # The location of the taskqueue server script. This service controls
   # and creates celery workers, and receives taskqueue protocol buffers
   # from AppServers.
-  TASKQUEUE_SERVER_SCRIPT = `which appscale-taskqueue`.chomp
+  TASKQUEUE_SERVER_SCRIPT = '/opt/appscale_taskqueue/bin/appscale-taskqueue'.chomp
 
   # Where to find the rabbitmqctl command.
   RABBITMQCTL = `which rabbitmqctl`.chomp

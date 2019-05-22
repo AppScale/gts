@@ -3689,6 +3689,8 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
+      update_python_package("#{APPSCALE_HOME}/common",
+                            '/opt/appscale_venvs/appscale_taskqueue/bin/pip')
     end
     if status.include?('AppControllerClient')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
@@ -3698,7 +3700,8 @@ class Djinn
     end
     if status.include?('AppTaskQueue')
       extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-      update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]")
+      update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]",
+                            '/opt/appscale_venvs/appscale_taskqueue/bin/pip')
     end
     if status.include?('AppDB')
       update_python_package("#{APPSCALE_HOME}/AppDB")

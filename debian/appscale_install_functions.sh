@@ -614,10 +614,15 @@ installinfrastructuremanager()
 
 installtaskqueue()
 {
-    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
-    # Fill in new dependencies.
-    # See pip.pypa.io/en/stable/user_guide/#only-if-needed-recursive-upgrade.
-    pip install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+    rm -rf /opt/appscale_taskqueue
+    python -m virtualenv /opt/appscale_taskqueue/
+
+    TASKQUEUE_PIP=/opt/appscale_taskqueue/bin/pip
+
+    ${TASKQUEUE_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/common
+    ${TASKQUEUE_PIP} install ${APPSCALE_HOME}/common
+    ${TASKQUEUE_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+    ${TASKQUEUE_PIP} install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
 }
 
 installdatastore()
