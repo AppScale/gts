@@ -11,7 +11,6 @@ import tarfile
 
 from appscale.common.constants import HTTPCodes
 from appscale.common.constants import VERSION_PATH_SEPARATOR
-from appscale.taskqueue import constants as tq_constants
 from kazoo.exceptions import NoNodeError
 
 from . import constants
@@ -21,7 +20,11 @@ from .constants import (
   JAVA,
   SOURCES_DIRECTORY,
   Types,
-  UNPACK_ROOT
+  UNPACK_ROOT,
+  REQUIRED_PULL_QUEUE_FIELDS,
+  REQUIRED_PUSH_QUEUE_FIELDS,
+  SUPPORTED_PULL_QUEUE_FIELDS,
+  SUPPORTED_PUSH_QUEUE_FIELDS
 )
 from .instance_manager.utils import copy_modified_jars
 from .instance_manager.utils import remove_conflicting_jars
@@ -456,11 +459,11 @@ def validate_queue(queue):
       'Invalid queue mode: {}'.format(mode))
 
   if mode == 'push':
-    required_fields = tq_constants.REQUIRED_PUSH_QUEUE_FIELDS
-    supported_fields = tq_constants.SUPPORTED_PUSH_QUEUE_FIELDS
+    required_fields = REQUIRED_PUSH_QUEUE_FIELDS
+    supported_fields = SUPPORTED_PUSH_QUEUE_FIELDS
   else:
-    required_fields = tq_constants.REQUIRED_PULL_QUEUE_FIELDS
-    supported_fields = tq_constants.SUPPORTED_PULL_QUEUE_FIELDS
+    required_fields = REQUIRED_PULL_QUEUE_FIELDS
+    supported_fields = SUPPORTED_PULL_QUEUE_FIELDS
 
   for field in required_fields:
     if field not in queue:

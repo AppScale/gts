@@ -28,6 +28,10 @@ class MonitStates(object):
   UNMONITORED = 'unmonitored'
 
 
+def non_negative_int(value):
+  """ Checks if an integer value is greater or equal than 0. """
+  return isinstance(value, int) and value >= 0
+
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
