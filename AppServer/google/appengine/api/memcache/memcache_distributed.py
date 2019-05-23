@@ -129,7 +129,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
   # An AppScale file which has a list of IPs running memcached.
   APPSCALE_MEMCACHE_FILE = "/etc/appscale/memcache_ips"
 
-  def __init__(self, service_name='memcache'):
+  def __init__(self, project_id, service_name='memcache'):
     """Initializer.
 
     Args:
@@ -142,7 +142,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
                      MemcacheSetRequest.ADD: self._memcache.add,
                      MemcacheSetRequest.REPLACE: self._memcache.replace,
                      MemcacheSetRequest.CAS: self._memcache.cas}
-    self._project_id = os.environ['APPNAME']
+    self._project_id = project_id
 
   def setupMemcacheClient(self):
     """ Sets up the memcache client. """
