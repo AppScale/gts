@@ -101,6 +101,9 @@ ZK_LOCATIONS_FILE = '/etc/appscale/zookeeper_locations'.freeze
 # The location of the logrotate scripts.
 LOGROTATE_DIR = '/etc/logrotate.d'.freeze
 
+# The /etc/hosts file.
+ETC_HOSTS = '/etc/hosts'.freeze
+
 # The name of the generic appscale centralized app logrotate script.
 APPSCALE_APP_LOGROTATE = 'appscale-app-logrotate.conf'.freeze
 
@@ -1686,6 +1689,12 @@ class Djinn
 
     Djinn.log_info("==== Starting AppController (pid: #{Process.pid}) ====")
 
+    # On some platform (notably AWS) Ubuntu may be started without an
+    # entry in /etc/hosts for the hostname: this causes issues since AWS
+    # DNS resolution can actually slow down the boot. We check and set it
+    # here to prevent failure to start the system.
+    update_etc_hosts
+
     # We reload our old IPs (if we find them) so we can check later if
     # they changed and act accordingly.
     begin
@@ -2873,6 +2882,38 @@ class Djinn
     end
 
     return true
+  end
+
+  # Method to ensure that we have our hostname defined in /etc/hosts. If
+  # the hostname is not yet defined a line will be added
+  #
+  # 127.0.1.1        <fqdn-hostname> <hostname>
+  #
+  # to /etc/hosts.
+  def update_etc_hosts
+    my_hostname = Socket.gethostname
+    my_fqdn = ''
+    begin
+      my_fqdn = Addrinfo.ip(my_hostname).getnameinfo.first
+    rescue SocketError, Errno
+      Djinn.log_warn("Couldn't get the fqdn of my hostname!")
+    end
+
+    etc_hosts = File.read(ETC_HOSTS)
+    if etc_hosts =~ /#{my_hostname}/
+      Djinn.log_info("/etc/hosts already have an entry for this hostname.")
+      return
+    end
+
+    Djinn.log_info("hostname #{my_hostname} is not in /etc/hosts: adding it.")
+    if etc_hosts =~ /127\.0\.1\.1/
+      Djinn.log_warn("/etc/hosts already has 127.0.1.1 defined and it's not #{my_hostname}!")
+      return
+    end
+    open(ETC_HOSTS, 'a') { |f|
+      f << "\n\n# Local hostname added by AppScale to limit DNS queries."
+      f << "\n127.0.1.1       #{my_fqdn} #{my_hostname}\n"
+    }
   end
 
   # Updates all instance variables stored within the AppController with the new
