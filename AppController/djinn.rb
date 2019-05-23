@@ -3450,7 +3450,7 @@ class Djinn
   def start_hermes
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    start_cmd = "/opt/appscale_hermes/bin/appscale-hermes"
+    start_cmd = "/opt/appscale_venvs/hermes/bin/appscale-hermes"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:hermes, start_cmd)
     if my_node.is_shadow?
@@ -3655,12 +3655,16 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
+      update_python_package("#{APPSCALE_HOME}/common",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
     if status.include?('AppControllerClient')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
     end
     if status.include?('AdminServer')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
+      update_python_package("#{APPSCALE_HOME}/AdminServer",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
     if status.include?('AppTaskQueue')
       extras = TaskQueue::OPTIONAL_FEATURES.join(',')
@@ -3673,7 +3677,8 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
     if status.include?('Hermes')
-      update_python_package("#{APPSCALE_HOME}/Hermes")
+      update_python_package("#{APPSCALE_HOME}/Hermes",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
     if status.include?('APIServer')
       build_api_server

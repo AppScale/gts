@@ -150,4 +150,5 @@ def main():
     app.router.add_get(route, handler)
 
   logger.info("Starting Hermes on port: {}.".format(args.port))
-  web.run_app(app, port=args.port, access_log=logger)
+  web.run_app(app, port=args.port, access_log=logger,
+              access_log_format='%a "%r" %s %bB %Tfs "%{User-Agent}i"')

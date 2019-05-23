@@ -64,8 +64,8 @@ end
 namespace :hermes do
 
   task :test do
-    sh '/opt/appscale_hermes/bin/pip install pytest pytest-asyncio'
-    sh '/opt/appscale_hermes/bin/pytest Hermes/tests'
+    sh '/opt/appscale_venvs/hermes/bin/pip install pytest pytest-asyncio'
+    sh '/opt/appscale_venvs/hermes/bin/pytest Hermes/tests'
   end
 
 end
