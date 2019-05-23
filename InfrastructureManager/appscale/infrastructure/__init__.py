@@ -20,7 +20,6 @@ from appscale.tools.agents.base_agent import (
 from appscale.tools.agents.factory import InfrastructureAgentFactory
 
 from .operation_ids_cache import OperationIdsCache
-from .system_manager import ServiceException, SystemManager
 
 logger = logging.getLogger(__name__)
 
