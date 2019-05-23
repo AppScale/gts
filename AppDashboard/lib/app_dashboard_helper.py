@@ -350,7 +350,7 @@ class AppDashboardHelper(object):
         logging.exception(err)
         return ''
     for node in nodes:
-      if role in node['jobs']:
+      if role in node['roles']:
         return node['public_ip']
     return ''
 

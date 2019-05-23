@@ -633,9 +633,9 @@ class Djinn
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.relocate_version(version_key, http_port, https_port)
-      rescue FailedNodeException
+      rescue FailedNodeException => e
         Djinn.log_warn("Failed to forward relocate_version " \
-          "call to #{get_shadow}.")
+          "call to #{get_shadow} (#{e.to_s}).")
         return NOT_READY
       end
     end
@@ -706,8 +706,8 @@ class Djinn
           begin
             acc.kill(stop_deployment)
             Djinn.log_info("kill: sent kill command to node at #{ip}.")
-          rescue FailedNodeException
-            Djinn.log_warn("kill: failed to talk to node at #{ip} while.")
+          rescue FailedNodeException => e
+            Djinn.log_warn("kill: exception talking to #{ip}: #{e.to_s}.")
           end
         }
       }
@@ -1047,8 +1047,9 @@ class Djinn
         HelperFunctions.scp_file(archived_file, remote_file,
                                  get_shadow.private_ip, get_shadow.ssh_key)
         return acc.upload_app(remote_file, file_suffix)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to forward upload_app call to shadow (#{get_shadow}).")
+      rescue FailedNodeException => e
+        Djinn.log_warn("Failed to forward upload_app call to shadow " \
+                       "(#{get_shadow}): #{e.to_s}.")
         return NOT_READY
       end
     end
@@ -1110,9 +1111,9 @@ class Djinn
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.get_app_upload_status(reservation_id)
-      rescue FailedNodeException
-        Djinn.log_warn(
-          "Failed to forward get_app_upload_status call to #{get_shadow}.")
+      rescue FailedNodeException => e
+        Djinn.log_warn("Failed to forward get_app_upload_status call " \
+                       "to #{get_shadow}: #{e.to_s}.")
         return NOT_READY
       end
     end
@@ -1139,9 +1140,9 @@ class Djinn
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.get_cluster_stats_json
-      rescue FailedNodeException
-        Djinn.log_warn(
-          "Failed to forward get_cluster_stats_json call to #{get_shadow}.")
+      rescue FailedNodeException => e
+        Djinn.log_warn("Failed to forward get_cluster_stats_json call " \
+                       "to #{get_shadow}: #{e.to_s}.")
         return NOT_READY
       end
     end
@@ -1160,26 +1161,24 @@ class Djinn
       @nodes.each { |node| ips << node.private_ip }
     }
     ips.each { |ip|
-      if ip == my_node.private_ip
+      threads << Thread.new {
+        Thread.current[:new_stat] = nil
         begin
-          new_stats << JSON.load(get_node_stats_json(@@secret))
-        rescue FailedNodeException => exception
-          Djinn.log_warn("Failed to get local status update because: " \
-            "#{exception.message}")
-        end
-      else
-        threads << Thread.new {
-          acc = AppControllerClient.new(ip, @@secret)
-          begin
-            Thread.current[:new_stat] = JSON.load(acc.get_node_stats_json)
-          rescue FailedNodeException, SOAP::FaultError
-            Djinn.log_warn("Failed to get status update from node at #{ip}, so " \
-              "not adding it to our cached info.")
-            Thread.current[:new_stat] = nil
+          if ip == my_node.private_ip
+            ret = get_node_stats_json(@@secret)
+          else
+            acc = AppControllerClient.new(ip, @@secret)
+            ret = acc.get_node_stats_json
           end
-        }
-      end
+          Thread.current[:new_stat] = JSON.load(ret)
+        rescue JSON::ParserError
+            Djinn.log_warn("Failed to parse stats JSON from #{ip}: #{ret}")
+        rescue FailedNodeException => e
+          Djinn.log_warn("Failed to get stats from #{ip}: #{e.to_s}.")
+        end
+      }
     }
+
     threads.each { |t|
       t.join
       new_stats << t[:new_stat] unless t[:new_stat].nil?
@@ -1250,8 +1249,9 @@ class Djinn
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.get_property(property_regex)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to forward get_property call to #{get_shadow}.")
+      rescue FailedNodeException => e
+        Djinn.log_warn("Failed to forward get_property call to " \
+                       "#{get_shadow}: #{e.to_s}.")
         return NOT_READY
       end
     end
@@ -1308,8 +1308,9 @@ class Djinn
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.set_property(property_name, property_value)
-      rescue FailedNodeException
-        Djinn.log_warn("Failed to forward set_property call to #{get_shadow}.")
+      rescue FailedNodeException => e
+        Djinn.log_warn("Failed to forward set_property call to " \
+                       "#{get_shadow}: #{e.to_s}.")
         return NOT_READY
       end
     end
@@ -1378,6 +1379,18 @@ class Djinn
 
       @options[key] = val
 
+      if key == 'login'
+        Djinn.log_debug('[set_property] Regenerating cron for applications ' \
+          'since login changed')
+        versions_loaded_now = []
+        APPS_LOCK.synchronize { versions_loaded_now = @versions_loaded.clone }
+        Djinn.log_info("[set_property] Regenerating cron for #{versions_loaded_now}")
+        versions_loaded_now.each { |version_key|
+          project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+          update_cron(project_id, @@secret)
+        }
+      end
+
       if key.include? 'stats_log'
         if key.include? 'nodes'
           ZKInterface.update_hermes_nodes_profiling_conf(
@@ -1416,9 +1429,9 @@ class Djinn
       acc = AppControllerClient.new(get_shadow.private_ip, @@secret)
       begin
         return acc.update_cron(project_id)
-      rescue FailedNodeException
-        Djinn.log_warn(
-          "Failed to forward update_cron call to shadow (#{get_shadow}).")
+      rescue FailedNodeException => e
+        Djinn.log_warn("Failed to forward update_cron call to shadow " \
+                       "(#{get_shadow}): #{e.to_s}.")
         return NOT_READY
       end
     end
@@ -1511,7 +1524,12 @@ class Djinn
     }
     ips.each { |ip|
       acc = AppControllerClient.new(ip, @@secret)
-      response = acc.set_node_read_only(read_only)
+      begin
+        response = acc.set_node_read_only(read_only)
+      rescue FailedNodeException => e
+        Djinn.log_warn("Failed to set read_only on #{ip}: #{e.to_s}.")
+        return INVALID_REQUEST
+      end
       unless response == 'OK'
         Djinn.log_warn("set_read_only: #{ip} responded with #{response}.")
         return response
@@ -1536,8 +1554,8 @@ class Djinn
       acc = AppControllerClient.new(get_db_master.private_ip, @@secret)
       begin
         return acc.primary_db_is_up
-      rescue FailedNodeException
-        Djinn.log_warn("Unable to ask #{primary_ip} if database is ready.")
+      rescue FailedNodeException => e
+        Djinn.log_warn("Unable to ask #{primary_ip} if database is ready: #{e.to_s}.")
         return NOT_READY
       end
     end
@@ -1913,16 +1931,26 @@ class Djinn
         if my_node.is_shadow? && @options['autoscale'].downcase != "true"
           Djinn.log_info("--- This deployment has autoscale disabled.")
         end
-        begin
-          stats = JSON.parse(get_node_stats_json(secret))
+        stats = nil
+        ret = get_node_stats_json(secret)
+        if ret == BAD_SECRET_MSG
+          Djinn.log_warn("Bad secret while getting local stats!")
+        elsif ret == INVALID_REQUEST
+          Djinn.log_warn("Failed to retrieve local stats!")
+        else
+          begin
+            stats = JSON.parse(ret)
+          rescue JSON::ParserError
+            Djinn.log_warn("Failed to parse local stats JSON.")
+          end
+        end
+        unless stats.nil?
           Djinn.log_info("--- Node at #{stats['public_ip']} has " \
             "#{stats['memory']['available']/MEGABYTE_DIVISOR}MB memory available " \
             "and knows about these apps #{stats['apps']}.")
           Djinn.log_debug("--- Node stats: #{JSON.pretty_generate(stats)}")
-          last_print = Time.now.to_i
-        rescue SOAP::FaultError
-          Djinn.log_warn("Failed to get local node stats: skipping stats")
         end
+        last_print = Time.now.to_i
       end
 
       # Let's make sure we don't drift the duty cycle too much.
@@ -2261,7 +2289,7 @@ class Djinn
 
       # We create here the needed nodes, with open role and no disk.
       disks = Array.new(new_nodes_roles.length, nil)
-      imc = InfrastructureManagerClient.new(@@secret)
+      imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
       begin
         new_nodes_info = imc.run_instances(new_nodes_roles.length, @options,
            new_nodes_roles.values, disks)
@@ -3185,7 +3213,7 @@ class Djinn
           db_master = node.private_ip if node.roles.include?('db_master')
         }
       }
-      setup_db_config_files(db_master)
+      setup_db_config_files(db_master, my_node.private_ip)
 
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
@@ -4158,7 +4186,7 @@ class Djinn
       return
     end
 
-    imc = InfrastructureManagerClient.new(@@secret)
+    imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
     begin
       device_name = imc.attach_disk(@options, my_node.disk, my_node.instance_id)
     rescue FailedNodeException
@@ -4243,14 +4271,6 @@ class Djinn
     if my_node.is_shadow? and not my_node.is_compute?
       write_app_logrotate
       Djinn.log_info("Copying logrotate script for centralized app logs")
-    end
-
-    if my_node.is_load_balancer?
-      # Make HAProxy instance stats accessible after a reboot.
-      if HAProxy.valid_config?(HAProxy::MAIN_CONFIG_FILE) &&
-          !MonitInterface.is_running?(:apps_haproxy)
-        HAProxy.apps_start
-      end
     end
 
     write_locations
@@ -4986,7 +5006,7 @@ class Djinn
 
     # Terminate instance if we are in cloud.
     if is_cloud?
-      imc = InfrastructureManagerClient.new(@@secret)
+      imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
       begin
         imc.terminate_instances(@options, node_to_remove.instance_id)
       rescue FailedNodeException
@@ -5777,8 +5797,14 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Get stats from SystemManager.
-    imc = InfrastructureManagerClient.new(secret)
-    system_stats = JSON.load(imc.get_system_stats)
+    imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
+    begin
+      system_stats = JSON.load(imc.get_system_stats)
+    rescue SOAP::FaultError, FailedNodeException => exception
+      Djinn.log_warn("Failed to talk to [IM]: #{exception.message}")
+      return INVALID_REQUEST
+    end
+
     Djinn.log_debug('get_node_stats_json: got system stats.')
 
     # Combine all useful stats and return.

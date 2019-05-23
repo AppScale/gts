@@ -105,7 +105,7 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
          */
         BlobstoreServicePb.CreateUploadURLResponse response = new BlobstoreServicePb.CreateUploadURLResponse();
         String nginxPort = ResourceLoader.getNginxPort();
-        String url = "http://" + System.getProperty("NGINX_ADDR") + ":" + nginxPort + "/" + "_ah/upload/" + System.getProperty("APPLICATION_ID") + "/" + sessionId;
+        String url = "http://" + System.getProperty("NGINX_ADDR") + ":" + nginxPort + "/_ah/upload/" + sessionId;
         logger.fine("UploadURL set to [" + url + "]");
         response.setUrl(url);
 
