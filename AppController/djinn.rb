@@ -2895,6 +2895,8 @@ class Djinn
     my_fqdn = ''
     begin
       my_fqdn = Addrinfo.ip(my_hostname).getnameinfo.first
+      my_fqdn = '' if my_fqdn =~ /^[[:digit:]]/
+      my_fqdn = '' if my_fqdn == my_hostname
     rescue SocketError, Errno
       Djinn.log_warn("Couldn't get the fqdn of my hostname!")
     end
