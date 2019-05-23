@@ -10,10 +10,8 @@ import socket
 import tarfile
 
 from appscale.common.constants import HTTPCodes
-from appscale.common.constants import InvalidConfiguration
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from appscale.taskqueue import constants as tq_constants
-from appscale.taskqueue.constants import InvalidQueueConfiguration
 from kazoo.exceptions import NoNodeError
 
 from . import constants
@@ -428,19 +426,19 @@ def validate_job(job):
   Args:
     job: A dictionary containing cron job configuration details.
   Raises:
-    InvalidConfiguration if configuration is invalid.
+    InvalidCronConfiguration if configuration is invalid.
   """
   required_fields = ('schedule', 'url')
   supported_fields = ('description', 'schedule', 'url', 'target')
 
   for field in required_fields:
     if field not in job:
-      raise InvalidConfiguration(
+      raise constants.InvalidCronConfiguration(
         'Cron job is missing {}: {}'.format(field, job))
 
   for field in job:
     if field not in supported_fields:
-      raise InvalidConfiguration('{} is not supported'.format(field))
+      raise constants.InvalidCronConfiguration('{} is not supported'.format(field))
 
 
 def validate_queue(queue):
@@ -454,7 +452,8 @@ def validate_queue(queue):
   mode = queue.get('mode', 'push')
 
   if mode not in ['push', 'pull']:
-    raise InvalidQueueConfiguration('Invalid queue mode: {}'.format(mode))
+    raise constants.InvalidQueueConfiguration(
+      'Invalid queue mode: {}'.format(mode))
 
   if mode == 'push':
     required_fields = tq_constants.REQUIRED_PUSH_QUEUE_FIELDS
@@ -465,7 +464,7 @@ def validate_queue(queue):
 
   for field in required_fields:
     if field not in queue:
-      raise InvalidQueueConfiguration(
+      raise constants.InvalidQueueConfiguration(
         'Queue is missing {}: {}'.format(field, queue))
 
   for field in queue:
@@ -473,7 +472,8 @@ def validate_queue(queue):
     try:
       rule = supported_fields[field]
     except KeyError:
-      raise InvalidQueueConfiguration('{} is not supported'.format(field))
+      raise constants.InvalidQueueConfiguration(
+        '{} is not supported'.format(field))
 
     if isinstance(rule, dict):
       required_sub_fields = rule
@@ -482,14 +482,14 @@ def validate_queue(queue):
         try:
           sub_rule = required_sub_fields[sub_field]
         except KeyError:
-          raise InvalidQueueConfiguration(
+          raise constants.InvalidQueueConfiguration(
             '{}.{} is not supported'.format(field, sub_field))
 
         if not sub_rule(sub_value):
-          raise InvalidQueueConfiguration(
+          raise constants.InvalidQueueConfiguration(
             'Invalid {}.{} value: {}'.format(field, sub_field, sub_value))
     elif not rule(value):
-      raise InvalidQueueConfiguration(
+      raise constants.InvalidQueueConfiguration(
         'Invalid {} value: {}'.format(field, value))
 
 
@@ -501,18 +501,20 @@ def cron_from_dict(payload):
   Returns:
     A dictionary containing cron information.
   Raises:
-    InvalidConfiguration if configuration is invalid.
+    InvalidCronConfiguration if configuration is invalid.
   """
   try:
     given_jobs = payload['cron']
   except KeyError:
-    raise InvalidConfiguration('Payload must contain cron directive')
+    raise constants.InvalidCronConfiguration(
+      'Payload must contain cron directive')
 
   for directive in payload:
     # There are no other directives in the GAE docs. This check is in case more
     # are added later.
     if directive != 'cron':
-      raise InvalidQueueConfiguration('{} is not supported'.format(directive))
+      raise constants.InvalidCronConfiguration(
+        '{} is not supported'.format(directive))
 
   for job in given_jobs:
     validate_job(job)
@@ -533,12 +535,14 @@ def queues_from_dict(payload):
   try:
     given_queues = payload['queue']
   except KeyError:
-    raise InvalidQueueConfiguration('Payload must contain queue directive')
+    raise constants.InvalidQueueConfiguration(
+      'Payload must contain queue directive')
 
   for directive in payload:
     # total_storage_limit is not yet supported.
     if directive != 'queue':
-      raise InvalidQueueConfiguration('{} is not supported'.format(directive))
+      raise constants.InvalidQueueConfiguration(
+        '{} is not supported'.format(directive))
 
   queues = {'default': {'mode': 'push', 'rate': '5/s'}}
   for queue in given_queues:

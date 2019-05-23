@@ -11,10 +11,14 @@ from kazoo.exceptions import NoNodeError
 from yaml.parser import ParserError
 
 from appscale.appcontroller_client import AppControllerException
-from appscale.common.constants import HTTPCodes, InvalidConfiguration
+from appscale.common.constants import HTTPCodes, InvalidIndexConfiguration
 from appscale.common.datastore_index import DatastoreIndex, merge_indexes
 from .base_handler import BaseHandler
-from .constants import CustomHTTPError
+from .constants import (
+  CustomHTTPError,
+  InvalidQueueConfiguration,
+  InvalidCronConfiguration
+)
 from .utils import cron_from_dict
 from .utils import queues_from_dict
 
@@ -60,7 +64,7 @@ class UpdateIndexesHandler(BaseHandler):
     try:
       given_indexes = [DatastoreIndex.from_yaml(project_id, index)
                        for index in given_indexes]
-    except InvalidConfiguration as error:
+    except InvalidIndexConfiguration as error:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message=six.text_type(error))
 
@@ -91,11 +95,12 @@ class UpdateQueuesHandler(BaseHandler):
     try:
       payload = yaml.safe_load(self.request.body)
     except ParserError:
-      raise InvalidConfiguration('Payload must be valid YAML')
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Payload must be valid YAML')
 
     try:
       queues = queues_from_dict(payload)
-    except InvalidConfiguration as error:
+    except InvalidQueueConfiguration as error:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error.message)
 
     queue_node = '/appscale/projects/{}/queues'.format(project_id)
@@ -137,11 +142,12 @@ class UpdateCronHandler(BaseHandler):
     try:
       payload = yaml.safe_load(self.request.body)
     except ParserError:
-      raise InvalidConfiguration('Payload must be valid YAML')
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Payload must be valid YAML')
 
     try:
       cron_jobs = cron_from_dict(payload)
-    except InvalidConfiguration as error:
+    except InvalidCronConfiguration as error:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error.message)
 
     cron_node = '/appscale/projects/{}/cron'.format(project_id)

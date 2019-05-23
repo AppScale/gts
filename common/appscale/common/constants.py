@@ -15,7 +15,7 @@ class HTTPCodes(object):
   NOT_IMPLEMENTED = 501
 
 
-class InvalidConfiguration(Exception):
+class InvalidIndexConfiguration(Exception):
   """ Indicates that a given configuration cannot be enforced. """
   pass
 

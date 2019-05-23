@@ -61,6 +61,16 @@ class NoPortsAvailable(Exception):
   pass
 
 
+class InvalidCronConfiguration(Exception):
+  """ Indicates that cron is not valid. """
+  pass
+
+
+class InvalidQueueConfiguration(Exception):
+  """ Indicates that queue is not valid. """
+  pass
+
+
 class ServingStatus(object):
   """ The possible serving states for a project or version. """
   SERVING = 'SERVING'
