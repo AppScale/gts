@@ -53,7 +53,6 @@ case "$1" in
         postinstallservice
         postinstallmonit
         postinstallejabberd
-        sethosts
         setulimits
         increaseconnections
         installVersion
