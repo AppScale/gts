@@ -19,6 +19,7 @@
 Uses the pymemcache library to interface with memcached.
 """
 import base64
+import hashlib
 import os
 import socket
 
@@ -27,7 +28,7 @@ from pymemcache.exceptions import MemcacheError, MemcacheClientError
 from pymemcache.client.hash import HashClient
 
 from google.appengine.api import apiproxy_stub
-from google.appengine.api.memcache import memcache_service_pb
+from google.appengine.api.memcache import MAX_KEY_SIZE, memcache_service_pb
 from google.appengine.runtime import apiproxy_errors
 
 MemcacheSetResponse = memcache_service_pb.MemcacheSetResponse
@@ -61,23 +62,24 @@ def encode_key(project_id, namespace, key):
     key: A bytestring specifying the memcache key.
   Returns:
     A bytestring in the form of <project-id>\x01<namespace>\x01<encoded-key>
+  Raises:
+    ApplicationError if the key is too long.
   """
+  if len(key) > MAX_KEY_SIZE:
+    raise apiproxy_errors.ApplicationError(
+      INVALID_VALUE, 'The key is too long: {}'.format(key))
+
   project_id = six.binary_type(project_id)
   namespace = six.binary_type(namespace)
   encoded_key = base64.b64encode(key)
-  return KEY_DELIMETER.join([project_id, namespace, encoded_key])
+  full_key = KEY_DELIMETER.join([project_id, namespace, encoded_key])
+  # GAE only rejects requests when the key length is too long. Since this
+  # implementation's stored key includes a namespace prefix, the full key is
+  # hashed if necessary to comply with the memcached limit.
+  if len(full_key) > MAX_KEY_SIZE:
+    return hashlib.sha1(full_key).hexdigest()
 
-
-def decode_key(encoded_key):
-  """ Decodes a memcached key.
-
-  Args:
-    encoded_key: A bytestring specifying the encoded key.
-  Returns:
-    A tuple in the form of (project_id, namespace, key.
-  """
-  project_id, namespace, encoded_key = encoded_key.split(KEY_DELIMETER, 2)
-  return project_id, namespace, base64.b64decode(encoded_key)
+  return full_key
 
 
 def serializer(key, value_and_flags):
@@ -158,11 +160,13 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       response: A MemcacheGetResponse protocol buffer.
     """
     # Remove duplicate keys.
-    encoded_keys = set(encode_key(self._project_id, request.name_space(), key)
-                       for key in request.key_list())
+    original_keys = {
+      encode_key(self._project_id, request.name_space(), key): key
+      for key in request.key_list()}
+
     try:
       backend_response = self._memcache.get_many(
-        list(encoded_keys), gets=request.for_cas())
+        original_keys.keys(), gets=request.for_cas())
     except MemcacheClientError as error:
       raise apiproxy_errors.ApplicationError(INVALID_VALUE, str(error))
     except TRANSIENT_ERRORS as error:
@@ -171,7 +175,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
 
     for encoded_key, value_tuple in six.iteritems(backend_response):
       item = response.add_item()
-      item.set_key(decode_key(encoded_key)[2])
+      item.set_key(original_keys[encoded_key])
       if request.for_cas():
         item.set_cas_id(int(value_tuple[1]))
         value_tuple = value_tuple[0]
@@ -187,11 +191,10 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       response: A MemcacheSetResponse.
     """
     namespace = request.name_space()
-    invalid_policy = next((item.set_policy() for item in request.item_list()
-                           if item.set_policy() not in self._methods), None)
-    if invalid_policy is not None:
+    if any(item.set_policy() not in self._methods
+           for item in request.item_list()):
       raise apiproxy_errors.ApplicationError(
-        INVALID_VALUE, 'Unsupported set_policy'.format(invalid_policy))
+        INVALID_VALUE, 'Unsupported set_policy')
 
     if not all(item.has_cas_id() for item in request.item_list()
                if item.set_policy() == MemcacheSetRequest.CAS):
@@ -199,7 +202,13 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
         INVALID_VALUE, 'All CAS items must have a cas_id')
 
     for item in request.item_list():
-      args = {'key': encode_key(self._project_id, namespace, item.key()),
+      try:
+        encoded_key = encode_key(self._project_id, namespace, item.key())
+      except apiproxy_errors.ApplicationError:
+        response.add_set_status(MemcacheSetResponse.ERROR)
+        continue
+
+      args = {'key': encoded_key,
               'value': (item.value(), item.flags()),
               'expire': int(item.expiration_time())}
       is_cas = item.set_policy() == MemcacheSetRequest.CAS
