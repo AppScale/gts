@@ -70,6 +70,7 @@ class NodePartition(object):
 class NodeNetwork(object):
   bytes_sent = attr.ib()
   bytes_recv = attr.ib()
+  bytes_recv = attr.ib()
   packets_sent = attr.ib()
   packets_recv = attr.ib()
   errin = attr.ib()

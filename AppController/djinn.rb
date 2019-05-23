@@ -5430,7 +5430,12 @@ HOSTS
       get_all_compute_nodes.each { |host|
         @cluster_stats.each { |node|
           next if node['private_ip'] != host
-
+          Djinn.log_info("Using #{host}'s stats, making sure keys are accessible " \
+            "node['memory']['total']: #{node['memory']['total']} " \
+            "node['memory']['available']: #{node['memory']['available']}" \
+            "node['loadavg']['last_1_min']: #{node['loadavg']['last_1_min']}" \
+            "node['cpu']['count']: #{node['cpu']['count']}"
+          )
           # Check how many new AppServers of this app, we can run on this
           # node (as theoretical maximum memory usage goes).  First convert
           # total memory to MB.
@@ -5831,12 +5836,11 @@ HOSTS
   def get_node_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
-    # Get stats from SystemManager.
-    imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
+    # Get stats from Hermes.
     begin
-      system_stats = JSON.load(imc.get_system_stats)
-    rescue SOAP::FaultError, FailedNodeException => exception
-      Djinn.log_warn("Failed to talk to [IM]: #{exception.message}")
+      system_stats = HermesClient.get_system_stats(my_node.private_ip, @@secret)
+    rescue AppScaleException => error
+      Djinn.log_warn("Couldn't get proxy stats from Hermes: #{error.message}")
       return INVALID_REQUEST
     end
 
@@ -5844,6 +5848,7 @@ HOSTS
 
     # Combine all useful stats and return.
     node_stats = system_stats
+    node_stats['monit'] = MonitInterface.monit_summary
     node_stats['apps'] = {}
     if my_node.is_shadow?
       my_versions_loaded  = []

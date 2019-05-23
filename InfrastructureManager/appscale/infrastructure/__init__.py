@@ -410,39 +410,6 @@ class InstanceHandler(web.RequestHandler):
     self.agent_factory = agent_factory
 
   @gen.coroutine
-  def get(self):
-    """ Gets the statistics of the current machine from the SystemManager.
-
-    Args:
-      AppScale-Secret: Required in header. Authentication to deployment.
-    """
-    if 'AppScale-Secret' not in self.request.headers \
-        or self.request.headers['AppScale-Secret'] != options.secret:
-      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
-
-    cpu_usage = SystemManager.get_cpu_usage()
-    disk_usage = SystemManager.get_disk_usage()
-    memory_usage = SystemManager.get_memory_usage()
-    swap_usage = SystemManager.get_swap_usage()
-    loadavg = SystemManager.get_loadavg()
-    try:
-      service_summary = SystemManager.get_service_summary()
-    except ServiceException as e:
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=e.message)
-
-    all_stats = cpu_usage
-    all_stats.update(disk_usage)
-    all_stats.update(memory_usage)
-    all_stats.update(swap_usage)
-    all_stats.update(loadavg)
-
-    # Service summary is a flat dictionary, while the rest contain nested
-    # dictionaries.
-    all_stats['services'] = service_summary
-
-    self.write(json_encode(all_stats))
-
-  @gen.coroutine
   def post(self):
     """ Contacts the infrastructure named in 'parameters' and tells it to
     attach a persistent disk to this machine.

@@ -211,31 +211,4 @@ class InfrastructureManagerClient
 
     return JSON.parse(make_call(request, uri))['location']
   end
-
-  # Retrieves system monitoring statistics from the SystemManager.
-  # Returns:
-  #  A hash of the all the stats combined.
-  def get_system_stats
-    Djinn.log_debug('Calling SystemManager')
-    uri = URI("http://#{@ip}:#{SERVER_PORT}/instance")
-    headers = {'Content-Type' => 'application/json',
-               'AppScale-Secret' => @secret}
-    request = Net::HTTP::Get.new(uri.path, headers)
-
-    # Retry request for stats in case IaaS has difficulty talking to monit.
-    retries = 5
-    loop do
-      begin
-        return make_call(request, uri)
-      rescue AppScaleException => error
-        retries -= 1
-        Djinn.log_warn("[IM] Error getting stats! Trying again. Error: #{error.message}")
-        sleep(SMALL_WAIT)
-      end
-      if retries.zero?
-        Djinn.log_warn("[IM] Could not get system statistics!")
-        raise Djinn::FailedNodeException.new("Could not get system statistics")
-      end
-    end
-  end
 end
