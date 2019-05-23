@@ -52,6 +52,12 @@ MIN_DECR = 0
 # Separates components of encoded memcached keys.
 KEY_DELIMETER = b'\x01'
 
+# Indicates that a memcache key was not hashed.
+INTACT_MARKER = b'\x02'
+
+# Indicates that a memcache key was hashed.
+HASHED_MARKER = b'\x03'
+
 
 def encode_key(project_id, namespace, key):
   """ Encodes a key for memcached.
@@ -72,14 +78,19 @@ def encode_key(project_id, namespace, key):
   project_id = six.binary_type(project_id)
   namespace = six.binary_type(namespace)
   encoded_key = base64.b64encode(key)
-  full_key = KEY_DELIMETER.join([project_id, namespace, encoded_key])
-  # GAE only rejects requests when the key length is too long. Since this
-  # implementation's stored key includes a namespace prefix, the full key is
-  # hashed if necessary to comply with the memcached limit.
-  if len(full_key) > MAX_KEY_SIZE:
-    return hashlib.sha1(full_key).hexdigest()
+  full_key = KEY_DELIMETER.join(
+    [project_id, namespace, INTACT_MARKER + encoded_key])
+  if len(full_key) <= MAX_KEY_SIZE:
+    return full_key
 
-  return full_key
+  # GAE only rejects requests when the key length is too long. Since this
+  # implementation's stored key includes a namespace prefix, the key is hashed
+  # if necessary to comply with the memcached limit. The length of the key's
+  # hex digest + the max project ID size + the max namespace size is still less
+  # than the memcached limit.
+  hashed_key = hashlib.sha1(key).hexdigest()
+  return KEY_DELIMETER.join(
+    [project_id, namespace, HASHED_MARKER + hashed_key])
 
 
 def serializer(key, value_and_flags):
