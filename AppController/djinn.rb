@@ -1690,9 +1690,9 @@ class Djinn
     Djinn.log_info("==== Starting AppController (pid: #{Process.pid}) ====")
 
     # On some platform (notably AWS) Ubuntu may be started without an
-    # entry in /etc/hosts for the hostname: this causes issues since AWS
-    # DNS resolution can actually slow down the boot. We check and set it
-    # here to prevent failure to start the system.
+    # entry in /etc/hosts for the hostname, which would cause issues if
+    # the DNS is not performant. We check and set it here to prevent
+    # failure to start the system.
     update_etc_hosts
 
     # We reload our old IPs (if we find them) so we can check later if
