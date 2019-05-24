@@ -18,7 +18,6 @@ module TerminateHelper
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /etc/nginx/sites-enabled/appscale-*.conf`
-    `rm -f /etc/haproxy/app-site-enabled/*.cfg`
     `rm -f /etc/haproxy/service-sites-enabled/*.cfg`
     `service nginx reload`
 
