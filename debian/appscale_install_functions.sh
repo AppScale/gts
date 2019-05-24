@@ -619,10 +619,8 @@ installtaskqueue()
 
     TASKQUEUE_PIP=/opt/appscale_taskqueue/bin/pip
 
-    ${TASKQUEUE_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/common
-    ${TASKQUEUE_PIP} install ${APPSCALE_HOME}/common
-    ${TASKQUEUE_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
-    ${TASKQUEUE_PIP} install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+    "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh" \
+        "${TASKQUEUE_PIP}"
 }
 
 installdatastore()
