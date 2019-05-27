@@ -41,6 +41,7 @@ case "$1" in
         installtornado
         installpycrypto
         installpycapnp
+        installpymemcache
         installpyyaml
         installsoappy
         installzookeeper

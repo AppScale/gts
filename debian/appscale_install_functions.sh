@@ -572,6 +572,11 @@ installpycapnp()
     pipwrapper pycapnp
 }
 
+installpymemcache()
+{
+    pipwrapper pymemcache
+}
+
 installpyyaml()
 {
     # The python-yaml package on Xenial uses over 30M of memory.
