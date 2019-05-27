@@ -97,7 +97,7 @@ class RequestsLogger(threading.Thread):
             return
           if not self._log_file:
             self._open_log_file(request_info)
-          json.dump(request_info, self._log_file)
+          self._log_file.write(json.dumps(request_info))
           self._log_file.write('\n')
           self._log_file.flush()
           request_info = None

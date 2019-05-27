@@ -18,13 +18,13 @@ fi
 
 while fuser /var/cache/apt/archives/lock /var/lib/apt/lists/lock /var/lib/dpkg/lock ; do
   echo "Waiting for apt lock"
-  sleep 60
+  sleep 20
 done
 
-if ! systemctl | grep -q filebeat; then
+if ! apt-cache policy filebeat | grep Installed | grep -q ' 6.8'; then
     echo "Installing Filebeat..."
-    curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-5.6.4-amd64.deb
-    sudo dpkg -i filebeat-5.6.4-amd64.deb
+    curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-6.8.0-amd64.deb
+    sudo dpkg -i filebeat-6.8.0-amd64.deb
 else
     echo "Filebeat has been already installed"
 fi
@@ -33,8 +33,9 @@ fi
 echo "Configuring Filebeat..."
 cat > /etc/filebeat/filebeat.yml << FILEBEAT_YML
 
-filebeat.prospectors:
-- input_type: log
+filebeat.inputs:
+- type: log
+  enabled: true
   paths: ["/opt/appscale/logserver/requests-*"]
   json.keys_under_root: true
 

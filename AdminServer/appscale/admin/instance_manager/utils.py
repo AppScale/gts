@@ -147,7 +147,17 @@ def setup_logrotate(app_name, log_size):
   notifempty
   copytruncate
 }}
-""".format(log_prefix=log_prefix, size=log_size)
+
+/opt/appscale/logserver/requests-{app_name}*.log {{
+  size {size}
+  missingok
+  rotate 3
+  compress
+  delaycompress
+  notifempty
+  copytruncate
+}}
+""".format(log_prefix=log_prefix, app_name=app_name, size=log_size)
   logger.debug("Logrotate file: {} - Contents:\n{}".
     format(app_logrotate_script, contents))
 
