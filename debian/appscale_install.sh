@@ -41,6 +41,7 @@ case "$1" in
         installtornado
         installpycrypto
         installpycapnp
+        installpymemcache
         installpyyaml
         installsoappy
         installzookeeper
@@ -53,7 +54,6 @@ case "$1" in
         postinstallservice
         postinstallmonit
         postinstallejabberd
-        sethosts
         setulimits
         increaseconnections
         installVersion

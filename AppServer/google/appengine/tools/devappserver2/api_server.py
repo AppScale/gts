@@ -572,7 +572,7 @@ def setup_stubs(
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'memcache',
-      memcache_distributed.MemcacheService())
+      memcache_distributed.MemcacheService(app_id))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'search',
