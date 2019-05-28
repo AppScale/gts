@@ -27,8 +27,8 @@ class InfrastructureManagerClient
   # or on any AppScale machine.
   attr_accessor :secret
 
-  def initialize(secret)
-    @ip = HelperFunctions.local_ip
+  def initialize(secret, local_ip)
+    @ip = local_ip
     @secret = secret
   end
 

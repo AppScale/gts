@@ -56,6 +56,11 @@ class VersionNotChanged(Exception):
   pass
 
 
+class NoPortsAvailable(Exception):
+  """ Indicates that the service exhausted available ports. """
+  pass
+
+
 class ServingStatus(object):
   """ The possible serving states for a project or version. """
   SERVING = 'SERVING'
@@ -126,3 +131,31 @@ ALLOWED_HTTPS_PORTS = [443, 1443] + list(AUTO_HTTPS_PORTS)
 
 # The range of HAProxy ports to assign to versions.
 HAPROXY_PORTS = range(10000, 10020)
+
+BOOKED_PORTS = set(
+  list(ALLOWED_HTTP_PORTS)
+  + list(ALLOWED_HTTPS_PORTS)
+  + list(HAPROXY_PORTS)
+  + [
+    2181,     # Zookeeper
+    2812,     # Monit
+    3306,     # MySQL
+    4341,     # UserAppServer service
+    4342,     # UserAppServer server
+    5222,     # ejabberd
+    5432,     # PostgreSQL
+    5555,     # Celery Flower
+    6106,     # Blobstore service
+    8888,     # Datastore service
+    9999,     # Search service
+    17441,    # AdminServer
+    17443,    # AppController
+    17446,    # TaskQueue service
+  ]
+  # list(range(4000, 5999))    # service_manager manages Datastore servers
+  + list(range(6107, 7107))    # Blobstore servers (up to 1000 instances)
+  + list(range(10000, 10100))  # Application ports
+  + list(range(17447, 18447))  # TaskQueue servers (up to 1000 instances)
+  + list(range(20000, 25000))  # Application server ports
+  # list(range(31000, 32000))  # service_manager manages Search servers
+)

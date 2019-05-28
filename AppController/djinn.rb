@@ -101,6 +101,9 @@ ZK_LOCATIONS_FILE = '/etc/appscale/zookeeper_locations'.freeze
 # The location of the logrotate scripts.
 LOGROTATE_DIR = '/etc/logrotate.d'.freeze
 
+# The /etc/hosts file.
+ETC_HOSTS = '/etc/hosts'.freeze
+
 # The name of the generic appscale centralized app logrotate script.
 APPSCALE_APP_LOGROTATE = 'appscale-app-logrotate.conf'.freeze
 
@@ -1323,6 +1326,18 @@ class Djinn
 
       @options[key] = val
 
+      if key == 'login'
+        Djinn.log_debug('[set_property] Regenerating cron for applications ' \
+          'since login changed')
+        versions_loaded_now = []
+        APPS_LOCK.synchronize { versions_loaded_now = @versions_loaded.clone }
+        Djinn.log_info("[set_property] Regenerating cron for #{versions_loaded_now}")
+        versions_loaded_now.each { |version_key|
+          project_id = version_key.split(VERSION_PATH_SEPARATOR).first
+          update_cron(project_id, @@secret)
+        }
+      end
+
       if key.include? 'stats_log'
         if key.include? 'nodes'
           ZKInterface.update_hermes_nodes_profiling_conf(
@@ -1617,6 +1632,12 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     Djinn.log_info("==== Starting AppController (pid: #{Process.pid}) ====")
+
+    # On some platform (notably AWS) Ubuntu may be started without an
+    # entry in /etc/hosts for the hostname, which would cause issues if
+    # the DNS is not performant. We check and set it here to prevent
+    # failure to start the system.
+    update_etc_hosts
 
     # We reload our old IPs (if we find them) so we can check later if
     # they changed and act accordingly.
@@ -2218,7 +2239,7 @@ class Djinn
 
       # We create here the needed nodes, with open role and no disk.
       disks = Array.new(new_nodes_roles.length, nil)
-      imc = InfrastructureManagerClient.new(@@secret)
+      imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
       begin
         new_nodes_info = imc.run_instances(new_nodes_roles.length, @options,
            new_nodes_roles.values, disks)
@@ -2277,7 +2298,6 @@ class Djinn
 
     update_firewall
     initialize_nodes_in_parallel(new_nodes, [])
-    update_hosts_info
   end
 
   # Cleans out temporary files that may have been written by a previous
@@ -2805,6 +2825,40 @@ class Djinn
     return true
   end
 
+  # Method to ensure that we have our hostname defined in /etc/hosts. If
+  # the hostname is not yet defined a line will be added
+  #
+  # 127.0.1.1        <fqdn-hostname> <hostname>
+  #
+  # to /etc/hosts.
+  def update_etc_hosts
+    my_hostname = Socket.gethostname
+    my_fqdn = ''
+    begin
+      my_fqdn = Addrinfo.ip(my_hostname).getnameinfo.first
+      my_fqdn = '' if my_fqdn =~ /^[[:digit:]]/
+      my_fqdn = '' if my_fqdn == my_hostname
+    rescue SocketError, Errno
+      Djinn.log_warn("Couldn't get the fqdn of my hostname!")
+    end
+
+    etc_hosts = File.read(ETC_HOSTS)
+    if etc_hosts =~ /#{my_hostname}/
+      Djinn.log_info("/etc/hosts already have an entry for this hostname.")
+      return
+    end
+
+    Djinn.log_info("hostname #{my_hostname} is not in /etc/hosts: adding it.")
+    if etc_hosts =~ /127\.0\.1\.1/
+      Djinn.log_warn("/etc/hosts already has 127.0.1.1 defined and it's not #{my_hostname}!")
+      return
+    end
+    open(ETC_HOSTS, 'a') { |f|
+      f << "\n\n# Local hostname added by AppScale to limit DNS queries."
+      f << "\n127.0.1.1       #{my_fqdn} #{my_hostname}\n"
+    }
+  end
+
   # Updates all instance variables stored within the AppController with the new
   # public and private IP addreses of this machine.
   #
@@ -3138,7 +3192,7 @@ class Djinn
           db_master = node.private_ip if node.roles.include?('db_master')
         }
       }
-      setup_db_config_files(db_master)
+      setup_db_config_files(db_master, my_node.private_ip)
 
       threads << Thread.new {
         Djinn.log_info("Starting database services.")
@@ -3386,8 +3440,10 @@ class Djinn
     }
 
     verbose = @options['verbose'].downcase == "true"
-    TaskQueue.start_slave(master_ip, false, verbose)
-    return true
+    unless TaskQueue.start_slave(master_ip, false, verbose)
+      HelperFunctions.log_and_crash("Cannot start TQ slave!")
+    end
+    true
   end
 
   # Starts the application manager which is a SOAP service in charge of
@@ -4007,41 +4063,6 @@ class Djinn
     end
   end
 
-  # Updates files on this machine with information about our hostname
-  # and a mapping of where other machines are located.
-  def update_hosts_info
-    # If we are running in Docker, don't try to set the hostname.
-    return if system("grep docker /proc/1/cgroup > /dev/null")
-
-    all_nodes = ''
-    @state_change_lock.synchronize {
-      @nodes.each_with_index { |node, index|
-        all_nodes << "#{node.private_ip} appscale-image#{index}\n"
-      }
-    }
-
-    new_etc_hosts = <<HOSTS
-127.0.0.1 localhost.localdomain localhost
-127.0.1.1 localhost
-::1     ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-ff02::3 ip6-allhosts
-#{all_nodes}
-HOSTS
-
-    etc_hosts = "/etc/hosts"
-    File.open(etc_hosts, "w+") { |file| file.write(new_etc_hosts) }
-
-    etc_hostname = "/etc/hostname"
-    my_hostname = "appscale-image#{@my_index}"
-    File.open(etc_hostname, "w+") { |file| file.write(my_hostname) }
-
-    Djinn.log_run("/bin/hostname #{my_hostname}")
-  end
-
   # Writes new nginx and haproxy configuration files for the App Engine
   # applications hosted in this deployment. Callers should invoke this
   # method whenever there is a change in the number of machines hosting
@@ -4144,7 +4165,7 @@ HOSTS
       return
     end
 
-    imc = InfrastructureManagerClient.new(@@secret)
+    imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
     begin
       device_name = imc.attach_disk(@options, my_node.disk, my_node.instance_id)
     rescue FailedNodeException
@@ -4229,8 +4250,6 @@ HOSTS
     end
 
     write_locations
-
-    update_hosts_info
     Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf") if FIREWALL_IS_ON
     write_zookeeper_locations
   end
@@ -4566,7 +4585,7 @@ HOSTS
         "#{e}.message")
       return
     end
-    Djinn.log_info("check_stopped_apps: Versions running: #{zookeeper_versions}")
+    Djinn.log_debug("check_stopped_apps: Versions running: #{zookeeper_versions}")
     removed_versions = []
 
     # Remove old crontab and syslog configuration. Only the master node
@@ -4960,7 +4979,7 @@ HOSTS
 
     # Terminate instance if we are in cloud.
     if is_cloud?
-      imc = InfrastructureManagerClient.new(@@secret)
+      imc = InfrastructureManagerClient.new(@@secret, my_node.private_ip)
       begin
         imc.terminate_instances(@options, node_to_remove.instance_id)
       rescue FailedNodeException
@@ -5751,7 +5770,7 @@ HOSTS
     return BAD_SECRET_MSG unless valid_secret?(secret)
 
     # Get stats from SystemManager.
-    imc = InfrastructureManagerClient.new(secret)
+    imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
     begin
       system_stats = JSON.load(imc.get_system_stats)
     rescue SOAP::FaultError, FailedNodeException => exception
