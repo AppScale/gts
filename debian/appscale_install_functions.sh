@@ -619,7 +619,7 @@ installtaskqueue()
 
     TASKQUEUE_PIP=/opt/appscale_taskqueue/bin/pip
 
-    "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh" \
+    "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_and_prepare.sh" \
         "${TASKQUEUE_PIP}"
 }
 

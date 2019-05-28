@@ -85,8 +85,13 @@ fi
 
 if [ ! -z ${TQ_SOURCE_DIR} ]; then
     log "Installing TaskQueue from specified sources"
-    pip install --upgrade --no-deps "${TQ_SOURCE_DIR}"
-    pip install "${TQ_SOURCE_DIR}"
+    rm -rf /opt/appscale_taskqueue
+    python -m virtualenv /opt/appscale_taskqueue/
+
+    TASKQUEUE_PIP=/opt/appscale_taskqueue/bin/pip
+
+    "${TQ_SOURCE_DIR}/appscale/taskqueue/protocols/compile_and_prepare.sh" \
+        "${TASKQUEUE_PIP}"
 fi
 
 log "Filling /etc/appscale/* files with addresses of required services"

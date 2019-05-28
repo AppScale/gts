@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
+# Compiles protocols and prepares venv for tq
+
 set -e
 set -x
 
-TQ_DIR="${APPSCALE_HOME}/AppTaskQueue"
-COMMON_DIR="${APPSCALE_HOME}/common"
+PROTOCOLS_DIR="$( realpath --strip "$( dirname "${BASH_SOURCE[0]}" )" )"
+TQ_DIR="$( dirname "$( dirname "$( dirname "${PROTOCOLS_DIR}" )" )" )"
+COMMON_DIR="$( dirname "${TQ_DIR}" )"/common
 
 if ! protoc --version | grep -E ' (3\.)|(2\.)' ; then
     echo "Couldn't compile *.proto files because protoc version 3 was not found."
