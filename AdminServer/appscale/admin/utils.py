@@ -13,18 +13,24 @@ from appscale.common.constants import HTTPCodes
 from appscale.common.constants import VERSION_PATH_SEPARATOR
 from kazoo.exceptions import NoNodeError
 
-from . import constants
 from .constants import (
+  AUTO_HTTP_PORTS,
+  AUTO_HTTPS_PORTS,
   CustomHTTPError,
+  HAPROXY_PORTS,
   GO,
+  InvalidCronConfiguration,
+  InvalidQueueConfiguration,
+  InvalidSource,
   JAVA,
-  SOURCES_DIRECTORY,
-  Types,
-  UNPACK_ROOT,
   REQUIRED_PULL_QUEUE_FIELDS,
   REQUIRED_PUSH_QUEUE_FIELDS,
+  SOURCES_DIRECTORY,
   SUPPORTED_PULL_QUEUE_FIELDS,
-  SUPPORTED_PUSH_QUEUE_FIELDS
+  SUPPORTED_PUSH_QUEUE_FIELDS,
+  Types,
+  UNPACK_ROOT,
+  VERSION_NODE_TEMPLATE
 )
 from .instance_manager.utils import copy_modified_jars
 from .instance_manager.utils import remove_conflicting_jars
@@ -203,7 +209,8 @@ def extract_source(revision_key, location, runtime):
     config_file_name = 'app.yaml'
 
     def is_version_config(path):
-      return canonical_path(path, app_path) == os.path.join(app_path, config_file_name)
+      return canonical_path(path, app_path) == \
+             os.path.join(app_path, config_file_name)
 
   with tarfile.open(location, 'r:gz') as archive:
     # Check if the archive is valid before extracting it.
@@ -211,20 +218,18 @@ def extract_source(revision_key, location, runtime):
     for file_info in archive:
       file_name = file_info.name
       if not canonical_path(file_name, app_path).startswith(app_path):
-        raise constants.InvalidSource(
+        raise InvalidSource(
           'Invalid location in archive: {}'.format(file_name))
 
       if file_info.issym() or file_info.islnk():
         if not valid_link(file_name, file_info.linkname, app_path):
-          raise constants.InvalidSource(
-            'Invalid link in archive: {}'.format(file_name))
+          raise InvalidSource('Invalid link in archive: {}'.format(file_name))
 
       if is_version_config(file_name):
         has_config = True
 
     if not has_config:
-      raise constants.InvalidSource(
-        'Archive must have {}'.format(config_file_name))
+      raise InvalidSource('Archive must have {}'.format(config_file_name))
 
     archive.extractall(path=app_path)
 
@@ -327,7 +332,7 @@ def assigned_locations(zk_client):
     except NoNodeError:
       continue
     version_nodes.extend([
-      constants.VERSION_NODE_TEMPLATE.format(
+      VERSION_NODE_TEMPLATE.format(
         project_id=project_id, service_id=service_id, version_id=version_id)
       for version_id in new_version_ids])
 
@@ -397,7 +402,7 @@ def assign_ports(old_version, new_version, zk_client):
 
   if new_http_port is None:
     try:
-      new_http_port = next(port for port in constants.AUTO_HTTP_PORTS
+      new_http_port = next(port for port in AUTO_HTTP_PORTS
                            if port not in taken_locations)
     except StopIteration:
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
@@ -405,7 +410,7 @@ def assign_ports(old_version, new_version, zk_client):
 
   if new_https_port is None:
     try:
-      new_https_port = next(port for port in constants.AUTO_HTTPS_PORTS
+      new_https_port = next(port for port in AUTO_HTTPS_PORTS
                             if port not in taken_locations)
     except StopIteration:
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
@@ -413,7 +418,7 @@ def assign_ports(old_version, new_version, zk_client):
 
   if haproxy_port is None:
     try:
-      haproxy_port = next(port for port in constants.HAPROXY_PORTS
+      haproxy_port = next(port for port in HAPROXY_PORTS
                           if port not in taken_locations)
     except StopIteration:
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
@@ -436,12 +441,12 @@ def validate_job(job):
 
   for field in required_fields:
     if field not in job:
-      raise constants.InvalidCronConfiguration(
+      raise InvalidCronConfiguration(
         'Cron job is missing {}: {}'.format(field, job))
 
   for field in job:
     if field not in supported_fields:
-      raise constants.InvalidCronConfiguration('{} is not supported'.format(field))
+      raise InvalidCronConfiguration('{} is not supported'.format(field))
 
 
 def validate_queue(queue):
@@ -455,8 +460,7 @@ def validate_queue(queue):
   mode = queue.get('mode', 'push')
 
   if mode not in ['push', 'pull']:
-    raise constants.InvalidQueueConfiguration(
-      'Invalid queue mode: {}'.format(mode))
+    raise InvalidQueueConfiguration('Invalid queue mode: {}'.format(mode))
 
   if mode == 'push':
     required_fields = REQUIRED_PUSH_QUEUE_FIELDS
@@ -467,7 +471,7 @@ def validate_queue(queue):
 
   for field in required_fields:
     if field not in queue:
-      raise constants.InvalidQueueConfiguration(
+      raise InvalidQueueConfiguration(
         'Queue is missing {}: {}'.format(field, queue))
 
   for field in queue:
@@ -475,8 +479,7 @@ def validate_queue(queue):
     try:
       rule = supported_fields[field]
     except KeyError:
-      raise constants.InvalidQueueConfiguration(
-        '{} is not supported'.format(field))
+      raise InvalidQueueConfiguration('{} is not supported'.format(field))
 
     if isinstance(rule, dict):
       required_sub_fields = rule
@@ -485,14 +488,14 @@ def validate_queue(queue):
         try:
           sub_rule = required_sub_fields[sub_field]
         except KeyError:
-          raise constants.InvalidQueueConfiguration(
+          raise InvalidQueueConfiguration(
             '{}.{} is not supported'.format(field, sub_field))
 
         if not sub_rule(sub_value):
-          raise constants.InvalidQueueConfiguration(
+          raise InvalidQueueConfiguration(
             'Invalid {}.{} value: {}'.format(field, sub_field, sub_value))
     elif not rule(value):
-      raise constants.InvalidQueueConfiguration(
+      raise InvalidQueueConfiguration(
         'Invalid {} value: {}'.format(field, value))
 
 
@@ -509,15 +512,13 @@ def cron_from_dict(payload):
   try:
     given_jobs = payload['cron']
   except KeyError:
-    raise constants.InvalidCronConfiguration(
-      'Payload must contain cron directive')
+    raise InvalidCronConfiguration('Payload must contain cron directive')
 
   for directive in payload:
     # There are no other directives in the GAE docs. This check is in case more
     # are added later.
     if directive != 'cron':
-      raise constants.InvalidCronConfiguration(
-        '{} is not supported'.format(directive))
+      raise InvalidCronConfiguration('{} is not supported'.format(directive))
 
   for job in given_jobs:
     validate_job(job)
@@ -538,14 +539,12 @@ def queues_from_dict(payload):
   try:
     given_queues = payload['queue']
   except KeyError:
-    raise constants.InvalidQueueConfiguration(
-      'Payload must contain queue directive')
+    raise InvalidQueueConfiguration('Payload must contain queue directive')
 
   for directive in payload:
     # total_storage_limit is not yet supported.
     if directive != 'queue':
-      raise constants.InvalidQueueConfiguration(
-        '{} is not supported'.format(directive))
+      raise InvalidQueueConfiguration('{} is not supported'.format(directive))
 
   queues = {'default': {'mode': 'push', 'rate': '5/s'}}
   for queue in given_queues:
