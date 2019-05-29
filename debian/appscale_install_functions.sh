@@ -312,7 +312,6 @@ installgems()
 postinstallnginx()
 {
     rm -fv /etc/nginx/sites-enabled/default
-    chmod +x /root
 }
 
 installsolr()
