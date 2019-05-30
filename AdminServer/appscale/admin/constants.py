@@ -1,8 +1,10 @@
 """ Constants used by AdminServer. """
 
 import os
+import re
 
 from appscale.common.constants import (
+  non_negative_int,
   DASHBOARD_APP_ID,
   PYTHON27,
   JAVA,
@@ -58,6 +60,16 @@ class VersionNotChanged(Exception):
 
 class NoPortsAvailable(Exception):
   """ Indicates that the service exhausted available ports. """
+  pass
+
+
+class InvalidCronConfiguration(Exception):
+  """ Indicates that cron is not valid. """
+  pass
+
+
+class InvalidQueueConfiguration(Exception):
+  """ Indicates that queue is not valid. """
   pass
 
 
@@ -159,3 +171,44 @@ BOOKED_PORTS = set(
   + list(range(20000, 25000))  # Application server ports
   # list(range(31000, 32000))  # service_manager manages Search servers
 )
+
+# A regex rule for validating push queue age limit.
+TQ_AGE_LIMIT_REGEX = re.compile(r'^([0-9]+(\.[0-9]*(e-?[0-9]+))?[smhd])')
+
+# A compiled regex rule for validating queue names.
+TQ_QUEUE_NAME_RE = re.compile(r'^[a-zA-Z0-9-]{1,100}$')
+
+# A regex rule for validating push queue rate.
+TQ_RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
+
+# A regex rule for validating targets, will not match instance.version.module.
+TQ_TARGET_REGEX = re.compile(r'^([a-zA-Z0-9\-]+[\.]?[a-zA-Z0-9\-]*)$')
+
+REQUIRED_PULL_QUEUE_FIELDS = ['name', 'mode']
+
+REQUIRED_PUSH_QUEUE_FIELDS = ['name', 'rate']
+
+SUPPORTED_PULL_QUEUE_FIELDS = {
+  'mode': lambda mode: mode == 'pull',
+  'name': TQ_QUEUE_NAME_RE.match,
+  'retry_parameters': {
+    'task_retry_limit': non_negative_int
+  }
+}
+
+# The supported push queue attributes and the rules they must follow.
+SUPPORTED_PUSH_QUEUE_FIELDS = {
+  'mode': lambda mode: mode == 'push',
+  'name': TQ_QUEUE_NAME_RE.match,
+  'rate': TQ_RATE_REGEX.match,
+  'target': TQ_TARGET_REGEX.match,
+  'retry_parameters': {
+    'task_retry_limit': non_negative_int,
+    'task_age_limit': TQ_AGE_LIMIT_REGEX.match,
+    'min_backoff_seconds': non_negative_int,
+    'max_backoff_seconds': non_negative_int,
+    'max_doublings': non_negative_int
+  },
+  'bucket_size': non_negative_int,
+  'max_concurrent_requests': non_negative_int,
+}

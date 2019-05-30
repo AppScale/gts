@@ -4235,9 +4235,8 @@ class Djinn
       Djinn.log_info("Nginx already configured and running.")
     end
 
-    # As per trusty's version of haproxy, we need to have a listening
-    # socket for the daemon to start: we do use the uaserver to configured
-    # a default route.
+    # The HAProxy process needs at least one configured service to start. The
+    # UAServer is configured first to satisfy this condition.
     configure_uaserver
 
     # HAProxy must be running so that the UAServer can be accessed.
