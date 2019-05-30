@@ -44,7 +44,7 @@ do_start()
 do_stop()
 {
    log_daemon_msg "Stopping system $DAEMON_NAME daemon"
-   start-stop-daemon --stop --pidfile $PIDFILE --retry=TERM/30/KILL/5
+   monit stop controller
    RETVAL="$?"
 
    if [ "${RETVAL}" = "0" ]; then
@@ -52,6 +52,12 @@ do_stop()
    fi
 
    return "$RETVAL"
+}
+
+do_force_stop()
+{
+   log_daemon_msg "Stopping all local AppScale services"
+   ruby -w #{DIR}/terminate.rb
 }
 
 case "$1" in
@@ -73,6 +79,10 @@ case "$1" in
         esac
         ;;
         
+    force-stop)
+        do_force_stop
+        ;;
+
     restart|reload|force-reload)
         do_stop
         do_start
