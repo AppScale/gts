@@ -17,7 +17,6 @@ case "$1" in
 	postinstallzookeeper
 	postinstallchimera
         postinstalltornado
-	sethosts
 	;;
     abort-upgrade|abort-remove|abort-deconfigure)
 	;;
