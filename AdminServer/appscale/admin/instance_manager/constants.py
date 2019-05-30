@@ -32,8 +32,8 @@ class NoRedirection(urllib2.HTTPErrorProcessor):
 
 
 # The location of the API server start script.
-API_SERVER_LOCATION = os.path.join('/', 'opt', 'appscale_api_server', 'bin',
-                                   'appscale-api-server')
+API_SERVER_LOCATION = os.path.join('/', 'opt', 'appscale_venvs', 'api_server',
+                                   'bin', 'appscale-api-server')
 
 # The Monit watch prefix for API servers.
 API_SERVER_PREFIX = 'api-server_'
