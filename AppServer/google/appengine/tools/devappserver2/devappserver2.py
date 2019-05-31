@@ -178,11 +178,12 @@ class DevelopmentServer(object):
     self._dispatcher.start(apis.port, request_data)
     self._running_modules.append(self._dispatcher)
 
-    xsrf_path = os.path.join(storage_path, 'xsrf')
-    admin = admin_server.AdminServer(options.admin_host, options.admin_port,
-                                     self._dispatcher, configuration, xsrf_path)
-    admin.start()
-    self._running_modules.append(admin)
+    # AppScale: do not run admin server, dashboard provides admin functionality
+    #xsrf_path = os.path.join(storage_path, 'xsrf')
+    #admin = admin_server.AdminServer(options.admin_host, options.admin_port,
+    #                                 self._dispatcher, configuration, xsrf_path)
+    #admin.start()
+    #self._running_modules.append(admin)
 
   def stop(self):
     """Stops all running devappserver2 modules."""
