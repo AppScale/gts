@@ -87,6 +87,20 @@ class Datastore(object):
     yield self._make_request('Put', request.Encode())
 
   @gen.coroutine
+  def put_multi(self, entities, txid=None):
+    request = datastore_pb.PutRequest()
+    for entity in entities:
+      req_entity = request.add_entity()
+      req_entity.MergeFrom(entity.ToPb())
+
+    if txid is not None:
+      req_tx = request.mutable_transaction()
+      req_tx.set_app(self.project_id)
+      req_tx.set_handle(txid)
+
+    yield self._make_request('Put', request.Encode())
+
+  @gen.coroutine
   def commit(self, txid):
     request = datastore_pb.Transaction()
     request.set_app(self.project_id)
