@@ -1,10 +1,12 @@
 """ Fulfills AppServer instance assignments from the scheduler. """
+import hashlib
+import httplib
 import logging
-import math
 import json
 import os
 import psutil
 import signal
+import time
 import urllib2
 
 from tornado import gen
@@ -210,6 +212,9 @@ class InstanceManager(object):
     logger.info("Start command: " + str(start_cmd))
     logger.info("Environment variables: " + str(env_vars))
 
+    base_version = version.revision_key.rsplit(VERSION_PATH_SEPARATOR, 1)[0]
+    log_tag = "app_{}".format(hashlib.sha1(base_version).hexdigest()[:28])
+
     monit_app_configuration.create_config_file(
       watch,
       start_cmd,
@@ -219,7 +224,9 @@ class InstanceManager(object):
       max_memory,
       self._syslog_server,
       check_port=True,
-      kill_exceeded_memory=True)
+      kill_exceeded_memory=True,
+      log_tag=log_tag,
+    )
 
     full_watch = '{}-{}'.format(watch, port)
 
@@ -231,7 +238,7 @@ class InstanceManager(object):
     # where it never starts the process. As a temporary workaround, this
     # small period allows it to finish reloading. This can be removed if
     # instances are started inside a cgroup.
-    yield gen.sleep(0.5)
+    yield gen.sleep(1)
     yield self._monit_operator.send_command_retry_process(full_watch, 'start')
 
     # Make sure the version registration node exists.
@@ -370,6 +377,25 @@ class InstanceManager(object):
 
     stop_instance(watch, MAX_INSTANCE_RESPONSE_TIME)
 
+  def _instance_healthy(self, port):
+    """ Determines the health of an instance with an HTTP request.
+
+    Args:
+      port: An integer specifying the port the instance is listening on.
+    Returns:
+      A boolean indicating whether or not the instance is healthy.
+    """
+    url = "http://" + self._private_ip + ":" + str(port) + FETCH_PATH
+    try:
+      opener = urllib2.build_opener(NoRedirection)
+      response = opener.open(url, timeout=HEALTH_CHECK_TIMEOUT)
+      if response.code == httplib.SERVICE_UNAVAILABLE:
+        return False
+    except IOError:
+      return False
+
+    return True
+
   @gen.coroutine
   def _wait_for_app(self, port):
     """ Waits for the application hosted on this machine, on the given port,
@@ -380,24 +406,15 @@ class InstanceManager(object):
     Returns:
       True on success, False otherwise
     """
-    retries = math.ceil(START_APP_TIMEOUT / BACKOFF_TIME)
+    deadline = time.time() + START_APP_TIMEOUT
 
-    url = "http://" + self._private_ip + ":" + str(port) + FETCH_PATH
-    while retries > 0:
-      try:
-        opener = urllib2.build_opener(NoRedirection)
-        response = opener.open(url, timeout=HEALTH_CHECK_TIMEOUT)
-        if response.code != HTTPCodes.OK:
-          logger.warning('{} returned {}. Headers: {}'.
-                          format(url, response.code, response.headers.headers))
+    while time.time() < deadline:
+      if self._instance_healthy(port):
         raise gen.Return(True)
-      except IOError:
-        retries -= 1
 
+      logger.debug('Instance at port {} is not ready yet'.format(port))
       yield gen.sleep(BACKOFF_TIME)
 
-    logger.error('Application did not come up on {} after {} seconds'.
-                  format(url, START_APP_TIMEOUT))
     raise gen.Return(False)
 
   @gen.coroutine
@@ -410,8 +427,11 @@ class InstanceManager(object):
     logger.info('Waiting for {}'.format(instance))
     start_successful = yield self._wait_for_app(instance.port)
     if not start_successful:
-      # In case the AppServer fails we let the AppController to detect it
-      # and remove it if it still show in monit.
+      monit_watch = ''.join(
+        [MONIT_INSTANCE_PREFIX, instance.revision_key, '-',
+         str(instance.port)])
+      yield self._unmonitor_and_terminate(monit_watch)
+      yield self._monit_operator.reload(self._thread_pool)
       logger.warning('{} did not come up in time'.format(instance))
       return
 
@@ -526,9 +546,29 @@ class InstanceManager(object):
         yield self._start_instance(version, instance.port)
 
   @gen.coroutine
+  def _restart_unavailable_instances(self):
+    """ Restarts instances that fail health check requests. """
+    with (yield self._work_lock.acquire()):
+      for instance in self._running_instances:
+        # TODO: Add a threshold to avoid restarting on a transient error.
+        if not self._instance_healthy(instance.port):
+          try:
+            version = self._projects_manager.version_from_key(
+              instance.version_key)
+          except KeyError:
+            # If the version no longer exists, avoid doing any work. The
+            # scheduler should remove any assignments for it.
+            continue
+
+          logger.warning('Restarting failed instance: {}'.format(instance))
+          yield self._stop_app_instance(instance)
+          yield self._start_instance(version, instance.port)
+
+  @gen.coroutine
   def _ensure_health(self):
     """ Checks to make sure all required instances are running and healthy. """
     yield self._restart_unrouted_instances()
+    yield self._restart_unavailable_instances()
 
     # Just as an infrequent sanity check, fulfill assignments and enforce
     # instance details.

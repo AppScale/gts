@@ -234,8 +234,12 @@ class IndexManager(object):
       '/appscale/projects', self._update_projects_sync)
     IOLoop.instance().add_callback(persistent_update_projects, project_ids)
 
-  def _handle_connection_change(self):
-    """ Notifies the admin lock holder when the connection changes. """
+  def _handle_connection_change(self, state):
+    """ Notifies the admin lock holder when the connection changes.
+
+    Args:
+      state: The new connection state.
+    """
     IOLoop.current().add_callback(self._wake_event.set)
 
   @gen.coroutine

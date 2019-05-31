@@ -15,7 +15,7 @@ class HTTPCodes(object):
   NOT_IMPLEMENTED = 501
 
 
-class InvalidConfiguration(Exception):
+class InvalidIndexConfiguration(Exception):
   """ Indicates that a given configuration cannot be enforced. """
   pass
 
@@ -27,6 +27,10 @@ class MonitStates(object):
   STOPPED = 'stopped'  # Monit will likely try to start the process soon.
   UNMONITORED = 'unmonitored'
 
+
+def non_negative_int(value):
+  """ Checks if an integer value is greater or equal than 0. """
+  return isinstance(value, int) and value >= 0
 
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
@@ -156,6 +160,9 @@ LOG_DIR = os.path.join('/var', 'log', 'appscale')
 
 # The default directory for run-time variable data (eg. pidfiles).
 VAR_DIR = os.path.join('/', 'var', 'run', 'appscale')
+
+# A directory that contains miscellaneous helper scripts.
+SCRIPTS_DIR = os.path.join(APPSCALE_HOME, 'scripts')
 
 # The number of seconds to wait before retrying some operations.
 SMALL_WAIT = 5

@@ -3603,7 +3603,7 @@ def SetupStubs(app_id, **config):
 
     apiproxy_stub_map.apiproxy.RegisterStub(
         'memcache',
-        memcache_distributed.MemcacheService())
+        memcache_distributed.MemcacheService(app_id))
 
     apiproxy_stub_map.apiproxy.RegisterStub(
         'taskqueue',

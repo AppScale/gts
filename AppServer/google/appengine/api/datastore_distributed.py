@@ -352,11 +352,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     api_response = remote_api_pb.Response()
 
     retry_count = 0
-    max_retries = 5
+    max_retries = 3
     location = self.__datastore_location
     while True:
       try:
-        api_response = api_request.sendCommand(
+        api_request.sendCommand(
           location,
           tag,
           api_response,
@@ -367,11 +367,17 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         break
       except socket.error as socket_error:
         if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
+          backoff_ms = 500 * 3**retry_count   # 0.5s, 1.5s, 4.5s
           retry_count += 1
           if retry_count > max_retries:
             raise
 
+          logging.warning(
+            'Failed to call {} method of Datastore ({}). Retry #{} in {}ms.'
+            .format(method, socket_error, retry_count, backoff_ms))
+          time.sleep(float(backoff_ms) / 1000)
           location = get_random_lb()
+          api_response = remote_api_pb.Response()
           continue
 
         if socket_error.errno == errno.ETIMEDOUT:
@@ -486,7 +492,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       del self.__queries[cursor_handle]
       return
 
-    if internal_cursor.get_offset() >= internal_cursor.get_count():
+    if query.has_limit() and internal_cursor.get_offset() >= query.limit():
       query_result.set_more_results(False)
       query_result.mutable_compiled_cursor().CopyFrom(last_cursor)
       if next_request.compile():
@@ -495,10 +501,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         compiled_query.mutable_primaryscan().set_index_name(query.Encode())
       del self.__queries[cursor_handle]
       return
- 
-    count = _BATCH_SIZE
+
+    if query.has_limit():
+      max_remaining_results = query.limit() - internal_cursor.get_offset()
+    else:
+      max_remaining_results = sys.maxint
+
     if next_request.has_count():
-      count = next_request.count()
+      count = min(next_request.count(), max_remaining_results)
+    else:
+      count = min(_BATCH_SIZE, max_remaining_results)
 
     query.set_count(count)
     if next_request.has_offset():

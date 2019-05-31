@@ -875,7 +875,7 @@ class DatastoreGroomer(threading.Thread):
       app_id, self.datastore_path)
     apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distributed)
     apiproxy_stub_map.apiproxy.RegisterStub('memcache',
-      memcache_distributed.MemcacheService())
+      memcache_distributed.MemcacheService(app_id))
     os.environ['APPLICATION_ID'] = app_id
     os.environ['APPNAME'] = app_id
     os.environ['AUTH_DOMAIN'] = "appscale.com"
@@ -1129,7 +1129,7 @@ class DatastoreGroomer(threading.Thread):
 
     self.update_groomer_state([])
 
-    timestamp = datetime.datetime.utcnow()
+    timestamp = datetime.datetime.utcnow().replace(microsecond=0)
 
     self.update_statistics(timestamp)
     self.update_namespaces(timestamp)

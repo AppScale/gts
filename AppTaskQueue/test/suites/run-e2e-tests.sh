@@ -176,12 +176,17 @@ log "=================================================="
 PYTHON=
 for PYTHON_EXECUTABLE in python python3 python3.6 python3.7
 do
-    # Get exact version of python interpreter
-    HAVE=$(${PYTHON_EXECUTABLE} --version 2> null | awk '{ print $2 }')
+    # Skip python executables that don't exist in PATH
+    if ! which ${PYTHON_EXECUTABLE} &> /dev/null; then
+        continue
+    fi
+
+    possible_python=$(which ${PYTHON_EXECUTABLE})
+    HAVE=$(${possible_python} --version 2>&1 | awk '{ print $2 }')
     # Stop if version is new enough
-    if echo -e "${HAVE}\n3.6" | sort -V | head -1 | grep "^3.6$"
+    if echo -e "${HAVE}\n3.6" | sort -V | head -1 | grep -q "^3.6$"
     then
-        PYTHON=$(which ${PYTHON_EXECUTABLE})
+        PYTHON=${possible_python}
         break
     fi
 done
@@ -190,6 +195,8 @@ then
     log "Python 3.6 or greater was not found." "ERROR"
     log "Please install it and try again."
     exit 1
+else
+    log "Using python: ${PYTHON} version: ${HAVE}"
 fi
 
 cd "${E2E_TEST_DIR}"

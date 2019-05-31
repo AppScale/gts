@@ -52,16 +52,12 @@ $setup = function() {
     require_once 'google/appengine/runtime/RemoteApiProxy.php';
     \google\appengine\runtime\ApiProxy::setApiProxy(
       new \google\appengine\runtime\RemoteApiProxy(
-        getenv('REMOTE_API_PORT'), getenv('EXTERNAL_API_PORT'),
-        getenv('REMOTE_REQUEST_ID')));
+        getenv('REMOTE_API_PORT'), getenv('REMOTE_REQUEST_ID')));
     putenv('REMOTE_API_PORT');
-    putenv('EXTERNAL_API_PORT');
     putenv('REMOTE_REQUEST_ID');
     unset($_SERVER['REMOTE_API_PORT']);
-    unset($_SERVER['EXTERNAL_API_PORT']);
     unset($_SERVER['REMOTE_REQUEST_ID']);
     unset($_ENV['REMOTE_API_PORT']);
-    unset($_ENV['EXTERNAL_API_PORT']);
     unset($_ENV['REMOTE_REQUEST_ID']);
   };
 

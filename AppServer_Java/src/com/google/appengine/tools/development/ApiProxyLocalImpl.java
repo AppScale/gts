@@ -82,20 +82,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
 
     static ApiProxyLocal getApiProxyLocal(LocalServerEnvironment environment, Set<String> apisUsingPythonStubs) {
         if (!apisUsingPythonStubs.isEmpty()) {
-            // AppScale: Check if an external API server should be used.
-            int externalApiPort;
-            try {
-                externalApiPort = Integer.valueOf(System.getProperty("appscale.externalApiPort"));
-            } catch (NumberFormatException e) {
-                externalApiPort = -1;
-            }
-
-            ApiServer apiServer;
-            if (externalApiPort != -1) {
-                apiServer = ApiServerFactory.getApiServer(externalApiPort);
-            } else {
-                apiServer = ApiServerFactory.getApiServer(System.getProperty("appengine.pathToPythonApiServer"));
-            }
+            ApiServer apiServer = ApiServerFactory.getApiServer(System.getProperty("appengine.pathToPythonApiServer"));
             return new ApiProxyLocalImpl(environment, apisUsingPythonStubs, apiServer);
         } else {
             return new ApiProxyLocalImpl(environment);
