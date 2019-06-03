@@ -3,7 +3,7 @@ import json
 import sys
 import uuid
 
-from appscale.common.constants import InvalidConfiguration
+from appscale.common.constants import InvalidIndexConfiguration
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -63,10 +63,10 @@ class IndexProperty(object):
       direction: A string specifying the index direction (asc or desc).
     """
     if not name:
-      raise InvalidConfiguration('Index property missing "name"')
+      raise InvalidIndexConfiguration('Index property missing "name"')
 
     if direction not in ('asc', 'desc'):
-      raise InvalidConfiguration(
+      raise InvalidIndexConfiguration(
         'Invalid "direction" value: {}'.format(direction))
 
     self.name = name
@@ -181,23 +181,23 @@ class DatastoreIndex(object):
     Returns:
       A DatastoreIndex object.
     Raises:
-      InvalidConfiguration exception if entry is invalid.
+      InvalidIndexConfiguration exception if entry is invalid.
     """
     kind = entry.get('kind')
     if not kind:
-      raise InvalidConfiguration('Index entry is missing "kind" field')
+      raise InvalidIndexConfiguration('Index entry is missing "kind" field')
 
     ancestor = entry.get('ancestor', False)
     if not isinstance(ancestor, bool):
       if ancestor.lower() not in ('yes', 'no', 'true', 'false'):
-        raise InvalidConfiguration(
+        raise InvalidIndexConfiguration(
           'Invalid "ancestor" value: {}'.format(ancestor))
 
       ancestor = ancestor.lower() in ('yes', 'true')
 
     configured_props = entry.get('properties', [])
     if not configured_props:
-      raise InvalidConfiguration('Index missing properties')
+      raise InvalidIndexConfiguration('Index missing properties')
 
     properties = [IndexProperty(prop.get('name'), prop.get('direction', 'asc'))
                   for prop in configured_props]

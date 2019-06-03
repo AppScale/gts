@@ -18,6 +18,9 @@
 """ AppScale version of TaskQueue stub. Client to the TaskQueue server.  """
 
 from __future__ import with_statement
+
+import time
+
 __all__ = []
 
 import datetime
@@ -35,6 +38,7 @@ from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.ext.remote_api import remote_api_pb
+from google.net.proto import ProtocolBuffer
 
 DEFAULT_RATE = '5.00/s'
 
@@ -102,6 +106,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         service_name, max_request_size=MAX_REQUEST_SIZE)
     self.__app_id = app_id
     self.__nginx_host = host
+    self.__tq_locations = self._GetTQLocations()
 
   def _GetTQLocations(self):
     """ Gets a list of TaskQueue proxies. """
@@ -447,11 +452,14 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     if request_id is not None:
       api_request.set_request_id(request_id)
 
-    tq_locations = self._GetTQLocations()
     api_response = remote_api_pb.Response()
-    for tq_location in tq_locations:
+
+    retry_count = 0
+    max_retries = 3
+    location = random.choice(self.__tq_locations)
+    while True:
       try:
-        api_request.sendCommand(tq_location,
+        api_request.sendCommand(location,
           tag,
           api_response,
           1,
@@ -461,10 +469,29 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         break
       except socket.error as socket_error:
         if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
+          backoff_ms = 500 * 3**retry_count   # 0.5s, 1.5s, 4.5s
+          retry_count += 1
+          if retry_count > max_retries:
+            raise
+
+          logging.warning(
+            'Failed to call {} method of TaskQueue ({}). Retry #{} in {}ms.'
+            .format(method, socket_error, retry_count, backoff_ms))
+          time.sleep(float(backoff_ms) / 1000)
+          location = random.choice(self.__tq_locations)
           api_response = remote_api_pb.Response()
           continue
 
+        if socket_error.errno == errno.ETIMEDOUT:
+          raise apiproxy_errors.ApplicationError(
+            taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR,
+            'Connection timed out when making taskqueue request')
         raise
+      # AppScale: Interpret ProtocolBuffer.ProtocolBufferReturnError as
+      # datastore_errors.InternalError
+      except ProtocolBuffer.ProtocolBufferReturnError as e:
+        raise apiproxy_errors.ApplicationError(
+          taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR, str(e))
 
     if not api_response or not api_response.has_response():
       raise apiproxy_errors.ApplicationError(

@@ -75,16 +75,6 @@ if ! which apt-add-repository > /dev/null ; then
     echo "done."
 fi
 
-# Trusty does not have Java 8.
-case "$DIST" in
-    trusty)
-        apt-add-repository -y ppa:openjdk-r/ppa
-        echo -n "Updating package list and cache ..."
-        ${PKG_CMD} update > /dev/null
-        echo "done."
-        ;;
-esac
-
 # Newer versions of ejabberd must be installed before rabbitmq-server because
 # if RabbitMQ starts first, it will start an incompatible epmd daemon that will
 # prevent ejabberd from being installed.

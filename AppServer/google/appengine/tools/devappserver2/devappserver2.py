@@ -163,8 +163,7 @@ class DevelopmentServer(object):
         options.use_mtime_file_watcher,
         options.automatic_restart,
         options.allow_skipped_files,
-        module_to_threadsafe_override,
-        options.external_api_port)
+        module_to_threadsafe_override)
 
     request_data = wsgi_request_info.WSGIRequestInfo(self._dispatcher)
     storage_path = api_server.get_storage_path(
@@ -179,11 +178,12 @@ class DevelopmentServer(object):
     self._dispatcher.start(apis.port, request_data)
     self._running_modules.append(self._dispatcher)
 
-    xsrf_path = os.path.join(storage_path, 'xsrf')
-    admin = admin_server.AdminServer(options.admin_host, options.admin_port,
-                                     self._dispatcher, configuration, xsrf_path)
-    admin.start()
-    self._running_modules.append(admin)
+    # AppScale: do not run admin server, dashboard provides admin functionality
+    #xsrf_path = os.path.join(storage_path, 'xsrf')
+    #admin = admin_server.AdminServer(options.admin_host, options.admin_port,
+    #                                 self._dispatcher, configuration, xsrf_path)
+    #admin.start()
+    #self._running_modules.append(admin)
 
   def stop(self):
     """Stops all running devappserver2 modules."""
