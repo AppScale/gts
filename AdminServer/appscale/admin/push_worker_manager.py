@@ -145,7 +145,7 @@ class ProjectPushWorkerManager(object):
                             'worker___{}.db'.format(self.project_id))
 
     return ' '.join([
-      '/opt/appscale_taskqueue/bin/celery', 'worker',
+      '/opt/appscale_venvs/appscale_taskqueue/bin/celery', 'worker',
       '--app', WORKER_MODULE,
       '--pool=eventlet',
       '--concurrency={}'.format(CELERY_CONCURRENCY),

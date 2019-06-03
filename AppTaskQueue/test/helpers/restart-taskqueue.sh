@@ -85,10 +85,10 @@ fi
 
 if [ ! -z ${TQ_SOURCE_DIR} ]; then
     log "Installing TaskQueue from specified sources"
-    rm -rf /opt/appscale_taskqueue
-    python -m virtualenv /opt/appscale_taskqueue/
+    rm -rf /opt/appscale_venvs/appscale_taskqueue/
+    python -m virtualenv /opt/appscale_venvs/appscale_taskqueue/
 
-    TASKQUEUE_PIP=/opt/appscale_taskqueue/bin/pip
+    TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
 
     "${TQ_SOURCE_DIR}/appscale/taskqueue/protocols/compile_and_prepare.sh" \
         "${TASKQUEUE_PIP}"
