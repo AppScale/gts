@@ -86,7 +86,7 @@ class TestMergeJoinQueries(AsyncTestCase):
 
 class TestQueryLimit(AsyncTestCase):
   CASSANDRA_PAGE_SIZE = 5000
-  BATCH_SIZE = 50
+  BATCH_SIZE = 20
 
   def setUp(self):
     super(TestQueryLimit, self).setUp()

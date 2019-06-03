@@ -23,6 +23,7 @@ class BadRequest(DatastoreError):
 
 class Datastore(object):
   SERVICE_NAME = 'datastore_v3'
+  REQUEST_TIMEOUT = 60
 
   def __init__(self, locations, project_id):
     self.project_id = project_id
@@ -118,7 +119,8 @@ class Datastore(object):
     url = 'http://{}'.format(location)
     headers = {'protocolbuffertype': 'Request', 'appdata': self.project_id}
     response = yield self._client.fetch(
-      url, method='POST', body=request.Encode(), headers=headers)
+      url, method='POST', body=request.Encode(), headers=headers,
+      request_timeout=self.REQUEST_TIMEOUT)
     api_response = remote_api_pb.Response(response.body)
 
     if api_response.has_application_error():
