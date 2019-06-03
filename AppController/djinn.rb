@@ -5587,8 +5587,7 @@ class Djinn
       end
 
       # Get the ssh key to use for the remote machine.
-      ssh_key = ''
-      @nodes.each { |node| ssh_key = node.ssh_key if node.private_ip == ip }
+      ssh_key = @nodes.find { |node| node["private_ip"] == ip }["ssh_key"]
       if ssh_key.empty?
         Djinn.log_info("Got invalid machine to retrieve code (#{ip}).")
         next

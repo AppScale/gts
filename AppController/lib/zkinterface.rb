@@ -116,7 +116,7 @@ class ZKInterface
   end
 
   def self.get_revision_hosters(revision_key, keyname)
-    get_children("#{ROOT_APP_PATH}/#{revision_key}")
+    return get_children("#{ROOT_APP_PATH}/#{revision_key}")
   end
 
   def self.get_revision_md5(revision_key, ip)
