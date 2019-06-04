@@ -101,7 +101,7 @@ class ProtobufferHandler(RequestHandler):
       http_request_data: Encoded protocol buffer.
     """
     apirequest = remote_api_pb2.Request()
-    apirequest.MergeFromString(http_request_data)
+    apirequest.ParseFromString(http_request_data)
     apiresponse = remote_api_pb2.Response()
     response = None
     errcode = 0

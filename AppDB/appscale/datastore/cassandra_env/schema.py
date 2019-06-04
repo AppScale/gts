@@ -251,7 +251,6 @@ def create_entity_ids_table(session):
     raise
 
 
-
 def rebuild_task_indexes(session):
   """ Creates index entries for all pull queue tasks.
 

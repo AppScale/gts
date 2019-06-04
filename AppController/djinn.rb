@@ -3680,6 +3680,18 @@ class Djinn
     update_python_package(src, '/opt/appscale_venvs/api_server/bin/pip')
   end
 
+  def build_taskqueue
+    Djinn.log_info('Compiling AppTaskQueue proto files')
+    src = File.join(APPSCALE_HOME, 'AppTaskQueue', 'appscale', 'taskqueue',
+                    'protocols')
+    unless system("protoc --proto_path=#{src} --python_out=#{src} " \
+                  "#{src}/*.proto")
+      Djinn.log_error('Unable to compile AppTaskQueue proto files')
+      return
+    end
+    update_python_package(src, TaskQueue::TASKQUEUE_PIP)
+  end
+
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
     status = `git -C #{APPSCALE_HOME} status`
@@ -3690,7 +3702,7 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
       update_python_package("#{APPSCALE_HOME}/common",
-                            '/opt/appscale_venvs/appscale_taskqueue/bin/pip')
+                            TaskQueue::TASKQUEUE_PIP)
     end
     if status.include?('AppControllerClient')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
@@ -3701,7 +3713,7 @@ class Djinn
     if status.include?('AppTaskQueue')
       extras = TaskQueue::OPTIONAL_FEATURES.join(',')
       update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]",
-                            '/opt/appscale_venvs/appscale_taskqueue/bin/pip')
+                            TaskQueue::TASKQUEUE_PIP)
     end
     if status.include?('AppDB')
       update_python_package("#{APPSCALE_HOME}/AppDB")

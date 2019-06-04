@@ -38,10 +38,6 @@ class Timeout(Exception):
   pass
 
 
-class InternalError(Exception):
-  pass
-
-
 class ApplicationError(Exception):
   def __init__(self, application_error, error_detail=''):
     self.application_error = application_error
@@ -148,7 +144,7 @@ class DatastoreClient(object):
   """ Class provides connection between AppTaskQueue and datastore. """
   SERVICE_NAME = 'taskqueue'
   KIND = '__task_name__'
-  _OERATIONS = {
+  _OPERATIONS = {
       '<': 1,
       '<=': 2,
       '>': 3,
@@ -190,7 +186,7 @@ class DatastoreClient(object):
     response = self._make_request(project_id, 'Get',
                                   request.SerializeToString())
     get_response = datastore_v3_pb2.GetResponse()
-    get_response.MergeFromString(response)
+    get_response.ParseFromString(response)
     response_entity = get_response.entity[0].entity
     if not response_entity.HasField('key'):
       return
@@ -213,7 +209,7 @@ class DatastoreClient(object):
     encoded_response = self._make_request(project_id,
       'RunQuery', query.SerializeToString())
     results_pb = datastore_v3_pb2.QueryResult()
-    results_pb.MergeFromString(encoded_response)
+    results_pb.ParseFromString(encoded_response)
     return results_pb
 
   def query_count(self, project_id, filters=()):
@@ -238,7 +234,7 @@ class DatastoreClient(object):
     encoded_response = self._make_request(project_id,
       'RunQuery', query.SerializeToString())
     results_pb = datastore_v3_pb2.QueryResult()
-    results_pb.MergeFromString(encoded_response)
+    results_pb.ParseFromString(encoded_response)
     return results_pb
 
   def _create_query(self, project_id, filters):
@@ -265,11 +261,11 @@ class DatastoreClient(object):
 
       prop_name = operands[0]
       if len(operands) == 1:
-        operation = self._OERATIONS['=']
+        operation = self._OPERATIONS['=']
       else:
         try:
-          operation = self._OERATIONS[operands[1]]
-        except:
+          operation = self._OPERATIONS[operands[1]]
+        except KeyError:
           raise BadRequest('Operation {} not supported!'.format(operands[1]))
 
       filter_pb.op = operation
@@ -306,7 +302,7 @@ class DatastoreClient(object):
       raise Timeout('Operation timed out after {} seconds.'.format(timeout))
 
     api_response = remote_api_pb2.Response()
-    api_response.MergeFromString(response.content)
+    api_response.ParseFromString(response.content)
 
     if api_response.HasField('application_error'):
       error = api_response.application_error

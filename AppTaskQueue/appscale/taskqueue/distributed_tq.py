@@ -137,7 +137,7 @@ class DistributedTaskQueue():
     """
     epoch = datetime.datetime.utcfromtimestamp(0)
     request = taskqueue_service_pb2.TaskQueueFetchQueueStatsRequest()
-    request.MergeFromString(http_data)
+    request.ParseFromString(http_data)
     response = taskqueue_service_pb2.TaskQueueFetchQueueStatsResponse()
 
     for queue_name in request.queue_name:
@@ -178,7 +178,7 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb2.TaskQueuePurgeQueueRequest()
-    request.MergeFromString(http_data)
+    request.ParseFromString(http_data)
     response = taskqueue_service_pb2.TaskQueuePurgeQueueResponse()
 
     try:
@@ -199,7 +199,7 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb2.TaskQueueDeleteRequest()
-    request.MergeFromString(http_data)
+    request.ParseFromString(http_data)
     response = taskqueue_service_pb2.TaskQueueDeleteResponse()
 
     try:
@@ -224,7 +224,7 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksRequest()
-    request.MergeFromString(http_data)
+    request.ParseFromString(http_data)
     response = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksResponse()
 
     try:
@@ -245,7 +245,7 @@ class DistributedTaskQueue():
 
     for task in tasks:
       task_pb = response.task.add()
-      task_pb.MergeFrom(task.encode_lease_pb())
+      task_pb.CopyFrom(task.encode_lease_pb())
 
     return response.SerializeToString(), 0, ""
 
@@ -261,7 +261,7 @@ class DistributedTaskQueue():
     """
     # Just call bulk add with one task.
     request = taskqueue_service_pb2.TaskQueueAddRequest()
-    request.MergeFromString(http_data)
+    request.ParseFromString(http_data)
     request.app_id = source_info['app_id']
     response = taskqueue_service_pb2.TaskQueueAddResponse()
     bulk_request = taskqueue_service_pb2.TaskQueueBulkAddRequest()
@@ -299,7 +299,7 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb2.TaskQueueBulkAddRequest()
-    request.MergeFromString(http_data)
+    request.ParseFromString(http_data)
     response = taskqueue_service_pb2.TaskQueueBulkAddResponse()
 
     try:
@@ -747,7 +747,7 @@ class DistributedTaskQueue():
       A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb2.TaskQueueModifyTaskLeaseRequest()
-    request.MergeFromString(http_data)
+    request.ParseFromString(http_data)
 
     try:
       queue = self.get_queue(app_id, request.queue_name)

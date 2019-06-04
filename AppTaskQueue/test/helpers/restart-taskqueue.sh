@@ -112,7 +112,8 @@ PORTS="${PORTS//,/ }"
 log "Starting taskqueue servers on ports: ${PORTS}"
 for port in ${PORTS}
 do
-    nohup appscale-taskqueue -p "${port}" --verbose > "/var/log/appscale/taskqueue-${port}.log" 2>&1 &
+    nohup /opt/appscale_venvs/appscale_taskqueue/bin/appscale-taskqueue -p \
+        "${port}" --verbose > "/var/log/appscale/taskqueue-${port}.log" 2>&1 &
 done
 
 log "Ensuring servers are running"
