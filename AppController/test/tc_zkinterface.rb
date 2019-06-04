@@ -109,8 +109,8 @@ class TestZKInterface < Test::Unit::TestCase
 
     # make sure they show up when we do a 'get'
     actual = ZKInterface.get_revision_hosters('app_default_v1_1', 'key')
-    assert_equal('ip1', actual[0].public_ip)
-    assert_equal('ip2', actual[1].public_ip)
+    assert_equal('ip1', actual[0])
+    assert_equal('ip2', actual[1])
 
     # then remove the entries
     ZKInterface.remove_revision_entry("app_default_v1_1", "ip1")

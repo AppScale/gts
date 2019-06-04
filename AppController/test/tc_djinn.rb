@@ -301,7 +301,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_write_our_node_info
+  def test_set_done_status
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
@@ -328,11 +328,6 @@ class TestDjinn < Test::Unit::TestCase
     baz.should_receive(:get).with(:path => ZKInterface::APPCONTROLLER_PATH).
       and_return({:rc => 0, :data => ZKInterface::DUMMY_DATA,
         :stat => flexmock(:exists => true)})
-
-    # Mocks for the appcontroller lock
-    baz.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return({:rc => 0, :data => 'private_ip'})
 
     # Mocks for writing node information
     baz.should_receive(:get).with(
@@ -375,7 +370,7 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Zookeeper).should_receive(:new).with("private_ip:2181",
       ZKInterface::TIMEOUT).and_return(baz)
     ZKInterface.init_to_ip("private_ip", "private_ip")
-    assert_equal(nil, djinn.write_our_node_info)
+    assert_equal(nil, djinn.set_done_status)
   end
 
 
