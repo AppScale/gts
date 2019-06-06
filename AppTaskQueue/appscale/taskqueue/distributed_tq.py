@@ -11,7 +11,6 @@ import os
 import socket
 import sys
 import time
-import tq_lib
 
 from appscale.common import appscale_info
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -28,6 +27,10 @@ from .datastore_client import (
   DatastorePermanentError,
   DatastoreTransientError,
   Entity)
+from .protocols import taskqueue_service_pb2
+from .protocols.taskqueue_service_pb2 import (
+  TaskQueueServiceError
+)
 from .queue import (
   InvalidLeaseRequest,
   PostgresPullQueue,
@@ -35,18 +38,18 @@ from .queue import (
   PushQueue,
   TransientError
 )
+from .queue_manager import GlobalQueueManager
+from .service_manager import GlobalServiceManager
 from .task import Task
-from .tq_lib import TASK_STATES
+from .tq_lib import (
+  choose_task_name,
+  TASK_STATES,
+  verify_task_queue_add_request
+)
 from .utils import (
   get_celery_queue_name,
   get_queue_function_name,
   logger
-)
-from .queue_manager import GlobalQueueManager
-from .service_manager import GlobalServiceManager
-from .protocols import taskqueue_service_pb2
-from .protocols.taskqueue_service_pb2 import (
-  TaskQueueServiceError
 )
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -158,7 +161,7 @@ class DistributedTaskQueue():
         oldest_eta = queue.oldest_eta()
       else:
         num_tasks = self.datastore_client.query_count(app_id,
-          [("state =", tq_lib.TASK_STATES.QUEUED),
+          [("state =", TASK_STATES.QUEUED),
            ("queue =", queue_name),
            ("app_id =", app_id)])
         # This is not supported for push queues yet.
@@ -368,7 +371,7 @@ class DistributedTaskQueue():
         task_result.chosen_task_name = new_task.id
         continue
 
-      result = tq_lib.verify_task_queue_add_request(add_request.app_id,
+      result = verify_task_queue_add_request(add_request.app_id,
                                                     add_request, now)
       # Tasks go from SKIPPED to OK once they're run. If there are
       # any failures from other tasks then we pass this request
@@ -378,7 +381,7 @@ class DistributedTaskQueue():
         if add_request.HasField("task_name"):
           task_name = add_request.task_name
 
-        namespaced_name = tq_lib.choose_task_name(add_request.app_id,
+        namespaced_name = choose_task_name(add_request.app_id,
                                                   add_request.queue_name,
                                                   user_chosen=task_name)
         add_request.task_name = namespaced_name
@@ -457,7 +460,7 @@ class DistributedTaskQueue():
       task_name: A string specifying the task name key.
       retries: An integer specifying how many times to retry the create.
     """
-    entity = Entity(key_name=task_name, state=tq_lib.TASK_STATES.QUEUED,
+    entity = Entity(key_name=task_name, state=TASK_STATES.QUEUED,
                     queue=queue_name, app_id=project_id)
     try:
       self.datastore_client.put(project_id, entity)

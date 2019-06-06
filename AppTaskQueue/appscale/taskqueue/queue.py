@@ -199,7 +199,7 @@ class Queue(object):
     Raises:
       InvalidQueueConfiguration if there is an invalid attribute.
     """
-    for attribute, rule in QUEUE_ATTRIBUTE_RULES.iteritems():
+    for attribute, rule in QUEUE_ATTRIBUTE_RULES.items():
       try:
         value = getattr(self, attribute)
       except AttributeError:
@@ -300,7 +300,7 @@ class PushQueue(Queue):
         attributes[attribute] = getattr(self, attribute)
 
     attr_str = ', '.join('{}={}'.format(attr, val)
-                         for attr, val in attributes.iteritems())
+                         for attr, val in attributes.items())
 
     return '<PushQueue {}: {}>'.format(self.name, attr_str)
 
@@ -1646,7 +1646,7 @@ class PullQueue(Queue):
       futures[result_num] = (future, not success)
 
     index_update_futures = []
-    for result_num, (future, lease_timed_out) in futures.iteritems():
+    for result_num, (future, lease_timed_out) in futures.items():
       index = indexes[result_num]
       try:
         read_result = future.result()[0]
