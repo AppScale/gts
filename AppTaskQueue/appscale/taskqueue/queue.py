@@ -2,7 +2,6 @@ import datetime
 
 import base64
 import json
-import re
 import sys
 import time
 import uuid
@@ -97,8 +96,6 @@ BASIC_RETRIES = IdempotentRetryPolicy()
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
 
-MAX_QUEUE_NAME_LENGTH = 100
-
 TRANSIENT_CASSANDRA_ERRORS = (
   cassandra.Unavailable, cassandra.Timeout, cassandra.CoordinationFailure,
   cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)
@@ -109,13 +106,6 @@ LB_POLICY = DCAwareRoundRobinPolicy()
 # This format is used when returning the long name of a queue as
 # part of a leased task. This is to mimic a GCP oddity/bug.
 LONG_QUEUE_FORM = 'projects/{app}/taskqueues/{queue}'
-
-# A regex rule for validating queue names.
-FULL_QUEUE_NAME_PATTERN = r'^(projects/[a-zA-Z0-9-]+/taskqueues/)?' \
-                     r'[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
-
-# A compiled regex rule for validating queue names.
-FULL_QUEUE_NAME_RE = re.compile(FULL_QUEUE_NAME_PATTERN)
 
 # All possible fields to include in a queue's JSON representation.
 QUEUE_FIELDS = (

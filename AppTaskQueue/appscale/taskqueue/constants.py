@@ -37,3 +37,12 @@ RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
 TARGET_REGEX = re.compile(r'^([a-zA-Z0-9\-]+[\.]?[a-zA-Z0-9\-]*)$')
 
 SHUTTING_DOWN_TIMEOUT = 10  # Limit time for finishing request
+
+MAX_QUEUE_NAME_LENGTH = 100
+
+# A regex rule for validating queue names.
+FULL_QUEUE_NAME_PATTERN = r'^(projects/[a-zA-Z0-9-]+/taskqueues/)?' \
+                     r'[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
+
+# A compiled regex rule for validating queue names.
+FULL_QUEUE_NAME_RE = re.compile(FULL_QUEUE_NAME_PATTERN)
