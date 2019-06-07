@@ -104,7 +104,7 @@ class DistributedTaskQueue():
         'The queue {} is not defined for {}'.format(queue, app))
 
   def __parse_json_and_validate_tags(self, json_request, tags):
-    """ Parses JSON and validates t hat it contains the proper tags.
+    """ Parses JSON and validates that it contains the proper tags.
 
     Args:
       json_request: A JSON string.

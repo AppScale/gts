@@ -1,10 +1,11 @@
 """ Provides connection between AppTaskQueue and Datastore. """
 
 import random
+import socket
 import time
 
 import requests
-from tornado.ioloop import TimeoutError
+from requests import exceptions
 
 from .protocols import datastore_v3_pb2, remote_api_pb2
 
@@ -245,6 +246,8 @@ class DatastoreClient(object):
       filters: List of filters for query.
     Returns:
        datastore_v3_pb2.Query object.
+    Raises:
+      BadRequest exception if filters configuration is invalid.
     """
     query = datastore_v3_pb2.Query()
     query.app = project_id
@@ -283,6 +286,14 @@ class DatastoreClient(object):
       project_id: A str containing ID of project.
       method: Method for remote API.
       body: Body of request for remote API.
+    Returns:
+      remote_api_pb2.Response object.
+    Raises:
+      ConnectionError from requests package if connection is broken.
+      BadRequest exception.
+      DatastoreError exception.
+      Timeout exception if request is timed out.
+      socket.error if problem with sockets occurred.
     """
     request = remote_api_pb2.Request()
     request.service_name = self.SERVICE_NAME
@@ -298,8 +309,17 @@ class DatastoreClient(object):
                                headers=headers,
                                data=request.SerializeToString(),
                                timeout=timeout)
-    except TimeoutError:
+
+      # If the response was successful, no Exception will be raised
+      response.raise_for_status()
+    except exceptions.ConnectionError:
+      raise
+    except exceptions.Timeout:
       raise Timeout('Operation timed out after {} seconds.'.format(timeout))
+    except exceptions.HTTPError:
+      raise BadRequest("HTTP error occurred.")
+    except socket.error:
+      raise
 
     api_response = remote_api_pb2.Response()
     api_response.ParseFromString(response.content)
