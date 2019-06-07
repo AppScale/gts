@@ -150,7 +150,17 @@ def main_async():
 
 
 def main():
-  logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG)
+  """ Main function which terminates all appscale processes. """
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+
+  # Parse command line arguments
+  parser = argparse.ArgumentParser(description='A stop services command')
+  parser.add_argument('--verbose', action='store_true',
+                      help='Output debug-level logging')
+  args = parser.parse_args()
+  if args.verbose:
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
+
   # Like synchronous HTTPClient, create separate IOLoop for sync code
   io_loop = ioloop.IOLoop(make_current=False)
   try:
