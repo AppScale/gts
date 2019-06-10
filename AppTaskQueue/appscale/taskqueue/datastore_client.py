@@ -15,6 +15,15 @@ LOAD_BALANCERS_FILE = "/etc/appscale/load_balancer_ips"
 # The port on the load balancer that serves datastore requests.
 PROXY_PORT = 8888
 
+# Errors from datastore that should not be retry-able
+PERMANENT_DS_ERRORS = (
+  datastore_v3_pb2.Error.BAD_REQUEST,
+  datastore_v3_pb2.Error.CAPABILITY_DISABLED,
+  datastore_v3_pb2.Error.NEED_INDEX,
+  datastore_v3_pb2.Error.SAFE_TIME_TOO_OLD,
+  datastore_v3_pb2.Error.TRY_ALTERNATE_BACKEND
+)
+
 
 def get_random_lb():
   """ Selects a random location from the load balancers file.
@@ -27,15 +36,15 @@ def get_random_lb():
                           for line in lb_file])
 
 
-class DatastoreError(Exception):
+class DatastoreTransientError(Exception):
   pass
 
 
-class BadRequest(DatastoreError):
+class DatastorePermanentError(Exception):
   pass
 
 
-class Timeout(Exception):
+class BadFilterConfiguration(Exception):
   pass
 
 
@@ -247,7 +256,7 @@ class DatastoreClient(object):
     Returns:
        datastore_v3_pb2.Query object.
     Raises:
-      BadRequest exception if filters configuration is invalid.
+      BadFilterConfiguration exception if filters configuration is invalid.
     """
     query = datastore_v3_pb2.Query()
     query.app = project_id
@@ -258,7 +267,7 @@ class DatastoreClient(object):
 
     for f in filters:
       if len(f) != 2:
-        raise BadRequest('Filter should consist of two values!')
+        raise BadFilterConfiguration('Filter should consist of two values!')
       filter_pb = query.filter.add()
       operands = f[0].split(' ')
 
@@ -269,7 +278,8 @@ class DatastoreClient(object):
         try:
           operation = self._OPERATIONS[operands[1]]
         except KeyError:
-          raise BadRequest('Operation {} not supported!'.format(operands[1]))
+          raise BadFilterConfiguration(
+            'Operation {} not supported!'.format(operands[1]))
 
       filter_pb.op = operation
       prop = filter_pb.property.add()
@@ -289,11 +299,8 @@ class DatastoreClient(object):
     Returns:
       remote_api_pb2.Response object.
     Raises:
-      ConnectionError from requests package if connection is broken.
-      BadRequest exception.
-      DatastoreError exception.
-      Timeout exception if request is timed out.
-      socket.error if problem with sockets occurred.
+      DatastoreTransientError if some retry-able error occurred.
+      DatastorePermanentError if some permanent error occured.
     """
     request = remote_api_pb2.Request()
     request.service_name = self.SERVICE_NAME
@@ -313,13 +320,16 @@ class DatastoreClient(object):
       # If the response was successful, no Exception will be raised
       response.raise_for_status()
     except exceptions.ConnectionError:
-      raise
+      raise DatastoreTransientError('Connection error occurred')
     except exceptions.Timeout:
-      raise Timeout('Operation timed out after {} seconds.'.format(timeout))
-    except exceptions.HTTPError:
-      raise BadRequest("HTTP error occurred.")
+      raise DatastoreTransientError(
+        'Operation timed out after {} seconds.'.format(timeout))
+    except exceptions.HTTPError as error:
+      status_code = error.response.status_code
+      raise DatastoreTransientError(
+        'HTTP error with status code occurred'.format(status_code))
     except socket.error:
-      raise
+      raise DatastoreTransientError('Socket error occurred')
 
     api_response = remote_api_pb2.Response()
     api_response.ParseFromString(response.content)
@@ -327,12 +337,19 @@ class DatastoreClient(object):
     if api_response.HasField('application_error'):
       error = api_response.application_error
 
-      if error.code == datastore_v3_pb2.Error.BAD_REQUEST:
-        raise BadRequest(error.detail)
+      error_code = error.code
+      error_detail = error.detail
+      error_name = datastore_v3_pb2.Error.ErrorCode.keys()[error_code]
 
-      raise DatastoreError(error.detail)
+      if error_code in PERMANENT_DS_ERRORS:
+        error_msg = 'Bad request for datastore: {} ({})'.\
+          format(error_name, error_detail)
+        raise DatastorePermanentError(error_msg)
+
+      error_msg = 'Datastore error: {} ({})'.format(error_name, error_detail)
+      raise DatastoreTransientError(error_msg)
 
     if api_response.HasField('exception'):
-      raise DatastoreError(str(api_response.exception))
+      raise DatastoreTransientError(str(api_response.exception))
 
     return api_response.response

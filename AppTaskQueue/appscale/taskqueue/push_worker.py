@@ -13,8 +13,7 @@ from eventlet.green.httplib import BadStatusLine
 from eventlet.timeout import Timeout as EventletTimeout
 from socket import error as SocketError
 from urlparse import urlparse
-from .constants import TRANSIENT_DS_ERRORS
-from .datastore_client import DatastoreClient
+from .datastore_client import DatastoreClient, DatastoreTransientError
 from .tq_lib import TASK_STATES
 from .utils import (
   create_celery_for_app,
@@ -72,7 +71,7 @@ def update_task(task_name, new_state, retries=3):
   datastore = DatastoreClient()
   try:
     task_name_entity = datastore.get(app_id, task_name)
-  except TRANSIENT_DS_ERRORS as error:
+  except DatastoreTransientError as error:
     retries -= 1
     if retries >= 0:
       logger.warning('Error fetching task name: {}. Retrying'.format(error))
@@ -88,7 +87,7 @@ def update_task(task_name, new_state, retries=3):
 
     try:
       datastore.put(app_id, task_name_entity)
-    except TRANSIENT_DS_ERRORS as error:
+    except DatastoreTransientError as error:
       retries -= 1
       if retries >= 0:
         logger.warning('Error updating task name: {}. Retrying'.format(error))

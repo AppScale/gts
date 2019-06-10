@@ -19,10 +19,15 @@ from .constants import (
   InvalidTarget,
   QueueNotFound,
   TaskNotFound,
-  TARGET_REGEX,
-  TRANSIENT_DS_ERRORS
+  TARGET_REGEX
 )
-from .datastore_client import ApplicationError, DatastoreClient, Entity
+from .datastore_client import (
+  ApplicationError,
+  BadFilterConfiguration,
+  DatastoreClient,
+  DatastorePermanentError,
+  DatastoreTransientError,
+  Entity)
 from .queue import (
   InvalidLeaseRequest,
   PostgresPullQueue,
@@ -274,6 +279,10 @@ class DistributedTaskQueue():
       return '', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
     except QueueNotFound as error:
       return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+    except DatastorePermanentError as error:
+      return '', TaskQueueServiceError.INTERNAL_ERROR, str(error)
+    except BadFilterConfiguration as error:
+      return '', TaskQueueServiceError.INTERNAL_ERROR, str(error)
 
     if len(bulk_response.taskresult) == 1:
       result = bulk_response.taskresult[0].result
@@ -308,6 +317,10 @@ class DistributedTaskQueue():
       return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
     except TransientError as error:
       return '', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
+    except DatastorePermanentError as error:
+      return '', TaskQueueServiceError.INTERNAL_ERROR, str(error)
+    except BadFilterConfiguration as error:
+      return '', TaskQueueServiceError.INTERNAL_ERROR, str(error)
 
     return (response.SerializeToString(), 0, "")
 
@@ -426,7 +439,7 @@ class DistributedTaskQueue():
     """
     try:
       return self.datastore_client.get(project_id, task_name)
-    except TRANSIENT_DS_ERRORS as error:
+    except DatastoreTransientError as error:
       retries -= 1
       if retries >= 0:
         logger.warning('Error while checking task name: {}. '
@@ -449,7 +462,7 @@ class DistributedTaskQueue():
     try:
       self.datastore_client.put(project_id, entity)
       return
-    except TRANSIENT_DS_ERRORS as error:
+    except DatastoreTransientError as error:
       retries -= 1
       if retries >= 0:
         logger.warning('Error creating task name: {}. Retrying'.format(error))
@@ -477,7 +490,7 @@ class DistributedTaskQueue():
 
     try:
       item = self.__get_task_name(request.app_id, task_name)
-    except TRANSIENT_DS_ERRORS:
+    except DatastoreTransientError:
       logger.exception('Unable to check task name')
       raise ApplicationError(
         taskqueue_service_pb2.TaskQueueServiceError.INTERNAL_ERROR)
@@ -498,7 +511,7 @@ class DistributedTaskQueue():
     try:
       self.__create_task_name(request.app_id, request.queue_name,
                               task_name)
-    except TRANSIENT_DS_ERRORS:
+    except DatastoreTransientError:
       logger.exception('Unable to create task name')
       raise ApplicationError(
         TaskQueueServiceError.INTERNAL_ERROR)
