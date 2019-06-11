@@ -3684,12 +3684,13 @@ class Djinn
     Djinn.log_info('Compiling AppTaskQueue proto files')
     src = File.join(APPSCALE_HOME, 'AppTaskQueue', 'appscale', 'taskqueue',
                     'protocols')
-    unless system("protoc --proto_path=#{src} --python_out=#{src} " \
-                  "#{src}/*.proto")
+    unless system("./#{src}/compile_protocols.sh")
       Djinn.log_error('Unable to compile AppTaskQueue proto files')
       return
     end
-    update_python_package(src, TaskQueue::TASKQUEUE_PIP)
+    extras = TaskQueue::OPTIONAL_FEATURES.join(',')
+    update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]",
+                          TaskQueue::TASKQUEUE_PIP)
   end
 
   # Run a build on modified directories so that changes will take effect.
@@ -3711,9 +3712,7 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/AdminServer")
     end
     if status.include?('AppTaskQueue')
-      extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-      update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]",
-                            TaskQueue::TASKQUEUE_PIP)
+      build_taskqueue
     end
     if status.include?('AppDB')
       update_python_package("#{APPSCALE_HOME}/AppDB")

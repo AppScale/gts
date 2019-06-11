@@ -619,8 +619,21 @@ installtaskqueue()
 
     TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
 
-    "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_and_prepare.sh" \
-        "${TASKQUEUE_PIP}"
+    "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh"
+
+    TQ_DIR="${APPSCALE_HOME}/AppTaskQueue/"
+    COMMON_DIR="${APPSCALE_HOME}/common"
+
+    echo "Upgrading appscale-common.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${COMMON_DIR}"
+    echo "Installing appscale-common dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${COMMON_DIR}"
+    echo "Upgrading appscale-taskqueue.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${TQ_DIR}[celery_gui]"
+    echo "Installing appscale-taskqueue dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${TQ_DIR}[celery_gui]"
+
+    echo "appscale-taskqueue has been successfully installed."
 }
 
 installdatastore()

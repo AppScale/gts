@@ -90,8 +90,18 @@ if [ ! -z ${TQ_SOURCE_DIR} ]; then
 
     TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
 
-    "${TQ_SOURCE_DIR}/appscale/taskqueue/protocols/compile_and_prepare.sh" \
-        "${TASKQUEUE_PIP}"
+    "${TQ_SOURCE_DIR}/appscale/taskqueue/protocols/compile_protocols.sh"
+    COMMON_SOURCE_DIR="$( dirname "${TQ_SOURCE_DIR}" )"/common
+    echo "Upgrading appscale-common.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${COMMON_SOURCE_DIR}"
+    echo "Installing appscale-common dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${COMMON_SOURCE_DIR}"
+    echo "Upgrading appscale-taskqueue.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${TQ_SOURCE_DIR}[celery_gui]"
+    echo "Installing appscale-taskqueue dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${TQ_SOURCE_DIR}[celery_gui]"
+
+    echo "appscale-taskqueue has been successfully installed."
 fi
 
 log "Filling /etc/appscale/* files with addresses of required services"
