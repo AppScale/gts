@@ -937,37 +937,39 @@ class Djinn
     }
     enforce_options
 
-    # From here on we do more logical checks on the values we received.
-    # The first one is to check that max and min are set appropriately.
-    # Max and min needs to be at least the number of started nodes, it
-    # needs to be positive. Max needs to be no smaller than min.
-    @state_change_lock.synchronize {
-      if Integer(@options['max_machines']) < @nodes.length
-        Djinn.log_warn("max_machines is less than the number of nodes!")
-        @options['max_machines'] = @nodes.length.to_s
-      end
-      if Integer(@options['min_machines']) < @nodes.length
-        Djinn.log_warn("min_machines is less than the number of nodes!")
-        @options['min_machines'] = @nodes.length.to_s
-      end
-      if Integer(@options['max_machines']) < Integer(@options['min_machines'])
-        Djinn.log_warn("min_machines is bigger than max_machines!")
-        @options['max_machines'] = @options['min_machines']
-      end
-    }
-
     # We need to make sure this node is listed in the started nodes.
     find_me_in_locations
     return "Error: Couldn't find me in the node map" if @my_index.nil?
 
-    @state_change_lock.synchronize {
-      ENV['EC2_URL'] = @options['ec2_url']
-      if @options['ec2_access_key'].nil?
-        @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
-        @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
-        @options['ec2_url'] = @options['EC2_URL']
-      end
-    }
+    # From here on we do more logical checks on the values we received.
+    # The first one is to check that max and min are set appropriately.
+    # Max and min needs to be at least the number of started nodes, it
+    # needs to be positive. Max needs to be no smaller than min.
+    if my_node.is_shadow?
+      @state_change_lock.synchronize {
+        if Integer(@options['max_machines']) < @nodes.length
+          Djinn.log_warn("max_machines is less than the number of nodes!")
+          @options['max_machines'] = @nodes.length.to_s
+        end
+        if Integer(@options['min_machines']) < @nodes.length
+          Djinn.log_warn("min_machines is less than the number of nodes!")
+          @options['min_machines'] = @nodes.length.to_s
+        end
+        if Integer(@options['max_machines']) < Integer(@options['min_machines'])
+          Djinn.log_warn("min_machines is bigger than max_machines!")
+          @options['max_machines'] = @options['min_machines']
+        end
+      }
+
+      @state_change_lock.synchronize {
+        ENV['EC2_URL'] = @options['ec2_url']
+        if @options['ec2_access_key'].nil?
+          @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
+          @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
+          @options['ec2_url'] = @options['EC2_URL']
+        end
+      }
+    end
 
     'OK'
   end
