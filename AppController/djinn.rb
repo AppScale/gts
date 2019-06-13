@@ -3142,7 +3142,7 @@ class Djinn
         end
         if node.public_ip == public_ip
           HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
-            "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
+            "in @nodes but my private ip (#{all_local_ips}) is not matching! @nodes=#{@nodes}.")
         end
       }
     }
