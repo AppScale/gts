@@ -1721,7 +1721,6 @@ class Djinn
     start_infrastructure_manager
     mount_persistent_storage
 
-    find_me_in_locations
     write_database_info
     update_firewall
 
