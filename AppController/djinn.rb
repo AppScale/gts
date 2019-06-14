@@ -938,7 +938,7 @@ class Djinn
     enforce_options
 
     # We need to make sure this node is listed in the started nodes.
-    find_me_in_locations
+    @state_change_lock.synchronize { find_me_in_locations }
     return "Error: Couldn't find me in the node map" if @my_index.nil?
 
     # From here on we do more logical checks on the values we received.
@@ -2815,7 +2815,8 @@ class Djinn
 
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
-    find_me_in_locations
+    @state_change_lock.synchronize { find_me_in_locations }
+    Djinn.log_error("Couldn't find me in @nodes after restore!") if @my_index.nil?
 
     # Usually we don't expect the master node to see a change in the state
     # (since it is the one which saves it), so we leave a note here.
@@ -3117,34 +3118,31 @@ class Djinn
         "#{all_local_ips.join(', ')}")
     end
 
-    @state_change_lock.synchronize {
-      @nodes.each_with_index { |node, index|
-        all_local_ips.each { |ip|
-          if ip == node.private_ip
-            @my_index = index
-            @my_public_ip = node.public_ip
-            @my_private_ip = node.private_ip
-            Djinn.log_info("Local IP recorded and used is #{ip}.")
-            return
-          end
-        }
+    @nodes.each_with_index { |node, index|
+      all_local_ips.each { |ip|
+        if ip == node.private_ip
+          @my_index = index
+          @my_public_ip = node.public_ip
+          @my_private_ip = node.private_ip
+          Djinn.log_info("Local IP recorded and used is #{ip}.")
+          return
+        end
       }
     }
+    Djinn.log_error("Cannot find any of my IP (#{all_local_ips}) in @nodes (#{@nodes}).")
 
     # We haven't found our ip in the nodes layout: let's try to give
     # better debugging info to the user.
     public_ip = HelperFunctions.get_public_ip_from_metadata_service
-    @state_change_lock.synchronize {
-      @nodes.each { |node|
-        if node.private_ip == public_ip
-          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
-            "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
-        end
-        if node.public_ip == public_ip
-          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
-            "in @nodes but my private ip (#{all_local_ips}) is not matching! @nodes=#{@nodes}.")
-        end
-      }
+    @nodes.each { |node|
+      if node.private_ip == public_ip
+        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
+          "but not my private ip in @nodes.")
+      end
+      if node.public_ip == public_ip
+        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
+          "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
+      end
     }
 
     HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " \
@@ -4070,7 +4068,7 @@ class Djinn
   end
 
   def my_node
-    find_me_in_locations if @my_index.nil?
+    @state_change_lock.synchronize { find_me_in_locations } if @my_index.nil?
 
     if @my_index.nil?
       Djinn.log_debug("My index is nil - is nodes nil? #{@nodes.nil?}")
