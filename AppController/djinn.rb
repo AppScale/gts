@@ -862,7 +862,35 @@ class Djinn
     # Set the proper log level.
     new_level = Logger::INFO
     new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
-    @@log.level = new_level if @@log.level != new_level
+    @state_change_lock.synchronize {
+      # Set correct log level.
+      @@log.level = new_level if @@log.level != new_level
+
+      if my_node.is_shadow?
+        # Max and min needs to be at least the number of started nodes, it
+        # needs to be positive. Max needs to be no smaller than min.
+        if Integer(@options['max_machines']) < @nodes.length
+          Djinn.log_warn("max_machines is less than the number of nodes!")
+          @options['max_machines'] = @nodes.length.to_s
+        end
+        if Integer(@options['min_machines']) < @nodes.length
+          Djinn.log_warn("min_machines is less than the number of nodes!")
+          @options['min_machines'] = @nodes.length.to_s
+        end
+        if Integer(@options['max_machines']) < Integer(@options['min_machines'])
+          Djinn.log_warn("min_machines is bigger than max_machines!")
+          @options['max_machines'] = @options['min_machines']
+        end
+
+        # Ensure we have the correct EC2 credentials available.
+        ENV['EC2_URL'] = @options['ec2_url']
+        if @options['ec2_access_key'].nil?
+          @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
+          @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
+          @options['ec2_url'] = @options['EC2_URL']
+        end
+      end
+    }
   end
 
   # This is the method needed to get the current layout and options for
@@ -893,25 +921,37 @@ class Djinn
       Djinn.log_error(msg)
       return msg
     end
-    if opts.nil? || opts.empty?
-      Djinn.log_info("Empty options: using defaults.")
-    elsif opts.class != Hash
-      msg = "Error: options is not a Hash."
+    if opts.nil? || opts.empty? || opts.class != Hash
+      msg = "Error: options is empty or not a Hash."
       Djinn.log_error(msg)
       return msg
-    else
-      @state_change_lock.synchronize { @options = check_options(opts) }
     end
+    checked_opts = check_options(opts)
 
     # Let's validate we have the needed options defined.
     ['keyname', 'login', 'table'].each { |key|
-      unless @options[key]
+      unless checked_opts[key]
         msg = "Error: cannot find #{key} in options!"
         Djinn.log_error(msg)
         return msg
       end
     }
 
+    # Now let's make sure the parameters that needs to have values are
+    # indeed defines, otherwise set the defaults.
+    PARAMETERS_AND_CLASS.each { |key, _|
+      # The parameter 'key' is defined, no need to do anything.
+      next if checked_opts[key]
+
+      if PARAMETERS_AND_CLASS[key][1]
+         # The parameter has a default, and it's not defined. Adding
+         # default value.
+         checked_opts[key] = PARAMETERS_AND_CLASS[key][1]
+      end
+    }
+
+    # We need to make sure we have a good layout and this node is listed
+    # in the started nodes.
     begin
       @state_change_lock.synchronize {
         @nodes = check_layout(layout, @options['keyname'])
@@ -920,56 +960,12 @@ class Djinn
       Djinn.log_error(e.message)
       return e.message
     end
-
-    # Now let's make sure the parameters that needs to have values are
-    # indeed defines, otherwise set the defaults.
-    PARAMETERS_AND_CLASS.each { |key, _|
-      @state_change_lock.synchronize {
-        # The parameter 'key' is defined, no need to do anything.
-        next if @options[key]
-
-        if PARAMETERS_AND_CLASS[key][1]
-           # The parameter has a default, and it's not defined. Adding
-           # default value.
-           @options[key] = PARAMETERS_AND_CLASS[key][1]
-        end
-      }
-    }
-    enforce_options
-
-    # We need to make sure this node is listed in the started nodes.
     @state_change_lock.synchronize { find_me_in_locations }
     return "Error: Couldn't find me in the node map" if @my_index.nil?
 
-    # From here on we do more logical checks on the values we received.
-    # The first one is to check that max and min are set appropriately.
-    # Max and min needs to be at least the number of started nodes, it
-    # needs to be positive. Max needs to be no smaller than min.
-    if my_node.is_shadow?
-      @state_change_lock.synchronize {
-        if Integer(@options['max_machines']) < @nodes.length
-          Djinn.log_warn("max_machines is less than the number of nodes!")
-          @options['max_machines'] = @nodes.length.to_s
-        end
-        if Integer(@options['min_machines']) < @nodes.length
-          Djinn.log_warn("min_machines is less than the number of nodes!")
-          @options['min_machines'] = @nodes.length.to_s
-        end
-        if Integer(@options['max_machines']) < Integer(@options['min_machines'])
-          Djinn.log_warn("min_machines is bigger than max_machines!")
-          @options['max_machines'] = @options['min_machines']
-        end
-      }
-
-      @state_change_lock.synchronize {
-        ENV['EC2_URL'] = @options['ec2_url']
-        if @options['ec2_access_key'].nil?
-          @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
-          @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
-          @options['ec2_url'] = @options['EC2_URL']
-        end
-      }
-    end
+    # Now we can unlock the main thread and let it proceed with the
+    # initialization.
+    @state_change_lock.synchronize { @options = checked_opts }
 
     'OK'
   end
@@ -1698,6 +1694,10 @@ class Djinn
       erase_old_data
     end
     parse_options
+
+    # Enforce actions from possibly changed options (like logs or
+    # credentials).
+    enforce_options
 
     # Load datastore helper.
     # TODO: this should be the class or module.
@@ -3092,9 +3092,6 @@ class Djinn
       ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
       ENV['EC2_URL'] = @options['ec2_url']
     end
-
-    # Set the proper log level.
-    enforce_options
   end
 
   def got_all_data
