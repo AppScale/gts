@@ -863,10 +863,12 @@ class Djinn
     new_level = Logger::INFO
     new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
     @state_change_lock.synchronize {
-      # Set correct log level.
       @@log.level = new_level if @@log.level != new_level
+    }
 
-      if my_node.is_shadow?
+    # The master node can not enforce some sanity checks on the options.
+    if my_node.is_shadow?
+      @state_change_lock.synchronize {
         # Max and min needs to be at least the number of started nodes, it
         # needs to be positive. Max needs to be no smaller than min.
         if Integer(@options['max_machines']) < @nodes.length
@@ -889,8 +891,8 @@ class Djinn
           @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
           @options['ec2_url'] = @options['EC2_URL']
         end
-      end
-    }
+      }
+    end
   end
 
   # This is the method needed to get the current layout and options for
@@ -952,20 +954,20 @@ class Djinn
 
     # We need to make sure we have a good layout and this node is listed
     # in the started nodes.
-    begin
-      @state_change_lock.synchronize {
-        @nodes = check_layout(layout, @options['keyname'])
-      }
-    rescue AppScaleException => e
-      Djinn.log_error(e.message)
-      return e.message
-    end
-    @state_change_lock.synchronize { find_me_in_locations }
-    return "Error: Couldn't find me in the node map" if @my_index.nil?
+    @state_change_lock.synchronize {
+      begin
+        @nodes = check_layout(layout, checked_opts['keyname'])
+      rescue AppScaleException => e
+        Djinn.log_error(e.message)
+        return e.message
+      end
+      find_me_in_locations
+      return "Error: Couldn't find me in the node map" if @my_index.nil?
 
-    # Now we can unlock the main thread and let it proceed with the
-    # initialization.
-    @state_change_lock.synchronize { @options = checked_opts }
+      # Now we can unlock the main thread and let it proceed with the
+      # initialization.
+      @options = checked_opts
+    }
 
     'OK'
   end
