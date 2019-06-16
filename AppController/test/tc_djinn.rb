@@ -437,7 +437,7 @@ class TestDjinn < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
 
-    djinn = Djinn.new()
+    djinn = get_djinn_mock
     expected = Djinn::BAD_INPUT_MSG
     actual = djinn.start_roles_on_nodes("", @secret)
     assert_equal(expected, actual)
@@ -676,7 +676,7 @@ class TestDjinn < Test::Unit::TestCase
     deployment_id_exists = true
     bad_secret = 'boo'
     good_secret = 'blarg'
-    djinn = flexmock(Djinn.new())
+    djinn = get_djinn_mock
     flexmock(ZKInterface).should_receive(:exists?).
       and_return(deployment_id_exists)
 
@@ -694,7 +694,7 @@ class TestDjinn < Test::Unit::TestCase
     good_secret = 'boo'
     bad_secret = 'blarg'
     deployment_id = 'baz'
-    djinn = flexmock(Djinn.new())
+    djinn = get_djinn_mock
     flexmock(ZKInterface).should_receive(:get).
         and_return(deployment_id)
 
