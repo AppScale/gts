@@ -3763,6 +3763,8 @@ class Djinn
       Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
     end
 
+    is_it_cloud = nil
+    infrastructure = nil
     @state_change_lock.synchronize {
       is_it_cloud = is_cloud?
       infrastructure = @options['infrastructure']
@@ -4202,7 +4204,7 @@ class Djinn
       begin
         commands = JSON.load(user_commands)
       rescue JSON::ParserError
-        commands = user_commands]
+        commands = user_commands
       end
 
       if commands.class == String
@@ -4287,6 +4289,8 @@ class Djinn
     end
     Djinn.log_debug("Sending data to #{ip}.")
 
+    layout = nil
+    options = nil
     @state_change_lock.synchronize {
       layout = Djinn.convert_location_class_to_json(@nodes)
       options = JSON.dump(@options)
