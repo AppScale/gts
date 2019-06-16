@@ -968,6 +968,7 @@ class Djinn
       # initialization.
       @options = checked_opts
     }
+    Djinn.log_info("Successfully recevied nodes layout (#{@nodes}) and deployment options (#{@options}).")
 
     'OK'
   end
@@ -1738,9 +1739,7 @@ class Djinn
     if my_node.is_shadow?
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
-      @state_change_lock.synchronize {
-        initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
-      }
+      initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
     end
 
     # Initialize the current server and starts all the API and essential
@@ -2300,7 +2299,7 @@ class Djinn
     Djinn.log_debug("Changed nodes to #{@nodes}")
 
     update_firewall
-    initialize_nodes_in_parallel(new_nodes, [])
+    initialize_nodes_in_parallel([], new_nodes)
   end
 
   # Cleans out temporary files that may have been written by a previous
@@ -3727,7 +3726,7 @@ class Djinn
           }
         rescue Timeout::Error
           Djinn.log_warn("Couldn't initialize #{slave} in time.")
-          terminate_node_from_deployment(slave)
+          APPS_LOCK.synchronize { terminate_node_from_deployment(slave) }
         end
       }
     }
@@ -3739,8 +3738,8 @@ class Djinn
   def initialize_node(node)
     copy_encryption_keys(node)
     validate_image(node)
-    rsync_files(node)
-    run_user_commands(node)
+    rsync_files(node, @options['keyname'])
+    run_user_commands(node, @options['user_commands'])
     start_appcontroller(node)
   end
 
@@ -3764,15 +3763,19 @@ class Djinn
       Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
     end
 
-    if is_cloud?
-      if @options['infrastructure'] == 'gce'
+    @state_change_lock.synchronize {
+      is_it_cloud = is_cloud?
+      infrastructure = @options['infrastructure']
+    }
+    if is_it_cloud
+      if infrastructure == 'gce'
         # Since GCE v1beta15, SSH keys don't immediately get injected to newly
         # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
         # sure.
         Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
         Kernel.sleep(60)
       end
-      enable_root_login(ip, ssh_key)
+      enable_root_login(ip, ssh_key, infrastructure)
     end
 
     Kernel.sleep(SMALL_WAIT)
@@ -3795,7 +3798,7 @@ class Djinn
 
     # Finally, on GCE, we need to copy over the user's credentials, in case
     # nodes need to attach persistent disks.
-    return if @options['infrastructure'] != "gce"
+    return if infrastructure == 'gce'
 
     client_secrets = "#{APPSCALE_CONFIG_DIR}/client_secrets.json"
     gce_oauth = "#{APPSCALE_CONFIG_DIR}/oauth2.dat"
@@ -3811,14 +3814,14 @@ class Djinn
 
   # Logs into the named host and alters its ssh configuration to enable the
   # root user to directly log in.
-  def enable_root_login(ip, ssh_key)
+  def enable_root_login(ip, ssh_key, infrastructure)
     options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
 
     # Determine which user to login as.
     output = `ssh -i #{ssh_key} #{options} 2>&1 root@#{ip} true`
     match = /Please login as the user "(.+)" rather than the user "root"/.match(output)
     if match.nil?
-      if @options['infrastructure'] == 'azure'
+      if infrastructure == 'azure'
         user_name = 'azureuser'
       else
         user_name = 'ubuntu'
@@ -3841,7 +3844,7 @@ class Djinn
                       "'#{merge_keys}'")
   end
 
-  def rsync_files(dest_node)
+  def rsync_files(dest_node, keyname)
     # Get the keys and address of the destination node.
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -3872,7 +3875,7 @@ class Djinn
     }
 
     if dest_node.is_compute?
-      locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
+      locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{keyname}.json"
       loop {
         break if File.exists?(locations_json)
         Djinn.log_warn('Locations JSON file does not exist on head node' \
@@ -4194,12 +4197,12 @@ class Djinn
   # Args:
   # - node: A NodeInfo that represents the machine where the given commands
   #   should be executed.
-  def run_user_commands(node)
-    if @options['user_commands'].class == String
+  def run_user_commands(node, user_commands)
+    if user_commands.class == String
       begin
-        commands = JSON.load(@options['user_commands'])
+        commands = JSON.load(user_commands)
       rescue JSON::ParserError
-        commands = @options['user_commands']
+        commands = user_commands]
       end
 
       if commands.class == String
@@ -4284,8 +4287,10 @@ class Djinn
     end
     Djinn.log_debug("Sending data to #{ip}.")
 
-    layout = Djinn.convert_location_class_to_json(@nodes)
-    options = JSON.dump(@options)
+    @state_change_lock.synchronize {
+      layout = Djinn.convert_location_class_to_json(@nodes)
+      options = JSON.dump(@options)
+    }
     begin
       result = acc.set_parameters(layout, options)
     rescue FailedNodeException => e
