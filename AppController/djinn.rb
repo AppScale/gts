@@ -620,6 +620,8 @@ class Djinn
   #   reason why the relocation failed in all other cases.
   def relocate_version(version_key, http_port, https_port, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     Djinn.log_debug("Received relocate_version for #{version_key} for " \
                     "http port #{http_port} and https port #{https_port}.")
 
@@ -986,6 +988,7 @@ class Djinn
   #   get_app_upload_status to see if the app has successfully uploaded or not.
   def upload_app(archived_file, file_suffix, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending upload_app call to shadow.")
@@ -1053,6 +1056,7 @@ class Djinn
   #   returned.
   def get_app_upload_status(reservation_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending get_upload_status call to shadow.")
@@ -1082,6 +1086,7 @@ class Djinn
   #   A JSON string with the statistics of the nodes.
   def get_cluster_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending get_cluster_stats_json call to shadow.")
@@ -1144,6 +1149,7 @@ class Djinn
   #   A JSON string with the database information.
   def get_database_information(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     tree = { :table => @options['table'], :replication => @options['replication'],
       :keyname => @options['keyname'] }
@@ -1161,6 +1167,7 @@ class Djinn
   #   authenticate correctly.
   def run_groomer(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Thread.new {
       run_groomer_command = `which appscale-groomer`.chomp
@@ -1190,6 +1197,7 @@ class Djinn
   #   to the value it is bound to.
   def get_property(property_regex, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
@@ -1245,6 +1253,8 @@ class Djinn
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     if property_name.class != String or property_value.class != String
       Djinn.log_warn("set_property: received non String parameters.")
       return KEY_NOT_FOUND
@@ -1370,6 +1380,7 @@ class Djinn
   # Updates a project's cron jobs.
   def update_cron(project_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug(
@@ -1398,6 +1409,7 @@ class Djinn
   #   A boolean indicating whether the deployment ID has been set or not.
   def deployment_id_exists(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     return ZKInterface.exists?(DEPLOYMENT_ID_PATH)
   end
@@ -1407,6 +1419,7 @@ class Djinn
   #   A string that contains the deployment ID.
   def get_deployment_id(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       return ZKInterface.get(DEPLOYMENT_ID_PATH)
@@ -1422,6 +1435,7 @@ class Djinn
   #   id: A string that contains the deployment ID.
   def set_deployment_id(secret, id)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       ZKInterface.set(DEPLOYMENT_ID_PATH, id, false)
@@ -1438,6 +1452,7 @@ class Djinn
   #     off.
   def set_node_read_only(read_only, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
     return INVALID_REQUEST unless %w(true false).include?(read_only)
 
     if read_only == 'true'
@@ -1456,6 +1471,7 @@ class Djinn
   def set_read_only(read_only, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
+    return NOT_READY if @nodes.empty?
 
     ZKInterface.get_datastore_servers.each { |machine_ip, port|
       http = Net::HTTP.new(machine_ip, port)
@@ -1495,6 +1511,7 @@ class Djinn
   #   A string indicating whether or not the primary database node is ready.
   def primary_db_is_up(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     primary_ip = get_db_master.private_ip
     unless my_node.is_db_master?
@@ -1525,6 +1542,7 @@ class Djinn
   #   password: The SHA1-hashed password that will be set as the user's password.
   def reset_password(username, password, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1541,6 +1559,7 @@ class Djinn
   #   username: The email address registered as username for the user's application.
   def does_user_exist(username, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1560,6 +1579,7 @@ class Djinn
   #     by XMPP users.
   def create_user(username, password, account_type, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1576,6 +1596,7 @@ class Djinn
   #   username: The e-mail address that should be given administrative authorizations.
   def set_admin_role(username, is_cloud_admin, capabilities, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1588,6 +1609,7 @@ class Djinn
 
   def get_all_public_ips(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     public_ips = []
     @state_change_lock.synchronize {
@@ -1598,6 +1620,7 @@ class Djinn
 
   def get_all_private_ips(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     private_ips = []
     @state_change_lock.synchronize {
@@ -1915,27 +1938,26 @@ class Djinn
 
   def is_appscale_terminated(secret)
     begin
-      bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
-      return bad_secret unless valid_secret?(secret)
+      return JSON.dump({'status'=>BAD_SECRET_MSG}) unless valid_secret?(secret)
     rescue Errno::ENOENT
       # On appscale down, terminate may delete our secret key before we
       # can check it here.
-      Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+      Djinn.log_debug("is_appscale_terminated: didn't find secret file. Continuing.")
     end
     return @done_terminating
   end
 
   def run_terminate(clean, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
+    begin
+      return JSON.dump({'status'=>BAD_SECRET_MSG}) unless valid_secret?(secret)
+    rescue Errno::ENOENT
+      # On appscale down, terminate may delete our secret key before we
+      # can check it here.
+      Djinn.log_debug("is_appscale_terminated: didn't find secret file. Continuing.")
+    end
+    return NOT_READY if @nodes.empty?
+
     if my_node.is_shadow?
-      begin
-        bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
-        return bad_secret unless valid_secret?(secret)
-      rescue Errno::ENOENT
-        # On appscale down, terminate may delete our secret key before we
-        # can check it here.
-        Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
-      end
       Djinn.log_info("Received a stop request.")
       Djinn.log_info("Stopping all other nodes.")
       Thread.new {
@@ -2066,6 +2088,7 @@ class Djinn
 
   def get_online_users_list(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     online_users = []
 
@@ -2091,6 +2114,7 @@ class Djinn
   #   A Boolean indicating the success of the operation.
   def stop_hosting_revision(revision_key, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Djinn.log_warn("#{location} still exists") unless File.exists?(location)
 
@@ -2147,6 +2171,7 @@ class Djinn
   #   OK: otherwise.
   def start_roles_on_nodes(ips_hash, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       ips_hash = JSON.load(ips_hash)
@@ -2505,6 +2530,7 @@ class Djinn
   #   secret: A String password that is used to authenticate SOAP callers.
   def gather_logs(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     uuid = HelperFunctions.get_random_alphanumeric
     Djinn.log_info("Generated uuid #{uuid} for request to gather logs.")
@@ -2559,6 +2585,7 @@ class Djinn
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
   def add_routing_for_blob_server(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
     return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
 
     Djinn.log_debug('Adding BlobServer routing.')
@@ -3015,6 +3042,8 @@ class Djinn
   # this machine.
   def get_instance_info(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     APPS_LOCK.synchronize {
       instance_info = []
       @app_info_map.each_pair { |version_key, app_info|
@@ -5557,6 +5586,7 @@ class Djinn
   # requests seen for the given application.
   def get_request_info(version_key, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Djinn.log_debug("Sending a log with request rate #{version_key}, " \
                     "timestamp #{@last_sampling_time[version_key]}, request " \
@@ -5701,6 +5731,7 @@ class Djinn
   #     node.
   def get_node_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
@@ -5840,6 +5871,8 @@ class Djinn
   #   An application cron info
   def get_application_cron_info(app_name, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     content = CronHelper.get_application_cron_info(app_name)
     JSON.dump(content)
   end
