@@ -2324,7 +2324,7 @@ class Djinn
     Djinn.log_debug("Changed nodes to #{@nodes}")
 
     update_firewall
-    initialize_nodes_in_parallel([], new_nodes)
+    initialize_nodes_in_parallel(new_nodes, [])
   end
 
   # Cleans out temporary files that may have been written by a previous
