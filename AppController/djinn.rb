@@ -877,8 +877,8 @@ class Djinn
           Djinn.log_warn("max_machines is less than the number of nodes!")
           @options['max_machines'] = @nodes.length.to_s
         end
-        if Integer(@options['min_machines']) < @nodes.length
-          Djinn.log_warn("min_machines is less than the number of nodes!")
+        if Integer(@options['min_machines']) > @nodes.length
+          Djinn.log_warn("min_machines is bigger than the number of nodes!")
           @options['min_machines'] = @nodes.length.to_s
         end
         if Integer(@options['max_machines']) < Integer(@options['min_machines'])
