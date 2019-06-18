@@ -319,17 +319,18 @@ class DatastoreClient(object):
 
       # If the response was successful, no Exception will be raised
       response.raise_for_status()
-    except exceptions.ConnectionError:
-      raise DatastoreTransientError('Connection error occurred')
+    except exceptions.ConnectionError as e:
+      raise DatastoreTransientError(
+        'Connection error occurred with message: {}'.format(e.message))
     except exceptions.Timeout:
       raise DatastoreTransientError(
         'Operation timed out after {} seconds.'.format(timeout))
-    except exceptions.HTTPError as error:
-      status_code = error.response.status_code
+    except exceptions.HTTPError as e:
       raise DatastoreTransientError(
-        'HTTP error with status code occurred'.format(status_code))
-    except socket.error:
-      raise DatastoreTransientError('Socket error occurred')
+        'HTTP error occurred with message: {}'.format(e.message))
+    except socket.error as e:
+      raise DatastoreTransientError(
+        'Socket error occurred with message: {}'.format(e.message))
 
     api_response = remote_api_pb2.Response()
     api_response.ParseFromString(response.content)
