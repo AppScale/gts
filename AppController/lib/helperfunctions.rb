@@ -423,19 +423,6 @@ module HelperFunctions
     bound_addrs
   end
 
-  # Returns the IP address associated with this machine. To get around
-  # issues where a VM may forget its IP address
-  # (https://github.com/AppScale/appscale/issues/84), we locally cache it
-  # to not repeatedly ask the system for this IP (which shouldn't be changing).
-  def self.local_ip
-    bound_addrs = get_all_local_ips
-    raise 'Couldn\'t get our local IP address' if bound_addrs.length.zero?
-
-    addr = bound_addrs[0]
-    Djinn.log_debug("Returning #{addr} as our local IP address")
-    addr
-  end
-
   # In cloudy deployments, the recommended way to determine a machine's true
   # private IP address from its private FQDN is to use dig. This method
   # attempts to resolve IPs in that method, deferring to other methods if that

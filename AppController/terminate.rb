@@ -7,18 +7,18 @@ require 'fileutils'
 APPSCALE_CONFIG_DIR = "/etc/appscale"
 
 module TerminateHelper
-
-
   # Erases all AppScale-related files (except database state) from the local
   # filesystem. This is used when appscale is shutdown.
   # TODO: Use FileUtils.rm_rf instead of backticks throughout this
   # method.
   def self.erase_appscale_state
+    `service appscale-controller stop`
+
     `rm -f #{APPSCALE_CONFIG_DIR}/secret.key`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /etc/nginx/sites-enabled/appscale-*.conf`
-    `rm -f /etc/haproxy/sites-enabled/*.cfg`
+    `rm -f /etc/haproxy/service-sites-enabled/*.cfg`
     `service nginx reload`
 
     begin
@@ -54,7 +54,6 @@ module TerminateHelper
 
     # Let's make sure we restart any non-appscale service.
     `service monit restart`
-    `service appscale-controller stop`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
 
     # Remove location files.
@@ -76,6 +75,23 @@ module TerminateHelper
     `rm -f /opt/appscale/appcontroller-state.json`
     `rm -f /opt/appscale/appserver-state.json`
     print "OK"
+  end
+
+  # This functions ensure that the services AppScale started that have a
+  # PID in /var/run/appscale got terminated.
+  def self.ensure_services_are_stopped
+    Dir["/var/run/appscale/*.pid"].each { |pidfile|
+      # Nothing should still be running after the controller got stopped,
+      # so we unceremoniously kill them.
+      begin
+        pid = File.read(pidfile).chomp
+        Process.kill("KILL", Integer(pid))
+      rescue ArgumentError, Errno::EPERM, Errno::EINVAL, Errno::ENOENT
+        next
+      rescue Errno::ESRCH, RangeError
+      end
+      FileUtils.rm_f(pidfile)
+    }
   end
 
   # This functions does erase more of appscale state: used in combination
@@ -138,6 +154,7 @@ end
 if __FILE__ == $0
   TerminateHelper.disable_database_writes
   TerminateHelper.erase_appscale_state
+  TerminateHelper.ensure_services_are_stopped
 
   if ARGV.length == 1 and ARGV[0] == "clean"
     TerminateHelper.erase_appscale_full_state

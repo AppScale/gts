@@ -1,5 +1,6 @@
 package com.google.appengine.tools.development;
 
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.log.dev.DevLogHandler;
 import com.google.appengine.api.log.dev.LocalLogService;
 import com.google.appengine.repackaged.com.google.common.collect.ImmutableList;
@@ -40,6 +41,7 @@ import javax.servlet.http.HttpServletResponseWrapper;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.HandlerWrapper;
 import org.mortbay.jetty.nio.SelectChannelConnector;
+import org.mortbay.jetty.servlet.DatastoreSessionManager;
 import org.mortbay.jetty.servlet.ServletHolder;
 import org.mortbay.jetty.servlet.SessionHandler;
 import org.mortbay.jetty.webapp.WebAppContext;
@@ -112,7 +114,7 @@ public class JettyContainerService extends AbstractContainerService {
          this.server.setHandler(apiHandler);
          SessionHandler handler = this.context.getSessionHandler();
          if(this.isSessionsEnabled()) {
-            handler.setSessionManager(new SerializableObjectsOnlyHashSessionManager());
+            handler.setSessionManager(new DatastoreSessionManager(DatastoreServiceFactory.getDatastoreService()));
          } else {
             handler.setSessionManager(new StubSessionManager());
          }

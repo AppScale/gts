@@ -15,7 +15,7 @@ class HTTPCodes(object):
   NOT_IMPLEMENTED = 501
 
 
-class InvalidConfiguration(Exception):
+class InvalidIndexConfiguration(Exception):
   """ Indicates that a given configuration cannot be enforced. """
   pass
 
@@ -27,6 +27,10 @@ class MonitStates(object):
   STOPPED = 'stopped'  # Monit will likely try to start the process soon.
   UNMONITORED = 'unmonitored'
 
+
+def non_negative_int(value):
+  """ Checks if an integer value is greater or equal than 0. """
+  return isinstance(value, int) and value >= 0
 
 # AppScale home directory.
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")

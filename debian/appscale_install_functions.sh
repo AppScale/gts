@@ -129,25 +129,6 @@ EOF
     fi
 }
 
-sethosts()
-{
-    if [ "${IN_DOCKER}" != "yes" ]; then
-        cp -v /etc/hosts /etc/hosts.orig
-        HOSTNAME=`hostname`
-        echo "Generating /etc/hosts"
-        cat <<EOF | tee /etc/hosts
-127.0.0.1       localhost localhost.localdomain
-127.0.1.1 $HOSTNAME
-::1     ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-ff02::3 ip6-allhosts
-EOF
-    fi
-}
-
 setulimits()
 {
     cat <<EOF | tee /etc/security/limits.conf
@@ -331,7 +312,6 @@ installgems()
 postinstallnginx()
 {
     rm -fv /etc/nginx/sites-enabled/default
-    chmod +x /root
 }
 
 installsolr()
@@ -572,6 +552,11 @@ installpycapnp()
     pipwrapper pycapnp
 }
 
+installpymemcache()
+{
+    pipwrapper pymemcache
+}
+
 installpyyaml()
 {
     # The python-yaml package on Xenial uses over 30M of memory.
@@ -646,25 +631,15 @@ installapiserver()
     (cd APIServer && protoc --python_out=./appscale/api_server *.proto)
     # This package needs to be installed in a virtualenv because the protobuf
     # library conflicts with the google namespace in the SDK.
-    rm -rf /opt/appscale_api_server
-    virtualenv /opt/appscale_api_server
+    mkdir -p /opt/appscale_venvs
+    rm -rf /opt/appscale_venvs/api_server
+    virtualenv /opt/appscale_venvs/api_server
 
     # The activate script fails under `set -u`.
     unset_opt=$(shopt -po nounset)
-    case ${DIST} in
-        trusty)
-            # Tornado 5 does not work with Python<2.7.9.
-            tornado_package='tornado<5'
-            ;;
-        *)
-            tornado_package='tornado'
-            ;;
-    esac
-
     set +u
-    (source /opt/appscale_api_server/bin/activate && \
+    (source /opt/appscale_venvs/api_server/bin/activate && \
      pip install -U pip && \
-     pip install "${tornado_package}" && \
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}
@@ -686,11 +661,6 @@ upgradepip()
     # local packages with optional dependencies. Versions greater than Pip 9
     # do not allow replacing packages installed by the distro.
     case "$DIST" in
-        trusty)
-            pipwrapper 'pip<10'
-            # Account for the change in the path to the pip binary.
-            hash -r
-            ;;
         jessie)
             # The system's pip does not allow updating itself.
             easy_install --upgrade 'pip<10.0.0b1'
