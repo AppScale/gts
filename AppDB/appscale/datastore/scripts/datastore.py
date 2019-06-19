@@ -901,7 +901,7 @@ def main():
       log_level=logger.getEffectiveLevel(),
       taskqueue_locations=taskqueue_locations)
   else:
-    from appscale.datastore.fdb import FDBDatastore
+    from appscale.datastore.fdb.fdb_datastore import FDBDatastore
     datastore_access = FDBDatastore()
     datastore_access.start()
 
