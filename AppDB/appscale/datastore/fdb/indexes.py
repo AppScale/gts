@@ -16,11 +16,11 @@ from tornado import gen
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.fdb.cache import NSCache
 from appscale.datastore.fdb.codecs import (
-  decode_element, decode_path, decode_str, decode_value, encode_ancestor_range,
-  encode_path, encode_value)
+  decode_str, decode_value, encode_value, encode_vs_index, Path)
 from appscale.datastore.fdb.sdk import ListCursor
 from appscale.datastore.fdb.utils import (
-  fdb, get_scatter_val, MAX_FDB_TX_DURATION, KVIterator, SCATTER_PROP)
+  DS_ROOT, fdb, get_scatter_val, MAX_FDB_TX_DURATION, KVIterator, SCATTER_PROP,
+  VS_SIZE)
 from appscale.datastore.dbconstants import BadRequest, InternalError
 from appscale.datastore.index_manager import IndexInaccessible
 from appscale.datastore.utils import _FindIndexToUse
@@ -35,8 +35,8 @@ INDEX_DIR = u'indexes'
 
 KEY_PROP = u'__key__'
 
-START_FILTERS = (Query_Filter.GREATER_THAN_OR_EQUAL, Query_Filter.GREATER_THAN)
-STOP_FILTERS = (Query_Filter.LESS_THAN_OR_EQUAL, Query_Filter.LESS_THAN)
+KeySelector = fdb.KeySelector
+first_gt_or_equal = fdb.KeySelector.first_greater_or_equal
 
 
 class FilterProperty(object):
@@ -145,34 +145,14 @@ def get_scan_direction(query, index):
     return Query_Order.DESCENDING
 
 
-def get_fdb_key_selector(op, encoded_value):
-  """ Like Python's slice notation, FDB range queries include the start and
-      exclude the stop. Therefore, the stop selector must point to the first
-      key that will be excluded from the results. """
-  if op == Query_Filter.GREATER_THAN_OR_EQUAL:
-    return fdb.KeySelector.first_greater_or_equal(encoded_value)
-  elif op == Query_Filter.GREATER_THAN:
-    return fdb.KeySelector.first_greater_than(encoded_value + b'\xff')
-  elif op == Query_Filter.LESS_THAN_OR_EQUAL:
-    return fdb.KeySelector.first_greater_or_equal(encoded_value + b'\xff')
-  elif op == Query_Filter.LESS_THAN:
-    return fdb.KeySelector.first_greater_than(encoded_value)
-  else:
-    raise BadRequest(u'Unsupported filter operator')
-
-
 class IndexEntry(object):
-  __SLOTS__ = [u'project_id', u'namespace', u'path', u'commit_vs',
-               u'deleted_vs']
+  __SLOTS__ = ['project_id', 'namespace', 'path', 'commit_vs', 'deleted_vs']
 
   def __init__(self, project_id, namespace, path, commit_vs, deleted_vs):
     self.project_id = project_id
     self.namespace = namespace
     self.path = path
     self.commit_vs = commit_vs
-    if deleted_vs is None:
-      deleted_vs = fdb.tuple.Versionstamp()
-
     self.deleted_vs = deleted_vs
 
   @property
@@ -180,13 +160,13 @@ class IndexEntry(object):
     key = entity_pb.Reference()
     key.set_app(self.project_id)
     key.set_name_space(self.namespace)
-    key.mutable_path().MergeFrom(decode_path(self.path))
+    key.mutable_path().MergeFrom(Path.decode(self.path))
     return key
 
   @property
   def group(self):
     group = entity_pb.Path()
-    group.add_element().MergeFrom(decode_element(self.path[:2]))
+    group.add_element().MergeFrom(Path.decode_element(self.path[:2]))
     return group
 
   def __repr__(self):
@@ -209,7 +189,7 @@ class IndexEntry(object):
 
 
 class PropertyEntry(IndexEntry):
-  __SLOTS__ = [u'prop_name', u'value']
+  __SLOTS__ = ['prop_name', 'value']
 
   def __init__(self, project_id, namespace, path, prop_name, value, commit_vs,
                deleted_vs):
@@ -248,7 +228,7 @@ class PropertyEntry(IndexEntry):
 
 
 class CompositeEntry(IndexEntry):
-  __SLOTS__ = [u'properties']
+  __SLOTS__ = ['properties']
 
   def __init__(self, project_id, namespace, path, properties, commit_vs,
                deleted_vs):
@@ -468,95 +448,247 @@ class MergeJoinIterator(object):
       return True
 
 
+class IndexSlice(object):
+  __SLOTS__ = ['_directory_prefix', '_order_info', '_omit_kind', '_ancestor',
+               '_start_parts', '_stop_parts']
+
+  def __init__(self, directory_prefix, order_info, omit_kind=False,
+               ancestor=False):
+    self._directory_prefix = directory_prefix
+    self._order_info = order_info
+    self._omit_kind = omit_kind
+    self._ancestor = ancestor
+
+    self._start_parts = [self._directory_prefix]
+    self._stop_parts = [self._directory_prefix]
+
+  @property
+  def start(self):
+    return first_gt_or_equal(b''.join(self._start_parts))
+
+  @property
+  def stop(self):
+    return first_gt_or_equal(b''.join(self._stop_parts) + b'\xFF')
+
+  def set_ancestor(self, ancestor_path):
+    if not ancestor_path:
+      return
+
+    index = 1 if self._ancestor else -2
+    if self._ancestor:
+      self._set_start(index, Path.pack(ancestor_path))
+      self._set_stop(index, Path.pack(ancestor_path))
+    else:
+      # In order to exclude the ancestor itself, the range is selected using
+      # the next possible path value. The kind must always be specified for the
+      # ancestor portion of the path.
+      prefix = Path.pack(ancestor_path, omit_kind=False, omit_terminator=True)
+      self._set_start(index, prefix + six.int2byte(Path.MIN_ID_MARKER))
+      self._set_stop(index, prefix + b'\xFF')
+
+  def apply_prop_filter(self, prop_name, op, value):
+    index, direction = self._prop_details(prop_name)
+    prop_reverse = direction == Query_Order.DESCENDING
+    encoded_value = encode_value(value, prop_reverse)
+    if op == Query_Filter.EQUAL:
+      self._set_start(index, encoded_value)
+      self._set_stop(index, encoded_value)
+      return
+
+    if (op == Query_Filter.GREATER_THAN_OR_EQUAL and not prop_reverse or
+        op == Query_Filter.LESS_THAN_OR_EQUAL and prop_reverse):
+      self._set_start(index, encoded_value)
+    elif (op == Query_Filter.GREATER_THAN and not prop_reverse or
+          op == Query_Filter.LESS_THAN and prop_reverse):
+      self._set_start(index, encoded_value + b'\xFF')
+    elif (op == Query_Filter.LESS_THAN_OR_EQUAL and not prop_reverse or
+          op == Query_Filter.GREATER_THAN_OR_EQUAL and prop_reverse):
+      self._set_stop(index, encoded_value + b'\xFF')
+    elif (op == Query_Filter.LESS_THAN and not prop_reverse or
+          op == Query_Filter.GREATER_THAN and prop_reverse):
+      self._set_stop(index, encoded_value)
+    else:
+      raise BadRequest(u'Unexpected filter operation')
+
+  def apply_path_filter(self, op, path, ancestor_path=()):
+    if not isinstance(path, tuple):
+      path = Path.flatten(path)
+
+    remaining_path = path[len(ancestor_path):] if self._ancestor else path
+    if not remaining_path:
+      raise InternalError(u'Path filter must be within ancestor')
+
+    # Since the commit versionstamp could potentially start with 0xFF, this
+    # selection scans up to the next possible path value.
+    start = Path.pack(remaining_path, omit_kind=self._omit_kind)
+    stop = (Path.pack(remaining_path, omit_kind=self._omit_kind,
+                      omit_terminator=True) + Path.MIN_ID_MARKER)
+    index = -2
+    if op == Query_Filter.EQUAL:
+      self._set_start(index, start)
+      self._set_stop(index, stop)
+      return
+
+    if op == Query_Filter.GREATER_THAN_OR_EQUAL:
+      self._set_start(index, start)
+    elif op == Query_Filter.GREATER_THAN:
+      self._set_start(index, stop)
+    elif op == Query_Filter.LESS_THAN_OR_EQUAL:
+      self._set_stop(index, stop)
+    elif op == Query_Filter.LESS_THAN:
+      self._set_stop(index, start)
+    else:
+      raise BadRequest(u'Unexpected filter operation')
+
+  def apply_cursor(self, op, cursor, ancestor_path):
+    if op in (Query_Filter.GREATER_THAN_OR_EQUAL, Query_Filter.GREATER_THAN):
+      existing_parts = self._start_parts
+    else:
+      existing_parts = self._stop_parts
+
+    for prop_name, direction in enumerate(self._order_info):
+      cursor_prop = next((prop for prop in cursor.property_list()
+                          if prop.name() == prop_name), None)
+      if cursor_prop is not None:
+        index = self._prop_details(prop_name)[0]
+        encoded_value = encode_value(cursor_prop.value(),
+                                     direction == Query_Order.DESCENDING)
+        self._update_parts(existing_parts, index, encoded_value)
+
+    self.apply_path_filter(op, cursor.key().path(), ancestor_path)
+
+  def _prop_details(self, prop_name):
+    prop_index = next(
+      (index for index, (name, direction) in enumerate(self._order_info)
+       if name == prop_name), None)
+    if prop_index is None:
+      raise InternalError(u'{} is not in index'.format(prop_name))
+
+    index = prop_index + 1  # Account for directory prefix.
+    if self._ancestor:
+      index += 1
+
+    return index, self._order_info[prop_index][1]
+
+  def _update_parts(self, parts, index, new_value):
+    # Ensure fields are set in order.
+    if len(parts) < index:
+      raise BadRequest(u'Invalid filter combination')
+
+    if len(parts) == index:
+      parts.append(new_value)
+      return
+
+    if new_value == parts[index]:
+      return
+
+    # If this field has already been set, ensure the new range is smaller.
+    candidate = parts[:index] + [new_value]
+    if parts is self._start_parts:
+      if b''.join(candidate) < b''.join(parts):
+        raise BadRequest(u'Invalid filter combination')
+
+      self._start_parts = candidate
+    elif parts is self._stop_parts:
+      if b''.join(candidate) > b''.join(parts):
+        raise BadRequest(u'Invalid filter combination')
+
+      self._stop_parts = candidate
+
+  def _set_start(self, index, new_value):
+    return self._update_parts(self._start_parts, index, new_value)
+
+  def _set_stop(self, index, new_value):
+    return self._update_parts(self._stop_parts, index, new_value)
+
+
 class Index(object):
   """ The base class for different datastore index types. """
-  __SLOTS__ = [u'directory']
+  __SLOTS__ = ['directory']
 
   def __init__(self, directory):
     self.directory = directory
 
   @property
   def project_id(self):
-    return self.directory.get_path()[2]
+    return self.directory.get_path()[len(DS_ROOT)]
 
   @property
   def namespace(self):
-    return self.directory.get_path()[4]
+    return self.directory.get_path()[len(DS_ROOT) + 2]
+
+  @property
+  def vs_slice(self):
+    """ The portion of keys that contain the commit versionstamp. """
+    return slice(-VS_SIZE, None)
 
   @property
   def prop_names(self):
-    return tuple()
-
-  def pack_method(self, versionstamp):
-    if versionstamp.is_complete():
-      return self.directory.pack
-    else:
-      return self.directory.pack_with_versionstamp
-
-  def encode_path(self, path):
-    raise NotImplementedError()
+    return NotImplementedError()
 
   def get_slice(self, filter_props, ancestor_path=tuple(), start_cursor=None,
-                end_cursor=None, reverse=False):
-    subspace = self.directory
-    start = None
-    stop = None
-    if ancestor_path:
-      start, stop = encode_ancestor_range(subspace, ancestor_path)
+                end_cursor=None, reverse_scan=False):
+    has_ancestor_field = getattr(self, 'ancestor', False)
+    kind_in_dir = not isinstance(self, KindlessIndex)
+    order_info = getattr(
+      self, 'order_info',
+      ((prop_name, Query_Order.ASCENDING) for prop_name in self.prop_names))
+    index_slice = IndexSlice(
+      self.directory.rawPrefix, order_info, omit_kind=kind_in_dir,
+      ancestor=has_ancestor_field)
 
-    for filter_prop in filter_props:
-      if filter_prop.name != KEY_PROP:
-        raise BadRequest(u'Unexpected filter: {}'.format(filter_prop.name))
+    # First, apply the ancestor filter if it comes first in the index.
+    if has_ancestor_field:
+      index_slice.set_ancestor(ancestor_path)
 
-      if filter_prop.equality:
-        encoded_path = self.encode_path(filter_prop.filters[0][1])
-        subspace = subspace.subspace((encoded_path,))
-        continue
+    # Second, apply property filters in the index's definition order.
+    ordered_filter_props = []
+    for prop_name in self.prop_names:
+      filter_prop = next((filter_prop for filter_prop in filter_props
+                          if filter_prop.name == prop_name), None)
+      if filter_prop is not None:
+        ordered_filter_props.append(filter_prop)
 
+    for filter_prop in ordered_filter_props:
       for op, value in filter_prop.filters:
-        encoded_path = self.encode_path(value)
-        if op in START_FILTERS:
-          start = get_fdb_key_selector(op, subspace.pack((encoded_path,)))
-        elif op in STOP_FILTERS:
-          stop = get_fdb_key_selector(op, subspace.pack((encoded_path,)))
-        else:
-          raise BadRequest(u'Unexpected filter operation: {}'.format(op))
+        index_slice.apply_prop_filter(filter_prop.name, op, value)
 
+    # Third, apply the ancestor filter if it hasn't been applied yet.
+    if not has_ancestor_field:
+      index_slice.set_ancestor(ancestor_path)
+
+    # Fourth, apply key property filters.
+    key_filter_props = [filter_prop for filter_prop in filter_props
+                        if filter_prop.name == KEY_PROP]
+    for filter_prop in key_filter_props:
+      for op, path in filter_prop.filters:
+        index_slice.apply_path_filter(op, path, ancestor_path)
+
+    # Finally, apply cursors.
     if start_cursor is not None:
-      encoded_path = self.encode_path(start_cursor.key().path())
-      if not reverse:
-        start = get_fdb_key_selector(Query_Filter.GREATER_THAN,
-                                     subspace.pack((encoded_path,)))
-      else:
-        stop = get_fdb_key_selector(Query_Filter.LESS_THAN,
-                                    subspace.pack((encoded_path,)))
+      op = (Query_Filter.LESS_THAN if reverse_scan
+            else Query_Filter.GREATER_THAN)
+      index_slice.apply_cursor(op, start_cursor, ancestor_path)
 
     if end_cursor is not None:
-      encoded_path = self.encode_path(start_cursor.key().path())
-      if not reverse:
-        stop = get_fdb_key_selector(Query_Filter.LESS_THAN_OR_EQUAL,
-                                    subspace.pack((encoded_path,)))
-      else:
-        start = get_fdb_key_selector(Query_Filter.GREATER_THAN_OR_EQUAL,
-                                     subspace.pack((encoded_path,)))
+      op = (Query_Filter.GREATER_THAN_OR_EQUAL if reverse_scan
+            else Query_Filter.LESS_THAN_OR_EQUAL)
+      index_slice.apply_cursor(op, end_cursor, ancestor_path)
 
-    selector = fdb.KeySelector.first_greater_or_equal
-    start = start or selector(subspace.range().start)
-    stop = stop or selector(subspace.range().stop)
-    return slice(start, stop)
+    return slice(index_slice.start, index_slice.stop)
 
 
 class KindlessIndex(Index):
   """
   A KindlessIndex handles the encoding and decoding details for kind index
-  entries. These are just paths that point to entity keys.
+  entries. These are paths that point to entity keys.
 
   The FDB directory for a kindless index looks like
   (<project-dir>, 'indexes', <namespace>, 'kindless').
 
-  Within this directory, keys are encoded as (<path-tuple>, <commit-vs>).
+  Within this directory, keys are encoded as <path> + <commit-vs>.
 
-  The <path-tuple> is an encoded tuple containing the entity path.
+  The <path> contains the entity path. See codecs.Path for encoding details.
 
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the index entry.
@@ -566,21 +698,22 @@ class KindlessIndex(Index):
   def __repr__(self):
     return u'KindlessIndex(%r)' % self.directory
 
-  def encode_path(self, path):
-    if not isinstance(path, tuple):
-      path = encode_path(path)
+  @property
+  def prop_names(self):
+    return ()
 
-    return path
+  def encode_key(self, path, commit_vs):
+    key = b''.join([self.directory.rawPrefix, Path.pack(path),
+                    commit_vs or b'\x00' * VS_SIZE])
+    if not commit_vs:
+      key += encode_vs_index(len(key) - VS_SIZE)
 
-  def encode(self, path, commit_vs):
-    return self.pack_method(commit_vs)((path, commit_vs))
+    return key
 
   def decode(self, kv):
-    path, commit_vs = self.directory.unpack(kv.key)
-    deleted_vs = None
-    if kv.value:
-      deleted_vs = fdb.tuple.Versionstamp(kv.value)
-
+    path = Path.unpack(kv.key, len(self.directory.rawPrefix))[0]
+    commit_vs = kv.key[self.vs_slice]
+    deleted_vs = kv.value or None
     return IndexEntry(self.project_id, self.namespace, path, commit_vs,
                       deleted_vs)
 
@@ -593,12 +726,10 @@ class KindIndex(Index):
   The FDB directory for a kind index looks like
   (<project-dir>, 'indexes', <namespace>, 'kind', <kind>).
 
-  Within this directory, keys are encoded as
-  (<kindless-path-tuple>, <commit-vs>).
+  Within this directory, keys are encoded as <kindless-path> + <commit-vs>.
 
-  The <kindless-path-tuple> is an encoded tuple containing the entity path
-  with the kind missing from the last path element. This is omitted since the
-  directory path contains this.
+  The <kindless-path> contains the entity path with the final element's kind
+  omitted.
 
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the index entry.
@@ -612,23 +743,23 @@ class KindIndex(Index):
   def __repr__(self):
     return u'KindIndex(%r)' % self.directory
 
-  def encode_path(self, path):
-    if not isinstance(path, tuple):
-      path = encode_path(path)
+  @property
+  def prop_names(self):
+    return ()
 
-    kindless_path = path[:-2] + path[-1:]
-    return kindless_path
+  def encode_key(self, path, commit_vs):
+    key = b''.join([self.directory.rawPrefix, Path.pack(path, omit_kind=True),
+                    commit_vs or b'\x00' * VS_SIZE])
+    if not commit_vs:
+      key += encode_vs_index(len(key) - VS_SIZE)
 
-  def encode(self, path, commit_vs):
-    return self.pack_method(commit_vs)((self.encode_path(path), commit_vs))
+    return key
 
   def decode(self, kv):
-    kindless_path, commit_vs = self.directory.unpack(kv.key)
-    path = kindless_path[:-1] + (self.kind,) + kindless_path[-1:]
-    deleted_vs = None
-    if kv.value:
-      deleted_vs = fdb.tuple.Versionstamp(kv.value)
-
+    path = Path.unpack(kv.key, len(self.directory.rawPrefix),
+                       kind=self.kind)[0]
+    commit_vs = kv.key[self.vs_slice]
+    deleted_vs = kv.value or None
     return IndexEntry(self.project_id, self.namespace, path, commit_vs,
                       deleted_vs)
 
@@ -644,15 +775,13 @@ class SinglePropIndex(Index):
    <prop-name>).
 
   Within this directory, keys are encoded as
-  (<encoded-value>, <kindless-path-tuple>, <commit-vs>).
+  (<value>, <kindless-path>, <commit-vs>).
 
-  The <encoded-value> is a tuple in the form of
-  (<encoded-type>, <encoded-value). See the codecs module for details about
-  how different datastore value types are encoded.
+  The <value> contains a property value. See the codecs module for encoding
+  details.
 
-  The <kindless-path-tuple> is an encoded tuple containing the entity path
-  with the kind missing from the last path element. This is omitted since the
-  directory path contains this.
+  The <kindless-path> contains the entity path with the final element's kind
+  omitted.
 
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the index entry.
@@ -674,119 +803,22 @@ class SinglePropIndex(Index):
   def __repr__(self):
     return u'SinglePropIndex(%r)' % self.directory
 
-  def encode_path(self, path):
-    if not isinstance(path, tuple):
-      path = encode_path(path)
+  def encode_key(self, value, path, commit_vs):
+    key = b''.join([self.directory.rawPrefix, encode_value(value),
+                    Path.pack(path, omit_kind=True),
+                    commit_vs or b'\x00' * VS_SIZE])
+    if not commit_vs:
+      key += encode_vs_index(len(key) - VS_SIZE)
 
-    kindless_path = path[:-2] + path[-1:]
-    return kindless_path
-
-  def encode(self, value, path, commit_vs):
-    return self.pack_method(commit_vs)(
-      (encode_value(value), self.encode_path(path), commit_vs))
+    return key
 
   def decode(self, kv):
-    encoded_value, kindless_path, commit_vs = self.directory.unpack(kv.key)
-    value = decode_value(encoded_value)
-    path = kindless_path[:-1] + (self.kind,) + kindless_path[-1:]
-    deleted_vs = None
-    if kv.value:
-      deleted_vs = fdb.tuple.Versionstamp(kv.value)
-
+    value, pos = decode_value(kv.key, len(self.directory.rawPrefix))
+    path = Path.unpack(kv.key, pos, self.kind)[0]
+    commit_vs = kv.key[self.vs_slice]
+    deleted_vs = kv.value or None
     return PropertyEntry(self.project_id, self.namespace, path, self.prop_name,
                          value, commit_vs, deleted_vs)
-
-  def get_slice(self, filter_props, ancestor_path=tuple(), start_cursor=None,
-                end_cursor=None, reverse=False):
-    subspace = self.directory
-    start = None
-    stop = None
-    if ancestor_path:
-      # Apply property equality first if it exists.
-      if filter_props and filter_props[0].name == self.prop_name:
-        if not filter_props[0].equality:
-          raise BadRequest(u'Invalid index for ancestor query')
-
-        value = filter_props[0].filters[0][1]
-        subspace = subspace.subspace((encode_value(value),))
-        filter_props = filter_props[1:]
-
-      start, stop = encode_ancestor_range(subspace, ancestor_path)
-
-    for filter_prop in filter_props:
-      if filter_prop.name == self.prop_name:
-        encoder = encode_value
-      elif filter_prop.name == KEY_PROP:
-        encoder = self.encode_path
-      else:
-        raise BadRequest(u'Unexpected filter: {}'.format(filter_prop.name))
-
-      if filter_prop.equality:
-        encoded_value = encoder(filter_prop.filters[0][1])
-        subspace = subspace.subspace((encoded_value,))
-        continue
-
-      for op, value in filter_prop.filters:
-        encoded_value = encoder(value)
-        if op in START_FILTERS:
-          start = get_fdb_key_selector(op, subspace.pack((encoded_value,)))
-        elif op in STOP_FILTERS:
-          stop = get_fdb_key_selector(op, subspace.pack((encoded_value,)))
-        else:
-          raise BadRequest(u'Unexpected filter operation: {}'.format(op))
-
-    if start_cursor is not None:
-      if not reverse and start is not None:
-        unpacked_key = self.directory.unpack(start.key)
-      elif reverse and stop is not None:
-        unpacked_key = self.directory.unpack(stop.key)
-      else:
-        unpacked_key = self.directory.unpack(subspace.rawPrefix)
-
-      cursor_prop = next((prop for prop in start_cursor.property_list()
-                         if prop.name() == self.prop_name), None)
-      if cursor_prop is None:
-        encoded_value = unpacked_key[0]
-      else:
-        encoded_value = encode_value(cursor_prop.value())
-
-      encoded_path = self.encode_path(start_cursor.key().path())
-      encoded_cursor = (encoded_value, encoded_path)
-      if not reverse:
-        start = get_fdb_key_selector(Query_Filter.GREATER_THAN,
-                                     self.directory.pack(encoded_cursor))
-      else:
-        stop = get_fdb_key_selector(Query_Filter.LESS_THAN,
-                                    self.directory.pack(encoded_cursor))
-
-    if end_cursor is not None:
-      if not reverse and stop is not None:
-        unpacked_key = self.directory.unpack(stop.key)
-      elif reverse and start is not None:
-        unpacked_key = self.directory.unpack(start.key)
-      else:
-        unpacked_key = self.directory.unpack(subspace.rawPrefix)
-
-      cursor_prop = next((prop for prop in end_cursor.property_list()
-                         if prop.name() == self.prop_name), None)
-      if cursor_prop is None:
-        encoded_value = unpacked_key[0]
-      else:
-        encoded_value = encode_value(cursor_prop.value())
-
-      encoded_path = self.encode_path(end_cursor.key().path())
-      encoded_cursor = (encoded_value, encoded_path)
-      if not reverse:
-        stop = get_fdb_key_selector(Query_Filter.LESS_THAN_OR_EQUAL,
-                                    self.directory.pack(encoded_cursor))
-      else:
-        start = get_fdb_key_selector(Query_Filter.GREATER_THAN_OR_EQUAL,
-                                     self.directory.pack(encoded_cursor))
-
-    selector = fdb.KeySelector.first_greater_or_equal
-    start = start or selector(subspace.range().start)
-    stop = stop or selector(subspace.range().stop)
-    return slice(start, stop)
 
 
 class CompositeIndex(Index):
@@ -798,7 +830,7 @@ class CompositeIndex(Index):
   (<project-dir>, 'indexes', <namespace>, 'composite', <index-id>).
 
   Within this directory, keys are encoded as
-  (<ancestor-fragment (optional)>, <encoded-values>, <remaining-path-tuple>,
+  (<ancestor-fragment (optional)>, <encoded-value(s)>, <remaining-path>,
    <commit-vs>).
 
   If the index definition requires an ancestor, the <ancestor-fragment>
@@ -809,21 +841,18 @@ class CompositeIndex(Index):
   (('Kind1', 'key1'), <encoded-values>, ('Kind2', 'key2', 'key3'), <commit-vs>)
   (('Kind1', 'key1, 'Kind2', 'key2'), <encoded-values>, ('key3',), <commit-vs>)
 
-  The <encoded-values> portion is a nested tuple in the form of
-  (<encoded-value1>, <encoded-value2>, ...). The number of values depends on
-  the index definition. Each <encoded-value> is a tuple in the form of
-  (<encoded-type>, <encoded-value). See the codecs module for details about how
-  different datastore value types are encoded.
+  The <encoded-value(s)> portion contains the property values as defined by the
+  index. See the codecs module for encoding details.
 
-  The <remaining-path-tuple> is an encoded tuple containing the portion of the
-  entity path that isn't specified by the <ancestor-fragment>. If the index
-  definition does not require an ancestor, this is equivalent to the
-  <kindless-path> portion of a kind or single-prop index.
+  The <remaining-path> is an encoded tuple containing the portion of the entity
+  path that isn't specified by the <ancestor-fragment>. If the index definition
+  does not require an ancestor, this is equivalent to the <kindless-path>
+  portion of a kind or single-prop index.
 
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the index entry.
   """
-  __SLOTS__ = [u'kind', u'ancestor', u'order_info']
+  __SLOTS__ = ['kind', 'ancestor', 'order_info']
 
   DIR_NAME = u'composite'
 
@@ -845,14 +874,18 @@ class CompositeIndex(Index):
     return u'CompositeIndex(%r, %r, %r, %r)' % (
       self.directory, self.kind, self.ancestor, self.order_info)
 
-  def encode_path(self, path):
-    if not isinstance(path, tuple):
-      path = encode_path(path)
+  def encode_key(self, ancestor, encoded_values, remaining_path, commit_vs):
+    key = b''.join((self.directory.rawPrefix,) +
+                   tuple(ancestor) +
+                   tuple(encoded_values) +
+                   (Path.pack(remaining_path, omit_kind=True),) +
+                   (commit_vs or b'\x00' * VS_SIZE,))
+    if not commit_vs:
+      key += encode_vs_index(len(key) - VS_SIZE)
 
-    kindless_path = path[:-2] + path[-1:]
-    return kindless_path
+    return key
 
-  def encode(self, prop_list, path, commit_vs):
+  def encode_keys(self, prop_list, path, commit_vs):
     encoded_values_by_prop = []
     for index_prop_name, direction in self.order_info:
       reverse = direction == Query_Order.DESCENDING
@@ -860,179 +893,39 @@ class CompositeIndex(Index):
         tuple(encode_value(prop.value(), reverse) for prop in prop_list
               if prop.name() == index_prop_name))
 
-    pack = self.pack_method(commit_vs)
     encoded_value_combos = itertools.product(*encoded_values_by_prop)
     if not self.ancestor:
-      return tuple(pack(values + (self.encode_path(path),) + (commit_vs,))
+      return tuple(self.encode_key((), values, path, commit_vs)
                    for values in encoded_value_combos)
 
     keys = []
     for index in range(2, len(path), 2):
       ancestor_path = path[:index]
-      remaining_path = self.encode_path(path[index:])
+      remaining_path = path[index:]
       keys.extend(
-        [pack((ancestor_path,) + values + (remaining_path,) + (commit_vs,))
-         for values in encoded_value_combos])
+        [self.encode_key(ancestor_path, values, remaining_path, commit_vs)
+        for values in encoded_value_combos])
 
     return tuple(keys)
 
   def decode(self, kv):
-    unpacked_key = self.directory.unpack(kv.key)
-    if self.ancestor:
-      kindless_path = unpacked_key[0] + unpacked_key[-2]
-      values = unpacked_key[1:-2]
-    else:
-      kindless_path = unpacked_key[-2]
-      values = unpacked_key[:-2]
-
+    pos = len(self.directory.rawPrefix)
     properties = []
-    for index, prop_name in enumerate(self.prop_names):
-      properties.append((prop_name, decode_value(values[index])))
+    if self.ancestor:
+      ancestor_path, pos = Path.unpack(kv.key, pos)
+    else:
+      ancestor_path = ()
 
-    path = kindless_path[:-1] + (self.kind,) + kindless_path[-1:]
-    commit_vs = unpacked_key[-1]
-    deleted_vs = None
-    if kv.value:
-      deleted_vs = fdb.tuple.Versionstamp(kv.value)
+    for prop_name, direction in self.order_info:
+      value, pos = decode_value(kv.key, pos,
+                                direction == Query_Order.DESCENDING)
+      properties.append((prop_name, value))
 
+    path = ancestor_path + Path.unpack(kv.key, pos, self.kind)
+    commit_vs = kv.key[self.vs_slice]
+    deleted_vs = kv.value or None
     return CompositeEntry(self.project_id, self.namespace, path, properties,
                           commit_vs, deleted_vs)
-
-  def get_slice(self, filter_props, ancestor_path=tuple(), start_cursor=None,
-                end_cursor=None, reverse=False):
-    subspace = self.directory
-    if ancestor_path:
-      subspace = subspace.subspace((ancestor_path,))
-
-    start = None
-    stop = None
-
-    ordered_filter_props = []
-    for prop_name in self.prop_names + (KEY_PROP,):
-      try:
-        filter_prop = next(filter_prop for filter_prop in filter_props
-                           if filter_prop.name == prop_name)
-        ordered_filter_props.append(filter_prop)
-      except StopIteration:
-        continue
-
-    for filter_prop in ordered_filter_props:
-      index_direction = next(
-        (direction for name, direction in self.order_info
-         if name == filter_prop.name), Query_Order.ASCENDING)
-      reverse = index_direction == Query_Order.DESCENDING
-      if filter_prop.name in self.prop_names:
-        encoder = lambda val: encode_value(val, reverse)
-      elif filter_prop.name == KEY_PROP:
-        encoder = self.encode_path
-      else:
-        raise BadRequest(u'Unexpected filter: {}'.format(filter_prop.name))
-
-      if filter_prop.equality:
-        encoded_value = encoder(filter_prop.filters[0][1])
-        subspace = subspace.subspace((encoded_value,))
-        continue
-
-      for op, value in filter_prop.filters:
-        if filter_prop.name == KEY_PROP:
-          encoded_value = self.encode_path(value)
-        else:
-          encoded_value = encoder(value)
-
-        selector = get_fdb_key_selector(op, subspace.pack((encoded_value,)))
-        if ((op in START_FILTERS and not reverse) or
-            (op in STOP_FILTERS and reverse)):
-          start = selector
-        elif ((op in STOP_FILTERS and not reverse) or
-              (op in START_FILTERS and reverse)):
-          stop = selector
-        else:
-          raise BadRequest(u'Unexpected filter operation: {}'.format(op))
-
-    if start_cursor is not None:
-      if not reverse and start is not None:
-        unpacked_key = self.directory.unpack(start.key)
-      elif reverse and stop is not None:
-        unpacked_key = self.directory.unpack(stop.key)
-      else:
-        unpacked_key = self.directory.unpack(subspace.rawPrefix)
-
-      if self.ancestor:
-        unpacked_values = unpacked_key[1:]
-      else:
-        unpacked_values = unpacked_key[:]
-
-      full_path = encode_path(start_cursor.key().path())
-      remaining_path = self.encode_path(full_path[len(ancestor_path):])
-      encoded_values = []
-      for i, (prop_name, index_direction) in enumerate(self.order_info):
-        cursor_prop = next((prop for prop in start_cursor.property_list()
-                            if prop.name() == prop_name), None)
-        if cursor_prop is None:
-          encoded_value = unpacked_values[i]
-        else:
-          reverse_encode = index_direction == Query_Order.DESCENDING
-          encoded_value = encode_value(cursor_prop.value(), reverse_encode)
-
-        encoded_values.append(encoded_value)
-
-      if self.ancestor:
-        encoded_cursor = ((ancestor_path,) + tuple(encoded_values) +
-                          (remaining_path,))
-      else:
-        encoded_cursor = (tuple(encoded_values) + (remaining_path,))
-
-      if not reverse:
-        start = get_fdb_key_selector(Query_Filter.GREATER_THAN,
-                                     self.directory.pack(encoded_cursor))
-      else:
-        stop = get_fdb_key_selector(Query_Filter.LESS_THAN,
-                                    self.directory.pack(encoded_cursor))
-
-    if end_cursor is not None:
-      if not reverse and stop is not None:
-        unpacked_key = self.directory.unpack(stop.key)
-      elif reverse and start is not None:
-        unpacked_key = self.directory.unpack(start.key)
-      else:
-        unpacked_key = self.directory.unpack(subspace.rawPrefix)
-
-      if self.ancestor:
-        unpacked_values = unpacked_key[1:]
-      else:
-        unpacked_values = unpacked_key[:]
-
-      full_path = encode_path(end_cursor.key().path())
-      remaining_path = self.encode_path(full_path[len(ancestor_path):])
-      encoded_values = []
-      for i, (prop_name, index_direction) in enumerate(self.order_info):
-        cursor_prop = next((prop for prop in end_cursor.property_list()
-                            if prop.name() == prop_name), None)
-        if cursor_prop is None:
-          encoded_value = unpacked_values[i]
-        else:
-          reverse_encode = index_direction == Query_Order.DESCENDING
-          encoded_value = encode_value(cursor_prop.value(), reverse_encode)
-
-        encoded_values.append(encoded_value)
-
-      if self.ancestor:
-        encoded_cursor = ((ancestor_path,) + tuple(encoded_values) +
-                          (remaining_path,))
-      else:
-        encoded_cursor = (tuple(encoded_values) + (remaining_path,))
-
-      if not reverse:
-        stop = get_fdb_key_selector(Query_Filter.LESS_THAN_OR_EQUAL,
-                                    self.directory.pack(encoded_cursor))
-      else:
-        start = get_fdb_key_selector(Query_Filter.GREATER_THAN_OR_EQUAL,
-                                     self.directory.pack(encoded_cursor))
-
-    selector = fdb.KeySelector.first_greater_or_equal
-    start = start or selector(subspace.range().start)
-    stop = stop or selector(subspace.range().stop)
-    return slice(start, stop)
 
 
 class IndexManager(object):
@@ -1117,7 +1010,7 @@ class IndexManager(object):
     filter_props = group_filters(query)
     ancestor_path = tuple()
     if query.has_ancestor():
-      ancestor_path = encode_path(query.ancestor().path())
+      ancestor_path = Path.flatten(query.ancestor().path())
 
     start_cursor = None
     if query.has_compiled_cursor():
@@ -1205,7 +1098,7 @@ class IndexManager(object):
 
     project_id = decode_str(entity.key().app())
     namespace = decode_str(entity.key().name_space())
-    path = encode_path(entity.key().path())
+    path = Path.flatten(entity.key().path())
     kind = path[-2]
 
     kindless_index = yield self._kindless_index_cache.get(
@@ -1215,28 +1108,29 @@ class IndexManager(object):
     composite_indexes = yield self._get_indexes(
       tr, project_id, namespace, kind)
 
-    all_keys = [kindless_index.encode(path, commit_vs),
-                kind_index.encode(path, commit_vs)]
+    all_keys = [kindless_index.encode_key(path, commit_vs),
+                kind_index.encode_key(path, commit_vs)]
     entity_prop_names = []
     for prop in entity.property_list():
       prop_name = decode_str(prop.name())
       entity_prop_names.append(prop_name)
       index = yield self._single_prop_index_cache.get(
         tr, project_id, namespace, kind, prop_name)
-      all_keys.append(index.encode(prop.value(), path, commit_vs))
+      all_keys.append(index.encode_key(prop.value(), path, commit_vs))
 
     scatter_val = get_scatter_val(path)
     if scatter_val is not None:
       index = yield self._single_prop_index_cache.get(
         tr, project_id, namespace, kind, SCATTER_PROP)
-      all_keys.append(index.encode(scatter_val, path, commit_vs))
+      all_keys.append(index.encode_key(scatter_val, path, commit_vs))
 
     for index in composite_indexes:
       if not all(index_prop_name in entity_prop_names
                  for index_prop_name in index.prop_names):
         continue
 
-      all_keys.extend(index.encode(entity.property_list(), path, commit_vs))
+      all_keys.extend(
+        index.encode_keys(entity.property_list(), path, commit_vs))
 
     raise gen.Return(all_keys)
 

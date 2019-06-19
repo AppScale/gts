@@ -7,21 +7,17 @@ documentation for implementation details.
 from __future__ import division
 import logging
 import math
-import struct
 import sys
 
+import six
 import six.moves as sm
 from tornado import gen
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.dbconstants import BadRequest, InternalError
 from appscale.datastore.fdb.cache import NSCache
-from appscale.datastore.fdb.codecs import (
-  decode_path, decode_sortable_int, encode_path, encode_sortable_int,
-  encode_vs_index)
+from appscale.datastore.fdb.codecs import encode_vs_index, Int64, Path, Text
 from appscale.datastore.fdb.utils import (
-  ABSENT_VERSION, DS_ROOT, EncodedTypes, fdb, hash_tuple, KVIterator,
-  MAX_ENTITY_SIZE, VS_SIZE)
+  ABSENT_VERSION, DS_ROOT, fdb, hash_tuple, KVIterator, VS_SIZE)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
@@ -31,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 class VersionEntry(object):
   """ Encapsulates details for an entity version. """
-  __SLOTS__ = [u'project_id', u'namespace', u'path', u'commit_vs',
-               u'version', u'_encoded_entity', u'_decoded_entity']
+  __SLOTS__ = ['project_id', 'namespace', 'path', 'commit_vs', 'version',
+               '_encoded_entity', '_decoded_entity']
 
   def __init__(self, project_id, namespace, path, commit_vs=None,
                encoded_entity=None, version=None):
@@ -57,7 +53,7 @@ class VersionEntry(object):
     key = entity_pb.Reference()
     key.set_app(self.project_id)
     key.set_name_space(self.namespace)
-    key.mutable_path().MergeFrom(decode_path(self.path))
+    key.mutable_path().MergeFrom(Path.decode(self.path))
     return key
 
   @property
@@ -89,13 +85,13 @@ class DataNamespace(object):
   The directory path looks like (<project-dir>, 'data', <namespace>).
 
   Within this directory, keys are encoded as
-  <scatter-byte> + <path-tuple> + <commit-vs> + <index>.
+  <scatter-byte> + <path> + <commit-vs> + <index>.
 
   The <scatter-byte> is a single byte determined by hashing the entity path.
   Its purpose is to spread writes more evenly across the cluster and minimize
   hotspots.
 
-  The <path-tuple> is an encoded tuple containing the entity path.
+  The <path> contains the entity path. See codecs.Path for encoding details.
 
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the entity data.
@@ -130,6 +126,9 @@ class DataNamespace(object):
 
   # The number of bytes used to encode the chunk index.
   _INDEX_SIZE = 1
+
+  # Indicates the encoded blob is a V3 entity object.
+  _V3_MARKER = 0x01
 
   def __init__(self, directory):
     self.directory = directory
@@ -186,13 +185,10 @@ class DataNamespace(object):
     if isinstance(entity, entity_pb.EntityProto):
       entity = entity.Encode()
 
-    if len(entity) > MAX_ENTITY_SIZE:
-      raise BadRequest(u'Entity exceeds maximum size')
-
-    encoded_version = encode_sortable_int(version, self._VERSION_SIZE)
-    full_value = b''.join([encoded_version, EncodedTypes.ENTITY_V3, entity])
-    chunk_count = int(math.ceil(len(full_value) / self._CHUNK_SIZE))
-    return tuple(self._encode_kv(full_value, index, path, commit_vs=None)
+    value = b''.join([Int64.encode_bare(version, self._VERSION_SIZE),
+                      six.int2byte(self._V3_MARKER), entity])
+    chunk_count = int(math.ceil(len(value) / self._CHUNK_SIZE))
+    return tuple(self._encode_kv(value, index, path, commit_vs=None)
                  for index in sm.range(chunk_count))
 
   def encode_key(self, path, commit_vs, index):
@@ -207,10 +203,9 @@ class DataNamespace(object):
       A string containing an FDB key. If commit_vs was None, the key should be
       used with set_versionstamped_key.
     """
-    encoded_index = bytes(bytearray((index,)))
     encoded_key = b''.join([self._encode_path_prefix(path),
                             commit_vs or b'\x00' * VS_SIZE,
-                            encoded_index])
+                            six.int2byte(index)])
     if not commit_vs:
       vs_index = len(encoded_key) - (VS_SIZE + self._INDEX_SIZE)
       encoded_key += encode_vs_index(vs_index)
@@ -225,7 +220,7 @@ class DataNamespace(object):
     Returns:
       A VersionEntry object.
     """
-    path = fdb.tuple.unpack(kvs[0].key[self.path_slice])
+    path = Path.unpack(kvs[0].key, self.path_slice.start)[0]
     commit_vs = kvs[0].key[self.vs_slice]
     first_index = ord(kvs[0].key[self.index_slice])
 
@@ -233,11 +228,8 @@ class DataNamespace(object):
     version = None
     if first_index == 0:
       encoded_val = b''.join([kv.value for kv in kvs])
-      version = decode_sortable_int(encoded_val[self.version_slice])
-      encoding = encoded_val[self.encoding_slice]
+      version = Int64.decode_bare(encoded_val[self.version_slice])
       encoded_entity = encoded_val[self.entity_slice]
-      if encoding != EncodedTypes.ENTITY_V3:
-        raise InternalError(u'Unknown entity type')
 
     return VersionEntry(self.project_id, self.namespace, path, commit_vs,
                         encoded_entity, version)
@@ -258,18 +250,18 @@ class DataNamespace(object):
       prefix = path_prefix + commit_vs
       # All chunks for a given version.
       return slice(fdb.KeySelector.first_greater_or_equal(prefix + b'\x00'),
-                   fdb.KeySelector.first_greater_than(prefix + b'\xff'))
+                   fdb.KeySelector.first_greater_than(prefix + b'\xFF'))
 
     if read_vs is not None:
       version_prefix = path_prefix + read_vs
       # All versions for a given path except those written after the read_vs.
       return slice(
         fdb.KeySelector.first_greater_or_equal(path_prefix + b'\x00'),
-        fdb.KeySelector.first_greater_than(version_prefix + b'\xff'))
+        fdb.KeySelector.first_greater_than(version_prefix + b'\xFF'))
 
     # All versions for a given path.
     return slice(fdb.KeySelector.first_greater_or_equal(path_prefix + b'\x00'),
-                 fdb.KeySelector.first_greater_than(path_prefix + b'\xff'))
+                 fdb.KeySelector.first_greater_than(path_prefix + b'\xFF'))
 
   def _encode_path_prefix(self, path):
     """ Encodes the portion of the key up to and including the path.
@@ -279,17 +271,14 @@ class DataNamespace(object):
     Returns:
       A string containing the path prefix.
     """
-    if not isinstance(path, tuple):
-      path = encode_path(path)
-
     return b''.join([self.directory.rawPrefix, hash_tuple(path),
-                     fdb.tuple.pack(path)])
+                     Path.pack(path)])
 
-  def _encode_kv(self, full_value, index, path, commit_vs):
+  def _encode_kv(self, value, index, path, commit_vs):
     """ Encodes an individual KV entry for a single chunk.
 
     Args:
-      full_value: A string containing the full encoded version entry value.
+      value: A byte string containing the full encoded version entry value.
       index: An integer specifying the chunk index.
       path: A tuple or protobuf path object.
       commit_vs: A 10-byte string specifying the version's commit versionstamp
@@ -300,7 +289,7 @@ class DataNamespace(object):
     """
     data_range = slice(index * self._CHUNK_SIZE,
                        (index + 1) * self._CHUNK_SIZE)
-    encoded_val = full_value[data_range]
+    encoded_val = value[data_range]
     return self.encode_key(path, commit_vs, index), encoded_val
 
 
@@ -312,13 +301,13 @@ class GroupUpdatesNS(object):
 
   The directory path looks like (<project-dir>, 'group-updates', <namespace>).
 
-  Within this directory, keys are encoded as <scatter-byte> + <path-tuple>.
+  Within this directory, keys are encoded as <scatter-byte> + <group-path>.
 
   The <scatter-byte> is a single byte determined by hashing the group path.
   Its purpose is to spread writes more evenly across the cluster and minimize
   hotspots.
 
-  The <path-tuple> is an encoded tuple containing the group path.
+  The <group-path> contains the entity group path.
 
   Values are 10-byte strings that specify the latest commit version for the
   entity group.
@@ -337,11 +326,10 @@ class GroupUpdatesNS(object):
       A (key, value) tuple suitable for set_versionstamped_value.
     """
     if not isinstance(path, tuple):
-      path = encode_path(path)
+      path = Path.flatten(path)
 
     group_path = path[:2]
-    val = b'\x00' * VS_SIZE + struct.pack('<L', 0)
-    return self.encode_key(group_path), val
+    return self.encode_key(group_path), b'\x00' * VS_SIZE + encode_vs_index(0)
 
   def encode_key(self, group_path):
     """ Encodes a key for a given entity group.
@@ -351,8 +339,9 @@ class GroupUpdatesNS(object):
     Returns:
       A byte string containing the relevant FDB key.
     """
-    return b''.join([self.directory.rawPrefix, hash_tuple(group_path),
-                     fdb.tuple.pack(group_path)])
+    return b''.join([
+      self.directory.rawPrefix, hash_tuple(group_path),
+      Text.encode(group_path[0]) + Path.encode_id_or_name(group_path[1])])
 
 
 class DataManager(object):
@@ -390,7 +379,7 @@ class DataManager(object):
       tr, data_ns, desired_slice, include_data)
     if last_entry is None:
       last_entry = VersionEntry(data_ns.project_id, data_ns.namespace,
-                                encode_path(key.path()))
+                                Path.flatten(key.path()))
 
     raise gen.Return(last_entry)
 

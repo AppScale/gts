@@ -16,8 +16,7 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.dbconstants import BadRequest, InternalError
 from appscale.datastore.fdb.cache import SectionCache
 from appscale.datastore.fdb.codecs import (
-  decode_path, decode_sortable_int, decode_str, encode_path, encode_read_vs,
-  encode_sortable_int, encode_vs_index)
+  decode_str, encode_read_vs, encode_vs_index, Int64, Path, Text)
 from appscale.datastore.fdb.utils import (
   DS_ROOT, fdb, KVIterator, MAX_ENTITY_SIZE, VS_SIZE)
 
@@ -84,13 +83,10 @@ class TransactionMetadata(object):
     section_prefix = self._txid_prefix(txid) + self.LOOKUPS
     return self._encode_chunks(section_prefix, self._encode_keys(keys))
 
-  def encode_query_key(self, txid, namespace, ancestor):
-    if not isinstance(ancestor, tuple):
-      ancestor = encode_path(ancestor)
-
+  def encode_query_key(self, txid, namespace, ancestor_path):
     section_prefix = self._txid_prefix(txid) + self.QUERIES
-    ns_path = fdb.tuple.pack((namespace,) + ancestor[:2])
-    return section_prefix + ns_path
+    encoded_ancestor = Text.encode(namespace) + Path.pack(ancestor_path[:2])
+    return section_prefix + encoded_ancestor
 
   def encode_puts(self, txid, entities):
     section_prefix = self._txid_prefix(txid) + self.PUTS
@@ -112,13 +108,14 @@ class TransactionMetadata(object):
     current_vs = None
     for kv in kvs:
       rpc_type = kv.key[rpc_type_index]
+      pos = rpc_type_index + 1
       if rpc_type == self.QUERIES:
-        ns_path = fdb.tuple.unpack(kv.key[rpc_type_index + 1:])
-        queried_groups.add((ns_path[0], ns_path[1:]))
+        namespace, pos = Text.decode(kv.key, pos)
+        group_path = Path.unpack(kv.key, pos)[0]
+        queried_groups.add((namespace, group_path))
         continue
 
-      vs_index = rpc_type_index + 1
-      rpc_vs = kv.key[vs_index:vs_index + VS_SIZE]
+      rpc_vs = kv.key[pos:pos + VS_SIZE]
       if rpc_type == self.LOOKUPS:
         lookup_rpcs[rpc_vs].append(kv.value)
       elif rpc_type in (self.PUTS, self.DELETES):
@@ -148,16 +145,12 @@ class TransactionMetadata(object):
   def get_txid_slice(self, txid):
     prefix = self._txid_prefix(txid)
     return slice(fdb.KeySelector.first_greater_or_equal(prefix),
-                 fdb.KeySelector.first_greater_than(prefix + b'\xff'))
+                 fdb.KeySelector.first_greater_than(prefix + b'\xFF'))
 
   def get_expired_slice(self, scatter_byte, safe_vs):
     prefix = self.directory.rawPrefix + scatter_byte
     return slice(fdb.KeySelector.first_greater_or_equal(prefix),
                  fdb.KeySelector.first_greater_than(prefix + safe_vs))
-
-  def _encode_ns_key(self, key):
-    namespace = decode_str(key.name_space())
-    return fdb.tuple.pack((namespace,) + encode_path(key.path()))
 
   def _txid_prefix(self, txid):
     scatter_byte = bytes(bytearray([txid % 256]))
@@ -165,26 +158,20 @@ class TransactionMetadata(object):
 
   def _encode_keys(self, keys):
     return b''.join(
-      [b''.join([self._encode_key_len(key), self._encode_ns_key(key)])
+      [Text.encode(decode_str(key.name_space())) + Path.pack(key.path())
        for key in keys])
 
   def _unpack_keys(self, blob):
     keys = []
-    position = 0
-    while position < len(blob):
-      element_count = ord(blob[position])
-      position += 1
-      namespace, position = fdb.tuple._decode(blob, position)
-
-      elements = []
-      for _ in sm.range(element_count):
-        element, position = fdb.tuple._decode(blob, position)
-        elements.append(element)
+    pos = 0
+    while pos < len(blob):
+      namespace, pos = Text.decode(blob, pos)
+      path, pos = Path.unpack(blob, pos)
 
       key = entity_pb.Reference()
       key.set_app(self.project_id)
       key.set_name_space(namespace)
-      key.mutable_path().MergeFrom(decode_path(elements))
+      key.mutable_path().MergeFrom(Path.decode(path))
       keys.append(key)
 
     return keys
@@ -193,7 +180,7 @@ class TransactionMetadata(object):
     pos = 0
     entities = []
     while pos < len(blob):
-      entity_len = decode_sortable_int(blob[pos:pos + self._ENTITY_LEN_SIZE])
+      entity_len = Int64.decode_bare(blob[pos:pos + self._ENTITY_LEN_SIZE])
       pos += self._ENTITY_LEN_SIZE
       entities.append(entity_pb.EntityProto(blob[pos:pos + entity_len]))
       pos += entity_len
@@ -207,7 +194,7 @@ class TransactionMetadata(object):
     if len(encoded_entity) > MAX_ENTITY_SIZE:
       raise BadRequest(u'Entity exceeds maximum size')
 
-    return encode_sortable_int(len(encoded_entity), self._ENTITY_LEN_SIZE)
+    return Int64.encode_bare(len(encoded_entity), self._ENTITY_LEN_SIZE)
 
   def _encode_chunks(self, section_prefix, value):
     full_prefix = section_prefix + b'\x00' * VS_SIZE
@@ -252,7 +239,7 @@ class TransactionManager(object):
       raise BadRequest(u'Queries in a transaction must specify an ancestor')
 
     tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
-    tr[tx_dir.encode_query_key(txid, namespace, query.ancestor())] = b''
+    tr[tx_dir.encode_query_key(txid, namespace, query.ancestor().path())] = b''
 
   @gen.coroutine
   def log_puts(self, tr, project_id, put_request):

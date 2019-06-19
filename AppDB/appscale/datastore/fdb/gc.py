@@ -16,7 +16,7 @@ from tornado.ioloop import IOLoop
 from appscale.datastore.dbconstants import MAX_TX_DURATION
 from appscale.datastore.fdb.cache import NSCache
 from appscale.datastore.fdb.codecs import (
-  decode_str, encode_path, encode_read_vs, encode_vs_index)
+  decode_str, encode_read_vs, encode_vs_index, Path)
 from appscale.datastore.fdb.polling_lock import PollingLock
 from appscale.datastore.fdb.utils import (
   DS_ROOT, fdb, hash_tuple, KVIterator, MAX_FDB_TX_DURATION, VS_SIZE)
@@ -31,8 +31,7 @@ class NoProjects(Exception):
 
 class DeletedVersionEntry(object):
   """ Encapsulates details for a deleted entity version. """
-  __SLOTS__ = [u'project_id', u'namespace', u'path', u'original_vs',
-               u'deleted_vs']
+  __SLOTS__ = ['project_id', 'namespace', 'path', 'original_vs', 'deleted_vs']
 
   def __init__(self, project_id, namespace, path, original_vs, deleted_vs):
     self.project_id = project_id
@@ -51,7 +50,7 @@ class DeletedVersionIndex(object):
   (<project-dir>, 'deleted-versions', <namespace>).
 
   Within this directory, keys are encoded as
-  <scatter-byte> + <deleted-vs> + <path-tuple> + <original-vs>.
+  <scatter-byte> + <deleted-vs> + <path> + <original-vs>.
 
   The <scatter-byte> is a single byte determined by hashing the entity path.
   Its purpose is to spread writes more evenly across the cluster and minimize
@@ -61,7 +60,7 @@ class DeletedVersionIndex(object):
   The <deleted-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that deleted the entity version.
 
-  The <path-tuple> is an encoded tuple containing the entity path.
+  The <path> contains the entity path. See codecs.Path for encoding details.
 
   The <original-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that originally wrote the entity data.
@@ -90,12 +89,12 @@ class DeletedVersionIndex(object):
   @property
   def path_slice(self):
     """ The portion of keys that contain the encoded path. """
-    return slice(self.del_vs_slice.stop, -1 * VS_SIZE)
+    return slice(self.del_vs_slice.stop, -VS_SIZE)
 
   @property
   def original_vs_slice(self):
     """ The portion of keys that contain the original versionstamp. """
-    return slice(-1 * VS_SIZE, None)
+    return slice(-VS_SIZE, None)
 
   def encode_key(self, path, original_vs, deleted_vs=None):
     """ Encodes a key for a deleted version index entry.
@@ -111,12 +110,12 @@ class DeletedVersionIndex(object):
       be used with set_versionstamped_key.
     """
     if not isinstance(path, tuple):
-      path = encode_path(path)
+      path = Path.flatten(path)
 
     scatter_byte = hash_tuple(path)
     key = b''.join([self.directory.rawPrefix, scatter_byte,
                     deleted_vs or b'\x00' * VS_SIZE,
-                    fdb.tuple.pack(path),
+                    Path.pack(path),
                     original_vs])
     if not deleted_vs:
       vs_index = len(self.directory.rawPrefix) + len(scatter_byte)
@@ -133,7 +132,7 @@ class DeletedVersionIndex(object):
       A DeletedVersionEntry object.
     """
     deleted_vs = kv.key[self.del_vs_slice]
-    path = fdb.tuple.unpack(kv.key[self.path_slice])
+    path = Path.unpack(kv.key, self.path_slice.start)[0]
     original_vs = kv.key[self.original_vs_slice]
     return DeletedVersionEntry(self.project_id, self.namespace, path,
                                original_vs, deleted_vs)
@@ -195,7 +194,7 @@ class SafeReadDir(object):
       A string containing an FDB key.
     """
     if not isinstance(path, tuple):
-      path = encode_path(path)
+      path = Path.flatten(path)
 
     entity_group = path[:2]
     return self.directory.rawPrefix + hash_tuple(entity_group)
