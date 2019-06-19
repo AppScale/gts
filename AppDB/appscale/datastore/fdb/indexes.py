@@ -40,7 +40,7 @@ first_gt_or_equal = fdb.KeySelector.first_greater_or_equal
 
 
 class FilterProperty(object):
-  __slots__ = [u'name', u'filters']
+  __slots__ = ['name', 'filters']
 
   def __init__(self, prop_name, filters):
     self.name = prop_name
@@ -146,7 +146,7 @@ def get_scan_direction(query, index):
 
 
 class IndexEntry(object):
-  __SLOTS__ = ['project_id', 'namespace', 'path', 'commit_vs', 'deleted_vs']
+  __slots__ = ['project_id', 'namespace', 'path', 'commit_vs', 'deleted_vs']
 
   def __init__(self, project_id, namespace, path, commit_vs, deleted_vs):
     self.project_id = project_id
@@ -189,7 +189,7 @@ class IndexEntry(object):
 
 
 class PropertyEntry(IndexEntry):
-  __SLOTS__ = ['prop_name', 'value']
+  __slots__ = ['prop_name', 'value']
 
   def __init__(self, project_id, namespace, path, prop_name, value, commit_vs,
                deleted_vs):
@@ -228,7 +228,7 @@ class PropertyEntry(IndexEntry):
 
 
 class CompositeEntry(IndexEntry):
-  __SLOTS__ = ['properties']
+  __slots__ = ['properties']
 
   def __init__(self, project_id, namespace, path, properties, commit_vs,
                deleted_vs):
@@ -449,7 +449,7 @@ class MergeJoinIterator(object):
 
 
 class IndexSlice(object):
-  __SLOTS__ = ['_directory_prefix', '_order_info', '_omit_kind', '_ancestor',
+  __slots__ = ['_directory_prefix', '_order_info', '_omit_kind', '_ancestor',
                '_start_parts', '_stop_parts']
 
   def __init__(self, directory_prefix, order_info, omit_kind=False,
@@ -604,7 +604,7 @@ class IndexSlice(object):
 
 class Index(object):
   """ The base class for different datastore index types. """
-  __SLOTS__ = ['directory']
+  __slots__ = ['directory']
 
   def __init__(self, directory):
     self.directory = directory
@@ -852,7 +852,7 @@ class CompositeIndex(Index):
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the index entry.
   """
-  __SLOTS__ = ['kind', 'ancestor', 'order_info']
+  __slots__ = ['kind', 'ancestor', 'order_info']
 
   DIR_NAME = u'composite'
 

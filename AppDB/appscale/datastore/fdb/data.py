@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class VersionEntry(object):
   """ Encapsulates details for an entity version. """
-  __SLOTS__ = ['project_id', 'namespace', 'path', 'commit_vs', 'version',
+  __slots__ = ['project_id', 'namespace', 'path', 'commit_vs', 'version',
                '_encoded_entity', '_decoded_entity']
 
   def __init__(self, project_id, namespace, path, commit_vs=None,

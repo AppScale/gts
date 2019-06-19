@@ -31,7 +31,7 @@ class NoProjects(Exception):
 
 class DeletedVersionEntry(object):
   """ Encapsulates details for a deleted entity version. """
-  __SLOTS__ = ['project_id', 'namespace', 'path', 'original_vs', 'deleted_vs']
+  __slots__ = ['project_id', 'namespace', 'path', 'original_vs', 'deleted_vs']
 
   def __init__(self, project_id, namespace, path, original_vs, deleted_vs):
     self.project_id = project_id
