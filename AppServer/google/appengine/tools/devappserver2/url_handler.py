@@ -16,10 +16,8 @@
 #
 """Base functionality for handling HTTP requests."""
 
-import hashlib
+
 import logging
-import os
-import uuid
 import wsgiref.util
 
 from google.appengine.api import appinfo
@@ -105,9 +103,7 @@ class UserConfiguredURLHandler(URLHandler):
     """
     super(UserConfiguredURLHandler, self).__init__(url_pattern)
     self._url_map = url_map
-    self._secret_hash = hashlib.sha1('{}/{}'.format(
-        os.environ.get('APPNAME', str(uuid.uuid4())),
-        os.environ.get('COOKIE_SECRET', str(uuid.uuid4())))).hexdigest()
+    self._secret_hash = login.fake_admin()
 
   def handle_authorization(self, environ, start_response):
     """Handles the response if the user is not authorized to access this URL.
