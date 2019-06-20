@@ -14,6 +14,7 @@ setup(
     'cassandra-driver<3.18.0',
     'kazoo',
     'M2Crypto',
+    'monotonic',
     'mmh3',
     'SOAPpy',
     'tornado'

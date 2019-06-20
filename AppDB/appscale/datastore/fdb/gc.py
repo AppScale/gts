@@ -231,7 +231,7 @@ class GarbageCollector(object):
     self._index_manager = index_manager
     self._tx_manager = tx_manager
     self._project_cache = project_cache
-    lock_key = self._project_cache.root.pack((self._LOCK_KEY,))
+    lock_key = self._project_cache.root_dir.pack((self._LOCK_KEY,))
     self._lock = PollingLock(self._db, self._tornado_fdb, lock_key)
     self._del_version_index_cache = NSCache(
       self._tornado_fdb, self._project_cache, DeletedVersionIndex)

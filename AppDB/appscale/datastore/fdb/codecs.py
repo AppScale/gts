@@ -3,6 +3,7 @@ This module contains shared encoding and decoding utilities for translating
 datastore types to bytestrings and vice versa.
 """
 import bisect
+import logging
 import struct
 import sys
 
@@ -34,6 +35,8 @@ REFERENCE_CODE = 0x27
 # Ensures the shorter of two variable-length values (with identical prefixes)
 # is placed before the longer one.
 TERMINATOR = 0x00
+
+logger = logging.getLogger(__name__)
 
 
 def reverse_bits(blob):
@@ -151,7 +154,7 @@ class Double(object):
     adjusted_value = -value if reverse else value
     packed = struct.pack('>d', adjusted_value)
     # Flip all of the bits for negative values.
-    if six.indexbytes(value, 0) & 0x80 != 0x00:
+    if six.indexbytes(packed, 0) & 0x80 != 0x00:
       # If it's negative and reversed, there is no transformation.
       packed = packed if reverse else reverse_bits(packed)
     else:
@@ -214,7 +217,7 @@ class Text(object):
 
   @classmethod
   def decode(cls, blob, pos, reverse=False):
-    terminator = encode_marker(TERMINATOR, reverse)
+    terminator = TERMINATOR ^ 0xFF if reverse else TERMINATOR
     byte_array = bytearray()
     while pos < len(blob):
       byte_value = six.indexbytes(blob, pos)
@@ -293,7 +296,7 @@ class Path(object):
     items = []
     terminator = encode_marker(TERMINATOR, reverse)
     kind_marker = encode_marker(cls.KIND_MARKER, reverse)
-    name_marker = encode_marker(cls.KIND_MARKER, reverse)
+    name_marker = encode_marker(cls.NAME_MARKER, reverse)
     while pos < len(blob):
       marker = blob[pos]
       pos += 1
@@ -305,6 +308,7 @@ class Path(object):
           raise InternalError(u'Encoded path is missing kind')
 
         items.append(kind)
+        pos -= 1
         kind = None
       else:
         elem_kind, pos = Text.decode(blob, pos, reverse)

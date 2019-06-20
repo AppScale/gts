@@ -271,6 +271,9 @@ class DataNamespace(object):
     Returns:
       A string containing the path prefix.
     """
+    if not isinstance(path, tuple):
+      path = Path.flatten(path)
+
     return b''.join([self.directory.rawPrefix, hash_tuple(path),
                      Path.pack(path)])
 

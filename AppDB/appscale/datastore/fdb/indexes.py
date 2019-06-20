@@ -631,8 +631,8 @@ class Index(object):
     has_ancestor_field = getattr(self, 'ancestor', False)
     kind_in_dir = not isinstance(self, KindlessIndex)
     order_info = getattr(
-      self, 'order_info',
-      ((prop_name, Query_Order.ASCENDING) for prop_name in self.prop_names))
+      self, 'order_info', tuple((prop_name, Query_Order.ASCENDING)
+                                for prop_name in self.prop_names))
     index_slice = IndexSlice(
       self.directory.rawPrefix, order_info, omit_kind=kind_in_dir,
       ancestor=has_ancestor_field)
@@ -1200,7 +1200,7 @@ class IndexManager(object):
         order_info.append((prop.name, direction))
 
       composite_index = yield self._composite_index_cache.get(
-        tr, project_id, namespace, index.id, kind=index.kind,
+        tr, project_id, namespace, six.text_type(index.id), kind=index.kind,
         ancestor=index.ancestor, order_info=order_info)
       fdb_indexes.append(composite_index)
 

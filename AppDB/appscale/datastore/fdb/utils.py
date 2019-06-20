@@ -76,63 +76,6 @@ class ScatteredAllocator(object):
     return id_
 
 
-class DirectoryCache(object):
-  """ Manages a cache of recently opened directories. """
-
-  # The number of items the cache can hold.
-  SIZE = 512
-
-  def __init__(self, db, root):
-    """ Creates a new DirectoryCache. """
-    self.root = root
-    self._db = db
-    self._directory_list = []
-    self._directory_dict = {}
-
-  def get(self, path, base=None, create_if_necessary=True):
-    if base is not None:
-      root_elements = len(self.root.get_path())
-      if base.get_path()[:root_elements] != self.root.get_path():
-        raise Exception('Invalid base')
-
-      base_path = base.get_path()[root_elements:]
-      path = base_path + path
-
-    try:
-      return self._directory_dict[path]
-    except KeyError:
-      method = self.root.open
-      if create_if_necessary:
-        method = self.root.create_or_open
-
-      self[path] = method(self._db, path)
-      return self[path]
-
-  def __setitem__(self, key, value):
-    """ Adds a new directory to the cache.
-
-    Args:
-      key: A tuple identifying the directory path.
-      value: A directory object.
-    """
-    if key in self._directory_dict:
-      return
-
-    self._directory_dict[key] = value
-    self._directory_list.append(key)
-    if len(self._directory_list) > self.SIZE:
-      old_key = self._directory_list.pop(0)
-      del self._directory_dict[old_key]
-
-  def __getitem__(self, key):
-    """ Retrieves a directory from the cache.
-
-    Args:
-      key: A tuple identifying the directory path.
-    """
-    return self._directory_dict[key]
-
-
 class TornadoFDB(object):
   def __init__(self, io_loop):
     self._io_loop = io_loop

@@ -52,7 +52,12 @@ class FDBDatastore(object):
     self._db = fdb.open()
     self._tornado_fdb = TornadoFDB(IOLoop.current())
     ds_dir = fdb.directory.create_or_open(self._db, DS_ROOT)
+
     project_cache = ProjectCache(self._tornado_fdb, ds_dir)
+    tr = self._db.create_transaction()
+    project_cache.ensure_metadata_key(tr)
+    tr.commit().wait()
+
     self._data_manager = DataManager(self._tornado_fdb, project_cache)
     self.index_manager = IndexManager(
       self._db, self._tornado_fdb, self._data_manager, project_cache)
@@ -273,7 +278,7 @@ class FDBDatastore(object):
   def setup_transaction(self, project_id, is_xg):
     project_id = decode_str(project_id)
     tr = self._db.create_transaction()
-    txid = yield self._tx_manager.create(tr, project_id, is_xg)
+    txid = yield self._tx_manager.create(tr, project_id)
     logger.debug(u'Started new transaction: {}:{}'.format(project_id, txid))
     yield self._tornado_fdb.commit(tr)
     raise gen.Return(txid)

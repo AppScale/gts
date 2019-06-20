@@ -2,6 +2,7 @@
 This module allows FDB clients to cache directory mappings and invalidate
 them when the schema changes.
 """
+import logging
 from collections import deque
 
 from fdb.directory_impl import DirectorySubspace
@@ -11,11 +12,14 @@ from appscale.datastore.dbconstants import InternalError
 from appscale.datastore.fdb.codecs import decode_str
 from appscale.datastore.fdb.utils import KVIterator
 
+logger = logging.getLogger(__name__)
+
 
 class DirectoryCache(object):
   """ A simple directory cache that more specialized caches can extend. """
 
-  # The location of the metadata version key.
+  # The location of the metadata version key. The value of this key is passed
+  # to FDB clients at the start of every transaction.
   METADATA_KEY = b'\xff/metadataVersion'
 
   def __init__(self, tornado_fdb, root_dir, cache_size):
@@ -62,6 +66,12 @@ class DirectoryCache(object):
     dir_layer = directory._directory_layer
     parent_subspace = dir_layer._node_with_prefix(directory.rawPrefix)
     return parent_subspace.subspace((dir_layer.SUBDIRS,))
+
+  def ensure_metadata_key(self, tr):
+    current_version = tr[self.METADATA_KEY]
+    if not current_version.present():
+      logger.info(u'Setting metadata key for the first time')
+      tr.set_versionstamped_value(self.METADATA_KEY, b'\x00' * 14)
 
 
 class ProjectCache(DirectoryCache):
@@ -141,7 +151,7 @@ class SectionCache(DirectoryCache):
     """
     yield self.validate_cache(tr)
     if project_id not in self:
-      project_dir = yield self._project_cache.get(project_id)
+      project_dir = yield self._project_cache.get(tr, project_id)
       # TODO: Make async.
       section_dir = project_dir.create_or_open(tr, (self._dir_type.DIR_NAME,))
       self[project_id] = self._dir_type(section_dir)
@@ -176,7 +186,7 @@ class NSCache(DirectoryCache):
     yield self.validate_cache(tr)
     key = (project_id, namespace)
     if key not in self:
-      project_dir = yield self._project_cache.get(project_id)
+      project_dir = yield self._project_cache.get(tr, project_id)
       section_dir = yield self.get_section(tr, project_dir)
       # TODO: Make async.
       ns_dir = section_dir.create_or_open(tr, (namespace,) + tuple(args))

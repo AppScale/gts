@@ -904,6 +904,8 @@ def main():
     from appscale.datastore.fdb.fdb_datastore import FDBDatastore
     datastore_access = FDBDatastore()
     datastore_access.start()
+    zookeeper = zktransaction.ZKTransaction(
+      host=zookeeper_locations, log_level=logger.getEffectiveLevel())
 
   zookeeper.handle.add_listener(zk_state_listener)
   zookeeper.handle.ensure_path(DATASTORE_SERVERS_NODE)
