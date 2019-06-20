@@ -128,7 +128,7 @@ async def test_add_lease_retry_retry_delete_pg(taskqueue, pull_queues_backend):
   total_delay += delay
   assert [task.retry_count for task in leased.task] == []
 
-  # Give 2 seconds for lease to expire
+  # Give 3 seconds for lease to expire
   time.sleep(3)
 
   # Lease 2 tasks for 2 seconds (retry)
@@ -147,7 +147,7 @@ async def test_add_lease_retry_retry_delete_pg(taskqueue, pull_queues_backend):
   total_delay += delay
   assert [task.retry_count for task in leased.task] == []
 
-  # Give 2 seconds for lease to expire
+  # Give 3 seconds for lease to expire
   time.sleep(3)
 
   # Try to lease 3 tasks for 2 seconds
@@ -156,7 +156,7 @@ async def test_add_lease_retry_retry_delete_pg(taskqueue, pull_queues_backend):
   total_delay += delay
   assert [task.retry_count for task in leased.task] == [3, 3, 3]
 
-  # Give 2 seconds for lease to expire
+  # Give 3 seconds for lease to expire
   time.sleep(3)
 
   # Try to lease 3 tasks for 2 seconds
