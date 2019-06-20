@@ -83,7 +83,7 @@ SOLR_HOST="${PRIVATE_IP}"
 
 # Location where the bin/solr script will save PID files for running instances
 # If not set, the script will create PID files in $SOLR_TIP/bin
-SOLR_PID_DIR="/opt/appscale/solr7"
+SOLR_PID_DIR="/var/solr7"
 
 # Path to a directory for Solr to store cores and their data. By default, Solr will use server/solr
 # If solr.xml is not stored in ZooKeeper, this directory needs to contain solr.xml
@@ -91,7 +91,7 @@ SOLR_HOME="/opt/appscale/solr7/data"
 
 # Path to a directory that Solr will use as root for data folders for each core.
 # If not set, defaults to <instance_dir>/data. Overridable per core through 'dataDir' core property
-#SOLR_DATA_HOME=
+SOLR_DATA_HOME="/opt/appscale/solr7/data"
 
 # Solr provides a default Log4J configuration xml file in server/resources
 # however, you may want to customize the log settings and file appender location

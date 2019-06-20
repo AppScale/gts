@@ -9,3 +9,8 @@
 /AppTaskQueue/dist
 /AppDB/build
 /AppDB/dist
+
+# SearchService2
+/SearchService2/appscale/search/protocols/*_pb2.py
+/SearchService2/appscale/search/query_parser/query*
+!/SearchService2/appscale/search/query_parser/query.g4
