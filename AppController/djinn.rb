@@ -2465,7 +2465,7 @@ class Djinn
 
   # This method checks that nodes above index are compute only and thus
   # can be easily terminated.
-  def can_we_scale_down?(index)
+  def can_we_scale_down?(min_machines)
     @state_change_lock.synchronize {
       nodes_to_check = @nodes.drop(min_machines)
     }
