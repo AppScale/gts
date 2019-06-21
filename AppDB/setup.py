@@ -11,7 +11,7 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common',
-    'cassandra-driver',
+    'cassandra-driver<3.18.0',
     'kazoo',
     'M2Crypto',
     'mmh3',

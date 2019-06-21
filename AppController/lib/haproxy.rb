@@ -31,7 +31,7 @@ module HAProxy
   SERVICE_SITES_PATH = File.join(HAPROXY_PATH, 'service-sites-enabled')
   SERVICE_MAIN_FILE = File.join(HAPROXY_PATH, "service-haproxy.#{CONFIG_EXTENSION}")
   SERVICE_BASE_FILE = File.join(HAPROXY_PATH, "service-base.#{CONFIG_EXTENSION}")
-  SERVICE_PIDFILE = '/var/run/service-haproxy.pid'.freeze
+  SERVICE_PIDFILE = '/var/run/appscale/service-haproxy.pid'.freeze
 
   # Maximum AppServer threaded connections
   MAX_APPSERVER_CONN = 7
@@ -78,6 +78,12 @@ module HAProxy
 
   # Start HAProxy for API services.
   def self.services_start
+    if !valid_config?(SERVICE_MAIN_FILE)
+      Djinn.log_warn('Invalid configuration for HAProxy services.')
+      return
+    end
+    return if MonitInterface.is_running?(:service_haproxy)
+
     start_cmd = "#{HAPROXY_BIN} -f #{SERVICE_MAIN_FILE} -D " \
       "-p #{SERVICE_PIDFILE}"
     stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{SERVICE_PIDFILE})'"
@@ -132,7 +138,7 @@ module HAProxy
     # We only serve internal services here.
     unless [TaskQueue::NAME, DatastoreServer::NAME,
         UserAppClient::NAME, BlobServer::NAME].include?(name)
-      Djinn.log_warn('create_app_config called for unknown service: #{name}.')
+      Djinn.log_warn("create_app_config called for unknown service: #{name}.")
       return false
     end
 

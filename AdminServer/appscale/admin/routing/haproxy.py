@@ -78,7 +78,7 @@ class HAProxy(object):
   APP_CONFIG = os.path.join(CONFIG_DIR, 'app-haproxy.cfg')
 
   # The location of the pidfile for instance-related HAProxy processes.
-  APP_PID = os.path.join('/', 'var', 'run', 'app-haproxy.pid')
+  APP_PID = os.path.join('/', 'var', 'run', 'appscale', 'app-haproxy.pid')
 
   # The location of the unix socket used for reporting stats.
   APP_STATS_SOCKET = os.path.join(CONFIG_DIR, 'stats')

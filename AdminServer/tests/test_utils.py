@@ -1,7 +1,7 @@
 import unittest
 
 from appscale.admin import utils
-from appscale.taskqueue.constants import InvalidQueueConfiguration
+from appscale.admin.constants import InvalidQueueConfiguration
 
 
 class TestUtils(unittest.TestCase):
