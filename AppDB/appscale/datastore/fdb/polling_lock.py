@@ -71,7 +71,7 @@ class PollingLock(object):
       try:
         yield self._acquire_lease()
       except Exception:
-        logger.exception('Unable to acquire lease')
+        logger.exception(u'Unable to acquire lease')
         yield gen.sleep(10)
 
   @gen.coroutine
@@ -97,7 +97,7 @@ class PollingLock(object):
       self._deadline = monotonic.monotonic() + self._LEASE_TIMEOUT
       self._event.set()
       if can_acquire:
-        logger.info('Acquired lock for {}'.format(repr(self.key)))
+        logger.info(u'Acquired lock for {!r}'.format(self.key))
 
       yield gen.sleep(self._HEARTBEAT_INTERVAL)
       return

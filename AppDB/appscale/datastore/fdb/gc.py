@@ -14,9 +14,9 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 
 from appscale.datastore.dbconstants import MAX_TX_DURATION
-from appscale.datastore.fdb.cache import NSCache
+from appscale.datastore.fdb.cache import SectionNSCache
 from appscale.datastore.fdb.codecs import (
-  decode_str, encode_read_vs, encode_vs_index, Path)
+  encode_read_vs, encode_vs_index, Path)
 from appscale.datastore.fdb.polling_lock import PollingLock
 from appscale.datastore.fdb.utils import (
   DS_ROOT, fdb, hash_tuple, KVIterator, MAX_FDB_TX_DURATION, VS_SIZE)
@@ -233,9 +233,9 @@ class GarbageCollector(object):
     self._project_cache = project_cache
     lock_key = self._project_cache.root_dir.pack((self._LOCK_KEY,))
     self._lock = PollingLock(self._db, self._tornado_fdb, lock_key)
-    self._del_version_index_cache = NSCache(
+    self._del_version_index_cache = SectionNSCache(
       self._tornado_fdb, self._project_cache, DeletedVersionIndex)
-    self._safe_read_dir_cache = NSCache(
+    self._safe_read_dir_cache = SectionNSCache(
       self._tornado_fdb, self._project_cache, SafeReadDir)
 
   def start(self):
@@ -244,13 +244,13 @@ class GarbageCollector(object):
     IOLoop.current().spawn_callback(self._process_deferred_deletes)
     IOLoop.current().spawn_callback(self._groom_projects)
 
-  def clear_later(self, entities, new_vs):
+  def clear_later(self, entries, new_vs):
     """ Clears deleted entities after sufficient time has passed. """
     safe_time = monotonic.monotonic() + MAX_TX_DURATION
-    for old_entity, old_vs in entities:
+    for entry in entries:
       # TODO: Strip raw properties and enforce a max queue size to keep memory
       # usage reasonable.
-      self._queue.append((safe_time, old_entity, old_vs, new_vs))
+      self._queue.append((safe_time, entry, new_vs))
 
   @gen.coroutine
   def safe_read_vs(self, tr, key):
@@ -258,7 +258,7 @@ class GarbageCollector(object):
     Retrieves the safe read versionstamp for an entity key. Read versionstamps
     that are larger than this value are safe to use.
     """
-    safe_read_dir = yield self._safe_read_dir_cache.get_from_key(tr, key)
+    safe_read_dir = yield self._safe_read_dir_cache.from_key(tr, key)
     safe_read_key = safe_read_dir.encode_key(key.path())
     # A concurrent change to the safe read VS does not affect what the current
     # transaction can read, so "snapshot" is used to reduce conflicts.
@@ -301,11 +301,11 @@ class GarbageCollector(object):
         yield gen.sleep(safe_time - current_time + self._DEFERRED_DEL_PADDING)
         break
 
-      safe_time, old_entity, original_vs, deleted_vs = self._queue.popleft()
+      safe_time, version_entry, deleted_vs = self._queue.popleft()
       if tr is None:
         tr = self._db.create_transaction()
 
-      yield self._hard_delete(tr, old_entity, original_vs, deleted_vs)
+      yield self._hard_delete(tr, version_entry, deleted_vs)
       if monotonic.monotonic() > tx_deadline:
         yield self._tornado_fdb.commit(tr)
         break
@@ -330,9 +330,14 @@ class GarbageCollector(object):
           yield gen.sleep(self._SAFETY_INTERVAL)
           continue
 
-        yield self._groom_deleted_versions(
+        deleted_versions = yield self._groom_deleted_versions(
           tr, project_id, namespace, batch, safe_vs)
         yield self._groom_expired_transactions(tr, project_id, batch, safe_vs)
+        if deleted_versions:
+          logger.debug(
+            u'GC deleted {} entity versions'.format(deleted_versions))
+
+        yield self._tornado_fdb.commit(tr)
       except Exception:
         logger.exception(u'Unexpected error while grooming projects')
         yield gen.sleep(10)
@@ -352,9 +357,7 @@ class GarbageCollector(object):
       batch_num = 0
       previous_dir_found = False
 
-    project_dir = next(p_dir for p_dir in project_dirs
-                       if p_dir.get_path()[-1] == project_id)
-    namespace_dirs = yield self._del_version_index_cache.list(tr, project_dir)
+    namespace_dirs = yield self._del_version_index_cache.list(tr, project_id)
     namespaces = [p_dir.namespace for p_dir in namespace_dirs] or [u'']
     if namespace not in namespaces:
       namespace = next((ns for ns in namespaces if ns > namespace),
@@ -370,10 +373,8 @@ class GarbageCollector(object):
       if namespace is None:
         project_id = next((project for project in project_ids
                            if project > project_id), project_ids[0])
-        project_dir = next(p_dir for p_dir in project_dirs
-                           if p_dir.get_path()[-1] == project_id)
         namespace_dirs = yield self._del_version_index_cache.list(
-          tr, project_dir)
+          tr, project_id)
         namespace = next((p_dir.namespace for p_dir in namespace_dirs), u'')
 
       batch_num = 0
@@ -391,10 +392,7 @@ class GarbageCollector(object):
     delete_counts = yield [
       self._groom_range(tr, del_version_dir, byte_num, safe_vs, tx_deadline)
       for byte_num in ranges]
-    yield self._tornado_fdb.commit(tr)
-    deleted = sum(delete_counts)
-    if deleted:
-      logger.debug(u'GC deleted {} entities'.format(deleted))
+    raise gen.Return(sum(delete_counts))
 
   @gen.coroutine
   def _groom_expired_transactions(self, tr, project_id, batch_num, safe_vs):
@@ -411,11 +409,11 @@ class GarbageCollector(object):
     while True:
       kvs, more = yield iterator.next_page()
       for kv in kvs:
-        entry = index.decode(kv)
-        entity = yield self._data_manager.get_version_from_path(
-          tr, entry.project_id, entry.namespace, entry.path, entry.commit_vs)
-        self._hard_delete(tr, entity.decoded, entry.original_vs,
-                          entry.deleted_vs)
+        index_entry = index.decode(kv)
+        version_entry = yield self._data_manager.get_version_from_path(
+          tr, index_entry.project_id, index_entry.namespace, index_entry.path,
+          index_entry.commit_vs)
+        self._hard_delete(tr, version_entry, index_entry.deleted_vs)
         deleted += 1
 
       if not more or monotonic.monotonic() > tx_deadline:
@@ -424,17 +422,17 @@ class GarbageCollector(object):
     raise gen.Return(deleted)
 
   @gen.coroutine
-  def _hard_delete(self, tr, entity, original_vs, deleted_vs):
-    project_id = decode_str(entity.key().app())
-    namespace = decode_str(entity.key().name_space())
-
-    yield self._data_manager.hard_delete(tr, entity.key(), original_vs)
-    self._index_manager.hard_delete_entries(tr, entity, original_vs)
-    index = yield self._del_version_index_cache.get(tr, project_id, namespace)
-    del tr[index.encode_key(entity.key().path(), original_vs, deleted_vs)]
+  def _hard_delete(self, tr, version_entry, deleted_vs):
+    yield self._data_manager.hard_delete(tr, version_entry)
+    yield self._index_manager.hard_delete_entries(tr, version_entry)
+    index = yield self._del_version_index_cache.get(
+      tr, version_entry.project_id, version_entry.namespace)
+    index_key = index.encode_key(version_entry.path, version_entry.commit_vs,
+                                 deleted_vs)
+    del tr[index_key]
 
     # Keep track of safe versionstamps to invalidate stale txids.
     safe_read_dir = yield self._safe_read_dir_cache.get(
-      tr, project_id, namespace)
-    safe_read_key = safe_read_dir.encode_key(entity.key().path())
+      tr, version_entry.project_id, version_entry.namespace)
+    safe_read_key = safe_read_dir.encode_key(version_entry.path)
     tr.byte_max(safe_read_key, deleted_vs)

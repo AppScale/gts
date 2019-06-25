@@ -14,8 +14,9 @@ import six.moves as sm
 from tornado import gen
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.fdb.cache import NSCache
-from appscale.datastore.fdb.codecs import encode_vs_index, Int64, Path, Text
+from appscale.datastore.fdb.cache import SectionNSCache
+from appscale.datastore.fdb.codecs import (
+  decode_str, encode_vs_index, Int64, Path, Text)
 from appscale.datastore.fdb.utils import (
   ABSENT_VERSION, DS_ROOT, fdb, hash_tuple, KVIterator, VS_SIZE)
 
@@ -27,11 +28,12 @@ logger = logging.getLogger(__name__)
 
 class VersionEntry(object):
   """ Encapsulates details for an entity version. """
+  INCOMPLETE = 1
   __slots__ = ['project_id', 'namespace', 'path', 'commit_vs', 'version',
                '_encoded_entity', '_decoded_entity']
 
   def __init__(self, project_id, namespace, path, commit_vs=None,
-               encoded_entity=None, version=None):
+               version=None, encoded_entity=None):
     self.project_id = project_id
     self.namespace = namespace
     self.path = path
@@ -41,40 +43,53 @@ class VersionEntry(object):
     self._decoded_entity = None
 
   @property
-  def complete(self):
-    return self._encoded_entity is not None or self._decoded_entity is not None
+  def present(self):
+    return self.commit_vs is not None
 
   @property
-  def present(self):
-    return self.version != ABSENT_VERSION
+  def complete(self):
+    return self._encoded_entity != self.INCOMPLETE
+
+  @property
+  def has_entity(self):
+    return bool(self._encoded_entity)
 
   @property
   def key(self):
     key = entity_pb.Reference()
     key.set_app(self.project_id)
-    key.set_name_space(self.namespace)
+    if self.namespace is not None:
+      key.set_name_space(self.namespace)
+
     key.mutable_path().MergeFrom(Path.decode(self.path))
     return key
 
   @property
   def encoded(self):
-    if self._encoded_entity is not None:
-      return self._encoded_entity
-    elif self._decoded_entity is not None:
-      self._encoded_entity = self._decoded_entity.Encode()
-      return self._encoded_entity
-    else:
-      return None
+    if not self.complete:
+      raise ValueError(u'Version entry is not complete')
+
+    return self._encoded_entity
 
   @property
   def decoded(self):
-    if self._decoded_entity is not None:
-      return self._decoded_entity
-    elif self._encoded_entity is not None:
-      self._decoded_entity = entity_pb.EntityProto(self._encoded_entity)
-      return self._decoded_entity
-    else:
+    if not self.has_entity:
       return None
+
+    if self._decoded_entity is None:
+      self._decoded_entity = entity_pb.EntityProto(self.encoded)
+
+    return self._decoded_entity
+
+  @classmethod
+  def from_key(cls, key):
+    project_id = decode_str(key.app())
+    namespace = None
+    if key.has_name_space():
+      namespace = decode_str(key.name_space())
+
+    path = Path.flatten(key.path())
+    return cls(project_id, namespace, path)
 
 
 class DataNamespace(object):
@@ -98,7 +113,12 @@ class DataNamespace(object):
 
   The <index> is a single byte specifying which chunk number the KV contains.
 
-  Values are encoded as <entity-version> + <entity-encoding> + <entity>.
+  Values are encoded as <entity-encoding> + <entity> + <entity-version>.
+
+  The <entity-encoding> is a single byte specifying the encoding scheme of the
+  entity to follow.
+
+  The <entity> is an encoded protobuffer value.
 
   The <entity-version> is an integer specifying the approximate insert
   timestamp in microseconds (according to the client performing the insert).
@@ -106,11 +126,6 @@ class DataNamespace(object):
   versions, the datastore uses a different value for the entity version in
   order to satisfy the 8-byte constraint and to follow the GAE convention of
   the value representing a timestamp. It is encoded using 7 bytes.
-
-  The <entity-encoding> is a single byte specifying the encoding scheme of the
-  entity to follow.
-
-  The <entity> is an encoded protobuffer value.
 
   Since encoded values can exceed the size limit imposed by FoundationDB,
   values encoded values are split into chunks. Each chunk is stored as a
@@ -158,19 +173,19 @@ class DataNamespace(object):
     return slice(-1 * self._INDEX_SIZE, None)
 
   @property
-  def version_slice(self):
-    """ The portion of values that contain the entity version. """
-    return slice(None, self._VERSION_SIZE)
-
-  @property
   def encoding_slice(self):
     """ The portion of values that specify the entity encoding type. """
-    return slice(self._VERSION_SIZE, self._VERSION_SIZE + 1)
+    return slice(0, 1)
 
   @property
   def entity_slice(self):
     """ The portion of values that contain the encoded entity. """
-    return slice(self._VERSION_SIZE + 1, None)
+    return slice(1, -self._VERSION_SIZE)
+
+  @property
+  def version_slice(self):
+    """ The portion of values that contain the entity version. """
+    return slice(-self._VERSION_SIZE, None)
 
   def encode(self, path, entity, version):
     """ Encodes a tuple of KV tuples for a given version entry.
@@ -185,11 +200,22 @@ class DataNamespace(object):
     if isinstance(entity, entity_pb.EntityProto):
       entity = entity.Encode()
 
-    value = b''.join([Int64.encode_bare(version, self._VERSION_SIZE),
-                      six.int2byte(self._V3_MARKER), entity])
+    encoded_version = Int64.encode_bare(version, self._VERSION_SIZE)
+    if not entity:
+      return ((self.encode_key(path, commit_vs=None, index=0),
+               encoded_version),)
+
+    value = b''.join([six.int2byte(self._V3_MARKER), entity])
     chunk_count = int(math.ceil(len(value) / self._CHUNK_SIZE))
-    return tuple(self._encode_kv(value, index, path, commit_vs=None)
-                 for index in sm.range(chunk_count))
+    chunks = [
+      value[slice(index * self._CHUNK_SIZE, (index + 1) * self._CHUNK_SIZE)]
+      for index in sm.range(chunk_count)]
+    # Place the version at the end of the last chunk. Though this allows the
+    # last chunk to exceed the chunk size, it ensures that the entity version
+    # can always be retrieved from the last chunk.
+    chunks[-1] += encoded_version
+    return tuple((self.encode_key(path, commit_vs=None, index=index), chunk)
+                 for index, chunk in enumerate(chunks))
 
   def encode_key(self, path, commit_vs, index):
     """ Encodes a key for the given version entry.
@@ -224,15 +250,17 @@ class DataNamespace(object):
     commit_vs = kvs[0].key[self.vs_slice]
     first_index = ord(kvs[0].key[self.index_slice])
 
-    encoded_entity = None
-    version = None
+    version = Int64.decode_bare(kvs[-1].value[self.version_slice])
     if first_index == 0:
-      encoded_val = b''.join([kv.value for kv in kvs])
-      version = Int64.decode_bare(encoded_val[self.version_slice])
-      encoded_entity = encoded_val[self.entity_slice]
+      encoded_entity = b''.join([kv.value for kv in kvs])[self.entity_slice]
+    else:
+      encoded_entity = VersionEntry.INCOMPLETE
 
     return VersionEntry(self.project_id, self.namespace, path, commit_vs,
-                        encoded_entity, version)
+                        version, encoded_entity)
+
+  def decode_index(self, kv):
+    return ord(kv.key[self.index_slice])
 
   def get_slice(self, path, commit_vs=None, read_vs=None):
     """ Gets the range of keys relevant to the given constraints.
@@ -276,24 +304,6 @@ class DataNamespace(object):
 
     return b''.join([self.directory.rawPrefix, hash_tuple(path),
                      Path.pack(path)])
-
-  def _encode_kv(self, value, index, path, commit_vs):
-    """ Encodes an individual KV entry for a single chunk.
-
-    Args:
-      value: A byte string containing the full encoded version entry value.
-      index: An integer specifying the chunk index.
-      path: A tuple or protobuf path object.
-      commit_vs: A 10-byte string specifying the version's commit versionstamp
-        or None.
-    Returns:
-      A tuple in the form of (key, value) suitable for using with FDB. If
-      commit_vs was None, the tuple should be used with set_versionstamped_key.
-    """
-    data_range = slice(index * self._CHUNK_SIZE,
-                       (index + 1) * self._CHUNK_SIZE)
-    encoded_val = value[data_range]
-    return self.encode_key(path, commit_vs, index), encoded_val
 
 
 class GroupUpdatesNS(object):
@@ -360,12 +370,14 @@ class DataManager(object):
   """
   def __init__(self, tornado_fdb, project_cache):
     self._tornado_fdb = tornado_fdb
-    self._data_cache = NSCache(self._tornado_fdb, project_cache, DataNamespace)
-    self._group_updates_cache = NSCache(
+    self._data_cache = SectionNSCache(
+      self._tornado_fdb, project_cache, DataNamespace)
+    self._group_updates_cache = SectionNSCache(
       self._tornado_fdb, project_cache, GroupUpdatesNS)
 
   @gen.coroutine
-  def get_latest(self, tr, key, read_vs=None, include_data=True):
+  def get_latest(self, tr, key, read_vs=None, include_data=True,
+                 snapshot=False):
     """ Gets the newest entity version for the given read VS.
 
     Args:
@@ -375,11 +387,12 @@ class DataManager(object):
         versionstamps are ignored.
       include_data: A boolean specifying whether or not to fetch all of the
         entity's KVs.
+      snapshot: If True, the read will not cause a transaction conflict.
     """
-    data_ns = yield self._data_cache.get_from_key(tr, key)
+    data_ns = yield self._data_cache.from_key(tr, key)
     desired_slice = data_ns.get_slice(key.path(), read_vs=read_vs)
     last_entry = yield self._last_version(
-      tr, data_ns, desired_slice, include_data)
+      tr, data_ns, desired_slice, include_data, snapshot=snapshot)
     if last_entry is None:
       last_entry = VersionEntry(data_ns.project_id, data_ns.namespace,
                                 Path.flatten(key.path()))
@@ -453,28 +466,29 @@ class DataManager(object):
       version: An integer specifying the new entity version.
       encoded_entity: A string specifying the encoded entity data.
     """
-    data_ns = yield self._data_cache.get_from_key(tr, key)
+    data_ns = yield self._data_cache.from_key(tr, key)
     for fdb_key, val in data_ns.encode(key.path(), encoded_entity, version):
-      tr[fdb_key] = val
+      tr.set_versionstamped_key(fdb_key, val)
 
     group_ns = yield self._group_updates_cache.get(
       tr, data_ns.project_id, data_ns.namespace)
     tr.set_versionstamped_value(*group_ns.encode(key.path()))
 
   @gen.coroutine
-  def hard_delete(self, tr, key, commit_vs):
+  def hard_delete(self, tr, version_entry):
     """ Deletes a version entry. Only the GC should use this.
 
     Args:
       tr: An FDB transaction.
-      key: A protobuf reference object.
-      commit_vs: A 10-byte string specifying the commit versionstamp.
+      version_entry: A VersionEntry object.
     """
-    data_ns = yield self._data_cache.get_from_key(tr, key)
-    del tr[data_ns.get_slice(key.path(), commit_vs)]
+    data_ns = yield self._data_cache.get(
+      tr, version_entry.project_id, version_entry.namespace)
+    del tr[data_ns.get_slice(version_entry.path, version_entry.commit_vs)]
 
   @gen.coroutine
-  def _last_version(self, tr, data_ns, desired_slice, include_data=True):
+  def _last_version(self, tr, data_ns, desired_slice, include_data=True,
+                    snapshot=False):
     """ Gets the most recent entity data for a given slice.
 
     Args:
@@ -482,23 +496,25 @@ class DataManager(object):
       data_ns: A DataNamespace.
       desired_slice: A slice specifying the start and stop keys.
       include_data: A boolean indicating that all chunks should be fetched.
+      snapshot: If True, the read will not cause a transaction conflict.
     Returns:
       A VersionEntry or None.
     """
     kvs, count, more_results = yield self._tornado_fdb.get_range(
-      tr, desired_slice, limit=1, reverse=True)
+      tr, desired_slice, limit=1, reverse=True, snapshot=snapshot)
 
     if not kvs:
       return
 
     last_kv = kvs[0]
     entry = data_ns.decode([last_kv])
-    if not include_data or entry.complete:
+    if not include_data or not entry.present or entry.complete:
       raise gen.Return(entry)
 
     # Retrieve the remaining chunks.
     version_slice = data_ns.get_slice(entry.path, entry.commit_vs)
-    end_key = data_ns.encode_key(entry.path, entry.commit_vs, entry.index)
+    end_key = data_ns.encode_key(entry.path, entry.commit_vs,
+                                 data_ns.decode_index(last_kv))
     remaining_slice = slice(version_slice.start,
                             fdb.KeySelector.first_greater_or_equal(end_key))
     kvs = yield KVIterator(tr, self._tornado_fdb, remaining_slice).list()

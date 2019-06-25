@@ -3,8 +3,11 @@ This module stores and retrieves datastore transaction metadata. The
 TransactionManager is the main interface that clients can use to interact with
 the transaction layer. See its documentation for implementation details.
 """
+from __future__ import division
+
 import logging
 import math
+import random
 import sys
 from collections import defaultdict
 
@@ -16,7 +19,7 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.dbconstants import BadRequest, InternalError
 from appscale.datastore.fdb.cache import SectionCache
 from appscale.datastore.fdb.codecs import (
-  decode_str, encode_read_vs, encode_vs_index, Int64, Path, Text)
+  decode_str, encode_vs_index, Int64, Path, Text, TransactionID)
 from appscale.datastore.fdb.utils import (
   DS_ROOT, fdb, KVIterator, MAX_ENTITY_SIZE, VS_SIZE)
 
@@ -76,8 +79,13 @@ class TransactionMetadata(object):
   def project_id(self):
     return self.directory.get_path()[len(DS_ROOT)]
 
-  def encode_start_key(self, txid):
-    return self._txid_prefix(txid)
+  def encode_start_key(self, scatter_val, commit_vs=None):
+    key = b''.join([self.directory.rawPrefix, six.int2byte(scatter_val),
+                    commit_vs or b'\x00' * VS_SIZE])
+    if not commit_vs:
+      key += encode_vs_index(len(key) - VS_SIZE)
+
+    return key
 
   def encode_lookups(self, txid, keys):
     section_prefix = self._txid_prefix(txid) + self.LOOKUPS
@@ -148,13 +156,13 @@ class TransactionMetadata(object):
                  fdb.KeySelector.first_greater_than(prefix + b'\xFF'))
 
   def get_expired_slice(self, scatter_byte, safe_vs):
-    prefix = self.directory.rawPrefix + scatter_byte
+    prefix = self.directory.rawPrefix + six.int2byte(scatter_byte)
     return slice(fdb.KeySelector.first_greater_or_equal(prefix),
                  fdb.KeySelector.first_greater_than(prefix + safe_vs))
 
   def _txid_prefix(self, txid):
-    scatter_byte = bytes(bytearray([txid % 256]))
-    return self.directory.rawPrefix + scatter_byte + encode_read_vs(txid)
+    scatter_val, commit_vs = TransactionID.decode(txid)
+    return self.directory.rawPrefix + six.int2byte(scatter_val) + commit_vs
 
   def _encode_keys(self, keys):
     return b''.join(
@@ -201,7 +209,7 @@ class TransactionMetadata(object):
     vs_index = encode_vs_index(len(section_prefix))
     chunk_count = int(math.ceil(len(value) / self._CHUNK_SIZE))
     return tuple(
-      (full_prefix + bytes(bytearray((index,))) + vs_index,
+      (full_prefix + six.int2byte(index) + vs_index,
        value[index * self._CHUNK_SIZE:(index + 1) * self._CHUNK_SIZE])
       for index in sm.range(chunk_count))
 
@@ -212,16 +220,21 @@ class TransactionManager(object):
   with the transaction layer. It makes use of TransactionMetadata directories
   to handle the encoding and decoding details when satisfying requests.
   """
-  def __init__(self, tornado_fdb, project_cache):
+  def __init__(self, db, tornado_fdb, project_cache):
+    self._db = db
     self._tornado_fdb = tornado_fdb
     self._tx_metadata_cache = SectionCache(
       self._tornado_fdb, project_cache, TransactionMetadata)
 
   @gen.coroutine
-  def create(self, tr, project_id):
-    txid, tx_dir = yield [self._tornado_fdb.get_read_version(tr),
-                          self._tx_metadata_cache.get(tr, project_id)]
-    tr[tx_dir.encode_start_key(txid)] = b''
+  def create(self, project_id):
+    tr = self._db.create_transaction()
+    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    scatter_val = random.randint(0, 15)
+    tr.set_versionstamped_key(tx_dir.encode_start_key(scatter_val), b'')
+    vs_future = tr.get_versionstamp()
+    yield self._tornado_fdb.commit(tr)
+    txid = TransactionID.encode(scatter_val, vs_future.wait().value)
     raise gen.Return(txid)
 
   @gen.coroutine
@@ -266,7 +279,9 @@ class TransactionManager(object):
     kvs = yield KVIterator(tr, self._tornado_fdb,
                            tx_dir.get_txid_slice(txid)).list()
 
-    if not kvs or kvs[0].key != tx_dir.encode_start_key(txid):
+    scatter_val, tx_start_vs = TransactionID.decode(txid)
+    if (not kvs or
+        kvs[0].key != tx_dir.encode_start_key(scatter_val, tx_start_vs)):
       raise BadRequest(u'Transaction not found')
 
     raise gen.Return(tx_dir.decode_metadata(txid, kvs[1:]))

@@ -121,7 +121,7 @@ class Bytes(object):
     # Escape each occurrence of the terminator. The first byte of whatever
     # follows must not contain the escape character.
     packed = packed.replace(terminator, terminator + reverse_bits(terminator))
-    return prefix + packed + six.int2byte(TERMINATOR)
+    return prefix + packed + terminator
 
   @classmethod
   def decode(cls, blob, pos, reverse=False):
@@ -261,19 +261,16 @@ class Path(object):
   NAME_MARKER = 0x1D
 
   @classmethod
-  def pack(cls, path, omit_kind=False, prefix=b'', omit_terminator=False,
+  def pack(cls, path, omit_kind=None, prefix=b'', omit_terminator=False,
            reverse=False):
     if not isinstance(path, tuple):
       path = cls.flatten(path)
-
-    if omit_kind:
-      path = path[:-2] + (None,) + path[-1:]
 
     encoded_items = []
     kind_marker = encode_marker(cls.KIND_MARKER, reverse)
     for index in range(0, len(path), 2):
       kind = path[index]
-      if kind:
+      if omit_kind is None or kind != omit_kind:
         encoded_items.append(Text.encode(kind, kind_marker, reverse))
 
       encoded_items.append(cls.encode_id_or_name(path[index + 1], reverse))
@@ -309,7 +306,6 @@ class Path(object):
 
         items.append(kind)
         pos -= 1
-        kind = None
       else:
         elem_kind, pos = Text.decode(blob, pos, reverse)
         items.append(elem_kind)
@@ -353,7 +349,7 @@ class Path(object):
       if isinstance(id_or_name, int):
         element.set_id(id_or_name)
       else:
-        element.set_name(id_or_name)
+        element.set_name(id_or_name.encode('utf-8'))
 
     return path
 
@@ -365,7 +361,7 @@ class Path(object):
     elif element.has_name():
       id_or_name = decode_str(element.name())
     else:
-      raise BadRequest('All path elements must either have a name or ID')
+      raise BadRequest(u'All path elements must either have a name or ID')
 
     return decode_str(element.type()), id_or_name
 
@@ -442,7 +438,7 @@ def decode_value(blob, pos, reverse=False):
   prop_value = entity_pb.PropertyValue()
   marker = blob[pos]
   pos += 1
-  code = ord(marker ^ 0xFF) if reverse else ord(marker)
+  code = ord(marker) ^ 0xFF if reverse else ord(marker)
   if code == NULL_CODE:
     pass
   elif INT64_ZERO_CODE - 8 <= code <= INT64_ZERO_CODE + 8:
@@ -467,6 +463,34 @@ def decode_value(blob, pos, reverse=False):
     prop_value.mutable_referencevalue().MergeFrom(ref_val)
 
   return prop_value, pos
+
+
+class TransactionID(object):
+  COMMIT_VERSION_BITS = 8 * 7 - 4
+
+  BATCH_ORDER_BITS = 8
+
+  @classmethod
+  def encode(cls, scatter_val, commit_vs):
+    commit_version = struct.unpack('>Q', commit_vs[:8])[0]
+    batch_order = struct.unpack('>H', commit_vs[8:])[0]
+    if not 0 <= scatter_val <= 15:
+      raise InternalError(u'Invalid scatter value')
+
+    if commit_version >= 2 ** cls.COMMIT_VERSION_BITS:
+      raise InternalError(u'Commit version too high')
+
+    if batch_order >= 2 ** cls.BATCH_ORDER_BITS:
+      raise InternalError(u'Batch order too high')
+
+    return (commit_version << 12) + (batch_order << 4) + scatter_val
+
+  @classmethod
+  def decode(cls, txid):
+    commit_version_bytes = struct.pack('>Q', txid >> 12)
+    batch_order_bytes = struct.pack('>H', (txid & 0x0FF0) >> 4)
+    scatter_val = txid & 0x0F
+    return scatter_val, commit_version_bytes + batch_order_bytes
 
 
 encode_read_vs = lambda read_version: Int64.encode_bare(

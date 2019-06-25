@@ -10,7 +10,7 @@ from tornado import gen
 
 from appscale.datastore.dbconstants import InternalError
 from appscale.datastore.fdb.codecs import decode_str
-from appscale.datastore.fdb.utils import KVIterator
+from appscale.datastore.fdb.utils import DS_ROOT, KVIterator
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,17 @@ class DirectoryCache(object):
       logger.info(u'Setting metadata key for the first time')
       tr.set_versionstamped_value(self.METADATA_KEY, b'\x00' * 14)
 
+  @gen.coroutine
+  def list_subdirs(self, tr, directory):
+    subdirs_subspace = self.subdirs_subspace(directory)
+    kvs = yield KVIterator(tr, self._tornado_fdb,
+                           subdirs_subspace.range()).list()
+    path_prefixes = [
+      (directory.get_path() + (subdirs_subspace.unpack(kv.key)[0],), kv.value)
+      for kv in kvs]
+    raise gen.Return(tuple(DirectorySubspace(subdir_path, prefix)
+                           for subdir_path, prefix in path_prefixes))
+
 
 class ProjectCache(DirectoryCache):
   """ A directory cache that keeps track of projects. """
@@ -103,28 +114,15 @@ class ProjectCache(DirectoryCache):
 
   @gen.coroutine
   def list(self, tr):
-    """ Gets a project's subdirectories.
+    """ Retrieves all project directories.
 
     Args:
       tr: An FDB transaction.
     Returns:
       A list of DirectorySubspace objects.
     """
-    yield self.validate_cache(tr)
-    subdirs_subspace = self.subdirs_subspace(self.root_dir)
-    kvs = yield KVIterator(tr, self._tornado_fdb,
-                           subdirs_subspace.range()).list()
-    directories = []
-    for kv in kvs:
-      project_id = subdirs_subspace.unpack(kv.key)[0]
-      directory = DirectorySubspace(
-        self.root_dir.get_path() + (project_id,), kv.value)
-      if project_id not in self:
-        self[project_id] = directory
-
-      directories.append(self[project_id])
-
-    raise gen.Return(directories)
+    project_dirs = yield self.list_subdirs(tr, self.root_dir)
+    raise gen.Return(project_dirs)
 
 
 class SectionCache(DirectoryCache):
@@ -133,9 +131,9 @@ class SectionCache(DirectoryCache):
   # The number of items the cache can hold.
   SIZE = 256
 
-  def __init__(self, tornado_fdb, project_cache, dir_type):
+  def __init__(self, tornado_fdb, project_cache, dir_type, size=None):
     super(SectionCache, self).__init__(
-      tornado_fdb, project_cache.root_dir, self.SIZE)
+      tornado_fdb, project_cache.root_dir, size or self.SIZE)
     self._project_cache = project_cache
     self._dir_type = dir_type
 
@@ -150,30 +148,34 @@ class SectionCache(DirectoryCache):
       A namespace directory object of the directory type.
     """
     yield self.validate_cache(tr)
+    section_dir = yield self._get_section_dir(tr, project_id)
+    raise gen.Return(self._dir_type(section_dir))
+
+  @gen.coroutine
+  def _get_section_dir(self, tr, project_id):
     if project_id not in self:
       project_dir = yield self._project_cache.get(tr, project_id)
       # TODO: Make async.
-      section_dir = project_dir.create_or_open(tr, (self._dir_type.DIR_NAME,))
-      self[project_id] = self._dir_type(section_dir)
+      self[project_id] = project_dir.create_or_open(
+        tr, (self._dir_type.DIR_NAME,))
 
     raise gen.Return(self[project_id])
 
 
-class NSCache(DirectoryCache):
+class SectionNSCache(SectionCache):
   """ Caches namespaced sections to keep track of directory prefixes. """
 
   # The number of items the cache can hold.
   SIZE = 512
 
   def __init__(self, tornado_fdb, project_cache, dir_type):
-    super(NSCache, self).__init__(
-      tornado_fdb, project_cache.root_dir, self.SIZE)
+    super(SectionNSCache, self).__init__(
+      tornado_fdb, project_cache, dir_type, self.SIZE)
     self._project_cache = project_cache
     self._dir_type = dir_type
 
-  # TODO: This interface is really clumsy. Rethink arguments.
   @gen.coroutine
-  def get(self, tr, project_id, namespace, *args, **kwargs):
+  def get(self, tr, project_id, namespace):
     """ Gets a namespace directory for the given project and namespace.
 
     Args:
@@ -186,16 +188,15 @@ class NSCache(DirectoryCache):
     yield self.validate_cache(tr)
     key = (project_id, namespace)
     if key not in self:
-      project_dir = yield self._project_cache.get(tr, project_id)
-      section_dir = yield self.get_section(tr, project_dir)
+      section_dir = yield self._get_section_dir(tr, project_id)
       # TODO: Make async.
-      ns_dir = section_dir.create_or_open(tr, (namespace,) + tuple(args))
-      self[key] = self._dir_type(ns_dir, **kwargs)
+      ns_dir = section_dir.create_or_open(tr, (namespace,))
+      self[key] = self._dir_type(ns_dir)
 
     raise gen.Return(self[key])
 
   @gen.coroutine
-  def get_from_key(self, tr, key):
+  def from_key(self, tr, key):
     """ Gets a namespace directory for a protobuf reference object.
 
     Args:
@@ -210,49 +211,16 @@ class NSCache(DirectoryCache):
     raise gen.Return(ns_dir)
 
   @gen.coroutine
-  def get_section(self, tr, project_dir):
-    """ Gets a project's directory type section.
-
-    Args:
-      tr: An FDB transaction.
-      project_dir: The project's DirectorySubspace.
-    Returns:
-      A DirectorySubpace object with the path of
-      (<ds-root>, <project-id>, <section>).
-    """
-    project_id = project_dir.get_path()[-1]
-    if project_id not in self:
-      # TODO: Make async.
-      section_dir = project_dir.create_or_open(tr, (self._dir_type.DIR_NAME,))
-      self[project_id] = section_dir
-
-    raise gen.Return(self[project_id])
-
-  @gen.coroutine
-  def list(self, tr, project_dir):
+  def list(self, tr, project_id):
     """ Gets the namepsace directories from the project's relevant section.
 
     Args:
       tr: An FDB transaction.
-      project_dir: The project's DirectorySubspace.
+      project_id: A unicode string specifying the project ID.
     Returns:
       A list of DirectorySubspace objects with the path of
       (<ds-root>, <project-id>, <section>, <namespace>).
     """
-    project_id = project_dir.get_path()[-1]
-    section_dir = yield self.get_section(tr, project_dir)
-    subdirs_subspace = self.subdirs_subspace(section_dir)
-    kvs = yield KVIterator(tr, self._tornado_fdb,
-                           subdirs_subspace.range()).list()
-    ns_directories = []
-    for kv in kvs:
-      namespace = subdirs_subspace.unpack(kv.key)[0]
-      ns_directory = DirectorySubspace(
-        section_dir.get_path() + (namespace,), kv.value)
-      key = (project_id, namespace)
-      if key not in self:
-        self[key] = self._dir_type(ns_directory)
-
-      ns_directories.append(self[key])
-
-    raise gen.Return(ns_directories)
+    section_dir = yield self._get_section_dir(tr, project_id)
+    ns_dirs = yield self.list_subdirs(tr, section_dir)
+    raise gen.Return(tuple(self._dir_type(ns_dir) for ns_dir in ns_dirs))

@@ -8,7 +8,7 @@ import six
 from tornado import gen
 from tornado.concurrent import Future as TornadoFuture
 
-from appscale.datastore.dbconstants import SCATTER_CHANCE
+from appscale.datastore.dbconstants import InternalError, SCATTER_CHANCE
 
 fdb.api_version(610)
 logger = logging.getLogger(__name__)
@@ -80,13 +80,17 @@ class TornadoFDB(object):
   def __init__(self, io_loop):
     self._io_loop = io_loop
 
+  @gen.coroutine
   def commit(self, tr):
     tornado_future = TornadoFuture()
     callback = lambda fdb_future: self._handle_fdb_result(
       fdb_future, tornado_future)
     commit_future = tr.commit()
     commit_future.on_ready(callback)
-    return tornado_future
+    try:
+      yield tornado_future
+    except fdb.FDBError as fdb_error:
+      raise InternalError(fdb_error.description)
 
   def get(self, tr, key, snapshot=False):
     tx_reader = tr
