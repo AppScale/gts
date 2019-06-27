@@ -151,8 +151,8 @@ class DeletedVersionIndex(object):
     """
     scatter_byte = bytes(bytearray([byte_num]))
     prefix = self.directory.rawPrefix + scatter_byte
-    return slice(fdb.KeySelector.first_greater_or_equal(prefix + b'\x00'),
-                 fdb.KeySelector.first_greater_than(prefix + safe_vs))
+    return slice(fdb.KeySelector.first_greater_or_equal(prefix),
+                 fdb.KeySelector.first_greater_or_equal(prefix + safe_vs))
 
 
 class SafeReadDir(object):

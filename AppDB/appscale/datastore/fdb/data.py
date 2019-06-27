@@ -25,6 +25,8 @@ from google.appengine.datastore import entity_pb
 
 logger = logging.getLogger(__name__)
 
+first_gt_or_equal = fdb.KeySelector.first_greater_or_equal
+
 
 class VersionEntry(object):
   """ Encapsulates details for an entity version. """
@@ -259,9 +261,6 @@ class DataNamespace(object):
     return VersionEntry(self.project_id, self.namespace, path, commit_vs,
                         version, encoded_entity)
 
-  def decode_index(self, kv):
-    return ord(kv.key[self.index_slice])
-
   def get_slice(self, path, commit_vs=None, read_vs=None):
     """ Gets the range of keys relevant to the given constraints.
 
@@ -275,21 +274,20 @@ class DataNamespace(object):
     """
     path_prefix = self._encode_path_prefix(path)
     if commit_vs is not None:
-      prefix = path_prefix + commit_vs
       # All chunks for a given version.
-      return slice(fdb.KeySelector.first_greater_or_equal(prefix + b'\x00'),
-                   fdb.KeySelector.first_greater_than(prefix + b'\xFF'))
+      prefix = path_prefix + commit_vs
+      return slice(first_gt_or_equal(prefix + b'\x00'),
+                   first_gt_or_equal(prefix + b'\xFF'))
 
     if read_vs is not None:
-      version_prefix = path_prefix + read_vs
       # All versions for a given path except those written after the read_vs.
-      return slice(
-        fdb.KeySelector.first_greater_or_equal(path_prefix + b'\x00'),
-        fdb.KeySelector.first_greater_than(version_prefix + b'\xFF'))
+      version_prefix = path_prefix + read_vs
+      return slice(first_gt_or_equal(path_prefix + b'\x00'),
+                   first_gt_or_equal(version_prefix + b'\xFF'))
 
     # All versions for a given path.
-    return slice(fdb.KeySelector.first_greater_or_equal(path_prefix + b'\x00'),
-                 fdb.KeySelector.first_greater_than(path_prefix + b'\xFF'))
+    return slice(first_gt_or_equal(path_prefix + b'\x00'),
+                 first_gt_or_equal(path_prefix + b'\xFF'))
 
   def _encode_path_prefix(self, path):
     """ Encodes the portion of the key up to and including the path.
@@ -484,7 +482,9 @@ class DataManager(object):
     """
     data_ns = yield self._data_cache.get(
       tr, version_entry.project_id, version_entry.namespace)
-    del tr[data_ns.get_slice(version_entry.path, version_entry.commit_vs)]
+    version_slice = data_ns.get_slice(version_entry.path,
+                                      version_entry.commit_vs)
+    del tr[version_slice.start.key:version_slice.stop.key]
 
   @gen.coroutine
   def _last_version(self, tr, data_ns, desired_slice, include_data=True,
@@ -513,9 +513,6 @@ class DataManager(object):
 
     # Retrieve the remaining chunks.
     version_slice = data_ns.get_slice(entry.path, entry.commit_vs)
-    end_key = data_ns.encode_key(entry.path, entry.commit_vs,
-                                 data_ns.decode_index(last_kv))
-    remaining_slice = slice(version_slice.start,
-                            fdb.KeySelector.first_greater_or_equal(end_key))
-    kvs = yield KVIterator(tr, self._tornado_fdb, remaining_slice).list()
+    remaining = slice(version_slice.start, first_gt_or_equal(last_kv.key))
+    kvs = yield KVIterator(tr, self._tornado_fdb, remaining).list()
     raise gen.Return(data_ns.decode(kvs + [last_kv]))

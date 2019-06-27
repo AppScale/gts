@@ -153,12 +153,12 @@ class TransactionMetadata(object):
   def get_txid_slice(self, txid):
     prefix = self._txid_prefix(txid)
     return slice(fdb.KeySelector.first_greater_or_equal(prefix),
-                 fdb.KeySelector.first_greater_than(prefix + b'\xFF'))
+                 fdb.KeySelector.first_greater_or_equal(prefix + b'\xFF'))
 
   def get_expired_slice(self, scatter_byte, safe_vs):
     prefix = self.directory.rawPrefix + six.int2byte(scatter_byte)
     return slice(fdb.KeySelector.first_greater_or_equal(prefix),
-                 fdb.KeySelector.first_greater_than(prefix + safe_vs))
+                 fdb.KeySelector.first_greater_or_equal(prefix + safe_vs))
 
   def _txid_prefix(self, txid):
     scatter_val, commit_vs = TransactionID.decode(txid)
@@ -271,7 +271,8 @@ class TransactionManager(object):
   @gen.coroutine
   def delete(self, tr, project_id, txid):
     tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
-    del tr[tx_dir.get_txid_slice(txid)]
+    txid_slice = tx_dir.get_txid_slice(txid)
+    del tr[txid_slice.start.key:txid_slice.stop.key]
 
   @gen.coroutine
   def get_metadata(self, tr, project_id, txid):
@@ -289,4 +290,5 @@ class TransactionManager(object):
   @gen.coroutine
   def clear_range(self, tr, project_id, scatter_byte, safe_vs):
     tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
-    del tr[tx_dir.get_expired_slice(scatter_byte, safe_vs)]
+    expired_slice = tx_dir.get_expired_slice(scatter_byte, safe_vs)
+    del tr[expired_slice.start.key:expired_slice.stop.key]

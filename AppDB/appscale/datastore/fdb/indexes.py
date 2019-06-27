@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 KEY_PROP = u'__key__'
 
-KeySelector = fdb.KeySelector
 first_gt_or_equal = fdb.KeySelector.first_greater_or_equal
 
 
