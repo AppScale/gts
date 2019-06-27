@@ -1,3 +1,4 @@
+import json
 import logging
 import random
 import time
@@ -9,6 +10,7 @@ from tornado import gen
 from tornado.concurrent import Future as TornadoFuture
 
 from appscale.datastore.dbconstants import InternalError, SCATTER_CHANCE
+from appscale.datastore.fdb.codecs import Path
 
 fdb.api_version(610)
 logger = logging.getLogger(__name__)
@@ -256,3 +258,35 @@ def hash_tuple(value):
   val = mmh3.hash(hashable_value.encode('utf-8'), signed=False)
   byte_array = bytearray((val % 256,))
   return bytes(byte_array)
+
+
+def format_prop_val(prop_value):
+  if prop_value.has_int64value():
+    return prop_value.int64value()
+  elif prop_value.has_booleanvalue():
+    return prop_value.booleanvalue()
+  elif prop_value.has_stringvalue():
+    return repr(prop_value.stringvalue())
+  elif prop_value.has_doublevalue():
+    return prop_value.doublevalue()
+  elif prop_value.has_pointvalue():
+    point_val = prop_value.pointvalue()
+    return point_val.x(), point_val.y()
+  elif prop_value.has_uservalue():
+    user_val = prop_value.uservalue()
+    details = {'email': user_val.email(),
+               'auth_domain': user_val.auth_domain()}
+    if user_val.has_nickname():
+      details['nickname'] = user_val.nickname()
+
+    if user_val.has_federated_identity():
+      details['federatedIdentity'] = user_val.federated_identity()
+
+    if user_val.has_federated_provider():
+      details['federatedProvider'] = user_val.federated_provider()
+
+    return json.dumps(details)
+  elif prop_value.has_referencevalue():
+    return Path.flatten(prop_value.referencevalue())
+  else:
+    return None

@@ -19,8 +19,8 @@ from appscale.datastore.fdb.codecs import (
   decode_str, decode_value, encode_value, encode_vs_index, Path)
 from appscale.datastore.fdb.sdk import ListCursor
 from appscale.datastore.fdb.utils import (
-  DS_ROOT, fdb, get_scatter_val, MAX_FDB_TX_DURATION, KVIterator, SCATTER_PROP,
-  VS_SIZE)
+  format_prop_val, DS_ROOT, fdb, get_scatter_val, MAX_FDB_TX_DURATION,
+  KVIterator, SCATTER_PROP, VS_SIZE)
 from appscale.datastore.dbconstants import BadRequest, InternalError
 from appscale.datastore.index_manager import IndexInaccessible
 from appscale.datastore.utils import _FindIndexToUse
@@ -199,6 +199,11 @@ class PropertyEntry(IndexEntry):
     return u'PropertyEntry(%r, %r, %r, %r, %r, %r, %r)' % (
       self.project_id, self.namespace, self.path, self.prop_name, self.value,
       self.commit_vs, self.deleted_vs)
+
+  def __str__(self):
+    return u'PropertyEntry(%s, %r, %s, %s, %s, %r, %r)' % (
+      self.project_id, self.namespace, self.path, self.prop_name,
+      format_prop_val(self.value), self.commit_vs, self.deleted_vs)
 
   def prop_result(self):
     entity = entity_pb.EntityProto()
