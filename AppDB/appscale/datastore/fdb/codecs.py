@@ -343,7 +343,11 @@ class Path(object):
       path = entity_pb.Path()
 
     for index in range(0, len(flat_path), 2):
-      element = path.add_element()
+      if reference_value:
+        element = path.add_pathelement()
+      else:
+        element = path.add_element()
+
       element.set_type(flat_path[index])
       id_or_name = flat_path[index + 1]
       if isinstance(id_or_name, int):
@@ -385,19 +389,19 @@ class Reference(object):
       prefix,
       Text.encode(decode_str(value.app()), reverse=reverse),
       Text.encode(decode_str(value.name_space()), reverse=reverse),
-      Path.pack(Path.flatten(value), prefix=prefix, reverse=reverse)
+      Path.pack(Path.flatten(value), reverse=reverse)
     ])
 
   @classmethod
   def decode(cls, blob, pos, reverse=False):
     project_id, pos = Text.decode(blob, pos, reverse)
-    namespace, pos = Double.decode(blob, pos, reverse)
-    flat_path = Path.unpack(blob, pos, reverse=reverse)
+    namespace, pos = Text.decode(blob, pos, reverse)
+    flat_path, pos = Path.unpack(blob, pos, reverse=reverse)
     reference_val = entity_pb.PropertyValue_ReferenceValue()
     reference_val.set_app(project_id)
     reference_val.set_name_space(namespace)
     reference_val.MergeFrom(Path.decode(flat_path, reference_value=True))
-    return reference_val
+    return reference_val, pos
 
 
 def encode_value(value, reverse=False):
