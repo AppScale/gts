@@ -13,7 +13,6 @@ setup(
     'appscale-common',
     'cassandra-driver<3.18.0',
     'kazoo',
-    'M2Crypto',
     'mmh3',
     'SOAPpy',
     'tornado'

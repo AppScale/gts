@@ -1,7 +1,7 @@
 """ This script creates a new user. Fails if the user already exists. """
 
 import hashlib
-import M2Crypto
+import random
 import string
 import sys
 
@@ -18,10 +18,7 @@ def random_password(length=10):
     A str of random characters.
   """
   chars = string.ascii_uppercase + string.digits + string.ascii_lowercase
-  password = ''
-  for i in range(length):
-    password += chars[ord(M2Crypto.m2.rand_bytes(1)) % len(chars)]
-  return password
+  return ''.join(random.choice(chars) for _ in range(length))
 
 def usage():
   print ""
