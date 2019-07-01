@@ -33,7 +33,9 @@ USER_CODE = 0x24
 REFERENCE_CODE = 0x27
 
 # Ensures the shorter of two variable-length values (with identical prefixes)
-# is placed before the longer one.
+# is placed before the longer one. Otherwise, the following byte(s) could
+# determine the sort order. It also allows a decoder to find the end of the
+# value.
 TERMINATOR = 0x00
 
 logger = logging.getLogger(__name__)
@@ -118,17 +120,38 @@ class Bytes(object):
   def encode(cls, value, prefix=six.int2byte(BYTES_CODE), reverse=False):
     packed = reverse_bits(value) if reverse else value
     terminator = encode_marker(TERMINATOR, reverse)
-    # Escape each occurrence of the terminator. The first byte of whatever
-    # follows must not contain the escape character.
-    packed = packed.replace(terminator, terminator + reverse_bits(terminator))
+    # Replace each occurrence of the terminator with a sequence that maintains
+    # the sort order. In order for the parser to be able to find the end of the
+    # value, directories that use this codec must ensure that the first byte
+    # that follows the encoded Bytes object must not be 0x00 or 0xFF.
+    if reverse:
+      # The preceding 0xFE ensures a terminator character within the value
+      # compares as less than the real terminator. For example,
+      # 0x0200 -> 0xFDFF -> 0xFDFEFF00FF should come before
+      # 0x02   -> 0xFD   -> 0xFDFF
+      # The trailing 0x00 ensures that the parser is able to differentiate
+      # between a replaced value and the real terminator.
+      packed = packed.replace(terminator, b'\xFE\xFF\x00')
+    else:
+      # A trailing 0xFF is enough for the parser to find the terminator and
+      # to maintain sort order despite the values that follow. For example
+      # (assuming 0x10 is the value that follows),
+      # 0x00, 0x10   -> 0x00FF0010     (not 0x000010) should come before
+      # 0x0000, 0x10 -> 0x00FF00FF0010 (not 0x00000010)
+      packed = packed.replace(terminator, b'\x00\xFF')
+
     return prefix + packed + terminator
 
   @classmethod
   def decode(cls, blob, pos, reverse=False):
     end = cls._find_terminator(blob, pos, reverse)
+    packed = blob[pos:end]
     terminator = encode_marker(TERMINATOR, reverse)
-    packed = blob[pos:end].replace(terminator + reverse_bits(terminator),
-                                   terminator)
+    if reverse:
+      packed = packed.replace(b'\xFE\xFF\x00', terminator)
+    else:
+      packed = packed.replace(b'\x00\xFF', terminator)
+
     value = reverse_bits(packed) if reverse else packed
     return value, end + 1
 
@@ -136,7 +159,7 @@ class Bytes(object):
   def _find_terminator(blob, pos, reverse=False):
     """ Finds the position of the terminator. """
     terminator = encode_marker(TERMINATOR, reverse)
-    escape_byte = reverse_bits(terminator)
+    escape_byte = b'\x00' if reverse else b'\xFF'
     while True:
       pos = blob.find(terminator, pos)
       if pos < 0:
@@ -151,17 +174,17 @@ class Bytes(object):
 class Double(object):
   @classmethod
   def encode(cls, value, prefix=six.int2byte(DOUBLE_CODE), reverse=False):
-    adjusted_value = -value if reverse else value
-    packed = struct.pack('>d', adjusted_value)
-    # Flip all of the bits for negative values.
-    if six.indexbytes(packed, 0) & 0x80 != 0x00:
-      # If it's negative and reversed, there is no transformation.
-      packed = packed if reverse else reverse_bits(packed)
-    else:
-      # Flip the sign bit for positive values.
+    packed = struct.pack('>d', value)
+    # The first bit of the packed value indicates whether it's negative or not.
+    positive = six.indexbytes(packed, 0) & 0x80 == 0x00
+    if positive:
+      # Flip the sign bit.
       packed = six.int2byte(six.indexbytes(packed, 0) ^ 0x80) + packed[1:]
       if reverse:
         packed = reverse_bits(packed)
+    else:
+      # Flip all the bits unless the sort order is reversed.
+      packed = packed if reverse else reverse_bits(packed)
 
     return prefix + packed
 
@@ -169,18 +192,19 @@ class Double(object):
   def decode(cls, blob, pos, reverse=False):
     packed = blob[pos:pos + 8]
     pos += 8
-    # Restore all the original bits for reverse values.
-    if six.indexbytes(packed, 0) & 0x80 != 0x80:
-      # If it's negative and reversed, there is no transformation.
-      packed = packed if reverse else reverse_bits(packed)
-    else:
-      # Restore the sign bit for positive values.
-      packed = six.int2byte(six.indexbytes(packed, 0) ^ 0x80) + packed[1:]
+    first_bit = six.indexbytes(packed, 0) & 0x80 == 0x80
+    positive = first_bit if not reverse else not first_bit
+    if positive:
       if reverse:
         packed = reverse_bits(packed)
 
-    adjusted_value = struct.unpack('>d', packed)[0]
-    value = -adjusted_value if reverse else adjusted_value
+      # Restore the sign bit.
+      packed = six.int2byte(six.indexbytes(packed, 0) ^ 0x80) + packed[1:]
+    else:
+      # Restore all the original bits for ascending values.
+      packed = packed if reverse else reverse_bits(packed)
+
+    value = struct.unpack('>d', packed)[0]
     return value, pos
 
 
@@ -198,22 +222,23 @@ class Point(object):
     point_val = entity_pb.PropertyValue_PointValue()
     point_val.set_x(x)
     point_val.set_y(y)
-    return point_val
+    return point_val, pos
 
 
 class Text(object):
   @classmethod
   def encode(cls, unicode_string, prefix=b'', reverse=False):
-    byte_array = bytearray(unicode_string, encoding='utf-8')
     # Ensure the encoded value does not contain the terminator. UTF-8 does not
     # use 0xFF, so this can be done without exceeding the largest byte value.
-    for index, byte_value in enumerate(byte_array):
-      byte_array[index] = byte_value + 1
-      if reverse:
-        byte_array[index] = byte_value ^ 0xFF
+    if reverse:
+      encode_byte = lambda x: six.int2byte(x + 1 ^ 0xFF)
+    else:
+      encode_byte = lambda x: six.int2byte(x + 1)
 
+    encoded = b''.join(
+      map(encode_byte, six.iterbytes(unicode_string.encode('utf-8'))))
     terminator = encode_marker(TERMINATOR, reverse)
-    return prefix + bytes(byte_array) + terminator
+    return prefix + encoded + terminator
 
   @classmethod
   def decode(cls, blob, pos, reverse=False):
@@ -244,11 +269,11 @@ class User(object):
   @classmethod
   def decode(cls, blob, pos, reverse=False):
     email, pos = Text.decode(blob, pos, reverse)
-    auth_domain, pos = Double.decode(blob, pos, reverse)
+    auth_domain, pos = Text.decode(blob, pos, reverse)
     user_val = entity_pb.PropertyValue_UserValue()
     user_val.set_email(email)
     user_val.set_auth_domain(auth_domain)
-    return user_val
+    return user_val, pos
 
 
 class Path(object):
@@ -261,8 +286,7 @@ class Path(object):
   NAME_MARKER = 0x1D
 
   @classmethod
-  def pack(cls, path, omit_kind=None, prefix=b'', omit_terminator=False,
-           reverse=False):
+  def pack(cls, path, prefix=b'', omit_terminator=False, reverse=False):
     if not isinstance(path, tuple):
       path = cls.flatten(path)
 
@@ -270,10 +294,9 @@ class Path(object):
     kind_marker = encode_marker(cls.KIND_MARKER, reverse)
     for index in range(0, len(path), 2):
       kind = path[index]
-      if omit_kind is None or kind != omit_kind:
-        encoded_items.append(Text.encode(kind, kind_marker, reverse))
-
-      encoded_items.append(cls.encode_id_or_name(path[index + 1], reverse))
+      id_or_name = path[index + 1]
+      encoded_items.append(Text.encode(kind, kind_marker, reverse))
+      encoded_items.append(cls.encode_id_or_name(id_or_name, reverse))
 
     terminator = b'' if omit_terminator else encode_marker(TERMINATOR, reverse)
     return b''.join([prefix] + encoded_items + [terminator])
@@ -289,7 +312,7 @@ class Path(object):
       raise BadRequest(u'Invalid path element type')
 
   @classmethod
-  def unpack(cls, blob, pos, kind=None, reverse=False):
+  def unpack(cls, blob, pos, reverse=False):
     items = []
     terminator = encode_marker(TERMINATOR, reverse)
     kind_marker = encode_marker(cls.KIND_MARKER, reverse)
@@ -301,14 +324,10 @@ class Path(object):
         break
 
       if marker != kind_marker:
-        if not kind:
-          raise InternalError(u'Encoded path is missing kind')
+        raise InternalError(u'Encoded path is missing kind')
 
-        items.append(kind)
-        pos -= 1
-      else:
-        elem_kind, pos = Text.decode(blob, pos, reverse)
-        items.append(elem_kind)
+      kind, pos = Text.decode(blob, pos, reverse)
+      items.append(kind)
 
       marker = blob[pos]
       pos += 1
@@ -396,7 +415,7 @@ class Reference(object):
   def decode(cls, blob, pos, reverse=False):
     project_id, pos = Text.decode(blob, pos, reverse)
     namespace, pos = Text.decode(blob, pos, reverse)
-    flat_path, pos = Path.unpack(blob, pos, reverse=reverse)
+    flat_path, pos = Path.unpack(blob, pos, reverse)
     reference_val = entity_pb.PropertyValue_ReferenceValue()
     reference_val.set_app(project_id)
     reference_val.set_name_space(namespace)

@@ -451,14 +451,12 @@ class MergeJoinIterator(object):
 
 
 class IndexSlice(object):
-  __slots__ = ['_directory_prefix', '_order_info', '_omit_kind', '_ancestor',
-               '_start_parts', '_stop_parts']
+  __slots__ = ['_directory_prefix', '_order_info', '_ancestor', '_start_parts',
+               '_stop_parts']
 
-  def __init__(self, directory_prefix, order_info, omit_kind=None,
-               ancestor=False):
+  def __init__(self, directory_prefix, order_info, ancestor=False):
     self._directory_prefix = directory_prefix
     self._order_info = order_info
-    self._omit_kind = omit_kind
     self._ancestor = ancestor
 
     self._start_parts = [self._directory_prefix]
@@ -493,8 +491,7 @@ class IndexSlice(object):
       self._set_stop(index, Path.pack(ancestor_path))
       self._set_stop(index + 1, b'\xFF')
     else:
-      prefix = Path.pack(ancestor_path, omit_kind=self._omit_kind,
-                         omit_terminator=True)
+      prefix = Path.pack(ancestor_path, omit_terminator=True)
       self._set_start(index, prefix)
       self._set_stop(index, prefix + b'\xFF')
 
@@ -532,8 +529,7 @@ class IndexSlice(object):
     if not remaining_path:
       raise InternalError(u'Path filter must be within ancestor')
 
-    start = Path.pack(remaining_path, omit_kind=self._omit_kind,
-                      omit_terminator=True)
+    start = Path.pack(remaining_path, omit_terminator=True)
     # Since the commit versionstamp could potentially start with 0xFF, this
     # selection scans up to the next possible path value.
     stop = start + six.int2byte(Path.MIN_ID_MARKER)
@@ -643,13 +639,11 @@ class Index(object):
   def get_slice(self, filter_props, ancestor_path=tuple(), start_cursor=None,
                 end_cursor=None, reverse_scan=False):
     has_ancestor_field = getattr(self, 'ancestor', False)
-    kind_to_omit = getattr(self, 'kind', None)
     order_info = getattr(
       self, 'order_info', tuple((prop_name, Query_Order.ASCENDING)
                                 for prop_name in self.prop_names))
     index_slice = IndexSlice(
-      self.directory.rawPrefix, order_info, omit_kind=kind_to_omit,
-      ancestor=has_ancestor_field)
+      self.directory.rawPrefix, order_info, ancestor=has_ancestor_field)
 
     # First, apply the ancestor filter if it comes first in the index.
     if has_ancestor_field:
@@ -744,10 +738,9 @@ class KindIndex(Index):
   The FDB directory for a kind index looks like
   (<project-dir>, 'kind-indexes', <namespace>, <kind>).
 
-  Within this directory, keys are encoded as <kindless-path> + <commit-vs>.
+  Within this directory, keys are encoded as <path> + <commit-vs>.
 
-  The <kindless-path> contains the entity path with the final element's kind
-  omitted.
+  The <path> contains the entity path. See codecs.Path for encoding details.
 
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the index entry.
@@ -770,8 +763,7 @@ class KindIndex(Index):
     return ()
 
   def encode_key(self, path, commit_vs):
-    key = b''.join([self.directory.rawPrefix,
-                    Path.pack(path, omit_kind=self.kind),
+    key = b''.join([self.directory.rawPrefix, Path.pack(path),
                     commit_vs or b'\x00' * VS_SIZE])
     if not commit_vs:
       key += encode_vs_index(len(key) - VS_SIZE)
@@ -779,8 +771,7 @@ class KindIndex(Index):
     return key
 
   def decode(self, kv):
-    path = Path.unpack(kv.key, len(self.directory.rawPrefix),
-                       kind=self.kind)[0]
+    path = Path.unpack(kv.key, len(self.directory.rawPrefix))[0]
     commit_vs = kv.key[self.vs_slice]
     deleted_vs = kv.value or None
     return IndexEntry(self.project_id, self.namespace, path, commit_vs,
@@ -842,14 +833,12 @@ class SinglePropIndex(Index):
   The FDB directory for a single-prop index looks like
   (<project-dir>, 'single-property-indexes', <namespace>, <kind>, <prop-name>).
 
-  Within this directory, keys are encoded as
-  (<value>, <kindless-path>, <commit-vs>).
+  Within this directory, keys are encoded as (<value>, <path>, <commit-vs>).
 
   The <value> contains a property value. See the codecs module for encoding
   details.
 
-  The <kindless-path> contains the entity path with the final element's kind
-  omitted.
+  The <path> contains the entity path. See codecs.Path for encoding details.
 
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the index entry.
@@ -877,7 +866,7 @@ class SinglePropIndex(Index):
 
   def encode_key(self, value, path, commit_vs):
     key = b''.join([self.directory.rawPrefix, encode_value(value),
-                    Path.pack(path, omit_kind=self.kind),
+                    Path.pack(path),
                     commit_vs or b'\x00' * VS_SIZE])
     if not commit_vs:
       key += encode_vs_index(len(key) - VS_SIZE)
@@ -886,7 +875,7 @@ class SinglePropIndex(Index):
 
   def decode(self, kv):
     value, pos = decode_value(kv.key, len(self.directory.rawPrefix))
-    path = Path.unpack(kv.key, pos, self.kind)[0]
+    path = Path.unpack(kv.key, pos)[0]
     commit_vs = kv.key[self.vs_slice]
     deleted_vs = kv.value or None
     return PropertyEntry(self.project_id, self.namespace, path, self.prop_name,
@@ -981,8 +970,7 @@ class CompositeIndex(Index):
 
   The <remaining-path> is an encoded tuple containing the portion of the entity
   path that isn't specified by the <ancestor-fragment>. If the index definition
-  does not require an ancestor, this is equivalent to the <kindless-path>
-  portion of a kind or single-prop index.
+  does not require an ancestor, this contains the full path.
 
   The <commit-vs> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the index entry.
@@ -1016,7 +1004,7 @@ class CompositeIndex(Index):
   def encode_key(self, ancestor_path, encoded_values, remaining_path,
                  commit_vs):
     ancestor_path = Path.pack(ancestor_path) if ancestor_path else b''
-    remaining_path = Path.pack(remaining_path, omit_kind=self.kind)
+    remaining_path = Path.pack(remaining_path)
     key = b''.join(
       (self.directory.rawPrefix, ancestor_path) + tuple(encoded_values) +
       (remaining_path, commit_vs or b'\x00' * VS_SIZE))
@@ -1061,7 +1049,7 @@ class CompositeIndex(Index):
                                 direction == Query_Order.DESCENDING)
       properties.append((prop_name, value))
 
-    remaining_path = Path.unpack(kv.key, pos, self.kind)[0]
+    remaining_path = Path.unpack(kv.key, pos)[0]
     path = ancestor_path + remaining_path
     commit_vs = kv.key[self.vs_slice]
     deleted_vs = kv.value or None
