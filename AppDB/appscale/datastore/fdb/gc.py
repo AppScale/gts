@@ -40,6 +40,11 @@ class DeletedVersionEntry(object):
     self.original_vs = original_vs
     self.deleted_vs = deleted_vs
 
+  def __repr__(self):
+    return u'DeletedVersionEntry({!r}, {!r}, {!r}, {!r}, {!r})'.format(
+      self.project_id, self.namespace, self.path, self.original_vs,
+      self.deleted_vs)
+
 
 class DeletedVersionIndex(object):
   """
@@ -95,6 +100,9 @@ class DeletedVersionIndex(object):
   def original_vs_slice(self):
     """ The portion of keys that contain the original versionstamp. """
     return slice(-VS_SIZE, None)
+
+  def __repr__(self):
+    return u'DeletedVersionIndex({!r})'.format(self.directory)
 
   def encode_key(self, path, original_vs, deleted_vs=None):
     """ Encodes a key for a deleted version index entry.
@@ -338,6 +346,7 @@ class GarbageCollector(object):
             u'GC deleted {} entity versions'.format(deleted_versions))
 
         yield self._tornado_fdb.commit(tr)
+        cursor = (project_id, namespace, batch)
       except Exception:
         logger.exception(u'Unexpected error while grooming projects')
         yield gen.sleep(10)
@@ -412,8 +421,8 @@ class GarbageCollector(object):
         index_entry = index.decode(kv)
         version_entry = yield self._data_manager.get_version_from_path(
           tr, index_entry.project_id, index_entry.namespace, index_entry.path,
-          index_entry.commit_vs)
-        self._hard_delete(tr, version_entry, index_entry.deleted_vs)
+          index_entry.original_vs)
+        yield self._hard_delete(tr, version_entry, index_entry.deleted_vs)
         deleted += 1
 
       if not more or monotonic.monotonic() > tx_deadline:
