@@ -141,9 +141,9 @@ def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host
               ':'.join([options.db_proxy, str(UA_SERVER_PORT)]))
       ]
 
-      apis_using_external_server = [
-          'blobstore', 'channel', 'datastore_v3', 'memcache', 'search',
-          'taskqueue', 'user', 'xmpp']
+      apis_using_external_server = ['app_identity_service', 'blobstore',
+                                    'channel', 'datastore_v3', 'memcache',
+                                    'search', 'taskqueue', 'user', 'xmpp']
   else:
       api_server = os.path.join(SCRIPTS_DIR,
                                 'appscale_java8_apiserver.sh')
