@@ -62,6 +62,8 @@
       <include name="apphosting/tools/**" />
     </javac>
     <copy file="src/apphosting/tools/dev-channel-js.js" todir="${build}/apphosting/tools/"/>
+    <copy file="src/com/google/appengine/tools/development/webdefault.xml"
+          todir="${build}/com/google/appengine/tools/development/"/>
   </target>
 
   <target name="update-api-jar" depends="compile, repack-sdk, update-api-jar-user">
@@ -118,6 +120,7 @@
       <include name="com/google/apphosting/utils/config/*" />
       <include name="com/google/appengine/tools/development/*" />
       <include name="com/google/appengine/tools/resources/*" />
+      <include name="org/mortbay/jetty/servlet/DatastoreSessionManager*" />
     </jar>
     <copy file="src/com/google/appengine/tools/development/webdefault.xml" tofile="${gae_dist}/com/google/appengine/tools/development/" />
   </target>

@@ -103,6 +103,7 @@ class UserConfiguredURLHandler(URLHandler):
     """
     super(UserConfiguredURLHandler, self).__init__(url_pattern)
     self._url_map = url_map
+    self._secret_hash = login.fake_admin()
 
   def handle_authorization(self, environ, start_response):
     """Handles the response if the user is not authorized to access this URL.
@@ -126,7 +127,11 @@ class UserConfiguredURLHandler(URLHandler):
     cookies = environ.get('HTTP_COOKIE')
     email_addr, admin, _ = login.get_user_info(cookies)
 
-    if constants.FAKE_IS_ADMIN_HEADER in environ:
+    # AppScale: Here we check to see if our secret hash is in the header which
+    # authenticates that the task was created from an AppScale deployment and
+    # not an unauthorized party.
+    if (constants.FAKE_IS_ADMIN_HEADER in environ and
+            self._secret_hash == environ[constants.FAKE_IS_ADMIN_HEADER]):
       admin = True
 
     if constants.FAKE_LOGGED_IN_HEADER in environ:

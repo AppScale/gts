@@ -12,7 +12,7 @@ from appscale.admin.instance_manager.utils import find_web_inf
 from appscale.common import appscale_info
 from appscale.common.constants import (
   APPSCALE_HOME, DB_SERVER_PORT, JAVA_APPSERVER, JAVA8, JAVA8_RUNTIME_DIR,
-  PYTHON27_RUNTIME_DIR, UA_SERVER_PORT, VERSION_PATH_SEPARATOR)
+  PYTHON27_RUNTIME_DIR, SCRIPTS_DIR, UA_SERVER_PORT, VERSION_PATH_SEPARATOR)
 from appscale.common.deployment_config import ConfigInaccessible
 
 logger = logging.getLogger(__name__)
@@ -124,38 +124,55 @@ def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host
   ]
 
   if runtime == JAVA8:
-    api_server = os.path.join(JAVA8_RUNTIME_DIR, 'bin',
-                              'appscale_java8_apiserver.sh')
-    cmd.append('--path_to_python_api_server={}'.format(api_server))
-    cmd.append('--default_hostname={}:{}'.format(load_balancer_host,
-                                                 load_balancer_port))
+      api_server = os.path.join(JAVA8_RUNTIME_DIR, 'bin',
+                                'appscale_java8_apiserver.sh')
+      cmd.append('--path_to_python_api_server={}'.format(api_server))
+      cmd.append('--default_hostname={}:{}'.format(load_balancer_host,
+                                                   load_balancer_port))
 
-    api_server_flags = [
-      '--datastore_path={}'.format(
-        ':'.join([options.db_proxy, str(DB_SERVER_PORT)])),
-      '--login_server={}'.format(load_balancer_host),
-      '--nginx_host={}'.format(load_balancer_host),
-      '--xmpp_path={}'.format(options.load_balancer_ip),
-      '--external_api_port={}'.format(api_server_port),
-      '--uaserver_path={}'.format(
-        ':'.join([options.db_proxy, str(UA_SERVER_PORT)]))
-    ]
-    for flag in api_server_flags:
-      cmd.append('--python_api_server_flag="{}"'.format(flag))
+      api_server_flags = [
+          '--datastore_path={}'.format(
+              ':'.join([options.db_proxy, str(DB_SERVER_PORT)])),
+          '--login_server={}'.format(load_balancer_host),
+          '--nginx_host={}'.format(load_balancer_host),
+          '--xmpp_path={}'.format(options.load_balancer_ip),
+          '--external_api_port={}'.format(api_server_port),
+          '--uaserver_path={}'.format(
+              ':'.join([options.db_proxy, str(UA_SERVER_PORT)]))
+      ]
 
-    apis_using_external_server = [
-      'blobstore', 'channel', 'datastore_v3', 'memcache', 'search',
-      'taskqueue', 'user', 'xmpp']
+      apis_using_external_server = [
+          'blobstore', 'channel', 'datastore_v3', 'memcache', 'search',
+          'taskqueue', 'user', 'xmpp']
   else:
-    cmd.extend(['--APP_NAME={}'.format(app_name),
-                '--NGINX_ADDRESS={}'.format(load_balancer_host),
-                '--datastore_path={}'.format(options.db_proxy),
-                '--login_server={}'.format(load_balancer_host),
-                '--TQ_PROXY={}'.format(options.tq_proxy),
-                '--xmpp_path={}'.format(options.load_balancer_ip),
-                '--external_api_port={}'.format(api_server_port),
-                '--appscale_version=1'])
-    apis_using_external_server = ['app_identity_service']
+      api_server = os.path.join(SCRIPTS_DIR,
+                                'appscale_java8_apiserver.sh')
+      cmd.append('--path_to_python_api_server={}'.format(api_server))
+
+      cmd.extend(['--APP_NAME={}'.format(app_name),
+                  '--NGINX_ADDRESS={}'.format(load_balancer_host),
+                  '--datastore_path={}'.format(options.db_proxy),
+                  '--login_server={}'.format(load_balancer_host),
+                  '--xmpp_path={}'.format(options.load_balancer_ip),
+                  '--appscale_version=1'])
+
+      api_server_flags = [
+          '--application={}'.format(app_name),
+          '--datastore_path={}'.format(
+              ':'.join([options.db_proxy, str(DB_SERVER_PORT)])),
+          '--login_server={}'.format(load_balancer_host),
+          '--nginx_host={}'.format(load_balancer_host),
+          '--xmpp_path={}'.format(load_balancer_host),
+          '--uaserver_path={}'.format(
+              ':'.join([options.db_proxy, str(UA_SERVER_PORT)])),
+          '--external_api_port={}'.format(api_server_port)
+      ]
+
+      apis_using_external_server = ['app_identity_service', 'datastore_v3',
+                                    'memcache', 'taskqueue']
+
+  for flag in api_server_flags:
+    cmd.append('--python_api_server_flag="{}"'.format(flag))
 
   for api in apis_using_external_server:
     cmd.append('--api_using_python_stub={}'.format(api))
@@ -206,7 +223,6 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
     "/usr/bin/python2", os.path.join(PYTHON27_RUNTIME_DIR, "dev_appserver.py"),
     "--application", app_name,
     "--port " + str(port),
-    "--admin_port " + str(port + 10000),
     "--login_server " + login_ip,
     "--skip_sdk_update_check",
     "--nginx_host " + str(login_ip),
@@ -218,7 +234,6 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
     "--uaserver_path " + options.db_proxy + ":" + str(UA_SERVER_PORT),
     "--datastore_path " + options.db_proxy + ":" + str(DB_SERVER_PORT),
     "--host " + options.private_ip,
-    "--admin_host " + options.private_ip,
     "--automatic_restart", "no",
     "--pidfile", pidfile,
     "--external_api_port", str(api_server_port),
@@ -259,8 +274,8 @@ def get_login_server(instance):
     return None
 
   for index, arg in enumerate(args):
-    if '--login_server=' in arg:
-      return arg.rsplit('=', 1)[1]
+    if '--login_server=' in arg and 'python_api_server_flag' not in arg:
+      return arg.split('=', 1)[1]
 
     if arg == '--login_server':
       try:

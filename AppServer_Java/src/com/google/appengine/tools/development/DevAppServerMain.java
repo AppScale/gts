@@ -142,10 +142,6 @@ public class DevAppServerMain extends SharedMain {
             public void apply() {
                 System.setProperty("NGINX_ADDR", this.getValue());
             }
-        }, new Option((String)null, "TQ_PROXY", false) {
-            public void apply() {
-                System.setProperty("TQ_PROXY", this.getValue());
-            }
         }, new Option((String)null, "xmpp_path", false) {
             public void apply() {
                 System.setProperty("XMPP_PATH", this.getValue());
@@ -153,10 +149,6 @@ public class DevAppServerMain extends SharedMain {
         }, new Option((String)null, "pidfile", false) {
             public void apply() {
                 System.setProperty("PIDFILE", this.getValue());
-            }
-        }, new Option((String)null, "external_api_port", false) {
-            public void apply() {
-                System.setProperty("appscale.externalApiPort", this.getValue());
             }
         }));
         return options;

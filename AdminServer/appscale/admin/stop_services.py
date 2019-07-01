@@ -5,6 +5,9 @@ import socket
 import sys
 import time
 
+from appscale.common.async_retrying import retry_coroutine
+from tornado import gen, ioloop
+
 from appscale.common.constants import LOG_FORMAT
 from appscale.common.monit_interface import (DEFAULT_RETRIES, MonitOperator,
                                              MonitStates, MonitUnavailable,
@@ -25,46 +28,41 @@ def order_services(running_services):
   """
   service_order = [
     # First, stop the services that manage other services.
-    'controller',
-    'admin_server',
-    'appmanagerserver',
+    ['controller'],
+    ['admin_server'],
+    ['appmanagerserver'],
 
     # Next, stop routing requests to running instances.
-    'nginx',
-    'app_haproxy',
+    ['nginx'],
+    ['app_haproxy'],
 
     # Next, stop application runtime instances.
-    'app___',
-    'api-server_',
+    ['app___'],
+    ['api-server_'],
 
     # Next, stop services that depend on other services.
-    'service_haproxy',
-    'blobstore',
-    'celery-',
-    'flower',
-    'groomer_service',
-    'hermes',
-    'iaas_manager',
-    'log_service',
-    'taskqueue-',
-    'transaction_groomer',
-    'uaserver',
+    ['service_haproxy'],
+    ['blobstore', 'celery-', 'flower', 'groomer_service', 'hermes',
+     'iaas_manager', 'log_service', 'taskqueue-', 'transaction_groomer',
+     'uaserver'],
 
     # Finally, stop the underlying backend services.
-    'cassandra',
-    'ejabberd',
-    'memcached',
-    'rabbitmq',
-    'zookeeper'
+    ['cassandra', 'ejabberd', 'memcached', 'rabbitmq', 'zookeeper']
   ]
 
   ordered_services = []
-  for service_type in service_order:
-    relevant_entries = [service for service in running_services
-                        if service.startswith(service_type)]
+  for service_types in service_order:
+    parallel_group = []
+    relevant_entries = [
+      service
+      for service in running_services
+      for service_type in service_types
+      if service.startswith(service_type)
+    ]
     for entry in relevant_entries:
       index = running_services.index(entry)
-      ordered_services.append(running_services.pop(index))
+      parallel_group.append(running_services.pop(index))
+    ordered_services.append(parallel_group)
 
   return ordered_services, running_services
 
@@ -98,9 +96,9 @@ def stop_service():
     sys.exit(1)
 
 
-def main():
+@gen.coroutine
+def main_async():
   """ Tries to stop all Monit services until they are stopped. """
-  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
   monit_operator = MonitOperator()
   hostname = socket.gethostname()
 
@@ -108,7 +106,7 @@ def main():
   logged_service_warning = False
   stopped_count = 0
   while True:
-    entries = monit_operator.get_entries_sync()
+    entries = yield monit_operator.get_entries()
     services = {service: state for service, state in entries.items()
                 if 'cron' not in service and service != hostname}
     running = {service: state for service, state in services.items()
@@ -129,15 +127,43 @@ def main():
           'Unrecognized running services: {}'.format(unrecognized_services))
         logged_service_warning = True
 
-      ordered_services = ordered_services + unrecognized_services
-      service = next((service for service in ordered_services
-                      if services[service] != MonitStates.PENDING))
+      ordered_services.append(unrecognized_services)
+      for parallel_group in ordered_services:
+        running = [process for process in parallel_group
+                   if services[process] != MonitStates.PENDING]
+        if running:
+          break
+      else:
+        continue
 
-      monit_retry = retry(max_retries=5, retry_on_exception=DEFAULT_RETRIES)
-      send_w_retries = monit_retry(monit_operator.send_command_sync)
-      send_w_retries(service, 'stop')
+      @retry_coroutine(max_retries=5, retry_on_exception=DEFAULT_RETRIES)
+      def stop_with_retries(process_name):
+        logger.debug('Sending command to stop "{}"..'.format(process_name))
+        yield monit_operator.send_command(process_name, 'stop')
+
+      yield [stop_with_retries(process) for process in running]
     except StopIteration:
       # If all running services are pending, just wait until they are not.
       pass
 
-    time.sleep(.3)
+    yield gen.sleep(min(0.3 * len(running), 5))
+
+
+def main():
+  """ Main function which terminates all appscale processes. """
+  logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
+
+  # Parse command line arguments
+  parser = argparse.ArgumentParser(description='A stop services command')
+  parser.add_argument('--verbose', action='store_true',
+                      help='Output debug-level logging')
+  args = parser.parse_args()
+  if args.verbose:
+    logging.getLogger('appscale').setLevel(logging.DEBUG)
+
+  # Like synchronous HTTPClient, create separate IOLoop for sync code
+  io_loop = ioloop.IOLoop(make_current=False)
+  try:
+    return io_loop.run_sync(lambda: main_async())
+  finally:
+    io_loop.close()

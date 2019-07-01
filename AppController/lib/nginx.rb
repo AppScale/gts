@@ -105,6 +105,9 @@ module Nginx
     server_name, my_private_ip, proxy_port, static_handlers, load_balancer_ip,
     language)
 
+    # Get project id (needed to look for certificates).
+    project_id, _, _ = version_key.split(Djinn::VERSION_PATH_SEPARATOR)
+
     parsing_log = "Writing proxy for #{version_key} with language " \
       "#{language}.\n"
 
@@ -180,11 +183,18 @@ module Nginx
       HelperFunctions.generate_location_config(handler)
     }.join
 
+
     # Java application needs a redirection for the blobstore.
     java_blobstore_redirection = ''
     if ['java', 'java8'].include? language
       java_blobstore_redirection = <<JAVA_BLOBSTORE_REDIRECTION
 location ~ /_ah/upload/.* {
+      proxy_set_header      X-Appengine-Inbound-Appid #{version_key.split('_').first};
+      proxy_set_header      X-Real-IP $remote_addr;
+      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header      X-Forwarded-Proto $scheme;
+      proxy_set_header      X-Forwarded-Ssl $ssl;
+      proxy_set_header      Host $http_host;
       proxy_pass            http://#{HelperFunctions::GAE_PREFIX}#{version_key}_blobstore;
       proxy_connect_timeout 600;
       proxy_read_timeout    600;
@@ -250,8 +260,8 @@ server {
     listen #{https_port} default_server;
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate     #{NGINX_PATH}/mycert.pem;
-    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+    ssl_certificate     #{NGINX_PATH}/#{project_id}.pem;
+    ssl_certificate_key #{NGINX_PATH}/#{project_id}.key;
     return 444;
 }
 
@@ -260,8 +270,8 @@ server {
     server_name #{server_name};
     ssl on;
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
-    ssl_certificate     #{NGINX_PATH}/mycert.pem;
-    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+    ssl_certificate     #{NGINX_PATH}/#{project_id}.pem;
+    ssl_certificate_key #{NGINX_PATH}/#{project_id}.key;
 
     # If they come here using HTTP, bounce them to the correct scheme.
     error_page 400 https://$host:$server_port$request_uri;
@@ -297,10 +307,13 @@ CONFIG
     config_path = File.join(SITES_ENABLED_PATH,
                             "appscale-#{version_key}.#{CONFIG_EXTENSION}")
 
-    # Let's reload and overwrite only if something changed.
-    current = ''
-    current = File.read(config_path) if File.exists?(config_path)
-    if current != config
+    # Let's reload and overwrite only if something changed, or new
+    # certificates have been installed.
+    current = File.exists?(config_path) ? File.read(config_path) : ''
+
+    # Make sure we have the proper certificates in place and re-write
+    # nginx config if needed.
+    if ensure_certs_are_in_place(project_id) || current != config
       Djinn.log_debug(parsing_log)
       File.open(config_path, 'w+') { |dest_file| dest_file.write(config) }
       reload_nginx(config_path, version_key)
@@ -433,6 +446,41 @@ LOCATION
     Nginx.reload
   end
 
+  def self.ensure_certs_are_in_place(project_id=nil)
+    # If the project is nil, we'll set up the self-signed certs for the
+    # internal communication.
+    target_certs = ["#{NGINX_PATH}/mycert.pem", "#{NGINX_PATH}/mykey.pem"]
+    src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/mycert.pem",
+                 "#{Djinn::APPSCALE_CONFIG_DIR}/certs/mykey.pem"]
+    certs_modified = false
+
+    # Validate and use the project specified certs for the project.
+    if !project_id.nil?
+      target_certs = ["#{NGINX_PATH}/#{project_id}.pem",
+                      "#{NGINX_PATH}/#{project_id}.key"]
+      new_src_certs = ["#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.pem",
+                       "#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{project_id}.key"]
+      if File.exist?(new_src_certs[0]) && File.exist?(new_src_certs[1])
+        if system("openssl x509 -in #{new_src_certs[0]} -noout") &&
+            system("openssl rsa -in #{new_src_certs[1]} -noout")
+          src_certs = new_src_certs
+        else
+          Djinn.log_warn("Not using invalid certificate for #{project_id}.")
+        end
+      end
+    end
+
+    target_certs.each_with_index { |cert, index|
+      next if File.exist?(cert) && FileUtils.cmp(cert, src_certs[index])
+
+      FileUtils.cp(src_certs[index], cert)
+      File.chmod(0400, cert)
+      Djinn.log_info("Installed certificate/key in #{cert}.")
+      certs_modified = true
+    }
+    return certs_modified
+  end
+
   # Set up the folder structure and creates the configuration files
   # necessary for nginx.
   def self.initialize_config
@@ -473,14 +521,8 @@ CONFIG
     # Create the sites enabled folder
     FileUtils.mkdir_p SITES_ENABLED_PATH unless File.exists? SITES_ENABLED_PATH
 
-    # Copy certs for ssl. Just copy files once to keep the certificate static.
-    ['mykey.pem', 'mycert.pem'].each { |cert_file|
-      next if File.exist?("#{NGINX_PATH}/#{cert_file}") &&
-              !File.zero?("#{NGINX_PATH}/#{cert_file}")
-
-      FileUtils.cp("#{Djinn::APPSCALE_CONFIG_DIR}/certs/#{cert_file}",
-                   "#{NGINX_PATH}/#{cert_file}")
-    }
+    # Copy the internal certificate (default for internal communication).
+    ensure_certs_are_in_place
 
     # Write the main configuration file which sets default configuration
     # parameters

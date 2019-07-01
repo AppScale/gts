@@ -5,6 +5,103 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.7.1, released May 2019
+Highlights of features and defects fixed in this release:
+ - Update cron when login property is changed
+ - Remove --force-private from fast-start.sh
+ - use dns for ec2 since it resolves to the private ip for marketplace
+ - Other clouds will use public ips for login property
+
+Known Issues:
+
+AppScale version 3.7.0, released April 2019
+Highlights of features and defects fixed in this release:
+ - InfrastructureManager restructure
+ - Change jobs to roles
+ - Raise API server errors as Java exceptions
+ - Don't add tag data to task if the task has none
+ - Rescue Errno::EHOSTUNREACH
+ - Add a timeout to the health check request
+ - Retry dashboard deploy operations on timeout
+ - Remove monit maintenance port from the firewall.
+ - Add required ProjectGroomer argument
+ - Remove index management from datastore clients
+ - Add standalone API Server from SDK
+ - Update allocate methods in datastore stubs
+ - Replacing zookeeper_locations.json with zookeeper_locations
+ - Bound update threads
+ - Use initial flags from increment request
+ - Add partition list to RabbitMQ stats snapshot
+ - get_index method reorganizing
+ - Made appscale.common python3 compatibility changes
+ - Drop requests that don't match the login property
+ - Use login property when setting cron locations
+ - Ensure requests to channel path match
+ - Use login property as ejabberd host
+ - Serving status modification for application versions with manual scaling
+ - Route instances as soon as they are registered
+ - Smooth current sessions for autoscaling
+ - Don't wait for autoscaled nodes
+ - Add support for the target field for cron jobs
+ - Rework search query parsing and building
+ - Limit the number of entities fetched per statement
+ - Store hints within the persistent state directory
+ - Communicate with ejabberd using private IP address
+ - Accept multiple values per field in SearchService
+ - Handle datastore connection errors with TQ server
+ - AdminServer application deployment check now ignores working directory
+ - Master reload state
+ - Postgres connection pool with autoreconnect
+ - Accept single exception class as retry_on_exception value
+ - Terminate not started AppServers first
+ - Check for valid local source archive
+ - Project ID validation upgrade
+ - Application scaling for version configuration
+ - Added service ID validation and modified version ID validation.
+ - Implement apps.services.list
+ - Exit early if version is not found in zookeeper
+ - Use zookeeper for stopped versions
+ - Ec2 private ips
+ - Defer to vendored framework for endpoints 2
+ - Accept all arguments to _handle_request
+ - Move blob fetching work to DatastoreBlobReader
+ - Use a fallback mechanism on connection failures
+ - Test query that exceeds Cassandra page size
+ - Use gossip to find live Cassandra nodes
+ - Collect each page of results within callback
+ - Improve speed of rebalance script
+ - Move instance fulfillment work to InstanceManager
+ - Allow change instance type
+ - Add cassandra status to Hermes
+ - Fix snapshots caching in Hermes
+ - Force the push worker to time out stuck tasks
+ - Optimize Service Stats
+ - Make communication with rabbitmq async (in Hermes)
+ - Fix list_tasks method in TaskQueue
+ - Taskqueue load test
+ - Taskqueue e2e test
+ - enable-datastore-viewer.sh: Fix command extracting admin port
+ - Add IndexManager
+ - Re-add editing capabilities to datastore viewer
+ - Add basic pull queue viewer to dashboard
+ - Logging update to use per-module loggers
+ - Run datastore servers in a custom slice
+ - Add support for Bionic
+ - Add support for Stretch
+ - Remove support for wheezy
+ - Fix bionic php dependencies  
+ - Use the unittest module to run end-to-end tests
+ - Use a patched version of Cassandra
+ - Decrease Cassandra heap size when sharing roles
+ - Install Python MySQL client during build
+ - Update Python and PHP runtime to 1.8.4 SDK
+ - Pin SOAPpy to version 0.12.22
+ - Require attrs>=18.1.0
+ - Ensure newer version of PyYAML is installed
+
+Known Issues:
+
+
 AppScale version 3.6.0, released August 2018
 Highlights of features and defects fixed in this release:
  - Close PG connection when cleaning up project

@@ -242,7 +242,7 @@ class InstanceManager(object):
     # where it never starts the process. As a temporary workaround, this
     # small period allows it to finish reloading. This can be removed if
     # instances are started inside a cgroup.
-    yield gen.sleep(0.5)
+    yield gen.sleep(1)
     yield self._monit_operator.send_command_retry_process(full_watch, 'start')
 
     # Make sure the version registration node exists.

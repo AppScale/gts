@@ -63,7 +63,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "get_app_info_map", "secret")
     add_method(@djinn, "relocate_version", "version_key", "http_port",
                "https_port", "secret")
-    add_method(@djinn, "kill", "stop_deployment", "secret")
     add_method(@djinn, "set_parameters", "layout", "options", "secret")
     add_method(@djinn, "get_cluster_stats_json", "secret")
     add_method(@djinn, "get_application_cron_info", "app_name", "secret")
@@ -146,11 +145,9 @@ server = DjinnServer.new(
   :SSLCertName => nil
 )
 
-trap('TERM') {
-  Djinn.log_debug("Received TERM signal: stopping node services.")
-  server.djinn.kill_sig_received = true
+trap('EXIT') {
+  Djinn.log_debug("Received TERM signal: stopping AppController.")
   server.shutdown
-  server.djinn.kill(false, secret)
 }
 
 new_thread = Thread.new { run_server(server) }

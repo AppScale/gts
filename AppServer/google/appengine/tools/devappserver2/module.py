@@ -28,7 +28,6 @@ import os.path
 import random
 import re
 import string
-import struct
 import threading
 import time
 import urllib
@@ -267,15 +266,7 @@ class Module(object):
       runtime_config.skip_files = str(self._module_configuration.skip_files)
       runtime_config.static_files = _static_files_regex_from_handlers(
           self._module_configuration.handlers)
-
-    # AppScale: Pack both API ports into the same field.
-    if (self._external_api_port is not None and
-        self._module_configuration.runtime in ('python27', 'go', 'php')):
-      port_bytes = struct.pack('HH', self._api_port, self._external_api_port)
-      runtime_config.api_port = struct.unpack('I', port_bytes)[0]
-    else:
-      runtime_config.api_port = self._api_port
-
+    runtime_config.api_port = self._api_port
     runtime_config.stderr_log_level = self._runtime_stderr_loglevel
     runtime_config.datacenter = 'us1'
     runtime_config.auth_domain = self._auth_domain
@@ -369,8 +360,7 @@ class Module(object):
                use_mtime_file_watcher,
                automatic_restarts,
                allow_skipped_files,
-               threadsafe_override,
-               external_api_port=None):
+               threadsafe_override):
     """Initializer for Module.
 
     Args:
@@ -414,14 +404,11 @@ class Module(object):
           directive.
       threadsafe_override: If not None, ignore the YAML file value of threadsafe
           and use this value instead.
-      external_api_port: An integer specifying the location of an external API
-          server.
     """
     self._module_configuration = module_configuration
     self._name = module_configuration.module_name
     self._host = host
     self._api_port = api_port
-    self._external_api_port = external_api_port
     self._auth_domain = auth_domain
     self._runtime_stderr_loglevel = runtime_stderr_loglevel
     self._balanced_port = balanced_port
@@ -844,9 +831,12 @@ class Module(object):
                'wsgi.multithread': True,
                'wsgi.multiprocess': True,
                'wsgi.input': cStringIO.StringIO(body)}
-    if fake_login:
-      environ[constants.FAKE_LOGGED_IN_HEADER] = '1'
     util.put_headers_in_environ(headers, environ)
+    if fake_login:
+      environ[constants.FAKE_IS_ADMIN_HEADER] = login.fake_admin()
+      environ[constants.FAKE_LOGGED_IN_HEADER] = '1'
+    elif constants.FAKE_LOGGED_IN_HEADER in environ:
+      del environ[constants.FAKE_LOGGED_IN_HEADER]
     environ['HTTP_HOST'] = host
     return environ
 
@@ -920,8 +910,7 @@ class AutoScalingModule(Module):
                use_mtime_file_watcher,
                automatic_restarts,
                allow_skipped_files,
-               threadsafe_override,
-               external_api_port=None):
+               threadsafe_override):
     """Initializer for AutoScalingModule.
 
     Args:
@@ -965,8 +954,6 @@ class AutoScalingModule(Module):
           directive.
       threadsafe_override: If not None, ignore the YAML file value of threadsafe
           and use this value instead.
-      external_api_port: An integer specifying the location of an external API
-          server.
     """
     super(AutoScalingModule, self).__init__(module_configuration,
                                             host,
@@ -986,8 +973,7 @@ class AutoScalingModule(Module):
                                             use_mtime_file_watcher,
                                             automatic_restarts,
                                             allow_skipped_files,
-                                            threadsafe_override,
-                                            external_api_port)
+                                            threadsafe_override)
 
     self._process_automatic_scaling(
         self._module_configuration.automatic_scaling)
@@ -1360,8 +1346,7 @@ class ManualScalingModule(Module):
                use_mtime_file_watcher,
                automatic_restarts,
                allow_skipped_files,
-               threadsafe_override,
-               external_api_port=None):
+               threadsafe_override):
     """Initializer for ManualScalingModule.
 
     Args:
@@ -1405,8 +1390,6 @@ class ManualScalingModule(Module):
           directive.
       threadsafe_override: If not None, ignore the YAML file value of threadsafe
           and use this value instead.
-      external_api_port: An integer specifying the location of an external API
-          server.
     """
     super(ManualScalingModule, self).__init__(module_configuration,
                                               host,
@@ -1426,8 +1409,7 @@ class ManualScalingModule(Module):
                                               use_mtime_file_watcher,
                                               automatic_restarts,
                                               allow_skipped_files,
-                                              threadsafe_override,
-                                              external_api_port)
+                                              threadsafe_override)
 
     self._process_manual_scaling(module_configuration.manual_scaling)
 
@@ -1864,8 +1846,7 @@ class BasicScalingModule(Module):
                use_mtime_file_watcher,
                automatic_restarts,
                allow_skipped_files,
-               threadsafe_override,
-               external_api_port=None):
+               threadsafe_override):
     """Initializer for BasicScalingModule.
 
     Args:
@@ -1909,8 +1890,6 @@ class BasicScalingModule(Module):
           directive.
       threadsafe_override: If not None, ignore the YAML file value of threadsafe
           and use this value instead.
-      external_api_port: An integer specifying the location of an external API
-          server.
     """
     super(BasicScalingModule, self).__init__(module_configuration,
                                              host,
@@ -1930,8 +1909,7 @@ class BasicScalingModule(Module):
                                              use_mtime_file_watcher,
                                              automatic_restarts,
                                              allow_skipped_files,
-                                             threadsafe_override,
-                                             external_api_port)
+                                             threadsafe_override)
     self._process_basic_scaling(module_configuration.basic_scaling)
 
     self._instances = []  # Protected by self._condition.

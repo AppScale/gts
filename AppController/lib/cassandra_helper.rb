@@ -37,8 +37,7 @@ CASSANDRA_DATA_DIR = '/opt/appscale/cassandra'.freeze
 # Args:
 #   master_ip: A String corresponding to the private FQDN or IP address of the
 #     machine hosting the Database Master role.
-def setup_db_config_files(master_ip)
-  local_ip = HelperFunctions.local_ip
+def setup_db_config_files(master_ip, local_ip)
   setup_script = "#{SETUP_CONFIG_SCRIPT} --local-ip #{local_ip} "\
                  "--master-ip #{master_ip}"
   until system(setup_script)
