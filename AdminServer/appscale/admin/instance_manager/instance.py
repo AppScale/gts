@@ -274,8 +274,8 @@ def get_login_server(instance):
     return None
 
   for index, arg in enumerate(args):
-    if '--login_server=' in arg and 'python_api_server_flag' not in arg:
-      return arg.split('=', 1)[1]
+    if '--login_server=' in arg:
+      return arg.rsplit('=', 1)[1]
 
     if arg == '--login_server':
       try:
