@@ -6,7 +6,7 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.locks import Event
 
-from appscale.datastore.fdb.utils import fdb
+from appscale.datastore.fdb.utils import fdb, FDBErrorCodes
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,6 @@ class PollingLock(object):
     return (self._owner == self._client_id and
             monotonic.monotonic() < self._deadline)
 
-  @gen.coroutine
   def start(self):
     IOLoop.current().spawn_callback(self._run)
 
@@ -91,7 +90,16 @@ class PollingLock(object):
     if can_acquire or self._owner == self._client_id:
       op_id = uuid.uuid4()
       tr[self.key] = fdb.tuple.pack((self._client_id, op_id))
-      yield self._tornado_fdb.commit(tr)
+      try:
+        yield self._tornado_fdb.commit(tr, convert_exceptions=False)
+      except fdb.FDBError as fdb_error:
+        if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+          raise
+
+        # If there was a conflict, try to acquire again later.
+        yield gen.sleep(10)
+        return
+
       self._owner = self._client_id
       self._op_id = op_id
       self._deadline = monotonic.monotonic() + self._LEASE_TIMEOUT

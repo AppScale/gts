@@ -45,9 +45,8 @@ MAX_ENTITY_SIZE = 1048572
 DS_ROOT = (u'appscale', u'datastore')
 
 
-class EncodedTypes(object):
-  ENTITY_V3 = b'\x00'
-  KEY_V3 = b'\x01'
+class FDBErrorCodes(object):
+  NOT_COMMITTED = 1020
 
 
 def ReverseBitsInt64(v):
@@ -83,7 +82,7 @@ class TornadoFDB(object):
     self._io_loop = io_loop
 
   @gen.coroutine
-  def commit(self, tr):
+  def commit(self, tr, convert_exceptions=True):
     tornado_future = TornadoFuture()
     callback = lambda fdb_future: self._handle_fdb_result(
       fdb_future, tornado_future)
@@ -92,7 +91,10 @@ class TornadoFDB(object):
     try:
       yield tornado_future
     except fdb.FDBError as fdb_error:
-      raise InternalError(fdb_error.description)
+      if convert_exceptions:
+        raise InternalError(fdb_error.description)
+      else:
+        raise
 
   def get(self, tr, key, snapshot=False):
     tx_reader = tr
