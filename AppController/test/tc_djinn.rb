@@ -132,10 +132,9 @@ class TestDjinn < Test::Unit::TestCase
 
     better_credentials = JSON.dump({'keyname' => '0123', 'login' =>
       '1.1.1.1', 'table' => 'cassandra'})
-    result_2 = djinn.set_parameters("", better_credentials,  @secret)
-    # Depending on the JSON library used, "" can either throw an exception
-    # or be interpreted as nil.
-    assert_equal(true, result_2.include?("Error"))
+    assert_raises(AppScaleException) {
+      result_2 = djinn.set_parameters("", better_credentials,  @secret)
+    }
 
     # Now try credentials with an even number of items, but not all the
     # required parameters
@@ -150,8 +149,9 @@ class TestDjinn < Test::Unit::TestCase
       'keyname' => 'appscale'
     })
     bad_node_info = "[1]"
-    result_6 = djinn.set_parameters(bad_node_info, credentials, @secret)
-    assert_equal(true, result_6.include?("Error: node structure is not"))
+    assert_raises(AppScaleException) {
+      result_6 = djinn.set_parameters(bad_node_info, credentials, @secret)
+    }
 
     # Finally, try credentials with info in the right format, but where it
     # refers to nodes that aren't in our deployment
