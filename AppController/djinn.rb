@@ -868,22 +868,25 @@ class Djinn
       @@log.level = new_level if @@log.level != new_level
     }
 
-    # The master node can not enforce some sanity checks on the options.
+    # The master node can now enforce some sanity checks on the options.
     if my_node.is_shadow?
       @state_change_lock.synchronize {
         # Max and min needs to be at least the number of started nodes, it
         # needs to be positive. Max needs to be no smaller than min.
         if Integer(@options['max_machines']) < @nodes.length
-          Djinn.log_warn("max_machines is less than the number of nodes!")
-          @options['max_machines'] = @nodes.length.to_s
+          msg = 'max_machines is less than the number of nodes!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
         end
         if Integer(@options['min_machines']) > @nodes.length
-          Djinn.log_warn("min_machines is bigger than the number of nodes!")
-          @options['min_machines'] = @nodes.length.to_s
+          msg = 'min_machines is bigger than the number of nodes!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
         end
         if Integer(@options['max_machines']) < Integer(@options['min_machines'])
-          Djinn.log_warn("min_machines is bigger than max_machines!")
-          @options['max_machines'] = @options['min_machines']
+          msg = 'min_machines is bigger than max_machines!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
         end
 
         # Ensure we have the correct EC2 credentials available.
@@ -957,12 +960,7 @@ class Djinn
     # We need to make sure we have a good layout and this node is listed
     # in the started nodes.
     @state_change_lock.synchronize {
-      begin
-        @nodes = check_layout(layout, checked_opts['keyname'])
-      rescue AppScaleException => e
-        Djinn.log_error(e.message)
-        return e.message
-      end
+      @nodes = check_layout(layout, checked_opts['keyname'])
       find_me_in_locations
       return "Error: Couldn't find me in the node map" if @my_index.nil?
 
@@ -970,7 +968,7 @@ class Djinn
       # initialization.
       @options = checked_opts
     }
-    Djinn.log_info("Successfully recevied nodes layout (#{@nodes}) and deployment options (#{@options}).")
+    Djinn.log_info("Successfully received nodes layout (#{@nodes}) and deployment options (#{@options}).")
 
     'OK'
   end
