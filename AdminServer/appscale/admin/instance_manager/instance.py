@@ -118,38 +118,28 @@ def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host
     '--jvm_flag=-Xmx{}m'.format(max_heap),
     '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
     '--jvm_flag=-Djdk.tls.client.protocols=TLSv1.1,TLSv1.2',
-    "--disable_update_check",
     "--address=" + options.private_ip,
     "--pidfile={}".format(pidfile)
   ]
+  api_server_flags = []
 
   if runtime == JAVA8:
       api_server = os.path.join(JAVA8_RUNTIME_DIR, 'bin',
                                 'appscale_java8_apiserver.sh')
-      cmd.append('--path_to_python_api_server={}'.format(api_server))
-      cmd.append('--default_hostname={}:{}'.format(load_balancer_host,
-                                                   load_balancer_port))
-
-      api_server_flags = [
-          '--datastore_path={}'.format(
-              ':'.join([options.db_proxy, str(DB_SERVER_PORT)])),
-          '--login_server={}'.format(load_balancer_host),
-          '--nginx_host={}'.format(load_balancer_host),
-          '--xmpp_path={}'.format(options.load_balancer_ip),
-          '--external_api_port={}'.format(api_server_port),
-          '--uaserver_path={}'.format(
-              ':'.join([options.db_proxy, str(UA_SERVER_PORT)]))
-      ]
+      cmd.extend(['--python_api_server_port={}'.format(api_server_port),
+                  '--default_hostname={}:{}'.format(load_balancer_host,
+                                                    load_balancer_port)])
 
       apis_using_external_server = ['app_identity_service', 'blobstore',
                                     'channel', 'datastore_v3', 'memcache',
-                                    'search', 'taskqueue', 'user', 'xmpp']
+                                    'search', 'taskqueue', 'xmpp']
   else:
       api_server = os.path.join(SCRIPTS_DIR,
                                 'appscale_java8_apiserver.sh')
-      cmd.append('--path_to_python_api_server={}'.format(api_server))
 
-      cmd.extend(['--APP_NAME={}'.format(app_name),
+      cmd.extend(['--path_to_python_api_server={}'.format(api_server),
+                  '--disable_update_check',
+                  '--APP_NAME={}'.format(app_name),
                   '--NGINX_ADDRESS={}'.format(load_balancer_host),
                   '--datastore_path={}'.format(options.db_proxy),
                   '--login_server={}'.format(load_balancer_host),
@@ -178,6 +168,36 @@ def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host
     cmd.append('--api_using_python_stub={}'.format(api))
 
   cmd.append(os.path.dirname(web_inf_directory))
+
+  return ' '.join(cmd)
+
+
+def create_python_api_start_cmd(app_name, login_ip, port, pidfile,
+                                api_server_port):
+  """ Creates the start command to run the python api server.
+
+  Args:
+    app_name: The name of the application to run
+    login_ip: The public IP of this deployment
+    port: The local port the api server will bind to
+    pidfile: A string specifying the pidfile location.
+    api_server_port: An integer specifying the port of the external API server.
+  Returns:
+    A string of the start command.
+  """
+  cmd = [
+      '/usr/bin/python2', os.path.join(PYTHON27_RUNTIME_DIR, 'api_server.py'),
+      '--api_port', str(port),
+      '--application', app_name,
+      '--login_server', login_ip,
+      '--nginx_host', login_ip,
+      '--enable_sendmail',
+      '--xmpp_path', options.load_balancer_ip,
+      '--uaserver_path', '{}:{}'.format(options.db_proxy, UA_SERVER_PORT),
+      '--datastore_path', '{}:{}'.format(options.db_proxy, DB_SERVER_PORT),
+      '--pidfile', pidfile,
+      '--external_api_port', str(api_server_port)
+  ]
 
   return ' '.join(cmd)
 
@@ -220,23 +240,23 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
   config_file = os.path.join(UNPACK_ROOT, revision_key, 'app', 'app.yaml')
 
   cmd = [
-    "/usr/bin/python2", os.path.join(PYTHON27_RUNTIME_DIR, "dev_appserver.py"),
-    "--application", app_name,
-    "--port " + str(port),
-    "--login_server " + login_ip,
-    "--skip_sdk_update_check",
-    "--nginx_host " + str(login_ip),
-    "--require_indexes",
-    "--enable_sendmail",
-    "--xmpp_path " + options.load_balancer_ip,
-    "--php_executable_path=" + str(PHP_CGI_LOCATION),
-    "--max_module_instances", "{}:1".format(service_id),
-    "--uaserver_path " + options.db_proxy + ":" + str(UA_SERVER_PORT),
-    "--datastore_path " + options.db_proxy + ":" + str(DB_SERVER_PORT),
-    "--host " + options.private_ip,
-    "--automatic_restart", "no",
-    "--pidfile", pidfile,
-    "--external_api_port", str(api_server_port),
+    '/usr/bin/python2', os.path.join(PYTHON27_RUNTIME_DIR, 'dev_appserver.py'),
+    '--application', app_name,
+    '--port', str(port),
+    '--login_server', login_ip,
+    '--skip_sdk_update_check',
+    '--nginx_host', login_ip,
+    '--require_indexes',
+    '--enable_sendmail',
+    '--xmpp_path', options.load_balancer_ip,
+    '--php_executable_path=' + str(PHP_CGI_LOCATION),
+    '--max_module_instances', "{}:1".format(service_id),
+    '--uaserver_path', '{}:{}'.format(options.db_proxy, UA_SERVER_PORT),
+    '--datastore_path', '{}:{}'.format(options.db_proxy, DB_SERVER_PORT),
+    '--host', options.private_ip,
+    '--automatic_restart', 'no',
+    '--pidfile', pidfile,
+    '--external_api_port', str(api_server_port),
     config_file
   ]
 

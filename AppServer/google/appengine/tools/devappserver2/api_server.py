@@ -753,6 +753,13 @@ def main():
   """Parses command line options and launches the API server."""
   shutdown.install_signal_handlers()
 
+  # Initialize logging early -- otherwise some library packages may
+  # pre-empt our log formatting.  NOTE: the level is provisional; it may
+  # be changed based on the --debug flag.
+  logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)-8s %(asctime)s %(filename)s:%(lineno)s] %(message)s')
+
   options = cli_parser.create_command_line_parser(
       cli_parser.API_SERVER_CONFIGURATION).parse_args()
   logging.getLogger().setLevel(
@@ -776,6 +783,7 @@ def main():
       request_info_lib._LocalFakeDispatcher())
   # pylint: enable=protected-access
 
+  os.environ['APPLICATION_ID'] = app_id
   os.environ['APPNAME'] = app_id
   os.environ['NGINX_HOST'] = options.nginx_host
 
@@ -783,6 +791,10 @@ def main():
       request_info=request_info,
       storage_path=get_storage_path(options.storage_path, app_id),
       options=options, app_id=app_id, app_root=app_root)
+
+  if options.pidfile:
+      with open(options.pidfile, 'w') as pidfile:
+          pidfile.write(str(os.getpid()))
 
   try:
     server.start()
