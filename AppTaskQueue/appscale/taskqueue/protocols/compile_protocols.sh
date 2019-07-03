@@ -3,7 +3,6 @@
 # Compiles protocols and prepares venv for tq
 
 set -e
-set -x
 
 PROTOCOLS_DIR="$( realpath --strip "$( dirname "${BASH_SOURCE[0]}" )" )"
 
@@ -13,7 +12,9 @@ if ! protoc --version | grep -E ' (3\.)|(2\.)' ; then
 fi
 
 echo "Compiling Protocol buffer *.proto files.."
-#(cd "${TQ_DIR}"/appscale/taskqueue/protocols && protoc --python_out=./ *.proto)
-protoc --proto_path=$PROTOCOLS_DIR --python_out=$PROTOCOLS_DIR \
-  $PROTOCOLS_DIR/*.proto
+
+(cd "${PROTOCOLS_DIR}" && \
+ protoc --python_out=./ *.proto && \
+ sed -i -E 's/^import.*_pb2/from . \0/' *.py)
+
 echo "Protocols have been successfully compiled."

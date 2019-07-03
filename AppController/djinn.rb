@@ -3691,7 +3691,6 @@ class Djinn
       Djinn.log_error('Unable to compile AppTaskQueue proto files')
       return
     end
-    system("sed -i -E 's/^import.*_pb2/from . \0/' #{src}*.py")
     extras = TaskQueue::OPTIONAL_FEATURES.join(',')
     update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]",
                           TaskQueue::TASKQUEUE_PIP)

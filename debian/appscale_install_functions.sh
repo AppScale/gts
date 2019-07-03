@@ -624,10 +624,24 @@ installinfrastructuremanager()
 
 installtaskqueue()
 {
+    echo "Installing python3-venv"
+    attempt=1
+    while ! (yes | apt-get install python3-venv)
+    do
+        if (( attempt > 15 )); then
+            echo "Failed to install python3-venv after ${attempt} attempts" "ERROR"
+            exit 1
+        fi
+        echo "Failed to install python3-venv. Retrying." "WARNING"
+        ((attempt++))
+        sleep ${attempt}
+    done
+
     rm -rf /opt/appscale_venvs/appscale_taskqueue/
-    python -m virtualenv /opt/appscale_venvs/appscale_taskqueue/
+    python3 -m venv /opt/appscale_venvs/appscale_taskqueue/
 
     TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
+    "${TASKQUEUE_PIP}" install wheel
 
     "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh"
 
