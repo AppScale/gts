@@ -28,8 +28,8 @@ from appscale.datastore.fdb.indexes import (
   get_order_info, IndexManager, KEY_PROP)
 from appscale.datastore.fdb.transactions import TransactionManager
 from appscale.datastore.fdb.utils import (
-  ABSENT_VERSION, fdb, next_entity_version, DS_ROOT, ScatteredAllocator,
-  TornadoFDB)
+  ABSENT_VERSION, fdb, FDBErrorCodes, next_entity_version, DS_ROOT,
+  ScatteredAllocator, TornadoFDB)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
@@ -67,7 +67,7 @@ class FDBDatastore(object):
     self._gc.start()
 
   @gen.coroutine
-  def dynamic_put(self, project_id, put_request, put_response):
+  def dynamic_put(self, project_id, put_request, put_response, retries=5):
     # logger.debug(u'put_request:\n{}'.format(put_request))
     project_id = decode_str(project_id)
     # TODO: Enforce max key length (100 elements).
@@ -81,7 +81,6 @@ class FDBDatastore(object):
     tr = self._db.create_transaction()
 
     if put_request.has_transaction():
-      logger.debug(u'put in tx: {}'.format(put_request.transaction().handle()))
       yield self._tx_manager.log_puts(tr, project_id, put_request)
       writes = [(VersionEntry.from_key(entity.key()),
                  VersionEntry.from_key(entity.key()))
@@ -98,7 +97,18 @@ class FDBDatastore(object):
     if old_entries:
       vs_future = tr.get_versionstamp()
 
-    yield self._tornado_fdb.commit(tr)
+    try:
+      yield self._tornado_fdb.commit(tr, convert_exceptions=False)
+    except fdb.FDBError as fdb_error:
+      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+        raise InternalError(fdb_error.description)
+
+      retries -= 1
+      if retries < 0:
+        raise InternalError(fdb_error.description)
+
+      yield self.dynamic_put(project_id, put_request, put_response, retries)
+      return
 
     if old_entries:
       self._gc.clear_later(old_entries, vs_future.wait().value)
@@ -150,7 +160,7 @@ class FDBDatastore(object):
       [entry.path for entry in version_entries if entry.has_entity]))
 
   @gen.coroutine
-  def dynamic_delete(self, project_id, delete_request):
+  def dynamic_delete(self, project_id, delete_request, retries=5):
     logger.debug(u'delete_request:\n{}'.format(delete_request))
     project_id = decode_str(project_id)
     tr = self._db.create_transaction()
@@ -171,7 +181,18 @@ class FDBDatastore(object):
     if old_entries:
       vs_future = tr.get_versionstamp()
 
-    yield self._tornado_fdb.commit(tr)
+    try:
+      yield self._tornado_fdb.commit(tr, convert_exceptions=False)
+    except fdb.FDBError as fdb_error:
+      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+        raise InternalError(fdb_error.description)
+
+      retries -= 1
+      if retries < 0:
+        raise InternalError(fdb_error.description)
+
+      yield self.dynamic_delete(project_id, delete_request, retries)
+      return
 
     if old_entries:
       self._gc.clear_later(old_entries, vs_future.wait().value)
@@ -281,7 +302,7 @@ class FDBDatastore(object):
     raise gen.Return(txid)
 
   @gen.coroutine
-  def apply_txn_changes(self, project_id, txid):
+  def apply_txn_changes(self, project_id, txid, retries=5):
     logger.debug(u'Applying {}:{}'.format(project_id, txid))
     project_id = decode_str(project_id)
     tr = self._db.create_transaction()
@@ -299,7 +320,18 @@ class FDBDatastore(object):
     if old_entries:
       vs_future = tr.get_versionstamp()
 
-    yield self._tornado_fdb.commit(tr)
+    try:
+      yield self._tornado_fdb.commit(tr)
+    except fdb.FDBError as fdb_error:
+      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+        raise InternalError(fdb_error.description)
+
+      retries -= 1
+      if retries < 0:
+        raise InternalError(fdb_error.description)
+
+      yield self.apply_txn_changes(project_id, txid, retries)
+      return
 
     if old_entries:
       self._gc.clear_later(old_entries, vs_future.wait().value)
@@ -328,6 +360,11 @@ class FDBDatastore(object):
       auto_id = not (last_element.has_id() and last_element.id() != 0)
 
     if auto_id:
+      # Avoid mutating the object given.
+      new_entity = entity_pb.EntityProto()
+      new_entity.CopyFrom(entity)
+      entity = new_entity
+      last_element = entity.key().path().element(-1)
       last_element.set_id(self._scattered_allocator.get_id())
 
     old_entry = yield self._data_manager.get_latest(tr, entity.key())
