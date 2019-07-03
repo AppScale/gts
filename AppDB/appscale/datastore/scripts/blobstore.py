@@ -295,6 +295,7 @@ class UploadHandler(tornado.web.RequestHandler):
 
     urlrequest.add_header("Content-Type",
                           'application/x-www-form-urlencoded')
+    urlrequest.add_header('X-AppEngine-BlobUpload', 'true')
 
     for name, value in self.request.headers.items():
       if name.lower() not in STRIPPED_HEADERS:
