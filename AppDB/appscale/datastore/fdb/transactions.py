@@ -17,7 +17,6 @@ from tornado import gen
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.dbconstants import BadRequest, InternalError
-from appscale.datastore.fdb.cache import SectionCache
 from appscale.datastore.fdb.codecs import (
   decode_str, encode_vs_index, Int64, Path, Text, TransactionID)
 from appscale.datastore.fdb.utils import (
@@ -78,6 +77,10 @@ class TransactionMetadata(object):
   @property
   def project_id(self):
     return self.directory.get_path()[len(DS_ROOT)]
+
+  @classmethod
+  def directory_path(cls, project_id):
+    return project_id, cls.DIR_NAME
 
   def encode_start_key(self, scatter_val, commit_vs=None):
     key = b''.join([self.directory.rawPrefix, six.int2byte(scatter_val),
@@ -220,16 +223,15 @@ class TransactionManager(object):
   with the transaction layer. It makes use of TransactionMetadata directories
   to handle the encoding and decoding details when satisfying requests.
   """
-  def __init__(self, db, tornado_fdb, project_cache):
+  def __init__(self, db, tornado_fdb, directory_cache):
     self._db = db
     self._tornado_fdb = tornado_fdb
-    self._tx_metadata_cache = SectionCache(
-      self._tornado_fdb, project_cache, TransactionMetadata)
+    self._directory_cache = directory_cache
 
   @gen.coroutine
   def create(self, project_id):
     tr = self._db.create_transaction()
-    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    tx_dir = yield self._tx_metadata(tr, project_id)
     scatter_val = random.randint(0, 15)
     tr.set_versionstamped_key(tx_dir.encode_start_key(scatter_val), b'')
     vs_future = tr.get_versionstamp()
@@ -240,7 +242,7 @@ class TransactionManager(object):
   @gen.coroutine
   def log_lookups(self, tr, project_id, get_request):
     txid = get_request.transaction().handle()
-    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    tx_dir = yield self._tx_metadata(tr, project_id)
     for key, value in tx_dir.encode_lookups(txid, get_request.key_list()):
       tr.set_versionstamped_key(key, value)
 
@@ -251,32 +253,32 @@ class TransactionManager(object):
     if not query.has_ancestor():
       raise BadRequest(u'Queries in a transaction must specify an ancestor')
 
-    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    tx_dir = yield self._tx_metadata(tr, project_id)
     tr[tx_dir.encode_query_key(txid, namespace, query.ancestor().path())] = b''
 
   @gen.coroutine
   def log_puts(self, tr, project_id, put_request):
     txid = put_request.transaction().handle()
-    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    tx_dir = yield self._tx_metadata(tr, project_id)
     for key, value in tx_dir.encode_puts(txid, put_request.entity_list()):
       tr.set_versionstamped_key(key, value)
 
   @gen.coroutine
   def log_deletes(self, tr, project_id, delete_request):
     txid = delete_request.transaction().handle()
-    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    tx_dir = yield self._tx_metadata(tr, project_id)
     for key, value in tx_dir.encode_deletes(txid, delete_request.key_list()):
       tr.set_versionstamped_key(key, value)
 
   @gen.coroutine
   def delete(self, tr, project_id, txid):
-    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    tx_dir = yield self._tx_metadata(tr, project_id)
     txid_slice = tx_dir.get_txid_slice(txid)
     del tr[txid_slice.start.key:txid_slice.stop.key]
 
   @gen.coroutine
   def get_metadata(self, tr, project_id, txid):
-    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    tx_dir = yield self._tx_metadata(tr, project_id)
     kvs = yield KVIterator(tr, self._tornado_fdb,
                            tx_dir.get_txid_slice(txid)).list()
 
@@ -289,6 +291,12 @@ class TransactionManager(object):
 
   @gen.coroutine
   def clear_range(self, tr, project_id, scatter_byte, safe_vs):
-    tx_dir = yield self._tx_metadata_cache.get(tr, project_id)
+    tx_dir = yield self._tx_metadata(tr, project_id)
     expired_slice = tx_dir.get_expired_slice(scatter_byte, safe_vs)
     del tr[expired_slice.start.key:expired_slice.stop.key]
+
+  @gen.coroutine
+  def _tx_metadata(self, tr, project_id):
+    path = TransactionMetadata.directory_path(project_id)
+    directory = yield self._directory_cache.get(tr, path)
+    raise gen.Return(TransactionMetadata(directory))

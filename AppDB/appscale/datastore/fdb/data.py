@@ -14,7 +14,6 @@ import six.moves as sm
 from tornado import gen
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.fdb.cache import SectionNSCache
 from appscale.datastore.fdb.codecs import (
   decode_str, encode_vs_index, Int64, Path, Text)
 from appscale.datastore.fdb.utils import (
@@ -189,6 +188,10 @@ class DataNamespace(object):
     """ The portion of values that contain the entity version. """
     return slice(-self._VERSION_SIZE, None)
 
+  @classmethod
+  def directory_path(cls, project_id, namespace):
+    return project_id, cls.DIR_NAME, namespace
+
   def encode(self, path, entity, version):
     """ Encodes a tuple of KV tuples for a given version entry.
 
@@ -328,6 +331,10 @@ class GroupUpdatesNS(object):
   def __init__(self, directory):
     self.directory = directory
 
+  @classmethod
+  def directory_path(cls, project_id, namespace):
+    return project_id, cls.DIR_NAME, namespace
+
   def encode(self, path):
     """ Creates a KV tuple for updating a group's commit versionstamp.
 
@@ -366,12 +373,9 @@ class DataManager(object):
   See the DataNamespace and GroupUpdateNS classes for implementation details
   about how data is stored and retrieved.
   """
-  def __init__(self, tornado_fdb, project_cache):
+  def __init__(self, tornado_fdb, directory_cache):
     self._tornado_fdb = tornado_fdb
-    self._data_cache = SectionNSCache(
-      self._tornado_fdb, project_cache, DataNamespace)
-    self._group_updates_cache = SectionNSCache(
-      self._tornado_fdb, project_cache, GroupUpdatesNS)
+    self._directory_cache = directory_cache
 
   @gen.coroutine
   def get_latest(self, tr, key, read_vs=None, include_data=True,
@@ -387,7 +391,7 @@ class DataManager(object):
         entity's KVs.
       snapshot: If True, the read will not cause a transaction conflict.
     """
-    data_ns = yield self._data_cache.from_key(tr, key)
+    data_ns = yield self._data_ns_from_key(tr, key)
     desired_slice = data_ns.get_slice(key.path(), read_vs=read_vs)
     last_entry = yield self._last_version(
       tr, data_ns, desired_slice, include_data, snapshot=snapshot)
@@ -428,7 +432,7 @@ class DataManager(object):
     Returns:
       A VersionEntry or None.
     """
-    data_ns = yield self._data_cache.get(tr, project_id, namespace)
+    data_ns = yield self._data_ns(tr, project_id, namespace)
     desired_slice = data_ns.get_slice(path, commit_vs)
     kvs = yield KVIterator(tr, self._tornado_fdb, desired_slice,
                            snapshot=snapshot).list()
@@ -446,7 +450,7 @@ class DataManager(object):
     Returns:
       A 10-byte string specifying the versionstamp or None.
     """
-    group_ns = yield self._group_updates_cache.get(tr, project_id, namespace)
+    group_ns = yield self._group_updates_ns(tr, project_id, namespace)
     last_updated_vs = yield self._tornado_fdb.get(
       tr, group_ns.encode_key(group_path))
     if not last_updated_vs.present():
@@ -464,11 +468,11 @@ class DataManager(object):
       version: An integer specifying the new entity version.
       encoded_entity: A string specifying the encoded entity data.
     """
-    data_ns = yield self._data_cache.from_key(tr, key)
+    data_ns = yield self._data_ns_from_key(tr, key)
     for fdb_key, val in data_ns.encode(key.path(), encoded_entity, version):
       tr.set_versionstamped_key(fdb_key, val)
 
-    group_ns = yield self._group_updates_cache.get(
+    group_ns = yield self._group_updates_ns(
       tr, data_ns.project_id, data_ns.namespace)
     tr.set_versionstamped_value(*group_ns.encode(key.path()))
 
@@ -480,11 +484,30 @@ class DataManager(object):
       tr: An FDB transaction.
       version_entry: A VersionEntry object.
     """
-    data_ns = yield self._data_cache.get(
+    data_ns = yield self._data_ns(
       tr, version_entry.project_id, version_entry.namespace)
     version_slice = data_ns.get_slice(version_entry.path,
                                       version_entry.commit_vs)
     del tr[version_slice.start.key:version_slice.stop.key]
+
+  @gen.coroutine
+  def _data_ns(self, tr, project_id, namespace):
+    directory = yield self._directory_cache.get(
+      tr, DataNamespace.directory_path(project_id, namespace))
+    raise gen.Return(DataNamespace(directory))
+
+  @gen.coroutine
+  def _data_ns_from_key(self, tr, key):
+    project_id = decode_str(key.app())
+    namespace = decode_str(key.name_space())
+    data_ns = yield self._data_ns(tr, project_id, namespace)
+    raise gen.Return(data_ns)
+
+  @gen.coroutine
+  def _group_updates_ns(self, tr, project_id, namespace):
+    directory = yield self._directory_cache.get(
+      tr, GroupUpdatesNS.directory_path(project_id, namespace))
+    raise gen.Return(GroupUpdatesNS(directory))
 
   @gen.coroutine
   def _last_version(self, tr, data_ns, desired_slice, include_data=True,

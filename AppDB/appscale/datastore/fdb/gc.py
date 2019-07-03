@@ -14,9 +14,8 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 
 from appscale.datastore.dbconstants import MAX_TX_DURATION
-from appscale.datastore.fdb.cache import SectionNSCache
 from appscale.datastore.fdb.codecs import (
-  encode_read_vs, encode_vs_index, Path)
+  decode_str, encode_read_vs, encode_vs_index, Path)
 from appscale.datastore.fdb.polling_lock import PollingLock
 from appscale.datastore.fdb.utils import (
   DS_ROOT, fdb, hash_tuple, KVIterator, MAX_FDB_TX_DURATION, VS_SIZE)
@@ -103,6 +102,13 @@ class DeletedVersionIndex(object):
 
   def __repr__(self):
     return u'DeletedVersionIndex({!r})'.format(self.directory)
+
+  @classmethod
+  def directory_path(cls, project_id, namespace=None):
+    if namespace is None:
+      return project_id, cls.DIR_NAME
+
+    return project_id, cls.DIR_NAME, namespace
 
   def encode_key(self, path, original_vs, deleted_vs=None):
     """ Encodes a key for a deleted version index entry.
@@ -193,6 +199,10 @@ class SafeReadDir(object):
   def __init__(self, directory):
     self.directory = directory
 
+  @classmethod
+  def directory_path(cls, project_id, namespace):
+    return project_id, cls.DIR_NAME, namespace
+
   def encode_key(self, path):
     """ Encodes a key for a safe read versionstamp entry.
 
@@ -231,20 +241,16 @@ class GarbageCollector(object):
   _TOTAL_BATCHES = int(1 / _BATCH_PERCENT)
 
   def __init__(self, db, tornado_fdb, data_manager, index_manager, tx_manager,
-               project_cache):
+               directory_cache):
     self._db = db
     self._queue = deque()
     self._tornado_fdb = tornado_fdb
     self._data_manager = data_manager
     self._index_manager = index_manager
     self._tx_manager = tx_manager
-    self._project_cache = project_cache
-    lock_key = self._project_cache.root_dir.pack((self._LOCK_KEY,))
+    self._directory_cache = directory_cache
+    lock_key = self._directory_cache.root_dir.pack((self._LOCK_KEY,))
     self._lock = PollingLock(self._db, self._tornado_fdb, lock_key)
-    self._del_version_index_cache = SectionNSCache(
-      self._tornado_fdb, self._project_cache, DeletedVersionIndex)
-    self._safe_read_dir_cache = SectionNSCache(
-      self._tornado_fdb, self._project_cache, SafeReadDir)
 
   def start(self):
     """ Starts the garbage collection work. """
@@ -266,7 +272,7 @@ class GarbageCollector(object):
     Retrieves the safe read versionstamp for an entity key. Read versionstamps
     that are larger than this value are safe to use.
     """
-    safe_read_dir = yield self._safe_read_dir_cache.from_key(tr, key)
+    safe_read_dir = yield self._safe_read_dir_from_key(tr, key)
     safe_read_key = safe_read_dir.encode_key(key.path())
     # A concurrent change to the safe read VS does not affect what the current
     # transaction can read, so "snapshot" is used to reduce conflicts.
@@ -279,7 +285,7 @@ class GarbageCollector(object):
   @gen.coroutine
   def index_deleted_version(self, tr, version_entry):
     """ Marks a deleted entity version as a candidate for a later cleanup. """
-    index = yield self._del_version_index_cache.get(
+    index = yield self._del_version_index(
       tr, version_entry.project_id, version_entry.namespace)
     key = index.encode_key(version_entry.path, version_entry.commit_vs)
     tr.set_versionstamped_key(key, b'')
@@ -320,7 +326,7 @@ class GarbageCollector(object):
 
   @gen.coroutine
   def _groom_projects(self):
-    cursor = (u'', u'', 0)  # Last (project_id, namespace, batch) groomed.
+    cursor = (None, None, None)  # Last (project_id, namespace, batch) groomed.
     while True:
       try:
         yield self._lock.acquire()
@@ -332,7 +338,7 @@ class GarbageCollector(object):
         yield self._lock.acquire()
         tr = self._db.create_transaction()
         try:
-          project_id, namespace, batch = yield self._next_batch(tr, *cursor)
+          project_id, namespace, batch = self._next_batch(tr, *cursor)
         except NoProjects as error:
           logger.info(str(error))
           yield gen.sleep(self._SAFETY_INTERVAL)
@@ -351,50 +357,82 @@ class GarbageCollector(object):
         logger.exception(u'Unexpected error while grooming projects')
         yield gen.sleep(10)
 
-  @gen.coroutine
+  def _next_namespace(self, tr, section_dir, current_namespace=None):
+    # TODO: This can be made async.
+    namespaces = section_dir.list(tr)
+    if current_namespace is None:
+      next_namespace = next(iter(namespaces), None)
+    else:
+      next_namespace = next((namespace for namespace in namespaces
+                             if namespace > current_namespace), None)
+
+    return next_namespace
+
+  def _next_project_ns(self, tr, current_project=None):
+    root_dir = self._directory_cache.root_dir
+    # TODO: This can be made async.
+    project_ids = root_dir.list(tr)
+    if current_project is not None:
+      project_ids = (
+        [project for project in project_ids if project > current_project] +
+        [project for project in project_ids if project <= current_project])
+
+    for project_id in project_ids:
+      try:
+        section_dir = root_dir.open(
+          tr, DeletedVersionIndex.directory_path(project_id))
+      except ValueError:
+        continue
+
+      namespace = self._next_namespace(tr, section_dir)
+      if namespace is not None:
+        return project_id, namespace
+
+    raise NoProjects(u'There are no projects to groom')
+
   def _next_batch(self, tr, project_id, namespace, batch_num):
-    project_dirs = yield self._project_cache.list(tr)
-    project_ids = [p_dir.get_path()[-1] for p_dir in project_dirs]
-    if not project_ids:
-      raise NoProjects(u'There are no projects to groom')
-
-    previous_dir_found = True
-    if project_id not in project_ids:
-      project_id = next((project for project in project_ids
-                         if project > project_id), project_ids[0])
-      namespace = u''
+    root_dir = self._directory_cache.root_dir
+    if project_id is None:
       batch_num = 0
-      previous_dir_found = False
+      project_id, namespace = self._next_project_ns(tr)
 
-    namespace_dirs = yield self._del_version_index_cache.list(tr, project_id)
-    namespaces = [p_dir.namespace for p_dir in namespace_dirs] or [u'']
-    if namespace not in namespaces:
-      namespace = next((ns for ns in namespaces if ns > namespace),
-                       namespaces[0])
+    try:
+      section_dir = root_dir.open(
+        tr, DeletedVersionIndex.directory_path(project_id))
+    except ValueError:
       batch_num = 0
-      previous_dir_found = False
+      project_id, namespace = self._next_project_ns(tr, project_id)
+      section_dir = root_dir.open(
+        tr, DeletedVersionIndex.directory_path(project_id))
 
-    if previous_dir_found:
+    if batch_num is None:
+      batch_num = 0
+    else:
       batch_num += 1
 
     if batch_num >= self._TOTAL_BATCHES:
-      namespace = next((ns for ns in namespaces if ns > namespace), None)
-      if namespace is None:
-        project_id = next((project for project in project_ids
-                           if project > project_id), project_ids[0])
-        namespace_dirs = yield self._del_version_index_cache.list(
-          tr, project_id)
-        namespace = next((p_dir.namespace for p_dir in namespace_dirs), u'')
-
       batch_num = 0
+      namespace = self._next_namespace(tr, section_dir, namespace)
+      if namespace is None:
+        project_id, namespace = self._next_project_ns(tr, project_id)
+        section_dir = root_dir.open(
+          tr, DeletedVersionIndex.directory_path(project_id))
 
-    raise gen.Return((project_id, namespace, batch_num))
+    try:
+      root_dir.open(
+        tr, DeletedVersionIndex.directory_path(project_id, namespace))
+    except ValueError:
+      batch_num = 0
+      namespace = self._next_namespace(tr, section_dir, namespace)
+      if namespace is None:
+        project_id, namespace = self._next_project_ns(tr, project_id)
+
+    return project_id, namespace, batch_num
 
   @gen.coroutine
   def _groom_deleted_versions(self, tr, project_id, namespace, batch_num,
                               safe_vs):
-    del_version_dir = yield self._del_version_index_cache.get(
-      tr, project_id, namespace)
+    del_version_dir = yield self._del_version_index(tr, project_id, namespace)
     ranges = sm.range(batch_num * self._BATCH_SIZE,
                       (batch_num + 1) * self._BATCH_SIZE)
     tx_deadline = monotonic.monotonic() + MAX_FDB_TX_DURATION - 1
@@ -434,14 +472,33 @@ class GarbageCollector(object):
   def _hard_delete(self, tr, version_entry, deleted_vs):
     yield self._data_manager.hard_delete(tr, version_entry)
     yield self._index_manager.hard_delete_entries(tr, version_entry)
-    index = yield self._del_version_index_cache.get(
+    index = yield self._del_version_index(
       tr, version_entry.project_id, version_entry.namespace)
     index_key = index.encode_key(version_entry.path, version_entry.commit_vs,
                                  deleted_vs)
     del tr[index_key]
 
     # Keep track of safe versionstamps to invalidate stale txids.
-    safe_read_dir = yield self._safe_read_dir_cache.get(
+    safe_read_dir = yield self._safe_read_dir(
       tr, version_entry.project_id, version_entry.namespace)
     safe_read_key = safe_read_dir.encode_key(version_entry.path)
     tr.byte_max(safe_read_key, deleted_vs)
+
+  @gen.coroutine
+  def _safe_read_dir(self, tr, project_id, namespace):
+    path = SafeReadDir.directory_path(project_id, namespace)
+    directory = yield self._directory_cache.get(tr, path)
+    raise gen.Return(SafeReadDir(directory))
+
+  @gen.coroutine
+  def _safe_read_dir_from_key(self, tr, key):
+    project_id = decode_str(key.app())
+    namespace = decode_str(key.name_space())
+    safe_read_dir = yield self._safe_read_dir(tr, project_id, namespace)
+    raise gen.Return(safe_read_dir)
+
+  @gen.coroutine
+  def _del_version_index(self, tr, project_id, namespace):
+    path = DeletedVersionIndex.directory_path(project_id, namespace)
+    directory = yield self._directory_cache.get(tr, path)
+    raise gen.Return(DeletedVersionIndex(directory))

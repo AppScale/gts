@@ -20,7 +20,7 @@ from tornado.ioloop import IOLoop
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.dbconstants import (
   BadRequest, ConcurrentModificationException, InternalError)
-from appscale.datastore.fdb.cache import ProjectCache
+from appscale.datastore.fdb.cache import DirectoryCache
 from appscale.datastore.fdb.codecs import decode_str, TransactionID
 from appscale.datastore.fdb.data import DataManager, VersionEntry
 from appscale.datastore.fdb.gc import GarbageCollector
@@ -53,20 +53,17 @@ class FDBDatastore(object):
     self._db = fdb.open()
     self._tornado_fdb = TornadoFDB(IOLoop.current())
     ds_dir = fdb.directory.create_or_open(self._db, DS_ROOT)
+    directory_cache = DirectoryCache(self._db, self._tornado_fdb, ds_dir)
+    directory_cache.initialize()
 
-    project_cache = ProjectCache(self._tornado_fdb, ds_dir)
-    tr = self._db.create_transaction()
-    project_cache.ensure_metadata_key(tr)
-    tr.commit().wait()
-
-    self._data_manager = DataManager(self._tornado_fdb, project_cache)
+    self._data_manager = DataManager(self._tornado_fdb, directory_cache)
     self.index_manager = IndexManager(
-      self._db, self._tornado_fdb, self._data_manager, project_cache)
+      self._db, self._tornado_fdb, self._data_manager, directory_cache)
     self._tx_manager = TransactionManager(
-      self._db, self._tornado_fdb, project_cache)
+      self._db, self._tornado_fdb, directory_cache)
     self._gc = GarbageCollector(
       self._db, self._tornado_fdb, self._data_manager, self.index_manager,
-      self._tx_manager, project_cache)
+      self._tx_manager, directory_cache)
     self._gc.start()
 
   @gen.coroutine
