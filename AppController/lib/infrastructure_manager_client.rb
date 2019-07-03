@@ -77,10 +77,14 @@ class InfrastructureManagerClient
     return run_result
   end
 
-  def terminate_instances(options, instance_ids)
+  def terminate_instances(opts, instance_ids)
     headers = {}
     headers['Content-Type'] = 'application/json'
     headers['AppScale-Secret'] = @secret
+
+    # Make a copy (the options are a simple hash so shallow copy does the
+    # trick) to not modify the original.
+    options = opts.clone
     options['instance_ids'] = [instance_ids] if instance_ids.class != Array
 
     uri = URI("http://#{@ip}:#{SERVER_PORT}/instances")
@@ -117,7 +121,7 @@ class InfrastructureManagerClient
   #
   # Args:
   #   num_vms: the number of VMs to create.
-  #   options: a hash containing information needed by the agent
+  #   opts: a hash containing information needed by the agent
   #     (credentials etc ...).
   #   roles: an Array containing the roles for each VM to be created.
   #   disks: an Array specifying the disks to be associated with the VMs
@@ -126,9 +130,11 @@ class InfrastructureManagerClient
   # Returns
   #   An Array containing the nodes information, suitable to be converted
   #   into Node.
-  def run_instances(num_vms, options, roles, disks)
+  def run_instances(num_vms, opts, roles, disks)
+    # Make a copy (the options are a simple hash so shallow copy does the
+    # trick) to not modify the original.
+    options = opts.clone
     options['num_vms'] = num_vms.to_s
-    options['cloud'] = 'cloud1'
 
     uri = URI("http://#{@ip}:#{SERVER_PORT}/instances")
     headers = {'Content-Type' => 'application/json',
@@ -184,7 +190,7 @@ class InfrastructureManagerClient
   # Asks the InfrastructureManager to attach a persistent disk to this machine.
   #
   # Args:
-  #   parameters: A Hash that contains the credentials necessary to interact
+  #   opts: A Hash that contains the credentials necessary to interact
   #     with the underlying cloud infrastructure.
   #   disk_name: A String that names the persistent disk to attach to this
   #     machine.
@@ -194,11 +200,14 @@ class InfrastructureManagerClient
   # Returns:
   #   The location on the local filesystem where the persistent disk was
   #   attached to.
-  def attach_disk(options, disk_name, instance_id)
+  def attach_disk(opts, disk_name, instance_id)
     Djinn.log_debug('Calling attach_disk with parameters ' \
-      "#{options.inspect}, with disk name #{disk_name} and instance id " +
+      "#{opts.inspect}, with disk name #{disk_name} and instance id " +
       instance_id.to_s)
 
+    # Make a copy (the options are a simple hash so shallow copy does the
+    # trick) to not modify the original.
+    options = opts.clone
     options['instance_id'] = instance_id
     options['disk_name'] = disk_name
 
