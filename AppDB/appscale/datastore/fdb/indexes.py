@@ -1308,7 +1308,7 @@ class IndexManager(object):
   def update_composite_index(self, project_id, index_pb, cursor=(None, None)):
     start_ns, start_key = cursor
     project_id = decode_str(project_id)
-    kind = decode_str(index_pb.entity_type())
+    kind = decode_str(index_pb.definition().entity_type())
     tr = self._db.create_transaction()
     deadline = monotonic.monotonic() + MAX_FDB_TX_DURATION - 1
     kind_indexes = yield self._indexes_for_kind(tr, project_id, kind)
@@ -1321,9 +1321,9 @@ class IndexManager(object):
       composite_dir = yield self._directory_cache.get(tr, composite_path)
       order_info = tuple(
         (decode_str(prop.name()), prop.direction())
-        for prop in index_pb.property_list())
+        for prop in index_pb.definition().property_list())
       composite_index = CompositeIndex(
-        composite_dir, kind, index_pb.ancestor(), order_info)
+        composite_dir, kind, index_pb.definition().ancestor(), order_info)
 
       logger.info(u'Backfilling {}'.format(composite_index))
       remaining_range = kind_index.directory.range()
