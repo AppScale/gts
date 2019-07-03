@@ -76,6 +76,14 @@ class Entity(object):
     else:
       self.timestamp = int(time.time())
 
+  def __str__(self):
+    return 'Key name: ' + self.key_name + \
+           '.\nQueue: ' + self.queue + \
+           '.\nState: ' + self.state + \
+           '\nApplication ID: ' + self.app_id + \
+           '.\nTimestamp: ' + str(self.timestamp) + \
+           '.\nEnd time: ' + str(self.endtime) + '.\n'
+
   def toPb(self, project_id, kind):
     """ Converts Entity object to datastore_v3_pb2.EntityProto.
 
@@ -300,7 +308,7 @@ class DatastoreClient(object):
       remote_api_pb2.Response object.
     Raises:
       DatastoreTransientError if some retry-able error occurred.
-      DatastorePermanentError if some permanent error occured.
+      DatastorePermanentError if some permanent error occurred.
     """
     request = remote_api_pb2.Request()
     request.service_name = self.SERVICE_NAME
