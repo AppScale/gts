@@ -19,7 +19,7 @@ from appscale.search.models import (
   Field, ScoredDocument, SearchResult, SolrIndexSchemaInfo, SolrSchemaFieldInfo,
   Facet
 )
-from appscale.search.settings import SearchServiceSettings
+from appscale.search.settings import SearchServiceMetadata
 from appscale.search.solr_api import SolrAPI
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class SolrAdapter(object):
     Args:
       zk_client: An instance of kazoo.client.KazooClient.
     """
-    self._settings = SearchServiceSettings(zk_client)
+    self._settings = SearchServiceMetadata(zk_client)
     self.solr = SolrAPI(zk_client, SOLR_ZK_ROOT, self._settings)
 
   async def index_documents(self, app_id, namespace, index_name, documents):
@@ -72,7 +72,8 @@ class SolrAdapter(object):
     await self.solr.delete_documents(collection, ids)
 
   async def list_documents(self, app_id, namespace, index_name, start_doc_id,
-                           include_start_doc, limit, keys_only):
+                           include_start_doc, limit, keys_only,
+                           max_doc_id=None, include_max_doc=True):
     """ Retrieves up to limit documents starting from start_doc_id
     and converts it from Solr format to unified Search API documents.
 
@@ -84,15 +85,22 @@ class SolrAdapter(object):
       include_start_doc: a bool indicating if the start doc should be included.
       limit: a int - max number of documents to retrieve.
       keys_only: a bool indicating if only document keys should be returned.
+      max_doc_id: a str - max doc ID to retrieve.
+      include_max_doc: a bool indicating if the max doc should be included.
     Return (asynchronously):
       A list of models.ScoredDocument.
     """
     collection = get_collection_name(app_id, namespace, index_name)
 
-    if start_doc_id:
+    if start_doc_id or max_doc_id:
       # Apply range filter to ID
+      start_doc_id = '*' if start_doc_id is None else start_doc_id
+      max_doc_id = '*' if max_doc_id is None else max_doc_id
       left_bracket = '[' if include_start_doc else '{'
-      solr_filter_query = 'id:{}{} TO *]'.format(left_bracket, start_doc_id)
+      right_bracket = ']' if include_max_doc else '}'
+      solr_filter_query = 'id:{}{} TO {}{}'.format(
+        left_bracket, start_doc_id, max_doc_id, right_bracket
+      )
     else:
       solr_filter_query = None
     # Order by ID
