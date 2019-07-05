@@ -13,12 +13,13 @@ def random_password(length=10):
   """ Generates a random password.
 
   Args:
-    lenght: An int, the number of characters in the password.
+    length: An int, the number of characters in the password.
   Returns:
     A str of random characters.
   """
+  sysrand = random.SystemRandom()
   chars = string.ascii_uppercase + string.digits + string.ascii_lowercase
-  return ''.join(random.choice(chars) for _ in range(length))
+  return ''.join(sysrand.choice(chars) for _ in range(length))
 
 def usage():
   print ""
