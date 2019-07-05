@@ -15,9 +15,9 @@ from tornado import gen
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.fdb.codecs import (
-  decode_str, encode_vs_index, Int64, Path, Text)
+  decode_str, encode_versionstamp_index, Int64, Path, Text)
 from appscale.datastore.fdb.utils import (
-  ABSENT_VERSION, DS_ROOT, fdb, hash_tuple, KVIterator, VS_SIZE)
+  ABSENT_VERSION, DS_ROOT, fdb, hash_tuple, ResultIterator, VERSIONSTAMP_SIZE)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
@@ -30,22 +30,22 @@ first_gt_or_equal = fdb.KeySelector.first_greater_or_equal
 class VersionEntry(object):
   """ Encapsulates details for an entity version. """
   INCOMPLETE = 1
-  __slots__ = ['project_id', 'namespace', 'path', 'commit_vs', 'version',
-               '_encoded_entity', '_decoded_entity']
+  __slots__ = ['project_id', 'namespace', 'path', 'commit_versionstamp',
+               'version', '_encoded_entity', '_decoded_entity']
 
-  def __init__(self, project_id, namespace, path, commit_vs=None,
+  def __init__(self, project_id, namespace, path, commit_versionstamp=None,
                version=None, encoded_entity=None):
     self.project_id = project_id
     self.namespace = namespace
     self.path = path
-    self.commit_vs = commit_vs
+    self.commit_versionstamp = commit_versionstamp
     self.version = ABSENT_VERSION if version is None else version
     self._encoded_entity = encoded_entity
     self._decoded_entity = None
 
   @property
   def present(self):
-    return self.commit_vs is not None
+    return self.commit_versionstamp is not None
 
   @property
   def complete(self):
@@ -101,7 +101,7 @@ class DataNamespace(object):
   The directory path looks like (<project-dir>, 'data', <namespace>).
 
   Within this directory, keys are encoded as
-  <scatter-byte> + <path> + <commit-vs> + <index>.
+  <scatter-byte> + <path> + <commit-versionstamp> + <index>.
 
   The <scatter-byte> is a single byte determined by hashing the entity path.
   Its purpose is to spread writes more evenly across the cluster and minimize
@@ -109,10 +109,10 @@ class DataNamespace(object):
 
   The <path> contains the entity path. See codecs.Path for encoding details.
 
-  The <commit-vs> is a 10-byte versionstamp that specifies the commit version
+  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit version
   of the transaction that wrote the entity data.
 
-  The <index> is a single byte specifying which chunk number the KV contains.
+  The <index> is a single byte specifying the position of the value's chunk.
 
   Values are encoded as <entity-encoding> + <entity> + <entity-version>.
 
@@ -161,12 +161,13 @@ class DataNamespace(object):
   def path_slice(self):
     """ The portion of keys that contain the encoded path. """
     return slice(len(self.directory.rawPrefix) + 1,
-                 -1 * (VS_SIZE + self._INDEX_SIZE))
+                 -1 * (VERSIONSTAMP_SIZE + self._INDEX_SIZE))
 
   @property
-  def vs_slice(self):
+  def versionstamp_slice(self):
     """ The portion of keys that contain the commit versionstamp. """
-    return slice(self.path_slice.stop, self.path_slice.stop + VS_SIZE)
+    return slice(self.path_slice.stop,
+                 self.path_slice.stop + VERSIONSTAMP_SIZE)
 
   @property
   def index_slice(self):
@@ -207,7 +208,7 @@ class DataNamespace(object):
 
     encoded_version = Int64.encode_bare(version, self._VERSION_SIZE)
     if not entity:
-      return ((self.encode_key(path, commit_vs=None, index=0),
+      return ((self.encode_key(path, commit_versionstamp=None, index=0),
                encoded_version),)
 
     value = b''.join([six.int2byte(self._V3_MARKER), entity])
@@ -219,27 +220,29 @@ class DataNamespace(object):
     # last chunk to exceed the chunk size, it ensures that the entity version
     # can always be retrieved from the last chunk.
     chunks[-1] += encoded_version
-    return tuple((self.encode_key(path, commit_vs=None, index=index), chunk)
-                 for index, chunk in enumerate(chunks))
+    return tuple(
+      (self.encode_key(path, commit_versionstamp=None, index=index), chunk)
+      for index, chunk in enumerate(chunks))
 
-  def encode_key(self, path, commit_vs, index):
+  def encode_key(self, path, commit_versionstamp, index):
     """ Encodes a key for the given version entry.
 
     Args:
       path: A tuple or protobuf path object.
-      commit_vs: A 10-byte string specifying the version's commit versionstamp
-        or None.
+      commit_versionstamp: A 10-byte string specifying the version's commit
+        versionstamp or None.
       index: An integer specifying the chunk index.
     Returns:
-      A string containing an FDB key. If commit_vs was None, the key should be
-      used with set_versionstamped_key.
+      A string containing an FDB key. If commit_versionstamp was None, the key
+      should be used with set_versionstamped_key.
     """
     encoded_key = b''.join([self._encode_path_prefix(path),
-                            commit_vs or b'\x00' * VS_SIZE,
+                            commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE,
                             six.int2byte(index)])
-    if not commit_vs:
-      vs_index = len(encoded_key) - (VS_SIZE + self._INDEX_SIZE)
-      encoded_key += encode_vs_index(vs_index)
+    if not commit_versionstamp:
+      versionstamp_index = (len(encoded_key) -
+                            (VERSIONSTAMP_SIZE + self._INDEX_SIZE))
+      encoded_key += encode_versionstamp_index(versionstamp_index)
 
     return encoded_key
 
@@ -252,7 +255,7 @@ class DataNamespace(object):
       A VersionEntry object.
     """
     path = Path.unpack(kvs[0].key, self.path_slice.start)[0]
-    commit_vs = kvs[0].key[self.vs_slice]
+    commit_versionstamp = kvs[0].key[self.versionstamp_slice]
     first_index = ord(kvs[0].key[self.index_slice])
 
     version = Int64.decode_bare(kvs[-1].value[self.version_slice])
@@ -261,30 +264,32 @@ class DataNamespace(object):
     else:
       encoded_entity = VersionEntry.INCOMPLETE
 
-    return VersionEntry(self.project_id, self.namespace, path, commit_vs,
-                        version, encoded_entity)
+    return VersionEntry(self.project_id, self.namespace, path,
+                        commit_versionstamp, version, encoded_entity)
 
-  def get_slice(self, path, commit_vs=None, read_vs=None):
+  def get_slice(self, path, commit_versionstamp=None, read_versionstamp=None):
     """ Gets the range of keys relevant to the given constraints.
 
     Args:
       path: A tuple or protobuf path object.
-      commit_vs: The commit versionstamp for a specific entity version.
-      read_vs: The transaction's read versionstamp. All newer entity versions
-        are ignored.
+      commit_versionstamp: The commit versionstamp for a specific entity
+        version.
+      read_versionstamp: The transaction's read versionstamp. All newer entity
+        versions are ignored.
     Returns:
       A slice specifying the start and stop keys.
     """
     path_prefix = self._encode_path_prefix(path)
-    if commit_vs is not None:
+    if commit_versionstamp is not None:
       # All chunks for a given version.
-      prefix = path_prefix + commit_vs
+      prefix = path_prefix + commit_versionstamp
       return slice(first_gt_or_equal(prefix + b'\x00'),
                    first_gt_or_equal(prefix + b'\xFF'))
 
-    if read_vs is not None:
-      # All versions for a given path except those written after the read_vs.
-      version_prefix = path_prefix + read_vs
+    if read_versionstamp is not None:
+      # All versions for a given path except those written after the
+      # read_versionstamp.
+      version_prefix = path_prefix + read_versionstamp
       return slice(first_gt_or_equal(path_prefix + b'\x00'),
                    first_gt_or_equal(version_prefix + b'\xFF'))
 
@@ -347,7 +352,8 @@ class GroupUpdatesNS(object):
       path = Path.flatten(path)
 
     group_path = path[:2]
-    return self.encode_key(group_path), b'\x00' * VS_SIZE + encode_vs_index(0)
+    return (self.encode_key(group_path),
+            b'\x00' * VERSIONSTAMP_SIZE + encode_versionstamp_index(0))
 
   def encode_key(self, group_path):
     """ Encodes a key for a given entity group.
@@ -378,21 +384,22 @@ class DataManager(object):
     self._directory_cache = directory_cache
 
   @gen.coroutine
-  def get_latest(self, tr, key, read_vs=None, include_data=True,
+  def get_latest(self, tr, key, read_versionstamp=None, include_data=True,
                  snapshot=False):
-    """ Gets the newest entity version for the given read VS.
+    """ Gets the newest entity version for the given read versionstamp.
 
     Args:
       tr: An FDB transaction.
       key: A protubuf reference object.
-      read_vs: A 10-byte string specifying the FDB read versionstamp. Newer
-        versionstamps are ignored.
+      read_versionstamp: A 10-byte string specifying the FDB read versionstamp.
+        Newer versionstamps are ignored.
       include_data: A boolean specifying whether or not to fetch all of the
         entity's KVs.
       snapshot: If True, the read will not cause a transaction conflict.
     """
     data_ns = yield self._data_ns_from_key(tr, key)
-    desired_slice = data_ns.get_slice(key.path(), read_vs=read_vs)
+    desired_slice = data_ns.get_slice(
+      key.path(), read_versionstamp=read_versionstamp)
     last_entry = yield self._last_version(
       tr, data_ns, desired_slice, include_data, snapshot=snapshot)
     if last_entry is None:
@@ -414,12 +421,12 @@ class DataManager(object):
     """
     version_entry = yield self.get_version_from_path(
       tr, index_entry.project_id, index_entry.namespace, index_entry.path,
-      index_entry.commit_vs, snapshot)
+      index_entry.commit_versionstamp, snapshot)
     raise gen.Return(version_entry)
 
   @gen.coroutine
-  def get_version_from_path(self, tr, project_id, namespace, path, commit_vs,
-                            snapshot=False):
+  def get_version_from_path(self, tr, project_id, namespace, path,
+                            commit_versionstamp, snapshot=False):
     """ Gets the entity data for a specific version.
 
     Args:
@@ -427,19 +434,20 @@ class DataManager(object):
       project_id: A string specifying the project ID.
       namespace: A string specifying the namespace.
       path: A tuple or protobuf path object.
-      commit_vs: A 10-byte string specyfing the FDB commit versionstamp.
+      commit_versionstamp: A 10-byte string specyfing the FDB commit
+        versionstamp.
       snapshot: If True, the read will not cause a transaction conflict.
     Returns:
       A VersionEntry or None.
     """
     data_ns = yield self._data_ns(tr, project_id, namespace)
-    desired_slice = data_ns.get_slice(path, commit_vs)
-    kvs = yield KVIterator(tr, self._tornado_fdb, desired_slice,
-                           snapshot=snapshot).list()
-    raise gen.Return(data_ns.decode(kvs))
+    desired_slice = data_ns.get_slice(path, commit_versionstamp)
+    results = yield ResultIterator(tr, self._tornado_fdb, desired_slice,
+                                   snapshot=snapshot).list()
+    raise gen.Return(data_ns.decode(results))
 
   @gen.coroutine
-  def last_group_vs(self, tr, project_id, namespace, group_path):
+  def last_group_versionstamp(self, tr, project_id, namespace, group_path):
     """ Gets the most recent commit versionstamp for the entity group.
 
     Args:
@@ -451,16 +459,16 @@ class DataManager(object):
       A 10-byte string specifying the versionstamp or None.
     """
     group_ns = yield self._group_updates_ns(tr, project_id, namespace)
-    last_updated_vs = yield self._tornado_fdb.get(
+    last_updated_versionstamp = yield self._tornado_fdb.get(
       tr, group_ns.encode_key(group_path))
-    if not last_updated_vs.present():
+    if not last_updated_versionstamp.present():
       return
 
-    raise gen.Return(last_updated_vs.value)
+    raise gen.Return(last_updated_versionstamp.value)
 
   @gen.coroutine
   def put(self, tr, key, version, encoded_entity):
-    """ Writes a new version entry and updates the entity group VS.
+    """ Writes a new version entry and updates the entity group versionstamp.
 
     Args:
       tr: An FDB transaction.
@@ -487,7 +495,7 @@ class DataManager(object):
     data_ns = yield self._data_ns(
       tr, version_entry.project_id, version_entry.namespace)
     version_slice = data_ns.get_slice(version_entry.path,
-                                      version_entry.commit_vs)
+                                      version_entry.commit_versionstamp)
     del tr[version_slice.start.key:version_slice.stop.key]
 
   @gen.coroutine
@@ -523,19 +531,19 @@ class DataManager(object):
     Returns:
       A VersionEntry or None.
     """
-    kvs, count, more_results = yield self._tornado_fdb.get_range(
+    results, count, more_results = yield self._tornado_fdb.get_range(
       tr, desired_slice, limit=1, reverse=True, snapshot=snapshot)
 
-    if not kvs:
+    if not results:
       return
 
-    last_kv = kvs[0]
-    entry = data_ns.decode([last_kv])
+    last_chunk = results[0]
+    entry = data_ns.decode([last_chunk])
     if not include_data or not entry.present or entry.complete:
       raise gen.Return(entry)
 
     # Retrieve the remaining chunks.
-    version_slice = data_ns.get_slice(entry.path, entry.commit_vs)
-    remaining = slice(version_slice.start, first_gt_or_equal(last_kv.key))
-    kvs = yield KVIterator(tr, self._tornado_fdb, remaining).list()
-    raise gen.Return(data_ns.decode(kvs + [last_kv]))
+    version_slice = data_ns.get_slice(entry.path, entry.commit_versionstamp)
+    remaining = slice(version_slice.start, first_gt_or_equal(last_chunk.key))
+    results = yield ResultIterator(tr, self._tornado_fdb, remaining).list()
+    raise gen.Return(data_ns.decode(results + [last_chunk]))

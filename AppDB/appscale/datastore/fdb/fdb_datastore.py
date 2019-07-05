@@ -93,9 +93,9 @@ class FDBDatastore(object):
       writes = yield futures
 
     old_entries = [old_entry for old_entry, _ in writes if old_entry.present]
-    vs_future = None
+    versionstamp_future = None
     if old_entries:
-      vs_future = tr.get_versionstamp()
+      versionstamp_future = tr.get_versionstamp()
 
     try:
       yield self._tornado_fdb.commit(tr, convert_exceptions=False)
@@ -111,7 +111,7 @@ class FDBDatastore(object):
       return
 
     if old_entries:
-      self._gc.clear_later(old_entries, vs_future.wait().value)
+      self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
     for _, new_entry in writes:
       put_response.add_key().CopyFrom(new_entry.key)
@@ -126,21 +126,23 @@ class FDBDatastore(object):
     project_id = decode_str(project_id)
     tr = self._db.create_transaction()
 
-    read_vs = None
+    read_versionstamp = None
     if get_request.has_transaction():
       yield self._tx_manager.log_lookups(tr, project_id, get_request)
 
       # Ensure the GC hasn't cleaned up an entity written after the tx start.
-      safe_read_stamps = yield [self._gc.safe_read_vs(tr, key)
+      safe_read_stamps = yield [self._gc.safe_read_versionstamp(tr, key)
                                 for key in get_request.key_list()]
       safe_read_stamps = [vs for vs in safe_read_stamps if vs is not None]
-      read_vs = TransactionID.decode(get_request.transaction().handle())[1]
-      if any(safe_vs > read_vs for safe_vs in safe_read_stamps):
+      read_versionstamp = TransactionID.decode(
+        get_request.transaction().handle())[1]
+      if any(safe_versionstamp > read_versionstamp
+             for safe_versionstamp in safe_read_stamps):
         raise BadRequest(u'The specified transaction has expired')
 
     futures = []
     for key in get_request.key_list():
-      futures.append(self._data_manager.get_latest(tr, key, read_vs,
+      futures.append(self._data_manager.get_latest(tr, key, read_versionstamp,
                                                    snapshot=True))
 
     version_entries = yield futures
@@ -177,9 +179,9 @@ class FDBDatastore(object):
       deletes = yield futures
 
     old_entries = [old_entry for old_entry, _ in deletes if old_entry.present]
-    vs_future = None
+    versionstamp_future = None
     if old_entries:
-      vs_future = tr.get_versionstamp()
+      versionstamp_future = tr.get_versionstamp()
 
     try:
       yield self._tornado_fdb.commit(tr, convert_exceptions=False)
@@ -195,7 +197,7 @@ class FDBDatastore(object):
       return
 
     if old_entries:
-      self._gc.clear_later(old_entries, vs_future.wait().value)
+      self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
     # TODO: Once the Cassandra backend is removed, populate a delete response.
     for old_entry, new_version in deletes:
@@ -206,20 +208,23 @@ class FDBDatastore(object):
     logger.debug(u'query: {}'.format(query))
     project_id = decode_str(query.app())
     tr = self._db.create_transaction()
-    read_vs = None
+    read_versionstamp = None
     if query.has_transaction():
       yield self._tx_manager.log_query(tr, project_id, query)
 
       # Ensure the GC hasn't cleaned up an entity written after the tx start.
-      safe_vs = yield self._gc.safe_read_vs(tr, query.ancestor())
-      read_vs = TransactionID.decode(query.transaction().handle())[1]
-      if safe_vs is not None and safe_vs > read_vs:
+      safe_versionstamp = yield self._gc.safe_read_versionstamp(
+        tr, query.ancestor())
+      read_versionstamp = TransactionID.decode(query.transaction().handle())[1]
+      if (safe_versionstamp is not None and
+          safe_versionstamp > read_versionstamp):
         raise BadRequest(u'The specified transaction has expired')
 
     fetch_data = self.index_manager.include_data(query)
     rpc_limit, check_more_results = self.index_manager.rpc_limit(query)
 
-    iterator = yield self.index_manager.get_iterator(tr, query, read_vs)
+    iterator = yield self.index_manager.get_iterator(
+      tr, query, read_versionstamp)
     for prop_name in query.property_name_list():
       prop_name = decode_str(prop_name)
       if prop_name not in iterator.prop_names:
@@ -306,19 +311,19 @@ class FDBDatastore(object):
     logger.debug(u'Applying {}:{}'.format(project_id, txid))
     project_id = decode_str(project_id)
     tr = self._db.create_transaction()
-    read_vs = TransactionID.decode(txid)[1]
+    read_versionstamp = TransactionID.decode(txid)[1]
     lookups, queried_groups, mutations = yield self._tx_manager.get_metadata(
       tr, project_id, txid)
 
     try:
       old_entries = yield self._apply_mutations(
-        tr, project_id, queried_groups, mutations, lookups, read_vs)
+        tr, project_id, queried_groups, mutations, lookups, read_versionstamp)
     finally:
       yield self._tx_manager.delete(tr, project_id, txid)
 
-    vs_future = None
+    versionstamp_future = None
     if old_entries:
-      vs_future = tr.get_versionstamp()
+      versionstamp_future = tr.get_versionstamp()
 
     try:
       yield self._tornado_fdb.commit(tr)
@@ -334,7 +339,7 @@ class FDBDatastore(object):
       return
 
     if old_entries:
-      self._gc.clear_later(old_entries, vs_future.wait().value)
+      self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
     logger.debug(u'Finished applying {}:{}'.format(project_id, txid))
 
@@ -402,13 +407,14 @@ class FDBDatastore(object):
 
   @gen.coroutine
   def _apply_mutations(self, tr, project_id, queried_groups, mutations,
-                       lookups, read_vs):
+                       lookups, read_versionstamp):
     # TODO: Check if transactional tasks count as a side effect.
     if not mutations:
       raise gen.Return([])
 
     group_update_futures = [
-      self._data_manager.last_group_vs(tr, project_id, namespace, group_path)
+      self._data_manager.last_group_versionstamp(
+        tr, project_id, namespace, group_path)
       for namespace, group_path in queried_groups]
 
     # Index keys that require a full lookup rather than a versionstamp.
@@ -435,12 +441,12 @@ class FDBDatastore(object):
 
     group_updates = yield group_update_futures
     group_updates = [vs for vs in group_updates if vs is not None]
-    if any(commit_vs > read_vs for commit_vs in group_updates):
+    if any(commit_vs > read_versionstamp for commit_vs in group_updates):
       raise ConcurrentModificationException(
         u'A queried group was modified after this transaction was started.')
 
     version_entries = yield [futures[key.Encode()] for key in lookups]
-    if any(entry.present and entry.commit_vs > read_vs
+    if any(entry.present and entry.commit_versionstamp > read_versionstamp
            for entry in version_entries):
       raise ConcurrentModificationException(
         u'An entity was modified after this transaction was started.')

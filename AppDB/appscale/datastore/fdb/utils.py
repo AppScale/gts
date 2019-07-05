@@ -37,7 +37,7 @@ MAX_32 = 256 ** 4
 SCATTER_PROPORTION = int(MAX_32 * SCATTER_CHANCE)
 
 # The number of bytes used to store a commit versionstamp.
-VS_SIZE = 10
+VERSIONSTAMP_SIZE = 10
 
 MAX_ENTITY_SIZE = 1048572
 
@@ -151,7 +151,7 @@ class TornadoFDB(object):
     self._io_loop.add_callback(tornado_future.set_result, result)
 
 
-class KVIterator(object):
+class ResultIterator(object):
   def __init__(self, tr, tornado_fdb, key_slice, limit=0, reverse=False,
                streaming_mode=fdb.StreamingMode.iterator, snapshot=False):
     self.slice = key_slice
@@ -178,7 +178,7 @@ class KVIterator(object):
     self._done = False
 
   def __repr__(self):
-    return (u'KVIterator(key_slice={!r}, limit={!r}, reverse={!r}, '
+    return (u'ResultIterator(key_slice={!r}, limit={!r}, reverse={!r}, '
             u'streaming_mode={!r}, snapshot={!r})').format(
       self.slice, self._limit, self._reverse, self._mode, self._snapshot)
 
@@ -197,53 +197,40 @@ class KVIterator(object):
     if self._limit > 0:
       tmp_limit = self._limit - self._fetched
 
-    kvs, count, more = yield self._tornado_fdb.get_range(
+    results, count, more = yield self._tornado_fdb.get_range(
       self._tr, slice(self._bsel, self._esel), tmp_limit, mode,
       self._iteration, self._reverse, self._snapshot)
     self._fetched += count
     self._iteration += 1
 
-    if kvs:
+    if results:
       if self._reverse:
-        self._esel = fdb.KeySelector.first_greater_or_equal(kvs[-1].key)
+        self._esel = fdb.KeySelector.first_greater_or_equal(results[-1].key)
       else:
-        self._bsel = fdb.KeySelector.first_greater_than(kvs[-1].key)
+        self._bsel = fdb.KeySelector.first_greater_than(results[-1].key)
 
     reached_limit = self._limit > 0 and self._fetched == self._limit
     self._done = not more or reached_limit
     self.done_with_range = not more and not reached_limit
 
-    raise gen.Return((kvs, not self._done))
+    raise gen.Return((results, not self._done))
 
   @gen.coroutine
   def list(self):
-    all_kvs = []
+    all_results = []
     while True:
-      kvs, more_results = yield self.next_page(fdb.StreamingMode.want_all)
-      all_kvs.extend(kvs)
+      results, more_results = yield self.next_page(fdb.StreamingMode.want_all)
+      all_results.extend(results)
       if not more_results:
         break
 
-    raise gen.Return(all_kvs)
+    raise gen.Return(all_results)
 
 
 def next_entity_version(old_version):
   # Since client timestamps are unreliable, ensure the new version is greater
   # than the old one.
   return max(int(time.time() * 1000 * 1000), old_version + 1)
-
-
-def put_chunks(tr, chunk, subspace, add_vs, chunk_size=CHUNK_SIZE):
-  chunk_indexes = [(n, n + chunk_size)
-                   for n in xrange(0, len(chunk), chunk_size)]
-  for start, end in chunk_indexes:
-    value = chunk[start:end]
-    if add_vs:
-      key = subspace.pack_with_versionstamp((fdb.tuple.Versionstamp(), start))
-      tr.set_versionstamped_key(key, value)
-    else:
-      key = subspace.pack((start,))
-      tr[key] = value
 
 
 def get_scatter_val(path):

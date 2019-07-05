@@ -15,8 +15,9 @@ from appscale.datastore.dbconstants import BadRequest, InternalError
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
 
-# The number of bytes used to encode a read versionstamp.
-READ_VS_SIZE = 8
+# The number of bytes used to encode a read version in a way that is comparable
+# to commit versionstamps.
+READ_VERSION_SIZE = 8
 
 # Byte values that signify a data type. A couple values are left between each
 # one just in case they need adjustment.
@@ -494,9 +495,9 @@ class TransactionID(object):
   BATCH_ORDER_BITS = 8
 
   @classmethod
-  def encode(cls, scatter_val, commit_vs):
-    commit_version = struct.unpack('>Q', commit_vs[:8])[0]
-    batch_order = struct.unpack('>H', commit_vs[8:])[0]
+  def encode(cls, scatter_val, commit_versionstamp):
+    commit_version = struct.unpack('>Q', commit_versionstamp[:8])[0]
+    batch_order = struct.unpack('>H', commit_versionstamp[8:])[0]
     if not 0 <= scatter_val <= 15:
       raise InternalError(u'Invalid scatter value')
 
@@ -516,10 +517,10 @@ class TransactionID(object):
     return scatter_val, commit_version_bytes + batch_order_bytes
 
 
-encode_read_vs = lambda read_version: Int64.encode_bare(
-  read_version, READ_VS_SIZE)
+encode_read_version = lambda read_version: Int64.encode_bare(
+  read_version, READ_VERSION_SIZE)
 
 
-def encode_vs_index(vs_position):
+def encode_versionstamp_index(versionstamp_position):
   """ Encodes an FDB key index position. """
-  return struct.pack(u'<L', vs_position)
+  return struct.pack(u'<L', versionstamp_position)

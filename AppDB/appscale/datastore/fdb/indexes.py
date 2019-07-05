@@ -15,11 +15,11 @@ from tornado import gen
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.fdb.codecs import (
-  decode_str, decode_value, encode_value, encode_vs_index, Path)
+  decode_str, decode_value, encode_value, encode_versionstamp_index, Path)
 from appscale.datastore.fdb.sdk import ListCursor
 from appscale.datastore.fdb.utils import (
   format_prop_val, DS_ROOT, fdb, get_scatter_val, MAX_FDB_TX_DURATION,
-  KVIterator, SCATTER_PROP, VS_SIZE)
+  ResultIterator, SCATTER_PROP, VERSIONSTAMP_SIZE)
 from appscale.datastore.dbconstants import BadRequest, InternalError
 from appscale.datastore.index_manager import IndexInaccessible
 from appscale.datastore.utils import _FindIndexToUse
@@ -142,14 +142,16 @@ def get_scan_direction(query, index):
 
 
 class IndexEntry(object):
-  __slots__ = ['project_id', 'namespace', 'path', 'commit_vs', 'deleted_vs']
+  __slots__ = ['project_id', 'namespace', 'path', 'commit_versionstamp',
+               'deleted_versionstamp']
 
-  def __init__(self, project_id, namespace, path, commit_vs, deleted_vs):
+  def __init__(self, project_id, namespace, path, commit_versionstamp,
+               deleted_versionstamp):
     self.project_id = project_id
     self.namespace = namespace
     self.path = path
-    self.commit_vs = commit_vs
-    self.deleted_vs = deleted_vs
+    self.commit_versionstamp = commit_versionstamp
+    self.deleted_versionstamp = deleted_versionstamp
 
   @property
   def key(self):
@@ -167,8 +169,8 @@ class IndexEntry(object):
 
   def __repr__(self):
     return u'IndexEntry(%r, %r, %r, %r, %r)' % (
-      self.project_id, self.namespace, self.path, self.commit_vs,
-      self.deleted_vs)
+      self.project_id, self.namespace, self.path, self.commit_versionstamp,
+      self.deleted_versionstamp)
 
   def key_result(self):
     entity = entity_pb.EntityProto()
@@ -187,22 +189,23 @@ class IndexEntry(object):
 class PropertyEntry(IndexEntry):
   __slots__ = ['prop_name', 'value']
 
-  def __init__(self, project_id, namespace, path, prop_name, value, commit_vs,
-               deleted_vs):
+  def __init__(self, project_id, namespace, path, prop_name, value,
+               commit_versionstamp, deleted_versionstamp):
     super(PropertyEntry, self).__init__(
-      project_id, namespace, path, commit_vs, deleted_vs)
+      project_id, namespace, path, commit_versionstamp, deleted_versionstamp)
     self.prop_name = prop_name
     self.value = value
 
   def __repr__(self):
     return u'PropertyEntry(%r, %r, %r, %r, %r, %r, %r)' % (
       self.project_id, self.namespace, self.path, self.prop_name, self.value,
-      self.commit_vs, self.deleted_vs)
+      self.commit_versionstamp, self.deleted_versionstamp)
 
   def __str__(self):
     return u'PropertyEntry(%s, %r, %s, %s, %s, %r, %r)' % (
       self.project_id, self.namespace, self.path, self.prop_name,
-      format_prop_val(self.value), self.commit_vs, self.deleted_vs)
+      format_prop_val(self.value), self.commit_versionstamp,
+      self.deleted_versionstamp)
 
   def prop_result(self):
     entity = entity_pb.EntityProto()
@@ -231,16 +234,16 @@ class PropertyEntry(IndexEntry):
 class CompositeEntry(IndexEntry):
   __slots__ = ['properties']
 
-  def __init__(self, project_id, namespace, path, properties, commit_vs,
-               deleted_vs):
+  def __init__(self, project_id, namespace, path, properties,
+               commit_versionstamp, deleted_versionstamp):
     super(CompositeEntry, self).__init__(
-      project_id, namespace, path, commit_vs, deleted_vs)
+      project_id, namespace, path, commit_versionstamp, deleted_versionstamp)
     self.properties = properties
 
   def __repr__(self):
     return u'CompositeEntry(%r, %r, %r, %r, %r, %r)' % (
       self.project_id, self.namespace, self.path, self.properties,
-      self.commit_vs, self.deleted_vs)
+      self.commit_versionstamp, self.deleted_versionstamp)
 
   def prop_result(self):
     entity = entity_pb.EntityProto()
@@ -274,11 +277,11 @@ class CompositeEntry(IndexEntry):
 
 class IndexIterator(object):
   def __init__(self, tr, tornado_fdb, index, key_slice, fetch_limit, reverse,
-               read_vs=None, snapshot=False):
+               read_versionstamp=None, snapshot=False):
     self.index = index
-    self._kv_iterator = KVIterator(
+    self._result_iterator = ResultIterator(
       tr, tornado_fdb, key_slice, fetch_limit, reverse, snapshot=snapshot)
-    self._read_vs = read_vs
+    self._read_versionstamp = read_versionstamp
     self._done = False
 
   @property
@@ -287,20 +290,20 @@ class IndexIterator(object):
 
   @property
   def start_key(self):
-    return self._kv_iterator.slice.start.key
+    return self._result_iterator.slice.start.key
 
   @gen.coroutine
   def next_page(self):
     if self._done:
       raise gen.Return(([], False))
 
-    kvs, more_results = yield self._kv_iterator.next_page()
+    results, more_results = yield self._result_iterator.next_page()
     usable_entries = []
-    for kv in kvs:
-      entry = self.index.decode(kv)
+    for result in results:
+      entry = self.index.decode(result)
       if not self._usable(entry):
-        self._kv_iterator.increase_limit()
-        more_results = not self._kv_iterator.done_with_range
+        self._result_iterator.increase_limit()
+        more_results = not self._result_iterator.done_with_range
         continue
 
       usable_entries.append(entry)
@@ -311,20 +314,21 @@ class IndexIterator(object):
     raise gen.Return((usable_entries, more_results))
 
   def _usable(self, entry):
-    if self._read_vs and entry.deleted_vs:
-      return entry.commit_vs < self._read_vs < entry.deleted_vs
-    elif self._read_vs:
-      return entry.commit_vs < self._read_vs
+    if self._read_versionstamp and entry.deleted_versionstamp:
+      return (entry.commit_versionstamp < self._read_versionstamp <
+              entry.deleted_versionstamp)
+    elif self._read_versionstamp:
+      return entry.commit_versionstamp < self._read_versionstamp
     else:
-      return entry.deleted_vs is None
+      return entry.deleted_versionstamp is None
 
 
 class MergeJoinIterator(object):
   def __init__(self, tr, tornado_fdb, filter_props, indexes, fetch_limit,
-               read_vs=None, ancestor_path=None, snapshot=False):
+               read_versionstamp=None, ancestor_path=None, snapshot=False):
     self.indexes = indexes
     self._filter_props = filter_props
-    self._read_vs = read_vs
+    self._read_versionstamp = read_versionstamp
     self._tr = tr
     self._tornado_fdb = tornado_fdb
     self._fetch_limit = fetch_limit
@@ -348,23 +352,23 @@ class MergeJoinIterator(object):
     if self._done:
       raise gen.Return(([], False))
 
-    result = None
+    composite_entry = None
     for i, (index, key_slice, prop_name, value) in enumerate(self.indexes):
       usable_entry = None
       # TODO: Keep cache of ranges to reduce unnecessary lookups.
       index_exhausted = False
       while True:
-        kvs, count, more = yield self._tornado_fdb.get_range(
+        results, count, more = yield self._tornado_fdb.get_range(
           self._tr, key_slice, 0, fdb.StreamingMode.small, 1,
           snapshot=self._snapshot)
         if not count:
           index_exhausted = True
           break
 
-        key_slice = slice(fdb.KeySelector.first_greater_than(kvs[-1].key),
+        key_slice = slice(fdb.KeySelector.first_greater_than(results[-1].key),
                           key_slice.stop)
-        for kv in kvs:
-          entry = index.decode(kv)
+        for result in results:
+          entry = index.decode(result)
           if self._usable(entry):
             usable_entry = entry
             break
@@ -393,10 +397,10 @@ class MergeJoinIterator(object):
               if property not in properties:
                 properties.append(property)
 
-        result = CompositeEntry(
+        composite_entry = CompositeEntry(
           usable_entry.project_id, usable_entry.namespace,
-          self._candidate_path, properties, usable_entry.commit_vs,
-          usable_entry.deleted_vs)
+          self._candidate_path, properties, usable_entry.commit_versionstamp,
+          usable_entry.deleted_versionstamp)
         self._candidate_entries = []
         next_index_op = Query_Filter.GREATER_THAN
 
@@ -433,20 +437,21 @@ class MergeJoinIterator(object):
                                        ancestor_path=self._ancestor_path)
       self.indexes[next_index_i][1] = new_slice
 
-    results = [result] if result is not None else []
-    self._fetched += len(results)
+    entries = [composite_entry] if composite_entry is not None else []
+    self._fetched += len(entries)
     if self._fetched == self._fetch_limit:
       self._done = True
 
-    raise gen.Return((results, not self._done))
+    raise gen.Return((entries, not self._done))
 
   def _usable(self, entry):
-    if self._read_vs and entry.deleted_vs:
-      return entry.commit_vs < self._read_vs < entry.deleted_vs
-    elif self._read_vs:
-      return entry.commit_vs < self._read_vs
+    if self._read_versionstamp and entry.deleted_versionstamp:
+      return (entry.commit_versionstamp < self._read_versionstamp <
+              entry.deleted_versionstamp)
+    elif self._read_versionstamp:
+      return entry.commit_versionstamp < self._read_versionstamp
     else:
-      return entry.deleted_vs is None
+      return entry.deleted_versionstamp is None
 
 
 class IndexSlice(object):
@@ -627,9 +632,9 @@ class Index(object):
     return self.directory.get_path()[len(DS_ROOT)]
 
   @property
-  def vs_slice(self):
+  def versionstamp_slice(self):
     """ The portion of keys that contain the commit versionstamp. """
-    return slice(-VS_SIZE, None)
+    return slice(-VERSIONSTAMP_SIZE, None)
 
   @property
   def prop_names(self):
@@ -693,12 +698,12 @@ class KindlessIndex(Index):
   The FDB directory for a kindless index looks like
   (<project-dir>, 'kindless-indexes', <namespace>).
 
-  Within this directory, keys are encoded as <path> + <commit-vs>.
+  Within this directory, keys are encoded as <path> + <commit-versionstamp>.
 
   The <path> contains the entity path. See codecs.Path for encoding details.
 
-  The <commit-vs> is a 10-byte versionstamp that specifies the commit version
-  of the transaction that wrote the index entry.
+  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit
+  version of the transaction that wrote the index entry.
   """
   DIR_NAME = u'kindless-indexes'
 
@@ -717,20 +722,20 @@ class KindlessIndex(Index):
   def directory_path(cls, project_id, namespace):
     return project_id, cls.DIR_NAME, namespace
 
-  def encode_key(self, path, commit_vs):
+  def encode_key(self, path, commit_versionstamp):
     key = b''.join([self.directory.rawPrefix, Path.pack(path),
-                    commit_vs or b'\x00' * VS_SIZE])
-    if not commit_vs:
-      key += encode_vs_index(len(key) - VS_SIZE)
+                    commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE])
+    if not commit_versionstamp:
+      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
 
     return key
 
   def decode(self, kv):
     path = Path.unpack(kv.key, len(self.directory.rawPrefix))[0]
-    commit_vs = kv.key[self.vs_slice]
-    deleted_vs = kv.value or None
-    return IndexEntry(self.project_id, self.namespace, path, commit_vs,
-                      deleted_vs)
+    commit_versionstamp = kv.key[self.versionstamp_slice]
+    deleted_versionstamp = kv.value or None
+    return IndexEntry(self.project_id, self.namespace, path,
+                      commit_versionstamp, deleted_versionstamp)
 
 
 class KindIndex(Index):
@@ -741,12 +746,12 @@ class KindIndex(Index):
   The FDB directory for a kind index looks like
   (<project-dir>, 'kind-indexes', <namespace>, <kind>).
 
-  Within this directory, keys are encoded as <path> + <commit-vs>.
+  Within this directory, keys are encoded as <path> + <commit-versionstamp>.
 
   The <path> contains the entity path. See codecs.Path for encoding details.
 
-  The <commit-vs> is a 10-byte versionstamp that specifies the commit version
-  of the transaction that wrote the index entry.
+  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit
+  version of the transaction that wrote the index entry.
   """
   DIR_NAME = u'kind-indexes'
 
@@ -773,20 +778,20 @@ class KindIndex(Index):
   def prop_names(self):
     return ()
 
-  def encode_key(self, path, commit_vs):
+  def encode_key(self, path, commit_versionstamp):
     key = b''.join([self.directory.rawPrefix, Path.pack(path),
-                    commit_vs or b'\x00' * VS_SIZE])
-    if not commit_vs:
-      key += encode_vs_index(len(key) - VS_SIZE)
+                    commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE])
+    if not commit_versionstamp:
+      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
 
     return key
 
   def decode(self, kv):
     path = Path.unpack(kv.key, len(self.directory.rawPrefix))[0]
-    commit_vs = kv.key[self.vs_slice]
-    deleted_vs = kv.value or None
-    return IndexEntry(self.project_id, self.namespace, path, commit_vs,
-                      deleted_vs)
+    commit_versionstamp = kv.key[self.versionstamp_slice]
+    deleted_versionstamp = kv.value or None
+    return IndexEntry(self.project_id, self.namespace, path,
+                      commit_versionstamp, deleted_versionstamp)
 
 
 class SinglePropIndex(Index):
@@ -798,15 +803,16 @@ class SinglePropIndex(Index):
   The FDB directory for a single-prop index looks like
   (<project-dir>, 'single-property-indexes', <namespace>, <kind>, <prop-name>).
 
-  Within this directory, keys are encoded as (<value>, <path>, <commit-vs>).
+  Within this directory, keys are encoded as
+  (<value>, <path>, <commit-versionstamp>).
 
   The <value> contains a property value. See the codecs module for encoding
   details.
 
   The <path> contains the entity path. See codecs.Path for encoding details.
 
-  The <commit-vs> is a 10-byte versionstamp that specifies the commit version
-  of the transaction that wrote the index entry.
+  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit
+  version of the transaction that wrote the index entry.
   """
   DIR_NAME = u'single-property-indexes'
 
@@ -833,22 +839,22 @@ class SinglePropIndex(Index):
   def directory_path(cls, project_id, namespace, kind, prop_name):
     return project_id, cls.DIR_NAME, namespace, kind, prop_name
 
-  def encode_key(self, value, path, commit_vs):
+  def encode_key(self, value, path, commit_versionstamp):
     key = b''.join([self.directory.rawPrefix, encode_value(value),
                     Path.pack(path),
-                    commit_vs or b'\x00' * VS_SIZE])
-    if not commit_vs:
-      key += encode_vs_index(len(key) - VS_SIZE)
+                    commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE])
+    if not commit_versionstamp:
+      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
 
     return key
 
   def decode(self, kv):
     value, pos = decode_value(kv.key, len(self.directory.rawPrefix))
     path = Path.unpack(kv.key, pos)[0]
-    commit_vs = kv.key[self.vs_slice]
-    deleted_vs = kv.value or None
+    commit_versionstamp = kv.key[self.versionstamp_slice]
+    deleted_versionstamp = kv.value or None
     return PropertyEntry(self.project_id, self.namespace, path, self.prop_name,
-                         value, commit_vs, deleted_vs)
+                         value, commit_versionstamp, deleted_versionstamp)
 
 
 class CompositeIndex(Index):
@@ -861,7 +867,7 @@ class CompositeIndex(Index):
 
   Within this directory, keys are encoded as
   (<ancestor-fragment (optional)>, <encoded-value(s)>, <remaining-path>,
-   <commit-vs>).
+   <commit-versionstamp>).
 
   If the index definition requires an ancestor, the <ancestor-fragment>
   contains an encoded tuple specifying the full or partial path of the entity's
@@ -878,8 +884,8 @@ class CompositeIndex(Index):
   path that isn't specified by the <ancestor-fragment>. If the index definition
   does not require an ancestor, this contains the full path.
 
-  The <commit-vs> is a 10-byte versionstamp that specifies the commit version
-  of the transaction that wrote the index entry.
+  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit
+  version of the transaction that wrote the index entry.
   """
   __slots__ = ['kind', 'ancestor', 'order_info']
 
@@ -912,18 +918,18 @@ class CompositeIndex(Index):
     return project_id, cls.DIR_NAME, six.text_type(index_id), namespace
 
   def encode_key(self, ancestor_path, encoded_values, remaining_path,
-                 commit_vs):
+                 commit_versionstamp):
     ancestor_path = Path.pack(ancestor_path) if ancestor_path else b''
     remaining_path = Path.pack(remaining_path)
     key = b''.join(
       (self.directory.rawPrefix, ancestor_path) + tuple(encoded_values) +
-      (remaining_path, commit_vs or b'\x00' * VS_SIZE))
-    if not commit_vs:
-      key += encode_vs_index(len(key) - VS_SIZE)
+      (remaining_path, commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE))
+    if not commit_versionstamp:
+      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
 
     return key
 
-  def encode_keys(self, prop_list, path, commit_vs):
+  def encode_keys(self, prop_list, path, commit_versionstamp):
     encoded_values_by_prop = []
     for index_prop_name, direction in self.order_info:
       reverse = direction == Query_Order.DESCENDING
@@ -933,7 +939,7 @@ class CompositeIndex(Index):
 
     encoded_value_combos = itertools.product(*encoded_values_by_prop)
     if not self.ancestor:
-      return tuple(self.encode_key((), values, path, commit_vs)
+      return tuple(self.encode_key((), values, path, commit_versionstamp)
                    for values in encoded_value_combos)
 
     keys = []
@@ -941,7 +947,8 @@ class CompositeIndex(Index):
       ancestor_path = path[:index]
       remaining_path = path[index:]
       keys.extend(
-        [self.encode_key(ancestor_path, values, remaining_path, commit_vs)
+        [self.encode_key(ancestor_path, values, remaining_path,
+                         commit_versionstamp)
         for values in encoded_value_combos])
 
     return tuple(keys)
@@ -961,10 +968,10 @@ class CompositeIndex(Index):
 
     remaining_path = Path.unpack(kv.key, pos)[0]
     path = ancestor_path + remaining_path
-    commit_vs = kv.key[self.vs_slice]
-    deleted_vs = kv.value or None
+    commit_versionstamp = kv.key[self.versionstamp_slice]
+    deleted_versionstamp = kv.value or None
     return CompositeEntry(self.project_id, self.namespace, path, properties,
-                          commit_vs, deleted_vs)
+                          commit_versionstamp, deleted_versionstamp)
 
 
 class IndexManager(object):
@@ -988,11 +995,11 @@ class IndexManager(object):
   def put_entries(self, tr, old_version_entry, new_entity):
     if old_version_entry.has_entity:
       keys = yield self._get_index_keys(
-        tr, old_version_entry.decoded, old_version_entry.commit_vs)
+        tr, old_version_entry.decoded, old_version_entry.commit_versionstamp)
       for key in keys:
         # Set deleted versionstamp.
         tr.set_versionstamped_value(
-          key, b'\x00' * VS_SIZE + encode_vs_index(0))
+          key, b'\x00' * VERSIONSTAMP_SIZE + encode_versionstamp_index(0))
 
     if new_entity is not None:
       keys = yield self._get_index_keys(tr, new_entity)
@@ -1005,7 +1012,7 @@ class IndexManager(object):
       return
 
     keys = yield self._get_index_keys(
-      tr, version_entry.decoded, version_entry.commit_vs)
+      tr, version_entry.decoded, version_entry.commit_versionstamp)
     for key in keys:
       del tr[key]
 
@@ -1042,7 +1049,7 @@ class IndexManager(object):
     return False
 
   @gen.coroutine
-  def get_iterator(self, tr, query, read_vs=None):
+  def get_iterator(self, tr, query, read_versionstamp=None):
     project_id = decode_str(query.app())
     namespace = decode_str(query.name_space())
     filter_props = group_filters(query)
@@ -1097,7 +1104,8 @@ class IndexManager(object):
 
       raise gen.Return(
         MergeJoinIterator(tr, self._tornado_fdb, filter_props, indexes,
-                          fetch_limit, read_vs, ancestor_path, snapshot=True))
+                          fetch_limit, read_versionstamp, ancestor_path,
+                          snapshot=True))
 
     equality_prop = next(
       (filter_prop for filter_prop in filter_props if filter_prop.equality),
@@ -1119,21 +1127,20 @@ class IndexManager(object):
 
       raise gen.Return(
         MergeJoinIterator(tr, self._tornado_fdb, filter_props, indexes,
-                          fetch_limit, read_vs, ancestor_path, snapshot=True))
+                          fetch_limit, read_versionstamp, ancestor_path,
+                          snapshot=True))
 
     desired_slice = index.get_slice(filter_props, ancestor_path, start_cursor,
                                     end_cursor, reverse)
 
     iterator = IndexIterator(tr, self._tornado_fdb, index, desired_slice,
-                             fetch_limit, reverse, read_vs, snapshot=True)
+                             fetch_limit, reverse, read_versionstamp,
+                             snapshot=True)
 
     raise gen.Return(iterator)
 
   @gen.coroutine
-  def _get_index_keys(self, tr, entity, commit_vs=None):
-    if commit_vs is None:
-      commit_vs = fdb.tuple.Versionstamp()
-
+  def _get_index_keys(self, tr, entity, commit_versionstamp=None):
     project_id = decode_str(entity.key().app())
     namespace = decode_str(entity.key().name_space())
     path = Path.flatten(entity.key().path())
@@ -1144,21 +1151,22 @@ class IndexManager(object):
     composite_indexes = yield self._get_indexes(
       tr, project_id, namespace, kind)
 
-    all_keys = [kindless_index.encode_key(path, commit_vs),
-                kind_index.encode_key(path, commit_vs)]
+    all_keys = [kindless_index.encode_key(path, commit_versionstamp),
+                kind_index.encode_key(path, commit_versionstamp)]
     entity_prop_names = []
     for prop in entity.property_list():
       prop_name = decode_str(prop.name())
       entity_prop_names.append(prop_name)
       index = yield self._single_prop_index(
         tr, project_id, namespace, kind, prop_name)
-      all_keys.append(index.encode_key(prop.value(), path, commit_vs))
+      all_keys.append(
+        index.encode_key(prop.value(), path, commit_versionstamp))
 
     scatter_val = get_scatter_val(path)
     if scatter_val is not None:
       index = yield self._single_prop_index(
         tr, project_id, namespace, kind, SCATTER_PROP)
-      all_keys.append(index.encode_key(scatter_val, path, commit_vs))
+      all_keys.append(index.encode_key(scatter_val, path, commit_versionstamp))
 
     for index in composite_indexes:
       if not all(index_prop_name in entity_prop_names
@@ -1166,7 +1174,7 @@ class IndexManager(object):
         continue
 
       all_keys.extend(
-        index.encode_keys(entity.property_list(), path, commit_vs))
+        index.encode_keys(entity.property_list(), path, commit_versionstamp))
 
     raise gen.Return(all_keys)
 
@@ -1332,18 +1340,18 @@ class IndexManager(object):
           fdb.KeySelector.first_greater_than(start_key), remaining_range.stop)
         start_key = None
 
-      kv_iterator = KVIterator(tr, self._tornado_fdb, remaining_range)
+      result_iterator = ResultIterator(tr, self._tornado_fdb, remaining_range)
       while True:
-        kvs, more_results = yield kv_iterator.next_page()
-        index_entries = [kind_index.decode(kv) for kv in kvs]
+        results, more_results = yield result_iterator.next_page()
+        index_entries = [kind_index.decode(result) for result in results]
         version_entries = yield [self._data_manager.get_entry(self, tr, entry)
                                  for entry in index_entries]
         for index_entry, version_entry in zip(index_entries, version_entries):
           new_keys = composite_index.encode_keys(
             version_entry.decoded.property_list(), version_entry.path,
-            version_entry.commit_vs)
+            version_entry.commit_versionstamp)
           for new_key in new_keys:
-            tr[new_key] = index_entry.deleted_vs or b''
+            tr[new_key] = index_entry.deleted_versionstamp or b''
 
         if not more_results:
           logger.info(u'Finished backfilling {}'.format(composite_index))
@@ -1352,7 +1360,7 @@ class IndexManager(object):
         if monotonic.monotonic() > deadline:
           try:
             yield self._tornado_fdb.commit(tr)
-            cursor = (kind_index.namespace, kvs[-1].key)
+            cursor = (kind_index.namespace, results[-1].key)
           except fdb.FDBError as fdb_error:
             logger.warning(u'Error while updating index: {}'.format(fdb_error))
             tr.on_error(fdb_error).wait()

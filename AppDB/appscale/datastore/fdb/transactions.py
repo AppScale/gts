@@ -18,9 +18,9 @@ from tornado import gen
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.dbconstants import BadRequest, InternalError
 from appscale.datastore.fdb.codecs import (
-  decode_str, encode_vs_index, Int64, Path, Text, TransactionID)
+  decode_str, encode_versionstamp_index, Int64, Path, Text, TransactionID)
 from appscale.datastore.fdb.utils import (
-  DS_ROOT, fdb, KVIterator, MAX_ENTITY_SIZE, VS_SIZE)
+  DS_ROOT, fdb, MAX_ENTITY_SIZE, ResultIterator, VERSIONSTAMP_SIZE)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
@@ -82,11 +82,11 @@ class TransactionMetadata(object):
   def directory_path(cls, project_id):
     return project_id, cls.DIR_NAME
 
-  def encode_start_key(self, scatter_val, commit_vs=None):
+  def encode_start_key(self, scatter_val, commit_versionstamp=None):
     key = b''.join([self.directory.rawPrefix, six.int2byte(scatter_val),
-                    commit_vs or b'\x00' * VS_SIZE])
-    if not commit_vs:
-      key += encode_vs_index(len(key) - VS_SIZE)
+                    commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE])
+    if not commit_versionstamp:
+      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
 
     return key
 
@@ -116,7 +116,7 @@ class TransactionMetadata(object):
     mutation_rpcs = []
 
     rpc_type_index = len(self._txid_prefix(txid))
-    current_vs = None
+    current_versionstamp = None
     for kv in kvs:
       rpc_type = kv.key[rpc_type_index]
       pos = rpc_type_index + 1
@@ -126,14 +126,14 @@ class TransactionMetadata(object):
         queried_groups.add((namespace, group_path))
         continue
 
-      rpc_vs = kv.key[pos:pos + VS_SIZE]
+      rpc_versionstamp = kv.key[pos:pos + VERSIONSTAMP_SIZE]
       if rpc_type == self.LOOKUPS:
-        lookup_rpcs[rpc_vs].append(kv.value)
+        lookup_rpcs[rpc_versionstamp].append(kv.value)
       elif rpc_type in (self.PUTS, self.DELETES):
-        if current_vs == rpc_vs:
+        if current_versionstamp == rpc_versionstamp:
           mutation_rpcs[-1].append(kv.value)
         else:
-          current_vs = rpc_vs
+          current_versionstamp = rpc_versionstamp
           mutation_rpcs.append([rpc_type, kv.value])
       else:
         raise InternalError(u'Unrecognized RPC type')
@@ -158,14 +158,16 @@ class TransactionMetadata(object):
     return slice(fdb.KeySelector.first_greater_or_equal(prefix),
                  fdb.KeySelector.first_greater_or_equal(prefix + b'\xFF'))
 
-  def get_expired_slice(self, scatter_byte, safe_vs):
+  def get_expired_slice(self, scatter_byte, safe_versionstamp):
     prefix = self.directory.rawPrefix + six.int2byte(scatter_byte)
-    return slice(fdb.KeySelector.first_greater_or_equal(prefix),
-                 fdb.KeySelector.first_greater_or_equal(prefix + safe_vs))
+    return slice(
+      fdb.KeySelector.first_greater_or_equal(prefix),
+      fdb.KeySelector.first_greater_or_equal(prefix + safe_versionstamp))
 
   def _txid_prefix(self, txid):
-    scatter_val, commit_vs = TransactionID.decode(txid)
-    return self.directory.rawPrefix + six.int2byte(scatter_val) + commit_vs
+    scatter_val, commit_versionstamp = TransactionID.decode(txid)
+    return (self.directory.rawPrefix + six.int2byte(scatter_val) +
+            commit_versionstamp)
 
   def _encode_keys(self, keys):
     return b''.join(
@@ -208,11 +210,11 @@ class TransactionMetadata(object):
     return Int64.encode_bare(len(encoded_entity), self._ENTITY_LEN_SIZE)
 
   def _encode_chunks(self, section_prefix, value):
-    full_prefix = section_prefix + b'\x00' * VS_SIZE
-    vs_index = encode_vs_index(len(section_prefix))
+    full_prefix = section_prefix + b'\x00' * VERSIONSTAMP_SIZE
+    versionstamp_index = encode_versionstamp_index(len(section_prefix))
     chunk_count = int(math.ceil(len(value) / self._CHUNK_SIZE))
     return tuple(
-      (full_prefix + six.int2byte(index) + vs_index,
+      (full_prefix + six.int2byte(index) + versionstamp_index,
        value[index * self._CHUNK_SIZE:(index + 1) * self._CHUNK_SIZE])
       for index in sm.range(chunk_count))
 
@@ -234,9 +236,9 @@ class TransactionManager(object):
     tx_dir = yield self._tx_metadata(tr, project_id)
     scatter_val = random.randint(0, 15)
     tr.set_versionstamped_key(tx_dir.encode_start_key(scatter_val), b'')
-    vs_future = tr.get_versionstamp()
+    versionstamp_future = tr.get_versionstamp()
     yield self._tornado_fdb.commit(tr)
-    txid = TransactionID.encode(scatter_val, vs_future.wait().value)
+    txid = TransactionID.encode(scatter_val, versionstamp_future.wait().value)
     raise gen.Return(txid)
 
   @gen.coroutine
@@ -279,20 +281,21 @@ class TransactionManager(object):
   @gen.coroutine
   def get_metadata(self, tr, project_id, txid):
     tx_dir = yield self._tx_metadata(tr, project_id)
-    kvs = yield KVIterator(tr, self._tornado_fdb,
-                           tx_dir.get_txid_slice(txid)).list()
+    results = yield ResultIterator(tr, self._tornado_fdb,
+                                   tx_dir.get_txid_slice(txid)).list()
 
-    scatter_val, tx_start_vs = TransactionID.decode(txid)
-    if (not kvs or
-        kvs[0].key != tx_dir.encode_start_key(scatter_val, tx_start_vs)):
+    scatter_val, tx_start_versionstamp = TransactionID.decode(txid)
+    if (not results or
+        results[0].key != tx_dir.encode_start_key(scatter_val,
+                                                  tx_start_versionstamp)):
       raise BadRequest(u'Transaction not found')
 
-    raise gen.Return(tx_dir.decode_metadata(txid, kvs[1:]))
+    raise gen.Return(tx_dir.decode_metadata(txid, results[1:]))
 
   @gen.coroutine
-  def clear_range(self, tr, project_id, scatter_byte, safe_vs):
+  def clear_range(self, tr, project_id, scatter_byte, safe_versionstamp):
     tx_dir = yield self._tx_metadata(tr, project_id)
-    expired_slice = tx_dir.get_expired_slice(scatter_byte, safe_vs)
+    expired_slice = tx_dir.get_expired_slice(scatter_byte, safe_versionstamp)
     del tr[expired_slice.start.key:expired_slice.stop.key]
 
   @gen.coroutine
