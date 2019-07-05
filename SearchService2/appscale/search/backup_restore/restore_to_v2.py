@@ -1,7 +1,9 @@
+"""
+Restore script for new Search Service.
+"""
 import argparse
 import logging
 import random
-import traceback
 
 from kazoo.client import KazooClient
 from tornado import ioloop, gen
@@ -20,6 +22,13 @@ class Importer(object):
   max_retries = 10
 
   def __init__(self, io_loop, source, zk_locations, max_concurrency):
+    """
+    Args:
+      io_loop: an instance of tornado IOLoop.
+      source: an instance of import Source (e.g.: S3Source).
+      zk_locations: a list - Zookeeper locations.
+      max_concurrency: an int - maximum number of concurrent jobs.
+    """
     zk_client = KazooClient(
       hosts=','.join(zk_locations),
       connection_retry=ZK_PERSISTENT_RECONNECTS
@@ -39,6 +48,9 @@ class Importer(object):
     self.docs_imported = 0
 
   async def import_(self):
+    """ Starts concurrent jobs for importing all search indexes.
+    Then it waits for all started jobs to be completed.
+    """
     self.start_time = self.ioloop.time()
     self.status = 'In progress'
 
@@ -62,6 +74,14 @@ class Importer(object):
     self.finish_time = self.ioloop.time()
 
   async def import_index(self, project_id, namespace, index):
+    """ Starts concurrent jobs for importing entire index.
+    import_ method will wait for these jobs to be completed.
+
+    Args:
+      project_id: a str - GAE project ID.
+      namespace: a str - GAE search service namespace.
+      index: a str - GAE Search index name.
+    """
     logger.info('Starting import of index: {}/{}/{}'
                 .format(project_id, namespace, index))
     for key in self.source.iter_object_keys(project_id, namespace, index):
@@ -72,6 +92,12 @@ class Importer(object):
     self.scheduled_indexes.remove((project_id, namespace, index))
 
   async def import_page(self, object_key):
+    """ Imports a single object from backup.
+    An object is instance of search_pb2.IndexDocumentResponse.
+
+    Args:
+      object_key: a str - storage object identifier.
+    """
     logger.debug('Starting import of object: {}'.format(object_key))
     for attempt in range(self.max_retries):
       try:
@@ -99,7 +125,10 @@ class Importer(object):
 
 
 def main():
-  """ Start Restore process. """
+  """
+  Reads all Search documents in backup and
+  saves it to new Search Service.
+  """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
   parser = argparse.ArgumentParser()

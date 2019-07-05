@@ -1,3 +1,6 @@
+"""
+Backup script for new Search Service.
+"""
 import argparse
 from datetime import datetime
 import logging
@@ -16,8 +19,22 @@ logger = logging.getLogger(__name__)
 
 
 class IDRangesGenerator(object):
+  """
+  Asynchronous ID ranges generator.
+  Helps to quickly determine chunks of work for further processing.
+  """
+
   def __init__(self, solr_api, project_id, namespace, index,
                page_size, max_retries):
+    """
+    Args:
+      solr_api: an instance of SolrAPI.
+      project_id: a str - GAE project ID.
+      namespace: a str - GAE search service namespace.
+      index: a str - GAE Search index name.
+      page_size: an int - max length of ID range.
+      max_retries: an int - max attempts to perform before failing.
+    """
     self.solr_api = solr_api
     self.collection = solr_adapter.get_collection_name(
       project_id, namespace, index
@@ -27,9 +44,18 @@ class IDRangesGenerator(object):
     self.max_retries = max_retries
 
   def __aiter__(self):
+    """ Returns: asynchronous iterator. """
     return self
 
   async def __anext__(self):
+    """ Retrieves another IDs page from Solr and returns
+    min and max IDs on the page.
+
+    Returns:
+      a tuple (left_id, right_id) representing next IDs range.
+    Raises:
+      StopAsyncIteration or Solr-related error.
+    """
     solr_filter_query = 'id:{{{} TO *]'.format(self.last_seen_id)
 
     for attempt in range(self.max_retries):
@@ -61,11 +87,21 @@ class IDRangesGenerator(object):
 
 
 class Exporter(object):
+  """
+  Exports data from old Search Service to target storage.
+  """
 
   max_retries = 10
   page_size = 100
 
   def __init__(self, io_loop, zk_locations, target, max_concurrency):
+    """
+    Args:
+      io_loop: an instance of tornado IOLoop.
+      zk_locations: a list - Zookeeper locations.
+      target: an instance of export Target (e.g.: S3Target).
+      max_concurrency: an int - maximum number of concurrent jobs.
+    """
     zk_client = KazooClient(
       hosts=','.join(zk_locations),
       connection_retry=ZK_PERSISTENT_RECONNECTS
@@ -87,6 +123,9 @@ class Exporter(object):
     self.docs_exported = 0
 
   async def export(self):
+    """ Start concurrent export jobs for each Search index.
+    Waits for all export jobs to be completed.
+    """
     self.start_time = self.ioloop.time()
     self.status = 'In progress'
 
@@ -117,6 +156,15 @@ class Exporter(object):
     self.finish_time = self.ioloop.time()
 
   async def export_index(self, project_id, namespace, index):
+    """ Starts export of a particular Search index.
+    Initiates asynchronous jobs for each IDs range and waits
+    for all jobs to be completed.
+
+    Args:
+      project_id: a str - GAE project ID.
+      namespace: a str - namespace name.
+      index: a str - search index name.
+    """
     logger.info('Starting export of index: {}/{}/{}'
                 .format(project_id, namespace, index))
     id_ranges_generator = IDRangesGenerator(
@@ -132,12 +180,21 @@ class Exporter(object):
         self.ioloop.add_callback(self.export_page, *page_key)
       self.scheduled_indexes.remove((project_id, namespace, index))
       self.succeeded_indexes.add((project_id, namespace, index))
-    except:
+    except Exception:
       self.scheduled_indexes.remove((project_id, namespace, index))
       self.failed_indexes.add((project_id, namespace, index))
       raise
 
   async def export_page(self, project_id, namespace, index, left_id, right_id):
+    """ Exports a single page of Search documents.
+
+    Args:
+      project_id: a str - GAE project ID.
+      namespace: a str - namespace name.
+      index: a str - search index name.
+      left_id: a str - min document ID to retrieve.
+      right_id: a str - max document ID to retrieve.
+    """
     logger.debug('Starting export of page: {}/{}/{}/["{}", "{}"]'
                  .format(project_id, namespace, index, left_id, right_id))
     page_key = project_id, namespace, index, left_id, right_id
@@ -183,7 +240,10 @@ class Exporter(object):
 
 
 def main():
-  """ Start Backup process. """
+  """
+  Saves all search documents from new Search Service
+  to S3 storage.
+  """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
   parser = argparse.ArgumentParser()

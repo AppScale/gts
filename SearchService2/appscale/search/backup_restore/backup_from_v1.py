@@ -1,3 +1,6 @@
+"""
+Backup script for old Search Service.
+"""
 import argparse
 import calendar
 import json
@@ -27,14 +30,25 @@ class Solr4FieldTypes(object):
 
 
 class TransientSolrError(Exception):
+  """ Solr Error which makes sense to retry. """
   pass
 
 
 class Exporter(object):
+  """
+  Exports data from old Search Service to target storage.
+  """
 
   page_size = 100
+  max_retries = 10
 
   def __init__(self, io_loop, solr_location, target):
+    """
+    Args:
+      io_loop: an instance of tornado IOLoop.
+      solr_location: a str - Solr4 location.
+      target: an instance of export Target (e.g.: S3Target).
+    """
     self.target = target
     self.solr_location = solr_location
     self.ioloop = io_loop
@@ -45,18 +59,27 @@ class Exporter(object):
     self.docs_exported = 0
 
   async def export(self):
+    """ Scrolls all documents in Solr and saves it to target.
+    It retries only TransientSolrError and fails if unexpected error
+    occurred.
+    """
     self.start_time = self.ioloop.time()
     self.status = 'In progress'
     next_cursor = '*'
+    retries = 0
     while True:
       try:
         next_cursor = await self._export_page(next_cursor)
         if not next_cursor:
           self.status = 'Done'
           break
+        retries = 0
       except TransientSolrError as err:
+        retries += 1
         logger.error('Failed to export documents page ({}). Retrying...'
                      .format(err))
+        if retries > self.max_retries:
+          raise
         await gen.sleep(5)
       except Exception as err:
         self.status = 'Failed'
@@ -70,6 +93,15 @@ class Exporter(object):
                 .format(self.docs_exported, self.total))
 
   async def _export_page(self, next_cursor):
+    """ Retrieves up to self.page_size documents from Solr,
+    converts them to search_pb2.IndexDocumentRequest, and saves
+    it to target storage.
+
+    Args:
+      next_cursor: a str - Solr cursor marker.
+    Returns:
+      A str - next cursor marker if there are more docs available.
+    """
     start = self.ioloop.time()
     docs, total, next_cursor = await self._retrieve_solr_documents(next_cursor)
     elapsed = int((self.ioloop.time() - start) * 1000)
@@ -86,6 +118,13 @@ class Exporter(object):
       return next_cursor
 
   async def _retrieve_solr_documents(self, next_cursor):
+    """ Retrieves raw documents using Solr JSON API.
+
+    Args:
+      next_cursor: a str - Solr cursor marker.
+    Returns:
+      a tulpe (raw documents, number found, next cursor marker).
+    """
     params = {
       'q': '*:*',
       'wt': 'json',
@@ -116,6 +155,11 @@ class Exporter(object):
     )
 
   def _get_schema_fields(self):
+    """ Fetches Solr schema fields using Solr JSON API.
+
+    Returns:
+      a dict containing schema fields.
+    """
     solr_url = '{}/solr/schema/fields'.format(self.solr_location)
     headers = {'Content-Type': 'application/json'}
     client = httpclient.HTTPClient()
@@ -124,6 +168,14 @@ class Exporter(object):
     return {field['name']: field for field in json_response['fields']}
 
   def _from_solr_documents(self, solr_documents):
+    """ Converts a list of raw Solr documents organized dict
+    containing items (index_fullname, search_pb2.IndexDocumentRequest).
+
+    Args:
+      solr_documents: a list of raw Solr documents.
+    Returns:
+      a dict where item is (index_fullname, search_pb2.IndexDocumentRequest).
+    """
     per_index_pb_messages = {}
     for doc in solr_documents:
       index_fullname_field = doc.get('_gaeindex_name')
@@ -142,56 +194,67 @@ class Exporter(object):
         per_index_pb_messages[index_fullname_tuple] = index_docs_pb
       else:
         index_docs_pb = per_index_pb_messages[index_fullname_tuple]
-
       document_pb = index_docs_pb.params.document.add()
-      document_pb.id = doc['id']
-      if '_gaeindex_locale' in doc:
-        document_pb.language = doc['_gaeindex_locale'][0]
-      for field_name, value in doc.items():
-        field_name_prefix = '{}_'.format(index_fullname)
-        if not field_name.startswith(field_name_prefix):
-          continue
-        field_info = self.schema[field_name]
-        field_pb = document_pb.field.add()
-        field_pb.name = field_name.split(field_name_prefix)[1]
-        field_type = field_info['type']
-
-        if field_type == Solr4FieldTypes.DATE:
-          value = calendar.timegm(datetime.strptime(
-            value[:-1], "%Y-%m-%dT%H:%M:%S").timetuple())
-          field_pb.value.string_value = str(int(value * 1000))
-          field_pb.value.type = search_pb2.FieldValue.DATE
-        elif field_type == Solr4FieldTypes.TEXT:
-          field_pb.value.string_value = value
-          field_pb.value.type = search_pb2.FieldValue.TEXT
-        elif field_type == Solr4FieldTypes.HTML:
-          field_pb.value.string_value = value
-          field_pb.value.type = search_pb2.FieldValue.HTML
-        elif field_type == Solr4FieldTypes.ATOM:
-          field_pb.value.string_value = value
-          field_pb.value.type = search_pb2.FieldValue.ATOM
-        elif field_type == Solr4FieldTypes.NUMBER:
-          field_pb.value.string_value = str(value)
-          field_pb.value.type = search_pb2.FieldValue.NUMBER
-        elif field_type == Solr4FieldTypes.GEO:
-          lat, lng = value.split(',')
-          field_pb.value.geo.lat = float(lat)
-          field_pb.value.geo.lng = float(lng)
-          field_pb.value.type = search_pb2.FieldValue.GEO
-        elif field_type.startswith(Solr4FieldTypes.TEXT_):
-          field_pb.value.string_value = value
-          field_pb.value.type = search_pb2.FieldValue.TEXT
-        else:
-          logger.warning(
-            'Document with ID "{}" has field of unknown type "{}". '
-            'Skipping..'.format(document_pb.id, field_type)
-          )
-
+      self._fill_pb_document(index_fullname, document_pb, doc)
     return per_index_pb_messages
+
+  def _fill_pb_document(self, index_fullname, document_pb, solr_document):
+    """ Fills document_pb according to content of raw Solr document.
+
+    Args:
+      index_fullname: a str - '<PROJECT-ID>_<NAMESPACE>_<INDEX>'.
+      document_pb: an instance of search_pb2.Document.
+      solr_document: a dict - raw Solr document.
+    """
+    document_pb.id = solr_document['id']
+    if '_gaeindex_locale' in solr_document:
+      document_pb.language = solr_document['_gaeindex_locale'][0]
+    for field_name, value in solr_document.items():
+      field_name_prefix = '{}_'.format(index_fullname)
+      if not field_name.startswith(field_name_prefix):
+        continue
+      field_info = self.schema[field_name]
+      field_pb = document_pb.field.add()
+      field_pb.name = field_name.split(field_name_prefix)[1]
+      field_type = field_info['type']
+
+      if field_type == Solr4FieldTypes.DATE:
+        value = calendar.timegm(datetime.strptime(
+          value[:-1], "%Y-%m-%dT%H:%M:%S").timetuple())
+        field_pb.value.string_value = str(int(value * 1000))
+        field_pb.value.type = search_pb2.FieldValue.DATE
+      elif field_type == Solr4FieldTypes.TEXT:
+        field_pb.value.string_value = value
+        field_pb.value.type = search_pb2.FieldValue.TEXT
+      elif field_type == Solr4FieldTypes.HTML:
+        field_pb.value.string_value = value
+        field_pb.value.type = search_pb2.FieldValue.HTML
+      elif field_type == Solr4FieldTypes.ATOM:
+        field_pb.value.string_value = value
+        field_pb.value.type = search_pb2.FieldValue.ATOM
+      elif field_type == Solr4FieldTypes.NUMBER:
+        field_pb.value.string_value = str(value)
+        field_pb.value.type = search_pb2.FieldValue.NUMBER
+      elif field_type == Solr4FieldTypes.GEO:
+        lat, lng = value.split(',')
+        field_pb.value.geo.lat = float(lat)
+        field_pb.value.geo.lng = float(lng)
+        field_pb.value.type = search_pb2.FieldValue.GEO
+      elif field_type.startswith(Solr4FieldTypes.TEXT_):
+        field_pb.value.string_value = value
+        field_pb.value.type = search_pb2.FieldValue.TEXT
+      else:
+        logger.warning(
+          'Document with ID "{}" has field of unknown type "{}". '
+          'Skipping..'.format(document_pb.id, field_type)
+        )
 
 
 def main():
-  """ Start Backup process. """
+  """
+  Saves all search documents from old Search Service
+  to S3 storage.
+  """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
   parser = argparse.ArgumentParser()
