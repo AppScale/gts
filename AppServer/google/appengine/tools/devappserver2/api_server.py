@@ -19,7 +19,7 @@
 The Remote API protocol is used for communication.
 """
 
-
+import contextlib
 import errno
 import getpass
 import itertools
@@ -91,13 +91,13 @@ GLOBAL_API_LOCK = threading.RLock()
 # providing the context of a specific application.
 DEFAULT_API_SERVER_APP_ID = 'dev~app_id'
 
-def _execute_request(request):
+def _execute_request(request, request_id=None):
   """Executes an API method call and returns the response object.
 
   Args:
     request: A remote_api_pb.Request object representing the API call e.g. a
         call to memcache.Get.
-
+    request_id: Override default request identifier
   Returns:
     A ProtocolBuffer.ProtocolMessage representing the API response e.g. a
     memcache_service_pb.MemcacheGetResponse.
@@ -108,11 +108,11 @@ def _execute_request(request):
   """
   service = request.service_name()
   method = request.method()
-  if request.has_request_id():
-    request_id = request.request_id()
-  else:
-    logging.error('Received a request without request_id: %s', request)
-    request_id = None
+  if not request_id:
+    if request.has_request_id():
+      request_id = request.request_id()
+    else:
+      logging.error('Received a request without request_id: %s', request)
 
   service_methods = remote_api_services.SERVICE_PB_MAP.get(service, {})
   request_class, response_class = service_methods.get(method, (None, None))
@@ -145,9 +145,16 @@ def _execute_request(request):
 class APIServer(wsgi_server.WsgiServer):
   """Serves API calls over HTTP."""
 
-  def __init__(self, host, port, app_id):
+  def __init__(self, host, port, app_id, request_context):
     self._app_id = app_id
     self._host = host
+    if request_context:
+      self._request_context = request_context
+    else:
+      @contextlib.contextmanager
+      def noop_context(environ):
+        yield None
+      self._request_context = noop_context
     super(APIServer, self).__init__((host, port), self)
 
   def start(self):
@@ -177,7 +184,8 @@ class APIServer(wsgi_server.WsgiServer):
       else:
         wsgi_input = environ['wsgi.input'].read(int(environ['CONTENT_LENGTH']))
       request.ParseFromString(wsgi_input)
-      api_response = _execute_request(request).Encode()
+      with self._request_context(environ) as request_id:
+        api_response = _execute_request(request, request_id).Encode()
       response.set_response(api_response)
     except Exception, e:
       if isinstance(e, apiproxy_errors.ApplicationError):
@@ -223,7 +231,8 @@ class APIServer(wsgi_server.WsgiServer):
       return []
 
 
-def create_api_server(request_info, storage_path, options, app_id, app_root):
+def create_api_server(request_info, storage_path, options, app_id, app_root,
+                      request_context=None):
   """Creates an API server.
 
   Args:
@@ -236,7 +245,7 @@ def create_api_server(request_info, storage_path, options, app_id, app_root):
     app_root: The path to the directory containing the user's
         application e.g. "/home/joe/myapp", used for locating application yaml
         files, eg index.yaml for the datastore stub.
-
+    request_context: Callback for starting requests
   Returns:
     An instance of APIServer.
   """
@@ -321,7 +330,7 @@ def create_api_server(request_info, storage_path, options, app_id, app_root):
 
   # The APIServer must bind to localhost because that is what the runtime
   # instances talk to.
-  return APIServer('localhost', options.api_port, app_id)
+  return APIServer('localhost', options.api_port, app_id, request_context)
 
 
 def _clear_datastore_storage(datastore_path):
@@ -787,10 +796,14 @@ def main():
   os.environ['APPNAME'] = app_id
   os.environ['NGINX_HOST'] = options.nginx_host
 
+  def request_context(environ):
+      return request_info.request(environ, None)
+
   server = create_api_server(
       request_info=request_info,
       storage_path=get_storage_path(options.storage_path, app_id),
-      options=options, app_id=app_id, app_root=app_root)
+      options=options, app_id=app_id, app_root=app_root,
+      request_context=request_context)
 
   if options.pidfile:
       with open(options.pidfile, 'w') as pidfile:
