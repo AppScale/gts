@@ -115,7 +115,7 @@ class Service(object):
     """ Initializes instance of Service.
 
     Args:
-      type_: A str - name of cgroup slice to use for the service.
+      type_: A str - name of the service.
       slice_: A str - name of cgroup slice to use for the service.
       start_cmd_matcher: A func getting cmd args list and returning port.
       start_cmd_builder: A func building args from port and assignment options.
