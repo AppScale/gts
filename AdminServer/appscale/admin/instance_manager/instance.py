@@ -124,8 +124,6 @@ def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host
   api_server_flags = []
 
   if runtime == JAVA8:
-      api_server = os.path.join(JAVA8_RUNTIME_DIR, 'bin',
-                                'appscale_java8_apiserver.sh')
       cmd.extend(['--python_api_server_port={}'.format(api_server_port),
                   '--default_hostname={}:{}'.format(load_balancer_host,
                                                     load_balancer_port)])
@@ -135,7 +133,7 @@ def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host
                                     'search', 'taskqueue', 'xmpp']
   else:
       api_server = os.path.join(SCRIPTS_DIR,
-                                'appscale_java8_apiserver.sh')
+                                'appscale_java_apiserver.sh')
 
       cmd.extend(['--path_to_python_api_server={}'.format(api_server),
                   '--disable_update_check',
