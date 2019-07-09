@@ -47,7 +47,8 @@ class TestInstanceManager(AsyncTestCase):
 
     version_details = {'runtime': 'python27',
                        'revision': 1,
-                       'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}}}
+                       'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}},
+                       'appscaleExtensions': {'httpPort': '8080'}}
     version_manager = flexmock(version_details=version_details,
                                project_id='test',
                                revision_key='test_default_v1_1',
@@ -116,7 +117,8 @@ class TestInstanceManager(AsyncTestCase):
 
     version_details = {'runtime': 'java',
                        'revision': 1,
-                       'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}}}
+                       'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}},
+                       'appscaleExtensions': {'httpPort': '8080'}}
     version_manager = flexmock(version_details=version_details,
                                project_id='test',
                                revision_key='test_default_v1_1',
@@ -195,7 +197,8 @@ class TestInstanceManager(AsyncTestCase):
   def test_start_app_failed_copy_java(self):
     version_details = {'runtime': 'java',
                        'revision': 1,
-                       'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}}}
+                       'deployment': {'zip': {'sourceUrl': 'source.tar.gz'}},
+                       'appscaleExtensions': {'httpPort': '8080'}}
     version_manager = flexmock(version_details=version_details,
                                project_id='test',
                                revision_key='test_default_v1_1',
