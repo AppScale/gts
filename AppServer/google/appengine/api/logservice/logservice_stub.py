@@ -18,6 +18,8 @@
 
 
 import base64
+from logging.handlers import WatchedFileHandler
+
 import capnp # pylint: disable=unused-import
 import logging
 
@@ -32,8 +34,6 @@ from collections import defaultdict
 import os
 
 from datetime import datetime
-
-import multiprocessing
 
 import threading
 from google.appengine.api import apiproxy_stub
@@ -69,11 +69,11 @@ class RequestsLogger(threading.Thread):
   def __init__(self):
     super(RequestsLogger, self).__init__()
     self.setDaemon(True)
-    self._logs_queue = multiprocessing.Queue(self.QUEUE_SIZE)
-    self._log_file = None
+    self._logs_queue = Queue(self.QUEUE_SIZE)
+    self._logger = None
     self._shutting_down = False
 
-  def _open_log_file(self, request_info):
+  def _init_logger(self, request_info):
     # Init logger lazily when application info is available
     app_id = request_info['appId']
     service_id = request_info['serviceName']
@@ -82,45 +82,36 @@ class RequestsLogger(threading.Thread):
     # Prepare filename
     filename = self.FILENAME_TEMPLATE.format(
       app=app_id, service=service_id, version=version_id, port=port)
-    # Open log file
-    self._log_file = open(filename, 'a')
+    # Initialize logger
+    formatter = logging.Formatter('%(message)s')
+    file_handler = WatchedFileHandler(filename)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    self._logger = logging.Logger('request-logger', logging.INFO)
+    self._logger.addHandler(file_handler)
 
   def run(self):
     request_info = None
     while True:
+      if not request_info:
+        # Get new info from the queue if previous has been saved
+        request_info = self._logs_queue.get()
+      if not request_info and self._shutting_down:
+        return
       try:
-        try:
-          if not request_info:
-            # Get new info from the queue if previous has been saved
-            request_info = self._logs_queue.get()
-          if not request_info and self._shutting_down:
-            return
-          if not self._log_file:
-            self._open_log_file(request_info)
-          self._log_file.write(json.dumps(request_info))
-          self._log_file.write('\n')
-          self._log_file.flush()
-          request_info = None
-
-        except (OSError, IOError):
-          # Close file to reopen it again later
-          logging.exception(
-            'Failed to write request_info to log file\n  Request info: {}'
-            .format(request_info or "-"))
-          log_file = self._log_file
-          self._log_file = None
-          log_file.close()
-          time.sleep(5)
-
-        except Exception:
-          logging.exception(
-            'Failed to write request_info to log file\n  Request info: {}'
-            .format(request_info or "-"))
-          time.sleep(5)
-
+        if not self._logger:
+          self._init_logger(request_info)
+        self._logger.info(json.dumps(request_info))
+        request_info = None
       except Exception:
-        # There were cases where exception was thrown at writing error
-        pass
+        try:
+          logging.exception(
+            'Failed to write request_info to log file\n  Request info: {}'
+            .format(request_info or "-"))
+        except Exception:
+          # There were cases where exception was thrown at writing error
+          pass
+        time.sleep(5)
 
   def stop(self):
     self._shutting_down = True
@@ -221,6 +212,47 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
 
   def is_requests_logger_alive(self):
     return self._requests_logger.is_alive()
+
+  def save_to_file_for_elk(self, request_id, end_time, request_log):
+    start_time = request_log.startTime
+    start_time_ms = float(start_time) / 1000
+    end_time_ms = float(end_time) / 1000
+
+    # Render app logs:
+    app_logs_str = '\n'.join([
+      '{} {} {}'.format(
+        LEVELS[log.level],
+        datetime.utcfromtimestamp(log.time/1000000)
+          .strftime('%Y-%m-%d %H:%M:%S'),
+        log.message
+      )
+      for log in request_log.appLogs
+    ])
+
+    request_info = {
+      'generated_id': '{}-{}'.format(start_time, request_id),
+      'serviceName': get_current_module_name(),
+      'versionName': get_current_version_name(),
+      'startTime': start_time_ms,
+      'endTime': end_time_ms,
+      'latency': int(end_time_ms - start_time_ms),
+      'level': max(0, 0, *[
+         log.level for log in request_log.appLogs
+       ]),
+      'appId': request_log.appId,
+      'appscale-host': os.environ['MY_IP_ADDRESS'],
+      'port': int(os.environ['MY_PORT']),
+      'ip': request_log.ip,
+      'method': request_log.method,
+      'requestId': request_id,
+      'resource': request_log.resource,
+      'responseSize': request_log.responseSize,
+      'status': request_log.status,
+      'userAgent': request_log.userAgent,
+      'appLogs': app_logs_str
+    }
+
+    self._requests_logger.write(request_info)
 
   def _get_log_server(self, app_id, blocking):
     key = (blocking, app_id)
@@ -350,56 +382,7 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     self._pending_requests_applogs[request_id].finish()
 
     if self.is_elk_enabled:
-      start_time = rl.startTime
-      start_time_ms = float(start_time) / 1000
-      end_time_ms = float(end_time) / 1000
-
-      # Render app logs:
-      try:
-        app_logs_str = u'\n'.join([
-          u'{} {} {}'.format(
-            LEVELS[log.level],
-            datetime.utcfromtimestamp(log.time/1000000)
-              .strftime('%Y-%m-%d %H:%M:%S'),
-            log.message
-          )
-          for log in rl.appLogs
-        ])
-      except UnicodeError:
-        app_logs_str = u'\n'.join([
-          u'{} {} {}'.format(
-            LEVELS[log.level],
-            datetime.utcfromtimestamp(log.time/1000000)
-              .strftime('%Y-%m-%d %H:%M:%S'),
-            unicode(log.message, 'ascii', 'ignore')
-          )
-          for log in rl.appLogs
-        ])
-
-      request_info = {
-        'generated_id': '{}-{}'.format(start_time, request_id),
-        'serviceName': get_current_module_name(),
-        'versionName': get_current_version_name(),
-        'startTime': start_time_ms,
-        'endTime': end_time_ms,
-        'latency': int(end_time_ms - start_time_ms),
-        'level': max(0, 0, *[
-           log.level for log in rl.appLogs
-         ]),
-        'appId': rl.appId,
-        'appscale-host': os.environ['MY_IP_ADDRESS'],
-        'port': int(os.environ['MY_PORT']),
-        'ip': rl.ip,
-        'method': rl.method,
-        'requestId': request_id,
-        'resource': rl.resource,
-        'responseSize': rl.responseSize,
-        'status': rl.status,
-        'userAgent': rl.userAgent,
-        'appLogs': app_logs_str
-      }
-
-      self._requests_logger.write(request_info)
+      self.save_to_file_for_elk(request_id, end_time, rl)
 
     buf = rl.to_bytes()
     packet = 'l%s%s' % (struct.pack('I', len(buf)), buf)
