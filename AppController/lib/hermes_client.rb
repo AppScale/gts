@@ -114,13 +114,13 @@ module HermesClient
   # the local node.
   #
   # Args:
-  #   lb_ip: IP address of load balancer node.
+  #   ip: IP address of the local node.
   #   secret: Deployment secret.
   #   proxy_name: Name of proxy to return.
   # Returns:
   #   The system stats for the local node.
   #
-  def get_node_stats
+  def self.get_system_stats(ip, secret)
     data = {
       'include_lists' => {
         'node'=> ['memory', 'loadavg', 'partitions_dict', 'cpu'],
@@ -135,6 +135,7 @@ module HermesClient
     node_stats_list = HermesClient.make_call(
       ip, secret, '/stats/local/node', data
     )
-    return node_stats_list['node_stats']
+    Djinn.log_debug("Received #{node_stats_list}")
+    return node_stats_list
   end
 end
