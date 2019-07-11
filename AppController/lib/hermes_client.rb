@@ -127,7 +127,7 @@ module HermesClient
         'node.cpu'=> ['idle', 'system', 'user', 'count'],
         'node.partition'=> ['used', 'total', 'free'],
         'node.memory' => ['total', 'available', 'used'],
-        'node.swap' => ['used', 'free'],
+        'node.swap' => ['total', 'used', 'free'],
         'node.loadavg'=> ['last_1min', 'last_5min', 'last_15min']
       },
       'max_age' => 5
