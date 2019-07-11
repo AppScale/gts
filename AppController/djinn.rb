@@ -211,9 +211,9 @@ class Djinn
   #      ...
   #    },
   #    "loadavg" => {
-  #      "last_1_min" => 1.35,
-  #      "last_5_min" => 0.67,
-  #      "last_15_min" => 0.89,
+  #      "last_1min" => 1.35,
+  #      "last_5min" => 0.67,
+  #      "last_15min" => 0.89,
   #      "runnable_entities" => 3,
   #      "scheduling_entities" => 687
   #    },
@@ -5440,7 +5440,7 @@ class Djinn
           Djinn.log_info("Using #{host}'s stats, making sure keys are accessible " \
             "node['memory']['total']: #{node['memory']['total']} " \
             "node['memory']['available']: #{node['memory']['available']}" \
-            "node['loadavg']['last_1_min']: #{node['loadavg']['last_1_min']}" \
+            "node['loadavg']['last_1min']: #{node['loadavg']['last_1min']}" \
             "node['cpu']['count']: #{node['cpu']['count']}"
           )
           # Check how many new AppServers of this app, we can run on this
@@ -5463,7 +5463,7 @@ class Djinn
           break if max_new_free <= 0
 
           # The host needs to have normalized average load less than MAX_LOAD_AVG.
-          if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
+          if Float(node['loadavg']['last_1min']) / node['cpu']['count'] > MAX_LOAD_AVG
             Djinn.log_debug("#{host} CPUs are too busy.")
             break
           end
