@@ -123,7 +123,7 @@ module HermesClient
   def self.get_system_stats(ip, secret)
     data = {
       'include_lists' => {
-        'node'=> ['memory', 'loadavg', 'partitions_dict', 'cpu'],
+        'node'=> ['memory', 'loadavg', 'partitions_dict', 'cpu', 'swap'],
         'node.cpu'=> ['idle', 'system', 'user', 'count'],
         'node.partition'=> ['used', 'total', 'free'],
         'node.memory' => ['total', 'available', 'used'],
