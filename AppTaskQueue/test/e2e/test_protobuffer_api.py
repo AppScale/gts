@@ -5,6 +5,7 @@ import pytest
 
 from conftest import async_test, TEST_PROJECT, POSTGRES, CASSANDRA
 from helpers import taskqueue_service_pb2
+from helpers.api_helper import timed
 
 
 @async_test
@@ -38,10 +39,10 @@ async def test_add_lease_prolong_delete(taskqueue):
   lease_req.queue_name = queue_bytes
   lease_req.lease_seconds = 5
   lease_req.max_tasks = 10
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
   # Make sure eta_usec is ~5s greater than current remote_time
   assert all(
-    task.eta_usec == pytest.approx(remote_time + 5_000_000, abs=600_000)
+    task.eta_usec == pytest.approx(remote_time + 5_000_000, abs=300_000 + delay)
     for task in leased.task
   )
 
@@ -59,17 +60,17 @@ async def test_add_lease_prolong_delete(taskqueue):
     req.lease_seconds = 6
     prolong_requests.append(taskqueue.protobuf('ModifyTaskLease', req))
   # Wait for multiple responses
-  done_tasks, _ = await asyncio.wait(prolong_requests)
+  (done_tasks, _), delay = await timed(asyncio.wait)(prolong_requests)
   responses = [asyncio_task.result() for asyncio_task in done_tasks]
   actual = [resp.updated_eta_usec for resp in responses]
-  expected = [pytest.approx(remote_time + 6_000_000, abs=600_000)] * 10
+  expected = [pytest.approx(remote_time + 6_000_000, abs=300_000 + delay)] * 10
   # Make sure updated_eta_usec is 6s greater than start_time
   assert actual == expected
 
   # Verify listed tasks
   listed = await taskqueue.rest('GET', path_suffix=f'/{queue_str}/tasks')
   actual = [int(task['leaseTimestamp']) for task in listed.json['items']]
-  expected = [pytest.approx(remote_time + 6_000_000, abs=600_000)] * 10
+  expected = [pytest.approx(remote_time + 6_000_000, abs=300_000 + delay)] * 10
   # Make sure leaseTimestamp is what we expect
   assert actual == expected
   assert (  # Make sure all tasks are in place
@@ -108,50 +109,59 @@ async def test_add_lease_retry_retry_delete_pg(taskqueue, pull_queues_backend):
   bulk_add = taskqueue_service_pb2.TaskQueueBulkAddRequest()
   bulk_add.add_request.extend(add_tasks)
   start_time = await taskqueue.remote_time_usec()
+  total_delay = 0
 
-  # Add tasks using single and bulk add
-  await taskqueue.protobuf('BulkAdd', bulk_add)
+  # Add tasks using bulk add
+  _, delay = await taskqueue.timed_protobuf('BulkAdd', bulk_add)
+  total_delay += delay
 
-  # Lease 4 tasks for a second
+  # Lease 4 tasks for 2 seconds
   lease_req = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksRequest()
   lease_req.queue_name = queue_bytes
-  lease_req.lease_seconds = 1
+  lease_req.lease_seconds = 2
   lease_req.max_tasks = 4
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [1, 1, 1, 1]
-  # Try to lease 4 tasks for 3 seconds
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  # Try to lease 4 tasks for 2 seconds
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == []
 
-  # Give 2 seconds for lease to expire
-  time.sleep(2)
+  # Give 3 seconds for lease to expire
+  time.sleep(3)
 
-  # Lease 2 tasks for a second (retry)
+  # Lease 2 tasks for 2 seconds (retry)
   lease_req.max_tasks = 2
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [2, 2]
 
-  # Lease 2 tasks for a second (retry)
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  # Lease 2 tasks for 2 seconds (retry)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [2, 2]
 
-  # Try to lease 2 tasks for a second
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  # Try to lease 2 tasks for 2 seconds
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == []
 
-  # Give 2 seconds for lease to expire
-  time.sleep(2)
+  # Give 3 seconds for lease to expire
+  time.sleep(3)
 
-  # Try to lease 3 tasks for 1 second
+  # Try to lease 3 tasks for 2 seconds
   lease_req.max_tasks = 3
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [3, 3, 3]
 
-  # Give 2 seconds for lease to expire
-  time.sleep(2)
+  # Give 3 seconds for lease to expire
+  time.sleep(3)
 
-  # Try to lease 3 tasks for a second
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  # Try to lease 3 tasks for 2 seconds
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [3, 4, 4]
 
   # Verify listed tasks
@@ -160,10 +170,10 @@ async def test_add_lease_retry_retry_delete_pg(taskqueue, pull_queues_backend):
   tasks = sorted(listed.json['items'], key=sorting_key)
   actual = [(task['retry_count'], int(task['leaseTimestamp'])) for task in tasks]
   expected = [
-    (3, pytest.approx(start_time + 5_000_000, abs=700_000)),
-    (3, pytest.approx(start_time + 7_000_000, abs=700_000)),
-    (4, pytest.approx(start_time + 7_000_000, abs=700_000)),
-    (4, pytest.approx(start_time + 7_000_000, abs=700_000)),
+    (3, pytest.approx(start_time + 8_000_000, abs=300_000 + total_delay)),
+    (3, pytest.approx(start_time + 11_000_000, abs=300_000 + total_delay)),
+    (4, pytest.approx(start_time + 11_000_000, abs=300_000 + total_delay)),
+    (4, pytest.approx(start_time + 11_000_000, abs=300_000 + total_delay)),
   ]
   assert actual == expected
 
@@ -180,7 +190,6 @@ async def test_add_lease_retry_retry_delete_pg(taskqueue, pull_queues_backend):
 @async_test
 async def test_add_lease_retry_retry_delete_cassandra(taskqueue, pull_queues_backend):
   if pull_queues_backend == POSTGRES:
-
     pytest.skip('Skipped for Postgres backend')
 
   # Initialize tasks
@@ -199,50 +208,59 @@ async def test_add_lease_retry_retry_delete_cassandra(taskqueue, pull_queues_bac
   bulk_add = taskqueue_service_pb2.TaskQueueBulkAddRequest()
   bulk_add.add_request.extend(add_tasks)
   start_time = await taskqueue.remote_time_usec()
+  total_delay = 0
 
-  # Add tasks using single and bulk add
-  await taskqueue.protobuf('BulkAdd', bulk_add)
+  # Add tasks using bulk add
+  _, delay = await taskqueue.timed_protobuf('BulkAdd', bulk_add)
+  total_delay += delay
 
-  # Lease 4 tasks for a second
+  # Lease 4 tasks for 2 seconds
   lease_req = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksRequest()
   lease_req.queue_name = queue_bytes
-  lease_req.lease_seconds = 1
+  lease_req.lease_seconds = 2
   lease_req.max_tasks = 4
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [0, 0, 0, 0]
-  # Try to lease 4 tasks for 3 seconds
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  # Try to lease 4 tasks for 2 seconds
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == []
 
   # Give 5 seconds for lease to expire
   time.sleep(5)
 
-  # Lease 2 tasks for a second (retry)
+  # Lease 2 tasks for 2 seconds (retry)
   lease_req.max_tasks = 2
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [1, 1]
 
-  # Lease 2 tasks for a second (retry)
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  # Lease 2 tasks for 2 seconds (retry)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [1, 1]
 
-  # Try to lease 2 tasks for a second
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  # Try to lease 2 tasks for 2 seconds
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == []
 
   # Give 5 seconds for lease to expire
   time.sleep(5)
 
-  # Try to lease 3 tasks for a second
+  # Try to lease 3 tasks for 2 seconds
   lease_req.max_tasks = 3
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [2, 2, 2]
 
   # Give 5 seconds for lease to expire
   time.sleep(5)
 
-  # Try to lease 3 tasks for a second
-  leased = await taskqueue.protobuf('QueryAndOwnTasks', lease_req)
+  # Try to lease 3 tasks for 2 seconds
+  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
+  total_delay += delay
   assert [task.retry_count for task in leased.task] == [2, 3, 3]
 
   # Verify listed tasks
@@ -251,10 +269,10 @@ async def test_add_lease_retry_retry_delete_cassandra(taskqueue, pull_queues_bac
   tasks = sorted(listed.json['items'], key=sorting_key)
   actual = [(task['retry_count'], int(task['leaseTimestamp'])) for task in tasks]
   expected = [
-    (3, pytest.approx(start_time + 11_000_000, abs=900_000)),
-    (3, pytest.approx(start_time + 16_000_000, abs=900_000)),
-    (4, pytest.approx(start_time + 16_000_000, abs=900_000)),
-    (4, pytest.approx(start_time + 16_000_000, abs=900_000)),
+    (3, pytest.approx(start_time + 12_000_000, abs=600_000 + total_delay)),
+    (3, pytest.approx(start_time + 17_000_000, abs=600_000 + total_delay)),
+    (4, pytest.approx(start_time + 17_000_000, abs=600_000 + total_delay)),
+    (4, pytest.approx(start_time + 17_000_000, abs=600_000 + total_delay)),
   ]
   assert actual == expected
 

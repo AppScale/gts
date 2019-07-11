@@ -833,6 +833,7 @@ class Module(object):
                'wsgi.input': cStringIO.StringIO(body)}
     util.put_headers_in_environ(headers, environ)
     if fake_login:
+      environ[constants.FAKE_IS_ADMIN_HEADER] = login.fake_admin()
       environ[constants.FAKE_LOGGED_IN_HEADER] = '1'
     elif constants.FAKE_LOGGED_IN_HEADER in environ:
       del environ[constants.FAKE_LOGGED_IN_HEADER]

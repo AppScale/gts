@@ -12,12 +12,12 @@ from appscale.common.constants import (
   HTTPCodes,
   LOG_FORMAT
 )
-from appscale.tools.agents.base_agent import (
+from appscale.agents.base_agent import (
   AgentConfigurationException,
   AgentRuntimeException,
   BaseAgent
 )
-from appscale.tools.agents.factory import InfrastructureAgentFactory
+from appscale.agents.factory import InfrastructureAgentFactory
 
 from .operation_ids_cache import OperationIdsCache
 

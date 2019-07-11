@@ -8,8 +8,10 @@ set -e
 # Defaults values for repositories and branches.
 APPSCALE_REPO="git://github.com/AppScale/appscale.git"
 APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
+AGENTS_REPO="git://github.com/AppScale/appscale-agents.git"
 APPSCALE_BRANCH="master"
 APPSCALE_TOOLS_BRANCH="master"
+AGENTS_BRANCH="master"
 FORCE_UPGRADE="N"
 UNIT_TEST="n"
 GIT_TAG=""
@@ -90,6 +92,24 @@ while [ $# -gt 0 ]; do
         shift
         continue
     fi
+    if [ "${1}" = "--agents-repo" ]; then
+        shift
+        if [ -z "${1}" ]; then
+            usage
+        fi
+        AGENTS_REPO="${1}"
+        shift
+        continue
+    fi
+    if [ "${1}" = "--agents-branch" ]; then
+        shift
+        if [ -z "${1}" ]; then
+            usage
+        fi
+        AGENTS_BRANCH="${1}"
+        shift
+        continue
+    fi
     if [ "${1}" = "--force-upgrade" ]; then
         FORCE_UPGRADE="Y"
         shift
@@ -166,8 +186,13 @@ if [ ! -d appscale ]; then
     # exists (Precise git will not fail otherwise).
     git clone ${APPSCALE_REPO} appscale
     (cd appscale; git checkout ${APPSCALE_BRANCH})
+
     git clone ${APPSCALE_TOOLS_REPO} appscale-tools
     (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
+
+    git clone ${AGENTS_REPO} appscale-agents
+    (cd appscale-agents; git checkout ${AGENTS_BRANCH})
+
 
     # Use tags if we specified it.
     if [ -n "$GIT_TAG"  ] && [  "${APPSCALE_BRANCH}" = "master" ]; then
@@ -176,6 +201,7 @@ if [ ! -d appscale ]; then
         fi
         (cd appscale; git checkout "$GIT_TAG")
         (cd appscale-tools; git checkout "$GIT_TAG")
+        (cd appscale-agents; git checkout "$GIT_TAG")
     fi
 fi
 
@@ -210,6 +236,8 @@ if [ -d /etc/appscale/certs ]; then
     # available tags first.
     (cd appscale; git fetch ${APPSCALE_REPO} -t)
     (cd appscale-tools; git fetch ${APPSCALE_TOOLS_REPO} -t)
+    (cd appscale-agents; git fetch ${AGENTS_REPO} -t)
+
     if [ "$GIT_TAG" = "last" ]; then
         GIT_TAG="$(cd appscale; git tag | tail -n 1)"
         # Make sure we have this tag in the official repo.
@@ -333,6 +361,12 @@ fi
 echo -n "Building AppScale..."
 if ! (cd appscale/debian; bash appscale_build.sh) ; then
     echo "failed!"
+    exit 1
+fi
+
+echo -n "Installing AppScale Agents..."
+if ! (cd appscale-agents/; make install-no-venv) ; then
+    echo "Failed to install AppScale Agents"
     exit 1
 fi
 

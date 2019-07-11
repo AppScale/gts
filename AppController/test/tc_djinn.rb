@@ -49,7 +49,6 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.is_done_initializing(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_role_info(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_app_info_map(@secret))
-    assert_equal(BAD_SECRET_MSG, djinn.kill(false, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.set_parameters("", "", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_node_stats_json(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_cluster_stats_json(@secret))
@@ -133,10 +132,9 @@ class TestDjinn < Test::Unit::TestCase
 
     better_credentials = JSON.dump({'keyname' => '0123', 'login' =>
       '1.1.1.1', 'table' => 'cassandra'})
-    result_2 = djinn.set_parameters("", better_credentials,  @secret)
-    # Depending on the JSON library used, "" can either throw an exception
-    # or be interpreted as nil.
-    assert_equal(true, result_2.include?("Error"))
+    assert_raises(AppScaleException) {
+      result_2 = djinn.set_parameters("", better_credentials,  @secret)
+    }
 
     # Now try credentials with an even number of items, but not all the
     # required parameters
@@ -151,8 +149,9 @@ class TestDjinn < Test::Unit::TestCase
       'keyname' => 'appscale'
     })
     bad_node_info = "[1]"
-    result_6 = djinn.set_parameters(bad_node_info, credentials, @secret)
-    assert_equal(true, result_6.include?("Error: node structure is not"))
+    assert_raises(AppScaleException) {
+      result_6 = djinn.set_parameters(bad_node_info, credentials, @secret)
+    }
 
     # Finally, try credentials with info in the right format, but where it
     # refers to nodes that aren't in our deployment
@@ -438,7 +437,7 @@ class TestDjinn < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
 
-    djinn = Djinn.new()
+    djinn = get_djinn_mock
     expected = Djinn::BAD_INPUT_MSG
     actual = djinn.start_roles_on_nodes("", @secret)
     assert_equal(expected, actual)
@@ -677,7 +676,7 @@ class TestDjinn < Test::Unit::TestCase
     deployment_id_exists = true
     bad_secret = 'boo'
     good_secret = 'blarg'
-    djinn = flexmock(Djinn.new())
+    djinn = get_djinn_mock
     flexmock(ZKInterface).should_receive(:exists?).
       and_return(deployment_id_exists)
 
@@ -695,7 +694,7 @@ class TestDjinn < Test::Unit::TestCase
     good_secret = 'boo'
     bad_secret = 'blarg'
     deployment_id = 'baz'
-    djinn = flexmock(Djinn.new())
+    djinn = get_djinn_mock
     flexmock(ZKInterface).should_receive(:get).
         and_return(deployment_id)
 

@@ -7,8 +7,8 @@ from tornado.httpclient import HTTPRequest, HTTPError
 from tornado.ioloop import IOLoop
 from mock import patch, MagicMock
 
-from appscale.tools.agents.base_agent import AgentRuntimeException
-from appscale.tools.agents.ec2_agent import EC2Agent
+from appscale.agents.base_agent import AgentRuntimeException
+from appscale.agents.ec2_agent import EC2Agent
 
 full_params = {
   'a': 'b', 'EC2_URL': 'http://testing.appscale.com:8773/foo/bar',
