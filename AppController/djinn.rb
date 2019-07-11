@@ -180,11 +180,12 @@ class Djinn
   #  {
   #    # System stats provided by infrustucture manager
   #    "cpu" => {
+  #      "count" => 2,
   #      "idle" => 81.3,
   #      "system" => 13.2,
   #      "user" => 5.5
   #    },
-  #    "disk" => [
+  #    "partitions_dict" => [
   #      # For each partition
   #      {
   #        "/" => {
@@ -214,8 +215,6 @@ class Djinn
   #      "last_1min" => 1.35,
   #      "last_5min" => 0.67,
   #      "last_15min" => 0.89,
-  #      "runnable_entities" => 3,
-  #      "scheduling_entities" => 687
   #    },
   #    # Node information provided by AppController itself
   #    "apps" => {
