@@ -242,11 +242,20 @@ def get_scatter_val(path):
   return val
 
 
-def hash_tuple(value):
-  hashable_value = u''.join([six.text_type(element) for element in value])
+def hash_tuple(path):
+  """
+  Generates a consistent byte value for an entity path or fragment. The return
+  value is only suitable to evenly scatter the path's encoding order. It is not
+  suitable for a unique identifier.
+
+  Args:
+    path: A tuple containing values that can be interpreted as unicode strings.
+  Returns:
+    An integer ranging from 0 to 255.
+  """
+  hashable_value = u''.join([six.text_type(element) for element in path])
   val = mmh3.hash(hashable_value.encode('utf-8'), signed=False)
-  byte_array = bytearray((val % 256,))
-  return bytes(byte_array)
+  return six.int2byte(val % 256)
 
 
 def format_prop_val(prop_value):
