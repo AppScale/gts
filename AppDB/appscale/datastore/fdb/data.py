@@ -130,7 +130,7 @@ class DataNamespace(object):
 
   Since encoded values can exceed the size limit imposed by FoundationDB,
   values encoded values are split into chunks. Each chunk is stored as a
-  KV and ordered by a unique <index> byte.
+  Key-Value and ordered by a unique <index> byte.
   """
   DIR_NAME = u'data'
 
@@ -194,14 +194,14 @@ class DataNamespace(object):
     return project_id, cls.DIR_NAME, namespace
 
   def encode(self, path, entity, version):
-    """ Encodes a tuple of KV tuples for a given version entry.
+    """ Encodes a tuple of Key-Value tuples for a given version entry.
 
     Args:
       path: A tuple or protobuf path object.
       entity: An encoded entity or protobuf object.
       version: An integer specifying the new entity version.
     Returns:
-      A tuple of KV tuples suitable for writing in an FDB transaction.
+      A tuple of Key-Value tuples suitable for writing in an FDB transaction.
     """
     if isinstance(entity, entity_pb.EntityProto):
       entity = entity.Encode()
@@ -247,7 +247,7 @@ class DataNamespace(object):
     return encoded_key
 
   def decode(self, kvs):
-    """ Decodes KVs to a version entry.
+    """ Decodes Key-Values to a version entry.
 
     Args:
       kvs: An iterable containing KeyValue objects.
@@ -341,7 +341,7 @@ class GroupUpdatesNS(object):
     return project_id, cls.DIR_NAME, namespace
 
   def encode(self, path):
-    """ Creates a KV tuple for updating a group's commit versionstamp.
+    """ Creates a Key-Value tuple for updating a group's commit versionstamp.
 
     Args:
       path: A tuple or protobuf path object.
@@ -394,7 +394,7 @@ class DataManager(object):
       read_versionstamp: A 10-byte string specifying the FDB read versionstamp.
         Newer versionstamps are ignored.
       include_data: A boolean specifying whether or not to fetch all of the
-        entity's KVs.
+        entity's Key-Values.
       snapshot: If True, the read will not cause a transaction conflict.
     """
     data_ns = yield self._data_ns_from_key(tr, key)
