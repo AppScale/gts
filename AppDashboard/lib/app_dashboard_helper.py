@@ -243,10 +243,9 @@ class AppDashboardHelper(object):
         total_disk = 0
         total_used = 0
         #TODO: instead of totals display disk usage per disk?
-        for disk in node['disk']:
-          for _, disk_info in disk.iteritems():
-            total_disk += disk_info['free'] + disk_info['used']
-            total_used += disk_info['used']
+        for _, disk_info in node['partitions_dict'].iteritems():
+          total_disk += disk_info['free'] + disk_info['used']
+          total_used += disk_info['used']
         disk_usage = round(100.0 * total_used / total_disk, 1)
         statuses.append({'ip': node['public_ip'], 'cpu': str(cpu_usage),
                          'memory': str(memory_usage), 'disk': str(disk_usage),
