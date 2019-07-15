@@ -124,7 +124,7 @@ module HermesClient
     data = {
       'include_lists' => {
         'node'=> ['memory', 'loadavg', 'partitions_dict', 'cpu', 'swap'],
-        'node.cpu'=> ['idle', 'system', 'user', 'count'],
+        'node.cpu'=> ['idle', 'system', 'user', 'count', 'percent'],
         'node.partition'=> ['used', 'total', 'free'],
         'node.memory' => ['total', 'available', 'used'],
         'node.swap' => ['total', 'used', 'free'],

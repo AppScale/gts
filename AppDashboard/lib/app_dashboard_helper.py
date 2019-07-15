@@ -236,7 +236,7 @@ class AppDashboardHelper(object):
       nodes = self.get_appcontroller_client().get_cluster_stats()
       statuses = []
       for node in nodes:
-        cpu_usage = 100.0 - node['cpu']['idle']
+        cpu_usage = node['cpu']['percent']
         total_memory = node['memory']['available'] + node['memory']['used']
         memory_usage = round(100.0 * node['memory']['used'] /
                              total_memory, 1)
