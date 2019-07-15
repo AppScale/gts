@@ -8,7 +8,7 @@ require 'tmpdir'
 require 'helperfunctions'
 
 # Where we save the configuration file.
-MONIT_CONFIG = '/etc/monit/conf.d'.freeze
+MONIT_CONFIG = '/run/appscale/monit.conf.d'.freeze
 
 # Monit is finicky when it comes to multiple commands at the same time.
 # Let's make sure we serialize access.
@@ -170,7 +170,7 @@ CONFIG
     bash = `which bash`.chomp
     rm = `which rm`.chomp
 
-    pidfile = "/var/run/appscale/#{process_name}.pid"
+    pidfile = "/run/appscale/#{process_name}.pid"
     logfile = "/var/log/appscale/#{process_name}.log"
     bash_exec = "exec env #{env_vars_str} #{start_cmd} >> #{logfile} 2>&1"
 

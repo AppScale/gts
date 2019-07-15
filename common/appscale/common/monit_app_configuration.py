@@ -14,7 +14,7 @@ TEMPLATE_DIR = os.path.join(
 TEMPLATE_LOCATION = os.path.join(TEMPLATE_DIR, 'monit_template.conf')
 
 # The directory used when storing a service's config file.
-MONIT_CONFIG_DIR = '/etc/monit/conf.d'
+MONIT_CONFIG_DIR = '/run/appscale/monit.conf.d'
 
 
 def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,

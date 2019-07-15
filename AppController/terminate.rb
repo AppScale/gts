@@ -12,7 +12,7 @@ module TerminateHelper
   # TODO: Use FileUtils.rm_rf instead of backticks throughout this
   # method.
   def self.erase_appscale_state
-    `service appscale-controller stop`
+    `systemctl stop appscale-controller`
 
     `rm -f #{APPSCALE_CONFIG_DIR}/secret.key`
     `rm -f /tmp/uploaded-apps`
@@ -33,8 +33,7 @@ module TerminateHelper
       # The process has finished.
     end
 
-    `rm -f /etc/monit/conf.d/appscale*.cfg`
-    `rm -f /etc/monit/conf.d/controller-17443.cfg`
+    `rm -f /run/appscale/monit.conf.d/appscale*.cfg`
 
     # Stop datastore and search servers.
     for slice_name in ['appscale-datastore', 'appscale-search']
@@ -73,15 +72,13 @@ module TerminateHelper
     # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_JSON_FILE)
     `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
     `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations`
-    `rm -f /opt/appscale/appcontroller-state.json`
-    `rm -f /opt/appscale/appserver-state.json`
     print "OK"
   end
 
   # This functions ensure that the services AppScale started that have a
-  # PID in /var/run/appscale got terminated.
+  # PID in /run/appscale got terminated.
   def self.ensure_services_are_stopped
-    Dir["/var/run/appscale/*.pid"].each { |pidfile|
+    Dir["/run/appscale/*.pid"].each { |pidfile|
       # Nothing should still be running after the controller got stopped,
       # so we unceremoniously kill them.
       begin
