@@ -7,6 +7,7 @@ resource is still available.
 from __future__ import division
 import logging
 import monotonic
+import random
 from collections import deque
 
 import six.moves as sm
@@ -305,7 +306,7 @@ class GarbageCollector(object):
       except Exception:
         # TODO: Exponential backoff here.
         logger.exception(u'Unexpected error while processing GC queue')
-        yield gen.sleep(1)
+        yield gen.sleep(random.random() * 2)
         continue
 
   @gen.coroutine
@@ -363,7 +364,7 @@ class GarbageCollector(object):
         cursor = (project_id, namespace, batch)
       except Exception:
         logger.exception(u'Unexpected error while grooming projects')
-        yield gen.sleep(10)
+        yield gen.sleep(random.random() * 20)
 
   def _next_namespace(self, tr, section_dir, current_namespace=None):
     # TODO: This can be made async.

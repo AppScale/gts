@@ -1,5 +1,6 @@
 import logging
 import monotonic
+import random
 import uuid
 
 from tornado import gen
@@ -71,7 +72,7 @@ class PollingLock(object):
         yield self._acquire_lease()
       except Exception:
         logger.exception(u'Unable to acquire lease')
-        yield gen.sleep(10)
+        yield gen.sleep(random.random() * 20)
 
   @gen.coroutine
   def _acquire_lease(self):
@@ -97,7 +98,7 @@ class PollingLock(object):
           raise
 
         # If there was a conflict, try to acquire again later.
-        yield gen.sleep(10)
+        yield gen.sleep(random.random() * 20)
         return
 
       self._owner = self._client_id
