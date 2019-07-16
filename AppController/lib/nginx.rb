@@ -116,7 +116,7 @@ module Nginx
 
     config_path = File.join(SITES_ENABLED_PATH,
                             "appscale-#{version_key}.#{CONFIG_EXTENSION}")
-    blobstore_port = #{BlobServer::HAPROXY_PORT}
+    blobstore_port = BlobServer::HAPROXY_PORT
     dispatch = []
     if service_id == Djinn::DEFAULT_SERVICE
       begin
