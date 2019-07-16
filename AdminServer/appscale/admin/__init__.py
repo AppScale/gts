@@ -429,7 +429,8 @@ class ProjectHandler(BaseVersionHandler):
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
                             message='Services node not found for project')
     dispatch_rules = utils.routing_rules_from_dict(payload=self.request.body,
-                                                   project_id, service_ids)
+                                                   project_id=project_id,
+                                                   services=service_ids)
 
     dispatch_node = '/'.join(['/appscale', 'projects', project_id, 'dispatch'])
 
