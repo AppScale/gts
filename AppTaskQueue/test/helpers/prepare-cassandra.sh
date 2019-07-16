@@ -62,9 +62,27 @@ log "Configuring Cassandra"
 
 log "Starting Cassandra"
 su -c '/opt/cassandra/cassandra/bin/cassandra -p cassandra.pid' cassandra
+cassandra_wait_start=$(date +%s)
 while ! (/opt/cassandra/cassandra/bin/nodetool status | grep UN); do
+    current_time=$(date +%s)
+    elapsed_time=$((current_time - cassandra_wait_start))
+    if [ "${elapsed_time}" -gt 60 ]
+    then
+        log "Timed out waiting for Cassandra to start" "ERROR"
+        exit 1
+    fi
     sleep 1
 done
 
 log "Creating tables"
-appscale-prime-cassandra --replication 1
+for i in 1 2 3 ; do
+    RESULT=FAILED
+    appscale-prime-cassandra --replication 1 && RESULT=OK && break
+    log "Failed to create Cassandra tables" "WARNING"
+    sleep 15
+done
+
+if [ ${RESULT} = FAILED ]; then
+    log "Failed to create Cassandra tables after 3 retries" "ERROR"
+    exit 1
+fi
