@@ -6,6 +6,7 @@ require 'logger'
 require 'monitor'
 require 'net/http'
 require 'net/https'
+require 'open3'
 require 'openssl'
 require 'securerandom'
 require 'set'
@@ -2424,10 +2425,12 @@ class Djinn
   # the command that was executed.
   def self.log_run(command)
     Djinn.log_debug("Running #{command}")
-    output = `#{command}`
-    if $?.exitstatus != 0
-      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" \
-          " and output: #{output}.")
+    output, err_output, status = Open3.capture3(command)
+    if status.exitstatus != 0
+      Djinn.log_debug("Command #{command} failed with #{status.exitstatus}" \
+          " and output: #{output}")
+      Djinn.log_debug("Command #{command} error output: " \
+          "#{err_output}") if err_output
     end
     return output
   end
