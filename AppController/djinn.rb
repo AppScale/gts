@@ -485,7 +485,8 @@ class Djinn
     'proxies_stats_log_interval' => [Fixnum, '35', true],
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
-    'zone' => [String, nil, true]
+    'zone' => [String, nil, true],
+    'update' => [String, nil, false]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -3682,39 +3683,43 @@ class Djinn
 
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
-    status = `git -C #{APPSCALE_HOME} status`
+    if @options['update'].nil?
+      return
+    end
+
+    update_dir = @options['update']
 
     # Update Python packages across corresponding virtual environments
-    if status.include?('common')
+    if update_dir.include?('common')
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
     end
-    if status.include?('AppControllerClient')
+    if update_dir.include?('app_controller')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
     end
-    if status.include?('AdminServer')
+    if update_dir.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
     end
-    if status.include?('AppTaskQueue')
+    if update_dir.include?('taskqueue')
       extras = TaskQueue::OPTIONAL_FEATURES.join(',')
       update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]")
     end
-    if status.include?('AppDB')
+    if update_dir.include?('app_db')
       update_python_package("#{APPSCALE_HOME}/AppDB")
     end
-    if status.include?('InfrastructureManager')
+    if update_dir.include?('iaas_manager')
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
-    if status.include?('Hermes')
+    if update_dir.include?('hermes')
       update_python_package("#{APPSCALE_HOME}/Hermes")
     end
-    if status.include?('APIServer')
+    if update_dir.include?('api_server')
       build_api_server
     end
 
     # Update Java AppServer
-    build_java_appserver if status.include?('AppServer_Java')
+    build_java_appserver if update_dir.include?('appserver_java')
   end
 
   def configure_ejabberd_cert
