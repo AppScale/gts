@@ -40,7 +40,7 @@ server {
 server {
     listen <%= http_port %>;
     listen <%= https_port %> ssl;
-    server_name <%= load_balancer_ip %>;
+    server_name <%= server_name %>;
 
     # Uncomment these lines to enable logging, and comment out the following two
     #access_log /var/log/nginx/appscale-<%= version_key %>.access.log upstream;
