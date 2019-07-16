@@ -120,13 +120,14 @@ module Nginx
     dispatch = []
     if service_id == Djinn::DEFAULT_SERVICE
       begin
-        dispatch = ZKInterface.get_dispatch_rules(project_id)
+        zk_dispatch = ZKInterface.get_dispatch_rules(project_id)
+        dispatch = zk_dispatch if zk_dispatch
       rescue ConfigNotFound
-        pass
+        Djinn.log_debug("No dispatch rules found for #{project_id}")
       end
     end
 
-    template = File.read('./application_nginx.erb')
+    template = File.read('/root/appscale/AppController/lib/application_nginx.erb')
     config =  ERB.new(template).result( binding )
 
     # Let's reload and overwrite only if something changed, or new
