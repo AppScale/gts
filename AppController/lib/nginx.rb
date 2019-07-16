@@ -124,6 +124,7 @@ module Nginx
       rescue ConfigNotFound
         pass
       end
+    end
 
     template = File.read('./application_nginx.erb')
     config =  ERB.new(template).result( binding )
