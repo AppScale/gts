@@ -73,6 +73,11 @@ class InvalidQueueConfiguration(Exception):
   pass
 
 
+class InvalidDispatchConfiguration(Exception):
+  """ Indicates that the dispatch rule is not valid. """
+  pass
+
+
 class ServingStatus(object):
   """ The possible serving states for a project or version. """
   SERVING = 'SERVING'
@@ -183,6 +188,15 @@ TQ_RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
 
 # A regex rule for validating targets, will not match instance.version.module.
 TQ_TARGET_REGEX = re.compile(r'^([a-zA-Z0-9\-]+[\.]?[a-zA-Z0-9\-]*)$')
+
+# A regex rule to validate dispatch domains.
+DISPATCH_DOMAIN_REGEX = re.compile(r'')
+
+# A regex rule to validate dispatch paths.
+DISPATCH_PATH_REGEX = re.compile(r'/[0-9a-zA-Z/]*[*]?$')
+
+# A regex rule to help make dispatch urls nginx friendly.
+NGINX_DISPATCH_REGEX = re.compile(r'\w*(?<!\.)\*')
 
 REQUIRED_PULL_QUEUE_FIELDS = ['name', 'mode']
 

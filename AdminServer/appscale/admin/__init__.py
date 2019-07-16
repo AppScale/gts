@@ -220,6 +220,27 @@ class LifecycleState(object):
   DELETE_IN_PROGRESS = 'DELETE_IN_PROGRESS'
 
 
+class AppsHandler(BaseHandler):
+  """ Manages applications. """
+  def initialize(self, acc, ua_client, zk_client, version_update_lock,
+                 thread_pool):
+    """ Defines required resources to handle requests.
+
+    Args:
+      acc: An AppControllerClient.
+      ua_client: A UAClient.
+      zk_client: A KazooClient.
+      version_update_lock: A kazoo lock.
+      thread_pool: A ThreadPoolExecutor.
+    """
+    self.acc = acc
+    self.ua_client = ua_client
+    self.zk_client = zk_client
+    self.version_update_lock = version_update_lock
+    self.thread_pool = thread_pool
+
+
+
 class BaseVersionHandler(BaseHandler):
 
   def get_version(self, project_id, service_id, version_id):
@@ -381,6 +402,47 @@ class ProjectHandler(BaseVersionHandler):
     self.authenticate(project_id, self.ua_client)
     raise CustomHTTPError(HTTPCodes.NOT_IMPLEMENTED,
                           message='Project deletion is not supported')
+
+  @gen.coroutine
+  def patch(self, project_id):
+    """ Updates a project. Currently this is only supported for the dispatch
+    rules.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    self.authenticate(project_id, self.ua_client)
+
+    if project_id in constants.IMMUTABLE_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} cannot be updated'.format(project_id))
+
+    project_node = '/'.join(['/appscale', 'projects', project_id])
+    services_node = '/'.join([project_node, 'services'])
+    if not self._zk_client.exists(project_node):
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Project does not exist')
+
+    try:
+      service_ids = self._zk_client.get_children(services_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Services node not found for project')
+    dispatch_rules = utils.routing_rules_from_dict(payload=self.request.body,
+                                                   project_id, service_ids)
+
+    dispatch_node = '/'.join(['/appscale', 'projects', project_id, 'dispatch'])
+
+    try:
+      self.zk_client.set(dispatch_node, json.dumps(dispatch_rules))
+    except NoNodeError:
+      try:
+        self.zk_client.create(dispatch_node, json.dumps(dispatch_rules))
+      except NoNodeError:
+        raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                              message='{} not found'.format(project_id))
+
+    logger.info('Updated dispatch for {}'.format(project_id))
 
 
 class ServicesHandler(BaseVersionHandler):
@@ -1398,7 +1460,7 @@ def main():
     ('/api/datastore/index/add', UpdateIndexesHandler,
      {'zk_client': zk_client, 'ua_client': ua_client}),
     ('/api/queue/update', UpdateQueuesHandler,
-     {'zk_client': zk_client, 'ua_client': ua_client})
+     {'zk_client': zk_client, 'ua_client': ua_client}),
   ])
   logger.info('Starting AdminServer')
   app.listen(args.port)

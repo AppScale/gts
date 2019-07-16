@@ -5,6 +5,7 @@ import json
 import hmac
 import logging
 import os
+import re
 import shutil
 import socket
 import tarfile
@@ -17,12 +18,16 @@ from .constants import (
   AUTO_HTTP_PORTS,
   AUTO_HTTPS_PORTS,
   CustomHTTPError,
+  DEFAULT_VERSION,
+  DISPATCH_PATH_REGEX,
   HAPROXY_PORTS,
   GO,
   InvalidCronConfiguration,
+  InvalidDispatchConfiguration,
   InvalidQueueConfiguration,
   InvalidSource,
   JAVA,
+  NGINX_DISPATCH_REGEX,
   REQUIRED_PULL_QUEUE_FIELDS,
   REQUIRED_PUSH_QUEUE_FIELDS,
   SOURCES_DIRECTORY,
@@ -580,3 +585,59 @@ if hasattr(hmac, 'compare_digest'):
   constant_time_compare = hmac.compare_digest
 else:
   constant_time_compare = _constant_time_compare
+
+
+def validate_routing_rule(rule, services):
+  """
+  domain: string. Domain name to match against. The wildcard "*" is supported
+    if specified before a period: "*.". Defaults to matching all domains: "*".
+  path: string. Pathname within the host. Must start with a "/". A single "*"
+    can be included at the end of the path. The sum of the lengths of the
+    domain and path may not exceed 100 characters.
+  service: string. Resource ID of a service in this application that should
+    serve the matched request. The service must already exist. Example: default.
+  Tip: You can include glob patterns like the `*` wildcard character in the
+   `url` element; however, those patterns can be used only before the host name
+   and at the end of the URL path.
+
+  """
+  service = rule['service']
+  domain = rule['domain']
+  path = rule['path']
+  if service not in services:
+    raise InvalidDispatchConfiguration('Service does not exist.')
+
+  if not DISPATCH_PATH_REGEX.match(path):
+    raise InvalidDispatchConfiguration('Path is invalid.')
+
+  if not re.match(r'^\*$', domain):
+    asterisks = re.findall(r'\*', domain)
+    asterisk_dot = re.findall(r'\*\.', domain)
+    if len(asterisks) != len(asterisk_dot):
+      raise InvalidDispatchConfiguration('Domain is invalid.')
+
+  if len(domain) + len(path) > 100:
+    raise InvalidDispatchConfiguration('URL over 100 characters.')
+
+
+def routing_rules_from_dict(payload, project_id, services):
+  try:
+    given_routing_rules = payload['dispatchRules']
+  except KeyError:
+    raise InvalidQueueConfiguration('Payload must contain dispatchRules')
+
+  rules = []
+  for rule in given_routing_rules:
+    validate_routing_rule(rule, services)
+    rules.append(convert_to_nginx_friendly_rule(rule, project_id))
+
+  return rules
+
+def convert_to_nginx_friendly_rule(rule, project_id):
+  # Domain defaults to '*'
+  domain = rule['domain'] or '*'
+  url = '{}{}'.format(domain, rule['path'])
+  nginx_url = NGINX_DISPATCH_REGEX.sub('.*', url)
+  nginx_service_backend = 'gae_{}_{}_{}'.format(project_id, rule['service'],
+                                                DEFAULT_VERSION)
+  return {'url': nginx_url, 'service': nginx_service_backend}
