@@ -1211,7 +1211,7 @@ class Djinn
       end
     end
 
-    Djinn.log_info("Received request to get properties matching #{property_regex}.")
+    Djinn.log_debug("Received request to get properties matching #{property_regex}.")
     properties = {}
     PARAMETERS_AND_CLASS.each { |key, val|
       begin
