@@ -351,6 +351,16 @@ class ZKInterface
     return JSON.load(cron_config_json)
   end
 
+  def self.get_dispatch_rules(project_id)
+    dispatch_node = "/appscale/projects/#{project_id}/dispatch"
+    begin
+      dispatch_config_json = self.get(dispatch_node)
+    rescue FailedZooKeeperOperationException
+      raise ConfigNotFound, "Dispatch configuration not found for #{project_id}"
+    end
+    return JSON.load(dispatch_config_json)
+  end
+
   def self.get_datastore_servers
     return get_children(DATASTORE_REGISTRY_PATH).map { |server|
       server = server.split(':')

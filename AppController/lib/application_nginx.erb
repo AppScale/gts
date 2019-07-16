@@ -62,11 +62,10 @@ server {
     set $backend gae_<%= @version_key %>;
 
     <% for @dispatch_entry in @dispatch %>
-      if ($dispatch_url ~ <%= @dispatch_entry['url'] %>) {
-        set $backend gae_<%= @dispatch_entry['service'] %>;
-        break;
-      }
-      <%= @item %>
+    if ($dispatch_url ~ <%= @dispatch_entry['url'] %>) {
+      set $backend <%= @dispatch_entry['service'] %>;
+      break;
+    }
     <% end %>
 
     location / {
