@@ -374,10 +374,14 @@ class ZKInterface
     assignments_node = '/appscale/assignments'
     ensure_path(assignments_node)
     machine_node = [assignments_node, machine_ip].join('/')
-    current_assignments = get_detailed(machine_node)
-    new_assignments = JSON.load(current_assignments[:data]).merge assignments
-    set(machine_node, JSON.dump(new_assignments), NOT_EPHEMERAL,
-        current_assignments[:version])
+    begin
+      current_assignments = get_detailed(machine_node)
+      assignments = JSON.load(current_assignments[:data]).merge assignments
+      set(machine_node, JSON.dump(assignments), NOT_EPHEMERAL,
+          current_assignments[:version])
+    rescue FailedZooKeeperOperationException
+      set(machine_node, JSON.dump(assignments), NOT_EPHEMERAL)
+    end
   end
 
   # Defines deployment-wide defaults for runtime parameters.
