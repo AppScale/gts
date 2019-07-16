@@ -59,6 +59,11 @@ def decode_str(string):
 
 
 class Int64(object):
+  """
+  Handles encoding and decoding operations for 64-bit integers. The encoded
+  value is variable-length. The value of the marker indicates how many bytes
+  were used to encode the value.
+  """
   LIMITS = tuple((1 << (i * 8)) - 1 for i in range(9))
 
   @classmethod
@@ -117,6 +122,13 @@ class Int64(object):
 
 
 class Bytes(object):
+  """
+  Handles encoding and decoding operations for arbitrary blobs. Since the
+  length of the value is variable and there is usually data that follows the
+  encoded value, a terminator byte is used to indicate the end of the value.
+  Any occurrence of the terminator byte within the value is escaped in order to
+  preserve the ordering and allow the parser to find the real terminator.
+  """
   @classmethod
   def encode(cls, value, prefix=six.int2byte(BYTES_CODE), reverse=False):
     packed = reverse_bits(value) if reverse else value
@@ -173,6 +185,10 @@ class Bytes(object):
 
 
 class Double(object):
+  """
+  Handles encoding and decoding operations for floating point values. 8 bytes
+  (plus the marker byte) are always used.
+  """
   @classmethod
   def encode(cls, value, prefix=six.int2byte(DOUBLE_CODE), reverse=False):
     packed = struct.pack('>d', value)
@@ -210,6 +226,10 @@ class Double(object):
 
 
 class Point(object):
+  """
+  Handles encoding and decoding operations for point values. The Double codec
+  is used for each coordinate (x and y).
+  """
   @classmethod
   def encode(cls, value, prefix=six.int2byte(POINT_CODE), reverse=False):
     x_packed = Double.encode(value.x(), prefix=b'', reverse=reverse)
@@ -227,6 +247,11 @@ class Point(object):
 
 
 class Text(object):
+  """
+  Handles encoding and decoding operations for unicode strings. Since the
+  length of the value is variable and there is usually data that follows the
+  encoded value, a terminator byte is used to indicate the end of the value.
+  """
   @classmethod
   def encode(cls, unicode_string, prefix=b'', reverse=False):
     # Ensure the encoded value does not contain the terminator. UTF-8 does not
@@ -261,6 +286,10 @@ class Text(object):
 
 
 class User(object):
+  """
+  Handles encoding and decoding operations for User values. The Double codec
+  is used for each of the required fields (email and auth_domain).
+  """
   @classmethod
   def encode(cls, value, prefix=six.int2byte(POINT_CODE), reverse=False):
     packed = (Text.encode(decode_str(value.email()), reverse=reverse) +
@@ -278,6 +307,10 @@ class User(object):
 
 
 class Path(object):
+  """
+  Handles encoding and decoding operations for entity paths. The Text codec
+  is used for kinds and names. The Int64 codec is used for IDs.
+  """
   KIND_MARKER = 0x1C
 
   MIN_ID_MARKER = INT64_ZERO_CODE - 8
@@ -403,6 +436,11 @@ class Path(object):
 
 
 class Reference(object):
+  """
+  Handles encoding and decoding operations for entity keys. The Text codec is
+  used for the project ID and namespace. The Path codec is used for the key's
+  path.
+  """
   @classmethod
   def encode(cls, value, prefix=six.int2byte(REFERENCE_CODE), reverse=False):
     return b''.join([
@@ -490,6 +528,11 @@ def decode_value(blob, pos, reverse=False):
 
 
 class TransactionID(object):
+  """
+  Handles encoding and decoding operations for transaction IDs. Since this
+  cannot handle every commit versionstamp value, it will be removed as soon as
+  the interface can handle larger values for transaction handles.
+  """
   COMMIT_VERSION_BITS = 8 * 7 - 4
 
   BATCH_ORDER_BITS = 8

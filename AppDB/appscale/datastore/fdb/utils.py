@@ -1,3 +1,7 @@
+"""
+This module contains common utility functions used across the FDB
+implementation.
+"""
 import json
 import logging
 import random
@@ -60,6 +64,7 @@ def ReverseBitsInt64(v):
 
 
 class ScatteredAllocator(object):
+  """ Generates large ID values that are somewhat evenly distributed. """
   def __init__(self):
     self._counter = random.randint(1, _MAX_SCATTERED_COUNTER)
 
@@ -78,6 +83,10 @@ class ScatteredAllocator(object):
 
 
 class TornadoFDB(object):
+  """
+  Presents FoundationDB operations in an interface that is friendly to Tornado
+  coroutines.
+  """
   def __init__(self, io_loop):
     self._io_loop = io_loop
 
@@ -152,6 +161,7 @@ class TornadoFDB(object):
 
 
 class ResultIterator(object):
+  """ Allows clients to page through a range of Key-Values. """
   def __init__(self, tr, tornado_fdb, key_slice, limit=0, reverse=False,
                streaming_mode=fdb.StreamingMode.iterator, snapshot=False):
     self.slice = key_slice

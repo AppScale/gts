@@ -224,6 +224,10 @@ class SafeReadDir(object):
 
 
 class GarbageCollector(object):
+  """
+  The GarbageCollector ensures that old entity versions and transaction IDs
+  don't stick around for too long.
+  """
   # The FDB key used to acquire a GC lock.
   _LOCK_KEY = u'gc-lock'
 

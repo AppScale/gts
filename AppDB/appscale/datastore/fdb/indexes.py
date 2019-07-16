@@ -36,6 +36,7 @@ first_gt_or_equal = fdb.KeySelector.first_greater_or_equal
 
 
 class FilterProperty(object):
+  """ Encapsulates details for a FilterProperty that came from a query. """
   __slots__ = ['name', 'filters']
 
   def __init__(self, prop_name, filters):
@@ -142,6 +143,7 @@ def get_scan_direction(query, index):
 
 
 class IndexEntry(object):
+  """ Encapsulates details for an index entry. """
   __slots__ = ['project_id', 'namespace', 'path', 'commit_versionstamp',
                'deleted_versionstamp']
 
@@ -187,6 +189,7 @@ class IndexEntry(object):
 
 
 class PropertyEntry(IndexEntry):
+  """ Encapsulates details for a single-property index entry. """
   __slots__ = ['prop_name', 'value']
 
   def __init__(self, project_id, namespace, path, prop_name, value,
@@ -232,6 +235,7 @@ class PropertyEntry(IndexEntry):
 
 
 class CompositeEntry(IndexEntry):
+  """ Encapsulates details for a composite index entry. """
   __slots__ = ['properties']
 
   def __init__(self, project_id, namespace, path, properties,
@@ -276,6 +280,11 @@ class CompositeEntry(IndexEntry):
 
 
 class IndexIterator(object):
+  """
+  Returns pages of index entry results. It ignores Key-Values that do not apply
+  to the given read_versionstamp. It converts usable Key-Values to IndexEntry
+  objects.
+  """
   def __init__(self, tr, tornado_fdb, index, key_slice, fetch_limit, reverse,
                read_versionstamp=None, snapshot=False):
     self.index = index
@@ -324,6 +333,11 @@ class IndexIterator(object):
 
 
 class MergeJoinIterator(object):
+  """
+  Returns pages of index entry results from multiple ranges. It ignores
+  Key-Values that do not apply to the given read_versionstamp. It converts
+  usable Key-Values to IndexEntry objects.
+  """
   def __init__(self, tr, tornado_fdb, filter_props, indexes, fetch_limit,
                read_versionstamp=None, ancestor_path=None, snapshot=False):
     self.indexes = indexes
@@ -455,6 +469,7 @@ class MergeJoinIterator(object):
 
 
 class IndexSlice(object):
+  """ Encapsulates details about an index range in a way that's mutable. """
   __slots__ = ['_directory_prefix', '_order_info', '_ancestor', '_start_parts',
                '_stop_parts']
 

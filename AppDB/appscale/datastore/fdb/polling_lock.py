@@ -1,3 +1,7 @@
+"""
+This module contains PollingLock, which is an interface to obtain a primitive
+lock using FDB.
+"""
 import logging
 import monotonic
 import random

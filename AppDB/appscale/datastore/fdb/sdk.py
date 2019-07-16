@@ -1,3 +1,7 @@
+"""
+This module contains code copied from the Python SDK to facilitate query
+operations.
+"""
 import logging
 import sys
 import threading
