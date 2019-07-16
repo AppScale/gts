@@ -37,6 +37,7 @@ import os
 import sha
 import sys
 import urllib
+import uuid
 
 import webapp2
 
@@ -284,6 +285,17 @@ def login_redirect(application_url, continue_url, start_response):
   start_response('302 Requires login',
                  [('Location', redirect_url)])
   return []
+
+
+def fake_admin():
+  """ Generate the fake admin login secret
+
+  Returns:
+    A string containing the fake login secret
+  """
+  return hashlib.sha1('{}/{}'.format(
+      os.environ.get('APPNAME', str(uuid.uuid4())),
+      os.environ.get('COOKIE_SECRET', str(uuid.uuid4())))).hexdigest()
 
 
 class Handler(webapp2.RequestHandler):

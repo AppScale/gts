@@ -612,6 +612,8 @@ class Djinn
   #   reason why the relocation failed in all other cases.
   def relocate_version(version_key, http_port, https_port, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     Djinn.log_debug("Received relocate_version for #{version_key} for " \
                     "http port #{http_port} and https port #{https_port}.")
 
@@ -854,7 +856,40 @@ class Djinn
     # Set the proper log level.
     new_level = Logger::INFO
     new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
-    @@log.level = new_level if @@log.level != new_level
+    @state_change_lock.synchronize {
+      @@log.level = new_level if @@log.level != new_level
+    }
+
+    # The master node can now enforce some sanity checks on the options.
+    if my_node.is_shadow? and is_cloud?
+      @state_change_lock.synchronize {
+        # Max and min needs to be at least the number of started nodes, it
+        # needs to be positive. Max needs to be no smaller than min.
+        if Integer(@options['max_machines']) < @nodes.length
+          msg = 'max_machines is less than the number of nodes!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
+        end
+        if Integer(@options['min_machines']) > @nodes.length
+          msg = 'min_machines is bigger than the number of nodes!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
+        end
+        if Integer(@options['max_machines']) < Integer(@options['min_machines'])
+          msg = 'min_machines is bigger than max_machines!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
+        end
+
+        # Ensure we have the correct EC2 credentials available.
+        ENV['EC2_URL'] = @options['ec2_url']
+        if @options['ec2_access_key'].nil?
+          @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
+          @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
+          @options['ec2_url'] = @options['EC2_URL']
+        end
+      }
+    end
   end
 
   # This is the method needed to get the current layout and options for
@@ -885,81 +920,47 @@ class Djinn
       Djinn.log_error(msg)
       return msg
     end
-    if opts.nil? || opts.empty?
-      Djinn.log_info("Empty options: using defaults.")
-    elsif opts.class != Hash
-      msg = "Error: options is not a Hash."
+    if opts.nil? || opts.empty? || opts.class != Hash
+      msg = "Error: options is empty or not a Hash."
       Djinn.log_error(msg)
       return msg
-    else
-      @state_change_lock.synchronize { @options = check_options(opts) }
     end
+    checked_opts = check_options(opts)
 
     # Let's validate we have the needed options defined.
     ['keyname', 'login', 'table'].each { |key|
-      unless @options[key]
+      unless checked_opts[key]
         msg = "Error: cannot find #{key} in options!"
         Djinn.log_error(msg)
         return msg
       end
     }
 
-    begin
-      @state_change_lock.synchronize {
-        @nodes = check_layout(layout, @options['keyname'])
-      }
-    rescue AppScaleException => e
-      Djinn.log_error(e.message)
-      return e.message
-    end
-
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
     PARAMETERS_AND_CLASS.each { |key, _|
-      @state_change_lock.synchronize {
-        # The parameter 'key' is defined, no need to do anything.
-        next if @options[key]
+      # The parameter 'key' is defined, no need to do anything.
+      next if checked_opts[key]
 
-        if PARAMETERS_AND_CLASS[key][1]
-           # The parameter has a default, and it's not defined. Adding
-           # default value.
-           @options[key] = PARAMETERS_AND_CLASS[key][1]
-        end
-      }
+      if PARAMETERS_AND_CLASS[key][1]
+         # The parameter has a default, and it's not defined. Adding
+         # default value.
+         checked_opts[key] = PARAMETERS_AND_CLASS[key][1]
+      end
     }
-    enforce_options
 
-    # From here on we do more logical checks on the values we received.
-    # The first one is to check that max and min are set appropriately.
-    # Max and min needs to be at least the number of started nodes, it
-    # needs to be positive. Max needs to be no smaller than min.
+    # We need to make sure we have a good layout and this node is listed
+    # in the started nodes.
     @state_change_lock.synchronize {
-      if Integer(@options['max_machines']) < @nodes.length
-        Djinn.log_warn("max_machines is less than the number of nodes!")
-        @options['max_machines'] = @nodes.length.to_s
-      end
-      if Integer(@options['min_machines']) < @nodes.length
-        Djinn.log_warn("min_machines is less than the number of nodes!")
-        @options['min_machines'] = @nodes.length.to_s
-      end
-      if Integer(@options['max_machines']) < Integer(@options['min_machines'])
-        Djinn.log_warn("min_machines is bigger than max_machines!")
-        @options['max_machines'] = @options['min_machines']
-      end
-    }
+      @nodes = check_layout(layout, checked_opts['keyname'])
+      find_me_in_locations
+      return "Error: Couldn't find me in the node map" if @my_index.nil?
 
-    # We need to make sure this node is listed in the started nodes.
-    find_me_in_locations
-    return "Error: Couldn't find me in the node map" if @my_index.nil?
-
-    @state_change_lock.synchronize {
-      ENV['EC2_URL'] = @options['ec2_url']
-      if @options['ec2_access_key'].nil?
-        @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
-        @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
-        @options['ec2_url'] = @options['EC2_URL']
-      end
+      # Now we can unlock the main thread and let it proceed with the
+      # initialization.
+      @options = checked_opts
     }
+    Djinn.log_info("Successfully received nodes layout (#{@nodes}) and deployment options (#{@options}).")
 
     'OK'
   end
@@ -977,6 +978,7 @@ class Djinn
   #   get_app_upload_status to see if the app has successfully uploaded or not.
   def upload_app(archived_file, file_suffix, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending upload_app call to shadow.")
@@ -1044,6 +1046,7 @@ class Djinn
   #   returned.
   def get_app_upload_status(reservation_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending get_upload_status call to shadow.")
@@ -1073,6 +1076,7 @@ class Djinn
   #   A JSON string with the statistics of the nodes.
   def get_cluster_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending get_cluster_stats_json call to shadow.")
@@ -1135,6 +1139,7 @@ class Djinn
   #   A JSON string with the database information.
   def get_database_information(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     tree = { :table => @options['table'], :replication => @options['replication'],
       :keyname => @options['keyname'] }
@@ -1152,6 +1157,7 @@ class Djinn
   #   authenticate correctly.
   def run_groomer(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Thread.new {
       run_groomer_command = `which appscale-groomer`.chomp
@@ -1181,6 +1187,7 @@ class Djinn
   #   to the value it is bound to.
   def get_property(property_regex, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
@@ -1236,6 +1243,8 @@ class Djinn
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     if property_name.class != String or property_value.class != String
       Djinn.log_warn("set_property: received non String parameters.")
       return KEY_NOT_FOUND
@@ -1340,6 +1349,7 @@ class Djinn
   # Updates a project's cron jobs.
   def update_cron(project_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug(
@@ -1368,6 +1378,7 @@ class Djinn
   #   A boolean indicating whether the deployment ID has been set or not.
   def deployment_id_exists(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     return ZKInterface.exists?(DEPLOYMENT_ID_PATH)
   end
@@ -1377,6 +1388,7 @@ class Djinn
   #   A string that contains the deployment ID.
   def get_deployment_id(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       return ZKInterface.get(DEPLOYMENT_ID_PATH)
@@ -1392,6 +1404,7 @@ class Djinn
   #   id: A string that contains the deployment ID.
   def set_deployment_id(secret, id)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       ZKInterface.set(DEPLOYMENT_ID_PATH, id, false)
@@ -1408,6 +1421,7 @@ class Djinn
   #     off.
   def set_node_read_only(read_only, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
     return INVALID_REQUEST unless %w(true false).include?(read_only)
 
     if read_only == 'true'
@@ -1426,6 +1440,7 @@ class Djinn
   def set_read_only(read_only, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
+    return NOT_READY if @nodes.empty?
 
     ZKInterface.get_datastore_servers.each { |machine_ip, port|
       http = Net::HTTP.new(machine_ip, port)
@@ -1465,6 +1480,7 @@ class Djinn
   #   A string indicating whether or not the primary database node is ready.
   def primary_db_is_up(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     primary_ip = get_db_master.private_ip
     unless my_node.is_db_master?
@@ -1495,6 +1511,7 @@ class Djinn
   #   password: The SHA1-hashed password that will be set as the user's password.
   def reset_password(username, password, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1511,6 +1528,7 @@ class Djinn
   #   username: The email address registered as username for the user's application.
   def does_user_exist(username, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1530,6 +1548,7 @@ class Djinn
   #     by XMPP users.
   def create_user(username, password, account_type, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1546,6 +1565,7 @@ class Djinn
   #   username: The e-mail address that should be given administrative authorizations.
   def set_admin_role(username, is_cloud_admin, capabilities, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1558,6 +1578,7 @@ class Djinn
 
   def get_all_public_ips(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     public_ips = []
     @state_change_lock.synchronize {
@@ -1568,6 +1589,7 @@ class Djinn
 
   def get_all_private_ips(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     private_ips = []
     @state_change_lock.synchronize {
@@ -1668,6 +1690,10 @@ class Djinn
     end
     parse_options
 
+    # Enforce actions from possibly changed options (like logs or
+    # credentials).
+    enforce_options
+
     # Load datastore helper.
     # TODO: this should be the class or module.
     table = @options['table']
@@ -1690,7 +1716,6 @@ class Djinn
     start_infrastructure_manager
     mount_persistent_storage
 
-    find_me_in_locations
     write_database_info
     update_firewall
 
@@ -1706,9 +1731,7 @@ class Djinn
     if my_node.is_shadow?
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
-      @state_change_lock.synchronize {
-        initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
-      }
+      initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
     end
 
     # Initialize the current server and starts all the API and essential
@@ -1884,27 +1907,26 @@ class Djinn
 
   def is_appscale_terminated(secret)
     begin
-      bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
-      return bad_secret unless valid_secret?(secret)
+      return JSON.dump({'status'=>BAD_SECRET_MSG}) unless valid_secret?(secret)
     rescue Errno::ENOENT
       # On appscale down, terminate may delete our secret key before we
       # can check it here.
-      Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+      Djinn.log_debug("is_appscale_terminated: didn't find secret file. Continuing.")
     end
     return @done_terminating
   end
 
   def run_terminate(clean, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
+    begin
+      return JSON.dump({'status'=>BAD_SECRET_MSG}) unless valid_secret?(secret)
+    rescue Errno::ENOENT
+      # On appscale down, terminate may delete our secret key before we
+      # can check it here.
+      Djinn.log_debug("is_appscale_terminated: didn't find secret file. Continuing.")
+    end
+    return NOT_READY if @nodes.empty?
+
     if my_node.is_shadow?
-      begin
-        bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
-        return bad_secret unless valid_secret?(secret)
-      rescue Errno::ENOENT
-        # On appscale down, terminate may delete our secret key before we
-        # can check it here.
-        Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
-      end
       Djinn.log_info("Received a stop request.")
       Djinn.log_info("Stopping all other nodes.")
       Thread.new {
@@ -2035,6 +2057,7 @@ class Djinn
 
   def get_online_users_list(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     online_users = []
 
@@ -2060,6 +2083,7 @@ class Djinn
   #   A Boolean indicating the success of the operation.
   def stop_hosting_revision(revision_key, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Djinn.log_warn("#{location} still exists") unless File.exists?(location)
 
@@ -2116,6 +2140,7 @@ class Djinn
   #   OK: otherwise.
   def start_roles_on_nodes(ips_hash, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       ips_hash = JSON.load(ips_hash)
@@ -2474,6 +2499,7 @@ class Djinn
   #   secret: A String password that is used to authenticate SOAP callers.
   def gather_logs(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     uuid = HelperFunctions.get_random_alphanumeric
     Djinn.log_info("Generated uuid #{uuid} for request to gather logs.")
@@ -2528,6 +2554,7 @@ class Djinn
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
   def add_routing_for_blob_server(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
     return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
 
     Djinn.log_debug('Adding BlobServer routing.')
@@ -2785,7 +2812,8 @@ class Djinn
 
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
-    find_me_in_locations
+    @state_change_lock.synchronize { find_me_in_locations }
+    Djinn.log_error("Couldn't find me in @nodes after restore!") if @my_index.nil?
 
     # Usually we don't expect the master node to see a change in the state
     # (since it is the one which saves it), so we leave a note here.
@@ -2983,6 +3011,8 @@ class Djinn
   # this machine.
   def get_instance_info(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     APPS_LOCK.synchronize {
       instance_info = []
       @app_info_map.each_pair { |version_key, app_info|
@@ -3061,9 +3091,6 @@ class Djinn
       ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
       ENV['EC2_URL'] = @options['ec2_url']
     end
-
-    # Set the proper log level.
-    enforce_options
   end
 
   def got_all_data
@@ -3087,34 +3114,31 @@ class Djinn
         "#{all_local_ips.join(', ')}")
     end
 
-    @state_change_lock.synchronize {
-      @nodes.each_with_index { |node, index|
-        all_local_ips.each { |ip|
-          if ip == node.private_ip
-            @my_index = index
-            @my_public_ip = node.public_ip
-            @my_private_ip = node.private_ip
-            Djinn.log_info("Local IP recorded and used is #{ip}.")
-            return
-          end
-        }
+    @nodes.each_with_index { |node, index|
+      all_local_ips.each { |ip|
+        if ip == node.private_ip
+          @my_index = index
+          @my_public_ip = node.public_ip
+          @my_private_ip = node.private_ip
+          Djinn.log_info("Local IP recorded and used is #{ip}.")
+          return
+        end
       }
     }
+    Djinn.log_error("Cannot find any of my IP (#{all_local_ips}) in @nodes (#{@nodes}).")
 
     # We haven't found our ip in the nodes layout: let's try to give
     # better debugging info to the user.
     public_ip = HelperFunctions.get_public_ip_from_metadata_service
-    @state_change_lock.synchronize {
-      @nodes.each { |node|
-        if node.private_ip == public_ip
-          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
-            "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
-        end
-        if node.public_ip == public_ip
-          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
-            "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
-        end
-      }
+    @nodes.each { |node|
+      if node.private_ip == public_ip
+        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
+          "but not my private ip in @nodes.")
+      end
+      if node.public_ip == public_ip
+        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
+          "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
+      end
     }
 
     HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " \
@@ -3704,7 +3728,7 @@ class Djinn
           }
         rescue Timeout::Error
           Djinn.log_warn("Couldn't initialize #{slave} in time.")
-          terminate_node_from_deployment(slave)
+          APPS_LOCK.synchronize { terminate_node_from_deployment(slave) }
         end
       }
     }
@@ -3716,8 +3740,8 @@ class Djinn
   def initialize_node(node)
     copy_encryption_keys(node)
     validate_image(node)
-    rsync_files(node)
-    run_user_commands(node)
+    rsync_files(node, @options['keyname'])
+    run_user_commands(node, @options['user_commands'])
     start_appcontroller(node)
   end
 
@@ -3741,15 +3765,21 @@ class Djinn
       Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
     end
 
-    if is_cloud?
-      if @options['infrastructure'] == 'gce'
+    is_it_cloud = nil
+    infrastructure = nil
+    @state_change_lock.synchronize {
+      is_it_cloud = is_cloud?
+      infrastructure = @options['infrastructure']
+    }
+    if is_it_cloud
+      if infrastructure == 'gce'
         # Since GCE v1beta15, SSH keys don't immediately get injected to newly
         # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
         # sure.
         Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
         Kernel.sleep(60)
       end
-      enable_root_login(ip, ssh_key)
+      enable_root_login(ip, ssh_key, infrastructure)
     end
 
     Kernel.sleep(SMALL_WAIT)
@@ -3772,7 +3802,7 @@ class Djinn
 
     # Finally, on GCE, we need to copy over the user's credentials, in case
     # nodes need to attach persistent disks.
-    return if @options['infrastructure'] != "gce"
+    return if infrastructure == 'gce'
 
     client_secrets = "#{APPSCALE_CONFIG_DIR}/client_secrets.json"
     gce_oauth = "#{APPSCALE_CONFIG_DIR}/oauth2.dat"
@@ -3788,14 +3818,14 @@ class Djinn
 
   # Logs into the named host and alters its ssh configuration to enable the
   # root user to directly log in.
-  def enable_root_login(ip, ssh_key)
+  def enable_root_login(ip, ssh_key, infrastructure)
     options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
 
     # Determine which user to login as.
     output = `ssh -i #{ssh_key} #{options} 2>&1 root@#{ip} true`
     match = /Please login as the user "(.+)" rather than the user "root"/.match(output)
     if match.nil?
-      if @options['infrastructure'] == 'azure'
+      if infrastructure == 'azure'
         user_name = 'azureuser'
       else
         user_name = 'ubuntu'
@@ -3818,7 +3848,7 @@ class Djinn
                       "'#{merge_keys}'")
   end
 
-  def rsync_files(dest_node)
+  def rsync_files(dest_node, keyname)
     # Get the keys and address of the destination node.
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -3849,7 +3879,7 @@ class Djinn
     }
 
     if dest_node.is_compute?
-      locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
+      locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{keyname}.json"
       loop {
         break if File.exists?(locations_json)
         Djinn.log_warn('Locations JSON file does not exist on head node' \
@@ -4044,7 +4074,7 @@ class Djinn
   end
 
   def my_node
-    find_me_in_locations if @my_index.nil?
+    @state_change_lock.synchronize { find_me_in_locations } if @my_index.nil?
 
     if @my_index.nil?
       Djinn.log_debug("My index is nil - is nodes nil? #{@nodes.nil?}")
@@ -4171,12 +4201,12 @@ class Djinn
   # Args:
   # - node: A NodeInfo that represents the machine where the given commands
   #   should be executed.
-  def run_user_commands(node)
-    if @options['user_commands'].class == String
+  def run_user_commands(node, user_commands)
+    if user_commands.class == String
       begin
-        commands = JSON.load(@options['user_commands'])
+        commands = JSON.load(user_commands)
       rescue JSON::ParserError
-        commands = @options['user_commands']
+        commands = user_commands
       end
 
       if commands.class == String
@@ -4261,8 +4291,12 @@ class Djinn
     end
     Djinn.log_debug("Sending data to #{ip}.")
 
-    layout = Djinn.convert_location_class_to_json(@nodes)
-    options = JSON.dump(@options)
+    layout = nil
+    options = nil
+    @state_change_lock.synchronize {
+      layout = Djinn.convert_location_class_to_json(@nodes)
+      options = JSON.dump(@options)
+    }
     begin
       result = acc.set_parameters(layout, options)
     rescue FailedNodeException => e
@@ -5525,6 +5559,7 @@ class Djinn
   # requests seen for the given application.
   def get_request_info(version_key, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Djinn.log_debug("Sending a log with request rate #{version_key}, " \
                     "timestamp #{@last_sampling_time[version_key]}, request " \
@@ -5669,6 +5704,7 @@ class Djinn
   #     node.
   def get_node_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     # Get stats from SystemManager.
     imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
@@ -5808,6 +5844,8 @@ class Djinn
   #   An application cron info
   def get_application_cron_info(app_name, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     content = CronHelper.get_application_cron_info(app_name)
     JSON.dump(content)
   end
