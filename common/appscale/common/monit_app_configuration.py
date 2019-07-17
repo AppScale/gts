@@ -45,7 +45,8 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
     assert port is not None, 'When using check_port, port must be defined'
 
   process_name = watch
-  version_group = group if not None else watch.rsplit(VERSION_PATH_SEPARATOR, 1)[0]
+  watch_group = watch.rsplit(VERSION_PATH_SEPARATOR, 1)[0]
+  version_group = group if group is not None else watch_group
   if port is not None:
     process_name += '-{}'.format(port)
 
