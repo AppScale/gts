@@ -869,7 +869,7 @@ class Djinn
     }
 
     # The master node can now enforce some sanity checks on the options.
-    if my_node.is_shadow?
+    if my_node.is_shadow? and is_cloud?
       @state_change_lock.synchronize {
         # Max and min needs to be at least the number of started nodes, it
         # needs to be positive. Max needs to be no smaller than min.
