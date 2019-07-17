@@ -103,20 +103,20 @@ def pids_in_slice(slice_name):
   return pids
 
 
-def cpu_multiple_count_supplier(cpu_multipler, cpu_multiple_fallback=1):
+def cpu_multiple_count_supplier(cpu_multiplier, cpu_multiple_fallback=1):
   """
   A function returning a multiple of the cpu count.
 
   Use with functools.partial for Services count_supplier
 
   Args:
-    cpu_multipler: A float multipler for the count calculation
+    cpu_multiplier: A float multiplier for the count calculation
     cpu_multiple_fallback: Result to return when cpu count not available
   """
   cpu_count = psutil.cpu_count()
   if cpu_count is None:
     return cpu_multiple_fallback
-  return int(cpu_count * cpu_multipler)
+  return int(cpu_count * cpu_multiplier)
 
 
 class Service(object):
