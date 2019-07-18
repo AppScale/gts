@@ -182,7 +182,7 @@ def port_from_datastore_start_cmd(args):
 
 
 def datastore_start_cmd(port, assignment_options):
-  """ Prepares command line arguments for starts a new datastore server.
+  """ Prepares command line arguments for starting a new datastore server.
 
   Args:
     port: An int - tcp port to start datastore server on.
@@ -255,7 +255,7 @@ class SearchServiceFunctions(object):
 
   @staticmethod
   def search_start_cmd(port, assignment_options):
-    """ Prepares command line arguments for starts a new search server.
+    """ Prepares command line arguments for starting a new search server.
 
     Args:
       port: An int - tcp port to start search server on.
