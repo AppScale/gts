@@ -8,6 +8,7 @@ from appscale.common.constants import (
   DASHBOARD_APP_ID,
   PYTHON27,
   JAVA,
+  JAVA8,
   GO,
   PHP
 )
@@ -106,7 +107,7 @@ DEFAULT_SERVICE = 'default'
 MAX_OPERATION_TIME = 120
 
 # Supported runtimes.
-VALID_RUNTIMES = {PYTHON27, JAVA, GO, PHP}
+VALID_RUNTIMES = {PYTHON27, JAVA, JAVA8, GO, PHP}
 
 # The seconds to wait for redeploys.
 REDEPLOY_WAIT = 20
