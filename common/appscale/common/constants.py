@@ -154,9 +154,6 @@ SCHEMA_CHANGE_TIMEOUT = 120
 # Location of where the search service is running.
 SEARCH_FILE_LOC = "/etc/appscale/search_ip"
 
-# Service scripts directory.
-SERVICES_DIR = '/etc/init.d'
-
 # The AppController's service name.
 CONTROLLER_SERVICE = 'appscale-controller'
 
