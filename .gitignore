@@ -7,5 +7,6 @@
 /AppServer_Java/appengine-java-sdk-repacked
 /AppTaskQueue/build
 /AppTaskQueue/dist
+/AppTaskQueue/appscale/taskqueue/protocols/*_pb2.py
 /AppDB/build
 /AppDB/dist

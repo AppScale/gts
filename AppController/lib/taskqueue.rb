@@ -43,10 +43,14 @@ module TaskQueue
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = '/var/lib/rabbitmq/.erlang.cookie'.freeze
 
+  # The location of taskqueue venv pip
+  TASKQUEUE_PIP = '/opt/appscale_venvs/appscale_taskqueue/bin/pip'.chomp
+
   # The location of the taskqueue server script. This service controls
   # and creates celery workers, and receives taskqueue protocol buffers
   # from AppServers.
-  TASKQUEUE_SERVER_SCRIPT = `which appscale-taskqueue`.chomp
+  TASKQUEUE_SERVER_SCRIPT = '/opt/appscale_venvs/appscale_taskqueue' \
+                            '/bin/appscale-taskqueue'.chomp
 
   # Where to find the rabbitmqctl command.
   RABBITMQCTL = `which rabbitmqctl`.chomp

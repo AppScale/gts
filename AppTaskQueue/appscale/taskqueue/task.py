@@ -7,11 +7,13 @@ import sys
 
 import queue
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from .protocols import taskqueue_service_pb2
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.taskqueue import taskqueue_service_pb
-from google.appengine.api.taskqueue.taskqueue import MAX_TAG_LENGTH
-from google.appengine.api.taskqueue.taskqueue import MAX_TASK_NAME_LENGTH
+
+MAX_TAG_LENGTH = 500
+
+MAX_TASK_NAME_LENGTH = 500
 
 # A regex rule for validating task names.
 TASK_NAME_PATTERN = r'^[a-zA-Z0-9_-]{1,%s}$' % MAX_TASK_NAME_LENGTH
@@ -204,17 +206,17 @@ class Task(object):
     """ Encode this task as a protocol buffer response.
 
     Returns:
-      A TaskQueueQueryAndOwnTasksResponse_Task object.
+      A TaskQueueQueryAndOwnTasksResponse.Task object.
     """
-    task_pb = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse_Task()
-    task_pb.set_task_name(self.id)
+    task_pb = \
+      taskqueue_service_pb2.TaskQueueQueryAndOwnTasksResponse().task.add()
+    task_pb.task_name = self.id.encode('utf-8')
     epoch = datetime.datetime.utcfromtimestamp(0)
-    task_pb.set_eta_usec(
-      int((self.get_eta() - epoch).total_seconds() * 1000000))
-    task_pb.set_retry_count(self.retry_count)
-    task_pb.set_body(base64.urlsafe_b64decode(self.payloadBase64))
+    task_pb.eta_usec = int((self.get_eta() - epoch).total_seconds() * 1000000)
+    task_pb.retry_count = self.retry_count
+    task_pb.body = base64.urlsafe_b64decode(self.payloadBase64)
     try:
-      task_pb.set_tag(self.tag)
+      task_pb.tag = self.tag.encode('utf-8')
     except AttributeError:
       pass
     return task_pb
