@@ -3553,15 +3553,7 @@ class Djinn
     # machine.
     db_nodes.each { |node|
       assignments = {}
-      begin
-        cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
-        server_count = cpu_count * DatastoreServer::MULTIPLIER
-      rescue FailedNodeException
-        server_count = DatastoreServer::DEFAULT_NUM_SERVERS
-      end
-
-      assignments['datastore'] = {'count' => server_count,
-                                  'verbose' => verbose}
+      assignments['datastore'] = {'verbose' => verbose}
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
       Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }

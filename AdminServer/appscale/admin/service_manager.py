@@ -1,6 +1,7 @@
 """ Schedules servers to fulfill service assignments. """
 import collections
 import errno
+import functools
 import json
 import logging
 import os
@@ -102,6 +103,22 @@ def pids_in_slice(slice_name):
   return pids
 
 
+def cpu_multiple_count_supplier(cpu_multiplier, cpu_multiple_fallback=1):
+  """
+  A function returning a multiple of the cpu count.
+
+  Use with functools.partial for Services count_supplier
+
+  Args:
+    cpu_multiplier: A float multiplier for the count calculation
+    cpu_multiple_fallback: Result to return when cpu count not available
+  """
+  cpu_count = psutil.cpu_count()
+  if cpu_count is None:
+    return cpu_multiple_fallback
+  return int(cpu_count * cpu_multiplier)
+
+
 class Service(object):
   """
   A container for service specific properties
@@ -111,7 +128,8 @@ class Service(object):
                health_probe, min_port, max_port,
                start_timeout=30, status_timeout=10, stop_timeout=5,
                monit_name_fmt='{type}_server-{port}',
-               log_filename_fmt='{type}_server-{port}.log'):
+               log_filename_fmt='{type}_server-{port}.log',
+               count_supplier=None):
     """ Initializes instance of Service.
 
     Args:
@@ -127,6 +145,7 @@ class Service(object):
       stop_timeout: An int - max time to wait for server to stop (in seconds).
       monit_name_fmt: A format str containing 'type' and 'port' keywords.
       log_filename_fmt: A format str containing 'type' and 'port' keywords.
+      count_supplier: A func supplying the default service count.
     """
     self.type = type_
     self.slice = slice_
@@ -140,6 +159,7 @@ class Service(object):
     self.stop_timeout = stop_timeout
     self._monit_name_fmt = monit_name_fmt
     self._log_filename_fmt = log_filename_fmt
+    self.count_supplier = count_supplier
 
   def monit_name(self, port):
     """ Renders a monit name to use in Hermes stats.
@@ -160,6 +180,17 @@ class Service(object):
       A string representing filename (not a full path, just name).
     """
     return self._log_filename_fmt.format(type=self.type, port=port)
+
+  def default_count(self):
+    """ Calculate the default service count for this host.
+
+    Returns:
+      An int value for the default service count.
+    """
+    if self.count_supplier:
+      return max(1, int(self.count_supplier()))
+    else:
+      return 1
 
 
 # =============================
@@ -224,7 +255,9 @@ datastore_service = Service(
   min_port=4000, max_port=5999,
   start_timeout=30, status_timeout=10, stop_timeout=5,
   monit_name_fmt='datastore_server-{port}',
-  log_filename_fmt='datastore_server-{port}.log'
+  log_filename_fmt='datastore_server-{port}.log',
+  count_supplier=functools.partial(cpu_multiple_count_supplier, 1,
+                                   cpu_multiple_fallback=3)
 )
 
 
@@ -537,10 +570,12 @@ class ServiceManager(object):
       assignment_options: A dictionary specifying options
                           to use when starting servers.
     """
+    service = self.SERVICE_MAP[service_type]
     scheduled = [server for server in self.state
                  if server.type == service_type and
                  server.state in self.SCHEDULED_STATES]
-    to_start = assignment_options['count'] - len(scheduled)
+    default_count = service.default_count()
+    to_start = assignment_options.get('count', default_count) - len(scheduled)
     if to_start < 0:
       stopped = 0
       for server in reversed(scheduled):
@@ -554,7 +589,6 @@ class ServiceManager(object):
       return
 
     for _ in range(to_start):
-      service = self.SERVICE_MAP[service_type]
       port = self._get_open_port(service)
       server = ServerManager(service, port, assignment_options)
       self.state.append(server)
