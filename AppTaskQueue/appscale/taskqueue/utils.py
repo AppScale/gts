@@ -100,7 +100,7 @@ def create_celery_for_app(app, rates):
 
   kombu_queues = []
   annotations = []
-  for queue_name, rate in rates.iteritems():
+  for queue_name, rate in rates.items():
     celery_name = get_celery_queue_name(app, queue_name)
     kombu_queue = KombuQueue(celery_name, Exchange(app),
                              routing_key=celery_name)

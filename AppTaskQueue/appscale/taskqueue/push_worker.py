@@ -12,7 +12,7 @@ from eventlet.green import httplib
 from eventlet.green.httplib import BadStatusLine
 from eventlet.timeout import Timeout as EventletTimeout
 from socket import error as SocketError
-from urlparse import urlparse
+from urllib.parse import urlparse
 from .datastore_client import DatastoreClient, DatastoreTransientError
 from .tq_lib import TASK_STATES
 from .utils import (
@@ -37,6 +37,10 @@ celery = create_celery_for_app(app_id, rates)
 
 logger = get_task_logger(__name__)
 logger.setLevel(logging.INFO)
+
+
+def clean_task_name(task_name):
+  return task_name.decode('utf-8').replace("b'", "").replace("'", "")
 
 
 def get_wait_time(retries, args):
@@ -110,6 +114,9 @@ def execute_task(task, headers, args):
     The current function to retry.
   """
   start_time = datetime.datetime.utcnow()
+
+  args['task_name'] = clean_task_name(args['task_name'])
+  headers['X-AppEngine-TaskName'] = clean_task_name(headers['X-AppEngine-TaskName'])
 
   content_length = len(args['body'])
 
@@ -207,6 +214,9 @@ def execute_task(task, headers, args):
         logger.warning(
           '{task} failed before receiving response. It will retry in {wait} '
           'seconds.'.format(task=args['task_name'], wait=wait_time))
+        args['task_name'] = args['task_name'].encode('utf-8')
+        headers['X-AppEngine-TaskName'] = \
+          headers['X-AppEngine-TaskName'].encode('utf-8')
         raise task.retry(countdown=wait_time)
 
       if 200 <= response.status < 300:
@@ -226,6 +236,9 @@ def execute_task(task, headers, args):
             args['task_name'], redirect_url))
         url = urlparse(redirect_url)
         if redirects_left == 0:
+          args['task_name'] = args['task_name'].encode('utf-8')
+          headers['X-AppEngine-TaskName'] = \
+            headers['X-AppEngine-TaskName'].encode('utf-8')
           raise task.retry(countdown=wait_time)
         redirects_left -= 1
       else:
@@ -234,12 +247,18 @@ def execute_task(task, headers, args):
                                                      task=args['task_name'],
                                                      wait=wait_time))
         logger.warning(message)
+        args['task_name'] = args['task_name'].encode('utf-8')
+        headers['X-AppEngine-TaskName'] = \
+          headers['X-AppEngine-TaskName'].encode('utf-8')
         raise task.retry(countdown=wait_time)
   except EventletTimeout as thrown_timeout:
     if thrown_timeout != timeout:
       raise
 
     logger.exception('Task {} timed out. Retrying.'.format(args['task_name']))
+    args['task_name'] = args['task_name'].encode('utf-8')
+    headers['X-AppEngine-TaskName'] = \
+      headers['X-AppEngine-TaskName'].encode('utf-8')
     # This could probably be calculated, but for now, just retry immediately.
     raise task.retry(countdown=0)
   finally:

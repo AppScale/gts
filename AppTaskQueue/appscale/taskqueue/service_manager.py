@@ -35,7 +35,7 @@ class VersionPortManager(dict):
     for version_id in new_versions_list:
       if version_id not in self:
         version_info = json.loads(self.zk_client.get("{0}/{1}".format(
-          self.versions_node, version_id))[0])
+          self.versions_node, version_id))[0].decode('utf-8'))
         self[version_id] = version_info['appscaleExtensions']['haproxyPort']
 
   def _update_versions_watch(self, new_versions):

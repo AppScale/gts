@@ -91,7 +91,7 @@ class DistributedTaskQueue():
     """
     setup_env()
 
-    self.load_balancers = appscale_info.get_load_balancer_ips()
+    self.load_balancers = list(appscale_info.get_load_balancer_ips())
     self.queue_manager = GlobalQueueManager(zk_client)
     self.service_manager = GlobalServiceManager(zk_client)
     self.datastore_client = DatastoreClient()
@@ -150,9 +150,9 @@ class DistributedTaskQueue():
 
     for queue_name in request.queue_name:
       try:
-        queue = self.get_queue(app_id, queue_name)
+        queue = self.get_queue(app_id, queue_name.decode('utf-8'))
       except QueueNotFound as error:
-        return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+        return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
       stats_response = response.queuestats.add()
 
@@ -190,9 +190,9 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb2.TaskQueuePurgeQueueResponse()
 
     try:
-      queue = self.get_queue(app_id, request.queue_name)
+      queue = self.get_queue(app_id, request.queue_name.decode('utf-8'))
     except QueueNotFound as error:
-      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+      return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
     queue.purge()
     return (response.SerializeToString(), 0, "")
@@ -211,12 +211,12 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb2.TaskQueueDeleteResponse()
 
     try:
-      queue = self.get_queue(app_id, request.queue_name)
+      queue = self.get_queue(app_id, request.queue_name.decode('utf-8'))
     except QueueNotFound as error:
-      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+      return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
     for task_name in request.task_name:
-      queue.delete_task(Task({'id': task_name}))
+      queue.delete_task(Task({'id': task_name.decode('utf-8')}))
 
       response.result.append(TaskQueueServiceError.OK)
 
@@ -236,14 +236,13 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksResponse()
 
     try:
-      queue = self.get_queue(app_id, request.queue_name)
+      queue = self.get_queue(app_id, request.queue_name.decode('utf-8'))
     except QueueNotFound as error:
-      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+      return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
     tag = None
     if request.HasField("tag"):
-      tag = request.tag
-
+      tag = request.tag.decode('utf-8')
     try:
       tasks = queue.lease_tasks(request.max_tasks, request.lease_seconds,
                                 group_by_tag=request.group_by_tag, tag=tag)
@@ -270,7 +269,7 @@ class DistributedTaskQueue():
     # Just call bulk add with one task.
     request = taskqueue_service_pb2.TaskQueueAddRequest()
     request.ParseFromString(http_data)
-    request.app_id = source_info['app_id']
+    request.app_id = source_info['app_id'].encode('utf-8')
     response = taskqueue_service_pb2.TaskQueueAddResponse()
     bulk_request = taskqueue_service_pb2.TaskQueueBulkAddRequest()
     bulk_response = taskqueue_service_pb2.TaskQueueBulkAddResponse()
@@ -279,13 +278,13 @@ class DistributedTaskQueue():
     try:
       self.__bulk_add(source_info, bulk_request, bulk_response)
     except TransientError as error:
-      return '', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
+      return b'', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
     except QueueNotFound as error:
-      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+      return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
     except DatastorePermanentError as error:
-      return '', TaskQueueServiceError.INTERNAL_ERROR, str(error)
+      return b'', TaskQueueServiceError.INTERNAL_ERROR, str(error)
     except BadFilterConfiguration as error:
-      return '', TaskQueueServiceError.INTERNAL_ERROR, str(error)
+      return b'', TaskQueueServiceError.INTERNAL_ERROR, str(error)
 
     if len(bulk_response.taskresult) == 1:
       result = bulk_response.taskresult[0].result
@@ -317,13 +316,13 @@ class DistributedTaskQueue():
     try:
       self.__bulk_add(source_info, request, response)
     except QueueNotFound as error:
-      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+      return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
     except TransientError as error:
-      return '', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
+      return b'', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
     except DatastorePermanentError as error:
-      return '', TaskQueueServiceError.INTERNAL_ERROR, str(error)
+      return b'', TaskQueueServiceError.INTERNAL_ERROR, str(error)
     except BadFilterConfiguration as error:
-      return '', TaskQueueServiceError.INTERNAL_ERROR, str(error)
+      return b'', TaskQueueServiceError.INTERNAL_ERROR, str(error)
 
     return (response.SerializeToString(), 0, "")
 
@@ -351,24 +350,25 @@ class DistributedTaskQueue():
 
       if (add_request.HasField("mode") and
           add_request.mode == taskqueue_service_pb2.TaskQueueMode.PULL):
-        queue = self.get_queue(add_request.app_id, add_request.queue_name)
+        queue = self.get_queue(add_request.app_id.decode('utf-8'),
+                               add_request.queue_name.decode('utf-8'))
         if not isinstance(queue, (PullQueue, PostgresPullQueue)):
           task_result.result = TaskQueueServiceError.INVALID_QUEUE_MODE
           error_found = True
           continue
 
         encoded_payload = base64.urlsafe_b64encode(add_request.body)
-        task_info = {'payloadBase64': encoded_payload,
+        task_info = {'payloadBase64': encoded_payload.decode('utf-8'),
                      'leaseTimestamp': add_request.eta_usec}
         if add_request.HasField("task_name"):
-          task_info['id'] = add_request.task_name
+          task_info['id'] = add_request.task_name.decode('utf-8')
         if add_request.HasField("tag"):
-          task_info['tag'] = add_request.tag
+          task_info['tag'] = add_request.tag.decode('utf-8')
 
         new_task = Task(task_info)
         queue.add_task(new_task)
         task_result.result = TaskQueueServiceError.OK
-        task_result.chosen_task_name = new_task.id
+        task_result.chosen_task_name = new_task.id.encode('utf-8')
         continue
 
       result = verify_task_queue_add_request(add_request.app_id,
@@ -384,7 +384,7 @@ class DistributedTaskQueue():
         namespaced_name = choose_task_name(add_request.app_id,
                                                   add_request.queue_name,
                                                   user_chosen=task_name)
-        add_request.task_name = namespaced_name
+        add_request.task_name = namespaced_name.encode('utf-8')
 
         # Wait until the result is known before setting the chosen task name on
         # the response.
@@ -411,7 +411,8 @@ class DistributedTaskQueue():
       else:
         task_result.result = TaskQueueServiceError.OK
         if namespaced_names[index] is not None:
-          task_result.chosen_task_name = namespaced_names[index]
+          task_result.chosen_task_name = \
+            namespaced_names[index].encode('utf-8')
 
   def __method_mapping(self, method):
     """ Maps an int index to a string.
@@ -489,7 +490,8 @@ class DistributedTaskQueue():
     Raises:
       An ApplicationError of TASK_ALREADY_EXISTS.
     """
-    task_name = request.task_name
+    task_name = request.task_name.decode('utf-8')
+    task_name = task_name.replace("b'", "").replace("'", "")
 
     try:
       item = self.__get_task_name(request.app_id, task_name)
@@ -534,9 +536,11 @@ class DistributedTaskQueue():
     countdown = int(headers['X-AppEngine-TaskETA']) - \
                 int(datetime.datetime.now().strftime("%s"))
 
-    push_queue = self.get_queue(request.app_id, request.queue_name)
+    push_queue = self.get_queue(request.app_id.decode('utf-8'),
+                                request.queue_name.decode('utf-8'))
     task_func = get_queue_function_name(push_queue.name)
-    celery_queue = get_celery_queue_name(request.app_id, push_queue.name)
+    celery_queue = get_celery_queue_name(
+      request.app_id.decode('utf-8'), push_queue.name)
 
     push_queue.celery.send_task(
       task_func,
@@ -576,11 +580,11 @@ class DistributedTaskQueue():
     args['max_doublings'] = self.DEFAULT_MAX_DOUBLINGS
 
     # Load queue info into cache.
-    app_id = self.__cleanse(request.app_id)
+    app_id = self.__cleanse(request.app_id.decode('utf-8'))
     queue_name = request.queue_name
 
     # Use queue defaults.
-    queue = self.get_queue(app_id, queue_name)
+    queue = self.get_queue(app_id, queue_name.decode('utf-8'))
     if queue is not None:
       if not isinstance(queue, PushQueue):
         raise Exception('Only push queues are implemented')
@@ -623,7 +627,8 @@ class DistributedTaskQueue():
       target_url = self.get_target_url(app_id, source_info, host)
 
 
-    args['url'] = "{target}{url}".format(target=target_url, url=request.url)
+    args['url'] = "{target}{url}".format(target=target_url,
+                                         url=request.url.decode('utf-8'))
     return args
 
   def get_target_url(self, app_id, source_info, target):
@@ -688,8 +693,8 @@ class DistributedTaskQueue():
 
     # This header is how we authenticate that it's an internal request
     secret = appscale_info.get_secret()
-    secret_hash = hashlib.sha1(request.app_id + '/' + \
-                      secret).hexdigest()
+    secret_hash = hashlib.sha1(request.app_id + '/'.encode('utf-8') + \
+                      secret.encode('utf-8')).hexdigest()
     headers['X-AppEngine-Fake-Is-Admin'] = secret_hash
     headers['X-AppEngine-QueueName'] = request.queue_name
     headers['X-AppEngine-TaskName'] = request.task_name
@@ -766,20 +771,20 @@ class DistributedTaskQueue():
     request.ParseFromString(http_data)
 
     try:
-      queue = self.get_queue(app_id, request.queue_name)
+      queue = self.get_queue(app_id, request.queue_name.decode('utf-8'))
     except QueueNotFound as error:
-      return '', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
+      return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
 
-    task_info = {'id': request.task_name,
+    task_info = {'id': request.task_name.decode('utf-8'),
                  'leaseTimestamp': request.eta_usec}
     try:
       # The Python AppServer sets eta_usec with a resolution of 1 second,
       # so update_lease can't be used. It checks with millisecond precision.
       task = queue.update_task(Task(task_info), request.lease_seconds)
     except InvalidLeaseRequest as lease_error:
-      return '', TaskQueueServiceError.TASK_LEASE_EXPIRED, str(lease_error)
+      return b'', TaskQueueServiceError.TASK_LEASE_EXPIRED, str(lease_error)
     except TaskNotFound as error:
-      return '', TaskQueueServiceError.TASK_LEASE_EXPIRED, str(error)
+      return b'', TaskQueueServiceError.TASK_LEASE_EXPIRED, str(error)
 
     epoch = datetime.datetime.utcfromtimestamp(0)
     updated_usec = int((task.leaseTimestamp - epoch).total_seconds() * 1000000)

@@ -38,7 +38,7 @@ class ProjectQueueManager(dict):
       # TODO: PostgresConnectionWrapper may need an update when
       #       TaskQueue becomes concurrent
       self.pg_connection_wrapper = (
-        pg_connection_wrapper.PostgresConnectionWrapper(dsn=pg_dsn[0])
+        pg_connection_wrapper.PostgresConnectionWrapper(dsn=pg_dsn[0].decode('utf-8'))
       )
       self._configure_periodical_flush()
     except NoNodeError:
@@ -62,7 +62,7 @@ class ProjectQueueManager(dict):
     if not queue_config:
       new_queue_config = {'default': {'rate': '5/s'}}
     else:
-      new_queue_config = json.loads(queue_config)['queue']
+      new_queue_config = json.loads(queue_config.decode('utf-8'))['queue']
 
     # Clean up obsolete queues.
     to_stop = [queue for queue in self if queue not in new_queue_config]

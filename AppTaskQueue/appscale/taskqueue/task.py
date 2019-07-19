@@ -112,7 +112,7 @@ class Task(object):
     Raises:
       InvalidTaskInfo if one of the attribute fails validation.
     """
-    for attribute, rule in QUEUE_ATTRIBUTE_RULES.iteritems():
+    for attribute, rule in QUEUE_ATTRIBUTE_RULES.items():
       try:
         value = getattr(self, attribute)
       except AttributeError:
@@ -197,8 +197,10 @@ class Task(object):
         # All numbers are represented as strings in the GCP ecosystem for
         # Javascript compatibility reasons. We convert to string so that
         # the response can be successfully parsed by Google API clients.
-        value = str(long((value - epoch).total_seconds() * 1000000))
+        value = str(int((value - epoch).total_seconds() * 1000000))
       task[attribute] = value
+      if attribute == 'payloadBase64':
+        task[attribute] = task[attribute].decode('utf-8')
 
     return task
 

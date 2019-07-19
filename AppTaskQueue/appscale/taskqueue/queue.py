@@ -820,7 +820,8 @@ class PostgresPullQueue(Queue):
     # TODO: remove it when task.payloadBase64 is replaced with task.payload
     if 'payload' in columns:
       payload = task_info.pop('payload')
-      task_info['payloadBase64'] = base64.urlsafe_b64encode(payload)
+      task_info['payloadBase64'] = \
+        base64.urlsafe_b64encode(payload).decode('utf-8')
 
     return Task(task_info)
 
@@ -1388,6 +1389,7 @@ class PullQueue(Queue):
       IF NOT EXISTS
     """, retry_policy=NO_RETRIES)
     try:
+      parameters['payload'] = parameters['payload'].decode('utf-8')
       result = self.session.execute(insert_statement, parameters)
     except TRANSIENT_CASSANDRA_ERRORS as error:
       retries_left = retries - 1
@@ -1406,8 +1408,9 @@ class PullQueue(Queue):
       raise TransientError('Unable to insert task')
 
     if not success:
-      raise InvalidTaskInfo(
-        'Task name already taken: {}'.format(parameters['id']))
+      error = InvalidTaskInfo()
+      error.message = 'Task name already taken: {}'.format(parameters['id'])
+      raise error
 
   def _update_lease(self, parameters, retries, check_lease=True):
     """ Update lease expiration on a task entry.
