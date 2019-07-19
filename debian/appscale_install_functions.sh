@@ -256,6 +256,16 @@ installappserverjava()
         # Delete unnecessary files.
         rm -rf ${JAVA_SDK_DIR}/src ${JAVA_SDK_DIR}/lib
     fi
+
+    # Install Java 8 runtime.
+    JAVA8_RUNTIME_PACKAGE="appscale-java8-runtime-1.9.75-1.zip"
+    JAVA8_RUNTIME_MD5="aac2c857ac61d5506dc75e18367aa779"
+    cachepackage ${JAVA8_RUNTIME_PACKAGE} ${JAVA8_RUNTIME_MD5}
+
+    rm -rf /opt/appscale_java8_runtime
+
+    echo "Extracting Java 8 runtime"
+    unzip -q "${PACKAGE_CACHE}/${JAVA8_RUNTIME_PACKAGE}" -d /opt
 }
 
 installtornado()
@@ -637,10 +647,26 @@ installinfrastructuremanager()
 
 installtaskqueue()
 {
-    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
-    # Fill in new dependencies.
-    # See pip.pypa.io/en/stable/user_guide/#only-if-needed-recursive-upgrade.
-    pip install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+    rm -rf /opt/appscale_venvs/appscale_taskqueue/
+    python -m virtualenv /opt/appscale_venvs/appscale_taskqueue/
+
+    TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
+
+    "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh"
+
+    TQ_DIR="${APPSCALE_HOME}/AppTaskQueue/"
+    COMMON_DIR="${APPSCALE_HOME}/common"
+
+    echo "Upgrading appscale-common.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${COMMON_DIR}"
+    echo "Installing appscale-common dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${COMMON_DIR}"
+    echo "Upgrading appscale-taskqueue.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${TQ_DIR}[celery_gui]"
+    echo "Installing appscale-taskqueue dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${TQ_DIR}[celery_gui]"
+
+    echo "appscale-taskqueue has been successfully installed."
 }
 
 installdatastore()

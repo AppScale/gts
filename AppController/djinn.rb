@@ -3624,15 +3624,7 @@ class Djinn
     # machine.
     db_nodes.each { |node|
       assignments = {}
-      begin
-        cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
-        server_count = cpu_count * DatastoreServer::MULTIPLIER
-      rescue FailedNodeException
-        server_count = DatastoreServer::DEFAULT_NUM_SERVERS
-      end
-
-      assignments['datastore'] = {'count' => server_count,
-                                  'verbose' => verbose}
+      assignments['datastore'] = {'verbose' => verbose}
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
       Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
@@ -3739,26 +3731,37 @@ class Djinn
     Djinn.log_info("Finished building target '#{target}' using #{pip}.")
   end
 
-  def build_java_appserver
-    Djinn.log_info('Building uncommitted Java AppServer changes')
-
-    # Cache package if it doesn't exist.
-    java_sdk_archive = 'appengine-java-sdk-1.8.4.zip'
-    local_archive = "#{APPSCALE_CACHE_DIR}/#{java_sdk_archive}"
+  def cache_package(package_file)
+    local_archive = "#{APPSCALE_CACHE_DIR}/#{package_file}"
     unless File.file?(local_archive)
       Net::HTTP.start(PACKAGE_MIRROR_DOMAIN) do |http|
-        resp = http.get("#{PACKAGE_MIRROR_PATH}/#{java_sdk_archive}")
+        resp = http.get("#{PACKAGE_MIRROR_PATH}/#{package_file}")
         open(local_archive, 'wb') do |file|
           file.write(resp.body)
         end
       end
     end
+    return local_archive
+  end
+
+  def build_java_appserver
+    Djinn.log_info('Building uncommitted Java AppServer changes')
+
+    new_jsp_jar = 'repackaged-appengine-eclipse-jdt-ecj.jar'
+    old_jsp_jar = 'repackaged-appengine-jasper-jdt-6.0.29.jar'
+
+    # Ensure packages cached
+    local_sdk_path = cache_package('appengine-java-sdk-1.8.4.zip')
+    new_jsp_jar_path = cache_package(new_jsp_jar)
 
     java_server = "#{APPSCALE_HOME}/AppServer_Java"
-    unzip = "unzip -o #{local_archive} -d #{java_server} > /dev/null 2>&1"
+    jsp_lib_path = "#{java_server}/appengine-java-sdk-1.8.4/lib/tools/jsp"
+    unzip = "unzip -o #{local_sdk_path} -d #{java_server} > /dev/null 2>&1"
+    update = "rm #{jsp_lib_path}/#{old_jsp_jar}; " \
+             "cp #{new_jsp_jar_path} #{jsp_lib_path}/ > /dev/null 2>&1"
     install = "ant -f #{java_server}/build.xml install > /dev/null 2>&1"
     clean = "ant -f #{java_server}/build.xml clean-build > /dev/null 2>&1"
-    if system(unzip) && system(install) && system(clean)
+    if system(unzip) && system(update) && system(install) && system(clean)
       Djinn.log_info('Finished building Java AppServer')
     else
       Djinn.log_error('Unable to build Java AppServer')
@@ -3775,6 +3778,19 @@ class Djinn
       return
     end
     update_python_package(src, '/opt/appscale_venvs/api_server/bin/pip')
+  end
+
+  def build_taskqueue
+    Djinn.log_info('Compiling AppTaskQueue proto files')
+    src = File.join(APPSCALE_HOME, 'AppTaskQueue', 'appscale', 'taskqueue',
+                    'protocols')
+    unless system("./#{src}/compile_protocols.sh")
+      Djinn.log_error('Unable to compile AppTaskQueue proto files')
+      return
+    end
+    extras = TaskQueue::OPTIONAL_FEATURES.join(',')
+    update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]",
+                          TaskQueue::TASKQUEUE_PIP)
   end
 
   def build_search_service2
@@ -3803,6 +3819,8 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
       update_python_package("#{APPSCALE_HOME}/common",
+                            TaskQueue::TASKQUEUE_PIP)
+      update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/search2/bin/pip')
     end
     if status.include?('AppControllerClient')
@@ -3812,8 +3830,7 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/AdminServer")
     end
     if status.include?('AppTaskQueue')
-      extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-      update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]")
+      build_taskqueue
     end
     if status.include?('AppDB')
       update_python_package("#{APPSCALE_HOME}/AppDB")
