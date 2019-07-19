@@ -102,6 +102,8 @@ if [ ! -z ${TQ_SOURCE_DIR} ]; then
 
     TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
     "${TASKQUEUE_PIP}" install wheel
+    "${TASKQUEUE_PIP}" install --upgrade pip
+    "${TASKQUEUE_PIP}" install --upgrade setuptools
 
     "${TQ_SOURCE_DIR}/appscale/taskqueue/protocols/compile_protocols.sh"
     COMMON_SOURCE_DIR="$( dirname "${TQ_SOURCE_DIR}" )"/common

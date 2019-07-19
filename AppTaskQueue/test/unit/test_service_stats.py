@@ -1,16 +1,12 @@
-import sys
-
+from importlib import reload
 import json
+from unittest import mock
+from unittest.mock import patch
 
 from appscale.common.service_stats import stats_manager
-from mock import mock, patch
 from tornado.testing import AsyncHTTPTestCase
 
-from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-
 from appscale.taskqueue import appscale_taskqueue, rest_api, statistics
-
-sys.path.append(APPSCALE_PYTHON_APPSERVER)
 
 
 class TestServiceStatistics(AsyncHTTPTestCase):
@@ -130,7 +126,7 @@ class TestServiceStatistics(AsyncHTTPTestCase):
 
     # Fetch statistics
     raw_stats = self.fetch('/service-stats').body
-    stats = json.loads(raw_stats)
+    stats = json.loads(raw_stats.decode('utf-8'))
 
     # Pop and check time-related fields
     self.assertGreater(stats['cumulative_counters'].pop('from'), 0)
@@ -192,7 +188,7 @@ class TestServiceStatistics(AsyncHTTPTestCase):
     self.time_mock.return_value = 99999  # current time doesn't matter
                                          # for scrolling
     raw_stats = self.fetch('/service-stats?cursor=1500000').body
-    stats = json.loads(raw_stats)
+    stats = json.loads(raw_stats.decode('utf-8'))
 
     self.assertEqual(stats['cumulative_counters']['all'], 3)
     self.assertEqual(stats['recent_stats']['all'], 2)
@@ -211,7 +207,7 @@ class TestServiceStatistics(AsyncHTTPTestCase):
     # Fetch statistics as if it was in the future
     self.time_mock.return_value = 99999  # current time does matter for recent
     raw_stats = self.fetch('/service-stats?last_milliseconds=2000000').body
-    stats = json.loads(raw_stats)
+    stats = json.loads(raw_stats.decode('utf-8'))
 
     self.assertEqual(stats['cumulative_counters']['all'], 3)
     self.assertEqual(stats['recent_stats']['all'], 0)  # 0 for last 2 seconds
@@ -219,7 +215,7 @@ class TestServiceStatistics(AsyncHTTPTestCase):
     # Fetch statistics as if it was just after requests
     self.time_mock.return_value = 3500  # current time does matter for recent
     raw_stats = self.fetch('/service-stats?last_milliseconds=2000000').body
-    stats = json.loads(raw_stats)
+    stats = json.loads(raw_stats.decode('utf-8'))
 
     self.assertEqual(stats['cumulative_counters']['all'], 3)
     self.assertEqual(stats['recent_stats']['all'], 2)   # 2 for last 2 seconds

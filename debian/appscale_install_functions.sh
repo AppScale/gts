@@ -642,6 +642,8 @@ installtaskqueue()
 
     TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
     "${TASKQUEUE_PIP}" install wheel
+    "${TASKQUEUE_PIP}" install --upgrade pip
+    "${TASKQUEUE_PIP}" install --upgrade setuptools
 
     "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh"
 
