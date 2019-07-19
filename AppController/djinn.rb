@@ -131,6 +131,10 @@ MIN_LOAD_THRESHOLD = 0.7
 # The exit code that indicates the data layout version is unexpected.
 INVALID_VERSION_EXIT_CODE = 64
 
+# The allowed list of code directories to specify for updating the code and building it.
+ALLOWED_DIR_UPDATES = ["common", "app_controller", "admin_server", "taskqueue", "app_db",
+                       "iaas_manager", "hermes", "api_server", "appserver_java"]
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -3712,6 +3716,10 @@ class Djinn
     end
 
     update_dir = @options['update']
+
+    if update_dir == "all"
+      update_dir = ALLOWED_DIR_UPDATES.join(',')
+    end
 
     # Update Python packages across corresponding virtual environments
     if update_dir.include?('common')
