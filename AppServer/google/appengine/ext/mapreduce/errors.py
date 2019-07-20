@@ -45,6 +45,7 @@ __all__ = [
     "RetrySliceError",
     "SHARD_RETRY_ERRORS",
     "ShuffleServiceError",
+    "InvalidRecordError",
     ]
 
 from google.appengine.api import files
@@ -110,3 +111,7 @@ class RetrySliceError(Error):
   The job will be failed if the slice can't progress before maximum
   number of retries.
   """
+
+
+class InvalidRecordError(Error):
+  """Raised when invalid record encountered."""

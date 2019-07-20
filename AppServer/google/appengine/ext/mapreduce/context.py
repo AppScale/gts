@@ -38,40 +38,35 @@ from handlers such as counters, log messages, mutation pools.
 """
 
 
-__all__ = [
-           "get",
+__all__ = ["get",
+           "Pool",
            "Context",
-           "Counters",
-           "EntityList",
-           "ItemList",
-           "MutationPool",
            "COUNTER_MAPPER_CALLS",
            "COUNTER_MAPPER_WALLTIME_MS",
            "DATASTORE_DEADLINE",
            "MAX_ENTITY_COUNT",
-           "MAX_POOL_SIZE",
-           ]
+          ]
 
+import heapq
+import logging
 import threading
-
-from google.appengine.api import datastore
-from google.appengine.ext import db
 
 try:
   from google.appengine.ext import ndb
 except ImportError:
   ndb = None
-# It is acceptable to set key_range.ndb to the ndb module,
-# imported through some other way (e.g. from the app dir).
+from google.appengine.api import datastore
+from google.appengine.ext import db
+from google.appengine.runtime import apiproxy_errors
 
 
 
 
 
-MAX_POOL_SIZE = 900 * 1000
 
 
-MAX_ENTITY_COUNT = 500
+
+MAX_ENTITY_COUNT = 20
 
 
 DATASTORE_DEADLINE = 15
@@ -84,6 +79,10 @@ COUNTER_MAPPER_CALLS = "mapper-calls"
 COUNTER_MAPPER_WALLTIME_MS = "mapper-walltime-ms"
 
 
+
+
+
+
 def _normalize_entity(value):
   """Return an entity from an entity or model instance."""
   if ndb is not None and isinstance(value, ndb.Model):
@@ -91,6 +90,7 @@ def _normalize_entity(value):
   if getattr(value, "_populate_internal_entity", None):
     return value._populate_internal_entity()
   return value
+
 
 def _normalize_key(value):
   """Return a key from an entity, model instance, key, or key string."""
@@ -103,8 +103,12 @@ def _normalize_key(value):
   else:
     return value
 
-class ItemList(object):
-  """Holds list of arbitrary items, and their total size.
+
+class _ItemList(object):
+  """A buffer that holds arbitrary items and auto flushes them when full.
+
+  Callers of this class provides the logic on how to flush.
+  This class takes care of the common logic of when to flush and when to retry.
 
   Properties:
     items: list of objects.
@@ -112,69 +116,150 @@ class ItemList(object):
     size: aggregate item size in bytes.
   """
 
-  def __init__(self):
-    """Constructor."""
-    self.items = []
-    self.length = 0
-    self.size = 0
+  DEFAULT_RETRIES = 3
+  _LARGEST_ITEMS_TO_LOG = 5
 
-  def append(self, item, item_size):
+  def __init__(self,
+               max_entity_count,
+               flush_function,
+               timeout_retries=DEFAULT_RETRIES,
+               repr_function=None):
+    """Constructor.
+
+    Args:
+      max_entity_count: maximum number of entities before flushing it to db.
+      flush_function: a function that can flush the items. The function is
+        called with a list of items as the first argument, a dict of options
+        as second argument. Currently options can contain {"deadline": int}.
+        see self.flush on how the function is called.
+      timeout_retries: how many times to retry upon timeouts.
+      repr_function: a function that turns an item into meaningful
+        representation. For debugging large items.
+    """
+    self.items = []
+    self.__max_entity_count = max_entity_count
+    self.__flush_function = flush_function
+    self.__repr_function = repr_function
+    self.__timeout_retries = timeout_retries
+
+  def __str__(self):
+    return "ItemList of with %s items" % len(self.items)
+
+  def append(self, item):
     """Add new item to the list.
+
+    If needed, append will first flush existing items and clear existing items.
 
     Args:
       item: an item to add to the list.
-      item_size: item size in bytes as int.
     """
+    if self.should_flush():
+      self.flush()
     self.items.append(item)
-    self.length += 1
-    self.size += item_size
+
+  def flush(self):
+    """Force a flush."""
+    if not self.items:
+      return
+
+    retry = 0
+    options = {"deadline": DATASTORE_DEADLINE}
+    while retry <= self.__timeout_retries:
+      try:
+        self.__flush_function(self.items, options)
+        self.clear()
+        break
+      except db.Timeout, e:
+        logging.warning(e)
+        logging.warning("Flushing '%s' timed out. Will retry for the %s time.",
+                        self, retry)
+        retry += 1
+        options["deadline"] *= 2
+      except apiproxy_errors.RequestTooLargeError:
+        self._log_largest_items()
+        raise
+    else:
+      raise
+
+  def _log_largest_items(self):
+    if not self.__repr_function:
+      logging.error("Got RequestTooLargeError but can't interpret items in "
+                    "_ItemList %s.", self)
+      return
+
+    sizes = [len(self.__repr_function(i)) for i in self.items]
+    largest = heapq.nlargest(self._LARGEST_ITEMS_TO_LOG,
+                             zip(sizes, self.items),
+                             lambda t: t[0])
+
+    self._largest = [(s, self.__repr_function(i)) for s, i in largest]
+    logging.error("Got RequestTooLargeError. Largest items: %r", self._largest)
 
   def clear(self):
     """Clear item list."""
     self.items = []
-    self.length = 0
-    self.size = 0
 
-  @property
-  def entities(self):
-    """Return items. For backwards compatability."""
-    return self.items
+  def should_flush(self):
+    """Whether to flush before append the next entity.
 
-
-
-EntityList = ItemList
+    Returns:
+      True to flush. False other.
+    """
+    return len(self.items) >= self.__max_entity_count
 
 
+class Pool(object):
+  """Mutation pool accumulates changes to perform them in patch.
 
-class MutationPool(object):
+  Any Pool subclass should not be public. Instead, Pool should define an
+  operation.Operation class and let user uses that. For example, in a map
+  function, user can do:
+
+  def map(foo):
+    yield OperationOnMyPool(any_argument)
+
+  Since Operation is a callable object, Mapreduce library will invoke
+  any Operation object that is yielded with context.Context instance.
+  The operation object can then access MyPool from Context.get_pool.
+  """
+
+  def flush(self):
+    """Flush all changes."""
+    raise NotImplementedError()
+
+
+class _MutationPool(Pool):
   """Mutation pool accumulates datastore changes to perform them in batch.
 
   Properties:
-    puts: ItemList of entities to put to datastore.
-    deletes: ItemList of keys to delete from datastore.
-    max_pool_size: maximum single list pool size. List changes will be flushed
-      when this size is reached.
+    puts: _ItemList of entities to put to datastore.
+    deletes: _ItemList of keys to delete from datastore.
+    ndb_puts: _ItemList of ndb entities to put to datastore.
+    ndb_deletes: _ItemList of ndb keys to delete from datastore.
   """
 
   def __init__(self,
-               max_pool_size=MAX_POOL_SIZE,
                max_entity_count=MAX_ENTITY_COUNT,
                mapreduce_spec=None):
     """Constructor.
 
     Args:
-      max_pool_size: maximum pools size in bytes before flushing it to db.
       max_entity_count: maximum number of entities before flushing it to db.
       mapreduce_spec: An optional instance of MapperSpec.
     """
-    self.max_pool_size = max_pool_size
     self.max_entity_count = max_entity_count
     params = mapreduce_spec.params if mapreduce_spec is not None else {}
     self.force_writes = bool(params.get("force_ops_writes", False))
-    self.puts = ItemList()
-    self.deletes = ItemList()
-    self.ndb_puts = ItemList()
-    self.ndb_deletes = ItemList()
+    self.puts = _ItemList(max_entity_count,
+                          self._flush_puts,
+                          self._db_repr)
+    self.deletes = _ItemList(max_entity_count,
+                             self._flush_deletes)
+    self.ndb_puts = _ItemList(max_entity_count,
+                              self._flush_ndb_puts,
+                              self._ndb_repr)
+    self.ndb_deletes = _ItemList(max_entity_count,
+                                 self._flush_ndb_deletes)
 
   def put(self, entity):
     """Registers entity to put to datastore.
@@ -185,20 +270,12 @@ class MutationPool(object):
     actual_entity = _normalize_entity(entity)
     if actual_entity is None:
       return self.ndb_put(entity)
-    entity_size = len(actual_entity._ToPb().Encode())
-    if (self.puts.length >= self.max_entity_count or
-        (self.puts.size + entity_size) > self.max_pool_size):
-      self.__flush_puts()
-    self.puts.append(actual_entity, entity_size)
+    self.puts.append(actual_entity)
 
   def ndb_put(self, entity):
     """Like put(), but for NDB entities."""
     assert ndb is not None and isinstance(entity, ndb.Model)
-    entity_size = len(entity._to_pb().Encode())
-    if (self.ndb_puts.length >= self.max_entity_count or
-        (self.ndb_puts.size + entity_size) > self.max_pool_size):
-      self.__flush_ndb_puts()
-    self.ndb_puts.append(entity, entity_size)
+    self.ndb_puts.append(entity)
 
   def delete(self, entity):
     """Registers entity to delete from datastore.
@@ -206,73 +283,81 @@ class MutationPool(object):
     Args:
       entity: an entity, model instance, or key to delete.
     """
-
     key = _normalize_key(entity)
     if key is None:
       return self.ndb_delete(entity)
-    key_size = len(key._ToPb().Encode())
-    if (self.deletes.length >= self.max_entity_count or
-        (self.deletes.size + key_size) > self.max_pool_size):
-      self.__flush_deletes()
-    self.deletes.append(key, key_size)
+    self.deletes.append(key)
 
   def ndb_delete(self, entity_or_key):
     """Like delete(), but for NDB entities/keys."""
-    if isinstance(entity_or_key, ndb.Model):
+    if ndb is not None and isinstance(entity_or_key, ndb.Model):
       key = entity_or_key.key
     else:
       key = entity_or_key
-    key_size = len(key.reference().Encode())
-    if (self.ndb_deletes.length >= self.max_entity_count or
-        (self.ndb_deletes.size + key_size) > self.max_pool_size):
-      self.__flush_ndb_deletes()
-    self.ndb_deletes.append(key, key_size)
-
+    self.ndb_deletes.append(key)
 
   def flush(self):
     """Flush(apply) all changed to datastore."""
-    self.__flush_puts()
-    self.__flush_deletes()
-    self.__flush_ndb_puts()
-    self.__flush_ndb_deletes()
+    self.puts.flush()
+    self.deletes.flush()
+    self.ndb_puts.flush()
+    self.ndb_deletes.flush()
 
-  def __flush_puts(self):
+  @classmethod
+  def _db_repr(cls, entity):
+    """Converts entity to a readable repr.
+
+    Args:
+      entity: datastore.Entity or datastore_types.Key.
+
+    Returns:
+      Proto in str.
+    """
+    return str(entity._ToPb())
+
+  @classmethod
+  def _ndb_repr(cls, entity):
+    """Converts entity to a readable repr.
+
+    Args:
+      entity: ndb.Model
+
+    Returns:
+      Proto in str.
+    """
+    return str(entity._to_pb())
+
+  def _flush_puts(self, items, options):
     """Flush all puts to datastore."""
-    if self.puts.length:
-      datastore.Put(self.puts.items, config=self.__create_config())
-    self.puts.clear()
+    datastore.Put(items, config=self._create_config(options))
 
-  def __flush_deletes(self):
+  def _flush_deletes(self, items, options):
     """Flush all deletes to datastore."""
-    if self.deletes.length:
-      datastore.Delete(self.deletes.items, config=self.__create_config())
-    self.deletes.clear()
+    datastore.Delete(items, config=self._create_config(options))
 
-  def __flush_ndb_puts(self):
+  def _flush_ndb_puts(self, items, options):
     """Flush all NDB puts to datastore."""
-    if self.ndb_puts.length:
-      ndb.put_multi(self.ndb_puts.items, config=self.__create_config())
-    self.ndb_puts.clear()
+    assert ndb is not None
+    ndb.put_multi(items, config=self._create_config(options))
 
-  def __flush_ndb_deletes(self):
+  def _flush_ndb_deletes(self, items, options):
     """Flush all deletes to datastore."""
-    if self.ndb_deletes.length:
-      ndb.delete_multi(self.ndb_deletes.items, config=self.__create_config())
-    self.ndb_deletes.clear()
+    assert ndb is not None
+    ndb.delete_multi(items, config=self._create_config(options))
 
-  def __create_config(self):
+  def _create_config(self, options):
     """Creates datastore Config.
 
     Returns:
       A datastore_rpc.Configuration instance.
     """
-    return datastore.CreateConfig(deadline=DATASTORE_DEADLINE,
+    return datastore.CreateConfig(deadline=options["deadline"],
                                   force_writes=self.force_writes)
 
 
 
 
-class Counters(object):
+class _Counters(Pool):
   """Regulates access to counters."""
 
   def __init__(self, shard_state):
@@ -303,8 +388,6 @@ class Context(object):
   Properties:
     mapreduce_spec: current mapreduce specification as model.MapreduceSpec.
     shard_state: current shard state as model.ShardState.
-    mutation_pool: current mutation pool as MutationPool.
-    counters: counters object as Counters.
   """
 
 
@@ -316,6 +399,7 @@ class Context(object):
     Args:
       mapreduce_spec: mapreduce specification as model.MapreduceSpec.
       shard_state: shard state as model.ShardState.
+      task_retry_count: how many times this task has been retried.
     """
     self.mapreduce_spec = mapreduce_spec
     self.shard_state = shard_state
@@ -332,14 +416,16 @@ class Context(object):
 
       self.shard_id = None
 
-    self.mutation_pool = MutationPool(
-        max_pool_size=(MAX_POOL_SIZE/(2**self.task_retry_count)),
-        max_entity_count=(MAX_ENTITY_COUNT/(2**self.task_retry_count)),
-        mapreduce_spec=mapreduce_spec)
-    self.counters = Counters(shard_state)
+
+
+    self._mutation_pool = _MutationPool(mapreduce_spec=mapreduce_spec)
+    self._counters = _Counters(shard_state)
+
+
+    self.counters = self._counters
 
     self._pools = {}
-    self.register_pool("mutation_pool", self.mutation_pool)
+    self.register_pool("mutation_pool", self._mutation_pool)
     self.register_pool("counters", self.counters)
 
   def flush(self):
@@ -347,18 +433,12 @@ class Context(object):
     for pool in self._pools.values():
       pool.flush()
 
-
-
-
-
-
-
   def register_pool(self, key, pool):
     """Register an arbitrary pool to be flushed together with this context.
 
     Args:
       key: pool key as string.
-      pool: a pool instance. Pool should implement flush(self) method.
+      pool: a pool instance.
     """
     self._pools[key] = pool
 

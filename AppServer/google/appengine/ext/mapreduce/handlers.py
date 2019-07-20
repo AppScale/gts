@@ -1014,10 +1014,8 @@ class ControllerCallbackHandler(base_handler.HugeTaskHandler):
       base_path: handler_base path.
     """
     config = util.create_datastore_write_config(mapreduce_spec)
-
-    queue_name = mapreduce_spec.params.get(
-        model.MapreduceSpec.PARAM_DONE_CALLBACK_QUEUE,
-        "default")
+    queue_name = util.get_queue_name(mapreduce_spec.params.get(
+        model.MapreduceSpec.PARAM_DONE_CALLBACK_QUEUE))
     done_callback = mapreduce_spec.params.get(
         model.MapreduceSpec.PARAM_DONE_CALLBACK)
     done_task = None

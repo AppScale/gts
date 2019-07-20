@@ -28,8 +28,6 @@
 
 
 
-
-
 """Defines input readers for MapReduce."""
 
 
@@ -74,10 +72,7 @@ from google.appengine.ext import ndb
 from google.appengine.api import datastore
 from google.appengine.api import files
 from google.appengine.api import logservice
-from google.appengine.api.files import records
 from google.appengine.api.logservice import log_service_pb
-from google.appengine.datastore import datastore_query
-from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import blobstore
 from google.appengine.ext import db
 from google.appengine.ext import key_range
@@ -92,6 +87,7 @@ from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import namespace_range
 from google.appengine.ext.mapreduce import operation
 from google.appengine.ext.mapreduce import property_range
+from google.appengine.ext.mapreduce import records
 from google.appengine.ext.mapreduce import util
 
 
