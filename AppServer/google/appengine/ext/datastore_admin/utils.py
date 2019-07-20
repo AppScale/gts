@@ -26,7 +26,7 @@ import datetime
 import logging
 import os
 import random
-import webapp2
+import webapp2 as webapp
 
 from google.appengine.datastore import entity_pb
 from google.appengine.api import datastore
@@ -342,7 +342,7 @@ def GenerateHomeUrl(request):
   return datastore_admin_home
 
 
-class MapreduceDoneHandler(webapp2.RequestHandler):
+class MapreduceDoneHandler(webapp.RequestHandler):
   """Handler to delete data associated with successful MapReduce jobs."""
 
   SUFFIX = 'mapreduce_done'

@@ -30,7 +30,7 @@ import logging
 import operator
 import os
 import time
-import webapp2
+import webapp2 as webapp
 
 from google.appengine.api import app_identity
 from google.appengine.api import datastore_errors
@@ -145,7 +145,7 @@ def _PresentatableKindStats(kind_ent):
          }
 
 
-class RouteByActionHandler(webapp2.RequestHandler):
+class RouteByActionHandler(webapp.RequestHandler):
   """Route to the appropriate handler based on the action parameter."""
 
   def ListActions(self, error=None):
@@ -341,7 +341,7 @@ class RouteByActionHandler(webapp2.RequestHandler):
     return backups[:limit]
 
 
-class StaticResourceHandler(webapp2.RequestHandler):
+class StaticResourceHandler(webapp.RequestHandler):
   """Read static files from disk."""
 
 
@@ -378,7 +378,7 @@ class StaticResourceHandler(webapp2.RequestHandler):
       self.response.out.write(open(path).read())
 
 
-class LoginRequiredHandler(webapp2.RequestHandler):
+class LoginRequiredHandler(webapp.RequestHandler):
   """Handle federated login identity selector page."""
 
   def get(self):
@@ -396,10 +396,10 @@ def CreateApplication():
   """Create new WSGIApplication and register all handlers.
 
   Returns:
-    an instance of webapp2.WSGIApplication with all mapreduce handlers
+    an instance of webapp.WSGIApplication with all mapreduce handlers
     registered.
   """
-  return webapp2.WSGIApplication(
+  return webapp.WSGIApplication(
       backup_handler.handlers_list(config.BASE_PATH) +
       copy_handler.handlers_list(config.BASE_PATH) +
       [(r'%s/%s' % (config.BASE_PATH,
@@ -417,3 +417,10 @@ def CreateApplication():
 
 APP = CreateApplication()
 
+
+def main():
+  util.run_wsgi_app(APP)
+
+
+if __name__ == '__main__':
+  main()

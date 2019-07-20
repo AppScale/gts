@@ -38,8 +38,8 @@
 
 import httplib
 import logging
-import json
-import webapp2
+import json as simplejson
+import webapp2 as webapp
 
 import google
 
@@ -61,7 +61,7 @@ class BadRequestPathError(Error):
   """The request path for the handler is invalid."""
 
 
-class BaseHandler(webapp2.RequestHandler):
+class BaseHandler(webapp.RequestHandler):
   """Base class for all mapreduce handlers.
 
   In Python27 runtime, webapp2 will automatically replace webapp.
@@ -229,7 +229,7 @@ class JsonHandler(BaseHandler):
 
     self.response.headers["Content-Type"] = "text/javascript"
     try:
-      output = json.dumps(self.json_response, cls=model.JsonEncoder)
+      output = simplejson.dumps(self.json_response, cls=model.JsonEncoder)
     except:
       logging.exception("Could not serialize to JSON")
       self.response.set_status(500, message="Could not serialize to JSON")

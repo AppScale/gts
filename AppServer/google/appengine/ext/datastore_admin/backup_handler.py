@@ -43,7 +43,7 @@ import random
 import re
 import time
 import urllib
-import webapp2
+import webapp2 as webapp
 import xml.dom.minidom
 
 
@@ -112,7 +112,7 @@ MEANING_TO_PRIMITIVE_TYPE = {
 }
 
 
-class ConfirmBackupHandler(webapp2.RequestHandler):
+class ConfirmBackupHandler(webapp.RequestHandler):
   """Handler to deal with requests from the admin console to backup data."""
 
   SUFFIX = 'confirm_backup'
@@ -122,7 +122,7 @@ class ConfirmBackupHandler(webapp2.RequestHandler):
     """Rendering method that can be called by main.py.
 
     Args:
-      handler: the webapp2.RequestHandler invoking the method
+      handler: the webapp.RequestHandler invoking the method
     """
     kinds = handler.request.get_all('kind')
     sizes_known, size_total, remainder = utils.ParseKindsAndSizes(kinds)
@@ -157,7 +157,7 @@ def get_namespaces(selected_namespace):
   return namespaces
 
 
-class ConfirmDeleteBackupHandler(webapp2.RequestHandler):
+class ConfirmDeleteBackupHandler(webapp.RequestHandler):
   """Handler to confirm admin console requests to delete a backup copy."""
 
   SUFFIX = 'confirm_delete_backup'
@@ -167,7 +167,7 @@ class ConfirmDeleteBackupHandler(webapp2.RequestHandler):
     """Rendering method that can be called by main.py.
 
     Args:
-      handler: the webapp2.RequestHandler invoking the method
+      handler: the webapp.RequestHandler invoking the method
     """
     requested_backup_ids = handler.request.get_all('backup_id')
     backups = []
@@ -189,7 +189,7 @@ class ConfirmDeleteBackupHandler(webapp2.RequestHandler):
                            template_params)
 
 
-class ConfirmAbortBackupHandler(webapp2.RequestHandler):
+class ConfirmAbortBackupHandler(webapp.RequestHandler):
   """Handler to confirm admin console requests to abort a backup copy."""
 
   SUFFIX = 'confirm_abort_backup'
@@ -199,7 +199,7 @@ class ConfirmAbortBackupHandler(webapp2.RequestHandler):
     """Rendering method that can be called by main.py.
 
     Args:
-      handler: the webapp2.RequestHandler invoking the method
+      handler: the webapp.RequestHandler invoking the method
     """
     requested_backup_ids = handler.request.get_all('backup_id')
     backups = []
@@ -218,7 +218,7 @@ class ConfirmAbortBackupHandler(webapp2.RequestHandler):
                            template_params)
 
 
-class ConfirmRestoreFromBackupHandler(webapp2.RequestHandler):
+class ConfirmRestoreFromBackupHandler(webapp.RequestHandler):
   """Handler to confirm admin console requests to restore from backup."""
 
   SUFFIX = 'confirm_restore_from_backup'
@@ -229,7 +229,7 @@ class ConfirmRestoreFromBackupHandler(webapp2.RequestHandler):
     """Rendering method that can be called by main.py.
 
     Args:
-      handler: the webapp2.RequestHandler invoking the method
+      handler: the webapp.RequestHandler invoking the method
       default_backup_id: default value for handler.request
       default_delete_backup_after_restore: default value for handler.request
     """
@@ -256,7 +256,7 @@ class ConfirmRestoreFromBackupHandler(webapp2.RequestHandler):
                            template_params)
 
 
-class ConfirmBackupImportHandler(webapp2.RequestHandler):
+class ConfirmBackupImportHandler(webapp.RequestHandler):
   """Handler to import backup information."""
 
   SUFFIX = 'backup_information'
@@ -266,7 +266,7 @@ class ConfirmBackupImportHandler(webapp2.RequestHandler):
     """Rendering method that can be called by main.py.
 
     Args:
-      handler: the webapp2.RequestHandler invoking the method
+      handler: the webapp.RequestHandler invoking the method
     """
     gs_handle = handler.request.get('gs_handle')
     error = None if gs_handle else 'Google Cloud Storage path is missing'
@@ -310,7 +310,7 @@ class ConfirmBackupImportHandler(webapp2.RequestHandler):
                            template_params)
 
 
-class BackupInformationHandler(webapp2.RequestHandler):
+class BackupInformationHandler(webapp.RequestHandler):
   """Handler to display backup information."""
 
   SUFFIX = 'backup_information'
@@ -320,7 +320,7 @@ class BackupInformationHandler(webapp2.RequestHandler):
     """Rendering method that can be called by main.py.
 
     Args:
-      handler: the webapp2.RequestHandler invoking the method
+      handler: the webapp.RequestHandler invoking the method
     """
     backup_ids = handler.request.get_all('backup_id')
     template_params = {
@@ -331,7 +331,7 @@ class BackupInformationHandler(webapp2.RequestHandler):
     utils.RenderToResponse(handler, 'backup_information.html', template_params)
 
 
-class BaseDoHandler(webapp2.RequestHandler):
+class BaseDoHandler(webapp.RequestHandler):
   """Base class for all Do*Handlers."""
 
   MAPREDUCE_DETAIL = config.MAPREDUCE_PATH + '/detail?mapreduce_id='
@@ -530,7 +530,7 @@ def _perform_backup(run_as_a_service, kinds, selected_namespace,
     raise
 
 
-class BackupLinkHandler(webapp2.RequestHandler):
+class BackupLinkHandler(webapp.RequestHandler):
   """Handler to deal with requests to the backup link to backup data."""
 
   SUFFIX = 'backup.create'
