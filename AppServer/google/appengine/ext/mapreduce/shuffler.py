@@ -45,6 +45,7 @@ import heapq
 import logging
 import os
 import time
+import zlib
 
 from appengine_pipeline.src import pipeline
 from appengine_pipeline.src.pipeline import common as pipeline_common
@@ -496,7 +497,9 @@ class _HashingBlobstoreOutputWriter(output_writers.BlobstoreOutputWriterBase):
       logging.error("Expecting a tuple, but got %s: %s",
                     data.__class__.__name__, data)
 
-    file_index = key.__hash__() % len(self._filenames)
+    # AppScale: Use a deterministic hash function.
+    file_index = zlib.adler32(key) % len(self._filenames)
+
     pool_name = "kv_pool%d" % file_index
     filename = self._filenames[file_index]
 
