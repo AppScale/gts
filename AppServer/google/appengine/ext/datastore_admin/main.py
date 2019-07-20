@@ -399,7 +399,7 @@ def CreateApplication():
     an instance of webapp2.WSGIApplication with all mapreduce handlers
     registered.
   """
-  return webapp.WSGIApplication(
+  return webapp2.WSGIApplication(
       backup_handler.handlers_list(config.BASE_PATH) +
       copy_handler.handlers_list(config.BASE_PATH) +
       [(r'%s/%s' % (config.BASE_PATH,
