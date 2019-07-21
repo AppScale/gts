@@ -561,7 +561,10 @@ function refreshJobDetail(jobId, detail) {
   var jobParams = $('#detail-params');
   jobParams.empty();
 
-  var status = (detail.active ? 'running' : detail.result_status) || 'unknown';
+  var status = detail.result_status || 'unknown';
+  if (detail.active) {
+    status = 'running ' + detail.active_shards + ' shards';
+  }
   $('<li class="status-text">').text(status).appendTo(jobParams);
 
   $('<li>')

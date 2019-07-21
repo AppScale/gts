@@ -85,11 +85,20 @@ class _HugeTaskPayload(db.Model):
   """Model object to store task payload."""
 
   payload = db.BlobProperty()
+  compressed = db.BooleanProperty(indexed=False)
 
   @classmethod
   def kind(cls):
     """Returns entity kind."""
     return "_GAE_MR_TaskPayload"
+
+  def add_payload(self, payload, compressed=False):
+    self.compressed = compressed
+    self.payload = zlib.compress(payload) if compressed else payload
+
+  def get_payload(self):
+    """Get decompressed payload."""
+    return zlib.decompress(self.payload) if self.compressed else self.payload
 
 
 class HugeTask(object):

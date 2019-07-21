@@ -374,6 +374,7 @@ class GetJobDetailHandler(base_handler.GetJsonHandler):
     self.json_response.update({
 
         "active": job.active,
+        "active_shards": job.active_shards,
         "start_timestamp_ms":
             int(time.mktime(job.start_time.utctimetuple()) * 1000),
         "updated_timestamp_ms":
