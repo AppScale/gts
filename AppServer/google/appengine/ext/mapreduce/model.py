@@ -617,6 +617,7 @@ class MapreduceState(db.Model):
   counters_map = json_util.JsonProperty(
       CountersMap, default=CountersMap(), indexed=False)
   app_id = db.StringProperty(required=False, indexed=True)
+  database_id = db.StringProperty(required=False, indexed=True)
   writer_state = json_util.JsonProperty(dict, indexed=False)
   active_shards = db.IntegerProperty(default=0, indexed=False)
   failed_shards = db.IntegerProperty(default=0, indexed=False)

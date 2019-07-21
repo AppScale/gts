@@ -63,6 +63,7 @@ def start_map(name,
               countdown=None,
               hooks_class_name=None,
               _app=None,
+              _database_id=None,
               in_xg_transaction=False):
   """Start a new, mapper-only mapreduce.
 
@@ -138,4 +139,5 @@ def start_map(name,
       countdown=countdown,
       hooks_class_name=hooks_class_name,
       _app=_app,
+      _database_id=_database_id,
       in_xg_transaction=in_xg_transaction)
