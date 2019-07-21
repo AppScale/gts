@@ -247,7 +247,7 @@ def get_remote_app_id(remote_url, extra_headers=None):
 
   Raises:
     FetchFailed: Urlfetch call failed.
-    ConfigurationError: URLfetch suceeded but results were invalid.
+    ConfigurationError: URLfetch succeeded but results were invalid.
   """
   rtok = str(random.random())[2:]
   url = remote_url + '?rtok=' + rtok
