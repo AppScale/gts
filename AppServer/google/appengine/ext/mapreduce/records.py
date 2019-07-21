@@ -127,6 +127,25 @@ _RECORD_TYPE_LAST = 4
 
 
 
+
+_VALID_RECORD_TRANSITIONS = {
+    _RECORD_TYPE_FIRST: set([_RECORD_TYPE_MIDDLE, _RECORD_TYPE_LAST]),
+    _RECORD_TYPE_MIDDLE: set([_RECORD_TYPE_MIDDLE, _RECORD_TYPE_LAST]),
+    _RECORD_TYPE_LAST: set([_RECORD_TYPE_FIRST, _RECORD_TYPE_FULL]),
+    _RECORD_TYPE_FULL: set([_RECORD_TYPE_FIRST, _RECORD_TYPE_FULL])
+}
+
+
+_RECORD_TYPE_NAMES = {
+    _RECORD_TYPE_NONE: 'NONE',
+    _RECORD_TYPE_FULL: 'FULL',
+    _RECORD_TYPE_FIRST: 'FIRST',
+    _RECORD_TYPE_MIDDLE: 'MIDDLE',
+    _RECORD_TYPE_LAST: 'LAST'
+}
+
+
+
 _CRC_MASK_DELTA = 0xa282ead8
 
 
@@ -254,14 +273,17 @@ class RecordsWriter(object):
 class RecordsReader(object):
   """A reader for records format."""
 
-  def __init__(self, reader):
+  def __init__(self, reader, strict=False):
     """Init.
 
     Args:
       reader: a reader conforming to Python io.RawIOBase interface that
         implements 'read', 'seek', and 'tell'.
+      strict: if true, reader will fail if it encounters malformed data.
     """
     self.__reader = reader
+    self.__strict = strict
+    self.__first_record_started = False
 
   def __try_read_record(self):
     """Try reading a record.
@@ -277,9 +299,12 @@ class RecordsReader(object):
       return ('', _RECORD_TYPE_NONE)
 
     header = self.__reader.read(_HEADER_LENGTH)
+    if not header:
+      raise EOFError('No more data.')
+
     if len(header) != _HEADER_LENGTH:
-      raise EOFError('Read %s bytes instead of %s' %
-                     (len(header), _HEADER_LENGTH))
+      raise errors.InvalidRecordError(
+          'Read %s bytes instead of %s' % (len(header), _HEADER_LENGTH))
 
     (masked_crc, length, record_type) = struct.unpack(_HEADER_FORMAT, header)
     crc = _unmask_crc(masked_crc)
@@ -290,8 +315,8 @@ class RecordsReader(object):
 
     data = self.__reader.read(length)
     if len(data) != length:
-      raise EOFError('Not enough data read. Expected: %s but got %s' %
-                     (length, len(data)))
+      raise errors.InvalidRecordError(
+          'Not enough data read. Expected: %s but got %s' % (length, len(data)))
 
     if record_type == _RECORD_TYPE_NONE:
       return ('', record_type)
@@ -311,6 +336,18 @@ class RecordsReader(object):
         raise EOFError('Read %d bytes instead of %d' %
                        (len(data), pad_length))
 
+  def __process_error(self, fatal, message, *args):
+    """Processes an error.
+
+    Args:
+      fatal: If true, this is a fatal error.
+      message: The message template to log/throw.
+      *args: Arguments for the message template.
+    """
+    if fatal and self.__strict:
+      raise errors.InvalidRecordError(message.format(*args))
+    logging.warning(message, *args)
+
   def read(self):
     """Reads record from current position in reader.
 
@@ -318,49 +355,78 @@ class RecordsReader(object):
       original bytes stored in a single record.
     """
     data = None
+    last_record_type = None
     while True:
       last_offset = self.tell()
       try:
         (chunk, record_type) = self.__try_read_record()
+        if record_type != _RECORD_TYPE_NONE and last_record_type is not None:
+          if record_type not in _VALID_RECORD_TRANSITIONS[last_record_type]:
+            self.__process_error(
+                True, 'Ordering corruption: Got %s record after %s record'
+                'at offset %d ', _RECORD_TYPE_NAMES[record_type],
+                _RECORD_TYPE_NAMES[last_record_type], last_offset)
+
         if record_type == _RECORD_TYPE_NONE:
           self.__sync()
         elif record_type == _RECORD_TYPE_FULL:
+          self.__first_record_started = True
           if data is not None:
-            logging.warning(
-                "Ordering corruption: Got FULL record while already "
-                "in a chunk at offset %d", last_offset)
+            self.__process_error(
+                True, 'Ordering corruption: Got FULL record while already '
+                'in a chunk at offset %d', last_offset)
           return chunk
         elif record_type == _RECORD_TYPE_FIRST:
+          self.__first_record_started = True
           if data is not None:
-            logging.warning(
-                "Ordering corruption: Got FIRST record while already "
-                "in a chunk at offset %d", last_offset)
+            self.__process_error(
+                True, 'Ordering corruption: Got FIRST record while already '
+                'in a chunk at offset %d', last_offset)
           data = chunk
         elif record_type == _RECORD_TYPE_MIDDLE:
           if data is None:
-            logging.warning(
-                "Ordering corruption: Got MIDDLE record before FIRST "
-                "record at offset %d", last_offset)
+            self.__process_error(
+
+
+
+
+                self.__first_record_started,
+                'Ordering corruption: Got MIDDLE record before FIRST '
+                'record at offset %d',
+                last_offset)
           else:
             data += chunk
         elif record_type == _RECORD_TYPE_LAST:
           if data is None:
-            logging.warning(
-                "Ordering corruption: Got LAST record but no chunk is in "
-                "progress at offset %d", last_offset)
+            self.__process_error(
+
+
+
+
+                self.__first_record_started,
+                'Ordering corruption: Got LAST record but no chunk is in '
+                'progress at offset %d',
+                last_offset)
           else:
             result = data + chunk
             data = None
             return result
         else:
           raise errors.InvalidRecordError(
-              "Unsupported record type: %s" % record_type)
+              'Unsupported record type: %s' % record_type)
+        if record_type != _RECORD_TYPE_NONE:
 
+          last_record_type = record_type
       except errors.InvalidRecordError, e:
-        logging.warning("Invalid record encountered at %s (%s). Syncing to "
-                        "the next block", last_offset, e)
+        logging.warning('Invalid record encountered at %s (%s).', last_offset,
+                        e)
+        if self.__strict:
+          raise e
+
+        logging.warning('Syncing to the next block.')
         data = None
         self.__sync()
+        last_record_type = None
 
   def __iter__(self):
     try:

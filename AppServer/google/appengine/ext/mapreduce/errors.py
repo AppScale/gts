@@ -47,6 +47,7 @@ __all__ = [
     "ShuffleServiceError",
     "TransientError",
     "InvalidRecordError",
+    "WriterValidationError",
 ]
 
 
@@ -75,7 +76,7 @@ class BadReaderParamsError(BadParamsError):
 
 
 class BadWriterParamsError(BadParamsError):
-  """The input parameters to a reader were invalid."""
+  """The input parameters to a writer were invalid."""
 
 
 class FailJobError(Error):
@@ -104,6 +105,10 @@ class RetrySliceError(Error):
 
 class InvalidRecordError(Error):
   """Raised when invalid record encountered."""
+
+
+class WriterValidationError(Error):
+  """Writer was unable to validate output data."""
 
 
 class TransientError(Error):
