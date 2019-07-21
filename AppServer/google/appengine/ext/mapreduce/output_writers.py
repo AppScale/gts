@@ -1437,17 +1437,41 @@ class GoogleCloudStorageConsistentOutputWriter(
     except cloud_errors.NotFoundError:
       pass
 
+  def _exists_in_gcs(self, filename, _account_id=None):
+    """Checks if file exists in GCS already."""
+    try:
+      with cloudstorage_api.open(filename, _account_id=_account_id):
+        return True
+    except cloud_errors.NotFoundError:
+      return False
+
   def _rewrite_tmpfile(self, mainfile, tmpfile, writer_spec):
     """Copies contents of tmpfile (name) to mainfile (buffer)."""
-    if mainfile.closed:
-
-      return
 
     account_id = self._get_tmp_account_id(writer_spec)
-    f = cloudstorage_api.open(tmpfile, _account_id=account_id)
+    try:
+
+      f = cloudstorage_api.open(tmpfile, _account_id=account_id)
+    except cloud_errors.NotFoundError:
+
+
+
+
+
+
+
+
+
+
+
+      if self._exists_in_gcs(mainfile.name, _account_id=account_id):
+        return
+      raise
+
 
     data = f.read(self._REWRITE_BLOCK_SIZE)
     while data:
+
       mainfile.write(data)
       data = f.read(self._REWRITE_BLOCK_SIZE)
     f.close()

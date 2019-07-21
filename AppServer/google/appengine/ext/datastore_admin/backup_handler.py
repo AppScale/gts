@@ -277,7 +277,10 @@ class ConfirmBackupHandler(webapp.RequestHandler):
 
 def get_namespaces(selected_namespace):
   namespaces = [('--All--', '*', selected_namespace is None)]
-  for ns in datastore.Query('__namespace__', keys_only=True).Run():
+
+
+
+  for ns in datastore.Query('__namespace__', keys_only=True).Run(limit=250):
     ns_name = ns.name() or ''
     namespaces.append((ns_name or '--Default--',
                        ns_name,

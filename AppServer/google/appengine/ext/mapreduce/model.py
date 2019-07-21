@@ -468,6 +468,17 @@ class MapreduceSpec(json_util.JsonMixin):
 
   PARAM_DONE_CALLBACK_QUEUE = "done_callback_queue"
 
+
+
+
+
+
+  PARAM_DONE_CALLBACK_TARGET = "done_callback_target"
+
+
+
+  PARAM_MAPREDUCE_TARGET = "mapreduce_target"
+
   def __init__(self,
                name,
                mapreduce_id,

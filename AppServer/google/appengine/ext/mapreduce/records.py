@@ -95,6 +95,18 @@ from google.appengine.ext.mapreduce import errors
 
 
 
+try:
+
+  import crcmod
+
+
+
+  _CRC_FUN = crcmod.predefined.mkPredefinedCrcFun('crc-32c')
+except ImportError:
+  _CRC_FUN = None
+
+
+
 
 _BLOCK_SIZE = 32 * 1024
 

@@ -416,12 +416,12 @@ function runJobDone(name, error, data) {
     setButter('Successfully started job "' + response['mapreduce_id'] + '"');
     listJobs(null, initJobOverview);
   }
-  jobForm.find('input[type="submit"]').attr('disabled', null);
+  jobForm.find('input[type="submit"]').disabled = false;
 }
 
 function runJob(name) {
   var jobForm = getJobForm(name);
-  jobForm.find('input[type="submit"]').attr('disabled', 'disabled');
+  jobForm.find('input[type="submit"]').disabled = true;
   $.ajax({
     type: 'POST',
     url: 'command/start_job',

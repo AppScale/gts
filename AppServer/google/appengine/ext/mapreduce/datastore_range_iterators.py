@@ -251,14 +251,31 @@ class _KeyRangesIterator(RangeIterator):
 
   def __iter__(self):
     while True:
+      need_checkpoint = False
       if self._current_iter:
+
+
+        need_checkpoint = True
         for o in self._current_iter:
+          need_checkpoint = False
           yield o
 
       try:
+
         k_range = self._key_ranges.next()
         self._current_iter = self._key_range_iter_cls(k_range,
                                                       self._query_spec)
+
+
+
+
+
+
+
+
+        if need_checkpoint:
+          yield util.ALLOW_CHECKPOINT
+
       except StopIteration:
         self._current_iter = None
         break

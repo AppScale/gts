@@ -127,8 +127,7 @@ COUNTER_IO_READ_MSEC = "io-read-msec"
 
 
 
-
-ALLOW_CHECKPOINT = object()
+ALLOW_CHECKPOINT = util.ALLOW_CHECKPOINT
 
 
 class InputReader(json_util.JsonMixin):

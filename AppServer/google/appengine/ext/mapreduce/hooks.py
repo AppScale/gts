@@ -53,13 +53,14 @@ class Hooks(object):
     """
     self.mapreduce_spec = mapreduce_spec
 
-  def enqueue_worker_task(self, task, queue_name):
+  def enqueue_worker_task(self, task, queue_name, transactional):
     """Enqueues a worker task that is used to run the mapper.
 
     Args:
       task: A taskqueue.Task that must be queued in order for the mapreduce
-        mappers to be run. The task is named.
+        mappers to be run.
       queue_name: The queue where the task should be run e.g. "default".
+      transactional: True iff the task has to be added transactionally.
 
     Raises:
       NotImplementedError: to indicate that the default worker queueing strategy
@@ -67,15 +68,13 @@ class Hooks(object):
     """
     raise NotImplementedError()
 
-  def enqueue_kickoff_task(self, task, queue_name):
+  def enqueue_kickoff_task(self, task, queue_name, transactional):
     """Enqueues a task that is used to start the mapreduce.
-
-    This hook will be called within a transaction scope.
-    Hook should add task transactionally.
 
     Args:
       task: A taskqueue.Task that must be queued to run KickOffJobHandler.
       queue_name: The queue where the task should be run e.g. "default".
+      transactional: True iff the task has to be added transactionally.
 
     Raises:
       NotImplementedError: to indicate that the default mapreduce start strategy
@@ -83,16 +82,14 @@ class Hooks(object):
     """
     raise NotImplementedError()
 
-  def enqueue_done_task(self, task, queue_name):
+  def enqueue_done_task(self, task, queue_name, transactional):
     """Enqueues a task that is triggered when the mapreduce completes.
-
-    This hook will be called within a transaction scope.
-    Hook should add task transactionally.
 
     Args:
       task: A taskqueue.Task that must be queued in order for the client to be
         notified when the mapreduce is complete.
       queue_name: The queue where the task should be run e.g. "default".
+      transactional: True iff the task has to be added transactionally.
 
     Raises:
       NotImplementedError: to indicate that the default mapreduce notification
@@ -100,13 +97,14 @@ class Hooks(object):
     """
     raise NotImplementedError()
 
-  def enqueue_controller_task(self, task, queue_name):
+  def enqueue_controller_task(self, task, queue_name, transactional):
     """Enqueues a task that is used to monitor the mapreduce process.
 
     Args:
       task: A taskqueue.Task that must be queued in order for updates to the
-        mapreduce process to be properly tracked. The task is named.
+        mapreduce process to be properly tracked.
       queue_name: The queue where the task should be run e.g. "default".
+      transactional: True iff the task has to be added transactionally.
 
     Raises:
       NotImplementedError: to indicate that the default mapreduce tracking

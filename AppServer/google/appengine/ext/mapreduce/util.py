@@ -46,7 +46,8 @@ __all__ = [
     "try_serialize_handler",
     "try_deserialize_handler",
     "CALLBACK_MR_ID_TASK_HEADER",
-    "strip_prefix_from_items"
+    "strip_prefix_from_items",
+    "ALLOW_CHECKPOINT",
     ]
 
 import inspect
@@ -72,6 +73,12 @@ CALLBACK_MR_ID_TASK_HEADER = "Mapreduce-Id"
 
 
 
+
+
+
+ALLOW_CHECKPOINT = object()
+
+
 _FUTURE_TIME = 2**34
 
 
@@ -88,11 +95,12 @@ def _get_descending_key(gettime=time.time):
   Returns:
     A string with a time descending key.
   """
+
+
   now_descending = int((_FUTURE_TIME - gettime()) * 100)
-  request_id_hash = os.environ.get("REQUEST_ID_HASH")
-  if not request_id_hash:
-    request_id_hash = str(random.getrandbits(32))
-  return "%d%s" % (now_descending, request_id_hash)
+  request_id_hash = os.environ.get("REQUEST_ID_HASH", "")
+  random_bits = random.getrandbits(32)
+  return "%d%s%s" % (now_descending, random_bits, request_id_hash)
 
 
 def _get_task_host():
@@ -121,18 +129,23 @@ def _get_task_host():
 
 
 def _get_task_headers(map_job_id,
-                      mr_id_header_key=_MR_ID_TASK_HEADER):
+                      mr_id_header_key=_MR_ID_TASK_HEADER,
+                      set_host_header=True):
   """Get headers for all mr tasks.
 
   Args:
     map_job_id: map job id.
     mr_id_header_key: the key to set mr id with.
+    set_host_header: If True, the "Host" param will be set to point to the
+                     current version + module.
 
   Returns:
     A dictionary of all headers.
   """
-  return {mr_id_header_key: map_job_id,
-          "Host": _get_task_host()}
+  result = {mr_id_header_key: map_job_id}
+  if set_host_header:
+    result["Host"] = _get_task_host()
+  return result
 
 
 def _enum(**enums):

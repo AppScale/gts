@@ -188,13 +188,17 @@ def execute_task(task, retries=0, handlers_map=None):
   return handler
 
 
-def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
+def execute_all_tasks(taskqueue,
+                      queue="default",
+                      handlers_map=None,
+                      run_count=1):
   """Run and remove all tasks in the taskqueue.
 
   Args:
     taskqueue: An instance of taskqueue stub.
     queue: Queue name to run all tasks from.
-    hanlders_map: see main.create_handlers_map.
+    handlers_map: see main.create_handlers_map.
+    run_count: How many times to run each task (to test idempotency).
 
   Returns:
     task_run_counts: a dict from handler class to the number of tasks
@@ -207,8 +211,9 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
     retries = 0
     while True:
       try:
-        handler = execute_task(task, retries, handlers_map=handlers_map)
-        task_run_counts[handler.__class__] += 1
+        for _ in range(run_count):
+          handler = execute_task(task, retries, handlers_map=handlers_map)
+          task_run_counts[handler.__class__] += 1
         break
 
       except Exception, e:
@@ -227,13 +232,15 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
   return task_run_counts
 
 
-def execute_until_empty(taskqueue, queue="default", handlers_map=None):
+def execute_until_empty(taskqueue, queue="default", handlers_map=None,
+                        run_count=1):
   """Execute taskqueue tasks until it becomes empty.
 
   Args:
     taskqueue: An instance of taskqueue stub.
     queue: Queue name to run all tasks from.
-    hanlders_map: see main.create_handlers_map.
+    handlers_map: see main.create_handlers_map.
+    run_count: How many times to run each task (to test idempotency).
 
   Returns:
     task_run_counts: a dict from handler class to the number of tasks
@@ -241,7 +248,8 @@ def execute_until_empty(taskqueue, queue="default", handlers_map=None):
   """
   task_run_counts = collections.defaultdict(lambda: 0)
   while taskqueue.GetTasks(queue):
-    new_counts = execute_all_tasks(taskqueue, queue, handlers_map)
+    new_counts = execute_all_tasks(
+        taskqueue, queue, handlers_map, run_count=run_count)
     for handler_cls in new_counts:
       task_run_counts[handler_cls] += new_counts[handler_cls]
   return task_run_counts

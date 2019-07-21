@@ -93,8 +93,8 @@ except ImportError:
 _TEST_INJECTED_FAULTS = set()
 
 
-def _run_task_hook(hooks, method, task, queue_name):
-  """Invokes hooks.method(task, queue_name).
+def _run_task_hook(hooks, method, task, queue_name, transactional=False):
+  """Invokes hooks.method(task, queue_name, transactional).
 
   Args:
     hooks: A hooks.Hooks instance or None.
@@ -102,13 +102,24 @@ def _run_task_hook(hooks, method, task, queue_name):
         "enqueue_kickoff_task".
     task: The taskqueue.Task to pass to the hook method.
     queue_name: The name of the queue to pass to the hook method.
+    transactional: Whether the task should be added transactionally.
 
   Returns:
     True if the hooks.Hooks instance handled the method, False otherwise.
+  Raises:
+    Exception: if we try to add a named task transactionally.
   """
+
+
+
+
+
+  if task.name is not None and transactional:
+    raise Exception("Named tasks cannot be added transactionally.")
+
   if hooks is not None:
     try:
-      getattr(hooks, method)(task, queue_name)
+      getattr(hooks, method)(task, queue_name, transactional)
     except NotImplementedError:
 
       return False
@@ -773,9 +784,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
 
 
       if fresh_shard_state.active:
-
-
-        self._add_task(task, spec, queue_name)
+        self._add_task(task, spec, queue_name, transactional=True)
 
     try:
       _tx()
@@ -908,23 +917,6 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
                       parameters.config.TASK_MAX_DATA_PROCESSING_ATTEMPTS)
     return self._TASK_DIRECTIVE.RETRY_SHARD
 
-  @staticmethod
-  def get_task_name(shard_id, slice_id, retry=0):
-    """Compute single worker task name.
-
-    Args:
-      shard_id: shard id.
-      slice_id: slice id.
-      retry: current shard retry count.
-
-    Returns:
-      task name which should be used to process specified shard/slice.
-    """
-
-
-    return "appengine-mrshard-%s-%s-retry-%s" % (
-        shard_id, slice_id, retry)
-
   def _get_countdown_for_next_slice(self, spec):
     """Get countdown for next slice's task.
 
@@ -965,18 +957,12 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
     """
     base_path = tstate.base_path
 
-    task_name = MapperWorkerCallbackHandler.get_task_name(
-        tstate.shard_id,
-        tstate.slice_id,
-        tstate.retries)
-
     headers = util._get_task_headers(tstate.mapreduce_spec.mapreduce_id)
     headers[util._MR_SHARD_ID_TASK_HEADER] = tstate.shard_id
 
     worker_task = model.HugeTask(
         url=base_path + "/worker_callback/" + tstate.shard_id,
         params=tstate.to_dict(),
-        name=task_name,
         eta=eta,
         countdown=countdown,
         parent=shard_state,
@@ -987,7 +973,8 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
   def _add_task(cls,
                 worker_task,
                 mapreduce_spec,
-                queue_name):
+                queue_name,
+                transactional=False):
     """Schedule slice scanning by adding it to the task queue.
 
     Args:
@@ -996,15 +983,15 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       mapreduce_spec: an instance of model.MapreduceSpec.
       queue_name: Optional queue to run on; uses the current queue of
         execution or the default queue if unspecified.
+      transactional: If the task should be part of an existing transaction.
     """
     if not _run_task_hook(mapreduce_spec.get_hooks(),
                           "enqueue_worker_task",
                           worker_task,
-                          queue_name):
+                          queue_name,
+                          transactional=transactional):
       try:
-
-
-        worker_task.add(queue_name)
+        worker_task.add(queue_name, transactional=transactional)
       except (taskqueue.TombstonedTaskError,
               taskqueue.TaskAlreadyExistsError), e:
         logging.warning("Task %r already exists. %s: %s",
@@ -1245,12 +1232,21 @@ class ControllerCallbackHandler(base_handler.HugeTaskHandler):
         model.MapreduceSpec.PARAM_DONE_CALLBACK_QUEUE))
     done_callback = mapreduce_spec.params.get(
         model.MapreduceSpec.PARAM_DONE_CALLBACK)
+    done_callback_target = mapreduce_spec.params.get(
+        model.MapreduceSpec.PARAM_DONE_CALLBACK_TARGET)
+
     done_task = None
     if done_callback:
+
+
+      headers = util._get_task_headers(
+          mapreduce_spec.mapreduce_id,
+          util.CALLBACK_MR_ID_TASK_HEADER,
+          set_host_header=(done_callback_target is None))
       done_task = taskqueue.Task(
           url=done_callback,
-          headers=util._get_task_headers(mapreduce_spec.mapreduce_id,
-                                         util.CALLBACK_MR_ID_TASK_HEADER),
+          target=done_callback_target,
+          headers=headers,
           method=mapreduce_spec.params.get("done_callback_method", "POST"))
 
     @db.transactional(retries=5)
@@ -1269,7 +1265,8 @@ class ControllerCallbackHandler(base_handler.HugeTaskHandler):
           mapreduce_spec.get_hooks(),
           "enqueue_done_task",
           done_task,
-          queue_name):
+          queue_name,
+          transactional=True):
         done_task.add(queue_name, transactional=True)
 
     _put_state()
@@ -1329,6 +1326,7 @@ class ControllerCallbackHandler(base_handler.HugeTaskHandler):
       queue_name: The queue to schedule this task on. Will use the current
         queue of execution if not supplied.
     """
+
     task_name = ControllerCallbackHandler.get_task_name(
         mapreduce_spec, serial_id)
     task_params = ControllerCallbackHandler.controller_parameters(
@@ -1347,7 +1345,8 @@ class ControllerCallbackHandler(base_handler.HugeTaskHandler):
     if not _run_task_hook(mapreduce_spec.get_hooks(),
                           "enqueue_controller_task",
                           controller_callback_task,
-                          queue_name):
+                          queue_name,
+                          transactional=False):
       try:
         controller_callback_task.add(queue_name)
       except (taskqueue.TombstonedTaskError,
@@ -1561,6 +1560,7 @@ class KickOffJobHandler(base_handler.TaskQueueHandler):
 
 
 
+
     for shard_number, (input_reader, output_writer) in enumerate(
         zip(readers, writers)):
       shard_id = model.ShardState.shard_id_from_number(
@@ -1573,7 +1573,8 @@ class KickOffJobHandler(base_handler.TaskQueueHandler):
           shard_states[shard_number])
       MapperWorkerCallbackHandler._add_task(task,
                                             spec,
-                                            queue_name)
+                                            queue_name,
+                                            transactional=False)
 
   @classmethod
   def _check_mr_state(cls, state, mr_id):
@@ -1792,16 +1793,29 @@ class StartJobHandler(base_handler.PostJsonHandler):
     """Enqueues a new kickoff task."""
     params = {"mapreduce_id": mapreduce_spec.mapreduce_id}
 
+
+
+
+
+
+
+    mapreduce_target = mapreduce_spec.params.get(
+        model.MapreduceSpec.PARAM_MAPREDUCE_TARGET)
+    headers = util._get_task_headers(mapreduce_spec.mapreduce_id,
+                                     set_host_header=(mapreduce_target is None))
+
+
     kickoff_task = taskqueue.Task(
         url=base_path + "/kickoffjob_callback/" + mapreduce_spec.mapreduce_id,
-        headers=util._get_task_headers(mapreduce_spec.mapreduce_id),
+        headers=headers,
         params=params,
         eta=eta,
-        countdown=countdown)
+        countdown=countdown,
+        target=mapreduce_target)
     hooks = mapreduce_spec.get_hooks()
     if hooks is not None:
       try:
-        hooks.enqueue_kickoff_task(kickoff_task, queue_name)
+        hooks.enqueue_kickoff_task(kickoff_task, queue_name, True)
         return
       except NotImplementedError:
         pass
@@ -1843,7 +1857,8 @@ class FinalizeJobHandler(base_handler.TaskQueueHandler):
     if not _run_task_hook(mapreduce_spec.get_hooks(),
                           "enqueue_controller_task",
                           finalize_task,
-                          queue_name):
+                          queue_name,
+                          transactional=False):
       try:
         finalize_task.add(queue_name)
       except (taskqueue.TombstonedTaskError,
