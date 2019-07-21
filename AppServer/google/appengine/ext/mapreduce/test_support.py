@@ -34,13 +34,14 @@
 
 
 import base64
-import cgi
 import collections
 import logging
+import traceback
 import os
 import re
 
 from google.appengine.ext.mapreduce import main
+from google.appengine.ext.mapreduce import model
 from google.appengine.ext.webapp import mock_webapp
 
 
@@ -63,13 +64,8 @@ def decode_task_payload(task):
     return {}
 
   body = base64.b64decode(task["body"])
-  result = {}
-  for (name, value) in cgi.parse_qs(body).items():
-    if len(value) == 1:
-      result[name] = value[0]
-    else:
-      result[name] = value
-  return result
+
+  return model.HugeTask._decode_payload(body)
 
 
 def execute_task(task, retries=0, handlers_map=None):
@@ -194,6 +190,8 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
   taskqueue.FlushQueue(queue)
   task_run_counts = collections.defaultdict(lambda: 0)
   for task in tasks:
+    import logging
+    logging.error(task)
     retries = 0
     while True:
       try:
@@ -212,6 +210,8 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
             "Task %s is being retried for the %s time",
             task["name"],
             retries)
+        logging.debug(traceback.format_exc())
+
   return task_run_counts
 
 

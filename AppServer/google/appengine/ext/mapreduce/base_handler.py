@@ -39,10 +39,9 @@
 
 import httplib
 import logging
-import json as simplejson
-import webapp2 as webapp
 
 import google
+import json as simplejson
 
 try:
   from google.appengine.ext.mapreduce import pipeline_base
@@ -56,7 +55,9 @@ try:
 except ImportError:
   cloudstorage = None
 
+import webapp2 as webapp
 from google.appengine.ext.mapreduce import errors
+from google.appengine.ext.mapreduce import json_util
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import parameters
 
@@ -69,19 +70,7 @@ class BadRequestPathError(Error):
   """The request path for the handler is invalid."""
 
 
-class BaseHandler(webapp.RequestHandler):
-  """Base class for all mapreduce handlers.
-
-  In Python27 runtime, webapp2 will automatically replace webapp.
-  """
-
-  def base_path(self):
-    """Base path for all mapreduce-related urls."""
-    path = self.request.path
-    return path[:path.rfind("/")]
-
-
-class TaskQueueHandler(BaseHandler):
+class TaskQueueHandler(webapp.RequestHandler):
   """Base class for handlers intended to be run only from the task queue.
 
   Sub-classes should implement
@@ -89,6 +78,8 @@ class TaskQueueHandler(BaseHandler):
   2. '_preprocess' method for decoding or validations before handle.
   3. '_drop_gracefully' method if _preprocess fails and the task has to
      be dropped.
+
+  In Python27 runtime, webapp2 will automatically replace webapp.
   """
 
   def __init__(self, *args, **kwargs):
@@ -185,7 +176,7 @@ class TaskQueueHandler(BaseHandler):
     self.response.clear()
 
 
-class JsonHandler(BaseHandler):
+class JsonHandler(webapp.RequestHandler):
   """Base class for JSON handlers for user interface.
 
   Sub-classes should implement the 'handle' method. They should put their
@@ -196,7 +187,7 @@ class JsonHandler(BaseHandler):
 
   def __init__(self, *args):
     """Initializer."""
-    super(BaseHandler, self).__init__(*args)
+    super(JsonHandler, self).__init__(*args)
     self.json_response = {}
 
   def base_path(self):
@@ -236,7 +227,7 @@ class JsonHandler(BaseHandler):
 
     self.response.headers["Content-Type"] = "text/javascript"
     try:
-      output = simplejson.dumps(self.json_response, cls=model.JsonEncoder)
+      output = simplejson.dumps(self.json_response, cls=json_util.JsonEncoder)
     except:
       logging.exception("Could not serialize to JSON")
       self.response.set_status(500, message="Could not serialize to JSON")
