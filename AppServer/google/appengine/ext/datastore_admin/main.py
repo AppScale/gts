@@ -30,7 +30,6 @@ To use, add this to app.yaml:
 import logging
 import operator
 import os
-import time
 
 from google.appengine.api import app_identity
 from google.appengine.api import datastore_errors
@@ -42,7 +41,6 @@ from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import copy_handler
 from google.appengine.ext.datastore_admin import delete_handler
 from google.appengine.ext.datastore_admin import utils
-from google.appengine.ext.db import metadata
 from google.appengine.ext.db import stats
 from google.appengine.ext.webapp import util
 from google.appengine.runtime import apiproxy_errors
@@ -80,9 +78,6 @@ GET_ACTIONS.update(BACKUP_ACTIONS)
 GET_ACTIONS.update(PENDING_BACKUP_ACTIONS)
 GET_ACTIONS.update({'Import Backup Information':
                     backup_handler.ConfirmBackupImportHandler.Render})
-
-
-MAX_RPCS = 10
 
 
 def _GetDatastoreStats(kinds_list, use_stats_kinds=False):
@@ -163,7 +158,7 @@ class RouteByActionHandler(webapp.RequestHandler):
     kinds = []
     more_kinds = False
     try:
-      kinds, more_kinds = self.GetKinds()
+      kinds, more_kinds = utils.GetKinds()
       if not kinds:
         use_stats_kinds = True
         logging.warning('Found no kinds. Using datastore stats instead.')
@@ -213,111 +208,6 @@ class RouteByActionHandler(webapp.RequestHandler):
 
   def post(self):
     self.RouteAction(GET_ACTIONS)
-
-  def GetKinds(self, all_ns=True, deadline=40):
-    """Obtain a list of all kind names from the datastore.
-
-    Args:
-      all_ns: If true, list kind names for all namespaces.
-              If false, list kind names only for the current namespace.
-      deadline: maximum number of seconds to spend getting kinds.
-
-    Returns:
-      kinds: an alphabetized list of kinds for the specified namespace(s).
-      more_kinds: a boolean indicating whether there may be additional kinds
-          not included in 'kinds' (e.g. because the query deadline was reached).
-    """
-    if all_ns:
-      kinds, more_kinds = self.GetKindsForAllNamespaces(deadline)
-    else:
-      kinds, more_kinds = self.GetKindsForCurrentNamespace(deadline)
-    return kinds, more_kinds
-
-  def GetKindsForAllNamespaces(self, deadline):
-    """Obtain a list of all kind names from the datastore.
-
-    Pulls kinds from all namespaces. The result is deduped and alphabetized.
-
-    Args:
-      deadline: maximum number of seconds to spend getting kinds.
-
-    Returns:
-      kinds: an alphabetized list of kinds for the specified namespace(s).
-      more_kinds: a boolean indicating whether there may be additional kinds
-          not included in 'kinds' (e.g. because the query deadline was reached).
-    """
-    start = time.time()
-    kind_name_set = set()
-
-    def ReadFromKindIters(kind_iter_list):
-      """Read kinds from a list of iterators.
-
-      Reads a kind from each iterator in kind_iter_list, adds it to
-      kind_name_set, and removes any completed iterators.
-
-      Args:
-        kind_iter_list: a list of iterators of kinds.
-      """
-      completed = []
-      for kind_iter in kind_iter_list:
-        try:
-          kind_name = kind_iter.next().kind_name
-          if utils.IsKindNameVisible(kind_name):
-            kind_name_set.add(kind_name)
-        except StopIteration:
-          completed.append(kind_iter)
-      for kind_iter in completed:
-        kind_iter_list.remove(kind_iter)
-
-    more_kinds = False
-    try:
-      namespace_iter = metadata.Namespace.all().run(batch_size=1000,
-                                                    deadline=deadline)
-      kind_iter_list = []
-      for ns in namespace_iter:
-
-
-        remaining = deadline - (time.time() - start)
-
-        if remaining <= 0:
-          raise datastore_errors.Timeout
-        kind_iter_list.append(metadata.Kind.all(namespace=ns.namespace_name)
-                              .run(batch_size=1000, deadline=remaining))
-        while len(kind_iter_list) == MAX_RPCS:
-          ReadFromKindIters(kind_iter_list)
-      while kind_iter_list:
-        ReadFromKindIters(kind_iter_list)
-    except (datastore_errors.Timeout, apiproxy_errors.DeadlineExceededError):
-      more_kinds = True
-      logging.warning('Failed to retrieve all kinds within deadline.')
-    return sorted(kind_name_set), more_kinds
-
-  def GetKindsForCurrentNamespace(self, deadline):
-    """Obtain a list of all kind names from the datastore.
-
-    Pulls kinds from the current namespace only. The result is alphabetized.
-
-    Args:
-      deadline: maximum number of seconds to spend getting kinds.
-
-    Returns:
-      kinds: an alphabetized list of kinds for the specified namespace(s).
-      more_kinds: a boolean indicating whether there may be additional kinds
-          not included in 'kinds' (e.g. because the query limit was reached).
-    """
-    more_kinds = False
-    kind_names = []
-    try:
-      kinds = metadata.Kind.all().order('__key__').run(batch_size=1000,
-                                                       deadline=deadline)
-      for kind in kinds:
-        kind_name = kind.kind_name
-        if utils.IsKindNameVisible(kind_name):
-          kind_names.append(kind_name)
-    except (datastore_errors.Timeout, apiproxy_errors.DeadlineExceededError):
-      more_kinds = True
-      logging.warning('Failed to retrieve all kinds within deadline.')
-    return kind_names, more_kinds
 
   def GetOperations(self, active=False, limit=100):
     """Obtain a list of operation, ordered by last_updated."""

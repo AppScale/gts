@@ -284,7 +284,7 @@ class ResourceHandler(webapp.RequestHandler):
       "status": ("overview.html", "text/html"),
       "detail": ("detail.html", "text/html"),
       "base.css": ("base.css", "text/css"),
-      "jquery.js": ("jquery-1.6.1.min.js", "text/javascript"),
+      "jquery.js": ("jquery1.min.js", "text/javascript"),
       "jquery-json.js": ("jquery.json-2.2.min.js", "text/javascript"),
       "jquery-url.js": ("jquery.url.js", "text/javascript"),
       "status.js": ("status.js", "text/javascript"),

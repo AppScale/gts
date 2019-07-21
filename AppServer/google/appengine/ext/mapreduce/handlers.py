@@ -740,7 +740,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
                    shard_state.shard_number, shard_state.mapreduce_id)
       task = None
     elif task_directive == self._TASK_DIRECTIVE.FAIL_TASK:
-      logging.critical("Shard %s failed permanently.", shard_state.shard_id)
+      logging.error("Shard %s failed permanently.", shard_state.shard_id)
       task = None
     elif task_directive == self._TASK_DIRECTIVE.RETRY_SHARD:
       logging.warning("Shard %s is going to be attempted for the %s time.",
