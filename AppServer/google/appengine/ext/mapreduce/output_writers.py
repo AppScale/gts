@@ -1093,6 +1093,8 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
     self._streaming_buffer.close()
 
     if self._no_dup:
+
+
       cloudstorage_api._copy2(
           self._streaming_buffer.name,
           self._streaming_buffer.name,
@@ -1198,3 +1200,26 @@ class _GoogleCloudStorageRecordOutputWriter(_GoogleCloudStorageOutputWriter):
       data: string containing the data to be written.
     """
     self._record_writer.write(data)
+
+
+
+class _GoogleCloudStorageKeyValueOutputWriter(
+    _GoogleCloudStorageRecordOutputWriter):
+  """Write key/values to Google Cloud Storage files in LevelDB format."""
+
+  def write(self, data):
+    if len(data) != 2:
+      logging.error("Got bad tuple of length %d (2-tuple expected): %s",
+                    len(data), data)
+
+    try:
+      key = str(data[0])
+      value = str(data[1])
+    except TypeError:
+      logging.error("Expecting a tuple, but got %s: %s",
+                    data.__class__.__name__, data)
+
+    proto = file_service_pb.KeyValue()
+    proto.set_key(key)
+    proto.set_value(value)
+    _GoogleCloudStorageRecordOutputWriter.write(self, proto.Encode())

@@ -40,6 +40,7 @@ __all__ = [
     'MAX_NAMESPACE_LENGTH',
     'MAX_NAMESPACE',
     'MIN_NAMESPACE',
+    'NAMESPACE_BATCH_SIZE',
     'NamespaceRange',
     'get_namespace_keys',
 ]
@@ -57,20 +58,24 @@ NAMESPACE_CHARACTERS = ''.join(sorted(string.digits +
                                       '._-'))
 MAX_NAMESPACE_LENGTH = 100
 MIN_NAMESPACE = ''
+NAMESPACE_BATCH_SIZE = 50
 
 
 def _setup_constants(alphabet=NAMESPACE_CHARACTERS,
-                     max_length=MAX_NAMESPACE_LENGTH):
+                     max_length=MAX_NAMESPACE_LENGTH,
+                     batch_size=NAMESPACE_BATCH_SIZE):
   """Calculate derived constant values. Only useful for testing."""
 
   global NAMESPACE_CHARACTERS
   global MAX_NAMESPACE_LENGTH
   global MAX_NAMESPACE
   global _LEX_DISTANCE
+  global NAMESPACE_BATCH_SIZE
 
   NAMESPACE_CHARACTERS = alphabet
   MAX_NAMESPACE_LENGTH = max_length
   MAX_NAMESPACE = NAMESPACE_CHARACTERS[-1] * MAX_NAMESPACE_LENGTH
+  NAMESPACE_BATCH_SIZE = batch_size
 
 
 

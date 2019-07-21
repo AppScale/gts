@@ -2728,6 +2728,7 @@ class _GoogleCloudStorageRecordInputReader(_GoogleCloudStorageInputReader):
         self._record_reader = None
 
 
+
 class _ReducerReader(RecordsReader):
   """Reader to read KeyValues records files from Files API."""
 
@@ -2751,13 +2752,15 @@ class _ReducerReader(RecordsReader):
       proto = file_service_pb.KeyValues()
       proto.ParseFromString(binary_record)
 
+      to_yield = None
+      if self.current_key is not None and self.current_key != proto.key():
+        to_yield = (self.current_key, self.current_values)
+        self.current_key = None
+        self.current_values = None
+
       if self.current_key is None:
         self.current_key = proto.key()
         self.current_values = []
-      else:
-        assert proto.key() == self.current_key, (
-            "inconsistent key sequence. Expected %s but got %s" %
-            (self.current_key, proto.key()))
 
       if combiner:
         combiner_result = combiner(
@@ -2775,19 +2778,28 @@ class _ReducerReader(RecordsReader):
           else:
 
             self.current_values.append(value)
+
+
+
+
+        if not to_yield:
+          yield ALLOW_CHECKPOINT
       else:
 
         self.current_values.extend(proto.value_list())
 
-      if not proto.partial():
-        key = self.current_key
-        values = self.current_values
+      if to_yield:
+        yield to_yield
 
-        self.current_key = None
-        self.current_values = None
-        yield (key, values)
-      else:
         yield ALLOW_CHECKPOINT
+
+
+
+    if self.current_key is not None:
+      to_yield = (self.current_key, self.current_values)
+      self.current_key = None
+      self.current_values = None
+      yield to_yield
 
   @staticmethod
   def encode_data(data):
@@ -2795,7 +2807,6 @@ class _ReducerReader(RecordsReader):
 
     Works around limitations in JSON encoding, which cannot handle raw bytes.
     """
-
     return base64.b64encode(pickle.dumps(data))
 
   @staticmethod
@@ -2810,8 +2821,8 @@ class _ReducerReader(RecordsReader):
       A json-izable version of the remaining InputReader.
     """
     result = super(_ReducerReader, self).to_json()
-    result["current_key"] = _ReducerReader.encode_data(self.current_key)
-    result["current_values"] = _ReducerReader.encode_data(self.current_values)
+    result["current_key"] = self.encode_data(self.current_key)
+    result["current_values"] = self.encode_data(self.current_values)
     return result
 
   @classmethod
