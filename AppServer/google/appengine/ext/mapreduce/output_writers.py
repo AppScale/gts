@@ -33,6 +33,7 @@
 from __future__ import with_statement
 
 
+
 __all__ = [
     "BlobstoreOutputWriter",
     "BlobstoreOutputWriterBase",
@@ -46,6 +47,7 @@ __all__ = [
     "COUNTER_IO_WRITE_MSEC",
     "OutputWriter",
     "RecordsPool",
+    "GCSRecordsPool"
     ]
 
 
@@ -285,10 +287,10 @@ class OutputWriter(json_util.JsonMixin):
 
 
 
-_FILES_API_FLUSH_SIZE = 128*1024
+_FILE_POOL_FLUSH_SIZE = 128*1024
 
 
-_FILES_API_MAX_SIZE = 1000*1024
+_FILE_POOL_MAX_SIZE = 1000*1024
 
 
 def _get_params(mapper_spec, allowed_keys=None, allow_old=True):
@@ -336,7 +338,7 @@ def _get_params(mapper_spec, allowed_keys=None, allow_old=True):
 class _FilePool(context.Pool):
   """Pool of file append operations."""
 
-  def __init__(self, flush_size_chars=_FILES_API_FLUSH_SIZE, ctx=None):
+  def __init__(self, flush_size_chars=_FILE_POOL_FLUSH_SIZE, ctx=None):
     """Constructor.
 
     Args:
@@ -368,10 +370,10 @@ class _FilePool(context.Pool):
     if self._size + len(data) > self._flush_size:
       self.flush()
 
-    if len(data) > _FILES_API_MAX_SIZE:
+    if len(data) > _FILE_POOL_MAX_SIZE:
       raise errors.Error(
           "Can't write more than %s bytes in one request: "
-          "risk of writes interleaving." % _FILES_API_MAX_SIZE)
+          "risk of writes interleaving." % _FILE_POOL_MAX_SIZE)
     else:
       self.__append(filename, data)
 
@@ -383,7 +385,7 @@ class _FilePool(context.Pool):
     start_time = time.time()
     for filename, data in self._append_buffer.iteritems():
       with files.open(filename, "a") as f:
-        if len(data) > _FILES_API_MAX_SIZE:
+        if len(data) > _FILE_POOL_MAX_SIZE:
           raise errors.Error("Bad data of length: %s" % len(data))
         if self._ctx:
           operation.counters.Increment(
@@ -397,20 +399,21 @@ class _FilePool(context.Pool):
     self._size = 0
 
 
-class RecordsPool(context.Pool):
-  """Pool of append operations for records files."""
+class _RecordsPoolBase(context.Pool):
+  """Base class for Pool of append operations for records files."""
 
 
   _RECORD_OVERHEAD_BYTES = 10
 
-  def __init__(self, filename,
-               flush_size_chars=_FILES_API_FLUSH_SIZE,
+  def __init__(self,
+               flush_size_chars=_FILE_POOL_FLUSH_SIZE,
                ctx=None,
                exclusive=False):
     """Constructor.
 
+    Any classes that subclass this will need to implement the _write() function.
+
     Args:
-      filename: file name to write data to as string.
       flush_size_chars: buffer flush threshold as int.
       ctx: mapreduce context as context.Context.
       exclusive: a boolean flag indicating if the pool has an exclusive
@@ -420,7 +423,6 @@ class RecordsPool(context.Pool):
     self._flush_size = flush_size_chars
     self._buffer = []
     self._size = 0
-    self._filename = filename
     self._ctx = ctx
     self._exclusive = exclusive
 
@@ -430,9 +432,9 @@ class RecordsPool(context.Pool):
     if self._size + data_length > self._flush_size:
       self.flush()
 
-    if not self._exclusive and data_length > _FILES_API_MAX_SIZE:
+    if not self._exclusive and data_length > _FILE_POOL_MAX_SIZE:
       raise errors.Error(
-          "Too big input %s (%s)."  % (data_length, _FILES_API_MAX_SIZE))
+          "Too big input %s (%s)."  % (data_length, _FILE_POOL_MAX_SIZE))
     else:
       self._buffer.append(data)
       self._size += data_length
@@ -451,21 +453,19 @@ class RecordsPool(context.Pool):
     str_buf = buf.getvalue()
     buf.close()
 
-    if not self._exclusive and len(str_buf) > _FILES_API_MAX_SIZE:
+    if not self._exclusive and len(str_buf) > _FILE_POOL_MAX_SIZE:
 
       raise errors.Error(
           "Buffer too big. Can't write more than %s bytes in one request: "
           "risk of writes interleaving. Got: %s" %
-          (_FILES_API_MAX_SIZE, len(str_buf)))
+          (_FILE_POOL_MAX_SIZE, len(str_buf)))
 
 
     start_time = time.time()
-    with files.open(self._filename, "a", exclusive_lock=self._exclusive) as f:
-      f.write(str_buf)
-      if self._ctx:
-        operation.counters.Increment(
-            COUNTER_IO_WRITE_BYTES, len(str_buf))(self._ctx)
+    self._write(str_buf)
     if self._ctx:
+      operation.counters.Increment(
+          COUNTER_IO_WRITE_BYTES, len(str_buf))(self._ctx)
       operation.counters.Increment(
           COUNTER_IO_WRITE_MSEC,
           int((time.time() - start_time) * 1000))(self._ctx)
@@ -475,11 +475,49 @@ class RecordsPool(context.Pool):
     self._size = 0
     gc.collect()
 
+  def _write(self, str_buf):
+    raise NotImplementedError("_write() not implemented in %s" % type(self))
+
   def __enter__(self):
     return self
 
   def __exit__(self, atype, value, traceback):
     self.flush()
+
+
+class RecordsPool(_RecordsPoolBase):
+  """Pool of append operations for records using Files API."""
+
+  def __init__(self,
+               filename,
+               flush_size_chars=_FILE_POOL_FLUSH_SIZE,
+               ctx=None,
+               exclusive=False):
+    """Requires the filename of the file to write to via the Filaes API."""
+    super(RecordsPool, self).__init__(flush_size_chars, ctx, exclusive)
+    self._filename = filename
+
+  def _write(self, str_buf):
+    """Opens and appends to the filename."""
+    with files.open(self._filename, "a", exclusive_lock=self._exclusive) as f:
+      f.write(str_buf)
+
+
+class GCSRecordsPool(_RecordsPoolBase):
+  """Pool of append operations for records using GCS."""
+
+  def __init__(self,
+               filehandle,
+               flush_size_chars=_FILE_POOL_FLUSH_SIZE,
+               ctx=None,
+               exclusive=False):
+    """Requires the filehandle of an open GCS file to write to."""
+    super(GCSRecordsPool, self).__init__(flush_size_chars, ctx, exclusive)
+    self._filehandle = filehandle
+
+  def _write(self, str_buf):
+    """Uses the filehandle to the file in GCS to write to it."""
+    self._filehandle.write(str_buf)
 
 
 class FileOutputWriterBase(OutputWriter):
@@ -996,6 +1034,16 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
                                         "mappings, %s" % (naming_format, error))
 
   @classmethod
+  def get_params(cls, mapper_spec, allowed_keys=None, allow_old=True):
+    params = _get_params(mapper_spec, allowed_keys, allow_old)
+
+
+    if (mapper_spec.params.get(cls.BUCKET_NAME_PARAM) is not None and
+        params.get(cls.BUCKET_NAME_PARAM) is None):
+      params[cls.BUCKET_NAME_PARAM] = mapper_spec.params[cls.BUCKET_NAME_PARAM]
+    return params
+
+  @classmethod
   def validate(cls, mapper_spec):
     """Validate mapper specification.
 
@@ -1006,7 +1054,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
       BadWriterParamsError: if the specification is invalid for any reason such
         as missing the bucket name or providing an invalid bucket name.
     """
-    writer_spec = _get_params(mapper_spec, allow_old=False)
+    writer_spec = cls.get_params(mapper_spec, allow_old=False)
 
 
     if cls.BUCKET_NAME_PARAM not in writer_spec:
@@ -1029,7 +1077,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
   @classmethod
   def create(cls, mr_spec, shard_number, shard_attempt, _writer_state=None):
     """Inherit docs."""
-    writer_spec = _get_params(mr_spec.mapper, allow_old=False)
+    writer_spec = cls.get_params(mr_spec.mapper, allow_old=False)
     seg_index = None
     if writer_spec.get(cls._NO_DUPLICATE, False):
       seg_index = 0
@@ -1125,7 +1173,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
 
 
       mr_spec = ctx.mapreduce_spec
-      writer_spec = _get_params(mr_spec.mapper, allow_old=False)
+      writer_spec = self.get_params(mr_spec.mapper, allow_old=False)
       filename = self._generate_filename(writer_spec,
                                          mr_spec.name,
                                          mr_spec.mapreduce_id,
@@ -1146,7 +1194,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
     return True
 
   def _supports_slice_recovery(self, mapper_spec):
-    writer_spec = _get_params(mapper_spec, allow_old=False)
+    writer_spec = self.get_params(mapper_spec, allow_old=False)
     return writer_spec.get(self._NO_DUPLICATE, False)
 
   def _recover(self, mr_spec, shard_number, shard_attempt):
@@ -1173,7 +1221,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
                     self._seg_valid_length})
       next_seg_index = self._seg_index + 1
 
-    writer_spec = _get_params(mr_spec.mapper, allow_old=False)
+    writer_spec = self.get_params(mr_spec.mapper, allow_old=False)
 
     key = self._generate_filename(
         writer_spec, mr_spec.name,

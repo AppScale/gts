@@ -33,6 +33,7 @@
 
 
 
+
 __all__ = [
     'NAMESPACE_CHARACTERS',
     'MAX_NAMESPACE_LENGTH',

@@ -41,6 +41,7 @@ serialized to/from json and passed around with other means.
 
 
 
+
 __all__ = ["MapreduceState",
            "MapperSpec",
            "MapreduceControl",
@@ -910,6 +911,7 @@ class ShardState(db.Model):
 
   mapreduce_id = db.StringProperty(required=True)
   active = db.BooleanProperty(default=True, indexed=False)
+  input_finished = db.BooleanProperty(default=False, indexed=False)
   counters_map = json_util.JsonProperty(
       CountersMap, default=CountersMap(), indexed=False)
   result_status = db.StringProperty(choices=_RESULTS, indexed=False)
@@ -958,6 +960,7 @@ class ShardState(db.Model):
     self.last_work_item = ""
     self.active = True
     self.result_status = None
+    self.input_finished = False
     self.counters_map = CountersMap()
     self.slice_id = 0
     self.slice_start_time = None
@@ -989,6 +992,12 @@ class ShardState(db.Model):
   def set_for_abort(self):
     self.active = False
     self.result_status = self.RESULT_ABORTED
+
+  def set_input_finished(self):
+    self.input_finished = True
+
+  def is_input_finished(self):
+    return self.input_finished
 
   def set_for_success(self):
     self.active = False

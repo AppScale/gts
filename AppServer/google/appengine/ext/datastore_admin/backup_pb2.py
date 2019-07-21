@@ -19,6 +19,7 @@
 
 import sys
 _b=sys.version_info[0]<3 and (lambda x:x) or (lambda x:x.encode('latin1'))
+import google
 from google.net.proto2.python.public import descriptor as _descriptor
 from google.net.proto2.python.public import message as _message
 from google.net.proto2.python.public import reflection as _reflection

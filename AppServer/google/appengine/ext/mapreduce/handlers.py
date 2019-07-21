@@ -35,6 +35,7 @@
 
 
 
+
 import datetime
 import logging
 import math
@@ -407,6 +408,16 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       if last_slice:
         obj.end_shard(shard_context)
 
+  def _lc_start_slice(self, tstate, slice_id):
+    self._maintain_LC(tstate.handler, slice_id)
+    self._maintain_LC(tstate.input_reader, slice_id)
+    self._maintain_LC(tstate.output_writer, slice_id)
+
+  def _lc_end_slice(self, tstate, slice_id, last_slice=False):
+    self._maintain_LC(tstate.handler, slice_id, last_slice, False)
+    self._maintain_LC(tstate.input_reader, slice_id, last_slice, False)
+    self._maintain_LC(tstate.output_writer, slice_id, last_slice, False)
+
   def handle(self):
     """Handle request.
 
@@ -470,26 +481,10 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
                                               tstate)
     try:
       slice_id = tstate.slice_id
-      self._maintain_LC(tstate.handler, slice_id)
-      self._maintain_LC(tstate.input_reader, slice_id)
-      self._maintain_LC(tstate.output_writer, slice_id)
+      self._lc_start_slice(tstate, slice_id)
 
-      if is_this_a_retry:
-        task_directive = self._attempt_slice_recovery(shard_state, tstate)
-        if task_directive != self._TASK_DIRECTIVE.PROCEED_TASK:
-          return self.__return(shard_state, tstate, task_directive)
-
-      last_slice = self._process_inputs(
-          tstate.input_reader, shard_state, tstate, ctx)
-
-      self._maintain_LC(tstate.handler, slice_id, last_slice, False)
-      self._maintain_LC(tstate.input_reader, slice_id, last_slice, False)
-      self._maintain_LC(tstate.output_writer, slice_id, last_slice, False)
-
-      ctx.flush()
-
-      if last_slice:
-
+      if shard_state.is_input_finished():
+        self._lc_end_slice(tstate, slice_id, last_slice=True)
 
         if (tstate.output_writer and
             isinstance(tstate.output_writer, output_writers.OutputWriter)):
@@ -499,6 +494,25 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
 
           tstate.output_writer.finalize(ctx, shard_state)
         shard_state.set_for_success()
+        return self.__return(shard_state, tstate, task_directive)
+
+      if is_this_a_retry:
+        task_directive = self._attempt_slice_recovery(shard_state, tstate)
+        if task_directive != self._TASK_DIRECTIVE.PROCEED_TASK:
+          return self.__return(shard_state, tstate, task_directive)
+
+      last_slice = self._process_inputs(
+          tstate.input_reader, shard_state, tstate, ctx)
+
+      self._lc_end_slice(tstate, slice_id)
+
+      ctx.flush()
+
+      if last_slice:
+
+
+
+        shard_state.set_input_finished()
 
     except Exception, e:
       logging.warning("Shard %s got error.", shard_state.shard_id)
