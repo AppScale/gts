@@ -3,12 +3,14 @@
 <head>
   <title>Loading Job Status...</title>
   <link rel="stylesheet" href="base.css" type="text/css">
+  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
   <script type="text/javascript" src="jquery.js"></script>
   <script type="text/javascript" src="jquery-json.js"></script>
   <script type="text/javascript" src="jquery-url.js"></script>
   <script type="text/javascript" src="status.js"></script>
   <script type="text/javascript">
-    $(document).ready(initDetail);
+    google.load('visualization', '1.0', {'packages': ['corechart']});
+    google.setOnLoadCallback(initDetail);
   </script>
 </head>
 <body>
@@ -24,7 +26,6 @@
   <!--
   Add refresh control.
   -->
-  </ul>
 </div>
 
 <h1 id="detail-page-title">Loading Job Status...</h1>

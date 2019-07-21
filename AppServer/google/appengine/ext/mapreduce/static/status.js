@@ -585,12 +585,44 @@ function refreshJobDetail(jobId, detail) {
   // Graph image.
   var detailGraph = $('#detail-graph');
   detailGraph.empty();
-  $('<div>').text('Processed items per shard').appendTo(detailGraph);
-  $('<img>')
-    .attr('src', detail.chart_url)
-    .attr('width', detail.chart_width || 300)
-    .attr('height', 200)
-    .appendTo(detailGraph);
+  var chartTitle = 'Processed items per shard';
+  if (detail.chart_data) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('string', 'Shard');
+    data.addColumn('number', 'Count');
+    var shards = detail.chart_data.length;
+    for (var i = 0; i < shards; i++) {
+      data.addRow([i.toString(), detail.chart_data[i]]);
+    }
+    var log2Shards = Math.log(shards) / Math.log(2);
+    var chartWidth = Math.max(Math.max(300, shards * 2), 100 * log2Shards);
+    var chartHeight = 200;
+    var options = {
+        legend: 'none',
+        bar: {
+            groupWidth: '100%'
+        },
+        vAxis: {
+          minValue: 0
+        },
+        title: chartTitle,
+        chartArea: {
+          width: chartWidth,
+          height: chartHeight
+        },
+        width: 80 + chartWidth,
+        height: 80 + chartHeight
+    };
+    var chart = new google.visualization.ColumnChart(detailGraph[0]);
+    chart.draw(data, options);
+  } else {
+    $('<div>').text(chartTitle).appendTo(detailGraph);
+    $('<img>')
+      .attr('src', detail.chart_url)
+      .attr('width', detail.chart_width || 300)
+      .attr('height', 200)
+      .appendTo(detailGraph);
+  }
 
   // Aggregated counters.
   var aggregatedCounters = $('#aggregated-counters');

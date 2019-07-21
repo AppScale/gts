@@ -176,6 +176,7 @@ class _PropertyRangeModelIterator(RangeIterator):
                                        produce_cursors=True)
         for model_instance in self._query:
           yield model_instance
+      self._query = None
       self._cursor = None
       if ns != self._ns_range.namespace_end:
         self._ns_range = self._ns_range.with_start_after(ns)
@@ -189,7 +190,7 @@ class _PropertyRangeModelIterator(RangeIterator):
       else:
         cursor = self._query.cursor_after()
 
-    if isinstance(cursor, basestring):
+    if cursor is None or isinstance(cursor, basestring):
       cursor_object = False
     else:
       cursor_object = True
@@ -284,6 +285,7 @@ class _KeyRangesIterator(RangeIterator):
     current_iter = None
     if json["current_iter"]:
       current_iter = key_range_iter_cls.from_json(json["current_iter"])
+
     obj._current_iter = current_iter
     return obj
 
