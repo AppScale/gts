@@ -45,7 +45,7 @@ class _ShardLifeCycle(object):
     Make it idempotent.
 
     Args:
-      shard_ctx: map_job.ShardContext object.
+      shard_ctx: map_job_context.ShardContext object.
     """
     pass
 
@@ -59,7 +59,7 @@ class _ShardLifeCycle(object):
     won't be called.
 
     Args:
-      shard_ctx: map_job.ShardContext object.
+      shard_ctx: map_job_context.ShardContext object.
     """
     pass
 
@@ -70,7 +70,7 @@ class _ShardLifeCycle(object):
     Make it idempotent.
 
     Args:
-      slice_ctx: map_job.SliceContext object.
+      slice_ctx: map_job_context.SliceContext object.
     """
     pass
 
@@ -84,6 +84,6 @@ class _ShardLifeCycle(object):
     won't be called.
 
     Args:
-      slice_ctx: map_job.SliceContext object.
+      slice_ctx: map_job_context.SliceContext object.
     """
     pass

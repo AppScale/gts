@@ -100,9 +100,13 @@ def execute_task(task, retries=0, handlers_map=None):
   url = task["url"]
   handler = None
 
+  params = []
+
   for (re_str, handler_class) in handlers_map:
     re_str = "^" + re_str + "($|\\?)"
-    if re.match(re_str, url):
+    m = re.match(re_str, url)
+    if m:
+      params = m.groups()[:-1]
       break
   else:
     raise Exception("Can't determine handler for %s" % task)
@@ -167,9 +171,9 @@ def execute_task(task, retries=0, handlers_map=None):
     os.environ = copy_os_environ
 
     if task["method"] == "POST":
-      handler.post()
+      handler.post(*params)
     elif task["method"] == "GET":
-      handler.get()
+      handler.get(*params)
     else:
       raise Exception("Unsupported method: %s" % task.method)
   finally:

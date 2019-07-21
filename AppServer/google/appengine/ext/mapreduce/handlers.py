@@ -58,13 +58,14 @@ from google.appengine.ext.mapreduce import base_handler
 from google.appengine.ext.mapreduce import context
 from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import input_readers
+from google.appengine.ext.mapreduce import map_job_context
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import operation
 from google.appengine.ext.mapreduce import output_writers
 from google.appengine.ext.mapreduce import parameters
+from google.appengine.ext.mapreduce import shard_life_cycle
 from google.appengine.ext.mapreduce import util
 from google.appengine.ext.mapreduce.api import map_job
-from google.appengine.ext.mapreduce.api.map_job import shard_life_cycle
 from google.appengine.runtime import apiproxy_errors
 
 
@@ -144,6 +145,8 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
     """Constructor."""
     super(MapperWorkerCallbackHandler, self).__init__(*args)
     self._time = time.time
+    self.slice_context = None
+    self.shard_context = None
 
   def _drop_gracefully(self):
     """Drop worker task gracefully.
@@ -409,14 +412,17 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
         obj.end_shard(shard_context)
 
   def _lc_start_slice(self, tstate, slice_id):
-    self._maintain_LC(tstate.handler, slice_id)
-    self._maintain_LC(tstate.input_reader, slice_id)
     self._maintain_LC(tstate.output_writer, slice_id)
+    self._maintain_LC(tstate.input_reader, slice_id)
+    self._maintain_LC(tstate.handler, slice_id)
 
   def _lc_end_slice(self, tstate, slice_id, last_slice=False):
-    self._maintain_LC(tstate.handler, slice_id, last_slice, False)
-    self._maintain_LC(tstate.input_reader, slice_id, last_slice, False)
-    self._maintain_LC(tstate.output_writer, slice_id, last_slice, False)
+    self._maintain_LC(tstate.handler, slice_id, last_slice=last_slice,
+                      begin_slice=False)
+    self._maintain_LC(tstate.input_reader, slice_id, last_slice=last_slice,
+                      begin_slice=False)
+    self._maintain_LC(tstate.output_writer, slice_id, last_slice=last_slice,
+                      begin_slice=False)
 
   def handle(self):
     """Handle request.
@@ -474,11 +480,11 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
     job_config = map_job.JobConfig._to_map_job_config(
         spec,
         os.environ.get("HTTP_X_APPENGINE_QUEUENAME"))
-    job_context = map_job.JobContext(job_config)
-    self.shard_context = map_job.ShardContext(job_context, shard_state)
-    self.slice_context = map_job.SliceContext(self.shard_context,
-                                              shard_state,
-                                              tstate)
+    job_context = map_job_context.JobContext(job_config)
+    self.shard_context = map_job_context.ShardContext(job_context, shard_state)
+    self.slice_context = map_job_context.SliceContext(self.shard_context,
+                                                      shard_state,
+                                                      tstate)
     try:
       slice_id = tstate.slice_id
       self._lc_start_slice(tstate, slice_id)

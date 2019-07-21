@@ -55,6 +55,7 @@ from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import output_writers
 from google.appengine.ext.mapreduce import pipeline_base
 from google.appengine.ext.mapreduce import shuffler
+from google.appengine.ext.mapreduce import util
 
 
 
@@ -65,7 +66,7 @@ MapperPipeline = mapper_pipeline.MapperPipeline
 
 ShufflePipeline = shuffler.ShufflePipeline
 
-CleanupPipeline = mapper_pipeline._CleanupPipeline
+CleanupPipeline = shuffler._GCSCleanupPipeline
 
 
 _ReducerReader = input_readers._ReducerReader
@@ -121,6 +122,7 @@ class ReducePipeline(pipeline_base._OutputSlotsMixin,
     output_writer_spec: specification of output write to use with reduce
       function.
     params: mapper parameters to use as dict.
+    bucket_name: The name of the Google Cloud Storage bucket.
     filenames: list of filenames to reduce.
     combiner_spec: Optional. Specification of a combine function. If not
       supplied, no combine step will take place. The combine function takes a
@@ -140,13 +142,18 @@ class ReducePipeline(pipeline_base._OutputSlotsMixin,
           reducer_spec,
           output_writer_spec,
           params,
+          bucket_name,
           filenames,
           combiner_spec=None,
           shards=None):
+    filenames_only = (
+        util.strip_prefix_from_items("/%s/" % bucket_name, filenames))
     new_params = dict(params or {})
     new_params.update({
-        "files": filenames
-        })
+        "input_reader": {
+            "bucket_name": bucket_name,
+            "objects": filenames_only,
+        }})
     if combiner_spec:
       new_params.update({
           "combiner_spec": combiner_spec,
@@ -233,6 +240,7 @@ class MapreducePipeline(pipeline_base._OutputSlotsMixin,
         reducer_spec,
         output_writer_spec,
         reducer_params,
+        mapper_params["bucket_name"],
         shuffler_pipeline,
         combiner_spec=combiner_spec)
     with pipeline.After(reducer_pipeline):

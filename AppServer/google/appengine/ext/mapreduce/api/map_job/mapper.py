@@ -16,7 +16,8 @@
 #
 """Interface for user defined mapper."""
 
-from . import shard_life_cycle
+from google.appengine.ext.mapreduce import shard_life_cycle
+
 
 
 
@@ -66,7 +67,7 @@ class Mapper(shard_life_cycle._ShardLifeCycle):
     CAUTION! Carefully tune to not to exceed memory limit or request deadline.
 
     Args:
-      slice_ctx: map_job.SliceContext object.
+      slice_ctx: map_job_context.SliceContext object.
       val: a single value yielded by your input reader. The type
         depends on the input reader. For example, some may yield a single
         datastore entity, others may yield a (int, str) tuple.

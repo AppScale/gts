@@ -28,8 +28,6 @@
 
 
 
-
-
 """Pipelines for mapreduce library."""
 
 
@@ -40,7 +38,6 @@ __all__ = [
 
 import google
 
-from google.appengine.api import files
 from google.appengine.ext.mapreduce import control
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import parameters
@@ -142,27 +139,3 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
     self.fill(self.outputs.result_status, mapreduce_state.result_status)
     self.fill(self.outputs.counters, mapreduce_state.counters_map.to_dict())
     self.complete(outputs)
-
-
-class _CleanupPipeline(pipeline_base.PipelineBase):
-  """A pipeline to do a cleanup for mapreduce jobs.
-
-  Args:
-    filename_or_list: list of files or file lists to delete.
-  """
-
-  def delete_file_or_list(self, filename_or_list):
-    if isinstance(filename_or_list, list):
-      for filename in filename_or_list:
-        self.delete_file_or_list(filename)
-    else:
-      filename = filename_or_list
-      for _ in range(10):
-        try:
-          files.delete(filename)
-          break
-        except:
-          pass
-
-  def run(self, temp_files):
-    self.delete_file_or_list(temp_files)
