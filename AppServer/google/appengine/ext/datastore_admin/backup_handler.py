@@ -635,7 +635,8 @@ def _perform_backup(run_as_a_service, kinds, selected_namespace,
   if run_as_a_service:
 
     raise BackupValidationError(
-        'Please use the Managed Import/Export service. '
+        'Please use the Managed Import/Export service, or remove '
+        'run_as_a_service=T. '
         'https://cloud.google.com/datastore/docs/export-import-entities')
 
   queue = queue or os.environ.get('HTTP_X_APPENGINE_QUEUENAME', 'default')
@@ -1002,7 +1003,8 @@ def _restore(backup_id, kinds, run_as_a_service, queue, mapper_params):
 
   if run_as_a_service:
     raise ValueError(
-        'Please use the Managed Import/Export service. '
+        'Please use the Managed Import/Export service or remove '
+        'run_as_a_service=T. '
         'https://cloud.google.com/datastore/docs/export-import-entities')
 
   job_name = 'datastore_backup_restore_%s' % re.sub(r'[^\w]', '_',
