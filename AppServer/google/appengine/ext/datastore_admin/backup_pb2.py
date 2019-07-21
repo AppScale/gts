@@ -161,6 +161,8 @@ _BACKUP = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
+  oneofs=[
+  ],
   serialized_start=80,
   serialized_end=220,
 )
@@ -203,6 +205,8 @@ _BACKUPINFO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
+  oneofs=[
+  ],
   serialized_start=222,
   serialized_end=303,
 )
@@ -252,6 +256,8 @@ _KINDBACKUPINFO = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
+  oneofs=[
+  ],
   serialized_start=306,
   serialized_end=446,
 )
@@ -294,6 +300,8 @@ _ENTITYSCHEMA_TYPE = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
+  oneofs=[
+  ],
   serialized_start=547,
   serialized_end=725,
 )
@@ -335,6 +343,8 @@ _ENTITYSCHEMA_FIELD = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
+  oneofs=[
+  ],
   serialized_start=727,
   serialized_end=833,
 )
@@ -370,6 +380,8 @@ _ENTITYSCHEMA = _descriptor.Descriptor(
   options=None,
   is_extendable=False,
   extension_ranges=[],
+  oneofs=[
+  ],
   serialized_start=449,
   serialized_end=1105,
 )

@@ -495,6 +495,9 @@ def _perform_backup(run_as_a_service, kinds, selected_namespace,
   else:
     raise BackupValidationError('Unknown filesystem "%s".' % filesystem)
 
+  backup_info = None
+  job_operation = None
+
   job_name = 'datastore_backup_%s_%%(kind)s' % re.sub(r'[^\w]', '_', backup)
   try:
     job_operation = utils.StartOperation('Backup: %s' % backup)

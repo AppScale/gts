@@ -245,11 +245,18 @@ function getSortedKeys(obj) {
   return keys;
 }
 
-// Gets a local datestring from a UNIX timestamp in milliseconds.
-function getLocalTimestring(timestamp_ms) {
-  var when = new Date();
-  when.setTime(timestamp_ms);
-  return when.toLocaleString();
+// Convert milliseconds since the epoch to an ISO8601 datestring.
+// Consider using new Date().toISOString() instead (J.S 1.8+)
+function getIso8601String(timestamp_ms) {
+  var time = new Date();
+  time.setTime(timestamp_ms);
+  return '' +
+      time.getUTCFullYear() + '-' +
+      leftPadNumber(time.getUTCMonth() + 1, 2, '0') + '-' +
+      leftPadNumber(time.getUTCDate(), 2, '0') + 'T' +
+      leftPadNumber(time.getUTCHours(), 2, '0') + ':' +
+      leftPadNumber(time.getUTCMinutes(), 2, '0') + ':' +
+      leftPadNumber(time.getUTCSeconds(), 2, '0') + 'Z';
 }
 
 function leftPadNumber(number, minSize, paddingChar) {
@@ -328,7 +335,7 @@ function initJobOverview(jobs, cursor) {
     var activity = '' + job.active_shards + ' / ' + job.shards + ' shards';
     row.append($('<td>').text(activity))
 
-    row.append($('<td>').text(getLocalTimestring(job.start_timestamp_ms)));
+    row.append($('<td>').text(getIso8601String(job.start_timestamp_ms)));
 
     row.append($('<td>').text(getElapsedTimeString(
         job.start_timestamp_ms, job.updated_timestamp_ms)));
@@ -550,7 +557,7 @@ function refreshJobDetail(jobId, detail) {
   $('<li>')
     .append($('<span class="param-key">').text('Start time'))
     .append($('<span>').text(': '))
-    .append($('<span class="param-value">').text(getLocalTimestring(
+    .append($('<span class="param-value">').text(getIso8601String(
           detail.start_timestamp_ms)))
     .appendTo(jobParams);
 

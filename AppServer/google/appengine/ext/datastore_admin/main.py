@@ -41,9 +41,10 @@ from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import copy_handler
 from google.appengine.ext.datastore_admin import delete_handler
 from google.appengine.ext.datastore_admin import utils
-from google.appengine.ext.db import stats
 from google.appengine.ext.db import metadata
+from google.appengine.ext.db import stats
 from google.appengine.ext.webapp import util
+from google.appengine.runtime import apiproxy_errors
 
 
 
@@ -278,7 +279,7 @@ class RouteByActionHandler(webapp.RequestHandler):
           ReadFromKindIters(kind_iter_list)
       while kind_iter_list:
         ReadFromKindIters(kind_iter_list)
-    except datastore_errors.Timeout:
+    except (datastore_errors.Timeout, apiproxy_errors.DeadlineExceededError):
       more_kinds = True
       logging.warning('Failed to retrieve all kinds within deadline.')
     return sorted(kind_name_set), more_kinds
@@ -305,7 +306,7 @@ class RouteByActionHandler(webapp.RequestHandler):
         kind_name = kind.kind_name
         if utils.IsKindNameVisible(kind_name):
           kind_names.append(kind_name)
-    except datastore_errors.Timeout:
+    except (datastore_errors.Timeout, apiproxy_errors.DeadlineExceededError):
       more_kinds = True
       logging.warning('Failed to retrieve all kinds within deadline.')
     return kind_names, more_kinds
