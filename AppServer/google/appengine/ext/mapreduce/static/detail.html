@@ -5,6 +5,7 @@
   <link rel="stylesheet" href="base.css" type="text/css">
   <script type="text/javascript" src="jquery.js"></script>
   <script type="text/javascript" src="jquery-json.js"></script>
+  <script type="text/javascript" src="jquery-url.js"></script>
   <script type="text/javascript" src="status.js"></script>
   <script type="text/javascript">
     $(document).ready(initDetail);
@@ -15,8 +16,10 @@
 <div id="butter" style="display: none"></div>
 
 <div id="control">
+  <span id="overview-link">
   <a href="status">&laquo; Back to Overview</a>
   |
+  </span>
   <span id="job-control"></span>
   <!--
   Add refresh control.
@@ -44,7 +47,7 @@
   <div style="clear: both"></div>
 
   <div>
-    <h2>Mapper status</h2>
+    <h2>Shard status</h2>
     <table class="status-table">
       <thead>
         <tr>

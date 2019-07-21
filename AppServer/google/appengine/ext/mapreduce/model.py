@@ -53,9 +53,6 @@ __all__ = ["MapreduceState",
 
 import cgi
 import datetime
-import os
-import random
-import time
 import urllib
 import zlib
 
@@ -238,30 +235,6 @@ class HugeTask(object):
       else:
         result[name] = value
     return result
-
-
-
-_FUTURE_TIME = 2**34
-
-
-def _get_descending_key(gettime=time.time):
-  """Returns a key name lexically ordered by time descending.
-
-  This lets us have a key name for use with Datastore entities which returns
-  rows in time descending order when it is scanned in lexically ascending order,
-  allowing us to bypass index building for descending indexes.
-
-  Args:
-    gettime: Used for testing.
-
-  Returns:
-    A string with a time descending key.
-  """
-  now_descending = int((_FUTURE_TIME - gettime()) * 100)
-  request_id_hash = os.environ.get("REQUEST_ID_HASH")
-  if not request_id_hash:
-    request_id_hash = str(random.getrandbits(32))
-  return "%d%s" % (now_descending, request_id_hash)
 
 
 class CountersMap(json_util.JsonMixin):
@@ -624,6 +597,7 @@ class MapreduceState(db.Model):
   _RESULTS = frozenset([RESULT_SUCCESS, RESULT_FAILED, RESULT_ABORTED])
 
 
+
   mapreduce_spec = json_util.JsonProperty(MapreduceSpec, indexed=False)
   active = db.BooleanProperty(default=True, indexed=False)
   last_poll_time = db.DateTimeProperty(required=True)
@@ -726,7 +700,7 @@ class MapreduceState(db.Model):
   @staticmethod
   def new_mapreduce_id():
     """Generate new mapreduce id."""
-    return _get_descending_key()
+    return util._get_descending_key()
 
   def __eq__(self, other):
     if not isinstance(other, self.__class__):

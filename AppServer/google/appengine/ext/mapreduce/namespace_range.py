@@ -293,8 +293,11 @@ class NamespaceRange(object):
     namespace_start = _ord_to_namespace(_namespace_to_ord(after_namespace) + 1)
     return NamespaceRange(namespace_start, self.namespace_end, _app=self.app)
 
-  def make_datastore_query(self):
+  def make_datastore_query(self, cursor=None):
     """Returns a datastore.Query that generates all namespaces in the range.
+
+    Args:
+      cursor: start cursor for the query.
 
     Returns:
       A datastore.Query instance that generates db.Keys for each namespace in
@@ -309,18 +312,19 @@ class NamespaceRange(object):
     return datastore.Query('__namespace__',
                            filters=filters,
                            keys_only=True,
+                           cursor=cursor,
                            _app=self.app)
 
   def normalized_start(self):
     """Returns a NamespaceRange with leading non-existant namespaces removed.
 
     Returns:
-      A copy of this NamespaceRange whose namespace_start is adjusted to exlcude
+      A copy of this NamespaceRange whose namespace_start is adjusted to exclude
       the portion of the range that contains no actual namespaces in the
       datastore. None is returned if the NamespaceRange contains no actual
       namespaces in the datastore.
     """
-    namespaces_after_key = self.make_datastore_query().Get(1)
+    namespaces_after_key = list(self.make_datastore_query().Run(limit=1))
 
     if not namespaces_after_key:
       return None
@@ -433,12 +437,19 @@ class NamespaceRange(object):
 
   def __iter__(self):
     """Iterate over all the namespaces within this range."""
-    query = self.make_datastore_query()
-    for ns_key in query.Run():
-      yield ns_key.name() or ''
+    cursor = None
+    while True:
+      query = self.make_datastore_query(cursor=cursor)
+      count = 0
+      for ns_key in query.Run(limit=NAMESPACE_BATCH_SIZE):
+        count += 1
+        yield ns_key.name() or ''
+      if count < NAMESPACE_BATCH_SIZE:
+        break
+      cursor = query.GetCursor()
 
 
 def get_namespace_keys(app, limit):
   """Get namespace keys."""
   ns_query = datastore.Query('__namespace__', keys_only=True, _app=app)
-  return ns_query.Get(limit=limit)
+  return list(ns_query.Run(limit=limit))

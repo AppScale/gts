@@ -52,6 +52,9 @@ __all__ = [
 import inspect
 import os
 import pickle
+import random
+import sys
+import time
 import types
 
 import google
@@ -66,6 +69,30 @@ _MR_SHARD_ID_TASK_HEADER = "AE-MR-SHARD-ID"
 
 
 CALLBACK_MR_ID_TASK_HEADER = "Mapreduce-Id"
+
+
+
+_FUTURE_TIME = 2**34
+
+
+def _get_descending_key(gettime=time.time):
+  """Returns a key name lexically ordered by time descending.
+
+  This lets us have a key name for use with Datastore entities which returns
+  rows in time descending order when it is scanned in lexically ascending order,
+  allowing us to bypass index building for descending indexes.
+
+  Args:
+    gettime: Used for testing.
+
+  Returns:
+    A string with a time descending key.
+  """
+  now_descending = int((_FUTURE_TIME - gettime()) * 100)
+  request_id_hash = os.environ.get("REQUEST_ID_HASH")
+  if not request_id_hash:
+    request_id_hash = str(random.getrandbits(32))
+  return "%d%s" % (now_descending, request_id_hash)
 
 
 def _get_task_host():
@@ -93,17 +120,18 @@ def _get_task_host():
   return "%s.%s.%s" % (version, module, default_host)
 
 
-def _get_task_headers(mr_spec, mr_id_header_key=_MR_ID_TASK_HEADER):
+def _get_task_headers(map_job_id,
+                      mr_id_header_key=_MR_ID_TASK_HEADER):
   """Get headers for all mr tasks.
 
   Args:
-    mr_spec: an instance of model.MapreduceSpec.
+    map_job_id: map job id.
     mr_id_header_key: the key to set mr id with.
 
   Returns:
     A dictionary of all headers.
   """
-  return {mr_id_header_key: mr_spec.mapreduce_id,
+  return {mr_id_header_key: map_job_id,
           "Host": _get_task_host()}
 
 
@@ -177,7 +205,7 @@ def for_name(fq_name, recursive=False):
     fq_name: fully qualified name of something to find
 
   Returns:
-    class object.
+    class object or None if fq_name is None.
 
   Raises:
     ImportError: when specified module could not be loaded or the class
@@ -185,6 +213,9 @@ def for_name(fq_name, recursive=False):
   """
 
 
+
+  if fq_name is None:
+    return
 
   fq_name = str(fq_name)
   module_name = __name__
@@ -365,3 +396,29 @@ def _set_ndb_cache_policy():
   ndb_ctx = ndb.get_context()
   ndb_ctx.set_cache_policy(lambda key: False)
   ndb_ctx.set_memcache_policy(lambda key: False)
+
+
+def _obj_to_path(obj):
+  """Returns the fully qualified path to the object.
+
+  Args:
+    obj: obj must be a new style top level class, or a top level function.
+      No inner function or static method.
+
+  Returns:
+    Fully qualified path to the object.
+
+  Raises:
+    TypeError: when argument obj has unsupported type.
+    ValueError: when obj can't be discovered on the top level.
+  """
+  if obj is None:
+    return obj
+
+  if inspect.isclass(obj) or inspect.isfunction(obj):
+    fetched = getattr(sys.modules[obj.__module__], obj.__name__, None)
+    if fetched is None:
+      raise ValueError(
+          "Object %r must be defined on the top level of a module." % obj)
+    return "%s.%s" % (obj.__module__, obj.__name__)
+  raise TypeError("Unexpected type %s." % type(obj))

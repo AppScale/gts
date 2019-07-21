@@ -384,6 +384,7 @@ class _Counters(Pool):
     pass
 
 
+
 class Context(object):
   """MapReduce execution context.
 
@@ -420,6 +421,8 @@ class Context(object):
     """
     self._shard_state = shard_state
     self.mapreduce_spec = mapreduce_spec
+
+
     self.task_retry_count = task_retry_count
 
     if self.mapreduce_spec:

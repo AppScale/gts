@@ -36,7 +36,6 @@
 import base64
 import collections
 import logging
-import traceback
 import os
 import re
 
@@ -45,6 +44,10 @@ from google.appengine.ext.mapreduce import model
 from google.appengine.ext.webapp import mock_webapp
 
 
+
+
+_LOGGING_LEVEL = logging.ERROR
+logging.getLogger().setLevel(_LOGGING_LEVEL)
 
 
 def decode_task_payload(task):
@@ -197,7 +200,7 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
         task_run_counts[handler.__class__] += 1
         break
 
-      except:
+      except Exception, e:
         retries += 1
 
         if retries > 100:
@@ -208,6 +211,7 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
             "Task %s is being retried for the %s time",
             task["name"],
             retries)
+        logging.debug(e)
 
   return task_run_counts
 

@@ -61,6 +61,7 @@ from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import operation
 from google.appengine.ext.mapreduce import parameters
 from google.appengine.ext.mapreduce import util
+from google.appengine.ext.mapreduce.api import map_job
 from google.appengine.runtime import apiproxy_errors
 
 
@@ -424,7 +425,18 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
           cloudstorage.RetryParams(
               urlfetch_timeout=parameters._GCS_URLFETCH_TIMEOUT_SEC))
 
+    job_config = map_job.JobConfig._to_map_job_config(
+        spec,
+        os.environ.get("HTTP_X_APPENGINE_QUEUENAME"))
+    job_context = map_job.JobContext(job_config)
+    self.shard_context = map_job.ShardContext(job_context, shard_state)
+    self.slice_context = map_job.SliceContext(self.shard_context, shard_state)
     try:
+      if isinstance(tstate.handler, map_job.Mapper):
+        if tstate.slice_id == 0:
+          tstate.handler.begin_shard(self.shard_context)
+        tstate.handler.begin_slice(self.slice_context)
+
       if is_this_a_retry:
         task_directive = self._attempt_slice_recovery(shard_state, tstate)
 
@@ -526,6 +538,11 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
     operation.counters.Increment(
         context.COUNTER_MAPPER_WALLTIME_MS,
         int((self._time() - self._start_time)*1000))(ctx)
+
+    if isinstance(tstate.handler, map_job.Mapper):
+      tstate.handler.end_slice(self.slice_context)
+      if finished_shard:
+        tstate.handler.end_shard(self.shard_context)
     ctx.flush()
 
     return finished_shard
@@ -549,7 +566,9 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
 
       handler = transient_shard_state.handler
 
-      if input_reader.expand_parameters:
+      if isinstance(handler, map_job.Mapper):
+        result = handler(self.slice_context, data)
+      elif input_reader.expand_parameters:
         result = handler(*data)
       else:
         result = handler(data)
@@ -861,7 +880,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
         tstate.slice_id,
         tstate.retries)
 
-    headers = util._get_task_headers(tstate.mapreduce_spec)
+    headers = util._get_task_headers(tstate.mapreduce_spec.mapreduce_id)
     headers[util._MR_SHARD_ID_TASK_HEADER] = tstate.shard_id
 
     worker_task = model.HugeTask(
@@ -1139,7 +1158,7 @@ class ControllerCallbackHandler(base_handler.HugeTaskHandler):
     if done_callback:
       done_task = taskqueue.Task(
           url=done_callback,
-          headers=util._get_task_headers(mapreduce_spec,
+          headers=util._get_task_headers(mapreduce_spec.mapreduce_id,
                                          util.CALLBACK_MR_ID_TASK_HEADER),
           method=mapreduce_spec.params.get("done_callback_method", "POST"))
 
@@ -1230,7 +1249,7 @@ class ControllerCallbackHandler(base_handler.HugeTaskHandler):
         name=task_name, params=task_params,
         countdown=parameters.config._CONTROLLER_PERIOD_SEC,
         parent=mapreduce_state,
-        headers=util._get_task_headers(mapreduce_spec))
+        headers=util._get_task_headers(mapreduce_spec.mapreduce_id))
 
     if not _run_task_hook(mapreduce_spec.get_hooks(),
                           "enqueue_controller_task",
@@ -1483,14 +1502,16 @@ class StartJobHandler(base_handler.PostJsonHandler):
         "mapper_params_validator", "mapper_params.")
     params = self._get_params(
         "params_validator", "params.")
-    if "base_path" not in params:
-      params["base_path"] = parameters.config.BASE_PATH
+
+
+    mr_params = map_job.JobConfig._get_default_mr_params()
+    mr_params.update(params)
+    if "queue_name" in mapper_params:
+      mr_params["queue_name"] = mapper_params["queue_name"]
 
 
     mapper_params["processing_rate"] = int(mapper_params.get(
         "processing_rate") or parameters.config.PROCESSING_RATE_PER_SEC)
-    queue_name = mapper_params["queue_name"] = util.get_queue_name(
-        mapper_params.get("queue_name", None))
 
 
     mapper_spec = model.MapperSpec(
@@ -1500,11 +1521,11 @@ class StartJobHandler(base_handler.PostJsonHandler):
         int(mapper_params.get("shard_count", parameters.config.SHARD_COUNT)),
         output_writer_spec=mapper_output_writer_spec)
 
-    mapreduce_id = type(self)._start_map(
+    mapreduce_id = self._start_map(
         mapreduce_name,
         mapper_spec,
-        params,
-        queue_name=queue_name,
+        mr_params,
+        queue_name=mr_params["queue_name"],
         _app=mapper_params.get("_app"))
     self.json_response["mapreduce_id"] = mapreduce_id
 
@@ -1654,7 +1675,7 @@ class StartJobHandler(base_handler.PostJsonHandler):
 
     kickoff_task = taskqueue.Task(
         url=base_path + "/kickoffjob_callback/" + mapreduce_spec.mapreduce_id,
-        headers=util._get_task_headers(mapreduce_spec),
+        headers=util._get_task_headers(mapreduce_spec.mapreduce_id),
         params=params,
         eta=eta,
         countdown=countdown)
@@ -1697,7 +1718,7 @@ class FinalizeJobHandler(base_handler.TaskQueueHandler):
         url=(mapreduce_spec.params["base_path"] + "/finalizejob_callback/" +
              mapreduce_spec.mapreduce_id),
         params={"mapreduce_id": mapreduce_spec.mapreduce_id},
-        headers=util._get_task_headers(mapreduce_spec))
+        headers=util._get_task_headers(mapreduce_spec.mapreduce_id))
     queue_name = util.get_queue_name(None)
     if not _run_task_hook(mapreduce_spec.get_hooks(),
                           "enqueue_controller_task",

@@ -115,7 +115,7 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
         output_writer_spec=output_writer_spec,
         )
     self.fill(self.outputs.job_id, mapreduce_id)
-    self.set_status(console_url="%s/detail?job_id=%s" % (
+    self.set_status(console_url="%s/detail?mapreduce_id=%s" % (
         (parameters.config.BASE_PATH, mapreduce_id)))
 
   def try_cancel(self):

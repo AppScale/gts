@@ -279,12 +279,13 @@ class ResourceHandler(webapp.RequestHandler):
   """Handler for static resources."""
 
   _RESOURCE_MAP = {
-    "status": ("overview.html", "text/html"),
-    "detail": ("detail.html", "text/html"),
-    "base.css": ("base.css", "text/css"),
-    "jquery.js": ("jquery-1.6.1.min.js", "text/javascript"),
-    "jquery-json.js": ("jquery.json-2.2.min.js", "text/javascript"),
-    "status.js": ("status.js", "text/javascript"),
+      "status": ("overview.html", "text/html"),
+      "detail": ("detail.html", "text/html"),
+      "base.css": ("base.css", "text/css"),
+      "jquery.js": ("jquery-1.6.1.min.js", "text/javascript"),
+      "jquery-json.js": ("jquery.json-2.2.min.js", "text/javascript"),
+      "jquery-url.js": ("jquery.url.js", "text/javascript"),
+      "status.js": ("status.js", "text/javascript"),
   }
 
   def get(self, relative):

@@ -212,6 +212,11 @@ function getJobDetail(jobId, resultFunc) {
     url: 'command/get_job_detail',
     dataType: 'text',
     data: {'mapreduce_id': jobId},
+    statusCode: {
+      404: function() {
+        setButter('job ' + jobId + ' was not found.', true);
+      }
+    },
     error: function(request, textStatus) {
       getResponseDataJson(textStatus);
     },
@@ -283,14 +288,10 @@ function getElapsedTimeString(start_timestamp_ms, updated_timestamp_ms) {
   return updatedString;
 }
 
-// Retrieves the mapreduce_id from the query string. Assumes that it is
-// the only querystring parameter.
+// Retrieves the mapreduce_id from the query string.
 function getJobId() {
-  var index = window.location.search.lastIndexOf('=');
-  if (index == -1) {
-    return '';
-  }
-  return decodeURIComponent(window.location.search.substr(index+1));
+  var jobId = $.url().param('mapreduce_id');
+  return jobId == null ? '' : jobId;
 }
 
 /********* Specific to overview status page *********/
@@ -641,6 +642,9 @@ function initJobDetail(jobId, detail) {
   $('#detail-page-undertext').text('Job #' + jobId);
 
   // Set control buttons.
+  if (self != top) {
+    $('#overview-link').hide();
+  }
   if (detail.active) {
     var control = $('<a href="">')
       .text('Abort Job')

@@ -42,14 +42,14 @@ __all__ = [
 
 
 class RangeIteratorFactory(object):
-  """Factory to create RangeIterators."""
+  """Factory to create RangeIterator."""
 
   @classmethod
   def create_property_range_iterator(cls,
                                      p_range,
                                      ns_range,
                                      query_spec):
-    """Create a RangeIterator.
+    """Create a _PropertyRangeModelIterator.
 
     Args:
       p_range: a property_range.PropertyRange object that defines the
@@ -71,7 +71,7 @@ class RangeIteratorFactory(object):
                                  k_ranges,
                                  query_spec,
                                  key_range_iter_cls):
-    """Create a RangeIterator.
+    """Create a _KeyRangesIterator.
 
     Args:
       k_ranges: a key_ranges._KeyRanges object.
@@ -91,13 +91,18 @@ class RangeIteratorFactory(object):
 
 
 class RangeIterator(json_util.JsonMixin):
-  """Interface for DatastoreInputReader helper iterators.
+  """Interface for DatastoreInputReader helpers.
 
-  RangeIterator defines Python's generator interface and additional
-  marshaling functionality. Marshaling saves the state of the generator.
-  Unmarshaling guarantees any new generator created can resume where the
-  old generator left off. When the produced generator raises StopIteration,
-  the behavior of marshaling/unmarshaling is NOT defined.
+  Technically, RangeIterator is a container. It contains all datastore
+  entities that fall under a certain range (key range or proprety range).
+  It implements __iter__, which returns a generator that can iterate
+  through entities. It also implements marshalling logics. Marshalling
+  saves the state of the container so that any new generator created
+  can resume where the old generator left off.
+
+  Caveats:
+    1. Calling next() on the generators may also modify the container.
+    2. Marshlling after StopIteration is raised has undefined behavior.
   """
 
   def __iter__(self):
@@ -291,7 +296,12 @@ _RANGE_ITERATORS = {
 
 
 class AbstractKeyRangeIterator(json_util.JsonMixin):
-  """Iterates over a single key_range.KeyRange and yields value for each key."""
+  """Iterates over a single key_range.KeyRange and yields value for each key.
+
+  All subclasses do the same thing: iterate over a single KeyRange.
+  They do so using different APIs (db, ndb, datastore) to return entities
+  of different types (db model, ndb model, datastore entity, raw proto).
+  """
 
   def __init__(self, k_range, query_spec):
     """Init.
