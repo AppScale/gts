@@ -574,7 +574,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
     Returns:
       Whether this shard has finished processing all its input split.
     """
-    processing_limit = self._processing_limit(tstate.mapreduce_spec)
+    processing_limit = self._processing_limit(tstate)
     if processing_limit == 0:
       return
 
@@ -754,7 +754,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
       task = self._state_to_task(tstate, shard_state)
     else:
       assert task_directive == self._TASK_DIRECTIVE.PROCEED_TASK
-      countdown = self._get_countdown_for_next_slice(spec)
+      countdown = self._get_countdown_for_next_slice(tstate)
       task = self._state_to_task(tstate, shard_state, countdown=countdown)
 
 
@@ -917,19 +917,19 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
                       parameters.config.TASK_MAX_DATA_PROCESSING_ATTEMPTS)
     return self._TASK_DIRECTIVE.RETRY_SHARD
 
-  def _get_countdown_for_next_slice(self, spec):
+  def _get_countdown_for_next_slice(self, tstate):
     """Get countdown for next slice's task.
 
     When user sets processing rate, we set countdown to delay task execution.
 
     Args:
-      spec: model.MapreduceSpec
+      tstate: An instance of TransientShardState.
 
     Returns:
       countdown in int.
     """
     countdown = 0
-    if self._processing_limit(spec) != -1:
+    if self._processing_limit(tstate) != -1:
       countdown = max(
           int(parameters.config._SLICE_DURATION_SEC -
               (self._time() - self._start_time)), 0)
@@ -999,20 +999,76 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
                         e.__class__,
                         e)
 
-  def _processing_limit(self, spec):
+  @classmethod
+  def _dynamic_processing_rate(
+      cls, slice_id, slice_length, initial_qps, bump_factor, bump_time):
+    """Calculates the MR rate on nth slice.
+
+    This method allows slow MR ramp up (to avoid hotspotting datastore).
+    We start at initial_qps and increase the pace by bump_factor each bump_time
+    seconds.
+
+    So for initial_qps=500, bump_factor=1.5 and bump_time=300 we would start
+    with 500qps (per MR) and increase it by 50% every 5min. We do continuous
+    increases.
+
+    To not deal with time, we use slice_id as time proxy and assume that each
+    slice takes slice_length seconds to execute (so slice 0 is executed at time
+    0, slice 1 at time 15s, and so on).
+
+    DYNAMIC_RATE_INITIAL_QPS_PARAM, DYNAMIC_RATE_BUMP_FACTOR_PARAM and
+    DYNAMIC_RATE_BUMP_TIME_PARAM must all be set and non-zero for dynamic rate
+    to be used.
+
+    The actual implementation will approximate the rate over the duration of the
+    slice. For instance, if per_shard rate is 10qps, we will allow a 15s slice
+    to process 150 entities as fast as possible and then schedule the following
+    slice with an ETA in the future (see _wait_time) so that the average rate
+    adds up to 10qps.
+
+    Args:
+      slice_id: Number of the slice.
+      slice_length: Slice length (in seconds) as configured for the MR.
+      initial_qps: Initial qps (per MR).
+      bump_factor: Factor by which the qps should increase.
+      bump_time: Time in seconds to increase the QPS by bump_factor.
+    Returns:
+      QPS for the MR for the given slice.
+    """
+    if bump_factor < 1:
+      raise errors.BadParamsError()
+    bump_count = slice_id * slice_length / bump_time
+    return initial_qps * bump_factor ** bump_count
+
+  def _processing_limit(self, tstate):
     """Get the limit on the number of map calls allowed by this slice.
 
     Args:
-      spec: a Mapreduce spec.
+      tstate: An instance of TransientShardState.
 
     Returns:
       The limit as a positive int if specified by user. -1 otherwise.
     """
-    processing_rate = float(spec.mapper.params.get("processing_rate", 0))
+    spec = tstate.mapreduce_spec
+    if (spec.mapper.params.get(parameters.DYNAMIC_RATE_INITIAL_QPS_PARAM) and
+        spec.mapper.params.get(parameters.DYNAMIC_RATE_BUMP_FACTOR_PARAM) and
+        spec.mapper.params.get(parameters.DYNAMIC_RATE_BUMP_TIME_PARAM)):
+      processing_rate = self._dynamic_processing_rate(
+          tstate.slice_id,
+          parameters.config._SLICE_DURATION_SEC,
+          float(spec.mapper.params.get(
+              parameters.DYNAMIC_RATE_INITIAL_QPS_PARAM)),
+          float(spec.mapper.params.get(
+              parameters.DYNAMIC_RATE_BUMP_FACTOR_PARAM)),
+          float(spec.mapper.params.get(
+              parameters.DYNAMIC_RATE_BUMP_TIME_PARAM)))
+    else:
+      processing_rate = float(spec.mapper.params.get("processing_rate", 0))
+
     slice_processing_limit = -1
     if processing_rate > 0:
       slice_processing_limit = int(math.ceil(
-          parameters.config._SLICE_DURATION_SEC*processing_rate/
+          parameters.config._SLICE_DURATION_SEC * processing_rate/
           int(spec.mapper.shard_count)))
     return slice_processing_limit
 
@@ -1626,8 +1682,18 @@ class StartJobHandler(base_handler.PostJsonHandler):
       mr_params["queue_name"] = mapper_params["queue_name"]
 
 
-    mapper_params["processing_rate"] = int(mapper_params.get(
-        "processing_rate") or parameters.config.PROCESSING_RATE_PER_SEC)
+    mapper_params["processing_rate"] = int(
+        mapper_params.get("processing_rate") or
+        parameters.config.PROCESSING_RATE_PER_SEC)
+    mapper_params[parameters.DYNAMIC_RATE_INITIAL_QPS_PARAM] = float(
+        mapper_params.get(parameters.DYNAMIC_RATE_INITIAL_QPS_PARAM,
+                          parameters.config.INITIAL_QPS))
+    mapper_params[parameters.DYNAMIC_RATE_BUMP_FACTOR_PARAM] = float(
+        mapper_params.get(parameters.DYNAMIC_RATE_BUMP_FACTOR_PARAM,
+                          parameters.config.BUMP_FACTOR))
+    mapper_params[parameters.DYNAMIC_RATE_BUMP_TIME_PARAM] = float(
+        mapper_params.get(parameters.DYNAMIC_RATE_BUMP_TIME_PARAM,
+                          parameters.config.BUMP_TIME))
 
 
     mapper_spec = model.MapperSpec(

@@ -40,6 +40,12 @@ CONFIG_NAMESPACE = "mapreduce"
 
 
 
+DYNAMIC_RATE_INITIAL_QPS_PARAM = "initial_qps"
+DYNAMIC_RATE_BUMP_FACTOR_PARAM = "bump_factor"
+DYNAMIC_RATE_BUMP_TIME_PARAM = "bump_time"
+
+
+
 
 
 
@@ -202,6 +208,17 @@ class _ConfigDefaults(object):
 
   SHARD_COUNT: Default shard count.
 
+  INITIAL_QPS, BUMP_FACTOR, BUMP_TIME:
+    Allows slow MR ramp up (to avoid hotspotting datastore).
+    We start at initial_qps and increase the pace by bump_factor each bump_time
+    seconds.
+
+    So for initial_qps=500, bump_factor=1.5 and bump_time=300 we would start
+    with 500qps (per MR) and increase it by 50% every 5min. We do continuous
+    increases.
+
+    If set (all 3 non-zero) takes precedence over PROCESSING_RATE_PER_SEC.
+
   PROCESSING_RATE_PER_SEC: Default rate of processed entities per second.
 
   BASE_PATH : Base path of mapreduce and pipeline handlers.
@@ -217,6 +234,10 @@ class _ConfigDefaults(object):
   QUEUE_NAME = "default"
 
   SHARD_COUNT = 8
+
+  INITIAL_QPS = 0
+  BUMP_FACTOR = 0
+  BUMP_TIME = 0
 
 
 

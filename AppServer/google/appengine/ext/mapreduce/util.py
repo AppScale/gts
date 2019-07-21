@@ -201,6 +201,52 @@ def total_seconds(td):
   return secs
 
 
+def _maybe_localize_fq_name(module_name, fq_name):
+  """Localizes fq_name to deal with path difference in python25/27 runtimes.
+
+  Args:
+    module_name: Name of our module, obtained using __name__.
+    fq_name: Fully qualified name to be "localized".
+  Returns:
+    fq_name, potentially with prefix switched to match current module.
+  """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  PREFIX_LOCALIZATIONS = {
+      "google.appengine._internal.mapreduce": "google.appengine.ext.mapreduce",
+      "google.appengine.ext.mapreduce": "google.appengine._internal.mapreduce",
+  }
+  for local_module_prefix, fq_name_prefix in PREFIX_LOCALIZATIONS.iteritems():
+    if (module_name.startswith(local_module_prefix)
+        and fq_name.startswith(fq_name_prefix)):
+      return fq_name.replace(fq_name_prefix, local_module_prefix, 1)
+  return fq_name
+
+
 def for_name(fq_name, recursive=False):
   """Find class/function/method specified by its fully qualified name.
 
@@ -234,6 +280,8 @@ def for_name(fq_name, recursive=False):
   fq_name = str(fq_name)
   module_name = __name__
   short_name = fq_name
+
+  fq_name = _maybe_localize_fq_name(module_name, fq_name)
 
   if fq_name.rfind(".") >= 0:
     (module_name, short_name) = (fq_name[:fq_name.rfind(".")],
