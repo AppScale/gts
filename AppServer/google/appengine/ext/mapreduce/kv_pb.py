@@ -26,9 +26,6 @@ try:
 except ImportError:
   _net_proto___parse__python = None
 
-__pychecker__ = """maxreturns=0 maxbranches=0 no-callinit
-                   unusednames=printElemNumber,debug_strs no-special"""
-
 if hasattr(ProtocolBuffer, 'ExtendableProtocolMessage'):
   _extension_runtime = True
   _ExtendableProtocolMessage = ProtocolBuffer.ExtendableProtocolMessage
