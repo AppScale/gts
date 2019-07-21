@@ -70,7 +70,7 @@ from google.appengine.runtime import apiproxy_errors
 
 
 try:
-  from google.appengine.ext import cloudstorage
+  from google.appengine._internal import cloudstorage
 
 
 

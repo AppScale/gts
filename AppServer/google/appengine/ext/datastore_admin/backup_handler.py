@@ -46,7 +46,6 @@ import time
 import urllib
 import xml.dom.minidom
 
-
 from google.appengine.datastore import entity_pb
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import app_identity
@@ -122,6 +121,81 @@ MEANING_TO_PRIMITIVE_TYPE = {
     entity_pb.Property.BLOB: backup_pb2.EntitySchema.BLOB,
     entity_pb.Property.BYTESTRING: backup_pb2.EntitySchema.SHORT_BLOB
 }
+
+
+class BlobstoreReaderParamsException(Exception):
+  pass
+
+
+class BlobstoreRecordsReader(input_readers.InputReader):
+  """Reads records from blobstore without files API dependency.
+
+  This reader accesses blobstore using (read-only) blobstore API. It only allows
+  reading LevelDB records.
+
+  On to_json() we record how many bytes we've read and on from_json() we
+  seek to the previous location.
+
+  Files API prepends blobstore keys with /blobstore/. We need to accept same
+  params as files API so we silently strip /blobstore/ from any path.
+  """
+
+
+  BLOB_KEYS_PARAM = 'files'
+
+  FILES_API_BLOBSTORE_PREFIX = '/blobstore/'
+
+  def __init__(self, blob_key, start_position):
+    self._blob_key = self._MaybeStripBlobstorePrefix(blob_key)
+    self._records_reader = records.RecordsReader(
+        blobstore.BlobReader(self._blob_key))
+    self._records_reader.seek(start_position)
+
+  @classmethod
+  def _get_params(cls, mapper_spec):
+
+    return input_readers._get_params(mapper_spec)
+
+  @classmethod
+  def _MaybeStripBlobstorePrefix(cls, blob_key):
+    """Strip /blobstore/ so that this reader can accept files API paths."""
+    if blob_key.startswith(cls.FILES_API_BLOBSTORE_PREFIX):
+      blob_key = blob_key[len(cls.FILES_API_BLOBSTORE_PREFIX):]
+    return blob_key
+
+  @classmethod
+  @db.non_transactional(allow_existing=True)
+  def validate(cls, mapper_spec):
+    params = cls._get_params(mapper_spec)
+    if cls.BLOB_KEYS_PARAM not in params or not params[cls.BLOB_KEYS_PARAM]:
+      raise BlobstoreReaderParamsException
+
+
+
+    blob_keys = [cls._MaybeStripBlobstorePrefix(blob_key)
+                 for blob_key in params[cls.BLOB_KEYS_PARAM]]
+    for blob_key in blob_keys:
+
+      if not blobstore.BlobInfo.get(blobstore.BlobKey(blob_key)):
+        raise BlobstoreReaderParamsException(
+            'Could not find blobinfo for key %s' % blob_key)
+
+  def __iter__(self):
+    for record in self._records_reader:
+      yield record
+
+  def to_json(self):
+    return self._blob_key, self._records_reader.tell()
+
+  @classmethod
+  def from_json(cls, json):
+    return cls(*json)
+
+  @classmethod
+  def split_input(cls, mapper_spec):
+
+    blob_keys = cls._get_params(mapper_spec)[cls.BLOB_KEYS_PARAM]
+    return [cls(blob_key, 0) for blob_key in blob_keys]
 
 
 class ConfirmBackupHandler(webapp.RequestHandler):
@@ -465,7 +539,7 @@ def _perform_backup(run_as_a_service, kinds, selected_namespace,
     BackupValidationError: On validation error.
     Exception: On other error.
   """
-  BACKUP_COMPLETE_HANDLER = __name__ +  '.BackupCompleteHandler'
+  BACKUP_COMPLETE_HANDLER = __name__ + '.BackupCompleteHandler'
   BACKUP_HANDLER = __name__ + '.BackupEntity.map'
   INPUT_READER = __name__ + '.DatastoreEntityProtoInputReader'
   OUTPUT_WRITER = output_writers.__name__ + '.FileRecordsOutputWriter'
@@ -1884,4 +1958,4 @@ def handlers_list(base_path):
        DoBackupAbortHandler),
       (r'%s/%s' % (base_path, DoBackupImportHandler.SUFFIX),
        DoBackupImportHandler),
-      ]
+  ]

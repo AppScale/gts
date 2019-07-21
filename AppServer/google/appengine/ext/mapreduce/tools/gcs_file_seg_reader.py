@@ -25,7 +25,7 @@ from google.appengine.ext.mapreduce import output_writers
 
 try:
 
-  from google.appengine.ext import cloudstorage
+  from google.appengine._internal import cloudstorage
   if hasattr(cloudstorage, "_STUB"):
     cloudstorage = None
 except ImportError:

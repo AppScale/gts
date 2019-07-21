@@ -33,10 +33,13 @@
 import logging
 import os
 
-version = os.environ.get('CURRENT_VERSION_ID', '').split('.')[0]
+_version = os.environ.get('CURRENT_VERSION_ID', '').split('.')[0]
+_internal_libs = [
+    'google.appengine.ext.mapreduce',
+    'google.appengine._internal.mapreduce'
+]
 
-if (__name__ == 'google.appengine.ext.mapreduce'
-    and version != 'ah-builtin-python-bundle'):
+if __name__ in _internal_libs and _version != 'ah-builtin-python-bundle':
   msg = ('You should not use the mapreduce library that is bundled with the'
          ' SDK. Use the one from'
          ' https://pypi.python.org/pypi/GoogleAppEngineMapReduce instead.')

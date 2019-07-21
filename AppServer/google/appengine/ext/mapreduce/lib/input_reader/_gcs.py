@@ -38,7 +38,7 @@ from google.appengine.ext.mapreduce.api import map_job
 
 try:
 
-  from google.appengine.ext import cloudstorage
+  from google.appengine._internal import cloudstorage
   if hasattr(cloudstorage, "_STUB"):
     cloudstorage = None
 except ImportError:
