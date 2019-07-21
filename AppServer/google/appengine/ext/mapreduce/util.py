@@ -296,14 +296,17 @@ def for_name(fq_name, recursive=False):
 
 
 
-    if recursive:
-      raise
-    else:
-      raise ImportError("Could not find '%s' on path '%s'" % (
-          short_name, module_name))
+
+    raise ImportError("Could not find '%s' on path '%s'" % (
+        short_name, module_name))
   except ImportError:
+    tb = sys.exc_info()[2]
+    if tb.tb_next is not None:
 
 
+
+
+      raise
     try:
       module = for_name(module_name, recursive=True)
       if hasattr(module, short_name):
@@ -312,9 +315,15 @@ def for_name(fq_name, recursive=False):
 
         raise KeyError()
     except KeyError:
-      raise ImportError("Could not find '%s' on path '%s'" % (
+      raise ImportError("Could not find '%s' in module '%s'" % (
           short_name, module_name))
     except ImportError:
+      tb = sys.exc_info()[2]
+      if tb.tb_next is not None:
+
+
+
+        raise
 
 
       pass
