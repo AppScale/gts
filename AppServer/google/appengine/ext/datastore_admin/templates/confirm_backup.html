@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Confirm Backup of {{kind_str|escape}}{% endblock %}
 {% block body %}
-  <h2>Datastore Admin: Backup to Blobstore or Google Cloud Storage</h2>
+  <h2>Datastore Admin: Backup to Google Cloud Storage</h2>
   {% if kind_list %}
     {% comment %}
     size_total represents the total size of the figures for which we have
@@ -78,14 +78,14 @@
           <td>
             Backup storage destination:
             <select name="filesystem" id="ae-datastore-admin-filesystem">
-              {% if not run_as_a_service %}
-              <option value="blobstore" selected="selected">Blobstore</option>
+              {% if not run_as_a_service and not hide_blobstore %}
+              <option value="blobstore">Blobstore</option>
               {% endif %}
-              <option value="gs">Google Cloud Storage</option>
+              <option value="gs" selected="selected">Google Cloud Storage</option>
             </select>
           </td>
         </tr>
-        <tr {% if not run_as_a_service %}style="display:none;"{% endif %} id="gs_bucket_tr">
+        <tr id="gs_bucket_tr">
           <td>
             Google Cloud Storage bucket name
             (<a target="_blank"

@@ -70,6 +70,7 @@ from google.appengine.ext.datastore_admin import backup_pb2
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.runtime import apiproxy_errors
+from google.appengine.runtime import features
 
 
 try:
@@ -96,6 +97,7 @@ except ImportError:
 
   pass
 
+DISABLE_FILES_API_FEATURE = 'DisableFilesAPIInDatastoreAdmin'
 
 XSRF_ACTION = 'backup'
 BUCKET_PATTERN = (r'^([a-zA-Z0-9]+([\-_]+[a-zA-Z0-9]+)*)'
@@ -259,6 +261,7 @@ class ConfirmBackupHandler(webapp.RequestHandler):
     blob_warning = bool(blobstore.BlobInfo.all().count(1))
     template_params = {
         'run_as_a_service': handler.request.get('run_as_a_service'),
+        'hide_blobstore': features.IsEnabled('HideBlobstoreInDatastoreAdmin'),
         'form_target': DoBackupHandler.SUFFIX,
         'kind_list': kinds,
         'remainder': remainder,
@@ -561,8 +564,9 @@ class BackupValidationError(utils.Error):
 
 def _get_gcs_output_writer():
   """Output writer to use for writing to GCS."""
-
-
+  if features.IsEnabled(DISABLE_FILES_API_FEATURE):
+    return (output_writers.__name__ +
+            '.GoogleCloudStorageConsistentRecordOutputWriter')
   return output_writers.__name__ + '.FileRecordsOutputWriter'
 
 
@@ -949,12 +953,14 @@ class DoBackupAbortHandler(BaseDoHandler):
 
 
 def _get_gcs_restore_reader():
-
+  if features.IsEnabled(DISABLE_FILES_API_FEATURE):
+    return input_readers.__name__ + '.GoogleCloudStorageRecordInputReader'
   return input_readers.__name__ + '.RecordsReader'
 
 
 def _get_blobstore_restore_reader():
-
+  if features.IsEnabled(DISABLE_FILES_API_FEATURE):
+    return __name__ + '.BlobstoreRecordsReader'
   return input_readers.__name__ + '.RecordsReader'
 
 
