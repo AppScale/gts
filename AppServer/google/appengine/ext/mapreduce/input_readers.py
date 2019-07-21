@@ -422,6 +422,7 @@ class AbstractDatastoreInputReader(InputReader):
   BATCH_SIZE_PARAM = "batch_size"
   KEY_RANGE_PARAM = "key_range"
   FILTERS_PARAM = "filters"
+  WHOLE_EG_PARAM = "whole_eg"
 
   _KEY_RANGE_ITER_CLS = db_iters.AbstractKeyRangeIterator
 
@@ -487,11 +488,14 @@ class AbstractDatastoreInputReader(InputReader):
     """Inherit doc."""
     shard_count = mapper_spec.shard_count
     query_spec = cls._get_query_spec(mapper_spec)
+    params = _get_params(mapper_spec)
+    shard_whole_eg = params.get(cls.WHOLE_EG_PARAM, False)
 
     namespaces = None
     if query_spec.ns is not None:
       k_ranges = cls._to_key_ranges_by_shard(
-          query_spec.app, [query_spec.ns], shard_count, query_spec)
+          query_spec.app, [query_spec.ns], shard_count, query_spec,
+          shard_whole_eg=shard_whole_eg)
     else:
       ns_keys = namespace_range.get_namespace_keys(
           query_spec.app, cls.MAX_NAMESPACES_FOR_KEY_SHARD+1)
@@ -504,7 +508,8 @@ class AbstractDatastoreInputReader(InputReader):
       elif len(ns_keys) <= cls.MAX_NAMESPACES_FOR_KEY_SHARD:
         namespaces = [ns_key.name() or "" for ns_key in ns_keys]
         k_ranges = cls._to_key_ranges_by_shard(
-            query_spec.app, namespaces, shard_count, query_spec)
+            query_spec.app, namespaces, shard_count, query_spec,
+            shard_whole_eg=shard_whole_eg)
 
       else:
         ns_ranges = namespace_range.NamespaceRange.split(n=shard_count,
@@ -520,7 +525,8 @@ class AbstractDatastoreInputReader(InputReader):
     return [cls(i) for i in iters]
 
   @classmethod
-  def _to_key_ranges_by_shard(cls, app, namespaces, shard_count, query_spec):
+  def _to_key_ranges_by_shard(cls, app, namespaces, shard_count, query_spec,
+                              shard_whole_eg=False):
     """Get a list of key_ranges.KeyRanges objects, one for each shard.
 
     This method uses scatter index to split each namespace into pieces
@@ -531,24 +537,25 @@ class AbstractDatastoreInputReader(InputReader):
       namespaces: a list of namespaces in str.
       shard_count: number of shards to split.
       query_spec: model.QuerySpec.
+      shard_whole_eg: Whether to align shard ranges to entity-group boundaries.
 
     Returns:
       a list of key_ranges.KeyRanges objects.
     """
+
+
     key_ranges_by_ns = []
-
-
     for namespace in namespaces:
       ranges = cls._split_ns_by_scatter(
           shard_count,
           namespace,
           query_spec.entity_kind,
-          app)
+          app,
+          shard_whole_eg=shard_whole_eg)
 
 
       random.shuffle(ranges)
       key_ranges_by_ns.append(ranges)
-
 
 
 
@@ -558,6 +565,7 @@ class AbstractDatastoreInputReader(InputReader):
         if k_range:
           ranges_by_shard[i].append(k_range)
 
+
     key_ranges_by_shard = []
     for ranges in ranges_by_shard:
       if ranges:
@@ -566,11 +574,8 @@ class AbstractDatastoreInputReader(InputReader):
     return key_ranges_by_shard
 
   @classmethod
-  def _split_ns_by_scatter(cls,
-                           shard_count,
-                           namespace,
-                           raw_entity_kind,
-                           app):
+  def _split_ns_by_scatter(cls, shard_count, namespace, raw_entity_kind, app,
+                           shard_whole_eg=False):
     """Split a namespace by scatter index into key_range.KeyRange.
 
     TODO: Power this with key_range.KeyRange.compute_split_points.
@@ -580,6 +585,7 @@ class AbstractDatastoreInputReader(InputReader):
       namespace: namespace name to split. str.
       raw_entity_kind: low level datastore API entity kind.
       app: app id in str.
+      shard_whole_eg: Whether to align shard ranges to entity-group boundaries.
 
     Returns:
       A list of key_range.KeyRange objects. If there are not enough entities to
@@ -605,6 +611,8 @@ class AbstractDatastoreInputReader(InputReader):
               [None] * (shard_count - 1))
 
     random_keys.sort()
+    if shard_whole_eg:
+      random_keys = cls.align_to_entity_groups(random_keys)
 
     if len(random_keys) >= shard_count:
 
@@ -654,6 +662,30 @@ class AbstractDatastoreInputReader(InputReader):
             for i in range(1, shard_count)]
 
   @classmethod
+  def align_to_entity_groups(cls, keys):
+    """Aligns the specified keys to entity group boundaries.
+
+    This entails converting each key to the key of its entity group and
+    removing duplicates.
+
+    Args:
+      keys: The sorted list of entity keys that should be aligned. If the list
+        contains Nones, they must all be at the end.
+
+    Returns:
+      The sorted list of entity group keys, with Nones truncated from the end.
+    """
+    result = []
+    for key in keys:
+      if key is None:
+        break
+      eg_key = key.entity_group()
+      if not result or result[-1] != eg_key:
+        result.append(eg_key)
+
+    return result
+
+  @classmethod
   def validate(cls, mapper_spec):
     """Inherit docs."""
     params = _get_params(mapper_spec)
@@ -666,11 +698,6 @@ class AbstractDatastoreInputReader(InputReader):
           raise BadReaderParamsError("Bad batch size: %s" % batch_size)
       except ValueError, e:
         raise BadReaderParamsError("Bad batch size: %s" % e)
-    try:
-      bool(params.get(cls.KEYS_ONLY_PARAM, False))
-    except:
-      raise BadReaderParamsError("keys_only expects a boolean value but got %s",
-                                 params[cls.KEYS_ONLY_PARAM])
     if cls.NAMESPACE_PARAM in params:
       if not isinstance(params[cls.NAMESPACE_PARAM],
                         (str, unicode, type(None))):
