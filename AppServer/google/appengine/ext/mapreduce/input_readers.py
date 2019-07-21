@@ -2734,6 +2734,7 @@ class _GoogleCloudStorageInputReader(InputReader):
 
         return handle
       except cloudstorage.NotFoundError:
+        self._on_missing_input_file(filename)
 
         if getattr(self, "_fail_on_missing_input", False):
           raise errors.FailJobError(
@@ -2741,6 +2742,18 @@ class _GoogleCloudStorageInputReader(InputReader):
 
         logging.warning("File %s may have been removed. Skipping file.",
                         filename)
+
+  def _on_missing_input_file(self, filename):
+    """Hook which is called when an input file is missing.
+
+    This implementation is a no-op.  Subclasses can override it to add error
+    handling.  Note that this method should not raise exceptions.  Instead, use
+    the FAIL_ON_MISSING_INPUT param to control that.
+
+    Args:
+      filename: The file that is missing.
+    """
+    pass
 
   def __str__(self):
 

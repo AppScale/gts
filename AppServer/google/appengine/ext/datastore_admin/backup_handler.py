@@ -81,6 +81,7 @@ try:
   from google.appengine.ext.mapreduce import json_util
   from google.appengine.ext.mapreduce import operation as op
   from google.appengine.ext.mapreduce import output_writers
+  from google.appengine.ext.mapreduce import parameters
 except ImportError:
 
   from google.appengine._internal.mapreduce import context
@@ -89,6 +90,8 @@ except ImportError:
   from google.appengine._internal.mapreduce import json_util
   from google.appengine._internal.mapreduce import operation as op
   from google.appengine._internal.mapreduce import output_writers
+  from google.appengine._internal.mapreduce import parameters
+
 
 try:
 
@@ -1021,6 +1024,13 @@ class DoBackupRestoreHandler(BaseDoHandler):
       mapper_params['files'] = get_backup_files(backup, kinds)
       mapper_params['kind_filter'] = kinds
       mapper_params['original_app'] = backup.original_app
+      mapper_params.update({
+
+
+          parameters.DYNAMIC_RATE_INITIAL_QPS_PARAM: 500,
+          parameters.DYNAMIC_RATE_BUMP_FACTOR_PARAM: 1.5,
+          parameters.DYNAMIC_RATE_BUMP_TIME_PARAM: 300,
+      })
 
       if backup.filesystem == FILES_API_GS_FILESYSTEM:
         input_reader_to_use = _get_gcs_restore_reader()
