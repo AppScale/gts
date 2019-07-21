@@ -50,6 +50,7 @@ import zlib
 from appengine_pipeline.src import pipeline
 from appengine_pipeline.src.pipeline import common as pipeline_common
 from google.appengine.api import files
+from google.appengine.api import modules
 from google.appengine.api.files import file_service_pb
 from google.appengine.ext import db
 from google.appengine.ext.mapreduce import context
@@ -650,14 +651,28 @@ class _ShuffleServicePipeline(pipeline_base.PipelineBase):
           _blobinfo_uploaded_filename=blob_file_name)
       output_files.append(file_name)
     self.fill(self.outputs._output_files, output_files)
+
+
+
+    target = modules.get_current_version_name()
+    module_name = modules.get_current_module_name()
+    if module_name != "default":
+
+
+
+      target = "%s.%s." % (target, module_name)
+
     files.shuffler.shuffle("%s-%s" % (job_name, int(time.time())),
                            input_files,
                            output_files,
                            {
                                "url": self.get_callback_url(),
+
+
+
                                "method": "GET",
                                "queue": self.queue_name,
-                               "version": os.environ["CURRENT_VERSION_ID"],
+                               "version": target,
                            })
 
   def callback(self, **kwargs):

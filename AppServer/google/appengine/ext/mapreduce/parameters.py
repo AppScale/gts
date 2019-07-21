@@ -27,9 +27,23 @@ CONFIG_NAMESPACE = "mapreduce"
 class _ConfigDefaults(object):
   """Default configs.
 
-  Do not change parameters starts with _.
+  Do not change parameters whose names begin with _.
 
-  SHARD_RETRY_LIMIT: How many times a shard can retry.
+  SHARD_MAX_ATTEMPTS: Max attempts to execute a shard before giving up.
+
+  TASK_MAX_ATTEMPTS: Max attempts to execute a task before dropping it. Task
+    is any taskqueue task created by MR framework. A task is dropped
+    when its X-AppEngine-TaskExecutionCount is bigger than this number.
+    Dropping a task will cause abort on the entire MR job.
+
+  TASK_MAX_DATA_PROCESSING_ATTEMPTS:
+    Max times to execute a task when previous task attempts failed during
+    data processing stage. An MR work task has three major stages:
+    initial setup, data processing, and final checkpoint.
+    Setup stage should be allowed to be retried more times than data processing
+    stage: setup failures are caused by unavailable GAE services while
+    data processing failures are mostly due to user function error out on
+    certain input data. Thus, set TASK_MAX_ATTEMPTS higher than this parameter.
 
   QUEUE_NAME: Default queue for MR.
 
@@ -38,16 +52,14 @@ class _ConfigDefaults(object):
   PROCESSING_RATE_PER_SEC: Default rate of processed entities per second.
 
   BASE_PATH : Base path of mapreduce and pipeline handlers.
-
-  RETRY_SLICE_ERROR_MAX_RETRIES:
-    How many times to cope with a RetrySliceError before totally
-  giving up and aborting the whole job. RetrySliceError is raised only
-  during processing user data. Errors from MR framework are not counted.
-
-  MAX_TASK_RETRIES: How many times to retry a task before dropping it.
   """
 
-  SHARD_RETRY_LIMIT = 3
+  SHARD_MAX_ATTEMPTS = 4
+
+
+  TASK_MAX_ATTEMPTS = 31
+
+  TASK_MAX_DATA_PROCESSING_ATTEMPTS = 11
 
   QUEUE_NAME = "default"
 
@@ -58,11 +70,6 @@ class _ConfigDefaults(object):
 
 
   BASE_PATH = "/_ah/mapreduce"
-
-  RETRY_SLICE_ERROR_MAX_RETRIES = 10
-
-
-  MAX_TASK_RETRIES = 30
 
 
 
@@ -87,18 +94,4 @@ config = lib_config.register(CONFIG_NAMESPACE, _ConfigDefaults.__dict__)
 
 _DEFAULT_PIPELINE_BASE_PATH = config.BASE_PATH + "/pipeline"
 
-
-
-
-
-DEFAULT_SHARD_RETRY_LIMIT = config.SHARD_RETRY_LIMIT
-DEFAULT_QUEUE_NAME = config.QUEUE_NAME
-DEFAULT_SHARD_COUNT = config.SHARD_COUNT
-_DEFAULT_PROCESSING_RATE_PER_SEC = config.PROCESSING_RATE_PER_SEC
-_DEFAULT_BASE_PATH = config.BASE_PATH
-_RETRY_SLICE_ERROR_MAX_RETRIES = config.RETRY_SLICE_ERROR_MAX_RETRIES
-_MAX_TASK_RETRIES = config.MAX_TASK_RETRIES
-_SLICE_DURATION_SEC = config._SLICE_DURATION_SEC
-_LEASE_GRACE_PERIOD = config._LEASE_GRACE_PERIOD
-_REQUEST_EVENTUAL_TIMEOUT = config._REQUEST_EVENTUAL_TIMEOUT
-_CONTROLLER_PERIOD_SEC = config._CONTROLLER_PERIOD_SEC
+_GCS_URLFETCH_TIMEOUT_SEC = 30

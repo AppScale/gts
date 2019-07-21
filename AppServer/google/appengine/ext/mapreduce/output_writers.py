@@ -71,7 +71,10 @@ from google.appengine.ext.mapreduce import records
 
 
 try:
+
   from google.appengine.ext import cloudstorage
+  if hasattr(cloudstorage, "_STUB"):
+    cloudstorage = None
 except ImportError:
   pass
 
@@ -749,7 +752,7 @@ class FileOutputWriterBase(OutputWriter):
           finalized_filenames = [cls._get_finalized_filename(
               filesystem, state.filenames[0], state.request_filenames[0])]
     else:
-      shards = model.ShardState.find_by_mapreduce_state(mapreduce_state)
+      shards = model.ShardState.find_all_by_mapreduce_state(mapreduce_state)
       for shard in shards:
         if shard.result_status == model.ShardState.RESULT_SUCCESS:
           state = cls._State.from_json(shard.writer_state)
@@ -1005,9 +1008,8 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
 
   @classmethod
   def get_filenames(cls, mapreduce_state):
-    shards = model.ShardState.find_by_mapreduce_state(mapreduce_state)
     filenames = []
-    for shard in shards:
+    for shard in model.ShardState.find_all_by_mapreduce_state(mapreduce_state):
       if shard.result_status == model.ShardState.RESULT_SUCCESS:
         filenames.append(cls._get_filename(shard))
     return filenames

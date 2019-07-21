@@ -99,7 +99,7 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
         number of shards is determined by how input are splited.
     """
     if shards is None:
-      shards = parameters.DEFAULT_SHARD_COUNT
+      shards = parameters.config.SHARD_COUNT
 
     mapreduce_id = control.start_map(
         job_name,
@@ -116,7 +116,7 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
         )
     self.fill(self.outputs.job_id, mapreduce_id)
     self.set_status(console_url="%s/detail?job_id=%s" % (
-        (parameters._DEFAULT_BASE_PATH, mapreduce_id)))
+        (parameters.config.BASE_PATH, mapreduce_id)))
 
   def callback(self):
     """Callback after this async pipeline finishes."""

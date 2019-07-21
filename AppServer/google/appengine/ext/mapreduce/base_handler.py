@@ -36,6 +36,7 @@
 
 
 
+
 import httplib
 import logging
 import json as simplejson
@@ -47,10 +48,17 @@ try:
   from google.appengine.ext.mapreduce import pipeline_base
 except ImportError:
   pipeline_base = None
+try:
+
+  from google.appengine.ext import cloudstorage
+  if hasattr(cloudstorage, "_STUB"):
+    cloudstorage = None
+except ImportError:
+  cloudstorage = None
+
 from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import parameters
-from google.appengine.ext.mapreduce import util
 
 
 class Error(Exception):
@@ -91,6 +99,9 @@ class TaskQueueHandler(BaseHandler):
 
     self._preprocess_success = False
     super(TaskQueueHandler, self).__init__(*args, **kwargs)
+    if cloudstorage:
+      cloudstorage.set_default_retry_params(
+          cloudstorage.RetryParams(save_access_token=True))
 
   def initialize(self, request, response):
     """Initialize.
@@ -116,10 +127,12 @@ class TaskQueueHandler(BaseHandler):
       return
 
 
-    if self.task_retry_count() > parameters._MAX_TASK_RETRIES:
+    if self.task_retry_count() + 1 > parameters.config.TASK_MAX_ATTEMPTS:
       logging.error(
-          "Task %s has been retried %s times. Dropping it permanently.",
-          self.request.headers["X-AppEngine-TaskName"], self.task_retry_count())
+          "Task %s has been attempted %s times. Dropping it permanently.",
+          self.request.headers["X-AppEngine-TaskName"],
+          self.task_retry_count() + 1)
+      self._drop_gracefully()
       return
 
     try:
@@ -127,13 +140,7 @@ class TaskQueueHandler(BaseHandler):
       self._preprocess_success = True
 
     except:
-
-
-
       self._preprocess_success = False
-      mr_id = self.request.headers.get(util._MR_ID_TASK_HEADER, None)
-      if mr_id is None:
-        raise
       logging.error(
           "Preprocess task %s failed. Dropping it permanently.",
           self.request.headers["X-AppEngine-TaskName"])

@@ -134,10 +134,10 @@ def get_queue_name(queue_name):
   if queue_name:
     return queue_name
   queue_name = os.environ.get("HTTP_X_APPENGINE_QUEUENAME",
-                              parameters.DEFAULT_QUEUE_NAME)
+                              parameters.config.QUEUE_NAME)
   if len(queue_name) > 1 and queue_name[0:2] == "__":
 
-    return parameters.DEFAULT_QUEUE_NAME
+    return parameters.config.QUEUE_NAME
   else:
     return queue_name
 

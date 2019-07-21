@@ -137,10 +137,10 @@ class _ItemList(object):
         representation. For debugging large items.
     """
     self.items = []
-    self.__max_entity_count = max_entity_count
+    self.__max_entity_count = int(max_entity_count)
     self.__flush_function = flush_function
     self.__repr_function = repr_function
-    self.__timeout_retries = timeout_retries
+    self.__timeout_retries = int(timeout_retries)
 
   def __str__(self):
     return "ItemList of with %s items" % len(self.items)
@@ -252,12 +252,12 @@ class _MutationPool(Pool):
     self.force_writes = bool(params.get("force_ops_writes", False))
     self.puts = _ItemList(max_entity_count,
                           self._flush_puts,
-                          self._db_repr)
+                          repr_function=self._db_repr)
     self.deletes = _ItemList(max_entity_count,
                              self._flush_deletes)
     self.ndb_puts = _ItemList(max_entity_count,
                               self._flush_ndb_puts,
-                              self._ndb_repr)
+                              repr_function=self._ndb_repr)
     self.ndb_deletes = _ItemList(max_entity_count,
                                  self._flush_ndb_deletes)
 
