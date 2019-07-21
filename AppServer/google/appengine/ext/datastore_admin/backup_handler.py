@@ -956,6 +956,7 @@ class BackupInformation(db.Model):
   blob_files = db.StringListProperty()
   original_app = db.StringProperty(default=None)
   gs_handle = db.TextProperty(default=None)
+  destination = db.StringProperty()
 
   @classmethod
   def kind(cls):
