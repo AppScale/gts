@@ -44,6 +44,7 @@ from google.appengine.api import yaml_builder
 from google.appengine.api import yaml_errors
 from google.appengine.api import yaml_listener
 from google.appengine.api import yaml_object
+from google.appengine.api.namespace_manager import namespace_manager
 from google.appengine.ext import db
 import webapp2 as webapp
 from google.appengine.ext.mapreduce import base_handler
@@ -67,7 +68,7 @@ class UserParam(validation.Validated):
   """A user-supplied parameter to a mapreduce job."""
 
   ATTRIBUTES = {
-      "name":  r"[a-zA-Z0-9_\.]+",
+      "name": r"[a-zA-Z0-9_\.]+",
       "default": validation.Optional(r".*"),
       "value": validation.Optional(r".*"),
   }
@@ -365,7 +366,8 @@ class GetJobDetailHandler(base_handler.GetJsonHandler):
       raise BadStatusParameterError("'mapreduce_id' was invalid")
     job = model.MapreduceState.get_by_key_name(mapreduce_id)
     if job is None:
-      raise KeyError("Could not find job with ID %r" % mapreduce_id)
+      raise KeyError("Could not find job with ID:%r in namespace:%s" %
+                     (mapreduce_id, namespace_manager.get_namespace()))
 
     self.json_response.update(job.mapreduce_spec.to_json())
     self.json_response.update(job.counters_map.to_json())

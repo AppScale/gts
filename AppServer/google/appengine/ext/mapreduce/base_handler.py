@@ -54,6 +54,7 @@ try:
 except ImportError:
   cloudstorage = None
 
+from google.appengine.api.namespace_manager import namespace_manager
 import webapp2 as webapp
 from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import json_util
@@ -260,6 +261,8 @@ class GetJsonHandler(JsonHandler):
   """JSON handler that accepts GET posts."""
 
   def get(self):
+    namespace_manager.set_namespace(
+        self.request.get("namespace", default_value=None))
     self._handle_wrapper()
 
 
