@@ -331,8 +331,8 @@ def ParseKindsAndSizes(kinds):
 
 
 def _CreateDatastoreConfig():
-  """Create datastore config for use during datastore admin operations."""
-  return datastore_rpc.Configuration(force_writes=True)
+  """Create datastore config for use during datastore operations."""
+  return datastore_rpc.Configuration(force_writes=True, deadline=60)
 
 
 def GenerateHomeUrl(request):
@@ -742,8 +742,7 @@ class PutPool(context.Pool):
   def flush(self):
     """Flush all puts to datastore."""
     if self.puts:
-      datastore_rpc.Connection(
-          config=datastore_rpc.Configuration(deadline=60)).put(self.puts)
+      datastore_rpc.Connection(config=_CreateDatastoreConfig()).put(self.puts)
     self.puts = []
 
 
