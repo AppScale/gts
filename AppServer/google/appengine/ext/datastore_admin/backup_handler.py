@@ -675,7 +675,8 @@ def _perform_backup(run_as_a_service, kinds, selected_namespace,
       if not gcs_path_prefix:
         raise BackupValidationError('GCS path missing.')
       bucket_name, path_prefix = validate_and_split_gcs_path(gcs_path_prefix)
-      mapper_params['gs_bucket_name'] = '%s/%s' % (bucket_name, path_prefix)
+      mapper_params['gs_bucket_name'] = (
+          '%s/%s' % (bucket_name, path_prefix)).rstrip('/')
       naming_format = '$name/$id/output-$num'
       if path_prefix:
         naming_format = '%s/%s' % (path_prefix, naming_format)

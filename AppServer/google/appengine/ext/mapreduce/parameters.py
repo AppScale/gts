@@ -251,6 +251,11 @@ class _ConfigDefaults(object):
 
 
 
+  PERSIST_GCS_ACCESS_TOKEN = True
+
+
+
+
   _SLICE_DURATION_SEC = 15
 
 

@@ -97,7 +97,8 @@ class TaskQueueHandler(webapp.RequestHandler):
               min_retries=5,
               max_retries=10,
               urlfetch_timeout=parameters._GCS_URLFETCH_TIMEOUT_SEC,
-              save_access_token=True,
+              save_access_token=parameters.config.PERSIST_GCS_ACCESS_TOKEN,
+              memcache_access_token=parameters.config.PERSIST_GCS_ACCESS_TOKEN,
               _user_agent=self._DEFAULT_USER_AGENT))
 
   def initialize(self, request, response):
