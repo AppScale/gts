@@ -399,7 +399,7 @@ class KeyRangeEntityIterator(AbstractKeyRangeIterator):
         self._query_spec.entity_kind, filters=self._query_spec.filters)
     for entity in self._query.Run(config=datastore_query.QueryOptions(
         batch_size=self._query_spec.batch_size,
-        keys_only=self._KEYS_ONLY,
+        keys_only=self._query_spec.keys_only or self._KEYS_ONLY,
         start_cursor=self._cursor)):
       yield entity
 

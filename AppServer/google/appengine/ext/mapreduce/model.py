@@ -1080,9 +1080,6 @@ class ShardState(db.Model):
   def find_all_by_mapreduce_state(cls, mapreduce_state):
     """Find all shard states for given mapreduce.
 
-    Never runs within a transaction since it may touch >5 entity groups (one
-    for each shard).
-
     Args:
       mapreduce_state: MapreduceState instance
 

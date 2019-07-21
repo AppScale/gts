@@ -234,7 +234,7 @@ def _get_params(mapper_spec, allowed_keys=None, allow_old=True):
   """
   if "input_reader" not in mapper_spec.params:
     message = ("Input reader's parameters should be specified in "
-        "input_reader subdictionary.")
+               "input_reader subdictionary.")
     if not allow_old or allowed_keys:
       raise errors.BadReaderParamsError(message)
     params = mapper_spec.params
@@ -465,7 +465,7 @@ class AbstractDatastoreInputReader(InputReader):
 
     return model.QuerySpec(
         entity_kind=cls._get_raw_entity_kind(entity_kind),
-        keys_only=bool(params.get(cls.KEY_RANGE_PARAM, False)),
+        keys_only=bool(params.get(cls.KEYS_ONLY_PARAM, False)),
         filters=filters,
         batch_size=int(params.get(cls.BATCH_SIZE_PARAM, cls._BATCH_SIZE)),
         model_class_path=entity_kind,
@@ -562,6 +562,8 @@ class AbstractDatastoreInputReader(InputReader):
                            raw_entity_kind,
                            app):
     """Split a namespace by scatter index into key_range.KeyRange.
+
+    TODO: Power this with key_range.KeyRange.compute_split_points.
 
     Args:
       shard_count: number of shards.
@@ -906,6 +908,7 @@ class _OldAbstractDatastoreInputReader(InputReader):
 
 
 
+
   def __init__(self,
                entity_kind,
                key_ranges=None,
@@ -1057,12 +1060,21 @@ class _OldAbstractDatastoreInputReader(InputReader):
   @classmethod
   def _split_input_from_namespace(cls, app, namespace, entity_kind,
                                   shard_count):
-    """Return KeyRange objects. Helper for _split_input_from_params.
+    """Helper for _split_input_from_params.
 
     If there are not enough Entities to make all of the given shards, the
     returned list of KeyRanges will include Nones. The returned list will
     contain KeyRanges ordered lexographically with any Nones appearing at the
     end.
+
+    Args:
+      app: the app.
+      namespace: the namespace.
+      entity_kind: entity kind as string.
+      shard_count: the number of shards.
+
+    Returns:
+      KeyRange objects.
     """
 
     raw_entity_kind = cls._get_raw_entity_kind(entity_kind)
@@ -1088,6 +1100,7 @@ class _OldAbstractDatastoreInputReader(InputReader):
     if len(random_keys) >= shard_count:
 
       random_keys = cls._choose_split_points(random_keys, shard_count)
+
 
     key_ranges = []
 
@@ -1121,7 +1134,7 @@ class _OldAbstractDatastoreInputReader(InputReader):
 
     if len(key_ranges) < shard_count:
 
-      key_ranges = key_ranges + [None] * (shard_count - len(key_ranges))
+      key_ranges += [None] * (shard_count - len(key_ranges))
 
     return key_ranges
 
@@ -1129,6 +1142,7 @@ class _OldAbstractDatastoreInputReader(InputReader):
   def _split_input_from_params(cls, app, namespaces, entity_kind_name,
                                params, shard_count):
     """Return input reader objects. Helper for split_input."""
+
     key_ranges = []
     for namespace in namespaces:
       key_ranges.extend(
@@ -1317,6 +1331,7 @@ class _OldAbstractDatastoreInputReader(InputReader):
       an instance of DatastoreInputReader with all data deserialized from json.
     """
     if json[cls.KEY_RANGE_PARAM] is None:
+
       key_ranges = None
     else:
       key_ranges = []
@@ -1626,7 +1641,6 @@ class BlobstoreZipInputReader(InputReader):
       raise BadReaderParamsError("Could not find blobinfo for key %s" %
                                  blob_key)
 
-
   @classmethod
   def split_input(cls, mapper_spec, _reader=blobstore.BlobReader):
     """Returns a list of input shard states for the input spec.
@@ -1643,8 +1657,8 @@ class BlobstoreZipInputReader(InputReader):
     params = _get_params(mapper_spec)
     blob_key = params[cls.BLOB_KEY_PARAM]
     zip_input = zipfile.ZipFile(_reader(blob_key))
-    files = zip_input.infolist()
-    total_size = sum(x.file_size for x in files)
+    zfiles = zip_input.infolist()
+    total_size = sum(x.file_size for x in zfiles)
     num_shards = min(mapper_spec.shard_count, cls._MAX_SHARD_COUNT)
     size_per_shard = total_size // num_shards
 
@@ -1652,14 +1666,14 @@ class BlobstoreZipInputReader(InputReader):
 
     shard_start_indexes = [0]
     current_shard_size = 0
-    for i, fileinfo in enumerate(files):
+    for i, fileinfo in enumerate(zfiles):
       current_shard_size += fileinfo.file_size
       if current_shard_size >= size_per_shard:
         shard_start_indexes.append(i + 1)
         current_shard_size = 0
 
-    if shard_start_indexes[-1] != len(files):
-      shard_start_indexes.append(len(files))
+    if shard_start_indexes[-1] != len(zfiles):
+      shard_start_indexes.append(len(zfiles))
 
     return [cls(blob_key, start_index, end_index, _reader)
             for start_index, end_index
@@ -1788,11 +1802,11 @@ class BlobstoreZipLineInputReader(InputReader):
 
     readers = []
     for blob_key in blob_keys:
-      files = blob_files[blob_key]
+      bfiles = blob_files[blob_key]
       current_shard_size = 0
       start_file_index = 0
       next_file_index = 0
-      for fileinfo in files:
+      for fileinfo in bfiles:
         next_file_index += 1
         current_shard_size += fileinfo.file_size
         if current_shard_size >= size_per_shard:
@@ -2002,7 +2016,7 @@ class NamespaceInputReader(InputReader):
   BATCH_SIZE_PARAM = "batch_size"
   _BATCH_SIZE = 10
 
-  def __init__(self, ns_range, batch_size = _BATCH_SIZE):
+  def __init__(self, ns_range, batch_size=_BATCH_SIZE):
     self.ns_range = ns_range
     self._batch_size = batch_size
 
@@ -2114,7 +2128,8 @@ class RecordsReader(InputReader):
   def __iter__(self):
     """Iterate over records in file.
 
-    Yields records as strings.
+    Yields:
+      Records as strings.
     """
     ctx = context.get()
 
@@ -2186,12 +2201,12 @@ class RecordsReader(InputReader):
       filenames = [params[cls.FILE_PARAM]]
 
     batch_list = [[] for _ in xrange(shard_count)]
-    for index, filename in enumerate(filenames):
+    for index, _ in enumerate(filenames):
 
       batch_list[index % shard_count].append(filenames[index])
 
 
-    batch_list.sort(reverse=True, key=lambda x: len(x))
+    batch_list.sort(reverse=True, key=len)
     return [cls(batch, 0) for batch in batch_list]
 
   @classmethod
@@ -2273,6 +2288,7 @@ class LogInputReader(InputReader):
         be used with module_versions
       module_versions: A list of tuples containing a module and version id
         whose logs should be read. This can not be used with version_ids
+      **kwargs: A dictionary of keywords associated with this input reader.
     """
     InputReader.__init__(self)
 
@@ -2445,7 +2461,7 @@ class LogInputReader(InputReader):
 
 
 class _GoogleCloudStorageInputReader(InputReader):
-  """Input reader from Gloogle Cloud Storage using the cloudstorage library.
+  """Input reader from Google Cloud Storage using the cloudstorage library.
 
   This class is expected to be subclassed with a reader that understands
   user-level records.
@@ -2545,7 +2561,7 @@ class _GoogleCloudStorageInputReader(InputReader):
       mapper_spec: an instance of model.MapperSpec
 
     Raises:
-      BadReaderParamsError if the specification is invalid for any reason such
+      BadReaderParamsError: if the specification is invalid for any reason such
         as missing the bucket name or providing an invalid bucket name.
     """
     reader_spec = _get_params(mapper_spec, allow_old=False)
@@ -2806,6 +2822,12 @@ class _ReducerReader(RecordsReader):
     """Encodes the given data, which may have include raw bytes.
 
     Works around limitations in JSON encoding, which cannot handle raw bytes.
+
+    Args:
+      data: the data to encode.
+
+    Returns:
+      The data encoded.
     """
     return base64.b64encode(pickle.dumps(data))
 

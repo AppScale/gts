@@ -85,10 +85,31 @@ class Job(object):
     """Aborts the job."""
     model.MapreduceControl.abort(self.job_config.job_id)
 
+  def get_counters(self):
+    """Get counters from this job.
+
+    When a job is running, counter values won't be very accurate.
+
+    Returns:
+      An iterator that returns (counter_name, value) pairs of type
+      (basestring, int)
+    """
+    self.__update_state()
+    return self._state.counters_map.counters.iteritems()
 
   def get_outputs(self):
-    """Get outputs of this job."""
-    raise NotImplementedError()
+    """Get outputs of this job.
+
+    Should only call if status is SUCCESS.
+
+    Yields:
+      Iterators, one for each shard. Each iterator is
+      from the argument of map_job.output_writer.commit_output.
+    """
+    assert self.SUCCESS == self.get_status()
+    ss = model.ShardState.find_all_by_mapreduce_state(self._state)
+    for s in ss:
+      yield iter(s.writer_state.get("outs", []))
 
   @classmethod
   def submit(cls, job_config, in_xg_transaction=False):
@@ -210,3 +231,4 @@ class Job(object):
       except NotImplementedError:
         pass
     kickoff_task.add(job_config.queue_name, transactional=True)
+

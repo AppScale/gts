@@ -219,6 +219,9 @@ class _ConfigDefaults(object):
   SHARD_COUNT = 8
 
 
+
+
+
   PROCESSING_RATE_PER_SEC = 1000000
 
 
@@ -228,12 +231,6 @@ class _ConfigDefaults(object):
 
 
   _SLICE_DURATION_SEC = 15
-
-
-  _LEASE_GRACE_PERIOD = 1
-
-
-  _REQUEST_EVENTUAL_TIMEOUT = 10 * 60 + 30
 
 
   _CONTROLLER_PERIOD_SEC = 2
@@ -249,3 +246,11 @@ config = lib_config.register(CONFIG_NAMESPACE, _ConfigDefaults.__dict__)
 _DEFAULT_PIPELINE_BASE_PATH = config.BASE_PATH + "/pipeline"
 
 _GCS_URLFETCH_TIMEOUT_SEC = 30
+
+
+_LEASE_DURATION_SEC = config._SLICE_DURATION_SEC * 1.1
+
+
+
+
+_MAX_LEASE_DURATION_SEC = max(10 * 60 + 30, config._SLICE_DURATION_SEC * 1.5)

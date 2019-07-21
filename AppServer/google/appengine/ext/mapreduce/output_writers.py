@@ -28,8 +28,6 @@
 
 
 
-
-
 """Output writers for MapReduce."""
 
 from __future__ import with_statement
@@ -254,6 +252,9 @@ class OutputWriter(json_util.JsonMixin):
 
     Args:
       mapper_spec: instance of model.MapperSpec.
+
+    Returns:
+      boolean. Whether this output writer instance supports slice recovery.
     """
     return False
 
@@ -360,6 +361,9 @@ class _FilePool(context.Pool):
     Args:
       filename: the name of the file as string.
       data: data as string.
+
+    Raises:
+      Error: If it can't append the data to the file.
     """
     if self._size + len(data) > self._flush_size:
       self.flush()
@@ -543,6 +547,12 @@ class FileOutputWriterBase(OutputWriter):
     Args:
       mapreduce_state: mapreduce state as model.MapreduceState.
       mapper_spec: mapper specification as model.MapperSpec
+
+    Returns:
+      The output sharding parameter value.
+
+    Raises:
+      Error: If neither of the two parameters are provided.
     """
     if mapper_spec:
       return _get_params(mapper_spec).get(
@@ -559,6 +569,9 @@ class FileOutputWriterBase(OutputWriter):
 
     Args:
       mapper_spec: an instance of model.MapperSpec to validate.
+
+    Raises:
+      BadWriterParamsError: if the specification is invalid for any reason.
     """
     if mapper_spec.output_writer_class() != cls:
       raise errors.BadWriterParamsError("Output writer class mismatch")
@@ -576,7 +589,7 @@ class FileOutputWriterBase(OutputWriter):
           "Filesystem '%s' is not supported. Should be one of %s" %
           (filesystem, files.FILESYSTEMS))
     if filesystem == files.GS_FILESYSTEM:
-      if not cls.GS_BUCKET_NAME_PARAM in params:
+      if cls.GS_BUCKET_NAME_PARAM not in params:
         raise errors.BadWriterParamsError(
             "%s is required for Google store filesystem" %
             cls.GS_BUCKET_NAME_PARAM)
@@ -663,7 +676,6 @@ class FileOutputWriterBase(OutputWriter):
     """
     return cls(state["filename"], state["request_filename"])
 
-
   def to_json(self):
     """Returns writer state to serialize in json.
 
@@ -677,6 +689,12 @@ class FileOutputWriterBase(OutputWriter):
     """Inherit doc.
 
     Only shard with output per shard can be retried.
+
+    Args:
+      tstate: the transient shard state.
+
+    Returns:
+      True or false if this transient shard state supports sharding retries.
     """
     output_sharding = self._get_output_sharding(
         mapper_spec=tstate.mapreduce_spec.mapper)
@@ -787,6 +805,9 @@ class FileRecordsOutputWriter(FileOutputWriterBase):
 
     Args:
       mapper_spec: an instance of model.MapperSpec to validate.
+
+    Raises:
+      BadWriterParamsError: if the specification is invalid for any reason.
     """
     if cls.OUTPUT_SHARDING_PARAM in _get_params(mapper_spec):
       raise errors.BadWriterParamsError(
@@ -951,7 +972,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
       a string containing the filename.
 
     Raises:
-      BadWriterParamsError if the template contains any errors such as invalid
+      BadWriterParamsError: if the template contains any errors such as invalid
         syntax or contains unknown substitution placeholders.
     """
     naming_format = cls._TMP_FILE_NAMING_FORMAT
@@ -982,7 +1003,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
       mapper_spec: an instance of model.MapperSpec.
 
     Raises:
-      BadWriterParamsError if the specification is invalid for any reason such
+      BadWriterParamsError: if the specification is invalid for any reason such
         as missing the bucket name or providing an invalid bucket name.
     """
     writer_spec = _get_params(mapper_spec, allow_old=False)
@@ -1022,6 +1043,7 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
 
   @classmethod
   def _create(cls, writer_spec, filename_suffix):
+    """Helper method that actually creates the file in cloud storage."""
 
     filename = "/%s/%s" % (writer_spec[cls.BUCKET_NAME_PARAM], filename_suffix)
 
@@ -1063,6 +1085,9 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
     return writer
 
   def to_json(self):
+
+    if not self._streaming_buffer.closed:
+      self._streaming_buffer.flush()
     result = {self._JSON_GCS_BUFFER: pickle.dumps(self._streaming_buffer),
               self._JSON_NO_DUP: self._no_dup}
     if self._no_dup:
@@ -1093,8 +1118,6 @@ class _GoogleCloudStorageOutputWriter(OutputWriter):
     self._streaming_buffer.close()
 
     if self._no_dup:
-
-
       cloudstorage_api._copy2(
           self._streaming_buffer.name,
           self._streaming_buffer.name,
