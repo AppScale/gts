@@ -97,6 +97,21 @@ class Job(object):
     self.__update_state()
     return self._state.counters_map.counters.iteritems()
 
+  def get_counter(self, counter_name, default=0):
+    """Get the value of the named counter from this job.
+
+    When a job is running, counter values won't be very accurate.
+
+    Args:
+      counter_name: name of the counter in string.
+      default: default value if the counter doesn't exist.
+
+    Returns:
+      Value in int of the named counter.
+    """
+    self.__update_state()
+    return self._state.counters_map.get(counter_name, default)
+
   def get_outputs(self):
     """Get outputs of this job.
 

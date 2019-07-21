@@ -146,7 +146,12 @@ def execute_task(task, retries=0, handlers_map=None):
       request.set(k, v)
 
   response = mock_webapp.MockResponse()
+  saved_os_environ = os.environ
+  copy_os_environ = dict(os.environ)
+  copy_os_environ.update(request.environ)
+
   try:
+    os.environ = copy_os_environ
 
 
     handler = handler_class(request, response)
@@ -154,11 +159,12 @@ def execute_task(task, retries=0, handlers_map=None):
 
     handler = handler_class()
     handler.initialize(request, response)
+  finally:
+    os.environ = saved_os_environ
 
-  saved_os_environ = os.environ
   try:
-    os.environ = dict(os.environ)
-    os.environ.update(request.environ)
+    os.environ = copy_os_environ
+
     if task["method"] == "POST":
       handler.post()
     elif task["method"] == "GET":

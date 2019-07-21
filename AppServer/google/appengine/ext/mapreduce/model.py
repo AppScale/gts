@@ -260,16 +260,17 @@ class CountersMap(json_util.JsonMixin):
     """Compute string representation."""
     return "mapreduce.model.CountersMap(%r)" % self.counters
 
-  def get(self, counter_name):
+  def get(self, counter_name, default=0):
     """Get current counter value.
 
     Args:
       counter_name: counter name as string.
+      default: default value if one doesn't exist.
 
     Returns:
       current counter value as int. 0 if counter was not set.
     """
-    return self.counters.get(counter_name, 0)
+    return self.counters.get(counter_name, default)
 
   def increment(self, counter_name, delta):
     """Increment counter value.

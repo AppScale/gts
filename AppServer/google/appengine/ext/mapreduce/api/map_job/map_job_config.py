@@ -57,13 +57,12 @@ class JobConfig(parameters._Config):
   mapper = _Option(mapper_module.Mapper, required=True)
 
 
-
-
-
   input_reader_cls = _Option(input_reader.InputReader, required=True)
 
 
+
   input_reader_params = _Option(dict, default_factory=lambda: {})
+
 
 
   output_writer_cls = _Option(output_writers.OutputWriter,
@@ -116,7 +115,10 @@ class JobConfig(parameters._Config):
 
   def _get_mapper_params(self):
     """Converts self to model.MapperSpec.params."""
-    return {"input_reader": self.input_reader_params,
+    reader_params = self.input_reader_cls.params_to_json(
+        self.input_reader_params)
+
+    return {"input_reader": reader_params,
             "output_writer": self.output_writer_params}
 
   def _get_mapper_spec(self):
@@ -183,6 +185,22 @@ class JobConfig(parameters._Config):
     old_api = api_version == 0
 
 
+    input_reader_cls = mapper_spec.input_reader_class()
+    input_reader_params = input_readers._get_params(mapper_spec)
+    if issubclass(input_reader_cls, input_reader.InputReader):
+      input_reader_params = input_reader_cls.params_from_json(
+          input_reader_params)
+
+    output_writer_cls = mapper_spec.output_writer_class()
+    output_writer_params = output_writers._get_params(mapper_spec)
+
+
+
+
+
+
+
+
 
 
 
@@ -191,10 +209,10 @@ class JobConfig(parameters._Config):
                job_id=mr_spec.mapreduce_id,
 
                mapper=util.for_name(mapper_spec.handler_spec),
-               input_reader_cls=mapper_spec.input_reader_class(),
-               input_reader_params=input_readers._get_params(mapper_spec),
-               output_writer_cls=mapper_spec.output_writer_class(),
-               output_writer_params=output_writers._get_params(mapper_spec),
+               input_reader_cls=input_reader_cls,
+               input_reader_params=input_reader_params,
+               output_writer_cls=output_writer_cls,
+               output_writer_params=output_writer_params,
                shard_count=mapper_spec.shard_count,
                queue_name=queue_name,
                user_params=mr_spec.params.get("user_params"),

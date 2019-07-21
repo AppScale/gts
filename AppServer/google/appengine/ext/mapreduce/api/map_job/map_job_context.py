@@ -71,6 +71,18 @@ class ShardContext(object):
     """
     self._state.counters_map.increment(counter_name, delta)
 
+  def counter(self, counter_name, default=0):
+    """Get the current counter value.
+
+    Args:
+      counter_name: name of the counter in string.
+      default: default value in int if one doesn't exist.
+
+    Returns:
+      Current value of the counter.
+    """
+    return self._state.counters_map.get(counter_name, default)
+
 
 class SliceContext(object):
   """Context for map job."""
@@ -101,6 +113,10 @@ class SliceContext(object):
   def incr(self, counter_name, delta=1):
     """See shard_context.count."""
     self.shard_context.incr(counter_name, delta)
+
+  def counter(self, counter_name, default=0):
+    """See shard_context.count."""
+    return self.shard_context.counter(counter_name, default)
 
   def emit(self, value):
     """Emits a value to output writer.

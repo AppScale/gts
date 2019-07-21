@@ -45,6 +45,9 @@ class OutputWriter(shard_life_cycle._ShardLifeCycle, json_util.JsonMixin):
     4) write() method is called with data yielded by JobConfig.mapper.
   """
 
+  def __init__(self):
+    self._slice_ctx = None
+
   @classmethod
   def validate(cls, job_config):
     """Validates relevant parameters.
@@ -124,6 +127,22 @@ class OutputWriter(shard_life_cycle._ShardLifeCycle, json_util.JsonMixin):
 
     outs = tuple(iterator)
     shard_ctx._state.writer_state["outs"] = outs
+
+  def begin_slice(self, slice_ctx):
+    """Keeps an internal reference to slice_ctx.
+
+    Args:
+      slice_ctx: SliceContext singleton instance for this slice.
+    """
+    self._slice_ctx = slice_ctx
+
+  def end_slice(self, slice_ctx):
+    """Drops the internal reference to slice_ctx.
+
+    Args:
+      slice_ctx: SliceContext singleton instance for this slice.
+    """
+    self._slice_ctx = None
 
 
   def _supports_slice_recovery(self, mapper_spec):

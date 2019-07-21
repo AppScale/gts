@@ -45,7 +45,7 @@ class Mapper(shard_life_cycle._ShardLifeCycle):
     """
     pass
 
-  def __call__(self, ctx, val):
+  def __call__(self, slice_ctx, val):
     """Called for every value yielded by input reader.
 
     Normal case:
@@ -66,7 +66,7 @@ class Mapper(shard_life_cycle._ShardLifeCycle):
     CAUTION! Carefully tune to not to exceed memory limit or request deadline.
 
     Args:
-      ctx: map_job.SliceContext object.
+      slice_ctx: map_job.SliceContext object.
       val: a single value yielded by your input reader. The type
         depends on the input reader. For example, some may yield a single
         datastore entity, others may yield a (int, str) tuple.
