@@ -147,8 +147,8 @@ class DoCopyHandler(webapp.RequestHandler):
           extra_headers = dict([extra_header.split(':', 1)])
         else:
           extra_headers = None
-        target_app = remote_api_put_stub.get_remote_appid(remote_url,
-                                                          extra_headers)
+        target_app = remote_api_put_stub.get_remote_app_id(remote_url,
+                                                           extra_headers)
         op = utils.StartOperation(
             'Copying %s%s to %s' % (kinds_str, namespace_str, target_app))
         name_template = 'Copy all %(kind)s objects%(namespace)s'
@@ -237,7 +237,7 @@ class CopyEntity(object):
     target_entity = datastore.Entity._FromPb(entity_proto)
 
     yield operation.db.Put(target_entity)
-    yield utils.ReserveKey(key, target_app)
+    yield utils.ReserveKey(target_entity.key())
     yield operation.counters.Increment(KindPathFromKey(key))
 
 

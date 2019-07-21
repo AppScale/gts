@@ -688,9 +688,9 @@ class ReserveKeyPool(object):
 class ReserveKey(mr_operation.Operation):
   """Mapper operation to reserve key ids."""
 
-  def __init__(self, key, app_id):
+  def __init__(self, key):
     self.key = key
-    self.app_id = app_id
+    self.app_id = key.app()
     self.pool_id = 'reserve_key_%s_pool' % self.app_id
 
   def __call__(self, ctx):

@@ -1041,17 +1041,21 @@ def finalize_backup_info(backup_info_pk, gs_bucket):
   if backup_info:
     complete_time = datetime.datetime.now()
     backup_info.complete_time = complete_time
+    gs_handle = None
     if backup_info.filesystem == files.GS_FILESYSTEM:
 
 
 
-      BackupInfoWriter(gs_bucket).write(backup_info)
 
-    def set_backup_info_complete_time():
+
+      gs_handle = BackupInfoWriter(gs_bucket).write(backup_info)[0]
+
+    def set_backup_info_with_finalize_info():
       backup_info = get_backup_info()
       backup_info.complete_time = complete_time
+      backup_info.gs_handle = gs_handle
       backup_info.put(force_writes=True)
-    db.run_in_transaction(set_backup_info_complete_time)
+    db.run_in_transaction(set_backup_info_with_finalize_info)
     logging.info('Backup %s completed', backup_info.name)
   else:
     logging.warn('Backup %s could not be found', backup_info_pk)
@@ -1096,6 +1100,9 @@ class BackupInfoWriter(object):
 
   def write(self, backup_info):
     """Write the metadata files for the given backup_info.
+
+    As a side effect, updates the backup_info in-memory entity object with the
+    gs_handle to the Backup info filename. This is not saved to the datastore.
 
     Args:
       backup_info: Required BackupInformation.
@@ -1650,7 +1657,7 @@ class RestoreEntity(object):
     if not self.kind_filter or entity.kind() in self.kind_filter:
       yield op.db.Put(entity)
       if self.app_id:
-        yield utils.ReserveKey(entity.key(), self.app_id)
+        yield utils.ReserveKey(entity.key())
 
 
 def validate_gs_bucket_name(bucket_name):
