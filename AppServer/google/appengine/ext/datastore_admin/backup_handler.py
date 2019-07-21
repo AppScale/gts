@@ -67,18 +67,29 @@ import webapp2 as webapp
 from google.appengine.ext.datastore_admin import backup_pb2
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import utils
-from google.appengine.ext.mapreduce import context
-from google.appengine.ext.mapreduce import datastore_range_iterators as db_iters
-from google.appengine.ext.mapreduce import input_readers
-from google.appengine.ext.mapreduce import json_util
-from google.appengine.ext.mapreduce import operation as op
-from google.appengine.ext.mapreduce import output_writers
 from google.appengine.runtime import apiproxy_errors
+
+
+try:
+
+  from google.appengine.ext.mapreduce import context
+  from google.appengine.ext.mapreduce import datastore_range_iterators as db_iters
+  from google.appengine.ext.mapreduce import input_readers
+  from google.appengine.ext.mapreduce import json_util
+  from google.appengine.ext.mapreduce import operation as op
+  from google.appengine.ext.mapreduce import output_writers
+except ImportError:
+
+  from google.appengine._internal.mapreduce import context
+  from google.appengine._internal.mapreduce import datastore_range_iterators as db_iters
+  from google.appengine._internal.mapreduce import input_readers
+  from google.appengine._internal.mapreduce import json_util
+  from google.appengine._internal.mapreduce import operation as op
+  from google.appengine._internal.mapreduce import output_writers
 
 try:
 
   from google.appengine.ext.datastore_admin import services_client
-
 except ImportError:
 
   pass
@@ -1627,17 +1638,20 @@ class RestoreEntity(object):
   def __init__(self):
     self.initialized = False
     self.kind_filter = None
+
     self.app_id = None
 
   def initialize(self):
+    """Initialize a restore mapper instance."""
     if self.initialized:
       return
-    mapper_params = context.get().mapreduce_spec.mapper.params
+    mapper_params = get_mapper_params_from_context()
     kind_filter = mapper_params.get('kind_filter')
     self.kind_filter = set(kind_filter) if kind_filter else None
     original_app = mapper_params.get('original_app')
-    if original_app and os.getenv('APPLICATION_ID') != original_app:
-      self.app_id = os.getenv('APPLICATION_ID')
+    target_app = os.getenv('APPLICATION_ID')
+    if original_app and target_app != original_app:
+      self.app_id = target_app
     self.initialized = True
 
   def map(self, record):
@@ -1653,11 +1667,20 @@ class RestoreEntity(object):
     pb = entity_pb.EntityProto(contents=record)
     if self.app_id:
       utils.FixKeys(pb, self.app_id)
-    entity = datastore.Entity.FromPb(pb)
-    if not self.kind_filter or entity.kind() in self.kind_filter:
-      yield op.db.Put(entity)
+
+
+
+    if not self.kind_filter or (
+        utils.get_kind_from_entity_pb(pb) in self.kind_filter):
+      yield utils.Put(pb)
       if self.app_id:
-        yield utils.ReserveKey(entity.key())
+
+        yield utils.ReserveKey(datastore_types.Key._FromPb(pb.key()))
+
+
+def get_mapper_params_from_context():
+  """Get mapper params from MR context. Split out for ease of testing."""
+  return context.get().mapreduce_spec.mapper.params
 
 
 def validate_gs_bucket_name(bucket_name):

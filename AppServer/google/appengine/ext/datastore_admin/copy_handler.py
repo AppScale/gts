@@ -42,8 +42,18 @@ import webapp2 as webapp
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import remote_api_put_stub
 from google.appengine.ext.datastore_admin import utils
-from google.appengine.ext.mapreduce import context
-from google.appengine.ext.mapreduce import operation
+
+
+try:
+
+  from google.appengine.ext.mapreduce import context
+  from google.appengine.ext.mapreduce import input_readers
+  from google.appengine.ext.mapreduce import operation
+except ImportError:
+
+  from google.appengine._internal.mapreduce import context
+  from google.appengine._internal.mapreduce import input_readers
+  from google.appengine._internal.mapreduce import operation
 
 
 XSRF_ACTION = 'copy'
@@ -100,8 +110,7 @@ class DoCopyHandler(webapp.RequestHandler):
 
   COPY_HANDLER = ('google.appengine.ext.datastore_admin.copy_handler.'
                   'RemoteCopyEntity.map')
-  INPUT_READER = ('google.appengine.ext.mapreduce.input_readers.'
-                  'DatastoreKeyInputReader')
+  INPUT_READER = input_readers.__name__ + '.DatastoreKeyInputReader'
   MAPREDUCE_DETAIL = config.MAPREDUCE_PATH + '/detail?mapreduce_id='
 
   def get(self):

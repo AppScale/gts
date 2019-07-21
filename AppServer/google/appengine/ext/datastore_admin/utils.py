@@ -36,11 +36,24 @@ from google.appengine.ext import db
 import webapp2 as webapp
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.db import stats
-from google.appengine.ext.mapreduce import control
-from google.appengine.ext.mapreduce import model
-from google.appengine.ext.mapreduce import operation as mr_operation
-from google.appengine.ext.mapreduce import util
 from google.appengine.ext.webapp import _template
+
+
+try:
+
+  from google.appengine.ext.mapreduce import context
+  from google.appengine.ext.mapreduce import control
+  from google.appengine.ext.mapreduce import model
+  from google.appengine.ext.mapreduce import operation as mr_operation
+  from google.appengine.ext.mapreduce import util
+except ImportError:
+
+  from google.appengine._internal.mapreduce import context
+  from google.appengine._internal.mapreduce import control
+  from google.appengine._internal.mapreduce import model
+  from google.appengine._internal.mapreduce import operation as mr_operation
+  from google.appengine._internal.mapreduce import util
+
 
 MEMCACHE_NAMESPACE = '_ah-datastore_admin'
 XSRF_VALIDITY_TIME = 600
@@ -696,3 +709,59 @@ class ReserveKey(mr_operation.Operation):
       pool = ReserveKeyPool()
       ctx.register_pool(self.pool_id, pool)
     pool.reserve_key(self.key)
+
+
+class PutPool(context.Pool):
+  """A trimmed copy of the MutationPool class.
+
+  Properties:
+    puts: a list of entities to put to datastore.
+    max_entity_count: maximum number of entities before flushing it to db.
+  """
+  POOL_NAME = 'put_pool'
+
+  def __init__(self, max_entity_count=context.MAX_ENTITY_COUNT):
+    """Constructor.
+
+    Args:
+      max_entity_count: maximum number of entities before flushing it to db.
+    """
+    self.max_entity_count = max_entity_count
+    self.puts = []
+
+  def Put(self, entity):
+    """Registers entity to put to datastore.
+
+    Args:
+      entity: The EntityProto for the entity to be put.
+    """
+    if len(self.puts) >= self.max_entity_count:
+      self.flush()
+    self.puts.append(entity)
+
+  def flush(self):
+    """Flush all puts to datastore."""
+    if self.puts:
+      datastore_rpc.Connection(
+          config=datastore_rpc.Configuration(deadline=60)).put(self.puts)
+    self.puts = []
+
+
+class Put(mr_operation.Operation):
+  """Mapper operation to batch puts."""
+
+  def __init__(self, entity):
+    """Constructor.
+
+    Args:
+      entity: The EntityProto of the entity to put.
+    """
+    self.entity = entity
+
+  def __call__(self, ctx):
+    pool = ctx.get_pool(PutPool.POOL_NAME)
+    if not pool:
+      pool = PutPool(
+          max_entity_count=(context.MAX_ENTITY_COUNT/(2**ctx.task_retry_count)))
+      ctx.register_pool(PutPool.POOL_NAME, pool)
+    pool.Put(self.entity)
