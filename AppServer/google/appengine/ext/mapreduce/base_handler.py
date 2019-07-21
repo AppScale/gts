@@ -75,7 +75,7 @@ class TaskQueueHandler(webapp.RequestHandler):
   Sub-classes should implement
   1. the 'handle' method for all POST request.
   2. '_preprocess' method for decoding or validations before handle.
-  3. '_drop_gracefully' method if _preprocess fails and the task has to
+  3. '_drop_gracefully' method if task has failed too many times and has to
      be dropped.
 
   In Python27 runtime, webapp2 will automatically replace webapp.
@@ -132,16 +132,8 @@ class TaskQueueHandler(webapp.RequestHandler):
       self._drop_gracefully()
       return
 
-    try:
-      self._preprocess()
-      self._preprocess_success = True
-
-    except:
-      self._preprocess_success = False
-      logging.error(
-          "Preprocess task %s failed. Dropping it permanently.",
-          self.request.headers["X-AppEngine-TaskName"])
-      self._drop_gracefully()
+    self._preprocess()
+    self._preprocess_success = True
 
   def post(self):
     if self._preprocess_success:
@@ -156,13 +148,15 @@ class TaskQueueHandler(webapp.RequestHandler):
 
     This method is called after webapp initialization code has been run
     successfully. It can thus access self.request, self.response and so on.
+
+    Failures will be retried by taskqueue.
     """
     pass
 
   def _drop_gracefully(self):
     """Drop task gracefully.
 
-    When preprocess failed, this method is called before the task is dropped.
+    When task failed too many time, this method is called before it's dropped.
     """
     pass
 

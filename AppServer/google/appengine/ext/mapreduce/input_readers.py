@@ -2498,6 +2498,8 @@ class _GoogleCloudStorageInputReader(InputReader):
       will stop at the first directory instead of matching
       all files under the directory. This allows MR to process bucket with
       hundreds of thousands of files.
+    FAIL_ON_MISSING_INPUT: if specified and True, the MR will fail if any of
+      the input files are missing. Missing files will be skipped otherwise.
   """
 
 
@@ -2505,12 +2507,14 @@ class _GoogleCloudStorageInputReader(InputReader):
   OBJECT_NAMES_PARAM = "objects"
   BUFFER_SIZE_PARAM = "buffer_size"
   DELIMITER_PARAM = "delimiter"
+  FAIL_ON_MISSING_INPUT = "fail_on_missing_input"
 
 
   _ACCOUNT_ID_PARAM = "account_id"
 
 
   _JSON_PICKLE = "pickle"
+  _JSON_FAIL_ON_MISSING_INPUT = "fail_on_missing_input"
   _STRING_MAX_FILES_LISTED = 10
 
 
@@ -2538,6 +2542,13 @@ class _GoogleCloudStorageInputReader(InputReader):
     self._delimiter = delimiter
     self._bucket = None
     self._bucket_iter = None
+
+
+
+
+
+
+    self._fail_on_missing_input = None
 
   def _next_file(self):
     """Find next filename.
@@ -2641,6 +2652,7 @@ class _GoogleCloudStorageInputReader(InputReader):
     delimiter = reader_spec.get(cls.DELIMITER_PARAM)
     account_id = reader_spec.get(cls._ACCOUNT_ID_PARAM)
     buffer_size = reader_spec.get(cls.BUFFER_SIZE_PARAM)
+    fail_on_missing_input = reader_spec.get(cls.FAIL_ON_MISSING_INPUT)
 
 
     all_filenames = []
@@ -2658,14 +2670,19 @@ class _GoogleCloudStorageInputReader(InputReader):
     for shard in range(0, mapper_spec.shard_count):
       shard_filenames = all_filenames[shard::mapper_spec.shard_count]
       if shard_filenames:
-        readers.append(cls(
+        reader = cls(
             shard_filenames, buffer_size=buffer_size, _account_id=account_id,
-            delimiter=delimiter))
+            delimiter=delimiter)
+        reader._fail_on_missing_input = fail_on_missing_input
+        readers.append(reader)
     return readers
 
   @classmethod
   def from_json(cls, state):
     obj = pickle.loads(state[cls._JSON_PICKLE])
+
+    obj._fail_on_missing_input = state.get(
+        cls._JSON_FAIL_ON_MISSING_INPUT, False)
     if obj._bucket:
       obj._bucket_iter = iter(obj._bucket)
     return obj
@@ -2674,7 +2691,13 @@ class _GoogleCloudStorageInputReader(InputReader):
     before_iter = self._bucket_iter
     self._bucket_iter = None
     try:
-      return {self._JSON_PICKLE: pickle.dumps(self)}
+      return {
+          self._JSON_PICKLE: pickle.dumps(self),
+
+
+          self._JSON_FAIL_ON_MISSING_INPUT:
+              getattr(self, "_fail_on_missing_input", False)
+      }
     finally:
       self._bucket_itr = before_iter
 
@@ -2712,6 +2735,11 @@ class _GoogleCloudStorageInputReader(InputReader):
 
         return handle
       except cloudstorage.NotFoundError:
+
+        if getattr(self, "_fail_on_missing_input", False):
+          raise errors.FailJobError(
+              "File missing in GCS, aborting: %s" % filename)
+
         logging.warning("File %s may have been removed. Skipping file.",
                         filename)
 
