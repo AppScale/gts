@@ -625,6 +625,11 @@ class MapperSpec(JsonMixin):
   def get_handler(self):
     """Get mapper handler instance.
 
+    This always creates a new instance of the handler. If the handler is a
+    callable instance, MR only wants to create a new instance at the
+    beginning of a shard or shard retry. The pickled callable instance
+    should be accessed from TransientShardState.
+
     Returns:
       handler instance as callable.
     """
@@ -987,7 +992,7 @@ class TransientShardState(object):
     self.slice_id = 0
     self.retries += 1
     self.output_writer = output_writer
-    self.handler = None
+    self.handler = self.mapreduce_spec.mapper.handler
 
   def advance_for_next_slice(self):
     """Advance relavent states for next slice."""
@@ -1033,12 +1038,12 @@ class TransientShardState(object):
               mapper_spec.output_writer_class(),
               output_writer.__class__))
 
-    request_path = request.path
-    base_path = request_path[:request_path.rfind("/")]
-
     handler = util.try_deserialize_handler(request.get("serialized_handler"))
     if not handler:
       handler = mapreduce_spec.mapper.handler
+
+    request_path = request.path
+    base_path = request_path[:request_path.rfind("/")]
 
     return cls(base_path,
                mapreduce_spec,

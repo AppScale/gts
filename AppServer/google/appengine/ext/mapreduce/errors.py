@@ -43,21 +43,8 @@ __all__ = [
     "MultipleDocumentsInMrYaml",
     "NotEnoughArgumentsError",
     "RetrySliceError",
-    "SHARD_RETRY_ERRORS",
     "ShuffleServiceError",
     "InvalidRecordError",
-    ]
-
-from google.appengine.api import files
-
-
-
-SHARD_RETRY_ERRORS = [
-    files.ApiTemporaryUnavailableError,
-    files.ExistenceError,
-    files.FileTemporaryUnavailableError,
-    files.FinalizationError,
-    files.UnknownError,
     ]
 
 
