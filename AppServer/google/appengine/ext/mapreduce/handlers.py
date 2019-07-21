@@ -1460,11 +1460,16 @@ class KickOffJobHandler(base_handler.TaskQueueHandler):
     elif not result:
       return
 
-    queue_name = self.request.headers.get("X-AppEngine-QueueName")
-    KickOffJobHandler._schedule_shards(state.mapreduce_spec, readers,
-                                       queue_name,
-                                       state.mapreduce_spec.params["base_path"],
-                                       state)
+    try:
+      queue_name = self.request.headers.get("X-AppEngine-QueueName")
+      KickOffJobHandler._schedule_shards(
+          state.mapreduce_spec, readers, queue_name,
+          state.mapreduce_spec.params["base_path"], state)
+    except errors.FailJobError:
+
+
+      self._drop_gracefully()
+      return
 
     ControllerCallbackHandler.reschedule(
         state, state.mapreduce_spec, serial_id=0, queue_name=queue_name)

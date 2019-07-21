@@ -18,6 +18,7 @@
 
 
 from google.net.proto import ProtocolBuffer
+import abc
 import array
 import base64
 import dummy_thread as thread

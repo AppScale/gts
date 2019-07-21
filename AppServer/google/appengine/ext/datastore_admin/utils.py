@@ -373,6 +373,11 @@ class MapreduceDoneHandler(webapp.RequestHandler):
     if 'Mapreduce-Id' in self.request.headers:
       mapreduce_id = self.request.headers['Mapreduce-Id']
       mapreduce_state = model.MapreduceState.get_by_job_id(mapreduce_id)
+      if not mapreduce_state:
+        logging.error('Done callback for no longer valid Mapreduce Id: %s',
+                      mapreduce_id)
+        return
+
       mapreduce_params = mapreduce_state.mapreduce_spec.params
 
       db_config = _CreateDatastoreConfig()
