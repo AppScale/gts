@@ -45,8 +45,9 @@ __all__ = [
     "NotEnoughArgumentsError",
     "RetrySliceError",
     "ShuffleServiceError",
+    "TransientError",
     "InvalidRecordError",
-    ]
+]
 
 
 class Error(Exception):
@@ -103,3 +104,18 @@ class RetrySliceError(Error):
 
 class InvalidRecordError(Error):
   """Raised when invalid record encountered."""
+
+
+class TransientError(Error):
+  """Raised by a hook to throw an transient error that it has already logged."""
+
+  def __init__(self, cause):
+    super(TransientError, self).__init__(self)
+    self._cause = cause
+
+  def __str__(self):
+    return "%s: %s" % (type(self._cause).__name__, str(self._cause))
+
+  @property
+  def cause(self):
+    return self._cause

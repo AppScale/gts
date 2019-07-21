@@ -1,9 +1,18 @@
 {% extends "base.html" %}
 {% block body %}
   <h2>Datastore Admin of {{hosting_app_id}}</h2>
+  {% if run_as_a_service or offer_service %}
+    <div class="ae-promo ae-rounded-sml">
+      <strong>
+        The managed backup service is deprecated, and will no longer be available as of
+        Mar 27th, 2018.
+      </strong>
+    </div>
+  {% endif %}
   <div class="ae-promo ae-rounded-sml">
     <strong>
-      A new Cloud Datastore service has launched to beta for
+      The backup and restore functionality is being phased out, and will no longer be available as
+      of Feb 28th, 2019.  Please use the Cloud Datastore exports service for
       <a target="_blank"
          href="https://cloud.google.com/datastore/docs/export-import-entities">
         Exporting and Importing.

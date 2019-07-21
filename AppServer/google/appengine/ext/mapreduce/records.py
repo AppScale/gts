@@ -146,8 +146,8 @@ def _unmask_crc(masked_crc):
 
   Args:
     masked_crc: masked integer crc.
-  Retruns:
-    orignal crc.
+  Returns:
+    original crc.
   """
   rot = (masked_crc - _CRC_MASK_DELTA) & 0xFFFFFFFFL
   return ((rot >> 17) | (rot << 15)) & 0xFFFFFFFFL

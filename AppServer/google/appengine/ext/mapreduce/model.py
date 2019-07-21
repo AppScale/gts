@@ -918,7 +918,8 @@ class ShardState(db.Model):
   _RESULTS = frozenset([RESULT_SUCCESS, RESULT_FAILED, RESULT_ABORTED])
 
 
-  _MAX_STATES_IN_MEMORY = 10
+
+  _MAX_STATES_IN_MEMORY = 30
 
 
   mapreduce_id = db.StringProperty(required=True)
@@ -1110,15 +1111,19 @@ class ShardState(db.Model):
     """
     keys = cls.calculate_keys_by_mapreduce_state(mapreduce_state)
     i = 0
+    future = None
+    states = []
     while i < len(keys):
       @db.non_transactional
-      def no_tx_get(i):
-        return db.get(keys[i:i+cls._MAX_STATES_IN_MEMORY])
+      def no_tx_get_async(i):
+        return db.get_async(keys[i:i+cls._MAX_STATES_IN_MEMORY])
 
 
-      states = no_tx_get(i)
+      if future is not None:
+        states = future.get_result()
+        i += len(states)
+      future = no_tx_get_async(i)
       for s in states:
-        i += 1
         if s is not None:
           yield s
 

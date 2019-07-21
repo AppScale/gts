@@ -554,18 +554,8 @@ def StartMap(operation_key,
     operation.put(config=_CreateDatastoreConfig())
     return job_id
 
-
-
-
-
-
-  datastore_type = datastore_rpc._GetDatastoreType()
-
-  if datastore_type != datastore_rpc.BaseConnection.MASTER_SLAVE_DATASTORE:
-    return db.run_in_transaction_options(
-        db.create_transaction_options(xg=True), tx, True)
-  else:
-    return db.run_in_transaction(tx, False)
+  return db.run_in_transaction_options(
+      db.create_transaction_options(xg=True), tx, True)
 
 
 def RunMapForKinds(operation_key,
