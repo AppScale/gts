@@ -124,7 +124,8 @@ class JsonMixin(object):
     """
     json = self.to_json()
     try:
-      return simplejson.dumps(json, sort_keys=True, cls=JsonEncoder)
+      return simplejson.dumps(json, sort_keys=True, cls=JsonEncoder,
+                              separators=(",", ":"))
     except:
       logging.exception("Could not serialize JSON: %r", json)
       raise
@@ -182,7 +183,8 @@ class JsonProperty(db.UnindexedProperty):
     if not json_value:
       return None
     return datastore_types.Text(simplejson.dumps(
-        json_value, sort_keys=True, cls=JsonEncoder))
+        json_value, sort_keys=True, cls=JsonEncoder,
+        separators=(",", ":")))
 
   def make_value_from_datastore(self, value):
     """Convert value from datastore representation.

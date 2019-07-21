@@ -67,6 +67,7 @@ from google.appengine.api import app_identity
 from google.appengine.api import blobstore as blobstore_api
 from google.appengine.api import capabilities
 from google.appengine.api import datastore
+from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.api import taskqueue
 from google.appengine.api import urlfetch
@@ -1803,7 +1804,11 @@ class SchemaAggregationPool(object):
 
       try:
         db.run_in_transaction(update_aggregation_tx)
-      except apiproxy_errors.RequestTooLargeError:
+
+
+
+      except (apiproxy_errors.RequestTooLargeError,
+              datastore_errors.BadRequestError):
         db.run_in_transaction(mark_aggregation_as_partial_tx)
       self.__needs_save = False
 

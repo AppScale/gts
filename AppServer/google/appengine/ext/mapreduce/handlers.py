@@ -1446,7 +1446,12 @@ class KickOffJobHandler(base_handler.TaskQueueHandler):
     mr_id = self.request.get("mapreduce_id")
 
     logging.info("Processing kickoff for job %s", mr_id)
+
+
     state = model.MapreduceState.get_by_job_id(mr_id)
+    if state is None:
+      raise ValueError("MapreduceState is missing in kickoff, retrying")
+
     if not self._check_mr_state(state, mr_id):
       return
 
