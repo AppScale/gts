@@ -1145,7 +1145,8 @@ class ControllerCallbackHandler(base_handler.HugeTaskHandler):
           puts = []
     db.put(puts, config=config)
 
-    db.put(state, config=config)
+
+    self._finalize_job(state.mapreduce_spec, state)
 
   def handle(self):
     """Handle request."""
