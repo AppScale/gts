@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block body %}
   <h2>Datastore Admin of {{hosting_app_id}}</h2>
+  <div class="ae-promo ae-rounded-sml">
+    <strong>
+      A new Cloud Datastore service has launched to beta for
+      <a target="_blank"
+         href="https://cloud.google.com/datastore/docs/export-import-entities">
+        Exporting and Importing.
+      </a>
+    </strong>
+  </div>
   {% if run_as_a_service %}
     <div class="ae-message ae-rounded-sml">
       Backup/Restore running as a service.
