@@ -355,10 +355,12 @@ class _MutationPool(Pool):
                                   force_writes=self.force_writes)
 
 
-
-
 class _Counters(Pool):
-  """Regulates access to counters."""
+  """Regulates access to counters.
+
+  Counters Pool is a str to int map. It is saved as part of ShardState so it
+  is flushed when ShardState commits to datastore successfully.
+  """
 
   def __init__(self, shard_state):
     """Constructor.
@@ -385,9 +387,22 @@ class _Counters(Pool):
 class Context(object):
   """MapReduce execution context.
 
+  The main purpose of Context is to facilitate IO. User code, input reader,
+  and output writer code can plug in pools (see Pool class) to Context to
+  batch operations.
+
+  There is a single Context instance associated with each worker thread.
+  It can be accessed via context.get(). handlers.MapperWorkerHandler creates
+  this instance before any IO code (input_reader, output_writer, user functions)
+  is called.
+
+  Each Pool decides how to batch and when to flush.
+  Context and all its pools are flushed by the end of a slice.
+  Upon error in slice execution, what is flushed is undefined. (See _Counters
+  for an exception).
+
   Properties:
     mapreduce_spec: current mapreduce specification as model.MapreduceSpec.
-    shard_state: current shard state as model.ShardState.
   """
 
 
@@ -398,11 +413,13 @@ class Context(object):
 
     Args:
       mapreduce_spec: mapreduce specification as model.MapreduceSpec.
-      shard_state: shard state as model.ShardState.
+      shard_state: an instance of model.ShardState. This has to be the same
+        instance as the one MapperWorkerHandler mutates. All mutations are
+        flushed to datastore in the end of the slice.
       task_retry_count: how many times this task has been retried.
     """
+    self._shard_state = shard_state
     self.mapreduce_spec = mapreduce_spec
-    self.shard_state = shard_state
     self.task_retry_count = task_retry_count
 
     if self.mapreduce_spec:
@@ -410,8 +427,8 @@ class Context(object):
     else:
 
       self.mapreduce_id = None
-    if self.shard_state:
-      self.shard_id = self.shard_state.get_shard_id()
+    if shard_state:
+      self.shard_id = shard_state.get_shard_id()
     else:
 
       self.shard_id = None
@@ -463,12 +480,15 @@ class Context(object):
     cls._local._context_instance = context
 
 
+
+
+
 def get():
   """Get current context instance.
 
   Returns:
     current context as Context.
   """
-  if not hasattr(Context._local, '_context_instance') :
+  if not hasattr(Context._local, "_context_instance") :
     return None
   return Context._local._context_instance

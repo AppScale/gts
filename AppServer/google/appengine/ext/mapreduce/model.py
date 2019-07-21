@@ -69,6 +69,7 @@ import zlib
 
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
+from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import db
@@ -777,6 +778,19 @@ class MapreduceSpec(JsonMixin):
       return False
     return self.to_json() == other.to_json()
 
+  @classmethod
+  def _get_mapreduce_spec(cls, mr_id):
+    """Get Mapreduce spec from mr id."""
+    key = 'GAE-MR-spec: %s' % mr_id
+    spec_json = memcache.get(key)
+    if spec_json:
+      return cls.from_json(spec_json)
+    state = MapreduceState.get_by_job_id(mr_id)
+    spec = state.mapreduce_spec
+    spec_json = spec.to_json()
+    memcache.set(key, spec_json)
+    return spec
+
 
 class MapreduceState(db.Model):
   """Holds accumulated state of mapreduce execution.
@@ -877,7 +891,7 @@ class MapreduceState(db.Model):
           chart.bottom.labels.append(x)
         else:
           chart.bottom.labels.append("")
-      chart.left.labels = ['0', str(max(shards_processed))]
+      chart.left.labels = ["0", str(max(shards_processed))]
       chart.left.min = 0
 
     self.chart_width = min(700, max(300, shard_count * 20))

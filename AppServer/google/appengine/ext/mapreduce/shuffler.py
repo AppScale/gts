@@ -64,6 +64,7 @@ from google.appengine.ext.mapreduce import records
 
 
 
+
 class _OutputFile(db.Model):
   """Entity to store output filenames of pipelines.
 
@@ -265,7 +266,7 @@ class _MergingReader(input_readers.InputReader):
     """
     ctx = context.get()
     mapper_spec = ctx.mapreduce_spec.mapper
-    shard_number = ctx.shard_state.shard_number
+    shard_number = ctx._shard_state.shard_number
     filenames = mapper_spec.params[self.FILES_PARAM][shard_number]
 
     if len(filenames) != len(self._offsets):
@@ -479,13 +480,13 @@ class _HashingBlobstoreOutputWriter(output_writers.BlobstoreOutputWriterBase):
   def finalize(self, ctx, shard_state):
     pass
 
-  def write(self, data, ctx):
+  def write(self, data):
     """Write data.
 
     Args:
       data: actual data yielded from handler. Type is writer-specific.
-      ctx: an instance of context.Context.
     """
+    ctx = context.get()
     if len(data) != 2:
       logging.error("Got bad tuple of length %d (2-tuple expected): %s",
                     len(data), data)
@@ -605,12 +606,12 @@ class _HashPipeline(pipeline_base.PipelineBase):
     if shards is None:
       shards = len(filenames)
     yield mapper_pipeline.MapperPipeline(
-            job_name + "-shuffle-hash",
-            __name__ + "._hashing_map",
-            input_readers.__name__ + ".RecordsReader",
-            output_writer_spec= __name__ + "._HashingBlobstoreOutputWriter",
-            params={'files': filenames},
-            shards=shards)
+        job_name + "-shuffle-hash",
+        __name__ + "._hashing_map",
+        input_readers.__name__ + ".RecordsReader",
+        output_writer_spec= __name__ + "._HashingBlobstoreOutputWriter",
+        params={'files': filenames},
+        shards=shards)
 
 
 class _ShuffleServicePipeline(pipeline_base.PipelineBase):
