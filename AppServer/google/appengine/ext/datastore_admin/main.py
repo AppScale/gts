@@ -46,6 +46,7 @@ from google.appengine.ext.db import metadata
 from google.appengine.ext.db import stats
 from google.appengine.ext.webapp import util
 from google.appengine.runtime import apiproxy_errors
+from google.appengine.runtime import features
 
 
 
@@ -56,6 +57,12 @@ ENTITY_ACTIONS = {
     'Delete Entities': delete_handler.ConfirmDeleteHandler.Render,
     'Backup Entities': backup_handler.ConfirmBackupHandler.Render,
 }
+
+
+
+if features.IsEnabled('DisableDatastoreAdminCopyToAnotherApp'):
+  del ENTITY_ACTIONS['Copy to Another App']
+
 
 BACKUP_ACTIONS = {
     'Delete': backup_handler.ConfirmDeleteBackupHandler.Render,

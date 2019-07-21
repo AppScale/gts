@@ -90,7 +90,7 @@ import google
 
 
 from google.appengine.api.files import crc32c
-from google.appengine.ext.mapreduce import errors
+from . import errors
 
 try:
 

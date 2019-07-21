@@ -44,7 +44,6 @@ __all__ = [
     "DatastoreEntityInputReader",
     "DatastoreInputReader",
     "DatastoreKeyInputReader",
-    "FileInputReader",
     "GoogleCloudStorageInputReader",
     "GoogleCloudStorageRecordInputReader",
     "RandomStringInputReader",
@@ -53,7 +52,6 @@ __all__ = [
     "InputReader",
     "LogInputReader",
     "NamespaceInputReader",
-    "RecordsReader",
     ]
 
 
@@ -73,9 +71,7 @@ from google.net.proto import ProtocolBuffer
 from google.appengine.ext import ndb
 
 from google.appengine.api import datastore
-from google.appengine.api import files
 from google.appengine.api import logservice
-from google.appengine.api.files import file_service_pb
 from google.appengine.api.logservice import log_service_pb
 from google.appengine.ext import blobstore
 from google.appengine.ext import db
@@ -84,10 +80,9 @@ from google.appengine.ext.db import metadata
 from google.appengine.ext.mapreduce import context
 from google.appengine.ext.mapreduce import datastore_range_iterators as db_iters
 from google.appengine.ext.mapreduce import errors
-from google.appengine.ext.mapreduce import file_format_parser
-from google.appengine.ext.mapreduce import file_format_root
 from google.appengine.ext.mapreduce import json_util
 from google.appengine.ext.mapreduce import key_ranges
+from google.appengine.ext.mapreduce import kv_pb
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import namespace_range
 from google.appengine.ext.mapreduce import operation
@@ -261,145 +256,6 @@ def _get_params(mapper_spec, allowed_keys=None, allow_old=True):
         raise errors.BadReaderParamsError(
             "Invalid input_reader parameters: %s" % ",".join(params_diff))
   return params
-
-
-class FileInputReader(InputReader):
-  """Reader to read Files API files of user specified format.
-
-  This class currently only supports Google Storage files. It will be extended
-  to support blobstore files in the future.
-
-  Reader Parameters:
-  files: a list of filenames or filename patterns.
-    filename must be of format '/gs/bucket/filename'.
-    filename pattern has format '/gs/bucket/prefix*'.
-    filename pattern will be expanded to filenames with the given prefix.
-    Please see parseGlob in the file api.files.gs.py which is included in the
-    App Engine SDK for supported patterns.
-
-    Example:
-      ["/gs/bucket1/file1", "/gs/bucket2/*", "/gs/bucket3/p*"]
-      includes "file1", all files under bucket2, and files under bucket3 with
-      a prefix "p" in its name.
-
-  format: format string determines what your map function gets as its input.
-    format string can be "lines", "bytes", "zip", or a cascade of them plus
-    optional parameters. See file_formats.FORMATS for all supported formats.
-    See file_format_parser._FileFormatParser for format string syntax.
-
-    Example:
-      "lines": your map function gets files' contents line by line.
-      "bytes": your map function gets files' contents entirely.
-      "zip": InputReader unzips files and feeds your map function each of
-        the archive's member files as a whole.
-      "zip[bytes]: same as above.
-      "zip[lines]": InputReader unzips files and feeds your map function
-        files' contents line by line.
-      "zip[lines(encoding=utf32)]": InputReader unzips files, reads each
-        file with utf32 encoding and feeds your map function line by line.
-      "base64[zip[lines(encoding=utf32)]]: InputReader decodes files with
-        base64 encoding, unzips each file, reads each of them with utf32
-        encoding and feeds your map function line by line.
-
-    Note that "encoding" only teaches InputReader how to interpret files.
-    The input your map function gets is always a Python str.
-  """
-
-
-  FILES_PARAM = "files"
-  FORMAT_PARAM = "format"
-
-  def __init__(self, format_root):
-    """Initialize input reader.
-
-    Args:
-      format_root: a FileFormatRoot instance.
-    """
-    self._file_format_root = format_root
-
-  def __iter__(self):
-    """Inherit docs."""
-    return self
-
-  def next(self):
-    """Inherit docs."""
-    ctx = context.get()
-    start_time = time.time()
-
-    content = self._file_format_root.next().read()
-
-    if ctx:
-      operation.counters.Increment(
-          COUNTER_IO_READ_MSEC, int((time.time() - start_time) * 1000))(ctx)
-      operation.counters.Increment(COUNTER_IO_READ_BYTES, len(content))(ctx)
-
-    return content
-
-  @classmethod
-  def split_input(cls, mapper_spec):
-    """Inherit docs."""
-    params = _get_params(mapper_spec)
-
-
-    filenames = []
-    for f in params[cls.FILES_PARAM]:
-      parsedName = files.gs.parseGlob(f)
-      if isinstance(parsedName, tuple):
-        filenames.extend(files.gs.listdir(parsedName[0],
-                                          {"prefix": parsedName[1]}))
-      else:
-        filenames.append(parsedName)
-
-    file_format_roots = file_format_root.split(filenames,
-                                               params[cls.FORMAT_PARAM],
-                                               mapper_spec.shard_count)
-
-    if file_format_roots is None:
-      return []
-    return [cls(root) for root in file_format_roots]
-
-  @classmethod
-  def validate(cls, mapper_spec):
-    """Inherit docs."""
-    if mapper_spec.input_reader_class() != cls:
-      raise BadReaderParamsError("Mapper input reader class mismatch")
-
-
-    params = _get_params(mapper_spec)
-    if cls.FILES_PARAM not in params:
-      raise BadReaderParamsError("Must specify %s" % cls.FILES_PARAM)
-    if cls.FORMAT_PARAM not in params:
-      raise BadReaderParamsError("Must specify %s" % cls.FORMAT_PARAM)
-
-    format_string = params[cls.FORMAT_PARAM]
-    if not isinstance(format_string, basestring):
-      raise BadReaderParamsError("format should be string but is %s" %
-                                 cls.FORMAT_PARAM)
-    try:
-      file_format_parser.parse(format_string)
-    except ValueError, e:
-      raise BadReaderParamsError(e)
-
-    paths = params[cls.FILES_PARAM]
-    if not (paths and isinstance(paths, list)):
-      raise BadReaderParamsError("files should be a list of filenames.")
-
-
-    try:
-      for path in paths:
-        files.gs.parseGlob(path)
-    except files.InvalidFileNameError:
-      raise BadReaderParamsError("Invalid filename %s." % path)
-
-  @classmethod
-  def from_json(cls, json):
-    """Inherit docs."""
-    return cls(
-        file_format_root.FileFormatRoot.from_json(json["file_format_root"]))
-
-  def to_json(self):
-    """Inherit docs."""
-    return {"file_format_root": self._file_format_root.to_json()}
 
 
 class AbstractDatastoreInputReader(InputReader):
@@ -2135,143 +1991,6 @@ class NamespaceInputReader(InputReader):
     return repr(self.ns_range)
 
 
-class RecordsReader(InputReader):
-  """Reader to read a list of Files API file in records format.
-
-  The number of input shards can be specified by the SHARDS_PARAM
-  mapper parameter. Input files cannot be split, so there will be at most
-  one shard per file. Also the number of shards will not be reduced based on
-  the number of input files, so shards in always equals shards out.
-  """
-
-  FILE_PARAM = "file"
-  FILES_PARAM = "files"
-
-  def __init__(self, filenames, position):
-    """Constructor.
-
-    Args:
-      filenames: list of filenames.
-      position: file position to start reading from as int.
-    """
-    self._filenames = filenames
-    if self._filenames:
-      self._reader = records.RecordsReader(
-          files.BufferedFile(self._filenames[0]))
-      self._reader.seek(position)
-    else:
-      self._reader = None
-
-  def __iter__(self):
-    """Iterate over records in file.
-
-    Yields:
-      Records as strings.
-    """
-    ctx = context.get()
-
-    while self._reader:
-      try:
-        start_time = time.time()
-        record = self._reader.read()
-        if ctx:
-          operation.counters.Increment(
-              COUNTER_IO_READ_MSEC, int((time.time() - start_time) * 1000))(ctx)
-          operation.counters.Increment(COUNTER_IO_READ_BYTES, len(record))(ctx)
-        yield record
-      except (files.ExistenceError), e:
-        raise errors.FailJobError("ExistenceError: %s" % e)
-      except (files.UnknownError), e:
-        raise errors.RetrySliceError("UnknownError: %s" % e)
-      except EOFError:
-        self._filenames.pop(0)
-        if not self._filenames:
-          self._reader = None
-        else:
-          self._reader = records.RecordsReader(
-              files.BufferedFile(self._filenames[0]))
-
-  @classmethod
-  def from_json(cls, json):
-    """Creates an instance of the InputReader for the given input shard state.
-
-    Args:
-      json: The InputReader state as a dict-like object.
-
-    Returns:
-      An instance of the InputReader configured using the values of json.
-    """
-    return cls(json["filenames"], json["position"])
-
-  def to_json(self):
-    """Returns an input shard state for the remaining inputs.
-
-    Returns:
-      A json-izable version of the remaining InputReader.
-    """
-    result = {
-        "filenames": self._filenames,
-        "position": 0,
-        }
-    if self._reader:
-      result["position"] = self._reader.tell()
-    return result
-
-  @classmethod
-  def split_input(cls, mapper_spec):
-    """Returns a list of input readers for the input spec.
-
-    Args:
-      mapper_spec: The MapperSpec for this InputReader.
-
-    Returns:
-      A list of InputReaders.
-    """
-    params = _get_params(mapper_spec)
-    shard_count = mapper_spec.shard_count
-
-    if cls.FILES_PARAM in params:
-      filenames = params[cls.FILES_PARAM]
-      if isinstance(filenames, basestring):
-        filenames = filenames.split(",")
-    else:
-      filenames = [params[cls.FILE_PARAM]]
-
-    batch_list = [[] for _ in xrange(shard_count)]
-    for index, _ in enumerate(filenames):
-
-      batch_list[index % shard_count].append(filenames[index])
-
-
-    batch_list.sort(reverse=True, key=len)
-    return [cls(batch, 0) for batch in batch_list]
-
-  @classmethod
-  def validate(cls, mapper_spec):
-    """Validates mapper spec and all mapper parameters.
-
-    Args:
-      mapper_spec: The MapperSpec for this InputReader.
-
-    Raises:
-      BadReaderParamsError: required parameters are missing or invalid.
-    """
-    if mapper_spec.input_reader_class() != cls:
-      raise errors.BadReaderParamsError("Input reader class mismatch")
-    params = _get_params(mapper_spec)
-    if (cls.FILES_PARAM not in params and
-        cls.FILE_PARAM not in params):
-      raise BadReaderParamsError(
-          "Must specify '%s' or '%s' parameter for mapper input" %
-          (cls.FILES_PARAM, cls.FILE_PARAM))
-
-  def __str__(self):
-    position = 0
-    if self._reader:
-      position = self._reader.tell()
-    return "%s:%s" % (self._filenames, position)
-
-
 class LogInputReader(InputReader):
   """Input reader for a time range of logs via the Logs Reader API.
 
@@ -2882,7 +2601,7 @@ class _ReducerReader(_GoogleCloudStorageRecordInputReader):
     try:
       while True:
         binary_record = super(_ReducerReader, self).next()
-        proto = file_service_pb.KeyValues()
+        proto = kv_pb.KeyValues()
         proto.ParseFromString(binary_record)
 
         to_yield = None
