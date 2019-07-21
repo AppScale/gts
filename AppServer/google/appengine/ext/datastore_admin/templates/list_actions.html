@@ -31,10 +31,10 @@
             Entity statistics last updated
             {{ last_stats_update|date:"M j, Y g:i a T" }}
           {% else %}
-            Entity statistics unavailable.
+            Entity statistics are temporarily unavailable and should appear within 48 hours.
           {% endif %}
           <a target="_blank"
-             href="https://developers.google.com/appengine/docs/adminconsole/datastorestats">
+             href="https://cloud.google.com/appengine/docs/standard/python/console/datastore-statistics">
             <img class="ae-help-icon" src="{{ base_path }}/static/img/help.gif"
               height="14" width="14" alt="help">
           </a>
