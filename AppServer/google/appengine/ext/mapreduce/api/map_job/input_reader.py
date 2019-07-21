@@ -55,11 +55,11 @@ class InputReader(shard_life_cycle._ShardLifeCycle, json_util.JsonMixin):
     raise NotImplementedError("next() not implemented in %s" % self.__class__)
 
   @classmethod
-  def from_json(cls, input_shard_state):
-    """Creates an instance of the InputReader for the given input shard state.
+  def from_json(cls, state):
+    """Creates an instance of the InputReader for the given state.
 
     Args:
-      input_shard_state: The InputReader state as returned by to_json.
+      state: The InputReader state as returned by to_json.
 
     Returns:
       An instance of the InputReader that can resume iteration.

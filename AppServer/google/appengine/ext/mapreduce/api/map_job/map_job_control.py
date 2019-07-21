@@ -123,7 +123,7 @@ class Job(object):
         If False, MR will create an independent transaction to start the job
         regardless of any existing transaction scopes.
 
-    Return:
+    Returns:
       a Job instance representing the submitted job.
     """
     cls.__validate_job_config(job_config)
@@ -181,10 +181,9 @@ class Job(object):
   @classmethod
   def __validate_job_config(cls, job_config):
 
-    mapper_spec = job_config._get_mapper_spec()
-    job_config.input_reader_cls.validate(mapper_spec)
+    job_config.input_reader_cls.validate(job_config)
     if job_config.output_writer_cls:
-      job_config.output_writer_cls.validate(mapper_spec)
+      job_config.output_writer_cls.validate(job_config._get_mapper_spec())
 
   @classmethod
   def __create_and_save_state(cls, job_config, mapreduce_spec):

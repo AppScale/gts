@@ -1379,9 +1379,13 @@ class KickOffJobHandler(base_handler.TaskQueueHandler):
 
 
     input_reader_class = state.mapreduce_spec.mapper.input_reader_class()
+    split_param = state.mapreduce_spec.mapper
+    if issubclass(input_reader_class, map_job.InputReader):
+      split_param = map_job.JobConfig._to_map_job_config(
+          state.mapreduce_spec,
+          os.environ.get("HTTP_X_APPENGINE_QUEUENAME"))
     if serialized_input_readers is None:
-      readers = input_reader_class.split_input(
-          state.mapreduce_spec.mapper)
+      readers = input_reader_class.split_input(split_param)
     else:
       readers = [input_reader_class.from_json_str(json) for json in
                  simplejson.loads(serialized_input_readers.payload)]

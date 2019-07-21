@@ -20,6 +20,7 @@ from google.appengine.ext.mapreduce import input_readers
 from google.appengine.ext.mapreduce import output_writers
 from google.appengine.ext.mapreduce import parameters
 from google.appengine.ext.mapreduce import util
+from google.appengine.ext.mapreduce.api.map_job import input_reader
 from google.appengine.ext.mapreduce.api.map_job import mapper as mapper_module
 
 
@@ -59,7 +60,7 @@ class JobConfig(parameters._Config):
 
 
 
-  input_reader_cls = _Option(input_readers.InputReader, required=True)
+  input_reader_cls = _Option(input_reader.InputReader, required=True)
 
 
   input_reader_params = _Option(dict, default_factory=lambda: {})
