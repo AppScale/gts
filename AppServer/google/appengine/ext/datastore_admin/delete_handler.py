@@ -27,10 +27,10 @@
 import os
 import re
 import urllib
-import webapp2 as webapp
 
 from google.appengine.api import capabilities
 from google.appengine.api import datastore
+import webapp2 as webapp
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.ext.mapreduce import model

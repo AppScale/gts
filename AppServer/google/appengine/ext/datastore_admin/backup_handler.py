@@ -43,7 +43,6 @@ import random
 import re
 import time
 import urllib
-import webapp2 as webapp
 import xml.dom.minidom
 
 
@@ -64,13 +63,14 @@ from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import blobstore
 from google.appengine.ext import db
 from google.appengine.ext import deferred
+import webapp2 as webapp
 from google.appengine.ext.datastore_admin import backup_pb2
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.ext.mapreduce import context
 from google.appengine.ext.mapreduce import datastore_range_iterators as db_iters
 from google.appengine.ext.mapreduce import input_readers
-from google.appengine.ext.mapreduce import model
+from google.appengine.ext.mapreduce import json_util
 from google.appengine.ext.mapreduce import operation as op
 from google.appengine.ext.mapreduce import output_writers
 from google.appengine.runtime import apiproxy_errors
@@ -1206,7 +1206,7 @@ class BackupInfoWriter(object):
       f.close(finalize=True)
 
 
-class PropertyTypeInfo(model.JsonMixin):
+class PropertyTypeInfo(json_util.JsonMixin):
   """Type information for an entity property."""
 
   def __init__(self, name, is_repeated=False, primitive_types=None,
@@ -1317,7 +1317,7 @@ class PropertyTypeInfo(model.JsonMixin):
                 in json.get('embedded_entities')])
 
 
-class EntityTypeInfo(model.JsonMixin):
+class EntityTypeInfo(json_util.JsonMixin):
   """Type information for an entity."""
 
   def __init__(self, kind=None, properties=None):
@@ -1459,7 +1459,7 @@ class SchemaAggregationResult(db.Model):
   using the model put method.
   """
 
-  entity_type_info = model.JsonProperty(
+  entity_type_info = json_util.JsonProperty(
       EntityTypeInfo, default=EntityTypeInfo(), indexed=False)
   is_partial = db.BooleanProperty(default=False)
 

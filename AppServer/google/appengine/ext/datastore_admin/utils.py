@@ -26,7 +26,6 @@ import datetime
 import logging
 import os
 import random
-import webapp2 as webapp
 
 from google.appengine.datastore import entity_pb
 from google.appengine.api import datastore
@@ -34,6 +33,7 @@ from google.appengine.api import memcache
 from google.appengine.api import users
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import db
+import webapp2 as webapp
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.db import stats
 from google.appengine.ext.mapreduce import control

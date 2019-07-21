@@ -32,13 +32,13 @@ This module also contains actual mapper code for copying data over.
 
 
 import logging
-import webapp2 as webapp
 import urllib
 
 from google.appengine.api import capabilities
 from google.appengine.api import datastore
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import blobstore
+import webapp2 as webapp
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import remote_api_put_stub
 from google.appengine.ext.datastore_admin import utils
