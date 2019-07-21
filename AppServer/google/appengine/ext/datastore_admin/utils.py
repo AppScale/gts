@@ -386,15 +386,12 @@ class MapreduceDoneHandler(webapp.RequestHandler):
           db.run_in_transaction(tx)
         if config.CLEANUP_MAPREDUCE_STATE:
           keys = []
-          shard_states = model.ShardState.find_by_mapreduce_state(
+          keys = model.ShardState.calculate_keys_by_mapreduce_state(
               mapreduce_state)
-          for shard_state in shard_states:
-            keys.append(shard_state.key())
 
-
-          keys.append(mapreduce_state.key())
           keys.append(model.MapreduceControl.get_key_by_job_id(mapreduce_id))
           db.delete(keys, config=db_config)
+          db.delete(mapreduce_state, config=db_config)
           logging.info('State for successful job %s was deleted.', mapreduce_id)
       else:
         logging.info('Job %s was not successful so no state was deleted.',

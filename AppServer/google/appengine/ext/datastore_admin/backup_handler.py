@@ -921,7 +921,7 @@ class DoBackupImportHandler(BaseDoHandler):
         error = e.message
 
     if error:
-      self.SendRedirect(params=(('error', error)))
+      self.SendRedirect(params=[('error', error)])
     elif self.request.get('Restore'):
       ConfirmRestoreFromBackupHandler.Render(
           self, default_backup_id=backup_id,
@@ -1807,7 +1807,13 @@ def get_gs_object(bucket_name, path):
       'x-goog-api-version': '2'})
   if result and result.status_code == 200:
     return result.content
-  raise BackupValidationError('Requested path %s was not found' % url)
+  if result and result.status_code == 403:
+    raise BackupValidationError(
+        'Requested path %s is not accessible/access denied' % url)
+  if result and result.status_code == 404:
+    raise BackupValidationError('Requested path %s was not found' % url)
+  raise BackupValidationError('Error encountered accessing requested path %s' %
+                              url)
 
 
 
