@@ -29,23 +29,14 @@ import os
 import re
 import urllib
 
+from google.appengine._internal.mapreduce import input_readers
+from google.appengine._internal.mapreduce import model
+from google.appengine._internal.mapreduce import operation
 from google.appengine.api import capabilities
 from google.appengine.api import datastore
 import webapp2 as webapp
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import utils
-
-
-try:
-
-  from google.appengine.ext.mapreduce import model
-  from google.appengine.ext.mapreduce import input_readers
-  from google.appengine.ext.mapreduce import operation
-except ImportError:
-
-  from google.appengine._internal.mapreduce import model
-  from google.appengine._internal.mapreduce import input_readers
-  from google.appengine._internal.mapreduce import operation
 
 
 MAPREDUCE_OBJECTS = [model.MapreduceState.kind(),

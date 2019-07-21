@@ -29,12 +29,17 @@ import os
 import random
 import time
 
-from google.appengine.datastore import entity_pb
+from google.appengine._internal.mapreduce import context
+from google.appengine._internal.mapreduce import control
+from google.appengine._internal.mapreduce import model
+from google.appengine._internal.mapreduce import operation as mr_operation
+from google.appengine._internal.mapreduce import util
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api import memcache
 from google.appengine.api import users
 from google.appengine.datastore import datastore_rpc
+from google.appengine.datastore import entity_pb
 from google.appengine.ext import db
 import webapp2 as webapp
 from google.appengine.ext.datastore_admin import config
@@ -42,22 +47,6 @@ from google.appengine.ext.db import metadata
 from google.appengine.ext.db import stats
 from google.appengine.ext.webapp import _template
 from google.appengine.runtime import apiproxy_errors
-
-
-try:
-
-  from google.appengine.ext.mapreduce import context
-  from google.appengine.ext.mapreduce import control
-  from google.appengine.ext.mapreduce import model
-  from google.appengine.ext.mapreduce import operation as mr_operation
-  from google.appengine.ext.mapreduce import util
-except ImportError:
-
-  from google.appengine._internal.mapreduce import context
-  from google.appengine._internal.mapreduce import control
-  from google.appengine._internal.mapreduce import model
-  from google.appengine._internal.mapreduce import operation as mr_operation
-  from google.appengine._internal.mapreduce import util
 
 
 MEMCACHE_NAMESPACE = '_ah-datastore_admin'
@@ -343,7 +332,7 @@ def _CreateDatastoreConfig():
   return datastore_rpc.Configuration(force_writes=True, deadline=60)
 
 
-def GenerateHomeUrl(request):
+def GenerateHomeUrl(unused_request):
   """Generates a link to the Datastore Admin main page.
 
   Primarily intended to be used for cancel buttons or links on error pages. To
@@ -351,16 +340,13 @@ def GenerateHomeUrl(request):
   user-defined strings (unless proper precautions are taken).
 
   Args:
-    request: the webapp.Request object (to determine if certain query
+    unused_request: the webapp.Request object (to determine if certain query
       parameters need to be used).
 
   Returns:
     domain-relative URL for the main Datastore Admin page.
   """
-  datastore_admin_home = config.BASE_PATH
-  if request and request.get('run_as_a_service'):
-    datastore_admin_home += '?run_as_a_service=True'
-  return datastore_admin_home
+  return config.BASE_PATH
 
 
 class MapreduceDoneHandler(webapp.RequestHandler):
@@ -527,14 +513,10 @@ def StartMap(operation_key,
     mapreduce_params['done_callback_queue'] = queue_name
   mapreduce_params['force_writes'] = 'True'
 
-  def tx(is_xg_transaction):
+  @db.transactional(xg=True)
+  def tx():
     """Start MapReduce job and update datastore admin state.
 
-    Args:
-      is_xg_transaction: True if we are running inside a xg-enabled
-        transaction, else False if we are running inside a non-xg-enabled
-        transaction (which means the datastore admin state is updated in one
-        transaction and the MapReduce job in an indepedent transaction).
     Returns:
       result MapReduce job id as a string.
     """
@@ -545,7 +527,7 @@ def StartMap(operation_key,
         mapreduce_parameters=mapreduce_params,
         base_path=config.MAPREDUCE_PATH,
         shard_count=shard_count,
-        in_xg_transaction=is_xg_transaction,
+        in_xg_transaction=True,
         queue_name=queue_name)
     operation = DatastoreAdminOperation.get(operation_key)
     operation.status = DatastoreAdminOperation.STATUS_ACTIVE
@@ -554,8 +536,7 @@ def StartMap(operation_key,
     operation.put(config=_CreateDatastoreConfig())
     return job_id
 
-  return db.run_in_transaction_options(
-      db.create_transaction_options(xg=True), tx, True)
+  return tx()
 
 
 def RunMapForKinds(operation_key,

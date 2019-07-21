@@ -53,9 +53,15 @@ import time
 import urllib
 import xml.dom.minidom
 
-from google.appengine.datastore import entity_pb
-
 from google.appengine._internal import cloudstorage
+from google.appengine._internal.mapreduce import context
+from google.appengine._internal.mapreduce import datastore_range_iterators as db_iters
+from google.appengine._internal.mapreduce import input_readers
+from google.appengine._internal.mapreduce import json_util
+from google.appengine._internal.mapreduce import operation as op
+from google.appengine._internal.mapreduce import output_writers
+from google.appengine._internal.mapreduce import parameters
+from google.appengine._internal.mapreduce import records
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import app_identity
 from google.appengine.api import blobstore as blobstore_api
@@ -65,44 +71,16 @@ from google.appengine.api import datastore_types
 from google.appengine.api import taskqueue
 from google.appengine.api import urlfetch
 from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.datastore import entity_pb
 from google.appengine.ext import blobstore
 from google.appengine.ext import db
 from google.appengine.ext import deferred
 import webapp2 as webapp
+from google.appengine.runtime import apiproxy_errors
 from google.appengine.ext.datastore_admin import backup_pb2
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import utils
-from google.appengine.runtime import apiproxy_errors
 
-
-try:
-
-  from google.appengine.ext.mapreduce import context
-  from google.appengine.ext.mapreduce import datastore_range_iterators as db_iters
-  from google.appengine.ext.mapreduce import input_readers
-  from google.appengine.ext.mapreduce import json_util
-  from google.appengine.ext.mapreduce import operation as op
-  from google.appengine.ext.mapreduce import output_writers
-  from google.appengine.ext.mapreduce import parameters
-  from google.appengine.ext.mapreduce import records
-except ImportError:
-
-  from google.appengine._internal.mapreduce import context
-  from google.appengine._internal.mapreduce import datastore_range_iterators as db_iters
-  from google.appengine._internal.mapreduce import input_readers
-  from google.appengine._internal.mapreduce import json_util
-  from google.appengine._internal.mapreduce import operation as op
-  from google.appengine._internal.mapreduce import output_writers
-  from google.appengine._internal.mapreduce import parameters
-  from google.appengine._internal.mapreduce import records
-
-
-try:
-
-  from google.appengine.ext.datastore_admin import services_client
-except ImportError:
-
-  pass
 
 XSRF_ACTION = 'backup'
 BUCKET_PATTERN = (r'^([a-zA-Z0-9]+([\-_]+[a-zA-Z0-9]+)*)'
@@ -655,22 +633,10 @@ def _perform_backup(run_as_a_service, kinds, selected_namespace,
   INPUT_READER = __name__ + '.DatastoreEntityProtoInputReader'
 
   if run_as_a_service:
-    if not gcs_path_prefix:
 
-
-      raise BackupValidationError('Bucket name missing.')
-    bucket_name, path_prefix = validate_and_split_gcs_path(gcs_path_prefix)
-    datastore_admin_service = services_client.DatastoreAdminClient()
-    description = 'Remote backup job: %s' % backup
-
-
-
-
-
-    canonical_gcs_prefix = ('%s/%s' % (bucket_name, path_prefix)).rstrip('/')
-    remote_job_id = datastore_admin_service.create_backup(
-        description, backup, canonical_gcs_prefix, selected_namespace, kinds)
-    return [('remote_job', remote_job_id)]
+    raise BackupValidationError(
+        'Please use the Managed Import/Export service. '
+        'https://cloud.google.com/datastore/docs/export-import-entities')
 
   queue = queue or os.environ.get('HTTP_X_APPENGINE_QUEUENAME', 'default')
   if queue[0] == '_':
@@ -1006,12 +972,7 @@ class DoBackupAbortHandler(BaseDoHandler):
         for backup_info in db.get(backup_ids):
           if backup_info:
             operation = backup_info.parent()
-            if operation.parent_key():
-              job_id = str(operation.parent_key())
-              datastore_admin_service = services_client.DatastoreAdminClient()
-              datastore_admin_service.abort_backup(job_id)
-            else:
-              utils.AbortAdminOperation(operation.key())
+            utils.AbortAdminOperation(operation.key())
             delete_backup_info(backup_info)
       except Exception, e:
         logging.exception('Failed to abort pending datastore backup.')
@@ -1040,13 +1001,9 @@ def _restore(backup_id, kinds, run_as_a_service, queue, mapper_params):
     raise ValueError('Backup does not have kind[s] %s' % ', '.join(difference))
 
   if run_as_a_service:
-    if backup.filesystem != FILES_API_GS_FILESYSTEM:
-      raise ValueError('Restore as a service is only available for GS backups')
-    datastore_admin_service = services_client.DatastoreAdminClient()
-    description = 'Remote restore job: %s' % backup.name
-    remote_job_id = datastore_admin_service.restore_from_backup(
-        description, backup_id, list(kinds))
-    return ('remote_job', remote_job_id)
+    raise ValueError(
+        'Please use the Managed Import/Export service. '
+        'https://cloud.google.com/datastore/docs/export-import-entities')
 
   job_name = 'datastore_backup_restore_%s' % re.sub(r'[^\w]', '_',
                                                     backup.name)

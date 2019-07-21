@@ -46,10 +46,13 @@ import time
 import traceback
 import simplejson
 
+from google.appengine.datastore import entity_pb
 from google.appengine.ext import ndb
 
 from google.appengine import runtime
+from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
+from google.appengine.api import datastore_types
 from google.appengine.api import logservice
 from google.appengine.api import modules
 from google.appengine.api import taskqueue
@@ -126,6 +129,39 @@ def _run_task_hook(hooks, method, task, queue_name, transactional=False):
 
     return True
   return False
+
+
+def _calculate_last_work_item(data):
+  """Calculates the last work item processed.
+
+  Args:
+    data: a single data item being processed.
+  Returns:
+    A stringified version of the data item.
+  """
+
+  try:
+    if isinstance(data, db.Model):
+      data = data.key()
+    elif isinstance(data, ndb.Model):
+      data = data.key
+    elif isinstance(data, datastore.Entity):
+      data = data.key()
+    elif isinstance(data, entity_pb.EntityProto):
+      data = datastore_types.Key._FromPb(data.key())
+    elif isinstance(data, entity_pb.Reference):
+      data = datastore_types.Key._FromPb(data)
+    elif isinstance(data, datastore.Key):
+
+      pass
+    else:
+
+      return repr(data)[:100]
+    return repr(data)
+  except (ValueError, UnicodeDecodeError):
+
+
+    return str(data)[:100]
 
 
 class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
@@ -601,16 +637,7 @@ class MapperWorkerCallbackHandler(base_handler.HugeTaskHandler):
 
 
 
-      if isinstance(entity, db.Model):
-        shard_state.last_work_item = repr(entity.key())
-      elif isinstance(entity, ndb.Model):
-        shard_state.last_work_item = repr(entity.key)
-      else:
-        try:
-          shard_state.last_work_item = repr(entity)[:100]
-        except UnicodeDecodeError:
-          logging.warning("Failed to decode datum.")
-          shard_state.last_work_item = str(entity)[:100]
+      shard_state.last_work_item = _calculate_last_work_item(entity)
 
       processing_limit -= 1
 
