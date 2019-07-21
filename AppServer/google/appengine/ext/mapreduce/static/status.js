@@ -58,7 +58,8 @@ function renderCollapsableValue(value, container) {
   var moreSpan = $('<span class="value-disclosure-more">');
   moreSpan.hide();
   for (var i = 0; i < endValue.length; i += SPLIT_LENGTH) {
-    moreSpan.append(endValue.substr(i, SPLIT_LENGTH));
+    var line = document.createTextNode(endValue.substr(i, SPLIT_LENGTH));
+    moreSpan.append(line);
     moreSpan.append('<wbr/>');
   }
   var betweenMoreText = '...(' + endValue.length + ' more) ';
@@ -641,9 +642,9 @@ function refreshJobDetail(jobId, detail) {
     // Round to 2 decimal places.
     var avgRate = Math.round(100.0 * value / (runtimeMs / 1000.0)) / 100.0;
     $('<li>')
-      .append($('<span class="param-key">').html(getNiceParamKey(key)))
+      .append($('<span class="param-key">').text(getNiceParamKey(key)))
       .append($('<span>').text(': '))
-      .append($('<span class="param-value">').html(value))
+      .append($('<span class="param-value">').text(value))
       .append($('<span>').text(' '))
       .append($('<span class="param-aux">').text('(' + avgRate + '/sec avg.)'))
       .appendTo(aggregatedCounters);
