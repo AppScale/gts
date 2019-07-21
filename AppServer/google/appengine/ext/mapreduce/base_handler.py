@@ -81,7 +81,7 @@ class TaskQueueHandler(webapp.RequestHandler):
   In Python27 runtime, webapp2 will automatically replace webapp.
   """
 
-  _DEFAULT_USER_AGENT = "App Engine Python MR"
+  _DEFAULT_USER_AGENT = "AppEngine-Python-MR"
 
   def __init__(self, *args, **kwargs):
 
