@@ -38,28 +38,21 @@ from google.appengine.ext import deferred
 import webapp2 as webapp
 from google.appengine.ext.datastore_admin import backup_handler
 from google.appengine.ext.datastore_admin import config
-from google.appengine.ext.datastore_admin import copy_handler
 from google.appengine.ext.datastore_admin import delete_handler
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.ext.db import stats
 from google.appengine.ext.webapp import util
 from google.appengine.runtime import apiproxy_errors
-from google.appengine.runtime import features
+
 
 
 
 
 
 ENTITY_ACTIONS = {
-    'Copy to Another App': copy_handler.ConfirmCopyHandler.Render,
     'Delete Entities': delete_handler.ConfirmDeleteHandler.Render,
     'Backup Entities': backup_handler.ConfirmBackupHandler.Render,
 }
-
-
-
-if features.IsEnabled('DisableDatastoreAdminCopyToAnotherApp'):
-  del ENTITY_ACTIONS['Copy to Another App']
 
 
 BACKUP_ACTIONS = {
@@ -314,7 +307,6 @@ def CreateApplication():
   """
   return webapp.WSGIApplication(
       backup_handler.handlers_list(config.BASE_PATH) +
-      copy_handler.handlers_list(config.BASE_PATH) +
       [(r'%s/%s' % (config.BASE_PATH,
                     delete_handler.ConfirmDeleteHandler.SUFFIX),
         delete_handler.ConfirmDeleteHandler),
