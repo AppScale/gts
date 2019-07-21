@@ -167,6 +167,9 @@ class RouteByActionHandler(webapp.RequestHandler):
 
     template_params = {
         'run_as_a_service': self.request.get('run_as_a_service'),
+        'datastore_admin_home': utils.GenerateHomeUrl(None),
+        'offer_service': (self.request.get('service') and not
+                          self.request.get('run_as_a_service')),
         'kind_stats': kind_stats,
         'more_kinds': more_kinds,
         'last_stats_update': last_stats_update,

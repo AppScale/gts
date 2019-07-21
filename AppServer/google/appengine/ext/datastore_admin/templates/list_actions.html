@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 {% block body %}
   <h2>Datastore Admin of {{hosting_app_id}}</h2>
+  {% if run_as_a_service %}
+    <div class="ae-message ae-rounded-sml">
+      Backup/Restore running as a service.
+      <a href="{{datastore_admin_home}}">Disable</a>
+    </div>
+  {% else %}
+    {% if offer_service %}
+      <div class="ae-message ae-rounded-sml">
+        This application may run backup/restore as a service.
+        <a href="{{datastore_admin_home}}?run_as_a_service=True">Enable</a>
+      </div>
+    {% endif %}
+  {% endif %}
   {% if error %}
   <div class="ae-errorbox">
     {{ error|escape }}
