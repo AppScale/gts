@@ -135,6 +135,12 @@ MEANING_TO_PRIMITIVE_TYPE = {
 FILES_API_GS_FILESYSTEM = 'gs'
 FILES_API_BLOBSTORE_FILESYSTEM = 'blobstore'
 
+BLOBSTORE_BACKUP_DISABLED_FEATURE_NAME = 'DisableBlobstoreBackups'
+
+BLOBSTORE_BACKUP_DISABLED_ERROR_MSG = (
+    'Backups to blobstore are disabled, see '
+    'https://cloud.google.com/appengine/docs/deprecations/blobstore_backups')
+
 
 def _get_gcs_path_prefix_from_params_dict(params):
   """Returs the gcs_path_prefix from request or mapreduce dict.
@@ -752,6 +758,11 @@ class BackupLinkHandler(webapp.RequestHandler):
         self.response.set_status(403)
         return
 
+      if (self.request.get('filesystem') != FILES_API_GS_FILESYSTEM
+          and features.IsEnabled(BLOBSTORE_BACKUP_DISABLED_FEATURE_NAME)):
+        self.errorResponse(BLOBSTORE_BACKUP_DISABLED_ERROR_MSG)
+        return
+
       backup_prefix = self.request.get('name')
       if not backup_prefix:
         if self.request.headers.get('X-AppEngine-Cron'):
@@ -809,6 +820,10 @@ class DoBackupHandler(BaseDoHandler):
   def _ProcessPostRequest(self):
     """Triggers backup mapper jobs and returns their ids."""
     try:
+      if (self.request.get('filesystem') != FILES_API_GS_FILESYSTEM
+          and features.IsEnabled(BLOBSTORE_BACKUP_DISABLED_FEATURE_NAME)):
+        raise BackupValidationError(BLOBSTORE_BACKUP_DISABLED_ERROR_MSG)
+
       backup = self.request.get('backup_name').strip()
       if not backup:
         raise BackupValidationError('Unspecified backup name.')
