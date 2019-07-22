@@ -1628,11 +1628,19 @@ class Djinn
   end
 
   def check_api_services
-    # LoadBalancers needs to setup the routing for the datastore before
-    # proceeding.
+    # LoadBalancers needs to setup the routing
+    # for the datastore and search2 (if applicable) before proceeding.
     while my_node.is_load_balancer? && !update_db_haproxy
       Djinn.log_info('Waiting for Datastore assignements ...')
       sleep(SMALL_WAIT)
+    end
+
+    has_search2 = !get_search2.empty?
+    if has_search2
+      while my_node.is_load_balancer? && !update_search2_haproxy
+        Djinn.log_info('Waiting for Search2 assignements ...')
+        sleep (SMALL_WAIT)
+      end
     end
 
     # Wait till the Datastore is functional.
@@ -1644,10 +1652,22 @@ class Djinn
     end
     Djinn.log_info('Datastore service is active.')
 
+    if has_search2
+      # Wait till the Search2 is functional.
+      loop do
+        break if HelperFunctions.is_port_open?(get_load_balancer.private_ip,
+                                               Search2::PROXY_PORT)
+        Djinn.log_debug('Waiting for Search2 to be active...')
+        sleep(SMALL_WAIT)
+      end
+      Djinn.log_info('Search2 service is active.')
+    end
+
     # At this point all nodes are fully functional, so the Shadow will do
-    # another assignments of the datastore processes to ensure we got the
-    # accurate CPU count.
+    # another assignments of the datastore and search2 processes
+    # to ensure we got the accurate CPU count.
     assign_datastore_processes if my_node.is_shadow?
+    assign_search2_processes if my_node.is_shadow? and has_search2
   end
 
   def job_start(secret)
@@ -1895,6 +1915,7 @@ class Djinn
       if my_node.is_load_balancer?
         # Load balancers need to regenerate nginx/haproxy configuration if needed.
         update_db_haproxy
+        update_search2_haproxy unless get_search2.empty?
         APPS_LOCK.synchronize { regenerate_routing_config }
       end
       @state = "Done starting up AppScale, now in heartbeat mode"
@@ -2510,6 +2531,12 @@ class Djinn
     HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
+  def get_search2
+    @state_change_lock.synchronize {
+      return @nodes.select { |node| node.is_search2? }
+    }
+  end
+
   def valid_secret?(secret)
     @@secret = HelperFunctions.get_secret
     if secret != @@secret
@@ -2619,6 +2646,20 @@ class Djinn
 
     HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
                               DatastoreServer::NAME)
+    return true
+  end
+
+  def update_search2_haproxy
+    begin
+      servers = ZKInterface.get_search2_servers.map { |machine_ip, port|
+        {'ip' => machine_ip, 'port' => port}
+      }
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn('Unable to fetch list of search2 servers')
+      return false
+    end
+
+    HAProxy.create_app_config(servers, '*', Search2::PROXY_PORT, Search2::NAME)
     return true
   end
 
@@ -3234,6 +3275,7 @@ class Djinn
         if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
           heap_reduction += 0.15
         end
+        heap_reduction += 0.15 if my_node.is_search2?
         heap_reduction = heap_reduction.round(2)
 
         if my_node.is_db_master?
@@ -3363,6 +3405,12 @@ class Djinn
       threads << Thread.new { stop_search_role }
     end
 
+    if my_node.is_search2?
+      threads << Thread.new { start_search2_role }
+    else
+      threads << Thread.new { stop_search2_role }
+    end
+
     if my_node.is_taskqueue_master?
       threads << Thread.new { start_taskqueue_master }
     elsif my_node.is_taskqueue_slave?
@@ -3382,8 +3430,9 @@ class Djinn
 
     # Leader node starts additional services.
     if my_node.is_shadow?
-      @state = 'Assigning Datastore processes'
+      @state = 'Assigning Datastore and Search2 processes'
       assign_datastore_processes
+      assign_search2_processes
       TaskQueue.start_flower(@options['flower_password'])
     else
       TaskQueue.stop_flower
@@ -3443,12 +3492,34 @@ class Djinn
     Search.stop
   end
 
+  def start_search2_role
+    search_pth = "#{APPSCALE_HOME}/SearchService2"
+    Djinn.log_debug('Ensuring Solr is configured and started.')
+    is_db = my_node.is_db_master? || my_node.is_db_slave?
+    is_tq = my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
+    heap_reduction = 0
+    heap_reduction += 0.40 if is_db
+    heap_reduction += 0.25 if my_node.is_compute?
+    heap_reduction += 0.15 if is_tq
+    heap_reduction = heap_reduction.round(2)
+    Djinn.log_run("HEAP_REDUCTION=#{heap_reduction} "\
+                  "#{search_pth}/solr-management/ensure_solr_running.sh")
+    Djinn.log_debug('Done starting Solr on this node.')
+  end
+
+  def stop_search2_role
+    # Stop Solr
+    Djinn.log_debug('Stopping SOLR on this node.')
+    Djinn.log_run('systemctl stop solr')
+    Djinn.log_run('systemctl disable solr')
+    Djinn.log_debug('Done stopping SOLR.')
+  end
+
   def start_taskqueue_master
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_master(false, verbose)
     return true
   end
-
 
   def stop_taskqueue
     TaskQueue.stop
@@ -3554,6 +3625,32 @@ class Djinn
     db_nodes.each { |node|
       assignments = {}
       assignments['datastore'] = {'verbose' => verbose}
+      ZKInterface.set_machine_assignments(node.private_ip, assignments)
+      Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
+    }
+  end
+
+  def assign_search2_processes
+    # Shadow is the only node to call this method,
+    # and is called upon startup.
+    return unless my_node.is_shadow?
+
+    Djinn.log_info("Assigning search processes.")
+    verbose = @options['verbose'].downcase == 'true'
+
+    # Assign the proper number of Search2 processes on each search2 machine.
+    get_search2.each { |node|
+      assignments = {}
+      begin
+        cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
+        server_count = (cpu_count * Search2::MULTIPLIER).to_i
+        server_count = 1 if server_count == 0
+      rescue FailedNodeException
+        server_count = Search2::DEFAULT_NUM_SERVERS
+      end
+
+      assignments['search'] = {'count' => server_count,
+                               'verbose' => verbose}
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
       Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
@@ -3696,6 +3793,22 @@ class Djinn
                           TaskQueue::TASKQUEUE_PIP)
   end
 
+  def build_search_service2
+    Djinn.log_info('Compiling Search2 proto files')
+    build_scripts_path = "#{APPSCALE_HOME}/SearchService2/build-scripts"
+    unless system("#{build_scripts_path}/compile_protocols.sh")
+      Djinn.log_error('Unable to compile Search2 proto files')
+      return
+    end
+    Djinn.log_info('Compiling ANTLR-4 query parser')
+    unless system("#{build_scripts_path}/compile_query.sh")
+      Djinn.log_error('Unable to compile ANTLR-4 query parser')
+      return
+    end
+    update_python_package("#{APPSCALE_HOME}/SearchService2",
+                          '/opt/appscale_venvs/search2/bin/pip')
+  end
+
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
     status = `git -C #{APPSCALE_HOME} status`
@@ -3707,6 +3820,8 @@ class Djinn
                             '/opt/appscale_venvs/api_server/bin/pip')
       update_python_package("#{APPSCALE_HOME}/common",
                             TaskQueue::TASKQUEUE_PIP)
+      update_python_package("#{APPSCALE_HOME}/common",
+                            '/opt/appscale_venvs/search2/bin/pip')
     end
     if status.include?('AppControllerClient')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
@@ -3728,6 +3843,9 @@ class Djinn
     end
     if status.include?('APIServer')
       build_api_server
+    end
+    if status.include?('SearchService2')
+      build_search_service2
     end
 
     # Update Java AppServer
@@ -3912,6 +4030,7 @@ class Djinn
       LogService
       scripts
       SearchService
+      SearchService2
       XMPPReceiver
     ).map { |path| File.join(APPSCALE_HOME, path) }
     to_copy.each { |dir|
@@ -3943,6 +4062,7 @@ class Djinn
     master_ips = []
     memcache_ips = []
     search_ips = []
+    search2_ips = []
     slave_ips = []
     taskqueue_ips = []
     my_public = my_node.public_ip
@@ -3958,6 +4078,7 @@ class Djinn
         master_ips << node.private_ip if node.is_db_master?
         memcache_ips << node.private_ip if node.is_memcache?
         search_ips << node.private_ip if node.is_search?
+        search2_ips << node.private_ip if node.is_search2?
         slave_ips << node.private_ip if node.is_db_slave?
         taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
           node.is_taskqueue_slave?
@@ -3973,11 +4094,13 @@ class Djinn
     login_content = login_ip + "\n"
     master_content = master_ips.join("\n") + "\n"
     search_content = search_ips.join("\n") + "\n"
+    search2_content = search2_ips.join("\n") + "\n"
     slaves_content = slave_ips.join("\n") + "\n"
 
     new_content = all_ips_content + login_content + load_balancer_content +
       master_content + memcache_content + my_public + my_private +
-      num_of_nodes + taskqueue_content + search_content + slaves_content
+      num_of_nodes + taskqueue_content + search_content + search2_content +
+      slaves_content
 
     # If nothing changed since last time we wrote locations file(s), skip it.
     if new_content != @locations_content
@@ -4033,6 +4156,12 @@ class Djinn
       unless search_content.chomp.empty?
         HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE,
                                    search_content)
+      end
+
+      Djinn.log_info("Search2 service locations: #{search2_ips}.")
+      unless search2_content.chomp.empty?
+        HelperFunctions.write_file('/etc/appscale/search2_ips',
+                                   search2_content)
       end
     end
   end

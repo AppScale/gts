@@ -213,7 +213,7 @@ def port_from_datastore_start_cmd(args):
 
 
 def datastore_start_cmd(port, assignment_options):
-  """ Prepares command line arguments for starts a new datastore server.
+  """ Prepares command line arguments for starting a new datastore server.
 
   Args:
     port: An int - tcp port to start datastore server on.
@@ -234,7 +234,7 @@ def datastore_health_probe(base_url):
   """ Verifies if datastore server is responsive.
 
   Args:
-    base_url: A str - location of datastore server to test.
+    base_url: A str - datastore server base URL to test.
   Returns:
     True if the serve is responsive and False otherwise.
   """
@@ -261,10 +261,99 @@ datastore_service = Service(
 )
 
 
+# ==========================
+#    Search service info:
+# --------------------------
+
+class SearchServiceFunctions(object):
+
+  def __init__(self):
+    self.latest_health_status = None
+
+  @staticmethod
+  def port_from_search_start_cmd(args):
+    """ Extracts appscale-search server port from command line arguments.
+
+    Args:
+      args: A list representing command line arguments of server process.
+    Returns:
+      An integer representing port where server is listening on.
+    Raises:
+      ValueError if args doesn't correspond to appscale-search.
+    """
+    search_executable = '/opt/appscale_venvs/search2/bin/appscale-search2'
+    if len(args) < 2 or not args[1].endswith(search_executable):
+      raise ValueError('Not a search start command')
+    return int(args[args.index('--port') + 1])
+
+  @staticmethod
+  def search_start_cmd(port, assignment_options):
+    """ Prepares command line arguments for starting a new search server.
+
+    Args:
+      port: An int - tcp port to start search server on.
+      assignment_options: A dict containing assignment options from ZK.
+    Returns:
+      A list of command line arguments.
+    """
+    start_cmd = ['/opt/appscale_venvs/search2/bin/appscale-search2',
+                 '--zk-locations'] + options.zk_locations + [
+                 '--host', options.private_ip,
+                 '--port', str(port)]
+    if assignment_options.get('verbose'):
+      start_cmd.append('--verbose')
+    return start_cmd
+
+  @gen.coroutine
+  def search_health_probe(self, base_url):
+    """ Verifies if search server is responsive.
+    It also writes warning to logs if the server is responsive
+    but reported issues with connection to ZooKeeper or Solr.
+
+    Args:
+      base_url: A str - search server base URL to test.
+    Returns:
+      True if the serve is responsive and False otherwise.
+    """
+    http_client = AsyncHTTPClient()
+    try:
+      response = yield http_client.fetch('{}/_health'.format(base_url))
+      if response.code != 200:
+        raise gen.Return(False)
+      health_status = json.loads(response.body.decode('utf-8'))
+      if health_status != self.latest_health_status:
+        logger.debug('Search service reported new status: {}'
+                     .format(health_status))
+        self.latest_health_status = health_status
+      if health_status['zookeeper_state'] != KazooState.CONNECTED:
+        logger.warning('Zookeeper client state at search service is {}'
+                       .format(health_status['zookeeper_state']))
+      if not health_status['solr_live_nodes']:
+        logger.warning('There are no Solr live nodes available')
+      raise gen.Return(True)
+    except socket.error as error:
+      if error.errno != errno.ECONNREFUSED:
+        raise
+      raise gen.Return(False)
+
+
+_search_service_functions = SearchServiceFunctions()
+search_service = Service(
+  type_='search', slice_='appscale-search',
+  start_cmd_matcher=_search_service_functions.port_from_search_start_cmd,
+  start_cmd_builder=_search_service_functions.search_start_cmd,
+  health_probe=_search_service_functions.search_health_probe,
+  min_port=31000, max_port=31999,
+  start_timeout=30, status_timeout=10, stop_timeout=5,
+  monit_name_fmt='search_server-{port}',
+  log_filename_fmt='search_server-{port}.log'
+)
+
+
 class ServerManager(object):
   """ Keeps track of the status and location of a specific server. """
 
-  KNOWN_SERVICES = [datastore_service]
+  KNOWN_SERVICES = [datastore_service, search_service]
 
   def __init__(self, service, port, assignment_options=None, start_cmd=None):
     """ Creates a new Server.
@@ -348,6 +437,8 @@ class ServerManager(object):
       # pre-systemd distros, move the process after starting it.
       self.process = psutil.Popen(self._start_cmd, stdout=self._stdout,
                                   stderr=subprocess.STDOUT)
+      logger.info('Started process #{} using command {}'
+                  .format(self.process.pid, self._start_cmd))
 
       tasks_location = os.path.join(slice_path(self.service.slice), 'tasks')
       with open(tasks_location, 'w') as tasks_file:
@@ -404,7 +495,7 @@ class ServerManager(object):
     Raises:
       StartTimeout if start time exceeds given timeout.
     """
-    server_url = 'http://{}:{}'.format(options.private_ip, self.port)
+    base_url = 'http://{}:{}'.format(options.private_ip, self.port)
     start_time = time.time()
     try:
       while True:
@@ -414,11 +505,15 @@ class ServerManager(object):
         if time.time() > start_time + timeout:
           raise StartTimeout('{} took too long to start'.format(self))
 
-        health_result = self.service.health_probe(server_url)
-        if isinstance(health_result, gen.Future):
-          health_result = yield health_result
-        if health_result:
-          break
+        try:
+          health_result = self.service.health_probe(base_url)
+          if isinstance(health_result, gen.Future):
+            health_result = yield health_result
+          if health_result:
+            break
+        except Exception as error:
+          logger.error('Failed to make a health check for {} ({})'
+                       .format(self.monit_name, error))
 
         yield gen.sleep(1)
     except Exception as error:
@@ -446,6 +541,7 @@ class ServiceManager(object):
   # Associates service names with server classes.
   SERVICE_MAP = collections.OrderedDict([
     ('datastore', datastore_service),
+    ('search', search_service),
   ])
 
   # The number of seconds to wait between cleaning up servers.

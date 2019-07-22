@@ -325,18 +325,19 @@ class TestDjinn < Test::Unit::TestCase
     baz.should_receive(:delete).and_return(all_ok)
 
     # Mocks for the AppController root node
-    baz.should_receive(:get).with(:path => ZKInterface::APPCONTROLLER_PATH).
+    baz.should_receive(:get).
+      with(:path => ZKInterface::APPCONTROLLER_PATH).
       and_return({:rc => 0, :data => ZKInterface::DUMMY_DATA,
-        :stat => flexmock(:exists => true)})
+                  :stat => flexmock(:exists => true)})
 
     # Mocks for the appcontroller lock
-    baz.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
+    baz.should_receive(:get).
+      with(:path => ZKInterface::APPCONTROLLER_LOCK_PATH).
       and_return({:rc => 0, :data => 'private_ip'})
 
     # Mocks for writing node information
-    baz.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_NODE_PATH).
+    baz.should_receive(:get).
+      with(:path => ZKInterface::APPCONTROLLER_NODE_PATH).
       and_return({:stat => flexmock(:exists => false)})
     baz.should_receive(:create).with(
       :path => ZKInterface::APPCONTROLLER_NODE_PATH,
@@ -354,21 +355,22 @@ class TestDjinn < Test::Unit::TestCase
       :ephemeral => ZKInterface::EPHEMERAL,
       :data => ZKInterface::DUMMY_DATA).and_return(all_ok)
 
-    baz.should_receive(:get).with(
-      :path => node_path + "/job_data").and_return({
-        :rc => 0, :stat => flexmock(:exists => false)})
+    baz.should_receive(:get).
+      with(:path => node_path + "/job_data").
+      and_return({:rc => 0, :stat => flexmock(:exists => false)})
 
     baz.should_receive(:set).with(
       :path => node_path + "/job_data",
       :data => JSON.dump(my_node.to_hash())).and_return(all_ok)
 
-    baz.should_receive(:get).with(
-      :path => node_path + "/done_loading").and_return({
-        :rc => 0, :stat => flexmock(:exists => true)})
+    baz.should_receive(:get).
+      with(:path => node_path + "/done_loading").
+      and_return({:rc => 0, :stat => flexmock(:exists => true)})
 
-    baz.should_receive(:set).with(
-      :path => node_path + "/done_loading",
-      :data => 'true').and_return(all_ok)
+    baz.should_receive(:set).
+      with(:path => node_path + "/done_loading", :data => 'true',
+           :version => nil).
+      and_return(all_ok)
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
@@ -392,8 +394,9 @@ class TestDjinn < Test::Unit::TestCase
     # Mocks for Appcontroller root node
     file_exists = {:rc => 0, :data => ZKInterface::DUMMY_DATA,
       :stat => flexmock(:exists => true)}
-    mocked_zk.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_PATH).and_return(file_exists)
+    mocked_zk.should_receive(:get).
+      with(:path => ZKInterface::APPCONTROLLER_PATH).
+      and_return(file_exists)
 
     # Mocks for AppController lock file - the create should fail the first
     # time since the file already exists, and the second time, it should
@@ -407,8 +410,8 @@ class TestDjinn < Test::Unit::TestCase
 
     # On the first get, the file exists (user2 has it)
     get_response = {:rc => 0, :data => "private_ip2"}
-    mocked_zk.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
+    mocked_zk.should_receive(:get).
+      with(:path => ZKInterface::APPCONTROLLER_LOCK_PATH).
       and_return(get_response)
 
     # Finally, we should get rid of the lock once we're done with it

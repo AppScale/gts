@@ -193,7 +193,7 @@ BOO
   end
 
   def self.is_running?(watch)
-    output = run_cmd("#{MONIT} summary | grep #{watch} | grep -E "\
+    output = run_cmd("#{MONIT} summary | grep \"'#{watch}'\" | grep -E "\
                      '"(Running|Initializing|OK)"')
     (output != '')
   end
