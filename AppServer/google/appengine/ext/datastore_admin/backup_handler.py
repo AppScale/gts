@@ -675,7 +675,8 @@ def _perform_backup(run_as_a_service, kinds, selected_namespace,
 
     if not gcs_path_prefix:
       raise BackupValidationError('GCS path missing.')
-    bucket_name, path_prefix = validate_and_split_gcs_path(gcs_path_prefix)
+    bucket_name, path_prefix = validate_and_split_gcs_path(
+        gcs_path_prefix, mapper_params['account_id'])
     mapper_params['gs_bucket_name'] = (
         '%s/%s' % (bucket_name, path_prefix)).rstrip('/')
     naming_format = '$name/$id/output-$num'
@@ -809,6 +810,12 @@ class DoBackupHandler(BaseDoHandler):
       if BackupInformation.name_exists(backup):
         raise BackupValidationError('Backup "%s" already exists.' % backup)
       mapper_params = _get_basic_mapper_params(self)
+
+      # AppScale: Use custom service account if specified.
+      account_id = self.request.get('service_account_name', None)
+      mapper_params['account_id'] = account_id
+      mapper_params['tmp_account_id'] = account_id
+
       backup_result = _perform_backup(
           self.request.get('run_as_a_service', False),
           self.request.get_all('kind'),
@@ -1253,12 +1260,14 @@ def BackupCompleteHandler(operation, job_id, mapreduce_state):
       mapreduce_spec.params['backup_info_pk'],
       _get_gcs_path_prefix_from_params_dict(mapreduce_spec.mapper.params),
       filenames,
-      mapreduce_spec.params.get('done_callback_queue'))
+      mapreduce_spec.params.get('done_callback_queue'),
+      mapreduce_spec.mapper.params['output_writer']['account_id'])
 
 
 @db.transactional
 def _perform_backup_complete(
-    operation, job_id, kind, backup_info_pk, gcs_path_prefix, filenames, queue):
+    operation, job_id, kind, backup_info_pk, gcs_path_prefix, filenames, queue,
+    account_id=None):
   backup_info = BackupInformation.get(backup_info_pk)
   if backup_info:
     if job_id in backup_info.active_jobs:
@@ -1277,6 +1286,7 @@ def _perform_backup_complete(
     if operation.status == utils.DatastoreAdminOperation.STATUS_COMPLETED:
       deferred.defer(finalize_backup_info, backup_info.key(),
                      gcs_path_prefix,
+                     account_id,
                      _url=config.DEFERRED_PATH,
                      _queue=queue,
                      _transactional=True)
@@ -1284,7 +1294,7 @@ def _perform_backup_complete(
     logging.warn('BackupInfo was not found for %s', backup_info_pk)
 
 
-def finalize_backup_info(backup_info_pk, gcs_path_prefix):
+def finalize_backup_info(backup_info_pk, gcs_path_prefix, account_id=None):
   """Finalize the state of BackupInformation and creates info file for GS."""
 
   def get_backup_info():
@@ -1301,7 +1311,8 @@ def finalize_backup_info(backup_info_pk, gcs_path_prefix):
 
 
 
-      gs_handle = BackupInfoWriter(gcs_path_prefix).write(backup_info)[0]
+      backup_info_writer = BackupInfoWriter(gcs_path_prefix, account_id)
+      gs_handle = backup_info_writer.write(backup_info)[0]
 
     def set_backup_info_with_finalize_info():
       backup_info = get_backup_info()
@@ -1326,13 +1337,14 @@ def parse_backup_info_file(content):
 class BackupInfoWriter(object):
   """A class for writing Datastore backup metadata files."""
 
-  def __init__(self, gcs_path_prefix):
+  def __init__(self, gcs_path_prefix, account_id=None):
     """Construct a BackupInfoWriter.
 
     Args:
       gcs_path_prefix: (string) gcs prefix used for creating the backup.
     """
     self.__gcs_path_prefix = gcs_path_prefix
+    self._account_id = account_id
 
   def write(self, backup_info):
     """Write the metadata files for the given backup_info.
@@ -1364,7 +1376,7 @@ class BackupInfoWriter(object):
     """
     filename = self._generate_filename(backup_info, '.backup_info')
     backup_info.gs_handle = filename
-    with GCSUtil.open(filename, 'w') as info_file:
+    with GCSUtil.open(filename, 'w', _account_id=self._account_id) as info_file:
       with records.RecordsWriter(info_file) as writer:
 
         writer.write('1')
@@ -1397,7 +1409,7 @@ class BackupInfoWriter(object):
       backup = self._create_kind_backup(backup_info, kind_backup_files)
       filename = self._generate_filename(
           backup_info, '.%s.backup_info' % kind_backup_files.backup_kind)
-      self._write_kind_backup_info_file(filename, backup)
+      self._write_kind_backup_info_file(filename, backup, self._account_id)
       filenames.append(filename)
     return filenames
 
@@ -1425,14 +1437,14 @@ class BackupInfoWriter(object):
     return backup
 
   @classmethod
-  def _write_kind_backup_info_file(cls, filename, backup):
+  def _write_kind_backup_info_file(cls, filename, backup, account_id=None):
     """Writes a kind backup_info.
 
     Args:
       filename: The name of the file to be created as string.
       backup: apphosting.ext.datastore_admin.Backup proto.
     """
-    with GCSUtil.open(filename, 'w') as f:
+    with GCSUtil.open(filename, 'w', _account_id=account_id) as f:
       f.write(backup.SerializeToString())
 
 
@@ -1948,7 +1960,7 @@ def is_accessible_bucket_name(bucket_name):
   return result and result.status_code == 200
 
 
-def verify_bucket_writable(bucket_name):
+def verify_bucket_writable(bucket_name, account_id=None):
   """Verify the application can write to the specified bucket.
 
   Args:
@@ -1959,7 +1971,8 @@ def verify_bucket_writable(bucket_name):
   """
   path = '/gs/%s/%s' % (bucket_name, TEST_WRITE_FILENAME_PREFIX)
   try:
-    gcs_stats = GCSUtil.listbucket(path, max_keys=MAX_KEYS_LIST_SIZE)
+    gcs_stats = GCSUtil.listbucket(path, max_keys=MAX_KEYS_LIST_SIZE,
+                                   _account_id=account_id)
     file_names = [f.filename for f in gcs_stats]
   except (cloudstorage.AuthorizationError, cloudstorage.ForbiddenError):
     raise BackupValidationError('Bucket "%s" not accessible' % bucket_name)
@@ -1981,12 +1994,12 @@ def verify_bucket_writable(bucket_name):
                  (bucket_name, TEST_WRITE_FILENAME_PREFIX, gen))
     file_name_try += 1
   try:
-    with GCSUtil.open(file_name, 'w') as f:
+    with GCSUtil.open(file_name, 'w', _account_id=account_id) as f:
       f.write('test')
   except cloudstorage.ForbiddenError:
     raise BackupValidationError('Bucket "%s" is not writable' % bucket_name)
   try:
-    GCSUtil.delete(file_name)
+    GCSUtil.delete(file_name, _account_id=account_id)
   except cloudstorage.Error:
     logging.warn('Failed to delete test file %s', file_name)
 
@@ -2016,11 +2029,11 @@ def parse_gs_handle(gs_handle):
   return (tokens[0], '') if len(tokens) == 1 else tuple(tokens)
 
 
-def validate_and_split_gcs_path(gcs_path):
+def validate_and_split_gcs_path(gcs_path, account_id=None):
   bucket_name, path = parse_gs_handle(gcs_path)
   path = path.rstrip('/')
   validate_gcs_bucket_name(bucket_name)
-  verify_bucket_writable(bucket_name)
+  verify_bucket_writable(bucket_name, account_id)
   return bucket_name, path
 
 
