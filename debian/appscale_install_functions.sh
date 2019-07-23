@@ -354,11 +354,11 @@ installsolr7()
     echo "Installing Solr ${SOLR_VER}."
     # -n  Do not start solr service after install.
     # -f  Upgrade Solr. Overwrite symlink and init script of previous installation.
-    sudo bash ./install_solr_service.sh "${SOLR_ARCHIVE}" \
+    bash ./install_solr_service.sh "${SOLR_ARCHIVE}" \
               -d ${SOLR_VAR_DIR} \
               -i ${SOLR_EXTRACT_DIR} \
               -n -f
-    sudo update-rc.d solr disable
+    update-rc.d solr disable
 }
 
 installcassandra()
