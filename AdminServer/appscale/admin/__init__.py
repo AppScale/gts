@@ -66,7 +66,8 @@ from .operation import (
   DeleteServiceOperation,
   CreateVersionOperation,
   DeleteVersionOperation,
-  UpdateVersionOperation
+  UpdateVersionOperation,
+  UpdateApplicationOperation
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
@@ -222,22 +223,75 @@ class LifecycleState(object):
 
 class AppsHandler(BaseHandler):
   """ Manages applications. """
-  def initialize(self, acc, ua_client, zk_client, version_update_lock,
-                 thread_pool):
+  def initialize(self, ua_client, zk_client):
     """ Defines required resources to handle requests.
 
     Args:
-      acc: An AppControllerClient.
       ua_client: A UAClient.
       zk_client: A KazooClient.
-      version_update_lock: A kazoo lock.
-      thread_pool: A ThreadPoolExecutor.
     """
-    self.acc = acc
     self.ua_client = ua_client
     self.zk_client = zk_client
-    self.version_update_lock = version_update_lock
-    self.thread_pool = thread_pool
+
+
+  @gen.coroutine
+  def patch(self, name):
+    """ Updates an Application. Currently this is only supported for the
+    dispatch rules.
+
+    Args:
+      name: A string specifying a project ID.
+    """
+    self.authenticate(name, self.ua_client)
+
+    if name in constants.IMMUTABLE_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} cannot be updated'.format(name))
+
+    update_mask = self.get_argument('updateMask', None)
+    if not update_mask:
+      message = 'At least one field must be specified for this operation.'
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    desired_fields = update_mask.split(',')
+    supported_fields = {'dispatchRules'}
+    for field in desired_fields:
+      if field not in supported_fields:
+        message = ('This operation is only supported on the following '
+                   'field(s): [{}]'.format(', '.join(supported_fields)))
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    project_node = '/'.join(['/appscale', 'projects', name])
+    services_node = '/'.join([project_node, 'services'])
+    if not self.zk_client.exists(project_node):
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Project does not exist')
+
+    try:
+      service_ids = self.zk_client.get_children(services_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Services node not found for project')
+    dispatch_rules = utils.routing_rules_from_dict(payload=self.request.body,
+                                                   project_id=name,
+                                                   services=service_ids)
+
+    dispatch_node = '/'.join(['/appscale', 'projects', name, 'dispatch'])
+
+    try:
+      self.zk_client.set(dispatch_node, json.dumps(dispatch_rules))
+    except NoNodeError:
+      try:
+        self.zk_client.create(dispatch_node, json.dumps(dispatch_rules))
+      except NoNodeError:
+        raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                              message='{} not found'.format(name))
+
+    logger.info('Updated dispatch for {}'.format(name))
+    # TODO: add verification for dispatchRules being applied. For now,
+    # assume the controller picks it up instantly.
+    operation = UpdateApplicationOperation(name).finish(dispatch_rules)
+    self.write(json_encode(operation.rest_repr()))
 
 
 
@@ -402,48 +456,6 @@ class ProjectHandler(BaseVersionHandler):
     self.authenticate(project_id, self.ua_client)
     raise CustomHTTPError(HTTPCodes.NOT_IMPLEMENTED,
                           message='Project deletion is not supported')
-
-  @gen.coroutine
-  def patch(self, project_id):
-    """ Updates a project. Currently this is only supported for the dispatch
-    rules.
-
-    Args:
-      project_id: A string specifying a project ID.
-    """
-    self.authenticate(project_id, self.ua_client)
-
-    if project_id in constants.IMMUTABLE_PROJECTS:
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='{} cannot be updated'.format(project_id))
-
-    project_node = '/'.join(['/appscale', 'projects', project_id])
-    services_node = '/'.join([project_node, 'services'])
-    if not self._zk_client.exists(project_node):
-      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
-                            message='Project does not exist')
-
-    try:
-      service_ids = self._zk_client.get_children(services_node)
-    except NoNodeError:
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
-                            message='Services node not found for project')
-    dispatch_rules = utils.routing_rules_from_dict(payload=self.request.body,
-                                                   project_id=project_id,
-                                                   services=service_ids)
-
-    dispatch_node = '/'.join(['/appscale', 'projects', project_id, 'dispatch'])
-
-    try:
-      self.zk_client.set(dispatch_node, json.dumps(dispatch_rules))
-    except NoNodeError:
-      try:
-        self.zk_client.create(dispatch_node, json.dumps(dispatch_rules))
-      except NoNodeError:
-        raise CustomHTTPError(HTTPCodes.NOT_FOUND,
-                              message='{} not found'.format(project_id))
-
-    logger.info('Updated dispatch for {}'.format(project_id))
 
 
 class ServicesHandler(BaseVersionHandler):
@@ -1454,6 +1466,8 @@ def main():
      {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client,
       'version_update_lock': version_update_lock, 'thread_pool': thread_pool,
       'controller_state': controller_state}),
+    ('/v1/apps/([^/]*)', AppsHandler,
+     {'ua_client': ua_client, 'zk_client': zk_client}),
     ('/v1/apps/([^/]*)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
     ('/api/cron/update', UpdateCronHandler,

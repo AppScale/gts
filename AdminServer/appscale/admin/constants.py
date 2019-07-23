@@ -41,6 +41,7 @@ class Methods(object):
   CREATE_VERSION = 'google.appengine.v1.Versions.CreateVersion'
   DELETE_VERSION = 'google.appengine.v1.Versions.DeleteVersion'
   UPDATE_VERSION = 'google.appengine.v1.Versions.UpdateVersion'
+  UPDATE_APPLICATION = 'google.appengine.v1.Applications.UpdateApplication'
 
 
 class OperationTimeout(Exception):
@@ -90,6 +91,7 @@ class Types(object):
   EMPTY = 'type.googleapis.com/google.protobuf.Empty'
   OPERATION_METADATA = 'type.googleapis.com/google.appengine.v1.OperationMetadataV1'
   VERSION = 'type.googleapis.com/google.appengine.v1.Version'
+  APPLICATION = 'type.googleapis.com/google.appengine.v1.Application'
 
 
 # The parent directory for source code extraction.
@@ -189,11 +191,41 @@ TQ_RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
 # A regex rule for validating targets, will not match instance.version.module.
 TQ_TARGET_REGEX = re.compile(r'^([a-zA-Z0-9\-]+[\.]?[a-zA-Z0-9\-]*)$')
 
-# A regex rule to validate dispatch domains.
-DISPATCH_DOMAIN_REGEX = re.compile(r'')
+# A set of regex rules to validate dispatch domains.
+DISPATCH_DOMAIN_REGEX_SINGLE_ASTERISK = re.compile(r'^\*$')
+DISPATCH_DOMAIN_REGEX_ASTERISKS = re.compile(r'\*')
+DISPATCH_DOMAIN_REGEX_ASTERISK_DOT = re.compile(r'\*\.')
+_URL_SPLITTER_RE = re.compile(r'^([^/]+)(/.*)$')
 
-# A regex rule to validate dispatch paths.
-DISPATCH_PATH_REGEX = re.compile(r'/[0-9a-zA-Z/]*[*]?$')
+# Regular expression for a hostname based on
+# http://tools.ietf.org/html/rfc1123.
+#
+# This pattern is more restrictive than the RFC because it only accepts
+# lower case letters.
+_URL_HOST_EXACT_PATTERN_RE = re.compile(r"""
+# 0 or more . terminated hostname segments (may not start or end in -).
+^([a-z0-9]([a-z0-9\-]*[a-z0-9])*\.)*
+# followed by a host name segment.
+([a-z0-9]([a-z0-9\-]*[a-z0-9])*)$""", re.VERBOSE)
+
+_URL_IP_V4_ADDR_RE = re.compile(r"""
+#4 1-3 digit numbers separated by .
+^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$""", re.VERBOSE)
+
+# Regular expression for a prefix of a hostname based on
+# http://tools.ietf.org/html/rfc1123. Restricted to lower case letters.
+_URL_HOST_SUFFIX_PATTERN_RE = re.compile(r"""
+# Single star or
+^([*]|
+# Host prefix with no .,  Ex '*-a' or
+[*][a-z0-9\-]*[a-z0-9]|
+# Host prefix with ., Ex '*-a.b-c.d'
+[*](\.|[a-z0-9\-]*[a-z0-9]\.)([a-z0-9]([a-z0-9\-]*[a-z0-9])*\.)*
+([a-z0-9]([a-z0-9\-]*[a-z0-9])*))$
+""", re.VERBOSE)
+
+# A set of regex rules to validate dispatch paths.
+DISPATCH_PATH_REGEX = re.compile(r'/[0-9a-z/]*[*]?$')
 
 # A regex rule to help make dispatch urls nginx friendly.
 NGINX_DISPATCH_REGEX = re.compile(r'\w*(?<!\.)\*')

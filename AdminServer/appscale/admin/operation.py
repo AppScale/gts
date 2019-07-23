@@ -161,3 +161,35 @@ class UpdateVersionOperation(Operation):
     super(UpdateVersionOperation, self).__init__(
       project_id, service_id, version)
     self.method = Methods.UPDATE_VERSION
+
+
+class UpdateApplicationOperation(Operation):
+  """ A container that keeps track of CreateVersion operations. """
+  def __init__(self, project_id):
+    """ Creates a new CreateVersionOperation.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    super(UpdateApplicationOperation, self).__init__(project_id)
+    self.method = Methods.UPDATE_APPLICATION
+
+  def finish(self, dispatchRules):
+    """ Marks the operation as completed.
+
+    Args:
+      dispatchRules: A list of the dispatch rules that were applied to the
+        application object.
+    """
+    self.response = {
+      '@type': Types.VERSION,
+      'name': 'apps/{}'.format(self.project_id),
+      'id': self.project_id,
+      'dispatchRules': dispatchRules,
+      'servingStatus': ServingStatus.SERVING,
+      # TODO: add other fields to response for UpdateApplication
+      # "authDomain", "locationId", "codeBucket", "defaultHostname",
+      # "defaultBucket", "gcrDomain"
+    }
+
+    self.done = True

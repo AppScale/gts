@@ -5,7 +5,6 @@ import json
 import hmac
 import logging
 import os
-import re
 import shutil
 import socket
 import tarfile
@@ -15,11 +14,17 @@ from appscale.common.constants import VERSION_PATH_SEPARATOR
 from kazoo.exceptions import NoNodeError
 
 from .constants import (
+  _URL_HOST_EXACT_PATTERN_RE,
+  _URL_HOST_SUFFIX_PATTERN_RE,
+  _URL_IP_V4_ADDR_RE,
   AUTO_HTTP_PORTS,
   AUTO_HTTPS_PORTS,
   CustomHTTPError,
   DEFAULT_VERSION,
   DISPATCH_PATH_REGEX,
+  DISPATCH_DOMAIN_REGEX_SINGLE_ASTERISK,
+  DISPATCH_DOMAIN_REGEX_ASTERISKS,
+  DISPATCH_DOMAIN_REGEX_ASTERISK_DOT,
   HAPROXY_PORTS,
   GO,
   InvalidCronConfiguration,
@@ -606,15 +611,28 @@ def validate_routing_rule(rule, services):
   path = rule['path']
   if service not in services:
     raise InvalidDispatchConfiguration('Service does not exist.')
+  if domain.startswith('*'):
+    if not _URL_HOST_EXACT_PATTERN_RE.match(domain):
+      raise InvalidDispatchConfiguration(
+          'Invalid host pattern {}'.format(domain))
+    matcher = _URL_IP_V4_ADDR_RE.match(domain)
+    if matcher and sum(1 for x in matcher.groups() if int(x) <= 255) == 4:
+      raise InvalidDispatchConfiguration(
+          'Host may not match an ipv4 address {}'.format(domain))
+  else:
+    if not _URL_HOST_SUFFIX_PATTERN_RE.match(domain):
+      raise InvalidDispatchConfiguration(
+        'Invalid host pattern {}'.format(domain))
 
   if not DISPATCH_PATH_REGEX.match(path):
-    raise InvalidDispatchConfiguration('Path is invalid.')
+    raise InvalidDispatchConfiguration('Invalid path pattern {}.'.format(path))
 
-  if not re.match(r'^\*$', domain):
-    asterisks = re.findall(r'\*', domain)
-    asterisk_dot = re.findall(r'\*\.', domain)
+  if not DISPATCH_DOMAIN_REGEX_SINGLE_ASTERISK.match(domain):
+    asterisks = DISPATCH_DOMAIN_REGEX_ASTERISKS.findall(domain)
+    asterisk_dot = DISPATCH_DOMAIN_REGEX_ASTERISK_DOT.findall(domain)
     if len(asterisks) != len(asterisk_dot):
-      raise InvalidDispatchConfiguration('Domain is invalid.')
+      raise InvalidDispatchConfiguration(
+          'Invalid host pattern {}'.format(domain))
 
   if len(domain) + len(path) > 100:
     raise InvalidDispatchConfiguration('URL over 100 characters.')
