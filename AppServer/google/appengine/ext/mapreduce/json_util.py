@@ -18,7 +18,7 @@
 import copy
 import datetime
 import logging
-import simplejson
+import json as simplejson
 
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types

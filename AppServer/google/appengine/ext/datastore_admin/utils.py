@@ -29,11 +29,13 @@ import os
 import random
 import time
 
-from google.appengine._internal.mapreduce import context
-from google.appengine._internal.mapreduce import control
-from google.appengine._internal.mapreduce import model
-from google.appengine._internal.mapreduce import operation as mr_operation
-from google.appengine._internal.mapreduce import util
+# AppScale: Use bundled mapreduce library.
+from google.appengine.ext.mapreduce import context
+from google.appengine.ext.mapreduce import control
+from google.appengine.ext.mapreduce import model
+from google.appengine.ext.mapreduce import operation as mr_operation
+from google.appengine.ext.mapreduce import util
+
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api import memcache

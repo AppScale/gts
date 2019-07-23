@@ -29,9 +29,11 @@ import os
 import re
 import urllib
 
-from google.appengine._internal.mapreduce import input_readers
-from google.appengine._internal.mapreduce import model
-from google.appengine._internal.mapreduce import operation
+# AppScale: Use bundled mapreduce library.
+from google.appengine.ext.mapreduce import input_readers
+from google.appengine.ext.mapreduce import model
+from google.appengine.ext.mapreduce import operation
+
 from google.appengine.api import capabilities
 from google.appengine.api import datastore
 import webapp2 as webapp

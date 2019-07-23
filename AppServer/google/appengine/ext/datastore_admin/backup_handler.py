@@ -54,14 +54,17 @@ import urllib
 import xml.dom.minidom
 
 from google.appengine._internal import cloudstorage
-from google.appengine._internal.mapreduce import context
-from google.appengine._internal.mapreduce import datastore_range_iterators as db_iters
-from google.appengine._internal.mapreduce import input_readers
-from google.appengine._internal.mapreduce import json_util
-from google.appengine._internal.mapreduce import operation as op
-from google.appengine._internal.mapreduce import output_writers
-from google.appengine._internal.mapreduce import parameters
-from google.appengine._internal.mapreduce import records
+
+# AppScale: Use bundled mapreduce library.
+from google.appengine.ext.mapreduce import context
+from google.appengine.ext.mapreduce import datastore_range_iterators as db_iters
+from google.appengine.ext.mapreduce import input_readers
+from google.appengine.ext.mapreduce import json_util
+from google.appengine.ext.mapreduce import operation as op
+from google.appengine.ext.mapreduce import output_writers
+from google.appengine.ext.mapreduce import parameters
+from google.appengine.ext.mapreduce import records
+
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import app_identity
 from google.appengine.api import blobstore as blobstore_api
