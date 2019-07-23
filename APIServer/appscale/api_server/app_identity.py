@@ -1,6 +1,10 @@
 """ Implements the App Identity API. """
 
+import json
 import logging
+import time
+import urllib
+import urllib2
 
 from kazoo.exceptions import KazooException
 from kazoo.exceptions import NoNodeError
@@ -12,8 +16,8 @@ from appscale.api_server import crypto
 from appscale.api_server.base_service import BaseService
 from appscale.api_server.constants import ApplicationError
 from appscale.api_server.constants import CallNotFound
-from appscale.api_server.crypto import PrivateKey
-from appscale.api_server.crypto import PublicCertificate
+from appscale.api_server.crypto import (
+    AccessToken, PrivateKey, PublicCertificate)
 from appscale.common.async_retrying import retry_children_watch_coroutine
 
 logger = logging.getLogger(__name__)
@@ -56,19 +60,21 @@ class AppIdentityService(BaseService):
         super(AppIdentityService, self).__init__(self.SERVICE_NAME)
 
         self.project_id = project_id
+        project_node = '/appscale/projects/{}'.format(self.project_id)
 
         self._zk_client = zk_client
-        self._key_node = '/appscale/projects/{}/private_key'.format(
-            self.project_id)
+        self._key_node = '{}/private_key'.format(project_node)
         self._key = None
         self._ensure_private_key()
         self._zk_client.DataWatch(self._key_node, self._update_key)
 
-        self._certs_node = '/appscale/projects/{}/certificates'.format(
-            self.project_id)
+        self._certs_node = '{}/certificates'.format(project_node)
         self._zk_client.ensure_path(self._certs_node)
         self._certs = []
         self._zk_client.ChildrenWatch(self._certs_node, self._update_certs)
+
+        self._service_accounts_node = '{}/service_accounts'.format(
+            project_node)
 
     def get_public_certificates(self):
         """ Retrieves a list of valid public certificates for the project.
@@ -130,8 +136,9 @@ class AppIdentityService(BaseService):
         Raises:
             UnknownError if the service account is not configured.
         """
-        if self._key is None:
-            raise UnknownError('A private key is not configured')
+        # TODO: Check if it makes sense to store the audience with the service
+        # account definition.
+        default_audience = 'https://www.googleapis.com/oauth2/v4/token'
 
         if service_account_id is not None:
             raise UnknownError(
@@ -139,10 +146,45 @@ class AppIdentityService(BaseService):
 
         if (service_account_name is not None and
             service_account_name != self._key.key_name):
-            raise UnknownError(
-                '{} is not configured'.format(service_account_name))
+            service_account_node = '/'.join([self._service_accounts_node,
+                                             service_account_name])
+            try:
+                account_details = self._zk_client.get(service_account_node)[0]
+            except NoNodeError:
+                raise UnknownError(
+                    '{} is not configured'.format(service_account_name))
 
-        return self._key.generate_access_token(self.project_id, scopes)
+            try:
+                account_details = json.loads(account_details)
+            except ValueError:
+                raise UnknownError(
+                    '{} has invalid data'.format(service_account_node))
+
+            pem = account_details['private_key'].encode('utf-8')
+            key = PrivateKey.from_pem(service_account_name, pem)
+            assertion = key.generate_assertion(default_audience, scopes)
+
+            grant_type = 'urn:ietf:params:oauth:grant-type:jwt-bearer'
+            payload = urllib.urlencode({'grant_type': grant_type,
+                                        'assertion': assertion})
+            try:
+                response = urllib2.urlopen(default_audience, payload)
+            except urllib2.HTTPError as error:
+                raise UnknownError(error.msg)
+            except urllib2.URLError as error:
+                raise UnknownError(error.reason)
+
+            token_details = json.loads(response.read())
+            logging.info('Generated access token: {}'.format(token_details))
+            expiration_time = int(time.time()) + token_details['expires_in']
+            return AccessToken(token_details['access_token'], expiration_time)
+
+        if self._key is None:
+            raise UnknownError('A private key is not configured')
+
+        assertion = self._key.generate_assertion(default_audience, scopes)
+        # TODO: Generate access token from assertion.
+        return AccessToken(assertion, int(time.time() + 3600))
 
     def sign(self, blob):
         """ Signs a message with the project's key.
@@ -218,7 +260,7 @@ class AppIdentityService(BaseService):
                 logger.exception('Unable to get access token')
                 raise ApplicationError(service_pb.UNKNOWN_ERROR, str(error))
 
-            response.access_token = token.token
+            response.access_token = token.token.encode('utf-8')
             response.expiration_time = token.expiration_time
         elif method == 'GetDefaultGcsBucketName':
             response.default_gcs_bucket_name = self.DEFAULT_GCS_BUCKET_NAME
