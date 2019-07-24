@@ -272,7 +272,8 @@ class AppsHandler(BaseHandler):
     except NoNodeError:
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
                             message='Services node not found for project')
-    dispatch_rules = utils.routing_rules_from_dict(payload=self.request.body,
+    payload = json.loads(self.request.body)
+    dispatch_rules = utils.routing_rules_from_dict(payload=payload,
                                                    project_id=name,
                                                    services=service_ids)
 
@@ -290,8 +291,10 @@ class AppsHandler(BaseHandler):
     logger.info('Updated dispatch for {}'.format(name))
     # TODO: add verification for dispatchRules being applied. For now,
     # assume the controller picks it up instantly.
-    operation = UpdateApplicationOperation(name).finish(dispatch_rules)
-    self.write(json_encode(operation.rest_repr()))
+    patch_operation = UpdateApplicationOperation(name)
+    patch_operation.finish(dispatch_rules)
+    operations[patch_operation.id] = patch_operation
+    self.write(json_encode(patch_operation.rest_repr()))
 
 
 

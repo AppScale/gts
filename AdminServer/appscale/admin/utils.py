@@ -612,6 +612,10 @@ def validate_routing_rule(rule, services):
   if service not in services:
     raise InvalidDispatchConfiguration('Service does not exist.')
   if domain.startswith('*'):
+    if not _URL_HOST_SUFFIX_PATTERN_RE.match(domain):
+      raise InvalidDispatchConfiguration(
+        'Invalid host pattern {}'.format(domain))
+  else:
     if not _URL_HOST_EXACT_PATTERN_RE.match(domain):
       raise InvalidDispatchConfiguration(
           'Invalid host pattern {}'.format(domain))
@@ -619,10 +623,6 @@ def validate_routing_rule(rule, services):
     if matcher and sum(1 for x in matcher.groups() if int(x) <= 255) == 4:
       raise InvalidDispatchConfiguration(
           'Host may not match an ipv4 address {}'.format(domain))
-  else:
-    if not _URL_HOST_SUFFIX_PATTERN_RE.match(domain):
-      raise InvalidDispatchConfiguration(
-        'Invalid host pattern {}'.format(domain))
 
   if not DISPATCH_PATH_REGEX.match(path):
     raise InvalidDispatchConfiguration('Invalid path pattern {}.'.format(path))
