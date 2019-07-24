@@ -6,7 +6,7 @@ from appscale.search.constants import SERVICE_SETTINGS_NODE
 logger = logging.getLogger(__name__)
 
 
-class SearchServiceMetadata(object):
+class SearchServiceSettings(object):
 
   def __init__(self, zk_client):
     self._zk_client = zk_client
