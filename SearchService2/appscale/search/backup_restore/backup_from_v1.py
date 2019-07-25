@@ -123,7 +123,7 @@ class Exporter(object):
     Args:
       next_cursor: a str - Solr cursor marker.
     Returns:
-      a tulpe (raw documents, number found, next cursor marker).
+      a tuple (raw documents, number found, next cursor marker).
     """
     params = {
       'q': '*:*',

@@ -88,7 +88,7 @@ class IDRangesGenerator(object):
 
 class Exporter(object):
   """
-  Exports data from old Search Service to target storage.
+  Exports data from Search Service 2 to target storage.
   """
 
   max_retries = 10
