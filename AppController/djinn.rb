@@ -5352,7 +5352,7 @@ class Djinn
       get_all_compute_nodes.each { |host|
         @cluster_stats.each { |node|
           next if node['private_ip'] != host
-          Djinn.log_info("Using #{host}'s stats, making sure keys are accessible " \
+          Djinn.log_debug("Using #{host}'s stats, making sure keys are accessible " \
             "node['memory']['total']: #{node['memory']['total']} " \
             "node['memory']['available']: #{node['memory']['available']}" \
             "node['loadavg']['last_1min']: #{node['loadavg']['last_1min']}" \
@@ -5764,7 +5764,7 @@ class Djinn
     begin
       system_stats = HermesClient.get_system_stats(my_node.private_ip, @@secret)
     rescue AppScaleException => error
-      Djinn.log_warn("Couldn't get proxy stats from Hermes: #{error.message}")
+      Djinn.log_warn("Couldn't get system stats from Hermes: #{error.message}")
       return INVALID_REQUEST
     end
 
