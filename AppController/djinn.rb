@@ -5772,7 +5772,6 @@ class Djinn
 
     # Combine all useful stats and return.
     node_stats = system_stats
-    node_stats['monit'] = MonitInterface.monit_summary
     node_stats['apps'] = {}
     if my_node.is_shadow?
       my_versions_loaded  = []

@@ -260,18 +260,5 @@ BOO
     }
     output
   end
-
-  def self.monit_summary
-    summary_dict = {}
-    output = `monit summary`
-    output.each_line { |monit_entry|
-      next if !monit_entry.include?('Process')
-      match = monit_entry.match(/Process\s\'(.*)\'\s(.*)/)
-      next if match.nil?
-      pname, pstatus = match.captures
-      summary_dict[pname.strip] = pstatus.strip
-    }
-    return summary_dict
-  end
 end
 
