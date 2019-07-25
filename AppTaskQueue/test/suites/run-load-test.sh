@@ -176,6 +176,7 @@ trap kill_jobs_and_scp_logs EXIT
 # Determine absolute path to some dirs
 SUITES_DIR="$( realpath --strip "$( dirname "${BASH_SOURCE[0]}" )" )"
 TASKQUEUE_SRC_DIR="$( dirname "$( dirname "${SUITES_DIR}" )" )"
+COMMON_SRC_DIR="$( dirname "${TASKQUEUE_SRC_DIR}" )"/common
 HELPERS_DIR="${TASKQUEUE_SRC_DIR}/test/helpers"
 LOAD_TEST_DIR="${TASKQUEUE_SRC_DIR}/test/load"
 
@@ -233,6 +234,10 @@ do
         "${TASKQUEUE_SRC_DIR}/appscale" \
         "${TASKQUEUE_SRC_DIR}/setup.py" \
         "${USER}@${tq_vm_ip}:/tmp/AppTaskQueue/"
+    scp -o StrictHostKeyChecking=no \
+        -r -i "${KEY_LOCATION}" \
+        "${COMMON_SRC_DIR}" \
+        "${USER}@${tq_vm_ip}:/tmp/common"
 done
 
 

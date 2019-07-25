@@ -13,6 +13,7 @@ setup(
     'appscale-common',
     'cassandra-driver<3.18.0',
     'kazoo',
+    'monotonic',
     'mmh3',
     'SOAPpy',
     'tornado'
@@ -29,6 +30,7 @@ setup(
             'appscale.datastore',
             'appscale.datastore.cassandra_env',
             'appscale.datastore.backup',
+            'appscale.datastore.fdb',
             'appscale.datastore.scripts',
             'appscale.datastore.zkappscale'],
   entry_points={'console_scripts': [

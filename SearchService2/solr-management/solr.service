@@ -1,0 +1,34 @@
+# /etc/systemd/system/solr.service
+[Unit]
+Description=Apache SOLR
+After=syslog.target network.target remote-fs.target nss-lookup.target
+Conflicts=shutdown.target
+
+[Service]
+User=solr
+LimitNOFILE=65535
+LimitNPROC=65535
+PIDFile=/var/solr7/solr-8983.pid
+Environment=SOLR_INCLUDE=/etc/default/solr.in.sh
+Environment=RUNAS=solr
+
+Restart=on-failure
+RestartSec=5
+
+ExecStart=/opt/solr/bin/solr start
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+Restart=on-failure
+
+#MemoryLow=${MEMORY_LOW}
+#MemoryHigh=${MEMORY_HIGH}    IS NOT SUPPORTED IN cgroup-v1
+#MemoryMax=${MEMORY_MAX}
+MemoryLimit=${MEMORY_MAX}
+
+CPUAccounting=yes
+MemoryAccounting=yes
+TasksAccounting=yes
+#IOAccounting=yes
+
+[Install]
+WantedBy=multi-user.target
