@@ -176,11 +176,12 @@ class Djinn
   #  {
   #    # System stats provided by infrustucture manager
   #    "cpu" => {
+  #      "count" => 2,
   #      "idle" => 81.3,
   #      "system" => 13.2,
   #      "user" => 5.5
   #    },
-  #    "disk" => [
+  #    "partitions_dict" => [
   #      # For each partition
   #      {
   #        "/" => {
@@ -207,11 +208,9 @@ class Djinn
   #      ...
   #    },
   #    "loadavg" => {
-  #      "last_1_min" => 1.35,
-  #      "last_5_min" => 0.67,
-  #      "last_15_min" => 0.89,
-  #      "runnable_entities" => 3,
-  #      "scheduling_entities" => 687
+  #      "last_1min" => 1.35,
+  #      "last_5min" => 0.67,
+  #      "last_15min" => 0.89,
   #    },
   #    # Node information provided by AppController itself
   #    "apps" => {
@@ -5477,7 +5476,12 @@ class Djinn
       get_all_compute_nodes.each { |host|
         @cluster_stats.each { |node|
           next if node['private_ip'] != host
-
+          Djinn.log_debug("Using #{host}'s stats, making sure keys are accessible " \
+            "node['memory']['total']: #{node['memory']['total']} " \
+            "node['memory']['available']: #{node['memory']['available']}" \
+            "node['loadavg']['last_1min']: #{node['loadavg']['last_1min']}" \
+            "node['cpu']['count']: #{node['cpu']['count']}"
+          )
           # Check how many new AppServers of this app, we can run on this
           # node (as theoretical maximum memory usage goes).  First convert
           # total memory to MB.
@@ -5498,7 +5502,7 @@ class Djinn
           break if max_new_free <= 0
 
           # The host needs to have normalized average load less than MAX_LOAD_AVG.
-          if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
+          if Float(node['loadavg']['last_1min']) / node['cpu']['count'] > MAX_LOAD_AVG
             Djinn.log_debug("#{host} CPUs are too busy.")
             break
           end
@@ -5880,12 +5884,11 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
     return NOT_READY if @nodes.empty?
 
-    # Get stats from SystemManager.
-    imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
+    # Get stats from Hermes.
     begin
-      system_stats = JSON.load(imc.get_system_stats)
-    rescue SOAP::FaultError, FailedNodeException => exception
-      Djinn.log_warn("Failed to talk to [IM]: #{exception.message}")
+      system_stats = HermesClient.get_system_stats(my_node.private_ip, @@secret)
+    rescue AppScaleException => error
+      Djinn.log_warn("Couldn't get system stats from Hermes: #{error.message}")
       return INVALID_REQUEST
     end
 

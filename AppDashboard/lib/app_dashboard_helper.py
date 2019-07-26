@@ -236,20 +236,17 @@ class AppDashboardHelper(object):
       nodes = self.get_appcontroller_client().get_cluster_stats()
       statuses = []
       for node in nodes:
-        cpu_usage = 100.0 - node['cpu']['idle']
+        cpu_usage = node['cpu']['percent']
         total_memory = node['memory']['available'] + node['memory']['used']
         memory_usage = round(100.0 * node['memory']['used'] /
                              total_memory, 1)
-        total_disk = 0
-        total_used = 0
-        #TODO: instead of totals display disk usage per disk?
-        for disk in node['disk']:
-          for _, disk_info in disk.iteritems():
-            total_disk += disk_info['free'] + disk_info['used']
-            total_used += disk_info['used']
-        disk_usage = round(100.0 * total_used / total_disk, 1)
+        disks = []
+        for mountpoint, disk_info in node['partitions_dict'].iteritems():
+          disks.append({'mountpoint': mountpoint,
+                        'percentage': round(100.0 * disk_info['used'] / disk_info['total'], 1)})
+
         statuses.append({'ip': node['public_ip'], 'cpu': str(cpu_usage),
-                         'memory': str(memory_usage), 'disk': str(disk_usage),
+                         'memory': str(memory_usage), 'disk': disks,
                          'roles': node['roles'],
                          'key': str(node['public_ip']).translate(None, '.')})
       return statuses
