@@ -34,5 +34,8 @@ setup(
   include_package_data=True,
   entry_points={'console_scripts': [
     'appscale-search2=appscale.search.search_server:main',
+    'appscale-search2-reindex=appscale.search.scripts:reindex',
+    'list-solr-collections=appscale.search.scripts:list_solr_collections',
+    'delete-solr-collection=appscale.search.scripts:delete_solr_collection',
   ]}
 )

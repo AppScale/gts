@@ -17,7 +17,7 @@ from appscale.search.constants import (
   UnknownFacetTypeException, InvalidRequest)
 from appscale.search.models import (
   Field, ScoredDocument, SearchResult, SolrIndexSchemaInfo, SolrSchemaFieldInfo,
-  Facet
+  Facet, IndexMetadata
 )
 from appscale.search.settings import SearchServiceSettings
 from appscale.search.solr_api import SolrAPI
@@ -45,6 +45,24 @@ class SolrAdapter(object):
     """
     self._settings = SearchServiceSettings(zk_client)
     self.solr = SolrAPI(zk_client, SOLR_ZK_ROOT, self._settings)
+
+  async def list_indexes(self, app_id):
+    """ Retrieves basic indexes metadata.
+
+    Args:
+      app_id: a str representing Application ID.
+    Return (asynchronously):
+      A list of models.IndexMetadata.
+    """
+    solr_collections, broken = await self.solr.list_collections()
+    indexes_metadata = []
+    for collection in solr_collections:
+      _, app, namespace, index = collection.split('_')
+      if app != app_id:
+        continue
+      metadata = IndexMetadata(app, namespace, index)
+      indexes_metadata.append(metadata)
+    return indexes_metadata
 
   async def index_documents(self, app_id, namespace, index_name, documents):
     """ Puts specified documents into the index (asynchronously).
