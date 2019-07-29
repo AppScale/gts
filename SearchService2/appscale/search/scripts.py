@@ -2,6 +2,7 @@
 This module provides helper scripts for managing Solr collections.
 """
 import argparse
+import asyncio
 import logging
 
 import sys
@@ -50,12 +51,8 @@ def list_solr_collections():
         logger.warning('Broken collections:\n    {}'.format('\n  '.join(broken)))
     except (SolrServerError, SolrClientError) as err:
       logger.error('Failed to list Solr collections ({}).'.format(err))
-    io_loop.stop()
-    io_loop.close()
 
-  io_loop = ioloop.IOLoop.current()
-  io_loop.spawn_callback(list_collections)
-  io_loop.start()
+  asyncio.get_event_loop().run_until_complete(list_collections())
 
 
 def delete_solr_collection():
@@ -93,13 +90,9 @@ def delete_solr_collection():
       await adapter.solr.delete_collection(args.collection)
     except (SolrServerError, SolrClientError) as err:
       logger.error('Failed to delete Solr collection ({}).'.format(err))
-    io_loop.stop()
-    io_loop.close()
-
-  io_loop = ioloop.IOLoop.current()
 
   if args.no_prompt:
-    io_loop.spawn_callback(delete_collection)
+    asyncio.get_event_loop().run_until_complete(delete_collection())
 
   else:
     answer = input('Type collection name to confirm you want to delete it: '
@@ -107,9 +100,7 @@ def delete_solr_collection():
     if answer.strip() != args.collection:
       logger.error('Collection deletion was not confirmed')
       sys.exit(1)
-    io_loop.spawn_callback(delete_collection)
-
-  io_loop.start()
+    asyncio.get_event_loop().run_until_complete(delete_collection())
 
 
 def reindex():
@@ -176,9 +167,5 @@ def reindex():
         continue
 
     logger.info('Successfully reindexed {} documents'.format(total))
-    io_loop.stop()
-    io_loop.close()
 
-  io_loop = ioloop.IOLoop.current()
-  io_loop.spawn_callback(reindex_documents)
-  io_loop.start()
+  asyncio.get_event_loop().run_until_complete(reindex_documents())

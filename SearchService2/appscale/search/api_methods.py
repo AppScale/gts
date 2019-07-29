@@ -100,7 +100,7 @@ class APIMethods(object):
       list_indexes_response: A search_pb2.ListIndexesResponse.
     """
     app_id = list_indexes_request.app_id.decode('utf-8')
-    # TODO list indexes params should be proceeded
+    # TODO list indexes params should be processed
     # params = list_indexes_request.params
     indexes_metadata = await self.solr_adapter.list_indexes(app_id)
     list_indexes_response.status.code = search_pb2.SearchServiceError.OK
