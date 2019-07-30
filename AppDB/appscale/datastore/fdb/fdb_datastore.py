@@ -12,6 +12,7 @@ transactions: transaction metadata
 See each submodule for more implementation details.
 """
 import logging
+import six
 import sys
 
 from tornado import gen
@@ -21,7 +22,7 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.dbconstants import (
   BadRequest, ConcurrentModificationException, InternalError)
 from appscale.datastore.fdb.cache import DirectoryCache
-from appscale.datastore.fdb.codecs import decode_str, TransactionID
+from appscale.datastore.fdb.codecs import decode_str, Path, TransactionID
 from appscale.datastore.fdb.data import DataManager, VersionEntry
 from appscale.datastore.fdb.gc import GarbageCollector
 from appscale.datastore.fdb.indexes import (
@@ -358,7 +359,7 @@ class FDBDatastore(object):
     yield self.index_manager.update_composite_index(project_id, index)
 
   @gen.coroutine
-  def _upsert(self, tr, entity):
+  def _upsert(self, tr, entity, old_entry_future=None):
     last_element = entity.key().path().element(-1)
     auto_id = False
     if not last_element.has_name():
@@ -372,7 +373,10 @@ class FDBDatastore(object):
       last_element = entity.key().path().element(-1)
       last_element.set_id(self._scattered_allocator.get_id())
 
-    old_entry = yield self._data_manager.get_latest(tr, entity.key())
+    if old_entry_future is None:
+      old_entry = yield self._data_manager.get_latest(tr, entity.key())
+    else:
+      old_entry = yield old_entry_future
 
     # If the datastore chose an ID, don't overwrite existing data.
     if auto_id and old_entry.present:
@@ -391,8 +395,11 @@ class FDBDatastore(object):
     raise gen.Return((old_entry, new_entry))
 
   @gen.coroutine
-  def _delete(self, tr, key):
-    old_entry = yield self._data_manager.get_latest(tr, key)
+  def _delete(self, tr, key, old_entry_future=None):
+    if old_entry_future is None:
+      old_entry = yield self._data_manager.get_latest(tr, key)
+    else:
+      old_entry = yield old_entry_future
 
     if not old_entry.present:
       raise gen.Return((old_entry, None))
@@ -451,26 +458,51 @@ class FDBDatastore(object):
       raise ConcurrentModificationException(
         u'An entity was modified after this transaction was started.')
 
-    mutated_groups = set()
+    # TODO: Check if this constraint is still needed.
+    self._enforce_max_groups(mutations)
+
     # Apply mutations.
-    old_entries = []
+    mutation_futures = []
+    for mutation in self._collapse_mutations(mutations):
+      if isinstance(mutation, entity_pb.Reference):
+        old_entry_future = futures[mutation.Encode()]
+        mutation_futures.append(self._delete(tr, mutation, old_entry_future))
+      else:
+        old_entry_future = futures[mutation.key().Encode()]
+        mutation_futures.append(self._upsert(tr, mutation, old_entry_future))
+
+    responses = yield mutation_futures
+    raise gen.Return([old_entry for old_entry, _ in responses
+                      if old_entry.present])
+
+  @staticmethod
+  def _collapse_mutations(mutations):
+    """ Selects the last mutation for each key as the one to apply. """
+    # TODO: For the v1 API, test if insert, update succeeds in mutation list.
+    mutations_by_key = {}
     for mutation in mutations:
-      op = 'delete' if isinstance(mutation, entity_pb.Reference) else 'put'
-      key = mutation if op == 'delete' else mutation.key()
-      encoded_key = key.Encode()
-      mutated_groups.add(encoded_key)
-      # TODO: Check if this constraint is still needed.
+      if isinstance(mutation, entity_pb.Reference):
+        key = mutation.Encode()
+      else:
+        key = mutation.key().Encode()
+
+      mutations_by_key[key] = mutation
+
+    return tuple(mutation for key, mutation in six.iteritems(mutations_by_key))
+
+  @staticmethod
+  def _enforce_max_groups(mutations):
+    """ Raises an exception if too many groups were modified. """
+    mutated_groups = set()
+    for mutation in mutations:
+      if isinstance(mutation, entity_pb.Reference):
+        key = mutation
+      else:
+        key = mutation.key()
+
+      namespace = decode_str(key.name_space())
+      flat_group = (namespace,) + Path.flatten(key.path())[:2]
+      mutated_groups.add(flat_group)
+
       if len(mutated_groups) > 25:
         raise BadRequest(u'Too many entity groups modified in transaction')
-
-      old_entry = yield futures[encoded_key]
-      new_version = next_entity_version(old_entry.version)
-      new_encoded = mutation.Encode() if op == 'put' else b''
-      yield self._data_manager.put(tr, key, new_version, new_encoded)
-      new_entity = mutation if op == 'put' else None
-      yield self.index_manager.put_entries(tr, old_entry, new_entity)
-      if old_entry.present:
-        yield self._gc.index_deleted_version(tr, old_entry)
-        old_entries.append(old_entry)
-
-    raise gen.Return(old_entries)
