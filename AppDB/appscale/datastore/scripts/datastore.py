@@ -11,15 +11,19 @@ import logging
 import os
 import sys
 import time
+
+import kazoo
 import tornado.httpserver
 import tornado.web
+from kazoo.retry import KazooRetry
 
 from appscale.common import appscale_info
 from appscale.common.appscale_info import get_load_balancer_ips
 from appscale.common.async_retrying import retry_data_watch_coroutine
+from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
-from kazoo.exceptions import NodeExistsError
+from kazoo.exceptions import NodeExistsError, NoNodeError
 from tornado import gen
 from tornado.httpclient import AsyncHTTPClient
 from tornado.ioloop import IOLoop
@@ -64,6 +68,9 @@ STATS = {}
 
 # The ZooKeeper path where a list of active datastore servers is stored.
 DATASTORE_SERVERS_NODE = '/appscale/datastore/servers'
+
+# The ZooKeeper path where a list of active datastore servers is stored.
+FDB_CLUSTERFILE_NODE = '/appscale/datastore/fdb-clusterfile-content'
 
 
 class ClearHandler(tornado.web.RequestHandler):
@@ -805,11 +812,11 @@ class MainHandler(tornado.web.RequestHandler):
 def create_server_node():
   """ Creates a server registration entry in ZooKeeper. """
   try:
-    zookeeper.handle.create(server_node, ephemeral=True)
+    zk_client.create(server_node, ephemeral=True)
   except NodeExistsError:
     # If the server gets restarted, the old node may exist for a short time.
-    zookeeper.handle.delete(server_node)
-    zookeeper.handle.create(server_node, ephemeral=True)
+    zk_client.delete(server_node)
+    zk_client.create(server_node, ephemeral=True)
 
   logger.info('Datastore registered at {}'.format(server_node))
 
@@ -865,13 +872,17 @@ def main():
 
   global datastore_access
   global server_node
-  global zookeeper
+  global zk_client
   zookeeper_locations = appscale_info.get_zk_locations_string()
+  if not zookeeper_locations:
+    zookeeper_locations = 'localhost:2181'
 
   parser = argparse.ArgumentParser()
   parser.add_argument('-t', '--type', choices=dbconstants.VALID_DATASTORES,
                       default=dbconstants.VALID_DATASTORES[0],
                       help='Database type')
+  parser.add_argument('--fdb-clusterfile', default=None,
+                      help='Location of FoundationDB clusterfile')
   parser.add_argument('-p', '--port', type=int,
                       default=dbconstants.DEFAULT_PORT,
                       help='Datastore server port')
@@ -889,32 +900,49 @@ def main():
   server_node = '{}/{}:{}'.format(DATASTORE_SERVERS_NODE, options.private_ip,
                                   options.port)
 
+  retry_policy = KazooRetry(max_tries=5)
+  zk_client = kazoo.client.KazooClient(
+    hosts=zookeeper_locations, connection_retry=ZK_PERSISTENT_RECONNECTS,
+    command_retry=retry_policy)
+  zk_client.start()
+
   if args.type == 'cassandra':
     datastore_batch = DatastoreFactory.getDatastore(
       args.type, log_level=logger.getEffectiveLevel())
     zookeeper = zktransaction.ZKTransaction(
-      host=zookeeper_locations, db_access=datastore_batch,
+      zk_client=zk_client, db_access=datastore_batch,
       log_level=logger.getEffectiveLevel())
-    transaction_manager = TransactionManager(zookeeper.handle)
+    transaction_manager = TransactionManager(zk_client)
     datastore_access = DatastoreDistributed(
       datastore_batch, transaction_manager, zookeeper=zookeeper,
       log_level=logger.getEffectiveLevel(),
       taskqueue_locations=taskqueue_locations)
   else:
     from appscale.datastore.fdb.fdb_datastore import FDBDatastore
+    clusterfile_path = args.fdb_clusterfile
+    if not clusterfile_path:
+      try:
+        clusterfile_content = zk_client.get(FDB_CLUSTERFILE_NODE)[0]
+        clusterfile_path = '/tmp/appscale-datastore-fdb.cluster'
+        with open(clusterfile_path, 'w') as clusterfile:
+          clusterfile.write(clusterfile_content)
+      except NoNodeError:
+        logger.warning(
+          'Neither --fdb-clusterfile was specified nor {} ZK node exists,'
+          'FDB client will try to find clusterfile in one of default locations'
+          .format(FDB_CLUSTERFILE_NODE)
+        )
     datastore_access = FDBDatastore()
-    datastore_access.start()
-    zookeeper = zktransaction.ZKTransaction(
-      host=zookeeper_locations, log_level=logger.getEffectiveLevel())
+    datastore_access.start(clusterfile_path)
 
-  zookeeper.handle.add_listener(zk_state_listener)
-  zookeeper.handle.ensure_path(DATASTORE_SERVERS_NODE)
+  zk_client.add_listener(zk_state_listener)
+  zk_client.ensure_path(DATASTORE_SERVERS_NODE)
   # Since the client was started before adding the listener, make sure the
   # server node gets created.
-  zk_state_listener(zookeeper.handle.state)
-  zookeeper.handle.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
+  zk_state_listener(zk_client.state)
+  zk_client.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
 
-  index_manager = IndexManager(zookeeper.handle, datastore_access,
+  index_manager = IndexManager(zk_client, datastore_access,
                                perform_admin=True)
   if args.type == 'cassandra':
     datastore_access.index_manager = index_manager

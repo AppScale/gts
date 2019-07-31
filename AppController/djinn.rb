@@ -485,7 +485,8 @@ class Djinn
     'proxies_stats_log_interval' => [Fixnum, '35', true],
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
-    'zone' => [String, nil, true]
+    'zone' => [String, nil, true],
+    'fdb_clusterfile_content' => [String, nil, true]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -842,7 +843,7 @@ class Djinn
       # Strings may need to be sanitized.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == String
         # Some options shouldn't be sanitize.
-        if key == 'user_commands' or key == 'azure_app_secret_key'
+        if ['user_commands', 'azure_app_secret_key', 'fdb_clusterfile_content'].include? key
           newval = val
         # Keys have a relaxed sanitization process.
         elsif key.include? "_key" or key.include? "EC2_SECRET_KEY"
@@ -968,6 +969,7 @@ class Djinn
       # initialization.
       @options = checked_opts
     }
+
     Djinn.log_info("Successfully received nodes layout (#{@nodes}) and deployment options (#{@options}).")
 
     'OK'
@@ -1367,6 +1369,11 @@ class Djinn
           )
         end
       end
+
+      if key == 'fdb_clusterfile_content'
+        ZKInterface.set_fdb_clusterfile_content(val)
+      end
+      
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
@@ -3612,6 +3619,10 @@ class Djinn
     # Shadow is the only node to call this method, and is called upon
     # startup.
     return unless my_node.is_shadow?
+
+    if @options.key?('fdb_clusterfile_content')
+      ZKInterface.set_fdb_clusterfile_content(@options['fdb_clusterfile_content'])
+    end
 
     Djinn.log_info("Assigning datastore processes.")
     verbose = @options['verbose'].downcase == 'true'
