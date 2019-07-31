@@ -285,6 +285,10 @@ module TaskQueue
     end
 
     flower_cmd = `which flower`.chomp
+    if flower_cmd.empty?
+      Djinn.log_warn('Couldn\'t find flower executable.')
+      return
+    end
     start_cmd = "#{flower_cmd} --basic_auth=appscale:#{flower_password}"
     MonitInterface.start(:flower, start_cmd)
   end
