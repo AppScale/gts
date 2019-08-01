@@ -327,7 +327,7 @@ class FDBDatastore(object):
       versionstamp_future = tr.get_versionstamp()
 
     try:
-      yield self._tornado_fdb.commit(tr)
+      yield self._tornado_fdb.commit(tr, convert_exceptions=False)
     except fdb.FDBError as fdb_error:
       if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
         raise InternalError(fdb_error.description)
