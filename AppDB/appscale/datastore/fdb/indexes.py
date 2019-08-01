@@ -16,13 +16,12 @@ from tornado import gen
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.fdb.codecs import (
   decode_str, decode_value, encode_value, encode_versionstamp_index, Path)
-from appscale.datastore.fdb.sdk import ListCursor
+from appscale.datastore.fdb.sdk import FindIndexToUse, ListCursor
 from appscale.datastore.fdb.utils import (
   format_prop_val, DS_ROOT, fdb, get_scatter_val, MAX_FDB_TX_DURATION,
   ResultIterator, SCATTER_PROP, VERSIONSTAMP_SIZE)
 from appscale.datastore.dbconstants import BadRequest, InternalError
 from appscale.datastore.index_manager import IndexInaccessible
-from appscale.datastore.utils import _FindIndexToUse
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import datastore_pb, entity_pb
@@ -1229,7 +1228,7 @@ class IndexManager(object):
           tr, project_id, namespace, decode_str(query.kind()), prop_name)
         raise gen.Return(single_prop_index)
 
-    index_pb = _FindIndexToUse(query, self._get_indexes_pb(project_id))
+    index_pb = FindIndexToUse(query, self._get_indexes_pb(project_id))
     if index_pb is not None:
       composite_index = yield self._composite_index(
         tr, project_id, index_pb.id(), namespace)

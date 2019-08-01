@@ -6,10 +6,11 @@ import logging
 import sys
 import threading
 
+from appscale.datastore import dbconstants
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.datastore import datastore_pb
+from google.appengine.datastore import datastore_pb, entity_pb
 from google.appengine.datastore import datastore_index
 from google.appengine.runtime import apiproxy_errors
 
@@ -243,3 +244,89 @@ class ListCursor(BaseCursor):
           int: Result count.
         """
         return self.__count
+
+
+def IndexListForQuery(query):
+  """Get the composite index definition used by the query, if any, as a list.
+
+  Args:
+    query: the datastore_pb.Query to compute the index list for
+
+  Returns:
+    A singleton list of the composite index definition pb used by the query,
+  """
+  required, kind, ancestor, props = (
+      datastore_index.CompositeIndexForQuery(query))
+  if not required:
+    return []
+
+  index_pb = entity_pb.Index()
+  index_pb.set_entity_type(kind)
+  index_pb.set_ancestor(bool(ancestor))
+  for name, direction in datastore_index.GetRecommendedIndexProperties(props):
+    prop_pb = entity_pb.Index_Property()
+    prop_pb.set_name(name)
+    prop_pb.set_direction(direction)
+    index_pb.property_list().append(prop_pb)
+  return [index_pb]
+
+
+def FindIndexToUse(query, indexes):
+  """ Matches the query with one of the composite indexes.
+
+  Args:
+    query: A datastore_pb.Query.
+    indexes: A list of entity_pb.CompsiteIndex.
+  Returns:
+    The composite index of the list for which the composite index matches
+    the query. Returns None if there is no match.
+  """
+  if not query.has_kind():
+    return None
+
+  index_list = IndexListForQuery(query)
+  if not index_list:
+    return None
+
+  index_match = index_list[0]
+  for index in indexes:
+    if index_match.Equals(index.definition()):
+      return index
+
+  _, kind, ancestor, (prefix, (ordered, group_by, unordered)) = (
+    datastore_index.CompositeIndexForQuery(query))
+  # TODO: Support group_by and unordered.
+  if group_by or unordered:
+    raise dbconstants.NeedsIndex(u'Query requires an index')
+
+  prefix = sorted(prefix)
+  for index in indexes:
+    if index.definition().entity_type() != kind:
+      continue
+
+    if index.definition().ancestor() != ancestor:
+      continue
+
+    if index.definition().property_size() != len(prefix) + len(ordered):
+      continue
+
+    index_prefix = sorted([prop.name() for prop in
+                           index.definition().property_list()[:len(prefix)]])
+    if index_prefix != prefix:
+      continue
+
+    index_matches = True
+    for offset, (prop_name, direction) in enumerate(ordered):
+      index_prop = index.definition().property(len(prefix) + offset)
+      if index_prop.name() != prop_name:
+        index_matches = False
+        break
+
+      if direction is not None and direction != index_prop.direction():
+        index_matches = False
+        break
+
+    if index_matches:
+      return index
+
+  raise dbconstants.NeedsIndex(u'Query requires an index')
