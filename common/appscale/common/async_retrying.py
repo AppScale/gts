@@ -2,9 +2,9 @@ import collections
 import functools
 import inspect
 import logging
+import monotonic
 import random
 import traceback
-import time
 
 from tornado import locks, gen
 from tornado.ioloop import IOLoop
@@ -55,7 +55,7 @@ class _RetryRawCoroutine(_Retry):
 
       retries = 0
       backoff = self.backoff_multiplier
-      start_time = time.time()
+      start_time = monotonic.monotonic()
       while True:
         # Start of retrying iteration
         try:
@@ -67,14 +67,15 @@ class _RetryRawCoroutine(_Retry):
           retries += 1
 
           # Check if need to retry
+          duration = monotonic.monotonic() - start_time
           if self.max_retries is not None and retries > self.max_retries:
             logger.error("Giving up retrying after {} attempts during {:0.1f}s"
-                         .format(retries, time.time()-start_time))
+                         .format(retries, duration))
             raise
           timeout = self.retrying_timeout
-          if timeout and time.time() - start_time > timeout:
+          if timeout and duration > timeout:
             logger.error("Giving up retrying after {} attempts during {:0.1f}s"
-                         .format(retries, time.time()-start_time))
+                         .format(retries, duration))
             raise
           if not check_exception(err):
             raise
@@ -193,9 +194,8 @@ class _PersistentWatch(object):
 
       retries = 0
       backoff = backoff_multiplier
-      start_time = time.time()
+      start_time = monotonic.monotonic()
       node_lock = self._locks[node]
-      result = None
 
       # Wake older update calls (*)
       node_lock.condition.notify_all()
@@ -215,15 +215,16 @@ class _PersistentWatch(object):
             retries += 1
 
             # Check if need to retry
+            duration = monotonic.monotonic() - start_time
             if max_retries is not None and retries > max_retries:
               logger.error(
                 "Giving up retrying after {} attempts during {:0.1f}s"
-                .format(retries, time.time()-start_time))
+                .format(retries, duration))
               fail = True
-            elif retrying_timeout and time.time()-start_time > retrying_timeout:
+            elif retrying_timeout and duration > retrying_timeout:
               logger.error(
                 "Giving up retrying after {} attempts during {:0.1f}s"
-                .format(retries, time.time()-start_time))
+                .format(retries, duration))
               fail = True
             elif not check_exception(e):
               fail = True

@@ -8,7 +8,7 @@ install_requires = [
 ]
 
 if sys.version_info < (3,):
-  install_requires.append('future==0.17.1')
+  install_requires.extend(['future==0.17.1', 'monotonic'])
 
 setup(
   name='appscale-common',

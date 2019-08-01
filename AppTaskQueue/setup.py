@@ -1,5 +1,21 @@
-import glob
+import sys
 from setuptools import setup
+
+install_requires = [
+  'appscale-common',
+  'cassandra-driver<3.18.0',
+  'celery>=3.1,<4.0.0',
+  'eventlet==0.22',
+  'kazoo',
+  'mock',
+  'protobuf',
+  'psycopg2-binary',
+  'PyYaml>=4.2b1',
+  'requests',
+  'tornado==4.2.0'
+]
+if sys.version_info < (3,):
+  install_requires.append('monotonic')
 
 setup(
   name='appscale-taskqueue',
@@ -10,19 +26,7 @@ setup(
   license='Apache License 2.0',
   keywords='appscale google-app-engine python',
   platforms='Posix',
-  install_requires=[
-    'appscale-common',
-    'cassandra-driver<3.18.0',
-    'celery>=3.1,<4.0.0',
-    'eventlet==0.22',
-    'kazoo',
-    'mock',
-    'protobuf',
-    'psycopg2-binary',
-    'PyYaml>=4.2b1',
-    'requests',
-    'tornado==4.2.0'
-  ],
+  install_requires=install_requires,
   extras_require={'celery_gui': ['flower']},
   classifiers=[
     'Development Status :: 5 - Production/Stable',

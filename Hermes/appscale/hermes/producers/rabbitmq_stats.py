@@ -2,6 +2,7 @@
 import base64
 import json
 import logging
+import monotonic
 import socket
 import time
 
@@ -71,7 +72,7 @@ class RabbitMQStatsSource(object):
     Returns:
       An instance of RabbitMQStatsSnapshot.
     """
-    start = time.time()
+    start = monotonic.monotonic()
 
     node_name = 'rabbit@{}'.format(socket.gethostname())
     url = 'http://localhost:{}{}/{}'.format(API_PORT, NODES_API, node_name)
@@ -97,7 +98,7 @@ class RabbitMQStatsSource(object):
       partitions=node_info['partitions']
     )
     logger.info('Prepared RabbitMQ node stats in '
-                '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
+                '{elapsed:.1f}s.'.format(elapsed=monotonic.monotonic()-start))
     raise gen.Return(snapshot)
 
 
@@ -114,7 +115,7 @@ class PushQueueStatsSource(object):
     Returns:
       An instance of PushQueueStatsSnapshot.
     """
-    start = time.time()
+    start = monotonic.monotonic()
 
     url = 'http://localhost:{}{}'.format(API_PORT, QUEUES_API)
     creds = base64.b64encode(':'.join([USER, PASS]))
@@ -139,5 +140,5 @@ class PushQueueStatsSource(object):
       queues=queue_stats
     )
     logger.info('Prepared push queue stats in '
-                '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
+                '{elapsed:.1f}s.'.format(elapsed=monotonic.monotonic()-start))
     raise gen.Return(snapshot)

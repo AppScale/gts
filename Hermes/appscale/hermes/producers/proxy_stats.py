@@ -1,6 +1,7 @@
 import cStringIO
 import csv
 import logging
+import monotonic
 import socket
 import time
 from collections import defaultdict
@@ -751,7 +752,7 @@ class ProxiesStatsSource(object):
     Returns:
       An instance of ProxiesStatsSnapshot.
     """
-    start = time.time()
+    start = monotonic.monotonic()
 
     net_connections = psutil.net_connections()
     proxy_stats_list = []
@@ -766,7 +767,8 @@ class ProxiesStatsSource(object):
       proxies_stats=proxy_stats_list
     )
     logger.info("Prepared stats about {prox} proxies in {elapsed:.1f}s."
-                .format(prox=len(proxy_stats_list), elapsed=time.time()-start))
+                .format(prox=len(proxy_stats_list),
+                        elapsed=monotonic.monotonic()-start))
     return stats
 
 

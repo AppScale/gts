@@ -1,6 +1,7 @@
 """ Fetches TaskQueue service statistics. """
 import json
 import logging
+import monotonic
 
 import attr
 import collections
@@ -191,7 +192,7 @@ class TaskqueueStatsSource(object):
 
   @gen.coroutine
   def get_current(self):
-    start_time = time.time()
+    start_time = monotonic.monotonic()
     # Find all taskqueue servers
     tq_instances = proxy_stats.get_service_instances(
       proxy_stats.HAPROXY_SERVICES_STATS_SOCKET_PATH, "TaskQueue"
@@ -227,7 +228,8 @@ class TaskqueueStatsSource(object):
     )
     logger.info(
       "Fetched Taskqueue server stats from {nodes} instances in {elapsed:.1f}s."
-      .format(nodes=len(instances_stats), elapsed=time.time() - start_time)
+      .format(nodes=len(instances_stats),
+              elapsed=monotonic.monotonic() - start_time)
     )
     raise gen.Return(stats)
 

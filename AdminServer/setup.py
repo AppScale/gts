@@ -17,7 +17,7 @@ install_requires = [
   'mock',
 ]
 if sys.version_info < (3,):
-  install_requires.append('futures')
+  install_requires.extend(['futures', 'monotonic'])
 
 setup(
   name='appscale-admin',
