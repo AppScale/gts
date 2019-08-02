@@ -671,6 +671,10 @@ installtaskqueue()
 
 installdatastore()
 {
+    FDB_CLIENTS_DEB="foundationdb-clients_6.1.8-1_amd64.deb"
+    FDB_CLIENTS_MD5="3792e695a1de5444dbeebcdda7bdf932"
+    cachepackage ${FDB_CLIENTS_DEB} ${FDB_CLIENTS_MD5}
+    dpkg --install ${PACKAGE_CACHE}/foundationdb-clients_6.1.8-1_amd64.deb
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AppDB
     pip install ${APPSCALE_HOME}/AppDB
 }
