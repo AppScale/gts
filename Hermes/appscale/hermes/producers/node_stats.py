@@ -1,5 +1,4 @@
 import logging
-import monotonic
 import os
 import time
 from datetime import datetime
@@ -114,7 +113,7 @@ class NodeStatsSource(object):
       on the machine
     """
     utc_timestamp = time.mktime(datetime.now().timetuple())
-    start = monotonic.monotonic()
+    start = time.time()
     private_ip = appscale_info.get_private_ip()
 
     # CPU usage
@@ -170,5 +169,5 @@ class NodeStatsSource(object):
       partitions_dict=partitions_dict, network=network, loadavg=loadavg
     )
     logger.info("Prepared local node stats in {elapsed:.1f}s."
-                 .format(elapsed=monotonic.monotonic()-start))
+                 .format(elapsed=time.time()-start))
     return stats

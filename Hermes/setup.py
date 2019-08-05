@@ -1,16 +1,4 @@
-import sys
 from setuptools import setup
-
-install_requires = [
-  'appscale-common',
-  'kazoo',
-  'tornado',
-  'psutil==5.1.3',
-  'attrs>=18.1.0',
-  'mock',
-]
-if sys.version_info < (3,):
-  install_requires.append('monotonic')
 
 setup(
   name='appscale-hermes',
@@ -22,7 +10,14 @@ setup(
   license='Apache License 2.0',
   keywords='appscale google-app-engine python',
   platforms='Posix',
-  install_requires=install_requires,
+  install_requires=[
+    'appscale-common',
+    'kazoo',
+    'tornado',
+    'psutil==5.1.3',
+    'attrs>=18.1.0',
+    'mock',
+  ],
   test_suite='appscale.hermes',
   classifiers=[
     'Development Status :: 3 - Alpha',

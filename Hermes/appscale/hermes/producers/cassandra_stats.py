@@ -1,6 +1,5 @@
 """ Fetches `nodetool status` info. """
 import logging
-import monotonic
 import re
 import time
 
@@ -99,7 +98,7 @@ class CassandraStatsSource(object):
     Returns:
       An instance of RabbitMQStatsSnapshot.
     """
-    start = monotonic.monotonic()
+    start = time.time()
     try:
       proc = process.Subprocess(
         NODETOOL_STATUS_COMMAND,
@@ -177,5 +176,5 @@ class CassandraStatsSource(object):
       unknown_nodes=list(shown_nodes - known_db_nodes)
     )
     logger.info('Prepared Cassandra nodes status in '
-                 '{elapsed:.1f}s.'.format(elapsed=monotonic.monotonic()-start))
+                 '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
     raise gen.Return(snapshot)

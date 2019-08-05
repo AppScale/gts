@@ -1,5 +1,4 @@
 import logging
-import monotonic
 import re
 import subprocess
 import time
@@ -118,7 +117,7 @@ class ProcessesStatsSource(object):
     Returns:
       An instance ofProcessesStatsSnapshot.
     """
-    start = monotonic.monotonic()
+    start = time.time()
     monit_status = subprocess.check_output('monit status', shell=True)
     processes_stats = []
     private_ip = appscale_info.get_private_ip()
@@ -149,8 +148,7 @@ class ProcessesStatsSource(object):
       processes_stats=processes_stats
     )
     logger.info("Prepared stats about {proc} processes in {elapsed:.1f}s."
-                 .format(proc=len(processes_stats),
-                         elapsed=monotonic.monotonic()-start))
+                 .format(proc=len(processes_stats), elapsed=time.time()-start))
     return stats
 
 

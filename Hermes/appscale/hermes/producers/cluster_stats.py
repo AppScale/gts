@@ -1,8 +1,8 @@
 """ Implementation of stats sources for cluster stats. """
 import json
 import logging
-import monotonic
 import sys
+import time
 
 import random
 import socket
@@ -58,7 +58,7 @@ class ClusterStatsSource(object):
       an instance of stats snapshot as value.
     """
     exclude_nodes = exclude_nodes or []
-    start = monotonic.monotonic()
+    start = time.time()
 
     # Do multiple requests asynchronously and wait for all results
     stats_or_error_per_node = yield {
@@ -78,7 +78,7 @@ class ClusterStatsSource(object):
     logger.info("Fetched {stats} from {nodes} nodes in {elapsed:.1f}s."
                  .format(stats=self.stats_model.__name__,
                          nodes=len(stats_per_node),
-                         elapsed=monotonic.monotonic() - start))
+                         elapsed=time.time() - start))
     raise gen.Return((stats_per_node, failures))
 
   @gen.coroutine
