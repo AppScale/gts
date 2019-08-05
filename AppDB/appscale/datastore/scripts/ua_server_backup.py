@@ -107,16 +107,14 @@ def main():
   table = get_table_sync(db, USERS_TABLE, user_schema)[1:]
   reshaped_table = reshape(table, schema_cols_num)
 
-  try:
-    create_backup_dir(BACKUP_FILE_LOCATION)
-  except OSError as os_error:
-    logger.error('OSError occurred!')
-    logger.error(os_error.message)
-    raise
+  create_backup_dir(BACKUP_FILE_LOCATION)
 
   backup_timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-  output = '{0}ua_server_{1}.csv'.format(BACKUP_FILE_LOCATION, backup_timestamp)
+  output_file = '{0}ua_server_{1}.csv'.format(BACKUP_FILE_LOCATION, backup_timestamp)
 
-  with open(output, 'w') as fout:
-    writer = csv.writer(fout, delimiter=',')
-    writer.writerows(reshaped_table)
+  # v1 output format
+  with open(output_file, 'w') as fout:
+    writer = csv.DictWriter(fout, delimiter=',', fieldnames=USERS_SCHEMA)
+    writer.writeheader()
+    rows = [dict(zip(USERS_SCHEMA, row)) for row in reshaped_table]
+    writer.writerows(rows)

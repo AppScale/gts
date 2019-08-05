@@ -9,7 +9,11 @@ from tornado import gen
 
 from appscale.common.constants import LOG_FORMAT
 from appscale.datastore import appscale_datastore
-from appscale.datastore.dbconstants import AppScaleDBConnectionError, USERS_TABLE
+from appscale.datastore.dbconstants import (
+  AppScaleDBConnectionError,
+  USERS_SCHEMA,
+  USERS_TABLE
+)
 from appscale.datastore.utils import tornado_synchronous
 
 
@@ -70,10 +74,11 @@ def main():
   if retries == -1:
     raise AppScaleDBConnectionError('No response from cassandra.')
 
-  input = args.input
+  input_file = args.input
 
-  with open(input, 'r') as fin:
-    reader = csv.reader(fin, delimiter=',')
+  with open(input_file, 'r') as fin:
+    reader = csv.DictReader(fin, delimiter=',')
     # Iterate through all users in file
     for row in reader:
-      put_entity_sync(db, USERS_TABLE, row[0], user_schema, row)
+      array = [row[key] for key in USERS_SCHEMA]
+      put_entity_sync(db, USERS_TABLE, array[0], user_schema, array)
