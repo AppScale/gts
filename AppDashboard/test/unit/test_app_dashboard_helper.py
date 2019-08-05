@@ -16,7 +16,7 @@ class TestAppDashboardHelper(unittest.TestCase):
 
   def test_get_cookie_app_list(self):
     request = flexmock()
-    request.cookies = { AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE : 
+    request.cookies = { AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE :
       urllib.quote('a@a.com:a:app1,app2:FAKEHASH') }
 
     output = AppDashboardHelper().get_cookie_app_list(request)
@@ -34,9 +34,9 @@ class TestAppDashboardHelper(unittest.TestCase):
     flexmock(AppDashboardHelper).should_receive('set_appserver_cookie') \
       .once()
 
-    self.assertTrue(AppDashboardHelper().update_cookie_app_list(['app1', 
+    self.assertTrue(AppDashboardHelper().update_cookie_app_list(['app1',
       'app2', 'app3'], flexmock(), flexmock()))
-    self.assertFalse(AppDashboardHelper().update_cookie_app_list(['app1', 
+    self.assertFalse(AppDashboardHelper().update_cookie_app_list(['app1',
       'app2'], flexmock(), flexmock()))
 
   def test_get_user_app_list(self):
@@ -50,21 +50,21 @@ class TestAppDashboardHelper(unittest.TestCase):
   def setUpClusterStats(self):
     cluster_stats = [
       {
-        # System stats provided by infrastucture manager
+        # System stats provided by Hermes
         "cpu": {
           "idle": 50.0,
           "system": 28.2,
           "user": 10.5,
           "count": 2,
         },
-        "disk": [
-          # For each partition
-          {"total": 30965743616,
-           "free": 15482871808,
-           "used": 15482871808},
-          {"total": 7309782470,
-           "free": 3654891235,
-           "used": 3654891235},
+        "partitions_dict": [
+          {
+            "/" : {
+              "total": 30965743616,
+              "free": 15482871808,
+              "used": 15482871808,
+            }
+          }
         ],
         "memory": {
           "total": 12365412865,
@@ -81,11 +81,9 @@ class TestAppDashboardHelper(unittest.TestCase):
           "cassandra": "Running",
         },
         "loadavg": {
-          "last_1_min": 0.08,
-          "last_5_min": 0.27,
-          "last_15_min": 0.33,
-          "runnable_entities": 3,
-          "scheduling_entities": 383
+          "last_1min": 0.08,
+          "last_5min": 0.27,
+          "last_15min": 0.33
         },
         # Node information provided by AppController itself
         "apps": {
@@ -118,17 +116,21 @@ class TestAppDashboardHelper(unittest.TestCase):
         "roles": ["shadow", "zookeeper", "datastore", "taskqueue"],
       },
       {
-        # System stats provided by infrastucture manager
+        # System stats provided by Hermes
         "cpu": {
           "idle": 50.0,
           "system": 28.2,
           "user": 10.5,
           "count": 2,
         },
-        "disk": [
-          # For each partition
-          {"free": 15482871808,
-           "used": 15482871808}
+        "partitions_dict": [
+          {
+            "/" : {
+              "total": 30965743616,
+              "free": 15482871808,
+              "used": 15482871808,
+            }
+          }
         ],
         "memory": {
           "total": 12365412865,
@@ -136,6 +138,7 @@ class TestAppDashboardHelper(unittest.TestCase):
           "used": 8186245120
         },
         "swap": {
+          "total": 2,
           "free": 0,
           "used": 0
         },
@@ -143,11 +146,9 @@ class TestAppDashboardHelper(unittest.TestCase):
           # For each Process monitored by monit
         },
         "loadavg": {
-          "last_1_min": 0.08,
-          "last_5_min": 0.27,
-          "last_15_min": 0.33,
-          "runnable_entities": 3,
-          "scheduling_entities": 383
+          "last_1min": 0.08,
+          "last_5min": 0.27,
+          "last_15min": 0.33
         },
         # Node information provided by AppController itself
         "apps": {},
@@ -214,10 +215,9 @@ class TestAppDashboardHelper(unittest.TestCase):
                            total_memory, 1)
       total_disk = 0
       total_used = 0
-      for disk in node['disk']:
-        for _, disk_info in disk.iteritems():
-          total_disk += disk_info['free'] + disk_info['used']
-          total_used += disk_info['used']
+      for _, disk_info in node['partitions_dict'].iteritems():
+        total_disk += disk_info['free'] + disk_info['used']
+        total_used += disk_info['used']
       disk_usage = round(100.0 * total_used / total_disk, 1)
       test_statuses.append({'ip': node['public_ip'], 'cpu': str(cpu_usage),
                        'memory': str(memory_usage), 'disk': str(disk_usage),

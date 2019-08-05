@@ -256,6 +256,16 @@ installappserverjava()
         # Delete unnecessary files.
         rm -rf ${JAVA_SDK_DIR}/src ${JAVA_SDK_DIR}/lib
     fi
+
+    # Install Java 8 runtime.
+    JAVA8_RUNTIME_PACKAGE="appscale-java8-runtime-1.9.75-1.zip"
+    JAVA8_RUNTIME_MD5="aac2c857ac61d5506dc75e18367aa779"
+    cachepackage ${JAVA8_RUNTIME_PACKAGE} ${JAVA8_RUNTIME_MD5}
+
+    rm -rf /opt/appscale_java8_runtime
+
+    echo "Extracting Java 8 runtime"
+    unzip -q "${PACKAGE_CACHE}/${JAVA8_RUNTIME_PACKAGE}" -d /opt
 }
 
 installtornado()
@@ -326,6 +336,29 @@ installsolr()
     cachepackage ${SOLR_PACKAGE} ${SOLR_PACKAGE_MD5}
     tar xzf "${PACKAGE_CACHE}/${SOLR_PACKAGE}" -C ${SOLR_DIR}
     mv -v ${SOLR_DIR}/solr-${SOLR_VER} ${SOLR_DIR}/solr
+}
+
+installsolr7()
+{
+    SOLR_VER=7.6.0
+    SOLR_PACKAGE="solr-${SOLR_VER}.tgz"
+    SOLR_PACKAGE_MD5="6363337322523b68c377177b1232c49e"
+    cachepackage ${SOLR_PACKAGE} ${SOLR_PACKAGE_MD5}
+
+    SOLR_EXTRACT_DIR=/opt/
+    SOLR_VAR_DIR=/opt/appscale/solr7/
+    SOLR_ARCHIVE="${PACKAGE_CACHE}/${SOLR_PACKAGE}"
+
+    tar xzf "${SOLR_ARCHIVE}" solr-${SOLR_VER}/bin/install_solr_service.sh --strip-components=2
+
+    echo "Installing Solr ${SOLR_VER}."
+    # -n  Do not start solr service after install.
+    # -f  Upgrade Solr. Overwrite symlink and init script of previous installation.
+    bash ./install_solr_service.sh "${SOLR_ARCHIVE}" \
+              -d ${SOLR_VAR_DIR} \
+              -i ${SOLR_EXTRACT_DIR} \
+              -n -f
+    update-rc.d solr disable
 }
 
 installcassandra()
@@ -624,10 +657,26 @@ installinfrastructuremanager()
 
 installtaskqueue()
 {
-    pip install --upgrade --no-deps ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
-    # Fill in new dependencies.
-    # See pip.pypa.io/en/stable/user_guide/#only-if-needed-recursive-upgrade.
-    pip install ${APPSCALE_HOME}/AppTaskQueue[celery_gui]
+    rm -rf /opt/appscale_venvs/appscale_taskqueue/
+    python -m virtualenv /opt/appscale_venvs/appscale_taskqueue/
+
+    TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
+
+    "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh"
+
+    TQ_DIR="${APPSCALE_HOME}/AppTaskQueue/"
+    COMMON_DIR="${APPSCALE_HOME}/common"
+
+    echo "Upgrading appscale-common.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${COMMON_DIR}"
+    echo "Installing appscale-common dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${COMMON_DIR}"
+    echo "Upgrading appscale-taskqueue.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${TQ_DIR}[celery_gui]"
+    echo "Installing appscale-taskqueue dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${TQ_DIR}[celery_gui]"
+
+    echo "appscale-taskqueue has been successfully installed."
 }
 
 installdatastore()
@@ -653,6 +702,23 @@ installapiserver()
      pip install ${APPSCALE_HOME}/AppControllerClient ${APPSCALE_HOME}/common \
      ${APPSCALE_HOME}/APIServer)
     eval ${unset_opt}
+}
+
+installsearch2()
+{
+    ANTLR_VER=4.7.2
+    ANTLR_JAR="antlr-${ANTLR_VER}-complete.jar"
+    ANTLR_JAR_MD5="58c9cdda732eabd9ea3e197fa7d8f2d6"
+    cachepackage ${ANTLR_JAR} ${ANTLR_JAR_MD5}
+    cp "${PACKAGE_CACHE}/${ANTLR_JAR}" "/usr/local/lib/${ANTLR_JAR}"
+
+    # Create virtual environment based on Python 3
+    rm -rf /opt/appscale_venvs/search2
+    python3 -m venv /opt/appscale_venvs/search2/
+
+    # Let the script compile protocols and parser and install package using pip.
+    "${APPSCALE_HOME}/SearchService2/build-scripts/ensure_searchservice2.sh" \
+        /opt/appscale_venvs/search2/bin/pip
 }
 
 prepdashboard()

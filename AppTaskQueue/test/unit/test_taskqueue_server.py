@@ -14,7 +14,6 @@ class TestDistributedTaskQueue(unittest.TestCase):
 
   @staticmethod
   def test_distributed_tq_initialization():
-    db_access = MagicMock()
     zk_client = MagicMock()
     lb_ips_patcher = patch(
       'appscale.common.appscale_info.get_load_balancer_ips',
@@ -26,7 +25,7 @@ class TestDistributedTaskQueue(unittest.TestCase):
     )
     with lb_ips_patcher:
       with db_proxy_patcher:
-        distributed_tq.DistributedTaskQueue(db_access, zk_client)
+        distributed_tq.DistributedTaskQueue(zk_client)
 
   # TODO:
   # def test_fetch_queue_stats(self):

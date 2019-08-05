@@ -85,8 +85,23 @@ fi
 
 if [ ! -z ${TQ_SOURCE_DIR} ]; then
     log "Installing TaskQueue from specified sources"
-    pip install --upgrade --no-deps "${TQ_SOURCE_DIR}"
-    pip install "${TQ_SOURCE_DIR}"
+    rm -rf /opt/appscale_venvs/appscale_taskqueue/
+    python -m virtualenv /opt/appscale_venvs/appscale_taskqueue/
+
+    TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
+
+    "${TQ_SOURCE_DIR}/appscale/taskqueue/protocols/compile_protocols.sh"
+    COMMON_SOURCE_DIR="$( dirname "${TQ_SOURCE_DIR}" )"/common
+    echo "Upgrading appscale-common.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${COMMON_SOURCE_DIR}"
+    echo "Installing appscale-common dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${COMMON_SOURCE_DIR}"
+    echo "Upgrading appscale-taskqueue.."
+    "${TASKQUEUE_PIP}" install --upgrade --no-deps "${TQ_SOURCE_DIR}[celery_gui]"
+    echo "Installing appscale-taskqueue dependencies if any missing.."
+    "${TASKQUEUE_PIP}" install "${TQ_SOURCE_DIR}[celery_gui]"
+
+    echo "appscale-taskqueue has been successfully installed."
 fi
 
 log "Filling /etc/appscale/* files with addresses of required services"
@@ -107,7 +122,8 @@ PORTS="${PORTS//,/ }"
 log "Starting taskqueue servers on ports: ${PORTS}"
 for port in ${PORTS}
 do
-    nohup appscale-taskqueue -p "${port}" --verbose > "/var/log/appscale/taskqueue-${port}.log" 2>&1 &
+    nohup /opt/appscale_venvs/appscale_taskqueue/bin/appscale-taskqueue -p \
+        "${port}" --verbose > "/var/log/appscale/taskqueue-${port}.log" 2>&1 &
 done
 
 log "Ensuring servers are running"

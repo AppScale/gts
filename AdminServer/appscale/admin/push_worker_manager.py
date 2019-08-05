@@ -32,6 +32,10 @@ CELERY_SAFE_MEMORY = 1000
 # The directory where Celery persists state.
 CELERY_STATE_DIR = os.path.join('/', 'opt', 'appscale', 'celery')
 
+# The directory where separate TaskQueue venv stores Celery
+CELERY_TQ_DIR = os.path.join('/', 'opt', 'appscale_venvs',
+                             'appscale_taskqueue', 'bin', 'celery')
+
 # The working directory for Celery workers.
 CELERY_WORKER_DIR = os.path.join(CONFIG_DIR, 'celery', 'workers')
 
@@ -145,7 +149,7 @@ class ProjectPushWorkerManager(object):
                             'worker___{}.db'.format(self.project_id))
 
     return ' '.join([
-      'celery', 'worker',
+      CELERY_TQ_DIR, 'worker',
       '--app', WORKER_MODULE,
       '--pool=eventlet',
       '--concurrency={}'.format(CELERY_CONCURRENCY),
