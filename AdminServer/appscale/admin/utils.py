@@ -32,6 +32,7 @@ from .constants import (
   InvalidQueueConfiguration,
   InvalidSource,
   JAVA,
+  JAVA8,
   NGINX_DISPATCH_REGEX,
   REQUIRED_PULL_QUEUE_FIELDS,
   REQUIRED_PUSH_QUEUE_FIELDS,
@@ -210,7 +211,7 @@ def extract_source(revision_key, location, runtime):
   app_path = os.path.join(revision_base, 'app')
   ensure_path(app_path)
 
-  if runtime == JAVA:
+  if runtime in (JAVA, JAVA8):
     config_file_name = 'appengine-web.xml'
 
     def is_version_config(path):

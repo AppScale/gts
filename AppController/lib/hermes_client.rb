@@ -109,4 +109,33 @@ module HermesClient
       "scur=#{current_sessions}")
     return total_requests_seen, total_req_in_queue, current_sessions
   end
+
+  # Gets node cpu, memory, loadavg, and disk information from Hermes located on
+  # the local node.
+  #
+  # Args:
+  #   ip: IP address of the local node.
+  #   secret: Deployment secret.
+  #   proxy_name: Name of proxy to return.
+  # Returns:
+  #   The system stats for the local node.
+  #
+  def self.get_system_stats(ip, secret)
+    data = {
+      'include_lists' => {
+        'node'=> ['memory', 'loadavg', 'partitions_dict', 'cpu', 'swap'],
+        'node.cpu'=> ['idle', 'system', 'user', 'count', 'percent'],
+        'node.partition'=> ['used', 'total', 'free'],
+        'node.memory' => ['total', 'available', 'used'],
+        'node.swap' => ['total', 'used', 'free'],
+        'node.loadavg'=> ['last_1min', 'last_5min', 'last_15min']
+      },
+      'max_age' => 5
+    }
+    node_stats_list = HermesClient.make_call(
+      ip, secret, '/stats/local/node', data
+    )
+    Djinn.log_debug("Received #{node_stats_list}")
+    return node_stats_list
+  end
 end

@@ -112,8 +112,6 @@ module Nginx
     parsing_log = "Writing proxy for #{version_key} with language " \
       "#{language}.\n"
 
-
-
     config_path = File.join(SITES_ENABLED_PATH,
                             "appscale-#{version_key}.#{CONFIG_EXTENSION}")
     blobstore_port = BlobServer::HAPROXY_PORT

@@ -8,6 +8,7 @@ http_port
 https_port
 project_id
 dispatch => [{'url'=> 'url', 'service'=> 'default'}]
+server_name
 load_balancer_ip
 language
 %>
@@ -68,7 +69,7 @@ server {
     }
     <% end %>
 
-    <% if language == "java" %>
+    <% if ['java', 'java8'].include? language %>
     location ~ /_ah/upload/.* {
       proxy_set_header      X-Appengine-Inbound-Appid <%= project_id %>;
       proxy_set_header      X-Real-IP $remote_addr;

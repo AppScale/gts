@@ -41,21 +41,21 @@ class FunctionalTestAppDashboard(unittest.TestCase):
       # TODO make up example of cluster stats
       # TODO and make sure that this change doesn't break tests
       {
-        # System stats provided by infrastucture manager
+        # System stats provided by Hermes
         "cpu": {
           "idle": 50.0,
           "system": 28.2,
           "user": 10.5,
           "count": 2,
         },
-        "disk": [
-          # For each partition
-          {"total": 30965743616,
-           "free": 15482871808,
-           "used": 15482871808},
-          {"total": 7309782470,
-           "free": 3654891235,
-           "used": 3654891235},
+        "partitions_dict": [
+          {
+            "/" : {
+              "total": 30965743616,
+              "free": 15482871808,
+              "used": 15482871808,
+            }
+          }
         ],
         "memory": {
           "total": 12365412865,
@@ -72,11 +72,9 @@ class FunctionalTestAppDashboard(unittest.TestCase):
           "cassandra": "Running",
         },
         "loadavg": {
-           "last_1_min": 0.08,
-           "last_5_min": 0.27,
-           "last_15_min": 0.33,
-           "runnable_entities": 3,
-           "scheduling_entities": 383
+           "last_1min": 0.08,
+           "last_5min": 0.27,
+           "last_15min": 0.33
         },
         # Node information provided by AppController itself
         "apps": {
@@ -97,17 +95,21 @@ class FunctionalTestAppDashboard(unittest.TestCase):
         "roles": ["shadow", "zookeeper", "datastore", "taskqueue"],
       },
       {
-        # System stats provided by infrastucture manager
+        # System stats provided by Hermes
         "cpu": {
           "idle": 50.0,
           "system": 28.2,
           "user": 10.5,
           "count": 2,
         },
-        "disk": [
-          # For each partition
-          {"free": 15482871808,
-           "used": 15482871808}
+        "partitions_dict": [
+          {
+            "/" : {
+              "total": 30965743616,
+              "free": 15482871808,
+              "used": 15482871808,
+            }
+          }
         ],
         "memory": {
           "total": 12365412865,
@@ -123,11 +125,9 @@ class FunctionalTestAppDashboard(unittest.TestCase):
           # TODO
         },
         "loadavg": {
-           "last_1_min": 0.08,
-           "last_5_min": 0.27,
-           "last_15_min": 0.33,
-           "runnable_entities": 3,
-           "scheduling_entities": 383
+           "last_1min": 0.08,
+           "last_5min": 0.27,
+           "last_15min": 0.33
         },
         # Node information provided by AppController itself
         "apps": {},
