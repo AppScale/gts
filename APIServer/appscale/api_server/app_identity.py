@@ -140,51 +140,52 @@ class AppIdentityService(BaseService):
         # account definition.
         default_audience = 'https://www.googleapis.com/oauth2/v4/token'
 
+        if (service_account_name is None or
+                (self._key is not None and
+                 self._key.key_name == service_account_name)):
+            if self._key is None:
+                raise UnknownError('A private key is not configured')
+            else:
+                assertion = self._key.generate_assertion(default_audience, scopes)
+                # TODO: Generate access token from assertion.
+                return AccessToken(assertion, int(time.time() + 3600))
+
         if service_account_id is not None:
             raise UnknownError(
                 '{} is not configured'.format(service_account_id))
 
-        if (service_account_name is not None and
-            service_account_name != self._key.key_name):
-            service_account_node = '/'.join([self._service_accounts_node,
-                                             service_account_name])
-            try:
-                account_details = self._zk_client.get(service_account_node)[0]
-            except NoNodeError:
-                raise UnknownError(
-                    '{} is not configured'.format(service_account_name))
+        service_account_node = '/'.join([self._service_accounts_node,
+                                         service_account_name])
+        try:
+            account_details = self._zk_client.get(service_account_node)[0]
+        except NoNodeError:
+            raise UnknownError(
+                '{} is not configured'.format(service_account_name))
 
-            try:
-                account_details = json.loads(account_details)
-            except ValueError:
-                raise UnknownError(
-                    '{} has invalid data'.format(service_account_node))
+        try:
+            account_details = json.loads(account_details)
+        except ValueError:
+            raise UnknownError(
+                '{} has invalid data'.format(service_account_node))
 
-            pem = account_details['private_key'].encode('utf-8')
-            key = PrivateKey.from_pem(service_account_name, pem)
-            assertion = key.generate_assertion(default_audience, scopes)
+        pem = account_details['private_key'].encode('utf-8')
+        key = PrivateKey.from_pem(service_account_name, pem)
+        assertion = key.generate_assertion(default_audience, scopes)
 
-            grant_type = 'urn:ietf:params:oauth:grant-type:jwt-bearer'
-            payload = urllib.urlencode({'grant_type': grant_type,
-                                        'assertion': assertion})
-            try:
-                response = urllib2.urlopen(default_audience, payload)
-            except urllib2.HTTPError as error:
-                raise UnknownError(error.msg)
-            except urllib2.URLError as error:
-                raise UnknownError(error.reason)
+        grant_type = 'urn:ietf:params:oauth:grant-type:jwt-bearer'
+        payload = urllib.urlencode({'grant_type': grant_type,
+                                    'assertion': assertion})
+        try:
+            response = urllib2.urlopen(default_audience, payload)
+        except urllib2.HTTPError as error:
+            raise UnknownError(error.msg)
+        except urllib2.URLError as error:
+            raise UnknownError(error.reason)
 
-            token_details = json.loads(response.read())
-            logging.info('Generated access token: {}'.format(token_details))
-            expiration_time = int(time.time()) + token_details['expires_in']
-            return AccessToken(token_details['access_token'], expiration_time)
-
-        if self._key is None:
-            raise UnknownError('A private key is not configured')
-
-        assertion = self._key.generate_assertion(default_audience, scopes)
-        # TODO: Generate access token from assertion.
-        return AccessToken(assertion, int(time.time() + 3600))
+        token_details = json.loads(response.read())
+        logging.info('Generated access token: {}'.format(token_details))
+        expiration_time = int(time.time()) + token_details['expires_in']
+        return AccessToken(token_details['access_token'], expiration_time)
 
     def sign(self, blob):
         """ Signs a message with the project's key.
