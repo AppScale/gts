@@ -523,6 +523,7 @@ class Djinn
     @@secret = HelperFunctions.get_secret
 
     @@log = Logger.new(STDOUT)
+    @@log.datetime_format = '%S.%6N'
     @@log.level = Logger::INFO
 
     @my_index = nil
