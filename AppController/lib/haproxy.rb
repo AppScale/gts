@@ -32,7 +32,7 @@ module HAProxy
   SERVICE_SITES_PATH = File.join(HAPROXY_PATH, 'service-sites-enabled')
   SERVICE_MAIN_FILE = File.join(HAPROXY_PATH, "service-haproxy.#{CONFIG_EXTENSION}")
   SERVICE_BASE_FILE = File.join(HAPROXY_PATH, "service-base.#{CONFIG_EXTENSION}")
-  SERVICE_PIDFILE = '/var/run/appscale/service-haproxy.pid'.freeze
+  SERVICE_PIDFILE = '/run/appscale/service-haproxy.pid'.freeze
 
   # Maximum AppServer threaded connections
   MAX_APPSERVER_CONN = 7
