@@ -63,7 +63,7 @@ def start_zookeeper(clear_datastore)
   unless File.directory?(DATA_LOCATION.to_s)
     Djinn.log_info('Initializing ZooKeeper.')
     # Let's stop zookeeper in case it is still running.
-    system("/usr/sbin/service zookeeper stop")
+    system("systemctl stop zookeeper")
 
     # Let's create the new location for zookeeper.
     Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
@@ -73,9 +73,9 @@ def start_zookeeper(clear_datastore)
   # myid is needed for multi node configuration.
   Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
 
-  service = `which service`.chomp
-  start_cmd = "#{service} zookeeper start"
-  stop_cmd = "#{service} zookeeper stop"
+  systemctl = `which systemctl`.chomp
+  start_cmd = "#{systemctl} start zookeeper"
+  stop_cmd = "#{systemctl} stop zookeeper"
   match_cmd = 'org.apache.zookeeper.server.quorum.QuorumPeerMain'
   MonitInterface.start_custom(:zookeeper, start_cmd, stop_cmd, match_cmd)
 end

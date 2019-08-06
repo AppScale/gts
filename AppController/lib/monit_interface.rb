@@ -22,9 +22,8 @@ module MonitInterface
   MONIT = '/usr/bin/monit'.freeze
 
   def self.start_monit
-    ret = system('service --status-all 2> /dev/null | grep monit' \
-                 ' | grep + > /dev/null')
-    run_cmd('service monit start') unless ret
+    ret = system('systemctl is-active monit > /dev/null')
+    run_cmd('systemctl start monit') unless ret
     ret
   end
 

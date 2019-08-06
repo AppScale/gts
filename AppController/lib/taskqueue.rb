@@ -99,9 +99,9 @@ module TaskQueue
     end
 
     Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
-    service_bin = `which service`.chomp
-    start_cmd = "#{service_bin} rabbitmq-server start"
-    stop_cmd = "#{service_bin} rabbitmq-server stop"
+    systemctl = `which systemctl`.chomp
+    start_cmd = "#{systemctl} start rabbitmq-server"
+    stop_cmd = "#{systemctl} stop rabbitmq-server"
 
     Ejabberd.ensure_correct_epmd
     MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile,
