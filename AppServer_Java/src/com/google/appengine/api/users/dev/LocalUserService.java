@@ -40,8 +40,10 @@ public final class LocalUserService extends AbstractLocalRpcService
     private final String NGINX_ADDR = "NGINX_ADDR";
     private final String DASHBOARD_HTTPS_PORT = "1443";
     private final String apiProxyRequest = "com.google.appengine.http_servlet_request";
-    private final int httpScheme = "http://".length();
-    private final int httpsScheme = "https://".length();
+    // The length of "http://"
+    private final int httpSchemeLength = 7;
+    // The length of "https://"
+    private final int httpsSchemeLength = 8;
 
     public UserServicePb.CreateLoginURLResponse createLoginURL( LocalRpcService.Status status, UserServicePb.CreateLoginURLRequest request )
     {
@@ -61,11 +63,11 @@ public final class LocalUserService extends AbstractLocalRpcService
             String forwardedProto = req.getHeader("X-Forwarded-Proto");
 
             // Default start domain length will be http scheme length.
-            int startOfDomain = httpScheme;
+            int startOfDomain = httpSchemeLength;
 
             // If the URL is https, then change the start of domain to https
             // (otherwise the index we're testing would not be a '/').
-            if (fullURL.charAt(startOfDomain) == '/') { startOfDomain = httpsScheme; }
+            if (fullURL.charAt(startOfDomain) == '/') { startOfDomain = httpsSchemeLength; }
 
             // Get the part of URL from the end of the scheme to the beginning of the path.
             String destinationPrefix = fullURL.substring(startOfDomain, fullURL.indexOf("/", startOfDomain));
@@ -95,11 +97,11 @@ public final class LocalUserService extends AbstractLocalRpcService
         String forwardedProto = req.getHeader("X-Forwarded-Proto");
 
         // Default start domain length will be http scheme length.
-        int startOfDomain = httpScheme;
+        int startOfDomain = httpSchemeLength;
 
         // If the URL is https, then change the start of domain to https
         // (otherwise the index we're testing would not be a '/').
-        if (fullURL.charAt(startOfDomain) == '/') { startOfDomain = httpsScheme; }
+        if (fullURL.charAt(startOfDomain) == '/') { startOfDomain = httpsSchemeLength; }
 
         // Get the part of URL from the end of the scheme to the beginning of the path.
         String destinationPrefix = fullURL.substring(startOfDomain, fullURL.indexOf("/", startOfDomain));
