@@ -10,7 +10,7 @@ import sys
 from appscale.search.constants import SolrServerError, SolrClientError
 from kazoo.client import KazooClient
 from appscale.common.constants import LOG_FORMAT, ZK_PERSISTENT_RECONNECTS
-from tornado import ioloop, gen
+from tornado import gen
 
 from appscale.search import solr_adapter
 
@@ -24,8 +24,7 @@ def list_solr_collections():
 
   parser = argparse.ArgumentParser()
   parser.add_argument(
-    '-v', '--verbose', action='store_true',
-    help='Output debug-level logging')
+    '-v', '--verbose', action='store_true', help='Output debug-level logging')
   parser.add_argument(
     '--zk-locations', required=True, nargs='+', help='ZooKeeper location(s)')
   args = parser.parse_args()
@@ -62,15 +61,13 @@ def delete_solr_collection():
 
   parser = argparse.ArgumentParser()
   parser.add_argument(
-    '-v', '--verbose', action='store_true',
-    help='Output debug-level logging')
+    '-v', '--verbose', action='store_true', help='Output debug-level logging')
   parser.add_argument(
-    '--no-prompt', action='store_true',
-    help='')
+    '--no-prompt', action='store_true', help='Do not ask for confirmation')
   parser.add_argument(
     '--zk-locations', required=True, nargs='+', help='ZooKeeper location(s)')
   parser.add_argument(
-    '--collection', required=True, help='ZooKeeper location(s)')
+    '--collection', required=True, help='Collection name to delete')
   args = parser.parse_args()
 
   if args.verbose:
@@ -111,8 +108,7 @@ def reindex():
 
   parser = argparse.ArgumentParser()
   parser.add_argument(
-    '-v', '--verbose', action='store_true',
-    help='Output debug-level logging')
+    '-v', '--verbose', action='store_true', help='Output debug-level logging')
   parser.add_argument(
     '--project', required=True, help='The name of GAE project')
   parser.add_argument(
