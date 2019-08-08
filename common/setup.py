@@ -3,12 +3,13 @@ import sys
 
 install_requires = [
   'kazoo==2.6.0',
+  'monotonic',
   'PyYAML>=4.2b1'
   'mock==2.0.0'
 ]
 
 if sys.version_info < (3,):
-  install_requires.extend(['future==0.17.1', 'monotonic'])
+  install_requires.append('future==0.17.1')
 
 setup(
   name='appscale-common',
