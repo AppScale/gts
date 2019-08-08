@@ -18,7 +18,7 @@ setup(
     'mmh3',
     'SOAPpy',
     'tornado',
-    'foundationdb==6.1.11'
+    'foundationdb~=6.1.8'
   ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
