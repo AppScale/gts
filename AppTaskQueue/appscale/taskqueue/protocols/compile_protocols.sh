@@ -5,6 +5,7 @@
 set -e
 
 PROTOCOLS_DIR="$( realpath --strip "$( dirname "${BASH_SOURCE[0]}" )" )"
+TASKQUEUE_DIR="$( dirname "$( dirname "$( dirname "${PROTOCOLS_DIR}" )" )" )"
 
 if ! protoc --version | grep -E ' (3\.)|(2\.)' ; then
     echo "Couldn't compile *.proto files because protoc version 3 was not found."
@@ -13,8 +14,7 @@ fi
 
 echo "Compiling Protocol buffer *.proto files.."
 
-(cd "${PROTOCOLS_DIR}" && \
- protoc --python_out=./ *.proto && \
- sed -i -E 's/^import.*_pb2/from . \0/' *.py)
+(cd "${TASKQUEUE_DIR}" && \
+ protoc --python_out=. appscale/taskqueue/protocols/*.proto)
 
 echo "Protocols have been successfully compiled."

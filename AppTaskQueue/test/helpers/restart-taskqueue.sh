@@ -84,19 +84,6 @@ if [ -z ${PORTS} ] || [ -z ${DB_IP} ] || [ -z ${ZK_IP} ] || [ -z ${LB_IP} ]; the
 fi
 
 if [ ! -z ${TQ_SOURCE_DIR} ]; then
-    echo "Installing python3-venv"
-    attempt=1
-    while ! (yes | apt-get install python3-venv)
-    do
-        if (( attempt > 15 )); then
-            log "Failed to install python3-venv after ${attempt} attempts" "ERROR"
-            exit 1
-        fi
-        log "Failed to install python3-venv. Retrying." "WARNING"
-        ((attempt++))
-        sleep ${attempt}
-    done
-
     rm -rf /opt/appscale_venvs/appscale_taskqueue/
     python3 -m venv /opt/appscale_venvs/appscale_taskqueue/
 

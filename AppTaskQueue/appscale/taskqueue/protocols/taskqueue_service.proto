@@ -1,7 +1,7 @@
 syntax = "proto2";
 option go_package = "taskqueue";
 
-import "datastore_v3.proto";
+import "appscale/taskqueue/protocols/datastore_v3.proto";
 
 package appengine;
 

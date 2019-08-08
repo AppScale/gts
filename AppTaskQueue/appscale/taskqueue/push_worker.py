@@ -115,8 +115,7 @@ def execute_task(task, headers, args):
   """
   start_time = datetime.datetime.utcnow()
 
-  args['task_name'] = clean_task_name(args['task_name'])
-  headers['X-AppEngine-TaskName'] = clean_task_name(headers['X-AppEngine-TaskName'])
+  task_name = clean_task_name(args['task_name'])
 
   content_length = len(args['body'])
 
@@ -146,7 +145,7 @@ def execute_task(task, headers, args):
            args['task_name'], task.request.id, args['expires']))
         celery.control.revoke(task.request.id)
 
-        update_task(args['task_name'], TASK_STATES.EXPIRED)
+        update_task(task_name, TASK_STATES.EXPIRED)
         return
 
       if (args['max_retries'] != 0 and
@@ -156,7 +155,7 @@ def execute_task(task, headers, args):
           args['max_retries']))
         celery.control.revoke(task.request.id)
 
-        update_task(args['task_name'], TASK_STATES.FAILED)
+        update_task(task_name, TASK_STATES.FAILED)
         return
 
       # Targets do not get X-Forwarded-Proto from nginx, they use haproxy port.
@@ -214,14 +213,11 @@ def execute_task(task, headers, args):
         logger.warning(
           '{task} failed before receiving response. It will retry in {wait} '
           'seconds.'.format(task=args['task_name'], wait=wait_time))
-        args['task_name'] = args['task_name'].encode('utf-8')
-        headers['X-AppEngine-TaskName'] = \
-          headers['X-AppEngine-TaskName'].encode('utf-8')
         raise task.retry(countdown=wait_time)
 
       if 200 <= response.status < 300:
         # Task successful.
-        update_task(args['task_name'], TASK_STATES.SUCCESS)
+        update_task(task_name, TASK_STATES.SUCCESS)
 
         time_elapsed = datetime.datetime.utcnow() - start_time
         logger.info(
@@ -236,9 +232,6 @@ def execute_task(task, headers, args):
             args['task_name'], redirect_url))
         url = urlparse(redirect_url)
         if redirects_left == 0:
-          args['task_name'] = args['task_name'].encode('utf-8')
-          headers['X-AppEngine-TaskName'] = \
-            headers['X-AppEngine-TaskName'].encode('utf-8')
           raise task.retry(countdown=wait_time)
         redirects_left -= 1
       else:
@@ -247,18 +240,12 @@ def execute_task(task, headers, args):
                                                      task=args['task_name'],
                                                      wait=wait_time))
         logger.warning(message)
-        args['task_name'] = args['task_name'].encode('utf-8')
-        headers['X-AppEngine-TaskName'] = \
-          headers['X-AppEngine-TaskName'].encode('utf-8')
         raise task.retry(countdown=wait_time)
   except EventletTimeout as thrown_timeout:
     if thrown_timeout != timeout:
       raise
 
     logger.exception('Task {} timed out. Retrying.'.format(args['task_name']))
-    args['task_name'] = args['task_name'].encode('utf-8')
-    headers['X-AppEngine-TaskName'] = \
-      headers['X-AppEngine-TaskName'].encode('utf-8')
     # This could probably be calculated, but for now, just retry immediately.
     raise task.retry(countdown=0)
   finally:

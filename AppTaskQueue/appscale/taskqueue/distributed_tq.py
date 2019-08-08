@@ -381,9 +381,11 @@ class DistributedTaskQueue():
         if add_request.HasField("task_name"):
           task_name = add_request.task_name
 
-        namespaced_name = choose_task_name(add_request.app_id,
-                                                  add_request.queue_name,
-                                                  user_chosen=task_name)
+        namespaced_name = choose_task_name(
+          add_request.app_id.decode('utf-8'),
+          add_request.queue_name.decode('utf-8'),
+          user_chosen=task_name.decode('utf-8'))
+
         add_request.task_name = namespaced_name.encode('utf-8')
 
         # Wait until the result is known before setting the chosen task name on
@@ -491,7 +493,6 @@ class DistributedTaskQueue():
       An ApplicationError of TASK_ALREADY_EXISTS.
     """
     task_name = request.task_name.decode('utf-8')
-    task_name = task_name.replace("b'", "").replace("'", "")
 
     try:
       item = self.__get_task_name(request.app_id, task_name)
