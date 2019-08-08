@@ -16,7 +16,8 @@ setup(
     'monotonic',
     'mmh3',
     'SOAPpy',
-    'tornado'
+    'tornado',
+    'foundationdb~=6.1.8'
   ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
