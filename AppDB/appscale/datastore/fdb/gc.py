@@ -14,7 +14,7 @@ import six.moves as sm
 from tornado import gen
 from tornado.ioloop import IOLoop
 
-from appscale.datastore.dbconstants import MAX_TX_DURATION
+from appscale.datastore.dbconstants import InternalError, MAX_TX_DURATION
 from appscale.datastore.fdb.codecs import (
   decode_str, encode_read_version, encode_versionstamp_index, Path)
 from appscale.datastore.fdb.polling_lock import PollingLock
@@ -273,6 +273,9 @@ class GarbageCollector(object):
     for entry in entries:
       # TODO: Strip raw properties and enforce a max queue size to keep memory
       # usage reasonable.
+      if entry.commit_versionstamp is None:
+        raise InternalError(u'Deleted entry must have a commit versionstamp')
+
       self._queue.append((safe_time, entry, new_versionstamp))
 
   @gen.coroutine

@@ -14,7 +14,7 @@ setup(
     'appscale-common',
     'kazoo',
     'tornado',
-    'psutil==5.1.3',
+    'psutil==5.6.3',
     'attrs>=18.1.0',
     'mock',
   ],
