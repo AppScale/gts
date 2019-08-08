@@ -7,6 +7,7 @@ install_requires = [
   'jsonschema',
   'kazoo',
   'idna>=2.5,<2.8',  # Required for requests.
+  'monotonic',
   'psutil',
   'PyYaml',
   'requests-unixsocket',
@@ -17,7 +18,7 @@ install_requires = [
   'mock',
 ]
 if sys.version_info < (3,):
-  install_requires.extend(['futures', 'monotonic'])
+  install_requires.append('futures')
 
 setup(
   name='appscale-admin',
