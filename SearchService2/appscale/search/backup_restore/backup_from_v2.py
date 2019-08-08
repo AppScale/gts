@@ -137,6 +137,7 @@ class Exporter(object):
       if not collection_name.startswith('appscale_'):
         logger.info('Collection {} does not belong to Search Service. Ignoring.'
                     .format(collection_name))
+        continue
       _, project_id, namespace, index = collection_name.split('_')
       self.scheduled_indexes.add((project_id, namespace, index))
       self.ioloop.add_callback(self.export_index, project_id, namespace, index)
