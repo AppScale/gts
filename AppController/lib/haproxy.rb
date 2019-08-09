@@ -11,6 +11,7 @@ require 'user_app_client'
 require 'datastore_server'
 require 'taskqueue'
 require 'blobstore'
+require 'search'
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
 # copies of them and load balance traffic to them. Since nginx (our first
@@ -87,8 +88,9 @@ module HAProxy
     start_cmd = "#{HAPROXY_BIN} -f #{SERVICE_MAIN_FILE} -D " \
       "-p #{SERVICE_PIDFILE}"
     stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{SERVICE_PIDFILE})'"
+    restart_cmd = "#{BASH_BIN} -c '#{start_cmd} -sf $(cat #{SERVICE_PIDFILE})'"
     MonitInterface.start_daemon(
-      :service_haproxy, start_cmd, stop_cmd, SERVICE_PIDFILE)
+      :service_haproxy, start_cmd, stop_cmd, SERVICE_PIDFILE, nil, restart_cmd)
   end
 
   # Create the config file for UserAppServer.
@@ -136,7 +138,7 @@ module HAProxy
     end
 
     # We only serve internal services here.
-    unless [TaskQueue::NAME, DatastoreServer::NAME,
+    unless [TaskQueue::NAME, DatastoreServer::NAME, Search2::NAME,
         UserAppClient::NAME, BlobServer::NAME].include?(name)
       Djinn.log_warn("create_app_config called for unknown service: #{name}.")
       return false
@@ -226,8 +228,7 @@ module HAProxy
       }
 
       # Reload with the new configuration file.
-      Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICE_MAIN_FILE} -p #{SERVICE_PIDFILE}" \
-                    " -D -sf `cat #{SERVICE_PIDFILE}`")
+      MonitInterface.restart(:service_haproxy)
     end
   end
 
@@ -241,6 +242,9 @@ module HAProxy
     elsif server_name == DatastoreServer::NAME
       # Allow custom number of connections at a time for datastore.
       maxconn = DatastoreServer::MAXCONN
+    elsif server_name == Search2::NAME
+      # Allow custom number of connections at a time for search2.
+      maxconn = Search2::MAXCONN
     else
       # Allow only one connection at a time for other services.
       maxconn = 1

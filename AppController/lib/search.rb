@@ -108,3 +108,25 @@ module Search
     Djinn.log_debug('Done removing SOLR state.')
   end
 end
+
+
+module Search2
+  # The port that we should run haproxy on, to distribute requests to
+  # various search servers running on search ndoes.
+  PROXY_PORT = 9999
+
+  # The name that haproxy should use as the identifier for Search server
+  # when we write its configuration files.
+  NAME = 'appscale-search_server'.freeze
+
+  # If we fail to get the number of processors we set default number of
+  # search servers to this value.
+  DEFAULT_NUM_SERVERS = 1
+
+  # Maximum number of concurrent requests that can be served
+  # by instance of search server
+  MAXCONN = 2
+
+  # Search server processes to CPU core multiplier.
+  MULTIPLIER = 0.75
+end
