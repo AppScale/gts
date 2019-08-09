@@ -1193,84 +1193,25 @@ class OAuthHandler(BaseHandler):
     self.ua_client = ua_client
 
   def post(self):
-    """Grants users Access Tokens."""
+    """Grants Access Tokens."""
+    if self.get_argument('scope', None) != self.AUTH_SCOPE:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid scope')
 
-    # Format for error message.
-    error_msg = {
-      'error': '',
-      'error_description': ''
-    }
+    grant_type = self.get_argument('grant_type', None)
+    metadata = {'scope': self.AUTH_SCOPE, 'exp': int(time.time()) + 3600}
+    if grant_type == 'password':
+      username = self.get_argument('username', '')
+      self._check_user(username, self.get_argument('password', ''))
+      metadata['user'] = username
+    elif grant_type == 'secret':
+      secret = self.get_argument('secret', '').encode('utf-8')
+      if not utils.constant_time_compare(secret, options.secret):
+        raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    missing_arguments = []
-
-    grant_type = self.get_argument('grant_type', default=None, strip=True)
-    if not grant_type:
-      missing_arguments.append('grant_type')
-
-    username = self.get_argument('username', default=None, strip=True)
-    if not username:
-      missing_arguments.append('username')
-
-    password = self.get_argument('password', default=None, strip=True)
-    if not password:
-      missing_arguments.append('password')
-
-    scope = self.get_argument('scope', default=None, strip=True)
-    if not scope:
-      missing_arguments.append('scope')
-
-    if missing_arguments:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_REQUEST
-      error_msg['error_description'] = 'Required parameters(s) are missing: {}'\
-        .format(missing_arguments)
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
-
-    if grant_type != 'password':
-      error_msg['error'] = constants.AccessTokenErrors.UNSUPPORTED_GRANT_TYPE
-      error_msg['error_description'] = 'Grant type {} not supported.'.format(
-          grant_type)
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
-
-    if scope != self.AUTH_SCOPE:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_SCOPE
-      error_msg['error_description'] = 'Scope {} not supported.'.format(
-          grant_type)
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
-
-    # Get the user.
-    try:
-      user_data = self.ua_client.get_user_data(username)
-    except UAException:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
-      error_msg['error_description'] = 'Unable to determine user data for {}'\
-        .format(username)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=error_msg)
-
-    # Get the user's stored password.
-    server_re = re.search(self.ua_client.USER_DATA_PASSWORD_REGEX, user_data)
-    if not server_re:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
-      error_msg['error_description'] = "Invalid user data for {}".format(
-          username)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=error_msg)
-    server_pwd = server_re.group(1)
-
-    # Hash the given username and password.
-    encrypted_pass = hashlib.sha1("{0}{1}".format(username, password))\
-      .hexdigest()
-    if server_pwd != encrypted_pass:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
-      error_msg['error_description'] = "Incorrect password for {}"\
-        .format(username)
-      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=error_msg)
-
-    # If we have gotten here, the user is granted an Access Token,
-    # so we create it.
-    metadata = {
-      'user': username,
-      'exp': int(time.time()) + 3600,
-      'scope': self.AUTH_SCOPE
-    }
+      metadata['project'] = self.get_argument('project_id', '')
+    else:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid grant type')
 
     metadata_base64 = base64.urlsafe_b64encode(json.dumps(metadata))
 
@@ -1293,6 +1234,27 @@ class OAuthHandler(BaseHandler):
     }
 
     self.write(json_encode(auth_response))
+
+  def _check_user(self, username, password):
+    """ Ensures the given password is correct for the user. """
+    try:
+      user_data = self.ua_client.get_user_data(username)
+    except UAException:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Unable to fetch user data')
+
+    # Get the stored hash for the user.
+    server_re = re.search(self.ua_client.USER_DATA_PASSWORD_REGEX, user_data)
+    if not server_re:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Invalid user data')
+
+    stored_hash = server_re.group(1)
+
+    # Check against the stored hash.
+    hash_input = ''.join([username, password])
+    if stored_hash != hashlib.sha1(hash_input).hexdigest():
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid password')
 
 
 def main():
