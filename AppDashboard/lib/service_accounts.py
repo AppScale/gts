@@ -63,7 +63,7 @@ class ProjectServiceAccounts(AppDashboard):
       raise AppHelperException(result.content)
 
     try:
-      accounts = json.loads(result.content)
+      accounts = json.loads(result.content)['accounts']
     except ValueError:
       raise AppHelperException('Invalid response: {}'.format(result.content))
 

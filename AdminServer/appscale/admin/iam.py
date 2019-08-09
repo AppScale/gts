@@ -69,6 +69,9 @@ class ServiceAccountsHandler(BaseHandler):
     self.authenticate(project_id, self.ua_client)
     service_accounts = []
     project_node = self.PROJECT_NODE.format(project_id)
+    if not self.zk_client.exists(project_node):
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND, message='Project not found')
+
     try:
       default_data = self.zk_client.get(project_node + '/private_key')[0]
     except NoNodeError:
@@ -90,8 +93,9 @@ class ServiceAccountsHandler(BaseHandler):
       service_account = ServiceAccount.from_json(project_id, account_data)
       service_accounts.append(service_account)
 
-    self.write(json.dumps([account.json_repr()
-                           for account in service_accounts]))
+    output = {'accounts': [account.json_repr()
+                           for account in service_accounts]}
+    self.write(json.dumps(output))
 
   def post(self, project_id):
     self.authenticate(project_id, self.ua_client)
