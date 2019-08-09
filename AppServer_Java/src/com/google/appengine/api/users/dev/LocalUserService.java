@@ -40,10 +40,9 @@ public final class LocalUserService extends AbstractLocalRpcService
     private final String NGINX_ADDR = "NGINX_ADDR";
     private final String DASHBOARD_HTTPS_PORT = "1443";
     private final String apiProxyRequest = "com.google.appengine.http_servlet_request";
-    // The length of "http://"
-    private final int httpSchemeLength = 7;
-    // The length of "https://"
-    private final int httpsSchemeLength = 8;
+    private final String loginURLError = "Could not create URL for createLoginURL request!";
+    private final String logoutURLError = "Could not create URL for createLogoutURL request!";
+
 
     public UserServicePb.CreateLoginURLResponse createLoginURL( LocalRpcService.Status status, UserServicePb.CreateLoginURLRequest request )
     {
@@ -53,27 +52,32 @@ public final class LocalUserService extends AbstractLocalRpcService
         {
             Environment env = ApiProxy.getCurrentEnvironment();
             if (env == null) {
-                throw new RuntimeException("Could not create URL for login request!");
+                throw new RuntimeException(loginURLError);
             }
             HttpServletRequest req = (HttpServletRequest) env.getAttributes().get(apiProxyRequest);
             if (req == null) {
-                throw new RuntimeException("Could not create URL for login request!");
+                throw new RuntimeException(loginURLError);
             }
-            StringBuffer fullURL = req.getRequestURL();
+            String serverPort = "";
+            String host = req.getHeader("Host");
             String forwardedProto = req.getHeader("X-Forwarded-Proto");
-
-            // Default start domain length will be http scheme length.
-            int startOfDomain = httpSchemeLength;
-
-            // If the URL is https, then change the start of domain to https
-            // (otherwise the index we're testing would not be a '/').
-            if (fullURL.charAt(startOfDomain) == '/') { startOfDomain = httpsSchemeLength; }
-
-            // Get the part of URL from the end of the scheme to the beginning of the path.
-            String destinationPrefix = fullURL.substring(startOfDomain, fullURL.indexOf("/", startOfDomain));
+            if (host == null || forwardedProto == null) {
+                throw new RuntimeException(loginURLError);
+            }
+            if (host.split(':').length > 1) {
+                String httpsPort = req.getHeader("X-Redirect-Https-Port");
+                String httpPort = req.getHeader("X-Redirect-Http-Port");
+                if (httpsPort == null || httpPort == null) {
+                    throw new RuntimeException(loginURLError);
+                }
+                serverPort = ":";
+                serverPort += (forwardedProto.equals("https"))
+                              ? (httpsPort)
+                              : (httpPort);
+            }
 
             // Construct the url.
-            destinationUrl = forwardedProto + "://" + destinationPrefix + destinationUrl;
+            destinationUrl = forwardedProto + "://" + host + serverPort + destinationUrl;
         }
 
         response.setLoginUrl(LOGIN_URL + "?continue=" + encode(destinationUrl));
@@ -87,27 +91,33 @@ public final class LocalUserService extends AbstractLocalRpcService
         // Get the port we just came from.
         Environment env = ApiProxy.getCurrentEnvironment();
         if (env == null) {
-            throw new RuntimeException("Could not create URL for logout request!");
+            throw new RuntimeException(logoutURLError);
         }
         HttpServletRequest req = (HttpServletRequest) env.getAttributes().get(apiProxyRequest);
         if (req == null) {
-            throw new RuntimeException("Could not create URL for logout request!");
+            throw new RuntimeException(logoutURLError);
         }
-        StringBuffer fullURL = req.getRequestURL();
+
+        String serverPort = "";
+        String host = req.getHeader("Host");
         String forwardedProto = req.getHeader("X-Forwarded-Proto");
-
-        // Default start domain length will be http scheme length.
-        int startOfDomain = httpSchemeLength;
-
-        // If the URL is https, then change the start of domain to https
-        // (otherwise the index we're testing would not be a '/').
-        if (fullURL.charAt(startOfDomain) == '/') { startOfDomain = httpsSchemeLength; }
-
-        // Get the part of URL from the end of the scheme to the beginning of the path.
-        String destinationPrefix = fullURL.substring(startOfDomain, fullURL.indexOf("/", startOfDomain));
+        if (host == null || forwardedProto == null) {
+            throw new RuntimeException(logoutURLError);
+        }
+        if (host.split(':').length > 1) {
+            String httpsPort = req.getHeader("X-Redirect-Https-Port");
+            String httpPort = req.getHeader("X-Redirect-Http-Port");
+            if (httpsPort == null || httpPort == null) {
+                throw new RuntimeException(logoutURLError);
+            }
+            serverPort = ":";
+            serverPort += (forwardedProto.equals("https"))
+                          ? (httpsPort)
+                          : (httpPort);
+        }
 
         // Construct the url.
-        String destinationUrl = forwardedProto + "://" + destinationPrefix;
+        destinationUrl = forwardedProto + "://" + host + serverPort + destinationUrl;
 
         String redirect_url = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/logout?continue=" + destinationUrl;
         response.setLogoutUrl(redirect_url);
