@@ -2,6 +2,8 @@
 
 import json
 import logging
+import random
+import ssl
 import time
 import urllib
 import urllib2
@@ -18,6 +20,7 @@ from appscale.api_server.constants import ApplicationError
 from appscale.api_server.constants import CallNotFound
 from appscale.api_server.crypto import (
     AccessToken, PrivateKey, PublicCertificate)
+from appscale.common import appscale_info
 from appscale.common.async_retrying import retry_children_watch_coroutine
 
 logger = logging.getLogger(__name__)
@@ -143,12 +146,23 @@ class AppIdentityService(BaseService):
         if (service_account_name is None or
                 (self._key is not None and
                  self._key.key_name == service_account_name)):
-            if self._key is None:
-                raise UnknownError('A private key is not configured')
-            else:
-                assertion = self._key.generate_assertion(default_audience, scopes)
-                # TODO: Generate access token from assertion.
-                return AccessToken(assertion, int(time.time() + 3600))
+            lb_ip = random.choice(appscale_info.get_load_balancer_ips())
+            url = 'https://{}:17441/oauth/token'.format(lb_ip)
+            payload = urllib.urlencode({'scope': ' '.join(scopes),
+                                        'grant_type': 'secret',
+                                        'project_id': self.project_id,
+                                        'secret': appscale_info.get_secret()})
+            try:
+                response = urllib2.urlopen(
+                    url, payload, context=ssl._create_unverified_context())
+            except urllib2.HTTPError as error:
+                raise UnknownError(error.msg)
+            except urllib2.URLError as error:
+                raise UnknownError(error.reason)
+
+            token_details = json.loads(response.read())
+            expiration_time = int(time.time()) + token_details['expires_in']
+            return AccessToken(token_details['access_token'], expiration_time)
 
         if service_account_id is not None:
             raise UnknownError(
@@ -168,24 +182,10 @@ class AppIdentityService(BaseService):
             raise UnknownError(
                 '{} has invalid data'.format(service_account_node))
 
-        pem = account_details['private_key'].encode('utf-8')
+        pem = account_details['privateKey'].encode('utf-8')
         key = PrivateKey.from_pem(service_account_name, pem)
         assertion = key.generate_assertion(default_audience, scopes)
-
-        grant_type = 'urn:ietf:params:oauth:grant-type:jwt-bearer'
-        payload = urllib.urlencode({'grant_type': grant_type,
-                                    'assertion': assertion})
-        try:
-            response = urllib2.urlopen(default_audience, payload)
-        except urllib2.HTTPError as error:
-            raise UnknownError(error.msg)
-        except urllib2.URLError as error:
-            raise UnknownError(error.reason)
-
-        token_details = json.loads(response.read())
-        logging.info('Generated access token: {}'.format(token_details))
-        expiration_time = int(time.time()) + token_details['expires_in']
-        return AccessToken(token_details['access_token'], expiration_time)
+        return self._get_token(default_audience, assertion)
 
     def sign(self, blob):
         """ Signs a message with the project's key.
@@ -267,6 +267,32 @@ class AppIdentityService(BaseService):
             response.default_gcs_bucket_name = self.DEFAULT_GCS_BUCKET_NAME
 
         return response.SerializeToString()
+
+    @staticmethod
+    def _get_token(url, assertion):
+        """ Fetches a token with the given assertion.
+
+        Args:
+            url: The location of the server that generates the token.
+            assertion: A string containing the signed JWT.
+        Returns:
+            An AccessToken object.
+        Raises:
+            UnknownError if unable to fetch token.
+        """
+        grant_type = 'urn:ietf:params:oauth:grant-type:jwt-bearer'
+        payload = urllib.urlencode({'grant_type': grant_type,
+                                    'assertion': assertion})
+        try:
+            response = urllib2.urlopen(url, payload)
+        except urllib2.HTTPError as error:
+            raise UnknownError(error.msg)
+        except urllib2.URLError as error:
+            raise UnknownError(error.reason)
+
+        token_details = json.loads(response.read())
+        expiration_time = int(time.time()) + token_details['expires_in']
+        return AccessToken(token_details['access_token'], expiration_time)
 
     def _remove_cert(self, cert):
         """ Removes a certificate node.
