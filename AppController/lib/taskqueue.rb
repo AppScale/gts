@@ -238,7 +238,13 @@ module TaskQueue
   # Stops the RabbitMQ, celery workers, and taskqueue server on this node.
   def self.stop
     Djinn.log_debug('Shutting down celery workers')
-    stop_cmd = "/usr/bin/python2 -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
+    stop_script = \
+      "import celery\n" \
+      "celery = celery.Celery()\n" \
+      "with celery.control.app.connection_or_acquire(None) as conn:\n" \
+      "  conn.ensure_connection(max_retries=2)\n" \
+      "  celery.control.broadcast('shutdown', connection=conn)"
+    stop_cmd = %Q(/usr/bin/python2 -c "#{stop_script}")
     Djinn.log_run(stop_cmd)
     Djinn.log_debug('Shutting down RabbitMQ')
     MonitInterface.stop(:rabbitmq)
