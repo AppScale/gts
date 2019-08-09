@@ -33,17 +33,22 @@
 """Utilities to aid in testing mapreduces."""
 
 
+
 import base64
-import cgi
 import collections
 import logging
 import os
 import re
 
 from google.appengine.ext.mapreduce import main
+from google.appengine.ext.mapreduce import model
 from google.appengine.ext.webapp import mock_webapp
 
 
+
+
+_LOGGING_LEVEL = logging.ERROR
+logging.getLogger().setLevel(_LOGGING_LEVEL)
 
 
 def decode_task_payload(task):
@@ -63,13 +68,8 @@ def decode_task_payload(task):
     return {}
 
   body = base64.b64decode(task["body"])
-  result = {}
-  for (name, value) in cgi.parse_qs(body).items():
-    if len(value) == 1:
-      result[name] = value[0]
-    else:
-      result[name] = value
-  return result
+
+  return model.HugeTask._decode_payload(body)
 
 
 def execute_task(task, retries=0, handlers_map=None):
@@ -100,9 +100,13 @@ def execute_task(task, retries=0, handlers_map=None):
   url = task["url"]
   handler = None
 
+  params = []
+
   for (re_str, handler_class) in handlers_map:
     re_str = "^" + re_str + "($|\\?)"
-    if re.match(re_str, url):
+    m = re.match(re_str, url)
+    if m:
+      params = m.groups()[:-1]
       break
   else:
     raise Exception("Can't determine handler for %s" % task)
@@ -147,7 +151,12 @@ def execute_task(task, retries=0, handlers_map=None):
       request.set(k, v)
 
   response = mock_webapp.MockResponse()
+  saved_os_environ = os.environ
+  copy_os_environ = dict(os.environ)
+  copy_os_environ.update(request.environ)
+
   try:
+    os.environ = copy_os_environ
 
 
     handler = handler_class(request, response)
@@ -155,15 +164,16 @@ def execute_task(task, retries=0, handlers_map=None):
 
     handler = handler_class()
     handler.initialize(request, response)
+  finally:
+    os.environ = saved_os_environ
 
-  saved_os_environ = os.environ
   try:
-    os.environ = dict(os.environ)
-    os.environ.update(request.environ)
+    os.environ = copy_os_environ
+
     if task["method"] == "POST":
-      handler.post()
+      handler.post(*params)
     elif task["method"] == "GET":
-      handler.get()
+      handler.get(*params)
     else:
       raise Exception("Unsupported method: %s" % task.method)
   finally:
@@ -178,13 +188,17 @@ def execute_task(task, retries=0, handlers_map=None):
   return handler
 
 
-def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
+def execute_all_tasks(taskqueue,
+                      queue="default",
+                      handlers_map=None,
+                      run_count=1):
   """Run and remove all tasks in the taskqueue.
 
   Args:
     taskqueue: An instance of taskqueue stub.
     queue: Queue name to run all tasks from.
-    hanlders_map: see main.create_handlers_map.
+    handlers_map: see main.create_handlers_map.
+    run_count: How many times to run each task (to test idempotency).
 
   Returns:
     task_run_counts: a dict from handler class to the number of tasks
@@ -197,11 +211,12 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
     retries = 0
     while True:
       try:
-        handler = execute_task(task, retries, handlers_map=handlers_map)
-        task_run_counts[handler.__class__] += 1
+        for _ in range(run_count):
+          handler = execute_task(task, retries, handlers_map=handlers_map)
+          task_run_counts[handler.__class__] += 1
         break
 
-      except:
+      except Exception, e:
         retries += 1
 
         if retries > 100:
@@ -212,16 +227,20 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
             "Task %s is being retried for the %s time",
             task["name"],
             retries)
+        logging.debug(e)
+
   return task_run_counts
 
 
-def execute_until_empty(taskqueue, queue="default", handlers_map=None):
+def execute_until_empty(taskqueue, queue="default", handlers_map=None,
+                        run_count=1):
   """Execute taskqueue tasks until it becomes empty.
 
   Args:
     taskqueue: An instance of taskqueue stub.
     queue: Queue name to run all tasks from.
-    hanlders_map: see main.create_handlers_map.
+    handlers_map: see main.create_handlers_map.
+    run_count: How many times to run each task (to test idempotency).
 
   Returns:
     task_run_counts: a dict from handler class to the number of tasks
@@ -229,7 +248,8 @@ def execute_until_empty(taskqueue, queue="default", handlers_map=None):
   """
   task_run_counts = collections.defaultdict(lambda: 0)
   while taskqueue.GetTasks(queue):
-    new_counts = execute_all_tasks(taskqueue, queue, handlers_map)
+    new_counts = execute_all_tasks(
+        taskqueue, queue, handlers_map, run_count=run_count)
     for handler_cls in new_counts:
       task_run_counts[handler_cls] += new_counts[handler_cls]
   return task_run_counts

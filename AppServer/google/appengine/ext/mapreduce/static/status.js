@@ -58,7 +58,8 @@ function renderCollapsableValue(value, container) {
   var moreSpan = $('<span class="value-disclosure-more">');
   moreSpan.hide();
   for (var i = 0; i < endValue.length; i += SPLIT_LENGTH) {
-    moreSpan.append(endValue.substr(i, SPLIT_LENGTH));
+    var line = document.createTextNode(endValue.substr(i, SPLIT_LENGTH));
+    moreSpan.append(line);
     moreSpan.append('<wbr/>');
   }
   var betweenMoreText = '...(' + endValue.length + ' more) ';
@@ -207,11 +208,21 @@ function abortJob(name, mapreduce_id) {
 
 // Retrieve the detail for a job.
 function getJobDetail(jobId, resultFunc) {
+  var data = {'mapreduce_id': jobId};
+  var namespace = getNamespace();
+  if (namespace || namespace == '') {
+    data.namespace = namespace;
+  }
   $.ajax({
     type: 'GET',
     url: 'command/get_job_detail',
     dataType: 'text',
-    data: {'mapreduce_id': jobId},
+    data: data,
+    statusCode: {
+      404: function() {
+        setButter('job ' + jobId + ' was not found.', true);
+      }
+    },
     error: function(request, textStatus) {
       getResponseDataJson(textStatus);
     },
@@ -240,11 +251,18 @@ function getSortedKeys(obj) {
   return keys;
 }
 
-// Gets a local datestring from a UNIX timestamp in milliseconds.
-function getLocalTimestring(timestamp_ms) {
-  var when = new Date();
-  when.setTime(timestamp_ms);
-  return when.toLocaleString();
+// Convert milliseconds since the epoch to an ISO8601 datestring.
+// Consider using new Date().toISOString() instead (J.S 1.8+)
+function getIso8601String(timestamp_ms) {
+  var time = new Date();
+  time.setTime(timestamp_ms);
+  return '' +
+      time.getUTCFullYear() + '-' +
+      leftPadNumber(time.getUTCMonth() + 1, 2, '0') + '-' +
+      leftPadNumber(time.getUTCDate(), 2, '0') + 'T' +
+      leftPadNumber(time.getUTCHours(), 2, '0') + ':' +
+      leftPadNumber(time.getUTCMinutes(), 2, '0') + ':' +
+      leftPadNumber(time.getUTCSeconds(), 2, '0') + 'Z';
 }
 
 function leftPadNumber(number, minSize, paddingChar) {
@@ -283,14 +301,20 @@ function getElapsedTimeString(start_timestamp_ms, updated_timestamp_ms) {
   return updatedString;
 }
 
-// Retrieves the mapreduce_id from the query string. Assumes that it is
-// the only querystring parameter.
+// Retrieves the mapreduce_id from the query string.
 function getJobId() {
-  var index = window.location.search.lastIndexOf('=');
-  if (index == -1) {
-    return '';
-  }
-  return decodeURIComponent(window.location.search.substr(index+1));
+  var jobId = $.url().param('mapreduce_id');
+  return jobId == null ? '' : jobId;
+}
+
+
+/**
+ * Retrieves the namespace from the query string.
+ * @return {string} namespace to use in Datastore queries, may be null.
+ */
+function getNamespace() {
+  var namespace = $.url().param('namespace');
+  return namespace;
 }
 
 /********* Specific to overview status page *********/
@@ -327,7 +351,7 @@ function initJobOverview(jobs, cursor) {
     var activity = '' + job.active_shards + ' / ' + job.shards + ' shards';
     row.append($('<td>').text(activity))
 
-    row.append($('<td>').text(getLocalTimestring(job.start_timestamp_ms)));
+    row.append($('<td>').text(getIso8601String(job.start_timestamp_ms)));
 
     row.append($('<td>').text(getElapsedTimeString(
         job.start_timestamp_ms, job.updated_timestamp_ms)));
@@ -408,12 +432,12 @@ function runJobDone(name, error, data) {
     setButter('Successfully started job "' + response['mapreduce_id'] + '"');
     listJobs(null, initJobOverview);
   }
-  jobForm.find('input[type="submit"]').attr('disabled', null);
+  jobForm.find('input[type="submit"]').disabled = false;
 }
 
 function runJob(name) {
   var jobForm = getJobForm(name);
-  jobForm.find('input[type="submit"]').attr('disabled', 'disabled');
+  jobForm.find('input[type="submit"]').disabled = true;
   $.ajax({
     type: 'POST',
     url: 'command/start_job',
@@ -537,7 +561,10 @@ function refreshJobDetail(jobId, detail) {
   var jobParams = $('#detail-params');
   jobParams.empty();
 
-  var status = (detail.active ? 'running' : detail.result_status) || 'unknown';
+  var status = detail.result_status || 'unknown';
+  if (detail.active) {
+    status = 'running ' + detail.active_shards + ' shards';
+  }
   $('<li class="status-text">').text(status).appendTo(jobParams);
 
   $('<li>')
@@ -549,7 +576,7 @@ function refreshJobDetail(jobId, detail) {
   $('<li>')
     .append($('<span class="param-key">').text('Start time'))
     .append($('<span>').text(': '))
-    .append($('<span class="param-value">').text(getLocalTimestring(
+    .append($('<span class="param-value">').text(getIso8601String(
           detail.start_timestamp_ms)))
     .appendTo(jobParams);
 
@@ -584,12 +611,44 @@ function refreshJobDetail(jobId, detail) {
   // Graph image.
   var detailGraph = $('#detail-graph');
   detailGraph.empty();
-  $('<div>').text('Processed items per shard').appendTo(detailGraph);
-  $('<img>')
-    .attr('src', detail.chart_url)
-    .attr('width', detail.chart_width || 300)
-    .attr('height', 200)
-    .appendTo(detailGraph);
+  var chartTitle = 'Processed items per shard';
+  if (detail.chart_data) {
+    var data = new google.visualization.DataTable();
+    data.addColumn('string', 'Shard');
+    data.addColumn('number', 'Count');
+    var shards = detail.chart_data.length;
+    for (var i = 0; i < shards; i++) {
+      data.addRow([i.toString(), detail.chart_data[i]]);
+    }
+    var log2Shards = Math.log(shards) / Math.log(2);
+    var chartWidth = Math.max(Math.max(300, shards * 2), 100 * log2Shards);
+    var chartHeight = 200;
+    var options = {
+        legend: 'none',
+        bar: {
+            groupWidth: '100%'
+        },
+        vAxis: {
+          minValue: 0
+        },
+        title: chartTitle,
+        chartArea: {
+          width: chartWidth,
+          height: chartHeight
+        },
+        width: 80 + chartWidth,
+        height: 80 + chartHeight
+    };
+    var chart = new google.visualization.ColumnChart(detailGraph[0]);
+    chart.draw(data, options);
+  } else {
+    $('<div>').text(chartTitle).appendTo(detailGraph);
+    $('<img>')
+      .attr('src', detail.chart_url)
+      .attr('width', detail.chart_width || 300)
+      .attr('height', 200)
+      .appendTo(detailGraph);
+  }
 
   // Aggregated counters.
   var aggregatedCounters = $('#aggregated-counters');
@@ -601,9 +660,9 @@ function refreshJobDetail(jobId, detail) {
     // Round to 2 decimal places.
     var avgRate = Math.round(100.0 * value / (runtimeMs / 1000.0)) / 100.0;
     $('<li>')
-      .append($('<span class="param-key">').html(getNiceParamKey(key)))
+      .append($('<span class="param-key">').text(getNiceParamKey(key)))
       .append($('<span>').text(': '))
-      .append($('<span class="param-value">').html(value))
+      .append($('<span class="param-value">').text(value))
       .append($('<span>').text(' '))
       .append($('<span class="param-aux">').text('(' + avgRate + '/sec avg.)'))
       .appendTo(aggregatedCounters);
@@ -620,14 +679,14 @@ function refreshJobDetail(jobId, detail) {
 
     var status = (shard.active ? 'running' : shard.result_status) || 'unknown';
     row.append($('<td>').text(status));
+    row.append($('<td>').text(getElapsedTimeString(
+        detail.start_timestamp_ms, shard.updated_timestamp_ms)));
+    row.append($('<td>').text(shard.counters.Entities));
+    row.append($('<td>').text(shard.counters.Bytes));
 
-    // TODO: Set colgroup width for shard description.
     row.append($('<td>').text(shard.shard_description));
 
     row.append($('<td>').text(shard.last_work_item || 'Unknown'));
-
-    row.append($('<td>').text(getElapsedTimeString(
-        detail.start_timestamp_ms, shard.updated_timestamp_ms)));
 
     row.appendTo(mapperBody);
   });
@@ -641,6 +700,9 @@ function initJobDetail(jobId, detail) {
   $('#detail-page-undertext').text('Job #' + jobId);
 
   // Set control buttons.
+  if (self != top) {
+    $('#overview-link').hide();
+  }
   if (detail.active) {
     var control = $('<a href="">')
       .text('Abort Job')

@@ -28,9 +28,9 @@
 
 
 
-
-
 """Base handler class for all mapreduce handlers."""
+
+
 
 
 
@@ -38,19 +38,28 @@
 
 import httplib
 import logging
-import json
-import webapp2
 
 import google
+import json as simplejson
 
 try:
   from google.appengine.ext.mapreduce import pipeline_base
 except ImportError:
   pipeline_base = None
+try:
+
+  from google.appengine._internal import cloudstorage
+  if hasattr(cloudstorage, "_STUB"):
+    cloudstorage = None
+except ImportError:
+  cloudstorage = None
+
+from google.appengine.api.namespace_manager import namespace_manager
+import webapp2 as webapp
 from google.appengine.ext.mapreduce import errors
+from google.appengine.ext.mapreduce import json_util
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import parameters
-from google.appengine.ext.mapreduce import util
 
 
 class Error(Exception):
@@ -61,27 +70,19 @@ class BadRequestPathError(Error):
   """The request path for the handler is invalid."""
 
 
-class BaseHandler(webapp2.RequestHandler):
-  """Base class for all mapreduce handlers.
-
-  In Python27 runtime, webapp2 will automatically replace webapp.
-  """
-
-  def base_path(self):
-    """Base path for all mapreduce-related urls."""
-    path = self.request.path
-    return path[:path.rfind("/")]
-
-
-class TaskQueueHandler(BaseHandler):
+class TaskQueueHandler(webapp.RequestHandler):
   """Base class for handlers intended to be run only from the task queue.
 
   Sub-classes should implement
   1. the 'handle' method for all POST request.
   2. '_preprocess' method for decoding or validations before handle.
-  3. '_drop_gracefully' method if _preprocess fails and the task has to
+  3. '_drop_gracefully' method if task has failed too many times and has to
      be dropped.
+
+  In Python27 runtime, webapp2 will automatically replace webapp.
   """
+
+  _DEFAULT_USER_AGENT = "AppEngine-Python-MR"
 
   def __init__(self, *args, **kwargs):
 
@@ -91,6 +92,15 @@ class TaskQueueHandler(BaseHandler):
 
     self._preprocess_success = False
     super(TaskQueueHandler, self).__init__(*args, **kwargs)
+    if cloudstorage:
+      cloudstorage.set_default_retry_params(
+          cloudstorage.RetryParams(
+              min_retries=5,
+              max_retries=10,
+              urlfetch_timeout=parameters._GCS_URLFETCH_TIMEOUT_SEC,
+              save_access_token=parameters.config.PERSIST_GCS_ACCESS_TOKEN,
+              memcache_access_token=parameters.config.PERSIST_GCS_ACCESS_TOKEN,
+              _user_agent=self._DEFAULT_USER_AGENT))
 
   def initialize(self, request, response):
     """Initialize.
@@ -116,28 +126,16 @@ class TaskQueueHandler(BaseHandler):
       return
 
 
-    if self.task_retry_count() > parameters._MAX_TASK_RETRIES:
+    if self.task_retry_count() + 1 > parameters.config.TASK_MAX_ATTEMPTS:
       logging.error(
-          "Task %s has been retried %s times. Dropping it permanently.",
-          self.request.headers["X-AppEngine-TaskName"], self.task_retry_count())
+          "Task %s has been attempted %s times. Dropping it permanently.",
+          self.request.headers["X-AppEngine-TaskName"],
+          self.task_retry_count() + 1)
+      self._drop_gracefully()
       return
 
-    try:
-      self._preprocess()
-      self._preprocess_success = True
-
-    except:
-
-
-
-      self._preprocess_success = False
-      mr_id = self.request.headers.get(util._MR_ID_TASK_HEADER, None)
-      if mr_id is None:
-        raise
-      logging.error(
-          "Preprocess task %s failed. Dropping it permanently.",
-          self.request.headers["X-AppEngine-TaskName"])
-      self._drop_gracefully()
+    self._preprocess()
+    self._preprocess_success = True
 
   def post(self):
     if self._preprocess_success:
@@ -152,13 +150,15 @@ class TaskQueueHandler(BaseHandler):
 
     This method is called after webapp initialization code has been run
     successfully. It can thus access self.request, self.response and so on.
+
+    Failures will be retried by taskqueue.
     """
     pass
 
   def _drop_gracefully(self):
     """Drop task gracefully.
 
-    When preprocess failed, this method is called before the task is dropped.
+    When task failed too many time, this method is called before it's dropped.
     """
     pass
 
@@ -178,7 +178,7 @@ class TaskQueueHandler(BaseHandler):
     self.response.clear()
 
 
-class JsonHandler(BaseHandler):
+class JsonHandler(webapp.RequestHandler):
   """Base class for JSON handlers for user interface.
 
   Sub-classes should implement the 'handle' method. They should put their
@@ -189,7 +189,7 @@ class JsonHandler(BaseHandler):
 
   def __init__(self, *args):
     """Initializer."""
-    super(BaseHandler, self).__init__(*args)
+    super(JsonHandler, self).__init__(*args)
     self.json_response = {}
 
   def base_path(self):
@@ -197,6 +197,12 @@ class JsonHandler(BaseHandler):
 
     JSON handlers are mapped to /base_path/command/command_name thus they
     require special treatment.
+
+    Raises:
+      BadRequestPathError: if the path does not end with "/command".
+
+    Returns:
+      The base path.
     """
     path = self.request.path
     base_path = path[:path.rfind("/")]
@@ -206,6 +212,7 @@ class JsonHandler(BaseHandler):
     return base_path[:base_path.rfind("/")]
 
   def _handle_wrapper(self):
+    """The helper method for handling JSON Post and Get requests."""
     if self.request.headers.get("X-Requested-With") != "XMLHttpRequest":
       logging.error("Got JSON request with no X-Requested-With header")
       self.response.set_status(
@@ -229,8 +236,9 @@ class JsonHandler(BaseHandler):
 
     self.response.headers["Content-Type"] = "text/javascript"
     try:
-      output = json.dumps(self.json_response, cls=model.JsonEncoder)
-    except:
+      output = simplejson.dumps(self.json_response, cls=json_util.JsonEncoder)
+
+    except Exception, e:
       logging.exception("Could not serialize to JSON")
       self.response.set_status(500, message="Could not serialize to JSON")
       return
@@ -253,6 +261,8 @@ class GetJsonHandler(JsonHandler):
   """JSON handler that accepts GET posts."""
 
   def get(self):
+    namespace_manager.set_namespace(
+        self.request.get("namespace", default_value=None))
     self._handle_wrapper()
 
 
@@ -260,6 +270,8 @@ class HugeTaskHandler(TaskQueueHandler):
   """Base handler for processing HugeTasks."""
 
   class _RequestWrapper(object):
+    """Container of a request and associated parameters."""
+
     def __init__(self, request):
       self._request = request
       self._params = model.HugeTask.decode_payload(request)

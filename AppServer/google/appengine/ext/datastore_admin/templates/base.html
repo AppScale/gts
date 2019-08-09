@@ -35,7 +35,7 @@
   var allowedOrigins = ['{{ admin_console_url }}'];
   if (location && location.ancestorOrigins &&
       location.ancestorOrigins.length > 0) {
-    var topOrigin = Array.prototype.pop.call(location.ancestorOrigins);
+    var topOrigin = [].slice.call(location.ancestorOrigins).pop();
     if (allowedOrigins.indexOf(topOrigin) > -1) {
       document.body.style.visibility = "visible";
     }
