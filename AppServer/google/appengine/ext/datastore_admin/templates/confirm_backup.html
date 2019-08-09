@@ -95,10 +95,17 @@
         </tr>
         <tr id="gs_service_account_tr">
           <td>
-            Service account name
-            <img class="ae-help-icon" src="{{ base_path }}/static/img/help.gif" height="14" width="14" alt="help"
-                 title="Use the client_email field from any custom service accounts you've defined.">
-            <input name="service_account_name">
+            <label for="service_account_name">
+              Service account name
+              <img class="ae-help-icon" src="{{ base_path }}/static/img/help.gif" height="14" width="14" alt="help"
+                   title="You can define additional service accounts using the dashboard.">
+            </label>
+            <select id="service_account_name" name="service_account_name">
+              <option value="">--Choose an option--</option>
+              {% for account_name in service_accounts %}
+              <option value="{{ account_name }}">{{ account_name }}</option>
+              {% endfor %}
+            </select>
           </td>
         </tr>
       </table>

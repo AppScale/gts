@@ -45,6 +45,7 @@ import copy
 import cStringIO
 import datetime
 import itertools
+import json
 import logging
 import os
 import random
@@ -127,6 +128,19 @@ BLOBSTORE_BACKUP_DISABLED_ERROR_MSG = (
     'https://cloud.google.com/appengine/docs/deprecations/blobstore_backups')
 
 BACKUP_RESTORE_HANDLER = __name__ + '.RestoreEntity.map'
+
+
+def get_service_account_names():
+  """ AppScale: Fetch list of service accounts from IAM API. """
+  project_id = app_identity.get_application_id()
+  iam_location = 'https://127.0.0.1:17441'
+  url = iam_location + '/v1/projects/{}/serviceAccounts'.format(project_id)
+  token = app_identity.get_access_token(
+      ['https://www.googleapis.com/auth/cloud-platform'])[0]
+  headers = {'Authorization': 'Bearer {}'.format(token)}
+  response = urlfetch.fetch(url, headers=headers, validate_certificate=False)
+  accounts = json.loads(response.content)['accounts']
+  return tuple(account['email'] for account in accounts)
 
 
 def _get_gcs_path_prefix_from_params_dict(params):
@@ -293,7 +307,8 @@ class ConfirmBackupHandler(webapp.RequestHandler):
         'xsrf_token': utils.CreateXsrfToken(XSRF_ACTION),
         'notreadonly_warning': notreadonly_warning,
         'blob_warning': blob_warning,
-        'backup_name': 'datastore_backup_%s' % time.strftime('%Y_%m_%d')
+        'backup_name': 'datastore_backup_%s' % time.strftime('%Y_%m_%d'),
+        'service_accounts': get_service_account_names()
     }
     utils.RenderToResponse(handler, 'confirm_backup.html', template_params)
 
@@ -812,7 +827,10 @@ class DoBackupHandler(BaseDoHandler):
       mapper_params = _get_basic_mapper_params(self)
 
       # AppScale: Use custom service account if specified.
-      account_id = self.request.get('service_account_name', None)
+      account_id = self.request.get('service_account_name', '')
+      if not account_id:
+        raise ValueError('Invalid service account name')
+
       mapper_params['account_id'] = account_id
       mapper_params['tmp_account_id'] = account_id
 
