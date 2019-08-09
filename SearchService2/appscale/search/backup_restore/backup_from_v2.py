@@ -129,11 +129,11 @@ class Exporter(object):
     self.start_time = self.ioloop.time()
     self.status = 'In progress'
 
-    collections, broken = await self.solr_adapter.solr.list_collections()
+    solr_collections, broken = await self.solr_adapter.solr.list_collections()
     if broken:
       logger.warning('There are {} broken collections: {}. It will be ignored.'
                      .format(len(broken), list(broken)))
-    for collection_name in collections:
+    for collection_name in solr_collections:
       if not collection_name.startswith('appscale_'):
         logger.info('Collection {} does not belong to Search Service. Ignoring.'
                     .format(collection_name))
