@@ -923,7 +923,7 @@ def main():
     if not clusterfile_path:
       try:
         clusterfile_content = zk_client.get(FDB_CLUSTERFILE_NODE)[0]
-        clusterfile_path = '/tmp/appscale-datastore-fdb.cluster'
+        clusterfile_path = '/run/appscale/appscale-datastore-fdb.cluster'
         with open(clusterfile_path, 'w') as clusterfile:
           clusterfile.write(clusterfile_content)
       except NoNodeError:
