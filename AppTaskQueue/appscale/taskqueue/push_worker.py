@@ -39,10 +39,6 @@ logger = get_task_logger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def clean_task_name(task_name):
-  return task_name.decode('utf-8').replace("b'", "").replace("'", "")
-
-
 def get_wait_time(retries, args):
   """ Calculates how long we should wait to execute a failed task, based on
   how many times it's failed in the past.
@@ -115,7 +111,7 @@ def execute_task(task, headers, args):
   """
   start_time = datetime.datetime.utcnow()
 
-  task_name = clean_task_name(args['task_name'])
+  task_name = args['task_name'].decode('utf-8')
 
   content_length = len(args['body'])
 
