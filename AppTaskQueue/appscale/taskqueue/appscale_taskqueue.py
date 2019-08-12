@@ -171,7 +171,7 @@ class ProtobufferHandler(RequestHandler):
     if result:
       response, errcode, errdetail = result
 
-    elapsed_time = round(monotonic - start_time, 3)
+    elapsed_time = round(monotonic.monotonic() - start_time, 3)
     timing_log = 'Elapsed: {}'.format(elapsed_time)
     if apirequest.HasField("request_id"):
       timing_log += ' ({})'.format(apirequest.request_id)
