@@ -236,18 +236,18 @@ class AppsHandler(BaseHandler):
 
 
   @gen.coroutine
-  def patch(self, name):
+  def patch(self, project_id):
     """ Updates an Application. Currently this is only supported for the
     dispatch rules.
 
     Args:
-      name: A string specifying a project ID.
+      project_id: A string specifying a project ID.
     """
-    self.authenticate(name, self.ua_client)
+    self.authenticate(project_id, self.ua_client)
 
-    if name in constants.IMMUTABLE_PROJECTS:
+    if project_id in constants.IMMUTABLE_PROJECTS:
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
-                            message='{} cannot be updated'.format(name))
+                            message='{} cannot be updated'.format(project_id))
 
     update_mask = self.get_argument('updateMask', None)
     if not update_mask:
@@ -262,7 +262,7 @@ class AppsHandler(BaseHandler):
                    'field(s): [{}]'.format(', '.join(supported_fields)))
         raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
-    project_node = '/'.join(['/appscale', 'projects', name])
+    project_node = '/'.join(['/appscale', 'projects', project_id])
     services_node = '/'.join([project_node, 'services'])
     if not self.zk_client.exists(project_node):
       raise CustomHTTPError(HTTPCodes.NOT_FOUND,
@@ -275,10 +275,10 @@ class AppsHandler(BaseHandler):
                             message='Services node not found for project')
     payload = json.loads(self.request.body)
     dispatch_rules = utils.routing_rules_from_dict(payload=payload,
-                                                   project_id=name,
+                                                   project_id=project_id,
                                                    services=service_ids)
 
-    dispatch_node = '/'.join(['/appscale', 'projects', name, 'dispatch'])
+    dispatch_node = '/'.join(['/appscale', 'projects', project_id, 'dispatch'])
 
     try:
       self.zk_client.set(dispatch_node, json.dumps(dispatch_rules))
@@ -287,12 +287,12 @@ class AppsHandler(BaseHandler):
         self.zk_client.create(dispatch_node, json.dumps(dispatch_rules))
       except NoNodeError:
         raise CustomHTTPError(HTTPCodes.NOT_FOUND,
-                              message='{} not found'.format(name))
+                              message='{} not found'.format(project_id))
 
-    logger.info('Updated dispatch for {}'.format(name))
+    logger.info('Updated dispatch for {}'.format(project_id))
     # TODO: add verification for dispatchRules being applied. For now,
     # assume the controller picks it up instantly.
-    patch_operation = UpdateApplicationOperation(name)
+    patch_operation = UpdateApplicationOperation(project_id)
     patch_operation.finish(dispatch_rules)
     operations[patch_operation.id] = patch_operation
     self.write(json_encode(patch_operation.rest_repr()))
