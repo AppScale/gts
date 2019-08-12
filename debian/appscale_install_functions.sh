@@ -725,20 +725,6 @@ prepdashboard()
         ${APPSCALE_HOME}/AppControllerClient
 }
 
-upgradepip()
-{
-    # Versions older than Pip 7 did not correctly parse install commands for
-    # local packages with optional dependencies. Versions greater than Pip 9
-    # do not allow replacing packages installed by the distro.
-    case "$DIST" in
-        jessie)
-            # The system's pip does not allow updating itself.
-            easy_install --upgrade 'pip<10.0.0b1'
-            hash -r
-            ;;
-    esac
-}
-
 fetchclientjars()
 {
     # This function fetches modified client jars for the MapReduce, Pipeline,
