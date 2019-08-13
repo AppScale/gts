@@ -5,28 +5,42 @@
 
 set -e
 
-# Defaults values for repositories and branches.
+# Defaults values for script parameters.
 APPSCALE_REPO="git://github.com/AppScale/appscale.git"
 APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
 AGENTS_REPO="git://github.com/AppScale/appscale-agents.git"
+THIRDPARTIES_REPO="git://github.com/AppScale/appscale-thirdparties.git"
 APPSCALE_BRANCH="master"
 APPSCALE_TOOLS_BRANCH="master"
 AGENTS_BRANCH="master"
-FORCE_UPGRADE="N"
-UNIT_TEST="n"
-GIT_TAG=""
+THIRDPARTIES_BRANCH="master"
+GIT_TAG="last"
+
+BRANCH_PARAM_SPECIFIED="N"
+TAG_PARAM_SPECIFIED="N"
 
 usage() {
-    echo "Usage: ${0} [--repo <repo>][--tools-repo <repo>][-t]"
+    echo "Usage: ${0} [--repo <repo>] [--tools-repo <repo>]"
+    echo "            [--tools-repo <repo>] [--tools-branch <branch>]"
+    echo "            [--agents-repo <repo>] [--agents-branch <branch>]"
+    echo "            [--thirdparties-repo <repo>] [--thirdparties-branch <branch>]"
+    echo "            [--tag <git-tag>]"
+    echo
+    echo "Be aware that tag parameter has priority over repo and branch parameters."
+    echo "So if no tag, repos and branches are specified, tag 'last' will be used."
+    echo "If you want to bootstrap using master branches of all repos, specify '--tag dev'"
     echo
     echo "Options:"
-    echo "   --repo <repo>            Specify appscale repo (default $APPSCALE_REPO)"
-    echo "   --branch <branch>        Specify appscale branch (default $APPSCALE_BRANCH)"
-    echo "   --tools-repo <repo>      Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
-    echo "   --tools-branch <branch>  Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
-    echo "   --force-upgrade          Force upgrade even if some check fails."
-    echo "   --tag <git-tag>          Use git tag (ie 2.2.0) or 'last' to use the latest release or 'dev' for HEAD"
-    echo "   -t                       Run unit tests"
+    echo "   --repo <repo>                   Specify appscale repo (default $APPSCALE_REPO)"
+    echo "   --branch <branch>               Specify appscale branch (default $APPSCALE_BRANCH)"
+    echo "   --tools-repo <repo>             Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
+    echo "   --tools-branch <branch>         Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
+    echo "   --agents-repo <repo>            Specify appscale-agents repo (default $AGENTS_REPO"
+    echo "   --agents-branch <branch>        Specify appscale-agents branch (default $AGENTS_BRANCH)"
+    echo "   --thirdparties-repo <repo>      Specify appscale-thirdparties repo (default $THIRDPARTIES_REPO"
+    echo "   --thirdparties-branch <branch>  Specify appscale-thirdparties branch (default $THIRDPARTIES_BRANCH)"
+    echo "   --tag <git-tag>                 Use git tag (ie 3.7.2) or 'last' to use the latest release"
+    echo "                                   or 'dev' for HEAD (default ${GIT_TAG})"
     exit 1
 }
 
@@ -45,109 +59,99 @@ if [ "$HOME" != "/root" ]; then
 fi
 echo "Success"
 
-# Let's get the  command line arguments.
+# Let's get the command line arguments.
 while [ $# -gt 0 ]; do
     if [ "${1}" = "--repo" ]; then
-        shift
-        if [ -z "${1}" ]; then
-            usage
-        fi
-        APPSCALE_REPO="${1}"
-        shift
-        continue
+        shift; if [ -z "${1}" ]; then usage; fi
+        APPSCALE_REPO="${1}"; BRANCH_PARAM_SPECIFIED="Y"
+        shift; continue
     fi
     if [ "${1}" = "--branch" ]; then
-        shift
-        if [ -z "${1}" ]; then
-            usage
-        fi
-        APPSCALE_BRANCH="${1}"
-        shift
-        continue
-    fi
-    if [ "${1}" = "--tag" ]; then
-        shift
-        if [ -z "${1}" ]; then
-            usage
-        fi
-        GIT_TAG="${1}"
-        shift
-        continue
+        shift; if [ -z "${1}" ]; then usage; fi
+        APPSCALE_BRANCH="${1}"; BRANCH_PARAM_SPECIFIED="Y"
+        shift; continue
     fi
     if [ "${1}" = "--tools-repo" ]; then
-        shift
-        if [ -z "${1}" ]; then
-            usage
-        fi
-        APPSCALE_TOOLS_REPO="${1}"
-        shift
-        continue
+        shift; if [ -z "${1}" ]; then usage; fi
+        APPSCALE_TOOLS_REPO="${1}"; BRANCH_PARAM_SPECIFIED="Y"
+        shift; continue
     fi
     if [ "${1}" = "--tools-branch" ]; then
-        shift
-        if [ -z "${1}" ]; then
-            usage
-        fi
-        APPSCALE_TOOLS_BRANCH="${1}"
-        shift
-        continue
+        shift; if [ -z "${1}" ]; then usage; fi
+        APPSCALE_TOOLS_BRANCH="${1}"; BRANCH_PARAM_SPECIFIED="Y"
+        shift; continue
     fi
     if [ "${1}" = "--agents-repo" ]; then
-        shift
-        if [ -z "${1}" ]; then
-            usage
-        fi
-        AGENTS_REPO="${1}"
-        shift
-        continue
+        shift; if [ -z "${1}" ]; then usage; fi
+        AGENTS_REPO="${1}"; BRANCH_PARAM_SPECIFIED="Y"
+        shift; continue
     fi
     if [ "${1}" = "--agents-branch" ]; then
-        shift
-        if [ -z "${1}" ]; then
-            usage
-        fi
-        AGENTS_BRANCH="${1}"
-        shift
-        continue
+        shift; if [ -z "${1}" ]; then usage; fi
+        AGENTS_BRANCH="${1}"; BRANCH_PARAM_SPECIFIED="Y"
+        shift; continue
     fi
-    if [ "${1}" = "--force-upgrade" ]; then
-        FORCE_UPGRADE="Y"
-        shift
-        continue
+    if [ "${1}" = "--thirdparties-repo" ]; then
+        shift; if [ -z "${1}" ]; then usage; fi
+        THIRDPARTIES_REPO="${1}"; BRANCH_PARAM_SPECIFIED="Y"
+        shift; continue
     fi
-    if [ "${1}" = "-t" ]; then
-        UNIT_TEST="Y"
-        shift
-        continue
+    if [ "${1}" = "--thirdparties-branch" ]; then
+        shift; if [ -z "${1}" ]; then usage; fi
+        THIRDPARTIES_BRANCH="${1}"; BRANCH_PARAM_SPECIFIED="Y"
+        shift; continue
+    fi
+    if [ "${1}" = "--tag" ]; then
+        shift; if [ -z "${1}" ]; then usage; fi
+        GIT_TAG="${1}";
+        if [${GIT_TAG} != "dev" ]; then TAG_PARAM_SPECIFIED="Y"; fi
+        shift; continue
     fi
     usage
 done
 
+
 # Empty tag means we use the latest available.
-if [ -z "${GIT_TAG}" ]; then
-    GIT_TAG="last"
-else
-    # We don't use Tag and Branch at the same time.
-    if [ "${FORCE_UPGRADE}" = "N"  ] && [  "${APPSCALE_BRANCH}" != "master" ]; then
-        echo "--branch cannot be specified with --tag"
-        exit 1
-    fi
+if [ "${BRANCH_PARAM_SPECIFIED}" = "Y" ] \
+   && [ "${TAG_PARAM_SPECIFIED}" = "Y" ] \
+   && [ "${GIT_TAG}" != "dev" ]; then
+    echo "Repo/Branch parameters can't be used if --tag parameter is specified"
+    exit 1
 fi
 
-# A tag of 'dev' means don't use tag.
-if [ "${GIT_TAG}" = "dev" ]; then
-    GIT_TAG=""
-fi
+declare -A REPOS=(
+    ["appscale"]="${APPSCALE_REPO}"
+    ["appscale-tools"]="${APPSCALE_TOOLS_REPO}"
+    ["appscale-agents"]="${AGENTS_REPO}"
+    ["appscale-thirdparties"]="${THIRDPARTIES_REPO}"
+)
+declare -A BRANCHES=(
+    ["appscale"]="${APPSCALE_BRANCH}"
+    ["appscale-tools"]="${APPSCALE_TOOLS_BRANCH}"
+    ["appscale-agents"]="${AGENTS_BRANCH}"
+    ["appscale-thirdparties"]="${THIRDPARTIES_BRANCH}"
+)
 
 # At this time we expect to be installed in $HOME.
 cd $HOME
 
 # Let's pull the github repositories.
 echo
-echo "Will be using the following github repo:"
-echo "Repo: ${APPSCALE_REPO} Branch: ${APPSCALE_BRANCH}"
-echo "Repo: ${APPSCALE_TOOLS_REPO} Branch: ${APPSCALE_TOOLS_BRANCH}"
-echo "Exit now (ctrl-c) if this is incorrect"
+if [ "${TAG_PARAM_SPECIFIED}" = "Y" ]; then
+    echo "Will be using the following github repos:"
+    echo "Repo: ${APPSCALE_REPO} Tag ${GIT_TAG}"
+    echo "Repo: ${APPSCALE_TOOLS_REPO} Tag ${GIT_TAG}"
+    echo "Repo: ${AGENTS_REPO} Tag ${GIT_TAG}"
+    echo "Repo: ${THIRDPARTIES_REPO} Tag ${GIT_TAG}"
+    echo "Exit now (ctrl-c) if this is incorrect"
+else
+    echo "Will be using the following github repos:"
+    echo "Repo: ${APPSCALE_REPO} Branch: ${APPSCALE_BRANCH}"
+    echo "Repo: ${APPSCALE_TOOLS_REPO} Branch: ${APPSCALE_TOOLS_BRANCH}"
+    echo "Repo: ${AGENTS_REPO} Branch: ${AGENTS_BRANCH}"
+    echo "Repo: ${THIRDPARTIES_REPO} Branch: ${THIRDPARTIES_BRANCH}"
+    echo "Exit now (ctrl-c) if this is incorrect"
+fi
 echo
 
 sleep 5
@@ -181,181 +185,43 @@ while fuser /var/lib/dpkg/lock; do
     sleep 1
 done
 apt-get install -y git
-if [ ! -d appscale ]; then
-    # We split the commands, to ensure it fails if branch doesn't
-    # exists (Precise git will not fail otherwise).
-    git clone ${APPSCALE_REPO} appscale
-    (cd appscale; git checkout ${APPSCALE_BRANCH})
 
-    git clone ${APPSCALE_TOOLS_REPO} appscale-tools
-    (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
+APPSCALE_DIRS="\
+    /root/appscale /root/appscale-tools /root/appscale-agents /root/appscale-thirdparties \
+    /etc/appscale /opt/appscale /var/log/appscale /var/appscale /run/appscale"
 
-    git clone ${AGENTS_REPO} appscale-agents
-    (cd appscale-agents; git checkout ${AGENTS_BRANCH})
-
-
-    # Use tags if we specified it.
-    if [ -n "$GIT_TAG"  ] && [  "${APPSCALE_BRANCH}" = "master" ]; then
-        if [ "$GIT_TAG" = "last" ]; then
-            GIT_TAG="$(cd appscale; git tag | tail -n 1)"
-        fi
-        (cd appscale; git checkout "$GIT_TAG")
-        (cd appscale-tools; git checkout "$GIT_TAG")
-        (cd appscale-agents; git checkout "$GIT_TAG")
+for appscale_presence_marker in ${APPSCALE_DIRS}; do
+    if [ -d ${appscale_presence_marker} ] ; then
+        echo "${appscale_presence_marker} already exists!"
+        echo "bootstrap.sh script should be used for initial installation only."
+        echo "Use bootstrap-upgrade.sh for upgrading existing deployment"
+        echo "It can be found here: https://raw.githubusercontent.com/AppScale/appscale/master/bootstrap-upgrade.sh."
     fi
-fi
+done
 
-# Since the last step in appscale_build.sh is to create the certs directory,
-# its existence indicates that appscale has already been installed.
-if [ -d /etc/appscale/certs ]; then
-    UPDATE_REPO="Y"
 
-    # For upgrade, we don't switch across branches.
-    if [ "${FORCE_UPGRADE}" = "N" ] && [ "${APPSCALE_BRANCH}" != "master" ]; then
-        echo "Cannot use --branch when upgrading"
-        exit 1
-    fi
-    if [ "${FORCE_UPGRADE}" = "N"  ] && [  "${APPSCALE_TOOLS_BRANCH}" != "master" ]; then
-        echo "Cannot use --tools-branch when upgrading"
-        exit 1
-    fi
-    if [ "${FORCE_UPGRADE}" = "N"  ] && [  -z "$GIT_TAG" ]; then
-        echo "Cannot use --tag dev when upgrading"
-        exit 1
-    fi
+echo "Cloning appscale repositories"
+# We split the commands, to ensure it fails if branch doesn't
+# exists (Precise git will not fail otherwise).
+git clone ${APPSCALE_REPO} appscale
+git clone ${APPSCALE_TOOLS_REPO} appscale-tools
+git clone ${AGENTS_REPO} appscale-agents
+git clone ${THIRDPARTIES_REPO} appscale-thirdparties
 
-    APPSCALE_MAJOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\1/gp' appscale/VERSION)"
-    APPSCALE_MINOR="$(sed -n 's/.*\([0-9]\)\+\.\([0-9]\)\+\.[0-9]/\2/gp' appscale/VERSION)"
-    if [ -z "$APPSCALE_MAJOR" -o -z "$APPSCALE_MINOR" ]; then
-        echo "Cannot determine version of AppScale!"
-        exit 1
-    fi
-
-    # This is an upgrade, so let's make sure we use a tag that has
-    # been passed, or the last one available. Let's fetch all the
-    # available tags first.
-    (cd appscale; git fetch ${APPSCALE_REPO} -t)
-    (cd appscale-tools; git fetch ${APPSCALE_TOOLS_REPO} -t)
-    (cd appscale-agents; git fetch ${AGENTS_REPO} -t)
-
+# Use tags if we specified it.
+if [ "$TAG_PARAM_SPECIFIED" = "Y"  ]; then
     if [ "$GIT_TAG" = "last" ]; then
         GIT_TAG="$(cd appscale; git tag | tail -n 1)"
-        # Make sure we have this tag in the official repo.
-        if ! git ls-remote --tags ${APPSCALE_REPO} | grep -F $GIT_TAG > /dev/null ; then
-            echo "\"$GIT_TAG\" not recognized: use --tag to specify tag to upgrade to."
-            exit 1
-        fi
     fi
-
-    # We can pull a tag only if we are on the master branch.
-    CURRENT_BRANCH="$(cd appscale; git branch --no-color | grep '^*' | cut -f 2 -d ' ')"
-    if [ "${CURRENT_BRANCH}" != "master" ] && \
-            (cd appscale; git tag -l | grep $(git describe)) ; then
-        CURRENT_BRANCH="$(cd appscale; git tag -l | grep $(git describe))"
-        if [ "${CURRENT_BRANCH}" = "${GIT_TAG}" ]; then
-            echo "AppScale repository is already at the"\
-                 "specified release. Building with current code."
-            UPDATE_REPO="N"
-        fi
-    fi
-
-    # If CURRENT_BRANCH is empty, then we are not on master, and we
-    # are not on a released version: we don't upgrade then.
-    if [ "${FORCE_UPGRADE}" = "N"  ] && [  -z "${CURRENT_BRANCH}" ]; then
-        echo "Error: git repository is not 'master' or a released version."
-        exit 1
-    fi
-
-    # Make sure AppScale is not running.
-    MONIT=$(which monit)
-    if $MONIT summary | grep controller > /dev/null ; then
-        echo "AppScale is still running: please stop it"
-        [ "${FORCE_UPGRADE}" = "Y" ] || exit 1
-    elif echo $MONIT | grep local > /dev/null ; then
-        # AppScale is not running but there is a monit
-        # leftover from the custom install.
-        $MONIT quit
-    fi
-
-    # Let's keep a copy of the old config: we need to move it to avoid
-    # questions from dpkg.
-    if [ -e /etc/haproxy/haproxy.cfg ]; then
-        mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale.old
-    fi
-
-    # Remove outdated appscale-controller and appscale-progenitor.
-    if [ $APPSCALE_MAJOR -le 2 -a $APPSCALE_MINOR -le 2 ]; then
-        rm -f /etc/init.d/appscale-controller
-        rm -f /etc/init.d/appscale-progenitor
-        update-rc.d -f appscale-progenitor remove || true
-    fi
-
-    # Remove control files we added before 1.14, and re-add the
-    # default ones.
-    if [ $APPSCALE_MAJOR -le 1 -a $APPSCALE_MINOR -le 14 ]; then
-        rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit /etc/monitrc
-        if dpkg-query -l haproxy > /dev/null 2> /dev/null ; then
-            apt-get -o DPkg::Options::="--force-confmiss" --reinstall install haproxy
-        fi
-        if dpkg-query -l monit > /dev/null 2> /dev/null ; then
-            apt-get -o DPkg::Options::="--force-confmiss" --reinstall install monit
-        fi
-    fi
-
-
-    if [ "${UPDATE_REPO}" = "Y" ]; then
-        echo "Found AppScale version $APPSCALE_MAJOR.$APPSCALE_MINOR."\
-             "An upgrade to the latest version available will be"\
-             "attempted in 5 seconds."
-        sleep 5
-
-        # Upgrade the repository. If GIT_TAG is empty, we are on HEAD.
-        if [ -n "${GIT_TAG}" ]; then
-            if ! (cd appscale; git checkout "$GIT_TAG"); then
-                echo "Please stash your local unsaved changes and checkout"\
-                     "the version of AppScale you are currently using to fix"\
-                     "this error."
-                echo "e.g.: git stash; git checkout <AppScale-version>"
-                exit 1
-            fi
-
-            if ! (cd appscale-tools; git checkout "$GIT_TAG"); then
-                echo "Please stash your local unsaved changes and checkout"\
-                     "the version of appscale-tools you are currently using"\
-                     "to fix this error."
-                echo "e.g.: git stash; git checkout <appscale-tools-version>"
-                exit 1
-            fi
-        elif [ "${FORCE_UPGRADE}" = "N" ]; then
-            (cd appscale; git pull)
-            (cd appscale-tools; git pull)
-        else
-            RANDOM_KEY="$(echo $(date), $$|md5sum|head -c 6)-$(date +%s)"
-            REMOTE_REPO_NAME="appscale-bootstrap-${RANDOM_KEY}"
-            if ! (cd appscale;
-                    git remote add -t "${APPSCALE_BRANCH}" -f "${REMOTE_REPO_NAME}" "${APPSCALE_REPO}";
-                    git checkout "${REMOTE_REPO_NAME}"/"${APPSCALE_BRANCH}"); then
-                echo "Please make sure the repository url is correct, the"\
-                     "branch exists, and that you have stashed your local"\
-                     "changes."
-                echo "e.g.: git stash, git remote add -t {remote_branch} -f"\
-                     "{repo_name} {repository_url}; git checkout"\
-                     "{repo_name}/{remote_branch}"
-                exit 1
-            fi
-            if ! (cd appscale-tools;
-                    git remote add -t "${APPSCALE_TOOLS_BRANCH}" -f "${REMOTE_REPO_NAME}" "${APPSCALE_TOOLS_REPO}";
-                    git checkout "${REMOTE_REPO_NAME}"/"${APPSCALE_TOOLS_BRANCH}"); then
-                echo "Please make sure the repository url is correct, the"\
-                     "branch exists, and that you have stashed your local"\
-                     "changes."
-                echo "e.g.: git stash, git remote add -t {remote_branch} -f"\
-                     "{repo_name} {repository_url}; git checkout"\
-                     "{repo_name}/{remote_branch}"
-                exit 1
-            fi
-        fi
-    fi
+    (cd appscale; git checkout "$GIT_TAG")
+    (cd appscale-tools; git checkout "$GIT_TAG")
+    (cd appscale-agents; git checkout "$GIT_TAG")
+    (cd appscale-thirdparties; git checkout "$GIT_TAG")
+else
+    (cd appscale; git checkout ${APPSCALE_BRANCH})
+    (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
+    (cd appscale-agents; git checkout ${AGENTS_BRANCH})
+    (cd appscale-thirdparties; git checkout ${THIRDPARTIES_BRANCH})
 fi
 
 echo -n "Building AppScale..."
@@ -376,23 +242,13 @@ if ! (cd appscale-tools/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-# Run unit tests if asked.
-if [ "$UNIT_TEST" = "Y" ]; then
-    echo "Running Unit tests"
-    (cd appscale; rake)
-    if [ $? -gt 0 ]; then
-        echo "Unit tests failed for appscale!"
-        exit 1
-    fi
-    (cd appscale-tools; rake)
-    if [ $? -gt 0 ]; then
-        echo "Unit tests failed for appscale-tools!"
-        exit 1
-    fi
-    echo "Unit tests complete"
+echo -n "Downloading Thirdparty artifacts..."
+if ! (cd appscale-thirdparties/; bash download_all_artifacts.sh) ; then
+    echo "failed!"
+    exit 1
 fi
 
-# Let's source the profles so this image can be used right away.
+# Let's source the profiles so this image can be used right away.
 . /etc/profile.d/appscale.sh
 
 echo "*****************************************"
