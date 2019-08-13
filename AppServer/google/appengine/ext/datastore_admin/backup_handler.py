@@ -139,7 +139,12 @@ def get_service_account_names():
       ['https://www.googleapis.com/auth/cloud-platform'])[0]
   headers = {'Authorization': 'Bearer {}'.format(token)}
   response = urlfetch.fetch(url, headers=headers, validate_certificate=False)
-  accounts = json.loads(response.content)['accounts']
+  try:
+    accounts = json.loads(response.content)['accounts']
+  except (KeyError, ValueError):
+    raise ValueError('Invalid list of service accounts: '
+                     '{}'.format(response.content))
+
   return tuple(account['email'] for account in accounts)
 
 

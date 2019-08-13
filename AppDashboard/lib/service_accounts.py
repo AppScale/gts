@@ -64,8 +64,9 @@ class ProjectServiceAccounts(AppDashboard):
 
     try:
       accounts = json.loads(result.content)['accounts']
-    except ValueError:
-      raise AppHelperException('Invalid response: {}'.format(result.content))
+    except (KeyError, ValueError):
+      raise AppHelperException('Invalid list of service accounts: '
+                               '{}'.format(result.content))
 
     context = {
       'page_content': self.TEMPLATE,
