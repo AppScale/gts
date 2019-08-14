@@ -262,8 +262,8 @@ class AppsHandler(BaseHandler):
                    'field(s): [{}]'.format(', '.join(supported_fields)))
         raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
 
-    project_node = '/'.join(['/appscale', 'projects', project_id])
-    services_node = '/'.join([project_node, 'services'])
+    project_node = '/appscale/projects/{}'.format(project_id)
+    services_node = '{}/services'.format(project_node)
     if not self.zk_client.exists(project_node):
       raise CustomHTTPError(HTTPCodes.NOT_FOUND,
                             message='Project does not exist')
@@ -277,7 +277,7 @@ class AppsHandler(BaseHandler):
     dispatch_rules = utils.routing_rules_from_dict(payload=payload,
                                                    services=service_ids)
 
-    dispatch_node = '/'.join(['/appscale', 'projects', project_id, 'dispatch'])
+    dispatch_node = '/appscale/projects/{}/dispatch'.format(project_id)
 
     try:
       self.zk_client.set(dispatch_node, json.dumps(dispatch_rules))
