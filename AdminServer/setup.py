@@ -7,6 +7,7 @@ install_requires = [
   'jsonschema',
   'kazoo',
   'idna>=2.5,<2.8',  # Required for requests.
+  'monotonic',
   'psutil',
   'PyYaml',
   'requests-unixsocket',

@@ -6,6 +6,7 @@ import errno
 import hashlib
 import json
 import logging
+import monotonic
 import os
 import re
 import six
@@ -83,13 +84,13 @@ operations = OperationsCache()
 
 
 @gen.coroutine
-def wait_for_port_to_open(http_port, operation_id, deadline):
+def wait_for_port_to_open(http_port, operation_id, timeout):
   """ Waits until port is open.
 
   Args:
     http_port: An integer specifying the version's port number.
     operation_id: A string specifying an operation ID.
-    deadline: A float containing a unix timestamp.
+    timeout: The number of seconds to wait.
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
@@ -99,8 +100,9 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
   except KeyError:
     raise OperationTimeout('Operation no longer in cache')
 
+  deadline = monotonic.monotonic() + timeout
   while True:
-    if time.time() > deadline:
+    if monotonic.monotonic() > deadline:
       message = 'Deploy operation took too long.'
       operation.set_error(message)
       raise OperationTimeout(message)
@@ -112,7 +114,7 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
 
   for load_balancer in appscale_info.get_load_balancer_ips():
     while True:
-      if time.time() > deadline:
+      if monotonic.monotonic() > deadline:
         # The version is reachable from the login IP, but it's not reachable
         # from every registered load balancer. It makes more sense to mark the
         # operation as a success than a failure because the lagging load
@@ -140,11 +142,9 @@ def wait_for_deploy(operation_id, controller_state):
   except KeyError:
     raise OperationTimeout('Operation no longer in cache')
 
-  start_time = time.time()
-  deadline = start_time + constants.MAX_OPERATION_TIME
-
   http_port = operation.version['appscaleExtensions']['httpPort']
-  yield wait_for_port_to_open(http_port, operation_id, deadline)
+  yield wait_for_port_to_open(http_port, operation_id,
+                              constants.MAX_OPERATION_TIME)
 
   login_host = options.login_ip
   if controller_state.options is not None:
@@ -171,13 +171,12 @@ def wait_for_delete(operation_id, ports_to_close):
   except KeyError:
     raise OperationTimeout('Operation no longer in cache')
 
-  start_time = time.time()
-  deadline = start_time + constants.MAX_OPERATION_TIME
+  deadline = monotonic.monotonic() + constants.MAX_OPERATION_TIME
 
   finished = 0
   ports = ports_to_close[:]
   while True:
-    if time.time() > deadline:
+    if monotonic.monotonic() > deadline:
       message = 'Delete operation took too long.'
       operation.set_error(message)
       raise OperationTimeout(message)

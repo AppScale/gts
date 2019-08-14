@@ -4,9 +4,9 @@ servers. """
 import argparse
 import json
 import logging
+import monotonic
 import signal
 import sys
-import time
 
 from kazoo.client import KazooClient
 from tornado import gen, httpserver, ioloop
@@ -124,7 +124,7 @@ class ProtobufferHandler(RequestHandler):
     else:
       http_request_data = apirequest.request
 
-    start_time = time.time()
+    start_time = monotonic.monotonic()
 
     request_log = method
     if apirequest.HasField("request_id"):
@@ -171,7 +171,7 @@ class ProtobufferHandler(RequestHandler):
     if result:
       response, errcode, errdetail = result
 
-    elapsed_time = round(time.time() - start_time, 3)
+    elapsed_time = round(monotonic.monotonic() - start_time, 3)
     timing_log = 'Elapsed: {}'.format(elapsed_time)
     if apirequest.HasField("request_id"):
       timing_log += ' ({})'.format(apirequest.request_id)
@@ -256,14 +256,14 @@ def prepare_graceful_shutdown(zk_client, tornado_server):
     """ Stop accepting new requests and exit when all requests are finished
     or timeout is exceeded.
     """
-    signal_time = time.time()
+    deadline = monotonic.monotonic() + SHUTTING_DOWN_TIMEOUT
     logger.info('Stopping server')
     tornado_server.stop()
     io_loop = ioloop.IOLoop.current()
 
     def stop_on_signal():
       current_requests = service_stats.current_requests
-      if current_requests and time.time() - signal_time < SHUTTING_DOWN_TIMEOUT:
+      if current_requests and monotonic.monotonic() < deadline:
         logger.warning("Can't stop Taskqueue server now as {reqs} requests are "
                        "still in progress".format(reqs=current_requests))
       else:
