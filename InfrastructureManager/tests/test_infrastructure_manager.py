@@ -7,7 +7,6 @@ from tornado.httpclient import HTTPRequest, HTTPError
 from tornado.ioloop import IOLoop
 from mock import patch, MagicMock
 
-from appscale.infrastructure.system_manager import SystemManager
 from appscale.agents.base_agent import AgentRuntimeException
 from appscale.agents.ec2_agent import EC2Agent
 
@@ -503,37 +502,6 @@ class TestInfrastructureManager(AsyncHTTPTestCase):
   ############################################################
   # InstanceHandler tests
   ############################################################
-  @gen_test
-  def test_get_system_stats(self):
-    # No secret header.
-    payload_request = HTTPRequest(
-        method='GET', url=self.get_url('/instance'), headers=None
-    )
-    with self.assertRaises(HTTPError) as context:
-      yield self.http_client.fetch(payload_request)
-      self.assertEqual(context.exception.code, 401)
-      self.assertEqual(context.exception.message, 'Invalid secret')
-
-    # Invalid secret header.
-    payload_request = HTTPRequest(
-        method='GET', url=self.get_url('/instance'),
-        headers={'AppScale-Secret': 'invalid-secret'}
-    )
-
-    with self.assertRaises(HTTPError) as context:
-      yield self.http_client.fetch(payload_request)
-      self.assertEqual(context.exception.code, 401)
-      self.assertEqual(context.exception.message, 'Invalid secret')
-
-    # A method fails.
-    payload_request = HTTPRequest(
-        method='GET', url=self.get_url('/instance'),
-        headers={'AppScale-Secret': 'secret'}
-    )
-    with patch.object(SystemManager, 'get_cpu_usage', side_effect=[Exception]):
-      with self.assertRaises(HTTPError) as context:
-        yield self.http_client.fetch(payload_request)
-        self.assertEqual(context.exception.code, 500)
 
   @gen_test
   def test_attach_disk(self):

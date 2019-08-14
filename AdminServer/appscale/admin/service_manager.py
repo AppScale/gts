@@ -4,12 +4,12 @@ import errno
 import functools
 import json
 import logging
+import monotonic
 import os
 import psutil
 import re
 import socket
 import subprocess
-import time
 
 from builtins import range
 
@@ -355,6 +355,9 @@ class ServerManager(object):
 
   KNOWN_SERVICES = [datastore_service, search_service]
 
+  # The number of seconds to keep track of failed servers.
+  FAILED_SERVER_RETENTION = 60
+
   def __init__(self, service, port, assignment_options=None, start_cmd=None):
     """ Creates a new Server.
     It accepts either assignment_options argument (to build start_cmd)
@@ -368,7 +371,6 @@ class ServerManager(object):
     """
     self.service = service
     self.failure = None
-    self.failure_time = None
     # This is for compatibility with Hermes, which expects a monit name.
     self.monit_name = self.service.monit_name(port)
     self.port = port
@@ -378,11 +380,25 @@ class ServerManager(object):
     if assignment_options is None and start_cmd is None:
       raise TypeError('assignment_options or start_cmd should be specified')
     self._assignment_options = assignment_options
+    # A value from the monotonic clock indicating when a server failed.
+    self._failure_time = None
     self._start_cmd = start_cmd
     self._stdout = None
 
     # Serializes start, stop, and monitor operations.
     self._management_lock = AsyncLock()
+
+  @property
+  def outdated(self):
+    if self.state == ServerStates.FAILED:
+      if (monotonic.monotonic() >
+          self._failure_time + self.FAILED_SERVER_RETENTION):
+        return True
+
+    if self.state == ServerStates.STOPPED:
+      return True
+
+    return False
 
   @gen.coroutine
   def ensure_running(self):
@@ -471,9 +487,9 @@ class ServerManager(object):
                     .format(pid=self.process.pid))
         return
 
-      initial_stop_time = time.time()
+      deadline = monotonic.monotonic() + self.service.stop_timeout
       while True:
-        if time.time() > initial_stop_time + self.service.stop_timeout:
+        if monotonic.monotonic() > deadline:
           self.process.kill()
           break
 
@@ -496,13 +512,13 @@ class ServerManager(object):
       StartTimeout if start time exceeds given timeout.
     """
     base_url = 'http://{}:{}'.format(options.private_ip, self.port)
-    start_time = time.time()
+    deadline = monotonic.monotonic() + timeout
     try:
       while True:
         if not self.process.is_running():
           raise ProcessStopped('{} is no longer running'.format(self))
 
-        if time.time() > start_time + timeout:
+        if monotonic.monotonic() > deadline:
           raise StartTimeout('{} took too long to start'.format(self))
 
         try:
@@ -518,7 +534,7 @@ class ServerManager(object):
         yield gen.sleep(1)
     except Exception as error:
       self._cleanup()
-      self.failure_time = time.time()
+      self._failure_time = monotonic.monotonic()
       self.failure = error
       self.state = ServerStates.FAILED
       raise
@@ -546,9 +562,6 @@ class ServiceManager(object):
 
   # The number of seconds to wait between cleaning up servers.
   GROOMING_INTERVAL = 10
-
-  # The number of seconds to keep track of failed servers.
-  FAILED_SERVER_RETENTION = 60
 
   def __init__(self, zk_client):
     """ Creates new ServiceManager.
@@ -621,17 +634,7 @@ class ServiceManager(object):
   @gen.coroutine
   def _groom_servers(self):
     """ Forgets about outdated servers and fulfills assignments. """
-    def outdated(server):
-      if (server.state == ServerStates.FAILED and
-          time.time() > server.failure_time + self.FAILED_SERVER_RETENTION):
-        return True
-
-      if server.state == ServerStates.STOPPED:
-        return True
-
-      return False
-
-    self.state = [server for server in self.state if not outdated(server)]
+    self.state = [server for server in self.state if not server.outdated]
     for service_type, assignment_options in self.assignments.items():
       yield self._schedule_service(service_type, assignment_options)
 

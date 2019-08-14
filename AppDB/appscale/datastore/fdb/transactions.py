@@ -95,6 +95,9 @@ class TransactionMetadata(object):
     return self._encode_chunks(section_prefix, self._encode_keys(keys))
 
   def encode_query_key(self, txid, namespace, ancestor_path):
+    if not isinstance(ancestor_path, tuple):
+      ancestor_path = Path.flatten(ancestor_path)
+
     section_prefix = self._txid_prefix(txid) + self.QUERIES
     encoded_ancestor = Text.encode(namespace) + Path.pack(ancestor_path[:2])
     return section_prefix + encoded_ancestor
