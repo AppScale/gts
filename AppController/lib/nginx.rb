@@ -40,6 +40,10 @@ module Nginx
   # Application capture regex.
   VERSION_KEY_REGEX = /appscale-(.*_.*_.*).conf/
 
+  # Variables to help make dispatchRules nginx friendly by replacing * with .*
+  DISPATCH_RULES_REGEX = /\w*(?<!\.)\*/
+  DISPATCH_DOT_STAR = '.*'
+
   # These ports are the one visible from outside, ie the ones that we
   # attach to running applications. Default is to have a maximum of 21
   # applications (8080-8100).
@@ -99,6 +103,12 @@ module Nginx
     ($?.to_i == 0)
   end
 
+  # Substitute any * without a . in front with a .* or if there are no
+  # subtitutions return the original url.
+  def self.nginx_friendly_domain(url)
+    url.gsub!(DISPATCH_RULES_REGEX, DISPATCH_DOT_STAR) or url
+  end
+
   # Creates a Nginx config file for the provided version on the load balancer.
   # Returns:
   #   boolean: indicates if the nginx configuration has been written.
@@ -124,6 +134,14 @@ module Nginx
         Djinn.log_debug("No dispatch rules found for #{project_id}")
       end
     end
+
+    dispatch.each { |dispatch_entry|
+      dispatch_entry['url'] = nginx_friendly_domain(
+          "#{dispatch_entry['domain']}#{dispatch_entry['path']}")
+      dispatch_entry['service'] = "#{HelperFunctions::GAE_PREFIX}"\
+                                  "#{project_id}_#{dispatch_entry['service']}_"\
+                                  "#{Djinn::DEFAULT_VERSION}"
+    }
 
     template = File.read('/root/appscale/AppController/lib/application_nginx.erb')
     config =  ERB.new(template).result( binding )

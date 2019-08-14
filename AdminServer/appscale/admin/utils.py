@@ -639,24 +639,13 @@ def validate_routing_rule(rule, services):
     raise InvalidDispatchConfiguration('URL over 100 characters.')
 
 
-def routing_rules_from_dict(payload, project_id, services):
+def routing_rules_from_dict(payload, services):
   try:
     given_routing_rules = payload['dispatchRules']
   except KeyError:
     raise InvalidQueueConfiguration('Payload must contain dispatchRules')
 
-  rules = []
   for rule in given_routing_rules:
     validate_routing_rule(rule, services)
-    rules.append(convert_to_nginx_friendly_rule(rule, project_id))
 
-  return rules
-
-def convert_to_nginx_friendly_rule(rule, project_id):
-  # Domain defaults to '*'
-  domain = rule['domain'] or '*'
-  url = '{}{}'.format(domain, rule['path'])
-  nginx_url = NGINX_DISPATCH_REGEX.sub('.*', url)
-  nginx_service_backend = 'gae_{}_{}_{}'.format(project_id, rule['service'],
-                                                DEFAULT_VERSION)
-  return {'url': nginx_url, 'service': nginx_service_backend}
+  return given_routing_rules

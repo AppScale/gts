@@ -275,7 +275,6 @@ class AppsHandler(BaseHandler):
                             message='Services node not found for project')
     payload = json.loads(self.request.body)
     dispatch_rules = utils.routing_rules_from_dict(payload=payload,
-                                                   project_id=project_id,
                                                    services=service_ids)
 
     dispatch_node = '/'.join(['/appscale', 'projects', project_id, 'dispatch'])
