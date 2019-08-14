@@ -1,4 +1,3 @@
-import glob
 from setuptools import setup
 
 setup(
@@ -17,6 +16,7 @@ setup(
     'eventlet==0.22',
     'kazoo',
     'mock',
+    'monotonic',
     'protobuf',
     'psycopg2-binary',
     'PyYaml>=4.2b1',

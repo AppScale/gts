@@ -8,9 +8,9 @@ given (Put, Get, Delete, Query, etc).
 import argparse
 import json
 import logging
+import monotonic
 import os
 import sys
-import time
 
 import kazoo
 import tornado.httpserver
@@ -213,7 +213,7 @@ class MainHandler(tornado.web.RequestHandler):
       apirequest.clear_request()
     method = apirequest.method()
     http_request_data = apirequest.request()
-    start = time.time()
+    start = monotonic.monotonic()
 
     request_log = method
     if apirequest.has_request_id():
@@ -264,7 +264,7 @@ class MainHandler(tornado.web.RequestHandler):
       errcode = datastore_pb.Error.BAD_REQUEST
       errdetail = "Unknown datastore message"
 
-    time_taken = time.time() - start
+    time_taken = monotonic.monotonic() - start
     if method in STATS:
       if errcode in STATS[method]:
         prev_req, pre_time = STATS[method][errcode]

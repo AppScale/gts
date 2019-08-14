@@ -69,11 +69,10 @@ class Default(object):
   GOOGLE_API_HOSTNAME = 'www.googleapis.com'
   GOOGLE_API_OAUTH_SCOPE_HOSTNAME = 'https://www.googleapis.com'
   GS_API_HOSTNAME = 'storage.googleapis.com'
-  DATASTORE_ADMIN_API_APP_ID = None
-  DATASTORE_ADMIN_API_APP_VERSION = None
   DATASTORE_ADMIN_API_NAME = None
   DATASTORE_ADMIN_API_VERSION = None
   DATASTORE_ADMIN_API_VALIDATE_SSL = True
+  DATASTORE_ADMIN_API_TIMEOUT_SECS = 30
   ADMIN_CONSOLE_URL = 'https://appengine.google.com'
 
   @property
@@ -89,15 +88,8 @@ class Default(object):
 
   @property
   def DISCOVERY_URL(self):
-    if self.DATASTORE_ADMIN_API_APP_VERSION:
-      hostname = '%s-dot-%s.%s' % (self.DATASTORE_ADMIN_API_APP_VERSION,
-                                   self.DATASTORE_ADMIN_API_APP_ID,
-                                   self.DEFAULT_APP_DOMAIN)
-    else:
-      hostname = '%s.%s' % (self.DATASTORE_ADMIN_API_APP_ID,
-                            self.DEFAULT_APP_DOMAIN)
-    path = '_ah/api/discovery/v1/apis/{api}/{apiVersion}/rest'
-    return 'https://%s/%s' % (hostname, path)
+    return 'https://%s/discovery/v1/apis/{api}/{apiVersion}/rest' % (
+        self.GOOGLE_API_HOSTNAME)
 
   def GsBucketURL(self, bucket_name):
     return 'https://%s/%s/' % (self.GS_API_HOSTNAME, bucket_name)

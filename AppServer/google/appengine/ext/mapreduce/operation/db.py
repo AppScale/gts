@@ -33,6 +33,7 @@
 """DB-related operations."""
 
 
+
 __all__ = ['Put', 'Delete']
 
 
@@ -44,7 +45,7 @@ from google.appengine.ext.mapreduce.operation import base
 class Put(base.Operation):
   """Put entity into datastore via mutation_pool.
 
-  See mapreduce.context.MutationPool.
+  See mapreduce.context._MutationPool.
   """
 
   def __init__(self, entity):
@@ -61,13 +62,13 @@ class Put(base.Operation):
     Args:
       context: mapreduce context as context.Context.
     """
-    context.mutation_pool.put(self.entity)
+    context._mutation_pool.put(self.entity)
 
 
 class Delete(base.Operation):
   """Delete entity from datastore via mutation_pool.
 
-  See mapreduce.context.MutationPool.
+  See mapreduce.context._MutationPool.
   """
 
   def __init__(self, entity):
@@ -84,4 +85,4 @@ class Delete(base.Operation):
     Args:
       context: mapreduce context as context.Context.
     """
-    context.mutation_pool.delete(self.entity)
+    context._mutation_pool.delete(self.entity)

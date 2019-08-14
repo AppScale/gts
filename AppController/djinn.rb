@@ -3431,7 +3431,9 @@ class Djinn
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
-    threads.each { |t| t.join }
+    threads.each do |t|
+      Djinn.log_debug("Waiting for thread #{t}") until t.join(5)
+    end
     Djinn.log_info('API services have started on this node.')
 
     # Start Hermes with integrated stats service
