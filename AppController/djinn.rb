@@ -5777,11 +5777,12 @@ class Djinn
       end
 
       # Get the ssh key to use for the remote machine.
-      ssh_key = @nodes.find { |node| node["private_ip"] == ip }["ssh_key"]
-      if ssh_key.empty?
+      remote_node = @nodes.keep_if { |node| node.private_ip == ip }
+      if remote_node.empty?
         Djinn.log_info("Got invalid machine to retrieve code (#{ip}).")
         next
       end
+      ssh_key = remote_node[0].ssh_key
 
       md5 = ZKInterface.get_revision_md5(revision_key, ip)
       Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
