@@ -33,7 +33,6 @@ from .constants import (
   InvalidSource,
   JAVA,
   JAVA8,
-  NGINX_DISPATCH_REGEX,
   REQUIRED_PULL_QUEUE_FIELDS,
   REQUIRED_PUSH_QUEUE_FIELDS,
   SOURCES_DIRECTORY,
@@ -612,6 +611,10 @@ def validate_routing_rule(rule, services):
   path = rule['path']
   if service not in services:
     raise InvalidDispatchConfiguration('Service does not exist.')
+
+  # Validation taken from GAE's 1.9.69 SDK (google/appengine/api/dispatchinfo.py)
+  # Logic modified to check domain.startswith('*') rather than 'host_exact'
+  # so if/else is flipped.
   if domain.startswith('*'):
     if not _URL_HOST_SUFFIX_PATTERN_RE.match(domain):
       raise InvalidDispatchConfiguration(
@@ -620,10 +623,8 @@ def validate_routing_rule(rule, services):
     if not _URL_HOST_EXACT_PATTERN_RE.match(domain):
       raise InvalidDispatchConfiguration(
           'Invalid host pattern {}'.format(domain))
-    matcher = _URL_IP_V4_ADDR_RE.match(domain)
-    if matcher and sum(1 for x in matcher.groups() if int(x) <= 255) == 4:
-      raise InvalidDispatchConfiguration(
-          'Host may not match an ipv4 address {}'.format(domain))
+    _ValidateNotIpV4Address(domain)
+  # End GAE 1.9.69 validation.
 
   if not DISPATCH_PATH_REGEX.match(path):
     raise InvalidDispatchConfiguration('Invalid path pattern {}.'.format(path))
@@ -638,6 +639,16 @@ def validate_routing_rule(rule, services):
   if len(domain) + len(path) > 100:
     raise InvalidDispatchConfiguration('URL over 100 characters.')
 
+# Taken from GAE's 1.9.69 SDK (google/appengine/api/dispatchinfo.py)
+def _ValidateNotIpV4Address(host):
+  """Validate host is not an IPV4 address."""
+  matcher = _URL_IP_V4_ADDR_RE.match(host)
+  if matcher and sum(1 for x in matcher.groups() if int(x) <= 255) == 4:
+    # Exception modified for AppScale.
+    raise InvalidDispatchConfiguration(
+        'Host may not match an ipv4 address {}'.format(host))
+  return matcher
+# End GAE 1.9.69.
 
 def routing_rules_from_dict(payload, services):
   try:

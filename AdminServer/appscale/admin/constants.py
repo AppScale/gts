@@ -196,13 +196,12 @@ TQ_TARGET_REGEX = re.compile(r'^([a-zA-Z0-9\-]+[\.]?[a-zA-Z0-9\-]*)$')
 DISPATCH_DOMAIN_REGEX_SINGLE_ASTERISK = re.compile(r'^\*$')
 DISPATCH_DOMAIN_REGEX_ASTERISKS = re.compile(r'\*')
 DISPATCH_DOMAIN_REGEX_ASTERISK_DOT = re.compile(r'\*\.')
-_URL_SPLITTER_RE = re.compile(r'^([^/]+)(/.*)$')
 
-# Regular expression for a hostname based on
-# http://tools.ietf.org/html/rfc1123.
-#
-# This pattern is more restrictive than the RFC because it only accepts
-# lower case letters.
+# A set of regex rules to validate dispatch paths.
+DISPATCH_PATH_REGEX = re.compile(r'/[0-9a-z/]*[*]?$')
+
+# The following regexes are taken from GAE's 1.9.69 SDK
+# (google/appengine/api/dispatchinfo.py) to enforce the dispatch rules.
 _URL_HOST_EXACT_PATTERN_RE = re.compile(r"""
 # 0 or more . terminated hostname segments (may not start or end in -).
 ^([a-z0-9]([a-z0-9\-]*[a-z0-9])*\.)*
@@ -213,8 +212,6 @@ _URL_IP_V4_ADDR_RE = re.compile(r"""
 #4 1-3 digit numbers separated by .
 ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$""", re.VERBOSE)
 
-# Regular expression for a prefix of a hostname based on
-# http://tools.ietf.org/html/rfc1123. Restricted to lower case letters.
 _URL_HOST_SUFFIX_PATTERN_RE = re.compile(r"""
 # Single star or
 ^([*]|
@@ -224,12 +221,7 @@ _URL_HOST_SUFFIX_PATTERN_RE = re.compile(r"""
 [*](\.|[a-z0-9\-]*[a-z0-9]\.)([a-z0-9]([a-z0-9\-]*[a-z0-9])*\.)*
 ([a-z0-9]([a-z0-9\-]*[a-z0-9])*))$
 """, re.VERBOSE)
-
-# A set of regex rules to validate dispatch paths.
-DISPATCH_PATH_REGEX = re.compile(r'/[0-9a-z/]*[*]?$')
-
-# A regex rule to help make dispatch urls nginx friendly.
-NGINX_DISPATCH_REGEX = re.compile(r'\w*(?<!\.)\*')
+# End GAE's 1.9.69 SDK regex patterns.
 
 REQUIRED_PULL_QUEUE_FIELDS = ['name', 'mode']
 
