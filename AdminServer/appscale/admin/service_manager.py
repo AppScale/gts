@@ -1,14 +1,15 @@
 """ Schedules servers to fulfill service assignments. """
 import collections
 import errno
+import functools
 import json
 import logging
+import monotonic
 import os
 import psutil
 import re
 import socket
 import subprocess
-import time
 
 from builtins import range
 
@@ -102,6 +103,22 @@ def pids_in_slice(slice_name):
   return pids
 
 
+def cpu_multiple_count_supplier(cpu_multiplier, cpu_multiple_fallback=1):
+  """
+  A function returning a multiple of the cpu count.
+
+  Use with functools.partial for Services count_supplier
+
+  Args:
+    cpu_multiplier: A float multiplier for the count calculation
+    cpu_multiple_fallback: Result to return when cpu count not available
+  """
+  cpu_count = psutil.cpu_count()
+  if cpu_count is None:
+    return cpu_multiple_fallback
+  return int(cpu_count * cpu_multiplier)
+
+
 class Service(object):
   """
   A container for service specific properties
@@ -111,7 +128,8 @@ class Service(object):
                health_probe, min_port, max_port,
                start_timeout=30, status_timeout=10, stop_timeout=5,
                monit_name_fmt='{type}_server-{port}',
-               log_filename_fmt='{type}_server-{port}.log'):
+               log_filename_fmt='{type}_server-{port}.log',
+               count_supplier=None):
     """ Initializes instance of Service.
 
     Args:
@@ -127,6 +145,7 @@ class Service(object):
       stop_timeout: An int - max time to wait for server to stop (in seconds).
       monit_name_fmt: A format str containing 'type' and 'port' keywords.
       log_filename_fmt: A format str containing 'type' and 'port' keywords.
+      count_supplier: A func supplying the default service count.
     """
     self.type = type_
     self.slice = slice_
@@ -140,6 +159,7 @@ class Service(object):
     self.stop_timeout = stop_timeout
     self._monit_name_fmt = monit_name_fmt
     self._log_filename_fmt = log_filename_fmt
+    self.count_supplier = count_supplier
 
   def monit_name(self, port):
     """ Renders a monit name to use in Hermes stats.
@@ -160,6 +180,17 @@ class Service(object):
       A string representing filename (not a full path, just name).
     """
     return self._log_filename_fmt.format(type=self.type, port=port)
+
+  def default_count(self):
+    """ Calculate the default service count for this host.
+
+    Returns:
+      An int value for the default service count.
+    """
+    if self.count_supplier:
+      return max(1, int(self.count_supplier()))
+    else:
+      return 1
 
 
 # =============================
@@ -182,7 +213,7 @@ def port_from_datastore_start_cmd(args):
 
 
 def datastore_start_cmd(port, assignment_options):
-  """ Prepares command line arguments for starts a new datastore server.
+  """ Prepares command line arguments for starting a new datastore server.
 
   Args:
     port: An int - tcp port to start datastore server on.
@@ -203,7 +234,7 @@ def datastore_health_probe(base_url):
   """ Verifies if datastore server is responsive.
 
   Args:
-    base_url: A str - location of datastore server to test.
+    base_url: A str - datastore server base URL to test.
   Returns:
     True if the serve is responsive and False otherwise.
   """
@@ -224,14 +255,108 @@ datastore_service = Service(
   min_port=4000, max_port=5999,
   start_timeout=30, status_timeout=10, stop_timeout=5,
   monit_name_fmt='datastore_server-{port}',
-  log_filename_fmt='datastore_server-{port}.log'
+  log_filename_fmt='datastore_server-{port}.log',
+  count_supplier=functools.partial(cpu_multiple_count_supplier, 1,
+                                   cpu_multiple_fallback=3)
+)
+
+
+# ==========================
+#    Search service info:
+# --------------------------
+
+class SearchServiceFunctions(object):
+
+  def __init__(self):
+    self.latest_health_status = None
+
+  @staticmethod
+  def port_from_search_start_cmd(args):
+    """ Extracts appscale-search server port from command line arguments.
+
+    Args:
+      args: A list representing command line arguments of server process.
+    Returns:
+      An integer representing port where server is listening on.
+    Raises:
+      ValueError if args doesn't correspond to appscale-search.
+    """
+    search_executable = '/opt/appscale_venvs/search2/bin/appscale-search2'
+    if len(args) < 2 or not args[1].endswith(search_executable):
+      raise ValueError('Not a search start command')
+    return int(args[args.index('--port') + 1])
+
+  @staticmethod
+  def search_start_cmd(port, assignment_options):
+    """ Prepares command line arguments for starting a new search server.
+
+    Args:
+      port: An int - tcp port to start search server on.
+      assignment_options: A dict containing assignment options from ZK.
+    Returns:
+      A list of command line arguments.
+    """
+    start_cmd = ['/opt/appscale_venvs/search2/bin/appscale-search2',
+                 '--zk-locations'] + options.zk_locations + [
+                 '--host', options.private_ip,
+                 '--port', str(port)]
+    if assignment_options.get('verbose'):
+      start_cmd.append('--verbose')
+    return start_cmd
+
+  @gen.coroutine
+  def search_health_probe(self, base_url):
+    """ Verifies if search server is responsive.
+    It also writes warning to logs if the server is responsive
+    but reported issues with connection to ZooKeeper or Solr.
+
+    Args:
+      base_url: A str - search server base URL to test.
+    Returns:
+      True if the serve is responsive and False otherwise.
+    """
+    http_client = AsyncHTTPClient()
+    try:
+      response = yield http_client.fetch('{}/_health'.format(base_url))
+      if response.code != 200:
+        raise gen.Return(False)
+      health_status = json.loads(response.body.decode('utf-8'))
+      if health_status != self.latest_health_status:
+        logger.debug('Search service reported new status: {}'
+                     .format(health_status))
+        self.latest_health_status = health_status
+      if health_status['zookeeper_state'] != KazooState.CONNECTED:
+        logger.warning('Zookeeper client state at search service is {}'
+                       .format(health_status['zookeeper_state']))
+      if not health_status['solr_live_nodes']:
+        logger.warning('There are no Solr live nodes available')
+      raise gen.Return(True)
+    except socket.error as error:
+      if error.errno != errno.ECONNREFUSED:
+        raise
+      raise gen.Return(False)
+
+
+_search_service_functions = SearchServiceFunctions()
+search_service = Service(
+  type_='search', slice_='appscale-search',
+  start_cmd_matcher=_search_service_functions.port_from_search_start_cmd,
+  start_cmd_builder=_search_service_functions.search_start_cmd,
+  health_probe=_search_service_functions.search_health_probe,
+  min_port=31000, max_port=31999,
+  start_timeout=30, status_timeout=10, stop_timeout=5,
+  monit_name_fmt='search_server-{port}',
+  log_filename_fmt='search_server-{port}.log'
 )
 
 
 class ServerManager(object):
   """ Keeps track of the status and location of a specific server. """
 
-  KNOWN_SERVICES = [datastore_service]
+  KNOWN_SERVICES = [datastore_service, search_service]
+
+  # The number of seconds to keep track of failed servers.
+  FAILED_SERVER_RETENTION = 60
 
   def __init__(self, service, port, assignment_options=None, start_cmd=None):
     """ Creates a new Server.
@@ -246,7 +371,6 @@ class ServerManager(object):
     """
     self.service = service
     self.failure = None
-    self.failure_time = None
     # This is for compatibility with Hermes, which expects a monit name.
     self.monit_name = self.service.monit_name(port)
     self.port = port
@@ -256,11 +380,25 @@ class ServerManager(object):
     if assignment_options is None and start_cmd is None:
       raise TypeError('assignment_options or start_cmd should be specified')
     self._assignment_options = assignment_options
+    # A value from the monotonic clock indicating when a server failed.
+    self._failure_time = None
     self._start_cmd = start_cmd
     self._stdout = None
 
     # Serializes start, stop, and monitor operations.
     self._management_lock = AsyncLock()
+
+  @property
+  def outdated(self):
+    if self.state == ServerStates.FAILED:
+      if (monotonic.monotonic() >
+          self._failure_time + self.FAILED_SERVER_RETENTION):
+        return True
+
+    if self.state == ServerStates.STOPPED:
+      return True
+
+    return False
 
   @gen.coroutine
   def ensure_running(self):
@@ -315,6 +453,8 @@ class ServerManager(object):
       # pre-systemd distros, move the process after starting it.
       self.process = psutil.Popen(self._start_cmd, stdout=self._stdout,
                                   stderr=subprocess.STDOUT)
+      logger.info('Started process #{} using command {}'
+                  .format(self.process.pid, self._start_cmd))
 
       tasks_location = os.path.join(slice_path(self.service.slice), 'tasks')
       with open(tasks_location, 'w') as tasks_file:
@@ -347,9 +487,9 @@ class ServerManager(object):
                     .format(pid=self.process.pid))
         return
 
-      initial_stop_time = time.time()
+      deadline = monotonic.monotonic() + self.service.stop_timeout
       while True:
-        if time.time() > initial_stop_time + self.service.stop_timeout:
+        if monotonic.monotonic() > deadline:
           self.process.kill()
           break
 
@@ -371,26 +511,30 @@ class ServerManager(object):
     Raises:
       StartTimeout if start time exceeds given timeout.
     """
-    server_url = 'http://{}:{}'.format(options.private_ip, self.port)
-    start_time = time.time()
+    base_url = 'http://{}:{}'.format(options.private_ip, self.port)
+    deadline = monotonic.monotonic() + timeout
     try:
       while True:
         if not self.process.is_running():
           raise ProcessStopped('{} is no longer running'.format(self))
 
-        if time.time() > start_time + timeout:
+        if monotonic.monotonic() > deadline:
           raise StartTimeout('{} took too long to start'.format(self))
 
-        health_result = self.service.health_probe(server_url)
-        if isinstance(health_result, gen.Future):
-          health_result = yield health_result
-        if health_result:
-          break
+        try:
+          health_result = self.service.health_probe(base_url)
+          if isinstance(health_result, gen.Future):
+            health_result = yield health_result
+          if health_result:
+            break
+        except Exception as error:
+          logger.error('Failed to make a health check for {} ({})'
+                       .format(self.monit_name, error))
 
         yield gen.sleep(1)
     except Exception as error:
       self._cleanup()
-      self.failure_time = time.time()
+      self._failure_time = monotonic.monotonic()
       self.failure = error
       self.state = ServerStates.FAILED
       raise
@@ -413,13 +557,11 @@ class ServiceManager(object):
   # Associates service names with server classes.
   SERVICE_MAP = collections.OrderedDict([
     ('datastore', datastore_service),
+    ('search', search_service),
   ])
 
   # The number of seconds to wait between cleaning up servers.
   GROOMING_INTERVAL = 10
-
-  # The number of seconds to keep track of failed servers.
-  FAILED_SERVER_RETENTION = 60
 
   def __init__(self, zk_client):
     """ Creates new ServiceManager.
@@ -492,17 +634,7 @@ class ServiceManager(object):
   @gen.coroutine
   def _groom_servers(self):
     """ Forgets about outdated servers and fulfills assignments. """
-    def outdated(server):
-      if (server.state == ServerStates.FAILED and
-          time.time() > server.failure_time + self.FAILED_SERVER_RETENTION):
-        return True
-
-      if server.state == ServerStates.STOPPED:
-        return True
-
-      return False
-
-    self.state = [server for server in self.state if not outdated(server)]
+    self.state = [server for server in self.state if not server.outdated]
     for service_type, assignment_options in self.assignments.items():
       yield self._schedule_service(service_type, assignment_options)
 
@@ -537,10 +669,12 @@ class ServiceManager(object):
       assignment_options: A dictionary specifying options
                           to use when starting servers.
     """
+    service = self.SERVICE_MAP[service_type]
     scheduled = [server for server in self.state
                  if server.type == service_type and
                  server.state in self.SCHEDULED_STATES]
-    to_start = assignment_options['count'] - len(scheduled)
+    default_count = service.default_count()
+    to_start = assignment_options.get('count', default_count) - len(scheduled)
     if to_start < 0:
       stopped = 0
       for server in reversed(scheduled):
@@ -554,7 +688,6 @@ class ServiceManager(object):
       return
 
     for _ in range(to_start):
-      service = self.SERVICE_MAP[service_type]
       port = self._get_open_port(service)
       server = ServerManager(service, port, assignment_options)
       self.state.append(server)

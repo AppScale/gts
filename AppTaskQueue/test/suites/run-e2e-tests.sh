@@ -104,6 +104,7 @@ trap scp_logs EXIT
 # Determine absolute path to some dirs
 SUITES_DIR="$( realpath --strip "$( dirname "${BASH_SOURCE[0]}" )" )"
 TASKQUEUE_SRC_DIR="$( dirname "$( dirname "${SUITES_DIR}" )" )"
+COMMON_SRC_DIR="$( dirname "${TASKQUEUE_SRC_DIR}" )"/common
 HELPERS_DIR="${TASKQUEUE_SRC_DIR}/test/helpers"
 E2E_TEST_DIR="${TASKQUEUE_SRC_DIR}/test/e2e"
 
@@ -125,6 +126,10 @@ scp -o StrictHostKeyChecking=no \
     "${TASKQUEUE_SRC_DIR}/appscale" \
     "${TASKQUEUE_SRC_DIR}/setup.py" \
     "${USER}@${VM_ADDR}:/tmp/AppTaskQueue/"
+scp -o StrictHostKeyChecking=no \
+    -r -i "${KEY_LOCATION}" \
+    "${COMMON_SRC_DIR}" \
+    "${USER}@${VM_ADDR}:/tmp/common"
 
 # Save DSN string and projects config to variables
 PG_DSN="dbname=appscale-test-project user=appscale password=appscale-pwd host=${VM_PRIVATE_IP}"

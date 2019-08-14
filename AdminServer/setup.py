@@ -7,6 +7,7 @@ install_requires = [
   'jsonschema',
   'kazoo',
   'idna>=2.5,<2.8',  # Required for requests.
+  'monotonic',
   'psutil',
   'PyYaml',
   'requests-unixsocket',
@@ -21,7 +22,7 @@ if sys.version_info < (3,):
 
 setup(
   name='appscale-admin',
-  version='0.0.4',
+  version='0.0.5',
   description='An implementation of the Google App Engine Admin API',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',

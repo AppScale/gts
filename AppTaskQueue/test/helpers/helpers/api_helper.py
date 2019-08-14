@@ -51,6 +51,16 @@ class ProtobufferException(ProtobufferError):
     self.exception = exception
 
 
+def timed(coroutine):
+  async def decorated(*args, **kwargs):
+    ioloop = asyncio.get_event_loop()
+    start = ioloop.time()
+    result = await coroutine(*args, **kwargs)
+    delay = ioloop.time() - start
+    return result, delay * 1_000_000
+  return decorated
+
+
 class TaskQueue(object):
   """
   Helper class for making HTTP REST and HTTP Protobuffer requests.
@@ -74,6 +84,8 @@ class TaskQueue(object):
     self._project_id = project_id
     self.rest_sync = sync_version(self.rest)
     self.protobuf_sync = sync_version(self.protobuf)
+    self.timed_rest = timed(self.rest)
+    self.timed_protobuf = timed(self.protobuf)
 
   async def rest(self, method, *, path_suffix, params=None, json=None,
                  raise_for_status=True):

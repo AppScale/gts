@@ -43,10 +43,14 @@ module TaskQueue
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = '/var/lib/rabbitmq/.erlang.cookie'.freeze
 
+  # The location of taskqueue venv pip
+  TASKQUEUE_PIP = '/opt/appscale_venvs/appscale_taskqueue/bin/pip'.chomp
+
   # The location of the taskqueue server script. This service controls
   # and creates celery workers, and receives taskqueue protocol buffers
   # from AppServers.
-  TASKQUEUE_SERVER_SCRIPT = `which appscale-taskqueue`.chomp
+  TASKQUEUE_SERVER_SCRIPT = '/opt/appscale_venvs/appscale_taskqueue' \
+                            '/bin/appscale-taskqueue'.chomp
 
   # Where to find the rabbitmqctl command.
   RABBITMQCTL = `which rabbitmqctl`.chomp
@@ -234,7 +238,13 @@ module TaskQueue
   # Stops the RabbitMQ, celery workers, and taskqueue server on this node.
   def self.stop
     Djinn.log_debug('Shutting down celery workers')
-    stop_cmd = "/usr/bin/python2 -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
+    stop_script = \
+      "import celery\n" \
+      "celery = celery.Celery()\n" \
+      "with celery.control.app.connection_or_acquire(None) as conn:\n" \
+      "  conn.ensure_connection(max_retries=2)\n" \
+      "  celery.control.broadcast('shutdown', connection=conn)"
+    stop_cmd = %Q(/usr/bin/python2 -c "#{stop_script}")
     Djinn.log_run(stop_cmd)
     Djinn.log_debug('Shutting down RabbitMQ')
     MonitInterface.stop(:rabbitmq)
@@ -281,6 +291,10 @@ module TaskQueue
     end
 
     flower_cmd = `which flower`.chomp
+    if flower_cmd.empty?
+      Djinn.log_warn('Couldn\'t find flower executable.')
+      return
+    end
     start_cmd = "#{flower_cmd} --basic_auth=appscale:#{flower_password}"
     MonitInterface.start(:flower, start_cmd)
   end

@@ -1,0 +1,16 @@
+<div class="page-header"><h1>Service Accounts for {{ project_id }}</h1></div>
+{% if accounts %}
+  <h3>Current Accounts</h3>
+  <ul>
+  {% for account in accounts %}
+    <li>{{ account.email }}</li>
+  {% endfor %}
+  </ul>
+{% else %}
+  <p>There are no service accounts defined for this project.</p>
+{% endif %}
+<form method="post" enctype="multipart/form-data">
+    <h3>Upload new service account JSON</h3>
+    <input type="file" name="service_account_json" required>
+    <input type="submit" value="Upload">
+</form>

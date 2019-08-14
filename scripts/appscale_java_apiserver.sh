@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launches the AppScale Java 8 API server
+# Launches the AppScale Java Runtime API server
 
 API_ARGS=""
 while test -n "${1}"; do

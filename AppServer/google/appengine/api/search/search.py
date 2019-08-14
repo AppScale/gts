@@ -1041,7 +1041,7 @@ class FacetRange(object):
     FacetRange('good', start='3.0', end='3.5')
   """
 
-  def __init__(self, name=None, start=None, end=None):
+  def __init__(self, name='', start=None, end=None):
     """Initializer.
 
     Args:
@@ -1995,7 +1995,7 @@ def _CopySortExpressionToProtocolBuffer(sort_expression, pb):
         isinstance(sort_expression.default_value, datetime.date)):
     pb.set_default_value_numeric(
         search_util.EpochTime(sort_expression.default_value))
-  else:
+  elif isinstance(sort_expression.default_value, (int, long, float)):
     pb.set_default_value_numeric(sort_expression.default_value)
   return pb
 
@@ -2099,13 +2099,16 @@ class SortExpression(object):
       raise TypeError('expression must be a SortExpression, got None')
     _CheckExpression(self._expression)
     self._default_value = default_value
-    if isinstance(self.default_value, basestring):
-      self._default_value = _ConvertToUnicode(default_value)
-      _CheckText(self._default_value, 'default_value')
-    elif not isinstance(self._default_value,
-                        (int, long, float, datetime.date, datetime.datetime)):
-      raise TypeError('default_value must be text, numeric or datetime, got %s'
-                      % self._default_value.__class__.__name__)
+    if self._default_value is not None:
+      if isinstance(self.default_value, basestring):
+        self._default_value = _ConvertToUnicode(default_value)
+        _CheckText(self._default_value, 'default_value')
+      elif not isinstance(self._default_value,
+                          (int, long, float, datetime.date, datetime.datetime)):
+        raise TypeError(
+          'default_value must be text, numeric or datetime, got %s'
+          % self._default_value.__class__.__name__
+        )
 
   @property
   def expression(self):
@@ -3498,6 +3501,8 @@ class Index(object):
     else:
       self._app_id = None
 
+    # TODO it's workaround for ignoring deadline parameter
+    kwargs.pop('deadline', None)
     if kwargs:
       raise TypeError('Invalid arguments: %s' % ', '.join(kwargs))
 

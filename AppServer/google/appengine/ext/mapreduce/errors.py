@@ -31,6 +31,7 @@
 """Map Reduce framework errors."""
 
 
+
 __all__ = [
     "BadCombinerOutputError",
     "BadParamsError",
@@ -43,21 +44,11 @@ __all__ = [
     "MultipleDocumentsInMrYaml",
     "NotEnoughArgumentsError",
     "RetrySliceError",
-    "SHARD_RETRY_ERRORS",
     "ShuffleServiceError",
-    ]
-
-from google.appengine.api import files
-
-
-
-SHARD_RETRY_ERRORS = [
-    files.ApiTemporaryUnavailableError,
-    files.ExistenceError,
-    files.FileTemporaryUnavailableError,
-    files.FinalizationError,
-    files.UnknownError,
-    ]
+    "TransientError",
+    "InvalidRecordError",
+    "WriterValidationError",
+]
 
 
 class Error(Exception):
@@ -85,7 +76,7 @@ class BadReaderParamsError(BadParamsError):
 
 
 class BadWriterParamsError(BadParamsError):
-  """The input parameters to a reader were invalid."""
+  """The input parameters to a writer were invalid."""
 
 
 class FailJobError(Error):
@@ -110,3 +101,26 @@ class RetrySliceError(Error):
   The job will be failed if the slice can't progress before maximum
   number of retries.
   """
+
+
+class InvalidRecordError(Error):
+  """Raised when invalid record encountered."""
+
+
+class WriterValidationError(Error):
+  """Writer was unable to validate output data."""
+
+
+class TransientError(Error):
+  """Raised by a hook to throw an transient error that it has already logged."""
+
+  def __init__(self, cause):
+    super(TransientError, self).__init__(self)
+    self._cause = cause
+
+  def __str__(self):
+    return "%s: %s" % (type(self._cause).__name__, str(self._cause))
+
+  @property
+  def cause(self):
+    return self._cause

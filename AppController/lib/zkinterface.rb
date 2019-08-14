@@ -48,6 +48,9 @@ class ZKInterface
   # The ZooKeeper node where datastore servers register themselves.
   DATASTORE_REGISTRY_PATH = '/appscale/datastore/servers'
 
+  # The ZooKeeper node where search servers register themselves.
+  SEARCH2_REGISTRY_PATH = '/appscale/search/live_nodes'
+
   # The location in ZooKeeper that AppControllers write information about their
   # node to, so that others can poll to see if they are alive and what roles
   # they've taken on.
@@ -237,11 +240,26 @@ class ZKInterface
     }
   end
 
+  def self.get_search2_servers
+    return get_children(SEARCH2_REGISTRY_PATH).map { |server|
+      server = server.split(':')
+      server[1] = server[1].to_i
+      server
+    }
+  end
+
   def self.set_machine_assignments(machine_ip, assignments)
     assignments_node = '/appscale/assignments'
     ensure_path(assignments_node)
     machine_node = [assignments_node, machine_ip].join('/')
-    set(machine_node, JSON.dump(assignments), NOT_EPHEMERAL)
+    begin
+      current_assignments = get_detailed(machine_node)
+      assignments = JSON.load(current_assignments[:data]).merge assignments
+      set(machine_node, JSON.dump(assignments), NOT_EPHEMERAL,
+          current_assignments[:version])
+    rescue FailedZooKeeperOperationException
+      set(machine_node, JSON.dump(assignments), NOT_EPHEMERAL)
+    end
   end
 
   # Defines deployment-wide defaults for runtime parameters.
@@ -317,21 +335,23 @@ class ZKInterface
     }
   end
 
-  def self.get(key)
+  def self.get_detailed(key)
     unless defined?(@@zk)
       raise FailedZooKeeperOperationException.new('ZKinterface has not ' \
         'been initialized yet.')
     end
 
-    info = run_zookeeper_operation {
-      @@zk.get(path: key)
-    }
+    info = run_zookeeper_operation { @@zk.get(path: key) }
     if info[:rc].zero?
-      return info[:data]
+      return info
     else
       raise FailedZooKeeperOperationException.new("Failed to get #{key}, " \
         "with info #{info.inspect}")
     end
+  end
+
+  def self.get(key)
+    get_detailed(key)[:data]
   end
 
   def self.get_children(key)
@@ -370,7 +390,7 @@ class ZKInterface
     end
   end
 
-  def self.set(key, val, ephemeral)
+  def self.set(key, val, ephemeral, version=nil)
     unless defined?(@@zk)
       raise FailedZooKeeperOperationException.new('ZKinterface has not ' \
         'been initialized yet.')
@@ -381,12 +401,15 @@ class ZKInterface
       info = {}
       if exists?(key)
         info = run_zookeeper_operation {
-          @@zk.set(path: key, data: val)
+          @@zk.set(path: key, data: val, version: version)
         }
-      else
+      elsif version.nil?
         info = run_zookeeper_operation {
           @@zk.create(path: key, ephemeral: ephemeral, data: val)
         }
+      else
+        raise FailedZooKeeperOperationException.new('Can not update ' \
+        'node #{key} with version #{version} as it was deleted.')
       end
 
       unless info[:rc].zero?

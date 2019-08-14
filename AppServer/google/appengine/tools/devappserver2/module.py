@@ -674,6 +674,13 @@ class Module(object):
         for handler in handlers:
           match = handler.match(request_url)
           if match:
+
+            # AppScale: Reject requests with the wrong scheme.
+            redirect_response = self._handle_redirect(
+                handler, environ, wrapped_start_response)
+            if redirect_response is not None:
+              return redirect_response
+
             auth_failure = handler.handle_authorization(environ,
                                                         wrapped_start_response)
             if auth_failure is not None:
@@ -696,6 +703,31 @@ class Module(object):
         logging.exception('Request to %r failed', request_url)
         wrapped_start_response('500 Internal Server Error', [], e)
         return []
+
+  def _handle_redirect(self, handler, environ, start_response):
+    """ AppScale: Reject requests with the wrong scheme. """
+    # Only reject requests that come through nginx.
+    if 'HTTP_X_FORWARDED_PROTO' not in environ:
+      return
+
+    # Ignore handlers that the user did not configure.
+    if not isinstance(handler, url_handler.UserConfiguredURLHandler):
+      return
+
+    scheme = environ['HTTP_X_FORWARDED_PROTO']
+    expected_scheme = scheme
+    if handler._url_map.secure == 'always':
+      expected_scheme = 'https'
+    elif handler._url_map.secure == 'never':
+      expected_scheme = 'http'
+
+    if scheme == expected_scheme:
+      return
+
+    new_location = ''.join([expected_scheme, '://', environ['HTTP_HOST'],
+                            environ.get('REQUEST_URI', '/')])
+    start_response('302 Moved Temporarily', [('Location', new_location)])
+    return []
 
   def _async_shutdown_instance(self, inst, port):
     _THREAD_POOL.submit(self._shutdown_instance, inst, port)
@@ -833,6 +865,7 @@ class Module(object):
                'wsgi.input': cStringIO.StringIO(body)}
     util.put_headers_in_environ(headers, environ)
     if fake_login:
+      environ[constants.FAKE_IS_ADMIN_HEADER] = login.fake_admin()
       environ[constants.FAKE_LOGGED_IN_HEADER] = '1'
     elif constants.FAKE_LOGGED_IN_HEADER in environ:
       del environ[constants.FAKE_LOGGED_IN_HEADER]

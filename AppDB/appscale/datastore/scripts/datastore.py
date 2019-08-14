@@ -8,9 +8,9 @@ given (Put, Get, Delete, Query, etc).
 import argparse
 import json
 import logging
+import monotonic
 import os
 import sys
-import time
 import tornado.httpserver
 import tornado.web
 
@@ -206,7 +206,7 @@ class MainHandler(tornado.web.RequestHandler):
       apirequest.clear_request()
     method = apirequest.method()
     http_request_data = apirequest.request()
-    start = time.time()
+    start = monotonic.monotonic()
 
     request_log = method
     if apirequest.has_request_id():
@@ -257,7 +257,7 @@ class MainHandler(tornado.web.RequestHandler):
       errcode = datastore_pb.Error.BAD_REQUEST
       errdetail = "Unknown datastore message"
 
-    time_taken = time.time() - start
+    time_taken = monotonic.monotonic() - start
     if method in STATS:
       if errcode in STATS[method]:
         prev_req, pre_time = STATS[method][errcode]
@@ -889,11 +889,23 @@ def main():
   server_node = '{}/{}:{}'.format(DATASTORE_SERVERS_NODE, options.private_ip,
                                   options.port)
 
-  datastore_batch = DatastoreFactory.getDatastore(
-    args.type, log_level=logger.getEffectiveLevel())
-  zookeeper = zktransaction.ZKTransaction(
-    host=zookeeper_locations, db_access=datastore_batch,
-    log_level=logger.getEffectiveLevel())
+  if args.type == 'cassandra':
+    datastore_batch = DatastoreFactory.getDatastore(
+      args.type, log_level=logger.getEffectiveLevel())
+    zookeeper = zktransaction.ZKTransaction(
+      host=zookeeper_locations, db_access=datastore_batch,
+      log_level=logger.getEffectiveLevel())
+    transaction_manager = TransactionManager(zookeeper.handle)
+    datastore_access = DatastoreDistributed(
+      datastore_batch, transaction_manager, zookeeper=zookeeper,
+      log_level=logger.getEffectiveLevel(),
+      taskqueue_locations=taskqueue_locations)
+  else:
+    from appscale.datastore.fdb.fdb_datastore import FDBDatastore
+    datastore_access = FDBDatastore()
+    datastore_access.start()
+    zookeeper = zktransaction.ZKTransaction(
+      host=zookeeper_locations, log_level=logger.getEffectiveLevel())
 
   zookeeper.handle.add_listener(zk_state_listener)
   zookeeper.handle.ensure_path(DATASTORE_SERVERS_NODE)
@@ -902,14 +914,12 @@ def main():
   zk_state_listener(zookeeper.handle.state)
   zookeeper.handle.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
 
-  transaction_manager = TransactionManager(zookeeper.handle)
-  datastore_access = DatastoreDistributed(
-    datastore_batch, transaction_manager, zookeeper=zookeeper,
-    log_level=logger.getEffectiveLevel(),
-    taskqueue_locations=taskqueue_locations)
   index_manager = IndexManager(zookeeper.handle, datastore_access,
                                perform_admin=True)
-  datastore_access.index_manager = index_manager
+  if args.type == 'cassandra':
+    datastore_access.index_manager = index_manager
+  else:
+    datastore_access.index_manager.composite_index_manager = index_manager
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)
