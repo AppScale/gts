@@ -97,3 +97,7 @@ h3 {
   border-bottom: 1px solid #C5D7EF;
   border-top: 1px solid #C5D7EF;
 }
+
+input[name$="entity_kind"] {
+  width:800px;
+}

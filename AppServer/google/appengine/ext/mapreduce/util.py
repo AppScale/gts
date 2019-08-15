@@ -28,9 +28,8 @@
 
 
 
-
-
 """Utility functions for use with the mapreduce library."""
+
 
 
 
@@ -47,12 +46,20 @@ __all__ = [
     "try_serialize_handler",
     "try_deserialize_handler",
     "CALLBACK_MR_ID_TASK_HEADER",
+    "strip_prefix_from_items",
+    "ALLOW_CHECKPOINT",
     ]
 
 import inspect
 import os
 import pickle
+import random
+import sys
+import time
 import types
+
+import google
+from google.appengine.ext import ndb
 
 from google.appengine.datastore import datastore_rpc
 from google.appengine.ext.mapreduce import parameters
@@ -63,6 +70,37 @@ _MR_SHARD_ID_TASK_HEADER = "AE-MR-SHARD-ID"
 
 
 CALLBACK_MR_ID_TASK_HEADER = "Mapreduce-Id"
+
+
+
+
+
+
+ALLOW_CHECKPOINT = object()
+
+
+_FUTURE_TIME = 2**34
+
+
+def _get_descending_key(gettime=time.time):
+  """Returns a key name lexically ordered by time descending.
+
+  This lets us have a key name for use with Datastore entities which returns
+  rows in time descending order when it is scanned in lexically ascending order,
+  allowing us to bypass index building for descending indexes.
+
+  Args:
+    gettime: Used for testing.
+
+  Returns:
+    A string with a time descending key.
+  """
+
+
+  now_descending = int((_FUTURE_TIME - gettime()) * 100)
+  request_id_hash = os.environ.get("REQUEST_ID_HASH", "")
+  random_bits = random.getrandbits(32)
+  return "%d%s%s" % (now_descending, random_bits, request_id_hash)
 
 
 def _get_task_host():
@@ -90,18 +128,24 @@ def _get_task_host():
   return "%s.%s.%s" % (version, module, default_host)
 
 
-def _get_task_headers(mr_spec, mr_id_header_key=_MR_ID_TASK_HEADER):
+def _get_task_headers(map_job_id,
+                      mr_id_header_key=_MR_ID_TASK_HEADER,
+                      set_host_header=True):
   """Get headers for all mr tasks.
 
   Args:
-    mr_spec: an instance of model.MapreduceSpec.
+    map_job_id: map job id.
     mr_id_header_key: the key to set mr id with.
+    set_host_header: If True, the "Host" param will be set to point to the
+                     current version + module.
 
   Returns:
     A dictionary of all headers.
   """
-  return {mr_id_header_key: mr_spec.mapreduce_id,
-          "Host": _get_task_host()}
+  result = {mr_id_header_key: map_job_id}
+  if set_host_header:
+    result["Host"] = _get_task_host()
+  return result
 
 
 def _enum(**enums):
@@ -131,10 +175,10 @@ def get_queue_name(queue_name):
   if queue_name:
     return queue_name
   queue_name = os.environ.get("HTTP_X_APPENGINE_QUEUENAME",
-                              parameters.DEFAULT_QUEUE_NAME)
+                              parameters.config.QUEUE_NAME)
   if len(queue_name) > 1 and queue_name[0:2] == "__":
 
-    return parameters.DEFAULT_QUEUE_NAME
+    return parameters.config.QUEUE_NAME
   else:
     return queue_name
 
@@ -157,6 +201,52 @@ def total_seconds(td):
   return secs
 
 
+def _maybe_localize_fq_name(module_name, fq_name):
+  """Localizes fq_name to deal with path difference in python25/27 runtimes.
+
+  Args:
+    module_name: Name of our module, obtained using __name__.
+    fq_name: Fully qualified name to be "localized".
+  Returns:
+    fq_name, potentially with prefix switched to match current module.
+  """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  PREFIX_LOCALIZATIONS = {
+      "google.appengine._internal.mapreduce": "google.appengine.ext.mapreduce",
+      "google.appengine.ext.mapreduce": "google.appengine._internal.mapreduce",
+  }
+  for local_module_prefix, fq_name_prefix in PREFIX_LOCALIZATIONS.iteritems():
+    if (module_name.startswith(local_module_prefix)
+        and fq_name.startswith(fq_name_prefix)):
+      return fq_name.replace(fq_name_prefix, local_module_prefix, 1)
+  return fq_name
+
+
 def for_name(fq_name, recursive=False):
   """Find class/function/method specified by its fully qualified name.
 
@@ -171,10 +261,11 @@ def for_name(fq_name, recursive=False):
   name doesn't contain '.', the current module will be used.
 
   Args:
-    fq_name: fully qualified name of something to find
+    fq_name: fully qualified name of something to find.
+    recursive: run recursively or not.
 
   Returns:
-    class object.
+    class object or None if fq_name is None.
 
   Raises:
     ImportError: when specified module could not be loaded or the class
@@ -183,9 +274,14 @@ def for_name(fq_name, recursive=False):
 
 
 
+  if fq_name is None:
+    return
+
   fq_name = str(fq_name)
   module_name = __name__
   short_name = fq_name
+
+  fq_name = _maybe_localize_fq_name(module_name, fq_name)
 
   if fq_name.rfind(".") >= 0:
     (module_name, short_name) = (fq_name[:fq_name.rfind(".")],
@@ -200,14 +296,17 @@ def for_name(fq_name, recursive=False):
 
 
 
-    if recursive:
-      raise
-    else:
-      raise ImportError("Could not find '%s' on path '%s'" % (
-                        short_name, module_name))
+
+    raise ImportError("Could not find '%s' on path '%s'" % (
+        short_name, module_name))
   except ImportError:
+    tb = sys.exc_info()[2]
+    if tb.tb_next is not None:
 
 
+
+
+      raise
     try:
       module = for_name(module_name, recursive=True)
       if hasattr(module, short_name):
@@ -216,9 +315,15 @@ def for_name(fq_name, recursive=False):
 
         raise KeyError()
     except KeyError:
-      raise ImportError("Could not find '%s' on path '%s'" % (
-                        short_name, module_name))
+      raise ImportError("Could not find '%s' in module '%s'" % (
+          short_name, module_name))
     except ImportError:
+      tb = sys.exc_info()[2]
+      if tb.tb_next is not None:
+
+
+
+        raise
 
 
       pass
@@ -349,3 +454,64 @@ def create_datastore_write_config(mapreduce_spec):
   else:
 
     return datastore_rpc.Configuration()
+
+
+def _set_ndb_cache_policy():
+  """Tell NDB to never cache anything in memcache or in-process.
+
+  This ensures that entities fetched from Datastore input_readers via NDB
+  will not bloat up the request memory size and Datastore Puts will avoid
+  doing calls to memcache. Without this you get soft memory limit exits,
+  which hurts overall throughput.
+  """
+  ndb_ctx = ndb.get_context()
+  ndb_ctx.set_cache_policy(lambda key: False)
+  ndb_ctx.set_memcache_policy(lambda key: False)
+
+
+def _obj_to_path(obj):
+  """Returns the fully qualified path to the object.
+
+  Args:
+    obj: obj must be a new style top level class, or a top level function.
+      No inner function or static method.
+
+  Returns:
+    Fully qualified path to the object.
+
+  Raises:
+    TypeError: when argument obj has unsupported type.
+    ValueError: when obj can't be discovered on the top level.
+  """
+  if obj is None:
+    return obj
+
+  if inspect.isclass(obj) or inspect.isfunction(obj):
+    fetched = getattr(sys.modules[obj.__module__], obj.__name__, None)
+    if fetched is None:
+      raise ValueError(
+          "Object %r must be defined on the top level of a module." % obj)
+    return "%s.%s" % (obj.__module__, obj.__name__)
+  raise TypeError("Unexpected type %s." % type(obj))
+
+
+def strip_prefix_from_items(prefix, items):
+  """Strips out the prefix from each of the items if it is present.
+
+  Args:
+    prefix: the string for that you wish to strip from the beginning of each
+      of the items.
+    items: a list of strings that may or may not contain the prefix you want
+      to strip out.
+
+  Returns:
+    items_no_prefix: a copy of the list of items (same order) without the
+      prefix (if present).
+  """
+  items_no_prefix = []
+  for item in items:
+    if item.startswith(prefix):
+      items_no_prefix.append(item[len(prefix):])
+    else:
+      items_no_prefix.append(item)
+  return items_no_prefix

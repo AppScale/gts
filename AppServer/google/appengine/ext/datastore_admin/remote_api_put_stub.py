@@ -21,12 +21,16 @@
 """An apiproxy stub that calls a remote handler via HTTP.
 
 This is a special version of the remote_api_stub which sends all traffic
-to the local backends *except* for datastore.put calls where the key
-contains a remote app_id.
+to the local backends *except* for datastore_v3 Put and datastore_v4
+AllocateIds calls where the key contains a remote app_id.
+
+Calls to datastore_v3 Put and datastore_v4 AllocateIds for which the entity
+keys contain a remote app_id are sent to the remote app.
 
 It re-implements parts of the remote_api_stub so as to replace dependencies on
 the (SDK only) appengine_rpc with urlfetch.
 """
+
 
 
 
@@ -67,28 +71,29 @@ class RemoteTransactionsUnimplemented(Error):
   """Remote Put requests do not support transactions."""
 
 
-class DatastorePutStub(object):
-  """A specialised stub for sending "puts" to a remote  App Engine datastore.
+class RemoteApiDatastoreStub(object):
+  """A specialised stub for writing to a remote App Engine datastore.
 
-  This stub passes through all requests to the normal stub except for
-  datastore put. It will check those to see if the put is for the local app
-  or a remote app, and if remote will send traffic remotely.
+  This class supports checking the app_id of a datastore op and either passing
+  the request through to the local app or sending it to a remote app.
+  Subclassed to implement supported services datastore_v3 and datastore_v4.
   """
 
-  def __init__(self, remote_url, target_appid, extra_headers, normal_stub):
+
+  _SERVICE_NAME = None
+
+  def __init__(self, remote_url, target_app_id, extra_headers, normal_stub):
     """Constructor.
 
     Args:
       remote_url: The URL of the remote_api handler.
-      target_appid: The appid to intercept calls for.
+      target_app_id: The app_id to intercept calls for.
       extra_headers: Headers to send (for authentication).
       normal_stub: The standard stub to delegate most calls to.
     """
     self.remote_url = remote_url
-    self.target_appid = target_appid
-    self.extra_headers = extra_headers or {}
-    if 'X-appcfg-api-version' not in self.extra_headers:
-      self.extra_headers['X-appcfg-api-version'] = '1'
+    self.target_app_id = target_app_id
+    self.extra_headers = InsertDefaultExtraHeaders(extra_headers)
     self.normal_stub = normal_stub
 
   def CreateRPC(self):
@@ -99,9 +104,15 @@ class DatastorePutStub(object):
     """
     return apiproxy_rpc.RPC(stub=self)
 
+  @classmethod
+  def ServiceName(cls):
+    """Return the name of the datastore service supported by this stub."""
+    return cls._SERVICE_NAME
+
   def MakeSyncCall(self, service, call, request, response):
     """Handle all calls to this stub; delegate as appropriate."""
-    assert service == 'datastore_v3'
+    assert service == self.ServiceName(), '%s does not support service %s' % (
+        type(self), service)
 
     explanation = []
     assert request.IsInitialized(explanation), explanation
@@ -153,6 +164,17 @@ class DatastorePutStub(object):
     else:
       response.ParseFromString(response_pb.response())
 
+
+class RemoteApiDatastoreV3Stub(RemoteApiDatastoreStub):
+  """A specialised stub for calling datastore_v3 Put on a foreign datastore.
+
+  This stub passes through all requests to the normal stub except for
+  datastore v3 Put. It will check those to see if the put is for the local app
+  or a remote app, and if remote will send traffic remotely.
+  """
+
+  _SERVICE_NAME = 'datastore_v3'
+
   def _Dynamic_Put(self, request, response):
     """Handle a Put request and route remotely if it matches the target app.
 
@@ -166,36 +188,54 @@ class DatastorePutStub(object):
 
     if request.entity_list():
       entity = request.entity(0)
-      if entity.has_key() and entity.key().app() == self.target_appid:
+      if entity.has_key() and entity.key().app() == self.target_app_id:
         if request.has_transaction():
 
 
           raise RemoteTransactionsUnimplemented()
-        self._MakeRemoteSyncCall('datastore_v3', 'Put', request, response)
+        self._MakeRemoteSyncCall(self.ServiceName(), 'Put', request, response)
         return
 
 
-    self.normal_stub.MakeSyncCall('datastore_v3', 'Put', request, response)
+    self.normal_stub.MakeSyncCall(self.ServiceName(), 'Put', request, response)
 
 
+class RemoteApiDatastoreV4Stub(RemoteApiDatastoreStub):
+  """A remote api stub to call datastore_v4 AllocateIds on a foreign datastore.
 
+  This stub passes through all requests to the normal datastore_v4 stub except
+  for datastore v4 AllocateIds. It will check those to see if the keys are for
+  the local app or a remote app, and if remote will send traffic remotely.
+  """
+
+  _SERVICE_NAME = 'datastore_v4'
 
   def _Dynamic_AllocateIds(self, request, response):
-    """Handle AllocateIds and route remotely if it matches the target app.
+    """Handle v4 AllocateIds and route remotely if it matches the target app.
 
     Args:
-      request: A datastore_pb.AllocateIdsRequest
-      response: A datastore_pb.AllocateIdsResponse
+      request: A datastore_v4_pb.AllocateIdsRequest
+      response: A datastore_v4_pb.AllocateIdsResponse
     """
-    if request.model_key().app() == self.target_appid:
-      self._MakeRemoteSyncCall('datastore_v3', 'AllocateIds', request, response)
+
+    if request.reserve_size() > 0:
+      app_id = request.reserve(0).partition_id().dataset_id()
+    elif request.allocate_size() > 0:
+      app_id = request.allocate(0).partition_id().dataset_id()
     else:
-      self.normal_stub.MakeSyncCall('datastore_v3', 'AllocateIds', request,
+      app_id = None
+
+    if app_id == self.target_app_id:
+      self._MakeRemoteSyncCall(self.ServiceName(), 'AllocateIds', request,
+                               response)
+    else:
+      self.normal_stub.MakeSyncCall(self.ServiceName(), 'AllocateIds', request,
                                     response)
 
 
-def get_remote_appid(remote_url, extra_headers=None):
-  """Get the appid from the remote_api endpoint.
+
+def get_remote_app_id(remote_url, extra_headers=None):
+  """Get the app_id from the remote_api endpoint.
 
   This also has the side effect of verifying that it is a remote_api endpoint.
 
@@ -208,7 +248,7 @@ def get_remote_appid(remote_url, extra_headers=None):
 
   Raises:
     FetchFailed: Urlfetch call failed.
-    ConfigurationError: URLfetch suceeded but results were invalid.
+    ConfigurationError: URLfetch succeeded but results were invalid.
   """
   rtok = str(random.random())[2:]
   url = remote_url + '?rtok=' + rtok
@@ -236,7 +276,7 @@ def get_remote_appid(remote_url, extra_headers=None):
   if not response.startswith('{'):
     logging.info('Response unparasable: %s', response)
     raise ConfigurationError(
-        'Invalid response recieved from server: %s' % response)
+        'Invalid response received from server: %s' % response)
   app_info = yaml.safe_load(response)
   if not app_info or 'rtok' not in app_info or 'app_id' not in app_info:
     logging.info('Response unparsable: %s', response)
@@ -249,27 +289,72 @@ def get_remote_appid(remote_url, extra_headers=None):
   return app_info['app_id']
 
 
-def configure_remote_put(remote_url, app_id, extra_headers=None):
-  """Does necessary setup to intercept PUT.
+def InsertDefaultExtraHeaders(extra_headers):
+  """Add defaults to extra_headers arg for stub configuration.
+
+  This permits comparison of a proposed RemoteApiDatastoreStub config with
+  an existing config.
+
+  Args:
+    extra_headers: The dict of headers to transform.
+
+  Returns:
+    A new copy of the input dict with defaults set.
+  """
+  extra_headers = extra_headers.copy() if extra_headers else {}
+  if 'X-appcfg-api-version' not in extra_headers:
+    extra_headers['X-appcfg-api-version'] = '1'
+  return extra_headers
+
+
+def StubConfigEqualsRequestedConfig(stub, remote_url, target_app_id,
+                                    extra_headers):
+  """Return true if the stub and requseted stub config match.
+
+  Args:
+    stub: a RemoteApiDatastore stub.
+    remote_url: requested remote_api url of target app.
+    target_app_id: requested app_id of target (remote) app.
+    extra_headers: requested headers for auth, possibly not yet including
+      defaults applied at stub instantiation time.
+
+  Returns:
+    True if the requested config matches the stub, else False.
+  """
+  return (stub.remote_url == remote_url and
+          stub.target_app_id == target_app_id and
+          stub.extra_headers == InsertDefaultExtraHeaders(extra_headers))
+
+
+def configure_remote_put(remote_url, target_app_id, extra_headers=None):
+  """Does necessary setup to intercept v3 Put and v4 AllocateIds.
 
   Args:
     remote_url: The url to the remote_api handler.
-    app_id: The app_id of the target app.
+    target_app_id: The app_id of the target app.
     extra_headers: Headers to send (for authentication).
 
   Raises:
-    ConfigurationError: if there is a error configuring the stub.
+    ConfigurationError: if there is a error configuring the stubs.
   """
-  if not app_id or not remote_url:
+  if not target_app_id or not remote_url:
     raise ConfigurationError('app_id and remote_url required')
 
-
-
-  original_datastore_stub = apiproxy_stub_map.apiproxy.GetStub('datastore_v3')
-  if isinstance(original_datastore_stub, DatastorePutStub):
-
-    logging.info('Stub is already configured. Hopefully in a matching fashion.')
-    return
-  datastore_stub = DatastorePutStub(remote_url, app_id, extra_headers,
-                                    original_datastore_stub)
-  apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', datastore_stub)
+  for stub_class in (RemoteApiDatastoreV3Stub, RemoteApiDatastoreV4Stub):
+    service_name = stub_class.ServiceName()
+    original_datastore_stub = apiproxy_stub_map.apiproxy.GetStub(service_name)
+    if isinstance(original_datastore_stub, stub_class):
+      logging.info('Datastore Admin %s RemoteApi stub is already configured.',
+                   service_name)
+      if not StubConfigEqualsRequestedConfig(
+          original_datastore_stub, remote_url, target_app_id, extra_headers):
+        logging.warning('Requested Datastore Admin %s RemoteApi stub '
+                        'configuration differs from existing configuration, '
+                        'attempting reconfiguration.', service_name)
+        datastore_stub = stub_class(remote_url, target_app_id, extra_headers,
+                                    original_datastore_stub.normal_stub)
+        apiproxy_stub_map.apiproxy.ReplaceStub(service_name, datastore_stub)
+    else:
+      datastore_stub = stub_class(remote_url, target_app_id, extra_headers,
+                                  original_datastore_stub)
+      apiproxy_stub_map.apiproxy.RegisterStub(service_name, datastore_stub)
