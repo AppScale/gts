@@ -63,7 +63,7 @@ class Importer(object):
     while self.scheduled_indexes or self.scheduled_jobs:
       await gen.sleep(0.25)
 
-    logger.info('Import has been finished and took {:.2}s'
+    logger.info('Import has been finished and took {:.2f}s'
                 .format(self.ioloop.time() - self.start_time))
 
     logger.info(' - {} jobs failed'
@@ -84,11 +84,18 @@ class Importer(object):
     """
     logger.info('Starting import of index: {}/{}/{}'
                 .format(project_id, namespace, index))
+    first_page = True
     for key in self.source.iter_object_keys(project_id, namespace, index):
       while len(self.scheduled_jobs) > self.max_concurrency:
         await gen.sleep(0.25 * (random.random() + 0.5))
       self.scheduled_jobs.add(key)
       self.ioloop.add_callback(self.import_page, key)
+      if first_page:
+        # Give the first self.import_page time to create index
+        # so we won't see warnings about collisions.
+        await gen.sleep(1)
+        first_page = False
+
     self.scheduled_indexes.remove((project_id, namespace, index))
 
   async def import_page(self, object_key):
@@ -116,7 +123,7 @@ class Importer(object):
                      .format(object_key, err))
         if attempt < self.max_retries - 1:
           backoff = 0.2 * 2**attempt
-          logger.info('Retrying in {:.1}s'.format(backoff))
+          logger.info('Retrying in {:.1f}s'.format(backoff))
           await gen.sleep(backoff)
         else:
           self.failed_jobs.add(object_key)
@@ -136,15 +143,15 @@ def main():
     '-v', '--verbose', action='store_true',
     help='Output debug-level logging')
   parser.add_argument(
-    '--s3-location', help='Host and port S3 is listening on.', required=True)
-  parser.add_argument(
     '--s3-bucket', help='S3 bucket name holding search backup.', required=True)
   parser.add_argument(
-    '--s3-access-key-id', help='S3 access key ID.', required=True)
-  parser.add_argument(
-    '--s3-secret-key', help='S3 secret key.', required=True)
-  parser.add_argument(
     '--zk-locations', nargs='+', help='ZooKeeper location(s)', required=True)
+  parser.add_argument(
+    '--s3-location', help='Host and port S3 is listening on.')
+  parser.add_argument(
+    '--s3-access-key-id', help='S3 access key ID.')
+  parser.add_argument(
+    '--s3-secret-key', help='S3 secret key.')
   parser.add_argument(
     '--max-concurrency', type=int, help='Max import concurrency', default=10)
   args = parser.parse_args()

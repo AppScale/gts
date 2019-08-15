@@ -74,7 +74,7 @@ class IDRangesGenerator(object):
                      .format(self.collection, solr_filter_query, err))
         if attempt < self.max_retries - 1:
           backoff = 0.2 * 2**attempt
-          logger.info('Retrying in {:.1}s'.format(backoff))
+          logger.info('Retrying in {:.1f}s'.format(backoff))
           await gen.sleep(backoff)
         else:
           raise
@@ -146,7 +146,7 @@ class Exporter(object):
     while self.scheduled_indexes or self.scheduled_jobs:
       await gen.sleep(0.25)
 
-    logger.info('Export has been finished and took {:.2}s'
+    logger.info('Export has been finished and took {:.2f}s'
                 .format(self.ioloop.time() - self.start_time))
 
     logger.info(' - {} jobs failed'
@@ -232,7 +232,7 @@ class Exporter(object):
         )
         if attempt < self.max_retries - 1:
           backoff = 0.2 * 2**attempt
-          logger.info('Retrying in {:.1}s'.format(backoff))
+          logger.info('Retrying in {:.1f}s'.format(backoff))
           await gen.sleep(backoff)
         else:
           self.scheduled_jobs.remove(page_key)
@@ -252,11 +252,11 @@ def main():
     '-v', '--verbose', action='store_true',
     help='Output debug-level logging')
   parser.add_argument(
-    '--s3-location', help='Host and port S3 is listening on.', required=True)
+    '--s3-location', help='Host and port S3 is listening on.')
   parser.add_argument(
-    '--s3-access-key-id', help='S3 access key ID.', required=True)
+    '--s3-access-key-id', help='S3 access key ID.')
   parser.add_argument(
-    '--s3-secret-key', help='S3 secret key.', required=True)
+    '--s3-secret-key', help='S3 secret key.')
   parser.add_argument(
     '--zk-locations', nargs='+', help='ZooKeeper location(s)', required=True)
   parser.add_argument(

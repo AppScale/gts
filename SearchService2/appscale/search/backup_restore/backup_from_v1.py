@@ -87,7 +87,7 @@ class Exporter(object):
                          'Stopping export job.'.format(err))
         break
     self.finish_time = self.ioloop.time()
-    logger.info('Export job has been finished and took {:.1}s'
+    logger.info('Export job has been finished and took {:.1f}s'
                 .format(self.finish_time - self.start_time))
     logger.info('{} of total {} documents have been successfully imported'
                 .format(self.docs_exported, self.total))
@@ -108,7 +108,6 @@ class Exporter(object):
     logger.info('Retrieved {} docs ({} found) in {}ms. Next cursor: {}'
                 .format(len(docs), total, elapsed, next_cursor))
     per_index_pb_messages = self._from_solr_documents(docs)
-    logger.info(per_index_pb_messages)
     for index_fullname, index_documents_pb in per_index_pb_messages.items():
       project_id, namespace, index_name = index_fullname
       self.target.save(project_id, namespace, index_name, index_documents_pb)
@@ -262,7 +261,8 @@ def main():
     '-v', '--verbose', action='store_true',
     help='Output debug-level logging')
   parser.add_argument(
-    '--solr-location', help='Host and port Solr is listening on.')
+    '--solr-location', help='Host and port Solr is listening on.',
+    required=True)
   parser.add_argument(
     '--s3-location', help='Host and port S3 is listening on.')
   parser.add_argument(
