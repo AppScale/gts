@@ -674,6 +674,10 @@ installtaskqueue()
 
 installdatastore()
 {
+    FDB_CLIENTS_DEB="foundationdb-clients_6.1.8-1_amd64.deb"
+    FDB_CLIENTS_MD5="f701c23c144cdee2a2bf68647f0e108e"
+    cachepackage ${FDB_CLIENTS_DEB} ${FDB_CLIENTS_MD5}
+    dpkg --install ${PACKAGE_CACHE}/foundationdb-clients_6.1.8-1_amd64.deb
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AppDB
     pip install ${APPSCALE_HOME}/AppDB
 }
@@ -722,20 +726,6 @@ prepdashboard()
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor python-crontab
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor \
         ${APPSCALE_HOME}/AppControllerClient
-}
-
-upgradepip()
-{
-    # Versions older than Pip 7 did not correctly parse install commands for
-    # local packages with optional dependencies. Versions greater than Pip 9
-    # do not allow replacing packages installed by the distro.
-    case "$DIST" in
-        jessie)
-            # The system's pip does not allow updating itself.
-            easy_install --upgrade 'pip<10.0.0b1'
-            hash -r
-            ;;
-    esac
 }
 
 fetchclientjars()

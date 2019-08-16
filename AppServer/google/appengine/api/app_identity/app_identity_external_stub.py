@@ -3,7 +3,7 @@
 This just forwards calls to an external server.
 """
 
-import random
+import pickle
 import urllib2
 
 from google.appengine.api import apiproxy_stub
@@ -66,6 +66,6 @@ class AppIdentityExternalStub(apiproxy_stub.APIProxyStub):
                                              error_pb.detail())
 
     if remote_api_response.has_exception():
-      raise remote_api_response.exception()
+      raise pickle.loads(remote_api_response.exception())
 
     response.ParseFromString(remote_api_response.response())

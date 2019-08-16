@@ -28,11 +28,10 @@
 
 
 
-
-
 """Pipelines for mapreduce library."""
 
 from __future__ import with_statement
+
 
 
 __all__ = [
@@ -44,21 +43,15 @@ __all__ = [
     "ShufflePipeline",
     ]
 
-import base64
-import pickle
-
 import google
 
 from appengine_pipeline.src import pipeline
 from appengine_pipeline.src.pipeline import common as pipeline_common
-from google.appengine.api import files
-from google.appengine.api.files import file_service_pb
-from google.appengine.ext.mapreduce import context
+from google.appengine.api import app_identity
 from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import input_readers
 from google.appengine.ext.mapreduce import mapper_pipeline
 from google.appengine.ext.mapreduce import model
-from google.appengine.ext.mapreduce import operation
 from google.appengine.ext.mapreduce import output_writers
 from google.appengine.ext.mapreduce import pipeline_base
 from google.appengine.ext.mapreduce import shuffler
@@ -73,7 +66,10 @@ MapperPipeline = mapper_pipeline.MapperPipeline
 
 ShufflePipeline = shuffler.ShufflePipeline
 
-CleanupPipeline = mapper_pipeline._CleanupPipeline
+CleanupPipeline = shuffler._GCSCleanupPipeline
+
+
+_ReducerReader = input_readers._ReducerReader
 
 
 class MapPipeline(pipeline_base._OutputSlotsMixin,
@@ -100,116 +96,18 @@ class MapPipeline(pipeline_base._OutputSlotsMixin,
           input_reader_spec,
           params,
           shards=None):
+    new_params = dict(params or {})
+
+
+    new_params.update({"output_writer": {}})
     yield MapperPipeline(
         job_name + "-map",
         mapper_spec,
         input_reader_spec,
-        output_writer_spec=
-            output_writers.__name__ + ".KeyValueBlobstoreOutputWriter",
-        params=params,
+        output_writer_spec=(output_writers.__name__ +
+                            "._GoogleCloudStorageKeyValueOutputWriter"),
+        params=new_params,
         shards=shards)
-
-
-class _ReducerReader(input_readers.RecordsReader):
-  """Reader to read KeyValues records files from Files API."""
-
-  expand_parameters = True
-
-  def __init__(self, filenames, position):
-    super(_ReducerReader, self).__init__(filenames, position)
-    self.current_key = None
-    self.current_values = None
-
-  def __iter__(self):
-    ctx = context.get()
-    combiner = None
-
-    if ctx:
-      combiner_spec = ctx.mapreduce_spec.mapper.params.get("combiner_spec")
-      if combiner_spec:
-        combiner = util.handler_for_name(combiner_spec)
-
-    for binary_record in super(_ReducerReader, self).__iter__():
-      proto = file_service_pb.KeyValues()
-      proto.ParseFromString(binary_record)
-
-      if self.current_key is None:
-        self.current_key = proto.key()
-        self.current_values = []
-      else:
-        assert proto.key() == self.current_key, (
-            "inconsistent key sequence. Expected %s but got %s" %
-            (self.current_key, proto.key()))
-
-      if combiner:
-        combiner_result = combiner(
-            self.current_key, proto.value_list(), self.current_values)
-
-        if not util.is_generator(combiner_result):
-          raise errors.BadCombinerOutputError(
-              "Combiner %s should yield values instead of returning them (%s)" %
-              (combiner, combiner_result))
-
-        self.current_values = []
-        for value in combiner_result:
-          if isinstance(value, operation.Operation):
-            value(ctx)
-          else:
-
-            self.current_values.append(value)
-      else:
-
-        self.current_values.extend(proto.value_list())
-
-      if not proto.partial():
-        key = self.current_key
-        values = self.current_values
-
-        self.current_key = None
-        self.current_values = None
-        yield (key, values)
-      else:
-        yield input_readers.ALLOW_CHECKPOINT
-
-  @staticmethod
-  def encode_data(data):
-    """Encodes the given data, which may have include raw bytes.
-
-    Works around limitations in JSON encoding, which cannot handle raw bytes.
-    """
-
-    return base64.b64encode(pickle.dumps(data))
-
-  @staticmethod
-  def decode_data(data):
-    """Decodes data encoded with the encode_data function."""
-    return pickle.loads(base64.b64decode(data))
-
-  def to_json(self):
-    """Returns an input shard state for the remaining inputs.
-
-    Returns:
-      A json-izable version of the remaining InputReader.
-    """
-    result = super(_ReducerReader, self).to_json()
-    result["current_key"] = _ReducerReader.encode_data(self.current_key)
-    result["current_values"] = _ReducerReader.encode_data(self.current_values)
-    return result
-
-  @classmethod
-  def from_json(cls, json):
-    """Creates an instance of the InputReader for the given input shard state.
-
-    Args:
-      json: The InputReader state as a dict-like object.
-
-    Returns:
-      An instance of the InputReader configured using the values of json.
-    """
-    result = super(_ReducerReader, cls).from_json(json)
-    result.current_key = _ReducerReader.decode_data(json["current_key"])
-    result.current_values = _ReducerReader.decode_data(json["current_values"])
-    return result
 
 
 class ReducePipeline(pipeline_base._OutputSlotsMixin,
@@ -224,6 +122,7 @@ class ReducePipeline(pipeline_base._OutputSlotsMixin,
     output_writer_spec: specification of output write to use with reduce
       function.
     params: mapper parameters to use as dict.
+    bucket_name: The name of the Google Cloud Storage bucket.
     filenames: list of filenames to reduce.
     combiner_spec: Optional. Specification of a combine function. If not
       supplied, no combine step will take place. The combine function takes a
@@ -243,13 +142,18 @@ class ReducePipeline(pipeline_base._OutputSlotsMixin,
           reducer_spec,
           output_writer_spec,
           params,
+          bucket_name,
           filenames,
           combiner_spec=None,
           shards=None):
+    filenames_only = (
+        util.strip_prefix_from_items("/%s/" % bucket_name, filenames))
     new_params = dict(params or {})
     new_params.update({
-        "files": filenames
-        })
+        "input_reader": {
+            "bucket_name": bucket_name,
+            "objects": filenames_only,
+        }})
     if combiner_spec:
       new_params.update({
           "combiner_spec": combiner_spec,
@@ -272,6 +176,10 @@ class MapreducePipeline(pipeline_base._OutputSlotsMixin,
                         pipeline_base.PipelineBase):
   """Pipeline to execute MapReduce jobs.
 
+  The Shuffle stage uses Google Cloud Storage (GCS). For newly created projects,
+  GCS is activated automatically. To activate GCS follow these instructions:
+  https://cloud.google.com/storage/docs/signup#activate
+
   Args:
     job_name: job name as string.
     mapper_spec: specification of mapper to use.
@@ -291,7 +199,7 @@ class MapreducePipeline(pipeline_base._OutputSlotsMixin,
   Returns:
     result_status: one of model.MapreduceState._RESULTS. Check this to see
       if the job is successful.
-    default: a list of filenames if the mapreduce was sucesssful and
+    default: a list of filenames if the mapreduce was successful and
       was outputting files. An empty list otherwise.
   """
 
@@ -305,18 +213,34 @@ class MapreducePipeline(pipeline_base._OutputSlotsMixin,
           reducer_params=None,
           shards=None,
           combiner_spec=None):
+
+
+    if mapper_params.get("bucket_name") is None:
+      try:
+        mapper_params["bucket_name"] = (
+            app_identity.get_default_gcs_bucket_name())
+      except Exception, e:
+        raise errors.Error("Unable to get the GCS default bucket name. "
+                           "Check to see that GCS is properly activated. "
+                           + str(e))
+    if mapper_params["bucket_name"] is None:
+      raise errors.Error("There is no GCS default bucket name. "
+                         "Check to see that GCS is properly activated.")
+
+
     map_pipeline = yield MapPipeline(job_name,
                                      mapper_spec,
                                      input_reader_spec,
                                      params=mapper_params,
                                      shards=shards)
     shuffler_pipeline = yield ShufflePipeline(
-        job_name, map_pipeline)
+        job_name, mapper_params, map_pipeline)
     reducer_pipeline = yield ReducePipeline(
         job_name,
         reducer_spec,
         output_writer_spec,
         reducer_params,
+        mapper_params["bucket_name"],
         shuffler_pipeline,
         combiner_spec=combiner_spec)
     with pipeline.After(reducer_pipeline):

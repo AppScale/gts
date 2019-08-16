@@ -426,6 +426,13 @@ class ZKInterface
     set(configs_node, JSON.dump(configs), NOT_EPHEMERAL)
   end
 
+  # Writes FoundationDB clusterfile content to zookeeper
+  def self.set_fdb_clusterfile_content(content)
+    clusterfile_node = '/appscale/datastore/fdb-clusterfile-content'
+    ensure_path(clusterfile_node)
+    set(clusterfile_node, content, NOT_EPHEMERAL)
+  end
+
   def self.run_zookeeper_operation(&block)
     begin
       yield

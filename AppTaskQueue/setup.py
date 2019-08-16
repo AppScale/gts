@@ -1,4 +1,3 @@
-import glob
 from setuptools import setup
 
 setup(
@@ -16,6 +15,7 @@ setup(
     'celery>=3.1,<4.0.0',
     'eventlet==0.22',
     'kazoo',
+    'monotonic',
     'protobuf',
     'psycopg2-binary',
     'PyYaml>=4.2b1',

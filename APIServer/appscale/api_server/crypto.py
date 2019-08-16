@@ -52,9 +52,8 @@ class PrivateKey(object):
     ENCODING = serialization.Encoding.PEM
     ENCRYPTION = serialization.NoEncryption()
     FORMAT = serialization.PrivateFormat.PKCS8
-    PADDING = padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
-                          salt_length=padding.PSS.MAX_LENGTH)
-    TOKEN_LIFETIME = 1800
+    PADDING = padding.PKCS1v15()
+    TOKEN_LIFETIME = 3600
 
     def __init__(self, key_name, key):
         """ Creates a new PrivateKey.
@@ -76,7 +75,7 @@ class PrivateKey(object):
         return self.key.private_bytes(self.ENCODING, self.FORMAT,
                                       self.ENCRYPTION)
 
-    def generate_access_token(self, project_id, scopes):
+    def generate_assertion(self, audience, scopes):
         """ Creates an access token signed by the key.
 
         Args:
@@ -86,19 +85,21 @@ class PrivateKey(object):
             An AccessToken.
         """
         def encode_part(part):
-            serialized = json.dumps(part, separators=(',', ':'))
-            return base64.urlsafe_b64encode(serialized).rstrip('=')
+            if isinstance(part, dict):
+                part = json.dumps(part, separators=(',', ':')).encode('utf-8')
+
+            return base64.urlsafe_b64encode(part).rstrip('=')
 
         header = encode_part({'typ': 'JWT', 'alg': 'RS256'})
-        expiration_time = int(time.time() + self.TOKEN_LIFETIME)
-        metadata = encode_part({'project_id': project_id,
-                                'exp': expiration_time,
-                                'scopes': scopes})
+        current_time = int(time.time())
+        metadata = encode_part({'iss': self.key_name,
+                                'aud': audience,
+                                'scope': ' '.join(scopes),
+                                'iat': current_time,
+                                'exp': current_time + self.TOKEN_LIFETIME})
 
         signature = self.sign('.'.join([header, metadata]))
-        encoded_sig = base64.urlsafe_b64encode(signature).rstrip('=')
-        token = '.'.join([header, metadata, encoded_sig])
-        return AccessToken(token, expiration_time)
+        return '.'.join([header, metadata, encode_part(signature)])
 
     def sign(self, blob):
         """ Signs a given payload.
@@ -151,6 +152,10 @@ class PrivateKey(object):
         except KeyError as error:
             raise InvalidKey(str(error))
 
+        return cls.from_pem(key_name, pem)
+
+    @classmethod
+    def from_pem(cls, key_name, pem):
         try:
             key = serialization.load_pem_private_key(
                 pem, password=None, backend=default_backend())
