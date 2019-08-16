@@ -13,11 +13,11 @@ setup(
     'appscale-common',
     'cassandra-driver<3.18.0',
     'kazoo',
-    'M2Crypto',
     'monotonic',
     'mmh3',
     'SOAPpy',
-    'tornado'
+    'tornado',
+    'foundationdb~=6.1.8'
   ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
@@ -52,6 +52,8 @@ setup(
     'appscale-transaction-groomer='
       'appscale.datastore.scripts.transaction_groomer:main',
     'appscale-uaserver=appscale.datastore.scripts.ua_server:main',
+    'appscale-uaserver-backup=appscale.datastore.scripts.ua_server_backup:main',
+    'appscale-uaserver-restore=appscale.datastore.scripts.ua_server_restore:main',
     'appscale-update-index=appscale.datastore.scripts.update_index:main',
     'appscale-upgrade-schema=appscale.datastore.scripts.upgrade_schema:main',
     'appscale-view-all-records=appscale.datastore.scripts.view_records:main',

@@ -33,6 +33,7 @@
 """Base operation class."""
 
 
+
 __all__ = ['Operation']
 
 

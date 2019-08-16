@@ -1,0 +1,11 @@
+<div class="page-header"><h1>Service Accounts</h1></div>
+{% if owned_projects %}
+  <ul>
+  {% for project_id in owned_projects %}
+    <li><a href="/service_accounts/{{ project_id }}">{{ project_id }}</a></li>
+  {% endfor %}
+  </ul>
+{% else %}
+  <p>There are either no deployed projects, or you do not have ownership of any
+      of them.</p>
+{% endif %}

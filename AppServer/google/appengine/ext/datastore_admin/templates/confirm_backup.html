@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Confirm Backup of {{kind_str|escape}}{% endblock %}
 {% block body %}
-  <h2>Datastore Admin: Backup to Blobstore or Google Cloud Storage</h2>
+  <h2>Datastore Admin: Backup to Google Cloud Storage</h2>
   {% if kind_list %}
     {% comment %}
     size_total represents the total size of the figures for which we have
@@ -40,8 +40,8 @@
         during the backup process may not be captured.
         To place the application in read-only mode,
         please follow the instructions at
-        <a href="https://developers.google.com/appengine/docs/adminconsole/applicationsettings#Disable_Datastore_Writes" target="_blank">
-        Disable Datastore Writes</a>
+        <a href="https://cloud.google.com/datastore/docs/console/managing-datastore#enabling_datastore_writes" target="_blank">
+        Enabling or Disabling Datastore Writes</a>
         </p>
       </div>
       {% endif %}
@@ -78,19 +78,34 @@
           <td>
             Backup storage destination:
             <select name="filesystem" id="ae-datastore-admin-filesystem">
-              {% if not run_as_a_service %}
-              <option value="blobstore" selected="selected">Blobstore</option>
+              {% if not run_as_a_service and not hide_blobstore %}
+              <option value="blobstore">Blobstore</option>
               {% endif %}
-              <option value="gs">Google Cloud Storage</option>
+              <option value="gs" selected="selected">Google Cloud Storage</option>
             </select>
           </td>
         </tr>
-        <tr {% if not run_as_a_service %}style="display:none;"{% endif %} id="gs_bucket_tr">
+        <tr id="gs_bucket_tr">
           <td>
             Google Cloud Storage bucket name
             (<a target="_blank"
-              href="https://developers.google.com/appengine/docs/adminconsole/datastoreadmin#Backup_And_Restore">More info?</a>):
+              href="https://cloud.google.com/datastore/docs/console/datastore-backing-up-restoring">More info?</a>):
             <input type="text" id="gs_bucket_name" name="gs_bucket_name" value="" />
+          </td>
+        </tr>
+        <tr id="gs_service_account_tr">
+          <td>
+            <label for="service_account_name">
+              Service account name
+              <img class="ae-help-icon" src="{{ base_path }}/static/img/help.gif" height="14" width="14" alt="help"
+                   title="You can define additional service accounts using the dashboard.">
+            </label>
+            <select id="service_account_name" name="service_account_name">
+              <option value="">--Choose an option--</option>
+              {% for account_name in service_accounts %}
+              <option value="{{ account_name }}">{{ account_name }}</option>
+              {% endfor %}
+            </select>
           </td>
         </tr>
       </table>

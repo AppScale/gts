@@ -2,11 +2,11 @@
 import hashlib
 import httplib
 import logging
+import monotonic
 import json
 import os
 import psutil
 import signal
-import time
 import urllib2
 
 from tornado import gen
@@ -31,7 +31,7 @@ from appscale.admin.instance_manager.utils import setup_logrotate, \
 from appscale.common import appscale_info, monit_app_configuration
 from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.constants import (
-  APPS_PATH, GO, HTTPCodes, JAVA, JAVA8, MonitStates, PHP, PYTHON27, VAR_DIR,
+  APPS_PATH, GO, JAVA, JAVA8, MonitStates, PHP, PYTHON27, VAR_DIR,
   VERSION_PATH_SEPARATOR)
 from appscale.common.monit_interface import DEFAULT_RETRIES, ProcessNotFound
 from appscale.common.retrying import retry
@@ -465,9 +465,9 @@ class InstanceManager(object):
     Returns:
       True on success, False otherwise
     """
-    deadline = time.time() + START_APP_TIMEOUT
+    deadline = monotonic.monotonic() + START_APP_TIMEOUT
 
-    while time.time() < deadline:
+    while monotonic.monotonic() < deadline:
       if self._instance_healthy(port):
         raise gen.Return(True)
 

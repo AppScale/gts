@@ -24,17 +24,22 @@
 
 
 
+
 import os
 import re
 import urllib
-import webapp2
+
+# AppScale: Use bundled mapreduce library.
+from google.appengine.ext.mapreduce import input_readers
+from google.appengine.ext.mapreduce import model
+from google.appengine.ext.mapreduce import operation
 
 from google.appengine.api import capabilities
 from google.appengine.api import datastore
+import webapp2 as webapp
 from google.appengine.ext.datastore_admin import config
 from google.appengine.ext.datastore_admin import utils
-from google.appengine.ext.mapreduce import model
-from google.appengine.ext.mapreduce import operation
+
 
 MAPREDUCE_OBJECTS = [model.MapreduceState.kind(),
                      model.ShardState.kind()]
@@ -64,7 +69,7 @@ def DeleteEntity(key):
     yield operation.db.Delete(key)
 
 
-class ConfirmDeleteHandler(webapp2.RequestHandler):
+class ConfirmDeleteHandler(webapp.RequestHandler):
   """Handler to deal with requests from the admin console to delete data."""
 
   SUFFIX = 'confirm_delete'
@@ -110,14 +115,13 @@ class ConfirmDeleteHandler(webapp2.RequestHandler):
     ConfirmDeleteHandler.Render(self)
 
 
-class DoDeleteHandler(webapp2.RequestHandler):
+class DoDeleteHandler(webapp.RequestHandler):
   """Handler to deal with requests from the admin console to delete data."""
 
   SUFFIX = 'delete.do'
   DELETE_HANDLER = (
       'google.appengine.ext.datastore_admin.delete_handler.DeleteEntity')
-  INPUT_READER = (
-      'google.appengine.ext.mapreduce.input_readers.DatastoreKeyInputReader')
+  INPUT_READER = input_readers.__name__ + '.DatastoreKeyInputReader'
   MAPREDUCE_DETAIL = config.MAPREDUCE_PATH + '/detail?mapreduce_id='
 
   def get(self):
