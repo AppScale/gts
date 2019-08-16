@@ -390,7 +390,7 @@ class Djinn
   # services assume that they run at a specific location.
   RESERVED_APPS = [AppDashboard::APP_NAME].freeze
 
-  # A Fixnum that indicates what the first port is that can be used for hosting
+  # A Integer that indicates what the first port is that can be used for hosting
   # Google App Engine apps.
   STARTING_APPSERVER_PORT = 20_000
 
@@ -450,9 +450,9 @@ class Djinn
     'autoscale' => [TrueClass, 'True', true],
     'client_secrets' => [String, nil, false],
     'controller_logs_to_dashboard' => [TrueClass, 'False', false],
-    'default_max_appserver_memory' => [Fixnum, "#{DEFAULT_MEMORY}", true],
-    'default_min_appservers' => [Fixnum, '2', true],
-    'default_max_appservers' => [Fixnum, '999999', true],
+    'default_max_appserver_memory' => [Integer, "#{DEFAULT_MEMORY}", true],
+    'default_min_appservers' => [Integer, '2', true],
+    'default_max_appservers' => [Integer, '999999', true],
     'disks' => [String, nil, true],
     'ec2_access_key' => [String, nil, false],
     'ec2_secret_key' => [String, nil, false],
@@ -465,24 +465,24 @@ class Djinn
     'keyname' => [String, nil, false],
     'infrastructure' => [String, nil, true],
     'instance_type' => [String, nil, true],
-    'lb_connect_timeout' => [Fixnum, '120000', true],
+    'lb_connect_timeout' => [Integer, '120000', true],
     'login' => [String, nil, true],
     'machine' => [String, nil, true],
-    'max_machines' => [Fixnum, '0', true],
-    'min_machines' => [Fixnum, '1', true],
+    'max_machines' => [Integer, '0', true],
+    'min_machines' => [Integer, '1', true],
     'region' => [String, nil, true],
-    'replication' => [Fixnum, '1', true],
+    'replication' => [Integer, '1', true],
     'project' => [String, nil, false],
     'table' => [String, 'cassandra', false],
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
     'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Fixnum, '15', true],
+    'nodes_stats_log_interval' => [Integer, '15', true],
     'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Fixnum, '65', true],
+    'processes_stats_log_interval' => [Integer, '65', true],
     'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Fixnum, '35', true],
+    'proxies_stats_log_interval' => [Integer, '35', true],
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
@@ -611,9 +611,9 @@ class Djinn
   #
   # Args:
   #   version_key: A String that names the version that should be relocated.
-  #   http_port: A String or Fixnum that names the port that should be used to
+  #   http_port: A String or Integer that names the port that should be used to
   #     serve HTTP traffic for this app.
-  #   https_port: A String or Fixnum that names the port that should be used to
+  #   https_port: A String or Integer that names the port that should be used to
   #     serve HTTPS traffic for this app.
   #   secret: A String that authenticates callers.
   # Returns:
@@ -810,7 +810,7 @@ class Djinn
       Djinn.log_info(msg)
 
       # Let's check if we can convert them now to the proper class.
-      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           Integer(val)
         rescue
@@ -830,7 +830,7 @@ class Djinn
       # message similar to "failed to serialize detail object". We convert
       # them here to String.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == TrueClass ||
-         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           newval = val.to_s
         rescue
@@ -1241,7 +1241,7 @@ class Djinn
   #
   # Args:
   #   property_name: A String naming the instance variable that should be set.
-  #   property_value: A String or Fixnum that provides the value for the given
+  #   property_value: A String or Integer that provides the value for the given
   #     property name.
   #   secret: A String with the shared key for authentication.
   #
