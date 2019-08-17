@@ -3300,28 +3300,40 @@ class Djinn
     Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
-    Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
-
-    Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = `which appscale-data-layout`.chomp
-    retries = 10
-    loop {
-      output = `#{layout_script} --db-type cassandra 2>&1`
-      if $?.exitstatus == 0
+    # Autoscaled nodes do not need to check if the datastore is primed: if
+    # we got this far, it must be primed.
+    am_i_autoscaled = false
+    get_autoscaled_nodes.each { |node|
+      if slave.private_ip == my_node.private_ip
+        am_i_autoscaled = true
+        Djinn.log_info("Skipping database layout check on scaled node.")
         break
-      elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
-        HelperFunctions.log_and_crash(
-          'Unexpected data layout version. Please run "appscale upgrade".')
-      elsif retries.zero?
-        HelperFunctions.log_and_crash(
-          'Exceeded retries while trying to check data layout.')
-      else
-        Djinn.log_warn("Error while checking data layout:\n#{output}")
-        sleep(SMALL_WAIT)
       end
-      retries -= 1
     }
+    unless am_i_autoscaled
+      Djinn.log_info('Ensuring necessary database tables are present')
+      sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
+
+      Djinn.log_info('Ensuring data layout version is correct')
+      layout_script = `which appscale-data-layout`.chomp
+      retries = 10
+      loop {
+        output = `#{layout_script} --db-type cassandra 2>&1`
+        if $?.exitstatus == 0
+          break
+        elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
+          HelperFunctions.log_and_crash(
+            'Unexpected data layout version. Please run "appscale upgrade".')
+        elsif retries.zero?
+          HelperFunctions.log_and_crash(
+            'Exceeded retries while trying to check data layout.')
+        else
+          Djinn.log_warn("Error while checking data layout:\n#{output}")
+          sleep(SMALL_WAIT)
+        end
+        retries -= 1
+      }
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"
