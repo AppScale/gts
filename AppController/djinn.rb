@@ -4492,6 +4492,7 @@ class Djinn
   def start_admin_server
     Djinn.log_info('Starting AdminServer')
     script = `which appscale-admin`.chomp
+    HelperFunctions.log_and_crash("Cannod find appscale-admin!") if script.empty?
     nginx_port = 17441
     service_port = 17442
     start_cmd = "#{script} serve -p #{service_port}"
