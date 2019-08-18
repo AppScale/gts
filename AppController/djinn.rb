@@ -3304,7 +3304,7 @@ class Djinn
     # we got this far, it must be primed.
     am_i_autoscaled = false
     get_autoscaled_nodes.each { |node|
-      if slave.private_ip == my_node.private_ip
+      if node.private_ip == my_node.private_ip
         am_i_autoscaled = true
         Djinn.log_info("Skipping database layout check on scaled node.")
         break
