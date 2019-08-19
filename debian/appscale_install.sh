@@ -52,7 +52,6 @@ case "$1" in
         installsolr7
         installservice
         postinstallservice
-        postinstallmonit
         postinstallejabberd
         setulimits
         increaseconnections
