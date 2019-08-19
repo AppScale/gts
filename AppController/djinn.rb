@@ -390,7 +390,7 @@ class Djinn
   # services assume that they run at a specific location.
   RESERVED_APPS = [AppDashboard::APP_NAME].freeze
 
-  # A Fixnum that indicates what the first port is that can be used for hosting
+  # A Integer that indicates what the first port is that can be used for hosting
   # Google App Engine apps.
   STARTING_APPSERVER_PORT = 20_000
 
@@ -450,9 +450,9 @@ class Djinn
     'autoscale' => [TrueClass, 'True', true],
     'client_secrets' => [String, nil, false],
     'controller_logs_to_dashboard' => [TrueClass, 'False', false],
-    'default_max_appserver_memory' => [Fixnum, "#{DEFAULT_MEMORY}", true],
-    'default_min_appservers' => [Fixnum, '2', true],
-    'default_max_appservers' => [Fixnum, '999999', true],
+    'default_max_appserver_memory' => [Integer, "#{DEFAULT_MEMORY}", true],
+    'default_min_appservers' => [Integer, '2', true],
+    'default_max_appservers' => [Integer, '999999', true],
     'disks' => [String, nil, true],
     'ec2_access_key' => [String, nil, false],
     'ec2_secret_key' => [String, nil, false],
@@ -465,24 +465,24 @@ class Djinn
     'keyname' => [String, nil, false],
     'infrastructure' => [String, nil, true],
     'instance_type' => [String, nil, true],
-    'lb_connect_timeout' => [Fixnum, '120000', true],
+    'lb_connect_timeout' => [Integer, '120000', true],
     'login' => [String, nil, true],
     'machine' => [String, nil, true],
-    'max_machines' => [Fixnum, '0', true],
-    'min_machines' => [Fixnum, '1', true],
+    'max_machines' => [Integer, '0', true],
+    'min_machines' => [Integer, '1', true],
     'region' => [String, nil, true],
-    'replication' => [Fixnum, '1', true],
+    'replication' => [Integer, '1', true],
     'project' => [String, nil, false],
     'table' => [String, 'cassandra', false],
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
     'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Fixnum, '15', true],
+    'nodes_stats_log_interval' => [Integer, '15', true],
     'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Fixnum, '65', true],
+    'processes_stats_log_interval' => [Integer, '65', true],
     'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Fixnum, '35', true],
+    'proxies_stats_log_interval' => [Integer, '35', true],
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
@@ -611,9 +611,9 @@ class Djinn
   #
   # Args:
   #   version_key: A String that names the version that should be relocated.
-  #   http_port: A String or Fixnum that names the port that should be used to
+  #   http_port: A String or Integer that names the port that should be used to
   #     serve HTTP traffic for this app.
-  #   https_port: A String or Fixnum that names the port that should be used to
+  #   https_port: A String or Integer that names the port that should be used to
   #     serve HTTPS traffic for this app.
   #   secret: A String that authenticates callers.
   # Returns:
@@ -810,7 +810,7 @@ class Djinn
       Djinn.log_info(msg)
 
       # Let's check if we can convert them now to the proper class.
-      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           Integer(val)
         rescue
@@ -830,7 +830,7 @@ class Djinn
       # message similar to "failed to serialize detail object". We convert
       # them here to String.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == TrueClass ||
-         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           newval = val.to_s
         rescue
@@ -1241,7 +1241,7 @@ class Djinn
   #
   # Args:
   #   property_name: A String naming the instance variable that should be set.
-  #   property_value: A String or Fixnum that provides the value for the given
+  #   property_value: A String or Integer that provides the value for the given
   #     property name.
   #   secret: A String with the shared key for authentication.
   #
@@ -1803,7 +1803,7 @@ class Djinn
     @done_loading = true
 
     pick_zookeeper(@zookeeper_data)
-    write_our_node_info
+    set_done_status
 
     # We wait only for non autoscaled nodes.
     wait_for_nodes_to_finish_loading(nodes_to_wait)
@@ -3070,20 +3070,17 @@ class Djinn
     Djinn.log_debug("Found zookeeper server.")
   end
 
-  # Backs up information about what this node is doing (roles, apps it is
-  # running) to ZooKeeper, for later recovery or updates by other nodes.
-  def write_our_node_info
-    # Since more than one AppController could write its data at the same
-    # time, get a lock before we write to it.
-    begin
-      ZKInterface.lock_and_run {
+  # Set the done status in zookeeper.
+  def set_done_status
+    RETRIES.downto(0) { ||
+      begin
         ZKInterface.write_node_information(my_node, @done_loading)
-      }
-    rescue => e
-      Djinn.log_info("(write_our_node_info) saw exception #{e.message}")
-    end
-
-    return
+        return
+      rescue => e
+        Djinn.log_info("(set_done_status) retry after exception #{e.message}.")
+        next
+      end
+    }
   end
 
   # Returns information about the AppServer processes hosting App Engine apps on
@@ -5777,21 +5774,27 @@ class Djinn
 
     RETRIES.downto(0) { ||
       begin
-        remote_machine = ZKInterface.get_revision_hosters(
+        ip = ZKInterface.get_revision_hosters(
           revision_key, @options['keyname']).sample
       rescue FailedZooKeeperOperationException
         sleep(SMALL_WAIT)
         next
       end
 
-      if remote_machine.nil?
+      if ip.nil?
         Djinn.log_info("Waiting for a machine to have a copy of #{app_path}")
         Kernel.sleep(SMALL_WAIT)
         next
       end
 
-      ssh_key = remote_machine.ssh_key
-      ip = remote_machine.private_ip
+      # Get the ssh key to use for the remote machine.
+      remote_node = @nodes.keep_if { |node| node.private_ip == ip }
+      if remote_node.empty?
+        Djinn.log_info("Got invalid machine to retrieve code (#{ip}).")
+        next
+      end
+      ssh_key = remote_node[0].ssh_key
+
       md5 = ZKInterface.get_revision_md5(revision_key, ip)
       Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
       RETRIES.downto(0) {

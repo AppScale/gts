@@ -79,7 +79,7 @@ class AppControllerClient
   # Modification in this function should be reflected on the others too.
   #
   # Args:
-  #   time: A Fixnum that indicates how long the timeout should be set to when
+  #   time: A Integer that indicates how long the timeout should be set to when
   #     executing the caller's block.
   #   retry_on_except: A boolean that indicates if non-transient Exceptions
   #     should result in the caller's block being retried or not.
