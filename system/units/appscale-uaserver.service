@@ -1,0 +1,13 @@
+[Unit]
+Description=AppScale UAServer
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+#what are these for : MASTER_IP=127.0.0.1 LOCAL_DB_IP=127.0.0.1
+#TODO:STEVE: add environment for options : MASTER_IP LOCAL_DB_IP (move environment to /run/appscale or /var/lib/appscale?)
+ExecStart=/usr/bin/python2 ${APPSCALE_SERVICE_BIN}/appscale-uaserver $APPSCALE_UASERVER_OPTIONS
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-service.target

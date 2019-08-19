@@ -1,0 +1,5 @@
+[Unit]
+Description=AppScale Application Instances
+Requires=appscale-service.target
+After=appscale-service.target
+Conflicts=appscale-down.target

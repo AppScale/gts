@@ -1,0 +1,4 @@
+[Unit]
+Description=AppScale GTS backend/foundational services
+Before=appscale-down.target
+Conflicts=appscale-down.target

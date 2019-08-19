@@ -1,0 +1,5 @@
+[Unit]
+Description=AppScale GTS
+Wants=appscale-control.target
+After=appscale-control.target
+Conflicts=appscale-down.target

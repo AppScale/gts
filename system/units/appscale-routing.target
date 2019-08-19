@@ -1,0 +1,5 @@
+[Unit]
+Description=AppScale routing
+Requires=appscale-instance.target
+After=appscale-instance.target
+Conflicts=appscale-down.target

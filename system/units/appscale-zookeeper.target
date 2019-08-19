@@ -1,0 +1,9 @@
+[Unit]
+Description=AppScale Zookeeper
+PartOf=appscale-backend.target
+Before=appscale-backend.target
+After=zookeeper.service
+Requires=zookeeper.service
+
+[Install]
+WantedBy=appscale-backend.target

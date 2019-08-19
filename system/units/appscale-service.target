@@ -1,0 +1,5 @@
+[Unit]
+Description=AppScale Intermediate Services
+Requires=appscale-backend.target
+After=appscale-backend.target
+Conflicts=appscale-down.target

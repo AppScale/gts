@@ -1,0 +1,12 @@
+[Unit]
+Description=AppScale Blobstore
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+Environment=APPSCALE_BS_OPTION_PORT=6107 APPSCALE_DATASTORE_SERVICE=127.0.0.1:8888
+ExecStart=/usr/bin/python2 ${APPSCALE_SERVICE_BIN}/appscale-blobstore-server -p ${APPSCALE_BS_OPTION_PORT} -d ${APPSCALE_DATASTORE_SERVICE}
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-service.target

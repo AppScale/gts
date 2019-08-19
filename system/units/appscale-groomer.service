@@ -1,0 +1,13 @@
+[Unit]
+Description=AppScale Datastore Groomer
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+ExecStart=/usr/bin/python2 ${APPSCALE_SERVICE_BIN}/appscale-groomer-service
+SyslogIdentifier=%p
+# Resource controls
+MemoryLimit=512M
+
+[Install]
+WantedBy=appscale-service.target
