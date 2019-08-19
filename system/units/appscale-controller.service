@@ -1,8 +1,7 @@
 [Unit]
 Description=AppScale Controller
 AssertPathExists=/etc/appscale/secret.key
-Wants=monit.service
-After=monit.service network-online.target time-sync.target
+After=network-online.target time-sync.target
 
 [Service]
 Type=simple
