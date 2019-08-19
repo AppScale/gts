@@ -77,7 +77,6 @@ class TestAppDashboardHelper(unittest.TestCase):
           "used": 886620160
         },
         "services": {
-          # For each Process monitored by monit
           "cassandra": "Running",
         },
         "loadavg": {
@@ -143,7 +142,6 @@ class TestAppDashboardHelper(unittest.TestCase):
           "used": 0
         },
         "services": {
-          # For each Process monitored by monit
         },
         "loadavg": {
           "last_1min": 0.08,

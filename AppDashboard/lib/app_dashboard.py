@@ -81,7 +81,6 @@ class AppDashboard(webapp2.RequestHandler):
       'versions_user_is_admin_on': versions_user_is_admin_on,
       'user_layout_pref': self.dstore.get_dash_layout_settings(),
       'flower_url': self.dstore.get_flower_url(),
-      'monit_url': self.dstore.get_monit_url()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -100,7 +99,7 @@ class AppDashboard(webapp2.RequestHandler):
       show_create_account = False
 
     # These sections do not lend themselves well to having panels.
-    panel_blacklist = ['monit', 'taskqueue', 'datastore_viewer']
+    panel_blacklist = ['taskqueue', 'datastore_viewer']
     return self.render_template(template_file='shared/navigation.html',
                                 values={'show_create_account':
                                         show_create_account,
