@@ -20,14 +20,6 @@ class InvalidIndexConfiguration(Exception):
   pass
 
 
-class MonitStates(object):
-  MISSING = 'missing'
-  PENDING = 'pending'  # Monit is trying to either start or stop the process.
-  RUNNING = 'running'
-  STOPPED = 'stopped'  # Monit will likely try to start the process soon.
-  UNMONITORED = 'unmonitored'
-
-
 def non_negative_int(value):
   """ Checks if an integer value is greater or equal than 0. """
   return isinstance(value, int) and value >= 0
