@@ -27,7 +27,7 @@ from appscale.common.constants import (
   VERSION_PATH_SEPARATOR,
   ZK_PERSISTENT_RECONNECTS
 )
-from appscale.common.monit_interface import MonitOperator
+from appscale.common.service_helper import ServiceOperator
 from appscale.common.appscale_utils import get_md5
 from appscale.common.ua_client import UAClient
 from appscale.common.ua_client import UAException
@@ -1313,7 +1313,7 @@ def main():
   zk_client.start()
   version_update_lock = zk_client.Lock(constants.VERSION_UPDATE_LOCK_NODE)
   thread_pool = ThreadPoolExecutor(4)
-  monit_operator = MonitOperator()
+  service_operator = ServiceOperator()
   all_resources = {
     'acc': acc,
     'ua_client': ua_client,
@@ -1324,7 +1324,7 @@ def main():
 
   if options.private_ip in appscale_info.get_taskqueue_nodes():
     logger.info('Starting push worker manager')
-    GlobalPushWorkerManager(zk_client, monit_operator)
+    GlobalPushWorkerManager(zk_client, service_operator)
 
   if options.private_ip in appscale_info.get_load_balancer_ips():
     logger.info('Starting RoutingManager')
