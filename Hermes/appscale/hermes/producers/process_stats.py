@@ -10,8 +10,8 @@ from appscale.admin.service_manager import ServiceManager
 from appscale.common import appscale_info
 
 from appscale.hermes.converter import Meta, include_list_name
-from appscale.hermes.unified_service_names import \
-  find_service_by_monit_name
+from appscale.hermes.unified_service_names import (
+    find_service_by_external_name, systemd_mapper)
 
 logger = logging.getLogger(__name__)
 
@@ -67,17 +67,17 @@ class ProcessStats(object):
 
   Every Hermes node collects its processes statistics, but Master node also
   requests this statistics of all nodes in cluster.
-  All processes started by monit should be profiled.
+  AppSsale services started by systemd should be profiled.
   """
   pid = attr.ib()
-  monit_name = attr.ib()
+  monit_name = attr.ib()  # Monit / external name
 
   unified_service_name = attr.ib()  #| These 4 fields are primary key
   application_id = attr.ib()        #| for an instance of appscale service
   private_ip = attr.ib()            #| - Application ID can be None if
   port = attr.ib()                  #|   process is not related to specific app
                                     #| - port can be missed if it is not
-                                    #|   mentioned in monit process name
+                                    #|   mentioned in the external name
   cmdline = attr.ib()
   cpu = attr.ib(metadata={Meta.ENTITY: ProcessCPU})
   memory = attr.ib(metadata={Meta.ENTITY: ProcessMemory})
@@ -94,10 +94,13 @@ class ProcessesStatsSnapshot(object):
   processes_stats = attr.ib(metadata={Meta.ENTITY_LIST: ProcessStats})
 
 
-MONIT_PROCESS_PATTERN = re.compile(
-  r"^Process \'(?P<name>[^']+)\' *\n"
-  r"(^  .*\n)*?"
-  r"^  pid +(?P<pid>\d+)\n",
+SYSTEMCTL_SHOW = (
+    'systemctl', '--type=service', '--state=active', '--property=Id,MainPID',
+    'show', '*.service'
+)
+SYSTEMCTL_SHOW_PATTERN = re.compile(
+  r"^MainPID=(?P<pid>\d+)\n"
+  r"^Id=(?P<name>[a-zA-Z0-9@_-]+\.service)\n",
   re.MULTILINE
 )
 PROCESS_ATTRS = (
@@ -111,30 +114,33 @@ class ProcessesStatsSource(object):
   @staticmethod
   def get_current():
     """ Method for building a list of ProcessStats.
-    It parses output of `monit status` and generates ProcessStats object
-    for each monitored service.
+    It parses output of `systemctl show` and generates ProcessStats object
+    for each service of interest.
 
     Returns:
       An instance ofProcessesStatsSnapshot.
     """
     start = time.time()
-    monit_status = subprocess.check_output('monit status', shell=True)
+    systemctl_show = subprocess.check_output(SYSTEMCTL_SHOW)
     processes_stats = []
     private_ip = appscale_info.get_private_ip()
-    for match in MONIT_PROCESS_PATTERN.finditer(monit_status):
-      monit_name = match.group('name')
+    for match in SYSTEMCTL_SHOW_PATTERN.finditer(systemctl_show):
+      systemd_name = match.group('name')
       pid = int(match.group('pid'))
-      service = find_service_by_monit_name(monit_name)
+      service = find_service_by_external_name(systemd_name,
+                                              default_mapper=systemd_mapper)
+      if service is None:
+        continue
       try:
-        stats = _process_stats(pid, service, monit_name, private_ip)
+        stats = _process_stats(pid, service, systemd_name, private_ip)
         processes_stats.append(stats)
       except psutil.Error as err:
-        logger.warn(u"Unable to get process stats for {monit_name} ({err})"
-                     .format(monit_name=monit_name, err=err))
+        logger.warn(u"Unable to get process stats for {name} ({err})"
+                    .format(name=service.name, err=err))
 
     # Add processes managed by the ServiceManager.
     for server in ServiceManager.get_state():
-      service = find_service_by_monit_name(server.monit_name)
+      service = find_service_by_external_name(server.monit_name)
       try:
         stats = _process_stats(server.process.pid, service, server.monit_name,
                                private_ip)
@@ -152,7 +158,7 @@ class ProcessesStatsSource(object):
     return stats
 
 
-def _process_stats(pid, service, monit_name, private_ip):
+def _process_stats(pid, service, ext_name, private_ip):
   """ Static method for building an instance of ProcessStats.
   It summarize stats of the specified process and its children.
 
@@ -160,7 +166,7 @@ def _process_stats(pid, service, monit_name, private_ip):
     pid: A string representing Process ID to describe.
     service: An instance of unified_service_names.Service which corresponds to
       this process.
-    monit_name: A string, name of corresponding monit process.
+    ext_name: A string, name of corresponding external service/process.
   Returns:
     An object of ProcessStats with detailed explanation of resources used by
     the specified process and its children.
@@ -221,9 +227,9 @@ def _process_stats(pid, service, monit_name, private_ip):
   )
 
   return ProcessStats(
-    pid=pid, monit_name=monit_name, unified_service_name=service.name,
-    application_id=service.get_application_id_by_monit_name(monit_name),
-    port=service.get_port_by_monit_name(monit_name), private_ip=private_ip,
+    pid=pid, monit_name=ext_name, unified_service_name=service.name,
+    application_id=service.get_application_id_by_external_name(ext_name),
+    port=service.get_port_by_external_name(ext_name), private_ip=private_ip,
     cmdline=process_info['cmdline'], cpu=cpu, memory=memory, disk_io=disk_io,
     network=network, threads_num=threads_num, children_stats_sum=children_sum,
     children_num=len(children_info)
