@@ -37,7 +37,7 @@ require 'haproxy'
 require 'helperfunctions'
 require 'hermes_client'
 require 'infrastructure_manager_client'
-require 'monit_interface'
+require 'service_helper'
 require 'nginx'
 require 'search'
 require 'taskqueue'
@@ -203,7 +203,6 @@ class Djinn
   #      "used" => 886620160
   #    },
   #    "services" => {
-  #      # For each Process monitored by monit
   #      "cassandra" => "Running",
   #      ...
   #    },
@@ -567,9 +566,6 @@ class Djinn
     @nodes = []
     @options = {}
     @last_decision = {}
-
-    # Make sure monit is started.
-    MonitInterface.start_monit
   end
 
   # A SOAP-exposed method that callers can use to determine if this node
@@ -1827,12 +1823,6 @@ class Djinn
       # Mark the beginning of the duty cycle.
       start_work_time = Time.now.to_i
 
-      # We want to ensure monit stays up all the time, since we rely on
-      # it for services and AppServers.
-      unless MonitInterface.start_monit
-        Djinn.log_warn('Monit was not running: restarted it.')
-      end
-
       write_database_info
       update_port_files
       update_firewall
@@ -2096,19 +2086,14 @@ class Djinn
   # a SOAP interface by which we can dynamically add and remove nodes in this
   # AppScale deployment.
   def start_infrastructure_manager
-    script = `which appscale-infrastructure`.chomp
-    service_port = 17444
-    start_cmd = "#{script} -p #{service_port}"
-    start_cmd << ' --autoscaler' if my_node.is_shadow?
-    start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
-
-    MonitInterface.start(:iaas_manager, start_cmd)
+    instance_name = if my_node.is_shadow? then 'shadow' else 'basic' end
+    ServiceHelper.start("appscale-infrastructure@#{instance_name}")
     Djinn.log_info("Started InfrastructureManager successfully!")
   end
 
   def stop_infrastructure_manager
     Djinn.log_info("Stopping InfrastructureManager")
-    MonitInterface.stop(:iaas_manager)
+    ServiceHelper.stop('appscale-infrastructure@')
   end
 
   def get_online_users_list(secret)
@@ -3552,19 +3537,15 @@ class Djinn
   # starting and stopping applications.
   def start_app_manager_server
     @state = "Starting up AppManager"
-    app_manager_script = `which appscale-instance-manager`.chomp
-    start_cmd = "#{PYTHON27} #{app_manager_script}"
-    MonitInterface.start(:appmanagerserver, start_cmd)
+    ServiceHelper.start('appscale-instance-manager')
   end
 
   # Starts the Hermes service on this node.
   def start_hermes
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    script = `which appscale-hermes`.chomp
-    start_cmd = "/usr/bin/python2 #{script}"
-    start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
-    MonitInterface.start(:hermes, start_cmd)
+    #TODO:STEVE: write verbose env
+    ServiceHelper.start('appscale-hermes')
     if my_node.is_shadow?
       nginx_port = 17441
       service_port = 4378
@@ -3595,22 +3576,11 @@ class Djinn
 
     db_local_ip = my_node.private_ip
 
-    table = @options['table']
+    #TODO:STEVE: add environment for options : MASTER_IP LOCAL_DB_IP (move environment to /run/appscale or /var/lib/appscale?)
+    # env_vars['MASTER_IP'] = db_master_ip
+    # env_vars['LOCAL_DB_IP'] = db_local_ip
 
-    env_vars = {}
-
-    env_vars['APPSCALE_HOME'] = APPSCALE_HOME
-    env_vars['MASTER_IP'] = db_master_ip
-    env_vars['LOCAL_DB_IP'] = db_local_ip
-
-    if table == "simpledb"
-      env_vars['SIMPLEDB_ACCESS_KEY'] = @options['SIMPLEDB_ACCESS_KEY']
-      env_vars['SIMPLEDB_SECRET_KEY'] = @options['SIMPLEDB_SECRET_KEY']
-    end
-
-    soap_script = `which appscale-uaserver`.chomp
-    start_cmd = "#{soap_script} -t #{table}"
-    MonitInterface.start(:uaserver, start_cmd, nil, env_vars)
+    ServiceHelper.start('appscale-uaserver')
   end
 
   def assign_datastore_processes
@@ -3669,31 +3639,13 @@ class Djinn
 
   # Starts the Log Server service on this machine
   def start_log_server
-    log_server_pid = '/run/appscale/log_service.pid'
-    log_server_file = '/var/log/appscale/log_service.log'
-    twistd = `which twistd`.chomp
-    env = `which env`.chomp
-    bash = `which bash`.chomp
-
-    env_vars = {
-      'APPSCALE_HOME' => APPSCALE_HOME,
-      'PYTHONPATH' => "#{APPSCALE_HOME}/LogService/"
-    }
-    start_cmd = [env, env_vars.map{ |k, v| "#{k}=#{v}" }.join(' '),
-                 twistd,
-                 '--pidfile', log_server_pid,
-                 '--logfile', log_server_file,
-                 'appscale-logserver'].join(' ')
-    stop_cmd = "#{bash} -c 'kill $(cat #{log_server_pid})'"
-
-    MonitInterface.start_daemon(:log_service, start_cmd, stop_cmd,
-                                log_server_pid)
+    ServiceHelper.start('appscale-logserver')
     Djinn.log_info("Started Log Server successfully!")
   end
 
   def stop_log_server
     Djinn.log_info("Stopping Log Server")
-    MonitInterface.stop(:log_service)
+    ServiceHelper.stop('appscale-logserver')
   end
 
   # Stops the blobstore server.
@@ -3703,12 +3655,12 @@ class Djinn
 
   # Stops the User/Apps soap server.
   def stop_soap_server
-    MonitInterface.stop(:uaserver)
+    ServiceHelper.stop('appscale-uaserver')
   end
 
   # Stops the AppManager service
   def stop_app_manager_server
-    MonitInterface.stop(:appmanagerserver)
+    ServiceHelper.stop('appscale-instance-manager')
   end
 
   # Stops the groomer service.
@@ -4475,10 +4427,8 @@ class Djinn
     script = `which appscale-admin`.chomp
     nginx_port = 17441
     service_port = 17442
-    start_cmd = "#{script} serve -p #{service_port}"
-    start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
-    MonitInterface.start(:admin_server, start_cmd, nil,
-                         {'PATH' => ENV['PATH']})
+    #TODO:STEVE: verbose env
+    ServiceHelper.start('appscale-admin')
     if my_node.is_load_balancer?
       Nginx.add_service_location('appscale-administration', my_node.private_ip,
                                  service_port, nginx_port, '/')
@@ -4488,26 +4438,18 @@ class Djinn
   def start_memcache
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
-    port = 11211
-    start_cmd = "/usr/bin/memcached -m 64 -p #{port} -u root"
-    MonitInterface.start(:memcached, start_cmd)
+    ServiceHelper.start('appscale-memcached')
   end
 
   def stop_memcache
-    MonitInterface.stop(:memcached) if MonitInterface.is_running?(:memcached)
+    ServiceHelper.stop('appscale-memcached')
   end
 
   def start_ejabberd
     @state = "Starting up XMPP server"
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
     Ejabberd.write_config_file(@options['login'], my_node.private_ip)
-    Ejabberd.update_ctl_config
-
-    # Monit does not have an entry for ejabberd yet. This allows a restart
-    # with the new configuration if it is already running.
-    `systemctl stop ejabberd`
-
-    Ejabberd.start
+    Ejabberd.start(true)
   end
 
   def stop_ejabberd
@@ -4731,8 +4673,8 @@ class Djinn
     # Load balancers have to adjust nginx and haproxy to remove the
     # application routings.
     if my_node.is_load_balancer?
-      MonitInterface.running_xmpp.each { |xmpp_app|
-        match = xmpp_app.match(/xmpp-(.*)/)
+      ServiceHelper.running('appscale-xmpp@').each { |xmpp_app|
+        match = xmpp_app.match(/appscale-xmpp@(.*)/)
         next if match.nil?
 
         project_id = match.captures.first
@@ -5805,10 +5747,10 @@ class Djinn
 
   # This function creates the xmpp account for 'app', as app@login_ip.
   def start_xmpp_for_app(app)
-    watch_name = "xmpp-#{app}"
+    service_name = "appscale-xmpp@#{app}"
 
     # If we have it already running, nothing to do
-    if MonitInterface.is_running?(watch_name)
+    if ServiceHelper.is_running?(service_name)
       Djinn.log_debug("xmpp already running for application #{app}")
       return
     end
@@ -5844,11 +5786,13 @@ class Djinn
       "[#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app)
-      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/" \
+      Djinn.log_debug("App #{app} does need xmpp receive functionality")
+      xmpp_command_content = "exec #{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/" \
         "xmpp_receiver.py #{app} #{login_ip} " \
         "#{get_load_balancer.private_ip} #{@@secret}"
-      MonitInterface.start(watch_name, start_cmd)
-      Djinn.log_debug("App #{app} does need xmpp receive functionality")
+      xmpp_command_path = "/run/appscale/apps/xmpp_command_#{app}"
+      HelperFunctions.write_file(xmpp_command_path, xmpp_command_content)
+      ServiceHelper.start("appscale-xmpp@#{app}")
     else
       Djinn.log_debug("App #{app} does not need xmpp receive functionality")
     end
@@ -5860,7 +5804,9 @@ class Djinn
   #   app: The application ID whose XMPPReceiver we should shut down.
   def stop_xmpp_for_app(app)
     Djinn.log_info("Shutting down xmpp receiver for app: #{app}")
-    MonitInterface.stop("xmpp-#{app}") if MonitInterface.is_running?("xmpp-#{app}")
+    ServiceHelper.stop("appscale-xmpp@#{app}")
+    xmpp_command_path = "/run/appscale/apps/xmpp_command_#{app}"
+    FileUtils.rm_rf(xmpp_command_path)
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
   end
 

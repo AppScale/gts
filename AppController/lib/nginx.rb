@@ -8,7 +8,7 @@ require 'blobstore'
 require 'custom_exceptions'
 require 'datastore_server'
 require 'helperfunctions'
-require 'monit_interface'
+require 'service_helper'
 require 'user_app_client'
 
 # A module to wrap all the interactions with the nginx web server
@@ -33,6 +33,9 @@ module Nginx
 
   MAIN_CONFIG_FILE = File.join(NGINX_PATH, "nginx.#{CONFIG_EXTENSION}")
 
+  # Name for service as per helper.
+  SERVICE_NAME = 'appscale-nginx.target'.freeze
+
   # Nginx sites-enabled path.
   SITES_ENABLED_PATH = File.join(NGINX_PATH, 'sites-enabled')
 
@@ -50,36 +53,21 @@ module Nginx
   SSL_PORT_OFFSET = 3700
 
   def self.start
-    # Nginx runs both a 'master process' and one or more 'worker process'es, so
-    # when we have monit watch it, as long as one of those is running, nginx is
-    # still running and shouldn't be restarted.
-    systemctl = `which systemctl`.chomp
-    start_cmd = "#{systemctl} start nginx"
-    stop_cmd = "#{systemctl} stop nginx"
-    pidfile = '/run/nginx.pid'
-    MonitInterface.start_daemon(:nginx, start_cmd, stop_cmd, pidfile)
+    ServiceHelper.start(SERVICE_NAME)
   end
 
   def self.stop
-    MonitInterface.stop(:nginx, false)
+    ServiceHelper.stop(SERVICE_NAME)
   end
 
-  # Kills nginx if there was a failure when trying to start/reload.
-  #
-  def self.cleanup_failed_nginx
-    Djinn.log_error('****Killing nginx because there was a FATAL error****')
-    `ps aux | grep nginx | grep worker | awk {'print $2'} | xargs kill -9`
-  end
-
-  def self.reload
+  def self.reload(start=false)
     Djinn.log_info('Reloading nginx service.')
-    HelperFunctions.shell('systemctl reload nginx')
-    cleanup_failed_nginx if $?.to_i != 0
+    ServiceHelper.reload(SERVICE_NAME, start)
   end
 
   def self.is_running?
-    output = MonitInterface.is_running?(:nginx)
-    Djinn.log_debug("Checking if nginx is already monitored: #{output}")
+    output = ServiceHelper.is_running?(SERVICE_NAME)
+    Djinn.log_debug("Checking if nginx is already running: #{output}")
     output
   end
 
@@ -338,7 +326,7 @@ CONFIG
   def self.remove_version(version_key)
     config_name = "appscale-#{version_key}.#{CONFIG_EXTENSION}"
     FileUtils.rm_f(File.join(SITES_ENABLED_PATH, config_name))
-    Nginx.reload
+    Nginx.reload(false)
   end
 
   def self.list_sites_enabled
@@ -363,7 +351,7 @@ CONFIG
         File.join(SITES_ENABLED_PATH, site)
       }
       FileUtils.rm_f full_path_sites
-      Nginx.reload
+      Nginx.reload(false)
     end
   end
 
@@ -527,11 +515,6 @@ CONFIG
     # Write the main configuration file which sets default configuration
     # parameters
     File.open(MAIN_CONFIG_FILE, 'w+') { |dest_file| dest_file.write(config) }
-
-    # The pid file location was changed in the default nginx config for
-    # Trusty. Because of this, the first reload after writing the new config
-    # will fail on Precise.
-    HelperFunctions.shell('systemctl restart nginx')
   end
 end
 
