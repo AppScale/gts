@@ -394,7 +394,7 @@ installservice()
       echo "Linking appscale common systemd drop-in"
       for APPSCALE_SYSTEMD_SERVICE in ${DESTDIR}/lib/systemd/system/appscale-*.service; do
         mkdir "${APPSCALE_SYSTEMD_SERVICE}.d"
-        ln -st "${APPSCALE_SYSTEMD_SERVICE}.d" ../appscale-.d/10-appscale-common.conf
+        ln -t "${APPSCALE_SYSTEMD_SERVICE}.d" ${DESTDIR}/lib/systemd/system/appscale-.d/10-appscale-common.conf
       done
     fi
 
