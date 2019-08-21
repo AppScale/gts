@@ -273,8 +273,12 @@ class AppsHandler(BaseHandler):
       raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
                             message='Services node not found for project')
     payload = json.loads(self.request.body)
-    dispatch_rules = utils.routing_rules_from_dict(payload=payload,
-                                                   services=service_ids)
+
+    try:
+      dispatch_rules = utils.routing_rules_from_dict(payload=payload,
+                                                     services=service_ids)
+    except utils.InvalidDispatchConfiguration as error:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error.message)
 
     dispatch_node = '/appscale/projects/{}/dispatch'.format(project_id)
 

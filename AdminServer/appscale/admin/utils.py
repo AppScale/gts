@@ -610,7 +610,8 @@ def validate_routing_rule(rule, services):
   domain = rule['domain']
   path = rule['path']
   if service not in services:
-    raise InvalidDispatchConfiguration('Service does not exist.')
+    raise InvalidDispatchConfiguration('Service {} does not exist.'.format(
+        service))
 
   # Validation taken from GAE's 1.9.69 SDK (google/appengine/api/dispatchinfo.py)
   # Logic modified to check domain.startswith('*') rather than 'host_exact'
@@ -654,7 +655,7 @@ def routing_rules_from_dict(payload, services):
   try:
     given_routing_rules = payload['dispatchRules']
   except KeyError:
-    raise InvalidQueueConfiguration('Payload must contain dispatchRules')
+    raise InvalidDispatchConfiguration('Payload must contain dispatchRules')
 
   for rule in given_routing_rules:
     validate_routing_rule(rule, services)
