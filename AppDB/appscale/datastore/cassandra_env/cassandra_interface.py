@@ -57,9 +57,6 @@ NODE_TOOL = '{}/cassandra/bin/nodetool'.format(CASSANDRA_INSTALL_DIR)
 # The keyspace used for all tables
 KEYSPACE = "Keyspace1"
 
-# Cassandra watch name.
-CASSANDRA_MONIT_WATCH_NAME = "cassandra"
-
 # The number of times to retry connecting to Cassandra.
 INITIAL_CONNECT_RETRIES = 20
 
