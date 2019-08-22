@@ -117,7 +117,7 @@ public final class LocalUserService extends AbstractLocalRpcService
         }
 
         // Construct the url.
-        destinationUrl = forwardedProto + "://" + host + serverPort + destinationUrl;
+        String destinationUrl = forwardedProto + "://" + host + serverPort;
 
         String redirect_url = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/logout?continue=" + destinationUrl;
         response.setLogoutUrl(redirect_url);
