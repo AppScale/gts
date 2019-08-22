@@ -17,6 +17,7 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.fdb.codecs import (
   decode_str, decode_value, encode_value, encode_versionstamp_index, Path)
 from appscale.datastore.fdb.sdk import FindIndexToUse, ListCursor
+from appscale.datastore.fdb.stats import StatsSummary
 from appscale.datastore.fdb.utils import (
   format_prop_val, DS_ROOT, fdb, get_scatter_val, MAX_FDB_TX_DURATION,
   ResultIterator, SCATTER_PROP, VERSIONSTAMP_SIZE)
@@ -1007,26 +1008,31 @@ class IndexManager(object):
 
   @gen.coroutine
   def put_entries(self, tr, old_version_entry, new_entity):
+    old_key_stats = StatsSummary()
     if old_version_entry.has_entity:
-      keys = yield self._get_index_keys(
+      old_keys, old_key_stats = yield self._get_index_keys(
         tr, old_version_entry.decoded, old_version_entry.commit_versionstamp)
-      for key in keys:
+      for key in old_keys:
         # Set deleted versionstamp.
         tr.set_versionstamped_value(
           key, b'\x00' * VERSIONSTAMP_SIZE + encode_versionstamp_index(0))
 
+    new_key_stats = StatsSummary()
     if new_entity is not None:
-      keys = yield self._get_index_keys(tr, new_entity)
-      for key in keys:
+      new_keys, new_key_stats = yield self._get_index_keys(
+        tr, new_entity)
+      for key in new_keys:
         tr.set_versionstamped_key(key, b'')
+
+    raise gen.Return(new_key_stats - old_key_stats)
 
   @gen.coroutine
   def hard_delete_entries(self, tr, version_entry):
     if not version_entry.has_entity:
       return
 
-    keys = yield self._get_index_keys(
-      tr, version_entry.decoded, version_entry.commit_versionstamp)
+    keys = (yield self._get_index_keys(tr, version_entry.decoded,
+                                       version_entry.commit_versionstamp))[0]
     for key in keys:
       del tr[key]
 
@@ -1160,21 +1166,26 @@ class IndexManager(object):
     path = Path.flatten(entity.key().path())
     kind = path[-2]
 
+    stats = StatsSummary()
     kindless_index = yield self._kindless_index(tr, project_id, namespace)
     kind_index = yield self._kind_index(tr, project_id, namespace, kind)
     composite_indexes = yield self._get_indexes(
       tr, project_id, namespace, kind)
 
-    all_keys = [kindless_index.encode_key(path, commit_versionstamp),
-                kind_index.encode_key(path, commit_versionstamp)]
+    kindless_keys = kindless_index.encode_key(path, commit_versionstamp)
+    kind_keys = kind_index.encode_key(path, commit_versionstamp)
+    stats.add_kindless_keys(kindless_keys)
+    stats.add_kind_keys(kindless_keys)
+    all_keys = [kindless_keys, kind_keys]
     entity_prop_names = []
     for prop in entity.property_list():
       prop_name = decode_str(prop.name())
       entity_prop_names.append(prop_name)
       index = yield self._single_prop_index(
         tr, project_id, namespace, kind, prop_name)
-      all_keys.append(
-        index.encode_key(prop.value(), path, commit_versionstamp))
+      prop_key = index.encode_key(prop.value(), path, commit_versionstamp)
+      stats.add_prop_key(prop, prop_key)
+      all_keys.append(prop_key)
 
     scatter_val = get_scatter_val(path)
     if scatter_val is not None:
@@ -1183,14 +1194,17 @@ class IndexManager(object):
       all_keys.append(index.encode_key(scatter_val, path, commit_versionstamp))
 
     for index in composite_indexes:
+      # If the entity does not have the relevant props for the index, skip it.
       if not all(index_prop_name in entity_prop_names
                  for index_prop_name in index.prop_names):
         continue
 
-      all_keys.extend(
-        index.encode_keys(entity.property_list(), path, commit_versionstamp))
+      composite_keys = index.encode_keys(entity.property_list(), path,
+                                         commit_versionstamp)
+      stats.add_composite_keys(composite_keys)
+      all_keys.extend(composite_keys)
 
-    raise gen.Return(all_keys)
+    raise gen.Return((all_keys, stats))
 
   @gen.coroutine
   def _get_perfect_index(self, tr, query):
