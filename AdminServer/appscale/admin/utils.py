@@ -14,12 +14,21 @@ from appscale.common.constants import VERSION_PATH_SEPARATOR
 from kazoo.exceptions import NoNodeError
 
 from .constants import (
+  _URL_HOST_EXACT_PATTERN_RE,
+  _URL_HOST_SUFFIX_PATTERN_RE,
+  _URL_IP_V4_ADDR_RE,
   AUTO_HTTP_PORTS,
   AUTO_HTTPS_PORTS,
   CustomHTTPError,
+  DEFAULT_VERSION,
+  DISPATCH_PATH_REGEX,
+  DISPATCH_DOMAIN_REGEX_SINGLE_ASTERISK,
+  DISPATCH_DOMAIN_REGEX_ASTERISKS,
+  DISPATCH_DOMAIN_REGEX_ASTERISK_DOT,
   HAPROXY_PORTS,
   GO,
   InvalidCronConfiguration,
+  InvalidDispatchConfiguration,
   InvalidQueueConfiguration,
   InvalidSource,
   JAVA,
@@ -581,3 +590,74 @@ if hasattr(hmac, 'compare_digest'):
   constant_time_compare = hmac.compare_digest
 else:
   constant_time_compare = _constant_time_compare
+
+
+def validate_routing_rule(rule, services):
+  """
+  domain: string. Domain name to match against. The wildcard "*" is supported
+    if specified before a period: "*.". Defaults to matching all domains: "*".
+  path: string. Pathname within the host. Must start with a "/". A single "*"
+    can be included at the end of the path. The sum of the lengths of the
+    domain and path may not exceed 100 characters.
+  service: string. Resource ID of a service in this application that should
+    serve the matched request. The service must already exist. Example: default.
+  Tip: You can include glob patterns like the `*` wildcard character in the
+   `url` element; however, those patterns can be used only before the host name
+   and at the end of the URL path.
+
+  """
+  service = rule['service']
+  domain = rule['domain']
+  path = rule['path']
+  if service not in services:
+    raise InvalidDispatchConfiguration('Service {} does not exist.'.format(
+        service))
+
+  # Validation taken from GAE's 1.9.69 SDK (google/appengine/api/dispatchinfo.py)
+  # Logic modified to check domain.startswith('*') rather than 'host_exact'
+  # so if/else is flipped.
+  if domain.startswith('*'):
+    if not _URL_HOST_SUFFIX_PATTERN_RE.match(domain):
+      raise InvalidDispatchConfiguration(
+        'Invalid host pattern {}'.format(domain))
+  else:
+    if not _URL_HOST_EXACT_PATTERN_RE.match(domain):
+      raise InvalidDispatchConfiguration(
+          'Invalid host pattern {}'.format(domain))
+    _ValidateNotIpV4Address(domain)
+  # End GAE 1.9.69 validation.
+
+  if not DISPATCH_PATH_REGEX.match(path):
+    raise InvalidDispatchConfiguration('Invalid path pattern {}.'.format(path))
+
+  if not DISPATCH_DOMAIN_REGEX_SINGLE_ASTERISK.match(domain):
+    asterisks = DISPATCH_DOMAIN_REGEX_ASTERISKS.findall(domain)
+    asterisk_dot = DISPATCH_DOMAIN_REGEX_ASTERISK_DOT.findall(domain)
+    if len(asterisks) != len(asterisk_dot):
+      raise InvalidDispatchConfiguration(
+          'Invalid host pattern {}'.format(domain))
+
+  if len(domain) + len(path) > 100:
+    raise InvalidDispatchConfiguration('URL over 100 characters.')
+
+# Taken from GAE's 1.9.69 SDK (google/appengine/api/dispatchinfo.py)
+def _ValidateNotIpV4Address(host):
+  """Validate host is not an IPV4 address."""
+  matcher = _URL_IP_V4_ADDR_RE.match(host)
+  if matcher and sum(1 for x in matcher.groups() if int(x) <= 255) == 4:
+    # Exception modified for AppScale.
+    raise InvalidDispatchConfiguration(
+        'Host may not match an ipv4 address {}'.format(host))
+  return matcher
+# End GAE 1.9.69.
+
+def routing_rules_from_dict(payload, services):
+  try:
+    given_routing_rules = payload['dispatchRules']
+  except KeyError:
+    raise InvalidDispatchConfiguration('Payload must contain dispatchRules')
+
+  for rule in given_routing_rules:
+    validate_routing_rule(rule, services)
+
+  return given_routing_rules

@@ -716,6 +716,7 @@ class Module(object):
 
     scheme = environ['HTTP_X_FORWARDED_PROTO']
     expected_scheme = scheme
+    redirect_host = environ['HTTP_HOST']
     if handler._url_map.secure == 'always':
       expected_scheme = 'https'
     elif handler._url_map.secure == 'never':
@@ -724,7 +725,11 @@ class Module(object):
     if scheme == expected_scheme:
       return
 
-    new_location = ''.join([expected_scheme, '://', environ['HTTP_HOST'],
+    redirect_port = environ['HTTP_X_REDIRECT_HTTP_PORT'] \
+        if expected_scheme == 'http' else environ['HTTP_X_REDIRECT_HTTPS_PORT']
+    redirect_host = '{}:{}'.format(environ['HTTP_HOST'].split(':')[0],
+                                   redirect_port)
+    new_location = ''.join([expected_scheme, '://', redirect_host,
                             environ.get('REQUEST_URI', '/')])
     start_response('302 Moved Temporarily', [('Location', new_location)])
     return []

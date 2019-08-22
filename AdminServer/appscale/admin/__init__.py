@@ -68,7 +68,8 @@ from .operation import (
   DeleteServiceOperation,
   CreateVersionOperation,
   DeleteVersionOperation,
-  UpdateVersionOperation
+  UpdateVersionOperation,
+  UpdateApplicationOperation
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
@@ -218,6 +219,86 @@ class LifecycleState(object):
   LIFECYCLE_STATE_UNSPECIFIED = 'LIFECYCLE_STATE_UNSPECIFIED'
   DELETE_REQUESTED = 'DELETE_REQUESTED'
   DELETE_IN_PROGRESS = 'DELETE_IN_PROGRESS'
+
+
+class AppsHandler(BaseHandler):
+  """ Manages applications. """
+  def initialize(self, ua_client, zk_client):
+    """ Defines required resources to handle requests.
+
+    Args:
+      ua_client: A UAClient.
+      zk_client: A KazooClient.
+    """
+    self.ua_client = ua_client
+    self.zk_client = zk_client
+
+
+  @gen.coroutine
+  def patch(self, project_id):
+    """ Updates an Application. Currently this is only supported for the
+    dispatch rules.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    self.authenticate(project_id, self.ua_client)
+
+    if project_id in constants.IMMUTABLE_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} cannot be updated'.format(project_id))
+
+    update_mask = self.get_argument('updateMask', None)
+    if not update_mask:
+      message = 'At least one field must be specified for this operation.'
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    desired_fields = update_mask.split(',')
+    supported_fields = {'dispatchRules'}
+    for field in desired_fields:
+      if field not in supported_fields:
+        message = ('This operation is only supported on the following '
+                   'field(s): [{}]'.format(', '.join(supported_fields)))
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    project_node = '/appscale/projects/{}'.format(project_id)
+    services_node = '{}/services'.format(project_node)
+    if not self.zk_client.exists(project_node):
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Project does not exist')
+
+    try:
+      service_ids = self.zk_client.get_children(services_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Services node not found for project')
+    payload = json.loads(self.request.body)
+
+    try:
+      dispatch_rules = utils.routing_rules_from_dict(payload=payload,
+                                                     services=service_ids)
+    except utils.InvalidDispatchConfiguration as error:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error.message)
+
+    dispatch_node = '/appscale/projects/{}/dispatch'.format(project_id)
+
+    try:
+      self.zk_client.set(dispatch_node, json.dumps(dispatch_rules))
+    except NoNodeError:
+      try:
+        self.zk_client.create(dispatch_node, json.dumps(dispatch_rules))
+      except NoNodeError:
+        raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                              message='{} not found'.format(project_id))
+
+    logger.info('Updated dispatch for {}'.format(project_id))
+    # TODO: add verification for dispatchRules being applied. For now,
+    # assume the controller picks it up instantly.
+    patch_operation = UpdateApplicationOperation(project_id)
+    patch_operation.finish(dispatch_rules)
+    operations[patch_operation.id] = patch_operation
+    self.write(json_encode(patch_operation.rest_repr()))
+
 
 
 class BaseVersionHandler(BaseHandler):
@@ -1353,6 +1434,8 @@ def main():
      {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client,
       'version_update_lock': version_update_lock, 'thread_pool': thread_pool,
       'controller_state': controller_state}),
+    ('/v1/apps/([^/]*)', AppsHandler,
+     {'ua_client': ua_client, 'zk_client': zk_client}),
     ('/v1/apps/([^/]*)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
     ('/api/cron/update', UpdateCronHandler,
