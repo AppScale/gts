@@ -210,7 +210,7 @@ BOO
 
   def self.is_running?(watch)
     script = `which appscale-admin`.chomp
-    HelperFunctions.log_and_crash("Cannod find appscale-admin!") if script.empty?
+    HelperFunctions.log_and_crash("Cannot find appscale-admin!") if script.empty?
     output = run_cmd("#{script} summary | grep \"'#{watch}'\"")
     (output != '')
   end
