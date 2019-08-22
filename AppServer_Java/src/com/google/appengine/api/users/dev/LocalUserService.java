@@ -64,7 +64,7 @@ public final class LocalUserService extends AbstractLocalRpcService
             if (host == null || forwardedProto == null) {
                 throw new RuntimeException(loginURLError);
             }
-            if (host.split(':').length > 1) {
+            if (host.split(":").length > 1) {
                 String httpsPort = req.getHeader("X-Redirect-Https-Port");
                 String httpPort = req.getHeader("X-Redirect-Http-Port");
                 if (httpsPort == null || httpPort == null) {
@@ -104,7 +104,7 @@ public final class LocalUserService extends AbstractLocalRpcService
         if (host == null || forwardedProto == null) {
             throw new RuntimeException(logoutURLError);
         }
-        if (host.split(':').length > 1) {
+        if (host.split(":").length > 1) {
             String httpsPort = req.getHeader("X-Redirect-Https-Port");
             String httpPort = req.getHeader("X-Redirect-Http-Port");
             if (httpsPort == null || httpPort == null) {
