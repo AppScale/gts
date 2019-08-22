@@ -46,15 +46,6 @@ from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
 from google.appengine.datastore import old_datastore_stub_util
 
-# Where the SSL certificate is placed for encrypted communication.
-CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
-
-# Where the SSL private key is placed for encrypted communication.
-KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
-
-# The default SSL port to connect to.
-SSL_DEFAULT_PORT = 8443
-
 try:
   __import__('google.appengine.api.taskqueue.taskqueue_service_pb')
   taskqueue_service_pb = sys.modules.get(
@@ -197,11 +188,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     assert isinstance(app_id, basestring) and app_id != ''
     self.project_id = app_id
     self.__datastore_location = datastore_location
-    self.__is_encrypted = True
-    res = self.__datastore_location.split(':')
-    if len(res) == 2:
-      if int(res[1]) != SSL_DEFAULT_PORT:
-        self.__is_encrypted = False
 
     self.SetTrusted(trusted)
 
@@ -356,14 +342,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     location = self.__datastore_location
     while True:
       try:
-        api_request.sendCommand(
-          location,
-          tag,
-          api_response,
-          1,
-          self.__is_encrypted,
-          KEY_LOCATION,
-          CERT_LOCATION)
+        api_request.sendCommand(location, tag, api_response)
         break
       except socket.error as socket_error:
         if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
