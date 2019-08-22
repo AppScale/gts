@@ -31,6 +31,7 @@ from appscale.datastore.fdb.transactions import TransactionManager
 from appscale.datastore.fdb.utils import (
   ABSENT_VERSION, fdb, FDBErrorCodes, next_entity_version, DS_ROOT,
   ScatteredAllocator, TornadoFDB)
+from appscale.datastore.index_manager import IndexInaccessible
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
@@ -357,6 +358,30 @@ class FDBDatastore(object):
   def update_composite_index(self, project_id, index):
     project_id = decode_str(project_id)
     yield self.index_manager.update_composite_index(project_id, index)
+
+  def get_indexes(self, project_id):
+    """ Retrieves list of indexes for a project.
+
+    Args:
+      project_id: A string specifying a project ID.
+    Returns:
+      A list of entity_pb.CompositeIndex objects.
+    Raises:
+      BadRequest if project_id is not found.
+      InternalError if ZooKeeper is not accessible.
+    """
+    try:
+      project_index_manager = self.index_manager.composite_index_manager.\
+        projects[project_id]
+    except KeyError:
+      raise BadRequest('project_id: {} not found'.format(project_id))
+
+    try:
+      indexes = project_index_manager.indexes_pb
+    except IndexInaccessible:
+      raise InternalError('ZooKeeper is not accessible')
+
+    return indexes
 
   @gen.coroutine
   def _upsert(self, tr, entity, old_entry_future=None):
