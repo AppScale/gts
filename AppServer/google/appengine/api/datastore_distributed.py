@@ -33,6 +33,9 @@ import sys
 import threading
 import warnings
 
+from urllib3 import HTTPConnectionPool
+from urllib3.exceptions import MaxRetryError
+
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
@@ -79,15 +82,14 @@ LOAD_BALANCERS_FILE = "/etc/appscale/load_balancer_ips"
 PROXY_PORT = 8888
 
 
-def get_random_lb():
-  """ Selects a random location from the load balancers file.
+def get_random_lb_host():
+  """ Selects a random host from the load balancers file.
 
   Returns:
     A string specifying a load balancer IP.
   """
   with open(LOAD_BALANCERS_FILE) as lb_file:
-    return random.choice([':'.join([line.strip(), str(PROXY_PORT)])
-                          for line in lb_file])
+    return random.choice(line.strip() for line in lb_file)
 
 
 class InternalCursor():
@@ -187,7 +189,13 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     # TODO lock any use of these global variables
     assert isinstance(app_id, basestring) and app_id != ''
     self.project_id = app_id
-    self.__datastore_location = datastore_location
+
+    host, port = datastore_location.split(':')
+    port = int(port)
+    self._ds_pool = HTTPConnectionPool(host, port, maxsize=8)
+
+    self._service_id = os.environ.get('CURRENT_MODULE_ID', 'default')
+    self._version_id = os.environ.get('CURRENT_VERSION_ID', 'v1').split('.')[0]
 
     self.SetTrusted(trusted)
 
@@ -319,6 +327,24 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if not auth_domain:
       os.environ['AUTH_DOMAIN'] = "appscale.com"
 
+  def _make_call(self, payload, headers, retries=2):
+    try:
+      http_response = self._ds_pool.request('POST', '/', body=payload,
+                                            headers=headers)
+    except MaxRetryError:
+      logging.exception('Failed to make datastore call')
+      if retries == 0:
+        raise
+
+      # To handle the failure of a service proxy, pick a different host.
+      self._ds_pool = HTTPConnectionPool(get_random_lb_host(), PROXY_PORT,
+                                         maxsize=8)
+      backoff_ms = 500 * 3 ** (2 - retries)  # 0.5s, 1.5s, 4.5s
+      time.sleep(float(backoff_ms) / 1000)
+      return self._make_call(payload, headers, retries - 1)
+
+    return http_response
+
   def _RemoteSend(self, request, response, method, request_id=None):
     """Sends a request remotely to the datstore server. """
     tag = self.project_id
@@ -335,44 +361,20 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if request_id is not None:
       api_request.set_request_id(request_id)
 
-    api_response = remote_api_pb.Response()
+    payload = api_request.Encode()
+    headers = {'Content-Length': len(payload),
+               'ProtocolBufferType': 'Request',
+               'AppData': tag,
+               'Module': self._service_id,
+               'Version': self._version_id}
+    http_response = self._make_call(payload, headers)
 
-    retry_count = 0
-    max_retries = 3
-    location = self.__datastore_location
-    while True:
-      try:
-        api_request.sendCommand(location, tag, api_response)
-        break
-      except socket.error as socket_error:
-        if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
-          backoff_ms = 500 * 3**retry_count   # 0.5s, 1.5s, 4.5s
-          retry_count += 1
-          if retry_count > max_retries:
-            raise
+    if http_response.status != 200:
+      raise apiproxy_errors.ApplicationError(
+        datastore_pb.Error.INTERNAL_ERROR, 'Unhandled datastore error')
 
-          logging.warning(
-            'Failed to call {} method of Datastore ({}). Retry #{} in {}ms.'
-            .format(method, socket_error, retry_count, backoff_ms))
-          time.sleep(float(backoff_ms) / 1000)
-          location = get_random_lb()
-          api_response = remote_api_pb.Response()
-          continue
+    api_response = remote_api_pb.Response(http_response.data)
 
-        if socket_error.errno == errno.ETIMEDOUT:
-          raise apiproxy_errors.ApplicationError(
-            datastore_pb.Error.TIMEOUT,
-            'Connection timed out when making datastore request')
-        raise
-      # AppScale: Interpret ProtocolBuffer.ProtocolBufferReturnError as
-      # datastore_errors.InternalError
-      except ProtocolBuffer.ProtocolBufferReturnError as e:
-        raise datastore_errors.InternalError(e)
-
-    if not api_response or not api_response.has_response():
-      raise datastore_errors.InternalError(
-          'No response from db server on %s requests.' % method)
-    
     if api_response.has_application_error():
       error_pb = api_response.application_error()
       logging.error(error_pb.detail())
