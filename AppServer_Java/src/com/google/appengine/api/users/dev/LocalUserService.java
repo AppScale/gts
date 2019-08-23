@@ -58,13 +58,14 @@ public final class LocalUserService extends AbstractLocalRpcService
             if (req == null) {
                 throw new RuntimeException(loginURLError);
             }
-            String serverPort = "";
             String host = req.getHeader("Host");
             String forwardedProto = req.getHeader("X-Forwarded-Proto");
             if (host == null || forwardedProto == null) {
                 throw new RuntimeException(loginURLError);
             }
-            if (host.split(":").length > 1) {
+            String[] hostPieces = host.split(":");
+            if (hostPieces.length > 1) {
+                String serverPort = "";
                 String httpsPort = req.getHeader("X-Redirect-Https-Port");
                 String httpPort = req.getHeader("X-Redirect-Http-Port");
                 if (httpsPort == null || httpPort == null) {
@@ -74,10 +75,11 @@ public final class LocalUserService extends AbstractLocalRpcService
                 serverPort += (forwardedProto.equals("https"))
                               ? (httpsPort)
                               : (httpPort);
+                host = hostPieces[0] + serverPort;
             }
 
             // Construct the url.
-            destinationUrl = forwardedProto + "://" + host + serverPort + destinationUrl;
+            destinationUrl = forwardedProto + "://" + host + destinationUrl;
         }
 
         response.setLoginUrl(LOGIN_URL + "?continue=" + encode(destinationUrl));
@@ -98,26 +100,28 @@ public final class LocalUserService extends AbstractLocalRpcService
             throw new RuntimeException(logoutURLError);
         }
 
-        String serverPort = "";
         String host = req.getHeader("Host");
         String forwardedProto = req.getHeader("X-Forwarded-Proto");
         if (host == null || forwardedProto == null) {
             throw new RuntimeException(logoutURLError);
         }
-        if (host.split(":").length > 1) {
+        String[] hostPieces = host.split(":");
+        if (hostPieces.length > 1) {
+            String serverPort = "";
             String httpsPort = req.getHeader("X-Redirect-Https-Port");
             String httpPort = req.getHeader("X-Redirect-Http-Port");
             if (httpsPort == null || httpPort == null) {
-                throw new RuntimeException(logoutURLError);
+                throw new RuntimeException(loginURLError);
             }
             serverPort = ":";
             serverPort += (forwardedProto.equals("https"))
                           ? (httpsPort)
                           : (httpPort);
+            host = hostPieces[0] + serverPort;
         }
 
         // Construct the url.
-        String destinationUrl = forwardedProto + "://" + host + serverPort;
+        String destinationUrl = forwardedProto + "://" + host;
 
         String redirect_url = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/logout?continue=" + destinationUrl;
         response.setLogoutUrl(redirect_url);
