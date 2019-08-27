@@ -239,7 +239,6 @@ class TestDjinn < Test::Unit::TestCase
     file.should_receive(:open).and_return()
     file.should_receive(:log_run).and_return()
     flexmock(Djinn).should_receive(:log_run).and_return()
-    flexmock(HAProxy).should_receive(:create_tq_server_config).and_return()
     flexmock(HelperFunctions).should_receive(:shell).and_return()
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
@@ -288,7 +287,6 @@ class TestDjinn < Test::Unit::TestCase
 
     # mock out and commands
     flexmock(Djinn).should_receive(:log_run).and_return()
-    flexmock(HAProxy).should_receive(:create_tq_server_config).and_return()
     flexmock(MonitInterface).should_receive(:start_daemon).and_return()
     flexmock(MonitInterface).should_receive(:start).and_return()
     flexmock(Addrinfo).should_receive('ip.getnameinfo').and_return(["hostname-ip1"])

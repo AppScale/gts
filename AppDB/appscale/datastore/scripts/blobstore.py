@@ -483,11 +483,5 @@ def main():
 
   http_server.listen(args.port)
 
-  # Make sure this server is accessible from each of the load balancers.
-  secret = appscale_info.get_secret()
-  for load_balancer in appscale_info.get_load_balancer_ips():
-    acc = AppControllerClient(load_balancer, secret)
-    acc.add_routing_for_blob_server()
-
   logger.info('Starting BlobServer on {}'.format(args.port))
   tornado.ioloop.IOLoop.instance().start()

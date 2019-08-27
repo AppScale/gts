@@ -93,34 +93,6 @@ module HAProxy
       :service_haproxy, start_cmd, stop_cmd, SERVICE_PIDFILE, nil, restart_cmd)
   end
 
-  # Create the config file for UserAppServer.
-  def self.create_ua_server_config(server_ips, my_ip, listen_port)
-    # We reach out to UserAppServers on the DB nodes.
-    # The port is fixed.
-    servers = []
-    server_ips.each { |server|
-      servers << { 'ip' => server, 'port' => UserAppClient::SERVER_PORT }
-    }
-    create_app_config(servers, my_ip, listen_port, UserAppClient::NAME)
-  end
-
-  # Remove the configuration for TaskQueue REST API endpoints.
-  def self.remove_tq_endpoints
-    FileUtils.rm_f(File.join(SERVICE_SITES_PATH, TaskQueue::NAME))
-    HAProxy.regenerate_config
-  end
-
-  # Create the config file for TaskQueue servers.
-  def self.create_tq_server_config(server_ips, my_ip, listen_port)
-    servers = []
-    server_ips.each { |server|
-      TaskQueue.get_server_ports.each { |port|
-        servers << { 'ip' => server, 'port' => port }
-      }
-    }
-    create_app_config(servers, my_ip, listen_port, TaskQueue::NAME)
-  end
-
   # A generic function for creating HAProxy config files used by AppScale services.
   #
   # Arguments:
