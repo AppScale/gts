@@ -1550,7 +1550,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.change_password(username, password)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while resetting " \
@@ -1567,7 +1567,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.does_user_exist?(username)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer to check if the " \
@@ -1587,7 +1587,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.commit_new_user(username, password, account_type)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while committing " \
@@ -1604,7 +1604,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.set_admin_role(username, is_cloud_admin, capabilities)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while setting admin role " \
@@ -3350,9 +3350,9 @@ class Djinn
 
     # All nodes wait for the UserAppServer now. The call here is just to
     # ensure the UserAppServer is talking to the persistent state.
-    HelperFunctions.sleep_until_port_is_open(@my_private_ip,
-      UserAppClient::SSL_SERVER_PORT, USE_SSL)
-    uac = UserAppClient.new(@my_private_ip, @@secret)
+    HelperFunctions.sleep_until_port_is_open(
+      get_load_balancer.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     begin
       uac.does_user_exist?("not-there")
     rescue FailedNodeException
@@ -4543,7 +4543,7 @@ class Djinn
 
   # Create the system user used to start and run system's applications.
   def create_appscale_user
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     password = SecureRandom.base64
 
     begin
@@ -4647,9 +4647,11 @@ class Djinn
                           DatastoreServer::PROXY_PORT].join(':')
     taskqueue_location = [get_load_balancer.private_ip,
                           TaskQueue::HAPROXY_PORT].join(':')
+    ua_server_location = [get_load_balancer.private_ip,
+                          UserAppClient::HAPROXY_SERVER_PORT].join(':')
     source_archive = AppDashboard.prep(
       my_private, PERSISTENT_MOUNT_POINT, datastore_location,
-      taskqueue_location)
+      taskqueue_location, ua_server_location)
 
     self.deploy_dashboard(source_archive)
   end
@@ -5840,7 +5842,7 @@ class Djinn
     # We don't need to check for FailedNodeException here since we catch
     # it at a higher level.
     login_ip = @options['login']
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     xmpp_user = "#{app}@#{login_ip}"
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
 

@@ -674,7 +674,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
         "public_ip" => "my public ip",
         "private_ip" => "my private ip",
-        "roles" => []
+        "roles" => ["load_balancer"]
     }
     djinn = flexmock(Djinn.new())
     djinn.my_index = 0

@@ -1387,7 +1387,7 @@ def main():
   options.define('load_balancers', appscale_info.get_load_balancer_ips())
 
   acc = appscale_info.get_appcontroller_client()
-  ua_client = UAClient(appscale_info.get_db_master_ip(), options.secret)
+  ua_client = UAClient()
   zk_client = KazooClient(
     hosts=','.join(options.zk_locations),
     connection_retry=ZK_PERSISTENT_RECONNECTS)
