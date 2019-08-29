@@ -1,19 +1,9 @@
 """ Utility functions """
 
-import constants
 import hashlib
-import random
-import string
 import subprocess
 
 from .constants import KEY_DIRECTORY
-
-
-def random_password_generator():
-  """ Generates a random six character password with letters and digits. """
-  characters = string.letters + string.digits
-  pwd_size = constants.PASSWORD_SIZE
-  return ''.join((random.choice(characters)) for x in range(pwd_size))
 
 
 def encrypt_password(username, password):

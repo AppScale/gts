@@ -36,18 +36,19 @@ module TerminateHelper
     `rm -f /etc/monit/conf.d/appscale*.cfg`
     `rm -f /etc/monit/conf.d/controller-17443.cfg`
 
-    # Stop datastore servers.
-    datastore_slice = '/sys/fs/cgroup/systemd/appscale.slice'\
-                      '/appscale-datastore.slice'
-    begin
-      Find.find(datastore_slice) do |path|
-        next unless File.basename(path) == 'cgroup.procs'
-        File.readlines(path).each do |pid|
-          `kill #{pid}`
+    # Stop datastore and search servers.
+    for slice_name in ['appscale-datastore', 'appscale-search']
+        slice = "/sys/fs/cgroup/systemd/appscale.slice/#{slice_name}.slice"
+        begin
+          Find.find(slice) do |path|
+            next unless File.basename(path) == 'cgroup.procs'
+            File.readlines(path).each do |pid|
+              `kill #{pid}`
+            end
+          end
+        rescue Errno::ENOENT
+          # If there are no processes running, there is no need to stop them.
         end
-      end
-    rescue Errno::ENOENT
-      # If there are no processes running, there is no need to stop them.
     end
 
     `rm -f /etc/logrotate.d/appscale-*`

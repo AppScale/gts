@@ -1,10 +1,10 @@
 """ Manages HAProxy operations. """
 import errno
 import logging
+import monotonic
 import os
 import pkgutil
 import subprocess
-import time
 
 from tornado import gen
 
@@ -106,7 +106,10 @@ class HAProxy(object):
     self.server_timeout_ms = self.DEFAULT_SERVER_TIMEOUT * 1000
     self.versions = {}
     self.reload_future = None
-    self.last_reload = time.time()
+
+    # Given the arbitrary base of the monotonic clock, it doesn't make sense
+    # for outside functions to access this attribute.
+    self._last_reload = monotonic.monotonic()
 
   @property
   def config(self):
@@ -144,10 +147,10 @@ class HAProxy(object):
   @gen.coroutine
   def _reload(self):
     """ Updates the routing entries if they've changed. """
-    time_since_reload = time.time() - self.last_reload
+    time_since_reload = monotonic.monotonic() - self._last_reload
     wait_time = max(self.RELOAD_COOLDOWN - time_since_reload, 0)
     yield gen.sleep(wait_time)
-    self.last_reload = time.time()
+    self._last_reload = monotonic.monotonic()
 
     try:
       new_content = self.config

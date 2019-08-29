@@ -8,10 +8,9 @@ Conflicts=shutdown.target
 User=solr
 LimitNOFILE=65535
 LimitNPROC=65535
-PIDFile=/opt/appscale/solr7/solr-8983.pid
+PIDFile=/var/solr7/solr-8983.pid
 Environment=SOLR_INCLUDE=/etc/default/solr.in.sh
 Environment=RUNAS=solr
-Environment=SOLR_INSTALL_DIR=/opt/solr
 
 Restart=on-failure
 RestartSec=5

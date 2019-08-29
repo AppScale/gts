@@ -77,6 +77,15 @@ namespace :searchservice do
 
 end
 
+namespace :searchservice2 do
+
+  task :test do
+    sh '/opt/appscale_venvs/search2/bin/pip install pytest'
+    sh '/opt/appscale_venvs/search2/bin/pytest SearchService2/tests'
+  end
+
+end
+
 namespace :appserver do
 
   task :test do
@@ -147,6 +156,7 @@ python_tests = [
   'hermes:test',
   'infrastructuremanager:test',
   'searchservice:test',
+  'searchservice2:test',
   'xmppreceiver:test',
   'apps:test',
   'adminserver:test'

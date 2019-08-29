@@ -49,6 +49,8 @@ SOLR_MEM_LOW=$(echo "$SOLR_MEM_MAX" | awk '{ printf "%d", $1 * 0.70 }')
 # Slow process down when usage is higher.
 SOLR_MEM_HIGH=$(echo "$SOLR_MEM_MAX" | awk '{ printf "%d", $1 * 0.90 }')
 
+mkdir /var/solr7
+sudo chown solr:solr /var/solr7
 mkdir -p /var/log/appscale/solr
 sudo chown -R solr:solr /var/log/appscale/solr
 

@@ -338,6 +338,29 @@ installsolr()
     mv -v ${SOLR_DIR}/solr-${SOLR_VER} ${SOLR_DIR}/solr
 }
 
+installsolr7()
+{
+    SOLR_VER=7.6.0
+    SOLR_PACKAGE="solr-${SOLR_VER}.tgz"
+    SOLR_PACKAGE_MD5="6363337322523b68c377177b1232c49e"
+    cachepackage ${SOLR_PACKAGE} ${SOLR_PACKAGE_MD5}
+
+    SOLR_EXTRACT_DIR=/opt/
+    SOLR_VAR_DIR=/opt/appscale/solr7/
+    SOLR_ARCHIVE="${PACKAGE_CACHE}/${SOLR_PACKAGE}"
+
+    tar xzf "${SOLR_ARCHIVE}" solr-${SOLR_VER}/bin/install_solr_service.sh --strip-components=2
+
+    echo "Installing Solr ${SOLR_VER}."
+    # -n  Do not start solr service after install.
+    # -f  Upgrade Solr. Overwrite symlink and init script of previous installation.
+    bash ./install_solr_service.sh "${SOLR_ARCHIVE}" \
+              -d ${SOLR_VAR_DIR} \
+              -i ${SOLR_EXTRACT_DIR} \
+              -n -f
+    update-rc.d solr disable
+}
+
 installcassandra()
 {
     CASSANDRA_VER=3.11.2
@@ -648,6 +671,10 @@ installtaskqueue()
 
 installdatastore()
 {
+    FDB_CLIENTS_DEB="foundationdb-clients_6.1.8-1_amd64.deb"
+    FDB_CLIENTS_MD5="f701c23c144cdee2a2bf68647f0e108e"
+    cachepackage ${FDB_CLIENTS_DEB} ${FDB_CLIENTS_MD5}
+    dpkg --install ${PACKAGE_CACHE}/foundationdb-clients_6.1.8-1_amd64.deb
     pip install --upgrade --no-deps ${APPSCALE_HOME}/AppDB
     pip install ${APPSCALE_HOME}/AppDB
 }
@@ -671,6 +698,23 @@ installapiserver()
     eval ${unset_opt}
 }
 
+installsearch2()
+{
+    ANTLR_VER=4.7.2
+    ANTLR_JAR="antlr-${ANTLR_VER}-complete.jar"
+    ANTLR_JAR_MD5="58c9cdda732eabd9ea3e197fa7d8f2d6"
+    cachepackage ${ANTLR_JAR} ${ANTLR_JAR_MD5}
+    cp "${PACKAGE_CACHE}/${ANTLR_JAR}" "/usr/local/lib/${ANTLR_JAR}"
+
+    # Create virtual environment based on Python 3
+    rm -rf /opt/appscale_venvs/search2
+    python3 -m venv /opt/appscale_venvs/search2/
+
+    # Let the script compile protocols and parser and install package using pip.
+    "${APPSCALE_HOME}/SearchService2/build-scripts/ensure_searchservice2.sh" \
+        /opt/appscale_venvs/search2/bin/pip
+}
+
 prepdashboard()
 {
     rm -rf ${APPSCALE_HOME}/AppDashboard/vendor
@@ -679,20 +723,6 @@ prepdashboard()
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor python-crontab
     pip install -t ${APPSCALE_HOME}/AppDashboard/vendor \
         ${APPSCALE_HOME}/AppControllerClient
-}
-
-upgradepip()
-{
-    # Versions older than Pip 7 did not correctly parse install commands for
-    # local packages with optional dependencies. Versions greater than Pip 9
-    # do not allow replacing packages installed by the distro.
-    case "$DIST" in
-        jessie)
-            # The system's pip does not allow updating itself.
-            easy_install --upgrade 'pip<10.0.0b1'
-            hash -r
-            ;;
-    esac
 }
 
 fetchclientjars()
