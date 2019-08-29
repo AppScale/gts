@@ -2680,13 +2680,25 @@ class Djinn
   end
 
   def update_ua_haproxy
-    begin
-      servers = ZKInterface.get_ua_servers.map { |machine_ip, port|
-        {'ip' => machine_ip, 'port' => port}
+    if ZKInterface.is_connected?
+      begin
+        servers = ZKInterface.get_ua_servers.map { |machine_ip, port|
+          {'ip' => machine_ip, 'port' => port}
+        }
+      rescue FailedZooKeeperOperationException
+        Djinn.log_warn('Unable to fetch list of UA servers')
+        return false
+      end
+    else
+      # If there is no ZK connection, guess the locations for now.
+      servers = []
+      @state_change_lock.synchronize {
+        servers = @nodes.map { |node|
+          if node.is_db_master? or node.is_db_slave?
+            {'ip' => node.private_ip, 'port' => UserAppClient::SERVER_PORT}
+          end
+        }.compact
       }
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn('Unable to fetch list of UA servers')
-      return false
     end
 
     HAProxy.create_app_config(
@@ -4364,6 +4376,13 @@ class Djinn
     else
       Djinn.log_info("Nginx already configured and running.")
     end
+
+    # The HAProxy process needs at least one configured service to start. The
+    # UAServer is configured first to satisfy this condition.
+    update_ua_haproxy
+
+    # This ensures HAProxy gets started after a machine reboot.
+    HAProxy.services_start
 
     # Volume is mounted, let's finish the configuration of static files.
     if my_node.is_shadow? and not my_node.is_compute?
