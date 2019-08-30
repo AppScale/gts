@@ -491,7 +491,7 @@ class Djinn
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
     'fdb_clusterfile_content' => [String, nil, true],
-    'update' => [Array, [], true]
+    'update' => [Array, [], false]
   }.freeze
 
   # Template used for rsyslog configuration files.
