@@ -491,7 +491,7 @@ class Djinn
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
     'fdb_clusterfile_content' => [String, nil, true],
-    'update' => [String, nil, false]
+    'update' => [Array, [], true]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -856,6 +856,11 @@ class Djinn
         else
           newval = val.gsub(NOT_FQDN_REGEX, '')
         end
+      end
+
+      # We do not sanitize Array parameters for now.
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Array
+        newval = val
       end
 
       newoptions[key] = newval
@@ -3828,18 +3833,18 @@ class Djinn
 
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
-    if @options['update'].nil?
+    if @options['update'].empty?
       return
     end
 
-    update_dir = @options['update']
+    update_dirs = @options['update']
 
-    if update_dir == "all"
-      update_dir = ALLOWED_DIR_UPDATES.join(',')
+    if update_dirs == "all"
+      update_dirs = ALLOWED_DIR_UPDATES.join(',')
     end
 
     # Update Python packages across corresponding virtual environments
-    if update_dir.include?('common')
+    if update_dirs.include?('common')
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
@@ -3848,33 +3853,33 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/search2/bin/pip')
     end
-    if update_dir.include?('app_controller')
+    if update_dirs.include?('app_controller')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
     end
-    if update_dir.include?('admin_server')
+    if update_dirs.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
     end
-    if update_dir.include?('taskqueue')
+    if update_dirs.include?('taskqueue')
       build_taskqueue
     end
-    if update_dir.include?('app_db')
+    if update_dirs.include?('app_db')
       update_python_package("#{APPSCALE_HOME}/AppDB")
     end
-    if update_dir.include?('iaas_manager')
+    if update_dirs.include?('iaas_manager')
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
-    if update_dir.include?('hermes')
+    if update_dirs.include?('hermes')
       update_python_package("#{APPSCALE_HOME}/Hermes")
     end
-    if update_dir.include?('api_server')
+    if update_dirs.include?('api_server')
       build_api_server
     end
-    if status.include?('SearchService2')
+    if update_dirs.include?('SearchService2')
       build_search_service2
     end
 
     # Update Java AppServer
-    build_java_appserver if update_dir.include?('appserver_java')
+    build_java_appserver if update_dirs.include?('appserver_java')
   end
 
   def configure_ejabberd_cert
