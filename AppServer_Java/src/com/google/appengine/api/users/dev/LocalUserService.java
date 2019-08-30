@@ -4,12 +4,16 @@ package com.google.appengine.api.users.dev;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Map;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
 
 import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.appengine.tools.development.ServiceProvider;
 import com.google.appengine.tools.resources.ResourceLoader;
+import com.google.apphosting.api.ApiProxy;
+import com.google.apphosting.api.ApiProxy.Environment;
 import com.google.apphosting.api.UserServicePb;
 
 
@@ -35,6 +39,10 @@ public final class LocalUserService extends AbstractLocalRpcService
     private boolean oauthIsAdmin = false;
     private final String NGINX_ADDR = "NGINX_ADDR";
     private final String DASHBOARD_HTTPS_PORT = "1443";
+    private final String apiProxyRequest = "com.google.appengine.http_servlet_request";
+    private final String loginURLError = "Could not create URL for createLoginURL request!";
+    private final String logoutURLError = "Could not create URL for createLogoutURL request!";
+
 
     public UserServicePb.CreateLoginURLResponse createLoginURL( LocalRpcService.Status status, UserServicePb.CreateLoginURLRequest request )
     {
@@ -42,10 +50,27 @@ public final class LocalUserService extends AbstractLocalRpcService
         String destinationUrl = request.getDestinationUrl();
         if(destinationUrl != null && destinationUrl.startsWith("/"))
         {
-            String nginxPort = ResourceLoader.getNginxPort();
-            destinationUrl = "http://" + System.getProperty(NGINX_ADDR) + ":" + nginxPort + destinationUrl;
+            Environment env = ApiProxy.getCurrentEnvironment();
+            if (env == null) {
+                throw new RuntimeException(loginURLError);
+            }
+            HttpServletRequest req = (HttpServletRequest) env.getAttributes().get(apiProxyRequest);
+            if (req == null) {
+                throw new RuntimeException(loginURLError);
+            }
+            String host = req.getHeader("Host");
+            String forwardedProto = req.getHeader("X-Forwarded-Proto");
+            if (forwardedProto == null) {
+              forwardedProto = "http";
+            }
+            if (host == null) {
+                throw new RuntimeException(loginURLError);
+            }
+
+            // Construct the url.
+            destinationUrl = forwardedProto + "://" + host + destinationUrl;
         }
-         
+
         response.setLoginUrl(LOGIN_URL + "?continue=" + encode(destinationUrl));
         return response;
     }
@@ -53,8 +78,30 @@ public final class LocalUserService extends AbstractLocalRpcService
     public UserServicePb.CreateLogoutURLResponse createLogoutURL( LocalRpcService.Status status, UserServicePb.CreateLogoutURLRequest request )
     {
         UserServicePb.CreateLogoutURLResponse response = new UserServicePb.CreateLogoutURLResponse();
-        String nginxPort = ResourceLoader.getNginxPort();
-        String redirect_url = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/logout?continue=http://" + LOGIN_SERVER + ":" + nginxPort;
+
+        // Get the port we just came from.
+        Environment env = ApiProxy.getCurrentEnvironment();
+        if (env == null) {
+            throw new RuntimeException(logoutURLError);
+        }
+        HttpServletRequest req = (HttpServletRequest) env.getAttributes().get(apiProxyRequest);
+        if (req == null) {
+            throw new RuntimeException(logoutURLError);
+        }
+
+        String host = req.getHeader("Host");
+        String forwardedProto = req.getHeader("X-Forwarded-Proto");
+        if (forwardedProto == null) {
+          forwardedProto = "http";
+        }
+        if (host == null) {
+            throw new RuntimeException(loginURLError);
+        }
+
+        // Construct the url.
+        String destinationUrl = forwardedProto + "://" + host;
+
+        String redirect_url = "https://" + LOGIN_SERVER + ":" + DASHBOARD_HTTPS_PORT + "/logout?continue=" + destinationUrl;
         response.setLogoutUrl(redirect_url);
 
         return response;
@@ -74,7 +121,7 @@ public final class LocalUserService extends AbstractLocalRpcService
         response.setUserId(this.oauthUserId);
         response.setAuthDomain(this.oauthAuthDomain);
         response.setIsAdmin(this.oauthIsAdmin);
-    
+
         return response;
     }
 
