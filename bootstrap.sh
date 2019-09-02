@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Simple script to install AppScale and tools from the master branch
+# Simple script to install AppScale.
 # Author: AppScale Team <support@appscale.com>
 
 set -e
@@ -20,7 +20,7 @@ BRANCH_PARAM_SPECIFIED="N"
 TAG_PARAM_SPECIFIED="N"
 
 usage() {
-    echo "Usage: ${0} [--repo <repo>] [--tools-repo <repo>]"
+    echo "Usage: ${0} [--repo <repo>] [--branch <branch>]"
     echo "            [--tools-repo <repo>] [--tools-branch <branch>]"
     echo "            [--agents-repo <repo>] [--agents-branch <branch>]"
     echo "            [--thirdparties-repo <repo>] [--thirdparties-branch <branch>]"
@@ -111,45 +111,46 @@ while [ $# -gt 0 ]; do
 done
 
 
-# Empty tag means we use the latest available.
-if [ "${BRANCH_PARAM_SPECIFIED}" = "Y" ] \
-   && [ "${TAG_PARAM_SPECIFIED}" = "Y" ] \
-   && [ "${GIT_TAG}" != "dev" ]; then
+# Validate parameters combination
+if [ "${BRANCH_PARAM_SPECIFIED}" = "Y" ] && [ "${TAG_PARAM_SPECIFIED}" = "Y" ]; then
     echo "Repo/Branch parameters can't be used if --tag parameter is specified"
     exit 1
 fi
 
-declare -A REPOS=(
-    ["appscale"]="${APPSCALE_REPO}"
-    ["appscale-tools"]="${APPSCALE_TOOLS_REPO}"
-    ["appscale-agents"]="${AGENTS_REPO}"
-    ["appscale-thirdparties"]="${THIRDPARTIES_REPO}"
-)
-declare -A BRANCHES=(
-    ["appscale"]="${APPSCALE_BRANCH}"
-    ["appscale-tools"]="${APPSCALE_TOOLS_BRANCH}"
-    ["appscale-agents"]="${AGENTS_BRANCH}"
-    ["appscale-thirdparties"]="${THIRDPARTIES_BRANCH}"
-)
+# Determine if we use official repos with tag or custom branches
+if [ "${BRANCH_PARAM_SPECIFIED}" = "Y" ] || [ "${GIT_TAG}" = "dev" ]; then
+    RELY_ON_TAG="N"
+else
+    RELY_ON_TAG="Y"
+fi
+
+
+# Determine the latest git tag on the AppScale/appscale repo
+if [ "${RELY_ON_TAG}" = "Y" ] || [ "$GIT_TAG" = "last" ]; then
+    echo "Determining the latest tag in AppScale/appscale repo"
+    GIT_TAG=$(curl --fail https://api.github.com/repos/appscale/appscale/tags \
+              | grep '"name"' | head -1 \
+              | awk -F ':' '{ print $2 }' | tr --delete ' ,"')
+fi
 
 # At this time we expect to be installed in $HOME.
 cd $HOME
 
 # Let's pull the github repositories.
 echo
-if [ "${TAG_PARAM_SPECIFIED}" = "Y" ]; then
+if [ "${RELY_ON_TAG}" = "Y" ]; then
     echo "Will be using the following github repos:"
-    echo "Repo: ${APPSCALE_REPO} Tag ${GIT_TAG}"
-    echo "Repo: ${APPSCALE_TOOLS_REPO} Tag ${GIT_TAG}"
-    echo "Repo: ${AGENTS_REPO} Tag ${GIT_TAG}"
-    echo "Repo: ${THIRDPARTIES_REPO} Tag ${GIT_TAG}"
+    echo "AppScale: ${APPSCALE_REPO} Tag ${GIT_TAG}"
+    echo "AppScale-Tools: ${APPSCALE_TOOLS_REPO} Tag ${GIT_TAG}"
+    echo "Cloud-Agents: ${AGENTS_REPO} Tag ${GIT_TAG}"
+    echo "Thirdparties: ${THIRDPARTIES_REPO} Tag ${GIT_TAG}"
     echo "Exit now (ctrl-c) if this is incorrect"
 else
     echo "Will be using the following github repos:"
-    echo "Repo: ${APPSCALE_REPO} Branch: ${APPSCALE_BRANCH}"
-    echo "Repo: ${APPSCALE_TOOLS_REPO} Branch: ${APPSCALE_TOOLS_BRANCH}"
-    echo "Repo: ${AGENTS_REPO} Branch: ${AGENTS_BRANCH}"
-    echo "Repo: ${THIRDPARTIES_REPO} Branch: ${THIRDPARTIES_BRANCH}"
+    echo "AppScale: ${APPSCALE_REPO} Branch ${APPSCALE_BRANCH}"
+    echo "AppScale-Tools: ${APPSCALE_TOOLS_REPO} Branch ${APPSCALE_TOOLS_BRANCH}"
+    echo "Cloud-Agents: ${AGENTS_REPO} Branch ${AGENTS_BRANCH}"
+    echo "Thirdparties: ${THIRDPARTIES_REPO} Branch ${THIRDPARTIES_BRANCH}"
     echo "Exit now (ctrl-c) if this is incorrect"
 fi
 echo
@@ -194,8 +195,9 @@ for appscale_presence_marker in ${APPSCALE_DIRS}; do
     if [ -d ${appscale_presence_marker} ] ; then
         echo "${appscale_presence_marker} already exists!"
         echo "bootstrap.sh script should be used for initial installation only."
-        echo "Use bootstrap-upgrade.sh for upgrading existing deployment"
-        echo "It can be found here: https://raw.githubusercontent.com/AppScale/appscale/master/bootstrap-upgrade.sh."
+        echo "Use upgrade.sh for upgrading existing deployment"
+        echo "It can be found here: https://raw.githubusercontent.com/AppScale/appscale/master/upgrade.sh."
+        exit 1
     fi
 done
 
@@ -209,10 +211,7 @@ git clone ${AGENTS_REPO} appscale-agents
 git clone ${THIRDPARTIES_REPO} appscale-thirdparties
 
 # Use tags if we specified it.
-if [ "$TAG_PARAM_SPECIFIED" = "Y"  ]; then
-    if [ "$GIT_TAG" = "last" ]; then
-        GIT_TAG="$(cd appscale; git tag | tail -n 1)"
-    fi
+if [ "${RELY_ON_TAG}" = "Y"  ]; then
     (cd appscale; git checkout "$GIT_TAG")
     (cd appscale-tools; git checkout "$GIT_TAG")
     (cd appscale-agents; git checkout "$GIT_TAG")
@@ -226,7 +225,7 @@ fi
 
 echo -n "Building AppScale..."
 if ! (cd appscale/debian; bash appscale_build.sh) ; then
-    echo "failed!"
+    echo "Failed to install AppScale core"
     exit 1
 fi
 
@@ -238,20 +237,20 @@ fi
 
 echo -n "Building AppScale Tools..." 
 if ! (cd appscale-tools/debian; bash appscale_build.sh) ; then
-    echo "failed!"
+    echo "Failed to install AppScale-Tools"
     exit 1
 fi
 
-echo -n "Downloading Thirdparty artifacts..."
-if ! (cd appscale-thirdparties/; bash download_all_artifacts.sh) ; then
-    echo "failed!"
+echo -n "Installing Thirdparty software..."
+if ! (cd appscale-thirdparties/; bash install_all.sh) ; then
+    echo "Failed to install Thirdparties software"
     exit 1
 fi
 
 # Let's source the profiles so this image can be used right away.
 . /etc/profile.d/appscale.sh
 
-echo "*****************************************"
-echo "AppScale and AppScale tools are installed"
-echo "*****************************************"
+echo "****************************************"
+echo "  AppScale is installed on the machine  "
+echo "****************************************"
 exit 0
