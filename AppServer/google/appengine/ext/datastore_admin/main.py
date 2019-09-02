@@ -182,7 +182,8 @@ class RouteByActionHandler(webapp.RequestHandler):
         'active_operations': self.GetOperations(active=True),
         'pending_backups': self.GetPendingBackups(),
         'backups': self.GetBackups(),
-        'map_reduce_path': config.MAPREDUCE_PATH + '/detail'
+        'map_reduce_path': config.MAPREDUCE_PATH + '/detail',
+        'service_accounts': utils.get_service_account_names()
     }
     utils.RenderToResponse(self, 'list_actions.html', template_params)
 

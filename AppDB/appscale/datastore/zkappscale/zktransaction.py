@@ -10,7 +10,6 @@ import re
 import time
 import urllib
 
-from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from .inspectable_counter import InspectableCounter
 from ..dbconstants import MAX_GROUPS_FOR_XG
 

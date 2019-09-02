@@ -635,14 +635,19 @@ class ServiceManager(object):
   def _groom_servers(self):
     """ Forgets about outdated servers and fulfills assignments. """
     self.state = [server for server in self.state if not server.outdated]
+    futures = []
     for service_type, assignment_options in self.assignments.items():
-      yield self._schedule_service(service_type, assignment_options)
+      futures.append(self._schedule_service(service_type, assignment_options))
 
-    for server in self.state:
-      if server.state != ServerStates.RUNNING:
-        continue
+    unassigned_services = {server.type for server in self.state
+                           if server.type not in self.assignments}
+    for service_type in unassigned_services:
+      futures.append(self._schedule_service(service_type, {'count': 0}))
 
-      IOLoop.current().spawn_callback(server.ensure_running)
+    yield futures
+
+    yield [server.ensure_running() for server in self.state
+           if server.state == ServerStates.RUNNING]
 
   def _get_open_port(self, service):
     """ Selects an available port for a server to use.
@@ -675,6 +680,7 @@ class ServiceManager(object):
                  server.state in self.SCHEDULED_STATES]
     default_count = service.default_count()
     to_start = assignment_options.get('count', default_count) - len(scheduled)
+    futures = []
     if to_start < 0:
       stopped = 0
       for server in reversed(scheduled):
@@ -682,7 +688,7 @@ class ServiceManager(object):
           break
 
         logger.info('Stopping {}'.format(server))
-        IOLoop.current().spawn_callback(server.stop)
+        futures.append(server.stop())
         stopped += 1
 
       return
@@ -692,7 +698,9 @@ class ServiceManager(object):
       server = ServerManager(service, port, assignment_options)
       self.state.append(server)
       logger.info('Starting {}'.format(server))
-      IOLoop.current().spawn_callback(server.start)
+      futures.append(server.start())
+
+    yield futures
 
   @gen.coroutine
   def _update_services(self, assignments):
@@ -702,8 +710,7 @@ class ServiceManager(object):
       assignments: A dictionary specifying service assignments.
     """
     self.assignments = assignments
-    for service_type, assignment_options in assignments.items():
-      yield self._schedule_service(service_type, assignment_options)
+    yield self._groom_servers()
 
   def _update_services_watch(self, encoded_assignments, _):
     """ Updates service schedules to fulfill assignments.

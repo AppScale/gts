@@ -33,6 +33,7 @@
         {% if run_as_a_service %}
           <input type="hidden" name="run_as_a_service" value="{{ run_as_a_service|escape }}">
         {% endif %}
+        <input type="hidden" name="service_account_name" value="{{ service_account_name }}">
         <input type="Submit" name="Import" value="Add to backup list">
         <input type="Submit" name="Restore" value="Restore from backup">
         <a href="{{ datastore_admin_home }}">Cancel</a>

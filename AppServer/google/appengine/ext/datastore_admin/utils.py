@@ -24,6 +24,7 @@
 
 import base64
 import datetime
+import json
 import logging
 import os
 import random
@@ -36,9 +37,11 @@ from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import operation as mr_operation
 from google.appengine.ext.mapreduce import util
 
+from google.appengine.api import app_identity
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api import memcache
+from google.appengine.api import urlfetch
 from google.appengine.api import users
 from google.appengine.datastore import datastore_rpc
 from google.appengine.datastore import entity_pb
@@ -859,3 +862,21 @@ def GetKindsForCurrentNamespace(deadline):
     more_kinds = True
     logging.warning('Failed to retrieve all kinds within deadline.')
   return kind_names, more_kinds
+
+
+def get_service_account_names():
+  """ AppScale: Fetch list of service accounts from IAM API. """
+  project_id = app_identity.get_application_id()
+  iam_location = 'https://127.0.0.1:17441'
+  url = iam_location + '/v1/projects/{}/serviceAccounts'.format(project_id)
+  token = app_identity.get_access_token(
+      ['https://www.googleapis.com/auth/cloud-platform'])[0]
+  headers = {'Authorization': 'Bearer {}'.format(token)}
+  response = urlfetch.fetch(url, headers=headers, validate_certificate=False)
+  try:
+    accounts = json.loads(response.content)['accounts']
+  except (KeyError, ValueError):
+    raise ValueError('Invalid list of service accounts: '
+                     '{}'.format(response.content))
+
+  return tuple(account['email'] for account in accounts)
