@@ -22,8 +22,6 @@ TAG_PARAM_SPECIFIED="N"
 usage() {
     echo "Usage: ${0} [--repo <repo>] [--branch <branch>]"
     echo "            [--tools-repo <repo>] [--tools-branch <branch>]"
-    echo "            [--agents-repo <repo>] [--agents-branch <branch>]"
-    echo "            [--thirdparties-repo <repo>] [--thirdparties-branch <branch>]"
     echo "            [--tag <git-tag>]"
     echo
     echo "Be aware that tag parameter has priority over repo and branch parameters."
@@ -35,10 +33,6 @@ usage() {
     echo "   --branch <branch>               Specify appscale branch (default $APPSCALE_BRANCH)"
     echo "   --tools-repo <repo>             Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
     echo "   --tools-branch <branch>         Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
-    echo "   --agents-repo <repo>            Specify appscale-agents repo (default $AGENTS_REPO"
-    echo "   --agents-branch <branch>        Specify appscale-agents branch (default $AGENTS_BRANCH)"
-    echo "   --thirdparties-repo <repo>      Specify appscale-thirdparties repo (default $THIRDPARTIES_REPO"
-    echo "   --thirdparties-branch <branch>  Specify appscale-thirdparties branch (default $THIRDPARTIES_BRANCH)"
     echo "   --tag <git-tag>                 Use git tag (ie 3.7.2) or 'last' to use the latest release"
     echo "                                   or 'dev' for HEAD (default ${GIT_TAG})"
     exit 1

@@ -70,7 +70,7 @@ class TestRetry(unittest.TestCase):
       "Giving up retrying after 5 attempts during -?\d+\.\d+s"
     )
 
-  @patch.object(retrying.time, 'time')
+  @patch.object(retrying.monotonic, 'monotonic')
   @patch.object(retrying.time, 'sleep')
   @patch.object(retrying.logger, 'error')
   @patch.object(retrying.logger, 'warning')

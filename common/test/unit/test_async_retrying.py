@@ -74,7 +74,7 @@ class TestRetryCoroutine(testing.AsyncTestCase):
       "Giving up retrying after 5 attempts during -?\d+\.\d+s"
     )
 
-  @patch.object(async_retrying.time, 'time')
+  @patch.object(async_retrying.monotonic, 'monotonic')
   @patch.object(async_retrying.gen, 'sleep')
   @patch.object(async_retrying.logger, 'error')
   @patch.object(async_retrying.logger, 'warning')

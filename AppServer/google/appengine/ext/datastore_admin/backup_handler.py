@@ -293,7 +293,8 @@ class ConfirmBackupHandler(webapp.RequestHandler):
         'xsrf_token': utils.CreateXsrfToken(XSRF_ACTION),
         'notreadonly_warning': notreadonly_warning,
         'blob_warning': blob_warning,
-        'backup_name': 'datastore_backup_%s' % time.strftime('%Y_%m_%d')
+        'backup_name': 'datastore_backup_%s' % time.strftime('%Y_%m_%d'),
+        'service_accounts': utils.get_service_account_names()
     }
     utils.RenderToResponse(handler, 'confirm_backup.html', template_params)
 
@@ -405,6 +406,7 @@ class ConfirmRestoreFromBackupHandler(webapp.RequestHandler):
         'notreadonly_warning': notreadonly_warning,
         'original_app_warning': original_app_warning,
         'run_as_a_service': handler.request.get('run_as_a_service'),
+        'service_accounts': utils.get_service_account_names(),
     }
     utils.RenderToResponse(handler, 'confirm_restore_from_backup.html',
                            template_params)
@@ -423,6 +425,12 @@ class ConfirmBackupImportHandler(webapp.RequestHandler):
       handler: the webapp.RequestHandler invoking the method
     """
     gs_handle = handler.request.get('gs_handle')
+
+    # AppScale: Use custom service account if specified.
+    account_id = handler.request.get('service_account_name', '')
+    if not account_id:
+      raise ValueError('Invalid service account name')
+
     error = None if gs_handle else 'Google Cloud Storage path is missing'
     other_backup_info_files = []
     selected_backup_info_file = None
@@ -432,7 +440,7 @@ class ConfirmBackupImportHandler(webapp.RequestHandler):
         gs_handle = gs_handle.rstrip()
         bucket_name, prefix = parse_gs_handle(gs_handle)
         validate_gcs_bucket_name(bucket_name)
-        if not is_accessible_bucket_name(bucket_name):
+        if not is_accessible_bucket_name(bucket_name, account_id):
           raise BackupValidationError(
               'Bucket "%s" is not accessible' % bucket_name)
         if prefix.endswith('.backup_info'):
@@ -440,7 +448,8 @@ class ConfirmBackupImportHandler(webapp.RequestHandler):
           backup_info_specified = True
         elif prefix and not prefix.endswith('/'):
           prefix += '/'
-        for backup_info_file in list_bucket_files(bucket_name, prefix):
+        for backup_info_file in list_bucket_files(bucket_name, prefix,
+                                                  account_id=account_id):
           backup_info_path = '/gs/%s/%s' % (bucket_name, backup_info_file)
           if backup_info_specified and backup_info_path == gs_handle:
             selected_backup_info_file = backup_info_path
@@ -459,6 +468,7 @@ class ConfirmBackupImportHandler(webapp.RequestHandler):
         'backup_info_specified': backup_info_specified,
         'xsrf_token': utils.CreateXsrfToken(XSRF_ACTION),
         'run_as_a_service': handler.request.get('run_as_a_service'),
+        'service_account_name': account_id,
     }
     utils.RenderToResponse(handler, 'confirm_backup_import.html',
                            template_params)
@@ -812,7 +822,10 @@ class DoBackupHandler(BaseDoHandler):
       mapper_params = _get_basic_mapper_params(self)
 
       # AppScale: Use custom service account if specified.
-      account_id = self.request.get('service_account_name', None)
+      account_id = self.request.get('service_account_name', '')
+      if not account_id:
+        raise ValueError('Invalid service account name')
+
       mapper_params['account_id'] = account_id
       mapper_params['tmp_account_id'] = account_id
 
@@ -1042,7 +1055,8 @@ def _restore(backup_id, kinds, run_as_a_service, queue, mapper_params):
     if backup.filesystem == FILES_API_GS_FILESYSTEM:
       input_reader_to_use = (input_readers.__name__ +
                              '.GoogleCloudStorageRecordInputReader')
-      if not is_readable_gs_handle(backup.gs_handle):
+      if not is_readable_gs_handle(backup.gs_handle,
+                                   mapper_params.get('account_id')):
         raise ValueError('Backup not readable.')
 
       if not mapper_params['files']:
@@ -1103,23 +1117,28 @@ class DoBackupRestoreHandler(BaseDoHandler):
   def _ProcessPostRequest(self):
     """Triggers backup restore mapper jobs and returns their ids."""
     try:
+      # AppScale: Use custom service account if specified.
+      mapper_params = _get_basic_mapper_params(self)
+      account_id = self.request.get('service_account_name', None)
+      mapper_params['account_id'] = account_id
+      mapper_params['tmp_account_id'] = account_id
       return [
           _restore(
               backup_id=self.request.get('backup_id'),
               kinds=self.request.get_all('kind'),
               run_as_a_service=self.request.get('run_as_a_service', False),
               queue=self.request.get('queue'),
-              mapper_params=_get_basic_mapper_params(self)
+              mapper_params=mapper_params
           )
       ]
     except ValueError, e:
       return [('error', e.message)]
 
 
-def _import_backup(gs_handle):
+def _import_backup(gs_handle, account_id=None):
   """Import backup from `gs_handle` to the current project."""
   bucket_name, path = parse_gs_handle(gs_handle)
-  file_content = get_gs_object(bucket_name, path)
+  file_content = get_gs_object(bucket_name, path, account_id)
   entities = parse_backup_info_file(file_content)
   original_backup_info = entities.next()
   entity = datastore.Entity(BackupInformation.kind())
@@ -1147,8 +1166,9 @@ class BackupImportAndRestoreLinkHandler(BaseLinkHandler):
 
   def _ProcessPostRequest(self):
     """Handler for post requests to datastore_admin/import_backup.create."""
+    account_id = self.request.get('service_account_name', None)
     _restore(
-        backup_id=_import_backup(self.request.get('gs_handle')),
+        backup_id=_import_backup(self.request.get('gs_handle'), account_id),
         kinds=self.request.get_all('kind'),
         run_as_a_service=self.request.get('run_as_a_service', False),
         queue=self.request.get('queue'),
@@ -1170,11 +1190,12 @@ class DoBackupImportHandler(BaseDoHandler):
     Import is executed and user is redirected to the base-path handler.
     """
     gs_handle = self.request.get('gs_handle')
+    account_id = self.request.get('service_account_name', None)
     token = self.request.get('xsrf_token')
     error = None
     if gs_handle and utils.ValidateXsrfToken(token, XSRF_ACTION):
       try:
-        backup_id = _import_backup(gs_handle)
+        backup_id = _import_backup(gs_handle, account_id)
       except Exception, e:
         logging.exception('Failed to Import datastore backup information.')
         error = e.message
@@ -1949,11 +1970,11 @@ def validate_gcs_bucket_name(bucket_name):
     raise BackupValidationError('Invalid bucket name "%s"' % bucket_name)
 
 
-def is_accessible_bucket_name(bucket_name):
+def is_accessible_bucket_name(bucket_name, account_id=None):
   """Returns True if the application has access to the specified bucket."""
   scope = config.GoogleApiScope('devstorage.read_write')
   bucket_url = config.GsBucketURL(bucket_name)
-  auth_token, _ = app_identity.get_access_token(scope)
+  auth_token, _ = app_identity.get_access_token(scope, account_id)
   result = urlfetch.fetch(bucket_url, method=urlfetch.HEAD, headers={
       'Authorization': 'OAuth %s' % auth_token,
       'x-goog-api-version': '2'})
@@ -2004,10 +2025,10 @@ def verify_bucket_writable(bucket_name, account_id=None):
     logging.warn('Failed to delete test file %s', file_name)
 
 
-def is_readable_gs_handle(gs_handle):
+def is_readable_gs_handle(gs_handle, account_id=None):
   """Return True if the application can read the specified gs_handle."""
   try:
-    with GCSUtil.open(gs_handle) as bak_file:
+    with GCSUtil.open(gs_handle, _account_id=account_id) as bak_file:
       bak_file.read(1)
   except (cloudstorage.ForbiddenError,
           cloudstorage.NotFoundError,
@@ -2037,7 +2058,7 @@ def validate_and_split_gcs_path(gcs_path, account_id=None):
   return bucket_name, path
 
 
-def list_bucket_files(bucket_name, prefix, max_keys=1000):
+def list_bucket_files(bucket_name, prefix, max_keys=1000, account_id=None):
   """Returns a listing of of a bucket that matches the given prefix."""
   scope = config.GoogleApiScope('devstorage.read_only')
   bucket_url = config.GsBucketURL(bucket_name)
@@ -2046,7 +2067,7 @@ def list_bucket_files(bucket_name, prefix, max_keys=1000):
   if prefix:
     query.append(('prefix', prefix))
   url += urllib.urlencode(query)
-  auth_token, _ = app_identity.get_access_token(scope)
+  auth_token, _ = app_identity.get_access_token(scope, account_id)
   result = urlfetch.fetch(url, method=urlfetch.GET, headers={
       'Authorization': 'OAuth %s' % auth_token,
       'x-goog-api-version': '2'})
@@ -2056,12 +2077,12 @@ def list_bucket_files(bucket_name, prefix, max_keys=1000):
   raise BackupValidationError('Request to Google Cloud Storage failed')
 
 
-def get_gs_object(bucket_name, path):
+def get_gs_object(bucket_name, path, account_id=None):
   """Returns a listing of of a bucket that matches the given prefix."""
   scope = config.GoogleApiScope('devstorage.read_only')
   bucket_url = config.GsBucketURL(bucket_name)
   url = bucket_url + path
-  auth_token, _ = app_identity.get_access_token(scope)
+  auth_token, _ = app_identity.get_access_token(scope, account_id)
   result = urlfetch.fetch(url, method=urlfetch.GET, headers={
       'Authorization': 'OAuth %s' % auth_token,
       'x-goog-api-version': '2'})

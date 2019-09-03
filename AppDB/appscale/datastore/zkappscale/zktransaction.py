@@ -10,7 +10,6 @@ import re
 import time
 import urllib
 
-from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from .inspectable_counter import InspectableCounter
 from ..dbconstants import MAX_GROUPS_FOR_XG
 
@@ -33,12 +32,6 @@ class ZKTimeoutException(Exception):
 # A list that indicates that the Zookeeper node to create should be readable
 # and writable by anyone.
 ZOO_ACL_OPEN = None
-
-# The default port that ZooKeeper runs on.
-DEFAULT_PORT = 2181
-
-# The host and port that the Zookeeper service runs on, if none is provided.
-DEFAULT_HOST = 'localhost:{}'.format(DEFAULT_PORT)
 
 # The value that we should set for paths whose value we don't care about.
 DEFAULT_VAL = "default"
@@ -128,42 +121,27 @@ class ZKTransaction:
   # How long to wait before retrying an operation.
   ZK_RETRY_TIME = .5
 
-  def __init__(self, host=DEFAULT_HOST, db_access=None,
-               log_level=logging.INFO):
+  def __init__(self, zk_client, db_access=None, log_level=logging.INFO):
     """ Creates a new ZKTransaction, which will communicate with Zookeeper
     on the given host.
 
     Args:
-      host: A str that indicates which machine runs the Zookeeper service.
+      zk_client: An instance of Zookeeper client.
       db_access: A DatastoreProxy instance.
       log_level: A logging constant that specifies the instance logging level.
     """
-    retry_policy = KazooRetry(max_tries=5)
-
     class_name = self.__class__.__name__
     self.logger = logging.getLogger(class_name)
     self.logger.setLevel(log_level)
     self.logger.info('Starting {}'.format(class_name))
 
     # Connection instance variables.
-    self.host = host
-    self.handle = kazoo.client.KazooClient(
-      hosts=host, connection_retry=ZK_PERSISTENT_RECONNECTS,
-      command_retry=retry_policy)
+    self.handle = zk_client
     self.run_with_retry = self.handle.retry
-    self.handle.start()
 
     self.__counter_cache = {}
 
     self.db_access = db_access
-
-  def close(self):
-    """ Stops the thread that cleans up failed transactions and closes its
-    connection to Zookeeper.
-    """
-    self.logger.info("Closing ZK connection")
-    self.handle.stop()
-    self.handle.close()
 
   def increment_and_get_counter(self, path, value):
     """ Increment a counter atomically.

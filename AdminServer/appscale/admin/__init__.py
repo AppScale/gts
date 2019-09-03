@@ -6,6 +6,7 @@ import errno
 import hashlib
 import json
 import logging
+import monotonic
 import os
 import re
 import six
@@ -67,7 +68,8 @@ from .operation import (
   DeleteServiceOperation,
   CreateVersionOperation,
   DeleteVersionOperation,
-  UpdateVersionOperation
+  UpdateVersionOperation,
+  UpdateApplicationOperation
 )
 from .operations_cache import OperationsCache
 from .push_worker_manager import GlobalPushWorkerManager
@@ -83,13 +85,13 @@ operations = OperationsCache()
 
 
 @gen.coroutine
-def wait_for_port_to_open(http_port, operation_id, deadline):
+def wait_for_port_to_open(http_port, operation_id, timeout):
   """ Waits until port is open.
 
   Args:
     http_port: An integer specifying the version's port number.
     operation_id: A string specifying an operation ID.
-    deadline: A float containing a unix timestamp.
+    timeout: The number of seconds to wait.
   Raises:
     OperationTimeout if the deadline is exceeded.
   """
@@ -99,8 +101,9 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
   except KeyError:
     raise OperationTimeout('Operation no longer in cache')
 
+  deadline = monotonic.monotonic() + timeout
   while True:
-    if time.time() > deadline:
+    if monotonic.monotonic() > deadline:
       message = 'Deploy operation took too long.'
       operation.set_error(message)
       raise OperationTimeout(message)
@@ -112,7 +115,7 @@ def wait_for_port_to_open(http_port, operation_id, deadline):
 
   for load_balancer in appscale_info.get_load_balancer_ips():
     while True:
-      if time.time() > deadline:
+      if monotonic.monotonic() > deadline:
         # The version is reachable from the login IP, but it's not reachable
         # from every registered load balancer. It makes more sense to mark the
         # operation as a success than a failure because the lagging load
@@ -140,11 +143,9 @@ def wait_for_deploy(operation_id, controller_state):
   except KeyError:
     raise OperationTimeout('Operation no longer in cache')
 
-  start_time = time.time()
-  deadline = start_time + constants.MAX_OPERATION_TIME
-
   http_port = operation.version['appscaleExtensions']['httpPort']
-  yield wait_for_port_to_open(http_port, operation_id, deadline)
+  yield wait_for_port_to_open(http_port, operation_id,
+                              constants.MAX_OPERATION_TIME)
 
   login_host = options.login_ip
   if controller_state.options is not None:
@@ -171,13 +172,12 @@ def wait_for_delete(operation_id, ports_to_close):
   except KeyError:
     raise OperationTimeout('Operation no longer in cache')
 
-  start_time = time.time()
-  deadline = start_time + constants.MAX_OPERATION_TIME
+  deadline = monotonic.monotonic() + constants.MAX_OPERATION_TIME
 
   finished = 0
   ports = ports_to_close[:]
   while True:
-    if time.time() > deadline:
+    if monotonic.monotonic() > deadline:
       message = 'Delete operation took too long.'
       operation.set_error(message)
       raise OperationTimeout(message)
@@ -219,6 +219,86 @@ class LifecycleState(object):
   LIFECYCLE_STATE_UNSPECIFIED = 'LIFECYCLE_STATE_UNSPECIFIED'
   DELETE_REQUESTED = 'DELETE_REQUESTED'
   DELETE_IN_PROGRESS = 'DELETE_IN_PROGRESS'
+
+
+class AppsHandler(BaseHandler):
+  """ Manages applications. """
+  def initialize(self, ua_client, zk_client):
+    """ Defines required resources to handle requests.
+
+    Args:
+      ua_client: A UAClient.
+      zk_client: A KazooClient.
+    """
+    self.ua_client = ua_client
+    self.zk_client = zk_client
+
+
+  @gen.coroutine
+  def patch(self, project_id):
+    """ Updates an Application. Currently this is only supported for the
+    dispatch rules.
+
+    Args:
+      project_id: A string specifying a project ID.
+    """
+    self.authenticate(project_id, self.ua_client)
+
+    if project_id in constants.IMMUTABLE_PROJECTS:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='{} cannot be updated'.format(project_id))
+
+    update_mask = self.get_argument('updateMask', None)
+    if not update_mask:
+      message = 'At least one field must be specified for this operation.'
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    desired_fields = update_mask.split(',')
+    supported_fields = {'dispatchRules'}
+    for field in desired_fields:
+      if field not in supported_fields:
+        message = ('This operation is only supported on the following '
+                   'field(s): [{}]'.format(', '.join(supported_fields)))
+        raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=message)
+
+    project_node = '/appscale/projects/{}'.format(project_id)
+    services_node = '{}/services'.format(project_node)
+    if not self.zk_client.exists(project_node):
+      raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                            message='Project does not exist')
+
+    try:
+      service_ids = self.zk_client.get_children(services_node)
+    except NoNodeError:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Services node not found for project')
+    payload = json.loads(self.request.body)
+
+    try:
+      dispatch_rules = utils.routing_rules_from_dict(payload=payload,
+                                                     services=service_ids)
+    except utils.InvalidDispatchConfiguration as error:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error.message)
+
+    dispatch_node = '/appscale/projects/{}/dispatch'.format(project_id)
+
+    try:
+      self.zk_client.set(dispatch_node, json.dumps(dispatch_rules))
+    except NoNodeError:
+      try:
+        self.zk_client.create(dispatch_node, json.dumps(dispatch_rules))
+      except NoNodeError:
+        raise CustomHTTPError(HTTPCodes.NOT_FOUND,
+                              message='{} not found'.format(project_id))
+
+    logger.info('Updated dispatch for {}'.format(project_id))
+    # TODO: add verification for dispatchRules being applied. For now,
+    # assume the controller picks it up instantly.
+    patch_operation = UpdateApplicationOperation(project_id)
+    patch_operation.finish(dispatch_rules)
+    operations[patch_operation.id] = patch_operation
+    self.write(json_encode(patch_operation.rest_repr()))
+
 
 
 class BaseVersionHandler(BaseHandler):
@@ -1193,84 +1273,25 @@ class OAuthHandler(BaseHandler):
     self.ua_client = ua_client
 
   def post(self):
-    """Grants users Access Tokens."""
+    """Grants Access Tokens."""
+    if self.get_argument('scope', None) != self.AUTH_SCOPE:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message='Invalid scope')
 
-    # Format for error message.
-    error_msg = {
-      'error': '',
-      'error_description': ''
-    }
+    grant_type = self.get_argument('grant_type', None)
+    metadata = {'scope': self.AUTH_SCOPE, 'exp': int(time.time()) + 3600}
+    if grant_type == 'password':
+      username = self.get_argument('username', '')
+      self._check_user(username, self.get_argument('password', ''))
+      metadata['user'] = username
+    elif grant_type == 'secret':
+      secret = self.get_argument('secret', '').encode('utf-8')
+      if not utils.constant_time_compare(secret, options.secret):
+        raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid secret')
 
-    missing_arguments = []
-
-    grant_type = self.get_argument('grant_type', default=None, strip=True)
-    if not grant_type:
-      missing_arguments.append('grant_type')
-
-    username = self.get_argument('username', default=None, strip=True)
-    if not username:
-      missing_arguments.append('username')
-
-    password = self.get_argument('password', default=None, strip=True)
-    if not password:
-      missing_arguments.append('password')
-
-    scope = self.get_argument('scope', default=None, strip=True)
-    if not scope:
-      missing_arguments.append('scope')
-
-    if missing_arguments:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_REQUEST
-      error_msg['error_description'] = 'Required parameters(s) are missing: {}'\
-        .format(missing_arguments)
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
-
-    if grant_type != 'password':
-      error_msg['error'] = constants.AccessTokenErrors.UNSUPPORTED_GRANT_TYPE
-      error_msg['error_description'] = 'Grant type {} not supported.'.format(
-          grant_type)
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
-
-    if scope != self.AUTH_SCOPE:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_SCOPE
-      error_msg['error_description'] = 'Scope {} not supported.'.format(
-          grant_type)
-      raise CustomHTTPError(HTTPCodes.BAD_REQUEST, message=error_msg)
-
-    # Get the user.
-    try:
-      user_data = self.ua_client.get_user_data(username)
-    except UAException:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
-      error_msg['error_description'] = 'Unable to determine user data for {}'\
-        .format(username)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=error_msg)
-
-    # Get the user's stored password.
-    server_re = re.search(self.ua_client.USER_DATA_PASSWORD_REGEX, user_data)
-    if not server_re:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
-      error_msg['error_description'] = "Invalid user data for {}".format(
-          username)
-      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=error_msg)
-    server_pwd = server_re.group(1)
-
-    # Hash the given username and password.
-    encrypted_pass = hashlib.sha1("{0}{1}".format(username, password))\
-      .hexdigest()
-    if server_pwd != encrypted_pass:
-      error_msg['error'] = constants.AccessTokenErrors.INVALID_GRANT
-      error_msg['error_description'] = "Incorrect password for {}"\
-        .format(username)
-      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message=error_msg)
-
-    # If we have gotten here, the user is granted an Access Token,
-    # so we create it.
-    metadata = {
-      'user': username,
-      'exp': int(time.time()) + 3600,
-      'scope': self.AUTH_SCOPE
-    }
+      metadata['project'] = self.get_argument('project_id', '')
+    else:
+      raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
+                            message='Invalid grant type')
 
     metadata_base64 = base64.urlsafe_b64encode(json.dumps(metadata))
 
@@ -1293,6 +1314,27 @@ class OAuthHandler(BaseHandler):
     }
 
     self.write(json_encode(auth_response))
+
+  def _check_user(self, username, password):
+    """ Ensures the given password is correct for the user. """
+    try:
+      user_data = self.ua_client.get_user_data(username)
+    except UAException:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Unable to fetch user data')
+
+    # Get the stored hash for the user.
+    server_re = re.search(self.ua_client.USER_DATA_PASSWORD_REGEX, user_data)
+    if not server_re:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Invalid user data')
+
+    stored_hash = server_re.group(1)
+
+    # Check against the stored hash.
+    hash_input = ''.join([username, password])
+    if stored_hash != hashlib.sha1(hash_input).hexdigest():
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid password')
 
 
 def main():
@@ -1392,6 +1434,8 @@ def main():
      {'acc': acc, 'ua_client': ua_client, 'zk_client': zk_client,
       'version_update_lock': version_update_lock, 'thread_pool': thread_pool,
       'controller_state': controller_state}),
+    ('/v1/apps/([^/]*)', AppsHandler,
+     {'ua_client': ua_client, 'zk_client': zk_client}),
     ('/v1/apps/([^/]*)/operations/([a-z0-9-]+)', OperationsHandler,
      {'ua_client': ua_client}),
     ('/api/cron/update', UpdateCronHandler,
