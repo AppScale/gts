@@ -15,6 +15,7 @@ APPSCALE_TOOLS_BRANCH="master"
 AGENTS_BRANCH="master"
 THIRDPARTIES_BRANCH="master"
 GIT_TAG="last"
+UNIT_TEST="N"
 
 BRANCH_PARAM_SPECIFIED="N"
 TAG_PARAM_SPECIFIED="N"
@@ -22,7 +23,7 @@ TAG_PARAM_SPECIFIED="N"
 usage() {
     echo "Usage: ${0} [--repo <repo>] [--branch <branch>]"
     echo "            [--tools-repo <repo>] [--tools-branch <branch>]"
-    echo "            [--tag <git-tag>]"
+    echo "            [--tag <git-tag>] [-t]"
     echo
     echo "Be aware that tag parameter has priority over repo and branch parameters."
     echo "So if no tag, repos and branches are specified, tag 'last' will be used."
@@ -35,6 +36,7 @@ usage() {
     echo "   --tools-branch <branch>         Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
     echo "   --tag <git-tag>                 Use git tag (ie 3.7.2) or 'last' to use the latest release"
     echo "                                   or 'dev' for HEAD (default ${GIT_TAG})"
+    echo "   -t                              Run unit tests"
     exit 1
 }
 
@@ -105,6 +107,11 @@ while [ $# -gt 0 ]; do
         if [${GIT_TAG} != "dev" ]; then TAG_PARAM_SPECIFIED="Y"; fi
         shift; continue
     fi
+    if [ "${1}" = "-t" ]; then
+        UNIT_TEST="Y"
+        shift; continue
+    fi
+    echo
     echo "Parameter '$1' is not recognized"
     echo
     usage
@@ -139,7 +146,7 @@ if [ "${RELY_ON_TAG}" = "Y" ]; then
     echo "Will be using the following github repos:"
     echo "AppScale:        ${APPSCALE_REPO} - Tag ${GIT_TAG}"
     echo "AppScale-Tools:  ${APPSCALE_TOOLS_REPO} - Tag ${GIT_TAG}"
-    if version_ge ${VERSION} 3.8.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
+    if version_ge ${VERSION} 3.7.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
     if version_ge ${VERSION} 4.0.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
     echo "Exit now (ctrl-c) if this is incorrect"
 else
@@ -205,19 +212,19 @@ echo "Cloning appscale repositories"
 git clone ${APPSCALE_REPO} appscale
 VERSION=$(cat /root/appscale/VERSION | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
 git clone ${APPSCALE_TOOLS_REPO} appscale-tools
-if version_ge ${VERSION} 3.8.0; then git clone ${AGENTS_REPO} appscale-agents; fi
+if version_ge ${VERSION} 3.7.0; then git clone ${AGENTS_REPO} appscale-agents; fi
 if version_ge ${VERSION} 4.0.0; then git clone ${THIRDPARTIES_REPO} appscale-thirdparties; fi
 
 # Use tags if we specified it.
 if [ "${RELY_ON_TAG}" = "Y"  ]; then
     (cd appscale; git checkout "${GIT_TAG}")
     (cd appscale-tools; git checkout "${GIT_TAG}")
-    if version_ge ${VERSION} 3.8.0; then (cd appscale-agents; git checkout "${GIT_TAG}"); fi
+    if version_ge ${VERSION} 3.7.0; then (cd appscale-agents; git checkout "${GIT_TAG}"); fi
     if version_ge ${VERSION} 4.0.0; then (cd appscale-thirdparties; git checkout "${GIT_TAG}"); fi
 else
     (cd appscale; git checkout ${APPSCALE_BRANCH})
     (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
-    if version_ge ${VERSION} 3.8.0; then (cd appscale-agents; git checkout ${AGENTS_BRANCH}); fi
+    if version_ge ${VERSION} 3.7.0; then (cd appscale-agents; git checkout ${AGENTS_BRANCH}); fi
     if version_ge ${VERSION} 4.0.0; then (cd appscale-thirdparties; git checkout ${THIRDPARTIES_BRANCH}); fi
 fi
 
@@ -227,7 +234,7 @@ if ! (cd appscale/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge ${VERSION} 3.8.0; then
+if version_ge ${VERSION} 3.7.0; then
     echo -n "Installing AppScale Agents..."
     if ! (cd appscale-agents/; make install-no-venv) ; then
         echo "Failed to install AppScale Agents"
@@ -247,6 +254,22 @@ if version_ge ${VERSION} 4.0.0; then
         echo "Failed to install Thirdparties software"
         exit 1
     fi
+fi
+
+# Run unit tests if asked.
+if [ "$UNIT_TEST" = "Y" ]; then
+    echo "Running Unit tests"
+    (cd appscale; rake)
+    if [ $? -gt 0 ]; then
+        echo "Unit tests failed for appscale!"
+        exit 1
+    fi
+    (cd appscale-tools; rake)
+    if [ $? -gt 0 ]; then
+        echo "Unit tests failed for appscale-tools!"
+        exit 1
+    fi
+    echo "Unit tests complete"
 fi
 
 # Let's source the profiles so this image can be used right away.

@@ -10,13 +10,15 @@ APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
 AGENTS_REPO="git://github.com/AppScale/appscale-agents.git"
 THIRDPARTIES_REPO="git://github.com/AppScale/appscale-thirdparties.git"
 GIT_TAG="last"
+UNIT_TEST="N"
 
 usage() {
-    echo "Usage: ${0} [--tag <git-tag>]"
+    echo "Usage: ${0} [--tag <git-tag>] [-t]"
     echo
     echo "Options:"
     echo "   --tag <git-tag>    Git tag (e.g.: 3.7.2) to upgrade to."
     echo "                      Default: '${GIT_TAG}' (use the latest release)."
+    echo "   -t                 Run unit tests"
     exit 1
 }
 
@@ -46,6 +48,11 @@ while [ $# -gt 0 ]; do
         GIT_TAG="${1}";
         shift; continue
     fi
+    if [ "${1}" = "-t" ]; then
+        UNIT_TEST="Y"
+        shift; continue
+    fi
+    echo
     echo "Parameter '$1' is not recognized"
     echo
     usage
@@ -71,7 +78,7 @@ echo
 echo "Will be using the following github repos:"
 echo "AppScale:        ${APPSCALE_REPO} - Tag ${GIT_TAG}"
 echo "AppScale-Tools:  ${APPSCALE_TOOLS_REPO} - Tag ${GIT_TAG}"
-if version_ge ${VERSION} 3.8.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
+if version_ge ${VERSION} 3.7.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
 if version_ge ${VERSION} 4.0.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
@@ -164,7 +171,7 @@ declare -A REPOS=(
     ["appscale"]="${APPSCALE_REPO}"
     ["appscale-tools"]="${APPSCALE_TOOLS_REPO}"
 )
-if version_ge "${VERSION}" 3.8.0; then REPOS+=(["appscale-agents"]="${AGENTS_REPO}"); fi
+if version_ge "${VERSION}" 3.7.0; then REPOS+=(["appscale-agents"]="${AGENTS_REPO}"); fi
 if version_ge "${VERSION}" 4.0.0; then REPOS+=(["appscale-thirdparties"]="${THIRDPARTIES_REPO}"); fi
 
 # At this time we expect to be installed in $HOME.
@@ -207,7 +214,7 @@ if ! (cd appscale/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge ${VERSION} 3.8.0; then
+if version_ge ${VERSION} 3.7.0; then
     echo -n "Installing AppScale Agents..."
     if ! (cd appscale-agents/; make install-no-venv) ; then
         echo "Failed to upgrade AppScale Agents"
@@ -227,6 +234,22 @@ if version_ge ${VERSION} 4.0.0; then
         echo "Failed to upgrade Thirdparties software"
         exit 1
     fi
+fi
+
+# Run unit tests if asked.
+if [ "$UNIT_TEST" = "Y" ]; then
+    echo "Running Unit tests"
+    (cd appscale; rake)
+    if [ $? -gt 0 ]; then
+        echo "Unit tests failed for appscale!"
+        exit 1
+    fi
+    (cd appscale-tools; rake)
+    if [ $? -gt 0 ]; then
+        echo "Unit tests failed for appscale-tools!"
+        exit 1
+    fi
+    echo "Unit tests complete"
 fi
 
 # Let's source the profiles so this image can be used right away.
