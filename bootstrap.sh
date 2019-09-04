@@ -147,7 +147,7 @@ if [ "${RELY_ON_TAG}" = "Y" ]; then
     echo "AppScale:        ${APPSCALE_REPO} - Tag ${GIT_TAG}"
     echo "AppScale-Tools:  ${APPSCALE_TOOLS_REPO} - Tag ${GIT_TAG}"
     if version_ge ${VERSION} 3.7.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
-    if version_ge ${VERSION} 4.0.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
+    if version_ge ${VERSION} 3.8.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
     echo "Exit now (ctrl-c) if this is incorrect"
 else
     echo "Will be using the following github repos:"
@@ -206,27 +206,38 @@ for appscale_presence_marker in ${APPSCALE_DIRS}; do
 done
 
 
+if [ "${RELY_ON_TAG}" = "Y"  ]; then
+    APPSCALE_TARGET="${GIT_TAG}"
+    TOOLS_TARGET="${GIT_TAG}"
+    AGENTS_TARGET="${GIT_TAG}"
+    THIRDPARTIES_TARGET="${GIT_TAG}"
+else
+    APPSCALE_TARGET="${APPSCALE_BRANCH}"
+    TOOLS_TARGET="${APPSCALE_TOOLS_BRANCH}"
+    AGENTS_TARGET="${AGENTS_BRANCH}"
+    THIRDPARTIES_TARGET="${THIRDPARTIES_BRANCH}"
+fi
+
+
 echo "Cloning appscale repositories"
 # We split the commands, to ensure it fails if branch doesn't
 # exists (Precise git will not fail otherwise).
 git clone ${APPSCALE_REPO} appscale
+(cd appscale; git checkout ${APPSCALE_TARGET})
 VERSION=$(cat /root/appscale/VERSION | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
-git clone ${APPSCALE_TOOLS_REPO} appscale-tools
-if version_ge ${VERSION} 3.7.0; then git clone ${AGENTS_REPO} appscale-agents; fi
-if version_ge ${VERSION} 4.0.0; then git clone ${THIRDPARTIES_REPO} appscale-thirdparties; fi
 
-# Use tags if we specified it.
-if [ "${RELY_ON_TAG}" = "Y"  ]; then
-    (cd appscale; git checkout "${GIT_TAG}")
-    (cd appscale-tools; git checkout "${GIT_TAG}")
-    if version_ge ${VERSION} 3.7.0; then (cd appscale-agents; git checkout "${GIT_TAG}"); fi
-    if version_ge ${VERSION} 4.0.0; then (cd appscale-thirdparties; git checkout "${GIT_TAG}"); fi
-else
-    (cd appscale; git checkout ${APPSCALE_BRANCH})
-    (cd appscale-tools; git checkout ${APPSCALE_TOOLS_BRANCH})
-    if version_ge ${VERSION} 3.7.0; then (cd appscale-agents; git checkout ${AGENTS_BRANCH}); fi
-    if version_ge ${VERSION} 4.0.0; then (cd appscale-thirdparties; git checkout ${THIRDPARTIES_BRANCH}); fi
+git clone ${APPSCALE_TOOLS_REPO} appscale-tools
+(cd appscale-tools; git checkout "${TOOLS_TARGET}")
+
+if version_ge "${VERSION}" 3.7.0; then
+    git clone ${AGENTS_REPO} appscale-agents
+    (cd appscale-agents; git checkout "${AGENTS_TARGET}")
 fi
+if version_ge "${VERSION}" 3.8.0; then
+    git clone ${THIRDPARTIES_REPO} appscale-thirdparties
+    (cd appscale-thirdparties; git checkout "${THIRDPARTIES_TARGET}")
+fi
+
 
 echo -n "Building AppScale..."
 if ! (cd appscale/debian; bash appscale_build.sh) ; then
@@ -234,7 +245,7 @@ if ! (cd appscale/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge ${VERSION} 3.7.0; then
+if version_ge "${VERSION}" 3.7.0; then
     echo -n "Installing AppScale Agents..."
     if ! (cd appscale-agents/; make install-no-venv) ; then
         echo "Failed to install AppScale Agents"
@@ -248,7 +259,7 @@ if ! (cd appscale-tools/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge ${VERSION} 4.0.0; then
+if version_ge "${VERSION}" 3.8.0; then
     echo -n "Installing Thirdparty software..."
     if ! (cd appscale-thirdparties/; bash install_all.sh) ; then
         echo "Failed to install Thirdparties software"

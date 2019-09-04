@@ -79,7 +79,7 @@ echo "Will be using the following github repos:"
 echo "AppScale:        ${APPSCALE_REPO} - Tag ${GIT_TAG}"
 echo "AppScale-Tools:  ${APPSCALE_TOOLS_REPO} - Tag ${GIT_TAG}"
 if version_ge ${VERSION} 3.7.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
-if version_ge ${VERSION} 4.0.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
+if version_ge ${VERSION} 3.8.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
 sleep 5
@@ -172,7 +172,7 @@ declare -A REPOS=(
     ["appscale-tools"]="${APPSCALE_TOOLS_REPO}"
 )
 if version_ge "${VERSION}" 3.7.0; then REPOS+=(["appscale-agents"]="${AGENTS_REPO}"); fi
-if version_ge "${VERSION}" 4.0.0; then REPOS+=(["appscale-thirdparties"]="${THIRDPARTIES_REPO}"); fi
+if version_ge "${VERSION}" 3.8.0; then REPOS+=(["appscale-thirdparties"]="${THIRDPARTIES_REPO}"); fi
 
 # At this time we expect to be installed in $HOME.
 cd $HOME
@@ -228,7 +228,7 @@ if ! (cd appscale-tools/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge ${VERSION} 4.0.0; then
+if version_ge ${VERSION} 3.8.0; then
     echo -n "Downloading Thirdparty artifacts..."
     if ! (cd appscale-thirdparties/; bash install_all.sh) ; then
         echo "Failed to upgrade Thirdparties software"
