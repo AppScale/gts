@@ -66,7 +66,16 @@ class BaseHandler(web.RequestHandler):
     metadata = json.loads(base64.urlsafe_b64decode(metadata_base64))
     self.check_token_expiration(metadata)
     self.check_token_scope(metadata)
-    self.check_user_access(metadata, project_id, ua_client)
+    if 'project' in metadata:
+      if metadata['project'] == project_id:
+        return
+      else:
+        raise CustomHTTPError(HTTPCodes.FORBIDDEN,
+                              message='Token is not authorized for project')
+    elif 'user' in metadata:
+      return self.check_user_access(metadata, project_id, ua_client)
+    else:
+      raise CustomHTTPError(HTTPCodes.UNAUTHORIZED, message='Invalid token')
 
   @classmethod
   def check_token_hash(self, method_base64, metadata_base64, signature):

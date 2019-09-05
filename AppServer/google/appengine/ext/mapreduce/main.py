@@ -42,6 +42,7 @@ This module should be specified as a handler for mapreduce URLs in app.yaml:
 
 
 
+
 import google
 
 
@@ -51,7 +52,7 @@ except ImportError:
   pipeline = None
 
 
-import webapp2
+import webapp2 as webapp
 from google.appengine.ext.mapreduce import handlers
 from google.appengine.ext.mapreduce import status
 from google.appengine.ext.webapp import util
@@ -60,7 +61,7 @@ from google.appengine.ext.webapp import util
 STATIC_RE = r".*/([^/]*\.(?:css|js)|status|detail)$"
 
 
-class RedirectHandler(webapp2.RequestHandler):
+class RedirectHandler(webapp.RequestHandler):
   """Redirects the user back to the status page."""
 
   def get(self):
@@ -84,10 +85,12 @@ def create_handlers_map():
 
   return pipeline_handlers_map + [
 
-      (r".*/worker_callback", handlers.MapperWorkerCallbackHandler),
-      (r".*/controller_callback", handlers.ControllerCallbackHandler),
-      (r".*/kickoffjob_callback", handlers.KickOffJobHandler),
-      (r".*/finalizejob_callback", handlers.FinalizeJobHandler),
+
+
+      (r".*/worker_callback.*", handlers.MapperWorkerCallbackHandler),
+      (r".*/controller_callback.*", handlers.ControllerCallbackHandler),
+      (r".*/kickoffjob_callback.*", handlers.KickOffJobHandler),
+      (r".*/finalizejob_callback.*", handlers.FinalizeJobHandler),
 
 
 
@@ -109,11 +112,19 @@ def create_application():
   """Create new WSGIApplication and register all handlers.
 
   Returns:
-    an instance of webapp2.WSGIApplication with all mapreduce handlers
+    an instance of webapp.WSGIApplication with all mapreduce handlers
     registered.
   """
-  return webapp2.WSGIApplication(create_handlers_map(),
+  return webapp.WSGIApplication(create_handlers_map(),
                                 debug=True)
 
 
 APP = create_application()
+
+
+def main():
+  util.run_wsgi_app(APP)
+
+
+if __name__ == "__main__":
+  main()

@@ -4,7 +4,7 @@ install_requires = [
   'appscale-common',
   # TODO: add 'appscale-agents' to required packages.
   'mock',
-  'psutil==5.1.3',
+  'psutil==5.6.3',
   'tornado'
 ]
 

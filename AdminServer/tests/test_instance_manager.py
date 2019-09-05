@@ -1,5 +1,6 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
+import monotonic
 import os
 import subprocess
 import time
@@ -330,7 +331,7 @@ class TestInstanceManager(AsyncTestCase):
     self.assertEqual(True, instance_started)
 
     current_time = time.time()
-    flexmock(time).should_receive('time').and_return(current_time).\
+    flexmock(monotonic).should_receive('monotonic').and_return(current_time).\
       and_return(current_time + START_APP_TIMEOUT + 1)
     response = Future()
     response.set_result(None)

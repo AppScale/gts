@@ -1,7 +1,10 @@
 import argparse
 import sys
 
+from kazoo.client import KazooClient, KazooRetry
+
 from appscale.common import appscale_info
+from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.index_manager import IndexManager
 from appscale.datastore.utils import tornado_synchronous
@@ -47,7 +50,12 @@ def main():
   datastore_batch = appscale_datastore_batch.DatastoreFactory.\
     getDatastore(args.type)
   zookeeper_locations = appscale_info.get_zk_locations_string()
-  zookeeper = zk.ZKTransaction(host=zookeeper_locations)
+  retry_policy = KazooRetry(max_tries=5)
+  zk_client = KazooClient(
+    zookeeper_locations, connection_retry=ZK_PERSISTENT_RECONNECTS,
+    command_retry=retry_policy)
+  zk_client.start()
+  zookeeper = zk.ZKTransaction(zk_client)
   transaction_manager = TransactionManager(zookeeper.handle)
   datastore_access = DatastoreDistributed(
     datastore_batch, transaction_manager, zookeeper=zookeeper)
@@ -57,7 +65,8 @@ def main():
   indices = index_manager.projects[args.app_id].indexes_pb
   if len(indices) == 0:
     print('No composite indices found for app {}'.format(args.app_id))
-    zookeeper.close()
+    zk_client.stop()
+    zk_client.close()
     return
 
   update_composite_index_sync = tornado_synchronous(
@@ -80,11 +89,13 @@ def main():
       selection = int(raw_input('Select the index you want to update. (1-{}) '
         .format(len(indices))))
     except KeyboardInterrupt:
-      zookeeper.close()
+      zk_client.stop()
+      zk_client.close()
       sys.exit()
 
   selected_index = indices[selection - 1]
   update_composite_index_sync(args.app_id, selected_index)
 
-  zookeeper.close()
+  zk_client.stop()
+  zk_client.close()
   print('Index successfully updated')

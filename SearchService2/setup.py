@@ -11,6 +11,7 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common>=0.0.4',
+    'boto3==1.9.178',
     'kazoo==2.6.0',
     'tornado==5.1.1',
     'attrs==18.2.0',
@@ -30,6 +31,7 @@ setup(
     'appscale.search',
     'appscale.search.protocols',
     'appscale.search.query_parser',
+    'appscale.search.backup_restore',
   ],
   include_package_data=True,
   entry_points={'console_scripts': [
@@ -37,5 +39,8 @@ setup(
     'appscale-search2-reindex=appscale.search.scripts:reindex',
     'appscale-list-solr-collections=appscale.search.scripts:list_solr_collections',
     'appscale-delete-solr-collection=appscale.search.scripts:delete_solr_collection',
+    'search-backup-from-v1=appscale.search.backup_restore.backup_from_v1:main',
+    'search-backup-from-v2=appscale.search.backup_restore.backup_from_v2:main',
+    'search-restore-to-v2=appscale.search.backup_restore.restore_to_v2:main'
   ]}
 )

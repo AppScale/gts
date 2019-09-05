@@ -587,6 +587,11 @@ class Module(object):
       else:
         environ['SERVER_PORT'] = 443
 
+    # AppScale: Modify environment based on proxy headers.
+    x_proto = environ.get('HTTP_X_FORWARDED_PROTO')
+    if x_proto:
+      environ['wsgi.url_scheme'] = x_proto
+
     if 'HTTP_HOST' in environ:
       environ['SERVER_NAME'] = environ['HTTP_HOST'].split(':', 1)[0]
     environ['DEFAULT_VERSION_HOSTNAME'] = '%s:%s' % (
@@ -716,6 +721,7 @@ class Module(object):
 
     scheme = environ['HTTP_X_FORWARDED_PROTO']
     expected_scheme = scheme
+    redirect_host = environ['HTTP_HOST']
     if handler._url_map.secure == 'always':
       expected_scheme = 'https'
     elif handler._url_map.secure == 'never':
@@ -724,7 +730,11 @@ class Module(object):
     if scheme == expected_scheme:
       return
 
-    new_location = ''.join([expected_scheme, '://', environ['HTTP_HOST'],
+    redirect_port = environ['HTTP_X_REDIRECT_HTTP_PORT'] \
+        if expected_scheme == 'http' else environ['HTTP_X_REDIRECT_HTTPS_PORT']
+    redirect_host = '{}:{}'.format(environ['HTTP_HOST'].split(':')[0],
+                                   redirect_port)
+    new_location = ''.join([expected_scheme, '://', redirect_host,
                             environ.get('REQUEST_URI', '/')])
     start_response('302 Moved Temporarily', [('Location', new_location)])
     return []

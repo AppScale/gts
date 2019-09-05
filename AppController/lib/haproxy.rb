@@ -88,8 +88,9 @@ module HAProxy
     start_cmd = "#{HAPROXY_BIN} -f #{SERVICE_MAIN_FILE} -D " \
       "-p #{SERVICE_PIDFILE}"
     stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{SERVICE_PIDFILE})'"
+    restart_cmd = "#{BASH_BIN} -c '#{start_cmd} -sf $(cat #{SERVICE_PIDFILE})'"
     MonitInterface.start_daemon(
-      :service_haproxy, start_cmd, stop_cmd, SERVICE_PIDFILE)
+      :service_haproxy, start_cmd, stop_cmd, SERVICE_PIDFILE, nil, restart_cmd)
   end
 
   # Create the config file for UserAppServer.
@@ -227,8 +228,7 @@ module HAProxy
       }
 
       # Reload with the new configuration file.
-      Djinn.log_run("#{HAPROXY_BIN} -f #{SERVICE_MAIN_FILE} -p #{SERVICE_PIDFILE}" \
-                    " -D -sf `cat #{SERVICE_PIDFILE}`")
+      MonitInterface.restart(:service_haproxy)
     end
   end
 

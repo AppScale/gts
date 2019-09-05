@@ -62,14 +62,24 @@ module MonitInterface
   # Starts a daemonized service. The start_cmd should be designed to start a
   # background process, and it should create its own pidfile.
   def self.start_daemon(watch, start_cmd, stop_cmd, pidfile,
-                        start_timeout = nil)
+                        start_timeout = nil, restart_cmd = nil)
     timeout_suffix = "with timeout #{start_timeout} seconds" if start_timeout
-    config = <<CONFIG
+    if restart_cmd
+      config = <<CONFIG
+CHECK PROCESS #{watch} PIDFILE "#{pidfile}"
+  group #{watch}
+  start program = "#{start_cmd}" #{timeout_suffix}
+  stop program = "#{stop_cmd}"
+  restart program = "#{restart_cmd}"
+CONFIG
+    else
+      config = <<CONFIG
 CHECK PROCESS #{watch} PIDFILE "#{pidfile}"
   group #{watch}
   start program = "#{start_cmd}" #{timeout_suffix}
   stop program = "#{stop_cmd}"
 CONFIG
+    end
 
     monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
     reload_required = update_config(monit_file, config)
