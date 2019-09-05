@@ -132,6 +132,10 @@ MIN_LOAD_THRESHOLD = 0.7
 # The exit code that indicates the data layout version is unexpected.
 INVALID_VERSION_EXIT_CODE = 64
 
+# The allowed list of code directories to specify for updating the code and building it.
+ALLOWED_DIR_UPDATES = ["common", "app_controller", "admin_server", "taskqueue", "app_db",
+                       "iaas_manager", "hermes", "api_server", "appserver_java"]
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -486,7 +490,8 @@ class Djinn
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
-    'fdb_clusterfile_content' => [String, nil, true]
+    'fdb_clusterfile_content' => [String, nil, true],
+    'update' => [Array, [], false]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -851,6 +856,11 @@ class Djinn
         else
           newval = val.gsub(NOT_FQDN_REGEX, '')
         end
+      end
+
+      # We do not sanitize Array parameters for now.
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Array
+        newval = val
       end
 
       newoptions[key] = newval
@@ -3823,10 +3833,18 @@ class Djinn
 
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
-    status = `git -C #{APPSCALE_HOME} status`
+    if @options['update'].empty?
+      return
+    end
+
+    update_dirs = @options['update']
+
+    if update_dirs == "all"
+      update_dirs = ALLOWED_DIR_UPDATES.join(',')
+    end
 
     # Update Python packages across corresponding virtual environments
-    if status.include?('common')
+    if update_dirs.include?('common')
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
@@ -3835,33 +3853,33 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/search2/bin/pip')
     end
-    if status.include?('AppControllerClient')
+    if update_dirs.include?('app_controller')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
     end
-    if status.include?('AdminServer')
+    if update_dirs.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
     end
-    if status.include?('AppTaskQueue')
+    if update_dirs.include?('taskqueue')
       build_taskqueue
     end
-    if status.include?('AppDB')
+    if update_dirs.include?('app_db')
       update_python_package("#{APPSCALE_HOME}/AppDB")
     end
-    if status.include?('InfrastructureManager')
+    if update_dirs.include?('iaas_manager')
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
-    if status.include?('Hermes')
+    if update_dirs.include?('hermes')
       update_python_package("#{APPSCALE_HOME}/Hermes")
     end
-    if status.include?('APIServer')
+    if update_dirs.include?('api_server')
       build_api_server
     end
-    if status.include?('SearchService2')
+    if update_dirs.include?('SearchService2')
       build_search_service2
     end
 
     # Update Java AppServer
-    build_java_appserver if status.include?('AppServer_Java')
+    build_java_appserver if update_dirs.include?('appserver_java')
   end
 
   def configure_ejabberd_cert
