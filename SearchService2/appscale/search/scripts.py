@@ -37,12 +37,12 @@ def list_solr_collections():
     connection_retry=ZK_PERSISTENT_RECONNECTS
   )
   zk_client.start()
+  adapter = solr_adapter.SolrAdapter(zk_client)
 
   async def list_collections():
     """ Asynchronously fetches a list of Solr collections
     from SolrCloud and prints it to stdout.
     """
-    adapter = solr_adapter.SolrAdapter(zk_client)
     try:
       collections, broken = await adapter.solr.list_collections()
       logger.info('Collections:\n    {}'.format('\n    '.join(collections)))
@@ -78,11 +78,11 @@ def delete_solr_collection():
     connection_retry=ZK_PERSISTENT_RECONNECTS
   )
   zk_client.start()
+  adapter = solr_adapter.SolrAdapter(zk_client)
 
   async def delete_collection():
     """ Asynchronously deletes Solr collection.
     """
-    adapter = solr_adapter.SolrAdapter(zk_client)
     try:
       await adapter.solr.delete_collection(args.collection)
     except (SolrServerError, SolrClientError) as err:
@@ -127,6 +127,7 @@ def reindex():
     connection_retry=ZK_PERSISTENT_RECONNECTS
   )
   zk_client.start()
+  adapter = solr_adapter.SolrAdapter(zk_client)
 
   async def reindex_documents():
     """ Loops through all documents in the index and
@@ -134,7 +135,6 @@ def reindex():
     """
     logger.info('Reindexing documents from {}|{}|{}'
                 .format(args.project, args.namespace, args.index))
-    adapter = solr_adapter.SolrAdapter(zk_client)
     has_more = True
     start_doc_id = None
     total = 0
