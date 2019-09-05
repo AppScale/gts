@@ -50,8 +50,8 @@ class FDBDatastore(object):
     self._tx_manager = None
     self._gc = None
 
-  def start(self):
-    self._db = fdb.open()
+  def start(self, fdb_clusterfile):
+    self._db = fdb.open(fdb_clusterfile)
     self._tornado_fdb = TornadoFDB(IOLoop.current())
     ds_dir = fdb.directory.create_or_open(self._db, DS_ROOT)
     directory_cache = DirectoryCache(self._db, self._tornado_fdb, ds_dir)
@@ -327,7 +327,7 @@ class FDBDatastore(object):
       versionstamp_future = tr.get_versionstamp()
 
     try:
-      yield self._tornado_fdb.commit(tr)
+      yield self._tornado_fdb.commit(tr, convert_exceptions=False)
     except fdb.FDBError as fdb_error:
       if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
         raise InternalError(fdb_error.description)

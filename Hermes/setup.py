@@ -12,7 +12,7 @@ setup(
   install_requires=[
     'appscale-common',
     'appscale-admin',
-    'psutil==5.6.1',
+    'psutil==5.6.3',
     'attrs==19.1.0',
     'mock==2.0.0',
     'aiohttp==2.3.9'

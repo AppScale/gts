@@ -1,0 +1,110 @@
+<%#
+pass in:
+version_key
+my_private_ip
+proxy_port
+blobstore_port
+http_port
+https_port
+project_id
+dispatch => [{'url'=> 'url', 'service'=> 'default'}]
+server_name
+load_balancer_ip
+language
+%>
+# Any requests that aren't static files get sent to haproxy
+upstream gae_<%= version_key %> {
+    server <%= my_private_ip %>:<%= proxy_port %>;
+}
+
+upstream gae_<%= version_key %>_blobstore {
+    server <%= my_private_ip %>:<%= blobstore_port %>;
+}
+
+map $scheme $ssl {
+    default off;
+    https on;
+}
+
+server {
+    listen <%= http_port %> default_server;
+    return 444;
+}
+server {
+    listen <%= https_port %> default_server;
+    ssl on;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
+    ssl_certificate     /etc/nginx/<%= project_id %>.pem;
+    ssl_certificate_key /etc/nginx/<%= project_id %>.key;
+    return 444;
+}
+server {
+    listen <%= http_port %>;
+    listen <%= https_port %> ssl;
+    server_name <%= server_name %>;
+
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log /var/log/nginx/appscale-<%= version_key %>.access.log upstream;
+    #error_log   /var/log/nginx/appscale-<%= version_key %>.error.log;
+    error_log  /dev/null crit;
+    access_log  off;
+
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;  # don't use SSLv3 ref: POODLE
+    ssl_certificate     /etc/nginx/<%= project_id %>.pem;
+    ssl_certificate_key /etc/nginx/<%= project_id %>.key;
+
+    ignore_invalid_headers off;
+    rewrite_log off;
+    error_page 404 = /404.html;
+
+    # Dispatch.yaml
+    set $applicationid "<%= project_id %>";
+    set $dispatch_url "$host$uri";
+    set $backend gae_<%= version_key %>;
+
+    <% for dispatch_entry in dispatch %>
+    if ($dispatch_url ~ <%= dispatch_entry['url'] %>) {
+      set $backend <%= dispatch_entry['service'] %>;
+      break;
+    }
+    <% end %>
+
+    <% if ['java', 'java8'].include? language %>
+    location ~ /_ah/upload/.* {
+      proxy_set_header      X-Appengine-Inbound-Appid <%= project_id %>;
+      proxy_set_header      X-Real-IP $remote_addr;
+      proxy_set_header      X-Redirect-Https-Port <%= https_port %>;
+      proxy_set_header      X-Redirect-Http-Port <%= http_port %>;
+      proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header      X-Forwarded-Proto $scheme;
+      proxy_set_header      X-Forwarded-Ssl $ssl;
+      proxy_set_header      Host $http_host;
+      proxy_pass            http://gae_<%= version_key %>_blobstore;
+      proxy_connect_timeout 600;
+      proxy_read_timeout    600;
+      client_body_timeout   600;
+      client_max_body_size  2G;
+    }
+    <% end %>
+    location = /reserved-channel-appscale-path {
+      proxy_buffering    off;
+      tcp_nodelay        on;
+      keepalive_timeout  600;
+      proxy_pass         http://<%= load_balancer_ip %>:<%= CHANNELSERVER_PORT %>/http-bind;
+      proxy_read_timeout 120;
+    }
+    location / {
+      proxy_set_header    X-Appengine-Inbound-Appid $applicationid;
+      proxy_set_header    X-Real-IP $remote_addr;
+      proxy_set_header    X-Redirect-Https-Port <%= https_port %>;
+      proxy_set_header    X-Redirect-Http-Port <%= http_port %>;
+      proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header    X-Forwarded-Proto $scheme;
+      proxy_set_header    Host $http_host;
+      proxy_connect_timeout 600;
+      proxy_read_timeout  600;
+      client_body_timeout   600;
+      client_max_body_size  2G;
+      proxy_pass http://$backend;
+    }
+}

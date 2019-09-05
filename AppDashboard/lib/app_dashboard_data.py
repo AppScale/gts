@@ -130,6 +130,8 @@ class AppDashboardData():
         "relocate_app": {"title": "Relocate Application",
                          "link": "/apps/relocate",
                          "template": "apps/relocate.html"},
+        "service_accounts": {"title": "Service Accounts",
+                             "link": "/service_accounts"},
         "manage_users": {"title": "Manage Users",
                          "link": "/authorize",
                          "is_admin_panel": True,
@@ -159,7 +161,9 @@ class AppDashboardData():
                                           {"delete_app": lookup_dict[
                                               "delete_app"]},
                                           {"relocate_app": lookup_dict[
-                                              "relocate_app"]}]}
+                                              "relocate_app"]},
+                                          {"service_accounts": lookup_dict[
+                                              "service_accounts"]}]}
       if user_info.is_user_cloud_admin:
         lookup_dict["appscale_management"] = {"AppScale Management":
                                               [{"cloud_stats": lookup_dict[

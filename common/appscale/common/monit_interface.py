@@ -1,10 +1,10 @@
 import errno
 import httplib
 import logging
+import monotonic
 import os
 import socket
 import subprocess
-import time
 import urllib
 import uuid
 from datetime import timedelta
@@ -210,7 +210,7 @@ class MonitOperator(object):
   def __init__(self):
     """ Creates a new MonitOperator. There should only be one. """
     self.reload_future = None
-    self.last_reload = time.time()
+    self._last_reload = monotonic.monotonic()
     self._async_client = AsyncHTTPClient()
     self._client = HTTPClient()
 
@@ -331,13 +331,13 @@ class MonitOperator(object):
       "Waiting until process '{}' gets to one of acceptable states: {}"
        .format(process_name, acceptable_states)
     )
-    start_time = time.time()
+    start_time = monotonic.monotonic()
     backoff = 0.1
 
     while True:
       entries = yield self.get_entries()
       status = entries.get(process_name, MonitStates.MISSING)
-      elapsed = time.time() - start_time
+      elapsed = monotonic.monotonic() - start_time
 
       if status in acceptable_states:
         logger.info("Status of '{}' became '{}' after {:0.1f}s"
@@ -397,10 +397,10 @@ class MonitOperator(object):
     retry_on_exception=[subprocess.CalledProcessError])
   def _reload(self, thread_pool):
     """ Reloads Monit. """
-    time_since_reload = time.time() - self.last_reload
+    time_since_reload = monotonic.monotonic() - self._last_reload
     wait_time = max(self.RELOAD_COOLDOWN - time_since_reload, 0)
     yield gen.sleep(wait_time)
-    self.last_reload = time.time()
+    self._last_reload = monotonic.monotonic()
     if thread_pool:
       yield thread_pool.submit(subprocess.check_call, [MONIT, 'reload'])
     else:

@@ -38,6 +38,8 @@ from dashboard_logs import RequestLogLine
 from datastore_viewer import DatastoreEditRequestHandler
 from datastore_viewer import DatastoreViewer
 from datastore_viewer import DatastoreViewerSelector
+from service_accounts import (ServiceAccountsProjectSelector,
+                              ProjectServiceAccounts)
 from pull_queue_viewer import (PQProjectSelector, PQQueueSelector,
                                PQTaskSelector)
 
@@ -1192,6 +1194,8 @@ dashboard_pages = [
   ('/apps/json/?', AppsAsJSONPage),
   ('/apps/json/(.+)', AppsAsJSONPage),
   ('/apps/stats', StatsPage),
+  ('/service_accounts', ServiceAccountsProjectSelector),
+  ('/service_accounts/(.+)', ProjectServiceAccounts),
   ('/logs', LogMainPage),
   ('/logs/(.+)/(.+)', LogServiceHostPage),
   ('/logs/(.+)', LogServicePage),
