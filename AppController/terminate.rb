@@ -140,7 +140,7 @@ module TerminateHelper
 
     # Make sure we have cassandra running, otherwise nodetool may get
     # stuck.
-    if system("monit summary | grep cassandra | grep Running > /dev/null")
+    if system("monit summary | grep cassandra | grep 'Running\\|OK' > /dev/null")
       `/opt/cassandra/cassandra/bin/nodetool -h #{ip} -p 7199 drain`
     end
 
