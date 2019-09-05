@@ -28,9 +28,8 @@
 
 
 
-
-
 """Pipelines for mapreduce library."""
+
 
 
 __all__ = [
@@ -39,7 +38,6 @@ __all__ = [
 
 import google
 
-from google.appengine.api import files
 from google.appengine.ext.mapreduce import control
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import parameters
@@ -99,7 +97,7 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
         number of shards is determined by how input are splited.
     """
     if shards is None:
-      shards = parameters.DEFAULT_SHARD_COUNT
+      shards = parameters.config.SHARD_COUNT
 
     mapreduce_id = control.start_map(
         job_name,
@@ -115,13 +113,22 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
         output_writer_spec=output_writer_spec,
         )
     self.fill(self.outputs.job_id, mapreduce_id)
-    self.set_status(console_url="%s/detail?job_id=%s" % (
-        (parameters._DEFAULT_BASE_PATH, mapreduce_id)))
+    self.set_status(console_url="%s/detail?mapreduce_id=%s" % (
+        (parameters.config.BASE_PATH, mapreduce_id)))
+
+  def try_cancel(self):
+    """Always allow mappers to be canceled and retried."""
+    return True
 
   def callback(self):
     """Callback after this async pipeline finishes."""
     mapreduce_id = self.outputs.job_id.value
     mapreduce_state = model.MapreduceState.get_by_job_id(mapreduce_id)
+    if mapreduce_state.result_status != model.MapreduceState.RESULT_SUCCESS:
+      self.retry("Job %s had status %s" % (
+          mapreduce_id, mapreduce_state.result_status))
+      return
+
     mapper_spec = mapreduce_state.mapreduce_spec.mapper
     outputs = []
     output_writer_class = mapper_spec.output_writer_class()
@@ -132,27 +139,3 @@ class MapperPipeline(pipeline_base._OutputSlotsMixin,
     self.fill(self.outputs.result_status, mapreduce_state.result_status)
     self.fill(self.outputs.counters, mapreduce_state.counters_map.to_dict())
     self.complete(outputs)
-
-
-class _CleanupPipeline(pipeline_base.PipelineBase):
-  """A pipeline to do a cleanup for mapreduce jobs.
-
-  Args:
-    filename_or_list: list of files or file lists to delete.
-  """
-
-  def delete_file_or_list(self, filename_or_list):
-    if isinstance(filename_or_list, list):
-      for filename in filename_or_list:
-        self.delete_file_or_list(filename)
-    else:
-      filename = filename_or_list
-      for _ in range(10):
-        try:
-          files.delete(filename)
-          break
-        except:
-          pass
-
-  def run(self, temp_files):
-    self.delete_file_or_list(temp_files)

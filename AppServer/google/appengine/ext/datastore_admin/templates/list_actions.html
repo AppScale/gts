@@ -1,6 +1,27 @@
 {% extends "base.html" %}
 {% block body %}
   <h2>Datastore Admin of {{hosting_app_id}}</h2>
+  {% if run_as_a_service or offer_service %}
+    <div class="ae-promo ae-rounded-sml">
+      <strong>
+        The managed backup service is deprecated, and will no longer be available as of
+        Mar 27th, 2018.
+      </strong>
+    </div>
+  {% endif %}
+  {% if run_as_a_service %}
+    <div class="ae-message ae-rounded-sml">
+      Backup/Restore running as a service.
+      <a href="{{datastore_admin_home}}?service=T">Disable</a>
+    </div>
+  {% else %}
+    {% if offer_service %}
+      <div class="ae-message ae-rounded-sml">
+        This application may run backup/restore as a service.
+        <a href="{{datastore_admin_home}}?run_as_a_service=True">Enable</a>
+      </div>
+    {% endif %}
+  {% endif %}
   {% if error %}
   <div class="ae-errorbox">
     {{ error|escape }}
@@ -18,10 +39,10 @@
             Entity statistics last updated
             {{ last_stats_update|date:"M j, Y g:i a T" }}
           {% else %}
-            Entity statistics unavailable.
+            Entity statistics are temporarily unavailable and should appear within 48 hours.
           {% endif %}
           <a target="_blank"
-             href="http://developers.google.com/appengine/kb/adminconsole.html#datastore_stats">
+             href="https://cloud.google.com/appengine/docs/standard/python/console/datastore-statistics">
             <img class="ae-help-icon" src="{{ base_path }}/static/img/help.gif"
               height="14" width="14" alt="help">
           </a>
@@ -219,8 +240,22 @@
       {% if run_as_a_service %}
         <input type="hidden" name="run_as_a_service" value="{{ run_as_a_service|escape }}">
       {% endif %}
+      <div style="display: block">
+        <label for="service_account_name">
+          Service account name
+          <img class="ae-help-icon" src="{{ base_path }}/static/img/help.gif" height="14" width="14" alt="help"
+               title="You can define additional service accounts using the dashboard.">
+        </label>
+        <select id="service_account_name" name="service_account_name">
+          <option value="">--Choose an option--</option>
+          {% for account_name in service_accounts %}
+          <option value="{{ account_name }}">{{ account_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <input type="text" name="gs_handle" value="" size="50" placeholder="Bucket or info file"
+             title="Google Cloud Storage path of a backup info file or a bucket name"/>
       <input type="submit" name="action" value="Import Backup Information" title="Import Backup Information or restore from Google Cloud Storage"/>
-      <input type="text" name="gs_handle" value="" size="50" title="Google Cloud Storage path of a backup info file or a bucket name"/>
     </form>
   </div>
   {% if active_operations %}

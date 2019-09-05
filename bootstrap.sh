@@ -17,13 +17,15 @@ UNIT_TEST="n"
 GIT_TAG=""
 
 usage() {
-    echo "Usage: ${0} [--repo <repo>][--tools-repo <repo>][-t]"
+    echo "Usage: ${0} [--repo <repo>][--tools-repo <repo>][--agents-repo <repo>][-t]"
     echo
     echo "Options:"
     echo "   --repo <repo>            Specify appscale repo (default $APPSCALE_REPO)"
     echo "   --branch <branch>        Specify appscale branch (default $APPSCALE_BRANCH)"
     echo "   --tools-repo <repo>      Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
     echo "   --tools-branch <branch>  Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
+    echo "   --agents-repo <repo>     Specify appscale-agents repo (default $AGENTS_REPO)"
+    echo "   --agents-branch <branch> Specify appscale-agents branch (default $AGENTS_BRANCH)"
     echo "   --force-upgrade          Force upgrade even if some check fails."
     echo "   --tag <git-tag>          Use git tag (ie 2.2.0) or 'last' to use the latest release or 'dev' for HEAD"
     echo "   -t                       Run unit tests"

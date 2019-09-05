@@ -138,7 +138,7 @@
               {% endif %}
             </td>
             {% for attribute in entity.attributes %}
-              <td>{{ attribute.short_value }}</td>
+              <td>{{ attribute.short_value|escape }}</td>
             {% endfor %}
             {% if property_overflow %}
               <td></td>

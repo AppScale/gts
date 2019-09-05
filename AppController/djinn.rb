@@ -6,6 +6,7 @@ require 'logger'
 require 'monitor'
 require 'net/http'
 require 'net/https'
+require 'open3'
 require 'openssl'
 require 'securerandom'
 require 'set'
@@ -175,11 +176,12 @@ class Djinn
   #  {
   #    # System stats provided by infrustucture manager
   #    "cpu" => {
+  #      "count" => 2,
   #      "idle" => 81.3,
   #      "system" => 13.2,
   #      "user" => 5.5
   #    },
-  #    "disk" => [
+  #    "partitions_dict" => [
   #      # For each partition
   #      {
   #        "/" => {
@@ -206,11 +208,9 @@ class Djinn
   #      ...
   #    },
   #    "loadavg" => {
-  #      "last_1_min" => 1.35,
-  #      "last_5_min" => 0.67,
-  #      "last_15_min" => 0.89,
-  #      "runnable_entities" => 3,
-  #      "scheduling_entities" => 687
+  #      "last_1min" => 1.35,
+  #      "last_5min" => 0.67,
+  #      "last_15min" => 0.89,
   #    },
   #    # Node information provided by AppController itself
   #    "apps" => {
@@ -390,7 +390,7 @@ class Djinn
   # services assume that they run at a specific location.
   RESERVED_APPS = [AppDashboard::APP_NAME].freeze
 
-  # A Fixnum that indicates what the first port is that can be used for hosting
+  # A Integer that indicates what the first port is that can be used for hosting
   # Google App Engine apps.
   STARTING_APPSERVER_PORT = 20_000
 
@@ -450,9 +450,9 @@ class Djinn
     'autoscale' => [TrueClass, 'True', true],
     'client_secrets' => [String, nil, false],
     'controller_logs_to_dashboard' => [TrueClass, 'False', false],
-    'default_max_appserver_memory' => [Fixnum, "#{DEFAULT_MEMORY}", true],
-    'default_min_appservers' => [Fixnum, '2', true],
-    'default_max_appservers' => [Fixnum, '999999', true],
+    'default_max_appserver_memory' => [Integer, "#{DEFAULT_MEMORY}", true],
+    'default_min_appservers' => [Integer, '2', true],
+    'default_max_appservers' => [Integer, '999999', true],
     'disks' => [String, nil, true],
     'ec2_access_key' => [String, nil, false],
     'ec2_secret_key' => [String, nil, false],
@@ -465,27 +465,28 @@ class Djinn
     'keyname' => [String, nil, false],
     'infrastructure' => [String, nil, true],
     'instance_type' => [String, nil, true],
-    'lb_connect_timeout' => [Fixnum, '120000', true],
+    'lb_connect_timeout' => [Integer, '120000', true],
     'login' => [String, nil, true],
     'machine' => [String, nil, true],
-    'max_machines' => [Fixnum, '0', true],
-    'min_machines' => [Fixnum, '1', true],
+    'max_machines' => [Integer, '0', true],
+    'min_machines' => [Integer, '1', true],
     'region' => [String, nil, true],
-    'replication' => [Fixnum, '1', true],
+    'replication' => [Integer, '1', true],
     'project' => [String, nil, false],
     'table' => [String, 'cassandra', false],
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
     'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Fixnum, '15', true],
+    'nodes_stats_log_interval' => [Integer, '15', true],
     'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Fixnum, '65', true],
+    'processes_stats_log_interval' => [Integer, '65', true],
     'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Fixnum, '35', true],
+    'proxies_stats_log_interval' => [Integer, '35', true],
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
-    'zone' => [String, nil, true]
+    'zone' => [String, nil, true],
+    'fdb_clusterfile_content' => [String, nil, true]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -610,9 +611,9 @@ class Djinn
   #
   # Args:
   #   version_key: A String that names the version that should be relocated.
-  #   http_port: A String or Fixnum that names the port that should be used to
+  #   http_port: A String or Integer that names the port that should be used to
   #     serve HTTP traffic for this app.
-  #   https_port: A String or Fixnum that names the port that should be used to
+  #   https_port: A String or Integer that names the port that should be used to
   #     serve HTTPS traffic for this app.
   #   secret: A String that authenticates callers.
   # Returns:
@@ -809,7 +810,7 @@ class Djinn
       Djinn.log_info(msg)
 
       # Let's check if we can convert them now to the proper class.
-      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           Integer(val)
         rescue
@@ -829,7 +830,7 @@ class Djinn
       # message similar to "failed to serialize detail object". We convert
       # them here to String.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == TrueClass ||
-         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           newval = val.to_s
         rescue
@@ -842,7 +843,7 @@ class Djinn
       # Strings may need to be sanitized.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == String
         # Some options shouldn't be sanitize.
-        if key == 'user_commands' or key == 'azure_app_secret_key'
+        if ['user_commands', 'azure_app_secret_key', 'fdb_clusterfile_content'].include? key
           newval = val
         # Keys have a relaxed sanitization process.
         elsif key.include? "_key" or key.include? "EC2_SECRET_KEY"
@@ -968,6 +969,7 @@ class Djinn
       # initialization.
       @options = checked_opts
     }
+
     Djinn.log_info("Successfully received nodes layout (#{@nodes}) and deployment options (#{@options}).")
 
     'OK'
@@ -1210,7 +1212,7 @@ class Djinn
       end
     end
 
-    Djinn.log_info("Received request to get properties matching #{property_regex}.")
+    Djinn.log_debug("Received request to get properties matching #{property_regex}.")
     properties = {}
     PARAMETERS_AND_CLASS.each { |key, val|
       begin
@@ -1239,7 +1241,7 @@ class Djinn
   #
   # Args:
   #   property_name: A String naming the instance variable that should be set.
-  #   property_value: A String or Fixnum that provides the value for the given
+  #   property_value: A String or Integer that provides the value for the given
   #     property name.
   #   secret: A String with the shared key for authentication.
   #
@@ -1367,6 +1369,11 @@ class Djinn
           )
         end
       end
+
+      if key == 'fdb_clusterfile_content'
+        ZKInterface.set_fdb_clusterfile_content(val)
+      end
+      
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
@@ -1796,7 +1803,7 @@ class Djinn
     @done_loading = true
 
     pick_zookeeper(@zookeeper_data)
-    write_our_node_info
+    set_done_status
 
     # We wait only for non autoscaled nodes.
     wait_for_nodes_to_finish_loading(nodes_to_wait)
@@ -2445,10 +2452,12 @@ class Djinn
   # the command that was executed.
   def self.log_run(command)
     Djinn.log_debug("Running #{command}")
-    output = `#{command}`
-    if $?.exitstatus != 0
-      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" \
-          " and output: #{output}.")
+    output, err_output, status = Open3.capture3(command)
+    if status.exitstatus != 0
+      Djinn.log_debug("Command #{command} failed with #{status.exitstatus}" \
+          " and output: #{output}")
+      Djinn.log_debug("Command #{command} error output: " \
+          "#{err_output}") if err_output
     end
     return output
   end
@@ -3061,20 +3070,17 @@ class Djinn
     Djinn.log_debug("Found zookeeper server.")
   end
 
-  # Backs up information about what this node is doing (roles, apps it is
-  # running) to ZooKeeper, for later recovery or updates by other nodes.
-  def write_our_node_info
-    # Since more than one AppController could write its data at the same
-    # time, get a lock before we write to it.
-    begin
-      ZKInterface.lock_and_run {
+  # Set the done status in zookeeper.
+  def set_done_status
+    RETRIES.downto(0) { ||
+      begin
         ZKInterface.write_node_information(my_node, @done_loading)
-      }
-    rescue => e
-      Djinn.log_info("(write_our_node_info) saw exception #{e.message}")
-    end
-
-    return
+        return
+      rescue => e
+        Djinn.log_info("(set_done_status) retry after exception #{e.message}.")
+        next
+      end
+    }
   end
 
   # Returns information about the AppServer processes hosting App Engine apps on
@@ -3422,7 +3428,9 @@ class Djinn
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
-    threads.each { |t| t.join }
+    threads.each do |t|
+      Djinn.log_debug("Waiting for thread #{t}") until t.join(5)
+    end
     Djinn.log_info('API services have started on this node.')
 
     # Start Hermes with integrated stats service
@@ -3610,6 +3618,10 @@ class Djinn
     # Shadow is the only node to call this method, and is called upon
     # startup.
     return unless my_node.is_shadow?
+
+    if @options.key?('fdb_clusterfile_content')
+      ZKInterface.set_fdb_clusterfile_content(@options['fdb_clusterfile_content'])
+    end
 
     Djinn.log_info("Assigning datastore processes.")
     verbose = @options['verbose'].downcase == 'true'
@@ -5474,7 +5486,12 @@ class Djinn
       get_all_compute_nodes.each { |host|
         @cluster_stats.each { |node|
           next if node['private_ip'] != host
-
+          Djinn.log_debug("Using #{host}'s stats, making sure keys are accessible " \
+            "node['memory']['total']: #{node['memory']['total']} " \
+            "node['memory']['available']: #{node['memory']['available']}" \
+            "node['loadavg']['last_1min']: #{node['loadavg']['last_1min']}" \
+            "node['cpu']['count']: #{node['cpu']['count']}"
+          )
           # Check how many new AppServers of this app, we can run on this
           # node (as theoretical maximum memory usage goes).  First convert
           # total memory to MB.
@@ -5495,7 +5512,7 @@ class Djinn
           break if max_new_free <= 0
 
           # The host needs to have normalized average load less than MAX_LOAD_AVG.
-          if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
+          if Float(node['loadavg']['last_1min']) / node['cpu']['count'] > MAX_LOAD_AVG
             Djinn.log_debug("#{host} CPUs are too busy.")
             break
           end
@@ -5757,21 +5774,27 @@ class Djinn
 
     RETRIES.downto(0) { ||
       begin
-        remote_machine = ZKInterface.get_revision_hosters(
+        ip = ZKInterface.get_revision_hosters(
           revision_key, @options['keyname']).sample
       rescue FailedZooKeeperOperationException
         sleep(SMALL_WAIT)
         next
       end
 
-      if remote_machine.nil?
+      if ip.nil?
         Djinn.log_info("Waiting for a machine to have a copy of #{app_path}")
         Kernel.sleep(SMALL_WAIT)
         next
       end
 
-      ssh_key = remote_machine.ssh_key
-      ip = remote_machine.private_ip
+      # Get the ssh key to use for the remote machine.
+      remote_node = @nodes.keep_if { |node| node.private_ip == ip }
+      if remote_node.empty?
+        Djinn.log_info("Got invalid machine to retrieve code (#{ip}).")
+        next
+      end
+      ssh_key = remote_node[0].ssh_key
+
       md5 = ZKInterface.get_revision_md5(revision_key, ip)
       Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
       RETRIES.downto(0) {
@@ -5877,12 +5900,11 @@ class Djinn
     return BAD_SECRET_MSG unless valid_secret?(secret)
     return NOT_READY if @nodes.empty?
 
-    # Get stats from SystemManager.
-    imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
+    # Get stats from Hermes.
     begin
-      system_stats = JSON.load(imc.get_system_stats)
-    rescue SOAP::FaultError, FailedNodeException => exception
-      Djinn.log_warn("Failed to talk to [IM]: #{exception.message}")
+      system_stats = HermesClient.get_system_stats(my_node.private_ip, @@secret)
+    rescue AppScaleException => error
+      Djinn.log_warn("Couldn't get system stats from Hermes: #{error.message}")
       return INVALID_REQUEST
     end
 
