@@ -205,6 +205,12 @@ case "$PROVIDER" in
     ;;
 esac
 
+echo "Configuring local foundationdb"
+/root/appscale-thirdparties/foundationdb/configure-and-start-fdb.sh \
+    --data-dir /opt/appscale/fdb-data/ \
+    --fdbcli-command 'configure new single ssd'
+FDB_CLUSTERFILE_CONTENT=$(cat /etc/foundationdb/fdb.cluster)
+
 # Let's make sure we don't overwrite and existing AppScalefile.
 if [ ! -e AppScalefile ]; then
     # Let's make sure we detected the IPs.
@@ -234,6 +240,7 @@ if [ ! -e AppScalefile ]; then
         echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
         echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
     fi
+    echo "fdb_clusterfile_content : ${FDB_CLUSTERFILE_CONTENT}" >> AppScalefile
     echo "group : faststart-${PROVIDER}" >> AppScalefile
     echo "done."
 
