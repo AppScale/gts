@@ -3629,8 +3629,10 @@ class Djinn
     # startup.
     return unless my_node.is_shadow?
 
+    backend = 'cassandra'
     if @options.key?('fdb_clusterfile_content')
       ZKInterface.set_fdb_clusterfile_content(@options['fdb_clusterfile_content'])
+      backend = 'fdb'
     end
 
     Djinn.log_info("Assigning datastore processes.")
@@ -3646,7 +3648,7 @@ class Djinn
     # machine.
     db_nodes.each { |node|
       assignments = {}
-      assignments['datastore'] = {'verbose' => verbose}
+      assignments['datastore'] = {'backend' => backend, 'verbose' => verbose}
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
       Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
