@@ -1358,7 +1358,7 @@ class IndexManager(object):
       while True:
         results, more_results = yield result_iterator.next_page()
         index_entries = [kind_index.decode(result) for result in results]
-        version_entries = yield [self._data_manager.get_entry(self, tr, entry)
+        version_entries = yield [self._data_manager.get_entry(tr, entry)
                                  for entry in index_entries]
         for index_entry, version_entry in zip(index_entries, version_entries):
           new_keys = composite_index.encode_keys(
