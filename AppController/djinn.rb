@@ -3448,7 +3448,7 @@ class Djinn
     end
 
     # Start Hermes with integrated stats service
-    threads << Thread.new ( start_hermes }
+    threads << Thread.new { start_hermes }
 
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
@@ -3912,9 +3912,7 @@ class Djinn
     threads = []
     must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
-      threads << Thread.new {
-        initialize_node(slave)
-      }
+      threads << Thread.new { initialize_node(slave) }
     }
 
     # If we cannot reconnect with autoscaled nodes, we will have to clean
