@@ -3386,7 +3386,7 @@ class Djinn
       }
     end
 
-    start_admin_server
+    threads << Thread.new { start_admin_server }
 
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
@@ -3447,6 +3447,9 @@ class Djinn
       threads << Thread.new { stop_taskqueue }
     end
 
+    # Start Hermes with integrated stats service
+    threads << Thread.new ( start_hermes }
+
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
@@ -3455,15 +3458,14 @@ class Djinn
     end
     Djinn.log_info('API services have started on this node.')
 
-    # Start Hermes with integrated stats service
-    start_hermes
-
     # Leader node starts additional services.
     if my_node.is_shadow?
       @state = 'Assigning Datastore and Search2 processes'
       assign_datastore_processes
       assign_search2_processes
-      TaskQueue.start_flower(@options['flower_password'])
+
+      # Don't start flower if we don't have a password.
+      TaskQueue.start_flower(@options['flower_password']) unless @options['flower_password'].nil?
     else
       TaskQueue.stop_flower
     end
@@ -3850,10 +3852,7 @@ class Djinn
     end
 
     update_dirs = @options['update']
-
-    if update_dirs == "all"
-      update_dirs = ALLOWED_DIR_UPDATES.join(',')
-    end
+    update_dirs = ALLOWED_DIR_UPDATES if update_dirs == ['all']
 
     # Update Python packages across corresponding virtual environments
     if update_dirs.include?('common')
