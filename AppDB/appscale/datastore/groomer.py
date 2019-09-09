@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 
+from kazoo.client import KazooClient, KazooRetry
 from tornado import gen
 
 from appscale.datastore.utils import tornado_synchronous
@@ -17,6 +18,7 @@ import utils
 
 from appscale.common import appscale_info
 from appscale.common import constants
+from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.common.unpackaged import DASHBOARD_DIR
 from . import helper_functions
@@ -1174,7 +1176,12 @@ class DatastoreGroomer(threading.Thread):
 def main():
   """ This main function allows you to run the groomer manually. """
   zk_connection_locations = appscale_info.get_zk_locations_string()
-  zookeeper = zk.ZKTransaction(host=zk_connection_locations)
+  retry_policy = KazooRetry(max_tries=5)
+  zk_client = KazooClient(
+    zk_connection_locations, connection_retry=ZK_PERSISTENT_RECONNECTS,
+    command_retry=retry_policy)
+  zk_client.start()
+  zookeeper = zk.ZKTransaction(zk_client)
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
 
@@ -1199,6 +1206,7 @@ def main():
       logger.error("Unable to release zk lock {0}.".\
         format(str(zk_exception)))
     finally:
-      zookeeper.close()
+      zk_client.stop()
+      zk_client.close()
   else:
     logger.info("Did not get the groomer lock.")

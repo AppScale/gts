@@ -436,6 +436,12 @@ installpycrypto()
     pipwrapper pycrypto
 }
 
+installurllib3()
+{
+    # Avoid using pipwrapper to prevent upgrading the package.
+    pip install urllib3
+}
+
 postinstallzookeeper()
 {
     service zookeeper stop || true
