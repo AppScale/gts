@@ -10,13 +10,11 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.options import options
 
+from appscale.common import file_io
 from appscale.common.async_retrying import (
   retry_children_watch_coroutine, retry_coroutine, retry_data_watch_coroutine
 )
-from appscale.common.constants import (CONFIG_DIR, LOG_DIR, MonitStates,
-                                       VAR_DIR)
-from appscale.common.monit_app_configuration import create_config_file
-from appscale.common.monit_app_configuration import MONIT_CONFIG_DIR
+from appscale.common.constants import (CONFIG_DIR, LOG_DIR, VAR_DIR)
 
 from .utils import ensure_path
 
@@ -57,20 +55,20 @@ logger = logging.getLogger(__name__)
 
 class ProjectPushWorkerManager(object):
   """ Manages the Celery worker for a single project. """
-  def __init__(self, zk_client, monit_operator, project_id):
+  def __init__(self, zk_client, service_operator, project_id):
     """ Creates a new ProjectPushWorkerManager.
 
     Args:
       zk_client: A KazooClient.
-      monit_operator: A MonitOperator.
+      service_operator: A ServiceOperator.
       project_id: A string specifying a project ID.
     """
     self.zk_client = zk_client
     self.project_id = project_id
-    self.monit_operator = monit_operator
+    self.service_operator = service_operator
     self.queues_node = '/appscale/projects/{}/queues'.format(project_id)
     self.watch = zk_client.DataWatch(self.queues_node, self._update_worker)
-    self.monit_watch = 'celery-{}'.format(project_id)
+    self.service_name = 'appscale-celery@{0}'.format(project_id)
     self._stopped = False
 
   @gen.coroutine
@@ -81,87 +79,19 @@ class ProjectPushWorkerManager(object):
       queue_config: A JSON string specifying queue configuration.
     """
     self._write_worker_configuration(queue_config)
-    status = yield self._wait_for_stable_state()
-
-    pid_location = os.path.join(VAR_DIR, 'celery-{}.pid'.format(self.project_id))
-    try:
-      with open(pid_location) as pidfile:
-        old_pid = int(pidfile.read().strip())
-    except IOError:
-      old_pid = None
 
     # Start the worker if it doesn't exist. Restart it if it does.
-    if status == MonitStates.MISSING:
-      command = self.celery_command()
-      env_vars = {'APP_ID': self.project_id, 'HOST': options.load_balancers[0],
-                  'C_FORCE_ROOT': True}
-      create_config_file(self.monit_watch, command, pid_location,
-                         env_vars=env_vars, max_memory=CELERY_SAFE_MEMORY)
-      logger.info('Starting push worker for {}'.format(self.project_id))
-      yield self.monit_operator.reload()
-    else:
-      logger.info('Restarting push worker for {}'.format(self.project_id))
-      yield self.monit_operator.send_command(self.monit_watch, 'restart')
-
-    start_future = self.monit_operator.ensure_running(self.monit_watch)
-    yield gen.with_timeout(timedelta(seconds=60), start_future,
-                           IOLoop.current())
-
-    try:
-      yield self.ensure_pid_changed(old_pid, pid_location)
-    except AssertionError:
-      # Occasionally, Monit will get interrupted during a restart. Retry the
-      # restart if the Celery worker PID is the same.
-      logger.warning(
-        '{} worker PID did not change. Restarting it.'.format(self.project_id))
-      yield self.update_worker(queue_config)
-
-  @staticmethod
-  @retry_coroutine(retrying_timeout=10, retry_on_exception=[AssertionError])
-  def ensure_pid_changed(old_pid, pid_location):
-    try:
-      with open(pid_location) as pidfile:
-        new_pid = int(pidfile.read().strip())
-    except IOError:
-      new_pid = None
-
-    if new_pid == old_pid:
-      raise AssertionError
+    logger.info('(Re)starting push worker for {}'.format(self.project_id))
+    file_io.write('/run/appscale/appscale-celery.env',
+                  'HOST={}\n'.format(options.load_balancers[0]))
+    yield self.service_operator.restart_async(self.service_name)
+    yield self.service_operator.start_async(self.service_name)
 
   @gen.coroutine
   def stop_worker(self):
-    """ Removes the monit configuration for the project's push worker. """
-    status = yield self._wait_for_stable_state()
-    if status == MonitStates.RUNNING:
-      logger.info('Stopping push worker for {}.'.format(self.project_id))
-      yield self.monit_operator.send_command(self.monit_watch, 'stop')
-      watch_file = '{}/appscale-{}.cfg'.format(MONIT_CONFIG_DIR, self.monit_watch)
-      os.remove(watch_file)
-    else:
-      logger.debug('Not stopping push worker for {} since it is not running.'.format(self.project_id))
-
-  def celery_command(self):
-    """ Generates the Celery command for a project's push worker. """
-    log_file = os.path.join(CELERY_WORKER_LOG_DIR,
-                            '{}.log'.format(self.project_id))
-    pidfile = os.path.join(VAR_DIR, 'celery-{}.pid'.format(self.project_id))
-    state_db = os.path.join(CELERY_STATE_DIR,
-                            'worker___{}.db'.format(self.project_id))
-
-    return ' '.join([
-      CELERY_TQ_DIR, 'worker',
-      '--app', WORKER_MODULE,
-      '--pool=eventlet',
-      '--concurrency={}'.format(CELERY_CONCURRENCY),
-      '--hostname', self.project_id,
-      '--workdir', CELERY_WORKER_DIR,
-      '--logfile', log_file,
-      '--pidfile', pidfile,
-      '--time-limit', str(HARD_TIME_LIMIT),
-      '--soft-time-limit', str(TASK_SOFT_TIME_LIMIT),
-      '--statedb', state_db,
-      '-Ofair'
-    ])
+    """ Stop the project's push worker. """
+    logger.info('Stopping push worker for {}.'.format(self.project_id))
+    yield self.service_operator.stop(self.service_name)
 
   def ensure_watch(self):
     """ Restart the watch if it has been cancelled. """
@@ -169,17 +99,6 @@ class ProjectPushWorkerManager(object):
       self._stopped = False
       self.watch = self.zk_client.DataWatch(self.queues_node,
                                             self._update_worker)
-
-  @gen.coroutine
-  def _wait_for_stable_state(self):
-    """ Waits until the worker's state is not pending. """
-    stable_states = (MonitStates.MISSING, MonitStates.RUNNING,
-                     MonitStates.UNMONITORED)
-    status_future = self.monit_operator.wait_for_status(
-      self.monit_watch, stable_states)
-    status = yield gen.with_timeout(timedelta(seconds=60), status_future,
-                                    IOLoop.current())
-    raise gen.Return(status)
 
   def _write_worker_configuration(self, queue_config):
     """ Writes a worker's configuration file.
@@ -231,10 +150,10 @@ class ProjectPushWorkerManager(object):
 
 class GlobalPushWorkerManager(object):
   """ Manages the Celery workers for all projects. """
-  def __init__(self, zk_client, monit_operator):
+  def __init__(self, zk_client, service_operator):
     """ Creates a new GlobalPushWorkerManager. """
     self.zk_client = zk_client
-    self.monit_operator = monit_operator
+    self.service_operator = service_operator
     self.projects = {}
     ensure_path(CELERY_CONFIG_DIR)
     ensure_path(CELERY_WORKER_DIR)
@@ -260,7 +179,7 @@ class GlobalPushWorkerManager(object):
     for new_project_id in new_project_list:
       if new_project_id not in self.projects:
         self.projects[new_project_id] = ProjectPushWorkerManager(
-          self.zk_client, self.monit_operator, new_project_id)
+          self.zk_client, self.service_operator, new_project_id)
 
       # Handle changes that happen between watches.
       self.projects[new_project_id].ensure_watch()

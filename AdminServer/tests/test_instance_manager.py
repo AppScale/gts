@@ -25,11 +25,10 @@ from appscale.common import (
   file_io,
   appscale_info,
   misc,
-  monit_interface,
+  service_helper,
   testing
 )
-from appscale.common import monit_app_configuration
-from appscale.common.monit_interface import MonitOperator
+from appscale.common.service_helper import ServiceOperator
 
 options.define('login_ip', '127.0.0.1')
 options.define('syslog_server', '127.0.0.1')
@@ -71,23 +70,16 @@ class TestInstanceManager(AsyncTestCase):
       source_manager, None, None, None)
     instance_manager._login_server = '192.168.33.10'
 
-    flexmock(monit_app_configuration).should_receive('create_config_file').\
-      and_return('fakeconfig')
-
     response = Future()
-    response.set_result(None)
+    response.set_result((19999, []))
     flexmock(instance_manager).should_receive('_ensure_api_server').\
       and_return(response)
 
-    response = Future()
-    response.set_result(None)
-    flexmock(MonitOperator).should_receive('reload').\
-      and_return(response)
+    flexmock(file_io).should_receive('write').and_return()
 
     response = Future()
     response.set_result(None)
-    flexmock(MonitOperator).should_receive('send_command_retry_process').\
-      with_args('app___test_default_v1_1-20000', 'start').\
+    flexmock(ServiceOperator).should_receive('start_async').\
       and_return(response)
 
     response = Future()
@@ -106,9 +98,8 @@ class TestInstanceManager(AsyncTestCase):
     instance_manager._zk_client = flexmock()
     instance_manager._zk_client.should_receive('ensure_path')
 
-    instance_manager._monit_operator = flexmock(
-      reload=lambda x: response,
-      send_command_retry_process=lambda watch, cmd: response)
+    instance_manager._service_operator = flexmock(
+      start_async=lambda service, wants, properties: response)
 
     yield instance_manager._start_instance(version_manager, 20000)
 
@@ -145,24 +136,17 @@ class TestInstanceManager(AsyncTestCase):
     flexmock(instance).should_receive('create_java_start_cmd').\
       and_return(start_cmd)
 
-    flexmock(monit_app_configuration).should_receive('create_config_file').\
-      and_return('fakeconfig')
-
     response = Future()
-    response.set_result(None)
+    response.set_result((19999, []))
     flexmock(instance_manager).should_receive('_ensure_api_server').\
         and_return(response)
 
-    response = Future()
-    response.set_result(None)
-    flexmock(MonitOperator).should_receive('reload').\
-        and_return(response)
+    flexmock(file_io).should_receive('write').and_return()
 
     response = Future()
     response.set_result(None)
-    flexmock(MonitOperator).should_receive('send_command_retry_process').\
-      with_args('app___test_default_v1_1-20000', 'start').\
-      and_return(response)
+    flexmock(ServiceOperator).should_receive('start_async').\
+        and_return(response)
 
     response = Future()
     response.set_result(None)
@@ -188,9 +172,8 @@ class TestInstanceManager(AsyncTestCase):
 
     response = Future()
     response.set_result(None)
-    instance_manager._monit_operator = flexmock(
-      reload=lambda x: response,
-      send_command_retry_process=lambda watch, cmd: response)
+    instance_manager._service_operator = flexmock(
+      start_async=lambda service, wants, properties: response)
 
     yield instance_manager._start_instance(version_manager, 20000)
 
@@ -220,10 +203,15 @@ class TestInstanceManager(AsyncTestCase):
       and_return(response)
     instance_manager._source_manager = source_manager
 
-    flexmock(utils).should_receive('find_web_inf').\
-      and_return('/path/to/dir/WEB-INF')
-    flexmock(monit_app_configuration).should_receive('create_config_file').\
-      and_raise(IOError)
+    flexmock(instance).should_receive('find_web_inf'). \
+        and_return('/path/to/dir/WEB-INF')
+
+    response = Future()
+    response.set_result((19999, []))
+    flexmock(instance_manager).should_receive('_ensure_api_server'). \
+        and_return(response)
+
+    flexmock(file_io).should_receive('write').and_raise(IOError)
 
     with self.assertRaises(IOError):
       yield instance_manager._start_instance(version_manager, 20000)
@@ -267,33 +255,8 @@ class TestInstanceManager(AsyncTestCase):
     response.set_result(None)
     instance_manager._routing_client = flexmock(
       unregister_instance=lambda instance: response)
-    flexmock(MonitOperator).should_receive('send_command_sync').\
-      with_args('app___test_default_v1-20000', 'unmonitor').\
-      and_raise(HTTPError)
-
-    unmonitor_future = Future()
-    unmonitor_future.set_exception(HTTPError(500))
-    flexmock(instance_manager).should_receive('_unmonitor_and_terminate').\
-      and_return(unmonitor_future)
-
-    entries_response = Future()
-    entries_response.set_result(['app___test_default_v1_revid-20000'])
-    instance_manager._monit_operator = flexmock(
-      get_entries=lambda: entries_response,
-      reload=lambda x: response)
-
-    with self.assertRaises(HTTPError):
-      yield instance_manager._stop_app_instance(
-        instance.Instance('_'.join([version_key, 'revid']), port))
-
-    flexmock(MonitOperator).should_receive('send_command_sync').\
-      with_args('app___test_default_v1-20000', 'unmonitor')
-    flexmock(os).should_receive('remove')
-    flexmock(monit_interface).should_receive('safe_monit_run')
-
-    response = Future()
-    response.set_result(None)
-    flexmock(MonitOperator).should_receive('reload').\
+    flexmock(ServiceOperator).should_receive('stop_async').\
+      with_args('appscale-instance-run@test_default_v1-20000').\
       and_return(response)
 
     response = Future()
@@ -301,10 +264,8 @@ class TestInstanceManager(AsyncTestCase):
     flexmock(instance_manager).should_receive('_clean_old_sources').\
       and_return(response)
 
-    response = Future()
-    response.set_result(None)
-    flexmock(instance_manager).should_receive('_unmonitor_and_terminate').\
-      and_return(response)
+    instance_manager._service_operator = flexmock(
+        stop_async=lambda service: response)
 
     yield instance_manager._stop_app_instance(
       instance.Instance('_'.join([version_key, 'revid']), port))
