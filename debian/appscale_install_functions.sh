@@ -260,6 +260,18 @@ postinstallhaproxy()
     # AppScale starts/stop the service.
     systemctl stop haproxy
     systemctl disable haproxy
+
+    # Pre 1.8 uses wrapper with systemd
+    if [ -f "/usr/sbin/haproxy-systemd-wrapper" ] ; then
+        HAPROXY_UNITD_DIR="${DESTDIR}/lib/systemd/system/appscale-haproxy.service.d"
+        [ -d "${HAPROXY_UNITD_DIR}" ] || mkdir -p "${HAPROXY_UNITD_DIR}"
+        cat <<"EOF" > "${DESTDIR}/lib/systemd/system/appscale-haproxy.service.d/10-appscale-haproxy.conf"
+[Service]
+Type=simple
+ExecStart=
+ExecStart=/usr/sbin/haproxy-systemd-wrapper -f ${CONFIG} -p /run/appscale/service-haproxy.pid $EXTRAOPTS
+EOF
+    fi
 }
 
 installgems()
@@ -392,7 +404,7 @@ installservice()
     if [ ${SYSTEMD_VERSION} -lt 239 ] ; then
       echo "Linking appscale common systemd drop-in"
       for APPSCALE_SYSTEMD_SERVICE in ${DESTDIR}/lib/systemd/system/appscale-*.service; do
-        mkdir "${APPSCALE_SYSTEMD_SERVICE}.d"
+        [ -d "${APPSCALE_SYSTEMD_SERVICE}.d" ] || mkdir "${APPSCALE_SYSTEMD_SERVICE}.d"
         ln -t "${APPSCALE_SYSTEMD_SERVICE}.d" ${DESTDIR}/lib/systemd/system/appscale-.d/10-appscale-common.conf
       done
     fi
