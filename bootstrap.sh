@@ -270,7 +270,7 @@ if [ -d /etc/appscale/certs ]; then
 
     # Make sure AppScale is not running.
     MONIT=$(which monit)
-    if $MONIT summary | grep controller > /dev/null ; then
+    if systemctl is-active appscale-controller > /dev/null ; then
         echo "AppScale is still running: please stop it"
         [ "${FORCE_UPGRADE}" = "Y" ] || exit 1
     elif echo $MONIT | grep local > /dev/null ; then

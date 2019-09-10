@@ -400,19 +400,16 @@ postinstallcassandra()
 installservice()
 {
     # This must be absolute path of runtime.
-    mkdir -pv ${DESTDIR}/etc/init.d/
-    cp ${APPSCALE_HOME_RUNTIME}/AppController/scripts/appcontroller ${DESTDIR}/etc/init.d/appscale-controller
-    chmod -v a+x ${DESTDIR}/etc/init.d/appscale-controller
+    mkdir -pv ${DESTDIR}/usr/lib/tmpfiles.d
+    cp -v ${APPSCALE_HOME_RUNTIME}/system/tmpfiles.d/appscale.conf ${DESTDIR}/usr/lib/tmpfiles.d/
+    systemd-tmpfiles --create
 
-    # Make sure the init script runs each time, so that it can start the
-    # AppController on system reboots.
-    update-rc.d -f appscale-controller defaults
+    mkdir -pv ${DESTDIR}/lib/systemd/system
+    cp -v ${APPSCALE_HOME_RUNTIME}/system/units/appscale-controller.service ${DESTDIR}/lib/systemd/system/
+    systemctl daemon-reload
 
-    # Prevent monit from immediately restarting services at boot.
-    cp ${APPSCALE_HOME}/AppController/scripts/appscale-unmonit.sh \
-      /etc/init.d/appscale-unmonit
-    chmod -v a+x /etc/init.d/appscale-unmonit
-    update-rc.d appscale-unmonit defaults 19 21
+    # Enable AppController on system reboots.
+    systemctl enable appscale-controller || true
 }
 
 postinstallservice()
@@ -514,6 +511,9 @@ postinstallmonit()
     # We need to have http connection enabled to talk to monit.
     if ! grep -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
         cat <<EOF | tee -a /etc/monit/monitrc
+
+# Added by AppScale: configuration cleared on reboot
+include /run/appscale/monit.conf.d/*
 
 # Added by AppScale: this is needed to have a working monit command
 set httpd port 2812 and

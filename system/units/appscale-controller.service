@@ -1,0 +1,25 @@
+[Unit]
+Description=AppScale Controller
+AssertPathExists=/etc/appscale/secret.key
+Wants=monit.service
+After=monit.service network-online.target time-sync.target
+
+[Service]
+Type=simple
+Environment=APPSCALE_HOME=/root/appscale HOME=/root
+ExecStart=/usr/bin/ruby -w /root/appscale/AppController/djinnServer.rb
+TimeoutStopSec=30
+KillMode=process
+Restart=on-failure
+RestartSec=10
+SyslogIdentifier=controller
+# Limits
+LimitNOFILE=200000
+LimitNPROC=infinity
+# Security
+PrivateTmp=true
+ProtectSystem=true
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SETGID CAP_SETUID CAP_CHOWN CAP_SYS_MODULE CAP_AUDIT_WRITE CAP_NET_ADMIN CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target
