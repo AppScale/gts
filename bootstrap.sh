@@ -285,12 +285,10 @@ if [ -d /etc/appscale/certs ]; then
         mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale.old
     fi
 
-    # Remove outdated appscale-controller and appscale-progenitor.
-    if [ $APPSCALE_MAJOR -le 2 -a $APPSCALE_MINOR -le 2 ]; then
-        rm -f /etc/init.d/appscale-controller
-        rm -f /etc/init.d/appscale-progenitor
-        update-rc.d -f appscale-progenitor remove || true
-    fi
+    # Remove outdated init scripts.
+    [ ! -f "/etc/init.d/appscale-controller" ] || rm -fv "/etc/init.d/appscale-controller"
+    [ ! -f "/etc/init.d/appscale-progenitor" ] || rm -fv "/etc/init.d/appscale-progenitor"
+    [ ! -f "/etc/init.d/appscale-unmonit" ]    || rm -fv "/etc/init.d/appscale-unmonit"
 
     # Remove control files we added before 1.14, and re-add the
     # default ones.
