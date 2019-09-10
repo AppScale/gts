@@ -389,6 +389,9 @@ installservice()
     cp -v ${APPSCALE_HOME_RUNTIME}/system/tmpfiles.d/appscale.conf ${DESTDIR}/usr/lib/tmpfiles.d/
     systemd-tmpfiles --create
 
+    mkdir -pv ${DESTDIR}/etc/rsyslog.d
+    cp -v ${APPSCALE_HOME_RUNTIME}/system/rsyslog.d/10-appscale-controller.conf ${DESTDIR}/etc/rsyslog.d/
+
     mkdir -pv ${DESTDIR}/lib/systemd/system
     cp -v ${APPSCALE_HOME_RUNTIME}/system/units/appscale-controller.service ${DESTDIR}/lib/systemd/system/
     systemctl daemon-reload
