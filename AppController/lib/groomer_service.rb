@@ -3,39 +3,36 @@
 
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
-require 'monit_interface'
+require 'service_helper'
 
 
 # Starts and stops the datastore groomer service.
 module GroomerService
 
-  # This variable is the maximum memory allowed for the groomer process.
-  MAX_MEM = 512
+  # Groomer service name for use with helper
+  SERVICE_NAME_GROOMER = 'appscale-groomer'.freeze
 
-  # Starts the Groomer Service on this machine. We don't want to monitor
-  # it ourselves, so just tell monit to start it and watch it.
+  # Transaction groomer service name for use with helper
+  SERVICE_NAME_TX_GROOMER = 'appscale-transaction-groomer'.freeze
+
+  # Starts the Groomer Service on this machine.
   def self.start()
-    start_cmd = self.scriptname
-    MonitInterface.start(:groomer_service, start_cmd, nil, nil, MAX_MEM)
+    ServiceHelper.start(SERVICE_NAME_GROOMER)
   end
 
-  # Stops the groomer service running on this machine. Since it's
-  # managed by monit, just tell monit to shut it down.
+  # Stops the groomer service running on this machine.
   def self.stop()
-    MonitInterface.stop(:groomer_service)
-  end
-
-  def self.scriptname()
-    return `which appscale-groomer-service`.chomp
+    ServiceHelper.stop(SERVICE_NAME_GROOMER)
   end
 
   def self.start_transaction_groomer(verbose)
-    start_cmd = `which appscale-transaction-groomer`.chomp
-    start_cmd << ' --verbose' if verbose
-    MonitInterface.start(:transaction_groomer, start_cmd, nil, nil, MAX_MEM)
+    service_env = {}
+    service_env[:APPSCALE_OPTION_VERBOSE] = '--verbose' if verbose
+    ServiceHelper.write_environment(SERVICE_NAME_TX_GROOMER, service_env)
+    ServiceHelper.start(SERVICE_NAME_TX_GROOMER)
   end
 
   def self.stop_transaction_groomer
-    MonitInterface.stop(:transaction_groomer)
+    ServiceHelper.stop(SERVICE_NAME_TX_GROOMER)
   end
 end

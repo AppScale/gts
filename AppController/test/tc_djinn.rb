@@ -24,7 +24,6 @@ class TestDjinn < Test::Unit::TestCase
 
     djinn = flexmock(Djinn)
     djinn.should_receive(:log_run).with("").and_return()
-    djinn.should_receive(:log_run).with("systemctl start monit").and_return()
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
     flexmock(HelperFunctions).should_receive(:log_and_crash).and_raise(
@@ -232,8 +231,8 @@ class TestDjinn < Test::Unit::TestCase
     # the block actually contains
     helperfunctions = flexmock(HelperFunctions)
     helperfunctions.should_receive(:get_secret).and_return(@secret)
-    flexmock(MonitInterface).should_receive(:start_daemon).and_return()
-    flexmock(MonitInterface).should_receive(:start).and_return()
+    flexmock(ServiceHelper).should_receive(:start).and_return()
+    flexmock(ServiceHelper).should_receive(:start).and_return()
 
     file = flexmock(File)
     file.should_receive(:open).and_return()
@@ -285,12 +284,13 @@ class TestDjinn < Test::Unit::TestCase
 
     file = flexmock(File)
     file.should_receive(:open).with(TaskQueue::COOKIE_FILE, "w+", Proc).and_return()
+    file.should_receive(:open).with('/run/appscale/appscale-taskqueue.env', "w+", Proc).and_return()
 
     # mock out and commands
     flexmock(Djinn).should_receive(:log_run).and_return()
     flexmock(HAProxy).should_receive(:create_tq_server_config).and_return()
-    flexmock(MonitInterface).should_receive(:start_daemon).and_return()
-    flexmock(MonitInterface).should_receive(:start).and_return()
+    flexmock(ServiceHelper).should_receive(:start).and_return()
+    flexmock(ServiceHelper).should_receive(:start).and_return()
     flexmock(Addrinfo).should_receive('ip.getnameinfo').and_return(["hostname-ip1"])
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).and_return()

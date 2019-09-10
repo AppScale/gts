@@ -5,7 +5,7 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'node_info'
 require 'helperfunctions'
-require 'monit_interface'
+require 'service_helper'
 
 # Our implementation of the Google App Engine XMPP and Channel APIs uses the
 # open source ejabberd server. This module provides convenience methods to
@@ -22,18 +22,18 @@ module Ejabberd
 
   ONLINE_USERS_FILE = '/etc/appscale/online_xmpp_users'.freeze
 
-  def self.start
-    systemctl = `which systemctl`.chomp
-    start_cmd = "#{systemctl} start ejabberd"
-    stop_cmd = "#{systemctl} stop ejabberd"
-    pidfile = '/run/ejabberd/ejabberd.pid'
+  SERVICE_NAME = 'appscale-ejabberd.target'.freeze
 
-    self.ensure_correct_epmd
-    MonitInterface.start_daemon(:ejabberd, start_cmd, stop_cmd, pidfile)
+  def self.start(reload = false)
+    if reload
+      ServiceHelper.reload(SERVICE_NAME, true)
+    else
+      ServiceHelper.start(SERVICE_NAME)
+    end
   end
 
   def self.stop
-    MonitInterface.stop(:ejabberd) if MonitInterface.is_running?(:ejabberd)
+    ServiceHelper.stop(SERVICE_NAME)
   end
 
   def self.clear_online_users
@@ -67,7 +67,7 @@ module Ejabberd
             next
           end
         }
-        `systemctl start epmd`
+        `systemctl start epmd.service`
       end
     rescue Errno::ENOENT
       # Distros without systemd don't have systemctl, and they do not exhibit
@@ -108,17 +108,6 @@ module Ejabberd
     end
 
     major_version
-  end
-
-  def self.update_ctl_config
-    # Make sure ejabberd writes a pidfile.
-    begin
-      config = File.read(CONFIG_FILE)
-      config.gsub!('#EJABBERD_PID_PATH=', 'EJABBERD_PID_PATH=')
-      File.open(CONFIG_FILE, 'w') { |file| file.write(config) }
-    rescue Errno::ENOENT
-      Djinn.log_debug("#{CONFIG_FILE} does not exist")
-    end
   end
 
   def self.write_config_file(domain, my_private_ip)

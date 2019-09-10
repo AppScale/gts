@@ -6,7 +6,7 @@ require 'posixpsutil'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
-require 'monit_interface'
+require 'service_helper'
 require 'user_app_client'
 require 'datastore_server'
 require 'taskqueue'
@@ -32,7 +32,6 @@ module HAProxy
   SERVICE_SITES_PATH = File.join(HAPROXY_PATH, 'service-sites-enabled')
   SERVICE_MAIN_FILE = File.join(HAPROXY_PATH, "service-haproxy.#{CONFIG_EXTENSION}")
   SERVICE_BASE_FILE = File.join(HAPROXY_PATH, "service-base.#{CONFIG_EXTENSION}")
-  SERVICE_PIDFILE = '/run/appscale/service-haproxy.pid'.freeze
 
   # Maximum AppServer threaded connections
   MAX_APPSERVER_CONN = 7
@@ -63,6 +62,9 @@ module HAProxy
   # the specific server is specified.
   SERVER_STATUS_INDEX = 17
 
+  # Name for service as per helper.
+  SERVICE_NAME = 'appscale-haproxy'.freeze
+
   # The position in the haproxy profiling information where the total
   # number of requests seen for a given app is specified.
   TOTAL_REQUEST_RATE_INDEX = 48
@@ -83,14 +85,7 @@ module HAProxy
       Djinn.log_warn('Invalid configuration for HAProxy services.')
       return
     end
-    return if MonitInterface.is_running?(:service_haproxy)
-
-    start_cmd = "#{HAPROXY_BIN} -f #{SERVICE_MAIN_FILE} -D " \
-      "-p #{SERVICE_PIDFILE}"
-    stop_cmd = "#{BASH_BIN} -c 'kill $(cat #{SERVICE_PIDFILE})'"
-    restart_cmd = "#{BASH_BIN} -c '#{start_cmd} -sf $(cat #{SERVICE_PIDFILE})'"
-    MonitInterface.start_daemon(
-      :service_haproxy, start_cmd, stop_cmd, SERVICE_PIDFILE, nil, restart_cmd)
+    ServiceHelper.start(SERVICE_NAME)
   end
 
   # Create the config file for UserAppServer.
@@ -220,15 +215,8 @@ module HAProxy
     if regenerate_config_file(SERVICE_SITES_PATH,
                               SERVICE_BASE_FILE,
                               SERVICE_MAIN_FILE)
-      # Ensure the service is monitored and running.
-      services_start
-      Djinn::RETRIES.downto(0) {
-        break if MonitInterface.is_running?(:service_haproxy)
-        sleep(Djinn::SMALL_WAIT)
-      }
-
-      # Reload with the new configuration file.
-      MonitInterface.restart(:service_haproxy)
+      # Reload with the new configuration file, start if not running
+      ServiceHelper.reload(SERVICE_NAME, true)
     end
   end
 
