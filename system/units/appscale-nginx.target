@@ -1,0 +1,9 @@
+[Unit]
+Description=AppScale NGINX
+PartOf=appscale-routing.target
+Before=appscale-routing.target
+After=nginx.service
+Requires=nginx.service
+
+[Install]
+WantedBy=appscale-routing.target

@@ -1,0 +1,26 @@
+[Unit]
+Description=AppScale Cassandra
+Before=appscale-backend.target
+PartOf=appscale-backend.target
+After=network-online.target time-sync.target
+
+[Service]
+Type=forking
+User=cassandra
+PermissionsStartOnly=true
+ExecStartPre=/bin/mkdir -p /opt/appscale/cassandra
+ExecStartPre=/bin/chown -R cassandra /opt/appscale/cassandra
+ExecStart=/opt/cassandra/cassandra/bin/cassandra
+GuessMainPID=yes
+SuccessExitStatus=0 143
+KillMode=mixed
+TimeoutStartSec=60
+TimeoutStopSec=60
+SyslogIdentifier=cassandra
+# Limits
+LimitAS=infinity
+LimitMEMLOCK=infinity
+LimitNPROC=32768
+
+[Install]
+WantedBy=appscale-backend.target

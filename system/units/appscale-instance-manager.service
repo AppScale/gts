@@ -1,0 +1,11 @@
+[Unit]
+Description=AppScale Application Instance Manager
+Before=appscale-control.target
+PartOf=appscale-control.target
+
+[Service]
+ExecStart=/usr/bin/python2 ${APPSCALE_SERVICE_BIN}/appscale-instance-manager
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-control.target

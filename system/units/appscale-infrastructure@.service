@@ -1,0 +1,13 @@
+[Unit]
+Description=AppScale Infrastructure Manager
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+Environment=APPSCALE_IM_OPTION_PORT=17444
+ExecStart=/usr/bin/python2 ${APPSCALE_SERVICE_BIN}/appscale-infrastructure -p ${APPSCALE_IM_OPTION_PORT} $APPSCALE_OPTION_VERBOSE $APPSCALE_IM_OPTIONS
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-service.target
+DefaultInstance=basic

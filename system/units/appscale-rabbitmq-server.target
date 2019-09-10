@@ -1,0 +1,9 @@
+[Unit]
+Description=AppScale RabbitMQ Server
+PartOf=appscale-backend.target
+Before=appscale-backend.target
+After=rabbitmq-server.service
+Requires=rabbitmq-server.service
+
+[Install]
+WantedBy=appscale-backend.target
