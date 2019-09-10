@@ -4522,7 +4522,7 @@ class Djinn
 
     # Monit does not have an entry for ejabberd yet. This allows a restart
     # with the new configuration if it is already running.
-    `service ejabberd stop`
+    `systemctl stop ejabberd`
 
     Ejabberd.start
   end
@@ -4738,7 +4738,7 @@ class Djinn
         "#{version_key} is no longer running: removing log configuration.")
       begin
         FileUtils.rm(get_rsyslog_conf(version_key))
-        HelperFunctions.shell("service rsyslog restart")
+        HelperFunctions.shell("systemctl restart rsyslog")
       rescue Errno::ENOENT, Errno::EACCES
         Djinn.log_debug("Old syslog for #{version_key} wasn't there.")
       end
@@ -4862,7 +4862,7 @@ class Djinn
     unless existing_app_log_config == app_log_config
       Djinn.log_info("Installing log configuration for #{version_key}.")
       HelperFunctions.write_file(app_log_config_file, app_log_config)
-      HelperFunctions.shell("service rsyslog restart")
+      HelperFunctions.shell("systemctl restart rsyslog")
     end
 
     if service_id == DEFAULT_SERVICE && version_id == DEFAULT_VERSION

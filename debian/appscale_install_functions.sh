@@ -90,21 +90,6 @@ cachepackage() {
     fi
 }
 
-# This function is to disable the specify service so that it won't start
-# at next boot. AppScale manages those services.
-disableservice() {
-    if [ -n "$1" ]; then
-        update-rc.d "${1}" disable || true
-        # The following to make sure we disable it for upstart.
-        if [ -d "/etc/init" ]; then
-            echo "manual" > /etc/init/"${1}".override
-        fi
-    else
-        echo "Need a service name to disable!"
-        exit 1
-    fi
-}
-
 increaseconnections()
 {
     if [ "${IN_DOCKER}" != "yes" ]; then
@@ -279,8 +264,8 @@ postinstallhaproxy()
     sed -i 's/^ENABLED=0/ENABLED=1/g' /etc/default/haproxy
 
     # AppScale starts/stop the service.
-    service haproxy stop || true
-    disableservice haproxy
+    systemctl stop haproxy
+    systemctl disable haproxy
 }
 
 installgems()
@@ -415,11 +400,11 @@ installservice()
 postinstallservice()
 {
     # Stop services shouldn't run at boot, then disable them.
-    service memcached stop || true
-    disableservice memcached
+    systemctl stop memcached
+    systemctl disable memcached
 
     ejabberdctl stop || true
-    disableservice ejabberd
+    systemctl disable ejabberd
 }
 
 installzookeeper()
@@ -441,8 +426,8 @@ installurllib3()
 
 postinstallzookeeper()
 {
-    service zookeeper stop || true
-    disableservice zookeeper
+    systemctl stop zookeeper
+    systemctl disable zookeeper
     if [ ! -d /etc/zookeeper/conf ]; then
         echo "Cannot find zookeeper configuration!"
         exit 1
@@ -471,7 +456,7 @@ postinstallrabbitmq()
 
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
-    disableservice rabbitmq-server
+    systemctl disable rabbitmq-server
 }
 
 installVersion()
@@ -503,7 +488,7 @@ postinstallrsyslog()
         /etc/rsyslog.d/09-appscale.conf
 
     # Restart the service
-    service rsyslog restart || true
+    systemctl restart rsyslog || true
 }
 
 postinstallmonit()
@@ -531,12 +516,6 @@ EOF
             [ ! -e /etc/monit/conf-enabled/cron ]; then
         ln -s /etc/monit/conf-available/cron /etc/monit/conf-enabled
     fi
-
-    # Monit cannot start at boot time: in case of accidental reboot, it
-    # would start processes out of order. The controller will restart
-    # monit as soon as it starts.
-    service monit stop
-    disableservice monit
 }
 
 postinstallejabberd()

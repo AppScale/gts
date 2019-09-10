@@ -19,7 +19,7 @@ module TerminateHelper
     `rm -f ~/.appscale_cookies`
     `rm -f /etc/nginx/sites-enabled/appscale-*.conf`
     `rm -f /etc/haproxy/service-sites-enabled/*.cfg`
-    `service nginx reload`
+    `systemctl reload nginx`
 
     begin
       PTY.spawn('appscale-stop-services') do |stdout, _, _|
@@ -53,7 +53,7 @@ module TerminateHelper
     `rm -f /etc/logrotate.d/appscale-*`
 
     # Let's make sure we restart any non-appscale service.
-    `service monit restart`
+    `systemctl restart monit`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
 
     # Remove location files.
@@ -99,7 +99,7 @@ module TerminateHelper
     `rm -rf /var/log/appscale/*`
 
     # Restart rsyslog so that the combined app logs can be recreated.
-    `service rsyslog restart`
+    `systemctl restart rsyslog`
 
     `rm -rf /var/log/rabbitmq/*`
     `rm -rf /var/log/zookeeper/*`
@@ -143,8 +143,8 @@ module TerminateHelper
 
     # Next, stop ZooKeeper politely: we stop it with both new and old
     # script to be sure.
-    `service zookeeper-server stop`
-    `service zookeeper stop`
+    `systemctl stop zookeeper-server`
+    `systemctl stop zookeeper`
   end
 end
 
