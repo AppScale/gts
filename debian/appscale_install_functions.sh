@@ -127,11 +127,6 @@ EOF
     # On distros with systemd, the open file limit must be adjusted for each
     # service.
     if which systemctl > /dev/null && [ "${IN_DOCKER}" != "yes" ]; then
-        mkdir -p /etc/systemd/system/monit.service.d
-        cat <<EOF > /etc/systemd/system/monit.service.d/override.conf
-[Service]
-LimitNOFILE=200000
-EOF
         mkdir -p /etc/systemd/system/nginx.service.d
         cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
 [Service]
@@ -389,11 +384,20 @@ installservice()
     cp -v ${APPSCALE_HOME_RUNTIME}/system/tmpfiles.d/appscale.conf ${DESTDIR}/usr/lib/tmpfiles.d/
     systemd-tmpfiles --create
 
-    mkdir -pv ${DESTDIR}/etc/rsyslog.d
-    cp -v ${APPSCALE_HOME_RUNTIME}/system/rsyslog.d/10-appscale-controller.conf ${DESTDIR}/etc/rsyslog.d/
-
     mkdir -pv ${DESTDIR}/lib/systemd/system
-    cp -v ${APPSCALE_HOME_RUNTIME}/system/units/appscale-controller.service ${DESTDIR}/lib/systemd/system/
+    cp -v ${APPSCALE_HOME_RUNTIME}/system/units/appscale*.service ${DESTDIR}/lib/systemd/system/
+    cp -v ${APPSCALE_HOME_RUNTIME}/system/units/appscale*.target ${DESTDIR}/lib/systemd/system/
+    cp -rv ${APPSCALE_HOME_RUNTIME}/system/units.d/*.d ${DESTDIR}/lib/systemd/system/
+
+    SYSTEMD_VERSION=$(systemctl --version | grep '^systemd ' | grep -o '[[:digit:]]*')
+    if [ ${SYSTEMD_VERSION} -lt 239 ] ; then
+      echo "Linking appscale common systemd drop-in"
+      for APPSCALE_SYSTEMD_SERVICE in ${DESTDIR}/lib/systemd/system/appscale-*.service; do
+        mkdir "${APPSCALE_SYSTEMD_SERVICE}.d"
+        ln -t "${APPSCALE_SYSTEMD_SERVICE}.d" ${DESTDIR}/lib/systemd/system/appscale-.d/10-appscale-common.conf
+      done
+    fi
+
     systemctl daemon-reload
 
     # Enable AppController on system reboots.
@@ -486,39 +490,12 @@ postinstallrsyslog()
     sed -i 's/#module(load="imtcp")/module(load="imtcp")/' /etc/rsyslog.conf
     sed -i 's/#input(type="imtcp" port="514")/input(type="imtcp" port="514")/' /etc/rsyslog.conf
 
-    # Set up template for formatting combined application log messages.
-    cp ${APPSCALE_HOME}/common/appscale/common/templates/rsyslog-template.conf\
-        /etc/rsyslog.d/09-appscale.conf
+    # Install rsyslog drop-ins
+    mkdir -pv ${DESTDIR}/etc/rsyslog.d
+    cp -v ${APPSCALE_HOME}/system/rsyslog.d/*.conf ${DESTDIR}/etc/rsyslog.d/
 
     # Restart the service
     systemctl restart rsyslog || true
-}
-
-postinstallmonit()
-{
-    # We need to have http connection enabled to talk to monit.
-    if ! grep -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
-        cat <<EOF | tee -a /etc/monit/monitrc
-
-# Added by AppScale: configuration cleared on reboot
-include /run/appscale/monit.conf.d/*
-
-# Added by AppScale: this is needed to have a working monit command
-set httpd port 2812 and
-   use address localhost  # only accept connection from localhost
-   allow localhost
-EOF
-    fi
-
-    # Check services every 5 seconds
-    sed -i 's/set daemon.*/set daemon 5/' /etc/monit/monitrc
-
-    # Monitor cron.
-    if [ -e /etc/monit/conf-available/cron ] &&
-            [ -e /etc/monit/conf-enabled ] &&
-            [ ! -e /etc/monit/conf-enabled/cron ]; then
-        ln -s /etc/monit/conf-available/cron /etc/monit/conf-enabled
-    fi
 }
 
 postinstallejabberd()
