@@ -13,7 +13,7 @@ class Options(usage.Options):
   optParameters = [["port", "p", 7422, "The port number to listen on."],
                    ["path", "a", "/opt/appscale/logserver", "Path where logs are stored."],
                    ["size", "s", 2, "Size in GiB of retention of logs."],
-                   ["unix_socket", "u", "/tmp/.appscale_logserver", "Path for unix socket to logserver."]]
+                   ["unix_socket", "u", "/run/appscale/logserver.sock", "Path for unix socket to logserver."]]
 
 
 @implementer(IServiceMaker, IPlugin)
@@ -36,9 +36,9 @@ class MyServiceMaker(object):
     unix_news_server = internet.UNIXServer(options["unix_socket"], logserver_factory)
     unix_news_server.setServiceParent(application)
     log.startLogging(sys.stdout)
-    log.msg("Log Service started with parameters: port: {} path:{} "
+    log.msg("Log Service started with parameters: port:{} path:{} "
             "size:{} unix_socket:{}".format(options.get("port"),
-                                            options.get("port"),
+                                            options.get("path"),
                                             options.get("size"),
                                             options.get("unix_socket")))
     return application
