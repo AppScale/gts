@@ -26,7 +26,7 @@ module Ejabberd
     service = `which service`.chomp
     start_cmd = "#{service} ejabberd start"
     stop_cmd = "#{service} ejabberd stop"
-    pidfile = '/var/run/ejabberd/ejabberd.pid'
+    pidfile = '/run/ejabberd/ejabberd.pid'
 
     self.ensure_correct_epmd
     MonitInterface.start_daemon(:ejabberd, start_cmd, stop_cmd, pidfile)

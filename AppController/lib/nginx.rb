@@ -61,7 +61,7 @@ module Nginx
     service_bin = `which service`.chomp
     start_cmd = "#{service_bin} nginx start"
     stop_cmd = "#{service_bin} nginx stop"
-    pidfile = '/var/run/nginx.pid'
+    pidfile = '/run/nginx.pid'
     MonitInterface.start_daemon(:nginx, start_cmd, stop_cmd, pidfile)
   end
 

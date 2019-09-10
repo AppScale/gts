@@ -3678,7 +3678,7 @@ class Djinn
 
   # Starts the Log Server service on this machine
   def start_log_server
-    log_server_pid = '/var/run/appscale/log_service.pid'
+    log_server_pid = '/run/appscale/log_service.pid'
     log_server_file = '/var/log/appscale/log_service.log'
     twistd = `which twistd`.chomp
     env = `which env`.chomp
