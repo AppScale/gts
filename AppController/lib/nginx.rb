@@ -58,9 +58,9 @@ module Nginx
     # Nginx runs both a 'master process' and one or more 'worker process'es, so
     # when we have monit watch it, as long as one of those is running, nginx is
     # still running and shouldn't be restarted.
-    service_bin = `which service`.chomp
-    start_cmd = "#{service_bin} nginx start"
-    stop_cmd = "#{service_bin} nginx stop"
+    systemctl = `which systemctl`.chomp
+    start_cmd = "#{systemctl} start nginx"
+    stop_cmd = "#{systemctl} stop nginx"
     pidfile = '/run/nginx.pid'
     MonitInterface.start_daemon(:nginx, start_cmd, stop_cmd, pidfile)
   end
@@ -78,7 +78,7 @@ module Nginx
 
   def self.reload
     Djinn.log_info('Reloading nginx service.')
-    HelperFunctions.shell('service nginx reload')
+    HelperFunctions.shell('systemctl reload nginx')
     cleanup_failed_nginx if $?.to_i != 0
   end
 
@@ -370,7 +370,7 @@ CONFIG
     # The pid file location was changed in the default nginx config for
     # Trusty. Because of this, the first reload after writing the new config
     # will fail on Precise.
-    HelperFunctions.shell('service nginx restart')
+    HelperFunctions.shell('systemctl restart nginx')
   end
 end
 

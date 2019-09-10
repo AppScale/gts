@@ -23,9 +23,9 @@ module Ejabberd
   ONLINE_USERS_FILE = '/etc/appscale/online_xmpp_users'.freeze
 
   def self.start
-    service = `which service`.chomp
-    start_cmd = "#{service} ejabberd start"
-    stop_cmd = "#{service} ejabberd stop"
+    systemctl = `which systemctl`.chomp
+    start_cmd = "#{systemctl} start ejabberd"
+    stop_cmd = "#{systemctl} stop ejabberd"
     pidfile = '/run/ejabberd/ejabberd.pid'
 
     self.ensure_correct_epmd
