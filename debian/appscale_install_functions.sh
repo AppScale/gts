@@ -123,17 +123,6 @@ root            soft    nofile           200000
 *               soft    nofile           200000
 *               -       nproc            32768
 EOF
-
-    # On distros with systemd, the open file limit must be adjusted for each
-    # service.
-    if which systemctl > /dev/null && [ "${IN_DOCKER}" != "yes" ]; then
-        mkdir -p /etc/systemd/system/nginx.service.d
-        cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
-[Service]
-LimitNOFILE=200000
-EOF
-        systemctl daemon-reload
-    fi
 }
 
 installappscaleprofile()
@@ -258,8 +247,8 @@ postinstallhaproxy()
     sed -i 's/^ENABLED=0/ENABLED=1/g' /etc/default/haproxy
 
     # AppScale starts/stop the service.
-    systemctl stop haproxy
-    systemctl disable haproxy
+    systemctl stop haproxy || true
+    systemctl disable haproxy || true
 
     # Pre 1.8 uses wrapper with systemd
     if [ -f "/usr/sbin/haproxy-systemd-wrapper" ] ; then
@@ -312,6 +301,8 @@ installgems()
 
 postinstallnginx()
 {
+    systemctl stop nginx || true
+    systemctl disable nginx || true
     rm -fv /etc/nginx/sites-enabled/default
 }
 
@@ -417,12 +408,15 @@ installservice()
 
 postinstallservice()
 {
-    # Stop services shouldn't run at boot, then disable them.
-    systemctl stop memcached
-    systemctl disable memcached
-
+    # Stop/disable services that shouldn't run at boot
     ejabberdctl stop || true
-    systemctl disable ejabberd
+    systemctl disable ejabberd || true
+    systemctl stop memcached || true
+    systemctl disable memcached || true
+    systemctl stop nginx || true
+    systemctl disable nginx || true
+    systemctl stop zookeeper || true
+    systemctl disable zookeeper || true
 }
 
 installzookeeper()
@@ -444,8 +438,8 @@ installurllib3()
 
 postinstallzookeeper()
 {
-    systemctl stop zookeeper
-    systemctl disable zookeeper
+    systemctl stop zookeeper || true
+    systemctl disable zookeeper || true
     if [ ! -d /etc/zookeeper/conf ]; then
         echo "Cannot find zookeeper configuration!"
         exit 1
@@ -474,7 +468,7 @@ postinstallrabbitmq()
 
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
-    systemctl disable rabbitmq-server
+    systemctl disable rabbitmq-server || true
 }
 
 installVersion()
