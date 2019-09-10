@@ -3310,28 +3310,40 @@ class Djinn
     Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
-    Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
-
-    Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = `which appscale-data-layout`.chomp
-    retries = 10
-    loop {
-      output = `#{layout_script} --db-type cassandra 2>&1`
-      if $?.exitstatus == 0
+    # Autoscaled nodes do not need to check if the datastore is primed: if
+    # we got this far, it must be primed.
+    am_i_autoscaled = false
+    get_autoscaled_nodes.each { |node|
+      if node.private_ip == my_node.private_ip
+        am_i_autoscaled = true
+        Djinn.log_info("Skipping database layout check on scaled node.")
         break
-      elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
-        HelperFunctions.log_and_crash(
-          'Unexpected data layout version. Please run "appscale upgrade".')
-      elsif retries.zero?
-        HelperFunctions.log_and_crash(
-          'Exceeded retries while trying to check data layout.')
-      else
-        Djinn.log_warn("Error while checking data layout:\n#{output}")
-        sleep(SMALL_WAIT)
       end
-      retries -= 1
     }
+    unless am_i_autoscaled
+      Djinn.log_info('Ensuring necessary database tables are present')
+      sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
+
+      Djinn.log_info('Ensuring data layout version is correct')
+      layout_script = `which appscale-data-layout`.chomp
+      retries = 10
+      loop {
+        output = `#{layout_script} --db-type cassandra 2>&1`
+        if $?.exitstatus == 0
+          break
+        elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
+          HelperFunctions.log_and_crash(
+            'Unexpected data layout version. Please run "appscale upgrade".')
+        elsif retries.zero?
+          HelperFunctions.log_and_crash(
+            'Exceeded retries while trying to check data layout.')
+        else
+          Djinn.log_warn("Error while checking data layout:\n#{output}")
+          sleep(SMALL_WAIT)
+        end
+        retries -= 1
+      }
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"
@@ -3374,7 +3386,7 @@ class Djinn
       }
     end
 
-    start_admin_server
+    threads << Thread.new { start_admin_server }
 
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
@@ -3435,6 +3447,9 @@ class Djinn
       threads << Thread.new { stop_taskqueue }
     end
 
+    # Start Hermes with integrated stats service
+    threads << Thread.new { start_hermes }
+
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
@@ -3443,15 +3458,14 @@ class Djinn
     end
     Djinn.log_info('API services have started on this node.')
 
-    # Start Hermes with integrated stats service
-    start_hermes
-
     # Leader node starts additional services.
     if my_node.is_shadow?
       @state = 'Assigning Datastore and Search2 processes'
       assign_datastore_processes
       assign_search2_processes
-      TaskQueue.start_flower(@options['flower_password'])
+
+      # Don't start flower if we don't have a password.
+      TaskQueue.start_flower(@options['flower_password']) unless @options['flower_password'].nil?
     else
       TaskQueue.stop_flower
     end
@@ -3838,10 +3852,7 @@ class Djinn
     end
 
     update_dirs = @options['update']
-
-    if update_dirs == "all"
-      update_dirs = ALLOWED_DIR_UPDATES.join(',')
-    end
+    update_dirs = ALLOWED_DIR_UPDATES if update_dirs == ['all']
 
     # Update Python packages across corresponding virtual environments
     if update_dirs.include?('common')
@@ -3901,9 +3912,7 @@ class Djinn
     threads = []
     must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
-      threads << Thread.new {
-        initialize_node(slave)
-      }
+      threads << Thread.new { initialize_node(slave) }
     }
 
     # If we cannot reconnect with autoscaled nodes, we will have to clean
@@ -4510,6 +4519,7 @@ class Djinn
   def start_admin_server
     Djinn.log_info('Starting AdminServer')
     script = `which appscale-admin`.chomp
+    HelperFunctions.log_and_crash("Cannot find appscale-admin!") if script.empty?
     nginx_port = 17441
     service_port = 17442
     start_cmd = "#{script} serve -p #{service_port}"
