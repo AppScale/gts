@@ -1,0 +1,43 @@
+su root syslog
+
+# rsyslog logs
+/var/log/appscale/admin_server.log
+/var/log/appscale/api-server-*.log
+/var/log/appscale/app___*.log
+/var/log/appscale/appmanagerserver.log
+/var/log/appscale/blobstore.log
+/var/log/appscale/celery-*.log
+/var/log/appscale/controller.log
+/var/log/appscale/flower.log
+/var/log/appscale/groomer_service.log
+/var/log/appscale/hermes.log
+/var/log/appscale/iaas_manager.log
+/var/log/appscale/log_service.log
+/var/log/appscale/memcached.log
+/var/log/appscale/taskqueue-*.log
+/var/log/appscale/transaction_groomer.log
+/var/log/appscale/uaserver.log
+{
+  size 10M
+  missingok
+  rotate 7
+  compress
+  delaycompress
+  notifempty
+  postrotate
+    /usr/lib/rsyslog/rsyslog-rotate
+  endscript
+}
+
+# other logs (uses copytruncate)
+/var/log/appscale/datastore_server-*.log
+/var/log/appscale/*/*.log
+{
+  size 10M
+  missingok
+  rotate 7
+  compress
+  delaycompress
+  notifempty
+  copytruncate
+}
