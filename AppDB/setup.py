@@ -31,6 +31,7 @@ setup(
             'appscale.datastore',
             'appscale.datastore.cassandra_env',
             'appscale.datastore.fdb',
+            'appscale.datastore.fdb.stats',
             'appscale.datastore.scripts',
             'appscale.datastore.zkappscale'],
   entry_points={'console_scripts': [

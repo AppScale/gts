@@ -27,7 +27,7 @@ from appscale.datastore.fdb.data import DataManager, VersionEntry
 from appscale.datastore.fdb.gc import GarbageCollector
 from appscale.datastore.fdb.indexes import (
   get_order_info, IndexManager, KEY_PROP)
-from appscale.datastore.fdb.stats import StatsBuffer, StatsSummary
+from appscale.datastore.fdb.stats.buffer import StatsBuffer
 from appscale.datastore.fdb.transactions import TransactionManager
 from appscale.datastore.fdb.utils import (
   ABSENT_VERSION, fdb, FDBErrorCodes, next_entity_version, DS_ROOT,
@@ -123,9 +123,11 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
-    stat_diffs = [(project_id, old_entry.namespace, old_entry.path, stats)
-                  for old_entry, _, stats in writes if stats is not None]
-    IOLoop.current().spawn_callback(self._stats_buffer.apply_diffs, stat_diffs)
+    mutations = [(old_entry, new_entry, index_stats)
+                 for old_entry, new_entry, index_stats in writes
+                 if index_stats is not None]
+    IOLoop.current().spawn_callback(self._stats_buffer.update, project_id,
+                                    mutations)
 
     for _, new_entry, _ in writes:
       put_response.add_key().CopyFrom(new_entry.key)
@@ -214,9 +216,10 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
-    stat_diffs = [(project_id, old_entry.namespace, old_entry.path, stats)
-                  for old_entry, _, stats in deletes if stats is not None]
-    IOLoop.current().spawn_callback(self._stats_buffer.apply_diffs, stat_diffs)
+    mutations = [(old_entry, None, stats) for old_entry, _, stats in deletes
+                  if stats is not None]
+    IOLoop.current().spawn_callback(self._stats_buffer.update, project_id,
+                                    mutations)
 
     # TODO: Once the Cassandra backend is removed, populate a delete response.
     for old_entry, new_version, _ in deletes:
@@ -411,16 +414,16 @@ class FDBDatastore(object):
     encoded_entity = entity.Encode()
     yield self._data_manager.put(
       tr, entity.key(), new_version, encoded_entity)
-    stats = yield self.index_manager.put_entries(tr, old_entry, entity)
+    index_stats = yield self.index_manager.put_entries(tr, old_entry, entity)
 
     if old_entry.present:
       yield self._gc.index_deleted_version(tr, old_entry)
-      stats -= StatsSummary.from_entity(old_entry.encoded)
 
     new_entry = VersionEntry.from_key(entity.key())
+    new_entry._encoded_entity = encoded_entity
+    new_entry._decoded_entity = entity
     new_entry.version = new_version
-    stats += StatsSummary.from_entity(encoded_entity)
-    raise gen.Return((old_entry, new_entry, stats))
+    raise gen.Return((old_entry, new_entry, index_stats))
 
   @gen.coroutine
   def _delete(self, tr, key, old_entry_future=None):
@@ -434,13 +437,13 @@ class FDBDatastore(object):
 
     new_version = next_entity_version(old_entry.version)
     yield self._data_manager.put(tr, key, new_version, b'')
-    stats = yield self.index_manager.put_entries(tr, old_entry, new_entity=None)
+    index_stats = yield self.index_manager.put_entries(
+      tr, old_entry, new_entity=None)
 
     if old_entry.present:
       yield self._gc.index_deleted_version(tr, old_entry)
-      stats -= StatsSummary.from_entity(old_entry.encoded)
 
-    raise gen.Return((old_entry, new_version, stats))
+    raise gen.Return((old_entry, new_version, index_stats))
 
   @gen.coroutine
   def _apply_mutations(self, tr, project_id, queried_groups, mutations,

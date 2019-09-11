@@ -17,7 +17,7 @@ from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.fdb.codecs import (
   decode_str, decode_value, encode_value, encode_versionstamp_index, Path)
 from appscale.datastore.fdb.sdk import FindIndexToUse, ListCursor
-from appscale.datastore.fdb.stats import StatsSummary
+from appscale.datastore.fdb.stats.containers import IndexStatsSummary
 from appscale.datastore.fdb.utils import (
   format_prop_val, DS_ROOT, fdb, get_scatter_val, MAX_FDB_TX_DURATION,
   ResultIterator, SCATTER_PROP, VERSIONSTAMP_SIZE)
@@ -1008,7 +1008,7 @@ class IndexManager(object):
 
   @gen.coroutine
   def put_entries(self, tr, old_version_entry, new_entity):
-    old_key_stats = StatsSummary()
+    old_key_stats = IndexStatsSummary()
     if old_version_entry.has_entity:
       old_keys, old_key_stats = yield self._get_index_keys(
         tr, old_version_entry.decoded, old_version_entry.commit_versionstamp)
@@ -1017,7 +1017,7 @@ class IndexManager(object):
         tr.set_versionstamped_value(
           key, b'\x00' * VERSIONSTAMP_SIZE + encode_versionstamp_index(0))
 
-    new_key_stats = StatsSummary()
+    new_key_stats = IndexStatsSummary()
     if new_entity is not None:
       new_keys, new_key_stats = yield self._get_index_keys(
         tr, new_entity)
@@ -1166,17 +1166,17 @@ class IndexManager(object):
     path = Path.flatten(entity.key().path())
     kind = path[-2]
 
-    stats = StatsSummary()
+    stats = IndexStatsSummary()
     kindless_index = yield self._kindless_index(tr, project_id, namespace)
     kind_index = yield self._kind_index(tr, project_id, namespace, kind)
     composite_indexes = yield self._get_indexes(
       tr, project_id, namespace, kind)
 
-    kindless_keys = kindless_index.encode_key(path, commit_versionstamp)
-    kind_keys = kind_index.encode_key(path, commit_versionstamp)
-    stats.add_kindless_keys(kindless_keys)
-    stats.add_kind_keys(kindless_keys)
-    all_keys = [kindless_keys, kind_keys]
+    kindless_key = kindless_index.encode_key(path, commit_versionstamp)
+    kind_key = kind_index.encode_key(path, commit_versionstamp)
+    stats.add_kindless_key(kindless_key)
+    stats.add_kind_key(kind_key)
+    all_keys = [kindless_key, kind_key]
     entity_prop_names = []
     for prop in entity.property_list():
       prop_name = decode_str(prop.name())
@@ -1201,7 +1201,7 @@ class IndexManager(object):
 
       composite_keys = index.encode_keys(entity.property_list(), path,
                                          commit_versionstamp)
-      stats.add_composite_keys(composite_keys)
+      stats.add_composite_keys(index.id, composite_keys)
       all_keys.extend(composite_keys)
 
     raise gen.Return((all_keys, stats))

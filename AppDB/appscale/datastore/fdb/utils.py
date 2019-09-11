@@ -5,6 +5,7 @@ implementation.
 import json
 import logging
 import random
+import struct
 import time
 
 import fdb
@@ -298,3 +299,12 @@ def format_prop_val(prop_value):
     return Path.flatten(prop_value.referencevalue())
   else:
     return None
+
+
+def encode_delta(value):
+  """ Encodes a value suitable for use with tr.add. """
+  return struct.pack('<q', value)
+
+
+def decode_delta(value):
+  return struct.unpack('<q', value)[0]
