@@ -207,11 +207,11 @@ def main():
     '-v', '--verbose', action='store_true',
     help='Output debug-level logging')
   parser.add_argument(
-    '--host', help='The host to listen on')
+    '--host', required=True, help='The host to listen on')
   parser.add_argument(
-    '--port', type=int, help='The port to listen on')
+    '--port', required=True, type=int, help='The port to listen on')
   parser.add_argument(
-    '--zk-locations', nargs='+', help='ZooKeeper location(s)')
+    '--zk-locations', required=True, nargs='+', help='ZooKeeper location(s)')
   args = parser.parse_args()
 
   if args.verbose:

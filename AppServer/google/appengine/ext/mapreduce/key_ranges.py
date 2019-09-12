@@ -17,6 +17,7 @@
 """An abstract for a collection of key_range.KeyRange objects."""
 
 
+
 from google.appengine.ext import key_range
 from google.appengine.ext.mapreduce import namespace_range
 

@@ -179,7 +179,7 @@ class SolrAPI(object):
     Returned list can contain collection with missing core.
 
     Returns (asynchronously):
-      A list of collection names present in Solr.
+      A tuple (functional collection names, broken collection names).
     """
     try:
       response = await self.get('/solr/admin/collections',
@@ -216,7 +216,7 @@ class SolrAPI(object):
     collections, broken_collections = await self.list_collections()
     if collection in collections:
       return True
-    if collection in self._broken_collections_cache:
+    if collection in broken_collections:
       logger.warning('Collection "{}" seems to be in broken state'
                      .format(collection))
       return True

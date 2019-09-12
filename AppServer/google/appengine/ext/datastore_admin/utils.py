@@ -21,26 +21,38 @@
 """Used render templates for datastore admin."""
 
 
+
 import base64
 import datetime
+import json
 import logging
 import os
 import random
-import webapp2
+import time
 
-from google.appengine.datastore import entity_pb
-from google.appengine.api import datastore
-from google.appengine.api import memcache
-from google.appengine.api import users
-from google.appengine.datastore import datastore_rpc
-from google.appengine.ext import db
-from google.appengine.ext.datastore_admin import config
-from google.appengine.ext.db import stats
+# AppScale: Use bundled mapreduce library.
+from google.appengine.ext.mapreduce import context
 from google.appengine.ext.mapreduce import control
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import operation as mr_operation
 from google.appengine.ext.mapreduce import util
+
+from google.appengine.api import app_identity
+from google.appengine.api import datastore
+from google.appengine.api import datastore_errors
+from google.appengine.api import memcache
+from google.appengine.api import urlfetch
+from google.appengine.api import users
+from google.appengine.datastore import datastore_rpc
+from google.appengine.datastore import entity_pb
+from google.appengine.ext import db
+import webapp2 as webapp
+from google.appengine.ext.datastore_admin import config
+from google.appengine.ext.db import metadata
+from google.appengine.ext.db import stats
 from google.appengine.ext.webapp import _template
+from google.appengine.runtime import apiproxy_errors
+
 
 MEMCACHE_NAMESPACE = '_ah-datastore_admin'
 XSRF_VALIDITY_TIME = 600
@@ -58,6 +70,9 @@ DATASTORE_ADMIN_KINDS = (DATASTORE_ADMIN_OPERATION_KIND,
                          BACKUP_INFORMATION_KIND,
                          BACKUP_INFORMATION_FILES_KIND,
                          BACKUP_INFORMATION_KIND_TYPE_INFO)
+
+
+MAX_RPCS = 10
 
 
 def IsKindNameVisible(kind_name):
@@ -318,11 +333,11 @@ def ParseKindsAndSizes(kinds):
 
 
 def _CreateDatastoreConfig():
-  """Create datastore config for use during datastore admin operations."""
-  return datastore_rpc.Configuration(force_writes=True)
+  """Create datastore config for use during datastore operations."""
+  return datastore_rpc.Configuration(force_writes=True, deadline=60)
 
 
-def GenerateHomeUrl(request):
+def GenerateHomeUrl(unused_request):
   """Generates a link to the Datastore Admin main page.
 
   Primarily intended to be used for cancel buttons or links on error pages. To
@@ -330,19 +345,16 @@ def GenerateHomeUrl(request):
   user-defined strings (unless proper precautions are taken).
 
   Args:
-    request: the webapp.Request object (to determine if certain query
+    unused_request: the webapp.Request object (to determine if certain query
       parameters need to be used).
 
   Returns:
     domain-relative URL for the main Datastore Admin page.
   """
-  datastore_admin_home = config.BASE_PATH
-  if request and request.get('run_as_a_service'):
-    datastore_admin_home += '?run_as_a_service=True'
-  return datastore_admin_home
+  return config.BASE_PATH
 
 
-class MapreduceDoneHandler(webapp2.RequestHandler):
+class MapreduceDoneHandler(webapp.RequestHandler):
   """Handler to delete data associated with successful MapReduce jobs."""
 
   SUFFIX = 'mapreduce_done'
@@ -352,6 +364,11 @@ class MapreduceDoneHandler(webapp2.RequestHandler):
     if 'Mapreduce-Id' in self.request.headers:
       mapreduce_id = self.request.headers['Mapreduce-Id']
       mapreduce_state = model.MapreduceState.get_by_job_id(mapreduce_id)
+      if not mapreduce_state:
+        logging.error('Done callback for no longer valid Mapreduce Id: %s',
+                      mapreduce_id)
+        return
+
       mapreduce_params = mapreduce_state.mapreduce_spec.params
 
       db_config = _CreateDatastoreConfig()
@@ -386,15 +403,12 @@ class MapreduceDoneHandler(webapp2.RequestHandler):
           db.run_in_transaction(tx)
         if config.CLEANUP_MAPREDUCE_STATE:
           keys = []
-          shard_states = model.ShardState.find_by_mapreduce_state(
+          keys = model.ShardState.calculate_keys_by_mapreduce_state(
               mapreduce_state)
-          for shard_state in shard_states:
-            keys.append(shard_state.key())
 
-
-          keys.append(mapreduce_state.key())
           keys.append(model.MapreduceControl.get_key_by_job_id(mapreduce_id))
           db.delete(keys, config=db_config)
+          db.delete(mapreduce_state, config=db_config)
           logging.info('State for successful job %s was deleted.', mapreduce_id)
       else:
         logging.info('Job %s was not successful so no state was deleted.',
@@ -504,14 +518,10 @@ def StartMap(operation_key,
     mapreduce_params['done_callback_queue'] = queue_name
   mapreduce_params['force_writes'] = 'True'
 
-  def tx(is_xg_transaction):
+  @db.transactional(xg=True)
+  def tx():
     """Start MapReduce job and update datastore admin state.
 
-    Args:
-      is_xg_transaction: True if we are running inside a xg-enabled
-        transaction, else False if we are running inside a non-xg-enabled
-        transaction (which means the datastore admin state is updated in one
-        transaction and the MapReduce job in an indepedent transaction).
     Returns:
       result MapReduce job id as a string.
     """
@@ -522,7 +532,7 @@ def StartMap(operation_key,
         mapreduce_parameters=mapreduce_params,
         base_path=config.MAPREDUCE_PATH,
         shard_count=shard_count,
-        in_xg_transaction=is_xg_transaction,
+        in_xg_transaction=True,
         queue_name=queue_name)
     operation = DatastoreAdminOperation.get(operation_key)
     operation.status = DatastoreAdminOperation.STATUS_ACTIVE
@@ -531,18 +541,7 @@ def StartMap(operation_key,
     operation.put(config=_CreateDatastoreConfig())
     return job_id
 
-
-
-
-
-
-  datastore_type = datastore_rpc._GetDatastoreType()
-
-  if datastore_type != datastore_rpc.BaseConnection.MASTER_SLAVE_DATASTORE:
-    return db.run_in_transaction_options(
-        db.create_transaction_options(xg=True), tx, True)
-  else:
-    return db.run_in_transaction(tx, False)
+  return tx()
 
 
 def RunMapForKinds(operation_key,
@@ -665,7 +664,7 @@ def FixKeys(entity_proto, app_id):
 class ReserveKeyPool(object):
   """Mapper pool which buffers keys with ids to reserve.
 
-  Runs v4 AllocateIds rpc(s) when flushed.
+  Runs AllocateIds rpc(s) when flushed.
   """
 
   def __init__(self):
@@ -680,17 +679,18 @@ class ReserveKeyPool(object):
         return
 
   def flush(self):
+    if self.keys:
 
-    datastore._GetConnection()._reserve_keys(self.keys)
-    self.keys = []
+      datastore._GetConnection()._reserve_keys(self.keys)
+      self.keys = []
 
 
 class ReserveKey(mr_operation.Operation):
   """Mapper operation to reserve key ids."""
 
-  def __init__(self, key, app_id):
+  def __init__(self, key):
     self.key = key
-    self.app_id = app_id
+    self.app_id = key.app()
     self.pool_id = 'reserve_key_%s_pool' % self.app_id
 
   def __call__(self, ctx):
@@ -699,3 +699,184 @@ class ReserveKey(mr_operation.Operation):
       pool = ReserveKeyPool()
       ctx.register_pool(self.pool_id, pool)
     pool.reserve_key(self.key)
+
+
+class PutPool(context.Pool):
+  """A trimmed copy of the MutationPool class.
+
+  Properties:
+    puts: a list of entities to put to datastore.
+    max_entity_count: maximum number of entities before flushing it to db.
+  """
+  POOL_NAME = 'put_pool'
+
+  def __init__(self, max_entity_count=context.MAX_ENTITY_COUNT):
+    """Constructor.
+
+    Args:
+      max_entity_count: maximum number of entities before flushing it to db.
+    """
+    self.max_entity_count = max_entity_count
+    self.puts = []
+
+  def Put(self, entity):
+    """Registers entity to put to datastore.
+
+    Args:
+      entity: The EntityProto for the entity to be put.
+    """
+    if len(self.puts) >= self.max_entity_count:
+      self.flush()
+    self.puts.append(entity)
+
+  def flush(self):
+    """Flush all puts to datastore."""
+    if self.puts:
+      datastore_rpc.Connection(config=_CreateDatastoreConfig()).put(self.puts)
+    self.puts = []
+
+
+class Put(mr_operation.Operation):
+  """Mapper operation to batch puts."""
+
+  def __init__(self, entity):
+    """Constructor.
+
+    Args:
+      entity: The EntityProto of the entity to put.
+    """
+    self.entity = entity
+
+  def __call__(self, ctx):
+    pool = ctx.get_pool(PutPool.POOL_NAME)
+    if not pool:
+      pool = PutPool(
+          max_entity_count=(context.MAX_ENTITY_COUNT/(2**ctx.task_retry_count)))
+      ctx.register_pool(PutPool.POOL_NAME, pool)
+    pool.Put(self.entity)
+
+
+def GetKinds(all_ns=True, deadline=40):
+  """Obtain a list of all kind names from the datastore.
+
+  Args:
+    all_ns: If true, list kind names for all namespaces.
+            If false, list kind names only for the current namespace.
+    deadline: maximum number of seconds to spend getting kinds.
+
+  Returns:
+    kinds: an alphabetized list of kinds for the specified namespace(s).
+    more_kinds: a boolean indicating whether there may be additional kinds
+        not included in 'kinds' (e.g. because the query deadline was reached).
+  """
+  if all_ns:
+    kinds, more_kinds = GetKindsForAllNamespaces(deadline)
+  else:
+    kinds, more_kinds = GetKindsForCurrentNamespace(deadline)
+  return kinds, more_kinds
+
+
+def GetKindsForAllNamespaces(deadline):
+  """Obtain a list of all kind names from the datastore.
+
+  Pulls kinds from all namespaces. The result is deduped and alphabetized.
+
+  Args:
+    deadline: maximum number of seconds to spend getting kinds.
+
+  Returns:
+    kinds: an alphabetized list of kinds for the specified namespace(s).
+    more_kinds: a boolean indicating whether there may be additional kinds
+        not included in 'kinds' (e.g. because the query deadline was reached).
+  """
+  start = time.time()
+  kind_name_set = set()
+
+  def ReadFromKindIters(kind_iter_list):
+    """Read kinds from a list of iterators.
+
+    Reads a kind from each iterator in kind_iter_list, adds it to
+    kind_name_set, and removes any completed iterators.
+
+    Args:
+      kind_iter_list: a list of iterators of kinds.
+    """
+    completed = []
+    for kind_iter in kind_iter_list:
+      try:
+        kind_name = kind_iter.next().kind_name
+        if IsKindNameVisible(kind_name):
+          kind_name_set.add(kind_name)
+      except StopIteration:
+        completed.append(kind_iter)
+    for kind_iter in completed:
+      kind_iter_list.remove(kind_iter)
+
+  more_kinds = False
+  try:
+    namespace_iter = metadata.Namespace.all().run(batch_size=1000,
+                                                  deadline=deadline)
+    kind_iter_list = []
+    for ns in namespace_iter:
+
+
+      remaining = deadline - (time.time() - start)
+
+      if remaining <= 0:
+        raise datastore_errors.Timeout
+      kind_iter_list.append(metadata.Kind.all(namespace=ns.namespace_name)
+                            .run(batch_size=1000, deadline=remaining))
+      while len(kind_iter_list) == MAX_RPCS:
+        ReadFromKindIters(kind_iter_list)
+    while kind_iter_list:
+      ReadFromKindIters(kind_iter_list)
+  except (datastore_errors.Timeout, apiproxy_errors.DeadlineExceededError):
+    more_kinds = True
+    logging.warning('Failed to retrieve all kinds within deadline.')
+  return sorted(kind_name_set), more_kinds
+
+
+def GetKindsForCurrentNamespace(deadline):
+  """Obtain a list of all kind names from the datastore.
+
+  Pulls kinds from the current namespace only. The result is alphabetized.
+
+  Args:
+    deadline: maximum number of seconds to spend getting kinds.
+
+  Returns:
+    kinds: an alphabetized list of kinds for the specified namespace(s).
+    more_kinds: a boolean indicating whether there may be additional kinds
+        not included in 'kinds' (e.g. because the query limit was reached).
+  """
+  more_kinds = False
+  kind_names = []
+  try:
+    kinds = metadata.Kind.all().order('__key__').run(batch_size=1000,
+                                                     deadline=deadline)
+    for kind in kinds:
+      kind_name = kind.kind_name
+      if IsKindNameVisible(kind_name):
+        kind_names.append(kind_name)
+  except (datastore_errors.Timeout, apiproxy_errors.DeadlineExceededError):
+    more_kinds = True
+    logging.warning('Failed to retrieve all kinds within deadline.')
+  return kind_names, more_kinds
+
+
+def get_service_account_names():
+  """ AppScale: Fetch list of service accounts from IAM API. """
+  project_id = app_identity.get_application_id()
+  iam_location = 'https://127.0.0.1:17441'
+  url = iam_location + '/v1/projects/{}/serviceAccounts'.format(project_id)
+  token = app_identity.get_access_token(
+      ['https://www.googleapis.com/auth/cloud-platform'])[0]
+  headers = {'Authorization': 'Bearer {}'.format(token)}
+  response = urlfetch.fetch(url, headers=headers, validate_certificate=False)
+  try:
+    accounts = json.loads(response.content)['accounts']
+  except (KeyError, ValueError):
+    raise ValueError('Invalid list of service accounts: '
+                     '{}'.format(response.content))
+
+  return tuple(account['email'] for account in accounts)

@@ -132,6 +132,10 @@ MIN_LOAD_THRESHOLD = 0.7
 # The exit code that indicates the data layout version is unexpected.
 INVALID_VERSION_EXIT_CODE = 64
 
+# The allowed list of code directories to specify for updating the code and building it.
+ALLOWED_DIR_UPDATES = ["common", "app_controller", "admin_server", "taskqueue", "app_db",
+                       "iaas_manager", "hermes", "api_server", "appserver_java"]
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -290,7 +294,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = true
+  FIREWALL_IS_ON = 'true' == (ENV['APPSCALE_FIREWALL'] || 'true')
 
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
@@ -390,7 +394,7 @@ class Djinn
   # services assume that they run at a specific location.
   RESERVED_APPS = [AppDashboard::APP_NAME].freeze
 
-  # A Fixnum that indicates what the first port is that can be used for hosting
+  # A Integer that indicates what the first port is that can be used for hosting
   # Google App Engine apps.
   STARTING_APPSERVER_PORT = 20_000
 
@@ -450,9 +454,9 @@ class Djinn
     'autoscale' => [TrueClass, 'True', true],
     'client_secrets' => [String, nil, false],
     'controller_logs_to_dashboard' => [TrueClass, 'False', false],
-    'default_max_appserver_memory' => [Fixnum, "#{DEFAULT_MEMORY}", true],
-    'default_min_appservers' => [Fixnum, '2', true],
-    'default_max_appservers' => [Fixnum, '999999', true],
+    'default_max_appserver_memory' => [Integer, "#{DEFAULT_MEMORY}", true],
+    'default_min_appservers' => [Integer, '2', true],
+    'default_max_appservers' => [Integer, '999999', true],
     'disks' => [String, nil, true],
     'ec2_access_key' => [String, nil, false],
     'ec2_secret_key' => [String, nil, false],
@@ -465,27 +469,29 @@ class Djinn
     'keyname' => [String, nil, false],
     'infrastructure' => [String, nil, true],
     'instance_type' => [String, nil, true],
-    'lb_connect_timeout' => [Fixnum, '120000', true],
+    'lb_connect_timeout' => [Integer, '120000', true],
     'login' => [String, nil, true],
     'machine' => [String, nil, true],
-    'max_machines' => [Fixnum, '0', true],
-    'min_machines' => [Fixnum, '1', true],
+    'max_machines' => [Integer, '0', true],
+    'min_machines' => [Integer, '1', true],
     'region' => [String, nil, true],
-    'replication' => [Fixnum, '1', true],
+    'replication' => [Integer, '1', true],
     'project' => [String, nil, false],
     'table' => [String, 'cassandra', false],
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
     'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Fixnum, '15', true],
+    'nodes_stats_log_interval' => [Integer, '15', true],
     'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Fixnum, '65', true],
+    'processes_stats_log_interval' => [Integer, '65', true],
     'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Fixnum, '35', true],
+    'proxies_stats_log_interval' => [Integer, '35', true],
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
-    'zone' => [String, nil, true]
+    'zone' => [String, nil, true],
+    'fdb_clusterfile_content' => [String, nil, true],
+    'update' => [Array, [], false]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -610,9 +616,9 @@ class Djinn
   #
   # Args:
   #   version_key: A String that names the version that should be relocated.
-  #   http_port: A String or Fixnum that names the port that should be used to
+  #   http_port: A String or Integer that names the port that should be used to
   #     serve HTTP traffic for this app.
-  #   https_port: A String or Fixnum that names the port that should be used to
+  #   https_port: A String or Integer that names the port that should be used to
   #     serve HTTPS traffic for this app.
   #   secret: A String that authenticates callers.
   # Returns:
@@ -809,7 +815,7 @@ class Djinn
       Djinn.log_info(msg)
 
       # Let's check if we can convert them now to the proper class.
-      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           Integer(val)
         rescue
@@ -829,7 +835,7 @@ class Djinn
       # message similar to "failed to serialize detail object". We convert
       # them here to String.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == TrueClass ||
-         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           newval = val.to_s
         rescue
@@ -842,7 +848,7 @@ class Djinn
       # Strings may need to be sanitized.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == String
         # Some options shouldn't be sanitize.
-        if key == 'user_commands' or key == 'azure_app_secret_key'
+        if ['user_commands', 'azure_app_secret_key', 'fdb_clusterfile_content'].include? key
           newval = val
         # Keys have a relaxed sanitization process.
         elsif key.include? "_key" or key.include? "EC2_SECRET_KEY"
@@ -850,6 +856,11 @@ class Djinn
         else
           newval = val.gsub(NOT_FQDN_REGEX, '')
         end
+      end
+
+      # We do not sanitize Array parameters for now.
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Array
+        newval = val
       end
 
       newoptions[key] = newval
@@ -968,6 +979,7 @@ class Djinn
       # initialization.
       @options = checked_opts
     }
+
     Djinn.log_info("Successfully received nodes layout (#{@nodes}) and deployment options (#{@options}).")
 
     'OK'
@@ -1239,7 +1251,7 @@ class Djinn
   #
   # Args:
   #   property_name: A String naming the instance variable that should be set.
-  #   property_value: A String or Fixnum that provides the value for the given
+  #   property_value: A String or Integer that provides the value for the given
   #     property name.
   #   secret: A String with the shared key for authentication.
   #
@@ -1367,6 +1379,11 @@ class Djinn
           )
         end
       end
+
+      if key == 'fdb_clusterfile_content'
+        ZKInterface.set_fdb_clusterfile_content(val)
+      end
+      
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
@@ -1796,7 +1813,7 @@ class Djinn
     @done_loading = true
 
     pick_zookeeper(@zookeeper_data)
-    write_our_node_info
+    set_done_status
 
     # We wait only for non autoscaled nodes.
     wait_for_nodes_to_finish_loading(nodes_to_wait)
@@ -3063,20 +3080,17 @@ class Djinn
     Djinn.log_debug("Found zookeeper server.")
   end
 
-  # Backs up information about what this node is doing (roles, apps it is
-  # running) to ZooKeeper, for later recovery or updates by other nodes.
-  def write_our_node_info
-    # Since more than one AppController could write its data at the same
-    # time, get a lock before we write to it.
-    begin
-      ZKInterface.lock_and_run {
+  # Set the done status in zookeeper.
+  def set_done_status
+    RETRIES.downto(0) { ||
+      begin
         ZKInterface.write_node_information(my_node, @done_loading)
-      }
-    rescue => e
-      Djinn.log_info("(write_our_node_info) saw exception #{e.message}")
-    end
-
-    return
+        return
+      rescue => e
+        Djinn.log_info("(set_done_status) retry after exception #{e.message}.")
+        next
+      end
+    }
   end
 
   # Returns information about the AppServer processes hosting App Engine apps on
@@ -3296,28 +3310,40 @@ class Djinn
     Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
-    Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
-
-    Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = `which appscale-data-layout`.chomp
-    retries = 10
-    loop {
-      output = `#{layout_script} --db-type cassandra 2>&1`
-      if $?.exitstatus == 0
+    # Autoscaled nodes do not need to check if the datastore is primed: if
+    # we got this far, it must be primed.
+    am_i_autoscaled = false
+    get_autoscaled_nodes.each { |node|
+      if node.private_ip == my_node.private_ip
+        am_i_autoscaled = true
+        Djinn.log_info("Skipping database layout check on scaled node.")
         break
-      elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
-        HelperFunctions.log_and_crash(
-          'Unexpected data layout version. Please run "appscale upgrade".')
-      elsif retries.zero?
-        HelperFunctions.log_and_crash(
-          'Exceeded retries while trying to check data layout.')
-      else
-        Djinn.log_warn("Error while checking data layout:\n#{output}")
-        sleep(SMALL_WAIT)
       end
-      retries -= 1
     }
+    unless am_i_autoscaled
+      Djinn.log_info('Ensuring necessary database tables are present')
+      sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
+
+      Djinn.log_info('Ensuring data layout version is correct')
+      layout_script = `which appscale-data-layout`.chomp
+      retries = 10
+      loop {
+        output = `#{layout_script} --db-type cassandra 2>&1`
+        if $?.exitstatus == 0
+          break
+        elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
+          HelperFunctions.log_and_crash(
+            'Unexpected data layout version. Please run "appscale upgrade".')
+        elsif retries.zero?
+          HelperFunctions.log_and_crash(
+            'Exceeded retries while trying to check data layout.')
+        else
+          Djinn.log_warn("Error while checking data layout:\n#{output}")
+          sleep(SMALL_WAIT)
+        end
+        retries -= 1
+      }
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"
@@ -3360,7 +3386,7 @@ class Djinn
       }
     end
 
-    start_admin_server
+    threads << Thread.new { start_admin_server }
 
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
@@ -3421,21 +3447,25 @@ class Djinn
       threads << Thread.new { stop_taskqueue }
     end
 
+    # Start Hermes with integrated stats service
+    threads << Thread.new { start_hermes }
+
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
-    threads.each { |t| t.join }
+    threads.each do |t|
+      Djinn.log_debug("Waiting for thread #{t}") until t.join(5)
+    end
     Djinn.log_info('API services have started on this node.')
-
-    # Start Hermes with integrated stats service
-    start_hermes
 
     # Leader node starts additional services.
     if my_node.is_shadow?
       @state = 'Assigning Datastore and Search2 processes'
       assign_datastore_processes
       assign_search2_processes
-      TaskQueue.start_flower(@options['flower_password'])
+
+      # Don't start flower if we don't have a password.
+      TaskQueue.start_flower(@options['flower_password']) unless @options['flower_password'].nil?
     else
       TaskQueue.stop_flower
     end
@@ -3612,6 +3642,10 @@ class Djinn
     # Shadow is the only node to call this method, and is called upon
     # startup.
     return unless my_node.is_shadow?
+
+    if @options.key?('fdb_clusterfile_content')
+      ZKInterface.set_fdb_clusterfile_content(@options['fdb_clusterfile_content'])
+    end
 
     Djinn.log_info("Assigning datastore processes.")
     verbose = @options['verbose'].downcase == 'true'
@@ -3813,10 +3847,15 @@ class Djinn
 
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
-    status = `git -C #{APPSCALE_HOME} status`
+    if @options['update'].empty?
+      return
+    end
+
+    update_dirs = @options['update']
+    update_dirs = ALLOWED_DIR_UPDATES if update_dirs == ['all']
 
     # Update Python packages across corresponding virtual environments
-    if status.include?('common')
+    if update_dirs.include?('common')
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
@@ -3825,33 +3864,33 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/search2/bin/pip')
     end
-    if status.include?('AppControllerClient')
+    if update_dirs.include?('app_controller')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
     end
-    if status.include?('AdminServer')
+    if update_dirs.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
     end
-    if status.include?('AppTaskQueue')
+    if update_dirs.include?('taskqueue')
       build_taskqueue
     end
-    if status.include?('AppDB')
+    if update_dirs.include?('app_db')
       update_python_package("#{APPSCALE_HOME}/AppDB")
     end
-    if status.include?('InfrastructureManager')
+    if update_dirs.include?('iaas_manager')
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
-    if status.include?('Hermes')
+    if update_dirs.include?('hermes')
       update_python_package("#{APPSCALE_HOME}/Hermes")
     end
-    if status.include?('APIServer')
+    if update_dirs.include?('api_server')
       build_api_server
     end
-    if status.include?('SearchService2')
+    if update_dirs.include?('SearchService2')
       build_search_service2
     end
 
     # Update Java AppServer
-    build_java_appserver if status.include?('AppServer_Java')
+    build_java_appserver if update_dirs.include?('appserver_java')
   end
 
   def configure_ejabberd_cert
@@ -3873,9 +3912,7 @@ class Djinn
     threads = []
     must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
-      threads << Thread.new {
-        initialize_node(slave)
-      }
+      threads << Thread.new { initialize_node(slave) }
     }
 
     # If we cannot reconnect with autoscaled nodes, we will have to clean
@@ -4482,6 +4519,7 @@ class Djinn
   def start_admin_server
     Djinn.log_info('Starting AdminServer')
     script = `which appscale-admin`.chomp
+    HelperFunctions.log_and_crash("Cannot find appscale-admin!") if script.empty?
     nginx_port = 17441
     service_port = 17442
     start_cmd = "#{script} serve -p #{service_port}"
@@ -5764,21 +5802,27 @@ class Djinn
 
     RETRIES.downto(0) { ||
       begin
-        remote_machine = ZKInterface.get_revision_hosters(
+        ip = ZKInterface.get_revision_hosters(
           revision_key, @options['keyname']).sample
       rescue FailedZooKeeperOperationException
         sleep(SMALL_WAIT)
         next
       end
 
-      if remote_machine.nil?
+      if ip.nil?
         Djinn.log_info("Waiting for a machine to have a copy of #{app_path}")
         Kernel.sleep(SMALL_WAIT)
         next
       end
 
-      ssh_key = remote_machine.ssh_key
-      ip = remote_machine.private_ip
+      # Get the ssh key to use for the remote machine.
+      remote_node = @nodes.keep_if { |node| node.private_ip == ip }
+      if remote_node.empty?
+        Djinn.log_info("Got invalid machine to retrieve code (#{ip}).")
+        next
+      end
+      ssh_key = remote_node[0].ssh_key
+
       md5 = ZKInterface.get_revision_md5(revision_key, ip)
       Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
       RETRIES.downto(0) {
