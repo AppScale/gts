@@ -1,3 +1,4 @@
+import importlib
 import logging
 import subprocess
 
@@ -230,6 +231,11 @@ def __name_match(name):
 class ServiceOperator(object):
   """ Handles Service operations. """
 
+  def __init__(self):
+    """ Creates a new ServiceOperator.
+    """
+    self.helper = importlib.import_module(self.__module__)
+
   @gen.coroutine
   def list_async(self):
     """ Retrieves the status for each service.
@@ -245,7 +251,7 @@ class ServiceOperator(object):
     Returns:
       A dictionary mapping services to their state.
     """
-    return list()
+    return self.helper.list()
 
   @gen.coroutine
   def start_async(self, name, enable=None, wants=None, properties=None):
@@ -273,7 +279,8 @@ class ServiceOperator(object):
     Returns:
       True if the service was started, else False.
     """
-    return start(name, enable=enable, wants=wants, properties=properties)
+    return self.helper.start(name, enable=enable, wants=wants,
+                        properties=properties)
 
   @gen.coroutine
   def stop_async(self, name):
@@ -294,7 +301,7 @@ class ServiceOperator(object):
     Returns:
       True if the named services were stopped.
     """
-    return stop(name)
+    return self.helper.stop(name)
 
   @gen.coroutine
   def restart_async(self, name):
@@ -315,4 +322,4 @@ class ServiceOperator(object):
     Returns:
       True if services were restarted.
     """
-    return restart(name)
+    return self.helper.restart(name)
