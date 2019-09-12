@@ -62,14 +62,24 @@ module MonitInterface
   # Starts a daemonized service. The start_cmd should be designed to start a
   # background process, and it should create its own pidfile.
   def self.start_daemon(watch, start_cmd, stop_cmd, pidfile,
-                        start_timeout = nil)
+                        start_timeout = nil, restart_cmd = nil)
     timeout_suffix = "with timeout #{start_timeout} seconds" if start_timeout
-    config = <<CONFIG
+    if restart_cmd
+      config = <<CONFIG
+CHECK PROCESS #{watch} PIDFILE "#{pidfile}"
+  group #{watch}
+  start program = "#{start_cmd}" #{timeout_suffix}
+  stop program = "#{stop_cmd}"
+  restart program = "#{restart_cmd}"
+CONFIG
+    else
+      config = <<CONFIG
 CHECK PROCESS #{watch} PIDFILE "#{pidfile}"
   group #{watch}
   start program = "#{start_cmd}" #{timeout_suffix}
   stop program = "#{stop_cmd}"
 CONFIG
+    end
 
     monit_file = "#{MONIT_CONFIG}/appscale-#{watch}.cfg"
     reload_required = update_config(monit_file, config)
@@ -110,6 +120,12 @@ CONFIG
   # This function unmonitors and optionally stops the service, and removes
   # the monit configuration file.
   def self.stop(watch, stop = true)
+    # No need to do anything if the service is not running.
+    unless is_running?(watch)
+      Djinn.log_debug("Asked to stop #{watch} but it is not running.")
+      return
+    end
+
     # To make sure the service is stopped, we query monit till the service
     # is not any longer running.
     running = true
@@ -193,8 +209,9 @@ BOO
   end
 
   def self.is_running?(watch)
-    output = run_cmd("#{MONIT} summary | grep #{watch} | grep -E "\
-                     '"(Running|Initializing|OK)"')
+    script = `which appscale-admin`.chomp
+    HelperFunctions.log_and_crash("Cannot find appscale-admin!") if script.empty?
+    output = run_cmd("#{script} summary | grep \"'#{watch}'\"")
     (output != '')
   end
 

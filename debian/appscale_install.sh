@@ -32,7 +32,6 @@ case "$1" in
         # Scratch install of appscale including post script.
         installappscaleprofile
         . /etc/profile.d/appscale.sh
-        upgradepip
         installgems
         postinstallhaproxy
         postinstallnginx
@@ -40,6 +39,7 @@ case "$1" in
         installappserverjava
         installtornado
         installpycrypto
+        installurllib3
         installpycapnp
         installpymemcache
         installpyyaml
@@ -50,6 +50,7 @@ case "$1" in
         postinstallcassandra
         postinstallrabbitmq
         installsolr
+        installsolr7
         installservice
         postinstallservice
         postinstallmonit
@@ -68,6 +69,7 @@ case "$1" in
         installtaskqueue
         installdatastore
         installapiserver
+        installsearch2
         preplogserver
         prepdashboard
         fetchclientjars

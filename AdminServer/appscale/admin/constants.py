@@ -8,6 +8,7 @@ from appscale.common.constants import (
   DASHBOARD_APP_ID,
   PYTHON27,
   JAVA,
+  JAVA8,
   GO,
   PHP
 )
@@ -41,6 +42,7 @@ class Methods(object):
   CREATE_VERSION = 'google.appengine.v1.Versions.CreateVersion'
   DELETE_VERSION = 'google.appengine.v1.Versions.DeleteVersion'
   UPDATE_VERSION = 'google.appengine.v1.Versions.UpdateVersion'
+  UPDATE_APPLICATION = 'google.appengine.v1.Applications.UpdateApplication'
 
 
 class OperationTimeout(Exception):
@@ -73,6 +75,11 @@ class InvalidQueueConfiguration(Exception):
   pass
 
 
+class InvalidDispatchConfiguration(Exception):
+  """ Indicates that the dispatch rule is not valid. """
+  pass
+
+
 class ServingStatus(object):
   """ The possible serving states for a project or version. """
   SERVING = 'SERVING'
@@ -85,6 +92,7 @@ class Types(object):
   EMPTY = 'type.googleapis.com/google.protobuf.Empty'
   OPERATION_METADATA = 'type.googleapis.com/google.appengine.v1.OperationMetadataV1'
   VERSION = 'type.googleapis.com/google.appengine.v1.Version'
+  APPLICATION = 'type.googleapis.com/google.appengine.v1.Application'
 
 
 # The parent directory for source code extraction.
@@ -106,7 +114,7 @@ DEFAULT_SERVICE = 'default'
 MAX_OPERATION_TIME = 120
 
 # Supported runtimes.
-VALID_RUNTIMES = {PYTHON27, JAVA, GO, PHP}
+VALID_RUNTIMES = {PYTHON27, JAVA, JAVA8, GO, PHP}
 
 # The seconds to wait for redeploys.
 REDEPLOY_WAIT = 20
@@ -183,6 +191,37 @@ TQ_RATE_REGEX = re.compile(r'^(0|[0-9]+(\.[0-9]*)?/[smhd])')
 
 # A regex rule for validating targets, will not match instance.version.module.
 TQ_TARGET_REGEX = re.compile(r'^([a-zA-Z0-9\-]+[\.]?[a-zA-Z0-9\-]*)$')
+
+# A set of regex rules to validate dispatch domains.
+DISPATCH_DOMAIN_REGEX_SINGLE_ASTERISK = re.compile(r'^\*$')
+DISPATCH_DOMAIN_REGEX_ASTERISKS = re.compile(r'\*')
+DISPATCH_DOMAIN_REGEX_ASTERISK_DOT = re.compile(r'\*\.')
+
+# A set of regex rules to validate dispatch paths.
+DISPATCH_PATH_REGEX = re.compile(r'/[0-9a-z/]*[*]?$')
+
+# The following regexes are taken from GAE's 1.9.69 SDK
+# (google/appengine/api/dispatchinfo.py) to enforce the dispatch rules.
+_URL_HOST_EXACT_PATTERN_RE = re.compile(r"""
+# 0 or more . terminated hostname segments (may not start or end in -).
+^([a-z0-9]([a-z0-9\-]*[a-z0-9])*\.)*
+# followed by a host name segment.
+([a-z0-9]([a-z0-9\-]*[a-z0-9])*)$""", re.VERBOSE)
+
+_URL_IP_V4_ADDR_RE = re.compile(r"""
+#4 1-3 digit numbers separated by .
+^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$""", re.VERBOSE)
+
+_URL_HOST_SUFFIX_PATTERN_RE = re.compile(r"""
+# Single star or
+^([*]|
+# Host prefix with no .,  Ex '*-a' or
+[*][a-z0-9\-]*[a-z0-9]|
+# Host prefix with ., Ex '*-a.b-c.d'
+[*](\.|[a-z0-9\-]*[a-z0-9]\.)([a-z0-9]([a-z0-9\-]*[a-z0-9])*\.)*
+([a-z0-9]([a-z0-9\-]*[a-z0-9])*))$
+""", re.VERBOSE)
+# End GAE's 1.9.69 SDK regex patterns.
 
 REQUIRED_PULL_QUEUE_FIELDS = ['name', 'mode']
 

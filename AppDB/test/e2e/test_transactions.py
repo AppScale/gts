@@ -61,8 +61,7 @@ class TestConcurrentCounter(AsyncTestCase):
   def tear_down_helper(self):
     query = Query('Counter', _app=PROJECT_ID)
     results = yield self.datastore.run_query(query)
-    for entity in results:
-      yield self.datastore.delete([entity.key()])
+    yield self.datastore.delete([entity.key() for entity in results])
 
   @gen_test
   def test_concurrent_counter(self):

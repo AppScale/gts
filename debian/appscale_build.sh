@@ -104,17 +104,6 @@ if ! ${PKG_CMD} remove --purge --assume-yes ${PACKAGES}; then
     exit 1
 fi
 
-# Java 8 and capnproto require the backports repository.
-if [ "${DIST}" = "jessie" ]; then
-    backports_line="deb http://ftp.debian.org/debian jessie-backports main"
-    if ! grep $backports_line /etc/apt/sources.list; then
-        echo $backports_line >> /etc/apt/sources.list
-    fi
-    apt-get update
-    apt-get -t jessie-backports -y install capnproto
-    apt-get -t jessie-backports -y install openjdk-8-jdk-headless
-fi
-
 # Since the last step in appscale_build.sh is to create the certs directory,
 # its existence indicates that appscale has already been installed.
 if [ -d ${CONFIG_DIR}/certs ]; then

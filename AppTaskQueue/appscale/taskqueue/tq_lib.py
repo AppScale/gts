@@ -6,9 +6,9 @@ import string
 import sys
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from .protocols import taskqueue_service_pb2
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.taskqueue import taskqueue_service_pb
 
 # The longest you can delay a task.
 MAX_ETA = datetime.timedelta(days=30)
@@ -55,34 +55,34 @@ def verify_task_queue_add_request(app_id, request, now):
 
   Args:
     app_id: The application ID.
-    request: The taskqueue_service_pb.TaskQueueAddRequest to validate.
+    request: The taskqueue_service_pb2.TaskQueueAddRequest to validate.
     now: A datetime.datetime object containing the current time in UTC.
 
   Returns:
-    A taskqueue_service_pb.TaskQueueServiceError indicating any problems with
-    the request or taskqueue_service_pb.TaskQueueServiceError.SKIPPED if it is
+    A taskqueue_service_pb2.TaskQueueServiceError indicating any problems with
+    the request or taskqueue_service_pb2.TaskQueueServiceError.SKIPPED if it is
     valid.
   """
-  if request.eta_usec() < 0:
-    return taskqueue_service_pb.TaskQueueServiceError.INVALID_ETA
+  if request.eta_usec < 0:
+    return taskqueue_service_pb2.TaskQueueServiceError.INVALID_ETA
 
-  eta = datetime.datetime.utcfromtimestamp(_usec_to_sec(request.eta_usec()))
+  eta = datetime.datetime.utcfromtimestamp(_usec_to_sec(request.eta_usec))
   max_eta = now + MAX_ETA
   if eta > max_eta:
-    return taskqueue_service_pb.TaskQueueServiceError.INVALID_ETA
+    return taskqueue_service_pb2.TaskQueueServiceError.INVALID_ETA
 
-  if request.has_crontimetable() and app_id is None:
-    return taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED
+  if request.HasField("crontimetable") and app_id is None:
+    return taskqueue_service_pb2.TaskQueueServiceError.PERMISSION_DENIED
 
-  if request.mode() == taskqueue_service_pb.TaskQueueMode.PULL:
+  if request.mode == taskqueue_service_pb2.TaskQueueMode.PULL:
     max_task_size_bytes = MAX_PULL_TASK_SIZE_BYTES
   else:
     max_task_size_bytes = MAX_PUSH_TASK_SIZE_BYTES
 
   if request.ByteSize() > max_task_size_bytes:
-    return taskqueue_service_pb.TaskQueueServiceError.TASK_TOO_LARGE
+    return taskqueue_service_pb2.TaskQueueServiceError.TASK_TOO_LARGE
 
-  return taskqueue_service_pb.TaskQueueServiceError.SKIPPED
+  return taskqueue_service_pb2.TaskQueueServiceError.SKIPPED
 
 def _get_random_string():
   """ Generates a random string of RAND_LENGTH_SIZE.

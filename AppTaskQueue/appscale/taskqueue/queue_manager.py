@@ -18,18 +18,16 @@ class ProjectQueueManager(dict):
   FLUSH_DELETED_INTERVAL = 3 * 60 * 60  # 3h
   MAX_POSTGRES_BACKED_PROJECTS = 20
 
-  def __init__(self, zk_client, db_access, project_id):
+  def __init__(self, zk_client, project_id):
     """ Creates a new ProjectQueueManager.
 
     Args:
       zk_client: A KazooClient.
-      db_access: A DatastoreProxy.
       project_id: A string specifying a project ID.
     """
     super(ProjectQueueManager, self).__init__()
     self.zk_client = zk_client
     self.project_id = project_id
-    self.db_access = db_access
     pg_dns_node = '/appscale/projects/{}/postgres_dsn'.format(project_id)
     try:
       pg_dsn = self.zk_client.get(pg_dns_node)
@@ -84,8 +82,7 @@ class ProjectQueueManager(dict):
         self[queue_name] = PostgresPullQueue(queue_info, self.project_id,
                                              self.pg_connection_wrapper)
       else:
-        self[queue_name] = PullQueue(queue_info, self.project_id,
-                                     self.db_access)
+        self[queue_name] = PullQueue(queue_info, self.project_id)
 
     # Establish a new Celery connection based on the new queues, and close the
     # old one.
@@ -158,16 +155,14 @@ class ProjectQueueManager(dict):
 
 class GlobalQueueManager(dict):
   """ Keeps track of queue configuration details for all projects. """
-  def __init__(self, zk_client, db_access):
+  def __init__(self, zk_client):
     """ Creates a new GlobalQueueManager.
 
     Args:
       zk_client: A KazooClient.
-      db_access: A DatastoreProxy.
     """
     super(GlobalQueueManager, self).__init__()
     self.zk_client = zk_client
-    self.db_access = db_access
     zk_client.ensure_path('/appscale/projects')
     zk_client.ChildrenWatch('/appscale/projects', self._update_projects_watch)
 
@@ -185,8 +180,7 @@ class GlobalQueueManager(dict):
 
     for project_id in new_project_list:
       if project_id not in self:
-        self[project_id] = ProjectQueueManager(self.zk_client, self.db_access,
-                                               project_id)
+        self[project_id] = ProjectQueueManager(self.zk_client, project_id)
 
       # Handle changes that happen between watches.
       self[project_id].ensure_watch()

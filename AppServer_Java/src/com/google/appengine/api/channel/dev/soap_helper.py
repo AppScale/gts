@@ -1,4 +1,5 @@
 import SOAPpy
+import ssl
 import sys
 
 """
@@ -12,6 +13,10 @@ client_id = sys.argv[1]
 password = sys.argv[2]
 secret = sys.argv[3]
 url = sys.argv[4]
+
+# Disable certificate verification for Python >= 2.7.9.
+if hasattr(ssl, '_create_unverified_context'):
+  ssl._create_default_https_context = ssl._create_unverified_context
 
 server = SOAPpy.SOAPProxy(url)
 #Uncomment below line to see debug info

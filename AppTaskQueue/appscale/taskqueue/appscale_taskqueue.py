@@ -4,9 +4,9 @@ servers. """
 import argparse
 import json
 import logging
+import monotonic
 import signal
 import sys
-import time
 
 from kazoo.client import KazooClient
 from tornado import gen, httpserver, ioloop
@@ -15,10 +15,11 @@ from tornado.web import Application, RequestHandler
 from appscale.common import appscale_info
 from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.datastore.cassandra_env.cassandra_interface import DatastoreProxy
 
 from appscale.taskqueue import distributed_tq
 from appscale.taskqueue.constants import SHUTTING_DOWN_TIMEOUT
+from .protocols import taskqueue_service_pb2
+from .protocols import remote_api_pb2
 from appscale.taskqueue.rest_api import (
   REST_PREFIX, RESTLease, RESTQueue, RESTTask, RESTTasks, QueueList
 )
@@ -28,8 +29,6 @@ from appscale.taskqueue.statistics import (
 from appscale.taskqueue.utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.api.taskqueue import taskqueue_service_pb
-from google.appengine.ext.remote_api import remote_api_pb
 
 
 class ProtobufferHandler(RequestHandler):
@@ -76,7 +75,7 @@ class ProtobufferHandler(RequestHandler):
     http_request_data = request.body
     pb_type = request.headers['protocolbuffertype']
     app_data = request.headers['appdata']
-    app_data  = app_data.split(':')
+    app_data = app_data.split(':')
     app_id = app_data[0]
     version = request.headers['Version']
     module = request.headers['Module']
@@ -101,35 +100,35 @@ class ProtobufferHandler(RequestHandler):
         of the app that is sending this request.
       http_request_data: Encoded protocol buffer.
     """
-    apirequest = remote_api_pb.Request()
+    apirequest = remote_api_pb2.Request()
     apirequest.ParseFromString(http_request_data)
-    apiresponse = remote_api_pb.Response()
+    apiresponse = remote_api_pb2.Response()
     response = None
     errcode = 0
     errdetail = ""
     method = ""
     http_request_data = ""
     app_id = app_info['app_id']
-    if not apirequest.has_method():
-      errcode = taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST
+    if not apirequest.HasField("method"):
+      errcode = taskqueue_service_pb2.TaskQueueServiceError.INVALID_REQUEST
       errdetail = "Method was not set in request"
-      apirequest.set_method("NOT_FOUND")
+      apirequest.method = "NOT_FOUND"
     else:
-      method = apirequest.method()
+      method = apirequest.method
 
-    if not apirequest.has_request():
-      errcode = taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST
+    if not apirequest.HasField("request"):
+      errcode = taskqueue_service_pb2.TaskQueueServiceError.INVALID_REQUEST
       errdetail = "Request missing in call"
-      apirequest.set_method("NOT_FOUND")
-      apirequest.clear_request()
+      apirequest.method = "NOT_FOUND"
+      apirequest.ClearField("request")
     else:
-      http_request_data = apirequest.request()
+      http_request_data = apirequest.request
 
-    start_time = time.time()
+    start_time = monotonic.monotonic()
 
     request_log = method
-    if apirequest.has_request_id():
-      request_log += ': {}'.format(apirequest.request_id())
+    if apirequest.HasField("request_id"):
+      request_log += ': {}'.format(apirequest.request_id)
     logger.debug(request_log)
 
     result = None
@@ -148,8 +147,8 @@ class ProtobufferHandler(RequestHandler):
     elif method == "ModifyTaskLease":
       result = self.queue_handler.modify_task_lease(app_id, http_request_data)
     elif method == "UpdateQueue":
-      response = taskqueue_service_pb.TaskQueueUpdateQueueResponse()
-      result = self.queue_handler.Encode(), 0, ""
+      response = taskqueue_service_pb2.TaskQueueUpdateQueueResponse()
+      result = self.queue_handler.SerializeToString(), 0, ""
     elif method == "FetchQueues":
       result = self.queue_handler.fetch_queue(app_id, http_request_data)
     elif method == "QueryTasks":
@@ -159,8 +158,8 @@ class ProtobufferHandler(RequestHandler):
     elif method == "ForceRun":
       result = self.queue_handler.force_run(app_id, http_request_data)
     elif method == "DeleteQueue":
-      response = taskqueue_service_pb.TaskQueueDeleteQueueResponse()
-      result = self.queue_handler.Encode(), 0, ""
+      response = taskqueue_service_pb2.TaskQueueDeleteQueueResponse()
+      result = self.queue_handler.SerializeToString(), 0, ""
     elif method == "PauseQueue":
       result = self.queue_handler.pause_queue(app_id, http_request_data)
     elif method == "DeleteGroup":
@@ -172,23 +171,23 @@ class ProtobufferHandler(RequestHandler):
     if result:
       response, errcode, errdetail = result
 
-    elapsed_time = round(time.time() - start_time, 3)
+    elapsed_time = round(monotonic.monotonic() - start_time, 3)
     timing_log = 'Elapsed: {}'.format(elapsed_time)
-    if apirequest.has_request_id():
-      timing_log += ' ({})'.format(apirequest.request_id())
+    if apirequest.HasField("request_id"):
+      timing_log += ' ({})'.format(apirequest.request_id)
     logger.debug(timing_log)
 
     if response is not None:
-      apiresponse.set_response(response)
+      apiresponse.response = response
 
     # If there was an error add it to the response.
     if errcode != 0:
-      apperror_pb = apiresponse.mutable_application_error()
-      apperror_pb.set_code(errcode)
-      apperror_pb.set_detail(errdetail)
+      apperror_pb = apiresponse.application_error
+      apperror_pb.code = errcode
+      apperror_pb.detail = errdetail
 
-    self.write(apiresponse.Encode())
-    status = taskqueue_service_pb.TaskQueueServiceError.ErrorCode_Name(errcode)
+    self.write(apiresponse.SerializeToString())
+    status = taskqueue_service_pb2.TaskQueueServiceError.ErrorCode.Name(errcode)
     return method, status
 
 
@@ -257,14 +256,14 @@ def prepare_graceful_shutdown(zk_client, tornado_server):
     """ Stop accepting new requests and exit when all requests are finished
     or timeout is exceeded.
     """
-    signal_time = time.time()
+    deadline = monotonic.monotonic() + SHUTTING_DOWN_TIMEOUT
     logger.info('Stopping server')
     tornado_server.stop()
     io_loop = ioloop.IOLoop.current()
 
     def stop_on_signal():
       current_requests = service_stats.current_requests
-      if current_requests and time.time() - signal_time < SHUTTING_DOWN_TIMEOUT:
+      if current_requests and monotonic.monotonic() < deadline:
         logger.warning("Can't stop Taskqueue server now as {reqs} requests are "
                        "still in progress".format(reqs=current_requests))
       else:
@@ -298,10 +297,9 @@ def main():
     hosts=','.join(appscale_info.get_zk_node_ips()),
     connection_retry=ZK_PERSISTENT_RECONNECTS)
   zk_client.start()
-  db_access = DatastoreProxy()
 
   # Initialize tornado server
-  task_queue = distributed_tq.DistributedTaskQueue(db_access, zk_client)
+  task_queue = distributed_tq.DistributedTaskQueue(zk_client)
   tq_application = prepare_taskqueue_application(task_queue)
   # Automatically decompress incoming requests.
   server = httpserver.HTTPServer(tq_application, decompress_request=True)

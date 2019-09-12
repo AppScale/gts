@@ -6,6 +6,7 @@ require 'logger'
 require 'monitor'
 require 'net/http'
 require 'net/https'
+require 'open3'
 require 'openssl'
 require 'securerandom'
 require 'set'
@@ -131,6 +132,10 @@ MIN_LOAD_THRESHOLD = 0.7
 # The exit code that indicates the data layout version is unexpected.
 INVALID_VERSION_EXIT_CODE = 64
 
+# The allowed list of code directories to specify for updating the code and building it.
+ALLOWED_DIR_UPDATES = ["common", "app_controller", "admin_server", "taskqueue", "app_db",
+                       "iaas_manager", "hermes", "api_server", "appserver_java"]
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -175,11 +180,12 @@ class Djinn
   #  {
   #    # System stats provided by infrustucture manager
   #    "cpu" => {
+  #      "count" => 2,
   #      "idle" => 81.3,
   #      "system" => 13.2,
   #      "user" => 5.5
   #    },
-  #    "disk" => [
+  #    "partitions_dict" => [
   #      # For each partition
   #      {
   #        "/" => {
@@ -206,11 +212,9 @@ class Djinn
   #      ...
   #    },
   #    "loadavg" => {
-  #      "last_1_min" => 1.35,
-  #      "last_5_min" => 0.67,
-  #      "last_15_min" => 0.89,
-  #      "runnable_entities" => 3,
-  #      "scheduling_entities" => 687
+  #      "last_1min" => 1.35,
+  #      "last_5min" => 0.67,
+  #      "last_15min" => 0.89,
   #    },
   #    # Node information provided by AppController itself
   #    "apps" => {
@@ -290,7 +294,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = true
+  FIREWALL_IS_ON = 'true' == (ENV['APPSCALE_FIREWALL'] || 'true')
 
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
@@ -390,7 +394,7 @@ class Djinn
   # services assume that they run at a specific location.
   RESERVED_APPS = [AppDashboard::APP_NAME].freeze
 
-  # A Fixnum that indicates what the first port is that can be used for hosting
+  # A Integer that indicates what the first port is that can be used for hosting
   # Google App Engine apps.
   STARTING_APPSERVER_PORT = 20_000
 
@@ -450,9 +454,9 @@ class Djinn
     'autoscale' => [TrueClass, 'True', true],
     'client_secrets' => [String, nil, false],
     'controller_logs_to_dashboard' => [TrueClass, 'False', false],
-    'default_max_appserver_memory' => [Fixnum, "#{DEFAULT_MEMORY}", true],
-    'default_min_appservers' => [Fixnum, '2', true],
-    'default_max_appservers' => [Fixnum, '999999', true],
+    'default_max_appserver_memory' => [Integer, "#{DEFAULT_MEMORY}", true],
+    'default_min_appservers' => [Integer, '2', true],
+    'default_max_appservers' => [Integer, '999999', true],
     'disks' => [String, nil, true],
     'ec2_access_key' => [String, nil, false],
     'ec2_secret_key' => [String, nil, false],
@@ -465,27 +469,29 @@ class Djinn
     'keyname' => [String, nil, false],
     'infrastructure' => [String, nil, true],
     'instance_type' => [String, nil, true],
-    'lb_connect_timeout' => [Fixnum, '120000', true],
+    'lb_connect_timeout' => [Integer, '120000', true],
     'login' => [String, nil, true],
     'machine' => [String, nil, true],
-    'max_machines' => [Fixnum, '0', true],
-    'min_machines' => [Fixnum, '1', true],
+    'max_machines' => [Integer, '0', true],
+    'min_machines' => [Integer, '1', true],
     'region' => [String, nil, true],
-    'replication' => [Fixnum, '1', true],
+    'replication' => [Integer, '1', true],
     'project' => [String, nil, false],
     'table' => [String, 'cassandra', false],
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
     'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Fixnum, '15', true],
+    'nodes_stats_log_interval' => [Integer, '15', true],
     'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Fixnum, '65', true],
+    'processes_stats_log_interval' => [Integer, '65', true],
     'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Fixnum, '35', true],
+    'proxies_stats_log_interval' => [Integer, '35', true],
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
-    'zone' => [String, nil, true]
+    'zone' => [String, nil, true],
+    'fdb_clusterfile_content' => [String, nil, true],
+    'update' => [Array, [], false]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -610,9 +616,9 @@ class Djinn
   #
   # Args:
   #   version_key: A String that names the version that should be relocated.
-  #   http_port: A String or Fixnum that names the port that should be used to
+  #   http_port: A String or Integer that names the port that should be used to
   #     serve HTTP traffic for this app.
-  #   https_port: A String or Fixnum that names the port that should be used to
+  #   https_port: A String or Integer that names the port that should be used to
   #     serve HTTPS traffic for this app.
   #   secret: A String that authenticates callers.
   # Returns:
@@ -620,6 +626,8 @@ class Djinn
   #   reason why the relocation failed in all other cases.
   def relocate_version(version_key, http_port, https_port, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     Djinn.log_debug("Received relocate_version for #{version_key} for " \
                     "http port #{http_port} and https port #{https_port}.")
 
@@ -807,7 +815,7 @@ class Djinn
       Djinn.log_info(msg)
 
       # Let's check if we can convert them now to the proper class.
-      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           Integer(val)
         rescue
@@ -827,7 +835,7 @@ class Djinn
       # message similar to "failed to serialize detail object". We convert
       # them here to String.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == TrueClass ||
-         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Fixnum
+         PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Integer
         begin
           newval = val.to_s
         rescue
@@ -840,7 +848,7 @@ class Djinn
       # Strings may need to be sanitized.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == String
         # Some options shouldn't be sanitize.
-        if key == 'user_commands' or key == 'azure_app_secret_key'
+        if ['user_commands', 'azure_app_secret_key', 'fdb_clusterfile_content'].include? key
           newval = val
         # Keys have a relaxed sanitization process.
         elsif key.include? "_key" or key.include? "EC2_SECRET_KEY"
@@ -848,6 +856,11 @@ class Djinn
         else
           newval = val.gsub(NOT_FQDN_REGEX, '')
         end
+      end
+
+      # We do not sanitize Array parameters for now.
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Array
+        newval = val
       end
 
       newoptions[key] = newval
@@ -862,7 +875,40 @@ class Djinn
     # Set the proper log level.
     new_level = Logger::INFO
     new_level = Logger::DEBUG if @options['verbose'].downcase == "true"
-    @@log.level = new_level if @@log.level != new_level
+    @state_change_lock.synchronize {
+      @@log.level = new_level if @@log.level != new_level
+    }
+
+    # The master node can now enforce some sanity checks on the options.
+    if my_node.is_shadow? and is_cloud?
+      @state_change_lock.synchronize {
+        # Max and min needs to be at least the number of started nodes, it
+        # needs to be positive. Max needs to be no smaller than min.
+        if Integer(@options['max_machines']) < @nodes.length
+          msg = 'max_machines is less than the number of nodes!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
+        end
+        if Integer(@options['min_machines']) > @nodes.length
+          msg = 'min_machines is bigger than the number of nodes!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
+        end
+        if Integer(@options['max_machines']) < Integer(@options['min_machines'])
+          msg = 'min_machines is bigger than max_machines!'
+          Djinn.log_warn(msg)
+          raise AppScaleException.new(msg)
+        end
+
+        # Ensure we have the correct EC2 credentials available.
+        ENV['EC2_URL'] = @options['ec2_url']
+        if @options['ec2_access_key'].nil?
+          @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
+          @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
+          @options['ec2_url'] = @options['EC2_URL']
+        end
+      }
+    end
   end
 
   # This is the method needed to get the current layout and options for
@@ -893,81 +939,48 @@ class Djinn
       Djinn.log_error(msg)
       return msg
     end
-    if opts.nil? || opts.empty?
-      Djinn.log_info("Empty options: using defaults.")
-    elsif opts.class != Hash
-      msg = "Error: options is not a Hash."
+    if opts.nil? || opts.empty? || opts.class != Hash
+      msg = "Error: options is empty or not a Hash."
       Djinn.log_error(msg)
       return msg
-    else
-      @state_change_lock.synchronize { @options = check_options(opts) }
     end
+    checked_opts = check_options(opts)
 
     # Let's validate we have the needed options defined.
     ['keyname', 'login', 'table'].each { |key|
-      unless @options[key]
+      unless checked_opts[key]
         msg = "Error: cannot find #{key} in options!"
         Djinn.log_error(msg)
         return msg
       end
     }
 
-    begin
-      @state_change_lock.synchronize {
-        @nodes = check_layout(layout, @options['keyname'])
-      }
-    rescue AppScaleException => e
-      Djinn.log_error(e.message)
-      return e.message
-    end
-
     # Now let's make sure the parameters that needs to have values are
     # indeed defines, otherwise set the defaults.
     PARAMETERS_AND_CLASS.each { |key, _|
-      @state_change_lock.synchronize {
-        # The parameter 'key' is defined, no need to do anything.
-        next if @options[key]
+      # The parameter 'key' is defined, no need to do anything.
+      next if checked_opts[key]
 
-        if PARAMETERS_AND_CLASS[key][1]
-           # The parameter has a default, and it's not defined. Adding
-           # default value.
-           @options[key] = PARAMETERS_AND_CLASS[key][1]
-        end
-      }
+      if PARAMETERS_AND_CLASS[key][1]
+         # The parameter has a default, and it's not defined. Adding
+         # default value.
+         checked_opts[key] = PARAMETERS_AND_CLASS[key][1]
+      end
     }
-    enforce_options
 
-    # From here on we do more logical checks on the values we received.
-    # The first one is to check that max and min are set appropriately.
-    # Max and min needs to be at least the number of started nodes, it
-    # needs to be positive. Max needs to be no smaller than min.
+    # We need to make sure we have a good layout and this node is listed
+    # in the started nodes.
     @state_change_lock.synchronize {
-      if Integer(@options['max_machines']) < @nodes.length
-        Djinn.log_warn("max_machines is less than the number of nodes!")
-        @options['max_machines'] = @nodes.length.to_s
-      end
-      if Integer(@options['min_machines']) < @nodes.length
-        Djinn.log_warn("min_machines is less than the number of nodes!")
-        @options['min_machines'] = @nodes.length.to_s
-      end
-      if Integer(@options['max_machines']) < Integer(@options['min_machines'])
-        Djinn.log_warn("min_machines is bigger than max_machines!")
-        @options['max_machines'] = @options['min_machines']
-      end
+      @nodes = check_layout(layout, checked_opts['keyname'])
+      find_me_in_locations
+      return "Error: Couldn't find me in the node map" if @my_index.nil?
+
+      # Now we can unlock the main thread and let it proceed with the
+      # initialization.
+      @options = checked_opts
     }
 
-    # We need to make sure this node is listed in the started nodes.
-    find_me_in_locations
-    return "Error: Couldn't find me in the node map" if @my_index.nil?
-
-    @state_change_lock.synchronize {
-      ENV['EC2_URL'] = @options['ec2_url']
-      if @options['ec2_access_key'].nil?
-        @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
-        @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
-        @options['ec2_url'] = @options['EC2_URL']
-      end
-    }
+    Djinn.log_info("Successfully received nodes layout (#{@nodes}) and deployment options (#{@options}).")
 
     'OK'
   end
@@ -985,6 +998,7 @@ class Djinn
   #   get_app_upload_status to see if the app has successfully uploaded or not.
   def upload_app(archived_file, file_suffix, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending upload_app call to shadow.")
@@ -1052,6 +1066,7 @@ class Djinn
   #   returned.
   def get_app_upload_status(reservation_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending get_upload_status call to shadow.")
@@ -1081,6 +1096,7 @@ class Djinn
   #   A JSON string with the statistics of the nodes.
   def get_cluster_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug("Sending get_cluster_stats_json call to shadow.")
@@ -1143,6 +1159,7 @@ class Djinn
   #   A JSON string with the database information.
   def get_database_information(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     tree = { :table => @options['table'], :replication => @options['replication'],
       :keyname => @options['keyname'] }
@@ -1160,6 +1177,7 @@ class Djinn
   #   authenticate correctly.
   def run_groomer(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Thread.new {
       run_groomer_command = `which appscale-groomer`.chomp
@@ -1189,6 +1207,7 @@ class Djinn
   #   to the value it is bound to.
   def get_property(property_regex, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       # We need to send the call to the shadow.
@@ -1203,7 +1222,7 @@ class Djinn
       end
     end
 
-    Djinn.log_info("Received request to get properties matching #{property_regex}.")
+    Djinn.log_debug("Received request to get properties matching #{property_regex}.")
     properties = {}
     PARAMETERS_AND_CLASS.each { |key, val|
       begin
@@ -1232,7 +1251,7 @@ class Djinn
   #
   # Args:
   #   property_name: A String naming the instance variable that should be set.
-  #   property_value: A String or Fixnum that provides the value for the given
+  #   property_value: A String or Integer that provides the value for the given
   #     property name.
   #   secret: A String with the shared key for authentication.
   #
@@ -1244,6 +1263,8 @@ class Djinn
   #     - BAD_SECRET_MSG if the caller could not be authenticated.
   def set_property(property_name, property_value, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     if property_name.class != String or property_value.class != String
       Djinn.log_warn("set_property: received non String parameters.")
       return KEY_NOT_FOUND
@@ -1358,6 +1379,11 @@ class Djinn
           )
         end
       end
+
+      if key == 'fdb_clusterfile_content'
+        ZKInterface.set_fdb_clusterfile_content(val)
+      end
+      
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
@@ -1369,6 +1395,7 @@ class Djinn
   # Updates a project's cron jobs.
   def update_cron(project_id, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     unless my_node.is_shadow?
       Djinn.log_debug(
@@ -1397,6 +1424,7 @@ class Djinn
   #   A boolean indicating whether the deployment ID has been set or not.
   def deployment_id_exists(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     return ZKInterface.exists?(DEPLOYMENT_ID_PATH)
   end
@@ -1406,6 +1434,7 @@ class Djinn
   #   A string that contains the deployment ID.
   def get_deployment_id(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       return ZKInterface.get(DEPLOYMENT_ID_PATH)
@@ -1421,6 +1450,7 @@ class Djinn
   #   id: A string that contains the deployment ID.
   def set_deployment_id(secret, id)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       ZKInterface.set(DEPLOYMENT_ID_PATH, id, false)
@@ -1437,6 +1467,7 @@ class Djinn
   #     off.
   def set_node_read_only(read_only, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
     return INVALID_REQUEST unless %w(true false).include?(read_only)
 
     if read_only == 'true'
@@ -1455,6 +1486,7 @@ class Djinn
   def set_read_only(read_only, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     return INVALID_REQUEST unless %w(true false).include?(read_only)
+    return NOT_READY if @nodes.empty?
 
     ZKInterface.get_datastore_servers.each { |machine_ip, port|
       http = Net::HTTP.new(machine_ip, port)
@@ -1494,6 +1526,7 @@ class Djinn
   #   A string indicating whether or not the primary database node is ready.
   def primary_db_is_up(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     primary_ip = get_db_master.private_ip
     unless my_node.is_db_master?
@@ -1524,6 +1557,7 @@ class Djinn
   #   password: The SHA1-hashed password that will be set as the user's password.
   def reset_password(username, password, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1540,6 +1574,7 @@ class Djinn
   #   username: The email address registered as username for the user's application.
   def does_user_exist(username, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1559,6 +1594,7 @@ class Djinn
   #     by XMPP users.
   def create_user(username, password, account_type, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1575,6 +1611,7 @@ class Djinn
   #   username: The e-mail address that should be given administrative authorizations.
   def set_admin_role(username, is_cloud_admin, capabilities, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       uac = UserAppClient.new(my_node.private_ip, @@secret)
@@ -1587,6 +1624,7 @@ class Djinn
 
   def get_all_public_ips(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     public_ips = []
     @state_change_lock.synchronize {
@@ -1597,6 +1635,7 @@ class Djinn
 
   def get_all_private_ips(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     private_ips = []
     @state_change_lock.synchronize {
@@ -1606,11 +1645,19 @@ class Djinn
   end
 
   def check_api_services
-    # LoadBalancers needs to setup the routing for the datastore before
-    # proceeding.
+    # LoadBalancers needs to setup the routing
+    # for the datastore and search2 (if applicable) before proceeding.
     while my_node.is_load_balancer? && !update_db_haproxy
       Djinn.log_info('Waiting for Datastore assignements ...')
       sleep(SMALL_WAIT)
+    end
+
+    has_search2 = !get_search2.empty?
+    if has_search2
+      while my_node.is_load_balancer? && !update_search2_haproxy
+        Djinn.log_info('Waiting for Search2 assignements ...')
+        sleep (SMALL_WAIT)
+      end
     end
 
     # Wait till the Datastore is functional.
@@ -1622,10 +1669,22 @@ class Djinn
     end
     Djinn.log_info('Datastore service is active.')
 
+    if has_search2
+      # Wait till the Search2 is functional.
+      loop do
+        break if HelperFunctions.is_port_open?(get_load_balancer.private_ip,
+                                               Search2::PROXY_PORT)
+        Djinn.log_debug('Waiting for Search2 to be active...')
+        sleep(SMALL_WAIT)
+      end
+      Djinn.log_info('Search2 service is active.')
+    end
+
     # At this point all nodes are fully functional, so the Shadow will do
-    # another assignments of the datastore processes to ensure we got the
-    # accurate CPU count.
+    # another assignments of the datastore and search2 processes
+    # to ensure we got the accurate CPU count.
     assign_datastore_processes if my_node.is_shadow?
+    assign_search2_processes if my_node.is_shadow? and has_search2
   end
 
   def job_start(secret)
@@ -1697,6 +1756,10 @@ class Djinn
     end
     parse_options
 
+    # Enforce actions from possibly changed options (like logs or
+    # credentials).
+    enforce_options
+
     # Load datastore helper.
     # TODO: this should be the class or module.
     table = @options['table']
@@ -1719,7 +1782,6 @@ class Djinn
     start_infrastructure_manager
     mount_persistent_storage
 
-    find_me_in_locations
     write_database_info
     update_firewall
 
@@ -1735,9 +1797,7 @@ class Djinn
     if my_node.is_shadow?
       configure_ejabberd_cert
       Djinn.log_info("Preparing other nodes for this deployment.")
-      @state_change_lock.synchronize {
-        initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
-      }
+      initialize_nodes_in_parallel(nodes_to_wait, skip_nodes)
     end
 
     # Initialize the current server and starts all the API and essential
@@ -1753,7 +1813,7 @@ class Djinn
     @done_loading = true
 
     pick_zookeeper(@zookeeper_data)
-    write_our_node_info
+    set_done_status
 
     # We wait only for non autoscaled nodes.
     wait_for_nodes_to_finish_loading(nodes_to_wait)
@@ -1872,6 +1932,7 @@ class Djinn
       if my_node.is_load_balancer?
         # Load balancers need to regenerate nginx/haproxy configuration if needed.
         update_db_haproxy
+        update_search2_haproxy unless get_search2.empty?
         APPS_LOCK.synchronize { regenerate_routing_config }
       end
       @state = "Done starting up AppScale, now in heartbeat mode"
@@ -1913,27 +1974,26 @@ class Djinn
 
   def is_appscale_terminated(secret)
     begin
-      bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
-      return bad_secret unless valid_secret?(secret)
+      return JSON.dump({'status'=>BAD_SECRET_MSG}) unless valid_secret?(secret)
     rescue Errno::ENOENT
       # On appscale down, terminate may delete our secret key before we
       # can check it here.
-      Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
+      Djinn.log_debug("is_appscale_terminated: didn't find secret file. Continuing.")
     end
     return @done_terminating
   end
 
   def run_terminate(clean, secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
+    begin
+      return JSON.dump({'status'=>BAD_SECRET_MSG}) unless valid_secret?(secret)
+    rescue Errno::ENOENT
+      # On appscale down, terminate may delete our secret key before we
+      # can check it here.
+      Djinn.log_debug("is_appscale_terminated: didn't find secret file. Continuing.")
+    end
+    return NOT_READY if @nodes.empty?
+
     if my_node.is_shadow?
-      begin
-        bad_secret = JSON.dump({'status'=>BAD_SECRET_MSG})
-        return bad_secret unless valid_secret?(secret)
-      rescue Errno::ENOENT
-        # On appscale down, terminate may delete our secret key before we
-        # can check it here.
-        Djinn.log_debug("run_terminate(): didn't find secret file. Continuing.")
-      end
       Djinn.log_info("Received a stop request.")
       Djinn.log_info("Stopping all other nodes.")
       Thread.new {
@@ -2064,6 +2124,7 @@ class Djinn
 
   def get_online_users_list(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     online_users = []
 
@@ -2089,6 +2150,7 @@ class Djinn
   #   A Boolean indicating the success of the operation.
   def stop_hosting_revision(revision_key, location, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Djinn.log_warn("#{location} still exists") unless File.exists?(location)
 
@@ -2145,6 +2207,7 @@ class Djinn
   #   OK: otherwise.
   def start_roles_on_nodes(ips_hash, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     begin
       ips_hash = JSON.load(ips_hash)
@@ -2399,10 +2462,12 @@ class Djinn
   # the command that was executed.
   def self.log_run(command)
     Djinn.log_debug("Running #{command}")
-    output = `#{command}`
-    if $?.exitstatus != 0
-      Djinn.log_debug("Command #{command} failed with #{$?.exitstatus}" \
-          " and output: #{output}.")
+    output, err_output, status = Open3.capture3(command)
+    if status.exitstatus != 0
+      Djinn.log_debug("Command #{command} failed with #{status.exitstatus}" \
+          " and output: #{output}")
+      Djinn.log_debug("Command #{command} error output: " \
+          "#{err_output}") if err_output
     end
     return output
   end
@@ -2497,6 +2562,12 @@ class Djinn
     HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
+  def get_search2
+    @state_change_lock.synchronize {
+      return @nodes.select { |node| node.is_search2? }
+    }
+  end
+
   def valid_secret?(secret)
     @@secret = HelperFunctions.get_secret
     if secret != @@secret
@@ -2515,6 +2586,7 @@ class Djinn
   #   secret: A String password that is used to authenticate SOAP callers.
   def gather_logs(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     uuid = HelperFunctions.get_random_alphanumeric
     Djinn.log_info("Generated uuid #{uuid} for request to gather logs.")
@@ -2569,6 +2641,7 @@ class Djinn
   #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
   def add_routing_for_blob_server(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
     return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
 
     Djinn.log_debug('Adding BlobServer routing.')
@@ -2604,6 +2677,20 @@ class Djinn
 
     HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
                               DatastoreServer::NAME)
+    return true
+  end
+
+  def update_search2_haproxy
+    begin
+      servers = ZKInterface.get_search2_servers.map { |machine_ip, port|
+        {'ip' => machine_ip, 'port' => port}
+      }
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn('Unable to fetch list of search2 servers')
+      return false
+    end
+
+    HAProxy.create_app_config(servers, '*', Search2::PROXY_PORT, Search2::NAME)
     return true
   end
 
@@ -2826,7 +2913,8 @@ class Djinn
 
     # Now that we've restored our state, update the pointer that indicates
     # which node in @nodes is ours
-    find_me_in_locations
+    @state_change_lock.synchronize { find_me_in_locations }
+    Djinn.log_error("Couldn't find me in @nodes after restore!") if @my_index.nil?
 
     # Usually we don't expect the master node to see a change in the state
     # (since it is the one which saves it), so we leave a note here.
@@ -3004,26 +3092,25 @@ class Djinn
     Djinn.log_debug("Found zookeeper server.")
   end
 
-  # Backs up information about what this node is doing (roles, apps it is
-  # running) to ZooKeeper, for later recovery or updates by other nodes.
-  def write_our_node_info
-    # Since more than one AppController could write its data at the same
-    # time, get a lock before we write to it.
-    begin
-      ZKInterface.lock_and_run {
+  # Set the done status in zookeeper.
+  def set_done_status
+    RETRIES.downto(0) { ||
+      begin
         ZKInterface.write_node_information(my_node, @done_loading)
-      }
-    rescue => e
-      Djinn.log_info("(write_our_node_info) saw exception #{e.message}")
-    end
-
-    return
+        return
+      rescue => e
+        Djinn.log_info("(set_done_status) retry after exception #{e.message}.")
+        next
+      end
+    }
   end
 
   # Returns information about the AppServer processes hosting App Engine apps on
   # this machine.
   def get_instance_info(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     APPS_LOCK.synchronize {
       instance_info = []
       @app_info_map.each_pair { |version_key, app_info|
@@ -3102,9 +3189,6 @@ class Djinn
       ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
       ENV['EC2_URL'] = @options['ec2_url']
     end
-
-    # Set the proper log level.
-    enforce_options
   end
 
   def got_all_data
@@ -3128,34 +3212,31 @@ class Djinn
         "#{all_local_ips.join(', ')}")
     end
 
-    @state_change_lock.synchronize {
-      @nodes.each_with_index { |node, index|
-        all_local_ips.each { |ip|
-          if ip == node.private_ip
-            @my_index = index
-            @my_public_ip = node.public_ip
-            @my_private_ip = node.private_ip
-            Djinn.log_info("Local IP recorded and used is #{ip}.")
-            return
-          end
-        }
+    @nodes.each_with_index { |node, index|
+      all_local_ips.each { |ip|
+        if ip == node.private_ip
+          @my_index = index
+          @my_public_ip = node.public_ip
+          @my_private_ip = node.private_ip
+          Djinn.log_info("Local IP recorded and used is #{ip}.")
+          return
+        end
       }
     }
+    Djinn.log_error("Cannot find any of my IP (#{all_local_ips}) in @nodes (#{@nodes}).")
 
     # We haven't found our ip in the nodes layout: let's try to give
     # better debugging info to the user.
     public_ip = HelperFunctions.get_public_ip_from_metadata_service
-    @state_change_lock.synchronize {
-      @nodes.each { |node|
-        if node.private_ip == public_ip
-          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
-            "but not my private ip in @nodes. Please correct it. @nodes=#{@nodes}")
-        end
-        if node.public_ip == public_ip
-          HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
-            "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
-        end
-      }
+    @nodes.each { |node|
+      if node.private_ip == public_ip
+        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
+          "but not my private ip in @nodes.")
+      end
+      if node.public_ip == public_ip
+        HelperFunctions.log_and_crash("Found my public ip (#{public_ip}) " \
+          "in @nodes but my private ip is not matching! @nodes=#{@nodes}.")
+      end
     }
 
     HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " \
@@ -3222,6 +3303,7 @@ class Djinn
         if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
           heap_reduction += 0.15
         end
+        heap_reduction += 0.15 if my_node.is_search2?
         heap_reduction = heap_reduction.round(2)
 
         if my_node.is_db_master?
@@ -3240,28 +3322,40 @@ class Djinn
     Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
-    Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
-
-    Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = `which appscale-data-layout`.chomp
-    retries = 10
-    loop {
-      output = `#{layout_script} --db-type cassandra 2>&1`
-      if $?.exitstatus == 0
+    # Autoscaled nodes do not need to check if the datastore is primed: if
+    # we got this far, it must be primed.
+    am_i_autoscaled = false
+    get_autoscaled_nodes.each { |node|
+      if node.private_ip == my_node.private_ip
+        am_i_autoscaled = true
+        Djinn.log_info("Skipping database layout check on scaled node.")
         break
-      elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
-        HelperFunctions.log_and_crash(
-          'Unexpected data layout version. Please run "appscale upgrade".')
-      elsif retries.zero?
-        HelperFunctions.log_and_crash(
-          'Exceeded retries while trying to check data layout.')
-      else
-        Djinn.log_warn("Error while checking data layout:\n#{output}")
-        sleep(SMALL_WAIT)
       end
-      retries -= 1
     }
+    unless am_i_autoscaled
+      Djinn.log_info('Ensuring necessary database tables are present')
+      sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
+
+      Djinn.log_info('Ensuring data layout version is correct')
+      layout_script = `which appscale-data-layout`.chomp
+      retries = 10
+      loop {
+        output = `#{layout_script} --db-type cassandra 2>&1`
+        if $?.exitstatus == 0
+          break
+        elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
+          HelperFunctions.log_and_crash(
+            'Unexpected data layout version. Please run "appscale upgrade".')
+        elsif retries.zero?
+          HelperFunctions.log_and_crash(
+            'Exceeded retries while trying to check data layout.')
+        else
+          Djinn.log_warn("Error while checking data layout:\n#{output}")
+          sleep(SMALL_WAIT)
+        end
+        retries -= 1
+      }
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"
@@ -3304,7 +3398,7 @@ class Djinn
       }
     end
 
-    start_admin_server
+    threads << Thread.new { start_admin_server }
 
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
@@ -3351,6 +3445,12 @@ class Djinn
       threads << Thread.new { stop_search_role }
     end
 
+    if my_node.is_search2?
+      threads << Thread.new { start_search2_role }
+    else
+      threads << Thread.new { stop_search2_role }
+    end
+
     if my_node.is_taskqueue_master?
       threads << Thread.new { start_taskqueue_master }
     elsif my_node.is_taskqueue_slave?
@@ -3359,20 +3459,25 @@ class Djinn
       threads << Thread.new { stop_taskqueue }
     end
 
+    # Start Hermes with integrated stats service
+    threads << Thread.new { start_hermes }
+
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
-    threads.each { |t| t.join }
+    threads.each do |t|
+      Djinn.log_debug("Waiting for thread #{t}") until t.join(5)
+    end
     Djinn.log_info('API services have started on this node.')
-
-    # Start Hermes with integrated stats service
-    start_hermes
 
     # Leader node starts additional services.
     if my_node.is_shadow?
-      @state = 'Assigning Datastore processes'
+      @state = 'Assigning Datastore and Search2 processes'
       assign_datastore_processes
-      TaskQueue.start_flower(@options['flower_password'])
+      assign_search2_processes
+
+      # Don't start flower if we don't have a password.
+      TaskQueue.start_flower(@options['flower_password']) unless @options['flower_password'].nil?
     else
       TaskQueue.stop_flower
     end
@@ -3431,12 +3536,34 @@ class Djinn
     Search.stop
   end
 
+  def start_search2_role
+    search_pth = "#{APPSCALE_HOME}/SearchService2"
+    Djinn.log_debug('Ensuring Solr is configured and started.')
+    is_db = my_node.is_db_master? || my_node.is_db_slave?
+    is_tq = my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
+    heap_reduction = 0
+    heap_reduction += 0.40 if is_db
+    heap_reduction += 0.25 if my_node.is_compute?
+    heap_reduction += 0.15 if is_tq
+    heap_reduction = heap_reduction.round(2)
+    Djinn.log_run("HEAP_REDUCTION=#{heap_reduction} "\
+                  "#{search_pth}/solr-management/ensure_solr_running.sh")
+    Djinn.log_debug('Done starting Solr on this node.')
+  end
+
+  def stop_search2_role
+    # Stop Solr
+    Djinn.log_debug('Stopping SOLR on this node.')
+    Djinn.log_run('systemctl stop solr')
+    Djinn.log_run('systemctl disable solr')
+    Djinn.log_debug('Done stopping SOLR.')
+  end
+
   def start_taskqueue_master
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_master(false, verbose)
     return true
   end
-
 
   def stop_taskqueue
     TaskQueue.stop
@@ -3528,6 +3655,10 @@ class Djinn
     # startup.
     return unless my_node.is_shadow?
 
+    if @options.key?('fdb_clusterfile_content')
+      ZKInterface.set_fdb_clusterfile_content(@options['fdb_clusterfile_content'])
+    end
+
     Djinn.log_info("Assigning datastore processes.")
     verbose = @options['verbose'].downcase == 'true'
     db_nodes = []
@@ -3541,15 +3672,33 @@ class Djinn
     # machine.
     db_nodes.each { |node|
       assignments = {}
+      assignments['datastore'] = {'verbose' => verbose}
+      ZKInterface.set_machine_assignments(node.private_ip, assignments)
+      Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
+    }
+  end
+
+  def assign_search2_processes
+    # Shadow is the only node to call this method,
+    # and is called upon startup.
+    return unless my_node.is_shadow?
+
+    Djinn.log_info("Assigning search processes.")
+    verbose = @options['verbose'].downcase == 'true'
+
+    # Assign the proper number of Search2 processes on each search2 machine.
+    get_search2.each { |node|
+      assignments = {}
       begin
         cpu_count = HermesClient.get_cpu_count(node.private_ip, @@secret)
-        server_count = cpu_count * DatastoreServer::MULTIPLIER
+        server_count = (cpu_count * Search2::MULTIPLIER).to_i
+        server_count = 1 if server_count == 0
       rescue FailedNodeException
-        server_count = DatastoreServer::DEFAULT_NUM_SERVERS
+        server_count = Search2::DEFAULT_NUM_SERVERS
       end
 
-      assignments['datastore'] = {'count' => server_count,
-                                  'verbose' => verbose}
+      assignments['search'] = {'count' => server_count,
+                               'verbose' => verbose}
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
       Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
@@ -3630,26 +3779,37 @@ class Djinn
     Djinn.log_info("Finished building target '#{target}' using #{pip}.")
   end
 
-  def build_java_appserver
-    Djinn.log_info('Building uncommitted Java AppServer changes')
-
-    # Cache package if it doesn't exist.
-    java_sdk_archive = 'appengine-java-sdk-1.8.4.zip'
-    local_archive = "#{APPSCALE_CACHE_DIR}/#{java_sdk_archive}"
+  def cache_package(package_file)
+    local_archive = "#{APPSCALE_CACHE_DIR}/#{package_file}"
     unless File.file?(local_archive)
       Net::HTTP.start(PACKAGE_MIRROR_DOMAIN) do |http|
-        resp = http.get("#{PACKAGE_MIRROR_PATH}/#{java_sdk_archive}")
+        resp = http.get("#{PACKAGE_MIRROR_PATH}/#{package_file}")
         open(local_archive, 'wb') do |file|
           file.write(resp.body)
         end
       end
     end
+    return local_archive
+  end
+
+  def build_java_appserver
+    Djinn.log_info('Building uncommitted Java AppServer changes')
+
+    new_jsp_jar = 'repackaged-appengine-eclipse-jdt-ecj.jar'
+    old_jsp_jar = 'repackaged-appengine-jasper-jdt-6.0.29.jar'
+
+    # Ensure packages cached
+    local_sdk_path = cache_package('appengine-java-sdk-1.8.4.zip')
+    new_jsp_jar_path = cache_package(new_jsp_jar)
 
     java_server = "#{APPSCALE_HOME}/AppServer_Java"
-    unzip = "unzip -o #{local_archive} -d #{java_server} > /dev/null 2>&1"
+    jsp_lib_path = "#{java_server}/appengine-java-sdk-1.8.4/lib/tools/jsp"
+    unzip = "unzip -o #{local_sdk_path} -d #{java_server} > /dev/null 2>&1"
+    update = "rm #{jsp_lib_path}/#{old_jsp_jar}; " \
+             "cp #{new_jsp_jar_path} #{jsp_lib_path}/ > /dev/null 2>&1"
     install = "ant -f #{java_server}/build.xml install > /dev/null 2>&1"
     clean = "ant -f #{java_server}/build.xml clean-build > /dev/null 2>&1"
-    if system(unzip) && system(install) && system(clean)
+    if system(unzip) && system(update) && system(install) && system(clean)
       Djinn.log_info('Finished building Java AppServer')
     else
       Djinn.log_error('Unable to build Java AppServer')
@@ -3668,41 +3828,81 @@ class Djinn
     update_python_package(src, '/opt/appscale_venvs/api_server/bin/pip')
   end
 
+  def build_taskqueue
+    Djinn.log_info('Compiling AppTaskQueue proto files')
+    src = File.join(APPSCALE_HOME, 'AppTaskQueue', 'appscale', 'taskqueue',
+                    'protocols')
+    unless system("./#{src}/compile_protocols.sh")
+      Djinn.log_error('Unable to compile AppTaskQueue proto files')
+      return
+    end
+    extras = TaskQueue::OPTIONAL_FEATURES.join(',')
+    update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]",
+                          TaskQueue::TASKQUEUE_PIP)
+  end
+
+  def build_search_service2
+    Djinn.log_info('Compiling Search2 proto files')
+    build_scripts_path = "#{APPSCALE_HOME}/SearchService2/build-scripts"
+    unless system("#{build_scripts_path}/compile_protocols.sh")
+      Djinn.log_error('Unable to compile Search2 proto files')
+      return
+    end
+    Djinn.log_info('Compiling ANTLR-4 query parser')
+    unless system("#{build_scripts_path}/compile_query.sh")
+      Djinn.log_error('Unable to compile ANTLR-4 query parser')
+      return
+    end
+    update_python_package("#{APPSCALE_HOME}/SearchService2",
+                          '/opt/appscale_venvs/search2/bin/pip')
+  end
+
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
-    status = `git -C #{APPSCALE_HOME} status`
+    if @options['update'].empty?
+      return
+    end
+
+    update_dirs = @options['update']
+    update_dirs = ALLOWED_DIR_UPDATES if update_dirs == ['all']
 
     # Update Python packages across corresponding virtual environments
-    if status.include?('common')
+    if update_dirs.include?('common')
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
+      update_python_package("#{APPSCALE_HOME}/common",
+                            TaskQueue::TASKQUEUE_PIP)
+      update_python_package("#{APPSCALE_HOME}/common",
+                            '/opt/appscale_venvs/search2/bin/pip')
     end
-    if status.include?('AppControllerClient')
+    if update_dirs.include?('app_controller')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
     end
-    if status.include?('AdminServer')
+    if update_dirs.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
     end
-    if status.include?('AppTaskQueue')
-      extras = TaskQueue::OPTIONAL_FEATURES.join(',')
-      update_python_package("#{APPSCALE_HOME}/AppTaskQueue[#{extras}]")
+    if update_dirs.include?('taskqueue')
+      build_taskqueue
     end
-    if status.include?('AppDB')
+    if update_dirs.include?('app_db')
       update_python_package("#{APPSCALE_HOME}/AppDB")
     end
-    if status.include?('InfrastructureManager')
+    if update_dirs.include?('iaas_manager')
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
-    if status.include?('Hermes')
+    if update_dirs.include?('hermes')
       update_python_package("#{APPSCALE_HOME}/Hermes")
     end
-    if status.include?('APIServer')
+    if update_dirs.include?('api_server')
       build_api_server
+    end
+    if update_dirs.include?('SearchService2')
+      build_search_service2
     end
 
     # Update Java AppServer
-    build_java_appserver if status.include?('AppServer_Java')
+    build_java_appserver if update_dirs.include?('appserver_java')
   end
 
   def configure_ejabberd_cert
@@ -3724,9 +3924,7 @@ class Djinn
     threads = []
     must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
-      threads << Thread.new {
-        initialize_node(slave)
-      }
+      threads << Thread.new { initialize_node(slave) }
     }
 
     # If we cannot reconnect with autoscaled nodes, we will have to clean
@@ -3741,7 +3939,7 @@ class Djinn
           }
         rescue Timeout::Error
           Djinn.log_warn("Couldn't initialize #{slave} in time.")
-          terminate_node_from_deployment(slave)
+          APPS_LOCK.synchronize { terminate_node_from_deployment(slave) }
         end
       }
     }
@@ -3753,8 +3951,8 @@ class Djinn
   def initialize_node(node)
     copy_encryption_keys(node)
     validate_image(node)
-    rsync_files(node)
-    run_user_commands(node)
+    rsync_files(node, @options['keyname'])
+    run_user_commands(node, @options['user_commands'])
     start_appcontroller(node)
   end
 
@@ -3778,15 +3976,21 @@ class Djinn
       Djinn.log_run("ssh-keygen -R #{dest_node.public_ip}")
     end
 
-    if is_cloud?
-      if @options['infrastructure'] == 'gce'
+    is_it_cloud = nil
+    infrastructure = nil
+    @state_change_lock.synchronize {
+      is_it_cloud = is_cloud?
+      infrastructure = @options['infrastructure']
+    }
+    if is_it_cloud
+      if infrastructure == 'gce'
         # Since GCE v1beta15, SSH keys don't immediately get injected to newly
         # spawned VMs. It takes around 30 seconds, so sleep a bit longer to be
         # sure.
         Djinn.log_debug("Waiting for SSH keys to get injected to #{ip}.")
         Kernel.sleep(60)
       end
-      enable_root_login(ip, ssh_key)
+      enable_root_login(ip, ssh_key, infrastructure)
     end
 
     Kernel.sleep(SMALL_WAIT)
@@ -3809,7 +4013,7 @@ class Djinn
 
     # Finally, on GCE, we need to copy over the user's credentials, in case
     # nodes need to attach persistent disks.
-    return if @options['infrastructure'] != "gce"
+    return if infrastructure == 'gce'
 
     client_secrets = "#{APPSCALE_CONFIG_DIR}/client_secrets.json"
     gce_oauth = "#{APPSCALE_CONFIG_DIR}/oauth2.dat"
@@ -3825,14 +4029,14 @@ class Djinn
 
   # Logs into the named host and alters its ssh configuration to enable the
   # root user to directly log in.
-  def enable_root_login(ip, ssh_key)
+  def enable_root_login(ip, ssh_key, infrastructure)
     options = '-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0'
 
     # Determine which user to login as.
     output = `ssh -i #{ssh_key} #{options} 2>&1 root@#{ip} true`
     match = /Please login as the user "(.+)" rather than the user "root"/.match(output)
     if match.nil?
-      if @options['infrastructure'] == 'azure'
+      if infrastructure == 'azure'
         user_name = 'azureuser'
       else
         user_name = 'ubuntu'
@@ -3855,7 +4059,7 @@ class Djinn
                       "'#{merge_keys}'")
   end
 
-  def rsync_files(dest_node)
+  def rsync_files(dest_node, keyname)
     # Get the keys and address of the destination node.
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -3877,6 +4081,7 @@ class Djinn
       LogService
       scripts
       SearchService
+      SearchService2
       XMPPReceiver
     ).map { |path| File.join(APPSCALE_HOME, path) }
     to_copy.each { |dir|
@@ -3886,7 +4091,7 @@ class Djinn
     }
 
     if dest_node.is_compute?
-      locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{@options['keyname']}.json"
+      locations_json = "#{APPSCALE_CONFIG_DIR}/locations-#{keyname}.json"
       loop {
         break if File.exists?(locations_json)
         Djinn.log_warn('Locations JSON file does not exist on head node' \
@@ -3908,6 +4113,7 @@ class Djinn
     master_ips = []
     memcache_ips = []
     search_ips = []
+    search2_ips = []
     slave_ips = []
     taskqueue_ips = []
     my_public = my_node.public_ip
@@ -3923,6 +4129,7 @@ class Djinn
         master_ips << node.private_ip if node.is_db_master?
         memcache_ips << node.private_ip if node.is_memcache?
         search_ips << node.private_ip if node.is_search?
+        search2_ips << node.private_ip if node.is_search2?
         slave_ips << node.private_ip if node.is_db_slave?
         taskqueue_ips << node.private_ip if node.is_taskqueue_master? ||
           node.is_taskqueue_slave?
@@ -3938,11 +4145,13 @@ class Djinn
     login_content = login_ip + "\n"
     master_content = master_ips.join("\n") + "\n"
     search_content = search_ips.join("\n") + "\n"
+    search2_content = search2_ips.join("\n") + "\n"
     slaves_content = slave_ips.join("\n") + "\n"
 
     new_content = all_ips_content + login_content + load_balancer_content +
       master_content + memcache_content + my_public + my_private +
-      num_of_nodes + taskqueue_content + search_content + slaves_content
+      num_of_nodes + taskqueue_content + search_content + search2_content +
+      slaves_content
 
     # If nothing changed since last time we wrote locations file(s), skip it.
     if new_content != @locations_content
@@ -3998,6 +4207,12 @@ class Djinn
       unless search_content.chomp.empty?
         HelperFunctions.write_file(Search::SEARCH_LOCATION_FILE,
                                    search_content)
+      end
+
+      Djinn.log_info("Search2 service locations: #{search2_ips}.")
+      unless search2_content.chomp.empty?
+        HelperFunctions.write_file('/etc/appscale/search2_ips',
+                                   search2_content)
       end
     end
   end
@@ -4081,7 +4296,7 @@ class Djinn
   end
 
   def my_node
-    find_me_in_locations if @my_index.nil?
+    @state_change_lock.synchronize { find_me_in_locations } if @my_index.nil?
 
     if @my_index.nil?
       Djinn.log_debug("My index is nil - is nodes nil? #{@nodes.nil?}")
@@ -4208,12 +4423,12 @@ class Djinn
   # Args:
   # - node: A NodeInfo that represents the machine where the given commands
   #   should be executed.
-  def run_user_commands(node)
-    if @options['user_commands'].class == String
+  def run_user_commands(node, user_commands)
+    if user_commands.class == String
       begin
-        commands = JSON.load(@options['user_commands'])
+        commands = JSON.load(user_commands)
       rescue JSON::ParserError
-        commands = @options['user_commands']
+        commands = user_commands
       end
 
       if commands.class == String
@@ -4298,8 +4513,12 @@ class Djinn
     end
     Djinn.log_debug("Sending data to #{ip}.")
 
-    layout = Djinn.convert_location_class_to_json(@nodes)
-    options = JSON.dump(@options)
+    layout = nil
+    options = nil
+    @state_change_lock.synchronize {
+      layout = Djinn.convert_location_class_to_json(@nodes)
+      options = JSON.dump(@options)
+    }
     begin
       result = acc.set_parameters(layout, options)
     rescue FailedNodeException => e
@@ -4312,6 +4531,7 @@ class Djinn
   def start_admin_server
     Djinn.log_info('Starting AdminServer')
     script = `which appscale-admin`.chomp
+    HelperFunctions.log_and_crash("Cannot find appscale-admin!") if script.empty?
     nginx_port = 17441
     service_port = 17442
     start_cmd = "#{script} serve -p #{service_port}"
@@ -5306,7 +5526,12 @@ class Djinn
       get_all_compute_nodes.each { |host|
         @cluster_stats.each { |node|
           next if node['private_ip'] != host
-
+          Djinn.log_debug("Using #{host}'s stats, making sure keys are accessible " \
+            "node['memory']['total']: #{node['memory']['total']} " \
+            "node['memory']['available']: #{node['memory']['available']}" \
+            "node['loadavg']['last_1min']: #{node['loadavg']['last_1min']}" \
+            "node['cpu']['count']: #{node['cpu']['count']}"
+          )
           # Check how many new AppServers of this app, we can run on this
           # node (as theoretical maximum memory usage goes).  First convert
           # total memory to MB.
@@ -5327,7 +5552,7 @@ class Djinn
           break if max_new_free <= 0
 
           # The host needs to have normalized average load less than MAX_LOAD_AVG.
-          if Float(node['loadavg']['last_1_min']) / node['cpu']['count'] > MAX_LOAD_AVG
+          if Float(node['loadavg']['last_1min']) / node['cpu']['count'] > MAX_LOAD_AVG
             Djinn.log_debug("#{host} CPUs are too busy.")
             break
           end
@@ -5562,6 +5787,7 @@ class Djinn
   # requests seen for the given application.
   def get_request_info(version_key, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
     Djinn.log_debug("Sending a log with request rate #{version_key}, " \
                     "timestamp #{@last_sampling_time[version_key]}, request " \
@@ -5588,21 +5814,27 @@ class Djinn
 
     RETRIES.downto(0) { ||
       begin
-        remote_machine = ZKInterface.get_revision_hosters(
+        ip = ZKInterface.get_revision_hosters(
           revision_key, @options['keyname']).sample
       rescue FailedZooKeeperOperationException
         sleep(SMALL_WAIT)
         next
       end
 
-      if remote_machine.nil?
+      if ip.nil?
         Djinn.log_info("Waiting for a machine to have a copy of #{app_path}")
         Kernel.sleep(SMALL_WAIT)
         next
       end
 
-      ssh_key = remote_machine.ssh_key
-      ip = remote_machine.private_ip
+      # Get the ssh key to use for the remote machine.
+      remote_node = @nodes.keep_if { |node| node.private_ip == ip }
+      if remote_node.empty?
+        Djinn.log_info("Got invalid machine to retrieve code (#{ip}).")
+        next
+      end
+      ssh_key = remote_node[0].ssh_key
+
       md5 = ZKInterface.get_revision_md5(revision_key, ip)
       Djinn.log_debug("Trying #{ip}:#{app_path} for the application.")
       RETRIES.downto(0) {
@@ -5706,13 +5938,13 @@ class Djinn
   #     node.
   def get_node_stats_json(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
 
-    # Get stats from SystemManager.
-    imc = InfrastructureManagerClient.new(secret, my_node.private_ip)
+    # Get stats from Hermes.
     begin
-      system_stats = JSON.load(imc.get_system_stats)
-    rescue SOAP::FaultError, FailedNodeException => exception
-      Djinn.log_warn("Failed to talk to [IM]: #{exception.message}")
+      system_stats = HermesClient.get_system_stats(my_node.private_ip, @@secret)
+    rescue AppScaleException => error
+      Djinn.log_warn("Couldn't get system stats from Hermes: #{error.message}")
       return INVALID_REQUEST
     end
 
@@ -5845,6 +6077,8 @@ class Djinn
   #   An application cron info
   def get_application_cron_info(app_name, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
+    return NOT_READY if @nodes.empty?
+
     content = CronHelper.get_application_cron_info(app_name)
     JSON.dump(content)
   end

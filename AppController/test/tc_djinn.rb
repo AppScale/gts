@@ -132,10 +132,9 @@ class TestDjinn < Test::Unit::TestCase
 
     better_credentials = JSON.dump({'keyname' => '0123', 'login' =>
       '1.1.1.1', 'table' => 'cassandra'})
-    result_2 = djinn.set_parameters("", better_credentials,  @secret)
-    # Depending on the JSON library used, "" can either throw an exception
-    # or be interpreted as nil.
-    assert_equal(true, result_2.include?("Error"))
+    assert_raises(AppScaleException) {
+      result_2 = djinn.set_parameters("", better_credentials,  @secret)
+    }
 
     # Now try credentials with an even number of items, but not all the
     # required parameters
@@ -150,8 +149,9 @@ class TestDjinn < Test::Unit::TestCase
       'keyname' => 'appscale'
     })
     bad_node_info = "[1]"
-    result_6 = djinn.set_parameters(bad_node_info, credentials, @secret)
-    assert_equal(true, result_6.include?("Error: node structure is not"))
+    assert_raises(AppScaleException) {
+      result_6 = djinn.set_parameters(bad_node_info, credentials, @secret)
+    }
 
     # Finally, try credentials with info in the right format, but where it
     # refers to nodes that aren't in our deployment
@@ -301,7 +301,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
-  def test_write_our_node_info
+  def test_set_done_status
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
@@ -325,18 +325,14 @@ class TestDjinn < Test::Unit::TestCase
     baz.should_receive(:delete).and_return(all_ok)
 
     # Mocks for the AppController root node
-    baz.should_receive(:get).with(:path => ZKInterface::APPCONTROLLER_PATH).
+    baz.should_receive(:get).
+      with(:path => ZKInterface::APPCONTROLLER_PATH).
       and_return({:rc => 0, :data => ZKInterface::DUMMY_DATA,
-        :stat => flexmock(:exists => true)})
-
-    # Mocks for the appcontroller lock
-    baz.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return({:rc => 0, :data => 'private_ip'})
+                  :stat => flexmock(:exists => true)})
 
     # Mocks for writing node information
-    baz.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_NODE_PATH).
+    baz.should_receive(:get).
+      with(:path => ZKInterface::APPCONTROLLER_NODE_PATH).
       and_return({:stat => flexmock(:exists => false)})
     baz.should_receive(:create).with(
       :path => ZKInterface::APPCONTROLLER_NODE_PATH,
@@ -354,81 +350,31 @@ class TestDjinn < Test::Unit::TestCase
       :ephemeral => ZKInterface::EPHEMERAL,
       :data => ZKInterface::DUMMY_DATA).and_return(all_ok)
 
-    baz.should_receive(:get).with(
-      :path => node_path + "/job_data").and_return({
-        :rc => 0, :stat => flexmock(:exists => false)})
+    baz.should_receive(:get).
+      with(:path => node_path + "/job_data").
+      and_return({:rc => 0, :stat => flexmock(:exists => false)})
 
     baz.should_receive(:set).with(
       :path => node_path + "/job_data",
       :data => JSON.dump(my_node.to_hash())).and_return(all_ok)
 
-    baz.should_receive(:get).with(
-      :path => node_path + "/done_loading").and_return({
-        :rc => 0, :stat => flexmock(:exists => true)})
+    baz.should_receive(:get).
+      with(:path => node_path + "/done_loading").
+      and_return({:rc => 0, :stat => flexmock(:exists => true)})
 
-    baz.should_receive(:set).with(
-      :path => node_path + "/done_loading",
-      :data => 'true').and_return(all_ok)
+    baz.should_receive(:set).
+      with(:path => node_path + "/done_loading", :data => 'true',
+           :version => nil).
+      and_return(all_ok)
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
     flexmock(Zookeeper).should_receive(:new).with("private_ip:2181",
       ZKInterface::TIMEOUT).and_return(baz)
     ZKInterface.init_to_ip("private_ip", "private_ip")
-    assert_equal(nil, djinn.write_our_node_info)
+    assert_equal(nil, djinn.set_done_status)
   end
 
-
-  def test_get_lock_when_somebody_else_has_it
-    # this test ensures that if we don't initially have the lock, we
-    # wait for it and try again
-
-    boo = 1
-
-    mocked_zk = flexmock("zk")
-    mocked_zk.should_receive(:connected?).and_return(false)
-    mocked_zk.should_receive(:close!)
-
-    # Mocks for Appcontroller root node
-    file_exists = {:rc => 0, :data => ZKInterface::DUMMY_DATA,
-      :stat => flexmock(:exists => true)}
-    mocked_zk.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_PATH).and_return(file_exists)
-
-    # Mocks for AppController lock file - the create should fail the first
-    # time since the file already exists, and the second time, it should
-    # succeed because the file doesn't exist (they've released the lock)
-    does_not_exist = {:rc => -1}
-    all_ok = {:rc => 0}
-    mocked_zk.should_receive(:create).times(2).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH,
-      :ephemeral => ZKInterface::EPHEMERAL, :data => "private_ip").
-      and_return(does_not_exist, all_ok)
-
-    # On the first get, the file exists (user2 has it)
-    get_response = {:rc => 0, :data => "private_ip2"}
-    mocked_zk.should_receive(:get).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return(get_response)
-
-    # Finally, we should get rid of the lock once we're done with it
-    mocked_zk.should_receive(:delete).with(
-      :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
-      and_return(all_ok)
-
-    # mock out ZooKeeper's init stuff
-    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
-      and_return()
-    flexmock(Zookeeper).should_receive(:new).with("private_ip:2181",
-      ZKInterface::TIMEOUT).and_return(mocked_zk)
-
-    ZKInterface.init_to_ip("private_ip", "private_ip")
-    ZKInterface.lock_and_run {
-      boo = 2
-    }
-
-    assert_equal(2, boo)
-  end
 
   def test_start_roles_on_nodes_bad_input
     # Calling start_roles_on_nodes with something other than a Hash
@@ -437,7 +383,7 @@ class TestDjinn < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
 
-    djinn = Djinn.new()
+    djinn = get_djinn_mock
     expected = Djinn::BAD_INPUT_MSG
     actual = djinn.start_roles_on_nodes("", @secret)
     assert_equal(expected, actual)
@@ -676,7 +622,7 @@ class TestDjinn < Test::Unit::TestCase
     deployment_id_exists = true
     bad_secret = 'boo'
     good_secret = 'blarg'
-    djinn = flexmock(Djinn.new())
+    djinn = get_djinn_mock
     flexmock(ZKInterface).should_receive(:exists?).
       and_return(deployment_id_exists)
 
@@ -694,7 +640,7 @@ class TestDjinn < Test::Unit::TestCase
     good_secret = 'boo'
     bad_secret = 'blarg'
     deployment_id = 'baz'
-    djinn = flexmock(Djinn.new())
+    djinn = get_djinn_mock
     flexmock(ZKInterface).should_receive(:get).
         and_return(deployment_id)
 

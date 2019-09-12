@@ -21,9 +21,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
 
   @staticmethod
   def test_distributed_tq_initialization():
-    db_access = MagicMock()
     zk_client = MagicMock()
-    distributed_tq.DistributedTaskQueue(db_access, zk_client)
+    distributed_tq.DistributedTaskQueue(zk_client)
 
   # TODO:
   # def test_fetch_queue_stats(self):

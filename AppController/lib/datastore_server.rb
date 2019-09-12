@@ -13,14 +13,7 @@ module DatastoreServer
   # we write its configuration files.
   NAME = 'appscale-datastore_server'.freeze
 
-  # If we fail to get the number of processors we set our default number of
-  # datastore servers to this value.
-  DEFAULT_NUM_SERVERS = 3
-
   # Maximum number of concurrent requests that can be served
   # by instance of datastore
   MAXCONN = 2
-
-  # Datastore server processes to core multiplier.
-  MULTIPLIER = 1
 end

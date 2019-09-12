@@ -28,8 +28,7 @@ class TestMergeJoinQueries(AsyncTestCase):
   def tear_down_helper(self):
     query = Query('Greeting', _app=PROJECT_ID)
     results = yield self.datastore.run_query(query)
-    for entity in results:
-      yield self.datastore.delete([entity.key()])
+    yield self.datastore.delete([entity.key() for entity in results])
 
   @gen_test
   def test_merge_query_with_null(self):
@@ -87,6 +86,7 @@ class TestMergeJoinQueries(AsyncTestCase):
 
 class TestQueryLimit(AsyncTestCase):
   CASSANDRA_PAGE_SIZE = 5000
+  BATCH_SIZE = 20
 
   def setUp(self):
     super(TestQueryLimit, self).setUp()
@@ -101,17 +101,26 @@ class TestQueryLimit(AsyncTestCase):
   def tear_down_helper(self):
     query = Query('Greeting', _app=PROJECT_ID)
     results = yield self.datastore.run_query(query)
+    batch = []
     for entity in results:
-      yield self.datastore.delete([entity.key()])
+      batch.append(entity.key())
+      if len(batch) == self.BATCH_SIZE:
+        yield self.datastore.delete(batch)
+        batch = []
+    yield self.datastore.delete(batch)
 
   @gen_test
   def test_cassandra_page_size(self):
     entity_count = self.CASSANDRA_PAGE_SIZE + 1
+    batch = []
     for _ in range(entity_count):
       entity = Entity('Greeting', _app=PROJECT_ID)
-      yield self.datastore.put(entity)
+      batch.append(entity)
+      if len(batch) == self.BATCH_SIZE:
+        yield self.datastore.put_multi(batch)
+        batch = []
+    yield self.datastore.put_multi(batch)
 
     query = Query('Greeting', _app=PROJECT_ID)
     results = yield self.datastore.run_query(query)
     self.assertEqual(len(results), entity_count)
-    self.assertTrue(True)

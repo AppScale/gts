@@ -58,7 +58,7 @@ TRANSIENT_CASSANDRA_ERRORS = (
   cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)
 
 # The database backends supported by the AppScale datastore.
-VALID_DATASTORES = ['cassandra']
+VALID_DATASTORES = ['cassandra', 'fdb']
 
 # Table names
 USERS_TABLE = "USERS__"

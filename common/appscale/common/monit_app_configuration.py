@@ -19,7 +19,8 @@ MONIT_CONFIG_DIR = '/etc/monit/conf.d'
 
 def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
                        max_memory=None, syslog_server=None, check_port=False,
-                       kill_exceeded_memory=False, log_tag=None):
+                       check_host=None, kill_exceeded_memory=False,
+                       log_tag=None, group=None):
   """ Writes a monit configuration file for a service.
 
   Args:
@@ -32,16 +33,20 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
       megabytes that the process should use.
     syslog_server: The IP address of the remote syslog server to use.
     check_port: A boolean specifying that monit should check host and port.
+    check_host: Optional host to use with check_port, defaults to private ip
     kill_exceeded_memory: A boolean indicating that a process should be killed
       (instead of terminated). This is used when the process exceeds its memory
       limit.
     log_tag: The tag to use with logging. Default is to derive from watch.
+    group: The monit group for the process, defaults to group derived from
+      version.
   """
   if check_port:
     assert port is not None, 'When using check_port, port must be defined'
 
   process_name = watch
-  version_group = watch.rsplit(VERSION_PATH_SEPARATOR, 1)[0]
+  watch_group = watch.rsplit(VERSION_PATH_SEPARATOR, 1)[0]
+  version_group = group if group is not None else watch_group
   if port is not None:
     process_name += '-{}'.format(port)
 
@@ -103,9 +108,9 @@ def create_config_file(watch, start_cmd, pidfile, port=None, env_vars=None,
       max_memory, action)
 
   if check_port:
-    private_ip = appscale_info.get_private_ip()
+    check_host = check_host or appscale_info.get_private_ip()
     output += '  if failed host {} port {} for 3 cycles then restart\n'.format(
-      private_ip, port)
+        check_host, port)
 
   config_file = os.path.join(MONIT_CONFIG_DIR,
                              'appscale-{}.cfg'.format(process_name))

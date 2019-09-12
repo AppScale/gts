@@ -6,6 +6,7 @@ require 'digest'
 require 'fileutils'
 require 'find'
 require 'net/http'
+require 'open3'
 require 'openssl'
 require 'socket'
 require 'timeout'
@@ -100,7 +101,11 @@ module HelperFunctions
   NUM_ENTRIES_TO_PRINT = 10
 
   def self.shell(cmd)
-    `#{cmd}`
+    output, err_output, status = Open3.capture3(cmd)
+    if status.exitstatus != 0 and err_output
+      Djinn.log_warn("Shell commmand #{cmd} failed with error output #{err_output}")
+    end
+    return output
   end
 
   def self.write_file(location, contents)
@@ -909,7 +914,7 @@ module HelperFunctions
     write_file(APPCONTROLLER_CRASHLOG_LOCATION, Time.new.to_s + ': ' +
       message)
     # Try to also log to the normal log file.
-    Djinn.log_error("FATAL: #{message}")
+    Djinn.log_fatal("#{message}")
 
     # If asked for, wait for a while before crashing. This will help the
     # tools to collect the status report or crashlog.

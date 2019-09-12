@@ -587,6 +587,11 @@ class Module(object):
       else:
         environ['SERVER_PORT'] = 443
 
+    # AppScale: Modify environment based on proxy headers.
+    x_proto = environ.get('HTTP_X_FORWARDED_PROTO')
+    if x_proto:
+      environ['wsgi.url_scheme'] = x_proto
+
     if 'HTTP_HOST' in environ:
       environ['SERVER_NAME'] = environ['HTTP_HOST'].split(':', 1)[0]
     environ['DEFAULT_VERSION_HOSTNAME'] = '%s:%s' % (
@@ -674,6 +679,13 @@ class Module(object):
         for handler in handlers:
           match = handler.match(request_url)
           if match:
+
+            # AppScale: Reject requests with the wrong scheme.
+            redirect_response = self._handle_redirect(
+                handler, environ, wrapped_start_response)
+            if redirect_response is not None:
+              return redirect_response
+
             auth_failure = handler.handle_authorization(environ,
                                                         wrapped_start_response)
             if auth_failure is not None:
@@ -696,6 +708,36 @@ class Module(object):
         logging.exception('Request to %r failed', request_url)
         wrapped_start_response('500 Internal Server Error', [], e)
         return []
+
+  def _handle_redirect(self, handler, environ, start_response):
+    """ AppScale: Reject requests with the wrong scheme. """
+    # Only reject requests that come through nginx.
+    if 'HTTP_X_FORWARDED_PROTO' not in environ:
+      return
+
+    # Ignore handlers that the user did not configure.
+    if not isinstance(handler, url_handler.UserConfiguredURLHandler):
+      return
+
+    scheme = environ['HTTP_X_FORWARDED_PROTO']
+    expected_scheme = scheme
+    redirect_host = environ['HTTP_HOST']
+    if handler._url_map.secure == 'always':
+      expected_scheme = 'https'
+    elif handler._url_map.secure == 'never':
+      expected_scheme = 'http'
+
+    if scheme == expected_scheme:
+      return
+
+    redirect_port = environ['HTTP_X_REDIRECT_HTTP_PORT'] \
+        if expected_scheme == 'http' else environ['HTTP_X_REDIRECT_HTTPS_PORT']
+    redirect_host = '{}:{}'.format(environ['HTTP_HOST'].split(':')[0],
+                                   redirect_port)
+    new_location = ''.join([expected_scheme, '://', redirect_host,
+                            environ.get('REQUEST_URI', '/')])
+    start_response('302 Moved Temporarily', [('Location', new_location)])
+    return []
 
   def _async_shutdown_instance(self, inst, port):
     _THREAD_POOL.submit(self._shutdown_instance, inst, port)

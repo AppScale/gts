@@ -56,7 +56,7 @@ end
 namespace :apptaskqueue do
 
   task :test do
-    sh 'python -m unittest discover -b -v -s AppTaskQueue/test/unit'
+    sh '/opt/appscale_venvs/appscale_taskqueue/bin/python -m unittest discover -b -v -s AppTaskQueue/test/unit'
   end
 
 end
@@ -73,6 +73,15 @@ namespace :searchservice do
 
   task :test do
     sh 'python -m unittest discover -b -v -s SearchService/test/unit'
+  end
+
+end
+
+namespace :searchservice2 do
+
+  task :test do
+    sh '/opt/appscale_venvs/search2/bin/pip install pytest'
+    sh '/opt/appscale_venvs/search2/bin/pytest SearchService2/tests'
   end
 
 end
@@ -147,6 +156,7 @@ python_tests = [
   'hermes:test',
   'infrastructuremanager:test',
   'searchservice:test',
+  'searchservice2:test',
   'xmppreceiver:test',
   'apps:test',
   'adminserver:test'

@@ -145,7 +145,7 @@ server = DjinnServer.new(
   :SSLCertName => nil
 )
 
-trap('TERM') {
+trap('EXIT') {
   Djinn.log_debug("Received TERM signal: stopping AppController.")
   server.shutdown
 }

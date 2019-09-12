@@ -11,8 +11,8 @@ from appscale.admin.instance_manager.constants import (
 from appscale.admin.instance_manager.utils import find_web_inf
 from appscale.common import appscale_info
 from appscale.common.constants import (
-  APPSCALE_HOME, DB_SERVER_PORT, JAVA_APPSERVER, SCRIPTS_DIR, UA_SERVER_PORT,
-  VERSION_PATH_SEPARATOR)
+  APPSCALE_HOME, DB_SERVER_PORT, JAVA_APPSERVER, JAVA8, JAVA8_RUNTIME_DIR,
+  PYTHON27_RUNTIME_DIR, SCRIPTS_DIR, UA_SERVER_PORT, VERSION_PATH_SEPARATOR)
 from appscale.common.deployment_config import ConfigInaccessible
 
 logger = logging.getLogger(__name__)
@@ -49,15 +49,23 @@ class Instance(object):
     return hash((self.revision_key, self.port))
 
 
-def create_java_app_env(deployment_config):
+def create_java_app_env(deployment_config, runtime, project_id):
   """ Returns the environment variables Java application servers uses.
 
   Args:
     deployment_config: A DeploymentConfig object.
+    runtime: A string specifying which runtime to use (java or java8).
+    project_id: A string specifying the project ID.
   Returns:
     A dictionary containing the environment variables
   """
-  env_vars = {'APPSCALE_HOME': APPSCALE_HOME}
+  if runtime == JAVA8:
+    env_vars = {
+        'APPLICATION_ID': project_id,
+        'APPNAME': project_id  # Used by API proxy xmpp/channel implementation
+    }
+  else:
+    env_vars = {'APPSCALE_HOME': APPSCALE_HOME}
 
   gcs_config = {'scheme': 'https', 'port': 443}
   try:
@@ -71,41 +79,34 @@ def create_java_app_env(deployment_config):
   return env_vars
 
 
-def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
-                          pidfile, revision_key, api_server_port):
+def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host,
+                          max_heap, pidfile, revision_key, api_server_port,
+                          runtime):
   """ Creates the start command to run the java application server.
 
   Args:
     app_name: The name of the application to run
     port: The local port the application server will bind to
+    load_balancer_port: The port of the load balancer
     load_balancer_host: The host of the load balancer
     max_heap: An integer specifying the max heap size in MB.
     pidfile: A string specifying the pidfile location.
     revision_key: A string specifying the revision key.
     api_server_port: An integer specifying the port of the external API server.
+    runtime: A string specifying which runtime to use (java or java8).
   Returns:
     A string of the start command.
   """
-  java_start_script = os.path.join(
-    JAVA_APPSERVER, 'appengine-java-sdk-repacked', 'bin',
-    'dev_appserver.sh')
+  if runtime == JAVA8:
+    java_start_script = os.path.join(JAVA8_RUNTIME_DIR, 'bin',
+                                     'appscale_java8_runtime.sh')
+  else:
+    java_start_script = os.path.join(
+      JAVA_APPSERVER, 'appengine-java-sdk-repacked', 'bin',
+      'dev_appserver.sh')
+
   revision_base = os.path.join(UNPACK_ROOT, revision_key)
   web_inf_directory = find_web_inf(revision_base)
-
-  api_server = os.path.join(SCRIPTS_DIR, 'appscale_java8_apiserver.sh')
-  apis_using_external_server = ['app_identity_service', 'datastore_v3',
-                                'memcache', 'taskqueue']
-  api_server_flags = [
-    '--application={}'.format(app_name),
-    '--datastore_path={}'.format(
-      ':'.join([options.db_proxy, str(DB_SERVER_PORT)])),
-    '--login_server={}'.format(load_balancer_host),
-    '--nginx_host={}'.format(load_balancer_host),
-    '--xmpp_path={}'.format(load_balancer_host),
-    '--uaserver_path={}'.format(
-      ':'.join([options.db_proxy, str(UA_SERVER_PORT)])),
-    '--external_api_port={}'.format(api_server_port)
-  ]
 
   # The Java AppServer needs the NGINX_PORT flag set so that it will read the
   # local FS and see what port it's running on. The value doesn't matter.
@@ -117,18 +118,46 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     '--jvm_flag=-Xmx{}m'.format(max_heap),
     '--jvm_flag=-Djava.security.egd=file:/dev/./urandom',
     '--jvm_flag=-Djdk.tls.client.protocols=TLSv1.1,TLSv1.2',
-    "--disable_update_check",
     "--address=" + options.private_ip,
-    "--datastore_path=" + options.db_proxy,
-    "--login_server=" + load_balancer_host,
-    "--appscale_version=1",
-    "--APP_NAME=" + app_name,
-    "--NGINX_ADDRESS=" + load_balancer_host,
-    "--TQ_PROXY=" + options.tq_proxy,
-    "--xmpp_path=" + options.load_balancer_ip,
-    "--pidfile={}".format(pidfile),
-    "--path_to_python_api_server={}".format(api_server)
+    "--pidfile={}".format(pidfile)
   ]
+  api_server_flags = []
+
+  if runtime == JAVA8:
+      cmd.extend(['--python_api_server_port={}'.format(api_server_port),
+                  '--default_hostname={}:{}'.format(load_balancer_host,
+                                                    load_balancer_port)])
+
+      apis_using_external_server = ['app_identity_service', 'blobstore',
+                                    'channel', 'datastore_v3', 'memcache',
+                                    'search', 'taskqueue', 'xmpp']
+  else:
+      api_server = os.path.join(SCRIPTS_DIR,
+                                'appscale_java_apiserver.sh')
+
+      cmd.extend(['--path_to_python_api_server={}'.format(api_server),
+                  '--disable_update_check',
+                  '--APP_NAME={}'.format(app_name),
+                  '--NGINX_ADDRESS={}'.format(load_balancer_host),
+                  '--datastore_path={}'.format(options.db_proxy),
+                  '--login_server={}'.format(load_balancer_host),
+                  '--xmpp_path={}'.format(options.load_balancer_ip),
+                  '--appscale_version=1'])
+
+      api_server_flags = [
+          '--application={}'.format(app_name),
+          '--datastore_path={}'.format(
+              ':'.join([options.db_proxy, str(DB_SERVER_PORT)])),
+          '--login_server={}'.format(load_balancer_host),
+          '--nginx_host={}'.format(load_balancer_host),
+          '--xmpp_path={}'.format(load_balancer_host),
+          '--uaserver_path={}'.format(
+              ':'.join([options.db_proxy, str(UA_SERVER_PORT)])),
+          '--external_api_port={}'.format(api_server_port)
+      ]
+
+      apis_using_external_server = ['app_identity_service', 'datastore_v3',
+                                    'memcache', 'taskqueue']
 
   for flag in api_server_flags:
     cmd.append('--python_api_server_flag="{}"'.format(flag))
@@ -137,6 +166,36 @@ def create_java_start_cmd(app_name, port, load_balancer_host, max_heap,
     cmd.append('--api_using_python_stub={}'.format(api))
 
   cmd.append(os.path.dirname(web_inf_directory))
+
+  return ' '.join(cmd)
+
+
+def create_python_api_start_cmd(app_name, login_ip, port, pidfile,
+                                api_server_port):
+  """ Creates the start command to run the python api server.
+
+  Args:
+    app_name: The name of the application to run
+    login_ip: The public IP of this deployment
+    port: The local port the api server will bind to
+    pidfile: A string specifying the pidfile location.
+    api_server_port: An integer specifying the port of the external API server.
+  Returns:
+    A string of the start command.
+  """
+  cmd = [
+      '/usr/bin/python2', os.path.join(PYTHON27_RUNTIME_DIR, 'api_server.py'),
+      '--api_port', str(port),
+      '--application', app_name,
+      '--login_server', login_ip,
+      '--nginx_host', login_ip,
+      '--enable_sendmail',
+      '--xmpp_path', options.load_balancer_ip,
+      '--uaserver_path', '{}:{}'.format(options.db_proxy, UA_SERVER_PORT),
+      '--datastore_path', '{}:{}'.format(options.db_proxy, DB_SERVER_PORT),
+      '--pidfile', pidfile,
+      '--external_api_port', str(api_server_port)
+  ]
 
   return ' '.join(cmd)
 
@@ -179,23 +238,23 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
   config_file = os.path.join(UNPACK_ROOT, revision_key, 'app', 'app.yaml')
 
   cmd = [
-    "/usr/bin/python2", APPSCALE_HOME + "/AppServer/dev_appserver.py",
-    "--application", app_name,
-    "--port " + str(port),
-    "--login_server " + login_ip,
-    "--skip_sdk_update_check",
-    "--nginx_host " + str(login_ip),
-    "--require_indexes",
-    "--enable_sendmail",
-    "--xmpp_path " + options.load_balancer_ip,
-    "--php_executable_path=" + str(PHP_CGI_LOCATION),
-    "--max_module_instances", "{}:1".format(service_id),
-    "--uaserver_path " + options.db_proxy + ":" + str(UA_SERVER_PORT),
-    "--datastore_path " + options.db_proxy + ":" + str(DB_SERVER_PORT),
-    "--host " + options.private_ip,
-    "--automatic_restart", "no",
-    "--pidfile", pidfile,
-    "--external_api_port", str(api_server_port),
+    '/usr/bin/python2', os.path.join(PYTHON27_RUNTIME_DIR, 'dev_appserver.py'),
+    '--application', app_name,
+    '--port', str(port),
+    '--login_server', login_ip,
+    '--skip_sdk_update_check',
+    '--nginx_host', login_ip,
+    '--require_indexes',
+    '--enable_sendmail',
+    '--xmpp_path', options.load_balancer_ip,
+    '--php_executable_path=' + str(PHP_CGI_LOCATION),
+    '--max_module_instances', "{}:1".format(service_id),
+    '--uaserver_path', '{}:{}'.format(options.db_proxy, UA_SERVER_PORT),
+    '--datastore_path', '{}:{}'.format(options.db_proxy, DB_SERVER_PORT),
+    '--host', options.private_ip,
+    '--automatic_restart', 'no',
+    '--pidfile', pidfile,
+    '--external_api_port', str(api_server_port),
     config_file
   ]
 
@@ -233,8 +292,8 @@ def get_login_server(instance):
     return None
 
   for index, arg in enumerate(args):
-    if '--login_server=' in arg and 'python_api_server_flag' not in arg:
-      return arg.split('=', 1)[1]
+    if '--login_server=' in arg:
+      return arg.rsplit('=', 1)[1]
 
     if arg == '--login_server':
       try:

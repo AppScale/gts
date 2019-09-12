@@ -17,10 +17,12 @@
 """ AppScale Search API stub."""
 
 import logging
+import socket
+
+import errno
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.search import search
-from google.appengine.api.search import search_service_pb
 from google.appengine.api.search import search_util
 from google.appengine.ext.remote_api import remote_api_pb                       
 from google.appengine.runtime import apiproxy_errors
@@ -32,10 +34,13 @@ CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
 # The location on the system that has the IP of the search server.
-_SEARCH_LOCATION_FILE = "/etc/appscale/search_ip"
+SEARCH_LOCATION_FILE = "/etc/appscale/search_ip"
+SEARCH_PROXY_FILE = "/etc/appscale/load_balancer_ips"
+SEARCH_PROXY_PORT = 9999
 
 # The port that the search server is running on.  
 _SEARCH_PORT = 53423
+
 
 class SearchServiceStub(apiproxy_stub.APIProxyStub):
   """ AppScale backed Search service stub.
@@ -47,7 +52,6 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
 
   _VERSION = 1
 
-
   def __init__(self, service_name='search', app_id=""):
     """ Constructor.
 
@@ -56,16 +60,30 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       app_id: The application identifier. 
     """
     super(SearchServiceStub, self).__init__(service_name)
-
+    self._search_locations = None
     try:
-      with open(_SEARCH_LOCATION_FILE) as location_file:
-        search_ip = location_file.read().strip() or None
+      # Trying old search service first
+      with open(SEARCH_LOCATION_FILE) as locations_file:
+        host = locations_file.read().strip()
+        if host:
+          self._search_locations = ['{}:{}'.format(host.strip(), _SEARCH_PORT)]
+        else:
+          logging.info('Old SearchServices was not found')
+      logging.info('Using old SearchService at {}'
+                   .format(self._search_locations[0]))
     except IOError:
-      search_ip = None
-
-    if search_ip is not None:
-      self.__search_location = '{}:{}'.format(search_ip, _SEARCH_PORT)
-      logging.info('Search server set to {}'.format(search_ip))
+      try:
+        # Using new search service
+        with open(SEARCH_PROXY_FILE) as locations_file:
+          lbs = [host.strip() for host in locations_file if host.strip()]
+          if not lbs:
+            logging.error('No LB nodes were found. Search API won\'t work')
+          self._search_locations = ['{}:{}'.format(host, SEARCH_PROXY_PORT)
+                                    for host in lbs]
+        logging.info('Using managed SearchService at {}'
+                     .format(self._search_locations))
+      except IOError:
+        logging.error('No LB nodes were found. Search API won\'t work')
 
     self.__app_id = app_id
  
@@ -89,6 +107,8 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       request: A search_service_pb.DeleteDocumentRequest.
       response: A search_service_pb.DeleteDocumentResponse.
     """
+    if not request.has_app_id():
+      request.set_app_id(self.__app_id)
     self._RemoteSend(request, response, "DeleteDocument")
 
   def _Dynamic_ListIndexes(self, request, response):
@@ -101,6 +121,8 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
     Raises:
       ResponseTooLargeError: raised for testing admin console.
     """
+    if not request.has_app_id():
+      request.set_app_id(self.__app_id)
     self._RemoteSend(request, response, "ListIndexes")
 
   def _Dynamic_ListDocuments(self, request, response):
@@ -110,6 +132,8 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       request: A search_service_pb.ListDocumentsRequest.
       response: A search_service_pb.ListDocumentsResponse.
     """
+    if not request.has_app_id():
+      request.set_app_id(self.__app_id)
     self._RemoteSend(request, response, "ListDocuments")
  
   def _Dynamic_Search(self, request, response):
@@ -148,7 +172,7 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
       response: A response object to be filled in.
       method: A str, the dynamic function doing the call.
     """
-    if not self.__search_location:
+    if not self._search_locations:
       raise search.InternalError("Search service not configured.")
 
     api_request = remote_api_pb.Request()
@@ -156,14 +180,20 @@ class SearchServiceStub(apiproxy_stub.APIProxyStub):
     api_request.set_service_name("search")
     api_request.set_request(request.Encode())
 
-    api_response = remote_api_pb.Response()
-    api_response = api_request.sendCommand(self.__search_location,
-      "",
-      api_response,
-      1,
-      False,
-      KEY_LOCATION,
-      CERT_LOCATION)
+    for search_location in self._search_locations:
+      api_response = remote_api_pb.Response()
+      try:
+        api_request.sendCommand(search_location, "", api_response,
+                                1, False, KEY_LOCATION, CERT_LOCATION)
+        break
+      except socket.error as socket_error:
+        if socket_error.errno in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
+          logging.warning('Failed to connect to search service at {}.'
+                          .format(search_location))
+          if search_location != self._search_locations[-1]:
+            logging.info('Retrying using another proxy.')
+            continue
+        raise
 
     if api_response.has_application_error():
       error_pb = api_response.application_error()

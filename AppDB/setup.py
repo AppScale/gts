@@ -13,10 +13,11 @@ setup(
     'appscale-common',
     'cassandra-driver<3.18.0',
     'kazoo',
-    'M2Crypto',
+    'monotonic',
     'mmh3',
     'SOAPpy',
-    'tornado'
+    'tornado',
+    'foundationdb~=6.1.8'
   ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
@@ -29,14 +30,11 @@ setup(
   packages=['appscale',
             'appscale.datastore',
             'appscale.datastore.cassandra_env',
-            'appscale.datastore.backup',
+            'appscale.datastore.fdb',
             'appscale.datastore.scripts',
             'appscale.datastore.zkappscale'],
   entry_points={'console_scripts': [
-    'appscale-backup-data=appscale.datastore.scripts.backup_data:main',
     'appscale-blobstore-server=appscale.datastore.scripts.blobstore:main',
-    'appscale-cassandra-backup='
-      'appscale.datastore.scripts.cassandra_backup:main',
     'appscale-data-layout=appscale.datastore.scripts.data_layout:main',
     'appscale-datastore=appscale.datastore.scripts.datastore:main',
     'appscale-delete-all-records='
@@ -46,10 +44,11 @@ setup(
     'appscale-groomer-service=appscale.datastore.scripts.groomer_service:main',
     'appscale-prime-cassandra=appscale.datastore.scripts.prime_cassandra:main',
     'appscale-rebalance=appscale.datastore.cassandra_env.rebalance:main',
-    'appscale-restore-data=appscale.datastore.scripts.restore_data:main',
     'appscale-transaction-groomer='
       'appscale.datastore.scripts.transaction_groomer:main',
     'appscale-uaserver=appscale.datastore.scripts.ua_server:main',
+    'appscale-uaserver-backup=appscale.datastore.scripts.ua_server_backup:main',
+    'appscale-uaserver-restore=appscale.datastore.scripts.ua_server_restore:main',
     'appscale-update-index=appscale.datastore.scripts.update_index:main',
     'appscale-upgrade-schema=appscale.datastore.scripts.upgrade_schema:main',
     'appscale-view-all-records=appscale.datastore.scripts.view_records:main',
