@@ -2532,10 +2532,9 @@ class Djinn
   # can be easily terminated.
   def can_we_scale_down?(min_machines)
     @state_change_lock.synchronize {
-      nodes_to_check = @nodes.drop(min_machines)
-    }
-    nodes_to_check.each { |node|
-      return false if node['jobs'] != ['compute']
+      @nodes.drop(min_machines).each { |node|
+        return false if node['jobs'] != ['compute']
+      }
     }
     return true
   end
