@@ -67,7 +67,7 @@ class ProcessStats(object):
 
   Every Hermes node collects its processes statistics, but Master node also
   requests this statistics of all nodes in cluster.
-  AppSsale services started by systemd should be profiled.
+  AppScale services started by systemd should be profiled.
   """
   pid = attr.ib()
   monit_name = attr.ib()  # Monit / external name
