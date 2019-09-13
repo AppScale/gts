@@ -32,7 +32,7 @@ def main():
   thread_pool = ThreadPoolExecutor(MAX_BACKGROUND_WORKERS)
   source_manager = SourceManager(zk_client, thread_pool)
   source_manager.configure_automatic_fetch(projects_manager)
-  service_operator = ServiceOperator()
+  service_operator = ServiceOperator(thread_pool)
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('syslog_server', appscale_info.get_headnode_ip())

@@ -1394,7 +1394,7 @@ def main():
   zk_client.start()
   version_update_lock = zk_client.Lock(constants.VERSION_UPDATE_LOCK_NODE)
   thread_pool = ThreadPoolExecutor(4)
-  service_operator = ServiceOperator()
+  service_operator = ServiceOperator(thread_pool)
   all_resources = {
     'acc': acc,
     'ua_client': ua_client,

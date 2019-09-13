@@ -211,9 +211,13 @@ def __name_match(name):
 class ServiceOperator(object):
   """ Handles Service operations. """
 
-  def __init__(self):
+  def __init__(self,  thread_pool):
     """ Creates a new ServiceOperator.
+
+    Args:
+      thread_pool: A ThreadPoolExecutor.
     """
+    self.thread_pool = thread_pool
     self.helper = importlib.import_module(self.__module__)
 
   @gen.coroutine
@@ -223,7 +227,8 @@ class ServiceOperator(object):
     Returns:
       A dictionary mapping services to their state.
     """
-    raise gen.Return(self.list())
+    listing = yield self.thread_pool.submit(self.list)
+    raise gen.Return(listing)
 
   def list(self):
     """ Retrieves the status for each service.
@@ -243,7 +248,8 @@ class ServiceOperator(object):
       wants: services required by this service
       properties: properties to set for the service
     """
-    self.start(name, enable=enable, wants=wants, properties=properties)
+    yield self.thread_pool.submit(self.start, name, enable=enable,
+                                  wants=wants, properties=properties)
 
   def start(self, name, enable=None, wants=None, properties=None):
     """ Start the given service.
@@ -263,7 +269,7 @@ class ServiceOperator(object):
     Args:
       name: A str representing the name of the service(s) to stop.
     """
-    self.stop(name)
+    yield self.thread_pool.submit(self.stop, name)
 
   def stop(self, name):
     """ Stop the given service(s).
@@ -280,7 +286,7 @@ class ServiceOperator(object):
     Args:
       name: A str representing the name of the service(s) to restart.
     """
-    self.restart(name)
+    yield self.thread_pool.submit(self.restart, name)
 
   def restart(self, name):
     """ Restart the given service(s).
