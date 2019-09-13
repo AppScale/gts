@@ -62,12 +62,12 @@ done
 # Determine the latest git tag on the AppScale/appscale repo
 if [ "$GIT_TAG" = "last" ]; then
     echo "Determining the latest tag in AppScale/appscale repo"
-    GIT_TAG=$(curl --fail https://api.github.com/repos/appscale/appscale/tags \
-              | grep '"name"' | head -1 \
+    GIT_TAG=$(curl --fail https://api.github.com/repos/appscale/appscale/releases/latest \
+              | python -m json.tool | grep '"tag_name"' \
               | awk -F ':' '{ print $2 }' | tr --delete ' ,"')
 elif ! curl --fail https://api.github.com/repos/appscale/appscale/tags \
-       | grep '"name"' | awk -F ':' '{ print $2 }' | tr --delete ' ,"' \
-       | grep "^${GIT_TAG}$"; then
+       | python -m json.tool | grep '"name"' | awk -F ':' '{ print $2 }' \
+       | tr --delete ' ,"' | grep "^${GIT_TAG}$"; then
     echo "Tag '${GIT_TAG}' not recognized"
     echo "Use --tag to specify existing appscale repo tag to upgrade to."
     exit 1

@@ -23,7 +23,9 @@ TAG_PARAM_SPECIFIED="N"
 usage() {
     echo "Usage: ${0} [--repo <repo>] [--branch <branch>]"
     echo "            [--tools-repo <repo>] [--tools-branch <branch>]"
-    echo "            [--tag <git-tag>] [-t]"
+    echo "            [--agents-repo <repo>] [--agents-branch <branch>]"
+    echo "            [--thirdparties-repo <repo>] [--thirdparties-branch <branch>]"
+    echo "            [--tag <git-tag>]"
     echo
     echo "Be aware that tag parameter has priority over repo and branch parameters."
     echo "So if no tag, repos and branches are specified, tag 'last' will be used."
@@ -34,6 +36,10 @@ usage() {
     echo "   --branch <branch>               Specify appscale branch (default $APPSCALE_BRANCH)"
     echo "   --tools-repo <repo>             Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
     echo "   --tools-branch <branch>         Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
+    echo "   --agents-repo <repo>            Specify appscale-agents repo (default $AGENTS_REPO"
+    echo "   --agents-branch <branch>        Specify appscale-agents branch (default $AGENTS_BRANCH)"
+    echo "   --thirdparties-repo <repo>      Specify appscale-thirdparties repo (default $THIRDPARTIES_REPO"
+    echo "   --thirdparties-branch <branch>  Specify appscale-thirdparties branch (default $THIRDPARTIES_BRANCH)"
     echo "   --tag <git-tag>                 Use git tag (ie 3.7.2) or 'last' to use the latest release"
     echo "                                   or 'dev' for HEAD (default ${GIT_TAG})"
     echo "   -t                              Run unit tests"
@@ -131,8 +137,8 @@ else
     RELY_ON_TAG="Y"
     if [ "${GIT_TAG}" = "last" ]; then
         echo "Determining the latest tag in AppScale/appscale repo"
-        GIT_TAG=$(curl --fail https://api.github.com/repos/appscale/appscale/tags \
-                  | grep '"name"' | head -1 \
+        GIT_TAG=$(curl --fail https://api.github.com/repos/appscale/appscale/releases/latest \
+                  | python -m json.tool | grep '"tag_name"' \
                   | awk -F ':' '{ print $2 }' | tr --delete ' ,"')
     fi
     VERSION="${GIT_TAG}"
