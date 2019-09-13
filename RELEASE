@@ -5,6 +5,113 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.8.0, released September 2019
+Highlights of features and defects fixed in this release:
+ - Login continue scheme
+ - Dispatch Routing from yaml
+ - Install newer psutils to handle kernel 5.X output of /proc/diskstats
+ - Allow custom service accounts for restore operations
+ - Remove Cassandra-specific backup/restore scripts
+ - Fix usages of ZKTransaction class
+ - Update bootstrap.sh usage text for agents
+ - Stop unassigned services
+ - Remove Fixnum warning
+ - Remove old zk nodes structure
+ - Remove outdated scripts
+ - Display a selection menu for available accounts
+ - Remove support for Debian Jessie
+ - Search backup restore
+ - Store FoundationDB clusterfile content in Zookeeper
+ - Use monotonic module when measuring intervals
+ - Limit connection retries when stopping celery
+ - Support custom service accounts for datastore_admin backups
+ - Install FoundationDB client libraries
+ - UA Server backup/restore
+ - Add a rough interface for managing service accounts
+ - Remove M2Crypto dependency
+ - Retry applying transaction mutations
+ - AppController haproxy reload via monit
+ - Escape property values when outputting table
+ - Be more flexible when selecting a composite index
+ - Remove ntp dependency
+ - Flatten path before extracting the entity group
+ - Check if we have flower, and added dependency
+ - Remove iaas system manager
+ - Disable ssl verification for Java application server channel client
+ - AppController command output to standard error / logging verbosity
+ - No need to use sudo during installation
+ - Search2 integrated
+ - Datastore service assignments calculated by admin server not controller
+ - Delete SDK from AppTaskQueue
+ - AppController update jsp jar when rebuilding java application server
+ - Java 8 runtime
+ - Add initial FDB datastore backend implementation
+ - Handle scheme redirects with the dispatcher
+ - Fix non-cloud mode of AppScale launch.
+ - Perform datastore operations in batches
+ - Scaled nodes changes
+ - Stop services concurrently
+ - Higher TaskQueue e2e test stability
+ - AppServer generate internal admin login secret where needed
+ - Add initial implementation of datastore-backed sessions
+ - App cert
+ - Move of appscale.tools.agents to appscale.agents - appscale repo.
+ - Fix python detection in taskqueue tests
+ - Better venvs support in AppController
+ - Resolving dependencies between tq and adminserver
+ - AppServer admin server module should not be enabled for python runtime
+ - Do not modify /root file mode on install
+ - Remove support for trusty
+ - Increase the monit safety sleep time
+ - Limit version of cassandra-driver
+ - Dont override hostname
+ - Use pymemcache to implement the memcache API
+ - Remove local_ip helper function
+ - Splitting service specific and service common code
+ - Retry 3 times with backoff on socket err in AppServer
+ - AppServer request environment setup
+ - Remove old soap calls
+ - Fix the Ruby client's get and set property methods
+ - Blobstore application id header and relative success url
+ - AppServer ensure request type set for request
+ - Add check for system stats
+ - Use the Python API server for some Java runtime calls
+ - Removed cached local IP
+ - Pass app identity calls to the external API server
+ - Datastore service index manager zookeeper callback state parameter
+ - Avoid using localhost when waiting for service
+ - Use output of appscale-admin summary
+ - Check for more results during query
+ - Remove haproxy statistics page
+ - Clear monit environment variables before exec
+ - Enforce min machines
+ - Cron schedule list parsing and sub-daily interval crontab generation
+ - Update default config for java runtime
+ - Move protobuffer handling to different level
+ - Remove HAProxy stats URL
+ - Wait for result before setting chosen task name
+ - Add faceted search support to the Python runtime
+ - Continue batch query if limit hasn't been reached
+ - Restart unavailable instances
+ - Allow push queue bucket size and max concurrent requests parameters
+ - Datastore entity locking resolve deadlock retry syntax
+ - Async coroutine retry for datastore large batches
+ - Ensure application instances logger tag is 32 characters or less
+ - Datastore statistics timestamp second resolution
+ - Configure open file limit for monit
+ - Add B* instance classes
+ - Proxy stats 7x performance improvement
+ - Add aws_subnet_id controller option
+ - Allow "__key__" along with other equality filters
+ - Remove "for_cas" field requirement on set
+ - Access AC and AdminServer with private IPs
+ - Remove dead code from helper library
+ - Only list unique items in project list
+ - Prevent SDK from starting more than one instance
+ - Remove login role
+
+Known Issues:
+
 AppScale version 3.7.1, released May 2019
 Highlights of features and defects fixed in this release:
  - Update cron when login property is changed

@@ -216,10 +216,7 @@ module TaskQueue
         Djinn.log_run("ps ax | grep rabbit | grep -v grep | awk '{print $1}' | xargs kill -9")
         erase_local_files if clear_data
       end
-      if tries_left.zero?
-        Djinn.log_fatal('CRITICAL ERROR: RabbitMQ slave failed to come up')
-        abort
-      end
+      HelperFunctions.log_and_crash('RabbitMQ slave failed to come up') if tries_left.zero?
     }
   end
 

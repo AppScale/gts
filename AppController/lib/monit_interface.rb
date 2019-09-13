@@ -120,6 +120,12 @@ CONFIG
   # This function unmonitors and optionally stops the service, and removes
   # the monit configuration file.
   def self.stop(watch, stop = true)
+    # No need to do anything if the service is not running.
+    unless is_running?(watch)
+      Djinn.log_debug("Asked to stop #{watch} but it is not running.")
+      return
+    end
+
     # To make sure the service is stopped, we query monit till the service
     # is not any longer running.
     running = true
@@ -203,8 +209,9 @@ BOO
   end
 
   def self.is_running?(watch)
-    output = run_cmd("#{MONIT} summary | grep \"'#{watch}'\" | grep -E "\
-                     '"(Running|Initializing|OK)"')
+    script = `which appscale-admin`.chomp
+    HelperFunctions.log_and_crash("Cannot find appscale-admin!") if script.empty?
+    output = run_cmd("#{script} summary | grep \"'#{watch}'\"")
     (output != '')
   end
 
