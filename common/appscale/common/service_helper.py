@@ -23,26 +23,19 @@ STATUS_MAP = {
 
 logger = logging.getLogger(__name__)
 
-class NonZeroReturnStatus(Exception):
-  """ Indicates that command returned non-zero return status """
-  pass
 
-
-def systemctl_run(args):
+def __systemctl_run(args):
   """ Runs the given systemctl command.
 
   Args:
     args: A list of strs, where each str is an argument for systemctl.
   Raises:
-    NonZeroReturnStatus if command returned status different from 0.
+    subprocess.CalledProcessError if command returned status different from 0.
   """
-  return_status = subprocess.call([SYSTEMCTL] + args)
-  if return_status != 0:
-    raise NonZeroReturnStatus('Command {0} return non-zero status: {1}'
-                              .format(' '.join(args), return_status))
+  subprocess.check_call([SYSTEMCTL] + args)
 
 
-def systemctl_out(args):
+def __systemctl_out(args):
   """ Runs the given systemctl command, returns output.
 
   Args:
@@ -50,28 +43,21 @@ def systemctl_out(args):
   Returns:
     The output from the systemctl command
   Raises:
-    NonZeroReturnStatus if command returned status different from 0.
+    subprocess.CalledProcessError if command returned status different from 0.
   """
-  try:
-    return subprocess.check_output([SYSTEMCTL] + args)
-  except subprocess.CalledProcessError as err:
-    raise NonZeroReturnStatus('Command {0} return non-zero status: {1}'
-                              .format(' '.join(args), err.returncode))
+  return subprocess.check_output([SYSTEMCTL] + args)
 
-def safe_systemctl_run(args):
+
+def __safe_systemctl_run(args):
   """ Runs the given systemctl command, logging any error.
 
   Args:
     args: A list of strs, where each str is an argument for systemctl.
-  Returns:
-    True if command succeeded, False otherwise.
   """
   try:
-    systemctl_run(args)
-    return True
-  except NonZeroReturnStatus as err:
+    __systemctl_run(args)
+  except subprocess.CalledProcessError as err:
     logger.error(err)
-    return False
 
 
 def start(name, background=False, enable=None, wants=None, properties=None):
@@ -83,8 +69,6 @@ def start(name, background=False, enable=None, wants=None, properties=None):
     enable: True to enable, False to start only, None for default.
     wants: services required by this service
     properties: properties to set for the service
-  Returns:
-    True if the service was started, else False.
   """
   logger.info('Starting service {0}'.format(name))
   expanded_name = __expand_name(name)
@@ -93,19 +77,19 @@ def start(name, background=False, enable=None, wants=None, properties=None):
     logger.info('Service {0} wants {1}'.format(name, ' '.join(wants)))
     wants_args = ['--runtime', 'add-wants', expanded_name]
     wants_args.extend([__expand_name(want) for want in wants])
-    safe_systemctl_run(wants_args)
+    __safe_systemctl_run(wants_args)
 
   if properties:
     logger.info('Service {0} properties {1}'.format(
       name, ' '.join('='.join(item) for item in properties.items())))
     properties_args = ['--runtime', 'set-property', expanded_name]
     properties_args.extend(['='.join(item) for item in properties.items()])
-    safe_systemctl_run(properties_args)
+    __safe_systemctl_run(properties_args)
 
-  return safe_systemctl_run(__build_command('start',
-                                            expanded_name,
-                                            background=background,
-                                            enable=enable))
+  __safe_systemctl_run(__build_command('start',
+                                       expanded_name,
+                                       background=background,
+                                       enable=enable))
 
 
 def stop(name, background=False):
@@ -114,13 +98,11 @@ def stop(name, background=False):
   Args:
     name: A str representing the name of the service(s) to stop.
     background: True to start without blocking
-  Returns:
-    True if the named services were stopped.
   """
   logger.info('Stopping service(s) {0}'.format(name))
-  return safe_systemctl_run(__build_command('stop',
-                                            __name_match(name),
-                                            background=background))
+  __safe_systemctl_run(__build_command('stop',
+                                       __name_match(name),
+                                       background=background))
 
 
 def restart(name, background=False, start=True):
@@ -130,16 +112,14 @@ def restart(name, background=False, start=True):
     name: A str representing the name of the service(s) to restart.
     background: True to start without blocking
     start: True to start services if not already running (use False with name pattern)
-  Returns:
-    True if services were restarted.
   """
   logger.info('Restarting service(s) {0}'.format(name))
   command = 'try-restart'
   if start:
     command = 'restart'
-  return safe_systemctl_run(__build_command(command,
-                                            __name_match(name),
-                                            background=background))
+  __safe_systemctl_run(__build_command(command,
+                                       __name_match(name),
+                                       background=background))
 
 
 def list(running=False):
@@ -157,7 +137,7 @@ def list(running=False):
 
   try:
     services = {}
-    output = systemctl_out(args)
+    output = __systemctl_out(args)
     for output_line in output.split('\n'):
       if not output_line:
         continue
@@ -166,7 +146,7 @@ def list(running=False):
         continue
       services[service[:-8]] = STATUS_MAP.get(active, 'stopped')
     return services
-  except NonZeroReturnStatus:
+  except subprocess.CalledProcessError:
     return {}
 
 
@@ -262,11 +242,8 @@ class ServiceOperator(object):
       enable: True to enable, False to start only, None for default.
       wants: services required by this service
       properties: properties to set for the service
-    Returns:
-      True if the service was started, else False.
     """
-    raise gen.Return(self.start(name, enable=enable, wants=wants,
-                                properties=properties))
+    self.start(name, enable=enable, wants=wants, properties=properties)
 
   def start(self, name, enable=None, wants=None, properties=None):
     """ Start the given service.
@@ -276,11 +253,8 @@ class ServiceOperator(object):
       enable: True to enable, False to start only, None for default.
       wants: services required by this service
       properties: properties to set for the service
-    Returns:
-      True if the service was started, else False.
     """
-    return self.helper.start(name, enable=enable, wants=wants,
-                        properties=properties)
+    self.helper.start(name, enable=enable, wants=wants, properties=properties)
 
   @gen.coroutine
   def stop_async(self, name):
@@ -288,20 +262,16 @@ class ServiceOperator(object):
 
     Args:
       name: A str representing the name of the service(s) to stop.
-    Returns:
-      True if the named services were stopped.
     """
-    raise gen.Return(self.stop(name))
+    self.stop(name)
 
   def stop(self, name):
     """ Stop the given service(s).
 
     Args:
       name: A str representing the name of the service(s) to stop.
-    Returns:
-      True if the named services were stopped.
     """
-    return self.helper.stop(name)
+    self.helper.stop(name)
 
   @gen.coroutine
   def restart_async(self, name):
@@ -309,17 +279,13 @@ class ServiceOperator(object):
 
     Args:
       name: A str representing the name of the service(s) to restart.
-    Returns:
-      True if services were restarted.
     """
-    raise gen.Return(self.restart(name))
+    self.restart(name)
 
   def restart(self, name):
     """ Restart the given service(s).
 
     Args:
       name: A str representing the name of the service(s) to restart.
-    Returns:
-      True if services were restarted.
     """
-    return self.helper.restart(name)
+    self.helper.restart(name)
