@@ -481,14 +481,6 @@ class Djinn
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
-    'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Integer, '15', true],
-    'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Integer, '65', true],
-    'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Integer, '35', true],
-    'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
-    'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
     'fdb_clusterfile_content' => [String, nil, true],
     'update' => [Array, [], false]
@@ -1360,31 +1352,10 @@ class Djinn
         }
       end
 
-      if key.include? 'stats_log'
-        if key.include? 'nodes'
-          ZKInterface.update_hermes_nodes_profiling_conf(
-            @options['write_nodes_stats_log'].downcase == 'true',
-            @options['nodes_stats_log_interval'].to_i
-          )
-        elsif key.include? 'processes'
-          ZKInterface.update_hermes_processes_profiling_conf(
-            @options['write_processes_stats_log'].downcase == 'true',
-            @options['processes_stats_log_interval'].to_i,
-            @options['write_detailed_processes_stats_log'].downcase == 'true'
-          )
-        elsif key.include? 'proxies'
-          ZKInterface.update_hermes_proxies_profiling_conf(
-            @options['write_proxies_stats_log'].downcase == 'true',
-            @options['proxies_stats_log_interval'].to_i,
-            @options['write_detailed_proxies_stats_log'].downcase == 'true'
-          )
-        end
-      end
-
       if key == 'fdb_clusterfile_content'
         ZKInterface.set_fdb_clusterfile_content(val)
       end
-      
+
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
@@ -3598,8 +3569,7 @@ class Djinn
   def start_hermes
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    script = `which appscale-hermes`.chomp
-    start_cmd = "/usr/bin/python2 #{script}"
+    start_cmd = "/opt/appscale_venvs/hermes/bin/appscale-hermes"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:hermes, start_cmd)
     if my_node.is_shadow?
@@ -3872,6 +3842,8 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
       update_python_package("#{APPSCALE_HOME}/common",
+                            '/opt/appscale_venvs/hermes/bin/pip')
+      update_python_package("#{APPSCALE_HOME}/common",
                             TaskQueue::TASKQUEUE_PIP)
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/search2/bin/pip')
@@ -3881,6 +3853,8 @@ class Djinn
     end
     if update_dirs.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
+      update_python_package("#{APPSCALE_HOME}/AdminServer",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
     if update_dirs.include?('taskqueue')
       build_taskqueue
@@ -3892,7 +3866,8 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
     if update_dirs.include?('hermes')
-      update_python_package("#{APPSCALE_HOME}/Hermes")
+      update_python_package("#{APPSCALE_HOME}/Hermes",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
     if update_dirs.include?('api_server')
       build_api_server
