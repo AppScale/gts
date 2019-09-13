@@ -207,6 +207,7 @@ esac
 
 echo "Configuring local foundationdb"
 /root/appscale-thirdparties/foundationdb/configure-and-start-fdb.sh \
+    --public-address 127.0.0.1 \
     --data-dir /opt/appscale/fdb-data/ \
     --fdbcli-command 'configure new single ssd'
 FDB_CLUSTERFILE_CONTENT=$(cat /etc/foundationdb/fdb.cluster)
