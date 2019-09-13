@@ -892,7 +892,8 @@ class Djinn
         if Integer(@options['min_machines']) > @nodes.length
           msg = 'min_machines is bigger than the number of nodes!'
           Djinn.log_warn(msg)
-          raise AppScaleException.new(msg)
+          # No exception raised here since we may be lowering the number
+          # of min_machines, just a warning in the logs will suffice.
         end
         if Integer(@options['max_machines']) < Integer(@options['min_machines'])
           msg = 'min_machines is bigger than max_machines!'
@@ -1308,9 +1309,9 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn('min_machines is not used in non-cloud infrastructures.')
         end
-        if Integer(val) < Integer(@options['min_machines'])
+        unless can_we_scale_down?(Integer(val))
           Djinn.log_warn('Invalid input: cannot lower min_machines!')
-          return 'min_machines cannot be less than the nodes defined in ips_layout'
+          return 'Cannot lower min_machines past non-autoscaled nodes'
         end
       elsif key == 'max_machines'
         unless is_cloud?
@@ -2526,6 +2527,17 @@ class Djinn
       @nodes.each { |node| ae_nodes << node.private_ip if node.is_compute?  }
     }
     return ae_nodes
+  end
+
+  # This method checks that nodes above index are compute only and thus
+  # can be easily terminated.
+  def can_we_scale_down?(min_machines)
+    @state_change_lock.synchronize {
+      @nodes.drop(min_machines).each { |node|
+        return false if node.roles != ['compute']
+      }
+    }
+    return true
   end
 
   # Gets a list of autoscaled nodes by going through the nodes array
@@ -5046,7 +5058,6 @@ class Djinn
   # any AppServers and the minimum number of user specified machines are still
   # running in the deployment.
   def scale_down_instances
-    num_scaled_down = 0
     # If we are already at the minimum number of machines that the user specified,
     # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_machines'])
@@ -5071,38 +5082,39 @@ class Djinn
 
     Thread.new {
       SCALE_LOCK.synchronize {
-        # Look through an array of autoscaled nodes and check if any of the
-        # machines are not running any AppServers and need to be downscaled.
-        get_autoscaled_nodes.reverse_each { |node|
-          break if num_scaled_down == max_scale_down_capacity
+        # Look through the nodes and check if any of the machines was
+        # autoscaled (compute role only)a and are not running any
+        # AppServers and need to be downscaled.
+        nodes_to_remove = []
+        @state_change_lock.synchronize {
+          @nodes.reverse_each { |node|
+            break if nodes_to_remove.length == max_scale_down_capacity
 
-          hosted_apps = []
-          @versions_loaded.each { |version_key|
-            @app_info_map[version_key]['appservers'].each { |location|
-              host, port = location.split(":")
-              if host == node.private_ip
-                hosted_apps << "#{version_key}:#{port}"
-              end
+            hosted_apps = []
+            @versions_loaded.each { |version_key|
+              @app_info_map[version_key]['appservers'].each { |location|
+                host, port = location.split(":")
+                hosted_apps << "#{version_key}:#{port}" if host == node.private_ip
+              }
             }
+
+            unless hosted_apps.empty?
+              Djinn.log_debug("The node #{node.private_ip} has these AppServers " \
+                "running: #{hosted_apps}")
+              next
+            end
+
+            # Right now, only the autoscaled machines are started with just the
+            # compute role, so we check specifically for that during downscaling
+            # to make sure we only downscale the new machines added.
+            nodes_to_remove << node if node.roles == ['compute']
           }
+        }
 
-          unless hosted_apps.empty?
-            Djinn.log_debug("The node #{node.private_ip} has these AppServers " \
-              "running: #{hosted_apps}")
-            next
-          end
-
-          # Right now, only the autoscaled machines are started with just the
-          # compute role, so we check specifically for that during downscaling
-          # to make sure we only downscale the new machines added.
-          node_to_remove = nil
-          if node.roles == ['compute']
-            Djinn.log_info("Removing node #{node}")
-            node_to_remove = node
-          end
-
-          num_terminated = terminate_node_from_deployment(node_to_remove)
-          num_scaled_down += num_terminated
+        # Now we remove the nodes marked for deletion.
+        nodes_to_remove.each { |node|
+          Djinn.log_info("Removing node #{node}.")
+          APPS_LOCK.synchronize { terminate_node_from_deployment(node) }
         }
       }
 
