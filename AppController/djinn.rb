@@ -132,6 +132,10 @@ MIN_LOAD_THRESHOLD = 0.7
 # The exit code that indicates the data layout version is unexpected.
 INVALID_VERSION_EXIT_CODE = 64
 
+# The allowed list of code directories to specify for updating the code and building it.
+ALLOWED_DIR_UPDATES = ["common", "app_controller", "admin_server", "taskqueue", "app_db",
+                       "iaas_manager", "hermes", "api_server", "appserver_java"]
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -290,7 +294,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = true
+  FIREWALL_IS_ON = 'true' == (ENV['APPSCALE_FIREWALL'] || 'true')
 
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
@@ -486,7 +490,8 @@ class Djinn
     'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
     'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
-    'fdb_clusterfile_content' => [String, nil, true]
+    'fdb_clusterfile_content' => [String, nil, true],
+    'update' => [Array, [], false]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -851,6 +856,11 @@ class Djinn
         else
           newval = val.gsub(NOT_FQDN_REGEX, '')
         end
+      end
+
+      # We do not sanitize Array parameters for now.
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Array
+        newval = val
       end
 
       newoptions[key] = newval
@@ -3300,28 +3310,40 @@ class Djinn
     Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
-    Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
-
-    Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = `which appscale-data-layout`.chomp
-    retries = 10
-    loop {
-      output = `#{layout_script} --db-type cassandra 2>&1`
-      if $?.exitstatus == 0
+    # Autoscaled nodes do not need to check if the datastore is primed: if
+    # we got this far, it must be primed.
+    am_i_autoscaled = false
+    get_autoscaled_nodes.each { |node|
+      if node.private_ip == my_node.private_ip
+        am_i_autoscaled = true
+        Djinn.log_info("Skipping database layout check on scaled node.")
         break
-      elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
-        HelperFunctions.log_and_crash(
-          'Unexpected data layout version. Please run "appscale upgrade".')
-      elsif retries.zero?
-        HelperFunctions.log_and_crash(
-          'Exceeded retries while trying to check data layout.')
-      else
-        Djinn.log_warn("Error while checking data layout:\n#{output}")
-        sleep(SMALL_WAIT)
       end
-      retries -= 1
     }
+    unless am_i_autoscaled
+      Djinn.log_info('Ensuring necessary database tables are present')
+      sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
+
+      Djinn.log_info('Ensuring data layout version is correct')
+      layout_script = `which appscale-data-layout`.chomp
+      retries = 10
+      loop {
+        output = `#{layout_script} --db-type cassandra 2>&1`
+        if $?.exitstatus == 0
+          break
+        elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
+          HelperFunctions.log_and_crash(
+            'Unexpected data layout version. Please run "appscale upgrade".')
+        elsif retries.zero?
+          HelperFunctions.log_and_crash(
+            'Exceeded retries while trying to check data layout.')
+        else
+          Djinn.log_warn("Error while checking data layout:\n#{output}")
+          sleep(SMALL_WAIT)
+        end
+        retries -= 1
+      }
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"
@@ -3364,7 +3386,7 @@ class Djinn
       }
     end
 
-    start_admin_server
+    threads << Thread.new { start_admin_server }
 
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
@@ -3425,6 +3447,9 @@ class Djinn
       threads << Thread.new { stop_taskqueue }
     end
 
+    # Start Hermes with integrated stats service
+    threads << Thread.new { start_hermes }
+
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
@@ -3433,15 +3458,14 @@ class Djinn
     end
     Djinn.log_info('API services have started on this node.')
 
-    # Start Hermes with integrated stats service
-    start_hermes
-
     # Leader node starts additional services.
     if my_node.is_shadow?
       @state = 'Assigning Datastore and Search2 processes'
       assign_datastore_processes
       assign_search2_processes
-      TaskQueue.start_flower(@options['flower_password'])
+
+      # Don't start flower if we don't have a password.
+      TaskQueue.start_flower(@options['flower_password']) unless @options['flower_password'].nil?
     else
       TaskQueue.stop_flower
     end
@@ -3823,10 +3847,15 @@ class Djinn
 
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
-    status = `git -C #{APPSCALE_HOME} status`
+    if @options['update'].empty?
+      return
+    end
+
+    update_dirs = @options['update']
+    update_dirs = ALLOWED_DIR_UPDATES if update_dirs == ['all']
 
     # Update Python packages across corresponding virtual environments
-    if status.include?('common')
+    if update_dirs.include?('common')
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
@@ -3835,33 +3864,33 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/search2/bin/pip')
     end
-    if status.include?('AppControllerClient')
+    if update_dirs.include?('app_controller')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
     end
-    if status.include?('AdminServer')
+    if update_dirs.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
     end
-    if status.include?('AppTaskQueue')
+    if update_dirs.include?('taskqueue')
       build_taskqueue
     end
-    if status.include?('AppDB')
+    if update_dirs.include?('app_db')
       update_python_package("#{APPSCALE_HOME}/AppDB")
     end
-    if status.include?('InfrastructureManager')
+    if update_dirs.include?('iaas_manager')
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
-    if status.include?('Hermes')
+    if update_dirs.include?('hermes')
       update_python_package("#{APPSCALE_HOME}/Hermes")
     end
-    if status.include?('APIServer')
+    if update_dirs.include?('api_server')
       build_api_server
     end
-    if status.include?('SearchService2')
+    if update_dirs.include?('SearchService2')
       build_search_service2
     end
 
     # Update Java AppServer
-    build_java_appserver if status.include?('AppServer_Java')
+    build_java_appserver if update_dirs.include?('appserver_java')
   end
 
   def configure_ejabberd_cert
@@ -3883,9 +3912,7 @@ class Djinn
     threads = []
     must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
-      threads << Thread.new {
-        initialize_node(slave)
-      }
+      threads << Thread.new { initialize_node(slave) }
     }
 
     # If we cannot reconnect with autoscaled nodes, we will have to clean
@@ -4492,6 +4519,7 @@ class Djinn
   def start_admin_server
     Djinn.log_info('Starting AdminServer')
     script = `which appscale-admin`.chomp
+    HelperFunctions.log_and_crash("Cannot find appscale-admin!") if script.empty?
     nginx_port = 17441
     service_port = 17442
     start_cmd = "#{script} serve -p #{service_port}"

@@ -103,6 +103,14 @@ class SearchResult(object):
   facet_results = attr.ib()
 
 
+@attr.s(hash=False, slots=True, frozen=True)
+class IndexMetadata(object):
+  app_id = attr.ib()
+  namespace = attr.ib()
+  index_name = attr.ib()
+  # TODO we may need to add more metadata fields.
+
+
 # ======================================
 #     HELPER MODELS FOR SOLR ADAPTER
 # --------------------------------------
