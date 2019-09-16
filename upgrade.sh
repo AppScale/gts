@@ -65,12 +65,6 @@ if [ "$GIT_TAG" = "last" ]; then
     GIT_TAG=$(curl --fail https://api.github.com/repos/appscale/appscale/releases/latest \
               | python -m json.tool | grep '"tag_name"' \
               | awk -F ':' '{ print $2 }' | tr --delete ' ,"')
-elif ! curl --fail https://api.github.com/repos/appscale/appscale/tags \
-       | python -m json.tool | grep '"name"' | awk -F ':' '{ print $2 }' \
-       | tr --delete ' ,"' | grep "^${GIT_TAG}$"; then
-    echo "Tag '${GIT_TAG}' not recognized"
-    echo "Use --tag to specify existing appscale repo tag to upgrade to."
-    exit 1
 fi
 VERSION="${GIT_TAG}"
 
@@ -78,8 +72,8 @@ echo
 echo "Will be using the following github repos:"
 echo "AppScale:        ${APPSCALE_REPO} - Tag ${GIT_TAG}"
 echo "AppScale-Tools:  ${APPSCALE_TOOLS_REPO} - Tag ${GIT_TAG}"
-if version_ge ${VERSION} 3.7.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
-if version_ge ${VERSION} 3.8.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
+if version_ge ${VERSION} 3.8.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
+if version_ge ${VERSION} 4.0.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
 echo "Exit now (ctrl-c) if this is incorrect"
 echo
 sleep 5
@@ -171,8 +165,8 @@ declare -A REPOS=(
     ["appscale"]="${APPSCALE_REPO}"
     ["appscale-tools"]="${APPSCALE_TOOLS_REPO}"
 )
-if version_ge "${VERSION}" 3.7.0; then REPOS+=(["appscale-agents"]="${AGENTS_REPO}"); fi
-if version_ge "${VERSION}" 3.8.0; then REPOS+=(["appscale-thirdparties"]="${THIRDPARTIES_REPO}"); fi
+if version_ge "${VERSION}" 3.8.0; then REPOS+=(["appscale-agents"]="${AGENTS_REPO}"); fi
+if version_ge "${VERSION}" 4.0.0; then REPOS+=(["appscale-thirdparties"]="${THIRDPARTIES_REPO}"); fi
 
 # At this time we expect to be installed in $HOME.
 cd $HOME
@@ -192,18 +186,18 @@ for repo_name in "${!REPOS[@]}"; do
         git fetch ${remote} -t
         current_branch="$(git branch --no-color | grep '^*' | cut -f 2 -d ' ')"
         echo "Checking out /root/${repo_name} from '${current_branch}' to '${GIT_TAG}'"
-        if ! git checkout "${GIT_TAG}"; then
+        if ! git checkout "tags/${GIT_TAG}"; then
             echo "Please stash your local unsaved changes at "\
                  "/root/${repo_name} and checkout the version of AppScale "\
                  "you are currently using to fix this error."
-            echo "e.g.: git stash; git checkout ${GIT_TAG}"
+            echo "e.g.: git stash; git checkout tags/${GIT_TAG}"
             exit 1
         fi
         # ...</Repo directory context>
         cd $HOME
     else
         git clone "${repo}" ${repo_name}
-        (cd ${repo_name}; git checkout "${GIT_TAG}")
+        (cd ${repo_name}; git checkout "tags/${GIT_TAG}")
     fi
 done
 
@@ -214,7 +208,7 @@ if ! (cd appscale/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge ${VERSION} 3.7.0; then
+if version_ge ${VERSION} 3.8.0; then
     echo -n "Installing AppScale Agents..."
     if ! (cd appscale-agents/; make install-no-venv) ; then
         echo "Failed to upgrade AppScale Agents"
@@ -228,7 +222,7 @@ if ! (cd appscale-tools/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge ${VERSION} 3.8.0; then
+if version_ge ${VERSION} 4.0.0; then
     echo -n "Downloading Thirdparty artifacts..."
     if ! (cd appscale-thirdparties/; bash install_all.sh) ; then
         echo "Failed to upgrade Thirdparties software"
