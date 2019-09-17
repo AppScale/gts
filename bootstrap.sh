@@ -23,7 +23,9 @@ TAG_PARAM_SPECIFIED="N"
 usage() {
     echo "Usage: ${0} [--repo <repo>] [--branch <branch>]"
     echo "            [--tools-repo <repo>] [--tools-branch <branch>]"
-    echo "            [--tag <git-tag>] [-t]"
+    echo "            [--agents-repo <repo>] [--agents-branch <branch>]"
+    echo "            [--thirdparties-repo <repo>] [--thirdparties-branch <branch>]"
+    echo "            [--tag <git-tag>]"
     echo
     echo "Be aware that tag parameter has priority over repo and branch parameters."
     echo "So if no tag, repos and branches are specified, tag 'last' will be used."
@@ -32,8 +34,12 @@ usage() {
     echo "Options:"
     echo "   --repo <repo>                   Specify appscale repo (default $APPSCALE_REPO)"
     echo "   --branch <branch>               Specify appscale branch (default $APPSCALE_BRANCH)"
-    echo "   --tools-repo <repo>             Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO"
+    echo "   --tools-repo <repo>             Specify appscale-tools repo (default $APPSCALE_TOOLS_REPO)"
     echo "   --tools-branch <branch>         Specify appscale-tools branch (default $APPSCALE_TOOLS_BRANCH)"
+    echo "   --agents-repo <repo>            Specify appscale-agents repo (default $AGENTS_REPO)"
+    echo "   --agents-branch <branch>        Specify appscale-agents branch (default $AGENTS_BRANCH)"
+    echo "   --thirdparties-repo <repo>      Specify appscale-thirdparties repo (default $THIRDPARTIES_REPO)"
+    echo "   --thirdparties-branch <branch>  Specify appscale-thirdparties branch (default $THIRDPARTIES_BRANCH)"
     echo "   --tag <git-tag>                 Use git tag (ie 3.7.2) or 'last' to use the latest release"
     echo "                                   or 'dev' for HEAD (default ${GIT_TAG})"
     echo "   -t                              Run unit tests"
@@ -131,8 +137,8 @@ else
     RELY_ON_TAG="Y"
     if [ "${GIT_TAG}" = "last" ]; then
         echo "Determining the latest tag in AppScale/appscale repo"
-        GIT_TAG=$(curl --fail https://api.github.com/repos/appscale/appscale/tags \
-                  | grep '"name"' | head -1 \
+        GIT_TAG=$(curl --fail https://api.github.com/repos/appscale/appscale/releases/latest \
+                  | python -m json.tool | grep '"tag_name"' \
                   | awk -F ':' '{ print $2 }' | tr --delete ' ,"')
     fi
     VERSION="${GIT_TAG}"
@@ -146,8 +152,8 @@ if [ "${RELY_ON_TAG}" = "Y" ]; then
     echo "Will be using the following github repos:"
     echo "AppScale:        ${APPSCALE_REPO} - Tag ${GIT_TAG}"
     echo "AppScale-Tools:  ${APPSCALE_TOOLS_REPO} - Tag ${GIT_TAG}"
-    if version_ge ${VERSION} 3.7.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
-    if version_ge ${VERSION} 3.8.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
+    if version_ge ${VERSION} 3.8.0; then echo "Cloud-Agents:    ${AGENTS_REPO} - Tag ${GIT_TAG}"; fi
+    if version_ge ${VERSION} 4.0.0; then echo "Thirdparties:    ${THIRDPARTIES_REPO} - Tag ${GIT_TAG}"; fi
     echo "Exit now (ctrl-c) if this is incorrect"
 else
     echo "Will be using the following github repos:"
@@ -207,10 +213,10 @@ done
 
 
 if [ "${RELY_ON_TAG}" = "Y"  ]; then
-    APPSCALE_TARGET="${GIT_TAG}"
-    TOOLS_TARGET="${GIT_TAG}"
-    AGENTS_TARGET="${GIT_TAG}"
-    THIRDPARTIES_TARGET="${GIT_TAG}"
+    APPSCALE_TARGET="tags/${GIT_TAG}"
+    TOOLS_TARGET="tags/${GIT_TAG}"
+    AGENTS_TARGET="tags/${GIT_TAG}"
+    THIRDPARTIES_TARGET="tags/${GIT_TAG}"
 else
     APPSCALE_TARGET="${APPSCALE_BRANCH}"
     TOOLS_TARGET="${APPSCALE_TOOLS_BRANCH}"
@@ -229,11 +235,11 @@ VERSION=$(cat /root/appscale/VERSION | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
 git clone ${APPSCALE_TOOLS_REPO} appscale-tools
 (cd appscale-tools; git checkout "${TOOLS_TARGET}")
 
-if version_ge "${VERSION}" 3.7.0; then
+if [ "${RELY_ON_TAG}" = "N" ] || version_ge "${VERSION}" 3.8.0; then
     git clone ${AGENTS_REPO} appscale-agents
     (cd appscale-agents; git checkout "${AGENTS_TARGET}")
 fi
-if version_ge "${VERSION}" 3.8.0; then
+if [ "${RELY_ON_TAG}" = "N" ] || version_ge "${VERSION}" 4.0.0; then
     git clone ${THIRDPARTIES_REPO} appscale-thirdparties
     (cd appscale-thirdparties; git checkout "${THIRDPARTIES_TARGET}")
 fi
@@ -245,7 +251,7 @@ if ! (cd appscale/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge "${VERSION}" 3.7.0; then
+if [ "${RELY_ON_TAG}" = "N" ] || version_ge "${VERSION}" 3.8.0; then
     echo -n "Installing AppScale Agents..."
     if ! (cd appscale-agents/; make install-no-venv) ; then
         echo "Failed to install AppScale Agents"
@@ -259,7 +265,7 @@ if ! (cd appscale-tools/debian; bash appscale_build.sh) ; then
     exit 1
 fi
 
-if version_ge "${VERSION}" 3.8.0; then
+if [ "${RELY_ON_TAG}" = "N" ] || version_ge "${VERSION}" 4.0.0; then
     echo -n "Installing Thirdparty software..."
     if ! (cd appscale-thirdparties/; bash install_all.sh) ; then
         echo "Failed to install Thirdparties software"
