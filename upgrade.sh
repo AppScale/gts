@@ -52,9 +52,7 @@ while [ $# -gt 0 ]; do
         UNIT_TEST="Y"
         shift; continue
     fi
-    echo
-    echo "Parameter '$1' is not recognized"
-    echo
+    echo -e "\nParameter '$1' is not recognized\n"
     usage
 done
 
