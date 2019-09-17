@@ -43,6 +43,17 @@ class VersionEntry(object):
     self._encoded_entity = encoded_entity
     self._decoded_entity = None
 
+  def __repr__(self):
+    # Since the encoded entity can be large, it probably does not make sense to
+    # include it in the string representation.
+    blob_repr = self._encoded_entity
+    if blob_repr is not None:
+      blob_repr = u'<bytes object with length={}>'.format(len(blob_repr))
+
+    return u'VersionEntry({!r}, {!r}, {!r}, {!r}, {!r}, {})'.format(
+      self.project_id, self.namespace, self.path, self.commit_versionstamp,
+      self.version, blob_repr)
+
   @property
   def present(self):
     return self.commit_versionstamp is not None

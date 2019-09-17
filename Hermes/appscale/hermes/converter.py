@@ -96,13 +96,13 @@ class IncludeLists(object):
     self._lists = {}
     self._original_dict = include_lists
 
-    for list_name, fields_to_include in include_lists.iteritems():
+    for list_name, fields_to_include in include_lists.items():
       try:
         known_attributes = self.all_attributes[list_name]
       except KeyError:
         raise WrongIncludeLists(
           'Include list "{name}" is unknown, available are: {known}'
-          .format(name=list_name, known=self.all_attributes.keys())
+          .format(name=list_name, known=list(self.all_attributes.keys()))
         )
 
       # List of field names will be transformed to set of attr.Attribute
@@ -152,7 +152,7 @@ class IncludeLists(object):
     """
     if self is include_lists:
       return True
-    for list_name, include_list in self._lists.iteritems():
+    for list_name, include_list in self._lists.items():
       corresponding_list = include_lists._lists.get(list_name)
       if corresponding_list is None:
         return False
@@ -184,11 +184,11 @@ def stats_to_dict(stats, include_lists=None):
     if value is MISSED:
       continue
     if value and isinstance(value, dict):
-      if attr.has(value.itervalues().next()):
+      if attr.has(next(iter(value.values()))):
         # Only collections of attr types (stats models) should be converted
         value = {
           k: stats_to_dict(v, include_lists)
-          for k, v in value.iteritems()
+          for k, v in value.items()
         }
     elif value and isinstance(value, list):
       if attr.has(value[0]):
@@ -231,7 +231,7 @@ def stats_from_dict(stats_class, dictionary, strict=False):
       if nested_stats_class:
         changed_kwargs[att.name] = {
           key: stats_from_dict(nested_stats_class, value, strict)
-          for key, value in dictionary[att.name].iteritems()
+          for key, value in dictionary[att.name].items()
         }
         continue
       # Try to unpack list of nested entities

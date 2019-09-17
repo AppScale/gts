@@ -53,7 +53,6 @@ from .appengine_api import UpdateIndexesHandler
 from .appengine_api import UpdateQueuesHandler
 from .base_handler import BaseHandler
 from .constants import (
-  AccessTokenErrors,
   CustomHTTPError,
   OperationTimeout,
   REDEPLOY_WAIT,

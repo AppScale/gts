@@ -14,11 +14,11 @@ from datetime import datetime
 
 from appscale.search import solr_adapter
 from appscale.search.constants import (
-  InvalidRequest, UnknownFieldTypeException,
-  UnknownFacetTypeException
+  InvalidRequest, UnknownFieldTypeException, UnknownFacetTypeException,
+  SolrClientError, SolrServerError)
+from appscale.search.models import (
+  Field, Document, Facet, FacetRefinement, FacetRequest
 )
-from appscale.search.models import Field, Document, Facet, FacetRefinement, \
-  FacetRequest
 from appscale.search.protocols import search_pb2
 
 logger = logging.getLogger(__name__)
@@ -99,8 +99,15 @@ class APIMethods(object):
       list_indexes_request: A search_pb2.ListIndexesRequest.
       list_indexes_response: A search_pb2.ListIndexesResponse.
     """
-    raise InvalidRequest("List indexes method is not implemented "
-                         "in AppScale SearchService2 yet")
+    app_id = list_indexes_request.app_id.decode('utf-8')
+    # TODO list indexes params should be processed
+    # params = list_indexes_request.params
+    indexes_metadata = await self.solr_adapter.list_indexes(app_id)
+    list_indexes_response.status.code = search_pb2.SearchServiceError.OK
+    for metadata in indexes_metadata:
+      metadata_pb = list_indexes_response.index_metadata.add()
+      metadata_pb.index_spec.namespace = metadata.namespace
+      metadata_pb.index_spec.name = metadata.index_name
 
   async def list_documents(self, list_documents_request, list_documents_response):
     """ List all documents within an index.

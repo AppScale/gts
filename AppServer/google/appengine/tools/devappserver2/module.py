@@ -587,6 +587,11 @@ class Module(object):
       else:
         environ['SERVER_PORT'] = 443
 
+    # AppScale: Modify environment based on proxy headers.
+    x_proto = environ.get('HTTP_X_FORWARDED_PROTO')
+    if x_proto:
+      environ['wsgi.url_scheme'] = x_proto
+
     if 'HTTP_HOST' in environ:
       environ['SERVER_NAME'] = environ['HTTP_HOST'].split(':', 1)[0]
     environ['DEFAULT_VERSION_HOSTNAME'] = '%s:%s' % (

@@ -132,6 +132,10 @@ MIN_LOAD_THRESHOLD = 0.7
 # The exit code that indicates the data layout version is unexpected.
 INVALID_VERSION_EXIT_CODE = 64
 
+# The allowed list of code directories to specify for updating the code and building it.
+ALLOWED_DIR_UPDATES = ["common", "app_controller", "admin_server", "taskqueue", "app_db",
+                       "iaas_manager", "hermes", "api_server", "appserver_java"]
+
 # Djinn (interchangeably known as 'the AppController') automatically
 # configures and deploys all services for a single node. It relies on other
 # Djinns or the AppScale Tools to tell it what services (roles) it should
@@ -290,7 +294,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = true
+  FIREWALL_IS_ON = 'true' == (ENV['APPSCALE_FIREWALL'] || 'true')
 
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
@@ -477,16 +481,9 @@ class Djinn
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
-    'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Integer, '15', true],
-    'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Integer, '65', true],
-    'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Integer, '35', true],
-    'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
-    'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
-    'fdb_clusterfile_content' => [String, nil, true]
+    'fdb_clusterfile_content' => [String, nil, true],
+    'update' => [Array, [], false]
   }.freeze
 
   # Template used for rsyslog configuration files.
@@ -853,6 +850,11 @@ class Djinn
         end
       end
 
+      # We do not sanitize Array parameters for now.
+      if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == Array
+        newval = val
+      end
+
       newoptions[key] = newval
       newval = "*****" unless PARAMETERS_AND_CLASS[key][2]
       Djinn.log_debug("Accepted option #{key}:#{newval}.")
@@ -882,7 +884,8 @@ class Djinn
         if Integer(@options['min_machines']) > @nodes.length
           msg = 'min_machines is bigger than the number of nodes!'
           Djinn.log_warn(msg)
-          raise AppScaleException.new(msg)
+          # No exception raised here since we may be lowering the number
+          # of min_machines, just a warning in the logs will suffice.
         end
         if Integer(@options['max_machines']) < Integer(@options['min_machines'])
           msg = 'min_machines is bigger than max_machines!'
@@ -1298,9 +1301,9 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn('min_machines is not used in non-cloud infrastructures.')
         end
-        if Integer(val) < Integer(@options['min_machines'])
+        unless can_we_scale_down?(Integer(val))
           Djinn.log_warn('Invalid input: cannot lower min_machines!')
-          return 'min_machines cannot be less than the nodes defined in ips_layout'
+          return 'Cannot lower min_machines past non-autoscaled nodes'
         end
       elsif key == 'max_machines'
         unless is_cloud?
@@ -1349,31 +1352,10 @@ class Djinn
         }
       end
 
-      if key.include? 'stats_log'
-        if key.include? 'nodes'
-          ZKInterface.update_hermes_nodes_profiling_conf(
-            @options['write_nodes_stats_log'].downcase == 'true',
-            @options['nodes_stats_log_interval'].to_i
-          )
-        elsif key.include? 'processes'
-          ZKInterface.update_hermes_processes_profiling_conf(
-            @options['write_processes_stats_log'].downcase == 'true',
-            @options['processes_stats_log_interval'].to_i,
-            @options['write_detailed_processes_stats_log'].downcase == 'true'
-          )
-        elsif key.include? 'proxies'
-          ZKInterface.update_hermes_proxies_profiling_conf(
-            @options['write_proxies_stats_log'].downcase == 'true',
-            @options['proxies_stats_log_interval'].to_i,
-            @options['write_detailed_proxies_stats_log'].downcase == 'true'
-          )
-        end
-      end
-
       if key == 'fdb_clusterfile_content'
         ZKInterface.set_fdb_clusterfile_content(val)
       end
-      
+
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
@@ -2533,6 +2515,17 @@ class Djinn
     return ae_nodes
   end
 
+  # This method checks that nodes above index are compute only and thus
+  # can be easily terminated.
+  def can_we_scale_down?(min_machines)
+    @state_change_lock.synchronize {
+      @nodes.drop(min_machines).each { |node|
+        return false if node.roles != ['compute']
+      }
+    }
+    return true
+  end
+
   # Gets a list of autoscaled nodes by going through the nodes array
   # and splitting the array from index greater than the
   # minimum images specified.
@@ -3320,28 +3313,40 @@ class Djinn
     Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
-    Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
-
-    Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = `which appscale-data-layout`.chomp
-    retries = 10
-    loop {
-      output = `#{layout_script} --db-type cassandra 2>&1`
-      if $?.exitstatus == 0
+    # Autoscaled nodes do not need to check if the datastore is primed: if
+    # we got this far, it must be primed.
+    am_i_autoscaled = false
+    get_autoscaled_nodes.each { |node|
+      if node.private_ip == my_node.private_ip
+        am_i_autoscaled = true
+        Djinn.log_info("Skipping database layout check on scaled node.")
         break
-      elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
-        HelperFunctions.log_and_crash(
-          'Unexpected data layout version. Please run "appscale upgrade".')
-      elsif retries.zero?
-        HelperFunctions.log_and_crash(
-          'Exceeded retries while trying to check data layout.')
-      else
-        Djinn.log_warn("Error while checking data layout:\n#{output}")
-        sleep(SMALL_WAIT)
       end
-      retries -= 1
     }
+    unless am_i_autoscaled
+      Djinn.log_info('Ensuring necessary database tables are present')
+      sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
+
+      Djinn.log_info('Ensuring data layout version is correct')
+      layout_script = `which appscale-data-layout`.chomp
+      retries = 10
+      loop {
+        output = `#{layout_script} --db-type cassandra 2>&1`
+        if $?.exitstatus == 0
+          break
+        elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
+          HelperFunctions.log_and_crash(
+            'Unexpected data layout version. Please run "appscale upgrade".')
+        elsif retries.zero?
+          HelperFunctions.log_and_crash(
+            'Exceeded retries while trying to check data layout.')
+        else
+          Djinn.log_warn("Error while checking data layout:\n#{output}")
+          sleep(SMALL_WAIT)
+        end
+        retries -= 1
+      }
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"
@@ -3392,7 +3397,7 @@ class Djinn
       }
     end
 
-    start_admin_server
+    threads << Thread.new { start_admin_server }
 
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
@@ -3452,6 +3457,9 @@ class Djinn
       threads << Thread.new { stop_taskqueue }
     end
 
+    # Start Hermes with integrated stats service
+    threads << Thread.new { start_hermes }
+
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
@@ -3460,15 +3468,14 @@ class Djinn
     end
     Djinn.log_info('API services have started on this node.')
 
-    # Start Hermes with integrated stats service
-    start_hermes
-
     # Leader node starts additional services.
     if my_node.is_shadow?
       @state = 'Assigning Datastore and Search2 processes'
       assign_datastore_processes
       assign_search2_processes
-      TaskQueue.start_flower(@options['flower_password'])
+
+      # Don't start flower if we don't have a password.
+      TaskQueue.start_flower(@options['flower_password']) unless @options['flower_password'].nil?
     else
       TaskQueue.stop_flower
     end
@@ -3589,8 +3596,7 @@ class Djinn
   def start_hermes
     @state = "Starting Hermes"
     Djinn.log_info("Starting Hermes service.")
-    script = `which appscale-hermes`.chomp
-    start_cmd = "/usr/bin/python2 #{script}"
+    start_cmd = "/opt/appscale_venvs/hermes/bin/appscale-hermes"
     start_cmd << ' --verbose' if @options['verbose'].downcase == 'true'
     MonitInterface.start(:hermes, start_cmd)
     if my_node.is_shadow?
@@ -3850,45 +3856,55 @@ class Djinn
 
   # Run a build on modified directories so that changes will take effect.
   def build_uncommitted_changes
-    status = `git -C #{APPSCALE_HOME} status`
+    if @options['update'].empty?
+      return
+    end
+
+    update_dirs = @options['update']
+    update_dirs = ALLOWED_DIR_UPDATES if update_dirs == ['all']
 
     # Update Python packages across corresponding virtual environments
-    if status.include?('common')
+    if update_dirs.include?('common')
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
+      update_python_package("#{APPSCALE_HOME}/common",
+                            '/opt/appscale_venvs/hermes/bin/pip')
       update_python_package("#{APPSCALE_HOME}/common",
                             TaskQueue::TASKQUEUE_PIP)
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/search2/bin/pip')
     end
-    if status.include?('AppControllerClient')
+    if update_dirs.include?('app_controller')
       update_python_package("#{APPSCALE_HOME}/AppControllerClient")
     end
-    if status.include?('AdminServer')
+    if update_dirs.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
+      update_python_package("#{APPSCALE_HOME}/AdminServer",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
-    if status.include?('AppTaskQueue')
+    if update_dirs.include?('taskqueue')
       build_taskqueue
     end
-    if status.include?('AppDB')
+    if update_dirs.include?('app_db')
       update_python_package("#{APPSCALE_HOME}/AppDB")
     end
-    if status.include?('InfrastructureManager')
+    if update_dirs.include?('iaas_manager')
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
-    if status.include?('Hermes')
-      update_python_package("#{APPSCALE_HOME}/Hermes")
+    if update_dirs.include?('hermes')
+      update_python_package("#{APPSCALE_HOME}/Hermes",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
-    if status.include?('APIServer')
+    if update_dirs.include?('api_server')
       build_api_server
     end
-    if status.include?('SearchService2')
+    if update_dirs.include?('SearchService2')
       build_search_service2
     end
 
     # Update Java AppServer
-    build_java_appserver if status.include?('AppServer_Java')
+    build_java_appserver if update_dirs.include?('appserver_java')
   end
 
   def configure_ejabberd_cert
@@ -3910,9 +3926,7 @@ class Djinn
     threads = []
     must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
-      threads << Thread.new {
-        initialize_node(slave)
-      }
+      threads << Thread.new { initialize_node(slave) }
     }
 
     # If we cannot reconnect with autoscaled nodes, we will have to clean
@@ -4519,6 +4533,7 @@ class Djinn
   def start_admin_server
     Djinn.log_info('Starting AdminServer')
     script = `which appscale-admin`.chomp
+    HelperFunctions.log_and_crash("Cannot find appscale-admin!") if script.empty?
     nginx_port = 17441
     service_port = 17442
     start_cmd = "#{script} serve -p #{service_port}"
@@ -5047,7 +5062,6 @@ class Djinn
   # any AppServers and the minimum number of user specified machines are still
   # running in the deployment.
   def scale_down_instances
-    num_scaled_down = 0
     # If we are already at the minimum number of machines that the user specified,
     # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_machines'])
@@ -5072,38 +5086,39 @@ class Djinn
 
     Thread.new {
       SCALE_LOCK.synchronize {
-        # Look through an array of autoscaled nodes and check if any of the
-        # machines are not running any AppServers and need to be downscaled.
-        get_autoscaled_nodes.reverse_each { |node|
-          break if num_scaled_down == max_scale_down_capacity
+        # Look through the nodes and check if any of the machines was
+        # autoscaled (compute role only)a and are not running any
+        # AppServers and need to be downscaled.
+        nodes_to_remove = []
+        @state_change_lock.synchronize {
+          @nodes.reverse_each { |node|
+            break if nodes_to_remove.length == max_scale_down_capacity
 
-          hosted_apps = []
-          @versions_loaded.each { |version_key|
-            @app_info_map[version_key]['appservers'].each { |location|
-              host, port = location.split(":")
-              if host == node.private_ip
-                hosted_apps << "#{version_key}:#{port}"
-              end
+            hosted_apps = []
+            @versions_loaded.each { |version_key|
+              @app_info_map[version_key]['appservers'].each { |location|
+                host, port = location.split(":")
+                hosted_apps << "#{version_key}:#{port}" if host == node.private_ip
+              }
             }
+
+            unless hosted_apps.empty?
+              Djinn.log_debug("The node #{node.private_ip} has these AppServers " \
+                "running: #{hosted_apps}")
+              next
+            end
+
+            # Right now, only the autoscaled machines are started with just the
+            # compute role, so we check specifically for that during downscaling
+            # to make sure we only downscale the new machines added.
+            nodes_to_remove << node if node.roles == ['compute']
           }
+        }
 
-          unless hosted_apps.empty?
-            Djinn.log_debug("The node #{node.private_ip} has these AppServers " \
-              "running: #{hosted_apps}")
-            next
-          end
-
-          # Right now, only the autoscaled machines are started with just the
-          # compute role, so we check specifically for that during downscaling
-          # to make sure we only downscale the new machines added.
-          node_to_remove = nil
-          if node.roles == ['compute']
-            Djinn.log_info("Removing node #{node}")
-            node_to_remove = node
-          end
-
-          num_terminated = terminate_node_from_deployment(node_to_remove)
-          num_scaled_down += num_terminated
+        # Now we remove the nodes marked for deletion.
+        nodes_to_remove.each { |node|
+          Djinn.log_info("Removing node #{node}.")
+          APPS_LOCK.synchronize { terminate_node_from_deployment(node) }
         }
       }
     }
