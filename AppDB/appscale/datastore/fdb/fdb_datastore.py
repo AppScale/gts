@@ -101,7 +101,11 @@ class FDBDatastore(object):
     try:
       yield self._tornado_fdb.commit(tr, convert_exceptions=False)
     except fdb.FDBError as fdb_error:
-      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+      if fdb_error.code == FDBErrorCodes.NOT_COMMITTED:
+        pass
+      elif fdb_error.code == FDBErrorCodes.COMMIT_RESULT_UNKNOWN:
+        logger.error('Unable to determine commit result. Retrying.')
+      else:
         raise InternalError(fdb_error.description)
 
       retries -= 1
@@ -187,7 +191,11 @@ class FDBDatastore(object):
     try:
       yield self._tornado_fdb.commit(tr, convert_exceptions=False)
     except fdb.FDBError as fdb_error:
-      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+      if fdb_error.code == FDBErrorCodes.NOT_COMMITTED:
+        pass
+      elif fdb_error.code == FDBErrorCodes.COMMIT_RESULT_UNKNOWN:
+        logger.error('Unable to determine commit result. Retrying.')
+      else:
         raise InternalError(fdb_error.description)
 
       retries -= 1
