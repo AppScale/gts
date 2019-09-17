@@ -36,8 +36,7 @@ class UserAppClient
     @ip = ip
     @secret = secret
 
-    @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SSL_SERVER_PORT}")
-    @conn.options['protocol.http.ssl_config.verify_mode'] = nil
+    @conn = SOAP::RPC::Driver.new("http://#{@ip}:#{HAPROXY_SERVER_PORT}")
     @conn.add_method('change_password', 'user', 'password', 'secret')
     @conn.add_method('commit_new_user', 'user', 'passwd', 'utype', 'secret')
     @conn.add_method('is_user_cloud_admin', 'username', 'secret')

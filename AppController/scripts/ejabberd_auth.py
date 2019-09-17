@@ -108,8 +108,7 @@ if __name__ == '__main__':
 
   logging.debug('Authentication script: waiting for ejabberd requests')
 
-  secret = appscale_info.get_secret()
-  ua_client = UAClient(appscale_info.get_db_master_ip(), secret)
+  ua_client = UAClient()
 
   while True:
     try:
