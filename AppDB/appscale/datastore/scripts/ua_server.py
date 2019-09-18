@@ -11,12 +11,14 @@ import datetime
 import logging
 import SOAPpy
 import sys
+import threading
 import time
 
-from appscale.common import appscale_info
-from appscale.common.constants import LOG_FORMAT
+from kazoo.client import KazooClient, KazooState, NodeExistsError
 from tornado import gen
 
+from appscale.common import appscale_info
+from appscale.common.constants import LOG_FORMAT, ZK_PERSISTENT_RECONNECTS
 from appscale.datastore import appscale_datastore
 from appscale.datastore.dbconstants import (
   AppScaleDBConnectionError, USERS_SCHEMA, USERS_TABLE
@@ -34,6 +36,9 @@ DEFAULT_PORT = 4342
 
 # The port avaialble from the outside via SSL.
 DEFAULT_SSL_PORT = 4343
+
+# The ZooKeeper path where a list of active UA servers is stored.
+UA_SERVERS_NODE = '/appscale/iam/servers'
 
 # The default datastore used.
 datastore_type = DEFAULT_DATASTORE
@@ -507,6 +512,40 @@ def usage():
   print "      --port or -p for server port"
 
 
+def register_location(host, port):
+  """ Register service location with ZooKeeper. """
+  zk_client = KazooClient(hosts=appscale_info.get_zk_locations_string(),
+                          connection_retry=ZK_PERSISTENT_RECONNECTS)
+  zk_client.start()
+  server_node = '{}/{}:{}'.format(UA_SERVERS_NODE, host, port)
+
+  def create_server_node():
+    """ Creates a server registration entry in ZooKeeper. """
+    try:
+      zk_client.retry(zk_client.create, server_node, ephemeral=True)
+    except NodeExistsError:
+      # If the server gets restarted, the old node may exist for a short time.
+      zk_client.retry(zk_client.delete, server_node)
+      zk_client.retry(zk_client.create, server_node, ephemeral=True)
+
+    logger.info('UAServer registered at {}'.format(server_node))
+
+  def zk_state_listener(state):
+    """ Handles changes to ZooKeeper connection state.
+
+    Args:
+      state: A string specifying the new ZooKeeper connection state.
+    """
+    if state == KazooState.CONNECTED:
+      threading.Thread(target=create_server_node).start()
+
+  zk_client.add_listener(zk_state_listener)
+  zk_client.ensure_path(UA_SERVERS_NODE)
+  # Since the client was started before adding the listener, make sure the
+  # server node gets created.
+  zk_state_listener(zk_client.state)
+
+
 def main():
   """ Main function for running the server. """
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
@@ -530,6 +569,8 @@ def main():
       ii += 1
     else:
       pass
+
+  register_location(appscale_info.get_private_ip(), bindport)
 
   db = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
   ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()

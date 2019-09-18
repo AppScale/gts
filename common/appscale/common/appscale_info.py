@@ -54,9 +54,8 @@ def get_load_balancer_ips():
   Returns:
     A list of LB node IPs.
   """
-  raw_ips = file_io.read(constants.LOAD_BALANCER_IPS_LOC)
-  ips = raw_ips.split('\n')
-  return filter(None, ips)
+  with open(constants.LOAD_BALANCER_IPS_LOC) as lbs_file:
+    return [line.strip() for line in lbs_file if line.strip()]
 
 def get_headnode_ip():
   """ Get the private IP of the head node. NOTE: it can change if node

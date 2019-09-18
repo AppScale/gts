@@ -52,6 +52,7 @@ DS_ROOT = (u'appscale', u'datastore')
 
 class FDBErrorCodes(object):
   NOT_COMMITTED = 1020
+  COMMIT_RESULT_UNKNOWN = 1021
 
 
 def ReverseBitsInt64(v):

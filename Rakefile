@@ -64,7 +64,8 @@ end
 namespace :hermes do
 
   task :test do
-    sh 'python -m unittest discover -b -v -s Hermes/appscale/hermes'
+    sh '/opt/appscale_venvs/hermes/bin/pip install pytest pytest-asyncio'
+    sh '/opt/appscale_venvs/hermes/bin/pytest Hermes/tests'
   end
 
 end

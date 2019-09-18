@@ -22,13 +22,13 @@ class Service(object):
   name = attr.ib()
 
   # monit_matcher have to contain 'app' and 'port' groups when possible
-  monit_matcher = attr.ib(default=UNMATCHABLE, convert=re.compile)
+  monit_matcher = attr.ib(default=UNMATCHABLE, converter=re.compile)
 
   # haproxy_proxy_matcher have to contain 'app' group when possible
-  haproxy_proxy_matcher = attr.ib(default=UNMATCHABLE, convert=re.compile)
+  haproxy_proxy_matcher = attr.ib(default=UNMATCHABLE, converter=re.compile)
 
   # haproxy_server_matcher have to contain 'app', 'ip' and 'port' groups when possible
-  haproxy_server_matcher = attr.ib(default=UNMATCHABLE, convert=re.compile)
+  haproxy_server_matcher = attr.ib(default=UNMATCHABLE, converter=re.compile)
 
   def recognize_monit_process(self, monit_name):
     """ Checks whether monit process corresponds to this service.
@@ -172,7 +172,7 @@ class ServicesEnum(object):
 
 
 KNOWN_SERVICES = [
-  value for value in ServicesEnum.__dict__.itervalues()
+  value for value in ServicesEnum.__dict__.values()
   if isinstance(value, Service)
 ]
 KNOWN_SERVICES_DICT = {

@@ -1,9 +1,10 @@
 """ A client that makes requests to the UAServer. """
 
-import json
-import ssl
+import random
 
 from SOAPpy import SOAPProxy
+
+from .appscale_info import get_load_balancer_ips, get_secret
 from .constants import UA_SERVER_PORT
 
 
@@ -31,19 +32,21 @@ class UAClient(object):
   # applications a user owns, when applied to their user data.
   USER_APP_LIST_REGEX = "\napplications:(.+)\n"
 
-  def __init__(self, host, secret):
+  def __init__(self, host=None, secret=None):
     """ Creates a UAClient instance.
 
     Args:
       host: A string specifying the location of the UAServer.
       secret: A string specifying the deployment secret.
     """
-    # Disable certificate verification for Python >= 2.7.9.
-    if hasattr(ssl, '_create_unverified_context'):
-      ssl._create_default_https_context = ssl._create_unverified_context
+    if host is None:
+      host = random.choice(get_load_balancer_ips())
+
+    if secret is None:
+      secret = get_secret()
 
     self.secret = secret
-    self.server = SOAPProxy('https://{}:{}'.format(host, UA_SERVER_PORT))
+    self.server = SOAPProxy('http://{}:{}'.format(host, UA_SERVER_PORT))
 
   def add_admin_for_app(self, email, app_id):
     """ Grants a user admin privileges for an application.

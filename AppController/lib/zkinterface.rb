@@ -45,11 +45,20 @@ class ZKInterface
   # and where other nodes will recover that state from.
   APPCONTROLLER_STATE_PATH = "#{APPCONTROLLER_PATH}/state".freeze
 
+  # The ZooKeeper node where blobstore servers register themselves.
+  BLOBSTORE_REGISTRY_PATH = '/appscale/blobstore/servers'
+
   # The ZooKeeper node where datastore servers register themselves.
   DATASTORE_REGISTRY_PATH = '/appscale/datastore/servers'
 
   # The ZooKeeper node where search servers register themselves.
   SEARCH2_REGISTRY_PATH = '/appscale/search/live_nodes'
+
+  # The ZooKeeper node where taskqueue servers register themselves.
+  TASKQUEUE_REGISTRY_PATH = '/appscale/tasks/servers'
+
+  # The ZooKeeper node where UA servers register themselves.
+  UA_REGISTRY_PATH = '/appscale/iam/servers'
 
   # The location in ZooKeeper that AppControllers write information about their
   # node to, so that others can poll to see if they are alive and what roles
@@ -232,20 +241,42 @@ class ZKInterface
     return JSON.load(cron_config_json)
   end
 
-  def self.get_datastore_servers
-    return get_children(DATASTORE_REGISTRY_PATH).map { |server|
+  def self.get_dispatch_rules(project_id)
+    dispatch_node = "/appscale/projects/#{project_id}/dispatch"
+    begin
+      dispatch_config_json = self.get(dispatch_node)
+    rescue FailedZooKeeperOperationException
+      raise ConfigNotFound, "Dispatch configuration not found for #{project_id}"
+    end
+    return JSON.load(dispatch_config_json)
+  end
+
+  def self.list_registered(registration_node)
+    return get_children(registration_node).map { |server|
       server = server.split(':')
       server[1] = server[1].to_i
       server
     }
   end
 
+  def self.get_datastore_servers
+    list_registered(DATASTORE_REGISTRY_PATH)
+  end
+
   def self.get_search2_servers
-    return get_children(SEARCH2_REGISTRY_PATH).map { |server|
-      server = server.split(':')
-      server[1] = server[1].to_i
-      server
-    }
+    list_registered(SEARCH2_REGISTRY_PATH)
+  end
+
+  def self.get_taskqueue_servers
+    list_registered(TASKQUEUE_REGISTRY_PATH)
+  end
+
+  def self.get_ua_servers
+    list_registered(UA_REGISTRY_PATH)
+  end
+
+  def self.get_blob_servers
+    list_registered(BLOBSTORE_REGISTRY_PATH)
   end
 
   def self.set_machine_assignments(machine_ip, assignments)
