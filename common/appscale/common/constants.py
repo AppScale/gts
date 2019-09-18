@@ -99,7 +99,7 @@ TASKQUEUE_NODE_FILE = "/etc/appscale/taskqueue_nodes"
 DB_SERVER_PORT = 8888
 
 # The port of the UserAppServer SOAP server.
-UA_SERVER_PORT = 4343
+UA_SERVER_PORT = 4341
 
 # The port of the application manager soap server.
 APP_MANAGER_PORT = 17445

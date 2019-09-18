@@ -155,6 +155,10 @@ class IndexEntry(object):
     self.deleted_versionstamp = deleted_versionstamp
 
   @property
+  def kind(self):
+    return self.path[-2]
+
+  @property
   def key(self):
     key = entity_pb.Reference()
     key.set_app(self.project_id)
@@ -329,6 +333,30 @@ class IndexIterator(object):
       return entry.commit_versionstamp < self._read_versionstamp
     else:
       return entry.deleted_versionstamp is None
+
+
+class KindIterator(object):
+  def __init__(self, tr, project_dir, namespace):
+    self._tr = tr
+    self._project_dir = project_dir
+    self._namespace = namespace
+    self._done = False
+
+  @gen.coroutine
+  def next_page(self):
+    if self._done:
+      raise gen.Return(([], False))
+
+    # TODO: This can be made async.
+    ns_dir = self._project_dir.open(
+      self._tr, (KindIndex.DIR_NAME, self._namespace))
+    kinds = ns_dir.list(self._tr)
+    results = [IndexEntry(self._project_dir.get_path()[-1], self._namespace,
+                          (u'__kind__', kind), None, None)
+               for kind in kinds]
+
+    self._done = True
+    raise gen.Return((results, False))
 
 
 class MergeJoinIterator(object):
@@ -1085,6 +1113,10 @@ class IndexManager(object):
     if check_more_results:
       fetch_limit += 1
 
+    if query.has_kind() and query.kind() == u'__kind__':
+      project_dir = yield self._directory_cache.get(tr, (project_id,))
+      raise gen.Return(KindIterator(tr, project_dir, namespace))
+
     index = yield self._get_perfect_index(tr, query)
     reverse = get_scan_direction(query, index) == Query_Order.DESCENDING
 
@@ -1358,7 +1390,7 @@ class IndexManager(object):
       while True:
         results, more_results = yield result_iterator.next_page()
         index_entries = [kind_index.decode(result) for result in results]
-        version_entries = yield [self._data_manager.get_entry(self, tr, entry)
+        version_entries = yield [self._data_manager.get_entry(tr, entry)
                                  for entry in index_entries]
         for index_entry, version_entry in zip(index_entries, version_entries):
           new_keys = composite_index.encode_keys(

@@ -114,6 +114,7 @@ echo ${DB_IP} > /etc/appscale/masters
 echo ${DB_IP} > /etc/appscale/slaves
 echo ${ZK_IP} > /etc/appscale/zookeeper_locations
 echo ${LB_IP} > /etc/appscale/load_balancer_ips
+hostname -I > /etc/appscale/my_private_ip
 
 
 RUNNING_SERVER=$(ps -ax | grep "[a]ppscale-taskqueue" || echo "")

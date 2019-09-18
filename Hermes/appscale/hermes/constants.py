@@ -8,8 +8,8 @@ HAPROXY_SERVICES_CONFIGS_DIR = '/etc/haproxy/service-sites-enabled/'
 # Path to dictionary to write profile log
 PROFILE_LOG_DIR = '/var/log/appscale/profile'
 
-# The amount of time to wait for local stats from a slave node.
-STATS_REQUEST_TIMEOUT = 60
+# The amount of time to wait for remote http requests.
+REMOTE_REQUEST_TIMEOUT = 60
 
 # Stats which were produce less than X seconds ago is considered as current
 ACCEPTABLE_STATS_AGE = 10
@@ -27,7 +27,7 @@ class _MissedValue(object):
   in haproxy stats.
   """
 
-  def __nonzero__(self):
+  def __bool__(self):
     return False
 
   def __repr__(self):

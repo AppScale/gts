@@ -32,13 +32,13 @@ module AppDashboard
   # Returns:
   #   A string specifying the location of the prepared archive.
   def self.prep(private_ip, persistent_storage, datastore_location,
-                taskqueue_location)
+                taskqueue_location, ua_server_location)
     # Write deployment-specific information that the dashboard needs.
     lib_dir = File.join(APPSCALE_HOME, 'AppDashboard', 'lib')
     lib_contents = {
       'admin_server_location.py' => "ADMIN_SERVER_LOCATION = '#{private_ip}'",
       'controller_location.py' => "CONTROLLER_LOCATION = '#{private_ip}'",
-      'uaserver_host.py' => "UA_SERVER_IP = '#{private_ip}'",
+      'uaserver_location.py' => "UA_SERVER_LOCATION = '#{ua_server_location}'",
       'datastore_location.py' => "DATASTORE_LOCATION = '#{datastore_location}'",
       'taskqueue_location.py' => "TASKQUEUE_LOCATION = '#{taskqueue_location}'"
     }
