@@ -433,7 +433,7 @@ class DataManager(object):
     if index_entry.kind in (u'__namespace__', u'__kind__'):
       entity = entity_pb.EntityProto()
       entity.mutable_key().MergeFrom(index_entry.key)
-      entity.mutable_entity_group().MergeFrom(index_entry.group)
+      entity.mutable_entity_group()
       version_entry = VersionEntry(
         index_entry.project_id, index_entry.namespace, index_entry.path,
         encoded_entity=entity.Encode())
