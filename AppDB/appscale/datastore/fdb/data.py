@@ -430,7 +430,7 @@ class DataManager(object):
     Returns:
       A VersionEntry or None.
     """
-    if index_entry.kind == u'__kind__':
+    if index_entry.kind in (u'__namespace__', u'__kind__'):
       entity = entity_pb.EntityProto()
       entity.mutable_key().MergeFrom(index_entry.key)
       entity.mutable_entity_group().MergeFrom(index_entry.group)
