@@ -1,5 +1,6 @@
 import datetime
 import logging
+import monotonic
 import random
 import time
 from collections import defaultdict
@@ -12,7 +13,8 @@ from tornado.locks import Lock as AsyncLock
 from appscale.datastore.fdb.polling_lock import PollingLock
 from appscale.datastore.fdb.stats.containers import ProjectStats
 from appscale.datastore.fdb.stats.entities import fill_entities
-from appscale.datastore.fdb.utils import fdb, ResultIterator
+from appscale.datastore.fdb.utils import (
+  fdb, MAX_FDB_TX_DURATION, ResultIterator)
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,8 @@ class ProjectStatsDir(object):
 
 class StatsBuffer(object):
   AVG_FLUSH_INTERVAL = 30
+
+  BATCH_SIZE = 20
 
   SUMMARY_INTERVAL = 120
 
@@ -133,15 +137,18 @@ class StatsBuffer(object):
       try:
         yield self._summary_lock.acquire()
         tr = self._db.create_transaction()
+        deadline = monotonic.monotonic() + MAX_FDB_TX_DURATION - 1
         last_summarized = {}
 
         # TODO: This can be made async.
         project_ids = self._directory_cache.root_dir.list(tr)
 
+        summarized_projects = []
         for project_id in project_ids:
           stats_dir = yield self._project_stats_dir(tr, project_id)
           last_vs_key = stats_dir.encode_last_versionstamp()[0]
-          last_versionstamp = yield self._tornado_fdb.get(tr, last_vs_key)
+          last_versionstamp = yield self._tornado_fdb.get(
+            tr, last_vs_key, snapshot=True)
           if (not last_versionstamp.present() or
               last_versionstamp.value == self._last_summarized.get(project_id)):
             continue
@@ -152,11 +159,22 @@ class StatsBuffer(object):
             snapshot=True).list()
           project_stats, last_timestamp = stats_dir.decode(results)
           entities = fill_entities(project_id, project_stats, last_timestamp)
-          yield [self._ds_access._upsert(tr, entity) for entity in entities]
+          for pos in range(0, len(entities), self.BATCH_SIZE):
+            yield [self._ds_access._upsert(tr, entity)
+                   for entity in entities[pos:pos + self.BATCH_SIZE]]
+            if monotonic.monotonic() > deadline:
+              yield self._tornado_fdb.commit(tr)
+              tr = self._db.create_transaction()
+              deadline = monotonic.monotonic() + MAX_FDB_TX_DURATION - 1
+
+          summarized_projects.append(project_id)
 
         yield self._tornado_fdb.commit(tr)
-        self._last_summarized = last_summarized
-        logger.debug(u'Finished summarizing stats')
+        self._last_summarized.update(last_summarized)
+        if summarized_projects:
+          logger.debug(u'Finished summarizing stats for '
+                       u'{}'.format(summarized_projects))
+
         yield gen.sleep(self.SUMMARY_INTERVAL)
       except Exception:
         logger.exception(u'Unexpected error while summarizing stats')
