@@ -90,12 +90,12 @@ def fill_entities(project_id, project_stats, timestamp):
                                   namespace=namespace))
 
   stats_kind = u'__Stat_Kind_CompositeIndex__'
-  composite_stats_by_kind = defaultdict(CountBytes)
+  composite_stats_by_index = defaultdict(CountBytes)
   for namespace, by_index in six.iteritems(composite_stats):
     for key, fields in six.iteritems(by_index):
-      composite_stats_by_kind[key] += fields
+      composite_stats_by_index[key] += fields
 
-  for (index_id, kind), fields in six.iteritems(composite_stats_by_kind):
+  for (index_id, kind), fields in six.iteritems(composite_stats_by_index):
     name = u'_'.join([kind, six.text_type(index_id)])
     props = {'index_id': index_id, 'kind_name': kind, 'timestamp': timestamp,
              'count': fields.count, 'bytes': fields.bytes}
@@ -129,20 +129,33 @@ def fill_entities(project_id, project_stats, timestamp):
                                   namespace=namespace))
 
   stats_kind = u'__Stat_Ns_Kind__'
-  entity_stats_by_ns_kind = entity_stats.entities_root.copy()
+  entity_stats_by_ns_kind = defaultdict(lambda: defaultdict(CountBytes))
+  for namespace, by_kind in six.iteritems(entity_stats.entities_root):
+    for kind, fields in six.iteritems(by_kind):
+      entity_stats_by_ns_kind[namespace][kind] += fields
+
   for namespace, by_kind in six.iteritems(entity_stats.entities_notroot):
     for kind, fields in six.iteritems(by_kind):
       entity_stats_by_ns_kind[namespace][kind] += fields
 
-  builtin_stats_by_ns_kind = entity_stats.builtin_indexes_root.copy()
+  builtin_stats_by_ns_kind = defaultdict(lambda: defaultdict(CountBytes))
+  for namespace, by_kind in six.iteritems(entity_stats.builtin_indexes_root):
+    for kind, fields in six.iteritems(by_kind):
+      builtin_stats_by_ns_kind[namespace][kind] += fields
+
   for namespace, by_kind in six.iteritems(entity_stats.builtin_indexes_notroot):
     for kind, fields in six.iteritems(by_kind):
       builtin_stats_by_ns_kind[namespace][kind] += fields
 
+  composite_stats_by_ns_kind = defaultdict(lambda: defaultdict(CountBytes))
+  for namespace, by_index in six.iteritems(composite_stats):
+    for (index_id, kind), fields in six.iteritems(by_index):
+      composite_stats_by_ns_kind[namespace][kind] += fields
+
   for namespace, by_kind in six.iteritems(entity_stats_by_ns_kind):
     for kind, entity_fields in six.iteritems(by_kind):
       builtin_fields = builtin_stats_by_ns_kind[namespace][kind]
-      composite_fields = composite_stats[namespace][kind]
+      composite_fields = composite_stats_by_ns_kind[namespace][kind]
       props = {'kind_name': kind, 'timestamp': timestamp,
                'builtin_index_count': builtin_fields.count,
                'builtin_index_bytes': builtin_fields.bytes,
@@ -210,6 +223,10 @@ def fill_entities(project_id, project_stats, timestamp):
   for kind, fields in six.iteritems(notroot_builtin_stats_by_kind):
     builtin_stats_by_kind[kind] += fields
 
+  composite_stats_by_kind = defaultdict(CountBytes)
+  for (index_id, kind), fields in six.iteritems(composite_stats_by_index):
+    composite_stats_by_kind[kind] += fields
+
   for kind, entity_fields in six.iteritems(entity_stats_by_kind):
     builtin_fields = builtin_stats_by_kind[kind]
     composite_fields = composite_stats_by_kind[kind]
@@ -224,9 +241,10 @@ def fill_entities(project_id, project_stats, timestamp):
     entities.append(fill_entity(project_id, stats_kind, props, kind))
 
   stats_kind = u'__Stat_Namespace__'
-  composite_stats_by_ns = {
-    namespace: sum(six.itervalues(by_kind), CountBytes())
-    for namespace, by_kind in six.iteritems(composite_stats)}
+  composite_stats_by_ns = defaultdict(CountBytes)
+  for namespace, by_kind in six.iteritems(composite_stats):
+    composite_stats_by_ns[namespace] += sum(six.itervalues(by_kind),
+                                            CountBytes())
 
   entity_stats_by_ns = defaultdict(CountBytes)
   for namespace, by_kind in six.iteritems(entity_stats.entities_root):
