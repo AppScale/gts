@@ -342,6 +342,13 @@ class ZKInterface
     set(clusterfile_node, content, NOT_EPHEMERAL)
   end
 
+  # Writes Postgres DSN string to zookeeper
+  def self.set_postgres_dsn(postgres_dsn)
+    dsn_node = '/appscale/tasks/postgres_dsn'
+    ensure_path(dsn_node)
+    set(dsn_node, postgres_dsn, NOT_EPHEMERAL)
+  end
+
   def self.run_zookeeper_operation(&block)
     begin
       yield
