@@ -44,6 +44,9 @@ SCATTER_PROPORTION = int(MAX_32 * SCATTER_CHANCE)
 # The number of bytes used to store a commit versionstamp.
 VERSIONSTAMP_SIZE = 10
 
+# The number of bytes used to indicate the position of a commit versionstamp.
+VERSIONSTAMP_INDEX_SIZE = 4
+
 MAX_ENTITY_SIZE = 1048572
 
 # The FDB directory used for the datastore.

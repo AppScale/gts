@@ -14,7 +14,8 @@ import six
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.fdb.codecs import decode_str
-from appscale.datastore.fdb.utils import decode_delta, encode_delta
+from appscale.datastore.fdb.utils import (
+  decode_delta, encode_delta, VERSIONSTAMP_INDEX_SIZE)
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore.entity_pb import Property as Meaning
@@ -190,20 +191,31 @@ class IndexStatsSummary(object):
        for prop_name, prop_types in six.iteritems(self.single_prop)},
       dict(self.composite))
 
-  def add_kindless_key(self, key):
-    self.kindless += CountBytes(1, len(key))
+  def add_kindless_key(self, key, has_index):
+    self.kindless += CountBytes(1, self._stored_length(key, has_index))
 
-  def add_kind_key(self, key):
-    self.kind += CountBytes(1, len(key))
+  def add_kind_key(self, key, has_index):
+    self.kind += CountBytes(1, self._stored_length(key, has_index))
 
-  def add_prop_key(self, prop_pb, key):
+  def add_prop_key(self, prop_pb, key, has_index):
     prop_type = stats_prop_type(prop_pb)
     prop_name = decode_str(prop_pb.name())
-    self.single_prop[prop_type][prop_name] += CountBytes(1, len(key))
+    self.single_prop[prop_type][prop_name] += CountBytes(
+      1, self._stored_length(key, has_index))
 
-  def add_composite_keys(self, index_id, keys):
-    self.composite[index_id] += CountBytes(len(keys),
-                                           sum(len(key) for key in keys))
+  def add_composite_keys(self, index_id, keys, has_index):
+    self.composite[index_id] += CountBytes(
+      len(keys),
+      sum(self._stored_length(key, has_index) for key in keys))
+
+  def _stored_length(self, key, has_index):
+    """
+    Removes the versionstamp index suffix from the key length calculation.
+    """
+    if has_index:
+      return len(key) - VERSIONSTAMP_INDEX_SIZE
+    else:
+      return len(key)
 
   def __sub__(self, other):
     self.kindless -= other.kindless

@@ -1193,6 +1193,7 @@ class IndexManager(object):
 
   @gen.coroutine
   def _get_index_keys(self, tr, entity, commit_versionstamp=None):
+    has_index = commit_versionstamp is None
     project_id = decode_str(entity.key().app())
     namespace = decode_str(entity.key().name_space())
     path = Path.flatten(entity.key().path())
@@ -1206,8 +1207,8 @@ class IndexManager(object):
 
     kindless_key = kindless_index.encode_key(path, commit_versionstamp)
     kind_key = kind_index.encode_key(path, commit_versionstamp)
-    stats.add_kindless_key(kindless_key)
-    stats.add_kind_key(kind_key)
+    stats.add_kindless_key(kindless_key, has_index)
+    stats.add_kind_key(kind_key, has_index)
     all_keys = [kindless_key, kind_key]
     entity_prop_names = []
     for prop in entity.property_list():
@@ -1216,7 +1217,7 @@ class IndexManager(object):
       index = yield self._single_prop_index(
         tr, project_id, namespace, kind, prop_name)
       prop_key = index.encode_key(prop.value(), path, commit_versionstamp)
-      stats.add_prop_key(prop, prop_key)
+      stats.add_prop_key(prop, prop_key, has_index)
       all_keys.append(prop_key)
 
     scatter_val = get_scatter_val(path)
@@ -1233,7 +1234,7 @@ class IndexManager(object):
 
       composite_keys = index.encode_keys(entity.property_list(), path,
                                          commit_versionstamp)
-      stats.add_composite_keys(index.id, composite_keys)
+      stats.add_composite_keys(index.id, composite_keys, has_index)
       all_keys.extend(composite_keys)
 
     raise gen.Return((all_keys, stats))
