@@ -483,6 +483,7 @@ class Djinn
     'verbose' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
     'fdb_clusterfile_content' => [String, nil, true],
+    'postgres_dsn' => [String, nil, true],
     'update' => [Array, [], false]
   }.freeze
 
@@ -840,7 +841,9 @@ class Djinn
       # Strings may need to be sanitized.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == String
         # Some options shouldn't be sanitize.
-        if ['user_commands', 'azure_app_secret_key', 'fdb_clusterfile_content'].include? key
+        raw_options = ['user_commands', 'azure_app_secret_key',
+                       'fdb_clusterfile_content', 'postgres_dsn']
+        if raw_options.include? key
           newval = val
         # Keys have a relaxed sanitization process.
         elsif key.include? "_key" or key.include? "EC2_SECRET_KEY"
@@ -1350,10 +1353,10 @@ class Djinn
           project_id = version_key.split(VERSION_PATH_SEPARATOR).first
           update_cron(project_id, @@secret)
         }
-      end
-
-      if key == 'fdb_clusterfile_content'
+      elsif key == 'fdb_clusterfile_content'
         ZKInterface.set_fdb_clusterfile_content(val)
+      elsif key == 'postgres_dsn'
+        ZKInterface.set_postgres_dsn(val)
       end
 
       Djinn.log_info("Successfully set #{key} to #{val}.")
