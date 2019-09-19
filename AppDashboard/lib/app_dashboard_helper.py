@@ -21,7 +21,7 @@ from controller_location import CONTROLLER_LOCATION
 from custom_exceptions import BadConfigurationException
 from local_state import LocalState
 from secret_key import GLOBAL_SECRET_KEY
-from uaserver_host import UA_SERVER_IP
+from uaserver_location import UA_SERVER_LOCATION
 
 
 class AppHelperException(Exception):
@@ -63,9 +63,6 @@ class AppDashboardHelper(object):
   # An int indicating which position (starting at zero) the app owner list is in
   # the login cookie.
   LOGIN_COOKIE_APPS_PART = 2
-
-  # The port that the UserAppServer runs on, by default.
-  UA_SERVER_PORT = 4343
 
   # The port that the AdminServer runs on.
   ADMIN_SERVER_PORT = 17441
@@ -196,8 +193,8 @@ class AppDashboardHelper(object):
       An SOAPpy object, representing a connection to the UserAppServer.
     """
     if self.uaserver is None:
-      self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(UA_SERVER_IP,
-        self.UA_SERVER_PORT))
+      self.uaserver = SOAPpy.SOAPProxy('http://{}'.format(UA_SERVER_LOCATION))
+
     return self.uaserver
 
   def get_user_capabilities(self, email):

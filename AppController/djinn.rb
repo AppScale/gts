@@ -1532,7 +1532,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.change_password(username, password)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while resetting " \
@@ -1549,7 +1549,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.does_user_exist?(username)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer to check if the " \
@@ -1569,7 +1569,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.commit_new_user(username, password, account_type)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while committing " \
@@ -1586,7 +1586,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.set_admin_role(username, is_cloud_admin, capabilities)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while setting admin role " \
@@ -1617,18 +1617,30 @@ class Djinn
   end
 
   def check_api_services
-    # LoadBalancers needs to setup the routing
-    # for the datastore and search2 (if applicable) before proceeding.
-    while my_node.is_load_balancer? && !update_db_haproxy
-      Djinn.log_info('Waiting for Datastore assignements ...')
-      sleep(SMALL_WAIT)
-    end
-
     has_search2 = !get_search2.empty?
-    if has_search2
-      while my_node.is_load_balancer? && !update_search2_haproxy
-        Djinn.log_info('Waiting for Search2 assignements ...')
-        sleep (SMALL_WAIT)
+
+    # Wait for required services to be registered.
+    if my_node.is_load_balancer?
+      until update_db_haproxy
+        Djinn.log_info('Waiting for Datastore servers')
+        sleep(SMALL_WAIT)
+      end
+
+      until update_tq_haproxy
+        Djinn.log_info('Waiting for TaskQueue servers')
+        sleep(SMALL_WAIT)
+      end
+
+      until update_blob_servers
+        Djinn.log_info('Waiting for blobstore servers')
+        sleep(SMALL_WAIT)
+      end
+
+      if has_search2
+        until update_search2_haproxy
+          Djinn.log_info('Waiting for Search2 servers')
+          sleep(SMALL_WAIT)
+        end
       end
     end
 
@@ -1903,7 +1915,10 @@ class Djinn
       end
       if my_node.is_load_balancer?
         # Load balancers need to regenerate nginx/haproxy configuration if needed.
+        update_ua_haproxy
         update_db_haproxy
+        update_tq_haproxy
+        update_blob_servers
         update_search2_haproxy unless get_search2.empty?
         APPS_LOCK.synchronize { regenerate_routing_config }
       end
@@ -2592,45 +2607,22 @@ class Djinn
 
   # Updates the list of blob_server in haproxy.
   def update_blob_servers
-    servers = []
-    get_all_compute_nodes.each { |ip|
-      servers << {'ip' => ip, 'port' => BlobServer::SERVER_PORT}
-    }
-    HAProxy.create_app_config(servers, my_node.private_ip,
-      BlobServer::HAPROXY_PORT, BlobServer::NAME)
-  end
-
-  # Instruct HAProxy to begin routing traffic to the BlobServers.
-  #
-  # Args:
-  #   secret: A String that is used to authenticate the caller.
-  #
-  # Returns:
-  #   "OK" if the addition was successful. In case of failures, the following
-  #   Strings may be returned:
-  #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
-  #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
-  def add_routing_for_blob_server(secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-    return NOT_READY if @nodes.empty?
-    return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
-
-    Djinn.log_debug('Adding BlobServer routing.')
-    update_blob_servers
-  end
-
-  # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
-  def configure_uaserver
-    all_db_private_ips = []
-    @state_change_lock.synchronize {
-      @nodes.each { | node |
-        if node.is_db_master? or node.is_db_slave?
-          all_db_private_ips.push(node.private_ip)
-        end
+    begin
+      servers = ZKInterface.get_blob_servers.map { |machine_ip, port|
+        {'ip' => machine_ip, 'port' => port}
       }
-    }
-    HAProxy.create_ua_server_config(all_db_private_ips,
-      my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn('Unable to fetch list of datastore servers')
+      return false
+    end
+
+    HAProxy.create_app_config(servers, my_node.private_ip,
+                              BlobServer::HAPROXY_PORT, BlobServer::NAME)
+    return true
+  end
+
+  # Creates an Nginx configuration file for the Users/Apps soap server.
+  def configure_uaserver
     Nginx.add_service_location(
       'appscale-uaserver', my_node.private_ip,
       UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
@@ -2665,29 +2657,57 @@ class Djinn
     return true
   end
 
-  # Creates HAProxy configuration for TaskQueue.
-  def configure_tq_routing
-    all_tq_ips = []
-    @state_change_lock.synchronize {
-      @nodes.each { | node |
-        if node.is_taskqueue_master? || node.is_taskqueue_slave?
-          all_tq_ips.push(node.private_ip)
-        end
+  def update_tq_haproxy
+    begin
+      servers = ZKInterface.get_taskqueue_servers.map { |machine_ip, port|
+        {'ip' => machine_ip, 'port' => port}
       }
-    }
-    HAProxy.create_tq_server_config(
-      all_tq_ips, my_node.private_ip, TaskQueue::HAPROXY_PORT)
+    rescue FailedZooKeeperOperationException
+      Djinn.log_warn('Unable to fetch list of taskqueue servers')
+      return false
+    end
 
+    HAProxy.create_app_config(servers, my_node.private_ip,
+                              TaskQueue::HAPROXY_PORT, TaskQueue::NAME)
+    return true
+  end
+
+  def update_ua_haproxy
+    if ZKInterface.is_connected?
+      begin
+        servers = ZKInterface.get_ua_servers.map { |machine_ip, port|
+          {'ip' => machine_ip, 'port' => port}
+        }
+      rescue FailedZooKeeperOperationException
+        Djinn.log_warn('Unable to fetch list of UA servers')
+        return false
+      end
+    else
+      # If there is no ZK connection, guess the locations for now.
+      servers = []
+      @state_change_lock.synchronize {
+        servers = @nodes.map { |node|
+          if node.is_db_master? or node.is_db_slave?
+            {'ip' => node.private_ip, 'port' => UserAppClient::SERVER_PORT}
+          end
+        }.compact
+      }
+    end
+
+    HAProxy.create_app_config(
+      servers, my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT,
+      UserAppClient::NAME)
+    return true
+  end
+
+  # Creates nginx configuration for TaskQueue.
+  def configure_tq_routing
     # TaskQueue REST API routing.
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
     rest_prefix = '~ /taskqueue/v1beta2/projects/.*'
     Nginx.add_service_location(
       'appscale-taskqueue', my_node.private_ip, TaskQueue::HAPROXY_PORT,
       TaskQueue::TASKQUEUE_SERVER_SSL_PORT, rest_prefix)
-  end
-
-  def remove_tq_endpoints
-    HAProxy.remove_tq_endpoints
   end
 
   # TODO: this is a temporary fix. The dependency on the tools should be
@@ -3337,11 +3357,19 @@ class Djinn
       stop_soap_server
     end
 
+    if my_node.is_load_balancer?
+      until update_ua_haproxy
+        Djinn.log_info('Waiting for UA servers')
+        sleep(SMALL_WAIT)
+      end
+      configure_uaserver
+    end
+
     # All nodes wait for the UserAppServer now. The call here is just to
     # ensure the UserAppServer is talking to the persistent state.
-    HelperFunctions.sleep_until_port_is_open(@my_private_ip,
-      UserAppClient::SSL_SERVER_PORT, USE_SSL)
-    uac = UserAppClient.new(@my_private_ip, @@secret)
+    HelperFunctions.sleep_until_port_is_open(
+      get_load_balancer.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     begin
       uac.does_user_exist?("not-there")
     rescue FailedNodeException
@@ -3384,7 +3412,6 @@ class Djinn
       }
     else
       threads << Thread.new {
-        remove_tq_endpoints
         stop_ejabberd
       }
     end
@@ -4368,9 +4395,9 @@ class Djinn
 
     # The HAProxy process needs at least one configured service to start. The
     # UAServer is configured first to satisfy this condition.
-    configure_uaserver
+    update_ua_haproxy
 
-    # HAProxy must be running so that the UAServer can be accessed.
+    # This ensures HAProxy gets started after a machine reboot.
     HAProxy.services_start
 
     # Volume is mounted, let's finish the configuration of static files.
@@ -4552,7 +4579,7 @@ class Djinn
 
   # Create the system user used to start and run system's applications.
   def create_appscale_user
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     password = SecureRandom.base64
 
     begin
@@ -4656,9 +4683,11 @@ class Djinn
                           DatastoreServer::PROXY_PORT].join(':')
     taskqueue_location = [get_load_balancer.private_ip,
                           TaskQueue::HAPROXY_PORT].join(':')
+    ua_server_location = [get_load_balancer.private_ip,
+                          UserAppClient::HAPROXY_SERVER_PORT].join(':')
     source_archive = AppDashboard.prep(
       my_private, PERSISTENT_MOUNT_POINT, datastore_location,
-      taskqueue_location)
+      taskqueue_location, ua_server_location)
 
     self.deploy_dashboard(source_archive)
   end
@@ -5094,9 +5123,6 @@ class Djinn
           APPS_LOCK.synchronize { terminate_node_from_deployment(node) }
         }
       }
-
-      # Make sure we have the proper list of blobservers configured.
-      update_blob_servers
     }
   end
 
@@ -5852,7 +5878,7 @@ class Djinn
     # We don't need to check for FailedNodeException here since we catch
     # it at a higher level.
     login_ip = @options['login']
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     xmpp_user = "#{app}@#{login_ip}"
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
 
