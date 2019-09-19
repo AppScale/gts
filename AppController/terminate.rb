@@ -134,13 +134,13 @@ module TerminateHelper
   def self.disable_database_writes
     # First, tell Cassandra that no more writes should be accepted on this node.
     ifconfig = `ifconfig`
-    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+    bound_addrs = ifconfig.scan(/inet .*?(\d+.\d+.\d+.\d+) /).flatten
     bound_addrs.delete("127.0.0.1")
     ip = bound_addrs[0]
 
     # Make sure we have cassandra running, otherwise nodetool may get
     # stuck.
-    if system("monit summary | grep cassandra | grep Running > /dev/null")
+    if system("monit summary | grep cassandra | grep 'Running\\|OK' > /dev/null")
       `/opt/cassandra/cassandra/bin/nodetool -h #{ip} -p 7199 drain`
     end
 

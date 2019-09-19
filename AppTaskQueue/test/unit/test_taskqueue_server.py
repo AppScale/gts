@@ -11,18 +11,21 @@ class TestDistributedTaskQueue(unittest.TestCase):
   """
   A set of test cases for the distributed taskqueue module
   """
-  def setUp(self):
-    self._read_patcher = patch.object(
-      file_io, 'read', return_value='192.168.0.1')
-    self.read_mock = self._read_patcher.start()
-
-  def tearDown(self):
-    self._read_patcher.stop()
 
   @staticmethod
   def test_distributed_tq_initialization():
     zk_client = MagicMock()
-    distributed_tq.DistributedTaskQueue(zk_client)
+    lb_ips_patcher = patch(
+      'appscale.common.appscale_info.get_load_balancer_ips',
+      return_value=['192.168.0.1']
+    )
+    db_proxy_patcher = patch(
+      'appscale.common.appscale_info.get_db_proxy',
+      return_value=['192.168.0.1']
+    )
+    with lb_ips_patcher:
+      with db_proxy_patcher:
+        distributed_tq.DistributedTaskQueue(zk_client)
 
   # TODO:
   # def test_fetch_queue_stats(self):

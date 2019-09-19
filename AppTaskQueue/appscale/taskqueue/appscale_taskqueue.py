@@ -8,7 +8,7 @@ import monotonic
 import signal
 import sys
 
-from kazoo.client import KazooClient
+from kazoo.client import KazooClient, KazooState, NodeExistsError
 from tornado import gen, httpserver, ioloop
 from tornado.web import Application, RequestHandler
 
@@ -29,6 +29,8 @@ from appscale.taskqueue.statistics import (
 from appscale.taskqueue.utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
+
+TQ_SERVERS_NODE = '/appscale/tasks/servers'
 
 
 class ProtobufferHandler(RequestHandler):
@@ -280,6 +282,37 @@ def prepare_graceful_shutdown(zk_client, tornado_server):
   return graceful_shutdown
 
 
+def register_location(zk_client, host, port):
+  """ Register service location with ZooKeeper. """
+  server_node = '{}/{}:{}'.format(TQ_SERVERS_NODE, host, port)
+
+  def create_server_node():
+    """ Creates a server registration entry in ZooKeeper. """
+    try:
+      zk_client.retry(zk_client.create, server_node, ephemeral=True)
+    except NodeExistsError:
+      # If the server gets restarted, the old node may exist for a short time.
+      zk_client.retry(zk_client.delete, server_node)
+      zk_client.retry(zk_client.create, server_node, ephemeral=True)
+
+    logger.info('TaskQueue server registered at {}'.format(server_node))
+
+  def zk_state_listener(state):
+    """ Handles changes to ZooKeeper connection state.
+
+    Args:
+      state: A string specifying the new ZooKeeper connection state.
+    """
+    if state == KazooState.CONNECTED:
+      ioloop.IOLoop.instance().add_callback(create_server_node)
+
+  zk_client.add_listener(zk_state_listener)
+  zk_client.ensure_path(TQ_SERVERS_NODE)
+  # Since the client was started before adding the listener, make sure the
+  # server node gets created.
+  zk_state_listener(zk_client.state)
+
+
 def main():
   """ Main function which initializes and starts the tornado server. """
   # Parse command line arguments
@@ -297,6 +330,8 @@ def main():
     hosts=','.join(appscale_info.get_zk_node_ips()),
     connection_retry=ZK_PERSISTENT_RECONNECTS)
   zk_client.start()
+
+  register_location(zk_client, appscale_info.get_private_ip(), args.port)
 
   # Initialize tornado server
   task_queue = distributed_tq.DistributedTaskQueue(zk_client)

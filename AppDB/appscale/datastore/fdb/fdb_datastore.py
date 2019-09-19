@@ -83,17 +83,18 @@ class FDBDatastore(object):
 
     if put_request.has_transaction():
       yield self._tx_manager.log_puts(tr, project_id, put_request)
-      writes = [(VersionEntry.from_key(entity.key()),
-                 VersionEntry.from_key(entity.key()))
-                for entity in put_request.entity_list()]
+      writes = {entity.key().Encode(): (VersionEntry.from_key(entity.key()),
+                                        VersionEntry.from_key(entity.key()))
+                for entity in put_request.entity_list()}
     else:
-      futures = []
-      for entity in put_request.entity_list():
-        futures.append(self._upsert(tr, entity))
+      # Eliminate multiple puts to the same key.
+      puts_by_key = {entity.key().Encode(): entity
+                     for entity in put_request.entity_list()}
+      writes = yield {key: self._upsert(tr, entity)
+                      for key, entity in six.iteritems(puts_by_key)}
 
-      writes = yield futures
-
-    old_entries = [old_entry for old_entry, _ in writes if old_entry.present]
+    old_entries = [old_entry for old_entry, _ in six.itervalues(writes)
+                   if old_entry.present]
     versionstamp_future = None
     if old_entries:
       versionstamp_future = tr.get_versionstamp()
@@ -101,7 +102,11 @@ class FDBDatastore(object):
     try:
       yield self._tornado_fdb.commit(tr, convert_exceptions=False)
     except fdb.FDBError as fdb_error:
-      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+      if fdb_error.code == FDBErrorCodes.NOT_COMMITTED:
+        pass
+      elif fdb_error.code == FDBErrorCodes.COMMIT_RESULT_UNKNOWN:
+        logger.error('Unable to determine commit result. Retrying.')
+      else:
         raise InternalError(fdb_error.description)
 
       retries -= 1
@@ -114,10 +119,11 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
-    for _, new_entry in writes:
-      put_response.add_key().CopyFrom(new_entry.key)
-      if new_entry.version != ABSENT_VERSION:
-        put_response.add_version(new_entry.version)
+    for entity in put_request.entity_list():
+      write_entry = writes[entity.key().Encode()][1]
+      put_response.add_key().CopyFrom(entity.key())
+      if write_entry.version != ABSENT_VERSION:
+        put_response.add_version(write_entry.version)
 
     #logger.debug('put_response:\n{}'.format(put_response))
 
@@ -173,11 +179,10 @@ class FDBDatastore(object):
       deletes = [(VersionEntry.from_key(key), None)
                  for key in delete_request.key_list()]
     else:
-      futures = []
-      for key in delete_request.key_list():
-        futures.append(self._delete(tr, key))
-
-      deletes = yield futures
+      # Eliminate multiple deletes to the same key.
+      deletes_by_key = {key.Encode(): key for key in delete_request.key_list()}
+      deletes = yield [self._delete(tr, key)
+                       for key in six.itervalues(deletes_by_key)]
 
     old_entries = [old_entry for old_entry, _ in deletes if old_entry.present]
     versionstamp_future = None
@@ -187,7 +192,11 @@ class FDBDatastore(object):
     try:
       yield self._tornado_fdb.commit(tr, convert_exceptions=False)
     except fdb.FDBError as fdb_error:
-      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+      if fdb_error.code == FDBErrorCodes.NOT_COMMITTED:
+        pass
+      elif fdb_error.code == FDBErrorCodes.COMMIT_RESULT_UNKNOWN:
+        logger.error('Unable to determine commit result. Retrying.')
+      else:
         raise InternalError(fdb_error.description)
 
       retries -= 1

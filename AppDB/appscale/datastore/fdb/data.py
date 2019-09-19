@@ -43,6 +43,17 @@ class VersionEntry(object):
     self._encoded_entity = encoded_entity
     self._decoded_entity = None
 
+  def __repr__(self):
+    # Since the encoded entity can be large, it probably does not make sense to
+    # include it in the string representation.
+    blob_repr = self._encoded_entity
+    if blob_repr is not None:
+      blob_repr = u'<bytes object with length={}>'.format(len(blob_repr))
+
+    return u'VersionEntry({!r}, {!r}, {!r}, {!r}, {!r}, {})'.format(
+      self.project_id, self.namespace, self.path, self.commit_versionstamp,
+      self.version, blob_repr)
+
   @property
   def present(self):
     return self.commit_versionstamp is not None
@@ -419,6 +430,15 @@ class DataManager(object):
     Returns:
       A VersionEntry or None.
     """
+    if index_entry.kind == u'__kind__':
+      entity = entity_pb.EntityProto()
+      entity.mutable_key().MergeFrom(index_entry.key)
+      entity.mutable_entity_group().MergeFrom(index_entry.group)
+      version_entry = VersionEntry(
+        index_entry.project_id, index_entry.namespace, index_entry.path,
+        encoded_entity=entity.Encode())
+      raise gen.Return(version_entry)
+
     version_entry = yield self.get_version_from_path(
       tr, index_entry.project_id, index_entry.namespace, index_entry.path,
       index_entry.commit_versionstamp, snapshot)
