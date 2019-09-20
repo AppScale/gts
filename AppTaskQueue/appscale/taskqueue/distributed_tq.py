@@ -408,7 +408,7 @@ class DistributedTaskQueue():
       except ApplicationError as error:
         task_result.result = error.application_error
       except InvalidTarget as e:
-        logger.error(e.message)
+        logger.error(e.args[0])
         task_result.result = TaskQueueServiceError.INVALID_REQUEST
       else:
         task_result.result = TaskQueueServiceError.OK
@@ -612,11 +612,11 @@ class DistributedTaskQueue():
       port=self.get_module_port(app_id, source_info, target_info=[]))
 
     try:
-      host = headers['Host']
+      host = headers[b'Host'].decode('utf-8')
     except KeyError:
       host = None
     else:
-      host =  host if TARGET_REGEX.match(host) else None
+      host = host if TARGET_REGEX.match(host) else None
 
     # Try to set target based on queue config.
     if queue.target:
@@ -626,7 +626,6 @@ class DistributedTaskQueue():
     # sdk does not include Host header, so we catch the KeyError.
     elif host:
       target_url = self.get_target_url(app_id, source_info, host)
-
 
     args['url'] = "{target}{url}".format(target=target_url,
                                          url=request.url.decode('utf-8'))
