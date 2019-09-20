@@ -166,7 +166,7 @@ def execute_task(task, headers, args):
                      args['task_name'], url.scheme))
 
       skip_host = False
-      if 'host' in headers or 'Host' in headers:
+      if b'host' in headers or b'Host' in headers:
         skip_host = True
 
       skip_accept_encoding = False

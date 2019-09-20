@@ -4,6 +4,7 @@ import json
 
 from tornado.ioloop import IOLoop
 
+
 class VersionPortManager(dict):
   """ Keeps track of version port details for a single service. """
   def __init__(self, zk_client, project_id, service_id):
