@@ -5908,6 +5908,7 @@ class Djinn
   #
   def get_application_load_stats(version_key)
     total_requests, requests_in_queue, sessions = 0, 0, 0
+    pxname = "#{HelperFunctions::GAE_PREFIX}#{version_key}"
     time = :no_stats
     lb_nodes = []
     @state_change_lock.synchronize {
@@ -5916,7 +5917,7 @@ class Djinn
     lb_nodes.each { |node|
       begin
         ip = node.private_ip
-        load_stats = HermesClient.get_proxy_load_stats(ip, @@secret, version_key)
+        load_stats = HermesClient.get_proxy_load_stats(ip, @@secret, pxname)
         total_requests += load_stats[0]
         requests_in_queue += load_stats[1]
         sessions += load_stats[2]
@@ -5927,7 +5928,7 @@ class Djinn
     }
     if lb_nodes.length > 1
       # Report total HAProxy stats if there are multiple LB nodes.
-      Djinn.log_debug("Summarized HAProxy load stats for #{version_key}: " \
+      Djinn.log_debug("Summarized HAProxy load stats for #{pxname}: " \
         "req_tot=#{total_requests}, qcur=#{requests_in_queue}, scur=#{sessions}")
     end
     return total_requests, requests_in_queue, sessions, time
