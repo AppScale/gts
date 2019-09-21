@@ -6,9 +6,6 @@
 # implementation of the Google App Engine Users API. This module provides
 # methods that abstract away its configuration and deployment.
 module AppDashboard
-  # The port which nginx will use to send requests to haproxy
-  PROXY_PORT = 8060
-
   # The port which requests to this app will be served from
   LISTEN_PORT = 1080
 

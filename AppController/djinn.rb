@@ -74,10 +74,6 @@ APPSCALE_USER = 'appscale-user@local.appscale'.freeze
 # exposed SOAP method but provide an incorrect secret.
 BAD_SECRET_MSG = 'false: bad secret'.freeze
 
-# The String that should be returned to callers if they attempt to add or remove
-# AppServers from an HAProxy config file at a node where HAProxy is not running.
-NO_HAPROXY_PRESENT = 'false: haproxy not running'.freeze
-
 # The String that should be returned to callers if they attempt to add
 # AppServers for an app that does not yet have nginx and haproxy set up.
 NOT_READY = 'false: not ready yet'.freeze
@@ -1619,31 +1615,6 @@ class Djinn
   def check_api_services
     has_search2 = !get_search2.empty?
 
-    # Wait for required services to be registered.
-    if my_node.is_load_balancer?
-      until update_db_haproxy
-        Djinn.log_info('Waiting for Datastore servers')
-        sleep(SMALL_WAIT)
-      end
-
-      until update_tq_haproxy
-        Djinn.log_info('Waiting for TaskQueue servers')
-        sleep(SMALL_WAIT)
-      end
-
-      until update_blob_servers
-        Djinn.log_info('Waiting for blobstore servers')
-        sleep(SMALL_WAIT)
-      end
-
-      if has_search2
-        until update_search2_haproxy
-          Djinn.log_info('Waiting for Search2 servers')
-          sleep(SMALL_WAIT)
-        end
-      end
-    end
-
     # Wait till the Datastore is functional.
     loop do
       break if HelperFunctions.is_port_open?(get_load_balancer.private_ip,
@@ -1914,12 +1885,7 @@ class Djinn
         APPS_LOCK.synchronize { check_stopped_apps }
       end
       if my_node.is_load_balancer?
-        # Load balancers need to regenerate nginx/haproxy configuration if needed.
-        update_ua_haproxy
-        update_db_haproxy
-        update_tq_haproxy
-        update_blob_servers
-        update_search2_haproxy unless get_search2.empty?
+        # Load balancers need to regenerate nginx configuration if needed.
         APPS_LOCK.synchronize { regenerate_routing_config }
       end
       @state = "Done starting up AppScale, now in heartbeat mode"
@@ -2605,99 +2571,11 @@ class Djinn
     return uuid
   end
 
-  # Updates the list of blob_server in haproxy.
-  def update_blob_servers
-    begin
-      servers = ZKInterface.get_blob_servers.map { |machine_ip, port|
-        {'ip' => machine_ip, 'port' => port}
-      }
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn('Unable to fetch list of datastore servers')
-      return false
-    end
-
-    HAProxy.create_app_config(servers, my_node.private_ip,
-                              BlobServer::HAPROXY_PORT, BlobServer::NAME)
-    return true
-  end
-
   # Creates an Nginx configuration file for the Users/Apps soap server.
   def configure_uaserver
     Nginx.add_service_location(
       'appscale-uaserver', my_node.private_ip,
       UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
-  end
-
-  def update_db_haproxy
-    begin
-      servers = ZKInterface.get_datastore_servers.map { |machine_ip, port|
-        {'ip' => machine_ip, 'port' => port}
-      }
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn('Unable to fetch list of datastore servers')
-      return false
-    end
-
-    HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
-                              DatastoreServer::NAME)
-    return true
-  end
-
-  def update_search2_haproxy
-    begin
-      servers = ZKInterface.get_search2_servers.map { |machine_ip, port|
-        {'ip' => machine_ip, 'port' => port}
-      }
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn('Unable to fetch list of search2 servers')
-      return false
-    end
-
-    HAProxy.create_app_config(servers, '*', Search2::PROXY_PORT, Search2::NAME)
-    return true
-  end
-
-  def update_tq_haproxy
-    begin
-      servers = ZKInterface.get_taskqueue_servers.map { |machine_ip, port|
-        {'ip' => machine_ip, 'port' => port}
-      }
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn('Unable to fetch list of taskqueue servers')
-      return false
-    end
-
-    HAProxy.create_app_config(servers, my_node.private_ip,
-                              TaskQueue::HAPROXY_PORT, TaskQueue::NAME)
-    return true
-  end
-
-  def update_ua_haproxy
-    if ZKInterface.is_connected?
-      begin
-        servers = ZKInterface.get_ua_servers.map { |machine_ip, port|
-          {'ip' => machine_ip, 'port' => port}
-        }
-      rescue FailedZooKeeperOperationException
-        Djinn.log_warn('Unable to fetch list of UA servers')
-        return false
-      end
-    else
-      # If there is no ZK connection, guess the locations for now.
-      servers = []
-      @state_change_lock.synchronize {
-        servers = @nodes.map { |node|
-          if node.is_db_master? or node.is_db_slave?
-            {'ip' => node.private_ip, 'port' => UserAppClient::SERVER_PORT}
-          end
-        }.compact
-      }
-    end
-
-    HAProxy.create_app_config(
-      servers, my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT,
-      UserAppClient::NAME)
-    return true
   end
 
   # Creates nginx configuration for TaskQueue.
@@ -3358,12 +3236,12 @@ class Djinn
     end
 
     if my_node.is_load_balancer?
-      until update_ua_haproxy
-        Djinn.log_info('Waiting for UA servers')
-        sleep(SMALL_WAIT)
-      end
       configure_uaserver
     end
+
+    # The AdminServer is started before checking the availability of the
+    # UAServer because it is responsible for routing it.
+    start_admin_server
 
     # All nodes wait for the UserAppServer now. The call here is just to
     # ensure the UserAppServer is talking to the persistent state.
@@ -3396,8 +3274,6 @@ class Djinn
         GroomerService.stop_transaction_groomer
       }
     end
-
-    threads << Thread.new { start_admin_server }
 
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
@@ -4221,10 +4097,9 @@ class Djinn
     end
   end
 
-  # Writes new nginx and haproxy configuration files for the App Engine
-  # applications hosted in this deployment. Callers should invoke this
-  # method whenever there is a change in the number of machines hosting
-  # App Engine apps.
+  # Writes new nginx configuration files for the App Engine applications hosted
+  # in this deployment. Callers should invoke this method whenever there is a
+  # change in the number of machines hosting App Engine apps.
   def regenerate_routing_config
     Djinn.log_debug("Regenerating nginx config files for apps.")
     my_private = my_node.private_ip
@@ -4382,9 +4257,6 @@ class Djinn
 
   # This function performs basic setup ahead of starting the API services.
   def initialize_server
-    HAProxy.initialize_config(@options['lb_connect_timeout'])
-    Djinn.log_info("HAProxy configured.")
-
     if not Nginx.is_running?
       Nginx.initialize_config
       Nginx.start
@@ -4392,13 +4264,6 @@ class Djinn
     else
       Djinn.log_info("Nginx already configured and running.")
     end
-
-    # The HAProxy process needs at least one configured service to start. The
-    # UAServer is configured first to satisfy this condition.
-    update_ua_haproxy
-
-    # This ensures HAProxy gets started after a machine reboot.
-    HAProxy.services_start
 
     # Volume is mounted, let's finish the configuration of static files.
     if my_node.is_shadow? and not my_node.is_compute?
@@ -4676,7 +4541,6 @@ class Djinn
     @state = "Preparing AppDashboard"
     Djinn.log_info("Preparing AppDashboard")
 
-    my_public = my_node.public_ip
     my_private = my_node.private_ip
 
     datastore_location = [get_load_balancer.private_ip,
@@ -4793,8 +4657,7 @@ class Djinn
       removed_versions << version_key
     }
 
-    # Load balancers have to adjust nginx and haproxy to remove the
-    # application routings.
+    # Load balancers have to adjust nginx to remove the application routings.
     if my_node.is_load_balancer?
       MonitInterface.running_xmpp.each { |xmpp_app|
         match = xmpp_app.match(/xmpp-(.*)/)
@@ -6045,7 +5908,6 @@ class Djinn
   #
   def get_application_load_stats(version_key)
     total_requests, requests_in_queue, sessions = 0, 0, 0
-    pxname = "#{HelperFunctions::GAE_PREFIX}#{version_key}"
     time = :no_stats
     lb_nodes = []
     @state_change_lock.synchronize {
@@ -6054,7 +5916,7 @@ class Djinn
     lb_nodes.each { |node|
       begin
         ip = node.private_ip
-        load_stats = HermesClient.get_proxy_load_stats(ip, @@secret, pxname)
+        load_stats = HermesClient.get_proxy_load_stats(ip, @@secret, version_key)
         total_requests += load_stats[0]
         requests_in_queue += load_stats[1]
         sessions += load_stats[2]
@@ -6065,7 +5927,7 @@ class Djinn
     }
     if lb_nodes.length > 1
       # Report total HAProxy stats if there are multiple LB nodes.
-      Djinn.log_debug("Summarized HAProxy load stats for #{pxname}: " \
+      Djinn.log_debug("Summarized HAProxy load stats for #{version_key}: " \
         "req_tot=#{total_requests}, qcur=#{requests_in_queue}, scur=#{sessions}")
     end
     return total_requests, requests_in_queue, sessions, time
