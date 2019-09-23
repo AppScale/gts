@@ -664,9 +664,12 @@ installinfrastructuremanager()
 installtaskqueue()
 {
     rm -rf /opt/appscale_venvs/appscale_taskqueue/
-    python -m virtualenv /opt/appscale_venvs/appscale_taskqueue/
+    python3 -m venv /opt/appscale_venvs/appscale_taskqueue/
 
     TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
+    "${TASKQUEUE_PIP}" install wheel
+    "${TASKQUEUE_PIP}" install --upgrade pip
+    "${TASKQUEUE_PIP}" install --upgrade setuptools
 
     "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh"
 

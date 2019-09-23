@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import unittest
+from unittest.mock import MagicMock, patch
 
-from mock import MagicMock, patch
 from appscale.common import file_io
 
 from appscale.taskqueue import distributed_tq

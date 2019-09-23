@@ -15,7 +15,6 @@ setup(
     'celery>=3.1,<4.0.0',
     'eventlet==0.22',
     'kazoo',
-    'mock',
     'monotonic',
     'protobuf',
     'psycopg2-binary',
@@ -29,7 +28,7 @@ setup(
     'Environment :: Console',
     'Intended Audience :: Developers',
     'License :: OSI Approved :: Apache Software License',
-    'Programming Language :: Python :: 2.7',
+    'Programming Language :: Python :: 3',
   ],
   namespace_packages=['appscale'],
   packages=[
