@@ -48,7 +48,7 @@ BLOBSTORE_SERVERS_NODE = '/appscale/blobstore/servers'
 DATASTORE_SERVERS_NODE = '/appscale/datastore/servers'
 
 # The ZooKeeper path where a list of active search servers is stored.
-SEARCH_SERVERS_NODE = '/appscale/search/live_nodes'
+SEARCH_SERVERS_NODE = '/appscale/search/servers'
 
 # The ZooKeeper path where a list of active taskqueue servers is stored.
 TQ_SERVERS_NODE = '/appscale/tasks/servers'
