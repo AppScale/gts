@@ -23,10 +23,10 @@ APP_CONFIG = os.path.join(CONFIG_DIR, 'app-haproxy.cfg')
 SERVICE_CONFIG = os.path.join(CONFIG_DIR, 'service-haproxy.cfg')
 
 # The location of the pidfile for instance-related HAProxy processes.
-APP_PID = os.path.join('/', 'var', 'run', 'appscale', 'app-haproxy.pid')
+APP_PID = os.path.join('/', 'run', 'appscale', 'app-haproxy.pid')
 
 # The location of the pidfile for service-related HAProxy processes.
-SERVICE_PID = os.path.join('/', 'var', 'run', 'appscale', 'service-haproxy.pid')
+SERVICE_PID = os.path.join('/', 'run', 'appscale', 'service-haproxy.pid')
 
 # The location of the unix socket used for reporting application stats.
 APP_STATS_SOCKET = os.path.join(CONFIG_DIR, 'stats')
