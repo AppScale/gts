@@ -178,15 +178,23 @@ class HAProxy(object):
     if pid is not None:
       try:
         os.kill(pid, 0)
-      except OSError:
-        pid = None
+      except OSError as error:
+        if error.errno == errno.ESRCH:
+          pid = None
+        else:
+          logger.warning('Encountered unexpected error when checking haproxy '
+                         'process: {}'.format(str(error)))
 
     return pid
 
   def _stop(self):
     pid = self._get_pid()
     if pid is not None:
-      os.kill(pid, signal.SIGUSR1)
+      try:
+        os.kill(pid, signal.SIGUSR1)
+      except OSError as error:
+        if error.errno != errno.ESRCH:
+          logger.error('Unable to stop haproxy process')
 
     try:
       os.remove(self._config_location)
