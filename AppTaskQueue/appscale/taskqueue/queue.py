@@ -343,8 +343,23 @@ class PostgresPullQueue(Queue):
     super(PostgresPullQueue, self).__init__(queue_info, app)
     self.connection_key = self.app
     self.pg_connection_wrapper = pg_connection_wrapper
+    self.ensure_project_schema_created()
     self.queue_id = self.ensure_queue_registered()
     self.ensure_tasks_table_created()
+
+  # When multiple TQ servers are notified by ZK about new queue
+  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
+  def ensure_project_schema_created(self):
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        logger.info('Ensuring "{schema_name}" schema is created'
+                    .format(schema_name=self.schema_name))
+        pg_cursor.execute(
+          'CREATE SCHEMA IF NOT EXISTS "{schema_name}";'
+          .format(schema_name=self.schema_name)
+        )
 
   # When multiple TQ servers are notified by ZK about new queue
   # they sometimes get IntegrityError despite 'IF NOT EXISTS'
@@ -415,12 +430,16 @@ class PostgresPullQueue(Queue):
         )
 
   @property
+  def schema_name(self):
+    return 'appscale_{}'.format(self.app)
+
+  @property
   def queues_table_name(self):
-    return 'appscale_queues_{}'.format(self.app)
+    return '{}.queues'.format(self.schema_name)
 
   @property
   def tasks_table_name(self):
-    return 'appscale_tasks_{}_{}'.format(self.app, self.queue_id)
+    return '{}.tasks_{}'.format(self.schema_name, self.queue_id)
 
   @retry_pg_connection
   def add_task(self, task):
