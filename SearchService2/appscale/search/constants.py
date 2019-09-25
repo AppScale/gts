@@ -1,6 +1,6 @@
-# Max amount of time to wait for response from Solr (in seconds).
 from appscale.search.protocols import search_pb2
 
+# Max amount of time to wait for response from Solr (in seconds).
 SOLR_TIMEOUT = 60
 
 # Max amount of time to wait before commit updates (in milliseconds).
@@ -11,9 +11,6 @@ APPSCALE_CONFIG_SET_NAME = 'appscale_search_api_config'
 
 # Prefix for all Solr-related nodes in Zookeeper.
 SOLR_ZK_ROOT = '/solr'
-
-# The ZooKeeper path where a list of active search servers is stored.
-SEARCH_SERVERS_NODE = '/appscale/search/live_nodes'
 
 # The ZooKeeper path where a replication configuration is stored.
 SERVICE_SETTINGS_NODE = '/appscale/search/service_settings'
