@@ -43,6 +43,11 @@ module ServiceHelper
   end
 
   # This function returns a list of running services
+  #
+  # If name is a "template" (e.g. appscale-myservice@) then multiple
+  # services could be matched.
+  #
+  # If name is a regular service there will be at most one running service.
   def self.running(name)
     services = []
     service_name_match = if name.end_with?('@') then "#{name.to_s}*" else name.to_s end
