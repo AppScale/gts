@@ -7,11 +7,10 @@ set -e
 set -u
 
 usage() {
-    echo "Usage: ${0} --ports <PORTS> --db-ip <IP> --zk-ip <IP>  --lb-ip <IP> [--source-dir <TQ_DIR>]"
+    echo "Usage: ${0} --ports <PORTS> --zk-ip <IP>  --lb-ip <IP> [--source-dir <TQ_DIR>]"
     echo
     echo "Options:"
     echo "   --ports <PORT,PORT>    Comma-separated list of ports to start TQ on"
-    echo "   --db-ip <IP>           IP of the database machine (cassandra and datastore)"
     echo "   --zk-ip <IP>           IP of the zookeeper machine"
     echo "   --lb-ip <IP>           IP of the AppScale loadbalancer machine"
     echo "   --source-dir <TQ_DIR>  TaskQueue sources path to use for upgrade"
@@ -19,7 +18,6 @@ usage() {
 }
 
 PORTS=
-DB_IP=
 ZK_IP=
 LB_IP=
 TQ_SOURCE_DIR=
@@ -32,15 +30,6 @@ while [ $# -gt 0 ]; do
             usage
         fi
         PORTS="${1}"
-        shift
-        continue
-    fi
-    if [ "${1}" = "--db-ip" ]; then
-        shift
-        if [ -z "${1}" ]; then
-            usage
-        fi
-        DB_IP="${1}"
         shift
         continue
     fi
@@ -79,7 +68,7 @@ log() {
     echo "$(date +'%a %b %d %T %Y'): $LEVEL $1"
 }
 
-if [ -z ${PORTS} ] || [ -z ${DB_IP} ] || [ -z ${ZK_IP} ] || [ -z ${LB_IP} ]; then
+if [ -z ${PORTS} ] || [ -z ${ZK_IP} ] || [ -z ${LB_IP} ]; then
     usage
 fi
 
@@ -110,8 +99,6 @@ if [ ! -z ${TQ_SOURCE_DIR} ]; then
 fi
 
 log "Filling /etc/appscale/* files with addresses of required services"
-echo ${DB_IP} > /etc/appscale/masters
-echo ${DB_IP} > /etc/appscale/slaves
 echo ${ZK_IP} > /etc/appscale/zookeeper_locations
 echo ${LB_IP} > /etc/appscale/load_balancer_ips
 hostname -I > /etc/appscale/my_private_ip

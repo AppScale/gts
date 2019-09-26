@@ -1,17 +1,15 @@
 # Layout table should contain:
 # - exactly one postgres,
-# - exactly one cassandra,
 # - exactly one zookeeper,
 # - exactly one loadbalancer,
 # - at least one taskqueue.
 #
 # run-load-test.sh script will parse layout file command like this:
-#     CASSANDRA_PUBLIC=$(grep -E '^cassandra' LAYOUT_FILE | awk '{ print $2 }')
+#     POSTGRES_PUBLIC=$(grep -E '^postgres' LAYOUT_FILE | awk '{ print $2 }')
 # So comments like this and header are fine.
 #
 #
 ROLE          PUBLIC_IP/HOST_NAME  PRIVATE_IP
-cassandra     192.168.100.40       10.10.8.20
 postgres      192.168.100.41       10.10.8.21
 zookeeper     192.168.100.42       10.10.8.22
 loadbalancer  192.168.100.43       10.10.8.23

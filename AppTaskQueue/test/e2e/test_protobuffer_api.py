@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from conftest import async_test, TEST_PROJECT, POSTGRES, CASSANDRA
+from conftest import async_test, TEST_PROJECT
 from helpers import taskqueue_service_pb2
 from helpers.api_helper import timed
 
@@ -89,10 +89,7 @@ async def test_add_lease_prolong_delete(taskqueue):
 
 
 @async_test
-async def test_add_lease_retry_retry_delete_pg(taskqueue, pull_queues_backend):
-  if pull_queues_backend == CASSANDRA:
-    pytest.skip('Skipped for Cassandra backend')
-
+async def test_add_lease_retry_retry_delete_pg(taskqueue):
   # Initialize tasks
   queue_str = 'pull-queue-5-retry'
   queue_bytes = bytes(queue_str, 'utf8')
@@ -174,105 +171,6 @@ async def test_add_lease_retry_retry_delete_pg(taskqueue, pull_queues_backend):
     (3, pytest.approx(start_time + 11_000_000, abs=300_000 + total_delay)),
     (4, pytest.approx(start_time + 11_000_000, abs=300_000 + total_delay)),
     (4, pytest.approx(start_time + 11_000_000, abs=300_000 + total_delay)),
-  ]
-  assert actual == expected
-
-  # Delete tasks
-  req = taskqueue_service_pb2.TaskQueueDeleteRequest()
-  req.queue_name = queue_bytes
-  req.task_name.extend([task.task_name for task in add_tasks])
-  await taskqueue.protobuf('Delete', req)
-  # Verify that queue is empty
-  listed = await taskqueue.rest('GET', path_suffix=f'/{queue_str}/tasks')
-  assert listed.json == {'kind': 'taskqueues#tasks'}  # items should be missing
-
-
-@async_test
-async def test_add_lease_retry_retry_delete_cassandra(taskqueue, pull_queues_backend):
-  if pull_queues_backend == POSTGRES:
-    pytest.skip('Skipped for Postgres backend')
-
-  # Initialize tasks
-  queue_str = 'pull-queue-5-retry'
-  queue_bytes = bytes(queue_str, 'utf8')
-  add_tasks = []
-  for n in range(4):
-    add_task = taskqueue_service_pb2.TaskQueueAddRequest()
-    add_task.app_id = bytes(TEST_PROJECT, 'utf8')
-    add_task.queue_name = queue_bytes
-    add_task.mode = taskqueue_service_pb2.TaskQueueMode.PULL
-    add_task.task_name = b'task-%d' % n
-    add_task.body = b'some-payload-%d' % n
-    add_task.eta_usec = 0
-    add_tasks.append(add_task)
-  bulk_add = taskqueue_service_pb2.TaskQueueBulkAddRequest()
-  bulk_add.add_request.extend(add_tasks)
-  start_time = await taskqueue.remote_time_usec()
-  total_delay = 0
-
-  # Add tasks using bulk add
-  _, delay = await taskqueue.timed_protobuf('BulkAdd', bulk_add)
-  total_delay += delay
-
-  # Lease 4 tasks for 2 seconds
-  lease_req = taskqueue_service_pb2.TaskQueueQueryAndOwnTasksRequest()
-  lease_req.queue_name = queue_bytes
-  lease_req.lease_seconds = 2
-  lease_req.max_tasks = 4
-  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
-  total_delay += delay
-  assert [task.retry_count for task in leased.task] == [0, 0, 0, 0]
-  # Try to lease 4 tasks for 2 seconds
-  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
-  total_delay += delay
-  assert [task.retry_count for task in leased.task] == []
-
-  # Give 5 seconds for lease to expire
-  time.sleep(5)
-
-  # Lease 2 tasks for 2 seconds (retry)
-  lease_req.max_tasks = 2
-  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
-  total_delay += delay
-  assert [task.retry_count for task in leased.task] == [1, 1]
-
-  # Lease 2 tasks for 2 seconds (retry)
-  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
-  total_delay += delay
-  assert [task.retry_count for task in leased.task] == [1, 1]
-
-  # Try to lease 2 tasks for 2 seconds
-  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
-  total_delay += delay
-  assert [task.retry_count for task in leased.task] == []
-
-  # Give 5 seconds for lease to expire
-  time.sleep(5)
-
-  # Try to lease 3 tasks for 2 seconds
-  lease_req.max_tasks = 3
-  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
-  total_delay += delay
-  assert [task.retry_count for task in leased.task] == [2, 2, 2]
-
-  # Give 5 seconds for lease to expire
-  time.sleep(5)
-
-  # Try to lease 3 tasks for 2 seconds
-  leased, delay = await taskqueue.timed_protobuf('QueryAndOwnTasks', lease_req)
-  total_delay += delay
-  assert [task.retry_count for task in leased.task] == [2, 3, 3]
-
-  # Verify listed tasks
-  listed = await taskqueue.rest('GET', path_suffix=f'/{queue_str}/tasks')
-  sorting_key = lambda item: (item['retry_count'], int(item['leaseTimestamp']))
-  tasks = sorted(listed.json['items'], key=sorting_key)
-  actual = [(task['retry_count'], int(task['leaseTimestamp'])) for task in tasks]
-  expected = [
-    (3, pytest.approx(start_time + 12_000_000, abs=600_000 + total_delay)),
-    (3, pytest.approx(start_time + 17_000_000, abs=600_000 + total_delay)),
-    (4, pytest.approx(start_time + 17_000_000, abs=600_000 + total_delay)),
-    (4, pytest.approx(start_time + 17_000_000, abs=600_000 + total_delay)),
   ]
   assert actual == expected
 

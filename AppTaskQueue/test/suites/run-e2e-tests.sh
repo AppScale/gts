@@ -116,7 +116,6 @@ scp -o StrictHostKeyChecking=no \
     -i "${KEY_LOCATION}" \
     "${HELPERS_DIR}/prepare-postgres.sh" \
     "${HELPERS_DIR}/prepare-zookeeper.sh" \
-    "${HELPERS_DIR}/prepare-cassandra.sh" \
     "${HELPERS_DIR}/restart-taskqueue.sh" \
     "${USER}@${VM_ADDR}:/tmp/"
 ssh -o StrictHostKeyChecking=no \
@@ -133,8 +132,7 @@ scp -o StrictHostKeyChecking=no \
 
 # Save DSN string and projects config to variables
 PG_DSN="dbname=appscale-test-project user=appscale password=appscale-pwd host=${VM_PRIVATE_IP}"
-POSTGRES_PROJECT='postgres-test-project'
-CASSANDRA_PROJECT='cassandra-test-project'
+TEST_PROJECT='test-project'
 
 log ""
 log "=========================================================================="
@@ -151,20 +149,15 @@ sudo /tmp/prepare-postgres.sh --host "${VM_PRIVATE_IP}" \
 echo "=== Starting Zookeeper server ==="
 sudo /tmp/prepare-zookeeper.sh
 
-echo "=== Starting and priming Cassandra ==="
-sudo /tmp/prepare-cassandra.sh --private-ip ${VM_PRIVATE_IP} \
-                               --zk-ip ${VM_PRIVATE_IP}
-
 echo "=== Creating project nodes in Zookeeper ==="
 sudo /usr/share/zookeeper/bin/zkCli.sh create \
-    /appscale/projects/${CASSANDRA_PROJECT} ""
+    /appscale/projects/${TEST_PROJECT} ""
 sudo /usr/share/zookeeper/bin/zkCli.sh create \
-    /appscale/projects/${POSTGRES_PROJECT} ""
+    /appscale/tasks ""
 sudo /usr/share/zookeeper/bin/zkCli.sh create \
-    /appscale/projects/${POSTGRES_PROJECT}/postgres_dsn "${PG_DSN}"
+    /appscale/tasks/postgres_dsn "${PG_DSN}"
 
 sudo /tmp/restart-taskqueue.sh --ports 50001,50002 \
-                               --db-ip "${VM_PRIVATE_IP}" \
                                --zk-ip "${VM_PRIVATE_IP}" \
                                --lb-ip "${VM_PRIVATE_IP}" \
                                --source-dir /tmp/AppTaskQueue
@@ -213,24 +206,6 @@ venv/bin/pip install ${HELPERS_DIR}
 venv/bin/pip install pytest
 venv/bin/pip install kazoo
 
-STATUS=0
-
-log ""
-log "===================================================="
-log "=== Test Cassandra implementation of Pull Queues ==="
-log "===================================================="
-export TEST_PROJECT="${CASSANDRA_PROJECT}"
+export TEST_PROJECT
 venv/bin/pytest -vv --tq-locations ${VM_ADDR}:50001 ${VM_ADDR}:50002 \
-                --zk-location "${VM_ADDR}" \
-                || STATUS=1
-
-log ""
-log "==================================================="
-log "=== Test Postgres implementation of Pull Queues ==="
-log "==================================================="
-export TEST_PROJECT="${POSTGRES_PROJECT}"
-venv/bin/pytest -vv --tq-locations ${VM_ADDR}:50001 ${VM_ADDR}:50002 \
-                --zk-location "${VM_ADDR}" \
-                || STATUS=1
-
-exit ${STATUS}
+                --zk-location "${VM_ADDR}"
