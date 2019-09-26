@@ -20,7 +20,8 @@ from kazoo.retry import KazooRetry
 from appscale.common import appscale_info
 from appscale.common.appscale_info import get_load_balancer_ips
 from appscale.common.async_retrying import retry_data_watch_coroutine
-from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
+from appscale.common.constants import (
+  DATASTORE_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS)
 from appscale.common.datastore_index import DatastoreIndex
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
@@ -66,9 +67,6 @@ READ_ONLY = False
 
 # Global stats.
 STATS = {}
-
-# The ZooKeeper path where a list of active datastore servers is stored.
-DATASTORE_SERVERS_NODE = '/appscale/datastore/servers'
 
 # The ZooKeeper path where a list of active datastore servers is stored.
 FDB_CLUSTERFILE_NODE = '/appscale/datastore/fdb-clusterfile-content'
