@@ -12,7 +12,7 @@ from eventlet.green import httplib
 from eventlet.green.httplib import BadStatusLine
 from eventlet.timeout import Timeout as EventletTimeout
 from socket import error as SocketError
-from urlparse import urlparse
+from urllib.parse import urlparse
 from .datastore_client import DatastoreClient, DatastoreTransientError
 from .tq_lib import TASK_STATES
 from .utils import (
@@ -111,6 +111,8 @@ def execute_task(task, headers, args):
   """
   start_time = datetime.datetime.utcnow()
 
+  task_name = args['task_name'].decode('utf-8')
+
   content_length = len(args['body'])
 
   loggable_args = {key: args[key] for key in args
@@ -139,7 +141,7 @@ def execute_task(task, headers, args):
            args['task_name'], task.request.id, args['expires']))
         celery.control.revoke(task.request.id)
 
-        update_task(args['task_name'], TASK_STATES.EXPIRED)
+        update_task(task_name, TASK_STATES.EXPIRED)
         return
 
       if (args['max_retries'] != 0 and
@@ -149,7 +151,7 @@ def execute_task(task, headers, args):
           args['max_retries']))
         celery.control.revoke(task.request.id)
 
-        update_task(args['task_name'], TASK_STATES.FAILED)
+        update_task(task_name, TASK_STATES.FAILED)
         return
 
       # Targets do not get X-Forwarded-Proto from nginx, they use haproxy port.
@@ -164,7 +166,7 @@ def execute_task(task, headers, args):
                      args['task_name'], url.scheme))
 
       skip_host = False
-      if 'host' in headers or 'Host' in headers:
+      if b'host' in headers or b'Host' in headers:
         skip_host = True
 
       skip_accept_encoding = False
@@ -211,7 +213,7 @@ def execute_task(task, headers, args):
 
       if 200 <= response.status < 300:
         # Task successful.
-        update_task(args['task_name'], TASK_STATES.SUCCESS)
+        update_task(task_name, TASK_STATES.SUCCESS)
 
         time_elapsed = datetime.datetime.utcnow() - start_time
         logger.info(

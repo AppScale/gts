@@ -3543,7 +3543,6 @@ def SetupStubs(app_id, **config):
   xmpp_path = config['xmpp_path']
   uaserver_path = config['uaserver_path']
   login_server = config['login_server']
-  cookie_secret = config['COOKIE_SECRET']
 
 
   os.environ['APPLICATION_ID'] = app_id

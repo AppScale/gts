@@ -130,7 +130,7 @@ module TerminateHelper
   def self.disable_database_writes
     # First, tell Cassandra that no more writes should be accepted on this node.
     ifconfig = `ifconfig`
-    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+    bound_addrs = ifconfig.scan(/inet .*?(\d+.\d+.\d+.\d+) /).flatten
     bound_addrs.delete("127.0.0.1")
     ip = bound_addrs[0]
 

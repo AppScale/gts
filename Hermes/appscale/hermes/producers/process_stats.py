@@ -121,7 +121,7 @@ class ProcessesStatsSource(object):
       An instance ofProcessesStatsSnapshot.
     """
     start = time.time()
-    systemctl_show = subprocess.check_output(SYSTEMCTL_SHOW)
+    systemctl_show = subprocess.check_output(SYSTEMCTL_SHOW).decode()
     processes_stats = []
     private_ip = appscale_info.get_private_ip()
     for match in SYSTEMCTL_SHOW_PATTERN.finditer(systemctl_show):
@@ -135,8 +135,8 @@ class ProcessesStatsSource(object):
         stats = _process_stats(pid, service, systemd_name, private_ip)
         processes_stats.append(stats)
       except psutil.Error as err:
-        logger.warn(u"Unable to get process stats for {name} ({err})"
-                    .format(name=service.name, err=err))
+        logger.warning("Unable to get process stats for {name} ({err})"
+                       .format(name=service.name, err=err))
 
     # Add processes managed by the ServiceManager.
     for server in ServiceManager.get_state():
@@ -146,15 +146,15 @@ class ProcessesStatsSource(object):
                                private_ip)
         processes_stats.append(stats)
       except psutil.Error as error:
-        logger.warning(u'Unable to get process stats for '
-                        u'{} ({})'.format(server, error))
+        logger.warning('Unable to get process stats for '
+                       '{} ({})'.format(server, error))
 
     stats = ProcessesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.now().timetuple()),
       processes_stats=processes_stats
     )
     logger.info("Prepared stats about {proc} processes in {elapsed:.1f}s."
-                 .format(proc=len(processes_stats), elapsed=time.time()-start))
+                .format(proc=len(processes_stats), elapsed=time.time()-start))
     return stats
 
 

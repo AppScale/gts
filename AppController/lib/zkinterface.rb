@@ -48,9 +48,6 @@ class ZKInterface
   # The ZooKeeper node where datastore servers register themselves.
   DATASTORE_REGISTRY_PATH = '/appscale/datastore/servers'
 
-  # The ZooKeeper node where search servers register themselves.
-  SEARCH2_REGISTRY_PATH = '/appscale/search/live_nodes'
-
   # The location in ZooKeeper that AppControllers write information about their
   # node to, so that others can poll to see if they are alive and what roles
   # they've taken on.
@@ -242,20 +239,16 @@ class ZKInterface
     return JSON.load(dispatch_config_json)
   end
 
-  def self.get_datastore_servers
-    return get_children(DATASTORE_REGISTRY_PATH).map { |server|
+  def self.list_registered(registration_node)
+    return get_children(registration_node).map { |server|
       server = server.split(':')
       server[1] = server[1].to_i
       server
     }
   end
 
-  def self.get_search2_servers
-    return get_children(SEARCH2_REGISTRY_PATH).map { |server|
-      server = server.split(':')
-      server[1] = server[1].to_i
-      server
-    }
+  def self.get_datastore_servers
+    list_registered(DATASTORE_REGISTRY_PATH)
   end
 
   def self.set_machine_assignments(machine_ip, assignments)
@@ -319,6 +312,13 @@ class ZKInterface
     clusterfile_node = '/appscale/datastore/fdb-clusterfile-content'
     ensure_path(clusterfile_node)
     set(clusterfile_node, content, NOT_EPHEMERAL)
+  end
+
+  # Writes Postgres DSN string to zookeeper
+  def self.set_postgres_dsn(postgres_dsn)
+    dsn_node = '/appscale/tasks/postgres_dsn'
+    ensure_path(dsn_node)
+    set(dsn_node, postgres_dsn, NOT_EPHEMERAL)
   end
 
   def self.run_zookeeper_operation(&block)

@@ -4,7 +4,7 @@ Before=appscale-service.target
 PartOf=appscale-service.target
 
 [Service]
-ExecStart=/usr/bin/python2 ${APPSCALE_SERVICE_BIN}/appscale-hermes $APPSCALE_OPTION_VERBOSE
+ExecStart=/opt/appscale_venvs/hermes/bin/python3 /opt/appscale_venvs/hermes/bin/appscale-hermes $APPSCALE_OPTION_VERBOSE
 SyslogIdentifier=%p
 
 [Install]

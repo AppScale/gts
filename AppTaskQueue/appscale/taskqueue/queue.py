@@ -2,7 +2,6 @@ import datetime
 
 import base64
 import json
-import re
 import sys
 import time
 import uuid
@@ -97,8 +96,6 @@ BASIC_RETRIES = IdempotentRetryPolicy()
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
 
-MAX_QUEUE_NAME_LENGTH = 100
-
 TRANSIENT_CASSANDRA_ERRORS = (
   cassandra.Unavailable, cassandra.Timeout, cassandra.CoordinationFailure,
   cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)
@@ -109,13 +106,6 @@ LB_POLICY = DCAwareRoundRobinPolicy()
 # This format is used when returning the long name of a queue as
 # part of a leased task. This is to mimic a GCP oddity/bug.
 LONG_QUEUE_FORM = 'projects/{app}/taskqueues/{queue}'
-
-# A regex rule for validating queue names.
-FULL_QUEUE_NAME_PATTERN = r'^(projects/[a-zA-Z0-9-]+/taskqueues/)?' \
-                     r'[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
-
-# A compiled regex rule for validating queue names.
-FULL_QUEUE_NAME_RE = re.compile(FULL_QUEUE_NAME_PATTERN)
 
 # All possible fields to include in a queue's JSON representation.
 QUEUE_FIELDS = (
@@ -209,7 +199,7 @@ class Queue(object):
     Raises:
       InvalidQueueConfiguration if there is an invalid attribute.
     """
-    for attribute, rule in QUEUE_ATTRIBUTE_RULES.iteritems():
+    for attribute, rule in QUEUE_ATTRIBUTE_RULES.items():
       try:
         value = getattr(self, attribute)
       except AttributeError:
@@ -310,7 +300,7 @@ class PushQueue(Queue):
         attributes[attribute] = getattr(self, attribute)
 
     attr_str = ', '.join('{}={}'.format(attr, val)
-                         for attr, val in attributes.iteritems())
+                         for attr, val in attributes.items())
 
     return '<PushQueue {}: {}>'.format(self.name, attr_str)
 
@@ -830,7 +820,8 @@ class PostgresPullQueue(Queue):
     # TODO: remove it when task.payloadBase64 is replaced with task.payload
     if 'payload' in columns:
       payload = task_info.pop('payload')
-      task_info['payloadBase64'] = base64.urlsafe_b64encode(payload)
+      task_info['payloadBase64'] = \
+        base64.urlsafe_b64encode(payload).decode('utf-8')
 
     return Task(task_info)
 
@@ -1398,6 +1389,7 @@ class PullQueue(Queue):
       IF NOT EXISTS
     """, retry_policy=NO_RETRIES)
     try:
+      parameters['payload'] = parameters['payload'].decode('utf-8')
       result = self.session.execute(insert_statement, parameters)
     except TRANSIENT_CASSANDRA_ERRORS as error:
       retries_left = retries - 1
@@ -1416,8 +1408,9 @@ class PullQueue(Queue):
       raise TransientError('Unable to insert task')
 
     if not success:
-      raise InvalidTaskInfo(
-        'Task name already taken: {}'.format(parameters['id']))
+      error = InvalidTaskInfo()
+      error.message = 'Task name already taken: {}'.format(parameters['id'])
+      raise error
 
   def _update_lease(self, parameters, retries, check_lease=True):
     """ Update lease expiration on a task entry.
@@ -1656,7 +1649,7 @@ class PullQueue(Queue):
       futures[result_num] = (future, not success)
 
     index_update_futures = []
-    for result_num, (future, lease_timed_out) in futures.iteritems():
+    for result_num, (future, lease_timed_out) in futures.items():
       index = indexes[result_num]
       try:
         read_result = future.result()[0]

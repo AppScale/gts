@@ -74,10 +74,6 @@ APPSCALE_USER = 'appscale-user@local.appscale'.freeze
 # exposed SOAP method but provide an incorrect secret.
 BAD_SECRET_MSG = 'false: bad secret'.freeze
 
-# The String that should be returned to callers if they attempt to add or remove
-# AppServers from an HAProxy config file at a node where HAProxy is not running.
-NO_HAPROXY_PRESENT = 'false: haproxy not running'.freeze
-
 # The String that should be returned to callers if they attempt to add
 # AppServers for an app that does not yet have nginx and haproxy set up.
 NOT_READY = 'false: not ready yet'.freeze
@@ -293,7 +289,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = true
+  FIREWALL_IS_ON = 'true' == (ENV['APPSCALE_FIREWALL'] || 'true')
 
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
@@ -480,16 +476,9 @@ class Djinn
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
-    'write_nodes_stats_log' => [TrueClass, 'False', true],
-    'nodes_stats_log_interval' => [Integer, '15', true],
-    'write_processes_stats_log' => [TrueClass, 'False', true],
-    'processes_stats_log_interval' => [Integer, '65', true],
-    'write_proxies_stats_log' => [TrueClass, 'False', true],
-    'proxies_stats_log_interval' => [Integer, '35', true],
-    'write_detailed_processes_stats_log' => [TrueClass, 'False', true],
-    'write_detailed_proxies_stats_log' => [TrueClass, 'False', true],
     'zone' => [String, nil, true],
     'fdb_clusterfile_content' => [String, nil, true],
+    'postgres_dsn' => [String, nil, true],
     'update' => [Array, [], false]
   }.freeze
 
@@ -845,7 +834,9 @@ class Djinn
       # Strings may need to be sanitized.
       if PARAMETERS_AND_CLASS[key][PARAMETER_CLASS] == String
         # Some options shouldn't be sanitize.
-        if ['user_commands', 'azure_app_secret_key', 'fdb_clusterfile_content'].include? key
+        raw_options = ['user_commands', 'azure_app_secret_key',
+                       'fdb_clusterfile_content', 'postgres_dsn']
+        if raw_options.include? key
           newval = val
         # Keys have a relaxed sanitization process.
         elsif key.include? "_key" or key.include? "EC2_SECRET_KEY"
@@ -889,7 +880,8 @@ class Djinn
         if Integer(@options['min_machines']) > @nodes.length
           msg = 'min_machines is bigger than the number of nodes!'
           Djinn.log_warn(msg)
-          raise AppScaleException.new(msg)
+          # No exception raised here since we may be lowering the number
+          # of min_machines, just a warning in the logs will suffice.
         end
         if Integer(@options['max_machines']) < Integer(@options['min_machines'])
           msg = 'min_machines is bigger than max_machines!'
@@ -1305,9 +1297,9 @@ class Djinn
         unless is_cloud?
           Djinn.log_warn('min_machines is not used in non-cloud infrastructures.')
         end
-        if Integer(val) < Integer(@options['min_machines'])
+        unless can_we_scale_down?(Integer(val))
           Djinn.log_warn('Invalid input: cannot lower min_machines!')
-          return 'min_machines cannot be less than the nodes defined in ips_layout'
+          return 'Cannot lower min_machines past non-autoscaled nodes'
         end
       elsif key == 'max_machines'
         unless is_cloud?
@@ -1354,33 +1346,12 @@ class Djinn
           project_id = version_key.split(VERSION_PATH_SEPARATOR).first
           update_cron(project_id, @@secret)
         }
-      end
-
-      if key.include? 'stats_log'
-        if key.include? 'nodes'
-          ZKInterface.update_hermes_nodes_profiling_conf(
-            @options['write_nodes_stats_log'].downcase == 'true',
-            @options['nodes_stats_log_interval'].to_i
-          )
-        elsif key.include? 'processes'
-          ZKInterface.update_hermes_processes_profiling_conf(
-            @options['write_processes_stats_log'].downcase == 'true',
-            @options['processes_stats_log_interval'].to_i,
-            @options['write_detailed_processes_stats_log'].downcase == 'true'
-          )
-        elsif key.include? 'proxies'
-          ZKInterface.update_hermes_proxies_profiling_conf(
-            @options['write_proxies_stats_log'].downcase == 'true',
-            @options['proxies_stats_log_interval'].to_i,
-            @options['write_detailed_proxies_stats_log'].downcase == 'true'
-          )
-        end
-      end
-
-      if key == 'fdb_clusterfile_content'
+      elsif key == 'fdb_clusterfile_content'
         ZKInterface.set_fdb_clusterfile_content(val)
+      elsif key == 'postgres_dsn'
+        ZKInterface.set_postgres_dsn(val)
       end
-      
+
       Djinn.log_info("Successfully set #{key} to #{val}.")
     }
     # Act upon changes.
@@ -1557,7 +1528,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.change_password(username, password)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while resetting " \
@@ -1574,7 +1545,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.does_user_exist?(username)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer to check if the " \
@@ -1594,7 +1565,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.commit_new_user(username, password, account_type)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while committing " \
@@ -1611,7 +1582,7 @@ class Djinn
     return NOT_READY if @nodes.empty?
 
     begin
-      uac = UserAppClient.new(my_node.private_ip, @@secret)
+      uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
       return uac.set_admin_role(username, is_cloud_admin, capabilities)
     rescue FailedNodeException
       Djinn.log_warn("Failed to talk to the UserAppServer while setting admin role " \
@@ -1642,20 +1613,7 @@ class Djinn
   end
 
   def check_api_services
-    # LoadBalancers needs to setup the routing
-    # for the datastore and search2 (if applicable) before proceeding.
-    while my_node.is_load_balancer? && !update_db_haproxy
-      Djinn.log_info('Waiting for Datastore assignements ...')
-      sleep(SMALL_WAIT)
-    end
-
     has_search2 = !get_search2.empty?
-    if has_search2
-      while my_node.is_load_balancer? && !update_search2_haproxy
-        Djinn.log_info('Waiting for Search2 assignements ...')
-        sleep (SMALL_WAIT)
-      end
-    end
 
     # Wait till the Datastore is functional.
     loop do
@@ -1919,9 +1877,7 @@ class Djinn
         APPS_LOCK.synchronize { check_stopped_apps }
       end
       if my_node.is_load_balancer?
-        # Load balancers need to regenerate nginx/haproxy configuration if needed.
-        update_db_haproxy
-        update_search2_haproxy unless get_search2.empty?
+        # Load balancers need to regenerate nginx configuration if needed.
         APPS_LOCK.synchronize { regenerate_routing_config }
       end
       @state = "Done starting up AppScale, now in heartbeat mode"
@@ -2516,6 +2472,17 @@ class Djinn
     return ae_nodes
   end
 
+  # This method checks that nodes above index are compute only and thus
+  # can be easily terminated.
+  def can_we_scale_down?(min_machines)
+    @state_change_lock.synchronize {
+      @nodes.drop(min_machines).each { |node|
+        return false if node.roles != ['compute']
+      }
+    }
+    return true
+  end
+
   # Gets a list of autoscaled nodes by going through the nodes array
   # and splitting the array from index greater than the
   # minimum images specified.
@@ -2595,104 +2562,21 @@ class Djinn
     return uuid
   end
 
-  # Updates the list of blob_server in haproxy.
-  def update_blob_servers
-    servers = []
-    get_all_compute_nodes.each { |ip|
-      servers << {'ip' => ip, 'port' => BlobServer::SERVER_PORT}
-    }
-    HAProxy.create_app_config(servers, my_node.private_ip,
-      BlobServer::HAPROXY_PORT, BlobServer::NAME)
-  end
-
-  # Instruct HAProxy to begin routing traffic to the BlobServers.
-  #
-  # Args:
-  #   secret: A String that is used to authenticate the caller.
-  #
-  # Returns:
-  #   "OK" if the addition was successful. In case of failures, the following
-  #   Strings may be returned:
-  #   - BAD_SECRET_MSG: If the caller cannot be authenticated.
-  #   - NO_HAPROXY_PRESENT: If this node does not run HAProxy.
-  def add_routing_for_blob_server(secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-    return NOT_READY if @nodes.empty?
-    return NO_HAPROXY_PRESENT unless my_node.is_load_balancer?
-
-    Djinn.log_debug('Adding BlobServer routing.')
-    update_blob_servers
-  end
-
-  # Creates an Nginx/HAProxy configuration file for the Users/Apps soap server.
+  # Creates an Nginx configuration file for the Users/Apps soap server.
   def configure_uaserver
-    all_db_private_ips = []
-    @state_change_lock.synchronize {
-      @nodes.each { | node |
-        if node.is_db_master? or node.is_db_slave?
-          all_db_private_ips.push(node.private_ip)
-        end
-      }
-    }
-    HAProxy.create_ua_server_config(all_db_private_ips,
-      my_node.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
     Nginx.add_service_location(
       'appscale-uaserver', my_node.private_ip,
       UserAppClient::HAPROXY_SERVER_PORT, UserAppClient::SSL_SERVER_PORT)
   end
 
-  def update_db_haproxy
-    begin
-      servers = ZKInterface.get_datastore_servers.map { |machine_ip, port|
-        {'ip' => machine_ip, 'port' => port}
-      }
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn('Unable to fetch list of datastore servers')
-      return false
-    end
-
-    HAProxy.create_app_config(servers, '*', DatastoreServer::PROXY_PORT,
-                              DatastoreServer::NAME)
-    return true
-  end
-
-  def update_search2_haproxy
-    begin
-      servers = ZKInterface.get_search2_servers.map { |machine_ip, port|
-        {'ip' => machine_ip, 'port' => port}
-      }
-    rescue FailedZooKeeperOperationException
-      Djinn.log_warn('Unable to fetch list of search2 servers')
-      return false
-    end
-
-    HAProxy.create_app_config(servers, '*', Search2::PROXY_PORT, Search2::NAME)
-    return true
-  end
-
-  # Creates HAProxy configuration for TaskQueue.
+  # Creates nginx configuration for TaskQueue.
   def configure_tq_routing
-    all_tq_ips = []
-    @state_change_lock.synchronize {
-      @nodes.each { | node |
-        if node.is_taskqueue_master? || node.is_taskqueue_slave?
-          all_tq_ips.push(node.private_ip)
-        end
-      }
-    }
-    HAProxy.create_tq_server_config(
-      all_tq_ips, my_node.private_ip, TaskQueue::HAPROXY_PORT)
-
     # TaskQueue REST API routing.
     # We don't need Nginx for backend TaskQueue servers, only for REST support.
     rest_prefix = '~ /taskqueue/v1beta2/projects/.*'
     Nginx.add_service_location(
       'appscale-taskqueue', my_node.private_ip, TaskQueue::HAPROXY_PORT,
       TaskQueue::TASKQUEUE_SERVER_SSL_PORT, rest_prefix)
-  end
-
-  def remove_tq_endpoints
-    HAProxy.remove_tq_endpoints
   end
 
   # TODO: this is a temporary fix. The dependency on the tools should be
@@ -3298,28 +3182,40 @@ class Djinn
     Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
 
-    Djinn.log_info('Ensuring necessary database tables are present')
-    sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
-
-    Djinn.log_info('Ensuring data layout version is correct')
-    layout_script = `which appscale-data-layout`.chomp
-    retries = 10
-    loop {
-      output = `#{layout_script} --db-type cassandra 2>&1`
-      if $?.exitstatus == 0
+    # Autoscaled nodes do not need to check if the datastore is primed: if
+    # we got this far, it must be primed.
+    am_i_autoscaled = false
+    get_autoscaled_nodes.each { |node|
+      if node.private_ip == my_node.private_ip
+        am_i_autoscaled = true
+        Djinn.log_info("Skipping database layout check on scaled node.")
         break
-      elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
-        HelperFunctions.log_and_crash(
-          'Unexpected data layout version. Please run "appscale upgrade".')
-      elsif retries.zero?
-        HelperFunctions.log_and_crash(
-          'Exceeded retries while trying to check data layout.')
-      else
-        Djinn.log_warn("Error while checking data layout:\n#{output}")
-        sleep(SMALL_WAIT)
       end
-      retries -= 1
     }
+    unless am_i_autoscaled
+      Djinn.log_info('Ensuring necessary database tables are present')
+      sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
+
+      Djinn.log_info('Ensuring data layout version is correct')
+      layout_script = `which appscale-data-layout`.chomp
+      retries = 10
+      loop {
+        output = `#{layout_script} --db-type cassandra 2>&1`
+        if $?.exitstatus == 0
+          break
+        elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
+          HelperFunctions.log_and_crash(
+            'Unexpected data layout version. Please run "appscale upgrade".')
+        elsif retries.zero?
+          HelperFunctions.log_and_crash(
+            'Exceeded retries while trying to check data layout.')
+        else
+          Djinn.log_warn("Error while checking data layout:\n#{output}")
+          sleep(SMALL_WAIT)
+        end
+        retries -= 1
+      }
+    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"
@@ -3330,11 +3226,19 @@ class Djinn
       stop_soap_server
     end
 
+    if my_node.is_load_balancer?
+      configure_uaserver
+    end
+
+    # The AdminServer is started before checking the availability of the
+    # UAServer because it is responsible for routing it.
+    start_admin_server
+
     # All nodes wait for the UserAppServer now. The call here is just to
     # ensure the UserAppServer is talking to the persistent state.
-    HelperFunctions.sleep_until_port_is_open(@my_private_ip,
-      UserAppClient::SSL_SERVER_PORT, USE_SSL)
-    uac = UserAppClient.new(@my_private_ip, @@secret)
+    HelperFunctions.sleep_until_port_is_open(
+      get_load_balancer.private_ip, UserAppClient::HAPROXY_SERVER_PORT)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     begin
       uac.does_user_exist?("not-there")
     rescue FailedNodeException
@@ -3362,8 +3266,6 @@ class Djinn
       }
     end
 
-    start_admin_server
-
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
     else
@@ -3377,7 +3279,6 @@ class Djinn
       }
     else
       threads << Thread.new {
-        remove_tq_endpoints
         stop_ejabberd
       }
     end
@@ -3423,6 +3324,9 @@ class Djinn
       threads << Thread.new { stop_taskqueue }
     end
 
+    # Start Hermes with integrated stats service
+    threads << Thread.new { start_hermes }
+
     # App Engine apps rely on the above services to be started, so
     # join all our threads here
     Djinn.log_info('Waiting for relevant services to finish starting up,')
@@ -3431,15 +3335,14 @@ class Djinn
     end
     Djinn.log_info('API services have started on this node.')
 
-    # Start Hermes with integrated stats service
-    start_hermes
-
     # Leader node starts additional services.
     if my_node.is_shadow?
       @state = 'Assigning Datastore and Search2 processes'
       assign_datastore_processes
       assign_search2_processes
-      TaskQueue.start_flower(@options['flower_password'])
+
+      # Don't start flower if we don't have a password.
+      TaskQueue.start_flower(@options['flower_password']) unless @options['flower_password'].nil?
     else
       TaskQueue.stop_flower
     end
@@ -3605,8 +3508,10 @@ class Djinn
     # startup.
     return unless my_node.is_shadow?
 
+    backend = 'cassandra'
     if @options.key?('fdb_clusterfile_content')
       ZKInterface.set_fdb_clusterfile_content(@options['fdb_clusterfile_content'])
+      backend = 'fdb'
     end
 
     Djinn.log_info("Assigning datastore processes.")
@@ -3622,7 +3527,7 @@ class Djinn
     # machine.
     db_nodes.each { |node|
       assignments = {}
-      assignments['datastore'] = {'verbose' => verbose}
+      assignments['datastore'] = {'backend' => backend, 'verbose' => verbose}
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
       Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
@@ -3796,16 +3701,15 @@ class Djinn
     end
 
     update_dirs = @options['update']
-
-    if update_dirs == "all"
-      update_dirs = ALLOWED_DIR_UPDATES.join(',')
-    end
+    update_dirs = ALLOWED_DIR_UPDATES if update_dirs == ['all']
 
     # Update Python packages across corresponding virtual environments
     if update_dirs.include?('common')
       update_python_package("#{APPSCALE_HOME}/common")
       update_python_package("#{APPSCALE_HOME}/common",
                             '/opt/appscale_venvs/api_server/bin/pip')
+      update_python_package("#{APPSCALE_HOME}/common",
+                            '/opt/appscale_venvs/hermes/bin/pip')
       update_python_package("#{APPSCALE_HOME}/common",
                             TaskQueue::TASKQUEUE_PIP)
       update_python_package("#{APPSCALE_HOME}/common",
@@ -3816,6 +3720,8 @@ class Djinn
     end
     if update_dirs.include?('admin_server')
       update_python_package("#{APPSCALE_HOME}/AdminServer")
+      update_python_package("#{APPSCALE_HOME}/AdminServer",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
     if update_dirs.include?('taskqueue')
       build_taskqueue
@@ -3827,7 +3733,8 @@ class Djinn
       update_python_package("#{APPSCALE_HOME}/InfrastructureManager")
     end
     if update_dirs.include?('hermes')
-      update_python_package("#{APPSCALE_HOME}/Hermes")
+      update_python_package("#{APPSCALE_HOME}/Hermes",
+                            '/opt/appscale_venvs/hermes/bin/pip')
     end
     if update_dirs.include?('api_server')
       build_api_server
@@ -3859,9 +3766,7 @@ class Djinn
     threads = []
     must_have.each { |slave|
       next if slave.private_ip == my_node.private_ip
-      threads << Thread.new {
-        initialize_node(slave)
-      }
+      threads << Thread.new { initialize_node(slave) }
     }
 
     # If we cannot reconnect with autoscaled nodes, we will have to clean
@@ -4154,10 +4059,9 @@ class Djinn
     end
   end
 
-  # Writes new nginx and haproxy configuration files for the App Engine
-  # applications hosted in this deployment. Callers should invoke this
-  # method whenever there is a change in the number of machines hosting
-  # App Engine apps.
+  # Writes new nginx configuration files for the App Engine applications hosted
+  # in this deployment. Callers should invoke this method whenever there is a
+  # change in the number of machines hosting App Engine apps.
   def regenerate_routing_config
     Djinn.log_debug("Regenerating nginx config files for apps.")
     my_private = my_node.private_ip
@@ -4315,9 +4219,6 @@ class Djinn
 
   # This function performs basic setup ahead of starting the API services.
   def initialize_server
-    HAProxy.initialize_config(@options['lb_connect_timeout'])
-    Djinn.log_info("HAProxy configured.")
-
     if not Nginx.is_running?
       Nginx.initialize_config
       Nginx.start
@@ -4325,13 +4226,6 @@ class Djinn
     else
       Djinn.log_info("Nginx already configured and running.")
     end
-
-    # The HAProxy process needs at least one configured service to start. The
-    # UAServer is configured first to satisfy this condition.
-    configure_uaserver
-
-    # HAProxy must be running so that the UAServer can be accessed.
-    HAProxy.services_start
 
     # Volume is mounted, let's finish the configuration of static files.
     if my_node.is_shadow? and not my_node.is_compute?
@@ -4485,7 +4379,7 @@ class Djinn
 
   # Create the system user used to start and run system's applications.
   def create_appscale_user
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     password = SecureRandom.base64
 
     begin
@@ -4582,16 +4476,17 @@ class Djinn
     @state = "Preparing AppDashboard"
     Djinn.log_info("Preparing AppDashboard")
 
-    my_public = my_node.public_ip
     my_private = my_node.private_ip
 
     datastore_location = [get_load_balancer.private_ip,
                           DatastoreServer::PROXY_PORT].join(':')
     taskqueue_location = [get_load_balancer.private_ip,
                           TaskQueue::HAPROXY_PORT].join(':')
+    ua_server_location = [get_load_balancer.private_ip,
+                          UserAppClient::HAPROXY_SERVER_PORT].join(':')
     source_archive = AppDashboard.prep(
       my_private, PERSISTENT_MOUNT_POINT, datastore_location,
-      taskqueue_location)
+      taskqueue_location, ua_server_location)
 
     self.deploy_dashboard(source_archive)
   end
@@ -4697,8 +4592,7 @@ class Djinn
       removed_versions << version_key
     }
 
-    # Load balancers have to adjust nginx and haproxy to remove the
-    # application routings.
+    # Load balancers have to adjust nginx to remove the application routings.
     if my_node.is_load_balancer?
       ServiceHelper.running('appscale-xmpp@').each { |xmpp_app|
         match = xmpp_app.match(/appscale-xmpp@(.*)/)
@@ -4968,7 +4862,6 @@ class Djinn
   # any AppServers and the minimum number of user specified machines are still
   # running in the deployment.
   def scale_down_instances
-    num_scaled_down = 0
     # If we are already at the minimum number of machines that the user specified,
     # then we do not have the capacity to scale down.
     max_scale_down_capacity = @nodes.length - Integer(@options['min_machines'])
@@ -4993,43 +4886,41 @@ class Djinn
 
     Thread.new {
       SCALE_LOCK.synchronize {
-        # Look through an array of autoscaled nodes and check if any of the
-        # machines are not running any AppServers and need to be downscaled.
-        get_autoscaled_nodes.reverse_each { |node|
-          break if num_scaled_down == max_scale_down_capacity
+        # Look through the nodes and check if any of the machines was
+        # autoscaled (compute role only)a and are not running any
+        # AppServers and need to be downscaled.
+        nodes_to_remove = []
+        @state_change_lock.synchronize {
+          @nodes.reverse_each { |node|
+            break if nodes_to_remove.length == max_scale_down_capacity
 
-          hosted_apps = []
-          @versions_loaded.each { |version_key|
-            @app_info_map[version_key]['appservers'].each { |location|
-              host, port = location.split(":")
-              if host == node.private_ip
-                hosted_apps << "#{version_key}:#{port}"
-              end
+            hosted_apps = []
+            @versions_loaded.each { |version_key|
+              @app_info_map[version_key]['appservers'].each { |location|
+                host, port = location.split(":")
+                hosted_apps << "#{version_key}:#{port}" if host == node.private_ip
+              }
             }
+
+            unless hosted_apps.empty?
+              Djinn.log_debug("The node #{node.private_ip} has these AppServers " \
+                "running: #{hosted_apps}")
+              next
+            end
+
+            # Right now, only the autoscaled machines are started with just the
+            # compute role, so we check specifically for that during downscaling
+            # to make sure we only downscale the new machines added.
+            nodes_to_remove << node if node.roles == ['compute']
           }
+        }
 
-          unless hosted_apps.empty?
-            Djinn.log_debug("The node #{node.private_ip} has these AppServers " \
-              "running: #{hosted_apps}")
-            next
-          end
-
-          # Right now, only the autoscaled machines are started with just the
-          # compute role, so we check specifically for that during downscaling
-          # to make sure we only downscale the new machines added.
-          node_to_remove = nil
-          if node.roles == ['compute']
-            Djinn.log_info("Removing node #{node}")
-            node_to_remove = node
-          end
-
-          num_terminated = terminate_node_from_deployment(node_to_remove)
-          num_scaled_down += num_terminated
+        # Now we remove the nodes marked for deletion.
+        nodes_to_remove.each { |node|
+          Djinn.log_info("Removing node #{node}.")
+          APPS_LOCK.synchronize { terminate_node_from_deployment(node) }
         }
       }
-
-      # Make sure we have the proper list of blobservers configured.
-      update_blob_servers
     }
   end
 
@@ -5785,7 +5676,7 @@ class Djinn
     # We don't need to check for FailedNodeException here since we catch
     # it at a higher level.
     login_ip = @options['login']
-    uac = UserAppClient.new(my_node.private_ip, @@secret)
+    uac = UserAppClient.new(get_load_balancer.private_ip, @@secret)
     xmpp_user = "#{app}@#{login_ip}"
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
 

@@ -84,14 +84,19 @@ if [ -z ${PORTS} ] || [ -z ${DB_IP} ] || [ -z ${ZK_IP} ] || [ -z ${LB_IP} ]; the
 fi
 
 if [ ! -z ${TQ_SOURCE_DIR} ]; then
-    log "Installing TaskQueue from specified sources"
     rm -rf /opt/appscale_venvs/appscale_taskqueue/
-    python -m virtualenv /opt/appscale_venvs/appscale_taskqueue/
+    python3 -m venv /opt/appscale_venvs/appscale_taskqueue/
 
     TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
+    "${TASKQUEUE_PIP}" install wheel
+    "${TASKQUEUE_PIP}" install --upgrade pip
+    "${TASKQUEUE_PIP}" install --upgrade setuptools
 
     "${TQ_SOURCE_DIR}/appscale/taskqueue/protocols/compile_protocols.sh"
     COMMON_SOURCE_DIR="$( dirname "${TQ_SOURCE_DIR}" )"/common
+
+    echo "Installing TaskQueue from specified sources"
+
     echo "Upgrading appscale-common.."
     "${TASKQUEUE_PIP}" install --upgrade --no-deps "${COMMON_SOURCE_DIR}"
     echo "Installing appscale-common dependencies if any missing.."
@@ -109,6 +114,7 @@ echo ${DB_IP} > /etc/appscale/masters
 echo ${DB_IP} > /etc/appscale/slaves
 echo ${ZK_IP} > /etc/appscale/zookeeper_locations
 echo ${LB_IP} > /etc/appscale/load_balancer_ips
+hostname -I > /etc/appscale/my_private_ip
 
 
 RUNNING_SERVER=$(ps -ax | grep "[a]ppscale-taskqueue" || echo "")

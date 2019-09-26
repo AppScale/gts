@@ -46,7 +46,7 @@ setup(
                 'appscale.admin.routing': ['templates/*']},
   include_package_data=True,
   entry_points={'console_scripts': [
-    'appscale-admin=appscale.admin:main',
+    'appscale-admin=appscale.admin.admin_server:main',
     'appscale-instance-manager=appscale.admin.instance_manager.server:main',
     'appscale-stop-services=appscale.admin.stop_services:main',
     'appscale-stop-service=appscale.admin.stop_services:stop_service',

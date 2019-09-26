@@ -430,6 +430,15 @@ class DataManager(object):
     Returns:
       A VersionEntry or None.
     """
+    if index_entry.kind == u'__kind__':
+      entity = entity_pb.EntityProto()
+      entity.mutable_key().MergeFrom(index_entry.key)
+      entity.mutable_entity_group().MergeFrom(index_entry.group)
+      version_entry = VersionEntry(
+        index_entry.project_id, index_entry.namespace, index_entry.path,
+        encoded_entity=entity.Encode())
+      raise gen.Return(version_entry)
+
     version_entry = yield self.get_version_from_path(
       tr, index_entry.project_id, index_entry.namespace, index_entry.path,
       index_entry.commit_versionstamp, snapshot)

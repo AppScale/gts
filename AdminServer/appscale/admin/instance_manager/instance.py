@@ -152,7 +152,7 @@ def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host
           '--nginx_host={}'.format(load_balancer_host),
           '--xmpp_path={}'.format(load_balancer_host),
           '--uaserver_path={}'.format(
-              ':'.join([options.db_proxy, str(UA_SERVER_PORT)])),
+              ':'.join([load_balancer_host, str(UA_SERVER_PORT)])),
           '--external_api_port={}'.format(api_server_port)
       ]
 
@@ -190,7 +190,8 @@ def create_python_api_start_cmd(app_name, login_ip, port,
       '--nginx_host', login_ip,
       '--enable_sendmail',
       '--xmpp_path', options.load_balancer_ip,
-      '--uaserver_path', '{}:{}'.format(options.db_proxy, UA_SERVER_PORT),
+      '--uaserver_path', '{}:{}'.format(options.load_balancer_ip,
+                                        UA_SERVER_PORT),
       '--datastore_path', '{}:{}'.format(options.db_proxy, DB_SERVER_PORT),
       '--external_api_port', str(api_server_port)
   ]
@@ -247,7 +248,8 @@ def create_python27_start_cmd(app_name, login_ip, port, pidfile, revision_key,
     '--xmpp_path', options.load_balancer_ip,
     '--php_executable_path=' + str(PHP_CGI_LOCATION),
     '--max_module_instances', "{}:1".format(service_id),
-    '--uaserver_path', '{}:{}'.format(options.db_proxy, UA_SERVER_PORT),
+    '--uaserver_path', '{}:{}'.format(options.load_balancer_ip,
+                                      UA_SERVER_PORT),
     '--datastore_path', '{}:{}'.format(options.db_proxy, DB_SERVER_PORT),
     '--host', options.private_ip,
     '--automatic_restart', 'no',
