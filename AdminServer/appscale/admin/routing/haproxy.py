@@ -4,11 +4,10 @@ import logging
 import monotonic
 import os
 import pkgutil
-import signal
-import subprocess
 
 from tornado import gen
 
+from appscale.common import service_helper
 from appscale.common.appscale_info import get_private_ip
 
 logger = logging.getLogger(__name__)
@@ -22,11 +21,11 @@ APP_CONFIG = os.path.join(CONFIG_DIR, 'app-haproxy.cfg')
 # The location of the combined HAProxy config file for AppScale services.
 SERVICE_CONFIG = os.path.join(CONFIG_DIR, 'service-haproxy.cfg')
 
-# The location of the pidfile for instance-related HAProxy processes.
-APP_PID = os.path.join('/', 'run', 'appscale', 'app-haproxy.pid')
+# The instance name for instance-related HAProxy processes.
+APP_INSTANCE = 'app'
 
-# The location of the pidfile for service-related HAProxy processes.
-SERVICE_PID = os.path.join('/', 'run', 'appscale', 'service-haproxy.pid')
+# The instance name for service-related HAProxy processes.
+SERVICE_INSTANCE = 'service'
 
 # The location of the unix socket used for reporting application stats.
 APP_STATS_SOCKET = os.path.join(CONFIG_DIR, 'stats')
@@ -112,7 +111,7 @@ class HAProxy(object):
   # The minimum number of seconds to wait between each reload operation.
   RELOAD_COOLDOWN = .1
 
-  def __init__(self, config_location, pid_location, stats_socket):
+  def __init__(self, instance, config_location, stats_socket):
     """ Creates a new HAProxy operator. """
     self.connect_timeout_ms = self.DEFAULT_CONNECT_TIMEOUT * 1000
     self.client_timeout_ms = self.DEFAULT_CLIENT_TIMEOUT * 1000
@@ -120,8 +119,8 @@ class HAProxy(object):
     self.blocks = {}
     self.reload_future = None
 
+    self._instance = instance
     self._config_location = config_location
-    self._pid_location = pid_location
     self._stats_socket = stats_socket
 
     # Given the arbitrary base of the monotonic clock, it doesn't make sense
@@ -164,37 +163,12 @@ class HAProxy(object):
 
     yield self.reload_future
 
-  def _get_pid(self):
-    try:
-      with open(self._pid_location) as pid_file:
-        pid = int(pid_file.read())
-    except IOError as error:
-      if error.errno != errno.ENOENT:
-        raise
-
-      pid = None
-
-    # Check if the process is running.
-    if pid is not None:
-      try:
-        os.kill(pid, 0)
-      except OSError as error:
-        if error.errno == errno.ESRCH:
-          pid = None
-        else:
-          logger.warning('Encountered unexpected error when checking haproxy '
-                         'process: {}'.format(str(error)))
-
-    return pid
+  @property
+  def _service(self):
+    return 'appscale-haproxy@{}.service'.format(self._instance)
 
   def _stop(self):
-    pid = self._get_pid()
-    if pid is not None:
-      try:
-        os.kill(pid, signal.SIGUSR1)
-      except OSError as error:
-        if error.errno != errno.ESRCH:
-          logger.error('Unable to stop haproxy process')
+    service_helper.stop(self._service)
 
     try:
       os.remove(self._config_location)
@@ -219,6 +193,7 @@ class HAProxy(object):
     # Ensure process is not running if there is nothing to route.
     if new_content is None:
       self._stop()
+      return
 
     try:
       with open(self._config_location, 'r') as config_file:
@@ -235,12 +210,6 @@ class HAProxy(object):
     with open(self._config_location, 'w') as config_file:
       config_file.write(new_content)
 
-    pid = self._get_pid()
-    if pid is None:
-      subprocess.check_call(['haproxy', '-f', self._config_location, '-D',
-                             '-p', self._pid_location])
-    else:
-      subprocess.check_call(['haproxy', '-f', self._config_location, '-D',
-                             '-p', self._pid_location, '-sf', str(pid)])
+    service_helper.reload(self._service)
 
-    logger.info('Updated HAProxy config')
+    logger.info('Updated {} HAProxy config'.format(self._instance))

@@ -1,0 +1,18 @@
+[Unit]
+Description=AppScale HAProxy Load Balancer (%i)
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+Type=notify
+Environment=CONFIG_DIR=/etc/haproxy/ CONFIG_SUFFIX=-haproxy.cfg
+ExecStartPre=/usr/sbin/haproxy -f ${CONFIG_DIR}%i${CONFIG_SUFFIX} -c -q
+ExecStart=/usr/sbin/haproxy -Ws -f ${CONFIG_DIR}%i${CONFIG_SUFFIX} -p /run/appscale/%i-haproxy.pid $EXTRAOPTS
+ExecReload=/usr/sbin/haproxy -f ${CONFIG_DIR}%i${CONFIG_SUFFIX} -c -q
+ExecReload=/bin/kill -USR2 $MAINPID
+SuccessExitStatus=0 143
+KillMode=mixed
+SyslogIdentifier=%p-%i
+
+[Install]
+WantedBy=appscale-service.target

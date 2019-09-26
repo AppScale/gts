@@ -2,6 +2,7 @@
 Description=AppScale Admin API
 Before=appscale-control.target
 PartOf=appscale-control.target
+Wants=appscale-haproxy@service.service appscale-haproxy@app.service
 
 [Service]
 Environment=APPSCALE_ADMIN_OPTION_PORT=17442

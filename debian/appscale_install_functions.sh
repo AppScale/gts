@@ -252,13 +252,13 @@ postinstallhaproxy()
 
     # Pre 1.8 uses wrapper with systemd
     if [ -f "/usr/sbin/haproxy-systemd-wrapper" ] ; then
-        HAPROXY_UNITD_DIR="${DESTDIR}/lib/systemd/system/appscale-haproxy.service.d"
+        HAPROXY_UNITD_DIR="${DESTDIR}/lib/systemd/system/appscale-haproxy@.service.d"
         [ -d "${HAPROXY_UNITD_DIR}" ] || mkdir -p "${HAPROXY_UNITD_DIR}"
-        cat <<"EOF" > "${DESTDIR}/lib/systemd/system/appscale-haproxy.service.d/10-appscale-haproxy.conf"
+        cat <<"EOF" > "${DESTDIR}/lib/systemd/system/appscale-haproxy@.service.d/10-appscale-haproxy.conf"
 [Service]
 Type=simple
 ExecStart=
-ExecStart=/usr/sbin/haproxy-systemd-wrapper -f ${CONFIG} -p /run/appscale/service-haproxy.pid $EXTRAOPTS
+ExecStart=/usr/sbin/haproxy-systemd-wrapper -f ${CONFIG_DIR}%i${CONFIG_SUFFIX} -p /run/appscale/%i-haproxy.pid $EXTRAOPTS
 EOF
     fi
 }
