@@ -3561,6 +3561,10 @@ class Djinn
   end
 
   def start_taskqueue_master
+    if @options.key?('postgres_dsn')
+      ZKInterface.set_postgres_dsn(@options['postgres_dsn'])
+    end
+
     verbose = @options['verbose'].downcase == "true"
     TaskQueue.start_master(false, verbose)
     return true
@@ -3571,6 +3575,10 @@ class Djinn
   end
 
   def start_taskqueue_slave
+    if @options.key?('postgres_dsn')
+      ZKInterface.set_postgres_dsn(@options['postgres_dsn'])
+    end
+
     # All slaves connect to the master to start
     master_ip = nil
     @state_change_lock.synchronize {
