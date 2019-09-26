@@ -122,6 +122,23 @@ def restart(name, background=False, start=True):
                                        background=background))
 
 
+def reload(name, background=False, start=True):
+    """ Reload the given service(s).
+
+    Args:
+      name: A str representing the name of the service(s) to reload.
+      background: True to start without blocking
+      start: True to start services if not already running (use False with name pattern)
+    """
+    logger.info('Reloading service(s) {0}'.format(name))
+    command = 'try-reload-or-restart'
+    if start:
+        command = 'reload-or-restart'
+    __safe_systemctl_run(__build_command(command,
+                                         __name_match(name),
+                                         background=background))
+
+
 def list(running=False):
   """ List appscale service(s).
 
