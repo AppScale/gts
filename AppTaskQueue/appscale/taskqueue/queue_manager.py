@@ -1,23 +1,20 @@
 """ Keeps track of queue configuration details for producer connections. """
 
 import json
+import random
 
 from kazoo.exceptions import ZookeeperError
+from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from appscale.taskqueue.pg_connection_wrapper import PostgresConnectionWrapper
-from appscale.taskqueue.queue import PostgresPullQueue
-from appscale.taskqueue.utils import create_celery_for_app
-from .queue import PullQueue
-from .queue import PushQueue
-from .utils import logger
+from .queue import PushQueue, PostgresPullQueue
+from .utils import logger, create_celery_for_app
 
 
 class ProjectQueueManager(dict):
   """ Keeps track of queue configuration details for a single project. """
 
   FLUSH_DELETED_INTERVAL = 3 * 60 * 60  # 3h
-  MAX_POSTGRES_BACKED_PROJECTS = 20
 
   def __init__(self, zk_client, project_id):
     """ Creates a new ProjectQueueManager.
@@ -29,31 +26,7 @@ class ProjectQueueManager(dict):
     super(ProjectQueueManager, self).__init__()
     self.zk_client = zk_client
     self.project_id = project_id
-
-    project_dsn_node = '/appscale/projects/{}/postgres_dsn'.format(project_id)
-    global_dsn_node = '/appscale/tasks/postgres_dsn'
-    if self.zk_client.exists(project_dsn_node):
-      pg_dsn = self.zk_client.get(project_dsn_node)
-      logger.info('Using project-specific PostgreSQL as a backend for '
-                  'Pull Queues of project "{}" '.format(project_id))
-    elif self.zk_client.exists(global_dsn_node):
-      pg_dsn = self.zk_client.get(global_dsn_node)
-      logger.info('Using deployment-wide PostgreSQL as a backend for '
-                  'Pull Queues"'.format(project_id))
-    else:
-      pg_dsn = None
-      logger.info('Using Cassandra as a backend for Pull Queues of "{}"'
-                  .format(project_id))
-
-    if pg_dsn:
-      # TODO: PostgresConnectionWrapper may need an update when
-      #       TaskQueue becomes concurrent
-      self.pg_connection_wrapper = PostgresConnectionWrapper(
-        dsn=pg_dsn[0].decode('utf-8')
-      )
-      self._configure_periodical_flush()
-    else:
-      self.pg_connection_wrapper = None
+    self._configure_periodical_flush()
 
     self.queues_node = '/appscale/projects/{}/queues'.format(project_id)
     self.watch = zk_client.DataWatch(self.queues_node,
@@ -88,11 +61,8 @@ class ProjectQueueManager(dict):
       queue_info['name'] = queue_name
       if 'mode' not in queue_info or queue_info['mode'] == 'push':
         self[queue_name] = PushQueue(queue_info, self.project_id)
-      elif self.pg_connection_wrapper:
-        self[queue_name] = PostgresPullQueue(queue_info, self.project_id,
-                                             self.pg_connection_wrapper)
       else:
-        self[queue_name] = PullQueue(queue_info, self.project_id)
+        self[queue_name] = PostgresPullQueue(queue_info, self.project_id)
 
     # Establish a new Celery connection based on the new queues, and close the
     # old one.
@@ -120,8 +90,6 @@ class ProjectQueueManager(dict):
     """ Close the Celery and Postgres connections if they still exist. """
     if self.celery is not None:
       self.celery.close()
-    if self.pg_connection_wrapper is not None:
-      self.pg_connection_wrapper.close()
 
   def _update_queues_watch(self, queue_config, _):
     """ Handles updates to a queue configuration node.
@@ -152,13 +120,22 @@ class ProjectQueueManager(dict):
   def _configure_periodical_flush(self):
     """ Creates and starts periodical callback to clear old deleted tasks.
     """
+    @gen.coroutine
     def flush_deleted():
-      """ Calls flush_deleted method for all PostgresPullQueues.
+      """ Calls flush_deleted method for all PostgresPullQueues
+      with asynchronous delay to avoid concentration of flush queries
+      to SQL server during short period of time.
       """
+      yield gen.sleep(random.random() * self.FLUSH_DELETED_INTERVAL / 2)
       postgres_pull_queues = (q for q in self.values()
                               if isinstance(q, PostgresPullQueue))
       for q in postgres_pull_queues:
+        yield gen.sleep(3)
         q.flush_deleted()
+
+    # def schedule_flush_deleted():
+    #   main_io_loop = IOLoop.instance()
+    #   main_io_loop.add_callback(flush_deleted)
 
     PeriodicCallback(flush_deleted, self.FLUSH_DELETED_INTERVAL * 1000).start()
 
