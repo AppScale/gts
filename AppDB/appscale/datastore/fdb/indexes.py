@@ -605,7 +605,11 @@ class IndexManager(object):
           tr, project_id, namespace, decode_str(query.kind()), prop_name)
         raise gen.Return(single_prop_index)
 
-    index_pb = FindIndexToUse(query, self._get_indexes_pb(project_id))
+    queryable = [
+      index.to_pb() for index in (
+        yield self._composite_index_manager.get_definitions(tr, project_id))
+      if index.ready]
+    index_pb = FindIndexToUse(query, queryable)
     if index_pb is not None:
       composite_index = yield self._composite_index(
         tr, project_id, index_pb.id(), namespace)
@@ -631,19 +635,6 @@ class IndexManager(object):
       fdb_indexes.append(composite_index)
 
     raise gen.Return(fdb_indexes)
-
-  def _get_indexes_pb(self, project_id):
-    try:
-      project_index_manager = self.composite_index_manager.projects[project_id]
-    except KeyError:
-      raise BadRequest(u'project_id: {} not found'.format(project_id))
-
-    try:
-      indexes = project_index_manager.indexes_pb
-    except IndexInaccessible:
-      raise InternalError(u'ZooKeeper is not accessible')
-
-    return indexes
 
   @gen.coroutine
   def _kindless_index(self, tr, project_id, namespace):
