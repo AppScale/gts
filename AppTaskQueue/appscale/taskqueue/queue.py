@@ -6,6 +6,8 @@ import sys
 import time
 import uuid
 
+import psycopg2
+
 from appscale.common import appscale_info
 from appscale.common import retrying
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -242,6 +244,7 @@ class Queue(object):
     """
     return not self.__eq__(other)
 
+
 class PushQueue(Queue):
   # The default rate for push queues.
   DEFAULT_RATE = '5/s'
@@ -307,15 +310,13 @@ class PushQueue(Queue):
 
 def is_connection_error(err):
   """ This function is used as retry criteria.
-  It also makes possible lazy load of psycopg2 package.
 
   Args:
     err: an instance of Exception.
   Returns:
     True if error is related to connection, False otherwise.
   """
-  from psycopg2 import InterfaceError
-  return isinstance(err, InterfaceError)
+  return isinstance(err, psycopg2.InterfaceError)
 
 
 class PostgresPullQueue(Queue):
@@ -339,43 +340,106 @@ class PostgresPullQueue(Queue):
       app: A string containing the application ID.
       pg_connection_wrapper: A psycopg2 connection wrapper.
     """
-    from psycopg2 import IntegrityError  # Import psycopg2 lazily
     super(PostgresPullQueue, self).__init__(queue_info, app)
     self.connection_key = self.app
     self.pg_connection_wrapper = pg_connection_wrapper
+    self.ensure_project_schema_created()
+    self.queue_id = self.ensure_queue_registered()
+    self.ensure_tasks_table_created()
 
-    # When multiple TQ servers are notified by ZK about new queue
-    # they sometimes get IntegrityError despite 'IF NOT EXISTS'
-    @retrying.retry(max_retries=5, retry_on_exception=IntegrityError)
-    def ensure_tables_created():
-      pg_connection = self.pg_connection_wrapper.get_connection()
-      with pg_connection:
-        with pg_connection.cursor() as pg_cursor:
-          pg_cursor.execute(
-            'CREATE TABLE IF NOT EXISTS "{table_name}" ('
-            '  task_name varchar(500) NOT NULL,'
-            '  time_deleted timestamp DEFAULT NULL,'
-            '  time_enqueued timestamp NOT NULL,'
-            '  lease_count integer NOT NULL,'
-            '  lease_expires timestamp NOT NULL,'
-            '  payload bytea,'
-            '  tag varchar(500),'
-            '  PRIMARY KEY (task_name)'
-            ');'
-            'CREATE INDEX IF NOT EXISTS "{table_name}-eta-retry-tag-index" '
-            '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
-            '  WHERE time_deleted IS NULL;'
-            'CREATE INDEX IF NOT EXISTS "{table_name}-retry-eta-tag-index" '
-            '  ON "{table_name}" (lease_count, lease_expires, tag) '
-            '  WHERE time_deleted IS NULL;'
-            .format(table_name=self.tasks_table_name)
-          )
+  # When multiple TQ servers are notified by ZK about new queue
+  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
+  def ensure_project_schema_created(self):
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        logger.info('Ensuring "{schema_name}" schema is created'
+                    .format(schema_name=self.schema_name))
+        pg_cursor.execute(
+          'CREATE SCHEMA IF NOT EXISTS "{schema_name}";'
+          .format(schema_name=self.schema_name)
+        )
 
-    ensure_tables_created()
+  # When multiple TQ servers are notified by ZK about new queue
+  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
+  def ensure_queue_registered(self):
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        logger.info('Ensuring "{}" table is created'
+                    .format(self.queues_table_name))
+        pg_cursor.execute(
+          'CREATE TABLE IF NOT EXISTS "{queues_table}" ('
+          '  id SERIAL,'
+          '  queue_name varchar(100) NOT NULL UNIQUE'
+          ');'
+          .format(queues_table=self.queues_table_name)
+        )
+        pg_cursor.execute(
+          'SELECT id FROM "{queues_table}" WHERE queue_name = %(queue_name)s;'
+          .format(queues_table=self.queues_table_name),
+          vars={'queue_name': self.name}
+        )
+        row = pg_cursor.fetchone()
+        if row:
+          return row[0]
+
+        logger.info('Registering queue "{}" in "{}" table'
+                    .format(self.name, self.queues_table_name))
+        pg_cursor.execute(
+          'INSERT INTO "{queues_table}" (queue_name) '
+          'VALUES (%(queue_name)s) ON CONFLICT DO NOTHING;'
+          'SELECT id FROM "{queues_table}" WHERE queue_name = %(queue_name)s;'
+          .format(queues_table=self.queues_table_name),
+          vars={'queue_name': self.name}
+        )
+        row = pg_cursor.fetchone()
+        logger.info('Queue "{}" was registered with ID "{}"'
+                    .format(self.name, row[0]))
+        return row[0]
+
+  # When multiple TQ servers are notified by ZK about new queue
+  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
+  def ensure_tasks_table_created(self):
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        logger.info('Ensuring "{}" table is created'
+                    .format(self.tasks_table_name))
+        pg_cursor.execute(
+          'CREATE TABLE IF NOT EXISTS "{table_name}" ('
+          '  task_name varchar(500) NOT NULL,'
+          '  time_deleted timestamp DEFAULT NULL,'
+          '  time_enqueued timestamp NOT NULL,'
+          '  lease_count integer NOT NULL,'
+          '  lease_expires timestamp NOT NULL,'
+          '  payload bytea,'
+          '  tag varchar(500),'
+          '  PRIMARY KEY (task_name)'
+          ');'
+          'CREATE INDEX IF NOT EXISTS "{table_name}_eta_retry_tag_index" '
+          '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
+          '  WHERE time_deleted IS NULL;'
+          'CREATE INDEX IF NOT EXISTS "{table_name}_retry_eta_tag_index" '
+          '  ON "{table_name}" (lease_count, lease_expires, tag) '
+          '  WHERE time_deleted IS NULL;'
+          .format(table_name=self.tasks_table_name)
+        )
+
+  @property
+  def schema_name(self):
+    return 'appscale_{}'.format(self.app)
+
+  @property
+  def queues_table_name(self):
+    return '{}.queues'.format(self.schema_name)
 
   @property
   def tasks_table_name(self):
-    return 'pullqueue-{}'.format(self.name)
+    return '{}.tasks_{}'.format(self.schema_name, self.queue_id)
 
   @retry_pg_connection
   def add_task(self, task):
@@ -387,7 +451,6 @@ class PostgresPullQueue(Queue):
       InvalidTaskInfo if the task ID already exists in the queue
         or it doesn't have payloadBase64 attribute.
     """
-    import psycopg2  # Import psycopg2 lazily
     if not hasattr(task, 'payloadBase64'):
       raise InvalidTaskInfo('{} is missing a payload.'.format(task))
 
