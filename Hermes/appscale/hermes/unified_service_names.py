@@ -164,7 +164,7 @@ class ServicesEnum(object):
   CRON = Service(name='crond',
                  name_matcher=r'^cron.service$')
   APPMANAGER = Service(name='appmanager', name_matcher='^appscale-instance-manager.service$')
-  SERVICE_HAPROXY = Service(name='service_haproxy', name_matcher='^appscale-haproxy.service$')
+  SERVICE_HAPROXY = Service(name='service_haproxy', name_matcher='^appscale-haproxy@service.service$')
 
 
 KNOWN_SERVICES = [
