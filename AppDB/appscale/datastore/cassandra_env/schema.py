@@ -14,7 +14,7 @@ from appscale.common import appscale_info
 from appscale.common.constants import SCHEMA_CHANGE_TIMEOUT
 from appscale.common.datastore_index import DatastoreIndex, merge_indexes
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from cassandra import ConsistencyLevel, OperationTimedOut
+from cassandra import ConsistencyLevel
 from cassandra.cluster import Cluster
 from cassandra.cluster import SimpleStatement
 from cassandra.policies import FallthroughRetryPolicy, RetryPolicy
@@ -251,179 +251,6 @@ def create_entity_ids_table(session):
     raise
 
 
-def rebuild_task_indexes(session):
-  """ Creates index entries for all pull queue tasks.
-
-  Args:
-    session: A cassandra-driver session.
-  """
-  logger.info('Rebuilding task indexes')
-  batch_size = 100
-  total_tasks = 0
-  app = ''
-  queue = ''
-  id_ = ''
-  while True:
-    results = session.execute("""
-      SELECT app, queue, id, lease_expires, tag FROM pull_queue_tasks
-      WHERE token(app, queue, id) > token(%(app)s, %(queue)s, %(id)s)
-      LIMIT {}
-    """.format(batch_size), {'app': app, 'queue': queue, 'id': id_})
-    results_list = list(results)
-    for result in results_list:
-      parameters = {'app': result.app, 'queue': result.queue,
-                    'eta': result.lease_expires, 'id': result.id,
-                    'tag': result.tag or ''}
-
-      insert_eta_index = SimpleStatement("""
-        INSERT INTO pull_queue_eta_index (app, queue, eta, id, tag)
-        VALUES (%(app)s, %(queue)s, %(eta)s, %(id)s, %(tag)s)
-      """, retry_policy=BASIC_RETRIES)
-      session.execute(insert_eta_index, parameters)
-
-      insert_tag_index = SimpleStatement("""
-        INSERT INTO pull_queue_tags_index (app, queue, tag, eta, id)
-        VALUES (%(app)s, %(queue)s, %(tag)s, %(eta)s, %(id)s)
-      """, retry_policy=BASIC_RETRIES)
-      session.execute(insert_tag_index, parameters)
-
-    total_tasks += len(results_list)
-    if len(results_list) < batch_size:
-      break
-
-    app = results_list[-1].app
-    queue = results_list[-1].queue
-    id_ = results_list[-1].id
-
-  logger.info('Created entries for {} tasks'.format(total_tasks))
-
-
-def create_pull_queue_tables(cluster, session):
-  """ Create the required tables for pull queues.
-
-  Args:
-    cluster: A cassandra-driver cluster.
-    session: A cassandra-driver session.
-  """
-  logger.info('Trying to create pull_queue_tasks')
-  create_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_tasks (
-      app text,
-      queue text,
-      id text,
-      payload text,
-      enqueued timestamp,
-      lease_expires timestamp,
-      retry_count int,
-      tag text,
-      op_id uuid,
-      PRIMARY KEY ((app, queue, id))
-    )
-  """
-  statement = SimpleStatement(create_table, retry_policy=NO_RETRIES)
-  try:
-    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except OperationTimedOut:
-    logger.warning(
-      'Encountered an operation timeout while creating pull_queue_tasks. '
-      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
-
-  keyspace_metadata = cluster.metadata.keyspaces[KEYSPACE]
-  if 'op_id' not in keyspace_metadata.tables['pull_queue_tasks'].columns:
-    try:
-      session.execute('ALTER TABLE pull_queue_tasks ADD op_id uuid',
-                      timeout=SCHEMA_CHANGE_TIMEOUT)
-    except OperationTimedOut:
-      logger.warning(
-        'Encountered a timeout when altering pull_queue_tasks. Waiting {} '
-        'seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
-      time.sleep(SCHEMA_CHANGE_TIMEOUT)
-      raise
-
-  rebuild_indexes = False
-  if ('pull_queue_tasks_index' in keyspace_metadata.tables and
-      'tag_exists' in keyspace_metadata.tables['pull_queue_tasks_index'].columns):
-    rebuild_indexes = True
-    logger.info('Dropping outdated pull_queue_tags index')
-    session.execute('DROP INDEX IF EXISTS pull_queue_tags',
-                    timeout=SCHEMA_CHANGE_TIMEOUT)
-
-    logger.info('Dropping outdated pull_queue_tag_exists index')
-    session.execute('DROP INDEX IF EXISTS pull_queue_tag_exists',
-                    timeout=SCHEMA_CHANGE_TIMEOUT)
-
-    logger.info('Dropping outdated pull_queue_tasks_index table')
-    session.execute('DROP TABLE pull_queue_tasks_index',
-                    timeout=SCHEMA_CHANGE_TIMEOUT)
-
-  logger.info('Trying to create pull_queue_eta_index')
-  create_index_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_eta_index (
-      app text,
-      queue text,
-      eta timestamp,
-      id text,
-      tag text,
-      PRIMARY KEY ((app, queue, eta, id))
-    ) WITH gc_grace_seconds = 120
-  """
-  statement = SimpleStatement(create_index_table, retry_policy=NO_RETRIES)
-  try:
-    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except OperationTimedOut:
-    logger.warning(
-      'Encountered an operation timeout while creating pull_queue_eta_index.'
-      ' Waiting {} seconds for schema to settle.'
-        .format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
-
-  logger.info('Trying to create pull_queue_tags_index')
-  create_tags_index_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_tags_index (
-      app text,
-      queue text,
-      tag text,
-      eta timestamp,
-      id text,
-      PRIMARY KEY ((app, queue, tag, eta, id))
-    ) WITH gc_grace_seconds = 120
-  """
-  statement = SimpleStatement(create_tags_index_table, retry_policy=NO_RETRIES)
-  try:
-    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except OperationTimedOut:
-    logger.warning(
-      'Encountered an operation timeout while creating pull_queue_tags_index.'
-      ' Waiting {} seconds for schema to settle.'
-        .format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
-
-  if rebuild_indexes:
-    rebuild_task_indexes(session)
-
-  logger.info('Trying to create pull_queue_leases')
-  create_leases_table = """
-    CREATE TABLE IF NOT EXISTS pull_queue_leases (
-      app text,
-      queue text,
-      leased timestamp,
-      PRIMARY KEY ((app, queue, leased))
-    ) WITH gc_grace_seconds = 120
-  """
-  statement = SimpleStatement(create_leases_table, retry_policy=NO_RETRIES)
-  try:
-    session.execute(statement, timeout=SCHEMA_CHANGE_TIMEOUT)
-  except OperationTimedOut:
-    logger.warning(
-      'Encountered an operation timeout while creating pull_queue_leases. '
-      'Waiting {} seconds for schema to settle.'.format(SCHEMA_CHANGE_TIMEOUT))
-    time.sleep(SCHEMA_CHANGE_TIMEOUT)
-    raise
-
 def current_datastore_version(session):
   """ Retrieves the existing datastore version value.
 
@@ -571,7 +398,6 @@ def prime_cassandra(replication):
   create_batch_tables(cluster, session)
   create_groups_table(session)
   create_transactions_table(session)
-  create_pull_queue_tables(cluster, session)
   create_entity_ids_table(session)
 
   first_entity = session.execute(
