@@ -18,12 +18,12 @@ class TestExternalNames:
       'appscale-logserver.service': ServicesEnum.LOG_SERVICE,
       'appscale-infrastructure@basic.service': ServicesEnum.IAAS_MANAGER,
       'appscale-infrastructure@shadow.service': ServicesEnum.IAAS_MANAGER,
-      'appscale-haproxy.service': ServicesEnum.SERVICE_HAPROXY,
+      'appscale-haproxy@service.service': ServicesEnum.SERVICE_HAPROXY,
       'ejabberd.service': ServicesEnum.EJABBERD,
       'appscale-celery@snowmachineapp.service': ServicesEnum.CELERY,
       'appscale-instance-manager.service': ServicesEnum.APPMANAGER,
     }
-    for external_name, expected in external_name_to_expectation.iteritems():
+    for external_name, expected in external_name_to_expectation.items():
       assert find_service_by_external_name(external_name) == expected
 
   def test_search_for_unknown_service(self):
@@ -41,10 +41,6 @@ class TestExternalNames:
     assert app == 'appppa'
 
   def test_parsing_port(self):
-    # Celery service
-    celery = ServicesEnum.CELERY
-    port = celery.get_port_by_external_name('appscale-celery@ppa-9999.service')
-    assert port == 9999
     # Application service
     application = ServicesEnum.APPLICATION
     port = application.get_port_by_external_name('appscale-instance-run@appppa-20008.service')

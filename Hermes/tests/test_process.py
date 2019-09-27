@@ -5,9 +5,9 @@ from mock import patch, call
 from appscale.hermes.unified_service_names import ServicesEnum
 from appscale.hermes.producers import process_stats
 
-+SYSTEMCTL_SHOW = b"""
+SYSTEMCTL_SHOW = b"""
 MainPID=8466
-Id=appscale-haproxy.service
+Id=appscale-haproxy@service.service
 
 MainPID=5045
 Id=appscale-instance-run@appscaledashboard_default_v1_1566168050028-20000.service
@@ -17,7 +17,7 @@ Id=appscale-instance-run@appscaledashboard_default_v1_1566168050028-20000.servic
 @patch('appscale.common.appscale_info.get_private_ip')
 @patch('appscale.hermes.producers.process_stats._process_stats')
 @patch('subprocess.check_output')
-def test_reading_systemd_status(self, mock_check_output, mock_process_stats,
+def test_reading_systemd_status(mock_check_output, mock_process_stats,
                                 mock_get_private_ip):
   # Mocking `systemctl show` output and appscale_info.get_private_ip
   mock_check_output.return_value = SYSTEMCTL_SHOW
@@ -28,7 +28,7 @@ def test_reading_systemd_status(self, mock_check_output, mock_process_stats,
 
   # Checking expectations
   mock_process_stats.assert_has_calls([
-    call(8466, ServicesEnum.SERVICE_HAPROXY, 'appscale-haproxy.service', '1.1.1.1'),
+    call(8466, ServicesEnum.SERVICE_HAPROXY, 'appscale-haproxy@service.service', '1.1.1.1'),
     call(5045, ServicesEnum.APPLICATION, 'appscale-instance-run@appscaledashboard_default_v1_1566168050028-20000.service', '1.1.1.1')
   ])
   assert isinstance(snapshot, process_stats.ProcessesStatsSnapshot)
