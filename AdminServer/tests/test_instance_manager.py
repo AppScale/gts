@@ -118,6 +118,7 @@ class TestInstanceManager(AsyncTestCase):
 
     instance_manager = InstanceManager(
       None, None, None, None, None, None, None, None, None)
+    instance_manager._login_server = '192.168.33.10'
     instance_manager._projects_manager = {
       'test': {'default': {'v1': version_manager}}}
     instance_manager._deployment_config = flexmock(
@@ -190,6 +191,7 @@ class TestInstanceManager(AsyncTestCase):
 
     instance_manager = InstanceManager(
       None, None, None, None, None, None, None, None, None)
+    instance_manager._login_server = '192.168.33.10'
     instance_manager._projects_manager = {
       'test': {'default': {'v1': version_manager}}}
     instance_manager._deployment_config = flexmock(
