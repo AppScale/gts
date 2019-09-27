@@ -141,4 +141,6 @@ fi
 log "Creating Database and Role"
 CREATE_ROLE="CREATE ROLE \"${USERNAME}\" WITH LOGIN PASSWORD '${PASSWORD}';"
 sudo -u postgres psql --command "${CREATE_ROLE}"
+echo "Creating DB"
 sudo -u postgres createdb --owner "${USERNAME}" "${DBNAME}"
+echo "Done - $?"
