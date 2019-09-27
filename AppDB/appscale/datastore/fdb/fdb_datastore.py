@@ -19,7 +19,6 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.common.datastore_index import merge_indexes
 from appscale.datastore.dbconstants import (
   BadRequest, ConcurrentModificationException, InternalError)
 from appscale.datastore.fdb.cache import DirectoryCache
@@ -43,13 +42,13 @@ class FDBDatastore(object):
   """ A datastore implementation that uses FoundationDB. """
 
   def __init__(self):
-    self.index_manager = None
     self._data_manager = None
     self._db = None
     self._scattered_allocator = ScatteredAllocator()
     self._tornado_fdb = None
     self._tx_manager = None
     self._gc = None
+    self._index_manager = None
 
   def start(self, fdb_clusterfile):
     self._db = fdb.open(fdb_clusterfile)
@@ -59,12 +58,15 @@ class FDBDatastore(object):
     directory_cache.initialize()
 
     self._data_manager = DataManager(self._tornado_fdb, directory_cache)
-    self.index_manager = IndexManager(
-      self._db, self._tornado_fdb, self._data_manager, directory_cache)
     self._tx_manager = TransactionManager(
       self._db, self._tornado_fdb, directory_cache)
+
+    self._index_manager = IndexManager(
+      self._db, self._tornado_fdb, self._data_manager, directory_cache)
+    self._index_manager.start()
+
     self._gc = GarbageCollector(
-      self._db, self._tornado_fdb, self._data_manager, self.index_manager,
+      self._db, self._tornado_fdb, self._data_manager, self._index_manager,
       self._tx_manager, directory_cache)
     self._gc.start()
 
@@ -231,10 +233,10 @@ class FDBDatastore(object):
           safe_versionstamp > read_versionstamp):
         raise BadRequest(u'The specified transaction has expired')
 
-    fetch_data = self.index_manager.include_data(query)
-    rpc_limit, check_more_results = self.index_manager.rpc_limit(query)
+    fetch_data = self._index_manager.include_data(query)
+    rpc_limit, check_more_results = self._index_manager.rpc_limit(query)
 
-    iterator = yield self.index_manager.get_iterator(
+    iterator = yield self._index_manager.get_iterator(
       tr, query, read_versionstamp)
     for prop_name in query.property_name_list():
       prop_name = decode_str(prop_name)
@@ -366,8 +368,9 @@ class FDBDatastore(object):
   @gen.coroutine
   def update_composite_index(self, project_id, index):
     project_id = decode_str(project_id)
-    yield self.index_manager.update_composite_index(project_id, index)
+    yield self._index_manager.update_composite_index(project_id, index)
 
+  @gen.coroutine
   def add_indexes(self, project_id, indexes):
     """ Adds composite index definitions to a project.
 
@@ -376,10 +379,9 @@ class FDBDatastore(object):
       project_id: A string specifying a project ID.
       indexes: An iterable containing index definitions.
     """
-    # This is a temporary workaround to get a ZooKeeper client. This method
-    # will not use ZooKeeper in the future.
-    zk_client = self.index_manager.composite_index_manager._zk_client
-    merge_indexes(zk_client, project_id, indexes)
+    tr = self._db.create_transaction()
+    yield self._index_manager.merge(tr, project_id, indexes)
+    yield self._tornado_fdb.commit(tr)
 
   @gen.coroutine
   def _upsert(self, tr, entity, old_entry_future=None):
@@ -409,7 +411,7 @@ class FDBDatastore(object):
     new_version = next_entity_version(old_entry.version)
     yield self._data_manager.put(
       tr, entity.key(), new_version, entity.Encode())
-    yield self.index_manager.put_entries(tr, old_entry, entity)
+    yield self._index_manager.put_entries(tr, old_entry, entity)
     if old_entry.present:
       yield self._gc.index_deleted_version(tr, old_entry)
 
@@ -429,7 +431,7 @@ class FDBDatastore(object):
 
     new_version = next_entity_version(old_entry.version)
     yield self._data_manager.put(tr, key, new_version, b'')
-    yield self.index_manager.put_entries(tr, old_entry, new_entity=None)
+    yield self._index_manager.put_entries(tr, old_entry, new_entity=None)
     if old_entry.present:
       yield self._gc.index_deleted_version(tr, old_entry)
 

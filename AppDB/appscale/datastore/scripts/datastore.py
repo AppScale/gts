@@ -127,6 +127,7 @@ class ReserveKeysHandler(tornado.web.RequestHandler):
 
 
 class AddIndexesHandler(tornado.web.RequestHandler):
+  @gen.coroutine
   def post(self):
     """
     At this time, there does not seem to be a public API method for creating
@@ -140,7 +141,7 @@ class AddIndexesHandler(tornado.web.RequestHandler):
     project_id = self.get_argument('project')
     indexes = [DatastoreIndex.from_dict(project_id, index)
                for index in json.loads(self.request.body)]
-    datastore_access.add_indexes(project_id, indexes)
+    yield datastore_access.add_indexes(project_id, indexes)
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -959,12 +960,10 @@ def main():
   zk_state_listener(zk_client.state)
   zk_client.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
 
-  index_manager = IndexManager(zk_client, datastore_access,
-                               perform_admin=True)
   if args.type == 'cassandra':
+    index_manager = IndexManager(zk_client, datastore_access,
+                                 perform_admin=True)
     datastore_access.index_manager = index_manager
-  else:
-    datastore_access.index_manager.composite_index_manager = index_manager
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)

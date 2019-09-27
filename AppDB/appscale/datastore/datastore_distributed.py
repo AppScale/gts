@@ -3272,6 +3272,7 @@ class DatastoreDistributed():
 
     return indexes
 
+  @gen.coroutine
   def add_indexes(self, project_id, indexes):
     """ Adds composite index definitions to a project.
 

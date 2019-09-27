@@ -359,11 +359,15 @@ class IndexManager(object):
   _MAX_RESULTS = 300
 
   def __init__(self, db, tornado_fdb, data_manager, directory_cache):
-    self.composite_index_manager = None
     self._db = db
     self._tornado_fdb = tornado_fdb
     self._data_manager = data_manager
     self._directory_cache = directory_cache
+    self._composite_index_manager = CompositeIndexManager(
+      self._db, self._tornado_fdb, self._data_manager, self._directory_cache)
+
+  def start(self):
+    self._composite_index_manager.start()
 
   @gen.coroutine
   def put_entries(self, tr, old_version_entry, new_entity):
@@ -518,6 +522,15 @@ class IndexManager(object):
     raise gen.Return(iterator)
 
   @gen.coroutine
+  def merge(self, tr, project_id, new_indexes):
+    yield self._composite_index_manager.merge(tr, project_id, new_indexes)
+
+  @gen.coroutine
+  def update_composite_index(self, project_id, index):
+    yield self._composite_index_manager.update_composite_index(
+      project_id, index)
+
+  @gen.coroutine
   def _get_index_keys(self, tr, entity, commit_versionstamp=None):
     project_id = decode_str(entity.key().app())
     namespace = decode_str(entity.key().name_space())
@@ -600,12 +613,10 @@ class IndexManager(object):
 
   @gen.coroutine
   def _get_indexes(self, tr, project_id, namespace, kind):
-    try:
-      project_index_manager = self.composite_index_manager.projects[project_id]
-    except KeyError:
-      raise BadRequest(u'project_id: {} not found'.format(project_id))
+    project_indexes = yield self._composite_index_manager.get_definitions(
+      tr, project_id)
 
-    relevant_indexes = [index for index in project_index_manager.indexes
+    relevant_indexes = [index for index in project_indexes
                         if index.kind == kind]
     fdb_indexes = []
     for index in relevant_indexes:
@@ -657,11 +668,14 @@ class IndexManager(object):
   def _composite_index(self, tr, project_id, index_id, namespace):
     path = CompositeIndex.directory_path(project_id, index_id, namespace)
     directory = yield self._directory_cache.get(tr, path)
-    kind, ancestor, order_info = self._index_details(project_id, index_id)
+    kind, ancestor, order_info = yield self._index_details(
+      tr, project_id, index_id)
     raise gen.Return(CompositeIndex(directory, kind, ancestor, order_info))
 
-  def _index_details(self, project_id, index_id):
-    project_indexes = self.composite_index_manager.projects[project_id].indexes
+  @gen.coroutine
+  def _index_details(self, tr, project_id, index_id):
+    project_indexes = yield self._composite_index_manager.get_definitions(
+      tr, project_id)
     index_def = next((ds_index for ds_index in project_indexes
                       if ds_index.id == index_id), None)
     if index_def is None:
@@ -670,80 +684,4 @@ class IndexManager(object):
     order_info = tuple(
       (decode_str(prop.name), prop.to_pb().direction())
       for prop in index_def.properties)
-    return index_def.kind, index_def.ancestor, order_info
-
-  @gen.coroutine
-  def _indexes_for_kind(self, tr, project_id, kind):
-    section_path = KindIndex.section_path(project_id)
-    section_dir = yield self._directory_cache.get(tr, section_path)
-    # TODO: This can be made async.
-    indexes = []
-    namespaces = section_dir.list(tr)
-    for namespace in namespaces:
-      ns_dir = section_dir.open(tr, (namespace,))
-      try:
-        kind_dir = ns_dir.open(tr, (kind,))
-      except ValueError:
-        continue
-
-      indexes.append(KindIndex(kind_dir))
-
-    raise gen.Return(indexes)
-
-  @gen.coroutine
-  def update_composite_index(self, project_id, index_pb, cursor=(None, None)):
-    start_ns, start_key = cursor
-    project_id = decode_str(project_id)
-    kind = decode_str(index_pb.definition().entity_type())
-    tr = self._db.create_transaction()
-    deadline = monotonic.monotonic() + MAX_FDB_TX_DURATION - 1
-    kind_indexes = yield self._indexes_for_kind(tr, project_id, kind)
-    for kind_index in kind_indexes:
-      if start_ns is not None and kind_index.namespace < start_ns:
-        continue
-
-      composite_path = CompositeIndex.directory_path(
-        project_id, index_pb.id(), kind_index.namespace)
-      composite_dir = yield self._directory_cache.get(tr, composite_path)
-      order_info = tuple(
-        (decode_str(prop.name()), prop.direction())
-        for prop in index_pb.definition().property_list())
-      composite_index = CompositeIndex(
-        composite_dir, kind, index_pb.definition().ancestor(), order_info)
-
-      logger.info(u'Backfilling {}'.format(composite_index))
-      remaining_range = kind_index.directory.range()
-      if start_key is not None:
-        remaining_range = slice(
-          fdb.KeySelector.first_greater_than(start_key), remaining_range.stop)
-        start_key = None
-
-      result_iterator = ResultIterator(tr, self._tornado_fdb, remaining_range)
-      while True:
-        results, more_results = yield result_iterator.next_page()
-        index_entries = [kind_index.decode(result) for result in results]
-        version_entries = yield [self._data_manager.get_entry(tr, entry)
-                                 for entry in index_entries]
-        for index_entry, version_entry in zip(index_entries, version_entries):
-          new_keys = composite_index.encode_keys(
-            version_entry.decoded.property_list(), version_entry.path,
-            version_entry.commit_versionstamp)
-          for new_key in new_keys:
-            tr[new_key] = index_entry.deleted_versionstamp or b''
-
-        if not more_results:
-          logger.info(u'Finished backfilling {}'.format(composite_index))
-          break
-
-        if monotonic.monotonic() > deadline:
-          try:
-            yield self._tornado_fdb.commit(tr)
-            cursor = (kind_index.namespace, results[-1].key)
-          except fdb.FDBError as fdb_error:
-            logger.warning(u'Error while updating index: {}'.format(fdb_error))
-            tr.on_error(fdb_error).wait()
-
-          yield self.update_composite_index(project_id, index_pb, cursor)
-          return
-
-    yield self._tornado_fdb.commit(tr)
+    raise gen.Return((index_def.kind, index_def.ancestor, order_info))
