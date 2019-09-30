@@ -131,7 +131,7 @@ scp -o StrictHostKeyChecking=no \
     "${USER}@${VM_ADDR}:/tmp/common"
 
 # Save DSN string and projects config to variables
-PG_DSN="dbname=appscale-test-project user=appscale password=appscale-pwd host=${VM_PRIVATE_IP}"
+PG_DSN="dbname=pullqueue-db user=appscale password=appscale-pwd host=${VM_PRIVATE_IP}"
 TEST_PROJECT='test-project'
 
 log ""
@@ -141,10 +141,10 @@ log "=========================================================================="
 ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${VM_ADDR} << COMMANDS
 set -e
 echo "=== Preparing Postgres server ==="
-sudo /tmp/prepare-postgres.sh --host "${VM_PRIVATE_IP}" \
-                              --dbname "appscale-test-project" \
-                              --username "appscale" \
-                              --password "appscale-pwd"
+sudo su -l root -c '/tmp/prepare-postgres.sh --host "${VM_PRIVATE_IP}" \
+                                             --dbname "pullqueue-db" \
+                                             --username "appscale" \
+                                             --password "appscale-pwd"'
 
 echo "=== Starting Zookeeper server ==="
 sudo /tmp/prepare-zookeeper.sh
