@@ -8,6 +8,8 @@
 /AppTaskQueue/build
 /AppTaskQueue/dist
 /AppTaskQueue/appscale/taskqueue/protocols/*_pb2.py
+/AppTaskQueue/test/e2e/venv
+/AppTaskQueue/test/suites/logs
 /AppDB/build
 /AppDB/dist
 
