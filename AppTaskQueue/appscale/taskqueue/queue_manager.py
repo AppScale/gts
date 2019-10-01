@@ -1,6 +1,8 @@
 """ Keeps track of queue configuration details for producer connections. """
 
 import json
+import uuid
+from datetime import timedelta
 
 from kazoo.exceptions import ZookeeperError
 from tornado.ioloop import IOLoop, PeriodicCallback
@@ -30,22 +32,22 @@ class ProjectQueueManager(dict):
     self.project_id = project_id
     self._configure_periodical_flush()
 
-    project_node = '/appscale/projects/{}/'.format(project_id)
-    self.queues_node = project_node + 'queues'
+    self.queues_node = '/appscale/projects/{}/queues'.format(project_id)
     self.pullqueues_initialization_lock = zk_client.Lock(
-      project_node + 'pullqueues_initialization_lock'
+      self.queues_node + '/pullqueues_initialization_lock'
     )
     self.pullqueues_initialized_version_node = (
-      project_node + 'pullqueues_initialized_version'
+      self.queues_node + '/pullqueues_initialized_version'
     )
     self.pullqueues_cleanup_lease_node = (
-      project_node + 'pullqueues_cleanup_lease'
+      self.queues_node + '/pullqueues_cleanup_lease'
     )
     self.watch = zk_client.DataWatch(self.queues_node,
                                      self._update_queues_watch)
     self.celery = None
     self.rates = None
     self._stopped = False
+    self._holder_id = str(uuid.uuid4())
 
   def update_queues(self, queue_config, znode_stats):
     """ Caches new configuration details and cleans up old state.
@@ -57,8 +59,10 @@ class ProjectQueueManager(dict):
     logger.info('Updating queues for {}'.format(self.project_id))
     if not queue_config:
       new_queue_config = {'default': {'rate': '5/s'}}
+      config_last_modified = 0
     else:
       new_queue_config = json.loads(queue_config.decode('utf-8'))['queue']
+      config_last_modified = znode_stats.last_modified
 
     # Clean up obsolete queues.
     to_stop = [queue for queue in self if queue not in new_queue_config]
@@ -73,7 +77,7 @@ class ProjectQueueManager(dict):
     self._update_pull_queues(
       ((queue_name, queue) for queue_name, queue in new_queue_config.items()
        if queue.get('mode', 'push') != 'push'),
-      znode_stats
+      config_last_modified
     )
 
   def _update_push_queues(self, new_push_queue_configs):
@@ -101,14 +105,14 @@ class ProjectQueueManager(dict):
     for queue in push_queues:
       queue.celery = self.celery
 
-  def _update_pull_queues(self, new_pull_queue_configs, znode_stats):
+  def _update_pull_queues(self, new_pull_queue_configs, config_last_modified):
     """ Caches new pull queue configuration details.
 
     Args:
       new_pull_queue_configs: A sequence of (queue_name, queue_info) tuples.
-      znode_stats: An instance of ZnodeStats.
+      config_last_modified: A number representing configs version.
     """
-    new_version = znode_stats.last_modified
+    new_version = config_last_modified
     if self._get_pullqueue_initialized_version() < new_version:
       # Only one TaskQueue server proceeds with Postgres tables initialization.
       with self.pullqueues_initialization_lock:
@@ -139,11 +143,11 @@ class ProjectQueueManager(dict):
     """ Retrieves zookeeper node holding version of PullQueues configs
     which is currently provisioned in Postgres.
     """
-    initialized_version = -1
+    initialized_version = b'-1'
     version_node = self.pullqueues_initialized_version_node
     if self.zk_client.exists(version_node):
-      initialized_version = self.zk_client.get(version_node)
-    return initialized_version
+      initialized_version = self.zk_client.get(version_node)[0]
+    return float(initialized_version)
 
   def _set_pullqueue_initialized_version(self, version):
     """ Sets zookeeper node holding version of PullQueues configs
@@ -155,9 +159,9 @@ class ProjectQueueManager(dict):
     """
     version_node = self.pullqueues_initialized_version_node
     if self.zk_client.exists(version_node):
-      self.zk_client.set(version_node, version)
+      self.zk_client.set(version_node, str(version).encode())
     else:
-      self.zk_client.create(version_node, version)
+      self.zk_client.create(version_node, str(version).encode())
 
   def ensure_watch(self):
     """ Restart the watch if it has been cancelled. """
@@ -207,8 +211,10 @@ class ProjectQueueManager(dict):
       pull queues.
       """
       # Avoid too frequent cleanup by using zookeeper lease recipe.
+      duration = timedelta(seconds=self.FLUSH_DELETED_INTERVAL * 0.8)
+      holder_id = self._holder_id
       lease = self.zk_client.NonBlockingLease(
-        self.pullqueues_cleanup_lease_node, self.FLUSH_DELETED_INTERVAL * 0.8
+        self.pullqueues_cleanup_lease_node, duration, holder_id
       )
       if lease:
         postgres_pull_queues = (q for q in self.values()

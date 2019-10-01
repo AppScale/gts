@@ -4,6 +4,7 @@ Postgres connection wrapper with autoreconnect functionality.
 import psycopg2
 from tornado.ioloop import IOLoop
 
+from appscale.common import retrying
 from appscale.taskqueue.utils import logger
 
 
@@ -29,6 +30,7 @@ class PostgresConnectionWrapper(object):
       self._connection = None
     self._dsn = dsn
 
+  @retrying.retry(retrying_timeout=60, backoff_multiplier=1)
   def get_connection(self):
     """ Provides postgres connection. It can either return existing
     working connection or establish new one.
@@ -40,8 +42,8 @@ class PostgresConnectionWrapper(object):
       logger.info('Establishing new connection to Postgres server')
       self._connection = psycopg2.connect(
         dsn=self._dsn,
-        connect_timeout=60,
-        options='-c statement_timeout=10000',
+        connect_timeout=10,
+        options='-c statement_timeout=60000',
         keepalives_idle=60,
         keepalives_interval=15,
         keepalives_count=4
