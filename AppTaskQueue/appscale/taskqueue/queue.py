@@ -203,16 +203,17 @@ def is_connection_error(err):
   return isinstance(err, psycopg2.InterfaceError)
 
 
+retry_pg_connection = retrying.retry(
+  retrying_timeout=10, retry_on_exception=is_connection_error
+)
+
+
 class PostgresPullQueue(Queue):
   """
   Before using Postgres implementation, make sure that
   connection using appscale user can be created:
   /etc/postgresql/9.5/main/pg_hba.conf
   """
-
-  retry_pg_connection = retrying.retry(
-    retrying_timeout=10, retry_on_exception=is_connection_error
-  )
 
   TTL_INTERVAL_AFTER_DELETED = '7 days'
 
@@ -228,7 +229,7 @@ class PostgresPullQueue(Queue):
   # The number of seconds to keep the index cache.
   MAX_CACHE_DURATION = 30
 
-  def __init__(self, queue_info, app):
+  def __init__(self, queue_info, app, queue_id):
     """ Create a PostgresPullQueue object.
 
     Args:
@@ -236,104 +237,21 @@ class PostgresPullQueue(Queue):
       app: A string containing the application ID.
     """
     super(PostgresPullQueue, self).__init__(queue_info, app)
-    self.connection_key = self.app
-    self.ensure_project_schema_created()
-    self.queue_id = self.ensure_queue_registered()
-    self.ensure_tasks_table_created()
+    self.queue_id = queue_id
+    self.schema_name = self.get_schema_name(app)
+    self.tasks_table_name = self.get_tasks_table_name(app, queue_id)
 
-  # When multiple TQ servers are notified by ZK about new queue
-  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
-  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
-  def ensure_project_schema_created(self):
-    pg_connection = pg_wrapper.get_connection()
-    with pg_connection:
-      with pg_connection.cursor() as pg_cursor:
-        logger.info('Ensuring "{schema_name}" schema is created'
-                    .format(schema_name=self.schema_name))
-        pg_cursor.execute(
-          'CREATE SCHEMA IF NOT EXISTS "{schema_name}";'
-          .format(schema_name=self.schema_name)
-        )
+  @staticmethod
+  def get_schema_name(project_id):
+    return 'appscale_{}'.format(project_id)
 
-  # When multiple TQ servers are notified by ZK about new queue
-  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
-  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
-  def ensure_queue_registered(self):
-    pg_connection = pg_wrapper.get_connection()
-    with pg_connection:
-      with pg_connection.cursor() as pg_cursor:
-        logger.info('Ensuring "{}" table is created'
-                    .format(self.queues_table_name))
-        pg_cursor.execute(
-          'CREATE TABLE IF NOT EXISTS "{queues_table}" ('
-          '  id SERIAL,'
-          '  queue_name varchar(100) NOT NULL UNIQUE'
-          ');'
-          .format(queues_table=self.queues_table_name)
-        )
-        pg_cursor.execute(
-          'SELECT id FROM "{queues_table}" WHERE queue_name = %(queue_name)s;'
-          .format(queues_table=self.queues_table_name),
-          vars={'queue_name': self.name}
-        )
-        row = pg_cursor.fetchone()
-        if row:
-          return row[0]
+  @classmethod
+  def get_queues_table_name(cls, project_id):
+    return '{}.queues'.format(cls.get_schema_name(project_id))
 
-        logger.info('Registering queue "{}" in "{}" table'
-                    .format(self.name, self.queues_table_name))
-        pg_cursor.execute(
-          'INSERT INTO "{queues_table}" (queue_name) '
-          'VALUES (%(queue_name)s) ON CONFLICT DO NOTHING;'
-          'SELECT id FROM "{queues_table}" WHERE queue_name = %(queue_name)s;'
-          .format(queues_table=self.queues_table_name),
-          vars={'queue_name': self.name}
-        )
-        row = pg_cursor.fetchone()
-        logger.info('Queue "{}" was registered with ID "{}"'
-                    .format(self.name, row[0]))
-        return row[0]
-
-  # When multiple TQ servers are notified by ZK about new queue
-  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
-  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
-  def ensure_tasks_table_created(self):
-    pg_connection = pg_wrapper.get_connection()
-    with pg_connection:
-      with pg_connection.cursor() as pg_cursor:
-        logger.info('Ensuring "{}" table is created'
-                    .format(self.tasks_table_name))
-        pg_cursor.execute(
-          'CREATE TABLE IF NOT EXISTS "{table_name}" ('
-          '  task_name varchar(500) NOT NULL,'
-          '  time_deleted timestamp DEFAULT NULL,'
-          '  time_enqueued timestamp NOT NULL,'
-          '  lease_count integer NOT NULL,'
-          '  lease_expires timestamp NOT NULL,'
-          '  payload bytea,'
-          '  tag varchar(500),'
-          '  PRIMARY KEY (task_name)'
-          ');'
-          'CREATE INDEX IF NOT EXISTS "{table_name}_eta_retry_tag_index" '
-          '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
-          '  WHERE time_deleted IS NULL;'
-          'CREATE INDEX IF NOT EXISTS "{table_name}_retry_eta_tag_index" '
-          '  ON "{table_name}" (lease_count, lease_expires, tag) '
-          '  WHERE time_deleted IS NULL;'
-          .format(table_name=self.tasks_table_name)
-        )
-
-  @property
-  def schema_name(self):
-    return 'appscale_{}'.format(self.app)
-
-  @property
-  def queues_table_name(self):
-    return '{}.queues'.format(self.schema_name)
-
-  @property
-  def tasks_table_name(self):
-    return '{}.tasks_{}'.format(self.schema_name, self.queue_id)
+  @classmethod
+  def get_tasks_table_name(cls, project_id, queue_id):
+    return '{}.tasks_{}'.format(cls.get_schema_name(project_id), queue_id)
 
   @retry_pg_connection
   def add_task(self, task):
@@ -839,3 +757,93 @@ class PostgresPullQueue(Queue):
     """
     return '<PostgresPullQueue {}: app={}, task_retry_limit={}>'.format(
       self.name, self.app, self.task_retry_limit)
+
+
+@retry_pg_connection
+def ensure_project_schema_created(project_id):
+  pg_connection = pg_wrapper.get_connection()
+  schema_name = PostgresPullQueue.get_schema_name(project_id)
+  with pg_connection:
+    with pg_connection.cursor() as pg_cursor:
+      logger.info('Ensuring "{schema_name}" schema is created'
+                  .format(schema_name=schema_name))
+      pg_cursor.execute(
+        'CREATE SCHEMA IF NOT EXISTS "{schema_name}";'
+        .format(schema_name=schema_name)
+      )
+
+
+@retry_pg_connection
+def ensure_queues_table_created(project_id):
+  pg_connection = pg_wrapper.get_connection()
+  queues_table_name = PostgresPullQueue.get_queues_table_name(project_id)
+  with pg_connection:
+    with pg_connection.cursor() as pg_cursor:
+      logger.info('Ensuring "{}" table is created'.format(queues_table_name))
+      pg_cursor.execute(
+        'CREATE TABLE IF NOT EXISTS "{queues_table}" ('
+        '  id SERIAL,'
+        '  queue_name varchar(100) NOT NULL UNIQUE'
+        ');'
+        .format(queues_table=queues_table_name)
+      )
+
+
+@retry_pg_connection
+def ensure_queue_registered(project_id, queue_name):
+  pg_connection = pg_wrapper.get_connection()
+  queues_table_name = PostgresPullQueue.get_queues_table_name(project_id)
+  with pg_connection:
+    with pg_connection.cursor() as pg_cursor:
+      pg_cursor.execute(
+        'SELECT id FROM "{queues_table}" WHERE queue_name = %(queue_name)s;'
+        .format(queues_table=queues_table_name),
+        vars={'queue_name': queue_name}
+      )
+      row = pg_cursor.fetchone()
+      if row:
+        return row[0]
+
+      logger.info('Registering queue "{}" in "{}" table'
+                  .format(queue_name, queues_table_name))
+      pg_cursor.execute(
+        'INSERT INTO "{queues_table}" (queue_name) '
+        'VALUES (%(queue_name)s) ON CONFLICT DO NOTHING;'
+        'SELECT id FROM "{queues_table}" WHERE queue_name = %(queue_name)s;'
+        .format(queues_table=queues_table_name),
+        vars={'queue_name': queue_name}
+      )
+      row = pg_cursor.fetchone()
+      logger.info('Queue "{}" was registered with ID "{}"'
+                  .format(queue_name, row[0]))
+      return row[0]
+
+
+@retry_pg_connection
+def ensure_tasks_table_created(project_id, queue_id):
+  pg_connection = pg_wrapper.get_connection()
+  tasks_table_name = PostgresPullQueue.get_tasks_table_name(
+    project_id, queue_id
+  )
+  with pg_connection:
+    with pg_connection.cursor() as pg_cursor:
+      logger.info('Ensuring "{}" table is created'.format(tasks_table_name))
+      pg_cursor.execute(
+        'CREATE TABLE IF NOT EXISTS "{table_name}" ('
+        '  task_name varchar(500) NOT NULL,'
+        '  time_deleted timestamp DEFAULT NULL,'
+        '  time_enqueued timestamp NOT NULL,'
+        '  lease_count integer NOT NULL,'
+        '  lease_expires timestamp NOT NULL,'
+        '  payload bytea,'
+        '  tag varchar(500),'
+        '  PRIMARY KEY (task_name)'
+        ');'
+        'CREATE INDEX IF NOT EXISTS "{table_name}_eta_retry_tag_index" '
+        '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
+        '  WHERE time_deleted IS NULL;'
+        'CREATE INDEX IF NOT EXISTS "{table_name}_retry_eta_tag_index" '
+        '  ON "{table_name}" (lease_count, lease_expires, tag) '
+        '  WHERE time_deleted IS NULL;'
+        .format(table_name=tasks_table_name)
+      )

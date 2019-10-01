@@ -38,7 +38,14 @@ class PostgresConnectionWrapper(object):
     """
     if not self._connection or self._connection.closed:
       logger.info('Establishing new connection to Postgres server')
-      self._connection = psycopg2.connect(dsn=self._dsn)
+      self._connection = psycopg2.connect(
+        dsn=self._dsn,
+        connect_timeout=60,
+        options='-c statement_timeout=10000',
+        keepalives_idle=60,
+        keepalives_interval=15,
+        keepalives_count=4
+      )
     return self._connection
 
   def close(self):

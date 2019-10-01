@@ -1,20 +1,22 @@
 """ Keeps track of queue configuration details for producer connections. """
 
 import json
-import random
 
 from kazoo.exceptions import ZookeeperError
-from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from .queue import PushQueue, PostgresPullQueue
+from .queue import (
+  PushQueue, PostgresPullQueue, ensure_queue_registered,
+  ensure_queues_table_created, ensure_project_schema_created,
+  ensure_tasks_table_created
+)
 from .utils import logger, create_celery_for_app
 
 
 class ProjectQueueManager(dict):
   """ Keeps track of queue configuration details for a single project. """
 
-  FLUSH_DELETED_INTERVAL = 3 * 60 * 60  # 3h
+  FLUSH_DELETED_INTERVAL = 1 * 60 * 60  # 1h
 
   def __init__(self, zk_client, project_id):
     """ Creates a new ProjectQueueManager.
@@ -28,18 +30,29 @@ class ProjectQueueManager(dict):
     self.project_id = project_id
     self._configure_periodical_flush()
 
-    self.queues_node = '/appscale/projects/{}/queues'.format(project_id)
+    project_node = '/appscale/projects/{}/'.format(project_id)
+    self.queues_node = project_node + 'queues'
+    self.pullqueues_initialization_lock = zk_client.Lock(
+      project_node + 'pullqueues_initialization_lock'
+    )
+    self.pullqueues_initialized_version_node = (
+      project_node + 'pullqueues_initialized_version'
+    )
+    self.pullqueues_cleanup_lease_node = (
+      project_node + 'pullqueues_cleanup_lease'
+    )
     self.watch = zk_client.DataWatch(self.queues_node,
                                      self._update_queues_watch)
     self.celery = None
     self.rates = None
     self._stopped = False
 
-  def update_queues(self, queue_config):
+  def update_queues(self, queue_config, znode_stats):
     """ Caches new configuration details and cleans up old state.
 
     Args:
       queue_config: A JSON string specifying queue configuration.
+      znode_stats: An instance of ZnodeStats.
     """
     logger.info('Updating queues for {}'.format(self.project_id))
     if not queue_config:
@@ -52,20 +65,29 @@ class ProjectQueueManager(dict):
     for queue_name in to_stop:
       del self[queue_name]
 
-    # Add new queues.
-    for queue_name in new_queue_config:
-      if queue_name in self:
-        continue
+    self._update_push_queues(
+      ((queue_name, queue) for queue_name, queue in new_queue_config.items()
+       if queue.get('mode', 'push') == 'push')
+    )
 
-      queue_info = new_queue_config[queue_name]
-      queue_info['name'] = queue_name
-      if 'mode' not in queue_info or queue_info['mode'] == 'push':
-        self[queue_name] = PushQueue(queue_info, self.project_id)
-      else:
-        self[queue_name] = PostgresPullQueue(queue_info, self.project_id)
+    self._update_pull_queues(
+      ((queue_name, queue) for queue_name, queue in new_queue_config.items()
+       if queue.get('mode', 'push') != 'push'),
+      znode_stats
+    )
 
-    # Establish a new Celery connection based on the new queues, and close the
-    # old one.
+  def _update_push_queues(self, new_push_queue_configs):
+    """ Caches new push queue configuration details.
+
+    Args:
+      new_push_queue_configs: A sequence of (queue_name, queue_info) tuples.
+    """
+    for queue_name, queue in new_push_queue_configs:
+      queue['name'] = queue_name
+      self[queue_name] = PushQueue(queue, self.project_id)
+
+    # Establish a new Celery connection based on the new queues,
+    # and close the old one.
     push_queues = [queue for queue in self.values()
                    if isinstance(queue, PushQueue)]
     old_rates = self.rates
@@ -79,6 +101,64 @@ class ProjectQueueManager(dict):
     for queue in push_queues:
       queue.celery = self.celery
 
+  def _update_pull_queues(self, new_pull_queue_configs, znode_stats):
+    """ Caches new pull queue configuration details.
+
+    Args:
+      new_pull_queue_configs: A sequence of (queue_name, queue_info) tuples.
+      znode_stats: An instance of ZnodeStats.
+    """
+    new_version = znode_stats.last_modified
+    if self._get_pullqueue_initialized_version() < new_version:
+      # Only one TaskQueue server proceeds with Postgres tables initialization.
+      with self.pullqueues_initialization_lock:
+        # Double check after acquiring lock.
+        if self._get_pullqueue_initialized_version() < new_version:
+          # Ensure project schema and queues registry table are created.
+          ensure_project_schema_created(self.project_id)
+          ensure_queues_table_created(self.project_id)
+          # Ensure all queues are registered and tasks tables are created.
+          for queue_name, queue in new_pull_queue_configs:
+            queue['name'] = queue_name
+            queue_id = ensure_queue_registered(self.project_id, queue_name)
+            ensure_tasks_table_created(self.project_id, queue_id)
+            # Instantiate PostgresPullQueue with registration queue ID.
+            self[queue_name] = PostgresPullQueue(queue, self.project_id, queue_id)
+
+          # Report new initialized version of Postgres tables.
+          self._set_pullqueue_initialized_version(new_version)
+          return
+
+    # Postgres tables are already created, just instantiate PostgresPullQueue.
+    for queue_name, queue in new_pull_queue_configs:
+      queue['name'] = queue_name
+      queue_id = ensure_queue_registered(self.project_id, queue_name)
+      self[queue_name] = PostgresPullQueue(queue, self.project_id, queue_id)
+
+  def _get_pullqueue_initialized_version(self):
+    """ Retrieves zookeeper node holding version of PullQueues configs
+    which is currently provisioned in Postgres.
+    """
+    initialized_version = -1
+    version_node = self.pullqueues_initialized_version_node
+    if self.zk_client.exists(version_node):
+      initialized_version = self.zk_client.get(version_node)
+    return initialized_version
+
+  def _set_pullqueue_initialized_version(self, version):
+    """ Sets zookeeper node holding version of PullQueues configs
+    which is currently provisioned in Postgres.
+
+    Args:
+      version: A number representing last modification time
+               of queue configs node in zookeeper.
+    """
+    version_node = self.pullqueues_initialized_version_node
+    if self.zk_client.exists(version_node):
+      self.zk_client.set(version_node, version)
+    else:
+      self.zk_client.create(version_node, version)
+
   def ensure_watch(self):
     """ Restart the watch if it has been cancelled. """
     if self._stopped:
@@ -91,7 +171,7 @@ class ProjectQueueManager(dict):
     if self.celery is not None:
       self.celery.close()
 
-  def _update_queues_watch(self, queue_config, _):
+  def _update_queues_watch(self, queue_config, znode_stats):
     """ Handles updates to a queue configuration node.
 
     Since this runs in a separate thread, it doesn't change any state directly.
@@ -99,6 +179,7 @@ class ProjectQueueManager(dict):
 
     Args:
       queue_config: A JSON string specifying queue configuration.
+      znode_stats: An instance of ZnodeStats.
     """
     main_io_loop = IOLoop.instance()
 
@@ -115,27 +196,25 @@ class ProjectQueueManager(dict):
         self._stopped = True
         return False
 
-    main_io_loop.add_callback(self.update_queues, queue_config)
+    main_io_loop.add_callback(self.update_queues, queue_config, znode_stats)
 
   def _configure_periodical_flush(self):
     """ Creates and starts periodical callback to clear old deleted tasks.
     """
-    @gen.coroutine
     def flush_deleted():
-      """ Calls flush_deleted method for all PostgresPullQueues
-      with asynchronous delay to avoid concentration of flush queries
-      to SQL server during short period of time.
+      """ Attempts to lease a right to cleanup old deleted tasks.
+      If it could lease the right it removes old deleted tasks for project
+      pull queues.
       """
-      yield gen.sleep(random.random() * self.FLUSH_DELETED_INTERVAL / 2)
-      postgres_pull_queues = (q for q in self.values()
-                              if isinstance(q, PostgresPullQueue))
-      for q in postgres_pull_queues:
-        yield gen.sleep(3)
-        q.flush_deleted()
-
-    # def schedule_flush_deleted():
-    #   main_io_loop = IOLoop.instance()
-    #   main_io_loop.add_callback(flush_deleted)
+      # Avoid too frequent cleanup by using zookeeper lease recipe.
+      lease = self.zk_client.NonBlockingLease(
+        self.pullqueues_cleanup_lease_node, self.FLUSH_DELETED_INTERVAL * 0.8
+      )
+      if lease:
+        postgres_pull_queues = (q for q in self.values()
+                                if isinstance(q, PostgresPullQueue))
+        for queue in postgres_pull_queues:
+          queue.flush_deleted()
 
     PeriodicCallback(flush_deleted, self.FLUSH_DELETED_INTERVAL * 1000).start()
 
