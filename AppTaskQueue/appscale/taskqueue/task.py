@@ -5,8 +5,8 @@ import re
 import string
 import sys
 
-import queue
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from .constants import FULL_QUEUE_NAME_RE
 from .protocols import taskqueue_service_pb2
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -24,7 +24,7 @@ TASK_NAME_RE = re.compile(TASK_NAME_PATTERN)
 # Validation rules for queue parameters.
 QUEUE_ATTRIBUTE_RULES = {
   'id': lambda name: TASK_NAME_RE.match(name),
-  'queueName': lambda name: queue.FULL_QUEUE_NAME_RE.match(name),
+  'queueName': lambda name: FULL_QUEUE_NAME_RE.match(name),
   'tag': lambda tag: tag is None or len(tag) <= MAX_TAG_LENGTH
 }
 
@@ -112,7 +112,7 @@ class Task(object):
     Raises:
       InvalidTaskInfo if one of the attribute fails validation.
     """
-    for attribute, rule in QUEUE_ATTRIBUTE_RULES.iteritems():
+    for attribute, rule in QUEUE_ATTRIBUTE_RULES.items():
       try:
         value = getattr(self, attribute)
       except AttributeError:
@@ -197,8 +197,10 @@ class Task(object):
         # All numbers are represented as strings in the GCP ecosystem for
         # Javascript compatibility reasons. We convert to string so that
         # the response can be successfully parsed by Google API clients.
-        value = str(long((value - epoch).total_seconds() * 1000000))
+        value = str(int((value - epoch).total_seconds() * 1000000))
       task[attribute] = value
+      if attribute == 'payloadBase64':
+        task[attribute] = task[attribute].decode('utf-8')
 
     return task
 

@@ -19,6 +19,7 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.common.datastore_index import merge_indexes
 from appscale.datastore.dbconstants import (
   BadRequest, ConcurrentModificationException, InternalError)
 from appscale.datastore.fdb.cache import DirectoryCache
@@ -366,6 +367,19 @@ class FDBDatastore(object):
   def update_composite_index(self, project_id, index):
     project_id = decode_str(project_id)
     yield self.index_manager.update_composite_index(project_id, index)
+
+  def add_indexes(self, project_id, indexes):
+    """ Adds composite index definitions to a project.
+
+    Only indexes that do not already exist will be created.
+    Args:
+      project_id: A string specifying a project ID.
+      indexes: An iterable containing index definitions.
+    """
+    # This is a temporary workaround to get a ZooKeeper client. This method
+    # will not use ZooKeeper in the future.
+    zk_client = self.index_manager.composite_index_manager._zk_client
+    merge_indexes(zk_client, project_id, indexes)
 
   @gen.coroutine
   def _upsert(self, tr, entity, old_entry_future=None):

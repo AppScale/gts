@@ -3272,6 +3272,16 @@ class DatastoreDistributed():
 
     return indexes
 
+  def add_indexes(self, project_id, indexes):
+    """ Adds composite index definitions to a project.
+
+    Only indexes that do not already exist will be created.
+    Args:
+      project_id: A string specifying a project ID.
+      indexes: An iterable containing index definitions.
+    """
+    merge_indexes(self.zookeeper.handle, project_id, indexes)
+
   def _zk_state_listener(self, state):
     """ Handles changes to the ZooKeeper connection state.
 

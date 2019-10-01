@@ -45,20 +45,8 @@ class ZKInterface
   # and where other nodes will recover that state from.
   APPCONTROLLER_STATE_PATH = "#{APPCONTROLLER_PATH}/state".freeze
 
-  # The ZooKeeper node where blobstore servers register themselves.
-  BLOBSTORE_REGISTRY_PATH = '/appscale/blobstore/servers'
-
   # The ZooKeeper node where datastore servers register themselves.
   DATASTORE_REGISTRY_PATH = '/appscale/datastore/servers'
-
-  # The ZooKeeper node where search servers register themselves.
-  SEARCH2_REGISTRY_PATH = '/appscale/search/live_nodes'
-
-  # The ZooKeeper node where taskqueue servers register themselves.
-  TASKQUEUE_REGISTRY_PATH = '/appscale/tasks/servers'
-
-  # The ZooKeeper node where UA servers register themselves.
-  UA_REGISTRY_PATH = '/appscale/iam/servers'
 
   # The location in ZooKeeper that AppControllers write information about their
   # node to, so that others can poll to see if they are alive and what roles
@@ -263,22 +251,6 @@ class ZKInterface
     list_registered(DATASTORE_REGISTRY_PATH)
   end
 
-  def self.get_search2_servers
-    list_registered(SEARCH2_REGISTRY_PATH)
-  end
-
-  def self.get_taskqueue_servers
-    list_registered(TASKQUEUE_REGISTRY_PATH)
-  end
-
-  def self.get_ua_servers
-    list_registered(UA_REGISTRY_PATH)
-  end
-
-  def self.get_blob_servers
-    list_registered(BLOBSTORE_REGISTRY_PATH)
-  end
-
   def self.set_machine_assignments(machine_ip, assignments)
     assignments_node = '/appscale/assignments'
     ensure_path(assignments_node)
@@ -340,6 +312,13 @@ class ZKInterface
     clusterfile_node = '/appscale/datastore/fdb-clusterfile-content'
     ensure_path(clusterfile_node)
     set(clusterfile_node, content, NOT_EPHEMERAL)
+  end
+
+  # Writes Postgres DSN string to zookeeper
+  def self.set_postgres_dsn(postgres_dsn)
+    dsn_node = '/appscale/tasks/postgres_dsn'
+    ensure_path(dsn_node)
+    set(dsn_node, postgres_dsn, NOT_EPHEMERAL)
   end
 
   def self.run_zookeeper_operation(&block)

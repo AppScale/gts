@@ -2,9 +2,10 @@
 
 import json
 
-from kazoo.exceptions import ZookeeperError, NoNodeError
+from kazoo.exceptions import ZookeeperError
 from tornado.ioloop import IOLoop, PeriodicCallback
 
+from appscale.taskqueue.pg_connection_wrapper import PostgresConnectionWrapper
 from appscale.taskqueue.queue import PostgresPullQueue
 from appscale.taskqueue.utils import create_celery_for_app
 from .queue import PullQueue
@@ -28,23 +29,32 @@ class ProjectQueueManager(dict):
     super(ProjectQueueManager, self).__init__()
     self.zk_client = zk_client
     self.project_id = project_id
-    pg_dns_node = '/appscale/projects/{}/postgres_dsn'.format(project_id)
-    try:
-      pg_dsn = self.zk_client.get(pg_dns_node)
-      logger.info('Using PostgreSQL as a backend for Pull Queues of "{}"'
-                  .format(project_id))
-      # Import pg_connection_wrapper (and psycopg2) lazily
-      from appscale.taskqueue import pg_connection_wrapper
-      # TODO: PostgresConnectionWrapper may need an update when
-      #       TaskQueue becomes concurrent
-      self.pg_connection_wrapper = (
-        pg_connection_wrapper.PostgresConnectionWrapper(dsn=pg_dsn[0])
-      )
-      self._configure_periodical_flush()
-    except NoNodeError:
+
+    project_dsn_node = '/appscale/projects/{}/postgres_dsn'.format(project_id)
+    global_dsn_node = '/appscale/tasks/postgres_dsn'
+    if self.zk_client.exists(project_dsn_node):
+      pg_dsn = self.zk_client.get(project_dsn_node)
+      logger.info('Using project-specific PostgreSQL as a backend for '
+                  'Pull Queues of project "{}" '.format(project_id))
+    elif self.zk_client.exists(global_dsn_node):
+      pg_dsn = self.zk_client.get(global_dsn_node)
+      logger.info('Using deployment-wide PostgreSQL as a backend for '
+                  'Pull Queues"'.format(project_id))
+    else:
+      pg_dsn = None
       logger.info('Using Cassandra as a backend for Pull Queues of "{}"'
                   .format(project_id))
+
+    if pg_dsn:
+      # TODO: PostgresConnectionWrapper may need an update when
+      #       TaskQueue becomes concurrent
+      self.pg_connection_wrapper = PostgresConnectionWrapper(
+        dsn=pg_dsn[0].decode('utf-8')
+      )
+      self._configure_periodical_flush()
+    else:
       self.pg_connection_wrapper = None
+
     self.queues_node = '/appscale/projects/{}/queues'.format(project_id)
     self.watch = zk_client.DataWatch(self.queues_node,
                                      self._update_queues_watch)
@@ -62,7 +72,7 @@ class ProjectQueueManager(dict):
     if not queue_config:
       new_queue_config = {'default': {'rate': '5/s'}}
     else:
-      new_queue_config = json.loads(queue_config)['queue']
+      new_queue_config = json.loads(queue_config.decode('utf-8'))['queue']
 
     # Clean up obsolete queues.
     to_stop = [queue for queue in self if queue not in new_queue_config]

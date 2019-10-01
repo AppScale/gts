@@ -5,14 +5,27 @@ This API is not documented, but it is used by the Google Cloud SDK.
 
 import json
 import logging
+import random
+
+try:
+  import urllib.request
+  urlopen = urllib.request.urlopen
+  from urllib.error import URLError
+except ImportError:
+  import urllib2
+  urlopen = urllib2.urlopen
+  from urllib2 import URLError
+
 import six
 import yaml
 from kazoo.exceptions import NoNodeError
+from tornado.options import options
 from yaml.parser import ParserError
 
 from appscale.appcontroller_client import AppControllerException
-from appscale.common.constants import HTTPCodes, InvalidIndexConfiguration
-from appscale.common.datastore_index import DatastoreIndex, merge_indexes
+from appscale.common.constants import (
+  DB_SERVER_PORT, HTTPCodes, InvalidIndexConfiguration)
+from appscale.common.datastore_index import DatastoreIndex
 from .base_handler import BaseHandler
 from .constants import (
   CustomHTTPError,
@@ -68,7 +81,21 @@ class UpdateIndexesHandler(BaseHandler):
       raise CustomHTTPError(HTTPCodes.BAD_REQUEST,
                             message=six.text_type(error))
 
-    merge_indexes(self.zk_client, project_id, given_indexes)
+    datastore_location = ':'.join(
+      [random.choice(options.load_balancers), str(DB_SERVER_PORT)])
+    url = 'http://{}/index/add?project={}'.format(
+      datastore_location, project_id)
+    payload = json.dumps([index.to_dict() for index in given_indexes])
+    try:
+      response = urlopen(url, payload)
+    except URLError:
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR,
+                            message='Unable to forward request to datastore')
+
+    if response.code != 200:
+      message = 'Unable to add indexes: {}'.format(response.read())
+      raise CustomHTTPError(HTTPCodes.INTERNAL_ERROR, message=message)
+
     logger.info('Updated indexes for {}'.format(project_id))
 
 

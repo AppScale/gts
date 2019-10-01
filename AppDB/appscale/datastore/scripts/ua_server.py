@@ -19,7 +19,8 @@ import psycopg2
 from tornado import gen
 
 from appscale.common import appscale_info, retrying
-from appscale.common.constants import LOG_FORMAT, ZK_PERSISTENT_RECONNECTS
+from appscale.common.constants import (
+  LOG_FORMAT, UA_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS)
 from appscale.datastore import appscale_datastore
 from appscale.datastore.dbconstants import (
   AppScaleDBConnectionError, USERS_SCHEMA, USERS_TABLE
@@ -37,9 +38,6 @@ DEFAULT_PORT = 4342
 
 # The port avaialble from the outside via SSL.
 DEFAULT_SSL_PORT = 4343
-
-# The ZooKeeper path where a list of active UA servers is stored.
-UA_SERVERS_NODE = '/appscale/iam/servers'
 
 # The default datastore used.
 datastore_type = DEFAULT_DATASTORE

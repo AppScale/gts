@@ -3,7 +3,6 @@ import logging
 import time
 
 import copy
-from future.utils import iteritems
 
 from appscale.common.service_stats import samples
 
@@ -387,11 +386,11 @@ class ServiceStats(object):
 
       if nested_config is None:
         # Compute single metric for each category
-        for category, requests_group in iteritems(grouped_by_category):
+        for category, requests_group in grouped_by_category.items():
           categories_stats[category] = metric(requests_group)
       else:
         # Render nested stats for each category
-        for category, requests_group in iteritems(grouped_by_category):
+        for category, requests_group in grouped_by_category.items():
           categories_stats[category] = self._render_recent(
             nested_config, requests_group
           )
@@ -497,7 +496,7 @@ def _convert_config_dict(init_dict):
     (name, categorizer, summarizer/metric, nested_config)
   """
   result = []
-  for key, value in iteritems(init_dict):
+  for key, value in init_dict.items():
     if isinstance(key, str):
       # if key is string => value is summarizer or metric
       result.append((key, None, value, None))
