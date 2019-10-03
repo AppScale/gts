@@ -30,20 +30,18 @@ logger = logging.getLogger(__name__)
 
 zk_client = None
 
-table_name = "ua_server"
+table_name = "ua_users"
 
 
 def is_connection_error(err):
   """ This function is used as retry criteria.
-  It also makes possible lazy load of psycopg2 package.
 
   Args:
     err: an instance of Exception.
   Returns:
     True if error is related to connection, False otherwise.
   """
-  from psycopg2 import InterfaceError
-  return isinstance(err, InterfaceError)
+  return isinstance(err, psycopg2.InterfaceError)
 
 
 retry_pg_connection = retrying.retry(
@@ -115,12 +113,11 @@ def get_table_sync(datastore, table_name, schema):
     schema: Table schema.
   """
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'SELECT * FROM "{table}" '
-          .format(table=table_name)
+          'SELECT {columns} FROM "{table}" '
+          .format(table=table_name, columns=', '.join(schema))
         )
         result = pg_cursor.fetchall()
     raise gen.Return(result)
@@ -221,7 +218,7 @@ def main():
   schema_cols_num = len(USERS_SCHEMA)
 
   if pg_connection_wrapper:
-    table = get_table_sync(db, table_name, user_schema)
+    table = get_table_sync(db, table_name, USERS_SCHEMA)
   else:
     table = get_table_sync(db, USERS_TABLE, user_schema)[1:]
     reshaped_table = reshape(table, schema_cols_num)

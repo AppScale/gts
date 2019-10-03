@@ -67,12 +67,11 @@ logger = logging.getLogger(__name__)
 
 zk_client = None
 
-table_name = "ua_server"
+table_name = "ua_users"
 
 
 def is_connection_error(err):
   """ This function is used as retry criteria.
-  It also makes possible lazy load of psycopg2 package.
 
   Args:
     err: an instance of Exception.
@@ -122,18 +121,16 @@ class PostgresConnectionWrapper(object):
 
 
 def init_table(pg_connection_wrapper):
-  from psycopg2 import IntegrityError  # Import psycopg2 lazily
   # When multiple TQ servers are notified by ZK about new queue
   # they sometimes get IntegrityError despite 'IF NOT EXISTS'
-  @retrying.retry(max_retries=5, retry_on_exception=IntegrityError)
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
   def ensure_tables_created():
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'CREATE TABLE IF NOT EXISTS "{table}" ('
           '  email varchar(500) NOT NULL,'
-          '  password varchar(500) NOT NULL,'
+          '  pw varchar(500) NOT NULL,'
           '  date_creation timestamp NOT NULL,'
           '  date_change timestamp NOT NULL,'
           '  date_last_login timestamp NOT NULL,'
@@ -151,7 +148,8 @@ def init_table(pg_connection_wrapper):
           '  capabilities varchar(255),'
           '  PRIMARY KEY (email)'
           ');'
-            .format(table=table_name)
+          'CREATE SCHEMA IF NOT EXISTS "appscale_ua";'
+          .format(table=table_name)
         )
 
   ensure_tables_created()
@@ -276,8 +274,7 @@ def does_user_exist(username, secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'SELECT 1 FROM "{table}" '
@@ -314,14 +311,13 @@ def get_user_data(username, secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'SELECT * FROM "{table}" '
+          'SELECT {columns} FROM "{table}" '
           'WHERE email = %(username)s'
-          .format(table=table_name),
-        vars={
+          .format(table=table_name, columns=', '.join(USERS_SCHEMA)),
+          vars={
             'username': username,
           }
         )
@@ -390,11 +386,10 @@ def commit_new_user(user, passwd, utype, secret):
   if pg_connection_wrapper:
     n_user = Users(user, passwd, utype)
     params = n_user.paramit()
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'INSERT INTO "{table}"'
+          'INSERT INTO "{table}" ({columns}) '
           'VALUES ( '
           '  %(email)s, %(pw)s, %(date_creation)s, %(date_change)s, '
           '  %(date_last_login)s, %(applications)s, %(appdrop_rem_token)s, '
@@ -403,7 +398,7 @@ def commit_new_user(user, passwd, utype, secret):
           '  %(is_cloud_admin)s, %(capabilities)s '
           ') '
           'RETURNING date_last_login'
-          .format(table=table_name),
+          .format(table=table_name, columns=', '.join(USERS_SCHEMA)),
           vars=params
         )
         row = pg_cursor.fetchone()
@@ -439,8 +434,7 @@ def add_admin_for_app(user, app, secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'UPDATE "{table}" '
@@ -492,8 +486,7 @@ def get_all_users(secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'SELECT email FROM "{table}" '
@@ -547,8 +540,7 @@ def commit_new_token(user, token, token_exp, secret):
               'token_exp': token_exp,
               'user': user}
 
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'UPDATE "{table}" '
@@ -609,13 +601,13 @@ def change_password(user, password, secret):
     exist = does_user_exist(user, secret)
     if exist != "true":
       raise gen.Return('Error: User {} does not exist'.format(user))
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
 
         pg_cursor.execute(
           'UPDATE "{table}" '
-          'SET password = %(password)s '
+          'SET pw = %(password)s '
           'WHERE email = %(user)s AND enabled = TRUE '
           'RETURNING enabled'
           .format(table=table_name),
@@ -659,8 +651,8 @@ def enable_user(user, secret):
     exist = does_user_exist(user, secret)
     if exist != "true":
       raise gen.Return('Error: User {} does not exist'.format(user))
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'UPDATE "{table}" '
@@ -706,8 +698,8 @@ def disable_user(user, secret):
     exist = does_user_exist(user, secret)
     if exist != "true":
       raise gen.Return('Error: User {} does not exist'.format(user))
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'UPDATE "{table}" '
@@ -754,8 +746,8 @@ def delete_user(user, secret):
     exist = does_user_exist(user, secret)
     if exist != "true":
       raise gen.Return('Error: User {} does not exist'.format(user))
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'DELETE FROM "{table}" '
@@ -798,8 +790,7 @@ def is_user_enabled(user, secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'SELECT enabled FROM "{table}" '
@@ -833,8 +824,7 @@ def is_user_cloud_admin(username, secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'SELECT is_cloud_admin FROM "{table}" '
@@ -869,8 +859,7 @@ def set_cloud_admin_status(username, is_cloud_admin, secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'UPDATE "{table}" '
@@ -902,8 +891,7 @@ def get_capabilities(username, secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'SELECT capabilities FROM "{table}" '
@@ -939,8 +927,7 @@ def set_capabilities(username, capabilities, secret):
     raise gen.Return("Error: bad secret")
 
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
           'UPDATE "{table}" '

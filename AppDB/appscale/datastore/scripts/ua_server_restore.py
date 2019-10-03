@@ -25,20 +25,18 @@ logger = logging.getLogger(__name__)
 
 zk_client = None
 
-table_name = "ua_server"
+table_name = "ua_users"
 
 
 def is_connection_error(err):
   """ This function is used as retry criteria.
-  It also makes possible lazy load of psycopg2 package.
 
   Args:
     err: an instance of Exception.
   Returns:
     True if error is related to connection, False otherwise.
   """
-  from psycopg2 import InterfaceError
-  return isinstance(err, InterfaceError)
+  return isinstance(err, psycopg2.InterfaceError)
 
 
 retry_pg_connection = retrying.retry(
@@ -112,11 +110,10 @@ def put_entity_sync(datastore, table_name, user, schema, user_data):
     user_data: List or dict (if postgres role is enabled) of all user's fields.
   """
   if pg_connection_wrapper:
-    pg_connection = pg_connection_wrapper.get_connection()
-    with pg_connection:
+    with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'INSERT INTO "{table}"'
+          'INSERT INTO "{table}" ({columns}) '
           'VALUES ( '
           '  %(email)s, %(pw)s, %(date_creation)s, %(date_change)s, '
           '  %(date_last_login)s, %(applications)s, %(appdrop_rem_token)s, '
@@ -125,7 +122,7 @@ def put_entity_sync(datastore, table_name, user, schema, user_data):
           '  %(is_cloud_admin)s, %(capabilities)s '
           ') '
           'RETURNING date_last_login'
-          .format(table=table_name),
+          .format(table=table_name, columns=', '.join(schema)),
           vars=user_data
         )
         result = pg_cursor.fetchone()
@@ -197,7 +194,7 @@ def main():
           # csv module adds extra quotes each time
           apps = apps.replace("'", "")
           row['applications'] = '{' + apps + '}'
-        put_entity_sync(db, table_name, row['email'], user_schema, row)
+        put_entity_sync(db, table_name, row['email'], USERS_SCHEMA, row)
       else:
         # Convert dates to timestamp
         t = str(time.mktime(datetime.datetime.strptime(
