@@ -14,11 +14,6 @@ REMOTE_REQUEST_TIMEOUT = 60
 # Stats which were produce less than X seconds ago is considered as current
 ACCEPTABLE_STATS_AGE = 10
 
-# The ZooKeeper location for storing Hermes configurations
-NODES_STATS_CONFIGS_NODE = '/appscale/stats/profiling/nodes'
-PROCESSES_STATS_CONFIGS_NODE = '/appscale/stats/profiling/processes'
-PROXIES_STATS_CONFIGS_NODE = '/appscale/stats/profiling/proxies'
-
 
 class _MissedValue(object):
   """
@@ -43,10 +38,6 @@ HERMES_PORT = 4378
 SECRET_HEADER = 'Appscale-Secret'
 
 
-class HTTP_Codes(object):
-  """ A class with HTTP status codes. """
-  HTTP_OK = 200
-  HTTP_BAD_REQUEST = 400
-  HTTP_DENIED = 403
-  HTTP_INTERNAL_ERROR = 500
-  HTTP_NOT_IMPLEMENTED = 501
+class SubprocessError(Exception):
+  """ Indicates that subcommand failed. """
+  pass

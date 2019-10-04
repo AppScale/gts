@@ -3431,8 +3431,8 @@ class Djinn
   def stop_search2_role
     # Stop Solr
     Djinn.log_debug('Stopping SOLR on this node.')
-    Djinn.log_run('systemctl stop solr')
-    Djinn.log_run('systemctl disable solr')
+    Djinn.log_run('systemctl stop appscale-solr')
+    Djinn.log_run('systemctl disable appscale-solr')
     Djinn.log_debug('Done stopping SOLR.')
   end
 

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name='appscale-hermes',
-  version='0.4.0',
+  version='0.5.0',
   description='AppScale module which provides statistics API.',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
@@ -12,7 +12,7 @@ setup(
   install_requires=[
     'appscale-common',
     'appscale-admin',
-    'psutil==5.6.3',
+    'psutil==5.6',
     'attrs==19.1.0',
     'mock==2.0.0',
     'aiohttp==2.3.9'
@@ -24,9 +24,12 @@ setup(
     'Programming Language :: Python :: 3.5'
   ],
   namespace_packages=['appscale'],
-  packages=['appscale',
-            'appscale.hermes',
-            'appscale.hermes.producers'],
+  packages=[
+    'appscale',
+    'appscale.hermes',
+    'appscale.hermes.producers',
+    'appscale.hermes.resources'
+  ],
   entry_points={'console_scripts': [
     'appscale-hermes=appscale.hermes.hermes_server:main'
   ]}

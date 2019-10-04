@@ -25,6 +25,7 @@ from appscale.hermes.producers.proxy_stats import ProxiesStatsSource
 from appscale.hermes.producers.rabbitmq_stats import PushQueueStatsSource
 from appscale.hermes.producers.rabbitmq_stats import RabbitMQStatsSource
 from appscale.hermes.producers.taskqueue_stats import TaskqueueStatsSource
+from appscale.hermes.resources.resource_handlers import processes
 
 logger = logging.getLogger(__name__)
 
@@ -143,11 +144,16 @@ def main():
 
   app = web.Application(middlewares=[verify_secret_middleware])
 
+  # Add routes for old style structured statistics.
   route_items = []
   route_items += get_local_stats_api_routes(is_lb, is_tq, is_db)
   route_items += get_cluster_stats_api_routes(is_master)
   for route, handler in route_items:
     app.router.add_get(route, handler)
+
+  # Add routes for new resources API.
+  app.router.add_get('/v2/processes', processes.list_local)
+  app.router.add_get('/v2/processes/_cluster', processes.list_cluster)
 
   logger.info("Starting Hermes on port: {}.".format(args.port))
   web.run_app(app, port=args.port, access_log=logger,

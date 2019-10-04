@@ -138,7 +138,8 @@ class LocalStatsHandler:
         snapshot = await snapshot
       self.cached_snapshot = snapshot
 
-    return web.json_response(stats_to_dict(snapshot, include_lists))
+    return web.json_response(stats_to_dict(snapshot, include_lists),
+                             content_type='application/json')
 
 
 class ClusterStatsHandler:
@@ -215,10 +216,13 @@ class ClusterStatsHandler:
       for node_ip, snapshot in new_snapshots_dict.items()
     }
 
-    return web.json_response({
-      "stats": rendered_snapshots,
-      "failures": failures
-    })
+    return web.json_response(
+      {
+        "stats": rendered_snapshots,
+        "failures": failures
+      },
+      content_type='application/json'
+    )
 
 
 def not_found(reason):

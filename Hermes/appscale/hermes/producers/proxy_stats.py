@@ -752,9 +752,13 @@ class ProxiesStatsSource(object):
     proxy_stats_list = []
     for haproxy_process_name, info in HAPROXY_PROCESSES.items():
       logger.debug("Processing {} haproxy stats".format(haproxy_process_name))
-      proxy_stats_list += await get_stats_from_one_haproxy(
-        info['socket'], info['configs'], net_connections
-      )
+      try:
+        proxy_stats_list += await get_stats_from_one_haproxy(
+          info['socket'], info['configs'], net_connections
+        )
+      except IOError as error:
+        logger.warning("Failed to read {} haproxy stats ({})"
+                       .format(haproxy_process_name, error))
 
     stats = ProxiesStatsSnapshot(
       utc_timestamp=time.mktime(datetime.now().timetuple()),

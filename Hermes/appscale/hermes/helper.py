@@ -1,34 +1,34 @@
 """ Helper functions for Hermes operations. """
-import errno
-import os
+import asyncio
+import logging
 
-class JSONTags(object):
-  """ A class containing all JSON tags used for Hermes functionality. """
-  ALL_STATS = 'all_stats'
-  BUCKET_NAME = 'bucket_name'
-  BODY = 'body'
-  DEPLOYMENT_ID = 'deployment_id'
-  ERROR = 'error'
-  OBJECT_NAME = 'object_name'
-  REASON = 'reason'
-  STATUS = 'status'
-  STORAGE = 'storage'
-  SUCCESS = 'success'
-  TASK_ID = 'task_id'
-  TIMESTAMP = 'timestamp'
-  TYPE = 'type'
-  UNREACHABLE = 'unreachable'
+from appscale.hermes.constants import SubprocessError
 
-def ensure_directory(dir_path):
-  """ Ensures that the directory exists.
+logger = logging.getLogger(__name__)
 
-  Args:
-    dir_path: A str representing the directory path.
-  """
+
+async def subprocess(command, timeout):
+  process = await asyncio.create_subprocess_shell(
+    command,
+    stdout=asyncio.subprocess.PIPE,
+    stderr=asyncio.subprocess.PIPE
+  )
+  logger.debug('Started subprocess `{}` (pid: {})'
+               .format(command, process.pid))
+
   try:
-    os.makedirs(dir_path)
-  except OSError as os_error:
-    if os_error.errno == errno.EEXIST and os.path.isdir(dir_path):
-      pass
-    else:
-      raise
+    # Wait for the subprocess to finish
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
+  except asyncio.TimeoutError:
+    raise SubprocessError('Timed out waiting for subprocess `{}` (pid: {})'
+                          .format(command, process.pid))
+
+  output = stdout.decode()
+  error = stderr.decode()
+  if error:
+    logger.warning(error)
+  if process.returncode != 0:
+    raise SubprocessError('Subprocess failed with return code {} ({})'
+                          .format(process.returncode, error))
+
+  return output, error

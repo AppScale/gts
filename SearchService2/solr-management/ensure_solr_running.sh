@@ -63,24 +63,24 @@ export PRIVATE_IP
 envsubst '$SOLR_HEAP $ZK_HOST $PRIVATE_IP' \
  < "${SOLR_MANAGEMENT_DIR}/solr.in.sh" > "/tmp/solr.in.sh"
 envsubst '$MEMORY_LOW $MEMORY_HIGH $MEMORY_MAX'\
- < "${SOLR_MANAGEMENT_DIR}/solr.service" > "/tmp/solr.service"
+ < "${SOLR_MANAGEMENT_DIR}/appscale-solr.service" > "/tmp/appscale-solr.service"
 if cmp -s "/tmp/solr.in.sh" "/etc/default/solr.in.sh" \
-&& cmp -s "/tmp/solr.service" "/etc/systemd/system/solr.service"
+&& cmp -s "/tmp/appscale-solr.service" "/etc/systemd/system/appscale-solr.service"
 then
     echo "/etc/default/solr.in.sh has no changes."
-    echo "/etc/systemd/system/solr.service has no changes."
+    echo "/etc/systemd/system/appscale-solr.service has no changes."
     echo "Making sure Solr is running."
-    sudo systemctl enable solr
-    sudo systemctl start solr
+    sudo systemctl enable appscale-solr
+    sudo systemctl start appscale-solr
 else
     echo "Copying new solr.in.sh to /etc/default/solr.in.sh"
     sudo cp "/tmp/solr.in.sh" "/etc/default/solr.in.sh"
-    echo "Copying new solr.service to /etc/systemd/system/solr.service"
-    sudo cp "/tmp/solr.service" "/etc/systemd/system/solr.service"
+    echo "Copying new solr.service to /etc/systemd/system/appscale-solr.service"
+    sudo cp "/tmp/appscale-solr.service" "/etc/systemd/system/appscale-solr.service"
     echo "Making sure Solr is restarted."
     sudo systemctl daemon-reload
-    sudo systemctl enable solr
-    sudo systemctl restart solr
+    sudo systemctl enable appscale-solr
+    sudo systemctl restart appscale-solr
 fi
 
 echo "Making sure appscale-specific config set is uploaded to zookeeper."

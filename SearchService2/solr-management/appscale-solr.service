@@ -1,4 +1,4 @@
-# /etc/systemd/system/solr.service
+# /etc/systemd/system/appscale-solr.service
 [Unit]
 Description=Apache SOLR
 After=syslog.target network.target remote-fs.target nss-lookup.target
