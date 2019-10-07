@@ -152,16 +152,8 @@ def execute_task(task, headers, args):
         update_task(args['task_name'], TASK_STATES.FAILED)
         return
 
-      # Targets do not get X-Forwarded-Proto from nginx, they use haproxy port.
-      headers['X-Forwarded-Proto'] = url.scheme
-      if url.scheme == 'http':
-        connection = httplib.HTTPConnection(remote_host, url.port)
-      elif url.scheme == 'https':
-        connection = httplib.HTTPSConnection(remote_host, url.port)
-      else:
-        logger.error("Task %s tried to use url scheme %s, "
-                     "which is not supported." % (
-                     args['task_name'], url.scheme))
+      # Tasks should use HTTP to bypass scheme redirects since they use HAProxy.
+      connection = httplib.HTTPConnection(remote_host, url.port)
 
       skip_host = False
       if 'host' in headers or 'Host' in headers:
