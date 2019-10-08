@@ -222,7 +222,7 @@ def datastore_start_cmd(port, assignment_options):
     A list of command line arguments.
   """
   start_cmd = ['appscale-datastore',
-               '--type', 'cassandra',
+               '--type', assignment_options.get('backend', 'cassandra'),
                '--port', str(port)]
   if assignment_options.get('verbose'):
     start_cmd.append('--verbose')

@@ -436,6 +436,12 @@ installpycrypto()
     pipwrapper pycrypto
 }
 
+installurllib3()
+{
+    # Avoid using pipwrapper to prevent upgrading the package.
+    pip install urllib3
+}
+
 postinstallzookeeper()
 {
     service zookeeper stop || true
@@ -635,8 +641,18 @@ installadminserver()
 
 installhermes()
 {
-    pip install --upgrade --no-deps ${APPSCALE_HOME}/Hermes
-    pip install ${APPSCALE_HOME}/Hermes
+    # Create virtual environment based on Python 3
+    mkdir -p /opt/appscale_venvs
+    rm -rf /opt/appscale_venvs/hermes
+    python3 -m venv /opt/appscale_venvs/hermes/
+    # Install Hermes and its dependencies in it
+    HERMES_PIP=/opt/appscale_venvs/hermes/bin/pip
+    ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/common
+    ${HERMES_PIP} install ${APPSCALE_HOME}/common
+    ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/AdminServer
+    ${HERMES_PIP} install ${APPSCALE_HOME}/AdminServer
+    ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/Hermes
+    ${HERMES_PIP} install ${APPSCALE_HOME}/Hermes
 }
 
 installinfrastructuremanager()
@@ -648,9 +664,12 @@ installinfrastructuremanager()
 installtaskqueue()
 {
     rm -rf /opt/appscale_venvs/appscale_taskqueue/
-    python -m virtualenv /opt/appscale_venvs/appscale_taskqueue/
+    python3 -m venv /opt/appscale_venvs/appscale_taskqueue/
 
     TASKQUEUE_PIP=/opt/appscale_venvs/appscale_taskqueue/bin/pip
+    "${TASKQUEUE_PIP}" install wheel
+    "${TASKQUEUE_PIP}" install --upgrade pip
+    "${TASKQUEUE_PIP}" install --upgrade setuptools
 
     "${APPSCALE_HOME}/AppTaskQueue/appscale/taskqueue/protocols/compile_protocols.sh"
 

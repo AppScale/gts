@@ -123,10 +123,6 @@ module Search2
   # search servers to this value.
   DEFAULT_NUM_SERVERS = 1
 
-  # Maximum number of concurrent requests that can be served
-  # by instance of search server
-  MAXCONN = 2
-
   # Search server processes to CPU core multiplier.
   MULTIPLIER = 0.75
 end

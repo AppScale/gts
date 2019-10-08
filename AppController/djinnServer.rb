@@ -76,7 +76,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "get_online_users_list", "secret")
     add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
     add_method(@djinn, "gather_logs", "secret")
-    add_method(@djinn, "add_routing_for_blob_server", "secret")
     add_method(@djinn, "run_groomer", "secret")
     add_method(@djinn, "get_property", "property_regex", "secret")
     add_method(@djinn, "set_property", "property_name", "property_value",

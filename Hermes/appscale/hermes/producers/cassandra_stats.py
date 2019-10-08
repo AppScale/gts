@@ -1,16 +1,17 @@
 """ Fetches `nodetool status` info. """
+import asyncio
 import logging
 import re
 import time
 
 import attr
-from tornado import process, gen
 
 from appscale.common import appscale_info
 from appscale.hermes.converter import Meta, include_list_name
 
 # The endpoint used for retrieving queue stats.
-NODETOOL_STATUS_COMMAND = ['/opt/cassandra/cassandra/bin/nodetool', 'status']
+NODETOOL_STATUS_COMMAND = '/opt/cassandra/cassandra/bin/nodetool status'
+NODETOOL_STATUS_TIMEOUT = 60
 
 logger = logging.getLogger(__name__)
 
@@ -91,33 +92,47 @@ class CassandraStatsSource(object):
   }
 
   @classmethod
-  @gen.coroutine
-  def get_current(cls):
+  async def get_current(cls):
     """ Retrieves Cassandra status info.
 
     Returns:
-      An instance of RabbitMQStatsSnapshot.
+      An instance of CassandraStatsSnapshot.
     """
     start = time.time()
+
+    process = await asyncio.create_subprocess_shell(
+      NODETOOL_STATUS_COMMAND,
+      stdout=asyncio.subprocess.PIPE,
+      stderr=asyncio.subprocess.PIPE
+    )
+    logger.info('Started subprocess `{}` (pid: {})'
+                .format(NODETOOL_STATUS_COMMAND, process.pid))
+
     try:
-      proc = process.Subprocess(
-        NODETOOL_STATUS_COMMAND,
-        stdout=process.Subprocess.STREAM,
-        stderr=process.Subprocess.STREAM
+      # Wait for the subprocess to finish
+      stdout, stderr = await asyncio.wait_for(
+        process.communicate(), NODETOOL_STATUS_TIMEOUT
       )
-      status = yield proc.stdout.read_until_close()
-      err = yield proc.stderr.read_until_close()
-      if err:
-        logger.error(err)
-    except process.CalledProcessError as err:
-      raise NodetoolStatusError(err)
+    except asyncio.TimeoutError:
+      raise NodetoolStatusError(
+        'Timed out waiting for subprocess `{}` (pid: {})'
+        .format(NODETOOL_STATUS_COMMAND, process.pid)
+      )
+
+    output = stdout.decode()
+    error = stderr.decode()
+    if error:
+      logger.warning(error)
+    if process.returncode != 0:
+      raise NodetoolStatusError('Subprocess failed with return code {} ({})'
+                                .format(process.returncode, error))
 
     known_db_nodes = set(appscale_info.get_db_ips())
     nodes = []
     shown_nodes = set()
 
-    if cls.SINGLENODE_HEADER_PATTERN.search(status):
-      for match in cls.SINGLENODE_STATUS_PATTERN.finditer(status):
+    if cls.SINGLENODE_HEADER_PATTERN.search(output):
+      for match in cls.SINGLENODE_STATUS_PATTERN.finditer(output):
         address = match.group('address')
         status = match.group('status')
         state = match.group('state')
@@ -140,8 +155,8 @@ class CassandraStatsSource(object):
         nodes.append(node_stats)
         shown_nodes.add(address)
 
-    elif cls.MULTINODE_HEADER_PATTERN.search(status):
-      for match in cls.MULTINODE_STATUS_PATTERN.finditer(status):
+    elif cls.MULTINODE_HEADER_PATTERN.search(output):
+      for match in cls.MULTINODE_STATUS_PATTERN.finditer(output):
         address = match.group('address')
         status = match.group('status')
         state = match.group('state')
@@ -166,7 +181,8 @@ class CassandraStatsSource(object):
 
     else:
       raise NodetoolStatusError(
-        '`nodetool status` output does not contain expected header'
+        '`{}` output does not contain expected header. Actual output:\n{}'
+        .format(NODETOOL_STATUS_COMMAND, output)
       )
 
     snapshot = CassandraStatsSnapshot(
@@ -176,5 +192,5 @@ class CassandraStatsSource(object):
       unknown_nodes=list(shown_nodes - known_db_nodes)
     )
     logger.info('Prepared Cassandra nodes status in '
-                 '{elapsed:.1f}s.'.format(elapsed=time.time()-start))
-    raise gen.Return(snapshot)
+                '{elapsed:.2f}s.'.format(elapsed=time.time()-start))
+    return snapshot

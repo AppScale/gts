@@ -2,9 +2,8 @@ from setuptools import setup
 
 setup(
   name='appscale-hermes',
-  version='0.1.2',
-  description='AppScale module which takes care of periodical backup and '
-              'restore tasks and provides statistics API.',
+  version='0.4.0',
+  description='AppScale module which provides statistics API.',
   author='AppScale Systems, Inc.',
   url='https://github.com/AppScale/appscale',
   license='Apache License 2.0',
@@ -12,18 +11,17 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common',
-    'kazoo',
-    'tornado',
-    'psutil==5.1.3',
-    'attrs>=18.1.0',
-    'mock',
+    'appscale-admin',
+    'psutil==5.6.3',
+    'attrs==19.1.0',
+    'mock==2.0.0',
+    'aiohttp==2.3.9'
   ],
-  test_suite='appscale.hermes',
   classifiers=[
-    'Development Status :: 3 - Alpha',
+    'Development Status :: 3 - Beta',
     'Intended Audience :: Developers',
     'License :: OSI Approved :: Apache Software License',
-    'Programming Language :: Python :: 2.7'
+    'Programming Language :: Python :: 3.5'
   ],
   namespace_packages=['appscale'],
   packages=['appscale',

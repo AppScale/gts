@@ -302,14 +302,6 @@ class AppControllerClient():
     return self.call(self.MAX_RETRIES, self.server.run_groomer, self.secret)
 
 
-  def add_routing_for_blob_server(self):
-    """ Tells the AppController to begin routing traffic to the
-        BlobServer(s).
-    """
-    return self.call(self.MAX_RETRIES, self.server.add_routing_for_blob_server,
-      self.secret)
-
-
   def deployment_id_exists(self):
     """ Asks the AppController if the deployment ID is stored in ZooKeeper.
 

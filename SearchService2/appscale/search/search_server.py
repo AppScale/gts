@@ -17,11 +17,12 @@ from kazoo.protocol.states import KazooState
 from tornado.ioloop import IOLoop
 
 from appscale.common.async_retrying import retry_data_watch_coroutine
-from appscale.common.constants import LOG_FORMAT, ZK_PERSISTENT_RECONNECTS
+from appscale.common.constants import (
+  LOG_FORMAT, SEARCH_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS)
 from tornado import ioloop, web
 
 from appscale.search import api_methods
-from appscale.search.constants import SearchServiceError, SEARCH_SERVERS_NODE
+from appscale.search.constants import SearchServiceError
 from appscale.search.protocols import search_pb2, remote_api_pb2
 
 logger = logging.getLogger(__name__)
@@ -207,11 +208,11 @@ def main():
     '-v', '--verbose', action='store_true',
     help='Output debug-level logging')
   parser.add_argument(
-    '--host', help='The host to listen on')
+    '--host', required=True, help='The host to listen on')
   parser.add_argument(
-    '--port', type=int, help='The port to listen on')
+    '--port', required=True, type=int, help='The port to listen on')
   parser.add_argument(
-    '--zk-locations', nargs='+', help='ZooKeeper location(s)')
+    '--zk-locations', required=True, nargs='+', help='ZooKeeper location(s)')
   args = parser.parse_args()
 
   if args.verbose:

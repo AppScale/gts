@@ -28,13 +28,12 @@ import urllib
 import urllib2
 import urlparse
 
-from appscale.appcontroller_client import AppControllerClient
 from appscale.common import appscale_info
-from appscale.common.constants import LOG_FORMAT
+from appscale.common.constants import BLOBSTORE_SERVERS_NODE, LOG_FORMAT
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from kazoo.client import KazooClient
+from kazoo.client import KazooClient, KazooState, NodeExistsError
 from StringIO import StringIO
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -423,6 +422,37 @@ class UploadHandler(tornado.web.RequestHandler):
         return
 
 
+def register_location(zk_client, host, port):
+  """ Register service location with ZooKeeper. """
+  server_node = '{}/{}:{}'.format(BLOBSTORE_SERVERS_NODE, host, port)
+
+  def create_server_node():
+    """ Creates a server registration entry in ZooKeeper. """
+    try:
+      zk_client.retry(zk_client.create, server_node, ephemeral=True)
+    except NodeExistsError:
+      # If the server gets restarted, the old node may exist for a short time.
+      zk_client.retry(zk_client.delete, server_node)
+      zk_client.retry(zk_client.create, server_node, ephemeral=True)
+
+    logger.info('Blobstore server registered at {}'.format(server_node))
+
+  def zk_state_listener(state):
+    """ Handles changes to ZooKeeper connection state.
+
+    Args:
+      state: A string specifying the new ZooKeeper connection state.
+    """
+    if state == KazooState.CONNECTED:
+      tornado.ioloop.IOLoop.instance().add_callback(create_server_node)
+
+  zk_client.add_listener(zk_state_listener)
+  zk_client.ensure_path(BLOBSTORE_SERVERS_NODE)
+  # Since the client was started before adding the listener, make sure the
+  # server node gets created.
+  zk_state_listener(zk_client.state)
+
+
 def main():
   global datastore_path
   global deployment_config
@@ -443,16 +473,12 @@ def main():
   deployment_config = DeploymentConfig(zk_client)
   setup_env()
 
+  register_location(zk_client, appscale_info.get_private_ip(), args.port)
+
   http_server = tornado.httpserver.HTTPServer(
     Application(), max_buffer_size=MAX_REQUEST_BUFF_SIZE, xheaders=True)
 
   http_server.listen(args.port)
-
-  # Make sure this server is accessible from each of the load balancers.
-  secret = appscale_info.get_secret()
-  for load_balancer in appscale_info.get_load_balancer_ips():
-    acc = AppControllerClient(load_balancer, secret)
-    acc.add_routing_for_blob_server()
 
   logger.info('Starting BlobServer on {}'.format(args.port))
   tornado.ioloop.IOLoop.instance().start()

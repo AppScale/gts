@@ -2,10 +2,11 @@ import datetime
 
 import base64
 import json
-import re
 import sys
 import time
 import uuid
+
+import psycopg2
 
 from appscale.common import appscale_info
 from appscale.common import retrying
@@ -97,8 +98,6 @@ BASIC_RETRIES = IdempotentRetryPolicy()
 # A policy that does not retry statements.
 NO_RETRIES = FallthroughRetryPolicy()
 
-MAX_QUEUE_NAME_LENGTH = 100
-
 TRANSIENT_CASSANDRA_ERRORS = (
   cassandra.Unavailable, cassandra.Timeout, cassandra.CoordinationFailure,
   cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)
@@ -109,13 +108,6 @@ LB_POLICY = DCAwareRoundRobinPolicy()
 # This format is used when returning the long name of a queue as
 # part of a leased task. This is to mimic a GCP oddity/bug.
 LONG_QUEUE_FORM = 'projects/{app}/taskqueues/{queue}'
-
-# A regex rule for validating queue names.
-FULL_QUEUE_NAME_PATTERN = r'^(projects/[a-zA-Z0-9-]+/taskqueues/)?' \
-                     r'[a-zA-Z0-9-]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
-
-# A compiled regex rule for validating queue names.
-FULL_QUEUE_NAME_RE = re.compile(FULL_QUEUE_NAME_PATTERN)
 
 # All possible fields to include in a queue's JSON representation.
 QUEUE_FIELDS = (
@@ -209,7 +201,7 @@ class Queue(object):
     Raises:
       InvalidQueueConfiguration if there is an invalid attribute.
     """
-    for attribute, rule in QUEUE_ATTRIBUTE_RULES.iteritems():
+    for attribute, rule in QUEUE_ATTRIBUTE_RULES.items():
       try:
         value = getattr(self, attribute)
       except AttributeError:
@@ -251,6 +243,7 @@ class Queue(object):
       A boolean indicating whether or not the two Queues are different.
     """
     return not self.__eq__(other)
+
 
 class PushQueue(Queue):
   # The default rate for push queues.
@@ -310,22 +303,20 @@ class PushQueue(Queue):
         attributes[attribute] = getattr(self, attribute)
 
     attr_str = ', '.join('{}={}'.format(attr, val)
-                         for attr, val in attributes.iteritems())
+                         for attr, val in attributes.items())
 
     return '<PushQueue {}: {}>'.format(self.name, attr_str)
 
 
 def is_connection_error(err):
   """ This function is used as retry criteria.
-  It also makes possible lazy load of psycopg2 package.
 
   Args:
     err: an instance of Exception.
   Returns:
     True if error is related to connection, False otherwise.
   """
-  from psycopg2 import InterfaceError
-  return isinstance(err, InterfaceError)
+  return isinstance(err, psycopg2.InterfaceError)
 
 
 class PostgresPullQueue(Queue):
@@ -349,43 +340,106 @@ class PostgresPullQueue(Queue):
       app: A string containing the application ID.
       pg_connection_wrapper: A psycopg2 connection wrapper.
     """
-    from psycopg2 import IntegrityError  # Import psycopg2 lazily
     super(PostgresPullQueue, self).__init__(queue_info, app)
     self.connection_key = self.app
     self.pg_connection_wrapper = pg_connection_wrapper
+    self.ensure_project_schema_created()
+    self.queue_id = self.ensure_queue_registered()
+    self.ensure_tasks_table_created()
 
-    # When multiple TQ servers are notified by ZK about new queue
-    # they sometimes get IntegrityError despite 'IF NOT EXISTS'
-    @retrying.retry(max_retries=5, retry_on_exception=IntegrityError)
-    def ensure_tables_created():
-      pg_connection = self.pg_connection_wrapper.get_connection()
-      with pg_connection:
-        with pg_connection.cursor() as pg_cursor:
-          pg_cursor.execute(
-            'CREATE TABLE IF NOT EXISTS "{table_name}" ('
-            '  task_name varchar(500) NOT NULL,'
-            '  time_deleted timestamp DEFAULT NULL,'
-            '  time_enqueued timestamp NOT NULL,'
-            '  lease_count integer NOT NULL,'
-            '  lease_expires timestamp NOT NULL,'
-            '  payload bytea,'
-            '  tag varchar(500),'
-            '  PRIMARY KEY (task_name)'
-            ');'
-            'CREATE INDEX IF NOT EXISTS "{table_name}-eta-retry-tag-index" '
-            '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
-            '  WHERE time_deleted IS NULL;'
-            'CREATE INDEX IF NOT EXISTS "{table_name}-retry-eta-tag-index" '
-            '  ON "{table_name}" (lease_count, lease_expires, tag) '
-            '  WHERE time_deleted IS NULL;'
-            .format(table_name=self.tasks_table_name)
-          )
+  # When multiple TQ servers are notified by ZK about new queue
+  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
+  def ensure_project_schema_created(self):
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        logger.info('Ensuring "{schema_name}" schema is created'
+                    .format(schema_name=self.schema_name))
+        pg_cursor.execute(
+          'CREATE SCHEMA IF NOT EXISTS "{schema_name}";'
+          .format(schema_name=self.schema_name)
+        )
 
-    ensure_tables_created()
+  # When multiple TQ servers are notified by ZK about new queue
+  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
+  def ensure_queue_registered(self):
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        logger.info('Ensuring "{}" table is created'
+                    .format(self.queues_table_name))
+        pg_cursor.execute(
+          'CREATE TABLE IF NOT EXISTS "{queues_table}" ('
+          '  id SERIAL,'
+          '  queue_name varchar(100) NOT NULL UNIQUE'
+          ');'
+          .format(queues_table=self.queues_table_name)
+        )
+        pg_cursor.execute(
+          'SELECT id FROM "{queues_table}" WHERE queue_name = %(queue_name)s;'
+          .format(queues_table=self.queues_table_name),
+          vars={'queue_name': self.name}
+        )
+        row = pg_cursor.fetchone()
+        if row:
+          return row[0]
+
+        logger.info('Registering queue "{}" in "{}" table'
+                    .format(self.name, self.queues_table_name))
+        pg_cursor.execute(
+          'INSERT INTO "{queues_table}" (queue_name) '
+          'VALUES (%(queue_name)s) ON CONFLICT DO NOTHING;'
+          'SELECT id FROM "{queues_table}" WHERE queue_name = %(queue_name)s;'
+          .format(queues_table=self.queues_table_name),
+          vars={'queue_name': self.name}
+        )
+        row = pg_cursor.fetchone()
+        logger.info('Queue "{}" was registered with ID "{}"'
+                    .format(self.name, row[0]))
+        return row[0]
+
+  # When multiple TQ servers are notified by ZK about new queue
+  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
+  def ensure_tasks_table_created(self):
+    pg_connection = self.pg_connection_wrapper.get_connection()
+    with pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        logger.info('Ensuring "{}" table is created'
+                    .format(self.tasks_table_name))
+        pg_cursor.execute(
+          'CREATE TABLE IF NOT EXISTS "{table_name}" ('
+          '  task_name varchar(500) NOT NULL,'
+          '  time_deleted timestamp DEFAULT NULL,'
+          '  time_enqueued timestamp NOT NULL,'
+          '  lease_count integer NOT NULL,'
+          '  lease_expires timestamp NOT NULL,'
+          '  payload bytea,'
+          '  tag varchar(500),'
+          '  PRIMARY KEY (task_name)'
+          ');'
+          'CREATE INDEX IF NOT EXISTS "{table_name}_eta_retry_tag_index" '
+          '  ON "{table_name}" USING BTREE (lease_expires, lease_count, tag) '
+          '  WHERE time_deleted IS NULL;'
+          'CREATE INDEX IF NOT EXISTS "{table_name}_retry_eta_tag_index" '
+          '  ON "{table_name}" (lease_count, lease_expires, tag) '
+          '  WHERE time_deleted IS NULL;'
+          .format(table_name=self.tasks_table_name)
+        )
+
+  @property
+  def schema_name(self):
+    return 'appscale_{}'.format(self.app)
+
+  @property
+  def queues_table_name(self):
+    return '{}.queues'.format(self.schema_name)
 
   @property
   def tasks_table_name(self):
-    return 'pullqueue-{}'.format(self.name)
+    return '{}.tasks_{}'.format(self.schema_name, self.queue_id)
 
   @retry_pg_connection
   def add_task(self, task):
@@ -397,7 +451,6 @@ class PostgresPullQueue(Queue):
       InvalidTaskInfo if the task ID already exists in the queue
         or it doesn't have payloadBase64 attribute.
     """
-    import psycopg2  # Import psycopg2 lazily
     if not hasattr(task, 'payloadBase64'):
       raise InvalidTaskInfo('{} is missing a payload.'.format(task))
 
@@ -830,7 +883,8 @@ class PostgresPullQueue(Queue):
     # TODO: remove it when task.payloadBase64 is replaced with task.payload
     if 'payload' in columns:
       payload = task_info.pop('payload')
-      task_info['payloadBase64'] = base64.urlsafe_b64encode(payload)
+      task_info['payloadBase64'] = \
+        base64.urlsafe_b64encode(payload).decode('utf-8')
 
     return Task(task_info)
 
@@ -1398,6 +1452,7 @@ class PullQueue(Queue):
       IF NOT EXISTS
     """, retry_policy=NO_RETRIES)
     try:
+      parameters['payload'] = parameters['payload'].decode('utf-8')
       result = self.session.execute(insert_statement, parameters)
     except TRANSIENT_CASSANDRA_ERRORS as error:
       retries_left = retries - 1
@@ -1416,8 +1471,9 @@ class PullQueue(Queue):
       raise TransientError('Unable to insert task')
 
     if not success:
-      raise InvalidTaskInfo(
-        'Task name already taken: {}'.format(parameters['id']))
+      error = InvalidTaskInfo()
+      error.message = 'Task name already taken: {}'.format(parameters['id'])
+      raise error
 
   def _update_lease(self, parameters, retries, check_lease=True):
     """ Update lease expiration on a task entry.
@@ -1656,7 +1712,7 @@ class PullQueue(Queue):
       futures[result_num] = (future, not success)
 
     index_update_futures = []
-    for result_num, (future, lease_timed_out) in futures.iteritems():
+    for result_num, (future, lease_timed_out) in futures.items():
       index = indexes[result_num]
       try:
         read_result = future.result()[0]
