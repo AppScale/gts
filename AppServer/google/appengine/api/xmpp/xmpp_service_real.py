@@ -201,7 +201,13 @@ class XmppService(apiproxy_stub.APIProxyStub):
     if '@' in application_key:
       raise apiproxy_errors.ApplicationError(
           channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY)
-  
+
+    # Ejabberd 18.01 does not invoke the external auth script if username has
+    # any uppercase characters.
+    if application_key != application_key.lower():
+      raise apiproxy_errors.ApplicationError(
+        channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY)
+
     appname = os.environ['APPNAME']
     unique_app_id = hashlib.sha1(appname + application_key).hexdigest()
     client_id = 'channel~%s~%s@%s' % (unique_app_id,
