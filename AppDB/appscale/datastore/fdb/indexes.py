@@ -372,7 +372,7 @@ class KindIterator(object):
     # TODO: Check if the presence of stat entities should mark a kind as being
     #  populated.
     index_slice = kind_index.get_slice(())
-    # This query is reversed to increase the likelihood of getting an relevant
+    # This query is reversed to increase the likelihood of getting a relevant
     # (not marked for GC) entry.
     iterator = IndexIterator(self._tr, self._tornado_fdb, kind_index,
                              index_slice, fetch_limit=1, reverse=True,
