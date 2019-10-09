@@ -9,8 +9,8 @@ from tornado.ioloop import IOLoop
 
 from appscale.admin.constants import CONTROLLER_STATE_NODE
 from appscale.admin.routing.haproxy import (
-  APP_CONFIG, APP_PID, APP_STATS_SOCKET, HAProxy, HAProxyListenBlock,
-  SERVICE_CONFIG, SERVICE_PID, SERVICE_STATS_SOCKET)
+  APP_CONFIG, APP_INSTANCE, APP_STATS_SOCKET, HAProxy, HAProxyListenBlock,
+  SERVICE_CONFIG, SERVICE_INSTANCE, SERVICE_STATS_SOCKET)
 from appscale.common.async_retrying import (
   retry_children_watch_coroutine, retry_data_watch_coroutine)
 from appscale.common.constants import (
@@ -166,8 +166,8 @@ class RoutingManager(object):
     Args:
       zk_client: A KazooClient.
     """
-    self._app_haproxy = HAProxy(APP_CONFIG, APP_PID, APP_STATS_SOCKET)
-    self._service_haproxy = HAProxy(SERVICE_CONFIG, SERVICE_PID,
+    self._app_haproxy = HAProxy(APP_INSTANCE, APP_CONFIG, APP_STATS_SOCKET)
+    self._service_haproxy = HAProxy(SERVICE_INSTANCE, SERVICE_CONFIG,
                                     SERVICE_STATS_SOCKET)
     self._versions = {}
     self._zk_client = zk_client

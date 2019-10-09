@@ -1,0 +1,12 @@
+[Unit]
+Description=AppScale Flower
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+Environment=APPSCALE_FLOWER_OPTION_AUTH=--basic_auth=appscale:appscale
+ExecStart=/usr/bin/flower $APPSCALE_FLOWER_OPTION_AUTH
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-service.target

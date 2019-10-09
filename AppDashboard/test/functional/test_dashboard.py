@@ -68,7 +68,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
           "used": 886620160
         },
         "services": {
-          # For each Process monitored by monit
           "cassandra": "Running",
         },
         "loadavg": {
@@ -121,7 +120,6 @@ class FunctionalTestAppDashboard(unittest.TestCase):
           "used": 0
         },
         "services": {
-          # For each Process monitored by monit
           # TODO
         },
         "loadavg": {

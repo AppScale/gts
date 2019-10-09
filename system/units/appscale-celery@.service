@@ -1,0 +1,25 @@
+[Unit]
+Description=AppScale Celery Worker for %i
+Before=appscale-instance.target
+After=appscale-instance-run@.service
+PartOf=appscale-instance.target
+
+[Service]
+Environment=C_FORCE_ROOT=True APP_ID=%i APPSCALE_TQ_OPTION_CONCURRENCY=1000 HOST=127.0.0.1
+ExecStart=/opt/appscale_venvs/appscale_taskqueue/bin/celery worker \
+  --app=appscale.taskqueue.push_worker \
+  --concurrency=${APPSCALE_TQ_OPTION_CONCURRENCY} \
+  --pool=eventlet \
+  --hostname=%i \
+  --time-limit=610 \
+  --soft-time-limit=600 \
+  --logfile=/var/log/appscale/celery_workers/%i.log \
+  --statedb=/opt/appscale/celery/worker___%i.db \
+  --workdir=/etc/appscale/celery/workers \
+  -Ofair
+SyslogIdentifier=%p-%i
+# Resource controls
+MemoryLimit=1000M
+
+[Install]
+WantedBy=appscale-instance.target

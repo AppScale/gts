@@ -1,0 +1,11 @@
+[Unit]
+Description=AppScale Hermes
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+ExecStart=/opt/appscale_venvs/hermes/bin/python3 /opt/appscale_venvs/hermes/bin/appscale-hermes $APPSCALE_OPTION_VERBOSE
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-service.target

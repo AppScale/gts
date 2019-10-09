@@ -9,7 +9,7 @@ require 'timeout'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'node_info'
 require 'helperfunctions'
-require 'monit_interface'
+require 'service_helper'
 
 # To implement support for the Google App Engine Task Queue API, we use
 # the open source rabbitmq server and celery. This lets users dispatch background
@@ -21,12 +21,6 @@ module TaskQueue
 
   # The default name of the service.
   NAME = 'TaskQueue'.freeze
-
-  # The default name of the service.
-  REST_NAME = 'TaskQueue_REST'.freeze
-
-  # AppScale install directory.
-  APPSCALE_HOME = ENV['APPSCALE_HOME']
 
   # The port that the RabbitMQ server runs on, by default.
   SERVER_PORT = 5672
@@ -43,14 +37,17 @@ module TaskQueue
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = '/var/lib/rabbitmq/.erlang.cookie'.freeze
 
+  # Name for flower service as per helper.
+  SERVICE_NAME_FLOWER = 'appscale-flower'.freeze
+
+  # Name for rabbit mq service as per helper.
+  SERVICE_NAME_RABBITMQ = 'appscale-rabbitmq-server.target'.freeze
+
+  # Name for task queue service template as per helper.
+  SERVICE_NAME_TASKQUEUE = 'appscale-taskqueue@'.freeze
+
   # The location of taskqueue venv pip
   TASKQUEUE_PIP = '/opt/appscale_venvs/appscale_taskqueue/bin/pip'.chomp
-
-  # The location of the taskqueue server script. This service controls
-  # and creates celery workers, and receives taskqueue protocol buffers
-  # from AppServers.
-  TASKQUEUE_SERVER_SCRIPT = '/opt/appscale_venvs/appscale_taskqueue' \
-                            '/bin/appscale-taskqueue'.chomp
 
   # Where to find the rabbitmqctl command.
   RABBITMQCTL = `which rabbitmqctl`.chomp
@@ -79,33 +76,8 @@ module TaskQueue
       raise AppScaleException.new(msg)
     end
 
-    pidfile = File.join('/', 'var', 'lib', 'rabbitmq', 'mnesia',
-                        "rabbit@#{Socket.gethostname}.pid")
-
-    var_run_pidfile = File.join('/', 'var', 'run', 'rabbitmq', 'pid')
-    if File.read('/proc/1/cgroup').include?('docker')
-      # In docker, the pid file is present at /var/run/rabbitmq/pid
-      pidfile = var_run_pidfile
-    end
-
-    begin
-      installed_version = Gem::Version.new(get_rabbitmq_version)
-      new_location_version = Gem::Version.new('3.4')
-      if installed_version < new_location_version
-        pidfile = var_run_pidfile
-      end
-    rescue TaskQueue::UnknownVersion => error
-      Djinn.log_warn("Error while getting rabbitmq version: #{error.message}")
-    end
-
-    Djinn.log_run("mkdir -p #{CELERY_STATE_DIR}")
-    service_bin = `which service`.chomp
-    start_cmd = "#{service_bin} rabbitmq-server start"
-    stop_cmd = "#{service_bin} rabbitmq-server stop"
-
     Ejabberd.ensure_correct_epmd
-    MonitInterface.start_daemon(:rabbitmq, start_cmd, stop_cmd, pidfile,
-                                MAX_WAIT_FOR_RABBITMQ)
+    ServiceHelper.start(SERVICE_NAME_RABBITMQ)
   end
 
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
@@ -222,13 +194,12 @@ module TaskQueue
 
   # Starts the AppScale TaskQueue server.
   def self.start_taskqueue_server(verbose)
+    service_env = {}
+    service_env[:APPSCALE_OPTION_VERBOSE] = '--verbose' if verbose
+    ServiceHelper.write_environment('appscale-taskqueue', service_env)
     Djinn.log_debug('Starting taskqueue servers on this node')
     ports = get_server_ports
-
-    start_cmd = TASKQUEUE_SERVER_SCRIPT
-    start_cmd << ' --verbose' if verbose
-    env_vars = { PATH: '$PATH:/usr/local/bin' }
-    MonitInterface.start(:taskqueue, start_cmd, ports, env_vars)
+    ServiceHelper.start(SERVICE_NAME_TASKQUEUE, ports)
     Djinn.log_debug('Done starting taskqueue servers on this node')
   end
 
@@ -243,17 +214,19 @@ module TaskQueue
       "  celery.control.broadcast('shutdown', connection=conn)"
     stop_cmd = %Q(/usr/bin/python2 -c "#{stop_script}")
     Djinn.log_run(stop_cmd)
-    Djinn.log_debug('Shutting down RabbitMQ')
-    MonitInterface.stop(:rabbitmq)
+    stop_rabbitmq
     stop_taskqueue_server
+  end
+
+  def self.stop_rabbitmq
+    Djinn.log_debug('Shutting down RabbitMQ')
+    ServiceHelper.stop(SERVICE_NAME_RABBITMQ)
   end
 
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server
     Djinn.log_debug('Stopping taskqueue servers on this node')
-    self.get_server_ports.each do |port|
-      MonitInterface.stop("taskqueue-#{port}")
-    end
+    ServiceHelper.stop(SERVICE_NAME_TASKQUEUE)
     Djinn.log_debug('Done stopping taskqueue servers on this node')
   end
 
@@ -287,18 +260,16 @@ module TaskQueue
       return
     end
 
-    flower_cmd = `which flower`.chomp
-    if flower_cmd.empty?
-      Djinn.log_warn('Couldn\'t find flower executable.')
-      return
-    end
-    start_cmd = "#{flower_cmd} --basic_auth=appscale:#{flower_password}"
-    MonitInterface.start(:flower, start_cmd)
+    service_env = {
+        APPSCALE_FLOWER_OPTION_AUTH: "--basic_auth=appscale:#{flower_password}"
+    }
+    ServiceHelper.write_environment(SERVICE_NAME_FLOWER, service_env)
+    ServiceHelper.start(SERVICE_NAME_FLOWER)
   end
 
   # Stops the Flower Server on this machine.
   def self.stop_flower
-    MonitInterface.stop(:flower)
+    ServiceHelper.stop(SERVICE_NAME_FLOWER)
   end
 
   # Number of servers is based on the number of CPUs.
@@ -318,19 +289,5 @@ module TaskQueue
       server_ports << STARTING_PORT + i
     }
     server_ports
-  end
-
-  def self.get_rabbitmq_version
-    version_re = /Version: (.*)-/
-
-    begin
-      rabbitmq_info = `dpkg -s rabbitmq-server`
-    rescue Errno::ENOENT
-      raise TaskQueue::UnknownVersion.new('The dpkg command was not found')
-    end
-
-    match = version_re.match(rabbitmq_info)
-    raise TaskQueue::UnknownVersion.new('Unable to find version') if match.nil?
-    match[1]
   end
 end

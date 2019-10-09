@@ -243,7 +243,7 @@ public class DevAppServerMain extends SharedMain {
 
                 updateCheck.checkJavaVersion(System.err);
 
-                // AppScale: Write a pidfile for Monit.
+                // AppScale: Write pidfile
                 String pidfile = System.getProperty("PIDFILE");
                 if (pidfile != null) {
                     String pidString = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];

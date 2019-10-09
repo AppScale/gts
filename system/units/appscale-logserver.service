@@ -1,0 +1,12 @@
+[Unit]
+Description=AppScale LogServer
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+Environment=PYTHONPATH=/root/appscale/LogService/
+ExecStart=/usr/bin/python2 /usr/bin/twistd --nodaemon --pidfile= --syslog %p
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-service.target

@@ -139,13 +139,16 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Query AppScale logserver.')
   parser.add_argument('--app_id', type=str, required=True, help='app_id')
   parser.add_argument('--version', type=str, required=True, help='app version')
-  parser.add_argument('--con', type=str, nargs='?', default='unix:///tmp/.appscale_logserver', help='Connection eg tcp://10.10.10.10:1010. (Default local log server)')
+  parser.add_argument('--con', type=str, nargs='?', default='unix:///run/appscale/logserver.sock',
+                      help='Connection eg tcp://10.10.10.10:1010. (Default local log server)')
   parser.add_argument('--start', type=int, nargs='?', help='start epoch timestamp')
   parser.add_argument('--end', type=int, nargs='?', help='end epoch timestamp')
   parser.add_argument('--ids', type=str, nargs='+', help='requestIds')
   parser.add_argument('--count', type=int, nargs='?', help='count', default=10)
-  parser.add_argument('--format', type=str, choices=['http', 'appengine', 'plain'], nargs='?', help='output format', default='appengine')
-  parser.add_argument('--mode', type=str, choices=['query', 'follow', 'log'], nargs='?', help='mode', default='query')
+  parser.add_argument('--format', type=str, choices=['http', 'appengine', 'plain'], nargs='?',
+                      help='output format', default='appengine')
+  parser.add_argument('--mode', type=str, choices=['query', 'follow', 'log'], nargs='?',
+                      help='mode', default='query')
   parser.add_argument('--reverse', action='store_true', help='reverse log order', default=False)
   args = parser.parse_args()
   #import pdb; pdb.set_trace()

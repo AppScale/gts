@@ -20,14 +20,6 @@ class InvalidIndexConfiguration(Exception):
   pass
 
 
-class MonitStates(object):
-  MISSING = 'missing'
-  PENDING = 'pending'  # Monit is trying to either start or stop the process.
-  RUNNING = 'running'
-  STOPPED = 'stopped'  # Monit will likely try to start the process soon.
-  UNMONITORED = 'unmonitored'
-
-
 def non_negative_int(value):
   """ Checks if an integer value is greater or equal than 0. """
   return isinstance(value, int) and value >= 0
@@ -174,9 +166,6 @@ SCHEMA_CHANGE_TIMEOUT = 120
 
 # Location of where the search service is running.
 SEARCH_FILE_LOC = "/etc/appscale/search_ip"
-
-# Service scripts directory.
-SERVICES_DIR = '/etc/init.d'
 
 # The AppController's service name.
 CONTROLLER_SERVICE = 'appscale-controller'

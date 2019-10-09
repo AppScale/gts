@@ -90,21 +90,6 @@ cachepackage() {
     fi
 }
 
-# This function is to disable the specify service so that it won't start
-# at next boot. AppScale manages those services.
-disableservice() {
-    if [ -n "$1" ]; then
-        update-rc.d "${1}" disable || true
-        # The following to make sure we disable it for upstart.
-        if [ -d "/etc/init" ]; then
-            echo "manual" > /etc/init/"${1}".override
-        fi
-    else
-        echo "Need a service name to disable!"
-        exit 1
-    fi
-}
-
 increaseconnections()
 {
     if [ "${IN_DOCKER}" != "yes" ]; then
@@ -138,22 +123,6 @@ root            soft    nofile           200000
 *               soft    nofile           200000
 *               -       nproc            32768
 EOF
-
-    # On distros with systemd, the open file limit must be adjusted for each
-    # service.
-    if which systemctl > /dev/null && [ "${IN_DOCKER}" != "yes" ]; then
-        mkdir -p /etc/systemd/system/monit.service.d
-        cat <<EOF > /etc/systemd/system/monit.service.d/override.conf
-[Service]
-LimitNOFILE=200000
-EOF
-        mkdir -p /etc/systemd/system/nginx.service.d
-        cat <<EOF > /etc/systemd/system/nginx.service.d/override.conf
-[Service]
-LimitNOFILE=200000
-EOF
-        systemctl daemon-reload
-    fi
 }
 
 installappscaleprofile()
@@ -207,8 +176,7 @@ EOF
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
-        cp ${APPSCALE_HOME}/common/appscale/common/templates/appscale-logrotate.conf \
-            /etc/logrotate.d/appscale
+        cp -v ${APPSCALE_HOME}/system/logrotate.d/* /etc/logrotate.d/
     fi
 
     # Logrotate AppScale logs hourly.
@@ -279,8 +247,20 @@ postinstallhaproxy()
     sed -i 's/^ENABLED=0/ENABLED=1/g' /etc/default/haproxy
 
     # AppScale starts/stop the service.
-    service haproxy stop || true
-    disableservice haproxy
+    systemctl stop haproxy || true
+    systemctl disable haproxy || true
+
+    # Pre 1.8 uses wrapper with systemd
+    if [ -f "/usr/sbin/haproxy-systemd-wrapper" ] ; then
+        HAPROXY_UNITD_DIR="${DESTDIR}/lib/systemd/system/appscale-haproxy@.service.d"
+        [ -d "${HAPROXY_UNITD_DIR}" ] || mkdir -p "${HAPROXY_UNITD_DIR}"
+        cat <<"EOF" > "${DESTDIR}/lib/systemd/system/appscale-haproxy@.service.d/10-appscale-haproxy.conf"
+[Service]
+Type=simple
+ExecStart=
+ExecStart=/usr/sbin/haproxy-systemd-wrapper -f ${CONFIG_DIR}%i${CONFIG_SUFFIX} -p /run/appscale/%i-haproxy.pid $EXTRAOPTS
+EOF
+    fi
 }
 
 installgems()
@@ -321,6 +301,8 @@ installgems()
 
 postinstallnginx()
 {
+    systemctl stop nginx || true
+    systemctl disable nginx || true
     rm -fv /etc/nginx/sites-enabled/default
 }
 
@@ -400,29 +382,41 @@ postinstallcassandra()
 installservice()
 {
     # This must be absolute path of runtime.
-    mkdir -pv ${DESTDIR}/etc/init.d/
-    cp ${APPSCALE_HOME_RUNTIME}/AppController/scripts/appcontroller ${DESTDIR}/etc/init.d/appscale-controller
-    chmod -v a+x ${DESTDIR}/etc/init.d/appscale-controller
+    mkdir -pv ${DESTDIR}/usr/lib/tmpfiles.d
+    cp -v ${APPSCALE_HOME_RUNTIME}/system/tmpfiles.d/appscale.conf ${DESTDIR}/usr/lib/tmpfiles.d/
+    systemd-tmpfiles --create
 
-    # Make sure the init script runs each time, so that it can start the
-    # AppController on system reboots.
-    update-rc.d -f appscale-controller defaults
+    mkdir -pv ${DESTDIR}/lib/systemd/system
+    cp -v ${APPSCALE_HOME_RUNTIME}/system/units/appscale*.service ${DESTDIR}/lib/systemd/system/
+    cp -v ${APPSCALE_HOME_RUNTIME}/system/units/appscale*.target ${DESTDIR}/lib/systemd/system/
+    cp -rv ${APPSCALE_HOME_RUNTIME}/system/units.d/*.d ${DESTDIR}/lib/systemd/system/
 
-    # Prevent monit from immediately restarting services at boot.
-    cp ${APPSCALE_HOME}/AppController/scripts/appscale-unmonit.sh \
-      /etc/init.d/appscale-unmonit
-    chmod -v a+x /etc/init.d/appscale-unmonit
-    update-rc.d appscale-unmonit defaults 19 21
+    SYSTEMD_VERSION=$(systemctl --version | grep '^systemd ' | grep -o '[[:digit:]]*')
+    if [ ${SYSTEMD_VERSION} -lt 239 ] ; then
+      echo "Linking appscale common systemd drop-in"
+      for APPSCALE_SYSTEMD_SERVICE in ${DESTDIR}/lib/systemd/system/appscale-*.service; do
+        [ -d "${APPSCALE_SYSTEMD_SERVICE}.d" ] || mkdir "${APPSCALE_SYSTEMD_SERVICE}.d"
+        ln -t "${APPSCALE_SYSTEMD_SERVICE}.d" ${DESTDIR}/lib/systemd/system/appscale-.d/10-appscale-common.conf
+      done
+    fi
+
+    systemctl daemon-reload
+
+    # Enable AppController on system reboots.
+    systemctl enable appscale-controller || true
 }
 
 postinstallservice()
 {
-    # Stop services shouldn't run at boot, then disable them.
-    service memcached stop || true
-    disableservice memcached
-
+    # Stop/disable services that shouldn't run at boot
     ejabberdctl stop || true
-    disableservice ejabberd
+    systemctl disable ejabberd || true
+    systemctl stop memcached || true
+    systemctl disable memcached || true
+    systemctl stop nginx || true
+    systemctl disable nginx || true
+    systemctl stop zookeeper || true
+    systemctl disable zookeeper || true
 }
 
 installzookeeper()
@@ -444,8 +438,8 @@ installurllib3()
 
 postinstallzookeeper()
 {
-    service zookeeper stop || true
-    disableservice zookeeper
+    systemctl stop zookeeper || true
+    systemctl disable zookeeper || true
     if [ ! -d /etc/zookeeper/conf ]; then
         echo "Cannot find zookeeper configuration!"
         exit 1
@@ -474,7 +468,7 @@ postinstallrabbitmq()
 
     # After install it starts up, shut it down.
     rabbitmqctl stop || true
-    disableservice rabbitmq-server
+    systemctl disable rabbitmq-server || true
 }
 
 installVersion()
@@ -501,42 +495,12 @@ postinstallrsyslog()
     sed -i 's/#module(load="imtcp")/module(load="imtcp")/' /etc/rsyslog.conf
     sed -i 's/#input(type="imtcp" port="514")/input(type="imtcp" port="514")/' /etc/rsyslog.conf
 
-    # Set up template for formatting combined application log messages.
-    cp ${APPSCALE_HOME}/common/appscale/common/templates/rsyslog-template.conf\
-        /etc/rsyslog.d/09-appscale.conf
+    # Install rsyslog drop-ins
+    mkdir -pv ${DESTDIR}/etc/rsyslog.d
+    cp -v ${APPSCALE_HOME}/system/rsyslog.d/*.conf ${DESTDIR}/etc/rsyslog.d/
 
     # Restart the service
-    service rsyslog restart || true
-}
-
-postinstallmonit()
-{
-    # We need to have http connection enabled to talk to monit.
-    if ! grep -v '^#' /etc/monit/monitrc |grep httpd > /dev/null; then
-        cat <<EOF | tee -a /etc/monit/monitrc
-
-# Added by AppScale: this is needed to have a working monit command
-set httpd port 2812 and
-   use address localhost  # only accept connection from localhost
-   allow localhost
-EOF
-    fi
-
-    # Check services every 5 seconds
-    sed -i 's/set daemon.*/set daemon 5/' /etc/monit/monitrc
-
-    # Monitor cron.
-    if [ -e /etc/monit/conf-available/cron ] &&
-            [ -e /etc/monit/conf-enabled ] &&
-            [ ! -e /etc/monit/conf-enabled/cron ]; then
-        ln -s /etc/monit/conf-available/cron /etc/monit/conf-enabled
-    fi
-
-    # Monit cannot start at boot time: in case of accidental reboot, it
-    # would start processes out of order. The controller will restart
-    # monit as soon as it starts.
-    service monit stop
-    disableservice monit
+    systemctl restart rsyslog || true
 }
 
 postinstallejabberd()

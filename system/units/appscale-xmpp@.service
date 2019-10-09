@@ -1,0 +1,13 @@
+[Unit]
+Description=AppScale XMPP Receiver for %i
+After=appscale-instance-run@.service
+Before=appscale-instance.target
+PartOf=appscale-instance.target
+AssertPathExists=/run/appscale/apps/xmpp_command_%i
+
+[Service]
+ExecStart=/bin/bash /run/appscale/apps/xmpp_command_%i
+SyslogIdentifier=%p-%i
+
+[Install]
+WantedBy=appscale-instance.target
