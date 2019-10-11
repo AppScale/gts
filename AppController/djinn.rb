@@ -1167,6 +1167,7 @@ class Djinn
   def run_groomer(secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     return NOT_READY if @nodes.empty?
+    return INVALID_REQUEST if @options.key?('fdb_clusterfile_content')
 
     Thread.new {
       run_groomer_command = `which appscale-groomer`.chomp
@@ -3248,10 +3249,13 @@ class Djinn
     @done_initializing = true
     Djinn.log_info("UserAppServer is ready.")
 
+    groomer_required = !@options.key?('fdb_clusterfile_content')
+
     # The services below depends directly or indirectly on the UAServer to
     # be operational. So we start them after we test the UAServer.
     threads = []
-    if my_node.is_db_master? or my_node.is_db_slave? or my_node.is_zookeeper?
+    if groomer_required && (my_node.is_db_master? || my_node.is_db_slave? ||
+                            my_node.is_zookeeper?)
       threads << Thread.new {
         if my_node.is_db_master? or my_node.is_db_slave?
           start_groomer_service
