@@ -396,11 +396,11 @@ installservice()
       echo "Linking appscale common systemd drop-in"
       for APPSCALE_SYSTEMD_SERVICE in ${DESTDIR}/lib/systemd/system/appscale-*.service; do
         [ -d "${APPSCALE_SYSTEMD_SERVICE}.d" ] || mkdir "${APPSCALE_SYSTEMD_SERVICE}.d"
-        ln -t "${APPSCALE_SYSTEMD_SERVICE}.d" ${DESTDIR}/lib/systemd/system/appscale-.d/10-appscale-common.conf
+        ln -ft "${APPSCALE_SYSTEMD_SERVICE}.d" ${DESTDIR}/lib/systemd/system/appscale-.d/10-appscale-common.conf
       done
     fi
 
-    systemctl daemon-reload
+    systemctl daemon-reload || true
 
     # Enable AppController on system reboots.
     systemctl enable appscale-controller || true
