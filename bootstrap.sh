@@ -110,7 +110,7 @@ while [ $# -gt 0 ]; do
     if [ "${1}" = "--tag" ]; then
         shift; if [ -z "${1}" ]; then usage; fi
         GIT_TAG="${1}";
-        if [${GIT_TAG} != "dev" ]; then TAG_PARAM_SPECIFIED="Y"; fi
+        if [ "${GIT_TAG}" != "dev" ]; then TAG_PARAM_SPECIFIED="Y"; fi
         shift; continue
     fi
     if [ "${1}" = "-t" ]; then
