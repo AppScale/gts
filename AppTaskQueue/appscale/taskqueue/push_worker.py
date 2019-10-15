@@ -157,17 +157,12 @@ def execute_task(task, headers, args):
       # Tasks should use HTTP to bypass scheme redirects since they use HAProxy.
       connection = httplib.HTTPConnection(remote_host, url.port)
 
-      skip_host = False
-      if b'host' in headers or b'Host' in headers:
-        skip_host = True
-
       skip_accept_encoding = False
       if 'accept-encoding' in headers or 'Accept-Encoding' in headers:
         skip_accept_encoding = True
 
       connection.putrequest(method,
                             urlpath,
-                            skip_host=skip_host,
                             skip_accept_encoding=skip_accept_encoding)
 
       # Update the task headers
@@ -175,6 +170,14 @@ def execute_task(task, headers, args):
       headers['X-AppEngine-TaskExecutionCount'] = str(task.request.retries)
 
       for header in headers:
+        # Avoid changing the host header from the HAProxy location. Though GAE
+        # supports host-based routing, we need to make some additional changes
+        # before we can behave in a similar manner. Using the HAProxy location
+        # for the host header allows the dispatcher to try extracting a port,
+        # which it uses to set environment variables for the request.
+        if header == b'Host':
+          continue
+
         connection.putheader(header, headers[header])
 
       if 'content-type' not in headers or 'Content-Type' not in headers:
