@@ -256,12 +256,12 @@ class CompositeEntry(IndexEntry):
     entity = entity_pb.EntityProto()
     entity.mutable_key().MergeFrom(self.key)
     entity.mutable_entity_group().MergeFrom(self.group)
+    prop_names = list(zip(*self.properties))[0]
     for prop_name, value in self.properties:
       prop = entity.add_property()
       prop.set_name(prop_name)
       prop.set_meaning(entity_pb.Property.INDEX_VALUE)
-      # TODO: Check if this is sometimes True.
-      prop.set_multiple(False)
+      prop.set_multiple(prop_names.count(prop_name) > 1)
       prop.mutable_value().MergeFrom(value)
 
     return entity
