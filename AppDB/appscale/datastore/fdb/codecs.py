@@ -33,6 +33,10 @@ POINT_CODE = 0x21
 USER_CODE = 0x24
 REFERENCE_CODE = 0x27
 
+# These are defined for clarity when selecting property type limits.
+MIN_INT64_CODE = INT64_ZERO_CODE - 8
+MAX_INT64_CODE = INT64_ZERO_CODE + 8
+
 # Ensures the shorter of two variable-length values (with identical prefixes)
 # is placed before the longer one. Otherwise, the following byte(s) could
 # determine the sort order. It also allows a decoder to find the end of the
