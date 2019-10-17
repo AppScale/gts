@@ -257,13 +257,20 @@ class CompositeEntry(IndexEntry):
     entity = entity_pb.EntityProto()
     entity.mutable_key().MergeFrom(self.key)
     entity.mutable_entity_group().MergeFrom(self.group)
-    prop_names = list(zip(*self.properties))[0]
-    for prop_name, value in self.properties:
+
+    def add_prop(prop_name, multiple, value):
       prop = entity.add_property()
       prop.set_name(prop_name)
       prop.set_meaning(entity_pb.Property.INDEX_VALUE)
-      prop.set_multiple(prop_names.count(prop_name) > 1)
+      prop.set_multiple(multiple)
       prop.mutable_value().MergeFrom(value)
+
+    for prop_name, value in self.properties:
+      if isinstance(value, list):
+        for multiple_val in value:
+          add_prop(prop_name, True, multiple_val)
+      else:
+        add_prop(prop_name, False, value)
 
     return entity
 
@@ -451,14 +458,17 @@ class PropertyIterator(object):
 
         project_id = self._project_dir.get_path()[-1]
         path = (u'__kind__', kind, u'__property__', prop_name)
-        properties = []
+        prop_values = []
         for prop_type in populated_types:
           prop_value = entity_pb.PropertyValue()
           prop_value.set_stringvalue(prop_type)
-          properties.append((u'property_representation', prop_value))
+          prop_values.append(prop_value)
 
-        results.append(CompositeEntry(project_id, self._namespace, path,
-                                      properties, None, None))
+        # TODO: Consider giving metadata results their own entry class.
+        entry = CompositeEntry(
+          project_id, self._namespace, path,
+          [(u'property_representation', prop_values)], None, None)
+        results.append(entry)
 
     self._done = True
     raise gen.Return((results, False))
