@@ -15,7 +15,7 @@ setup(
     'kazoo',
     'tornado',
     'psutil==5.6.3',
-    'attrs>=18.1.0',
+    'attrs>=18.1.0,<19.2.0',  # 19.2.0 removed "convert" attribute.
     'mock',
   ],
   test_suite='appscale.hermes',
