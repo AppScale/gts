@@ -320,7 +320,8 @@ class Path(object):
   NAME_MARKER = 0x1D
 
   @classmethod
-  def pack(cls, path, prefix=b'', omit_terminator=False, reverse=False):
+  def pack(cls, path, prefix=b'', omit_terminator=False, reverse=False,
+           allow_partial=False):
     if not isinstance(path, tuple):
       path = cls.flatten(path)
 
@@ -328,8 +329,16 @@ class Path(object):
     kind_marker = encode_marker(cls.KIND_MARKER, reverse)
     for index in range(0, len(path), 2):
       kind = path[index]
-      id_or_name = path[index + 1]
       encoded_items.append(Text.encode(kind, kind_marker, reverse))
+
+      try:
+        id_or_name = path[index + 1]
+      except IndexError:
+        if allow_partial:
+          continue
+
+        raise
+
       encoded_items.append(cls.encode_id_or_name(id_or_name, reverse))
 
     terminator = b'' if omit_terminator else encode_marker(TERMINATOR, reverse)
@@ -375,7 +384,7 @@ class Path(object):
     return tuple(items), pos
 
   @staticmethod
-  def flatten(path):
+  def flatten(path, allow_partial=False):
     """ Converts a key path protobuf object to a tuple. """
     if isinstance(path, entity_pb.PropertyValue):
       element_list = path.referencevalue().pathelement_list()
@@ -385,7 +394,7 @@ class Path(object):
       element_list = path.element_list()
 
     return tuple(item for element in element_list
-                 for item in Path.encode_element(element))
+                 for item in Path.encode_element(element, allow_partial))
 
   @staticmethod
   def decode(flat_path, reference_value=False):
@@ -411,12 +420,14 @@ class Path(object):
     return path
 
   @staticmethod
-  def encode_element(element):
+  def encode_element(element, allow_partial=False):
     """ Converts a path element protobuf object to a tuple. """
     if element.has_id():
       id_or_name = int(element.id())
     elif element.has_name():
       id_or_name = decode_str(element.name())
+    elif allow_partial:
+      id_or_name = None
     else:
       raise BadRequest(u'All path elements must either have a name or ID')
 

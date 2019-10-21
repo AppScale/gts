@@ -13,6 +13,7 @@ import os
 import sys
 
 import kazoo
+import six
 import tornado.httpserver
 import tornado.web
 from kazoo.retry import KazooRetry
@@ -24,6 +25,7 @@ from appscale.common.constants import (
   DATASTORE_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS)
 from appscale.common.datastore_index import DatastoreIndex
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.fdb.codecs import Path
 from kazoo.client import KazooState
 from kazoo.exceptions import NodeExistsError, NoNodeError
 from tornado import gen
@@ -596,12 +598,20 @@ class MainHandler(tornado.web.RequestHandler):
         ('', datastore_pb.Error.BAD_REQUEST,
          'Either size or max must be set.'))
 
+    if not request.has_model_key():
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST,
+                        'Model key must be set'))
+
+    namespace = six.text_type(request.model_key().name_space())
+    path_prefix = Path.flatten(request.model_key().path(),
+                               allow_partial=True)[:-1]
+
     if request.has_size():
       coroutine = datastore_access.allocate_size
-      args = (app_id, request.size())
+      args = (app_id, namespace, path_prefix, request.size())
     else:
       coroutine = datastore_access.allocate_max
-      args = (app_id, request.max())
+      args = (app_id, namespace, path_prefix, request.max())
 
     try:
       start, end = yield coroutine(*args)
