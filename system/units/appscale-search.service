@@ -1,0 +1,11 @@
+[Unit]
+Description=AppScale Search
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+ExecStart=/usr/bin/python2 ${APPSCALE_HOME}/SearchService/search_server.py $APPSCALE_OPTION_VERBOSE
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-service.target

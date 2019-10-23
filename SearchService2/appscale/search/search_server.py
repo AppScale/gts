@@ -17,11 +17,12 @@ from kazoo.protocol.states import KazooState
 from tornado.ioloop import IOLoop
 
 from appscale.common.async_retrying import retry_data_watch_coroutine
-from appscale.common.constants import LOG_FORMAT, ZK_PERSISTENT_RECONNECTS
+from appscale.common.constants import (
+  LOG_FORMAT, SEARCH_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS)
 from tornado import ioloop, web
 
 from appscale.search import api_methods
-from appscale.search.constants import SearchServiceError, SEARCH_SERVERS_NODE
+from appscale.search.constants import SearchServiceError
 from appscale.search.protocols import search_pb2, remote_api_pb2
 
 logger = logging.getLogger(__name__)

@@ -14,7 +14,7 @@ from appscale.admin.instance_manager.routing_client import RoutingClient
 from appscale.admin.instance_manager.source_manager import SourceManager
 from appscale.common import appscale_info, file_io
 from appscale.common.deployment_config import DeploymentConfig
-from appscale.common.monit_interface import MonitOperator
+from appscale.common.service_helper import ServiceOperator
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def main():
   thread_pool = ThreadPoolExecutor(MAX_BACKGROUND_WORKERS)
   source_manager = SourceManager(zk_client, thread_pool)
   source_manager.configure_automatic_fetch(projects_manager)
-  monit_operator = MonitOperator()
+  service_operator = ServiceOperator(thread_pool)
 
   options.define('private_ip', appscale_info.get_private_ip())
   options.define('syslog_server', appscale_info.get_headnode_ip())
@@ -43,7 +43,7 @@ def main():
 
   routing_client = RoutingClient(zk_client, options.private_ip, options.secret)
   instance_manager = InstanceManager(
-    zk_client, monit_operator, routing_client, projects_manager,
+    zk_client, service_operator, routing_client, projects_manager,
     deployment_config, source_manager, options.syslog_server, thread_pool,
     options.private_ip)
   instance_manager.start()

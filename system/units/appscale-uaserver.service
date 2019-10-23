@@ -1,0 +1,11 @@
+[Unit]
+Description=AppScale UAServer
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+ExecStart=/usr/bin/python2 ${APPSCALE_SERVICE_BIN}/appscale-uaserver $APPSCALE_UASERVER_OPTIONS
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-service.target

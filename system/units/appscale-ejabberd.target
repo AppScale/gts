@@ -1,0 +1,9 @@
+[Unit]
+Description=AppScale ejabberd
+PartOf=appscale-backend.target
+Before=appscale-backend.target
+After=ejabberd.service
+Requires=ejabberd.service
+
+[Install]
+WantedBy=appscale-backend.target

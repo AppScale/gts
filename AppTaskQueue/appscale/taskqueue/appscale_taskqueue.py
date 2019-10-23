@@ -13,7 +13,7 @@ from tornado import gen, httpserver, ioloop
 from tornado.web import Application, RequestHandler
 
 from appscale.common import appscale_info
-from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
+from appscale.common.constants import TQ_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
 from appscale.taskqueue import distributed_tq, pg_connection_wrapper
@@ -29,8 +29,6 @@ from appscale.taskqueue.statistics import (
 from appscale.taskqueue.utils import logger
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-
-TQ_SERVERS_NODE = '/appscale/tasks/servers'
 
 
 class ProtobufferHandler(RequestHandler):

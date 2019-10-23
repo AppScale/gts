@@ -1,18 +1,35 @@
 """ Configures routing for AppServer instances. """
 import json
 import logging
+from collections import namedtuple
 
+import six
 from tornado import gen
 from tornado.ioloop import IOLoop
 
 from appscale.admin.constants import CONTROLLER_STATE_NODE
-from appscale.admin.routing.haproxy import HAProxy, HAProxyAppVersion
+from appscale.admin.routing.haproxy import (
+  APP_CONFIG, APP_INSTANCE, APP_STATS_SOCKET, HAProxy, HAProxyListenBlock,
+  SERVICE_CONFIG, SERVICE_INSTANCE, SERVICE_STATS_SOCKET)
 from appscale.common.async_retrying import (
   retry_children_watch_coroutine, retry_data_watch_coroutine)
-from appscale.common.constants import (VERSION_PATH_SEPARATOR,
-                                       VERSION_REGISTRATION_NODE)
+from appscale.common.constants import (
+  BLOBSTORE_SERVERS_NODE, BLOBSTORE_PORT, DATASTORE_SERVERS_NODE,
+  DB_SERVER_PORT, SEARCH_SERVERS_NODE, SEARCH_SERVICE_PORT,
+  TASKQUEUE_SERVICE_PORT, TQ_SERVERS_NODE, UA_SERVERS_NODE, UA_SERVER_PORT,
+  VERSION_PATH_SEPARATOR, VERSION_REGISTRATION_NODE)
 
 logger = logging.getLogger('appscale-admin')
+
+ServiceInfo = namedtuple('ServiceInfo', ['registration_node', 'port', 'max_connections'])
+
+SERVICE_DETAILS = {
+  'as_blob_server': ServiceInfo(BLOBSTORE_SERVERS_NODE, BLOBSTORE_PORT, 1),
+  'appscale-datastore_server': ServiceInfo(DATASTORE_SERVERS_NODE, DB_SERVER_PORT, 2),
+  'appscale-search_server': ServiceInfo(SEARCH_SERVERS_NODE, SEARCH_SERVICE_PORT, 2),
+  'TaskQueue': ServiceInfo(TQ_SERVERS_NODE, TASKQUEUE_SERVICE_PORT, 1),
+  'UserAppServer': ServiceInfo(UA_SERVERS_NODE, UA_SERVER_PORT, 1)
+}
 
 
 class VersionRoutingManager(object):
@@ -115,15 +132,15 @@ class VersionRoutingManager(object):
     # the version.
     if (self._port is None or self._max_connections is None or
         not self._instances):
-      self._haproxy.versions.pop(self._version_key, None)
+      self._haproxy.blocks.pop(self._version_key, None)
       yield self._haproxy.reload()
       return
 
-    if self._version_key not in self._haproxy.versions:
-      self._haproxy.versions[self._version_key] = HAProxyAppVersion(
-        self._version_key, self._port, self._max_connections)
+    if self._version_key not in self._haproxy.blocks:
+      self._haproxy.blocks[self._version_key] = HAProxyListenBlock(
+        'gae_' + self._version_key, self._port, self._max_connections)
 
-    haproxy_app_version = self._haproxy.versions[self._version_key]
+    haproxy_app_version = self._haproxy.blocks[self._version_key]
     haproxy_app_version.port = self._port
     haproxy_app_version.max_connections = self._max_connections
     haproxy_app_version.servers = self._instances
@@ -149,7 +166,9 @@ class RoutingManager(object):
     Args:
       zk_client: A KazooClient.
     """
-    self._haproxy = HAProxy()
+    self._app_haproxy = HAProxy(APP_INSTANCE, APP_CONFIG, APP_STATS_SOCKET)
+    self._service_haproxy = HAProxy(SERVICE_INSTANCE, SERVICE_CONFIG,
+                                    SERVICE_STATS_SOCKET)
     self._versions = {}
     self._zk_client = zk_client
 
@@ -163,6 +182,11 @@ class RoutingManager(object):
     self._zk_client.ensure_path(VERSION_REGISTRATION_NODE)
     self._zk_client.ChildrenWatch(VERSION_REGISTRATION_NODE,
                                   self._update_versions_watch)
+
+    for service_id, service_info in six.iteritems(SERVICE_DETAILS):
+      self._zk_client.ensure_path(service_info.registration_node)
+      self._zk_client.ChildrenWatch(service_info.registration_node,
+                                    self._create_service_watch(service_id))
 
   @gen.coroutine
   def _update_versions(self, new_version_list):
@@ -182,7 +206,7 @@ class RoutingManager(object):
     for version_key in new_version_list:
       if version_key not in self._versions:
         self._versions[version_key] = VersionRoutingManager(
-          version_key, self._zk_client, self._haproxy)
+          version_key, self._zk_client, self._app_haproxy)
 
   def _update_versions_watch(self, versions):
     """ Handles changes to list of registered versions.
@@ -193,6 +217,26 @@ class RoutingManager(object):
     persistent_update_versions = retry_children_watch_coroutine(
       VERSION_REGISTRATION_NODE, self._update_versions)
     IOLoop.instance().add_callback(persistent_update_versions, versions)
+
+  @gen.coroutine
+  def _update_service(self, service_id, new_locations):
+    if service_id not in self._service_haproxy.blocks:
+      service = SERVICE_DETAILS[service_id]
+      self._service_haproxy.blocks[service_id] = HAProxyListenBlock(
+        service_id, service.port, service.max_connections)
+
+    block = self._service_haproxy.blocks[service_id]
+    block.servers = new_locations
+    yield self._service_haproxy.reload()
+
+  def _create_service_watch(self, service_id):
+    def update_service_watch(locations):
+      persistent_update_service = retry_children_watch_coroutine(
+        SERVICE_DETAILS[service_id][0], self._update_service)
+      IOLoop.instance().add_callback(persistent_update_service, service_id,
+                                     locations)
+
+    return update_service_watch
 
   @gen.coroutine
   def _update_controller_state(self, encoded_controller_state):
@@ -210,9 +254,9 @@ class RoutingManager(object):
     connect_timeout_ms = int(controller_state.get('@options', {}).\
       get('lb_connect_timeout', HAProxy.DEFAULT_CONNECT_TIMEOUT * 1000))
 
-    if connect_timeout_ms != self._haproxy.connect_timeout_ms:
-      self._haproxy.connect_timeout_ms = connect_timeout_ms
-      yield self._haproxy.reload()
+    if connect_timeout_ms != self._app_haproxy.connect_timeout_ms:
+      self._app_haproxy.connect_timeout_ms = connect_timeout_ms
+      yield self._app_haproxy.reload()
 
   def _controller_state_watch(self, encoded_controller_state, _):
     """ Handles updates to controller state.

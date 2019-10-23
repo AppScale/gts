@@ -28,9 +28,8 @@ import urllib
 import urllib2
 import urlparse
 
-from appscale.appcontroller_client import AppControllerClient
 from appscale.common import appscale_info
-from appscale.common.constants import LOG_FORMAT
+from appscale.common.constants import BLOBSTORE_SERVERS_NODE, LOG_FORMAT
 from appscale.common.deployment_config import DeploymentConfig
 from appscale.common.deployment_config import ConfigInaccessible
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
@@ -72,8 +71,6 @@ GCS_UPLOAD_ID_HEADER = 'X-GUploader-UploadID'
 
 # The chunk size to use for uploading files to GCS.
 GCS_CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
-
-BLOBSTORE_SERVERS_NODE = '/appscale/blobstore/servers'
 
 # Global used for setting the datastore path when registering the DB
 datastore_path = ""

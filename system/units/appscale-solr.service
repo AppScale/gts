@@ -1,0 +1,16 @@
+[Unit]
+Description=AppScale Solr
+Before=appscale-backend.target
+PartOf=appscale-backend.target
+
+[Service]
+Type=forking
+ExecStartPre=/bin/mkdir -p /opt/appscale/solr/data
+ExecStartPre=/bin/cp -r ${APPSCALE_HOME}/SearchService/templates/schemaless-appscale /opt/appscale/solr/
+ExecStart=/bin/bash ${APPSCALE_HOME}/SearchService/solr/solr/bin/solr start -noprompt -solr.home /opt/appscale/solr/schemaless-appscale/solr/
+ExecStop=/bin/bash ${APPSCALE_HOME}/SearchService/solr/solr/bin/solr stop
+KillMode=mixed
+SyslogIdentifier=solr
+
+[Install]
+WantedBy=appscale-backend.target

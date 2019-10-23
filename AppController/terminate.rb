@@ -12,14 +12,14 @@ module TerminateHelper
   # TODO: Use FileUtils.rm_rf instead of backticks throughout this
   # method.
   def self.erase_appscale_state
-    `service appscale-controller stop`
+    `systemctl stop appscale-controller.service`
 
     `rm -f #{APPSCALE_CONFIG_DIR}/secret.key`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /etc/nginx/sites-enabled/appscale-*.conf`
     `rm -f /etc/haproxy/service-sites-enabled/*.cfg`
-    `service nginx reload`
+    `systemctl reload nginx.service`
 
     begin
       PTY.spawn('appscale-stop-services') do |stdout, _, _|
@@ -32,9 +32,6 @@ module TerminateHelper
     rescue PTY::ChildExited
       # The process has finished.
     end
-
-    `rm -f /etc/monit/conf.d/appscale*.cfg`
-    `rm -f /etc/monit/conf.d/controller-17443.cfg`
 
     # Stop datastore and search servers.
     for slice_name in ['appscale-datastore', 'appscale-search']
@@ -52,9 +49,6 @@ module TerminateHelper
     end
 
     `rm -f /etc/logrotate.d/appscale-*`
-
-    # Let's make sure we restart any non-appscale service.
-    `service monit restart`
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
 
     # Remove location files.
@@ -70,18 +64,20 @@ module TerminateHelper
     FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/slaves")
     FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/taskqueue_nodes")
 
+    `rm -f /run/systemd/system/appscale-*.target.wants/*`
+    `rm -f /run/appscale/appscale-*.env`
+    `rm -f /run/appscale/apps/*`
+
     # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_JSON_FILE)
-    `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
-    `rm -rf #{APPSCALE_CONFIG_DIR}/zookeeper_locations`
-    `rm -f /opt/appscale/appcontroller-state.json`
-    `rm -f /opt/appscale/appserver-state.json`
+    `rm -f #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
+    `rm -f #{APPSCALE_CONFIG_DIR}/zookeeper_locations`
     print "OK"
   end
 
   # This functions ensure that the services AppScale started that have a
-  # PID in /var/run/appscale got terminated.
+  # PID in /run/appscale got terminated.
   def self.ensure_services_are_stopped
-    Dir["/var/run/appscale/*.pid"].each { |pidfile|
+    Dir["/run/appscale/*.pid"].each { |pidfile|
       # Nothing should still be running after the controller got stopped,
       # so we unceremoniously kill them.
       begin
@@ -102,7 +98,7 @@ module TerminateHelper
     `rm -rf /var/log/appscale/*`
 
     # Restart rsyslog so that the combined app logs can be recreated.
-    `service rsyslog restart`
+    `systemctl restart rsyslog.service`
 
     `rm -rf /var/log/rabbitmq/*`
     `rm -rf /var/log/zookeeper/*`
@@ -140,14 +136,12 @@ module TerminateHelper
 
     # Make sure we have cassandra running, otherwise nodetool may get
     # stuck.
-    if system("monit summary | grep cassandra | grep 'Running\\|OK' > /dev/null")
+    if system("systemctl --quiet is-active appscale-cassandra.service")
       `/opt/cassandra/cassandra/bin/nodetool -h #{ip} -p 7199 drain`
     end
 
-    # Next, stop ZooKeeper politely: we stop it with both new and old
-    # script to be sure.
-    `service zookeeper-server stop`
-    `service zookeeper stop`
+    # Next, stop ZooKeeper politely
+    `systemctl stop zookeeper.service`
   end
 end
 

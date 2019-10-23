@@ -42,6 +42,9 @@ module HelperFunctions
 
   APPSCALE_KEYS_DIR = "#{APPSCALE_CONFIG_DIR}/keys/cloud1".freeze
 
+  # Temporary location for runtime files
+  APPSCALE_RUN_DIR = '/run/appscale'.freeze
+
   # Generic sleep time to take while waiting for remote operation to
   # complete.
   SLEEP_TIME = 10

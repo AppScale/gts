@@ -7,7 +7,7 @@ require 'timeout'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'node_info'
 require 'helperfunctions'
-require 'monit_interface'
+require 'service_helper'
 
 # To implement support for the Google App Engine Search, we use
 # the open source SOLR. This module provides
@@ -27,6 +27,12 @@ module Search
 
   # Search location file.
   SEARCH_LOCATION_FILE = '/etc/appscale/search_ip'.freeze
+
+  # Service name for use with helper
+  SERVICE_NAME_SEARCH = 'appscale-search'.freeze
+
+  # Service name for use with helper
+  SERVICE_NAME_SOLR = 'appscale-solr'.freeze
 
   # The location of SOLR source code.
   SOLR_CODE_DIR = File.join(APPSCALE_HOME, 'SearchService', 'solr', 'solr')
@@ -57,23 +63,18 @@ module Search
   # Starts up SOLR.
   def self.start_solr
     Djinn.log_debug('Starting SOLR.')
-    Djinn.log_run("mkdir -p #{SOLR_STATE_DIR}")
-    Djinn.log_run('cp -r /root/appscale/SearchService/templates/schemaless-appscale /opt/appscale/solr/')
-    start_cmd = "#{SOLR_CODE_DIR}/bin/solr start -noprompt -s /opt/appscale/solr/schemaless-appscale/solr/"
-    stop_cmd = "#{SOLR_CODE_DIR}/bin/solr stop -all"
-    pidfile = "#{SOLR_CODE_DIR}/bin/solr-#{SOLR_SERVER_PORT}.pid"
-    MonitInterface.start_daemon(:solr, start_cmd, stop_cmd, pidfile)
+    ServiceHelper.start(SERVICE_NAME_SOLR)
     HelperFunctions.sleep_until_port_is_open("localhost", SOLR_SERVER_PORT)
     Djinn.log_debug('Done starting SOLR.')
   end
 
   # Starts the AppScale search server.
   def self.start_search_server(verbose)
+    service_env = {}
+    service_env[:APPSCALE_OPTION_VERBOSE] = '--verbose' if verbose
+    ServiceHelper.write_environment(SERVICE_NAME_SEARCH, service_env)
     Djinn.log_debug('Starting search server on this node.')
-    script = "#{APPSCALE_HOME}/SearchService/search_server.py"
-    start_cmd = "#{PYTHON_EXEC} #{script}"
-    start_cmd << ' --verbose' if verbose
-    MonitInterface.start(:search, start_cmd)
+    ServiceHelper.start(SERVICE_NAME_SEARCH)
     HelperFunctions.sleep_until_port_is_open('localhost', SEARCH_SERVER_PORT)
     Djinn.log_debug('Done starting search_server on this node.')
   end
@@ -81,7 +82,7 @@ module Search
   # Stops the SOLR process on this node.
   def self.stop_solr
     Djinn.log_debug('Stopping SOLR on this node.')
-    MonitInterface.stop(:solr)
+    ServiceHelper.stop(SERVICE_NAME_SOLR)
     Djinn.log_debug('Done stopping SOLR.')
   end
 
@@ -94,7 +95,7 @@ module Search
   # Stops the AppScale search server.
   def self.stop_search_server
     Djinn.log_debug('Stopping search_server on this node.')
-    MonitInterface.stop(:search) if MonitInterface.is_running?(:search)
+    ServiceHelper.stop(SERVICE_NAME_SEARCH)
     Djinn.log_debug('Done stopping search_server on this node.')
   end
 
@@ -122,10 +123,6 @@ module Search2
   # If we fail to get the number of processors we set default number of
   # search servers to this value.
   DEFAULT_NUM_SERVERS = 1
-
-  # Maximum number of concurrent requests that can be served
-  # by instance of search server
-  MAXCONN = 2
 
   # Search server processes to CPU core multiplier.
   MULTIPLIER = 0.75

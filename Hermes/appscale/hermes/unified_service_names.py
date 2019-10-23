@@ -11,18 +11,18 @@ class Service(object):
   An instance of this class correspond to specific family of AppScale services.
   e.g.: taskqueue, datastore, application (user application), cassandra, ...
 
-  It's able to recognize itself in monit name and haproxy proxy name.
+  It's able to recognize itself in external name and haproxy proxy name.
   Patterns which are used for recognition should also match application id,
   port and ip when possible.
 
   It's aimed to centralize parsing of service names
-  in monit output and haproxy stats.
-  It helps to define monit and haproxy name formats in a compact way.
+  in systemctl show output and haproxy stats.
+  It helps to define name formats in a compact way.
   """
   name = attr.ib()
 
-  # monit_matcher have to contain 'app' and 'port' groups when possible
-  monit_matcher = attr.ib(default=UNMATCHABLE, converter=re.compile)
+  # name_matcher have to contain 'app' and 'port' groups when possible
+  name_matcher = attr.ib(default=UNMATCHABLE, converter=re.compile)
 
   # haproxy_proxy_matcher have to contain 'app' group when possible
   haproxy_proxy_matcher = attr.ib(default=UNMATCHABLE, converter=re.compile)
@@ -30,15 +30,15 @@ class Service(object):
   # haproxy_server_matcher have to contain 'app', 'ip' and 'port' groups when possible
   haproxy_server_matcher = attr.ib(default=UNMATCHABLE, converter=re.compile)
 
-  def recognize_monit_process(self, monit_name):
-    """ Checks whether monit process corresponds to this service.
+  def recognize_external_name(self, external_name):
+    """ Checks whether the name corresponds to this service.
 
     Args:
-      monit_name: A string, name of process as it's shown in monit status.
+      external_name: A string, name from external namespace.
     Returns:
-      True if monit_name corresponds to this service, False otherwise.
+      True if external_name corresponds to this service, False otherwise.
     """
-    return self.monit_matcher.match(monit_name) is not None
+    return self.name_matcher.match(external_name) is not None
 
   def recognize_haproxy_proxy(self, proxy_name):
     """ Checks whether haproxy proxy corresponds to this service.
@@ -50,15 +50,15 @@ class Service(object):
     """
     return self.haproxy_proxy_matcher.match(proxy_name) is not None
 
-  def get_application_id_by_monit_name(self, monit_name):
-    """ Parses monit_name and returns application ID if it was found.
+  def get_application_id_by_external_name(self, external_name):
+    """ Parses external_name and returns application ID if it was found.
 
     Args:
-      monit_name: A string, name of process as it's shown in monit status.
+      external_name: A string, name of external service/process.
     Returns:
       A string representing App ID, or None if it wasn't found.
     """
-    match = self.monit_matcher.match(monit_name)
+    match = self.name_matcher.match(external_name)
     if not match:
       return None
     try:
@@ -66,15 +66,15 @@ class Service(object):
     except IndexError:
       return None
 
-  def get_port_by_monit_name(self, monit_name):
-    """ Parses monit_name and returns port if it was found.
+  def get_port_by_external_name(self, external_name):
+    """ Parses external_name and returns port if it was found.
 
     Args:
-      monit_name: A string, name of process as it's shown in monit status.
+      external_name: A string, name of external service/process.
     Returns:
       An integer representing port, or None if it wasn't found.
     """
-    match = self.monit_matcher.match(monit_name)
+    match = self.name_matcher.match(external_name)
     try:
       port_group = match.group('port') if match else None
       return int(port_group) if port_group else None
@@ -121,54 +121,50 @@ class Service(object):
 
 
 class ServicesEnum(object):
-  # Known by both (Monit and HAProxy)
+  # Known by both (Systemd and HAProxy)
   UASERVER = Service(
-    name='uaserver', monit_matcher='^uaserver$',
+    name='uaserver', name_matcher='^appscale-uaserver.service$',
     haproxy_proxy_matcher=r'^UserAppServer$',
     haproxy_server_matcher=r'^UserAppServer-(?P<ip>[\d.]+):(?P<port>\d+)$'
   )
   TASKQUEUE = Service(
     name='taskqueue',
-    monit_matcher=r'^taskqueue-(?P<port>\d+)$',
+    name_matcher=r'^appscale-taskqueue@(?P<port>\d+).service$',
     haproxy_proxy_matcher='^TaskQueue$',
     haproxy_server_matcher=r'^TaskQueue-(?P<ip>[\d.]+):(?P<port>\d+)$'
   )
   DATASTORE = Service(
-    name='datastore', monit_matcher=r'^datastore_server-(?P<port>\d+)$',
+    name='datastore', name_matcher=r'^datastore_server-(?P<port>\d+)$',
     haproxy_proxy_matcher='^appscale-datastore_server$',
     haproxy_server_matcher=r'^appscale-datastore_server-(?P<ip>[\d.]+):(?P<port>\d+)$'
   )
   BLOBSTORE = Service(
-    name='blobstore', monit_matcher='^blobstore$',
+    name='blobstore', name_matcher='^appscale-blobstore.service$',
     haproxy_proxy_matcher='^as_blob_server$',
     haproxy_server_matcher=r'^as_blob_server-(?P<ip>[\d.]+):(?P<port>\d+)$'
   )
   APPLICATION = Service(
     name='application',
-    monit_matcher=r'^app___(?P<app>[\w_-]+)-(?P<port>\d+)$',
+    name_matcher=r'^appscale-instance-run@(?P<app>[\w_-]+)-(?P<port>\d+).service$',
     haproxy_proxy_matcher=r'^gae_(?P<app>[\w_-]+)$',
     haproxy_server_matcher=r'^gae_(?P<app>[\w_-]+)-(?P<ip>[\d.]+):(?P<port>\d+)$'
   )
 
-  # Known only on Monit side
-  ZOOKEEPER = Service(name='zookeeper', monit_matcher='^zookeeper$')
-  RABBITMQ = Service(name='rabbitmq', monit_matcher='^rabbitmq$')
-  NGINX = Service(name='nginx', monit_matcher='^nginx$')
-  LOG_SERVICE = Service(name='log_service', monit_matcher='^log_service$')
-  IAAS_MANAGER = Service(name='iaas_manager', monit_matcher='^iaas_manager$')
-  HERMES = Service(name='hermes', monit_matcher='^hermes$')
-  HAPROXY = Service(name='haproxy', monit_matcher='^haproxy$')
-  GROOMER = Service(name='groomer', monit_matcher='^groomer_service$')
-  FLOWER = Service(name='flower', monit_matcher='^flower$')
-  EJABBERD = Service(name='ejabberd', monit_matcher='^ejabberd$')
-  CONTROLLER = Service(name='controller', monit_matcher='^controller$')
+  # Known only on systemd side, defaults are added for each
+  # appscale-XXX.service if no mapping is present
+  ZOOKEEPER = Service(name='zookeeper', name_matcher='^zookeeper.service$')
+  RABBITMQ = Service(name='rabbitmq', name_matcher='^rabbitmq-server.service$')
+  NGINX = Service(name='nginx', name_matcher='^nginx.service$')
+  LOG_SERVICE = Service(name='log_service', name_matcher='^appscale-logserver.service$')
+  IAAS_MANAGER = Service(name='iaas_manager', name_matcher='^appscale-infrastructure@(basic|shadow).service$')
+  EJABBERD = Service(name='ejabberd', name_matcher='^ejabberd.service$')
+  ADMIN = Service(name='admin_server', name_matcher='^appscale-admin.service$')
   CELERY = Service(name='celery',
-                   monit_matcher=r'^celery-(?P<app>[\w_-]+)-(?P<port>\d+)$')
-  CASSANDRA = Service(name='cassandra', monit_matcher='^cassandra$')
-  BACKUP_RECOVERY_SERVICE = Service(name='backup_recovery_service',
-                                    monit_matcher='^backup_recovery_service$')
-  MEMCACHED = Service(name='memcached', monit_matcher='^memcached$')
-  APPMANAGER = Service(name='appmanager', monit_matcher='^appmanagerserver$')
+                   name_matcher=r'^appscale-celery@(?P<app>[\w_-]+).service$')
+  CRON = Service(name='crond',
+                 name_matcher=r'^cron.service$')
+  APPMANAGER = Service(name='appmanager', name_matcher='^appscale-instance-manager.service$')
+  SERVICE_HAPROXY = Service(name='service_haproxy', name_matcher='^appscale-haproxy@service.service$')
 
 
 KNOWN_SERVICES = [
@@ -179,6 +175,20 @@ KNOWN_SERVICES_DICT = {
   service.name: service for service in KNOWN_SERVICES
 }
 
+
+def systemd_mapper(external_name):
+  """ Map a systemd service name to a Hermes name.
+
+  This will ignore instance of templated services which would require
+  special handling for any instance parameters (e.g. port)
+
+  This mapping can be used with `find_service_by_external_name`
+  """
+  if (external_name.startswith('appscale-') and
+      external_name.endswith('.service') and
+      not '@' in external_name):
+    return external_name[9:-8].replace('-','_')
+  return None
 
 def find_service_by_pxname(proxy_name):
   # Try to find service corresponding to the proxy_name
@@ -192,13 +202,16 @@ def find_service_by_pxname(proxy_name):
   return Service(name=proxy_name)
 
 
-def find_service_by_monit_name(monit_name):
-  # Try to find service corresponding to the monit_name
+def find_service_by_external_name(external_name, default_mapper=str):
+  # Try to find service corresponding to the external_name
   known_service = next((
     service for service in KNOWN_SERVICES
-    if service.recognize_monit_process(monit_name)
+    if service.recognize_external_name(external_name)
   ), None)
   if known_service:
     return known_service
-  # Return new default dummy service if the monit_name is not recognized
-  return Service(name=monit_name)
+  # Return new default dummy service if the external_name is not recognized
+  mapped_name = default_mapper(external_name)
+  if mapped_name is None:
+    return None
+  return Service(name=mapped_name)

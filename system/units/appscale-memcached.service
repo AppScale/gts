@@ -1,0 +1,12 @@
+[Unit]
+Description=AppScale Memcached
+Before=appscale-backend.target
+PartOf=appscale-backend.target
+After=network-online.target time-sync.target
+
+[Service]
+ExecStart=/usr/bin/memcached -m 64 -p 11211 -u root
+SyslogIdentifier=%p
+
+[Install]
+WantedBy=appscale-backend.target

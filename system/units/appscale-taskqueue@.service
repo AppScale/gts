@@ -1,0 +1,11 @@
+[Unit]
+Description=AppScale Task Queue on Port %i
+Before=appscale-service.target
+PartOf=appscale-service.target
+
+[Service]
+ExecStart=/opt/appscale_venvs/appscale_taskqueue/bin/python3 /opt/appscale_venvs/appscale_taskqueue/bin/appscale-taskqueue -p %i $APPSCALE_OPTION_VERBOSE
+SyslogIdentifier=%p-%i
+
+[Install]
+WantedBy=appscale-service.target

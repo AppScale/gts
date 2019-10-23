@@ -20,7 +20,9 @@ from kazoo.retry import KazooRetry
 from appscale.common import appscale_info
 from appscale.common.appscale_info import get_load_balancer_ips
 from appscale.common.async_retrying import retry_data_watch_coroutine
-from appscale.common.constants import ZK_PERSISTENT_RECONNECTS
+from appscale.common.constants import (
+  DATASTORE_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS)
+from appscale.common.datastore_index import DatastoreIndex
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from kazoo.client import KazooState
 from kazoo.exceptions import NodeExistsError, NoNodeError
@@ -65,9 +67,6 @@ READ_ONLY = False
 
 # Global stats.
 STATS = {}
-
-# The ZooKeeper path where a list of active datastore servers is stored.
-DATASTORE_SERVERS_NODE = '/appscale/datastore/servers'
 
 # The ZooKeeper path where a list of active datastore servers is stored.
 FDB_CLUSTERFILE_NODE = '/appscale/datastore/fdb-clusterfile-content'
@@ -125,6 +124,23 @@ class ReserveKeysHandler(tornado.web.RequestHandler):
     request = datastore_v4_pb.AllocateIdsRequest(self.request.body)
     ids = [key.path_element_list()[-1].id() for key in request.reserve_list()]
     yield datastore_access.reserve_ids(project_id, ids)
+
+
+class AddIndexesHandler(tornado.web.RequestHandler):
+  def post(self):
+    """
+    At this time, there does not seem to be a public API method for creating
+    datastore indexes. This is a custom handler to facilitate requests to
+    /api/datastore/index/add.
+
+    Requests to this handler must define 'project' as a URL parameter. The body
+    must be a JSON-encoded list of objects containing the details for each
+    index definition.
+    """
+    project_id = self.get_argument('project')
+    indexes = [DatastoreIndex.from_dict(project_id, index)
+               for index in json.loads(self.request.body)]
+    datastore_access.add_indexes(project_id, indexes)
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -863,6 +879,7 @@ pb_application = tornado.web.Application([
   ('/clear', ClearHandler),
   ('/read-only', ReadOnlyHandler),
   ('/reserve-keys', ReserveKeysHandler),
+  ('/index/add', AddIndexesHandler),
   (r'/*', MainHandler),
 ])
 

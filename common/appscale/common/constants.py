@@ -20,14 +20,6 @@ class InvalidIndexConfiguration(Exception):
   pass
 
 
-class MonitStates(object):
-  MISSING = 'missing'
-  PENDING = 'pending'  # Monit is trying to either start or stop the process.
-  RUNNING = 'running'
-  STOPPED = 'stopped'  # Monit will likely try to start the process soon.
-  UNMONITORED = 'unmonitored'
-
-
 def non_negative_int(value):
   """ Checks if an integer value is greater or equal than 0. """
   return isinstance(value, int) and value >= 0
@@ -40,6 +32,21 @@ ASSIGNMENTS_PATH = '/appscale/assignments'
 
 # Directory where configuration files are stored.
 CONFIG_DIR = os.path.join('/', 'etc', 'appscale')
+
+# The ZooKeeper path where a list of active blobstore servers is stored.
+BLOBSTORE_SERVERS_NODE = '/appscale/blobstore/servers'
+
+# The ZooKeeper path where a list of active datastore servers is stored.
+DATASTORE_SERVERS_NODE = '/appscale/datastore/servers'
+
+# The ZooKeeper path where a list of active search servers is stored.
+SEARCH_SERVERS_NODE = '/appscale/search/servers'
+
+# The ZooKeeper path where a list of active taskqueue servers is stored.
+TQ_SERVERS_NODE = '/appscale/tasks/servers'
+
+# The ZooKeeper path where a list of active UA servers is stored.
+UA_SERVERS_NODE = '/appscale/iam/servers'
 
 # Location of where data is persisted on disk.
 APPSCALE_DATA_DIR = '/opt/appscale'
@@ -95,8 +102,14 @@ DB_INFO_LOC = '/etc/appscale/database_info.yaml'
 # The file location which has all taskqueue nodes listed.
 TASKQUEUE_NODE_FILE = "/etc/appscale/taskqueue_nodes"
 
+# The port used for the blobstore service.
+BLOBSTORE_PORT = 6106
+
 # The port of the datastore server.
 DB_SERVER_PORT = 8888
+
+# The port used for the search service.
+SEARCH_SERVICE_PORT = 9999
 
 # The port of the UserAppServer SOAP server.
 UA_SERVER_PORT = 4341
@@ -153,9 +166,6 @@ SCHEMA_CHANGE_TIMEOUT = 120
 
 # Location of where the search service is running.
 SEARCH_FILE_LOC = "/etc/appscale/search_ip"
-
-# Service scripts directory.
-SERVICES_DIR = '/etc/init.d'
 
 # The AppController's service name.
 CONTROLLER_SERVICE = 'appscale-controller'

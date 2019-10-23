@@ -1,12 +1,9 @@
 """ Fulfills AppServer instance assignments from the scheduler. """
-import hashlib
 import httplib
 import logging
 import monotonic
 import json
 import os
-import psutil
-import signal
 import urllib2
 
 from tornado import gen
@@ -19,60 +16,22 @@ from appscale.admin.instance_manager.constants import (
   BadConfigurationException, DASHBOARD_LOG_SIZE, DASHBOARD_PROJECT_ID,
   DEFAULT_MAX_APPSERVER_MEMORY, FETCH_PATH, GO_SDK, HEALTH_CHECK_TIMEOUT,
   INSTANCE_CLASSES, JAVA_APPSERVER_CLASS, MAX_API_SERVER_PORT,
-  MAX_INSTANCE_RESPONSE_TIME, MONIT_INSTANCE_PREFIX, NoRedirection,
+  MAX_INSTANCE_RESPONSE_TIME, SERVICE_INSTANCE_PREFIX, NoRedirection,
   PIDFILE_TEMPLATE, PYTHON_APPSERVER, START_APP_TIMEOUT,
   STARTING_INSTANCE_PORT, VERSION_REGISTRATION_NODE)
 from appscale.admin.instance_manager.instance import (
   create_java_app_env, create_java_start_cmd, create_python_api_start_cmd,
   create_python_app_env, create_python27_start_cmd, get_login_server, Instance)
-from appscale.admin.instance_manager.stop_instance import stop_instance
 from appscale.admin.instance_manager.utils import setup_logrotate, \
   remove_logrotate
-from appscale.common import appscale_info, monit_app_configuration
+from appscale.common import (appscale_info, file_io)
 from appscale.common.async_retrying import retry_data_watch_coroutine
 from appscale.common.constants import (
-  APPS_PATH, GO, JAVA, JAVA8, MonitStates, PHP, PYTHON27, VAR_DIR,
+  APPS_PATH, GO, JAVA, JAVA8, PHP, PYTHON27, VAR_DIR,
   VERSION_PATH_SEPARATOR)
-from appscale.common.monit_interface import DEFAULT_RETRIES, ProcessNotFound
 from appscale.common.retrying import retry
 
 logger = logging.getLogger(__name__)
-
-
-def clean_up_instances(entries_to_keep):
-  """ Terminates instances that aren't accounted for.
-
-  Args:
-    entries_to_keep: A list of dictionaries containing instance details.
-  """
-  monitored = {(entry['revision'], entry['port']) for entry in entries_to_keep}
-  to_stop = []
-  for process in psutil.process_iter():
-    cmd = process.cmdline()
-    if len(cmd) < 2:
-      continue
-
-    if JAVA_APPSERVER_CLASS in cmd:
-      revision = cmd[-1].split(os.sep)[-2]
-      port_arg = next(arg for arg in cmd if arg.startswith('--port='))
-      port = int(port_arg.split('=')[-1])
-    elif cmd[1] == PYTHON_APPSERVER:
-      source_arg = next(arg for arg in cmd if arg.startswith(APPS_PATH))
-      revision = source_arg.split(os.sep)[-2]
-      port = int(cmd[cmd.index('--port') + 1])
-    else:
-      continue
-
-    if (revision, port) not in monitored:
-      to_stop.append(process)
-
-  if not to_stop:
-    return
-
-  logger.info('Killing {} unmonitored instances'.format(len(to_stop)))
-  for process in to_stop:
-    group = os.getpgid(process.pid)
-    os.killpg(group, signal.SIGKILL)
 
 
 class InstanceManager(object):
@@ -81,14 +40,14 @@ class InstanceManager(object):
   # The seconds to wait between performing health checks.
   HEALTH_CHECK_INTERVAL = 60
 
-  def __init__(self, zk_client, monit_operator, routing_client,
+  def __init__(self, zk_client, service_operator, routing_client,
                projects_manager, deployment_config, source_manager,
                syslog_server, thread_pool, private_ip):
     """ Creates a new InstanceManager.
 
     Args:
       zk_client: A kazoo.client.KazooClient object.
-      monit_operator: An appscale.common.monit_interface.MonitOperator object.
+      service_operator: An appscale.common.service_helper.ServiceOperator object.
       routing_client: An instance_manager.routing_client.RoutingClient object.
       projects_manager: A ProjectsManager object.
       deployment_config: A common.deployment_config.DeploymentConfig object.
@@ -98,7 +57,7 @@ class InstanceManager(object):
       thread_pool: A ThreadPoolExecutor.
       private_ip: A string specifying the current machine's private IP address.
     """
-    self._monit_operator = monit_operator
+    self._service_operator = service_operator
     self._routing_client = routing_client
     self._private_ip = private_ip
     self._syslog_server = syslog_server
@@ -165,7 +124,7 @@ class InstanceManager(object):
     source_archive = version_details['deployment']['zip']['sourceUrl']
     http_port = version_details['appscaleExtensions']['httpPort']
 
-    api_server_port = yield self._ensure_api_server(version.project_id, runtime)
+    api_server_port, api_services = yield self._ensure_api_server(version.project_id, runtime)
     yield self._source_manager.ensure_source(
       version.revision_key, source_archive, runtime)
 
@@ -178,7 +137,6 @@ class InstanceManager(object):
                                         'gopath')
       env_vars['GOROOT'] = os.path.join(GO_SDK, 'goroot')
 
-    watch = ''.join([MONIT_INSTANCE_PREFIX, version.revision_key])
     if runtime in (PYTHON27, GO, PHP):
       start_cmd = create_python27_start_cmd(
         version.project_id,
@@ -218,34 +176,16 @@ class InstanceManager(object):
     logger.info("Start command: " + str(start_cmd))
     logger.info("Environment variables: " + str(env_vars))
 
-    base_version = version.revision_key.rsplit(VERSION_PATH_SEPARATOR, 1)[0]
-    log_tag = "app_{}".format(hashlib.sha1(base_version).hexdigest()[:28])
+    env_content = ' '.join(['{}="{}"'.format(k, str(v)) for k, v in env_vars.items()])
+    command_content = 'exec env {} {}'.format(env_content, start_cmd)
+    service_inst = '{}-{}'.format(version.revision_key, port)
+    service_name = 'appscale-instance-run@{}'.format(service_inst)
+    service_props = {'MemoryLimit': '{}M'.format(max_memory)}
+    command_file_path = '/run/appscale/apps/command_{}'.format(service_inst)
+    file_io.write(command_file_path, command_content)
 
-    monit_app_configuration.create_config_file(
-      watch,
-      start_cmd,
-      pidfile,
-      port,
-      env_vars,
-      max_memory,
-      self._syslog_server,
-      check_port=True,
-      kill_exceeded_memory=True,
-      log_tag=log_tag,
-    )
-
-    full_watch = '{}-{}'.format(watch, port)
-
-    yield self._monit_operator.reload(self._thread_pool)
-
-    # The reload command does not block, and we don't have a good way to check
-    # if Monit is ready with its new configuration yet. If the daemon begins
-    # reloading while it is handling the 'start', it can end up in a state
-    # where it never starts the process. As a temporary workaround, this
-    # small period allows it to finish reloading. This can be removed if
-    # instances are started inside a cgroup.
-    yield gen.sleep(1)
-    yield self._monit_operator.send_command_retry_process(full_watch, 'start')
+    yield self._service_operator.start_async(
+        service_name, wants=api_services, properties=service_props)
 
     # Make sure the version registration node exists.
     self._zk_client.ensure_path(
@@ -277,11 +217,11 @@ class InstanceManager(object):
         project_id = index_and_id[1]
       return project_id, index, int(port)
 
-    monit_entries = yield self._monit_operator.get_entries()
-    monit_entry_list = [entry for entry in monit_entries
-                        if entry.startswith(API_SERVER_PREFIX)]
-    monit_entry_list.sort()
-    server_entries = [api_server_info(entry) for entry in monit_entry_list]
+    service_entries = yield self._service_operator.list_async()
+    service_entry_list = [entry for entry in service_entries
+                          if entry.startswith(API_SERVER_PREFIX)]
+    service_entry_list.sort()
+    server_entries = [api_server_info(entry) for entry in service_entry_list]
 
     for project_id, index, port in server_entries:
       ports =  (self._api_servers[project_id] if project_id in
@@ -293,32 +233,17 @@ class InstanceManager(object):
         ports.insert(index, port)
 
   def _recover_state(self):
-    """ Establishes current state from Monit entries. """
+    """ Establishes current state from services. """
     logger.info('Getting current state')
-    monit_entries = self._monit_operator.get_entries_sync()
-    instance_entries = {entry: state for entry, state in monit_entries.items()
-                        if entry.startswith(MONIT_INSTANCE_PREFIX)}
-
-    # Remove all unmonitored entries.
-    removed = []
-    for entry, state in instance_entries.items():
-      if state == MonitStates.UNMONITORED:
-        self._monit_operator.remove_configuration(entry)
-        removed.append(entry)
-
-    for entry in removed:
-      del instance_entries[entry]
-
-    if removed:
-      self._monit_operator.reload_sync()
+    service_entries = self._service_operator.list()
+    instance_entries = {entry: state for entry, state in service_entries.items()
+                        if entry.startswith(SERVICE_INSTANCE_PREFIX)}
 
     instance_details = []
     for entry, state in instance_entries.items():
-      revision, port = entry[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)
+      revision, port = entry[entry.find('@')+1:].rsplit('-', 2)
       instance_details.append(
         {'revision': revision, 'port': int(port), 'state': state})
-
-    clean_up_instances(instance_details)
 
     # Ensure version nodes exist.
     running_versions = {'_'.join(instance['revision'].split('_')[:3])
@@ -343,15 +268,21 @@ class InstanceManager(object):
       project_id: A string specifying the project ID.
       runtime: The runtime for the project
     Returns:
-      An integer specifying the API server port.
+      An integer specifying the API server port and list of api services.
     """
     ensure_app_server_api = runtime==JAVA8
     if project_id in self._api_servers:
       api_server_ports = self._api_servers[project_id]
       if not ensure_app_server_api:
-        raise gen.Return(api_server_ports[0])
+        raise gen.Return((api_server_ports[0],
+                          ['appscale-api-server@{}-{}'
+                           .format(project_id, str(api_server_ports[0]))]))
       elif len(api_server_ports) > 1:
-          raise gen.Return(api_server_ports[1])
+          raise gen.Return((api_server_ports[1],
+                            ['appscale-api-server@{}-{}'
+                            .format(project_id, str(api_server_ports[0])),
+                             'appscale-api-server@1_{}-{}'
+                            .format(project_id, str(api_server_ports[1]))]))
 
     server_port = MAX_API_SERVER_PORT
     for ports in self._api_servers.values():
@@ -359,82 +290,48 @@ class InstanceManager(object):
         if port <= server_port:
           server_port = port - 1
 
-    full_watch = None
+    api_services = []
     if not project_id in self._api_servers:
       watch = ''.join([API_SERVER_PREFIX, project_id])
-      full_watch = '-'.join([watch, str(server_port)])
-      pidfile = os.path.join(VAR_DIR, '{}.pid'.format(full_watch))
       zk_locations = appscale_info.get_zk_node_ips()
       start_cmd = ' '.join([API_SERVER_LOCATION,
                           '--port', str(server_port),
                           '--project-id', project_id,
                           '--zookeeper-locations', ' '.join(zk_locations)])
-      monit_app_configuration.create_config_file(
-        watch,
-        start_cmd,
-        pidfile,
-        server_port,
-        max_memory=DEFAULT_MAX_APPSERVER_MEMORY,
-        check_port=True,
-        check_host='127.0.0.1')
+
+      api_command_file_path = ('/run/appscale/apps/api_command_{}-{}'
+                               .format(project_id, str(server_port)))
+      api_command_content = 'exec {}'.format(start_cmd)
+      file_io.write(api_command_file_path, api_command_content)
+
       api_server_port = server_port
     else:
       api_server_port = self._api_servers[project_id][0]
+    api_services.append('appscale-api-server@{}-{}'
+                        .format(project_id, str(api_server_port)))
 
-    full_watch_app = None
     if ensure_app_server_api:
       # Start an Python 27 runtime API server
       if api_server_port==server_port:
         server_port -= 1
-      watch = ''.join([API_SERVER_PREFIX, '1_', project_id])
-      full_watch_app = '-'.join([watch, str(server_port)])
-      pidfile = os.path.join(VAR_DIR, '{}.pid'.format(full_watch_app))
       start_cmd = create_python_api_start_cmd(project_id,
                                               self._login_server,
                                               server_port,
-                                              pidfile,
                                               api_server_port)
-      monit_app_configuration.create_config_file(
-        watch,
-        start_cmd,
-        pidfile,
-        server_port,
-        max_memory=DEFAULT_MAX_APPSERVER_MEMORY,
-        check_port=True,
-        check_host='127.0.0.1',
-        group='api-server')
+
+      api_command_file_path = ('/run/appscale/apps/api_command_1_{}-{}'
+                               .format(project_id, str(server_port)))
+      api_command_content = 'exec {}'.format(start_cmd)
+      file_io.write(api_command_file_path, api_command_content)
+
+      api_services.append('appscale-api-server@{}-{}'
+                          .format(project_id, str(server_port)))
+
       self._api_servers[project_id] = [api_server_port, server_port]
     else:
       self._api_servers[project_id] = [server_port]
 
-    yield self._monit_operator.reload(self._thread_pool)
-    if full_watch:
-      yield self._monit_operator.send_command_retry_process(full_watch, 'start')
-    if full_watch_app:
-      yield self._monit_operator.send_command_retry_process(full_watch_app, 'start')
-
-    raise gen.Return(server_port)
-
-  @gen.coroutine
-  def _unmonitor_and_terminate(self, watch):
-    """ Unmonitors an instance and terminates it.
-
-    Args:
-      watch: A string specifying the Monit entry.
-    """
-    try:
-      monit_retry = retry(max_retries=5, retry_on_exception=DEFAULT_RETRIES)
-      send_w_retries = monit_retry(self._monit_operator.send_command_sync)
-      send_w_retries(watch, 'unmonitor')
-    except ProcessNotFound:
-      # If Monit does not know about a process, assume it is already stopped.
-      return
-
-    # Now that the AppServer is stopped, remove its monit config file so that
-    # monit doesn't pick it up and restart it.
-    self._monit_operator.remove_configuration(watch)
-
-    stop_instance(watch, MAX_INSTANCE_RESPONSE_TIME)
+    raise gen.Return((server_port, api_services))
 
   def _instance_healthy(self, port):
     """ Determines the health of an instance with an HTTP request.
@@ -476,6 +373,10 @@ class InstanceManager(object):
 
     raise gen.Return(False)
 
+  def _instance_service_name(self, instance):
+    return ''.join(['appscale-instance-run@', instance.revision_key, '-',
+                    str(instance.port)])
+
   @gen.coroutine
   def _add_routing(self, instance):
     """ Tells the AppController to begin routing traffic to an AppServer.
@@ -486,11 +387,8 @@ class InstanceManager(object):
     logger.info('Waiting for {}'.format(instance))
     start_successful = yield self._wait_for_app(instance.port)
     if not start_successful:
-      monit_watch = ''.join(
-        [MONIT_INSTANCE_PREFIX, instance.revision_key, '-',
-         str(instance.port)])
-      yield self._unmonitor_and_terminate(monit_watch)
-      yield self._monit_operator.reload(self._thread_pool)
+      instance_service = self._instance_service_name(instance)
+      yield self._service_operator.stop_async(instance_service)
       logger.warning('{} did not come up in time'.format(instance))
       return
 
@@ -498,30 +396,13 @@ class InstanceManager(object):
     self._running_instances.add(instance)
 
   @gen.coroutine
-  def _stop_api_server(self, project_id):
-    """ Make sure there are no running API servers for a project.
-
-    Args:
-      project_id: A string specifying the project ID.
-    """
-    if project_id not in self._api_servers:
-      return
-
-    ports = self._api_servers[project_id]
-    for index, port in enumerate(ports):
-      index_str = '' if index==0 else '{}_'.format(index)
-      watch = '{}{}{}-{}'.format(API_SERVER_PREFIX, index_str, project_id, port)
-      yield self._unmonitor_and_terminate(watch)
-    del self._api_servers[project_id]
-
-  @gen.coroutine
   def _clean_old_sources(self):
     """ Removes source code for obsolete revisions. """
-    monit_entries = yield self._monit_operator.get_entries()
+    service_entries = yield self._service_operator.list_async()
     active_revisions = {
-      entry[len(MONIT_INSTANCE_PREFIX):].rsplit('-', 1)[0]
-      for entry in monit_entries
-      if entry.startswith(MONIT_INSTANCE_PREFIX)}
+      entry[len(SERVICE_INSTANCE_PREFIX):].rsplit('-', 1)[0]
+      for entry in service_entries
+      if entry.startswith(SERVICE_INSTANCE_PREFIX)}
 
     for project_id, project_manager in self._projects_manager.items():
       for service_id, service_manager in project_manager.items():
@@ -543,8 +424,7 @@ class InstanceManager(object):
     """
     logger.info('Stopping {}'.format(instance))
 
-    monit_watch = ''.join(
-      [MONIT_INSTANCE_PREFIX, instance.revision_key, '-', str(instance.port)])
+    instance_service = self._instance_service_name(instance)
 
     self._routing_client.unregister_instance(instance)
     try:
@@ -553,15 +433,13 @@ class InstanceManager(object):
       logger.info(
         'unregister_instance: non-existent instance {}'.format(instance))
 
-    yield self._unmonitor_and_terminate(monit_watch)
+    yield self._service_operator.stop_async(instance_service)
 
     project_instances = [instance_ for instance_ in self._running_instances
                          if instance_.project_id == instance.project_id]
     if not project_instances:
-      yield self._stop_api_server(instance.project_id)
       remove_logrotate(instance.project_id)
 
-    yield self._monit_operator.reload(self._thread_pool)
     yield self._clean_old_sources()
 
   def _get_lowest_port(self):

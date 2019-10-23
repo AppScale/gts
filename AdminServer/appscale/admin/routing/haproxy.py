@@ -4,16 +4,34 @@ import logging
 import monotonic
 import os
 import pkgutil
-import subprocess
 
 from tornado import gen
 
+from appscale.common import service_helper
 from appscale.common.appscale_info import get_private_ip
 
-logger = logging.getLogger('appscale-admin')
+logger = logging.getLogger(__name__)
 
 # The directory that contains HAProxy config files.
 CONFIG_DIR = os.path.join('/', 'etc', 'haproxy')
+
+# The location of the combined HAProxy config file for AppServer instances.
+APP_CONFIG = os.path.join(CONFIG_DIR, 'app-haproxy.cfg')
+
+# The location of the combined HAProxy config file for AppScale services.
+SERVICE_CONFIG = os.path.join(CONFIG_DIR, 'service-haproxy.cfg')
+
+# The instance name for instance-related HAProxy processes.
+APP_INSTANCE = 'app'
+
+# The instance name for service-related HAProxy processes.
+SERVICE_INSTANCE = 'service'
+
+# The location of the unix socket used for reporting application stats.
+APP_STATS_SOCKET = os.path.join(CONFIG_DIR, 'stats')
+
+# The location of the unix socket used for reporting service stats.
+SERVICE_STATS_SOCKET = os.path.join(CONFIG_DIR, 'service-stats')
 
 
 class InvalidConfig(Exception):
@@ -21,38 +39,41 @@ class InvalidConfig(Exception):
   pass
 
 
-class HAProxyAppVersion(object):
-  """ Represents a version's HAProxy configuration. """
+class HAProxyListenBlock(object):
+  """ Represents an HAProxy configuration block. """
 
   # The template for a server config line.
-  SERVER_TEMPLATE = ('server gae_{version}-{server} {server} '
+  SERVER_TEMPLATE = ('server {block_id}-{location} {location} '
                      'maxconn {max_connections} check')
 
-  # The template for a version block.
-  VERSION_TEMPLATE = pkgutil.get_data('appscale.admin.routing',
-                                      'templates/version.cfg')
+  # The template for a listen block.
+  BLOCK_TEMPLATE = pkgutil.get_data('appscale.admin.routing',
+                                    'templates/listen_block.cfg')
 
-  def __init__(self, version_key, port, max_connections):
-    """ Creates a new HAProxyAppVersion instance.
+  def __init__(self, block_id, port, max_connections, servers=()):
+    """ Creates a new HAProxyListenBlock instance.
 
     Args:
-      version_key: A string specifying a version
+      block_id: A string specifying the name of the listen block.
+      port: An integer specifying the listen port.
+      max_connections: An integer specifying the max number of connections.
+      servers: An iterable specifying server locations.
     """
-    self.version_key = version_key
+    self.block_id = block_id
     self.port = port
     self.max_connections = max_connections
-    self.servers = []
+    self.servers = servers
 
     self._private_ip = get_private_ip()
 
   def __repr__(self):
     """ Returns a print-friendly representation of the version config. """
-    return 'HAProxyAppVersion<{}:{}, maxconn:{}, servers:{}>'.format(
-      self.version_key, self.port, self.max_connections, self.servers)
+    return 'HAProxyListenBlock({!r}, {!r}, {!r}, {!r})'.format(
+      self.block_id, self.port, self.max_connections, self.servers)
 
   @property
   def block(self):
-    """ Represents the version as a configuration block.
+    """ Generates the configuration block.
 
     Returns:
       A string containing the configuration block or None.
@@ -61,27 +82,18 @@ class HAProxyAppVersion(object):
       return None
 
     server_lines = [
-      self.SERVER_TEMPLATE.format(version=self.version_key, server=server,
+      self.SERVER_TEMPLATE.format(block_id=self.block_id, location=server,
                                   max_connections=self.max_connections)
       for server in self.servers]
     server_lines.sort()
     bind_location = ':'.join([self._private_ip, str(self.port)])
-    return self.VERSION_TEMPLATE.format(
-      version=self.version_key, bind_location=bind_location,
+    return self.BLOCK_TEMPLATE.format(
+      block_id=self.block_id, bind_location=bind_location,
       servers='\n  '.join(server_lines))
 
 
 class HAProxy(object):
-  """ Manages HAProxy operations. """
-
-  # The location of the combined HAProxy config file for AppServer instances.
-  APP_CONFIG = os.path.join(CONFIG_DIR, 'app-haproxy.cfg')
-
-  # The location of the pidfile for instance-related HAProxy processes.
-  APP_PID = os.path.join('/', 'var', 'run', 'appscale', 'app-haproxy.pid')
-
-  # The location of the unix socket used for reporting stats.
-  APP_STATS_SOCKET = os.path.join(CONFIG_DIR, 'stats')
+  """ Manages an HAProxy process. """
 
   # The template for the configuration file.
   BASE_TEMPLATE = pkgutil.get_data('appscale.admin.routing',
@@ -99,13 +111,17 @@ class HAProxy(object):
   # The minimum number of seconds to wait between each reload operation.
   RELOAD_COOLDOWN = .1
 
-  def __init__(self):
+  def __init__(self, instance, config_location, stats_socket):
     """ Creates a new HAProxy operator. """
     self.connect_timeout_ms = self.DEFAULT_CONNECT_TIMEOUT * 1000
     self.client_timeout_ms = self.DEFAULT_CLIENT_TIMEOUT * 1000
     self.server_timeout_ms = self.DEFAULT_SERVER_TIMEOUT * 1000
-    self.versions = {}
+    self.blocks = {}
     self.reload_future = None
+
+    self._instance = instance
+    self._config_location = config_location
+    self._stats_socket = stats_socket
 
     # Given the arbitrary base of the monotonic clock, it doesn't make sense
     # for outside functions to access this attribute.
@@ -119,22 +135,25 @@ class HAProxy(object):
       A string containing a complete HAProxy configuration.
     """
     unique_ports = set()
-    for version in self.versions.values():
-      if version.port in unique_ports:
+    for block in self.blocks.values():
+      if block.port in unique_ports:
         raise InvalidConfig('Port {} is used by more than one '
-                            'version'.format(version.port))
+                            'block'.format(block.port))
 
-      unique_ports.add(version.port)
+      unique_ports.add(block.port)
 
-    version_blocks = [self.versions[key].block
-                      for key in sorted(self.versions.keys())
-                      if self.versions[key].block]
+    listen_blocks = [self.blocks[key].block
+                     for key in sorted(self.blocks.keys())
+                     if self.blocks[key].block]
+    if not listen_blocks:
+      return None
+
     return self.BASE_TEMPLATE.format(
-      stats_socket=self.APP_STATS_SOCKET,
+      stats_socket=self._stats_socket,
       connect_timeout=self.connect_timeout_ms,
       client_timeout=self.client_timeout_ms,
       server_timeout=self.server_timeout_ms,
-      versions='\n'.join(version_blocks))
+      listen_blocks='\n'.join(listen_blocks))
 
   @gen.coroutine
   def reload(self):
@@ -143,6 +162,19 @@ class HAProxy(object):
       self.reload_future = self._reload()
 
     yield self.reload_future
+
+  @property
+  def _service(self):
+    return 'appscale-haproxy@{}.service'.format(self._instance)
+
+  def _stop(self):
+    service_helper.stop(self._service)
+
+    try:
+      os.remove(self._config_location)
+    except OSError as error:
+      if error.errno != errno.ENOENT:
+        raise
 
   @gen.coroutine
   def _reload(self):
@@ -158,9 +190,14 @@ class HAProxy(object):
       logger.error(str(error))
       return
 
+    # Ensure process is not running if there is nothing to route.
+    if new_content is None:
+      self._stop()
+      return
+
     try:
-      with open(self.APP_CONFIG, 'r') as app_config_file:
-        existing_content = app_config_file.read()
+      with open(self._config_location, 'r') as config_file:
+        existing_content = config_file.read()
     except IOError as error:
       if error.errno != errno.ENOENT:
         raise
@@ -170,31 +207,9 @@ class HAProxy(object):
     if new_content == existing_content:
       return
 
-    with open(self.APP_CONFIG, 'w') as app_config_file:
-      app_config_file.write(new_content)
+    with open(self._config_location, 'w') as config_file:
+      config_file.write(new_content)
 
-    try:
-      with open(self.APP_PID) as pid_file:
-        pid = int(pid_file.read())
+    service_helper.reload(self._service)
 
-    except IOError as error:
-      if error.errno != errno.ENOENT:
-        raise
-
-      pid = None
-
-    # Check if the process is running.
-    if pid is not None:
-      try:
-        os.kill(pid, 0)
-      except OSError:
-        pid = None
-
-    if pid is None:
-      subprocess.check_call(['haproxy', '-f', self.APP_CONFIG, '-D',
-                             '-p', self.APP_PID])
-    else:
-      subprocess.check_call(['haproxy', '-f', self.APP_CONFIG, '-D',
-                             '-p', self.APP_PID, '-sf', str(pid)])
-
-    logger.info('Updated HAProxy config')
+    logger.info('Updated {} HAProxy config'.format(self._instance))
