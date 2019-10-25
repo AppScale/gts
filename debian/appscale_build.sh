@@ -59,9 +59,6 @@ if grep docker /proc/1/cgroup > /dev/null ; then
     # Make sure we have default locale.
     ${PKG_CMD} install --assume-yes locales
     locale-gen en_US en_US.UTF-8
-    # Docker images miss the following.
-    mkdir -p /var/run/sshd
-    chmod 755 /var/run/sshd
 fi
 
 export APPSCALE_HOME_RUNTIME=`pwd`
