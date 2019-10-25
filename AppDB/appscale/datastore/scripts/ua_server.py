@@ -1018,34 +1018,35 @@ def main():
 
   register_location(appscale_info.get_private_ip(), bindport)
 
+  ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()
+  valid_datastores = appscale_datastore.DatastoreFactory.valid_datastores()
+  if datastore_type not in valid_datastores:
+      raise Exception('{} not in valid datastores ({})'.
+                      format(datastore_type, valid_datastores))
 
   connect_to_postgres(zk_client)
   if pg_connection_wrapper:
     init_table(pg_connection_wrapper)
+    db = None
+  else:
+    db = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
 
-  db = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
-  ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()
-  valid_datastores = appscale_datastore.DatastoreFactory.valid_datastores()
-  if datastore_type not in valid_datastores:
-    raise Exception('{} not in valid datastores ({})'.
-                    format(datastore_type, valid_datastores))
+    # Keep trying until it gets the schema.
+    timeout = 5
+    while 1:
+      try:
+        user_schema = db.get_schema_sync(USER_TABLE)
+      except AppScaleDBConnectionError:
+        time.sleep(timeout)
+        continue
 
-  # Keep trying until it gets the schema.
-  timeout = 5
-  while 1:
-    try:
-      user_schema = db.get_schema_sync(USER_TABLE)
-    except AppScaleDBConnectionError:
-      time.sleep(timeout)
-      continue
-
-    if user_schema[0] in ERROR_CODES:
-      user_schema = user_schema[1:]
-      Users.attributes_ = user_schema
-    else:
-      time.sleep(timeout)
-      continue
-    break
+      if user_schema[0] in ERROR_CODES:
+        user_schema = user_schema[1:]
+        Users.attributes_ = user_schema
+      else:
+        time.sleep(timeout)
+        continue
+      break
 
   ip = "0.0.0.0"
   server = SOAPpy.SOAPServer((ip, bindport))
