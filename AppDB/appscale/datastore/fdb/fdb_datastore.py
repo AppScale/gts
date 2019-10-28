@@ -123,7 +123,7 @@ class FDBDatastore(object):
 
     for entity in put_request.entity_list():
       write_entry = writes[entity.key().Encode()][1]
-      put_response.add_key().CopyFrom(entity.key())
+      put_response.add_key().CopyFrom(write_entry.key)
       if write_entry.version != ABSENT_VERSION:
         put_response.add_version(write_entry.version)
 
