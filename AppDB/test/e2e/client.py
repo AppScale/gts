@@ -68,11 +68,17 @@ class Datastore(object):
 
   @gen.coroutine
   def run_query(self, query):
+    entities = []
     query_pb = query._ToPb()
     encoded_response = yield self._make_request('RunQuery', query_pb.Encode())
     results_pb = datastore_pb.QueryResult(encoded_response)
-    raise gen.Return(
-      [Entity.FromPb(entity) for entity in results_pb.result_list()])
+    entities.extend([Entity.FromPb(entity) for entity in results_pb.result_list()])
+    while results_pb.has_more_results() and len(results_pb.result_list()) >= 100:
+      query_pb.set_offset(query_pb.offset() + len(results_pb.result_list()))
+      encoded_response = yield self._make_request('RunQuery', query_pb.Encode())
+      results_pb = datastore_pb.QueryResult(encoded_response)
+      entities.extend([Entity.FromPb(entity) for entity in results_pb.result_list()])
+    raise gen.Return(entities)
 
   @gen.coroutine
   def put(self, entity, txid=None):
