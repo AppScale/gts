@@ -158,7 +158,6 @@ BOOKED_PORTS = set(
   + list(HAPROXY_PORTS)
   + [
     2181,     # Zookeeper
-    2812,     # Monit
     3306,     # MySQL
     4341,     # UserAppServer service
     4342,     # UserAppServer server

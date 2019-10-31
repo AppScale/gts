@@ -15,6 +15,7 @@ setup(
     'kazoo',
     'monotonic',
     'mmh3',
+    'psycopg2-binary',
     'SOAPpy',
     'tornado',
     'foundationdb~=6.1.8'

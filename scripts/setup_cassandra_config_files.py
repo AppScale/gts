@@ -20,7 +20,7 @@ from appscale.datastore.cassandra_env.cassandra_interface import\
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(
-    description="Creates Cassandra's Monit configuration files")
+    description="Creates Cassandra's configuration files")
   parser.add_argument('--local-ip', required=True,
                       help='The private IP address of this machine.')
   parser.add_argument('--master-ip', required=True,

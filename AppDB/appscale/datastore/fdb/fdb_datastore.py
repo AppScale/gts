@@ -31,6 +31,7 @@ from appscale.datastore.fdb.transactions import TransactionManager
 from appscale.datastore.fdb.utils import (
   ABSENT_VERSION, fdb, FDBErrorCodes, next_entity_version, DS_ROOT,
   ScatteredAllocator, TornadoFDB)
+from appscale.datastore.index_manager import IndexInaccessible
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
@@ -369,6 +370,23 @@ class FDBDatastore(object):
   def update_composite_index(self, project_id, index):
     project_id = decode_str(project_id)
     yield self._index_manager.update_composite_index(project_id, index)
+
+  @gen.coroutine
+  def get_indexes(self, project_id):
+    """ Retrieves list of indexes for a project.
+
+    Args:
+      project_id: A string specifying a project ID.
+    Returns:
+      A list of entity_pb.CompositeIndex objects.
+    Raises:
+      BadRequest if project_id is not found.
+    """
+    tr = self._db.create_transaction()
+    composite_index_manager = self._index_manager._composite_index_manager
+    project_indexes = yield composite_index_manager.get_definitions(
+      tr, project_id)
+    raise gen.Return([index.to_pb() for index in project_indexes])
 
   @gen.coroutine
   def add_indexes(self, project_id, indexes):

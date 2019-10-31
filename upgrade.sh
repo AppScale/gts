@@ -115,14 +115,9 @@ if [ -d /etc/appscale/certs ]; then
     fi
 
     # Make sure AppScale is not running.
-    MONIT=$(which monit)
-    if ps -o args -ax | grep -E '$[a-z/]+ruby[ a-zA-Z/-]+djinnServer.rb' > /dev/null ; then
+    if systemctl is-active appscale-controller > /dev/null ; then
         echo "AppScale is still running: please stop it"
-        exit 1
-    elif echo ${MONIT} | grep local > /dev/null ; then
-        # AppScale is not running but there is a monit
-        # leftover from the custom install.
-        ${MONIT} quit
+        [ "${FORCE_UPGRADE}" = "Y" ] || exit 1
     fi
 
     # Let's keep a copy of the old config: we need to move it to avoid
@@ -131,24 +126,10 @@ if [ -d /etc/appscale/certs ]; then
         mv /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.appscale.old
     fi
 
-    # Remove outdated appscale-controller and appscale-progenitor.
-    if version_ge 2.2.0 "${CURRENT_VERSION}"; then
-        rm -f /etc/init.d/appscale-controller
-        rm -f /etc/init.d/appscale-progenitor
-        update-rc.d -f appscale-progenitor remove || true
-    fi
-
-    # Remove control files we added before 1.14, and re-add the
-    # default ones.
-    if version_ge 1.14.0 "${CURRENT_VERSION}"; then
-        rm -f /etc/default/haproxy /etc/init.d/haproxy /etc/default/monit /etc/monitrc
-        if dpkg-query -l haproxy > /dev/null 2> /dev/null ; then
-            apt-get -o DPkg::Options::="--force-confmiss" --reinstall install haproxy
-        fi
-        if dpkg-query -l monit > /dev/null 2> /dev/null ; then
-            apt-get -o DPkg::Options::="--force-confmiss" --reinstall install monit
-        fi
-    fi
+    # Remove outdated init scripts.
+    [ ! -f "/etc/init.d/appscale-controller" ] || rm -fv "/etc/init.d/appscale-controller"
+    [ ! -f "/etc/init.d/appscale-progenitor" ] || rm -fv "/etc/init.d/appscale-progenitor"
+    [ ! -f "/etc/init.d/appscale-unmonit" ]    || rm -fv "/etc/init.d/appscale-unmonit"
 
     echo "Found AppScale version ${CURRENT_VERSION}. "\
          "An upgrade to the ${GIT_TAG} version will be attempted in 5 seconds."

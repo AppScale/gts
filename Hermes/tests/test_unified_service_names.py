@@ -1,66 +1,57 @@
 from appscale.hermes.unified_service_names import (
-  ServicesEnum, find_service_by_monit_name, find_service_by_pxname, Service
+  ServicesEnum, find_service_by_external_name, find_service_by_pxname, Service
 )
 
 
-class TestMonitNames:
+class TestExternalNames:
   def test_search_for_known_service(self):
-    monit_name_to_expectation = {
-      'uaserver': ServicesEnum.UASERVER,
-      'taskqueue-17448': ServicesEnum.TASKQUEUE,
+    external_name_to_expectation = {
+      'appscale-admin.service': ServicesEnum.ADMIN,
+      'appscale-uaserver.service': ServicesEnum.UASERVER,
+      'appscale-taskqueue@17448.service': ServicesEnum.TASKQUEUE,
       'datastore_server-4002': ServicesEnum.DATASTORE,
-      'blobstore': ServicesEnum.BLOBSTORE,
-      'app___superapp-20005': ServicesEnum.APPLICATION,
-      'zookeeper': ServicesEnum.ZOOKEEPER,
-      'rabbitmq': ServicesEnum.RABBITMQ,
-      'nginx': ServicesEnum.NGINX,
-      'log_service': ServicesEnum.LOG_SERVICE,
-      'iaas_manager': ServicesEnum.IAAS_MANAGER,
-      'hermes': ServicesEnum.HERMES,
-      'haproxy': ServicesEnum.HAPROXY,
-      'groomer_service': ServicesEnum.GROOMER,
-      'flower': ServicesEnum.FLOWER,
-      'ejabberd': ServicesEnum.EJABBERD,
-      'controller': ServicesEnum.CONTROLLER,
-      'celery-snowmachineapp-9999': ServicesEnum.CELERY,
-      'cassandra': ServicesEnum.CASSANDRA,
-      'backup_recovery_service': ServicesEnum.BACKUP_RECOVERY_SERVICE,
-      'memcached': ServicesEnum.MEMCACHED,
-      'appmanagerserver': ServicesEnum.APPMANAGER,
+      'appscale-blobstore.service': ServicesEnum.BLOBSTORE,
+      'appscale-instance-run@superapp-20005.service': ServicesEnum.APPLICATION,
+      'zookeeper.service': ServicesEnum.ZOOKEEPER,
+      'rabbitmq-server.service': ServicesEnum.RABBITMQ,
+      'nginx.service': ServicesEnum.NGINX,
+      'appscale-logserver.service': ServicesEnum.LOG_SERVICE,
+      'appscale-infrastructure@basic.service': ServicesEnum.IAAS_MANAGER,
+      'appscale-infrastructure@shadow.service': ServicesEnum.IAAS_MANAGER,
+      'appscale-haproxy@service.service': ServicesEnum.SERVICE_HAPROXY,
+      'ejabberd.service': ServicesEnum.EJABBERD,
+      'appscale-celery@snowmachineapp.service': ServicesEnum.CELERY,
+      'appscale-instance-manager.service': ServicesEnum.APPMANAGER,
     }
-    for monit_name, expected in monit_name_to_expectation.items():
-      assert find_service_by_monit_name(monit_name) == expected
+    for external_name, expected in external_name_to_expectation.items():
+      assert find_service_by_external_name(external_name) == expected
 
   def test_search_for_unknown_service(self):
-    service = find_service_by_monit_name('irrelevant-monit-process')
-    assert service.name == 'irrelevant-monit-process'
+    service = find_service_by_external_name('irrelevant-process')
+    assert service.name == 'irrelevant-process'
 
   def test_parsing_application_id(self):
     # Celery service
     celery = ServicesEnum.CELERY
-    app = celery.get_application_id_by_monit_name('celery-app-ppa-9999')
+    app = celery.get_application_id_by_external_name('appscale-celery@app-ppa.service')
     assert app == 'app-ppa'
     # Application service
     application = ServicesEnum.APPLICATION
-    app = application.get_application_id_by_monit_name('app___appppa-20008')
+    app = application.get_application_id_by_external_name('appscale-instance-run@appppa-20008.service')
     assert app == 'appppa'
 
   def test_parsing_port(self):
-    # Celery service
-    celery = ServicesEnum.CELERY
-    port = celery.get_port_by_monit_name('celery-app-ppa-9999')
-    assert port == 9999
     # Application service
     application = ServicesEnum.APPLICATION
-    port = application.get_port_by_monit_name('app___appppa-20008')
+    port = application.get_port_by_external_name('appscale-instance-run@appppa-20008.service')
     assert port == 20008
     # Taskqueue service
     taskqueue = ServicesEnum.TASKQUEUE
-    port = taskqueue.get_port_by_monit_name('taskqueue-17448')
+    port = taskqueue.get_port_by_external_name('appscale-taskqueue@17448.service')
     assert port == 17448
     # Datastore service
     datastore = ServicesEnum.DATASTORE
-    port = datastore.get_port_by_monit_name('datastore_server-4002')
+    port = datastore.get_port_by_external_name('datastore_server-4002')
     assert port == 4002
 
 
@@ -120,14 +111,14 @@ class TestUnknownService:
   def test_unknown_service(self):
     service = Service(name='smth-out-of-stats-28')
     assert service.name == 'smth-out-of-stats-28'
-    # Application ID by unknown monit name
-    app = service.get_application_id_by_monit_name('smth-out-of-stats-28')
+    # Application ID by unknown external name
+    app = service.get_application_id_by_external_name('smth-out-of-stats-28')
     assert app is None
     # Application ID by unknown haproxy name
     app = service.get_application_id_by_pxname('smth-out-of-stats-1.1.1.1:2')
     assert app is None
-    # Port by unknown monit name
-    port = service.get_port_by_monit_name('smth-out-of-stats-28')
+    # Port by unknown external name
+    port = service.get_port_by_external_name('smth-out-of-stats-28')
     assert port is None
     # IP/Port by unknown haproxy
     ip, port = service.get_ip_port_by_svname('smth-out-of-stats-1.1.1.1:2')

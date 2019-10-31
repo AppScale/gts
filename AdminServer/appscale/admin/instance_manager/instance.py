@@ -170,7 +170,7 @@ def create_java_start_cmd(app_name, port, load_balancer_port, load_balancer_host
   return ' '.join(cmd)
 
 
-def create_python_api_start_cmd(app_name, login_ip, port, pidfile,
+def create_python_api_start_cmd(app_name, login_ip, port,
                                 api_server_port):
   """ Creates the start command to run the python api server.
 
@@ -178,7 +178,6 @@ def create_python_api_start_cmd(app_name, login_ip, port, pidfile,
     app_name: The name of the application to run
     login_ip: The public IP of this deployment
     port: The local port the api server will bind to
-    pidfile: A string specifying the pidfile location.
     api_server_port: An integer specifying the port of the external API server.
   Returns:
     A string of the start command.
@@ -194,7 +193,6 @@ def create_python_api_start_cmd(app_name, login_ip, port, pidfile,
       '--uaserver_path', '{}:{}'.format(options.load_balancer_ip,
                                         UA_SERVER_PORT),
       '--datastore_path', '{}:{}'.format(options.db_proxy, DB_SERVER_PORT),
-      '--pidfile', pidfile,
       '--external_api_port', str(api_server_port)
   ]
 

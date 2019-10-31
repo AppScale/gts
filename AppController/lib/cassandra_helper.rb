@@ -2,7 +2,7 @@
 require 'djinn'
 require 'node_info'
 require 'helperfunctions'
-require 'monit_interface'
+require 'service_helper'
 require 'set'
 
 # A String that indicates where we write the process ID that Cassandra runs
@@ -12,9 +12,8 @@ PID_FILE = '/tmp/appscale-cassandra.pid'.freeze
 # A String that indicates where we install Cassandra on this machine.
 CASSANDRA_DIR = '/opt/cassandra'.freeze
 
-# A String that indicates where the Cassandra binary is located on this
-# machine.
-CASSANDRA_EXECUTABLE = "#{CASSANDRA_DIR}/cassandra/bin/cassandra".freeze
+# Name for service as per helper.
+CASSANDRA_SERVICE_NAME = "appscale-cassandra".freeze
 
 # The location of the script that sets up Cassandra's config files.
 SETUP_CONFIG_SCRIPT = "#{APPSCALE_HOME}/scripts/setup_cassandra_config_files.py".freeze
@@ -25,7 +24,7 @@ NODETOOL = "#{CASSANDRA_DIR}/cassandra/bin/nodetool".freeze
 # The location of the script that creates the initial tables.
 PRIME_SCRIPT = `which appscale-prime-cassandra`.chomp
 
-# The number of seconds Monit should allow Cassandra to take while starting up.
+# The number of seconds to allow Cassandra to take while starting up.
 START_TIMEOUT = 60
 
 # The location of the Cassandra data directory.
@@ -129,19 +128,12 @@ def start_cassandra(clear_datastore, needed, desired, heap_reduction)
     Djinn.log_run("rm -rf #{CASSANDRA_DATA_DIR}")
   end
 
-  # Create Cassandra data directory.
-  Djinn.log_run("mkdir -p #{CASSANDRA_DATA_DIR}")
-  Djinn.log_run("chown -R cassandra #{CASSANDRA_DATA_DIR}")
-
-  su = `which su`.chomp
-  cmd = "#{CASSANDRA_EXECUTABLE} -p #{PID_FILE}"
+  service_env = {}
   if heap_reduction > 0
-    cmd = "HEAP_REDUCTION=#{heap_reduction} #{cmd}"
+    service_env[:HEAP_REDUCTION] = heap_reduction
   end
-
-  start_cmd = "#{su} -c '#{cmd}' cassandra"
-  stop_cmd = "/bin/bash -c 'kill $(cat #{PID_FILE})'"
-  MonitInterface.start_daemon(:cassandra, start_cmd, stop_cmd, PID_FILE)
+  ServiceHelper.write_environment(CASSANDRA_SERVICE_NAME, service_env)
+  ServiceHelper.start(CASSANDRA_SERVICE_NAME)
 
   # Ensure enough Cassandra nodes are available.
   Djinn.log_info('Waiting for Cassandra to start')
@@ -151,13 +143,13 @@ end
 # Kills Cassandra on this machine.
 def stop_db_master
   Djinn.log_info('Stopping Cassandra master')
-  MonitInterface.stop(:cassandra)
+  ServiceHelper.stop(CASSANDRA_SERVICE_NAME)
 end
 
 # Kills Cassandra on this machine.
 def stop_db_slave
   Djinn.log_info('Stopping Cassandra slave')
-  MonitInterface.stop(:cassandra)
+  ServiceHelper.stop(CASSANDRA_SERVICE_NAME)
 end
 
 # Calculates the number of nodes needed for a quorum for every token.

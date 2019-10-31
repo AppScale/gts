@@ -1,0 +1,11 @@
+[Unit]
+Description=AppScale API server for %i
+Before=appscale-instance-run@.service
+AssertPathExists=/run/appscale/apps/api_command_%i
+
+[Service]
+ExecStart=/bin/bash /run/appscale/apps/api_command_%i
+ExecStop=/bin/sleep 5
+SyslogIdentifier=%p-%i
+# Resource controls
+MemoryLimit=400M

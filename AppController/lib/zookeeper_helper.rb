@@ -6,6 +6,9 @@ DATA_LOCATION = '/opt/appscale/zookeeper'.freeze
 # The path in ZooKeeper where the deployment ID is stored.
 DEPLOYMENT_ID_PATH = '/appscale/deployment_id'.freeze
 
+# Name for service as per helper.
+ZOOKEEPER_SERVICE_NAME = "appscale-zookeeper.target".freeze
+
 def configure_zookeeper(nodes, my_index)
   # TODO: create multi node configuration
   zoocfg = <<ZOOCFG
@@ -63,7 +66,7 @@ def start_zookeeper(clear_datastore)
   unless File.directory?(DATA_LOCATION.to_s)
     Djinn.log_info('Initializing ZooKeeper.')
     # Let's stop zookeeper in case it is still running.
-    system("/usr/sbin/service zookeeper stop")
+    ServiceHelper.stop(ZOOKEEPER_SERVICE_NAME)
 
     # Let's create the new location for zookeeper.
     Djinn.log_run("mkdir -pv #{DATA_LOCATION}")
@@ -73,20 +76,16 @@ def start_zookeeper(clear_datastore)
   # myid is needed for multi node configuration.
   Djinn.log_run("ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}/myid")
 
-  service = `which service`.chomp
-  start_cmd = "#{service} zookeeper start"
-  stop_cmd = "#{service} zookeeper stop"
-  match_cmd = 'org.apache.zookeeper.server.quorum.QuorumPeerMain'
-  MonitInterface.start_custom(:zookeeper, start_cmd, stop_cmd, match_cmd)
+  ServiceHelper.start(ZOOKEEPER_SERVICE_NAME)
 end
 
 def is_zookeeper_running?
-  output = MonitInterface.is_running?(:zookeeper)
-  Djinn.log_debug("Checking if zookeeper is already monitored: #{output}")
+  output = ServiceHelper.is_running?(ZOOKEEPER_SERVICE_NAME)
+  Djinn.log_debug("Checking if zookeeper is already running: #{output}")
   output
 end
 
 def stop_zookeeper
   Djinn.log_info('Stopping ZooKeeper')
-  MonitInterface.stop(:zookeeper)
+  ServiceHelper.stop(ZOOKEEPER_SERVICE_NAME)
 end

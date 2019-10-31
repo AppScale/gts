@@ -70,19 +70,6 @@ class TestMergeJoinQueries(AsyncTestCase):
     self.assertEqual(entity['color'], 'red')
     self.assertEqual(entity['create_time'], create_time)
 
-  @gen_test
-  def test_separator_in_kind(self):
-    # The Cloud Datastore API allows these key names, but AppScale forbids them
-    # because ':' is used to separate kind names and key names when encoding a
-    # path.
-    entity = Entity('Invalid:Kind', _app=PROJECT_ID)
-    try:
-      yield self.datastore.put(entity)
-    except BadRequest:
-      pass
-    else:
-      raise Exception('Expected BadRequest. No error was thrown.')
-
 
 class TestQueryLimit(AsyncTestCase):
   CASSANDRA_PAGE_SIZE = 5000

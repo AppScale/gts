@@ -172,8 +172,6 @@ def _fill_request_log(requestLog, log, include_app_logs):
 class LogServiceStub(apiproxy_stub.APIProxyStub):
   """Python stub for Log Service service."""
 
-  _LOGSERVER_PATH = '/tmp/.appscale_logserver'
-
   THREADSAFE = True
 
   _ACCEPTS_REQUEST_ID = True

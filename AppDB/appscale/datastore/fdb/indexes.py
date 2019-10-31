@@ -188,9 +188,34 @@ class IndexIterator(object):
       return entry.deleted_versionstamp is None
 
 
-class KindIterator(object):
-  def __init__(self, tr, project_dir, namespace):
+class NamespaceIterator(object):
+  def __init__(self, tr, project_dir):
     self._tr = tr
+    self._project_dir = project_dir
+    self._done = False
+
+  @gen.coroutine
+  def next_page(self):
+    if self._done:
+      raise gen.Return(([], False))
+
+    # TODO: This can be made async.
+    ns_dir = self._project_dir.open(self._tr, (KindIndex.DIR_NAME,))
+    namespaces = ns_dir.list(self._tr)
+
+    # The API uses an ID of 1 to label the default namespace.
+    results = [IndexEntry(self._project_dir.get_path()[-1], u'',
+                          (u'__namespace__', namespace or 1), None, None)
+               for namespace in namespaces]
+
+    self._done = True
+    raise gen.Return((results, False))
+
+
+class KindIterator(object):
+  def __init__(self, tr, tornado_fdb, project_dir, namespace):
+    self._tr = tr
+    self._tornado_fdb = tornado_fdb
     self._project_dir = project_dir
     self._namespace = namespace
     self._done = False
@@ -204,12 +229,38 @@ class KindIterator(object):
     ns_dir = self._project_dir.open(
       self._tr, (KindIndex.DIR_NAME, self._namespace))
     kinds = ns_dir.list(self._tr)
+    populated_kinds = [
+      kind for kind, populated in zip(
+        kinds, (yield [self._populated(ns_dir, kind) for kind in kinds]))
+      if populated]
+
     results = [IndexEntry(self._project_dir.get_path()[-1], self._namespace,
                           (u'__kind__', kind), None, None)
-               for kind in kinds]
+               for kind in populated_kinds]
 
     self._done = True
     raise gen.Return((results, False))
+
+  @gen.coroutine
+  def _populated(self, ns_dir, kind):
+    """ Checks if at least one entity exists for a given kind. """
+    kind_dir = ns_dir.open(self._tr, (kind,))
+    kind_index = KindIndex(kind_dir)
+    # TODO: Check if the presence of stat entities should mark a kind as being
+    #  populated.
+    index_slice = kind_index.get_slice(())
+    # This query is reversed to increase the likelihood of getting a relevant
+    # (not marked for GC) entry.
+    iterator = IndexIterator(self._tr, self._tornado_fdb, kind_index,
+                             index_slice, fetch_limit=1, reverse=True,
+                             snapshot=True)
+    while True:
+      results, more_results = yield iterator.next_page()
+      if results:
+        raise gen.Return(True)
+
+      if not more_results:
+        raise gen.Return(False)
 
 
 class MergeJoinIterator(object):
@@ -449,9 +500,13 @@ class IndexManager(object):
     if check_more_results:
       fetch_limit += 1
 
-    if query.has_kind() and query.kind() == u'__kind__':
+    if query.has_kind() and query.kind() == u'__namespace__':
       project_dir = yield self._directory_cache.get(tr, (project_id,))
-      raise gen.Return(KindIterator(tr, project_dir, namespace))
+      raise gen.Return(NamespaceIterator(tr, project_dir))
+    elif query.has_kind() and query.kind() == u'__kind__':
+      project_dir = yield self._directory_cache.get(tr, (project_id,))
+      raise gen.Return(KindIterator(tr, self._tornado_fdb, project_dir,
+                                    namespace))
 
     index = yield self._get_perfect_index(tr, query)
     reverse = get_scan_direction(query, index) == Query_Order.DESCENDING

@@ -1,0 +1,15 @@
+[Unit]
+Description=AppScale Instance for %i
+Before=appscale-instance.target
+PartOf=appscale-instance.target
+AssertPathExists=/run/appscale/apps/command_%i
+
+[Service]
+ExecStart=/bin/bash /run/appscale/apps/command_%i
+SyslogIdentifier=%p-%i
+ExecStop=/bin/sleep 5
+# Resource controls
+MemoryLimit=2G
+
+[Install]
+WantedBy=appscale-instance.target

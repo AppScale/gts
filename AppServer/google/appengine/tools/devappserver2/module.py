@@ -581,7 +581,7 @@ class Module(object):
     try:
       environ['SERVER_PORT'] = environ['HTTP_HOST'].split(':')[1]
     except IndexError:
-      scheme = environ['HTTP_X_FORWARDED_PROTO']
+      scheme = environ.get('HTTP_X_FORWARDED_PROTO', 'http')
       if scheme == 'http':
         environ['SERVER_PORT'] = 80
       else:
