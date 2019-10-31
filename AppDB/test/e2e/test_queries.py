@@ -117,7 +117,6 @@ class TestBatchPutEffects(AsyncTestCase):
     # Ensure the last specified mutation is the one that matters.
     query = Query('Greeting', projection=['content'], _app=PROJECT_ID)
     response = yield self.datastore.run_query(query)
-    print('response: {}'.format(response))
     self.assertEqual(len(response), 1)
 
     entity = response[0]
