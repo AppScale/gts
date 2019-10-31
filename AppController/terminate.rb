@@ -71,6 +71,8 @@ module TerminateHelper
     # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_JSON_FILE)
     `rm -f #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
     `rm -f #{APPSCALE_CONFIG_DIR}/zookeeper_locations`
+
+    `systemctl daemon-reload`
     print "OK"
   end
 
