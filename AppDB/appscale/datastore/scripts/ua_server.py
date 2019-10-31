@@ -57,6 +57,11 @@ db = []
 # The schema we use to store user information.
 user_schema = []
 
+# Postgres names
+schema_name = "appscale_ua"
+table_name = "ua_users"
+full_table_name = "{}.{}".format(schema_name, table_name)
+
 # Different types of valid users created.
 VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
 
@@ -66,9 +71,6 @@ PORT_SEPARATOR = '-'
 logger = logging.getLogger(__name__)
 
 zk_client = None
-
-table_name = "ua_users"
-
 
 def is_connection_error(err):
   """ This function is used as retry criteria.
@@ -121,14 +123,13 @@ class PostgresConnectionWrapper(object):
 
 
 def init_table(pg_connection_wrapper):
-  # When multiple TQ servers are notified by ZK about new queue
-  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
   @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
   def ensure_tables_created():
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'CREATE TABLE IF NOT EXISTS "{table}" ('
+          'CREATE SCHEMA IF NOT EXISTS {schema};'
+          'CREATE TABLE IF NOT EXISTS {schema}.{table} ('
           '  email varchar(500) NOT NULL,'
           '  pw varchar(500) NOT NULL,'
           '  date_creation timestamp NOT NULL,'
@@ -148,8 +149,7 @@ def init_table(pg_connection_wrapper):
           '  capabilities varchar(255),'
           '  PRIMARY KEY (email)'
           ');'
-          'CREATE SCHEMA IF NOT EXISTS "appscale_ua";'
-          .format(table=table_name)
+          .format(schema=schema_name, table=table_name)
         )
 
   ensure_tables_created()
@@ -277,9 +277,9 @@ def does_user_exist(username, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'SELECT 1 FROM "{table}" '
+          'SELECT 1 FROM {table} '
           'WHERE email = %(username)s'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={
             'username': username,
           }
@@ -314,9 +314,9 @@ def get_user_data(username, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'SELECT {columns} FROM "{table}" '
+          'SELECT {columns} FROM {table} '
           'WHERE email = %(username)s'
-          .format(table=table_name, columns=', '.join(USERS_SCHEMA)),
+          .format(table=full_table_name, columns=', '.join(USERS_SCHEMA)),
           vars={
             'username': username,
           }
@@ -389,7 +389,7 @@ def commit_new_user(user, passwd, utype, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'INSERT INTO "{table}" ({columns}) '
+          'INSERT INTO {table} ({columns}) '
           'VALUES ( '
           '  %(email)s, %(pw)s, %(date_creation)s, %(date_change)s, '
           '  %(date_last_login)s, %(applications)s, %(appdrop_rem_token)s, '
@@ -398,7 +398,7 @@ def commit_new_user(user, passwd, utype, secret):
           '  %(is_cloud_admin)s, %(capabilities)s '
           ') '
           'RETURNING date_last_login'
-          .format(table=table_name, columns=', '.join(USERS_SCHEMA)),
+          .format(table=full_table_name, columns=', '.join(USERS_SCHEMA)),
           vars=params
         )
         row = pg_cursor.fetchone()
@@ -437,12 +437,12 @@ def add_admin_for_app(user, app, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'UPDATE "{table}" '
+          'UPDATE {table} '
           'SET applications = applications || %(app)s, '
           '    date_change = current_timestamp '
           'WHERE email = %(user)s '
           'RETURNING date_change'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'app': '{' + app + '}', 'user': user}
         )
         user_result = pg_cursor.fetchone()
@@ -489,8 +489,8 @@ def get_all_users(secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'SELECT email FROM "{table}" '
-          .format(table=table_name)
+          'SELECT email FROM {table}'
+          .format(table=full_table_name)
         )
         emails = pg_cursor.fetchall()
 
@@ -543,13 +543,13 @@ def commit_new_token(user, token, token_exp, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'UPDATE "{table}" '
+          'UPDATE {table} '
           'SET appdrop_rem_token = %(token)s, '
           '    appdrop_rem_token_exp = %(token_exp)s, '
           '    date_change = current_timestamp '
           'WHERE email = %(user)s '
           'RETURNING email'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars=params
         )
 
@@ -606,11 +606,11 @@ def change_password(user, password, secret):
       with pg_connection.cursor() as pg_cursor:
 
         pg_cursor.execute(
-          'UPDATE "{table}" '
+          'UPDATE {table} '
           'SET pw = %(password)s '
           'WHERE email = %(user)s AND enabled = TRUE '
           'RETURNING enabled'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'password': password, 'user': user}
         )
         row = pg_cursor.fetchone()
@@ -655,11 +655,11 @@ def enable_user(user, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'UPDATE "{table}" '
+          'UPDATE {table} '
           'SET enabled = TRUE '
           'WHERE email = %(user)s AND enabled = FALSE '
           'RETURNING enabled'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'user': user}
         )
         row = pg_cursor.fetchone()
@@ -702,11 +702,11 @@ def disable_user(user, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'UPDATE "{table}" '
+          'UPDATE {table} '
           'SET enabled = FALSE '
           'WHERE email = %(user)s AND enabled = TRUE '
           'RETURNING enabled'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'user': user}
         )
         row = pg_cursor.fetchone()
@@ -750,10 +750,10 @@ def delete_user(user, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'DELETE FROM "{table}" '
+          'DELETE FROM {table} '
           'WHERE email = %(user)s AND enabled = FALSE '
           'RETURNING enabled'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'user': user}
         )
         row = pg_cursor.fetchone()
@@ -793,9 +793,9 @@ def is_user_enabled(user, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'SELECT enabled FROM "{table}" '
+          'SELECT enabled FROM {table} '
           'WHERE email = %(user)s'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'user': user}
         )
         result = pg_cursor.fetchone()
@@ -827,9 +827,9 @@ def is_user_cloud_admin(username, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'SELECT is_cloud_admin FROM "{table}" '
+          'SELECT is_cloud_admin FROM {table} '
           'WHERE email = %(user)s '
-            .format(table=table_name),
+            .format(table=full_table_name),
           vars={'user': username}
         )
         result = pg_cursor.fetchone()
@@ -862,11 +862,11 @@ def set_cloud_admin_status(username, is_cloud_admin, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'UPDATE "{table}" '
+          'UPDATE {table} '
           'SET is_cloud_admin = %(is_cloud_admin)s '
           'WHERE email = %(user)s '
           'RETURNING date_change'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'is_cloud_admin': is_cloud_admin, 'user': username}
         )
         user_result = pg_cursor.fetchone()
@@ -894,9 +894,9 @@ def get_capabilities(username, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'SELECT capabilities FROM "{table}" '
+          'SELECT capabilities FROM {table} '
           'WHERE email = %(user)s '
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'user': username}
         )
         user_result = pg_cursor.fetchone()
@@ -930,11 +930,11 @@ def set_capabilities(username, capabilities, secret):
     with pg_connection_wrapper.get_connection() as pg_connection:
       with pg_connection.cursor() as pg_cursor:
         pg_cursor.execute(
-          'UPDATE "{table}" '
+          'UPDATE {table} '
           'SET capabilities = %(capabilities)s '
           'WHERE email = %(user)s '
           'RETURNING date_change'
-          .format(table=table_name),
+          .format(table=full_table_name),
           vars={'capabilities': capabilities, 'user': username}
         )
         user_result = pg_cursor.fetchone()
