@@ -3249,6 +3249,7 @@ class DatastoreDistributed():
     except zktransaction.ZKTransactionException as error:
       raise InternalError(str(error))
 
+  @gen.coroutine
   def get_indexes(self, project_id):
     """ Retrieves list of indexes for a project.
 
@@ -3270,7 +3271,7 @@ class DatastoreDistributed():
     except IndexInaccessible:
       raise InternalError('ZooKeeper is not accessible')
 
-    return indexes
+    raise gen.Return(indexes)
 
   @gen.coroutine
   def add_indexes(self, project_id, indexes):

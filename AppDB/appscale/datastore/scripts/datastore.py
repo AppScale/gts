@@ -558,7 +558,7 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     response = datastore_pb.CompositeIndices()
     try:
-      indices = datastore_access.get_indexes(app_id)
+      indices = yield datastore_access.get_indexes(app_id)
     except (dbconstants.AppScaleDBConnectionError,
             dbconstants.InternalError) as error:
       logger.exception(
