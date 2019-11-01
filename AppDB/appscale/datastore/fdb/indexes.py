@@ -337,8 +337,10 @@ class IndexIterator(object):
 
 
 class NamespaceIterator(object):
-  def __init__(self, tr, project_dir):
+  """ Iterates over a list of namespaces in a project. """
+  def __init__(self, tr, tornado_fdb, project_dir):
     self._tr = tr
+    self._tornado_fdb = tornado_fdb
     self._project_dir = project_dir
     self._done = False
 
@@ -351,6 +353,14 @@ class NamespaceIterator(object):
     ns_dir = self._project_dir.open(self._tr, (KindIndex.DIR_NAME,))
     namespaces = ns_dir.list(self._tr)
 
+    # Filter out namespaces that don't have at least one kind.
+    kinds_by_ns = yield [KindIterator(self._tr, self._tornado_fdb,
+                                      self._project_dir, namespace).next_page()
+                         for namespace in namespaces]
+    namespaces = [
+      namespace for namespace, (kinds, _) in zip(namespaces, kinds_by_ns)
+      if kinds]
+
     # The API uses an ID of 1 to label the default namespace.
     results = [IndexEntry(self._project_dir.get_path()[-1], u'',
                           (u'__namespace__', namespace or 1), None, None)
@@ -361,6 +371,7 @@ class NamespaceIterator(object):
 
 
 class KindIterator(object):
+  """ Iterates over a list of kinds in a namespace. """
   def __init__(self, tr, tornado_fdb, project_dir, namespace):
     self._tr = tr
     self._tornado_fdb = tornado_fdb
@@ -1172,7 +1183,7 @@ class IndexManager(object):
 
     if query.has_kind() and query.kind() == u'__namespace__':
       project_dir = yield self._directory_cache.get(tr, (project_id,))
-      raise gen.Return(NamespaceIterator(tr, project_dir))
+      raise gen.Return(NamespaceIterator(tr, self._tornado_fdb, project_dir))
     elif query.has_kind() and query.kind() == u'__kind__':
       project_dir = yield self._directory_cache.get(tr, (project_id,))
       raise gen.Return(KindIterator(tr, self._tornado_fdb, project_dir,
