@@ -55,6 +55,10 @@ class VersionEntry(object):
       self.version, blob_repr)
 
   @property
+  def kind(self):
+    return self.path[-2]
+
+  @property
   def present(self):
     return self.commit_versionstamp is not None
 
@@ -494,7 +498,7 @@ class DataManager(object):
       tr: An FDB transaction.
       key: A protobuf reference object.
       version: An integer specifying the new entity version.
-      encoded_entity: A string specifying the encoded entity data.
+      encoded_entity: A byte string specifying the encoded entity data.
     """
     data_ns = yield self._data_ns_from_key(tr, key)
     for fdb_key, val in data_ns.encode(key.path(), encoded_entity, version):

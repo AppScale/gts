@@ -15,9 +15,10 @@ import threading
 import time
 
 from kazoo.client import KazooClient, KazooState, NodeExistsError
+import psycopg2
 from tornado import gen
 
-from appscale.common import appscale_info
+from appscale.common import appscale_info, retrying
 from appscale.common.constants import (
   LOG_FORMAT, UA_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS)
 from appscale.datastore import appscale_datastore
@@ -63,6 +64,113 @@ VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
 PORT_SEPARATOR = '-'
 
 logger = logging.getLogger(__name__)
+
+zk_client = None
+
+table_name = "ua_users"
+
+
+def is_connection_error(err):
+  """ This function is used as retry criteria.
+
+  Args:
+    err: an instance of Exception.
+  Returns:
+    True if error is related to connection, False otherwise.
+  """
+  return isinstance(err, psycopg2.InterfaceError)
+
+
+retry_pg_connection = retrying.retry(
+    retrying_timeout=10, retry_on_exception=is_connection_error
+)
+
+
+class PostgresConnectionWrapper(object):
+  """ Implements automatic reconnection to Postgresql server. """
+
+  def __init__(self, dsn=None):
+    self._dsn = dsn
+    self._connection = None
+
+  def set_dsn(self, dsn):
+    """ Resets PostgresConnectionWrapper to use new DSN string.
+    Args:
+      dsn: a str representing Postgres DSN string.
+    """
+    if self._connection and not self._connection.closed:
+      self.close()
+      self._connection = None
+    self._dsn = dsn
+
+  def get_connection(self):
+    """ Provides postgres connection. It can either return existing
+    working connection or establish new one.
+    Returns:
+      An instance of psycopg2 connection.
+    """
+    if not self._connection or self._connection.closed:
+      logger.info('Establishing new connection to Postgres server')
+      self._connection = psycopg2.connect(dsn=self._dsn)
+    return self._connection
+
+  def close(self):
+    """ Closes psycopg2 connection.
+    """
+    return self._connection.close()
+
+
+def init_table(pg_connection_wrapper):
+  # When multiple TQ servers are notified by ZK about new queue
+  # they sometimes get IntegrityError despite 'IF NOT EXISTS'
+  @retrying.retry(max_retries=5, retry_on_exception=psycopg2.IntegrityError)
+  def ensure_tables_created():
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'CREATE TABLE IF NOT EXISTS "{table}" ('
+          '  email varchar(500) NOT NULL,'
+          '  pw varchar(500) NOT NULL,'
+          '  date_creation timestamp NOT NULL,'
+          '  date_change timestamp NOT NULL,'
+          '  date_last_login timestamp NOT NULL,'
+          '  applications varchar(30)[],'
+          '  appdrop_rem_token varchar(500),'
+          '  appdrop_rem_token_exp bigint,'
+          '  visit_cnt integer,'
+          '  cookie varchar(4096),'
+          '  cookie_ip varchar(15),'
+          '  cookie_exp integer,'
+          '  cksum integer,'
+          '  enabled boolean,'
+          '  type varchar(9),'
+          '  is_cloud_admin boolean,'
+          '  capabilities varchar(255),'
+          '  PRIMARY KEY (email)'
+          ');'
+          'CREATE SCHEMA IF NOT EXISTS "appscale_ua";'
+          .format(table=table_name)
+        )
+
+  ensure_tables_created()
+
+
+pg_connection_wrapper = None
+
+
+def connect_to_postgres(zk_client):
+  global pg_connection_wrapper
+  global_dsn_node = '/appscale/ua_server/postgres_dsn'
+  if zk_client.exists(global_dsn_node):
+    pg_dsn = zk_client.get(global_dsn_node)
+    logger.info('Using PostgreSQL as a backend for UA Server')
+  else:
+    pg_dsn = None
+    logger.info('Using Cassandra as a backend for UA Server')
+  if pg_dsn:
+    pg_connection_wrapper = (
+        PostgresConnectionWrapper(dsn=pg_dsn[0])
+    )
 
 
 class Users:
@@ -124,19 +232,39 @@ class Users:
 
     return array
 
+  def paramit(self):
+    params = {}
+
+    for ii in Users.attributes_:
+      if ii in ["date_creation", "date_change", "date_last_login"]:
+        t = float(getattr(self, ii + "_"))
+        timestamp = datetime.datetime.fromtimestamp(t)
+        params[ii] = timestamp
+      elif ii in ["appdrop_rem_token_exp", "visit_cnt", "cookie_exp", "cksum"]:
+        params[ii] = int(getattr(self, ii + "_"))
+      elif ii in ["enabled", "is_cloud_admin"]:
+        value = True if getattr(self, ii + "_") == "true" else False
+        params[ii] = value
+      else:
+        params[ii] = getattr(self, ii + "_")
+
+    return params
+
   def unpackit(self, array):
     for ii in range(0,len(array)):
       setattr(self, Users.attributes_[ii] + "_", array[ii])
 
     # convert from string to list
-    if self.applications_:
+    # TODO: delete it after deleting of Cassandra
+    if self.applications_ and isinstance(self.applications_, str):
       self.applications_ = self.applications_.split(':')
-    else:
+    elif not self.applications_:
       self.applications_ = []
 
     return "true"
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def does_user_exist(username, secret):
@@ -144,6 +272,24 @@ def does_user_exist(username, secret):
   global super_secret
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT 1 FROM "{table}" '
+          'WHERE email = %(username)s'
+          .format(table=table_name),
+          vars={
+            'username': username,
+          }
+        )
+        row = pg_cursor.fetchone()
+
+    if not row:
+      raise gen.Return("false")
+    raise gen.Return("true")
+
   try:
     result = yield db.get_entity(USER_TABLE, username, ["email"])
   except AppScaleDBConnectionError as db_error:
@@ -154,6 +300,7 @@ def does_user_exist(username, secret):
     raise gen.Return("false")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def get_user_data(username, secret):
@@ -162,6 +309,39 @@ def get_user_data(username, secret):
   global user_schema
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT {columns} FROM "{table}" '
+          'WHERE email = %(username)s'
+          .format(table=table_name, columns=', '.join(USERS_SCHEMA)),
+          vars={
+            'username': username,
+          }
+        )
+        result = pg_cursor.fetchone()
+
+        # todo: delete it adter removal of Cassandra
+        result = list(result)
+        result[2] = time.mktime(result[2].timetuple())
+        result[3] = time.mktime(result[3].timetuple())
+        result[4] = time.mktime(result[4].timetuple())
+
+    if not result:
+      raise gen.Return('Error: User {} does not exist'.format(username))
+    if len(user_schema) != len(result):
+      raise gen.Return(
+        "Error: Bad length of user schema vs user result "
+        "user schema: " + str(user_schema) + " result: " + str(result)
+      )
+
+    user = Users("a", "b", "c")
+    user.unpackit(result)
+    raise gen.Return(user.stringit())
+
+
   try:
     result = yield db.get_entity(USER_TABLE, username, user_schema)
   except AppScaleDBConnectionError as db_error:
@@ -182,6 +362,7 @@ def get_user_data(username, secret):
   raise gen.Return(user.stringit())
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def commit_new_user(user, passwd, utype, secret):
@@ -202,6 +383,29 @@ def commit_new_user(user, passwd, utype, secret):
   if ret == "true":
     raise gen.Return(error)
 
+  if pg_connection_wrapper:
+    n_user = Users(user, passwd, utype)
+    params = n_user.paramit()
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'INSERT INTO "{table}" ({columns}) '
+          'VALUES ( '
+          '  %(email)s, %(pw)s, %(date_creation)s, %(date_change)s, '
+          '  %(date_last_login)s, %(applications)s, %(appdrop_rem_token)s, '
+          '  %(appdrop_rem_token_exp)s, %(visit_cnt)s, %(cookie)s, '
+          '  %(cookie_ip)s, %(cookie_exp)s, %(cksum)s, %(enabled)s, %(type)s, '
+          '  %(is_cloud_admin)s, %(capabilities)s '
+          ') '
+          'RETURNING date_last_login'
+          .format(table=table_name, columns=', '.join(USERS_SCHEMA)),
+          vars=params
+        )
+        row = pg_cursor.fetchone()
+    if row:
+      raise gen.Return("true")
+    raise gen.Return("false")
+
   n_user = Users(user, passwd, utype)
   array = n_user.arrayit()
   result = yield db.put_entity(USER_TABLE, user, user_schema, array)
@@ -210,6 +414,7 @@ def commit_new_user(user, passwd, utype, secret):
   raise gen.Return("true")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def add_admin_for_app(user, app, secret):
@@ -227,6 +432,24 @@ def add_admin_for_app(user, app, secret):
   global super_secret
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{table}" '
+          'SET applications = applications || %(app)s, '
+          '    date_change = current_timestamp '
+          'WHERE email = %(user)s '
+          'RETURNING date_change'
+          .format(table=table_name),
+          vars={'app': '{' + app + '}', 'user': user}
+        )
+        user_result = pg_cursor.fetchone()
+
+    if user_result:
+      raise gen.Return("true")
+    raise gen.Return('Error: User {} does not exist'.format(user))
 
   try:
     user_result = yield db.get_entity(USER_TABLE, user, user_schema)
@@ -251,6 +474,7 @@ def add_admin_for_app(user, app, secret):
     raise gen.Return("Error: Unable to update the user.")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def get_all_users(secret):
@@ -260,6 +484,25 @@ def get_all_users(secret):
   users = []
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT email FROM "{table}" '
+          .format(table=table_name)
+        )
+        emails = pg_cursor.fetchall()
+
+    if not emails:
+      raise gen.Return("Error: no users in database")
+
+    # this is a placeholder, soap exception happens if returning empty string
+    userstring = "____"
+    for email in emails:
+      userstring += ":" + email[0]
+    raise gen.Return(userstring)
+
 
   result = yield db.get_table(USER_TABLE, user_schema)
   if result[0] not in ERROR_CODES:
@@ -281,6 +524,7 @@ def get_all_users(secret):
   raise gen.Return(userstring)
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def commit_new_token(user, token, token_exp, secret):
@@ -290,6 +534,30 @@ def commit_new_token(user, token, token_exp, secret):
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
   columns = ['appdrop_rem_token', 'appdrop_rem_token_exp']
+
+  if pg_connection_wrapper:
+    params = {'token': token,
+              'token_exp': token_exp,
+              'user': user}
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{table}" '
+          'SET appdrop_rem_token = %(token)s, '
+          '    appdrop_rem_token_exp = %(token_exp)s, '
+          '    date_change = current_timestamp '
+          'WHERE email = %(user)s '
+          'RETURNING email'
+          .format(table=table_name),
+          vars=params
+        )
+
+        result = pg_cursor.fetchone()
+
+    if result:
+      raise gen.Return("true")
+    raise gen.Return('Error: User {} does not exist'.format(user))
 
   try:
     result = yield db.get_entity(USER_TABLE, user, columns)
@@ -314,6 +582,7 @@ def commit_new_token(user, token, token_exp, secret):
   raise gen.Return("true")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def change_password(user, password, secret):
@@ -326,6 +595,29 @@ def change_password(user, password, secret):
 
   if not password:
     raise gen.Return("Error: Null password")
+
+  if pg_connection_wrapper:
+    # If user not exist in database - write corresponding message
+    exist = does_user_exist(user, secret)
+    if exist != "true":
+      raise gen.Return('Error: User {} does not exist'.format(user))
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+
+        pg_cursor.execute(
+          'UPDATE "{table}" '
+          'SET pw = %(password)s '
+          'WHERE email = %(user)s AND enabled = TRUE '
+          'RETURNING enabled'
+          .format(table=table_name),
+          vars={'password': password, 'user': user}
+        )
+        row = pg_cursor.fetchone()
+
+    if not row:
+      raise gen.Return("Error: User must be enabled to change password")
+    raise gen.Return("true")
 
   try:
     result = yield db.get_entity(USER_TABLE, user, ['enabled'])
@@ -344,6 +636,7 @@ def change_password(user, password, secret):
   raise gen.Return("true")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def enable_user(user, secret):
@@ -352,6 +645,28 @@ def enable_user(user, secret):
   global user_schema
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    # If user not exist in database - write corresponding message
+    exist = does_user_exist(user, secret)
+    if exist != "true":
+      raise gen.Return('Error: User {} does not exist'.format(user))
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{table}" '
+          'SET enabled = TRUE '
+          'WHERE email = %(user)s AND enabled = FALSE '
+          'RETURNING enabled'
+          .format(table=table_name),
+          vars={'user': user}
+        )
+        row = pg_cursor.fetchone()
+
+    if not row:
+      raise gen.Return("Error: Trying to enable a user twice")
+    raise gen.Return("true")
 
   try:
     result = yield db.get_entity(USER_TABLE, user, ['enabled'])
@@ -368,6 +683,7 @@ def enable_user(user, secret):
   raise gen.Return("true")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def disable_user(user, secret):
@@ -376,6 +692,28 @@ def disable_user(user, secret):
   global super_secret
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    # If user not exist in database - write corresponding message
+    exist = does_user_exist(user, secret)
+    if exist != "true":
+      raise gen.Return('Error: User {} does not exist'.format(user))
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{table}" '
+          'SET enabled = FALSE '
+          'WHERE email = %(user)s AND enabled = TRUE '
+          'RETURNING enabled'
+          .format(table=table_name),
+          vars={'user': user}
+        )
+        row = pg_cursor.fetchone()
+
+    if not row:
+      raise gen.Return("Error: Trying to disable a user twice")
+    raise gen.Return("true")
 
   try:
     result = yield db.get_entity(USER_TABLE, user, ['enabled'])
@@ -393,6 +731,7 @@ def disable_user(user, secret):
   raise gen.Return("true")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def delete_user(user, secret):
@@ -401,6 +740,27 @@ def delete_user(user, secret):
   global super_secret
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    # If user not exist in database - write corresponding message
+    exist = does_user_exist(user, secret)
+    if exist != "true":
+      raise gen.Return('Error: User {} does not exist'.format(user))
+
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'DELETE FROM "{table}" '
+          'WHERE email = %(user)s AND enabled = FALSE '
+          'RETURNING enabled'
+          .format(table=table_name),
+          vars={'user': user}
+        )
+        row = pg_cursor.fetchone()
+
+    if not row:
+      raise gen.Return("Error: unable to delete active user. Disable user first")
+    raise gen.Return("true")
 
   try:
     result = yield db.get_entity(USER_TABLE, user, ['enabled'])
@@ -419,6 +779,7 @@ def delete_user(user, secret):
   raise gen.Return("true")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def is_user_enabled(user, secret):
@@ -427,6 +788,21 @@ def is_user_enabled(user, secret):
   global user_schema
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT enabled FROM "{table}" '
+          'WHERE email = %(user)s'
+          .format(table=table_name),
+          vars={'user': user}
+        )
+        result = pg_cursor.fetchone()
+
+    if not result:
+      raise gen.Return("false")
+    raise gen.Return(str(result[0]).lower())
 
   try:
     result = yield db.get_entity(USER_TABLE, user, ['enabled'])
@@ -438,6 +814,7 @@ def is_user_enabled(user, secret):
   raise gen.Return(result[1])
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def is_user_cloud_admin(username, secret):
@@ -445,6 +822,21 @@ def is_user_cloud_admin(username, secret):
   global super_secret
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT is_cloud_admin FROM "{table}" '
+          'WHERE email = %(user)s '
+            .format(table=table_name),
+          vars={'user': username}
+        )
+        result = pg_cursor.fetchone()
+
+    if not result:
+      raise gen.Return("false")
+    raise gen.Return(str(result[0]).lower())
 
   try:
     result = yield db.get_entity(USER_TABLE, username, ["is_cloud_admin"])
@@ -457,6 +849,7 @@ def is_user_cloud_admin(username, secret):
     raise gen.Return("false")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def set_cloud_admin_status(username, is_cloud_admin, secret):
@@ -464,12 +857,31 @@ def set_cloud_admin_status(username, is_cloud_admin, secret):
   global super_secret
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{table}" '
+          'SET is_cloud_admin = %(is_cloud_admin)s '
+          'WHERE email = %(user)s '
+          'RETURNING date_change'
+          .format(table=table_name),
+          vars={'is_cloud_admin': is_cloud_admin, 'user': username}
+        )
+        user_result = pg_cursor.fetchone()
+
+    if user_result:
+      raise gen.Return("true")
+    raise gen.Return('Error: User {} does not exist'.format(username))
+
   result = yield db.put_entity(USER_TABLE, username, ['is_cloud_admin'], [is_cloud_admin])
   if result[0] not in ERROR_CODES:
     raise gen.Return("false:" + result[0])
   raise gen.Return("true")
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def get_capabilities(username, secret):
@@ -477,6 +889,22 @@ def get_capabilities(username, secret):
   global super_secret
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'SELECT capabilities FROM "{table}" '
+          'WHERE email = %(user)s '
+          .format(table=table_name),
+          vars={'user': username}
+        )
+        user_result = pg_cursor.fetchone()
+
+    if user_result:
+      raise gen.Return(user_result[0])
+    raise gen.Return('Error: User {} does not exist'.format(username))
+
 
   try:
     result = yield db.get_entity(USER_TABLE, username, ["capabilities"])
@@ -489,6 +917,7 @@ def get_capabilities(username, secret):
     raise gen.Return([result[0]])
 
 
+@retry_pg_connection
 @tornado_synchronous
 @gen.coroutine
 def set_capabilities(username, capabilities, secret):
@@ -496,6 +925,24 @@ def set_capabilities(username, capabilities, secret):
   global super_secret
   if secret != super_secret:
     raise gen.Return("Error: bad secret")
+
+  if pg_connection_wrapper:
+    with pg_connection_wrapper.get_connection() as pg_connection:
+      with pg_connection.cursor() as pg_cursor:
+        pg_cursor.execute(
+          'UPDATE "{table}" '
+          'SET capabilities = %(capabilities)s '
+          'WHERE email = %(user)s '
+          'RETURNING date_change'
+          .format(table=table_name),
+          vars={'capabilities': capabilities, 'user': username}
+        )
+        user_result = pg_cursor.fetchone()
+
+    if user_result:
+      raise gen.Return("true")
+    raise gen.Return('Error: User {} does not exist'.format(username))
+
   result = yield db.put_entity(USER_TABLE, username, ['capabilities'], [capabilities])
   if result[0] not in ERROR_CODES:
     raise gen.Return("false:" + result[0])
@@ -512,6 +959,7 @@ def usage():
 
 def register_location(host, port):
   """ Register service location with ZooKeeper. """
+  global zk_client
   zk_client = KazooClient(hosts=appscale_info.get_zk_locations_string(),
                           connection_retry=ZK_PERSISTENT_RECONNECTS)
   zk_client.start()
@@ -569,6 +1017,11 @@ def main():
       pass
 
   register_location(appscale_info.get_private_ip(), bindport)
+
+
+  connect_to_postgres(zk_client)
+  if pg_connection_wrapper:
+    init_table(pg_connection_wrapper)
 
   db = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
   ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()

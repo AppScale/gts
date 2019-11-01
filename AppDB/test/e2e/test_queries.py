@@ -70,18 +70,44 @@ class TestMergeJoinQueries(AsyncTestCase):
     self.assertEqual(entity['color'], 'red')
     self.assertEqual(entity['create_time'], create_time)
 
+
+class TestBatchPutEffects(AsyncTestCase):
+  def setUp(self):
+    super(TestBatchPutEffects, self).setUp()
+    locations = os.environ['DATASTORE_LOCATIONS'].split()
+    self.datastore = Datastore(locations, PROJECT_ID)
+
+  def tearDown(self):
+    self.tear_down_helper()
+    super(TestBatchPutEffects, self).tearDown()
+
   @gen_test
-  def test_separator_in_kind(self):
-    # The Cloud Datastore API allows these key names, but AppScale forbids them
-    # because ':' is used to separate kind names and key names when encoding a
-    # path.
-    entity = Entity('Invalid:Kind', _app=PROJECT_ID)
-    try:
-      yield self.datastore.put(entity)
-    except BadRequest:
-      pass
-    else:
-      raise Exception('Expected BadRequest. No error was thrown.')
+  def tear_down_helper(self):
+    query = Query('Greeting', _app=PROJECT_ID)
+    results = yield self.datastore.run_query(query)
+    yield self.datastore.delete([entity.key() for entity in results])
+
+  @gen_test
+  def test_batch_put_index_entries(self):
+    entities = []
+
+    entity = Entity('Greeting', name='duplicate', _app=PROJECT_ID)
+    entity['content'] = 'first entry'
+    entities.append(entity)
+
+    entity = Entity('Greeting', name='duplicate', _app=PROJECT_ID)
+    entity['content'] = 'second entry'
+    entities.append(entity)
+
+    yield self.datastore.put_multi(entities)
+
+    # Ensure the last specified mutation is the one that matters.
+    query = Query('Greeting', projection=['content'], _app=PROJECT_ID)
+    response = yield self.datastore.run_query(query)
+    self.assertEqual(len(response), 1)
+
+    entity = response[0]
+    self.assertEqual(entity['content'], 'second entry')
 
 
 class TestQueryLimit(AsyncTestCase):

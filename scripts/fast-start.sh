@@ -111,10 +111,6 @@ PRIVATE_IP=""
 
 if [ -z "${PROVIDER}" ]; then
     if grep docker /proc/1/cgroup > /dev/null ; then
-        # We need to start sshd by hand.
-        /usr/sbin/sshd
-        # Force Start cron
-        /usr/sbin/cron
         PROVIDER="Docker"
     elif lspci | grep VirtualBox > /dev/null ; then
         PROVIDER="VirtualBox"
@@ -212,7 +208,7 @@ if [ ! -e AppScalefile ]; then
     [ -z "$PRIVATE_IP" ] && { echo "Cannot get private IP of instance!" ; exit 1 ; }
 
     # Tell the user what we detected.
-    echo "Detected enviroment: ${PROVIDER}"
+    echo "Detected environment: ${PROVIDER}"
     echo "Private IP found: ${PRIVATE_IP}"
     echo "Public IP found:  ${LOGIN}"
 
