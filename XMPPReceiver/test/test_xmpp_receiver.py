@@ -5,10 +5,7 @@
 import httplib
 import logging
 import os
-import re
-import select
 import sys
-import types
 import unittest
 
 
@@ -39,6 +36,7 @@ class TestXMPPReceiver(unittest.TestCase):
     flexmock(logging)
     logging.should_receive('basicConfig').and_return()
     logging.should_receive('info').with_args(str).and_return()
+    logging.should_receive('error').with_args(str).and_return()
 
     # and mock out all calls to try to make stderr write to the logger
     fake_open = flexmock(sys.modules['__builtin__'])
@@ -65,7 +63,7 @@ class TestXMPPReceiver(unittest.TestCase):
 
     receiver = XMPPReceiver(self.appid, self.login_ip, self.load_balancer_ip,
                             self.password)
-    self.assertRaises(SystemExit, receiver.listen_for_messages, messages_to_listen_for=1)
+    self.assertRaises(SystemExit, receiver.listen_for_messages)
 
 
   def test_connect_to_xmpp_but_cannot_auth(self):
@@ -81,8 +79,7 @@ class TestXMPPReceiver(unittest.TestCase):
 
     receiver = XMPPReceiver(self.appid, self.login_ip, self.load_balancer_ip,
                             self.password)
-    self.assertRaises(SystemExit, receiver.listen_for_messages,
-      messages_to_listen_for=1)
+    self.assertRaises(SystemExit, receiver.listen_for_messages)
 
   
   def test_receive_one_message(self):
@@ -101,23 +98,16 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_client.should_receive('sendInitPresence').and_return()
 
     # and make sure that we only process one message
-    fake_client.should_receive('Process').with_args(1).once()
+    fake_client.should_receive('Process').and_return(len('the message')).\
+      and_return(0)
 
     flexmock(xmpp)
     xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
       .and_return(fake_client)
 
-    # finally, mock out 'select', and have it put in a message
-    flexmock(select)
-    message = {"the socket" : "xmpp"}
-    select.should_receive('select').with_args(['the socket'], [], [], 1) \
-      .and_return(message, None, None)
-
     receiver = XMPPReceiver(self.appid, self.login_ip, self.load_balancer_ip,
                             self.password)
-    actual_messages_sent = receiver.listen_for_messages(
-      messages_to_listen_for=1)
-    self.assertEquals(1, actual_messages_sent)
+    receiver.listen_for_messages()
 
 
   def test_message_results_in_post(self):

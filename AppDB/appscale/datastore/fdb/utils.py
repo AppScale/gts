@@ -5,6 +5,7 @@ implementation.
 import json
 import logging
 import random
+import struct
 import time
 
 import fdb
@@ -42,6 +43,9 @@ SCATTER_PROPORTION = int(MAX_32 * SCATTER_CHANCE)
 
 # The number of bytes used to store a commit versionstamp.
 VERSIONSTAMP_SIZE = 10
+
+# The number of bytes used to indicate the position of a commit versionstamp.
+VERSIONSTAMP_INDEX_SIZE = 4
 
 MAX_ENTITY_SIZE = 1048572
 
@@ -310,3 +314,12 @@ def format_prop_val(prop_value):
     return Path.flatten(prop_value.referencevalue())
   else:
     return None
+
+
+def encode_delta(value):
+  """ Encodes a value suitable for use with tr.add. """
+  return struct.pack('<q', value)
+
+
+def decode_delta(value):
+  return struct.unpack('<q', value)[0]
