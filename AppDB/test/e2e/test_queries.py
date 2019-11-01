@@ -71,6 +71,45 @@ class TestMergeJoinQueries(AsyncTestCase):
     self.assertEqual(entity['create_time'], create_time)
 
 
+class TestBatchPutEffects(AsyncTestCase):
+  def setUp(self):
+    super(TestBatchPutEffects, self).setUp()
+    locations = os.environ['DATASTORE_LOCATIONS'].split()
+    self.datastore = Datastore(locations, PROJECT_ID)
+
+  def tearDown(self):
+    self.tear_down_helper()
+    super(TestBatchPutEffects, self).tearDown()
+
+  @gen_test
+  def tear_down_helper(self):
+    query = Query('Greeting', _app=PROJECT_ID)
+    results = yield self.datastore.run_query(query)
+    yield self.datastore.delete([entity.key() for entity in results])
+
+  @gen_test
+  def test_batch_put_index_entries(self):
+    entities = []
+
+    entity = Entity('Greeting', name='duplicate', _app=PROJECT_ID)
+    entity['content'] = 'first entry'
+    entities.append(entity)
+
+    entity = Entity('Greeting', name='duplicate', _app=PROJECT_ID)
+    entity['content'] = 'second entry'
+    entities.append(entity)
+
+    yield self.datastore.put_multi(entities)
+
+    # Ensure the last specified mutation is the one that matters.
+    query = Query('Greeting', projection=['content'], _app=PROJECT_ID)
+    response = yield self.datastore.run_query(query)
+    self.assertEqual(len(response), 1)
+
+    entity = response[0]
+    self.assertEqual(entity['content'], 'second entry')
+
+
 class TestQueryLimit(AsyncTestCase):
   CASSANDRA_PAGE_SIZE = 5000
   BATCH_SIZE = 20
