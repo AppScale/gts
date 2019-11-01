@@ -490,15 +490,21 @@ class DatastoreDistributed():
     self.logger.info('Updated {} index entries.'.format(entries_updated))
 
   @gen.coroutine
-  def allocate_size(self, project, size):
+  def allocate_size(self, project, namespace, path_prefix, size):
     """ Allocates a block of IDs for a project.
 
     Args:
       project: A string specifying the project ID.
+      namespace: A string specifying a namespace.
+      path_prefix: A tuple specifying the model key's path (omitting the final
+        ID).
       size: An integer specifying the number of IDs to reserve.
     Returns:
       A tuple of integers specifying the start and end ID.
     """
+    # The Cassandra backend does not implement path-specific allocators.
+    del namespace, path_prefix
+
     if project not in self.sequential_allocators:
       self.sequential_allocators[project] = EntityIDAllocator(
         self.datastore_batch.session, project)
@@ -508,15 +514,21 @@ class DatastoreDistributed():
     raise gen.Return((start_id, end_id))
 
   @gen.coroutine
-  def allocate_max(self, project, max_id):
+  def allocate_max(self, project, namespace, path_prefix, max_id):
     """ Reserves all IDs up to the one given.
 
     Args:
       project: A string specifying the project ID.
+      namespace: A string specifying the namespace.
+      path_prefix: A tuple specifying the model key's path (omitting the final
+        ID).
       max_id: An integer specifying the maximum ID to allocated.
     Returns:
       A tuple of integers specifying the start and end ID.
     """
+    # The Cassandra backend does not implement path-specific allocators.
+    del namespace, path_prefix
+
     if project not in self.sequential_allocators:
       self.sequential_allocators[project] = EntityIDAllocator(
         self.datastore_batch.session, project)

@@ -28,11 +28,13 @@ from appscale.datastore.fdb.data import DataManager, VersionEntry
 from appscale.datastore.fdb.gc import GarbageCollector
 from appscale.datastore.fdb.indexes import (
   get_order_info, IndexManager, KEY_PROP)
+from appscale.datastore.fdb.sequential_ids import (
+  old_max_id, sequential_id_key, SequentialIDsNamespace)
 from appscale.datastore.fdb.stats.buffer import StatsBuffer
 from appscale.datastore.fdb.transactions import TransactionManager
 from appscale.datastore.fdb.utils import (
-  ABSENT_VERSION, fdb, FDBErrorCodes, next_entity_version, DS_ROOT,
-  ScatteredAllocator, TornadoFDB)
+  _MAX_SEQUENTIAL_ID, ABSENT_VERSION, DS_ROOT, fdb, FDBErrorCodes,
+  next_entity_version, ScatteredAllocator, TornadoFDB)
 from appscale.datastore.index_manager import IndexInaccessible
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
@@ -58,22 +60,22 @@ class FDBDatastore(object):
     self._db = fdb.open(fdb_clusterfile)
     self._tornado_fdb = TornadoFDB(IOLoop.current())
     ds_dir = fdb.directory.create_or_open(self._db, DS_ROOT)
-    directory_cache = DirectoryCache(self._db, self._tornado_fdb, ds_dir)
-    directory_cache.initialize()
+    self._directory_cache = DirectoryCache(self._db, self._tornado_fdb, ds_dir)
+    self._directory_cache.initialize()
 
-    self._data_manager = DataManager(self._tornado_fdb, directory_cache)
+    self._data_manager = DataManager(self._tornado_fdb, self._directory_cache)
     self.index_manager = IndexManager(
-      self._db, self._tornado_fdb, self._data_manager, directory_cache)
+      self._db, self._tornado_fdb, self._data_manager, self._directory_cache)
     self._tx_manager = TransactionManager(
-      self._db, self._tornado_fdb, directory_cache)
+      self._db, self._tornado_fdb, self._directory_cache)
 
     self._gc = GarbageCollector(
       self._db, self._tornado_fdb, self._data_manager, self.index_manager,
-      self._tx_manager, directory_cache)
+      self._tx_manager, self._directory_cache)
     self._gc.start()
 
     self._stats_buffer = StatsBuffer(
-      self._db, self._tornado_fdb, directory_cache, self)
+      self._db, self._tornado_fdb, self._directory_cache, self)
     self._stats_buffer.start()
 
   @gen.coroutine
@@ -431,6 +433,66 @@ class FDBDatastore(object):
     # will not use ZooKeeper in the future.
     zk_client = self.index_manager.composite_index_manager._zk_client
     merge_indexes(zk_client, project_id, indexes)
+
+  @gen.coroutine
+  def allocate_size(self, project_id, namespace, path_prefix, size, retries=5):
+    tr = self._db.create_transaction()
+
+    key = yield sequential_id_key(tr, project_id, namespace, path_prefix,
+                                  self._directory_cache)
+    old_max = yield old_max_id(tr, key, self._tornado_fdb)
+
+    new_max = old_max + size
+    # TODO: Check behavior on reaching max sequential ID.
+    if new_max > _MAX_SEQUENTIAL_ID:
+      raise BadRequest(
+        u'There are not enough remaining IDs to satisfy request')
+
+    tr[key] = SequentialIDsNamespace.encode_value(new_max)
+
+    try:
+      yield self._tornado_fdb.commit(tr)
+    except fdb.FDBError as fdb_error:
+      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+        raise InternalError(fdb_error.description)
+
+      retries -= 1
+      if retries < 0:
+        raise InternalError(fdb_error.description)
+
+      range_start, range_end = yield self.allocate_size(
+        project_id, namespace, path_prefix, size, retries)
+      raise gen.Return((range_start, range_end))
+
+    raise gen.Return((old_max + 1, new_max))
+
+  @gen.coroutine
+  def allocate_max(self, project_id, namespace, path_prefix, new_max,
+                   retries=5):
+    tr = self._db.create_transaction()
+
+    key = yield sequential_id_key(tr, project_id, namespace, path_prefix,
+                                  self._directory_cache)
+    old_max = yield old_max_id(tr, key, self._tornado_fdb)
+
+    if new_max > old_max:
+      tr[key] = SequentialIDsNamespace.encode_value(new_max)
+
+    try:
+      yield self._tornado_fdb.commit(tr)
+    except fdb.FDBError as fdb_error:
+      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+        raise InternalError(fdb_error.description)
+
+      retries -= 1
+      if retries < 0:
+        raise InternalError(fdb_error.description)
+
+      range_start, range_end = yield self.allocate_max(
+        project_id, namespace, path_prefix, new_max, retries)
+      raise gen.Return((range_start, range_end))
+
+    raise gen.Return((old_max + 1, max(new_max, old_max)))
 
   @gen.coroutine
   def _upsert(self, tr, entity, old_entry_future=None):
