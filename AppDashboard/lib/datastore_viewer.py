@@ -378,7 +378,7 @@ class DatastoreViewer(DatastoreViewerPage):
     query.set_kind('__kind__')
     result = datastore_pb.QueryResult()
     ds_access._Dynamic_RunQuery(query, result)
-    kinds = [entity.entity_group().element(0).name()
+    kinds = [entity.key().path().element(0).name()
              for entity in result.result_list()]
     return sorted(kinds)
 
