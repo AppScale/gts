@@ -155,18 +155,6 @@ EOF
     # This create link to appscale settings.
     mkdir -pv ${DESTDIR}${CONFIG_DIR}
 
-    cat <<EOF | tee ${CONFIG_DIR}/home || exit
-${APPSCALE_HOME_RUNTIME}
-EOF
-    # Create the global AppScale environment file.
-    DESTFILE=${DESTDIR}${CONFIG_DIR}/environment.yaml
-    mkdir -pv $(dirname $DESTFILE)
-    echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE
-APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
-EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: ${JAVA_HOME_DIRECTORY}
-EOF
     mkdir -pv /var/log/appscale
     # Allow rsyslog to write to appscale log directory.
     chgrp adm /var/log/appscale
