@@ -393,8 +393,13 @@ class KindIterator(object):
       raise gen.Return(([], False))
 
     # TODO: This can be made async.
-    ns_dir = self._project_dir.open(
-      self._tr, (KindIndex.DIR_NAME, self._namespace))
+    try:
+      ns_dir = self._project_dir.open(
+        self._tr, (KindIndex.DIR_NAME, self._namespace))
+    except ValueError:
+      # If the namespace does not exist, there are no kinds there.
+      raise gen.Return(([], False))
+
     kinds = ns_dir.list(self._tr)
     populated_kinds = [
       kind for kind, populated in zip(
