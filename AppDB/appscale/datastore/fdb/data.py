@@ -442,6 +442,14 @@ class DataManager(object):
         index_entry.project_id, index_entry.namespace, index_entry.path,
         encoded_entity=entity.Encode())
       raise gen.Return(version_entry)
+    elif index_entry.kind == u'__property__':
+      entity = index_entry.prop_result()
+      entity.clear_entity_group()
+      entity.mutable_entity_group()
+      version_entry = VersionEntry(
+        index_entry.project_id, index_entry.namespace, index_entry.path,
+        encoded_entity=entity.Encode())
+      raise gen.Return(version_entry)
 
     version_entry = yield self.get_version_from_path(
       tr, index_entry.project_id, index_entry.namespace, index_entry.path,
