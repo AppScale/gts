@@ -15,9 +15,8 @@ from .constants import TaskNotFound
 from .task import InvalidTaskInfo, Task, TASK_FIELDS
 from .queue import (InvalidLeaseRequest,
                     LONG_QUEUE_FORM,
-                    PullQueue, PostgresPullQueue,
-                    QUEUE_FIELDS,
-                    TransientError)
+                    PostgresPullQueue,
+                    QUEUE_FIELDS)
 
 # The prefix for all of the handlers of the pull queue REST API.
 REST_PREFIX = '/taskqueue/v1beta2/projects/(?:.~)?([a-z0-9-]+)/taskqueues'
@@ -105,7 +104,7 @@ class QueueList(TrackedRequestHandler):
       return
 
     pull_queues = [queue_name for queue_name, queue in project_queues.items()
-                   if isinstance(queue, PullQueue)]
+                   if isinstance(queue, PostgresPullQueue)]
     json.dump(pull_queues, self)
 
 
@@ -130,7 +129,7 @@ class RESTQueue(TrackedRequestHandler):
       write_error(self, HTTPCodes.NOT_FOUND, 'Queue not found.')
       return
 
-    if not isinstance(queue, (PullQueue, PostgresPullQueue)):
+    if not isinstance(queue, PostgresPullQueue):
       write_error(self, HTTPCodes.BAD_REQUEST,
                   'The REST API is only applicable to pull queues.')
       return
@@ -229,10 +228,8 @@ class RESTTasks(TrackedRequestHandler):
     try:
       queue.add_task(task)
     except InvalidTaskInfo as insert_error:
-      write_error(self, HTTPCodes.BAD_REQUEST, insert_error.message)
+      write_error(self, HTTPCodes.BAD_REQUEST, str(insert_error))
       return
-    except TransientError as error:
-      write_error(self, HTTPCodes.INTERNAL_ERROR, str(error))
 
     self.write(json.dumps(task.json_safe_dict(fields=fields)))
 
@@ -294,7 +291,7 @@ class RESTLease(TrackedRequestHandler):
     try:
       tasks = queue.lease_tasks(num_tasks, lease_seconds, group_by_tag, tag)
     except InvalidLeaseRequest as lease_error:
-      write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
+      write_error(self, HTTPCodes.BAD_REQUEST, str(lease_error))
       return
     except TransientError as lease_error:
       write_error(self, HTTPCodes.INTERNAL_ERROR, str(lease_error))
@@ -403,7 +400,7 @@ class RESTTask(TrackedRequestHandler):
     try:
       task = queue.update_lease(provided_task, new_lease_seconds)
     except InvalidLeaseRequest as lease_error:
-      write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
+      write_error(self, HTTPCodes.BAD_REQUEST, str(lease_error))
       return
     except TaskNotFound as error:
       write_error(self, HTTPCodes.NOT_FOUND, str(error))
@@ -459,7 +456,7 @@ class RESTTask(TrackedRequestHandler):
     try:
       new_task = Task(task_info)
     except InvalidTaskInfo as task_error:
-      write_error(self, HTTPCodes.BAD_REQUEST, task_error.message)
+      write_error(self, HTTPCodes.BAD_REQUEST, str(task_error))
       return
 
     try:
@@ -487,7 +484,7 @@ class RESTTask(TrackedRequestHandler):
     try:
       task = queue.update_task(new_task, new_lease_seconds)
     except InvalidLeaseRequest as lease_error:
-      write_error(self, HTTPCodes.BAD_REQUEST, lease_error.message)
+      write_error(self, HTTPCodes.BAD_REQUEST, str(lease_error))
       return
     except TaskNotFound as error:
       write_error(self, HTTPCodes.NOT_FOUND, str(error))

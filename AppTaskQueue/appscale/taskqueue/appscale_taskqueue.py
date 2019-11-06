@@ -16,7 +16,7 @@ from appscale.common import appscale_info
 from appscale.common.constants import TQ_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 
-from appscale.taskqueue import distributed_tq
+from appscale.taskqueue import distributed_tq, pg_connection_wrapper
 from appscale.taskqueue.constants import SHUTTING_DOWN_TIMEOUT
 from .protocols import taskqueue_service_pb2
 from .protocols import remote_api_pb2
@@ -329,6 +329,7 @@ def main():
     connection_retry=ZK_PERSISTENT_RECONNECTS)
   zk_client.start()
 
+  pg_connection_wrapper.start_postgres_dsn_watch(zk_client)
   register_location(zk_client, appscale_info.get_private_ip(), args.port)
 
   # Initialize tornado server

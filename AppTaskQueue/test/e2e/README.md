@@ -57,12 +57,9 @@ if you have a VM started from AppScale image with SSH access to it.
 The script:
  - Ensures that needed version of python is installed on the local machine;
  - Creates virtualenv on the local machine and installs needed python packages;
- - Starts Cassandra on the VM and creates needed appscale tables;
  - Starts Zookeeper on the VM and creates needed nodes there;
  - Installs, starts and configures Postgres on the VM;
- - Starts TaskQueue on the VM using Cassandra as a backend for pull queues;
- - Runs e2e tests;
- - Restarts TaskQueue on the VM using Postgres as a backend for pull queues;
+ - Starts TaskQueue on the VM using Postgres as a backend for pull queues;
  - Runs e2e tests;
 
 
