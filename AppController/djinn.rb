@@ -2236,13 +2236,6 @@ class Djinn
         return NOT_ENOUGH_OPEN_NODES
       end
 
-      # Ensure we have the default type to use for the autoscaled nodes.
-      if @options['instance_type'].nil?
-        Djinn.log_warn('instance_type is undefined, hence no ' \
-                       'spawning of instance is possible.')
-        return NOT_ENOUGH_OPEN_NODES
-      end
-
       Djinn.log_info("Need to spawn #{new_nodes_roles.length} VMs.")
 
       # We create here the needed nodes, with open role and no disk.
