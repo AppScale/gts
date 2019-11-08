@@ -17,7 +17,6 @@ MAX_TASKS = 30
 LEASE_SECONDS = 30
 
 PRODUCER_PID = int(os.environ['PRODUCERS_PID'])
-PULL_QUEUES_BACKEND = os.environ['PULL_QUEUES_BACKEND']
 
 
 class Worker(TaskQueueLocust):
@@ -56,9 +55,6 @@ class Worker(TaskQueueLocust):
         if not leased.task:
           return
         Worker.LAST_LEASE_TIME = time.time()
-        if PULL_QUEUES_BACKEND == 'cassandra':
-          for task in leased.task:
-            task.retry_count += 1
         tasks_info = [self.get_task_info(task) for task in leased.task]
 
         # Assuming that virtual tasks can be run in parallel

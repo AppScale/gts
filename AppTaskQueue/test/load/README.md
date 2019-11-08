@@ -19,14 +19,10 @@ running behind a load balancer.
 `AppTaskQueue/test/suits/run-load-test.sh` script can run entire
 test automatically. It does number of things:
  1. Provisions TaskQueue service on VMs (started from appscale image).
- 2. Initializes two projects (one is based on Cassadra implementation
-    of pull queues, another on Postgres).
- 3. Makes sure pull queue is defined for Cassandra project and is empty.
- 4. Starts specified number of users to produce high load against Cassandra
-    project.
+ 2. Initializes test project.
+ 3. Makes sure pull queue is defined and is empty.
+ 4. Starts specified number of users to produce high load.
  5. Analyses outcomes, reports result.
-
-Steps from 3 to 5 are repeated for Postgres implementation of pull queues.
 
 
 ### Running load test manually
@@ -59,7 +55,6 @@ is 10.10.1.20:4000, Zookeeper is available at 10.10.1.25.
     mkdir ./logs
     export VALIDATION_LOG=./logs
     export TEST_PROJECT=tq-test-proj
-    export PULL_QUEUES_BACKEND=postgres    # or cassandra
     ```
  5. Start producer and worker locusts, wait for processes to exit:
     ```bash
@@ -108,7 +103,6 @@ privileges).
     ```bash
     cat > ./layout.txt << CONTENT
     ROLE          PUBLIC_IP/HOST_NAME  PRIVATE_IP
-    cassandra     192.168.100.40       10.10.8.20
     postgres      192.168.100.41       10.10.8.21
     zookeeper     192.168.100.42       10.10.8.22
     loadbalancer  192.168.100.43       10.10.8.23
@@ -190,17 +184,6 @@ covered.
 
 Helper scripts need to be implemented for easier testing of different
 scenarios.
-
-#### The test shouldn't be aware of backend
-
-Initially this test was introduced to make sure that Postgres backend for
-Pull Queues works consistently under load. So it was (is yet) important
-to also compare Postgres implementation with original Cassandra implementation.
-That's why Pull Queues backend is explicitly configured in
-`AppTaskQueue/test/suites/run-load-test.sh`.
-
-Whenever Postgres implementation becomes default, any mentions of Pull Queues
-backend should be removed from the test.
 
 #### Configure .gitignore to ignore test artifacts
 

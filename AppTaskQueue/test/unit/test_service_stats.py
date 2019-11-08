@@ -24,7 +24,7 @@ class TestServiceStatistics(AsyncHTTPTestCase):
 
   def setUp(self):
     """ Patches handlers of Taskqueue application in order
-    to prevent real calls to Cassandra and Datastore because only
+    to prevent real calls to Postgres and Datastore because only
     service statistics matters for this test.
     """
     super(TestServiceStatistics, self).setUp()

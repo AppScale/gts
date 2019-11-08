@@ -134,13 +134,20 @@ class CompositeEntry(IndexEntry):
     entity = entity_pb.EntityProto()
     entity.mutable_key().MergeFrom(self.key)
     entity.mutable_entity_group().MergeFrom(self.group)
-    for prop_name, value in self.properties:
+
+    def add_prop(prop_name, multiple, value):
       prop = entity.add_property()
       prop.set_name(prop_name)
       prop.set_meaning(entity_pb.Property.INDEX_VALUE)
-      # TODO: Check if this is sometimes True.
-      prop.set_multiple(False)
+      prop.set_multiple(multiple)
       prop.mutable_value().MergeFrom(value)
+
+    for prop_name, value in self.properties:
+      if isinstance(value, list):
+        for multiple_val in value:
+          add_prop(prop_name, True, multiple_val)
+      else:
+        add_prop(prop_name, False, value)
 
     return entity
 
@@ -562,6 +569,38 @@ class SinglePropIndex(Index):
     deleted_versionstamp = kv.value or None
     return PropertyEntry(self.project_id, self.namespace, path, self.prop_name,
                          value, commit_versionstamp, deleted_versionstamp)
+
+  def type_range(self, type_name):
+    """ Returns a slice that encompasses all values for a property type. """
+    if type_name == u'NULL':
+      start = six.int2byte(codecs.NULL_CODE)
+      stop = six.int2byte(codecs.NULL_CODE + 1)
+    elif type_name == u'INT64':
+      start = six.int2byte(codecs.MIN_INT64_CODE)
+      stop = six.int2byte(codecs.MAX_INT64_CODE + 1)
+    elif type_name == u'BOOLEAN':
+      start = six.int2byte(codecs.FALSE_CODE)
+      stop = six.int2byte(codecs.TRUE_CODE + 1)
+    elif type_name == u'STRING':
+      start = six.int2byte(codecs.BYTES_CODE)
+      stop = six.int2byte(codecs.BYTES_CODE + 1)
+    elif type_name == u'DOUBLE':
+      start = six.int2byte(codecs.DOUBLE_CODE)
+      stop = six.int2byte(codecs.DOUBLE_CODE + 1)
+    elif type_name == u'POINT':
+      start = six.int2byte(codecs.POINT_CODE)
+      stop = six.int2byte(codecs.POINT_CODE + 1)
+    elif type_name == u'USER':
+      start = six.int2byte(codecs.USER_CODE)
+      stop = six.int2byte(codecs.USER_CODE + 1)
+    elif type_name == u'REFERENCE':
+      start = six.int2byte(codecs.REFERENCE_CODE)
+      stop = six.int2byte(codecs.REFERENCE_CODE + 1)
+    else:
+      raise InternalError(u'Unknown type name')
+
+    return slice(self.directory.rawPrefix + start,
+                 self.directory.rawPrefix + stop)
 
 
 class CompositeIndex(Index):

@@ -91,28 +91,11 @@ do
     sleep ${attempt}
 done
 
-log "Checking if DB and user already exist"
-if psql --dbname ${DBNAME} --username ${USERNAME} --host ${HOST} \
-        --command 'SELECT current_timestamp;'
-then
-    log "DB and user are already configured"
-    exit 0
-fi
-
-log "Creating Database and Role"
-CREATE_ROLE="CREATE ROLE \"${USERNAME}\" WITH LOGIN PASSWORD '${PASSWORD}';"
-sudo -u postgres psql --command "${CREATE_ROLE}"
-sudo -u postgres createdb --owner "${USERNAME}" "${DBNAME}"
-echo "${HOST}:5432:${DBNAME}:${USERNAME}:${PASSWORD}" > ~/.pgpass
-chmod 600 ~/.pgpass
-cp ~/.pgpass /root/.pgpass
-
-
 log "Updating Postgres configs to accept host connections to the Database"
 PG_MAJOR_VER=$(psql --version | awk '{ print $3 }' | awk -F '.' '{ print $1 }')
 PG_VERSION=$(psql --version | awk '{ print $3 }' | awk -F '.' '{ print $1 "." $2 }')
 
-if [ "${PG_MAJOR_VER}" = "10" ]; then
+if (( "${PG_MAJOR_VER}" >= 10 )); then
     PG_CONFIG_DIR="/etc/postgresql/${PG_MAJOR_VER}"
 else
     PG_CONFIG_DIR="/etc/postgresql/${PG_VERSION}"
@@ -132,10 +115,32 @@ fi
 # Allow host connections to the specified DB
 if grep -q -E "^host[ \t]+${DBNAME}[ \t]+${USERNAME}[ \t]+" "${PG_HBA}"
 then
-    sed -i "s|^host[ \t]+${DBNAME}[ \t]+${USERNAME}[ \t]+.*|host ${DBNAME} ${USERNAME} ${HOST}/0 md5|" "${PG_HBA}"
+    sed -i "s|^host[ \t]+${DBNAME}[ \t]+${USERNAME}[ \t]+.*|host ${DBNAME} ${USERNAME} 0.0.0.0/0 md5|" "${PG_HBA}"
 else
-    echo "host ${DBNAME} ${USERNAME} ${HOST}/0 md5" >> "${PG_HBA}"
+    echo "host ${DBNAME} ${USERNAME} 0.0.0.0/0 md5" >> "${PG_HBA}"
 fi
 
-log "Restarting Postgres"
-service postgresql restart
+systemctl restart postgresql.service
+systemctl enable postgresql.service
+systemctl status postgresql.service
+
+
+trap 'rm -f ~/.pgpass' EXIT
+echo "${HOST}:5432:${DBNAME}:${USERNAME}:${PASSWORD}" > ~/.pgpass
+chmod 600 ~/.pgpass
+
+log "Checking if DB and user already exist"
+if psql --dbname ${DBNAME} --username ${USERNAME} --host ${HOST} \
+        --command 'SELECT current_timestamp;'
+then
+    log "DB and user are already configured"
+    exit 0
+fi
+
+
+log "Creating Database and Role"
+CREATE_ROLE="CREATE ROLE \"${USERNAME}\" WITH LOGIN PASSWORD '${PASSWORD}';"
+sudo -u postgres psql --command "${CREATE_ROLE}"
+echo "Creating DB"
+sudo -u postgres createdb --owner "${USERNAME}" "${DBNAME}"
+echo "Done - $?"

@@ -6,14 +6,11 @@ import time
 
 import kazoo.client
 import pytest
-from kazoo.exceptions import NoNodeError
 
 from helpers import api_helper, taskqueue_service_pb2
 
 
 TEST_PROJECT = os.environ['TEST_PROJECT']
-PG_DSN_NODE = f'/appscale/projects/{TEST_PROJECT}/postgres_dsn'
-PROJECT_NODE = f'/appscale/projects/{TEST_PROJECT}'
 PROJECT_QUEUES_NODE = f'/appscale/projects/{TEST_PROJECT}/queues'
 PROJECT_QUEUES_CONFIG = {
   'queue': {
@@ -25,9 +22,6 @@ PROJECT_QUEUES_CONFIG = {
   }
 }
 PROJECT_QUEUES_CONFIG_BYTES = bytes(json.dumps(PROJECT_QUEUES_CONFIG), 'utf-8')
-
-POSTGRES = 'postgres'
-CASSANDRA = 'cassandra'
 
 
 def async_test(test):
@@ -53,24 +47,6 @@ def taskqueue(request):
   """
   tq_locations = request.config.getoption('--tq-locations')
   return api_helper.TaskQueue(tq_locations, TEST_PROJECT)
-
-
-@pytest.fixture(scope='session')
-def pull_queues_backend(request):
-  """ Reports what backend is used for Pull Queues
-  """
-  # Configure Zookeeper client
-  zk_location = request.config.getoption('--zk-location')
-  zk_client = kazoo.client.KazooClient(hosts=zk_location)
-  zk_client.start()
-  # Check if PG_DSN node is specified for the project
-  try:
-    zk_client.get(PG_DSN_NODE)
-  except NoNodeError:
-    return CASSANDRA
-  finally:
-    zk_client.stop()
-  return POSTGRES
 
 
 @pytest.fixture(scope='session', autouse=True)

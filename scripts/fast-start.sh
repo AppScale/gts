@@ -208,6 +208,15 @@ echo "Configuring local foundationdb"
     --fdbcli-command 'configure new single ssd'
 FDB_CLUSTERFILE_CONTENT=$(cat /etc/foundationdb/fdb.cluster)
 
+echo "Configuring local postgresql"
+POSTGRES_PASSWORD=$(openssl rand -base64 18)
+/root/appscale-thirdparties/postgres/configure-and-start-postgres.sh \
+   --host 127.0.0.1 \
+   --dbname appscale \
+   --username appscale \
+   --password "${POSTGRES_PASSWORD}"
+POSTGRES_DSN="dbname=appscale user=appscale password=${POSTGRES_PASSWORD} host=127.0.0.1"
+
 # Let's make sure we don't overwrite and existing AppScalefile.
 if [ ! -e AppScalefile ]; then
     # Let's make sure we detected the IPs.
@@ -238,6 +247,7 @@ if [ ! -e AppScalefile ]; then
         echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
     fi
     echo "fdb_clusterfile_content : ${FDB_CLUSTERFILE_CONTENT}" >> AppScalefile
+    echo "postgres_dsn : ${POSTGRES_DSN}" >> AppScalefile
     echo "group : faststart-${PROVIDER}" >> AppScalefile
     echo "done."
 

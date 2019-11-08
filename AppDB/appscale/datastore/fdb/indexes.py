@@ -11,6 +11,7 @@ import sys
 from tornado import gen
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.fdb import codecs
 from appscale.datastore.fdb.codecs import (
   decode_str, encode_versionstamp_index, Path)
 from appscale.datastore.fdb.composite_indexes import CompositeIndexManager
@@ -238,8 +239,13 @@ class KindIterator(object):
       raise gen.Return(([], False))
 
     # TODO: This can be made async.
-    ns_dir = self._project_dir.open(
-      self._tr, (KindIndex.DIR_NAME, self._namespace))
+    try:
+      ns_dir = self._project_dir.open(
+        self._tr, (KindIndex.DIR_NAME, self._namespace))
+    except ValueError:
+      # If the namespace does not exist, there are no kinds there.
+      raise gen.Return(([], False))
+
     kinds = ns_dir.list(self._tr)
     populated_kinds = [
       kind for kind, populated in zip(
@@ -264,6 +270,79 @@ class KindIterator(object):
     # This query is reversed to increase the likelihood of getting a relevant
     # (not marked for GC) entry.
     iterator = IndexIterator(self._tr, self._tornado_fdb, kind_index,
+                             index_slice, fetch_limit=1, reverse=True,
+                             snapshot=True)
+    while True:
+      results, more_results = yield iterator.next_page()
+      if results:
+        raise gen.Return(True)
+
+      if not more_results:
+        raise gen.Return(False)
+
+
+class PropertyIterator(object):
+  """ Iterates over a list of indexed property names for a kind. """
+  PROPERTY_TYPES = (u'NULL', u'INT64', u'BOOLEAN', u'STRING', u'DOUBLE',
+                    u'POINT', u'USER', u'REFERENCE')
+
+  def __init__(self, tr, tornado_fdb, project_dir, namespace):
+    self._tr = tr
+    self._tornado_fdb = tornado_fdb
+    self._project_dir = project_dir
+    self._namespace = namespace
+    self._done = False
+
+  @gen.coroutine
+  def next_page(self):
+    if self._done:
+      raise gen.Return(([], False))
+
+    # TODO: This can be made async.
+    ns_dir = self._project_dir.open(
+      self._tr, (SinglePropIndex.DIR_NAME, self._namespace))
+    kinds = ns_dir.list(self._tr)
+    # TODO: Check if stat entities belong in kinds.
+    kind_dirs = [ns_dir.open(self._tr, (kind,)) for kind in kinds]
+    results = []
+    for kind, kind_dir in zip(kinds, kind_dirs):
+      # TODO: This can be made async.
+      prop_names = kind_dir.list(self._tr)
+      for prop_name in prop_names:
+        prop_dir = kind_dir.open(self._tr, (prop_name,))
+        index = SinglePropIndex(prop_dir)
+        populated_map = yield [self._populated(index, type_name)
+                               for type_name in self.PROPERTY_TYPES]
+        populated_types = tuple(
+          type_ for type_, populated in zip(self.PROPERTY_TYPES, populated_map)
+          if populated)
+        if not populated_types:
+          continue
+
+        project_id = self._project_dir.get_path()[-1]
+        path = (u'__kind__', kind, u'__property__', prop_name)
+        prop_values = []
+        for prop_type in populated_types:
+          prop_value = entity_pb.PropertyValue()
+          prop_value.set_stringvalue(prop_type)
+          prop_values.append(prop_value)
+
+        # TODO: Consider giving metadata results their own entry class.
+        entry = CompositeEntry(
+          project_id, self._namespace, path,
+          [(u'property_representation', prop_values)], None, None)
+        results.append(entry)
+
+    self._done = True
+    raise gen.Return((results, False))
+
+  @gen.coroutine
+  def _populated(self, prop_index, type_name):
+    """ Checks if at least one entity exists for a given type name. """
+    index_slice = prop_index.type_range(type_name)
+    # This query is reversed to increase the likelihood of getting a relevant
+    # (not marked for GC) entry.
+    iterator = IndexIterator(self._tr, self._tornado_fdb, prop_index,
                              index_slice, fetch_limit=1, reverse=True,
                              snapshot=True)
     while True:
@@ -524,6 +603,10 @@ class IndexManager(object):
       project_dir = yield self._directory_cache.get(tr, (project_id,))
       raise gen.Return(KindIterator(tr, self._tornado_fdb, project_dir,
                                     namespace))
+    elif query.has_kind() and query.kind() == u'__property__':
+      project_dir = yield self._directory_cache.get(tr, (project_id,))
+      raise gen.Return(PropertyIterator(tr, self._tornado_fdb, project_dir,
+                                        namespace))
 
     index = yield self._get_perfect_index(tr, query)
     reverse = get_scan_direction(query, index) == Query_Order.DESCENDING
