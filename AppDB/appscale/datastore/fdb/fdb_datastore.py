@@ -378,9 +378,11 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
-    stat_diffs = [(project_id, old_entry.namespace, old_entry.path, stats)
-                  for old_entry, _, stats in writes if stats is not None]
-    IOLoop.current().spawn_callback(self._stats_buffer.apply_diffs, stat_diffs)
+    mutations = [(old_entry, new_entry, index_stats)
+                 for old_entry, new_entry, index_stats in writes
+                 if index_stats is not None]
+    IOLoop.current().spawn_callback(self._stats_buffer.update, project_id,
+                                    mutations)
 
     logger.debug(u'Finished applying {}:{}'.format(project_id, txid))
 
@@ -535,7 +537,7 @@ class FDBDatastore(object):
       old_entry = yield old_entry_future
 
     if not old_entry.present:
-      raise gen.Return((old_entry, None))
+      raise gen.Return((old_entry, None, None))
 
     new_version = next_entity_version(old_entry.version)
     yield self._data_manager.put(tr, key, new_version, b'')
