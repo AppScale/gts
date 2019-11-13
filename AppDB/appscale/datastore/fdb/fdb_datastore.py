@@ -19,7 +19,6 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.common.datastore_index import merge_indexes
 from appscale.datastore.dbconstants import (
   BadRequest, ConcurrentModificationException, InternalError)
 from appscale.datastore.fdb.cache import DirectoryCache
@@ -47,13 +46,13 @@ class FDBDatastore(object):
   """ A datastore implementation that uses FoundationDB. """
 
   def __init__(self):
-    self.index_manager = None
     self._data_manager = None
     self._db = None
     self._scattered_allocator = ScatteredAllocator()
     self._tornado_fdb = None
     self._tx_manager = None
     self._gc = None
+    self._index_manager = None
     self._stats_buffer = None
 
   def start(self, fdb_clusterfile):
@@ -64,13 +63,15 @@ class FDBDatastore(object):
     self._directory_cache.initialize()
 
     self._data_manager = DataManager(self._tornado_fdb, self._directory_cache)
-    self.index_manager = IndexManager(
-      self._db, self._tornado_fdb, self._data_manager, self._directory_cache)
     self._tx_manager = TransactionManager(
       self._db, self._tornado_fdb, self._directory_cache)
 
+    self._index_manager = IndexManager(
+      self._db, self._tornado_fdb, self._data_manager, self._directory_cache)
+    self._index_manager.start()
+
     self._gc = GarbageCollector(
-      self._db, self._tornado_fdb, self._data_manager, self.index_manager,
+      self._db, self._tornado_fdb, self._data_manager, self._index_manager,
       self._tx_manager, self._directory_cache)
     self._gc.start()
 
@@ -254,10 +255,10 @@ class FDBDatastore(object):
           safe_versionstamp > read_versionstamp):
         raise BadRequest(u'The specified transaction has expired')
 
-    fetch_data = self.index_manager.include_data(query)
-    rpc_limit, check_more_results = self.index_manager.rpc_limit(query)
+    fetch_data = self._index_manager.include_data(query)
+    rpc_limit, check_more_results = self._index_manager.rpc_limit(query)
 
-    iterator = yield self.index_manager.get_iterator(
+    iterator = yield self._index_manager.get_iterator(
       tr, query, read_versionstamp)
     for prop_name in query.property_name_list():
       prop_name = decode_str(prop_name)
@@ -377,9 +378,11 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
-    stat_diffs = [(project_id, old_entry.namespace, old_entry.path, stats)
-                  for old_entry, _, stats in writes if stats is not None]
-    IOLoop.current().spawn_callback(self._stats_buffer.apply_diffs, stat_diffs)
+    mutations = [(old_entry, new_entry, index_stats)
+                 for old_entry, new_entry, index_stats in writes
+                 if index_stats is not None]
+    IOLoop.current().spawn_callback(self._stats_buffer.update, project_id,
+                                    mutations)
 
     logger.debug(u'Finished applying {}:{}'.format(project_id, txid))
 
@@ -395,8 +398,9 @@ class FDBDatastore(object):
   @gen.coroutine
   def update_composite_index(self, project_id, index):
     project_id = decode_str(project_id)
-    yield self.index_manager.update_composite_index(project_id, index)
+    yield self._index_manager.update_composite_index(project_id, index)
 
+  @gen.coroutine
   def get_indexes(self, project_id):
     """ Retrieves list of indexes for a project.
 
@@ -406,21 +410,14 @@ class FDBDatastore(object):
       A list of entity_pb.CompositeIndex objects.
     Raises:
       BadRequest if project_id is not found.
-      InternalError if ZooKeeper is not accessible.
     """
-    try:
-      project_index_manager = self.index_manager.composite_index_manager.\
-        projects[project_id]
-    except KeyError:
-      raise BadRequest('project_id: {} not found'.format(project_id))
+    tr = self._db.create_transaction()
+    composite_index_manager = self._index_manager._composite_index_manager
+    project_indexes = yield composite_index_manager.get_definitions(
+      tr, project_id)
+    raise gen.Return([index.to_pb() for index in project_indexes])
 
-    try:
-      indexes = project_index_manager.indexes_pb
-    except IndexInaccessible:
-      raise InternalError('ZooKeeper is not accessible')
-
-    return indexes
-
+  @gen.coroutine
   def add_indexes(self, project_id, indexes):
     """ Adds composite index definitions to a project.
 
@@ -429,10 +426,9 @@ class FDBDatastore(object):
       project_id: A string specifying a project ID.
       indexes: An iterable containing index definitions.
     """
-    # This is a temporary workaround to get a ZooKeeper client. This method
-    # will not use ZooKeeper in the future.
-    zk_client = self.index_manager.composite_index_manager._zk_client
-    merge_indexes(zk_client, project_id, indexes)
+    tr = self._db.create_transaction()
+    yield self._index_manager.merge(tr, project_id, indexes)
+    yield self._tornado_fdb.commit(tr)
 
   @gen.coroutine
   def allocate_size(self, project_id, namespace, path_prefix, size, retries=5):
@@ -523,8 +519,7 @@ class FDBDatastore(object):
     encoded_entity = entity.Encode()
     yield self._data_manager.put(
       tr, entity.key(), new_version, encoded_entity)
-    index_stats = yield self.index_manager.put_entries(tr, old_entry, entity)
-
+    index_stats = yield self._index_manager.put_entries(tr, old_entry, entity)
     if old_entry.present:
       yield self._gc.index_deleted_version(tr, old_entry)
 
@@ -542,13 +537,12 @@ class FDBDatastore(object):
       old_entry = yield old_entry_future
 
     if not old_entry.present:
-      raise gen.Return((old_entry, None))
+      raise gen.Return((old_entry, None, None))
 
     new_version = next_entity_version(old_entry.version)
     yield self._data_manager.put(tr, key, new_version, b'')
-    index_stats = yield self.index_manager.put_entries(
+    index_stats = yield self._index_manager.put_entries(
       tr, old_entry, new_entity=None)
-
     if old_entry.present:
       yield self._gc.index_deleted_version(tr, old_entry)
 

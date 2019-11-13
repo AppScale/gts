@@ -72,6 +72,9 @@ class IndexProperty(object):
     self.name = name
     self.direction = direction
 
+  def __repr__(self):
+    return u'IndexProperty({!r}, {!r})'.format(self.name, self.direction)
+
   @property
   def encoded_def(self):
     """ Returns a string representation of the index property. """
@@ -138,7 +141,8 @@ class DatastoreIndex(object):
   # Separates fields of an encoded index.
   ENCODING_DELIMITER = '|'
 
-  def __init__(self, project_id, kind, ancestor, properties):
+  def __init__(self, project_id, kind, ancestor, properties, ready=False,
+               id_=None):
     """ Creates a new DatastoreIndex object.
 
     Args:
@@ -147,17 +151,21 @@ class DatastoreIndex(object):
       ancestor: A boolean indicating whether or not the index is for
         satisfying ancestor queries.
       properties: A list of IndexProperty objects.
+      ready: A boolean indicating whether or not the index is ready to be
+        queried.
+      id_: An integer specifying the index ID.
     """
     self.project_id = project_id
     self.kind = kind
     self.ancestor = ancestor
     self.properties = properties
+    self.ready = ready
+    self.id = id_
 
-    # When creating a new index, assume that it's not ready to be queried yet.
-    self.ready = False
-
-    # The index ID is assigned by UpdateIndexes.
-    self.id = None
+  def __repr__(self):
+    return u'DatastoreIndex({!r}, {!r}, {!r}, {!r}, {!r}, {!r})'.format(
+      self.project_id, self.kind, self.ancestor, self.properties, self.ready,
+      self.id)
 
   @property
   def encoded_def(self):
@@ -237,6 +245,9 @@ class DatastoreIndex(object):
                   for prop in index_pb.definition().property_list()]
     datastore_index = cls(project_id, kind, ancestor, properties)
     datastore_index.id = index_pb.id()
+    if index_pb.state() == entity_pb.CompositeIndex.READ_WRITE:
+      datastore_index.ready = True
+
     return datastore_index
 
   def to_dict(self):

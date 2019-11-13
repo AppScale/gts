@@ -573,7 +573,7 @@ class DatastoreDistributed():
     """
     self.logger.debug('Inserting {} entities'.format(len(entities)))
 
-    composite_indexes = self.get_indexes(app)
+    composite_indexes = yield self.get_indexes(app)
 
     by_group = {}
     for entity in entities:
@@ -937,7 +937,8 @@ class DatastoreDistributed():
       if last_path.type() not in ent_kinds:
         ent_kinds.append(last_path.type())
 
-    filtered_indexes = [index for index in self.get_indexes(app_id)
+    composite_indexes = yield self.get_indexes(app_id)
+    filtered_indexes = [index for index in composite_indexes
                         if index.definition().entity_type() in ent_kinds]
 
     if delete_request.has_transaction():
@@ -2983,7 +2984,8 @@ class DatastoreDistributed():
     filter_info = self.generate_filter_info(filters)
     order_info = self.generate_order_info(orders)
 
-    index_to_use = _FindIndexToUse(query, self.get_indexes(app_id))
+    composite_indexes = yield self.get_indexes(app_id)
+    index_to_use = _FindIndexToUse(query, composite_indexes)
     if index_to_use is not None:
       result, more_results = yield self.composite_v2(query, filter_info,
                                                      index_to_use)
@@ -3133,7 +3135,7 @@ class DatastoreDistributed():
       raise dbconstants.TooManyGroupsException(
         'Too many groups in transaction')
 
-    composite_indices = self.get_indexes(app)
+    composite_indices = yield self.get_indexes(app)
     decoded_groups = [entity_pb.Reference(group) for group in tx_groups]
     self.transaction_manager.set_groups(app, txn, decoded_groups)
 
@@ -3261,6 +3263,7 @@ class DatastoreDistributed():
     except zktransaction.ZKTransactionException as error:
       raise InternalError(str(error))
 
+  @gen.coroutine
   def get_indexes(self, project_id):
     """ Retrieves list of indexes for a project.
 
@@ -3282,8 +3285,9 @@ class DatastoreDistributed():
     except IndexInaccessible:
       raise InternalError('ZooKeeper is not accessible')
 
-    return indexes
+    raise gen.Return(indexes)
 
+  @gen.coroutine
   def add_indexes(self, project_id, indexes):
     """ Adds composite index definitions to a project.
 

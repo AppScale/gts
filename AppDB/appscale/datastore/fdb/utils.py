@@ -155,6 +155,14 @@ class TornadoFDB(object):
     get_future.on_ready(callback)
     return tornado_future
 
+  def watch(self, tr, key):
+    tornado_future = TornadoFuture()
+    callback = lambda fdb_future: self._handle_fdb_result(
+      fdb_future, tornado_future)
+    watch_future = tr.watch(key)
+    watch_future.on_ready(callback)
+    return tornado_future
+
   def _handle_fdb_result(self, fdb_future, tornado_future):
     try:
       result = fdb_future.wait()
