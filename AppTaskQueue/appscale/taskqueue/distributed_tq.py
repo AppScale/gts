@@ -34,9 +34,7 @@ from .protocols.taskqueue_service_pb2 import (
 from .queue import (
   InvalidLeaseRequest,
   PostgresPullQueue,
-  PullQueue,
-  PushQueue,
-  TransientError
+  PushQueue
 )
 from .queue_manager import GlobalQueueManager
 from .service_manager import GlobalServiceManager
@@ -156,7 +154,7 @@ class DistributedTaskQueue():
 
       stats_response = response.queuestats.add()
 
-      if isinstance(queue, (PullQueue, PostgresPullQueue)):
+      if isinstance(queue, PostgresPullQueue):
         num_tasks = queue.total_tasks()
         oldest_eta = queue.oldest_eta()
       else:
@@ -243,12 +241,9 @@ class DistributedTaskQueue():
     tag = None
     if request.HasField("tag"):
       tag = request.tag.decode('utf-8')
-    try:
-      tasks = queue.lease_tasks(request.max_tasks, request.lease_seconds,
-                                group_by_tag=request.group_by_tag, tag=tag)
-    except TransientError as lease_error:
-      pb_error = TaskQueueServiceError.TRANSIENT_ERROR
-      return response.Encode(), pb_error, str(lease_error)
+
+    tasks = queue.lease_tasks(request.max_tasks, request.lease_seconds,
+                              group_by_tag=request.group_by_tag, tag=tag)
 
     for task in tasks:
       task_pb = response.task.add()
@@ -277,8 +272,6 @@ class DistributedTaskQueue():
 
     try:
       self.__bulk_add(source_info, bulk_request, bulk_response)
-    except TransientError as error:
-      return b'', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
     except QueueNotFound as error:
       return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
     except DatastorePermanentError as error:
@@ -317,8 +310,6 @@ class DistributedTaskQueue():
       self.__bulk_add(source_info, request, response)
     except QueueNotFound as error:
       return b'', TaskQueueServiceError.UNKNOWN_QUEUE, str(error)
-    except TransientError as error:
-      return b'', TaskQueueServiceError.TRANSIENT_ERROR, str(error)
     except DatastorePermanentError as error:
       return b'', TaskQueueServiceError.INTERNAL_ERROR, str(error)
     except BadFilterConfiguration as error:
@@ -352,7 +343,7 @@ class DistributedTaskQueue():
           add_request.mode == taskqueue_service_pb2.TaskQueueMode.PULL):
         queue = self.get_queue(add_request.app_id.decode('utf-8'),
                                add_request.queue_name.decode('utf-8'))
-        if not isinstance(queue, (PullQueue, PostgresPullQueue)):
+        if not isinstance(queue, PostgresPullQueue):
           task_result.result = TaskQueueServiceError.INVALID_QUEUE_MODE
           error_found = True
           continue

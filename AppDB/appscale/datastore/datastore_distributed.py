@@ -490,15 +490,21 @@ class DatastoreDistributed():
     self.logger.info('Updated {} index entries.'.format(entries_updated))
 
   @gen.coroutine
-  def allocate_size(self, project, size):
+  def allocate_size(self, project, namespace, path_prefix, size):
     """ Allocates a block of IDs for a project.
 
     Args:
       project: A string specifying the project ID.
+      namespace: A string specifying a namespace.
+      path_prefix: A tuple specifying the model key's path (omitting the final
+        ID).
       size: An integer specifying the number of IDs to reserve.
     Returns:
       A tuple of integers specifying the start and end ID.
     """
+    # The Cassandra backend does not implement path-specific allocators.
+    del namespace, path_prefix
+
     if project not in self.sequential_allocators:
       self.sequential_allocators[project] = EntityIDAllocator(
         self.datastore_batch.session, project)
@@ -508,15 +514,21 @@ class DatastoreDistributed():
     raise gen.Return((start_id, end_id))
 
   @gen.coroutine
-  def allocate_max(self, project, max_id):
+  def allocate_max(self, project, namespace, path_prefix, max_id):
     """ Reserves all IDs up to the one given.
 
     Args:
       project: A string specifying the project ID.
+      namespace: A string specifying the namespace.
+      path_prefix: A tuple specifying the model key's path (omitting the final
+        ID).
       max_id: An integer specifying the maximum ID to allocated.
     Returns:
       A tuple of integers specifying the start and end ID.
     """
+    # The Cassandra backend does not implement path-specific allocators.
+    del namespace, path_prefix
+
     if project not in self.sequential_allocators:
       self.sequential_allocators[project] = EntityIDAllocator(
         self.datastore_batch.session, project)
@@ -561,7 +573,7 @@ class DatastoreDistributed():
     """
     self.logger.debug('Inserting {} entities'.format(len(entities)))
 
-    composite_indexes = self.get_indexes(app)
+    composite_indexes = yield self.get_indexes(app)
 
     by_group = {}
     for entity in entities:
@@ -925,7 +937,8 @@ class DatastoreDistributed():
       if last_path.type() not in ent_kinds:
         ent_kinds.append(last_path.type())
 
-    filtered_indexes = [index for index in self.get_indexes(app_id)
+    composite_indexes = yield self.get_indexes(app_id)
+    filtered_indexes = [index for index in composite_indexes
                         if index.definition().entity_type() in ent_kinds]
 
     if delete_request.has_transaction():
@@ -2971,7 +2984,8 @@ class DatastoreDistributed():
     filter_info = self.generate_filter_info(filters)
     order_info = self.generate_order_info(orders)
 
-    index_to_use = _FindIndexToUse(query, self.get_indexes(app_id))
+    composite_indexes = yield self.get_indexes(app_id)
+    index_to_use = _FindIndexToUse(query, composite_indexes)
     if index_to_use is not None:
       result, more_results = yield self.composite_v2(query, filter_info,
                                                      index_to_use)
@@ -3121,7 +3135,7 @@ class DatastoreDistributed():
       raise dbconstants.TooManyGroupsException(
         'Too many groups in transaction')
 
-    composite_indices = self.get_indexes(app)
+    composite_indices = yield self.get_indexes(app)
     decoded_groups = [entity_pb.Reference(group) for group in tx_groups]
     self.transaction_manager.set_groups(app, txn, decoded_groups)
 
@@ -3249,6 +3263,7 @@ class DatastoreDistributed():
     except zktransaction.ZKTransactionException as error:
       raise InternalError(str(error))
 
+  @gen.coroutine
   def get_indexes(self, project_id):
     """ Retrieves list of indexes for a project.
 
@@ -3270,8 +3285,9 @@ class DatastoreDistributed():
     except IndexInaccessible:
       raise InternalError('ZooKeeper is not accessible')
 
-    return indexes
+    raise gen.Return(indexes)
 
+  @gen.coroutine
   def add_indexes(self, project_id, indexes):
     """ Adds composite index definitions to a project.
 

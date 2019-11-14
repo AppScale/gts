@@ -144,8 +144,6 @@ log() {
 }
 
 log "Parsing layout file at ${LAYOUT_FILE}"
-CASSANDRA_VM=$(grep -E "^cassandra" "${LAYOUT_FILE}" | awk '{ print $2 }')
-CASSANDRA_VM_PRIVATE_IP=$(grep -E "^cassandra" "${LAYOUT_FILE}" | awk '{ print $3 }')
 POSTGRES_VM=$(grep -E "^postgres" "${LAYOUT_FILE}" | awk '{ print $2 }')
 POSTGRES_VM_PRIVATE_IP=$(grep -E "^postgres" "${LAYOUT_FILE}" | awk '{ print $3 }')
 ZOOKEEPER_VM=$(grep -E "^zookeeper" "${LAYOUT_FILE}" | awk '{ print $2 }')
@@ -194,12 +192,6 @@ log ""
 log "===================================================================="
 log "=== Sending provisioning scripts, sources and other files to VMs ==="
 log "===================================================================="
-
-log "### Copying cassandra initialisation script to Cassandra machine ###"
-scp -o StrictHostKeyChecking=no \
-    -i "${KEY_LOCATION}" \
-    "${HELPERS_DIR}/prepare-cassandra.sh" \
-    "${USER}@${CASSANDRA_VM}:/tmp/prepare-cassandra.sh"
 
 log "### Copying postgres initialisation script to Postgres machine ###"
 scp -o StrictHostKeyChecking=no \
@@ -257,8 +249,7 @@ COMMAND
 
 # Save DSN string and projects config to variables
 PG_DSN="dbname=appscale-test-project user=appscale password=appscale-pwd host=${POSTGRES_VM_PRIVATE_IP}"
-POSTGRES_PROJECT='postgres-test-project'
-CASSANDRA_PROJECT='cassandra-test-project'
+TEST_PROJECT='test-project'
 
 log "### Initializing Zookeeper at ${USER}@${ZOOKEEPER_VM} ###"
 ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${ZOOKEEPER_VM} << COMMANDS
@@ -266,25 +257,14 @@ ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${ZOOKEEPER_VM} << CO
     # Run general zookeeper provisioning script
     sudo /tmp/prepare-zookeeper.sh
 
-    # Configure project with Cassandra as a backend for Pull Queues
-    sudo /usr/share/zookeeper/bin/zkCli.sh create \
-        /appscale/projects/${CASSANDRA_PROJECT} ""
-
     # Configure project with Postgres as a backend for Pull Queues
     sudo /usr/share/zookeeper/bin/zkCli.sh create \
-        /appscale/projects/${POSTGRES_PROJECT} ""
-    sudo /usr/share/zookeeper/bin/zkCli.sh delete \
-        /appscale/projects/${POSTGRES_PROJECT}/postgres_dsn
+        /appscale/projects/${TEST_PROJECT} ""
     sudo /usr/share/zookeeper/bin/zkCli.sh create \
-        /appscale/projects/${POSTGRES_PROJECT}/postgres_dsn "${PG_DSN}"
+        /appscale/tasks ""
+    sudo /usr/share/zookeeper/bin/zkCli.sh create \
+        /appscale/tasks/postgres_dsn "${PG_DSN}"
 COMMANDS
-
-log "### Initializing Cassandra at ${USER}@${CASSANDRA_VM} ###"
-ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${CASSANDRA_VM}  << CMD
-    set -e
-    sudo /tmp/prepare-cassandra.sh --private-ip ${CASSANDRA_VM_PRIVATE_IP} \
-                                   --zk-ip ${ZOOKEEPER_VM}
-CMD
 
 # Generate comma-separated list of ports from (50000) to (50000 + TQ_PER_VM)
 TQ_PORTS=$(echo $(seq 50000 $((50000 + TQ_PER_VM - 1))))
@@ -295,7 +275,6 @@ do
     ssh -o StrictHostKeyChecking=no -i ${KEY_LOCATION} ${USER}@${tq_vm} << COMMAND
         set -e
         sudo /tmp/restart-taskqueue.sh --ports "${TQ_PORTS// /,}" \
-                                       --db-ip "${CASSANDRA_VM_PRIVATE_IP}" \
                                        --zk-ip "${ZOOKEEPER_VM}" \
                                        --lb-ip "${LOADBALANCER_VM}" \
                                        --source-dir /tmp/AppTaskQueue
@@ -363,93 +342,17 @@ venv/bin/pip install tabulate
 
 status=0
 
-log ""
-log "===================================================="
-log "=== Test Cassandra implementation of Pull Queues ==="
-log "===================================================="
-LOCUST_LOGS="${LOGS_DIR}/locust-cassandra"
-mkdir "${LOCUST_LOGS}"
-VALIDATION_LOG="${LOGS_DIR}/validation-cassandra"
-mkdir "${VALIDATION_LOG}"
-export VALIDATION_LOG
-export PULL_QUEUES_BACKEND="cassandra"
-export TEST_PROJECT="${CASSANDRA_PROJECT}"
-export RUN_TIME
-
-log "Ensuring queues are configured and empty"
-venv/bin/python ./prepare_queues.py --zookeeper-location ${ZOOKEEPER_VM} \
-                                    --taskqueue-location ${TQ_LOCATION}
-
-log "Starting task producers with timeout ${LOCUST_TIMEOUT}s"
-timeout "${LOCUST_TIMEOUT}" \
-    venv/bin/locust --host "${TQ_LOCATION}" --no-web \
-                    --clients ${PRODUCERS} \
-                    --hatch-rate $((PRODUCERS/3 + 1)) \
-                    --csv-base-name "${LOCUST_LOGS}/producers" \
-                    --logfile "${LOCUST_LOGS}/producers-log" \
-                    --locustfile ./producer_locust.py \
-                    > "${LOCUST_LOGS}/producers-out" 2>&1 &
-PRODUCERS_PID=$!
-export PRODUCERS_PID  # let workers know when producers are terminated
-
-log "Starting workers with timeout ${LOCUST_TIMEOUT}s"
-timeout "${LOCUST_TIMEOUT}" \
-    venv/bin/locust --host "${TQ_LOCATION}" --no-web \
-                    --clients ${WORKERS} \
-                    --hatch-rate $((WORKERS/10 + 1)) \
-                    --csv-base-name "${LOCUST_LOGS}/workers" \
-                    --logfile "${LOCUST_LOGS}/workers-log" \
-                    --locustfile ./worker_locust.py \
-                    > "${LOCUST_LOGS}/workers-out" 2>&1 &
-WORKERS_PID=$!
-
-set +e
-
-log "Waiting for producers to finish work or timeout..."
-wait ${PRODUCERS_PID}
-PRODUCERS_STATUS=$?
-if [ ${PRODUCERS_STATUS} == 124 ]; then
-  log "Producers timed out to finish work in ${LOCUST_TIMEOUT}s" "ERROR"
-  status=1
-elif [ ${PRODUCERS_STATUS} != 0 ]; then
-  log "Producers exited with non-zero status (${PRODUCERS_STATUS})" "WARNING"
-  log "It's probably because some requests were failed. Ignoring it."
-fi
-
-log "Waiting for workers to finish work or timeout..."
-wait ${WORKERS_PID}
-WORKERS_STATUS=$?
-if [ ${WORKERS_STATUS} == 124 ]; then
-  log "Workers timed out to finish work in ${LOCUST_TIMEOUT}s" "ERROR"
-  status=1
-elif [ ${WORKERS_STATUS} != 0 ]; then
-  log "Workers exited with non-zero status (${WORKERS_STATUS})" "WARNING"
-  log "It's probably because some requests were failed. Ignoring it."
-fi
-
-set -e
-
-log "Verifying consistency of taskqueue activity log"
-venv/bin/python ./check_consistency.py --validation-log ${VALIDATION_LOG} \
-                                       --taskqueue-location ${TQ_LOCATION} \
-                                       --ignore-exceeded-retry-limit \
-                                       || status=1
-
-log "Verifying performance reported by locust"
-venv/bin/python ./check_performance.py --locust-log ${LOCUST_LOGS} || status=1
-
 
 log ""
-log "==================================================="
-log "=== Test Postgres implementation of Pull Queues ==="
-log "==================================================="
-LOCUST_LOGS="${LOGS_DIR}/locust-postgres"
+log "==============================="
+log "=== Run TaskQueue load test ==="
+log "==============================="
+LOCUST_LOGS="${LOGS_DIR}/locust"
 mkdir "${LOCUST_LOGS}"
-VALIDATION_LOG="${LOGS_DIR}/validation-postgres"
+VALIDATION_LOG="${LOGS_DIR}/validation"
 mkdir "${VALIDATION_LOG}"
 export VALIDATION_LOG
-export PULL_QUEUES_BACKEND="postgres"
-export TEST_PROJECT="${POSTGRES_PROJECT}"
+export TEST_PROJECT
 export RUN_TIME
 
 log "Ensuring queues are configured and empty"

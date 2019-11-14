@@ -5,6 +5,7 @@ implementation.
 import json
 import logging
 import random
+import struct
 import time
 
 import fdb
@@ -42,6 +43,9 @@ SCATTER_PROPORTION = int(MAX_32 * SCATTER_CHANCE)
 
 # The number of bytes used to store a commit versionstamp.
 VERSIONSTAMP_SIZE = 10
+
+# The number of bytes used to indicate the position of a commit versionstamp.
+VERSIONSTAMP_INDEX_SIZE = 4
 
 MAX_ENTITY_SIZE = 1048572
 
@@ -151,6 +155,14 @@ class TornadoFDB(object):
     get_future.on_ready(callback)
     return tornado_future
 
+  def watch(self, tr, key):
+    tornado_future = TornadoFuture()
+    callback = lambda fdb_future: self._handle_fdb_result(
+      fdb_future, tornado_future)
+    watch_future = tr.watch(key)
+    watch_future.on_ready(callback)
+    return tornado_future
+
   def _handle_fdb_result(self, fdb_future, tornado_future):
     try:
       result = fdb_future.wait()
@@ -163,7 +175,7 @@ class TornadoFDB(object):
 
 class ResultIterator(object):
   """ Allows clients to page through a range of Key-Values. """
-  def __init__(self, tr, tornado_fdb, key_slice, limit=0, reverse=False,
+  def __init__(self, tr, tornado_fdb, key_slice, limit=None, reverse=False,
                streaming_mode=fdb.StreamingMode.iterator, snapshot=False):
     self.slice = key_slice
     self.done_with_range = False
@@ -194,7 +206,7 @@ class ResultIterator(object):
       self.slice, self._limit, self._reverse, self._mode, self._snapshot)
 
   def increase_limit(self, difference=1):
-    if not self.done_with_range:
+    if self._limit is not None and not self.done_with_range:
       self._limit += difference
       self._done = False
 
@@ -204,12 +216,15 @@ class ResultIterator(object):
     if self._done:
       raise gen.Return(([], False))
 
-    tmp_limit = 0
-    if self._limit > 0:
-      tmp_limit = self._limit - self._fetched
+    if self._limit is None:
+      fdb_limit = 0
+    else:
+      fdb_limit = self._limit - self._fetched
+      if fdb_limit < 1:
+        raise gen.Return(([], False))
 
     results, count, more = yield self._tornado_fdb.get_range(
-      self._tr, slice(self._bsel, self._esel), tmp_limit, mode,
+      self._tr, slice(self._bsel, self._esel), fdb_limit, mode,
       self._iteration, self._reverse, self._snapshot)
     self._fetched += count
     self._iteration += 1
@@ -220,7 +235,7 @@ class ResultIterator(object):
       else:
         self._bsel = fdb.KeySelector.first_greater_than(results[-1].key)
 
-    reached_limit = self._limit > 0 and self._fetched == self._limit
+    reached_limit = self._limit is not None and self._fetched >= self._limit
     self._done = not more or reached_limit
     self.done_with_range = not more and not reached_limit
 
@@ -299,3 +314,12 @@ def format_prop_val(prop_value):
     return Path.flatten(prop_value.referencevalue())
   else:
     return None
+
+
+def encode_delta(value):
+  """ Encodes a value suitable for use with tr.add. """
+  return struct.pack('<q', value)
+
+
+def decode_delta(value):
+  return struct.unpack('<q', value)[0]

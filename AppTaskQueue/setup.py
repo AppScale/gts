@@ -11,7 +11,6 @@ setup(
   platforms='Posix',
   install_requires=[
     'appscale-common',
-    'cassandra-driver<3.18.0',
     'celery>=3.1,<4.0.0',
     'eventlet==0.22',
     'kazoo',

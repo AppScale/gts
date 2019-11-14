@@ -24,9 +24,6 @@ while ! ${ZK_CLI} ls / ; do
     sleep 1
 done
 
-log "Set cassandra-related appscale configs in zookeeper"
+log "Create root appscale nodes in zookeeper"
 /usr/share/zookeeper/bin/zkCli.sh create /appscale ""
 /usr/share/zookeeper/bin/zkCli.sh create /appscale/projects ""
-/usr/share/zookeeper/bin/zkCli.sh create /appscale/config ""
-/usr/share/zookeeper/bin/zkCli.sh create /appscale/config/cassandra \
-  '{"num_tokens":1}'

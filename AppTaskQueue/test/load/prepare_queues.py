@@ -26,7 +26,6 @@ if __name__ == '__main__':
   zk_client.start()
 
   TEST_PROJECT = os.environ['TEST_PROJECT']
-  PROJECT_NODE = f'/appscale/projects/{TEST_PROJECT}'
   PROJECT_QUEUES_NODE = f'/appscale/projects/{TEST_PROJECT}/queues'
   PROJECT_QUEUES_CONFIG = {
     'queue': {

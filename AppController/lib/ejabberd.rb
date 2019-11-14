@@ -63,7 +63,10 @@ module Ejabberd
           begin
             next unless process.name == 'epmd'
             process.terminate if process.cmdline.include?('-daemon')
-          rescue PosixPsutil::NoSuchProcess
+          # The PosixPsutil library does not always raise NoSuchProcess when
+          # the given process no longer has a name. StandardError is meant
+          # as a fallback when it doesn't behave properly.
+          rescue PosixPsutil::NoSuchProcess, StandardError
             next
           end
         }

@@ -319,6 +319,10 @@ class ZKInterface
     dsn_node = '/appscale/tasks/postgres_dsn'
     ensure_path(dsn_node)
     set(dsn_node, postgres_dsn, NOT_EPHEMERAL)
+
+    ua_dsn_node = '/appscale/ua_server/postgres_dsn'
+    ensure_path(ua_dsn_node)
+    set(ua_dsn_node, postgres_dsn, NOT_EPHEMERAL)
   end
 
   def self.run_zookeeper_operation(&block)
