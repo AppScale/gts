@@ -95,13 +95,13 @@ class FDBDatastore(object):
 
     if put_request.has_transaction():
       yield self._tx_manager.log_puts(tr, project_id, put_request)
-      writes = {entity.key().Encode(): (VersionEntry.from_key(entity.key()),
-                                        VersionEntry.from_key(entity.key()),
-                                        None)
+      writes = {self._collapsible_id(entity):
+                    (VersionEntry.from_key(entity.key()),
+                     VersionEntry.from_key(entity.key()), None)
                 for entity in put_request.entity_list()}
     else:
       # Eliminate multiple puts to the same key.
-      puts_by_key = {entity.key().Encode(): entity
+      puts_by_key = {self._collapsible_id(entity): entity
                      for entity in put_request.entity_list()}
       writes = yield {key: self._upsert(tr, entity)
                       for key, entity in six.iteritems(puts_by_key)}
@@ -139,8 +139,8 @@ class FDBDatastore(object):
                                     mutations)
 
     for entity in put_request.entity_list():
-      write_entry = writes[entity.key().Encode()][1]
-      put_response.add_key().CopyFrom(entity.key())
+      write_entry = writes[self._collapsible_id(entity)][1]
+      put_response.add_key().CopyFrom(write_entry.key)
       if write_entry.version != ABSENT_VERSION:
         put_response.add_version(write_entry.version)
 
@@ -492,11 +492,7 @@ class FDBDatastore(object):
 
   @gen.coroutine
   def _upsert(self, tr, entity, old_entry_future=None):
-    last_element = entity.key().path().element(-1)
-    auto_id = False
-    if not last_element.has_name():
-      auto_id = not (last_element.has_id() and last_element.id() != 0)
-
+    auto_id = self._auto_id(entity)
     if auto_id:
       # Avoid mutating the object given.
       new_entity = entity_pb.EntityProto()
@@ -574,14 +570,6 @@ class FDBDatastore(object):
       futures[encoded_key] = self._data_manager.get_latest(
         tr, key, include_data=encoded_key in require_data)
 
-    # Fetch remaining entities that were mutated.
-    for mutation in mutations:
-      key = (mutation if isinstance(mutation, entity_pb.Reference)
-             else mutation.key())
-      encoded_key = key.Encode()
-      if encoded_key not in futures:
-        futures[encoded_key] = self._data_manager.get_latest(tr, key)
-
     group_updates = yield group_update_futures
     group_updates = [vs for vs in group_updates if vs is not None]
     if any(commit_vs > read_versionstamp for commit_vs in group_updates):
@@ -601,10 +589,10 @@ class FDBDatastore(object):
     mutation_futures = []
     for mutation in self._collapse_mutations(mutations):
       if isinstance(mutation, entity_pb.Reference):
-        old_entry_future = futures[mutation.Encode()]
+        old_entry_future = futures.get(mutation.Encode())
         mutation_futures.append(self._delete(tr, mutation, old_entry_future))
       else:
-        old_entry_future = futures[mutation.key().Encode()]
+        old_entry_future = futures.get(mutation.key().Encode())
         mutation_futures.append(self._upsert(tr, mutation, old_entry_future))
 
     responses = yield mutation_futures
@@ -619,11 +607,20 @@ class FDBDatastore(object):
       if isinstance(mutation, entity_pb.Reference):
         key = mutation.Encode()
       else:
-        key = mutation.key().Encode()
+        key = FDBDatastore._collapsible_id(mutation)
 
       mutations_by_key[key] = mutation
 
-    return tuple(mutation for key, mutation in six.iteritems(mutations_by_key))
+    return tuple(mutation for mutation in six.itervalues(mutations_by_key))
+
+  @staticmethod
+  def _collapsible_id(entity):
+    """ The "collapsible" identity is the encoded key or the entity if
+        an identity will be allocated later. """
+    if FDBDatastore._auto_id(entity):
+      return id(entity)
+    else:
+      return entity.key().Encode()
 
   @staticmethod
   def _enforce_max_groups(mutations):
@@ -641,3 +638,12 @@ class FDBDatastore(object):
 
       if len(mutated_groups) > 25:
         raise BadRequest(u'Too many entity groups modified in transaction')
+
+  @staticmethod
+  def _auto_id(entity):
+    """ Should perform auto identity allocation for entity. """
+    last_element = entity.key().path().element(-1)
+    auto_id = False
+    if not last_element.has_name():
+        auto_id = not (last_element.has_id() and last_element.id() != 0)
+    return auto_id
