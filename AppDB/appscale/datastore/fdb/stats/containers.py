@@ -285,7 +285,7 @@ class EntityStats(object):
       delta.count += 1
       delta.bytes += len(new_entry.encoded)
 
-    if old_entry.present:
+    if old_entry.has_entity:
       delta.count -= 1
       delta.bytes -= len(old_entry.encoded)
 
@@ -355,7 +355,7 @@ class SinglePropStats(object):
     namespace = old_entry.namespace
     kind = old_entry.kind
     apply_props = create_apply_props(self.entity_stats, namespace, kind)
-    if old_entry.present:
+    if old_entry.has_entity:
       apply_props(old_entry.decoded.property_list(), subtract=True)
       apply_props(old_entry.decoded.raw_property_list(), subtract=True)
 
