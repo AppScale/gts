@@ -12,13 +12,30 @@ from appscale.datastore.fdb.utils import fdb
 
 logger = logging.getLogger(__name__)
 
+# The location of the metadata version key. The value of this key is passed
+# to FDB clients at the start of every transaction.
+METADATA_KEY = b'\xff/metadataVersion'
+
+
+@fdb.transactional
+def ensure_metadata_key(tr):
+  current_version = tr[METADATA_KEY]
+  if not current_version.present():
+    logger.info(u'Setting metadata key for the first time')
+    tr.set_versionstamped_value(METADATA_KEY, b'\x00' * 14)
+
+
+@gen.coroutine
+def current_metadata_version(tr, tornado_fdb):
+  current_version = yield tornado_fdb.get(tr, METADATA_KEY)
+  if not current_version.present():
+    raise InternalError(u'The FDB cluster metadata key is missing')
+
+  raise gen.Return(current_version.value)
+
 
 class DirectoryCache(object):
   """ A simple cache that keeps track of directory prefixes. """
-
-  # The location of the metadata version key. The value of this key is passed
-  # to FDB clients at the start of every transaction.
-  METADATA_KEY = b'\xff/metadataVersion'
 
   # The number of items to keep in the cache.
   SIZE = 2048
@@ -48,16 +65,13 @@ class DirectoryCache(object):
     return item in self._directory_dict
 
   def initialize(self):
-    self._ensure_metadata_key(self._db)
+    ensure_metadata_key(self._db)
 
   @gen.coroutine
   def get(self, tr, key):
-    current_version = yield self._tornado_fdb.get(tr, self.METADATA_KEY)
-    if not current_version.present():
-      raise InternalError(u'The FDB cluster metadata key is missing')
-
-    if current_version.value != self._metadata_version:
-      self._metadata_version = current_version.value
+    current_version = yield current_metadata_version(tr, self._tornado_fdb)
+    if current_version != self._metadata_version:
+      self._metadata_version = current_version
       self._directory_dict.clear()
       self._directory_keys.clear()
 
@@ -71,9 +85,6 @@ class DirectoryCache(object):
 
     raise gen.Return(self[full_key])
 
-  @fdb.transactional
-  def _ensure_metadata_key(self, tr):
-    current_version = tr[self.METADATA_KEY]
-    if not current_version.present():
-      logger.info(u'Setting metadata key for the first time')
-      tr.set_versionstamped_value(self.METADATA_KEY, b'\x00' * 14)
+  @staticmethod
+  def invalidate(tr):
+    tr.set_versionstamped_value(METADATA_KEY, b'\x00' * 14)

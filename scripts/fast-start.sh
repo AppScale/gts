@@ -111,10 +111,6 @@ PRIVATE_IP=""
 
 if [ -z "${PROVIDER}" ]; then
     if grep docker /proc/1/cgroup > /dev/null ; then
-        # We need to start sshd by hand.
-        /usr/sbin/sshd
-        # Force Start cron
-        /usr/sbin/cron
         PROVIDER="Docker"
     elif lspci | grep VirtualBox > /dev/null ; then
         PROVIDER="VirtualBox"
@@ -205,6 +201,22 @@ case "$PROVIDER" in
     ;;
 esac
 
+echo "Configuring local foundationdb"
+/root/appscale-thirdparties/foundationdb/configure-and-start-fdb.sh \
+    --public-address 127.0.0.1 \
+    --data-dir /opt/appscale/fdb-data/ \
+    --fdbcli-command 'configure new single ssd'
+FDB_CLUSTERFILE_CONTENT=$(cat /etc/foundationdb/fdb.cluster)
+
+echo "Configuring local postgresql"
+POSTGRES_PASSWORD=$(openssl rand -base64 18)
+/root/appscale-thirdparties/postgres/configure-and-start-postgres.sh \
+   --host 127.0.0.1 \
+   --dbname appscale \
+   --username appscale \
+   --password "${POSTGRES_PASSWORD}"
+POSTGRES_DSN="dbname=appscale user=appscale password=${POSTGRES_PASSWORD} host=127.0.0.1"
+
 # Let's make sure we don't overwrite and existing AppScalefile.
 if [ ! -e AppScalefile ]; then
     # Let's make sure we detected the IPs.
@@ -212,7 +224,7 @@ if [ ! -e AppScalefile ]; then
     [ -z "$PRIVATE_IP" ] && { echo "Cannot get private IP of instance!" ; exit 1 ; }
 
     # Tell the user what we detected.
-    echo "Detected enviroment: ${PROVIDER}"
+    echo "Detected environment: ${PROVIDER}"
     echo "Private IP found: ${PRIVATE_IP}"
     echo "Public IP found:  ${LOGIN}"
 
@@ -234,6 +246,8 @@ if [ ! -e AppScalefile ]; then
         echo "admin_user : $ADMIN_EMAIL" >> AppScalefile
         echo "admin_pass : $ADMIN_PASSWD" >> AppScalefile
     fi
+    echo "fdb_clusterfile_content : ${FDB_CLUSTERFILE_CONTENT}" >> AppScalefile
+    echo "postgres_dsn : ${POSTGRES_DSN}" >> AppScalefile
     echo "group : faststart-${PROVIDER}" >> AppScalefile
     echo "done."
 

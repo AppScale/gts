@@ -5,33 +5,29 @@ documentation for implementation details.
 """
 from __future__ import division
 
-import itertools
 import logging
-import monotonic
 import sys
 
-import six
 from tornado import gen
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.fdb import codecs
 from appscale.datastore.fdb.codecs import (
-  decode_str, decode_value, encode_value, encode_versionstamp_index, Path)
+  decode_str, encode_versionstamp_index, Path)
+from appscale.datastore.fdb.composite_indexes import CompositeIndexManager
+from appscale.datastore.fdb.index_directories import (
+  CompositeEntry, CompositeIndex, IndexEntry, KEY_PROP, KindIndex,
+  KindlessIndex, PropertyEntry, SinglePropIndex)
 from appscale.datastore.fdb.sdk import FindIndexToUse, ListCursor
+from appscale.datastore.fdb.stats.containers import IndexStatsSummary
 from appscale.datastore.fdb.utils import (
-  format_prop_val, DS_ROOT, fdb, get_scatter_val, MAX_FDB_TX_DURATION,
-  ResultIterator, SCATTER_PROP, VERSIONSTAMP_SIZE)
+  fdb, get_scatter_val, ResultIterator, SCATTER_PROP, VERSIONSTAMP_SIZE)
 from appscale.datastore.dbconstants import BadRequest, InternalError
-from appscale.datastore.index_manager import IndexInaccessible
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
-from google.appengine.datastore import datastore_pb, entity_pb
 from google.appengine.datastore.datastore_pb import Query_Filter, Query_Order
 
 logger = logging.getLogger(__name__)
-
-KEY_PROP = u'__key__'
-
-first_gt_or_equal = fdb.KeySelector.first_greater_or_equal
 
 
 class FilterProperty(object):
@@ -141,147 +137,6 @@ def get_scan_direction(query, index):
     return Query_Order.DESCENDING
 
 
-class IndexEntry(object):
-  """ Encapsulates details for an index entry. """
-  __slots__ = ['project_id', 'namespace', 'path', 'commit_versionstamp',
-               'deleted_versionstamp']
-
-  def __init__(self, project_id, namespace, path, commit_versionstamp,
-               deleted_versionstamp):
-    self.project_id = project_id
-    self.namespace = namespace
-    self.path = path
-    self.commit_versionstamp = commit_versionstamp
-    self.deleted_versionstamp = deleted_versionstamp
-
-  @property
-  def kind(self):
-    return self.path[-2]
-
-  @property
-  def key(self):
-    key = entity_pb.Reference()
-    key.set_app(self.project_id)
-    key.set_name_space(self.namespace)
-    key.mutable_path().MergeFrom(Path.decode(self.path))
-    return key
-
-  @property
-  def group(self):
-    group = entity_pb.Path()
-    group.add_element().MergeFrom(Path.decode_element(self.path[:2]))
-    return group
-
-  def __repr__(self):
-    return u'IndexEntry(%r, %r, %r, %r, %r)' % (
-      self.project_id, self.namespace, self.path, self.commit_versionstamp,
-      self.deleted_versionstamp)
-
-  def key_result(self):
-    entity = entity_pb.EntityProto()
-    entity.mutable_key().MergeFrom(self.key)
-    entity.mutable_entity_group()
-    return entity
-
-  def cursor_result(self, ordered_props):
-    compiled_cursor = datastore_pb.CompiledCursor()
-    position = compiled_cursor.add_position()
-    position.mutable_key().MergeFrom(self.key)
-    position.set_start_inclusive(False)
-    return compiled_cursor
-
-
-class PropertyEntry(IndexEntry):
-  """ Encapsulates details for a single-property index entry. """
-  __slots__ = ['prop_name', 'value']
-
-  def __init__(self, project_id, namespace, path, prop_name, value,
-               commit_versionstamp, deleted_versionstamp):
-    super(PropertyEntry, self).__init__(
-      project_id, namespace, path, commit_versionstamp, deleted_versionstamp)
-    self.prop_name = prop_name
-    self.value = value
-
-  def __repr__(self):
-    return u'PropertyEntry(%r, %r, %r, %r, %r, %r, %r)' % (
-      self.project_id, self.namespace, self.path, self.prop_name, self.value,
-      self.commit_versionstamp, self.deleted_versionstamp)
-
-  def __str__(self):
-    return u'PropertyEntry(%s, %r, %s, %s, %s, %r, %r)' % (
-      self.project_id, self.namespace, self.path, self.prop_name,
-      format_prop_val(self.value), self.commit_versionstamp,
-      self.deleted_versionstamp)
-
-  def prop_result(self):
-    entity = entity_pb.EntityProto()
-    entity.mutable_key().MergeFrom(self.key)
-    entity.mutable_entity_group().MergeFrom(self.group)
-    prop = entity.add_property()
-    prop.set_name(self.prop_name)
-    prop.set_meaning(entity_pb.Property.INDEX_VALUE)
-    prop.set_multiple(False)
-    prop.mutable_value().MergeFrom(self.value)
-    return entity
-
-  def cursor_result(self, ordered_props):
-    compiled_cursor = datastore_pb.CompiledCursor()
-    position = compiled_cursor.add_position()
-    position.mutable_key().MergeFrom(self.key)
-    position.set_start_inclusive(False)
-    if self.prop_name in ordered_props:
-      index_value = position.add_indexvalue()
-      index_value.set_property(self.prop_name)
-      index_value.mutable_value().MergeFrom(self.value)
-
-    return compiled_cursor
-
-
-class CompositeEntry(IndexEntry):
-  """ Encapsulates details for a composite index entry. """
-  __slots__ = ['properties']
-
-  def __init__(self, project_id, namespace, path, properties,
-               commit_versionstamp, deleted_versionstamp):
-    super(CompositeEntry, self).__init__(
-      project_id, namespace, path, commit_versionstamp, deleted_versionstamp)
-    self.properties = properties
-
-  def __repr__(self):
-    return u'CompositeEntry(%r, %r, %r, %r, %r, %r)' % (
-      self.project_id, self.namespace, self.path, self.properties,
-      self.commit_versionstamp, self.deleted_versionstamp)
-
-  def prop_result(self):
-    entity = entity_pb.EntityProto()
-    entity.mutable_key().MergeFrom(self.key)
-    entity.mutable_entity_group().MergeFrom(self.group)
-    for prop_name, value in self.properties:
-      prop = entity.add_property()
-      prop.set_name(prop_name)
-      prop.set_meaning(entity_pb.Property.INDEX_VALUE)
-      # TODO: Check if this is sometimes True.
-      prop.set_multiple(False)
-      prop.mutable_value().MergeFrom(value)
-
-    return entity
-
-  def cursor_result(self, ordered_props):
-    compiled_cursor = datastore_pb.CompiledCursor()
-    position = compiled_cursor.add_position()
-    position.mutable_key().MergeFrom(self.key)
-    position.set_start_inclusive(False)
-    for prop_name, value in self.properties:
-      if prop_name not in ordered_props:
-        continue
-
-      index_value = position.add_indexvalue()
-      index_value.set_property(prop_name)
-      index_value.mutable_value().MergeFrom(value)
-
-    return compiled_cursor
-
-
 class IndexIterator(object):
   """
   Returns pages of index entry results. It ignores Key-Values that do not apply
@@ -336,8 +191,10 @@ class IndexIterator(object):
 
 
 class NamespaceIterator(object):
-  def __init__(self, tr, project_dir):
+  """ Iterates over a list of namespaces in a project. """
+  def __init__(self, tr, tornado_fdb, project_dir):
     self._tr = tr
+    self._tornado_fdb = tornado_fdb
     self._project_dir = project_dir
     self._done = False
 
@@ -350,6 +207,14 @@ class NamespaceIterator(object):
     ns_dir = self._project_dir.open(self._tr, (KindIndex.DIR_NAME,))
     namespaces = ns_dir.list(self._tr)
 
+    # Filter out namespaces that don't have at least one kind.
+    kinds_by_ns = yield [KindIterator(self._tr, self._tornado_fdb,
+                                      self._project_dir, namespace).next_page()
+                         for namespace in namespaces]
+    namespaces = [
+      namespace for namespace, (kinds, _) in zip(namespaces, kinds_by_ns)
+      if kinds]
+
     # The API uses an ID of 1 to label the default namespace.
     results = [IndexEntry(self._project_dir.get_path()[-1], u'',
                           (u'__namespace__', namespace or 1), None, None)
@@ -360,6 +225,7 @@ class NamespaceIterator(object):
 
 
 class KindIterator(object):
+  """ Iterates over a list of kinds in a namespace. """
   def __init__(self, tr, tornado_fdb, project_dir, namespace):
     self._tr = tr
     self._tornado_fdb = tornado_fdb
@@ -373,8 +239,13 @@ class KindIterator(object):
       raise gen.Return(([], False))
 
     # TODO: This can be made async.
-    ns_dir = self._project_dir.open(
-      self._tr, (KindIndex.DIR_NAME, self._namespace))
+    try:
+      ns_dir = self._project_dir.open(
+        self._tr, (KindIndex.DIR_NAME, self._namespace))
+    except ValueError:
+      # If the namespace does not exist, there are no kinds there.
+      raise gen.Return(([], False))
+
     kinds = ns_dir.list(self._tr)
     populated_kinds = [
       kind for kind, populated in zip(
@@ -399,6 +270,79 @@ class KindIterator(object):
     # This query is reversed to increase the likelihood of getting a relevant
     # (not marked for GC) entry.
     iterator = IndexIterator(self._tr, self._tornado_fdb, kind_index,
+                             index_slice, fetch_limit=1, reverse=True,
+                             snapshot=True)
+    while True:
+      results, more_results = yield iterator.next_page()
+      if results:
+        raise gen.Return(True)
+
+      if not more_results:
+        raise gen.Return(False)
+
+
+class PropertyIterator(object):
+  """ Iterates over a list of indexed property names for a kind. """
+  PROPERTY_TYPES = (u'NULL', u'INT64', u'BOOLEAN', u'STRING', u'DOUBLE',
+                    u'POINT', u'USER', u'REFERENCE')
+
+  def __init__(self, tr, tornado_fdb, project_dir, namespace):
+    self._tr = tr
+    self._tornado_fdb = tornado_fdb
+    self._project_dir = project_dir
+    self._namespace = namespace
+    self._done = False
+
+  @gen.coroutine
+  def next_page(self):
+    if self._done:
+      raise gen.Return(([], False))
+
+    # TODO: This can be made async.
+    ns_dir = self._project_dir.open(
+      self._tr, (SinglePropIndex.DIR_NAME, self._namespace))
+    kinds = ns_dir.list(self._tr)
+    # TODO: Check if stat entities belong in kinds.
+    kind_dirs = [ns_dir.open(self._tr, (kind,)) for kind in kinds]
+    results = []
+    for kind, kind_dir in zip(kinds, kind_dirs):
+      # TODO: This can be made async.
+      prop_names = kind_dir.list(self._tr)
+      for prop_name in prop_names:
+        prop_dir = kind_dir.open(self._tr, (prop_name,))
+        index = SinglePropIndex(prop_dir)
+        populated_map = yield [self._populated(index, type_name)
+                               for type_name in self.PROPERTY_TYPES]
+        populated_types = tuple(
+          type_ for type_, populated in zip(self.PROPERTY_TYPES, populated_map)
+          if populated)
+        if not populated_types:
+          continue
+
+        project_id = self._project_dir.get_path()[-1]
+        path = (u'__kind__', kind, u'__property__', prop_name)
+        prop_values = []
+        for prop_type in populated_types:
+          prop_value = entity_pb.PropertyValue()
+          prop_value.set_stringvalue(prop_type)
+          prop_values.append(prop_value)
+
+        # TODO: Consider giving metadata results their own entry class.
+        entry = CompositeEntry(
+          project_id, self._namespace, path,
+          [(u'property_representation', prop_values)], None, None)
+        results.append(entry)
+
+    self._done = True
+    raise gen.Return((results, False))
+
+  @gen.coroutine
+  def _populated(self, prop_index, type_name):
+    """ Checks if at least one entity exists for a given type name. """
+    index_slice = prop_index.type_range(type_name)
+    # This query is reversed to increase the likelihood of getting a relevant
+    # (not marked for GC) entry.
+    iterator = IndexIterator(self._tr, self._tornado_fdb, prop_index,
                              index_slice, fetch_limit=1, reverse=True,
                              snapshot=True)
     while True:
@@ -546,527 +490,6 @@ class MergeJoinIterator(object):
       return entry.deleted_versionstamp is None
 
 
-class IndexSlice(object):
-  """ Encapsulates details about an index range in a way that's mutable. """
-  __slots__ = ['_directory_prefix', '_order_info', '_ancestor', '_start_parts',
-               '_stop_parts']
-
-  def __init__(self, directory_prefix, order_info, ancestor=False):
-    self._directory_prefix = directory_prefix
-    self._order_info = order_info
-    self._ancestor = ancestor
-
-    self._start_parts = [self._directory_prefix]
-    self._stop_parts = [self._directory_prefix, b'\xFF']
-
-  @property
-  def start(self):
-    return first_gt_or_equal(b''.join(self._start_parts))
-
-  @property
-  def stop(self):
-    return first_gt_or_equal(b''.join(self._stop_parts))
-
-  @property
-  def _expected_parts(self):
-    total = 1  # directory prefix
-    if self._ancestor:
-      total += 1
-
-    total += len(self._order_info)
-    total += 1  # path
-    total += 1  # commit versionstamp
-    return total
-
-  def set_ancestor(self, ancestor_path):
-    if not ancestor_path:
-      return
-
-    index = 1 if self._ancestor else -2
-    if self._ancestor:
-      self._set_start(index, Path.pack(ancestor_path))
-      self._set_stop(index, Path.pack(ancestor_path))
-      self._set_stop(index + 1, b'\xFF')
-    else:
-      prefix = Path.pack(ancestor_path, omit_terminator=True)
-      self._set_start(index, prefix)
-      self._set_stop(index, prefix + b'\xFF')
-
-  def apply_prop_filter(self, prop_name, op, value):
-    index, direction = self._prop_details(prop_name)
-    prop_reverse = direction == Query_Order.DESCENDING
-    encoded_value = encode_value(value, prop_reverse)
-    if op == Query_Filter.EQUAL:
-      self._set_start(index, encoded_value)
-      self._set_stop(index, encoded_value)
-      self._set_stop(index + 1, b'\xFF')
-      return
-
-    if (op == Query_Filter.GREATER_THAN_OR_EQUAL and not prop_reverse or
-        op == Query_Filter.LESS_THAN_OR_EQUAL and prop_reverse):
-      self._set_start(index, encoded_value)
-    elif (op == Query_Filter.GREATER_THAN and not prop_reverse or
-          op == Query_Filter.LESS_THAN and prop_reverse):
-      self._set_start(index, encoded_value + b'\xFF')
-    elif (op == Query_Filter.LESS_THAN_OR_EQUAL and not prop_reverse or
-          op == Query_Filter.GREATER_THAN_OR_EQUAL and prop_reverse):
-      self._set_stop(index, encoded_value)
-      self._set_stop(index + 1, b'\xFF')
-    elif (op == Query_Filter.LESS_THAN and not prop_reverse or
-          op == Query_Filter.GREATER_THAN and prop_reverse):
-      self._set_stop(index, encoded_value)
-    else:
-      raise BadRequest(u'Unexpected filter operation')
-
-  def apply_path_filter(self, op, path, ancestor_path=()):
-    if not isinstance(path, tuple):
-      path = Path.flatten(path)
-
-    remaining_path = path[len(ancestor_path):] if self._ancestor else path
-    if not remaining_path:
-      raise InternalError(u'Path filter must be within ancestor')
-
-    start = Path.pack(remaining_path, omit_terminator=True)
-    # Since the commit versionstamp could potentially start with 0xFF, this
-    # selection scans up to the next possible path value.
-    stop = start + six.int2byte(Path.MIN_ID_MARKER)
-    index = -2
-    if op == Query_Filter.EQUAL:
-      self._set_start(index, start)
-      self._set_stop(index, stop)
-      self._set_stop(index + 1, b'\xFF')
-      return
-
-    if op == Query_Filter.GREATER_THAN_OR_EQUAL:
-      self._set_start(index, start)
-    elif op == Query_Filter.GREATER_THAN:
-      self._set_start(index, stop)
-    elif op == Query_Filter.LESS_THAN_OR_EQUAL:
-      self._set_stop(index, stop)
-    elif op == Query_Filter.LESS_THAN:
-      self._set_stop(index, start)
-    else:
-      raise BadRequest(u'Unexpected filter operation')
-
-  def apply_cursor(self, op, cursor, ancestor_path):
-    if op in (Query_Filter.GREATER_THAN_OR_EQUAL, Query_Filter.GREATER_THAN):
-      existing_parts = self._start_parts
-    else:
-      existing_parts = self._stop_parts
-
-    for prop_name, direction in self._order_info:
-      cursor_prop = next((prop for prop in cursor.property_list()
-                          if prop.name() == prop_name), None)
-      if cursor_prop is not None:
-        index = self._prop_details(prop_name)[0]
-        encoded_value = encode_value(cursor_prop.value(),
-                                     direction == Query_Order.DESCENDING)
-        self._update_parts(existing_parts, index, encoded_value)
-
-    self.apply_path_filter(op, cursor.key().path(), ancestor_path)
-
-  def _prop_details(self, prop_name):
-    prop_index = next(
-      (index for index, (name, direction) in enumerate(self._order_info)
-       if name == prop_name), None)
-    if prop_index is None:
-      raise InternalError(u'{} is not in index'.format(prop_name))
-
-    index = prop_index + 1  # Account for directory prefix.
-    if self._ancestor:
-      index += 1
-
-    return index, self._order_info[prop_index][1]
-
-  def _update_parts(self, parts, index, new_value):
-    if index < 0:
-      index = self._expected_parts + index
-
-    # Ensure fields are set in order.
-    if len(parts) < index:
-      raise BadRequest(u'Invalid filter combination')
-
-    if len(parts) == index:
-      parts.append(new_value)
-      return
-
-    if new_value == parts[index]:
-      return
-
-    # If this field has already been set, ensure the new range is smaller.
-    candidate = parts[:index] + [new_value]
-    if parts is self._start_parts:
-      if b''.join(candidate) < b''.join(parts):
-        raise BadRequest(u'Invalid filter combination')
-
-      self._start_parts = candidate
-    elif parts is self._stop_parts:
-      if b''.join(candidate) > b''.join(parts):
-        raise BadRequest(u'Invalid filter combination')
-
-      self._stop_parts = candidate
-
-  def _set_start(self, index, new_value):
-    return self._update_parts(self._start_parts, index, new_value)
-
-  def _set_stop(self, index, new_value):
-    return self._update_parts(self._stop_parts, index, new_value)
-
-
-class Index(object):
-  """ The base class for different datastore index types. """
-  __slots__ = ['directory']
-
-  def __init__(self, directory):
-    self.directory = directory
-
-  @property
-  def project_id(self):
-    return self.directory.get_path()[len(DS_ROOT)]
-
-  @property
-  def versionstamp_slice(self):
-    """ The portion of keys that contain the commit versionstamp. """
-    return slice(-VERSIONSTAMP_SIZE, None)
-
-  @property
-  def prop_names(self):
-    return NotImplementedError()
-
-  def get_slice(self, filter_props, ancestor_path=tuple(), start_cursor=None,
-                end_cursor=None, reverse_scan=False):
-    has_ancestor_field = getattr(self, 'ancestor', False)
-    order_info = getattr(
-      self, 'order_info', tuple((prop_name, Query_Order.ASCENDING)
-                                for prop_name in self.prop_names))
-    index_slice = IndexSlice(
-      self.directory.rawPrefix, order_info, ancestor=has_ancestor_field)
-
-    # First, apply the ancestor filter if it comes first in the index.
-    if has_ancestor_field:
-      index_slice.set_ancestor(ancestor_path)
-
-    # Second, apply property filters in the index's definition order.
-    ordered_filter_props = []
-    for prop_name in self.prop_names:
-      filter_prop = next((filter_prop for filter_prop in filter_props
-                          if filter_prop.name == prop_name), None)
-      if filter_prop is not None:
-        ordered_filter_props.append(filter_prop)
-
-    for filter_prop in ordered_filter_props:
-      for op, value in filter_prop.filters:
-        index_slice.apply_prop_filter(filter_prop.name, op, value)
-
-    # Third, apply the ancestor filter if it hasn't been applied yet.
-    if not has_ancestor_field:
-      index_slice.set_ancestor(ancestor_path)
-
-    # Fourth, apply key property filters.
-    key_filter_props = [filter_prop for filter_prop in filter_props
-                        if filter_prop.name == KEY_PROP]
-    for filter_prop in key_filter_props:
-      for op, path in filter_prop.filters:
-        index_slice.apply_path_filter(op, path, ancestor_path)
-
-    # Finally, apply cursors.
-    if start_cursor is not None:
-      op = (Query_Filter.LESS_THAN if reverse_scan
-            else Query_Filter.GREATER_THAN)
-      index_slice.apply_cursor(op, start_cursor, ancestor_path)
-
-    if end_cursor is not None:
-      op = (Query_Filter.GREATER_THAN_OR_EQUAL if reverse_scan
-            else Query_Filter.LESS_THAN_OR_EQUAL)
-      index_slice.apply_cursor(op, end_cursor, ancestor_path)
-
-    return slice(index_slice.start, index_slice.stop)
-
-
-class KindlessIndex(Index):
-  """
-  A KindlessIndex handles the encoding and decoding details for kind index
-  entries. These are paths that point to entity keys.
-
-  The FDB directory for a kindless index looks like
-  (<project-dir>, 'kindless-indexes', <namespace>).
-
-  Within this directory, keys are encoded as <path> + <commit-versionstamp>.
-
-  The <path> contains the entity path. See codecs.Path for encoding details.
-
-  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit
-  version of the transaction that wrote the index entry.
-  """
-  DIR_NAME = u'kindless-indexes'
-
-  @property
-  def prop_names(self):
-    return ()
-
-  @property
-  def namespace(self):
-    return self.directory.get_path()[-1]
-
-  def __repr__(self):
-    return u'KindlessIndex(%r)' % self.directory
-
-  @classmethod
-  def directory_path(cls, project_id, namespace):
-    return project_id, cls.DIR_NAME, namespace
-
-  def encode_key(self, path, commit_versionstamp):
-    key = b''.join([self.directory.rawPrefix, Path.pack(path),
-                    commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE])
-    if not commit_versionstamp:
-      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
-
-    return key
-
-  def decode(self, kv):
-    path = Path.unpack(kv.key, len(self.directory.rawPrefix))[0]
-    commit_versionstamp = kv.key[self.versionstamp_slice]
-    deleted_versionstamp = kv.value or None
-    return IndexEntry(self.project_id, self.namespace, path,
-                      commit_versionstamp, deleted_versionstamp)
-
-
-class KindIndex(Index):
-  """
-  A KindIndex handles the encoding and decoding details for kind index entries.
-  These are paths grouped by kind that point to entity keys.
-
-  The FDB directory for a kind index looks like
-  (<project-dir>, 'kind-indexes', <namespace>, <kind>).
-
-  Within this directory, keys are encoded as <path> + <commit-versionstamp>.
-
-  The <path> contains the entity path. See codecs.Path for encoding details.
-
-  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit
-  version of the transaction that wrote the index entry.
-  """
-  DIR_NAME = u'kind-indexes'
-
-  @property
-  def namespace(self):
-    return self.directory.get_path()[-2]
-
-  @property
-  def kind(self):
-    return self.directory.get_path()[-1]
-
-  def __repr__(self):
-    return u'KindIndex(%r)' % self.directory
-
-  @classmethod
-  def directory_path(cls, project_id, namespace, kind):
-    return project_id, cls.DIR_NAME, namespace, kind
-
-  @classmethod
-  def section_path(cls, project_id):
-    return project_id, cls.DIR_NAME
-
-  @property
-  def prop_names(self):
-    return ()
-
-  def encode_key(self, path, commit_versionstamp):
-    key = b''.join([self.directory.rawPrefix, Path.pack(path),
-                    commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE])
-    if not commit_versionstamp:
-      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
-
-    return key
-
-  def decode(self, kv):
-    path = Path.unpack(kv.key, len(self.directory.rawPrefix))[0]
-    commit_versionstamp = kv.key[self.versionstamp_slice]
-    deleted_versionstamp = kv.value or None
-    return IndexEntry(self.project_id, self.namespace, path,
-                      commit_versionstamp, deleted_versionstamp)
-
-
-class SinglePropIndex(Index):
-  """
-  A SinglePropIndex handles the encoding and decoding details for single-prop
-  index entries. These are property values for a particular kind that point to
-  entity keys.
-
-  The FDB directory for a single-prop index looks like
-  (<project-dir>, 'single-property-indexes', <namespace>, <kind>, <prop-name>).
-
-  Within this directory, keys are encoded as
-  (<value>, <path>, <commit-versionstamp>).
-
-  The <value> contains a property value. See the codecs module for encoding
-  details.
-
-  The <path> contains the entity path. See codecs.Path for encoding details.
-
-  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit
-  version of the transaction that wrote the index entry.
-  """
-  DIR_NAME = u'single-property-indexes'
-
-  @property
-  def namespace(self):
-    return self.directory.get_path()[-3]
-
-  @property
-  def kind(self):
-    return self.directory.get_path()[-2]
-
-  @property
-  def prop_name(self):
-    return self.directory.get_path()[-1]
-
-  @property
-  def prop_names(self):
-    return (self.directory.get_path()[-1],)
-
-  def __repr__(self):
-    return u'SinglePropIndex(%r)' % self.directory
-
-  @classmethod
-  def directory_path(cls, project_id, namespace, kind, prop_name):
-    return project_id, cls.DIR_NAME, namespace, kind, prop_name
-
-  def encode_key(self, value, path, commit_versionstamp):
-    key = b''.join([self.directory.rawPrefix, encode_value(value),
-                    Path.pack(path),
-                    commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE])
-    if not commit_versionstamp:
-      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
-
-    return key
-
-  def decode(self, kv):
-    value, pos = decode_value(kv.key, len(self.directory.rawPrefix))
-    path = Path.unpack(kv.key, pos)[0]
-    commit_versionstamp = kv.key[self.versionstamp_slice]
-    deleted_versionstamp = kv.value or None
-    return PropertyEntry(self.project_id, self.namespace, path, self.prop_name,
-                         value, commit_versionstamp, deleted_versionstamp)
-
-
-class CompositeIndex(Index):
-  """
-  A CompositeIndex handles the encoding and decoding details for composite
-  index entries.
-
-  The FDB directory for a composite index looks like
-  (<project-dir>, 'composite-indexes', <index-id>, <namespace>).
-
-  Within this directory, keys are encoded as
-  (<ancestor-fragment (optional)>, <encoded-value(s)>, <remaining-path>,
-   <commit-versionstamp>).
-
-  If the index definition requires an ancestor, the <ancestor-fragment>
-  contains an encoded tuple specifying the full or partial path of the entity's
-  ancestor. The number of entries written for ancestor composite indexes is
-  equal to the number of ancestor path elements. For example, an entity with
-  three path elements would be encoded with the following two entries:
-  (('Kind1', 'key1'), <encoded-values>, ('Kind2', 'key2', 'key3'), <commit-vs>)
-  (('Kind1', 'key1, 'Kind2', 'key2'), <encoded-values>, ('key3',), <commit-vs>)
-
-  The <encoded-value(s)> portion contains the property values as defined by the
-  index. See the codecs module for encoding details.
-
-  The <remaining-path> is an encoded tuple containing the portion of the entity
-  path that isn't specified by the <ancestor-fragment>. If the index definition
-  does not require an ancestor, this contains the full path.
-
-  The <commit-versionstamp> is a 10-byte versionstamp that specifies the commit
-  version of the transaction that wrote the index entry.
-  """
-  __slots__ = ['kind', 'ancestor', 'order_info']
-
-  DIR_NAME = u'composite-indexes'
-
-  def __init__(self, directory, kind, ancestor, order_info):
-    super(CompositeIndex, self).__init__(directory)
-    self.kind = kind
-    self.ancestor = ancestor
-    self.order_info = order_info
-
-  @property
-  def id(self):
-    return int(self.directory.get_path()[-2])
-
-  @property
-  def namespace(self):
-    return self.directory.get_path()[-1]
-
-  @property
-  def prop_names(self):
-    return tuple(prop_name for prop_name, _ in self.order_info)
-
-  def __repr__(self):
-    return u'CompositeIndex(%r, %r, %r, %r)' % (
-      self.directory, self.kind, self.ancestor, self.order_info)
-
-  @classmethod
-  def directory_path(cls, project_id, index_id, namespace):
-    return project_id, cls.DIR_NAME, six.text_type(index_id), namespace
-
-  def encode_key(self, ancestor_path, encoded_values, remaining_path,
-                 commit_versionstamp):
-    ancestor_path = Path.pack(ancestor_path) if ancestor_path else b''
-    remaining_path = Path.pack(remaining_path)
-    key = b''.join(
-      (self.directory.rawPrefix, ancestor_path) + tuple(encoded_values) +
-      (remaining_path, commit_versionstamp or b'\x00' * VERSIONSTAMP_SIZE))
-    if not commit_versionstamp:
-      key += encode_versionstamp_index(len(key) - VERSIONSTAMP_SIZE)
-
-    return key
-
-  def encode_keys(self, prop_list, path, commit_versionstamp):
-    encoded_values_by_prop = []
-    for index_prop_name, direction in self.order_info:
-      reverse = direction == Query_Order.DESCENDING
-      encoded_values_by_prop.append(
-        tuple(encode_value(prop.value(), reverse) for prop in prop_list
-              if prop.name() == index_prop_name))
-
-    encoded_value_combos = itertools.product(*encoded_values_by_prop)
-    if not self.ancestor:
-      return tuple(self.encode_key((), values, path, commit_versionstamp)
-                   for values in encoded_value_combos)
-
-    keys = []
-    for index in range(2, len(path), 2):
-      ancestor_path = path[:index]
-      remaining_path = path[index:]
-      keys.extend(
-        [self.encode_key(ancestor_path, values, remaining_path,
-                         commit_versionstamp)
-        for values in encoded_value_combos])
-
-    return tuple(keys)
-
-  def decode(self, kv):
-    pos = len(self.directory.rawPrefix)
-    properties = []
-    if self.ancestor:
-      ancestor_path, pos = Path.unpack(kv.key, pos)
-    else:
-      ancestor_path = ()
-
-    for prop_name, direction in self.order_info:
-      value, pos = decode_value(kv.key, pos,
-                                direction == Query_Order.DESCENDING)
-      properties.append((prop_name, value))
-
-    remaining_path = Path.unpack(kv.key, pos)[0]
-    path = ancestor_path + remaining_path
-    commit_versionstamp = kv.key[self.versionstamp_slice]
-    deleted_versionstamp = kv.value or None
-    return CompositeEntry(self.project_id, self.namespace, path, properties,
-                          commit_versionstamp, deleted_versionstamp)
-
-
 class IndexManager(object):
   """
   The IndexManager is the main interface that clients can use to interact with
@@ -1078,34 +501,43 @@ class IndexManager(object):
   _MAX_RESULTS = 300
 
   def __init__(self, db, tornado_fdb, data_manager, directory_cache):
-    self.composite_index_manager = None
     self._db = db
     self._tornado_fdb = tornado_fdb
     self._data_manager = data_manager
     self._directory_cache = directory_cache
+    self._composite_index_manager = CompositeIndexManager(
+      self._db, self._tornado_fdb, self._data_manager, self._directory_cache)
+
+  def start(self):
+    self._composite_index_manager.start()
 
   @gen.coroutine
   def put_entries(self, tr, old_version_entry, new_entity):
+    old_key_stats = IndexStatsSummary()
     if old_version_entry.has_entity:
-      keys = yield self._get_index_keys(
+      old_keys, old_key_stats = yield self._get_index_keys(
         tr, old_version_entry.decoded, old_version_entry.commit_versionstamp)
-      for key in keys:
+      for key in old_keys:
         # Set deleted versionstamp.
         tr.set_versionstamped_value(
           key, b'\x00' * VERSIONSTAMP_SIZE + encode_versionstamp_index(0))
 
+    new_key_stats = IndexStatsSummary()
     if new_entity is not None:
-      keys = yield self._get_index_keys(tr, new_entity)
-      for key in keys:
+      new_keys, new_key_stats = yield self._get_index_keys(
+        tr, new_entity)
+      for key in new_keys:
         tr.set_versionstamped_key(key, b'')
+
+    raise gen.Return(new_key_stats - old_key_stats)
 
   @gen.coroutine
   def hard_delete_entries(self, tr, version_entry):
     if not version_entry.has_entity:
       return
 
-    keys = yield self._get_index_keys(
-      tr, version_entry.decoded, version_entry.commit_versionstamp)
+    keys = (yield self._get_index_keys(tr, version_entry.decoded,
+                                       version_entry.commit_versionstamp))[0]
     for key in keys:
       del tr[key]
 
@@ -1166,11 +598,15 @@ class IndexManager(object):
 
     if query.has_kind() and query.kind() == u'__namespace__':
       project_dir = yield self._directory_cache.get(tr, (project_id,))
-      raise gen.Return(NamespaceIterator(tr, project_dir))
+      raise gen.Return(NamespaceIterator(tr, self._tornado_fdb, project_dir))
     elif query.has_kind() and query.kind() == u'__kind__':
       project_dir = yield self._directory_cache.get(tr, (project_id,))
       raise gen.Return(KindIterator(tr, self._tornado_fdb, project_dir,
                                     namespace))
+    elif query.has_kind() and query.kind() == u'__property__':
+      project_dir = yield self._directory_cache.get(tr, (project_id,))
+      raise gen.Return(PropertyIterator(tr, self._tornado_fdb, project_dir,
+                                        namespace))
 
     index = yield self._get_perfect_index(tr, query)
     reverse = get_scan_direction(query, index) == Query_Order.DESCENDING
@@ -1241,27 +677,42 @@ class IndexManager(object):
     raise gen.Return(iterator)
 
   @gen.coroutine
+  def merge(self, tr, project_id, new_indexes):
+    yield self._composite_index_manager.merge(tr, project_id, new_indexes)
+
+  @gen.coroutine
+  def update_composite_index(self, project_id, index):
+    yield self._composite_index_manager.update_composite_index(
+      project_id, index)
+
+  @gen.coroutine
   def _get_index_keys(self, tr, entity, commit_versionstamp=None):
+    has_index = commit_versionstamp is None
     project_id = decode_str(entity.key().app())
     namespace = decode_str(entity.key().name_space())
     path = Path.flatten(entity.key().path())
     kind = path[-2]
 
+    stats = IndexStatsSummary()
     kindless_index = yield self._kindless_index(tr, project_id, namespace)
     kind_index = yield self._kind_index(tr, project_id, namespace, kind)
     composite_indexes = yield self._get_indexes(
       tr, project_id, namespace, kind)
 
-    all_keys = [kindless_index.encode_key(path, commit_versionstamp),
-                kind_index.encode_key(path, commit_versionstamp)]
+    kindless_key = kindless_index.encode_key(path, commit_versionstamp)
+    kind_key = kind_index.encode_key(path, commit_versionstamp)
+    stats.add_kindless_key(kindless_key, has_index)
+    stats.add_kind_key(kind_key, has_index)
+    all_keys = [kindless_key, kind_key]
     entity_prop_names = []
     for prop in entity.property_list():
       prop_name = decode_str(prop.name())
       entity_prop_names.append(prop_name)
       index = yield self._single_prop_index(
         tr, project_id, namespace, kind, prop_name)
-      all_keys.append(
-        index.encode_key(prop.value(), path, commit_versionstamp))
+      prop_key = index.encode_key(prop.value(), path, commit_versionstamp)
+      stats.add_prop_key(prop, prop_key, has_index)
+      all_keys.append(prop_key)
 
     scatter_val = get_scatter_val(path)
     if scatter_val is not None:
@@ -1270,14 +721,17 @@ class IndexManager(object):
       all_keys.append(index.encode_key(scatter_val, path, commit_versionstamp))
 
     for index in composite_indexes:
+      # If the entity does not have the relevant props for the index, skip it.
       if not all(index_prop_name in entity_prop_names
                  for index_prop_name in index.prop_names):
         continue
 
-      all_keys.extend(
-        index.encode_keys(entity.property_list(), path, commit_versionstamp))
+      composite_keys = index.encode_keys(entity.property_list(), path,
+                                         commit_versionstamp)
+      stats.add_composite_keys(index.id, composite_keys, has_index)
+      all_keys.extend(composite_keys)
 
-    raise gen.Return(all_keys)
+    raise gen.Return((all_keys, stats))
 
   @gen.coroutine
   def _get_perfect_index(self, tr, query):
@@ -1315,7 +769,11 @@ class IndexManager(object):
           tr, project_id, namespace, decode_str(query.kind()), prop_name)
         raise gen.Return(single_prop_index)
 
-    index_pb = FindIndexToUse(query, self._get_indexes_pb(project_id))
+    queryable = [
+      index.to_pb() for index in (
+        yield self._composite_index_manager.get_definitions(tr, project_id))
+      if index.ready]
+    index_pb = FindIndexToUse(query, queryable)
     if index_pb is not None:
       composite_index = yield self._composite_index(
         tr, project_id, index_pb.id(), namespace)
@@ -1323,12 +781,10 @@ class IndexManager(object):
 
   @gen.coroutine
   def _get_indexes(self, tr, project_id, namespace, kind):
-    try:
-      project_index_manager = self.composite_index_manager.projects[project_id]
-    except KeyError:
-      raise BadRequest(u'project_id: {} not found'.format(project_id))
+    project_indexes = yield self._composite_index_manager.get_definitions(
+      tr, project_id)
 
-    relevant_indexes = [index for index in project_index_manager.indexes
+    relevant_indexes = [index for index in project_indexes
                         if index.kind == kind]
     fdb_indexes = []
     for index in relevant_indexes:
@@ -1343,19 +799,6 @@ class IndexManager(object):
       fdb_indexes.append(composite_index)
 
     raise gen.Return(fdb_indexes)
-
-  def _get_indexes_pb(self, project_id):
-    try:
-      project_index_manager = self.composite_index_manager.projects[project_id]
-    except KeyError:
-      raise BadRequest(u'project_id: {} not found'.format(project_id))
-
-    try:
-      indexes = project_index_manager.indexes_pb
-    except IndexInaccessible:
-      raise InternalError(u'ZooKeeper is not accessible')
-
-    return indexes
 
   @gen.coroutine
   def _kindless_index(self, tr, project_id, namespace):
@@ -1380,11 +823,14 @@ class IndexManager(object):
   def _composite_index(self, tr, project_id, index_id, namespace):
     path = CompositeIndex.directory_path(project_id, index_id, namespace)
     directory = yield self._directory_cache.get(tr, path)
-    kind, ancestor, order_info = self._index_details(project_id, index_id)
+    kind, ancestor, order_info = yield self._index_details(
+      tr, project_id, index_id)
     raise gen.Return(CompositeIndex(directory, kind, ancestor, order_info))
 
-  def _index_details(self, project_id, index_id):
-    project_indexes = self.composite_index_manager.projects[project_id].indexes
+  @gen.coroutine
+  def _index_details(self, tr, project_id, index_id):
+    project_indexes = yield self._composite_index_manager.get_definitions(
+      tr, project_id)
     index_def = next((ds_index for ds_index in project_indexes
                       if ds_index.id == index_id), None)
     if index_def is None:
@@ -1393,80 +839,4 @@ class IndexManager(object):
     order_info = tuple(
       (decode_str(prop.name), prop.to_pb().direction())
       for prop in index_def.properties)
-    return index_def.kind, index_def.ancestor, order_info
-
-  @gen.coroutine
-  def _indexes_for_kind(self, tr, project_id, kind):
-    section_path = KindIndex.section_path(project_id)
-    section_dir = yield self._directory_cache.get(tr, section_path)
-    # TODO: This can be made async.
-    indexes = []
-    namespaces = section_dir.list(tr)
-    for namespace in namespaces:
-      ns_dir = section_dir.open(tr, (namespace,))
-      try:
-        kind_dir = ns_dir.open(tr, (kind,))
-      except ValueError:
-        continue
-
-      indexes.append(KindIndex(kind_dir))
-
-    raise gen.Return(indexes)
-
-  @gen.coroutine
-  def update_composite_index(self, project_id, index_pb, cursor=(None, None)):
-    start_ns, start_key = cursor
-    project_id = decode_str(project_id)
-    kind = decode_str(index_pb.definition().entity_type())
-    tr = self._db.create_transaction()
-    deadline = monotonic.monotonic() + MAX_FDB_TX_DURATION - 1
-    kind_indexes = yield self._indexes_for_kind(tr, project_id, kind)
-    for kind_index in kind_indexes:
-      if start_ns is not None and kind_index.namespace < start_ns:
-        continue
-
-      composite_path = CompositeIndex.directory_path(
-        project_id, index_pb.id(), kind_index.namespace)
-      composite_dir = yield self._directory_cache.get(tr, composite_path)
-      order_info = tuple(
-        (decode_str(prop.name()), prop.direction())
-        for prop in index_pb.definition().property_list())
-      composite_index = CompositeIndex(
-        composite_dir, kind, index_pb.definition().ancestor(), order_info)
-
-      logger.info(u'Backfilling {}'.format(composite_index))
-      remaining_range = kind_index.directory.range()
-      if start_key is not None:
-        remaining_range = slice(
-          fdb.KeySelector.first_greater_than(start_key), remaining_range.stop)
-        start_key = None
-
-      result_iterator = ResultIterator(tr, self._tornado_fdb, remaining_range)
-      while True:
-        results, more_results = yield result_iterator.next_page()
-        index_entries = [kind_index.decode(result) for result in results]
-        version_entries = yield [self._data_manager.get_entry(tr, entry)
-                                 for entry in index_entries]
-        for index_entry, version_entry in zip(index_entries, version_entries):
-          new_keys = composite_index.encode_keys(
-            version_entry.decoded.property_list(), version_entry.path,
-            version_entry.commit_versionstamp)
-          for new_key in new_keys:
-            tr[new_key] = index_entry.deleted_versionstamp or b''
-
-        if not more_results:
-          logger.info(u'Finished backfilling {}'.format(composite_index))
-          break
-
-        if monotonic.monotonic() > deadline:
-          try:
-            yield self._tornado_fdb.commit(tr)
-            cursor = (kind_index.namespace, results[-1].key)
-          except fdb.FDBError as fdb_error:
-            logger.warning(u'Error while updating index: {}'.format(fdb_error))
-            tr.on_error(fdb_error).wait()
-
-          yield self.update_composite_index(project_id, index_pb, cursor)
-          return
-
-    yield self._tornado_fdb.commit(tr)
+    raise gen.Return((index_def.kind, index_def.ancestor, order_info))

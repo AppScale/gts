@@ -12,7 +12,6 @@
 import httplib
 import logging
 import os
-import select
 import sys
 import urllib
 
@@ -137,16 +136,8 @@ class XMPPReceiver():
       conn.send(xmpp.Presence(to=who, typ='subscribe'))
 
 
-  def listen_for_messages(self, messages_to_listen_for=-1):
-    """Polls the XMPP server for messages, responding to any that are seen.
-
-    Args:
-      messages_to_listen_for: An int that represents how many messages we
-        should listen for. If set to the default value (-1), then we listen
-        for an infinite number of messages.
-    Returns:
-      An int that indicates how many messages were processed.
-    """
+  def listen_for_messages(self):
+    """ Creates a connection to the XMPP server and listens for messages. """
     jid = xmpp.protocol.JID(self.my_jid)
     client = xmpp.Client(jid.getDomain(), debug=[])
 
@@ -167,23 +158,20 @@ class XMPPReceiver():
 
     client.sendInitPresence(requestRoster=0)
 
-    socketlist = {client.Connection._sock:'xmpp'}
+    logging.info('Listening for incoming messages')
+    while True:
+      try:
+        response = client.Process(timeout=1)
+      except xmpp.protocol.Conflict:
+        lost_connection = True
+      else:
+        # A closed connection is supposed to result in a response of 0, but
+        # it seems `None` also indicates that.
+        lost_connection = response is None or response == 0
 
-    logging.info("About to begin processing requests")
-
-    messages_processed = 0
-    while messages_processed != messages_to_listen_for:
-      (input_data, _, __) = select.select(socketlist.keys(), [], [], 1)
-      for _ in input_data:
-        try:
-          client.Process(1)
-          messages_processed += 1
-        except xmpp.protocol.Conflict:
-          logging.info("Lost connection after processing {0} messages" \
-            .format(messages_processed))
-          return messages_processed
-
-    return messages_processed
+      if lost_connection:
+        logging.error('Lost connection')
+        return
 
 
 if __name__ == "__main__":

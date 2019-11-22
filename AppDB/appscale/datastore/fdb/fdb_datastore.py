@@ -19,7 +19,6 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
-from appscale.common.datastore_index import merge_indexes
 from appscale.datastore.dbconstants import (
   BadRequest, ConcurrentModificationException, InternalError)
 from appscale.datastore.fdb.cache import DirectoryCache
@@ -28,10 +27,14 @@ from appscale.datastore.fdb.data import DataManager, VersionEntry
 from appscale.datastore.fdb.gc import GarbageCollector
 from appscale.datastore.fdb.indexes import (
   get_order_info, IndexManager, KEY_PROP)
+from appscale.datastore.fdb.sequential_ids import (
+  old_max_id, sequential_id_key, SequentialIDsNamespace)
+from appscale.datastore.fdb.stats.buffer import StatsBuffer
 from appscale.datastore.fdb.transactions import TransactionManager
 from appscale.datastore.fdb.utils import (
-  ABSENT_VERSION, fdb, FDBErrorCodes, next_entity_version, DS_ROOT,
-  ScatteredAllocator, TornadoFDB)
+  _MAX_SEQUENTIAL_ID, ABSENT_VERSION, DS_ROOT, fdb, FDBErrorCodes,
+  next_entity_version, ScatteredAllocator, TornadoFDB)
+from appscale.datastore.index_manager import IndexInaccessible
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
@@ -43,30 +46,38 @@ class FDBDatastore(object):
   """ A datastore implementation that uses FoundationDB. """
 
   def __init__(self):
-    self.index_manager = None
     self._data_manager = None
     self._db = None
     self._scattered_allocator = ScatteredAllocator()
     self._tornado_fdb = None
     self._tx_manager = None
     self._gc = None
+    self._index_manager = None
+    self._stats_buffer = None
 
   def start(self, fdb_clusterfile):
     self._db = fdb.open(fdb_clusterfile)
     self._tornado_fdb = TornadoFDB(IOLoop.current())
     ds_dir = fdb.directory.create_or_open(self._db, DS_ROOT)
-    directory_cache = DirectoryCache(self._db, self._tornado_fdb, ds_dir)
-    directory_cache.initialize()
+    self._directory_cache = DirectoryCache(self._db, self._tornado_fdb, ds_dir)
+    self._directory_cache.initialize()
 
-    self._data_manager = DataManager(self._tornado_fdb, directory_cache)
-    self.index_manager = IndexManager(
-      self._db, self._tornado_fdb, self._data_manager, directory_cache)
+    self._data_manager = DataManager(self._tornado_fdb, self._directory_cache)
     self._tx_manager = TransactionManager(
-      self._db, self._tornado_fdb, directory_cache)
+      self._db, self._tornado_fdb, self._directory_cache)
+
+    self._index_manager = IndexManager(
+      self._db, self._tornado_fdb, self._data_manager, self._directory_cache)
+    self._index_manager.start()
+
     self._gc = GarbageCollector(
-      self._db, self._tornado_fdb, self._data_manager, self.index_manager,
-      self._tx_manager, directory_cache)
+      self._db, self._tornado_fdb, self._data_manager, self._index_manager,
+      self._tx_manager, self._directory_cache)
     self._gc.start()
+
+    self._stats_buffer = StatsBuffer(
+      self._db, self._tornado_fdb, self._directory_cache, self)
+    self._stats_buffer.start()
 
   @gen.coroutine
   def dynamic_put(self, project_id, put_request, put_response, retries=5):
@@ -84,17 +95,18 @@ class FDBDatastore(object):
 
     if put_request.has_transaction():
       yield self._tx_manager.log_puts(tr, project_id, put_request)
-      writes = {entity.key().Encode(): (VersionEntry.from_key(entity.key()),
-                                        VersionEntry.from_key(entity.key()))
+      writes = {self._collapsible_id(entity):
+                    (VersionEntry.from_key(entity.key()),
+                     VersionEntry.from_key(entity.key()), None)
                 for entity in put_request.entity_list()}
     else:
       # Eliminate multiple puts to the same key.
-      puts_by_key = {entity.key().Encode(): entity
+      puts_by_key = {self._collapsible_id(entity): entity
                      for entity in put_request.entity_list()}
       writes = yield {key: self._upsert(tr, entity)
                       for key, entity in six.iteritems(puts_by_key)}
 
-    old_entries = [old_entry for old_entry, _ in six.itervalues(writes)
+    old_entries = [old_entry for old_entry, _, _ in six.itervalues(writes)
                    if old_entry.present]
     versionstamp_future = None
     if old_entries:
@@ -120,9 +132,15 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
+    mutations = [(old_entry, new_entry, index_stats)
+                 for old_entry, new_entry, index_stats in six.itervalues(writes)
+                 if index_stats is not None]
+    IOLoop.current().spawn_callback(self._stats_buffer.update, project_id,
+                                    mutations)
+
     for entity in put_request.entity_list():
-      write_entry = writes[entity.key().Encode()][1]
-      put_response.add_key().CopyFrom(entity.key())
+      write_entry = writes[self._collapsible_id(entity)][1]
+      put_response.add_key().CopyFrom(write_entry.key)
       if write_entry.version != ABSENT_VERSION:
         put_response.add_version(write_entry.version)
 
@@ -177,7 +195,7 @@ class FDBDatastore(object):
 
     if delete_request.has_transaction():
       yield self._tx_manager.log_deletes(tr, project_id, delete_request)
-      deletes = [(VersionEntry.from_key(key), None)
+      deletes = [(VersionEntry.from_key(key), None, None)
                  for key in delete_request.key_list()]
     else:
       # Eliminate multiple deletes to the same key.
@@ -185,7 +203,8 @@ class FDBDatastore(object):
       deletes = yield [self._delete(tr, key)
                        for key in six.itervalues(deletes_by_key)]
 
-    old_entries = [old_entry for old_entry, _ in deletes if old_entry.present]
+    old_entries = [old_entry for old_entry, _, _ in deletes
+                   if old_entry.present]
     versionstamp_future = None
     if old_entries:
       versionstamp_future = tr.get_versionstamp()
@@ -210,8 +229,13 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
+    mutations = [(old_entry, None, stats) for old_entry, _, stats in deletes
+                  if stats is not None]
+    IOLoop.current().spawn_callback(self._stats_buffer.update, project_id,
+                                    mutations)
+
     # TODO: Once the Cassandra backend is removed, populate a delete response.
-    for old_entry, new_version in deletes:
+    for old_entry, new_version, _ in deletes:
       logger.debug(u'new_version: {}'.format(new_version))
 
   @gen.coroutine
@@ -231,10 +255,10 @@ class FDBDatastore(object):
           safe_versionstamp > read_versionstamp):
         raise BadRequest(u'The specified transaction has expired')
 
-    fetch_data = self.index_manager.include_data(query)
-    rpc_limit, check_more_results = self.index_manager.rpc_limit(query)
+    fetch_data = self._index_manager.include_data(query)
+    rpc_limit, check_more_results = self._index_manager.rpc_limit(query)
 
-    iterator = yield self.index_manager.get_iterator(
+    iterator = yield self._index_manager.get_iterator(
       tr, query, read_versionstamp)
     for prop_name in query.property_name_list():
       prop_name = decode_str(prop_name)
@@ -327,12 +351,14 @@ class FDBDatastore(object):
       tr, project_id, txid)
 
     try:
-      old_entries = yield self._apply_mutations(
+      writes = yield self._apply_mutations(
         tr, project_id, queried_groups, mutations, lookups, read_versionstamp)
     finally:
       yield self._tx_manager.delete(tr, project_id, txid)
 
     versionstamp_future = None
+    old_entries = [old_entry for old_entry, _, _ in writes
+                   if old_entry.present]
     if old_entries:
       versionstamp_future = tr.get_versionstamp()
 
@@ -352,6 +378,12 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
+    mutations = [(old_entry, new_entry, index_stats)
+                 for old_entry, new_entry, index_stats in writes
+                 if index_stats is not None]
+    IOLoop.current().spawn_callback(self._stats_buffer.update, project_id,
+                                    mutations)
+
     logger.debug(u'Finished applying {}:{}'.format(project_id, txid))
 
   @gen.coroutine
@@ -366,8 +398,26 @@ class FDBDatastore(object):
   @gen.coroutine
   def update_composite_index(self, project_id, index):
     project_id = decode_str(project_id)
-    yield self.index_manager.update_composite_index(project_id, index)
+    yield self._index_manager.update_composite_index(project_id, index)
 
+  @gen.coroutine
+  def get_indexes(self, project_id):
+    """ Retrieves list of indexes for a project.
+
+    Args:
+      project_id: A string specifying a project ID.
+    Returns:
+      A list of entity_pb.CompositeIndex objects.
+    Raises:
+      BadRequest if project_id is not found.
+    """
+    tr = self._db.create_transaction()
+    composite_index_manager = self._index_manager._composite_index_manager
+    project_indexes = yield composite_index_manager.get_definitions(
+      tr, project_id)
+    raise gen.Return([index.to_pb() for index in project_indexes])
+
+  @gen.coroutine
   def add_indexes(self, project_id, indexes):
     """ Adds composite index definitions to a project.
 
@@ -376,18 +426,73 @@ class FDBDatastore(object):
       project_id: A string specifying a project ID.
       indexes: An iterable containing index definitions.
     """
-    # This is a temporary workaround to get a ZooKeeper client. This method
-    # will not use ZooKeeper in the future.
-    zk_client = self.index_manager.composite_index_manager._zk_client
-    merge_indexes(zk_client, project_id, indexes)
+    tr = self._db.create_transaction()
+    yield self._index_manager.merge(tr, project_id, indexes)
+    yield self._tornado_fdb.commit(tr)
+
+  @gen.coroutine
+  def allocate_size(self, project_id, namespace, path_prefix, size, retries=5):
+    tr = self._db.create_transaction()
+
+    key = yield sequential_id_key(tr, project_id, namespace, path_prefix,
+                                  self._directory_cache)
+    old_max = yield old_max_id(tr, key, self._tornado_fdb)
+
+    new_max = old_max + size
+    # TODO: Check behavior on reaching max sequential ID.
+    if new_max > _MAX_SEQUENTIAL_ID:
+      raise BadRequest(
+        u'There are not enough remaining IDs to satisfy request')
+
+    tr[key] = SequentialIDsNamespace.encode_value(new_max)
+
+    try:
+      yield self._tornado_fdb.commit(tr)
+    except fdb.FDBError as fdb_error:
+      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+        raise InternalError(fdb_error.description)
+
+      retries -= 1
+      if retries < 0:
+        raise InternalError(fdb_error.description)
+
+      range_start, range_end = yield self.allocate_size(
+        project_id, namespace, path_prefix, size, retries)
+      raise gen.Return((range_start, range_end))
+
+    raise gen.Return((old_max + 1, new_max))
+
+  @gen.coroutine
+  def allocate_max(self, project_id, namespace, path_prefix, new_max,
+                   retries=5):
+    tr = self._db.create_transaction()
+
+    key = yield sequential_id_key(tr, project_id, namespace, path_prefix,
+                                  self._directory_cache)
+    old_max = yield old_max_id(tr, key, self._tornado_fdb)
+
+    if new_max > old_max:
+      tr[key] = SequentialIDsNamespace.encode_value(new_max)
+
+    try:
+      yield self._tornado_fdb.commit(tr)
+    except fdb.FDBError as fdb_error:
+      if fdb_error.code != FDBErrorCodes.NOT_COMMITTED:
+        raise InternalError(fdb_error.description)
+
+      retries -= 1
+      if retries < 0:
+        raise InternalError(fdb_error.description)
+
+      range_start, range_end = yield self.allocate_max(
+        project_id, namespace, path_prefix, new_max, retries)
+      raise gen.Return((range_start, range_end))
+
+    raise gen.Return((old_max + 1, max(new_max, old_max)))
 
   @gen.coroutine
   def _upsert(self, tr, entity, old_entry_future=None):
-    last_element = entity.key().path().element(-1)
-    auto_id = False
-    if not last_element.has_name():
-      auto_id = not (last_element.has_id() and last_element.id() != 0)
-
+    auto_id = self._auto_id(entity)
     if auto_id:
       # Avoid mutating the object given.
       new_entity = entity_pb.EntityProto()
@@ -407,15 +512,18 @@ class FDBDatastore(object):
       raise InternalError(u'The datastore chose an existing ID')
 
     new_version = next_entity_version(old_entry.version)
+    encoded_entity = entity.Encode()
     yield self._data_manager.put(
-      tr, entity.key(), new_version, entity.Encode())
-    yield self.index_manager.put_entries(tr, old_entry, entity)
+      tr, entity.key(), new_version, encoded_entity)
+    index_stats = yield self._index_manager.put_entries(tr, old_entry, entity)
     if old_entry.present:
       yield self._gc.index_deleted_version(tr, old_entry)
 
     new_entry = VersionEntry.from_key(entity.key())
+    new_entry._encoded_entity = encoded_entity
+    new_entry._decoded_entity = entity
     new_entry.version = new_version
-    raise gen.Return((old_entry, new_entry))
+    raise gen.Return((old_entry, new_entry, index_stats))
 
   @gen.coroutine
   def _delete(self, tr, key, old_entry_future=None):
@@ -425,15 +533,16 @@ class FDBDatastore(object):
       old_entry = yield old_entry_future
 
     if not old_entry.present:
-      raise gen.Return((old_entry, None))
+      raise gen.Return((old_entry, None, None))
 
     new_version = next_entity_version(old_entry.version)
     yield self._data_manager.put(tr, key, new_version, b'')
-    yield self.index_manager.put_entries(tr, old_entry, new_entity=None)
+    index_stats = yield self._index_manager.put_entries(
+      tr, old_entry, new_entity=None)
     if old_entry.present:
       yield self._gc.index_deleted_version(tr, old_entry)
 
-    raise gen.Return((old_entry, new_version))
+    raise gen.Return((old_entry, new_version, index_stats))
 
   @gen.coroutine
   def _apply_mutations(self, tr, project_id, queried_groups, mutations,
@@ -461,14 +570,6 @@ class FDBDatastore(object):
       futures[encoded_key] = self._data_manager.get_latest(
         tr, key, include_data=encoded_key in require_data)
 
-    # Fetch remaining entities that were mutated.
-    for mutation in mutations:
-      key = (mutation if isinstance(mutation, entity_pb.Reference)
-             else mutation.key())
-      encoded_key = key.Encode()
-      if encoded_key not in futures:
-        futures[encoded_key] = self._data_manager.get_latest(tr, key)
-
     group_updates = yield group_update_futures
     group_updates = [vs for vs in group_updates if vs is not None]
     if any(commit_vs > read_versionstamp for commit_vs in group_updates):
@@ -488,15 +589,14 @@ class FDBDatastore(object):
     mutation_futures = []
     for mutation in self._collapse_mutations(mutations):
       if isinstance(mutation, entity_pb.Reference):
-        old_entry_future = futures[mutation.Encode()]
+        old_entry_future = futures.get(mutation.Encode())
         mutation_futures.append(self._delete(tr, mutation, old_entry_future))
       else:
-        old_entry_future = futures[mutation.key().Encode()]
+        old_entry_future = futures.get(mutation.key().Encode())
         mutation_futures.append(self._upsert(tr, mutation, old_entry_future))
 
     responses = yield mutation_futures
-    raise gen.Return([old_entry for old_entry, _ in responses
-                      if old_entry.present])
+    raise gen.Return(responses)
 
   @staticmethod
   def _collapse_mutations(mutations):
@@ -507,11 +607,20 @@ class FDBDatastore(object):
       if isinstance(mutation, entity_pb.Reference):
         key = mutation.Encode()
       else:
-        key = mutation.key().Encode()
+        key = FDBDatastore._collapsible_id(mutation)
 
       mutations_by_key[key] = mutation
 
-    return tuple(mutation for key, mutation in six.iteritems(mutations_by_key))
+    return tuple(mutation for mutation in six.itervalues(mutations_by_key))
+
+  @staticmethod
+  def _collapsible_id(entity):
+    """ The "collapsible" identity is the encoded key or the entity if
+        an identity will be allocated later. """
+    if FDBDatastore._auto_id(entity):
+      return id(entity)
+    else:
+      return entity.key().Encode()
 
   @staticmethod
   def _enforce_max_groups(mutations):
@@ -529,3 +638,12 @@ class FDBDatastore(object):
 
       if len(mutated_groups) > 25:
         raise BadRequest(u'Too many entity groups modified in transaction')
+
+  @staticmethod
+  def _auto_id(entity):
+    """ Should perform auto identity allocation for entity. """
+    last_element = entity.key().path().element(-1)
+    auto_id = False
+    if not last_element.has_name():
+        auto_id = not (last_element.has_id() and last_element.id() != 0)
+    return auto_id

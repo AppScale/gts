@@ -5,6 +5,13 @@
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
       /_/   /_/
 
+AppScale version 3.8.1, released October 2019
+Highlights of features and defects fixed in this release:
+ - Fixes a regression in the 3.8 release where push tasks could not be executed
+   if the task URL had "secure: always" set.
+
+Known Issues:
+
 AppScale version 3.8.0, released September 2019
 Highlights of features and defects fixed in this release:
  - Login continue scheme

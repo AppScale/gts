@@ -13,6 +13,7 @@ import os
 import sys
 
 import kazoo
+import six
 import tornado.httpserver
 import tornado.web
 from kazoo.retry import KazooRetry
@@ -24,6 +25,7 @@ from appscale.common.constants import (
   DATASTORE_SERVERS_NODE, ZK_PERSISTENT_RECONNECTS)
 from appscale.common.datastore_index import DatastoreIndex
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
+from appscale.datastore.fdb.codecs import Path
 from kazoo.client import KazooState
 from kazoo.exceptions import NodeExistsError, NoNodeError
 from tornado import gen
@@ -127,6 +129,7 @@ class ReserveKeysHandler(tornado.web.RequestHandler):
 
 
 class AddIndexesHandler(tornado.web.RequestHandler):
+  @gen.coroutine
   def post(self):
     """
     At this time, there does not seem to be a public API method for creating
@@ -140,7 +143,7 @@ class AddIndexesHandler(tornado.web.RequestHandler):
     project_id = self.get_argument('project')
     indexes = [DatastoreIndex.from_dict(project_id, index)
                for index in json.loads(self.request.body)]
-    datastore_access.add_indexes(project_id, indexes)
+    yield datastore_access.add_indexes(project_id, indexes)
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -557,7 +560,7 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     response = datastore_pb.CompositeIndices()
     try:
-      indices = datastore_access.get_indexes(app_id)
+      indices = yield datastore_access.get_indexes(app_id)
     except (dbconstants.AppScaleDBConnectionError,
             dbconstants.InternalError) as error:
       logger.exception(
@@ -596,12 +599,20 @@ class MainHandler(tornado.web.RequestHandler):
         ('', datastore_pb.Error.BAD_REQUEST,
          'Either size or max must be set.'))
 
+    if not request.has_model_key():
+      raise gen.Return(('', datastore_pb.Error.BAD_REQUEST,
+                        'Model key must be set'))
+
+    namespace = six.text_type(request.model_key().name_space())
+    path_prefix = Path.flatten(request.model_key().path(),
+                               allow_partial=True)[:-1]
+
     if request.has_size():
       coroutine = datastore_access.allocate_size
-      args = (app_id, request.size())
+      args = (app_id, namespace, path_prefix, request.size())
     else:
       coroutine = datastore_access.allocate_max
-      args = (app_id, request.max())
+      args = (app_id, namespace, path_prefix, request.max())
 
     try:
       start, end = yield coroutine(*args)
@@ -959,12 +970,10 @@ def main():
   zk_state_listener(zk_client.state)
   zk_client.ChildrenWatch(DATASTORE_SERVERS_NODE, update_servers_watch)
 
-  index_manager = IndexManager(zk_client, datastore_access,
-                               perform_admin=True)
   if args.type == 'cassandra':
+    index_manager = IndexManager(zk_client, datastore_access,
+                                 perform_admin=True)
     datastore_access.index_manager = index_manager
-  else:
-    datastore_access.index_manager.composite_index_manager = index_manager
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(args.port)

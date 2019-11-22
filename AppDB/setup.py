@@ -15,6 +15,7 @@ setup(
     'kazoo',
     'monotonic',
     'mmh3',
+    'psycopg2-binary',
     'SOAPpy',
     'tornado',
     'foundationdb~=6.1.8'
@@ -31,6 +32,7 @@ setup(
             'appscale.datastore',
             'appscale.datastore.cassandra_env',
             'appscale.datastore.fdb',
+            'appscale.datastore.fdb.stats',
             'appscale.datastore.scripts',
             'appscale.datastore.zkappscale'],
   entry_points={'console_scripts': [

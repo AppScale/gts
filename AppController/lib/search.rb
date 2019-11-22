@@ -26,7 +26,7 @@ module Search
   PYTHON_EXEC = 'python'.freeze
 
   # Search location file.
-  SEARCH_LOCATION_FILE = '/etc/appscale/search_ip'.freeze
+  SEARCH_LOCATION_FILE = '/var/lib/appscale/hosts/search_ip'.freeze
 
   # Service name for use with helper
   SERVICE_NAME_SEARCH = 'appscale-search'.freeze

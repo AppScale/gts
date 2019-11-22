@@ -174,6 +174,8 @@ EOF
 
     mkdir -pv /var/appscale/version_assets
 
+    mkdir -pv /var/lib/appscale/hosts
+
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
         cp -v ${APPSCALE_HOME}/system/logrotate.d/* /etc/logrotate.d/
@@ -595,6 +597,16 @@ installcommon()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/common
     pip install ${APPSCALE_HOME}/common
+
+    # link /etc/ ip files to host state files
+    IP_FILES="all_ips head_node_private_ip load_balancer_ips login_ip masters"
+    IP_FILES="${IP_FILES} memcache_ips my_private_ip my_public_ip search_ip"
+    IP_FILES="${IP_FILES} search2_ips slaves taskqueue_nodes"
+    IP_FILES="${IP_FILES} zookeeper_locations"
+    for IP_FILE in ${IP_FILES}; do
+        [ ! -f "/etc/appscale/${IP_FILE}" ] || rm -v "/etc/appscale/${IP_FILE}"
+        ln -s -T "/var/lib/appscale/hosts/${IP_FILE}" "/etc/appscale/${IP_FILE}"
+    done
 }
 
 installadminserver()
