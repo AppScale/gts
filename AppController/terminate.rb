@@ -52,17 +52,8 @@ module TerminateHelper
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
 
     # Remove location files.
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/all_ips")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/load_balancer_ips")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/login_ip")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/masters")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/memcache_ips")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/my_private_ip")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/my_public_ip")
+    `rm -f /var/lib/appscale/hosts/*`
     FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/num_of_nodes")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/search_ip")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/slaves")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/taskqueue_nodes")
 
     `rm -f /run/systemd/system/appscale-*.target.wants/*`
     `rm -f /run/appscale/appscale-*.env`
@@ -70,7 +61,6 @@ module TerminateHelper
 
     # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_JSON_FILE)
     `rm -f #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
-    `rm -f #{APPSCALE_CONFIG_DIR}/zookeeper_locations`
 
     `systemctl daemon-reload`
     print "OK"

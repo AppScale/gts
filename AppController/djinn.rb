@@ -93,7 +93,7 @@ ZK_LOCATIONS_JSON_FILE = '/etc/appscale/zookeeper_locations.json'.freeze
 
 # The location on the local file system where we store information about
 # where ZooKeeper servers are located.
-ZK_LOCATIONS_FILE = '/etc/appscale/zookeeper_locations'.freeze
+ZK_LOCATIONS_FILE = '/var/lib/appscale/hosts/zookeeper_locations'.freeze
 
 # The location of the logrotate scripts.
 LOGROTATE_DIR = '/etc/logrotate.d'.freeze
@@ -295,13 +295,17 @@ class Djinn
   # files are written to.
   APPSCALE_CONFIG_DIR = '/etc/appscale'.freeze
 
+  # The location on the local filesystem where AppScale-related host
+  # location files are written to.
+  APPSCALE_HOSTS_DIR = '/var/lib/appscale/hosts'.freeze
+
   # The tools uses this location to find deployments info. TODO: to remove
   # this dependency.
   APPSCALE_TOOLS_CONFIG_DIR = '/root/.appscale'.freeze
 
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
-  TASKQUEUE_FILE = "#{APPSCALE_CONFIG_DIR}/taskqueue_nodes".freeze
+  TASKQUEUE_FILE = "#{APPSCALE_HOSTS_DIR}/taskqueue_nodes".freeze
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
@@ -1657,8 +1661,8 @@ class Djinn
     # We reload our old IPs (if we find them) so we can check later if
     # they changed and act accordingly.
     begin
-      @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
-      @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip")
+      @my_private_ip = HelperFunctions.read_file("#{APPSCALE_HOSTS_DIR}/my_private_ip")
+      @my_public_ip = HelperFunctions.read_file("#{APPSCALE_HOSTS_DIR}/my_public_ip")
     rescue Errno::ENOENT
       Djinn.log_info("Couldn't find my old my_public_ip or my_private_ip.")
       @my_private_ip = nil
@@ -4018,38 +4022,38 @@ class Djinn
       taskqueue_content = taskqueue_ips.join("\n") + "\n"
 
       head_node_private_ip = get_shadow.private_ip
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_private_ip",
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/head_node_private_ip",
                                  "#{head_node_private_ip}\n")
 
       Djinn.log_info("All private IPs: #{all_ips}.")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips_content)
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/all_ips", all_ips_content)
 
       Djinn.log_info("Load balancer location(s): #{load_balancer_ips}.")
-      load_balancer_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
+      load_balancer_file = "#{APPSCALE_HOSTS_DIR}/load_balancer_ips"
       HelperFunctions.write_file(load_balancer_file, load_balancer_content)
 
       Djinn.log_info("Deployment public name/IP: #{login_ip}.")
-      login_file = "#{APPSCALE_CONFIG_DIR}/login_ip"
+      login_file = "#{APPSCALE_HOSTS_DIR}/login_ip"
       HelperFunctions.write_file(login_file, login_content)
 
       Djinn.log_info("Memcache locations: #{memcache_ips}.")
-      memcache_file = "#{APPSCALE_CONFIG_DIR}/memcache_ips"
+      memcache_file = "#{APPSCALE_HOSTS_DIR}/memcache_ips"
       HelperFunctions.write_file(memcache_file, memcache_content)
 
       Djinn.log_info("Taskqueue locations: #{taskqueue_ips}.")
       HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_content)
 
       Djinn.log_info("Database master is at #{master_ips}, slaves are at #{slave_ips}.")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_content}")
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/masters", "#{master_content}")
 
       unless slaves_content.chomp.empty?
-        HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves",
+        HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/slaves",
                                    slaves_content)
       end
 
       Djinn.log_info("My public IP is #{my_public}, and my private is #{my_private}.")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_public_ip", "#{my_public}")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_private_ip", "#{my_private}")
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/my_public_ip", "#{my_public}")
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/my_private_ip", "#{my_private}")
 
       Djinn.log_info("Writing num_of_nodes as #{num_of_nodes}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/num_of_nodes", "#{num_of_nodes}\n")
@@ -4062,7 +4066,7 @@ class Djinn
 
       Djinn.log_info("Search2 service locations: #{search2_ips}.")
       unless search2_content.chomp.empty?
-        HelperFunctions.write_file('/etc/appscale/search2_ips',
+        HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/search2_ips",
                                    search2_content)
       end
     end
