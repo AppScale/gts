@@ -32,7 +32,6 @@ require 'custom_exceptions'
 require 'datastore_server'
 require 'ejabberd'
 require 'error_app'
-require 'groomer_service'
 require 'haproxy'
 require 'helperfunctions'
 require 'hermes_client'
@@ -3105,27 +3104,8 @@ class Djinn
     @done_initializing = true
     Djinn.log_info("UserAppServer is ready.")
 
-    groomer_required = !@options.key?('fdb_clusterfile_content')
-
     # The services below depends directly or indirectly on the UAServer to
     # be operational. So we start them after we test the UAServer.
-    threads = []
-    if groomer_required && (my_node.is_db_master? || my_node.is_db_slave? ||
-                            my_node.is_zookeeper?)
-      threads << Thread.new {
-        if my_node.is_db_master? or my_node.is_db_slave?
-          start_groomer_service
-          verbose = @options['verbose'].downcase == 'true'
-          GroomerService.start_transaction_groomer(verbose)
-        end
-      }
-    else
-      threads << Thread.new {
-        stop_groomer_service
-        GroomerService.stop_transaction_groomer
-      }
-    end
-
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
     else
@@ -3299,15 +3279,6 @@ class Djinn
     Djinn.log_info("Done starting Hermes service.")
   end
 
-  # Starts the groomer service on this node. The groomer cleans the datastore of deleted
-  # items and removes old logs.
-  def start_groomer_service
-    @state = "Starting Groomer Service"
-    Djinn.log_info("Starting groomer service.")
-    GroomerService.start
-    Djinn.log_info("Done starting groomer service.")
-  end
-
   def start_soap_server
     db_master_ip = nil
     @state_change_lock.synchronize {
@@ -3399,13 +3370,6 @@ class Djinn
   # Stops the AppManager service
   def stop_app_manager_server
     ServiceHelper.stop('appscale-instance-manager')
-  end
-
-  # Stops the groomer service.
-  def stop_groomer_service
-    Djinn.log_info("Stopping groomer service.")
-    GroomerService.stop
-    Djinn.log_info("Done stopping groomer service.")
   end
 
   def is_cloud?
