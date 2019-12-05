@@ -62,7 +62,6 @@ class AppControllerClient
     @conn.add_method('get_property', 'property_regex', 'secret')
     @conn.add_method('set_property', 'property_name', 'property_value', 'secret')
     @conn.add_method('set_node_read_only', 'read_only', 'secret')
-    @conn.add_method('primary_db_is_up', 'secret')
     @conn.add_method('get_app_upload_status', 'reservation_id', 'secret')
     @conn.add_method('get_cluster_stats_json', 'secret')
     @conn.add_method('get_node_stats_json', 'secret')
@@ -175,13 +174,6 @@ class AppControllerClient
   def set_node_read_only(read_only)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'set_node_read_only') {
       @conn.set_node_read_only(read_only, @secret)
-    }
-  end
-
-  # Checks if the Cassandra seed node is up.
-  def primary_db_is_up
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, 'primary_db_is_up') {
-      @conn.primary_db_is_up(@secret)
     }
   end
 
