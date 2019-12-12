@@ -331,10 +331,10 @@ def get_user_data(username, secret):
 
     if not result:
       raise gen.Return('Error: User {} does not exist'.format(username))
-    if len(user_schema) != len(result):
+    if len(USERS_SCHEMA) != len(result):
       raise gen.Return(
         "Error: Bad length of user schema vs user result "
-        "user schema: " + str(user_schema) + " result: " + str(result)
+        "user schema: " + str(USERS_SCHEMA) + " result: " + str(result)
       )
 
     user = Users("a", "b", "c")
