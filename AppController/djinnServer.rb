@@ -20,10 +20,6 @@ class Net::HTTP
   end
 end
 
-
-environment = YAML.load_file('/etc/appscale/environment.yaml')
-environment.each { |k,v| ENV[k] = v }
-
 APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 # Import for AppController

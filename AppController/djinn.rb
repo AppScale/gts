@@ -893,7 +893,6 @@ class Djinn
         end
 
         # Ensure we have the correct EC2 credentials available.
-        ENV['EC2_URL'] = @options['ec2_url']
         if @options['ec2_access_key'].nil?
           @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
           @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
@@ -2962,13 +2961,6 @@ class Djinn
     FileUtils.mkdir_p(my_key_dir)
     Djinn.log_run("chmod 600 #{APPSCALE_CONFIG_DIR}/ssh.key")
     Djinn.log_run("cp -p #{APPSCALE_CONFIG_DIR}/ssh.key #{my_key_loc}")
-
-    # AWS and Euca need some evironmental variables.
-    if ["ec2", "euca"].include?(@options['infrastructure'])
-      ENV['EC2_ACCESS_KEY'] = @options['ec2_access_key']
-      ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
-      ENV['EC2_URL'] = @options['ec2_url']
-    end
   end
 
   def got_all_data
