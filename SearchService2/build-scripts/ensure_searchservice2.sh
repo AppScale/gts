@@ -25,6 +25,7 @@ if ! "${PIP}" --version | grep 'python 3\.' ; then
 fi
 
 echo "Upgrading appscale-common.."
+"${PIP}" install wheel
 "${PIP}" install --upgrade --no-deps "${COMMON_DIR}"
 echo "Installing appscale-common dependencies if any missing.."
 "${PIP}" install "${COMMON_DIR}"

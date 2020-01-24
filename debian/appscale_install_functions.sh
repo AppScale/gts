@@ -611,6 +611,7 @@ installhermes()
     python3 -m venv /opt/appscale_venvs/hermes/
     # Install Hermes and its dependencies in it
     HERMES_PIP=/opt/appscale_venvs/hermes/bin/pip
+    ${HERMES_PIP} install wheel
     ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/common
     ${HERMES_PIP} install ${APPSCALE_HOME}/common
     ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/AdminServer
