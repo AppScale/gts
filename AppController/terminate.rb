@@ -52,17 +52,8 @@ module TerminateHelper
     `rm -f #{APPSCALE_CONFIG_DIR}/port-*.txt`
 
     # Remove location files.
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/all_ips")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/load_balancer_ips")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/login_ip")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/masters")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/memcache_ips")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/my_private_ip")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/my_public_ip")
+    `rm -f /var/lib/appscale/hosts/*`
     FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/num_of_nodes")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/search_ip")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/slaves")
-    FileUtils.rm_f("#{APPSCALE_CONFIG_DIR}/taskqueue_nodes")
 
     `rm -f /run/systemd/system/appscale-*.target.wants/*`
     `rm -f /run/appscale/appscale-*.env`
@@ -70,7 +61,6 @@ module TerminateHelper
 
     # TODO: Use the constant in djinn.rb (ZK_LOCATIONS_JSON_FILE)
     `rm -f #{APPSCALE_CONFIG_DIR}/zookeeper_locations.json`
-    `rm -f #{APPSCALE_CONFIG_DIR}/zookeeper_locations`
 
     `systemctl daemon-reload`
     print "OK"
@@ -114,7 +104,6 @@ module TerminateHelper
     `rm -rf /etc/cron.d/appscale-*`
 
     # Delete stored data.
-    `rm -rf /opt/appscale/cassandra`
     `rm -rf /opt/appscale/zookeeper`
     `rm -rf /opt/appscale/logserver/*`
     `rm -rf /opt/appscale/apps`
@@ -128,20 +117,8 @@ module TerminateHelper
   # Tells any services that persist data across AppScale runs to stop writing
   # new data to the filesystem, since killing them is imminent.
   #
-  # For right now, this is just Cassandra and ZooKeeper.
+  # For right now, this is just ZooKeeper.
   def self.disable_database_writes
-    # First, tell Cassandra that no more writes should be accepted on this node.
-    ifconfig = `ifconfig`
-    bound_addrs = ifconfig.scan(/inet .*?(\d+.\d+.\d+.\d+) /).flatten
-    bound_addrs.delete("127.0.0.1")
-    ip = bound_addrs[0]
-
-    # Make sure we have cassandra running, otherwise nodetool may get
-    # stuck.
-    if system("systemctl --quiet is-active appscale-cassandra.service")
-      `/opt/cassandra/cassandra/bin/nodetool -h #{ip} -p 7199 drain`
-    end
-
     # Next, stop ZooKeeper politely
     `systemctl stop zookeeper.service`
   end

@@ -20,10 +20,6 @@ class Net::HTTP
   end
 end
 
-
-environment = YAML.load_file('/etc/appscale/environment.yaml')
-environment.each { |k,v| ENV[k] = v }
-
 APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 # Import for AppController
@@ -76,7 +72,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "get_online_users_list", "secret")
     add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
     add_method(@djinn, "gather_logs", "secret")
-    add_method(@djinn, "run_groomer", "secret")
     add_method(@djinn, "get_property", "property_regex", "secret")
     add_method(@djinn, "set_property", "property_name", "property_value",
       "secret")
@@ -90,7 +85,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "does_user_exist", "username", "secret")
     add_method(@djinn, "create_user", "username", "password", "account_type" ,"secret")
     add_method(@djinn, "set_admin_role", "username", "is_cloud_admin", "capabilities" ,"secret")
-    add_method(@djinn, "primary_db_is_up", "secret")
     add_method(@djinn, "update_cron", "project_id", "secret")
   end
 end

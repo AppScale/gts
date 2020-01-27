@@ -32,7 +32,6 @@ require 'custom_exceptions'
 require 'datastore_server'
 require 'ejabberd'
 require 'error_app'
-require 'groomer_service'
 require 'haproxy'
 require 'helperfunctions'
 require 'hermes_client'
@@ -93,7 +92,7 @@ ZK_LOCATIONS_JSON_FILE = '/etc/appscale/zookeeper_locations.json'.freeze
 
 # The location on the local file system where we store information about
 # where ZooKeeper servers are located.
-ZK_LOCATIONS_FILE = '/etc/appscale/zookeeper_locations'.freeze
+ZK_LOCATIONS_FILE = '/var/lib/appscale/hosts/zookeeper_locations'.freeze
 
 # The location of the logrotate scripts.
 LOGROTATE_DIR = '/etc/logrotate.d'.freeze
@@ -295,19 +294,23 @@ class Djinn
   # files are written to.
   APPSCALE_CONFIG_DIR = '/etc/appscale'.freeze
 
+  # The location on the local filesystem where AppScale-related host
+  # location files are written to.
+  APPSCALE_HOSTS_DIR = '/var/lib/appscale/hosts'.freeze
+
   # The tools uses this location to find deployments info. TODO: to remove
   # this dependency.
   APPSCALE_TOOLS_CONFIG_DIR = '/root/.appscale'.freeze
 
   # The location on the local filesystem where the AppController writes
   # the location of all the nodes which are taskqueue nodes.
-  TASKQUEUE_FILE = "#{APPSCALE_CONFIG_DIR}/taskqueue_nodes".freeze
+  TASKQUEUE_FILE = "#{APPSCALE_HOSTS_DIR}/taskqueue_nodes".freeze
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
   # The location on the local filesystem where we save data that should be
-  # persisted across AppScale deployments. Currently this is Cassandra data,
-  # ZooKeeper data, and Google App Engine apps that users upload.
+  # persisted across AppScale deployments. Currently this is ZooKeeper data,
+  # and Google App Engine apps that users upload.
   PERSISTENT_MOUNT_POINT = '/opt/appscale'.freeze
 
   # The location where we can find the Python 2.7 executable, included because
@@ -473,7 +476,7 @@ class Djinn
     'region' => [String, nil, true],
     'replication' => [Integer, '1', true],
     'project' => [String, nil, false],
-    'table' => [String, 'cassandra', false],
+    'table' => [String, 'cassandra', false], # deprecated
     'use_spot_instances' => [TrueClass, nil, false],
     'user_commands' => [String, nil, true],
     'verbose' => [TrueClass, 'False', true],
@@ -891,7 +894,6 @@ class Djinn
         end
 
         # Ensure we have the correct EC2 credentials available.
-        ENV['EC2_URL'] = @options['ec2_url']
         if @options['ec2_access_key'].nil?
           @options['ec2_access_key'] = @options['EC2_ACCESS_KEY']
           @options['ec2_secret_key'] = @options['EC2_SECRET_KEY']
@@ -1154,34 +1156,6 @@ class Djinn
     tree = { :table => @options['table'], :replication => @options['replication'],
       :keyname => @options['keyname'] }
     return JSON.dump(tree)
-  end
-
-  # Runs the Groomer service that the Datastore provides, which cleans up
-  # deleted entries and generates statistics about the entities stored for each
-  # application.
-  #
-  # Args:
-  #   secret: A String with the shared key for authentication.
-  # Returns:
-  #   'OK' if the groomer was invoked, and BAD_SECRET_MSG if the user failed to
-  #   authenticate correctly.
-  def run_groomer(secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-    return NOT_READY if @nodes.empty?
-    return INVALID_REQUEST if @options.key?('fdb_clusterfile_content')
-
-    Thread.new {
-      run_groomer_command = `which appscale-groomer`.chomp
-      if my_node.is_db_master?
-        Djinn.log_run(run_groomer_command)
-      else
-        db_master = get_db_master
-        HelperFunctions.run_remote_command(db_master.private_ip,
-          run_groomer_command, db_master.ssh_key, NO_OUTPUT)
-      end
-    }
-
-    return 'OK'
   end
 
   # Queries the AppController for a list of instance variables whose names match
@@ -1488,38 +1462,6 @@ class Djinn
     return 'OK'
   end
 
-  # Checks if the primary database node is ready. For Cassandra, this is needed
-  # because the seed node needs to start before the other nodes.
-  # Args:
-  #   secret: A string that authenticates the caller.
-  # Returns:
-  #   A string indicating whether or not the primary database node is ready.
-  def primary_db_is_up(secret)
-    return BAD_SECRET_MSG unless valid_secret?(secret)
-    return NOT_READY if @nodes.empty?
-
-    primary_ip = get_db_master.private_ip
-    unless my_node.is_db_master?
-      Djinn.log_debug("Asking #{primary_ip} if database is ready.")
-      acc = AppControllerClient.new(get_db_master.private_ip, @@secret)
-      begin
-        return acc.primary_db_is_up
-      rescue FailedNodeException => e
-        Djinn.log_warn("Unable to ask #{primary_ip} if database is ready: #{e.to_s}.")
-        return NOT_READY
-      end
-    end
-
-    lock_obtained = NODETOOL_LOCK.try_lock
-    begin
-      return NOT_READY unless lock_obtained
-      ready = nodes_ready.include?(primary_ip)
-      return "#{ready}"
-    ensure
-      NODETOOL_LOCK.unlock if lock_obtained
-    end
-  end
-
   # Resets a user's password.
   #
   # Args:
@@ -1658,8 +1600,8 @@ class Djinn
     # We reload our old IPs (if we find them) so we can check later if
     # they changed and act accordingly.
     begin
-      @my_private_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_private_ip")
-      @my_public_ip = HelperFunctions.read_file("#{APPSCALE_CONFIG_DIR}/my_public_ip")
+      @my_private_ip = HelperFunctions.read_file("#{APPSCALE_HOSTS_DIR}/my_private_ip")
+      @my_public_ip = HelperFunctions.read_file("#{APPSCALE_HOSTS_DIR}/my_public_ip")
     rescue Errno::ENOENT
       Djinn.log_info("Couldn't find my old my_public_ip or my_private_ip.")
       @my_private_ip = nil
@@ -1716,18 +1658,6 @@ class Djinn
     # Enforce actions from possibly changed options (like logs or
     # credentials).
     enforce_options
-
-    # Load datastore helper.
-    # TODO: this should be the class or module.
-    table = @options['table']
-    # require db_file
-    begin
-      require "#{table}_helper"
-    rescue => e
-      backtrace = e.backtrace.join("\n")
-      HelperFunctions.log_and_crash("Unable to find #{table} helper." \
-        " Please verify datastore type: #{e}\n#{backtrace}")
-    end
 
     # If we have uncommitted changes, we rebuild/reinstall the
     # corresponding packages to ensure we are using the latest code.
@@ -2879,19 +2809,7 @@ class Djinn
 
   # Writes any custom configuration data in /etc/appscale to ZooKeeper.
   def set_custom_config
-    cassandra_config = {'num_tokens' => 256}
-    begin
-      contents = File.read("#{APPSCALE_CONFIG_DIR}/cassandra")
-      cassandra_config = JSON.parse(contents)
-    rescue Errno::ENOENT
-      Djinn.log_debug('No custom cassandra configuration found.')
-    rescue JSON::ParserError
-      Djinn.log_error('Invalid JSON in custom cassandra configuration.')
-    end
     ZKInterface.ensure_path('/appscale/config')
-    ZKInterface.set('/appscale/config/cassandra', JSON.dump(cassandra_config),
-                    false)
-    Djinn.log_info('Set custom cassandra configuration.')
 
     if @options.key?('default_max_appserver_memory')
       ZKInterface.set_runtime_params(
@@ -3034,13 +2952,6 @@ class Djinn
     FileUtils.mkdir_p(my_key_dir)
     Djinn.log_run("chmod 600 #{APPSCALE_CONFIG_DIR}/ssh.key")
     Djinn.log_run("cp -p #{APPSCALE_CONFIG_DIR}/ssh.key #{my_key_loc}")
-
-    # AWS and Euca need some evironmental variables.
-    if ["ec2", "euca"].include?(@options['infrastructure'])
-      ENV['EC2_ACCESS_KEY'] = @options['ec2_access_key']
-      ENV['EC2_SECRET_KEY'] = @options['ec2_secret_key']
-      ENV['EC2_URL'] = @options['ec2_url']
-    end
   end
 
   def got_all_data
@@ -3143,77 +3054,11 @@ class Djinn
           db_master = node.private_ip if node.roles.include?('db_master')
         }
       }
-      setup_db_config_files(db_master, my_node.private_ip)
-
-      threads << Thread.new {
-        Djinn.log_info("Starting database services.")
-        db_nodes = nil
-        @state_change_lock.synchronize {
-          db_nodes = @nodes.count{|node| node.is_db_master? or node.is_db_slave?}
-        }
-        needed_nodes = needed_for_quorum(db_nodes,
-                                         Integer(@options['replication']))
-
-        # If this machine is running other services, decrease Cassandra's max
-        # heap size.
-        heap_reduction = 0
-        heap_reduction += 0.25 if my_node.is_compute?
-        if my_node.is_taskqueue_master? || my_node.is_taskqueue_slave?
-          heap_reduction += 0.15
-        end
-        heap_reduction += 0.15 if my_node.is_search2?
-        heap_reduction = heap_reduction.round(2)
-
-        if my_node.is_db_master?
-          start_db_master(false, needed_nodes, db_nodes, heap_reduction)
-          prime_database
-        else
-          start_db_slave(false, needed_nodes, db_nodes, heap_reduction)
-        end
-      }
-    else
-      stop_db_master
-      stop_db_slave
     end
 
     # We now wait for the essential services to go up.
     Djinn.log_info('Waiting for DB services ... ')
     threads.each { |t| t.join }
-
-    # Autoscaled nodes do not need to check if the datastore is primed: if
-    # we got this far, it must be primed.
-    am_i_autoscaled = false
-    get_autoscaled_nodes.each { |node|
-      if node.private_ip == my_node.private_ip
-        am_i_autoscaled = true
-        Djinn.log_info("Skipping database layout check on scaled node.")
-        break
-      end
-    }
-    unless am_i_autoscaled
-      Djinn.log_info('Ensuring necessary database tables are present')
-      sleep(SMALL_WAIT) until system("#{PRIME_SCRIPT} --check > /dev/null 2>&1")
-
-      Djinn.log_info('Ensuring data layout version is correct')
-      layout_script = `which appscale-data-layout`.chomp
-      retries = 10
-      loop {
-        output = `#{layout_script} --db-type cassandra 2>&1`
-        if $?.exitstatus == 0
-          break
-        elsif $?.exitstatus == INVALID_VERSION_EXIT_CODE
-          HelperFunctions.log_and_crash(
-            'Unexpected data layout version. Please run "appscale upgrade".')
-        elsif retries.zero?
-          HelperFunctions.log_and_crash(
-            'Exceeded retries while trying to check data layout.')
-        else
-          Djinn.log_warn("Error while checking data layout:\n#{output}")
-          sleep(SMALL_WAIT)
-        end
-        retries -= 1
-      }
-    end
 
     if my_node.is_db_master? or my_node.is_db_slave?
       @state = "Starting UAServer"
@@ -3246,27 +3091,8 @@ class Djinn
     @done_initializing = true
     Djinn.log_info("UserAppServer is ready.")
 
-    groomer_required = !@options.key?('fdb_clusterfile_content')
-
     # The services below depends directly or indirectly on the UAServer to
     # be operational. So we start them after we test the UAServer.
-    threads = []
-    if groomer_required && (my_node.is_db_master? || my_node.is_db_slave? ||
-                            my_node.is_zookeeper?)
-      threads << Thread.new {
-        if my_node.is_db_master? or my_node.is_db_slave?
-          start_groomer_service
-          verbose = @options['verbose'].downcase == 'true'
-          GroomerService.start_transaction_groomer(verbose)
-        end
-      }
-    else
-      threads << Thread.new {
-        stop_groomer_service
-        GroomerService.stop_transaction_groomer
-      }
-    end
-
     if my_node.is_memcache?
       threads << Thread.new { start_memcache }
     else
@@ -3347,44 +3173,6 @@ class Djinn
     else
       TaskQueue.stop_flower
     end
-  end
-
-  # Creates database tables in the underlying datastore to hold information
-  # about the users that interact with AppScale clouds, and about the
-  # applications that AppScale hosts (including data that the apps themselves
-  # read and write).
-  #
-  # Raises:
-  #   SystemExit: If the database could not be primed for use with AppScale,
-  #     after ten retries.
-  def prime_database
-    table = @options['table']
-    prime_script = `which appscale-prime-#{table}`.chomp
-    replication = Integer(@options['replication'])
-    retries = 10
-    Djinn.log_info('Ensuring necessary tables have been created')
-    loop {
-      prime_cmd = "#{prime_script} --replication #{replication} >> " \
-        '/var/log/appscale/prime_db.log 2>&1'
-      return if system(prime_cmd)
-      retries -= 1
-      Djinn.log_warn("Failed to prime database. #{retries} retries left.")
-
-      # If this has failed 10 times in a row, it's probably a
-      # "Column ID mismatch" error that seems to be caused by creating tables
-      # as the cluster is settling. Running a repair may fix the issue.
-      if retries == 1
-        @state = 'Running a Cassandra repair.'
-        Djinn.log_warn(@state)
-        system("#{NODETOOL} repair")
-      end
-
-      break if retries.zero?
-      Kernel.sleep(SMALL_WAIT)
-    }
-
-    @state = "Failed to prime #{table}."
-    HelperFunctions.log_and_crash(@state, WAIT_TO_CRASH)
   end
 
   def start_blobstore_server
@@ -3478,15 +3266,6 @@ class Djinn
     Djinn.log_info("Done starting Hermes service.")
   end
 
-  # Starts the groomer service on this node. The groomer cleans the datastore of deleted
-  # items and removes old logs.
-  def start_groomer_service
-    @state = "Starting Groomer Service"
-    Djinn.log_info("Starting groomer service.")
-    GroomerService.start
-    Djinn.log_info("Done starting groomer service.")
-  end
-
   def start_soap_server
     db_master_ip = nil
     @state_change_lock.synchronize {
@@ -3509,11 +3288,6 @@ class Djinn
     # startup.
     return unless my_node.is_shadow?
 
-    backend = 'cassandra'
-    if @options.key?('fdb_clusterfile_content')
-      backend = 'fdb'
-    end
-
     Djinn.log_info("Assigning datastore processes.")
     verbose = @options['verbose'].downcase == 'true'
     db_nodes = []
@@ -3527,7 +3301,7 @@ class Djinn
     # machine.
     db_nodes.each { |node|
       assignments = {}
-      assignments['datastore'] = {'backend' => backend, 'verbose' => verbose}
+      assignments['datastore'] = {'backend' => 'fdb', 'verbose' => verbose}
       ZKInterface.set_machine_assignments(node.private_ip, assignments)
       Djinn.log_debug("Node #{node.private_ip} got #{assignments}.")
     }
@@ -3583,13 +3357,6 @@ class Djinn
   # Stops the AppManager service
   def stop_app_manager_server
     ServiceHelper.stop('appscale-instance-manager')
-  end
-
-  # Stops the groomer service.
-  def stop_groomer_service
-    Djinn.log_info("Stopping groomer service.")
-    GroomerService.stop
-    Djinn.log_info("Done stopping groomer service.")
   end
 
   # Cloud if infrastructure is configured
@@ -4010,38 +3777,38 @@ class Djinn
       taskqueue_content = taskqueue_ips.join("\n") + "\n"
 
       head_node_private_ip = get_shadow.private_ip
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/head_node_private_ip",
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/head_node_private_ip",
                                  "#{head_node_private_ip}\n")
 
       Djinn.log_info("All private IPs: #{all_ips}.")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/all_ips", all_ips_content)
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/all_ips", all_ips_content)
 
       Djinn.log_info("Load balancer location(s): #{load_balancer_ips}.")
-      load_balancer_file = "#{APPSCALE_CONFIG_DIR}/load_balancer_ips"
+      load_balancer_file = "#{APPSCALE_HOSTS_DIR}/load_balancer_ips"
       HelperFunctions.write_file(load_balancer_file, load_balancer_content)
 
       Djinn.log_info("Deployment public name/IP: #{login_ip}.")
-      login_file = "#{APPSCALE_CONFIG_DIR}/login_ip"
+      login_file = "#{APPSCALE_HOSTS_DIR}/login_ip"
       HelperFunctions.write_file(login_file, login_content)
 
       Djinn.log_info("Memcache locations: #{memcache_ips}.")
-      memcache_file = "#{APPSCALE_CONFIG_DIR}/memcache_ips"
+      memcache_file = "#{APPSCALE_HOSTS_DIR}/memcache_ips"
       HelperFunctions.write_file(memcache_file, memcache_content)
 
       Djinn.log_info("Taskqueue locations: #{taskqueue_ips}.")
       HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_content)
 
       Djinn.log_info("Database master is at #{master_ips}, slaves are at #{slave_ips}.")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/masters", "#{master_content}")
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/masters", "#{master_content}")
 
       unless slaves_content.chomp.empty?
-        HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/slaves",
+        HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/slaves",
                                    slaves_content)
       end
 
       Djinn.log_info("My public IP is #{my_public}, and my private is #{my_private}.")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_public_ip", "#{my_public}")
-      HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/my_private_ip", "#{my_private}")
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/my_public_ip", "#{my_public}")
+      HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/my_private_ip", "#{my_private}")
 
       Djinn.log_info("Writing num_of_nodes as #{num_of_nodes}.")
       HelperFunctions.write_file("#{APPSCALE_CONFIG_DIR}/num_of_nodes", "#{num_of_nodes}\n")
@@ -4054,7 +3821,7 @@ class Djinn
 
       Djinn.log_info("Search2 service locations: #{search2_ips}.")
       unless search2_content.chomp.empty?
-        HelperFunctions.write_file('/etc/appscale/search2_ips',
+        HelperFunctions.write_file("#{APPSCALE_HOSTS_DIR}/search2_ips",
                                    search2_content)
       end
     end

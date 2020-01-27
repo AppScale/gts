@@ -155,24 +155,14 @@ EOF
     # This create link to appscale settings.
     mkdir -pv ${DESTDIR}${CONFIG_DIR}
 
-    cat <<EOF | tee ${CONFIG_DIR}/home || exit
-${APPSCALE_HOME_RUNTIME}
-EOF
-    # Create the global AppScale environment file.
-    DESTFILE=${DESTDIR}${CONFIG_DIR}/environment.yaml
-    mkdir -pv $(dirname $DESTFILE)
-    echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE
-APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
-EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: ${JAVA_HOME_DIRECTORY}
-EOF
     mkdir -pv /var/log/appscale
     # Allow rsyslog to write to appscale log directory.
     chgrp adm /var/log/appscale
     chmod g+rwx /var/log/appscale
 
     mkdir -pv /var/appscale/version_assets
+
+    mkdir -pv /var/lib/appscale/hosts
 
     # This puts in place the logrotate rules.
     if [ -d /etc/logrotate.d/ ]; then
@@ -595,6 +585,16 @@ installcommon()
 {
     pip install --upgrade --no-deps ${APPSCALE_HOME}/common
     pip install ${APPSCALE_HOME}/common
+
+    # link /etc/ ip files to host state files
+    IP_FILES="all_ips head_node_private_ip load_balancer_ips login_ip masters"
+    IP_FILES="${IP_FILES} memcache_ips my_private_ip my_public_ip search_ip"
+    IP_FILES="${IP_FILES} search2_ips slaves taskqueue_nodes"
+    IP_FILES="${IP_FILES} zookeeper_locations"
+    for IP_FILE in ${IP_FILES}; do
+        [ ! -f "/etc/appscale/${IP_FILE}" ] || rm -v "/etc/appscale/${IP_FILE}"
+        ln -s -T "/var/lib/appscale/hosts/${IP_FILE}" "/etc/appscale/${IP_FILE}"
+    done
 }
 
 installadminserver()
@@ -611,6 +611,7 @@ installhermes()
     python3 -m venv /opt/appscale_venvs/hermes/
     # Install Hermes and its dependencies in it
     HERMES_PIP=/opt/appscale_venvs/hermes/bin/pip
+    ${HERMES_PIP} install wheel
     ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/common
     ${HERMES_PIP} install ${APPSCALE_HOME}/common
     ${HERMES_PIP} install --upgrade --no-deps ${APPSCALE_HOME}/AdminServer
