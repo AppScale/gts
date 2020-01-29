@@ -5,6 +5,7 @@ import six
 
 from appscale.common.unpackaged import APPSCALE_PYTHON_APPSERVER
 from appscale.datastore.dbconstants import BadRequest, InternalError
+from appscale.datastore.fdb import codecs
 from appscale.datastore.fdb.codecs import (
   decode_value, encode_value, encode_versionstamp_index, Path)
 from appscale.datastore.fdb.utils import (
