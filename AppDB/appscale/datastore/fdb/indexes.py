@@ -25,6 +25,7 @@ from appscale.datastore.fdb.utils import (
 from appscale.datastore.dbconstants import BadRequest, InternalError
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
+from google.appengine.datastore import entity_pb
 from google.appengine.datastore.datastore_pb import Query_Filter, Query_Order
 
 logger = logging.getLogger(__name__)
