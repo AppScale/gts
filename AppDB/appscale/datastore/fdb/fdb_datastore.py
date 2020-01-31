@@ -378,7 +378,8 @@ class FDBDatastore(object):
     if old_entries:
       self._gc.clear_later(old_entries, versionstamp_future.wait().value)
 
-    mutations = [(old_entry, new_entry, index_stats)
+    mutations = [(old_entry, FDBDatastore._filter_version(new_entry),
+                  index_stats)
                  for old_entry, new_entry, index_stats in writes
                  if index_stats is not None]
     IOLoop.current().spawn_callback(self._stats_buffer.update, project_id,
@@ -621,6 +622,14 @@ class FDBDatastore(object):
       return id(entity)
     else:
       return entity.key().Encode()
+
+  @staticmethod
+  def _filter_version(entity):
+    """ Filter out any entity that is actually a delete version. """
+    if isinstance(entity, (int, long)):
+      return None
+    else:
+      return entity
 
   @staticmethod
   def _enforce_max_groups(mutations):
