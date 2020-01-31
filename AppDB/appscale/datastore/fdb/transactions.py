@@ -141,10 +141,11 @@ class TransactionMetadata(object):
       else:
         raise InternalError(u'Unrecognized RPC type')
 
-    lookups = set()
+    lookups = dict()
     mutations = []
     for chunks in six.itervalues(lookup_rpcs):
-      lookups.update(self._unpack_keys(b''.join(chunks)))
+      lookups.update([(key.SerializeToString(), key)
+                      for key in self._unpack_keys(b''.join(chunks))])
 
     for rpc_info in mutation_rpcs:
       rpc_type = rpc_info[0]
@@ -154,7 +155,7 @@ class TransactionMetadata(object):
       else:
         mutations.extend(self._unpack_keys(blob))
 
-    return lookups, queried_groups, mutations
+    return list(six.itervalues(lookups)), queried_groups, mutations
 
   def get_txid_slice(self, txid):
     prefix = self._txid_prefix(txid)
