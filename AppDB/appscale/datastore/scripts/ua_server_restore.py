@@ -89,7 +89,7 @@ def connect_to_postgres(zk_client):
     logger.info('Using PostgreSQL as a backend for UA Server')
   else:
     pg_dsn = None
-    logger.info('Using Cassandra as a backend for UA Server')
+    logger.warn('PostgreSQL backend configuration not found for UA Server')
   if pg_dsn:
     pg_connection_wrapper = (
         PostgresConnectionWrapper(dsn=pg_dsn[0])
@@ -150,66 +150,18 @@ def main():
   zk_client.start()
   connect_to_postgres(zk_client)
 
-  datastore_type = 'cassandra'
-
-  ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()
-
-  db = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
-
-  # Keep trying until it gets the schema.
-  backoff = 5
-  retries = 3
-  while retries >= 0:
-    try:
-      user_schema = db.get_schema_sync(USERS_TABLE)
-    except AppScaleDBConnectionError:
-      retries -= 1
-      time.sleep(backoff)
-      continue
-
-    if user_schema[0] in ERROR_CODES:
-      user_schema = user_schema[1:]
-    else:
-      retries -= 1
-      time.sleep(backoff)
-      continue
-    break
-
-  # If no response from cassandra
-  if retries == -1:
-    raise AppScaleDBConnectionError('No response from cassandra.')
-
   input_file = args.input
 
   with open(input_file, 'r') as fin:
     reader = csv.DictReader(fin, delimiter=',')
     # Iterate through all users in file
     for row in reader:
-      if pg_connection_wrapper:
-        if not row['applications']:
-          row['applications'] = None
-        else:
-          # delete square brackets added by csv module
-          apps = row['applications'][1:-1]
-          # csv module adds extra quotes each time
-          apps = apps.replace("'", "")
-          row['applications'] = '{' + apps + '}'
-        put_entity_sync(db, table_name, row['email'], USERS_SCHEMA, row)
+      if not row['applications']:
+        row['applications'] = None
       else:
-        # Convert dates to timestamp
-        t = str(time.mktime(datetime.datetime.strptime(
-          row['date_creation'], '%Y-%m-%d %H:%M:%S').timetuple()))
-        row['date_creation'] = t
-        t = str(time.mktime(datetime.datetime.strptime(
-          row['date_change'], '%Y-%m-%d %H:%M:%S').timetuple()))
-        row['date_change'] = t
-        t = str(time.mktime(datetime.datetime.strptime(
-          row['date_last_login'], '%Y-%m-%d %H:%M:%S').timetuple()))
-        row['date_last_login'] = t
-
+        # delete square brackets added by csv module
         apps = row['applications'][1:-1]
-        apps = apps.replace("'", "").replace(', ', ':')
-        row['applications'] = apps
-
-        array = [row[key] for key in USERS_SCHEMA]
-        put_entity_sync(db, USERS_TABLE, array[0], user_schema, array)
+        # csv module adds extra quotes each time
+        apps = apps.replace("'", "")
+        row['applications'] = '{' + apps + '}'
+      put_entity_sync(db, table_name, row['email'], USERS_SCHEMA, row)

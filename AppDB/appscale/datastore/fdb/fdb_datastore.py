@@ -34,7 +34,6 @@ from appscale.datastore.fdb.transactions import TransactionManager
 from appscale.datastore.fdb.utils import (
   _MAX_SEQUENTIAL_ID, ABSENT_VERSION, DS_ROOT, fdb, FDBErrorCodes,
   next_entity_version, ScatteredAllocator, TornadoFDB)
-from appscale.datastore.index_manager import IndexInaccessible
 
 sys.path.append(APPSCALE_PYTHON_APPSERVER)
 from google.appengine.datastore import entity_pb
