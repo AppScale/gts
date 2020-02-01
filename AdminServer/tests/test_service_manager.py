@@ -47,16 +47,14 @@ class TestDatastoreService(AsyncTestCase):
     http_client_mock.return_value = MagicMock(fetch=fake_fetch)
     yield datastore_server.start()
 
-    cmd = ['appscale-datastore',
-           '--type', 'cassandra', '--port', '4000', '--verbose']
+    cmd = ['appscale-datastore', '--port', '4000', '--verbose']
     self.assertEqual(popen_mock.call_count, 1)
     self.assertEqual(popen_mock.call_args[0][0], cmd)
 
   @patch.object(psutil, 'Process')
   def test_from_pid(self, process_mock):
     # Test that the server attributes are parsed correctly.
-    cmd = ['python', 'appscale-datastore',
-           '--type', 'cassandra', '--port', '4000']
+    cmd = ['python', 'appscale-datastore', '--port', '4000']
     process_mock.return_value = MagicMock(cmdline=MagicMock(return_value=cmd))
     server = ServerManager.from_pid(10000, datastore_service)
 
