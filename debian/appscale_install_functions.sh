@@ -333,42 +333,6 @@ installsolr7()
     update-rc.d solr disable
 }
 
-installcassandra()
-{
-    CASSANDRA_VER=3.11.2
-
-    # The following is a Cassandra package built from source with the inclusion
-    # of https://issues.apache.org/jira/browse/CASSANDRA-12942.
-    CASSANDRA_PACKAGE="apache-cassandra-${CASSANDRA_VER}-w-12942-bin.tar.gz"
-    CASSANDRA_PACKAGE_MD5="25a9039dba8fe7ffe5e5e560e65c1f6f"
-    cachepackage ${CASSANDRA_PACKAGE} ${CASSANDRA_PACKAGE_MD5}
-
-    # Remove old Cassandra environment directory.
-    rm -rf ${APPSCALE_HOME}/AppDB/cassandra
-
-    CASSANDRA_DIR="/opt/cassandra"
-    CASSANDRA_DATA_DIR="/opt/appscale/cassandra"
-    mkdir -p ${CASSANDRA_DIR}
-    mkdir -p ${CASSANDRA_DATA_DIR}
-    rm -rf ${CASSANDRA_DIR}/cassandra
-    tar xzf "${PACKAGE_CACHE}/${CASSANDRA_PACKAGE}" -C ${CASSANDRA_DIR}
-    mv -v ${CASSANDRA_DIR}/apache-cassandra-${CASSANDRA_VER} \
-        ${CASSANDRA_DIR}/cassandra
-
-    if ! id -u cassandra &> /dev/null ; then
-        useradd cassandra
-    fi
-    chown -R cassandra ${CASSANDRA_DIR}
-    chown -R cassandra ${CASSANDRA_DATA_DIR}
-}
-
-postinstallcassandra()
-{
-    mkdir -p ${CONFIG_DIR}/${APPSCALE_VERSION}
-    touch ${CONFIG_DIR}/${APPSCALE_VERSION}/cassandra
-}
-
-
 installservice()
 {
     # This must be absolute path of runtime.
@@ -469,6 +433,7 @@ installVersion()
         mv ${CONFIG_DIR}/VERSION ${CONFIG_DIR}/VERSION-$(date --rfc-3339=date)
     fi
     cp ${APPSCALE_HOME}/VERSION ${CONFIG_DIR}
+    mkdir -p ${CONFIG_DIR}/${APPSCALE_VERSION}
 }
 
 postinstallrsyslog()
