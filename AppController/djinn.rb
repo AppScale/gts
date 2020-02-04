@@ -3579,7 +3579,6 @@ class Djinn
     key = node.ssh_key
     HelperFunctions.ensure_image_is_appscale(ip, key)
     HelperFunctions.ensure_version_is_supported(ip, key)
-    HelperFunctions.ensure_db_is_supported(ip, @options['table'], key)
   end
 
   def copy_encryption_keys(dest_node)

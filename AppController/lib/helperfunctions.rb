@@ -871,18 +871,6 @@ module HelperFunctions
       " #{version} on it and try again.")
   end
 
-  def self.ensure_db_is_supported(ip, db, key)
-    version = get_appscale_version
-    if does_image_have_location?(ip, "/etc/appscale/#{version}/#{db}", key)
-      Djinn.log_debug("Image at #{ip} supports #{db}.")
-    else
-      fail_msg = "The image at #{ip} does not have support for #{db}." \
-        ' Please install support for this database and try again.'
-      Djinn.log_debug(fail_msg)
-      log_and_crash(fail_msg)
-    end
-  end
-
   # Examines the configuration file for the given version to see if it is
   # thread safe.
   #
