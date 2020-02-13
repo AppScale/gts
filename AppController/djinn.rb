@@ -440,6 +440,7 @@ class Djinn
   PARAMETER_DEFAULT = 1
   PARAMETER_SHOW = 2
   PARAMETERS_AND_CLASS = {
+    'aws_launch_template_id' => [String, nil, true],
     'aws_subnet_id' => [String, nil, true],
     'aws_vpc_id' => [String, nil, true],
     'azure_subscription_id' => [String, nil, false],
@@ -2166,13 +2167,6 @@ class Djinn
         return NOT_ENOUGH_OPEN_NODES
       end
 
-      # Ensure we have the default type to use for the autoscaled nodes.
-      if @options['instance_type'].nil?
-        Djinn.log_warn('instance_type is undefined, hence no ' \
-                       'spawning of instance is possible.')
-        return NOT_ENOUGH_OPEN_NODES
-      end
-
       Djinn.log_info("Need to spawn #{new_nodes_roles.length} VMs.")
 
       # We create here the needed nodes, with open role and no disk.
@@ -2770,11 +2764,8 @@ class Djinn
     # Next, find out this machine's public IP address. In a cloud deployment, we
     # have to rely on the metadata server, while in a cluster deployment, it's
     # the same as the private IP.
-    if ["ec2", "euca", "gce"].include?(@options['infrastructure'])
-      new_public_ip = HelperFunctions.get_public_ip_from_metadata_service
-    else
-      new_public_ip = new_private_ip
-    end
+    new_public_ip = HelperFunctions.get_public_ip_from_metadata_service
+    new_public_ip = new_private_ip if new_public_ip.nil?
 
     # Finally, replace anywhere that the old public or private IP addresses were
     # used with the new one.
@@ -3368,8 +3359,9 @@ class Djinn
     ServiceHelper.stop('appscale-instance-manager')
   end
 
+  # Cloud if infrastructure is configured
   def is_cloud?
-    return ['ec2', 'euca', 'gce', 'azure'].include?(@options['infrastructure'])
+    return /^[a-zA-Z0-9_-]{3,}$/.match?(@options['infrastructure'])
   end
 
   def update_python_package(target, pip="pip")
