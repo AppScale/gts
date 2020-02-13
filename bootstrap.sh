@@ -15,6 +15,7 @@ APPSCALE_TOOLS_BRANCH="master"
 AGENTS_BRANCH="master"
 THIRDPARTIES_BRANCH="master"
 GIT_TAG="last"
+GIT_CLONE_OPTS="--no-checkout"
 UNIT_TEST="N"
 
 BRANCH_PARAM_SPECIFIED="N"
@@ -111,6 +112,11 @@ while [ $# -gt 0 ]; do
         shift; if [ -z "${1}" ]; then usage; fi
         GIT_TAG="${1}";
         if [ "${GIT_TAG}" != "dev" ]; then TAG_PARAM_SPECIFIED="Y"; fi
+        shift; continue
+    fi
+    if [ "${1}" = "--clone-opts" ]; then
+        shift; if [ -z "${1}" ]; then usage; fi
+        GIT_CLONE_OPTS="${1}"
         shift; continue
     fi
     if [ "${1}" = "-t" ]; then
@@ -228,19 +234,19 @@ fi
 echo "Cloning appscale repositories"
 # We split the commands, to ensure it fails if branch doesn't
 # exists (Precise git will not fail otherwise).
-git clone ${APPSCALE_REPO} appscale
+git clone ${GIT_CLONE_OPTS} ${APPSCALE_REPO} appscale
 (cd appscale; git checkout ${APPSCALE_TARGET})
 VERSION=$(cat /root/appscale/VERSION | grep -oE "[0-9]+\.[0-9]+\.[0-9]+")
 
-git clone ${APPSCALE_TOOLS_REPO} appscale-tools
+git clone ${GIT_CLONE_OPTS} ${APPSCALE_TOOLS_REPO} appscale-tools
 (cd appscale-tools; git checkout "${TOOLS_TARGET}")
 
 if [ "${RELY_ON_TAG}" = "N" ] || version_ge "${VERSION}" 3.8.0; then
-    git clone ${AGENTS_REPO} appscale-agents
+    git clone ${GIT_CLONE_OPTS} ${AGENTS_REPO} appscale-agents
     (cd appscale-agents; git checkout "${AGENTS_TARGET}")
 fi
 if [ "${RELY_ON_TAG}" = "N" ] || version_ge "${VERSION}" 4.0.0; then
-    git clone ${THIRDPARTIES_REPO} appscale-thirdparties
+    git clone ${GIT_CLONE_OPTS} ${THIRDPARTIES_REPO} appscale-thirdparties
     (cd appscale-thirdparties; git checkout "${THIRDPARTIES_TARGET}")
 fi
 
