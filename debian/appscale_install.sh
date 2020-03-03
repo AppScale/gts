@@ -28,7 +28,7 @@ fi
 case "$1" in
     # At this time we cannot simply install pieces of AppScale, and the
     # space saving is minimal. So we install all the components.
-    all|core|cassandra)
+    all|core)
         # Scratch install of appscale including post script.
         installappscaleprofile
         . /etc/profile.d/appscale.sh
@@ -46,8 +46,6 @@ case "$1" in
         installsoappy
         installzookeeper
         postinstallzookeeper
-        installcassandra
-        postinstallcassandra
         postinstallrabbitmq
         installsolr
         installsolr7

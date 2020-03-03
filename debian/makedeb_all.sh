@@ -9,7 +9,6 @@ fi
 
 for comp in\
  core all\
- cassandra\
 
 do
     ./debian/makedeb.sh $comp $RELEASE

@@ -94,7 +94,7 @@ def connect_to_postgres(zk_client):
     logger.info('Using PostgreSQL as a backend for UA Server')
   else:
     pg_dsn = None
-    logger.info('Using Cassandra as a backend for UA Server')
+    logger.warn('PostgreSQL backend configuration not found for UA Server')
   if pg_dsn:
     pg_connection_wrapper = (
         PostgresConnectionWrapper(dsn=pg_dsn[0])
@@ -151,23 +151,6 @@ def create_backup_dir(backup_dir):
 
   logger.info("Backup dir created: {0}".format(backup_dir))
 
-def prepare_for_backup(rows):
-  """ Converts date fields to timestamp and application list to str.
-
-  Args:
-    rows: A tuple of all rows in postgres database.
-  """
-  # todo: delete it after removal of Cassandra
-  for row in rows:
-    # 2 - 4 indexes of dates
-    row[2] = datetime.datetime.fromtimestamp(row[2])
-    row[3] = datetime.datetime.fromtimestamp(row[3])
-    row[4] = datetime.datetime.fromtimestamp(row[4])
-    # 5 index of applications list
-    if row[5]:
-      row[5] = row[5].split(':')
-
-
 def main():
   logging.basicConfig(format=LOG_FORMAT, level=logging.INFO)
 
@@ -186,42 +169,9 @@ def main():
   zk_client.start()
   connect_to_postgres(zk_client)
 
-  datastore_type = 'cassandra'
-
-  ERROR_CODES = appscale_datastore.DatastoreFactory.error_codes()
-
-  db = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
-
-  # Keep trying until it gets the schema.
-  backoff = 5
-  retries = 3
-  while retries >= 0:
-    try:
-      user_schema = db.get_schema_sync(USERS_TABLE)
-    except AppScaleDBConnectionError:
-      retries -= 1
-      time.sleep(backoff)
-      continue
-
-    if user_schema[0] in ERROR_CODES:
-      user_schema = user_schema[1:]
-    else:
-      retries -= 1
-      time.sleep(backoff)
-      continue
-    break
-
-  # If no response from cassandra
-  if retries == -1:
-    raise AppScaleDBConnectionError('No response from cassandra.')
-
   schema_cols_num = len(USERS_SCHEMA)
 
-  if pg_connection_wrapper:
-    table = get_table_sync(db, table_name, USERS_SCHEMA)
-  else:
-    table = get_table_sync(db, USERS_TABLE, user_schema)[1:]
-    reshaped_table = reshape(table, schema_cols_num)
+  table = get_table_sync(db, table_name, USERS_SCHEMA)
 
   create_backup_dir(BACKUP_FILE_LOCATION)
 
@@ -233,9 +183,5 @@ def main():
   with open(output_file, 'w') as fout:
     writer = csv.DictWriter(fout, delimiter=',', fieldnames=USERS_SCHEMA)
     writer.writeheader()
-    if pg_connection_wrapper:
-      rows = [dict(zip(USERS_SCHEMA, row)) for row in table]
-    else:
-      prepare_for_backup(reshaped_table)
-      rows = [dict(zip(USERS_SCHEMA, row)) for row in reshaped_table]
+    rows = [dict(zip(USERS_SCHEMA, row)) for row in table]
     writer.writerows(rows)

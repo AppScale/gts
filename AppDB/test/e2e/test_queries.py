@@ -134,19 +134,3 @@ class TestQueryLimit(AsyncTestCase):
         yield self.datastore.delete(batch)
         batch = []
     yield self.datastore.delete(batch)
-
-  @gen_test
-  def test_cassandra_page_size(self):
-    entity_count = self.CASSANDRA_PAGE_SIZE + 1
-    batch = []
-    for _ in range(entity_count):
-      entity = Entity('Greeting', _app=PROJECT_ID)
-      batch.append(entity)
-      if len(batch) == self.BATCH_SIZE:
-        yield self.datastore.put_multi(batch)
-        batch = []
-    yield self.datastore.put_multi(batch)
-
-    query = Query('Greeting', _app=PROJECT_ID)
-    results = yield self.datastore.run_query(query)
-    self.assertEqual(len(results), entity_count)

@@ -1,7 +1,6 @@
 """
  Datastore Constants
 """
-import cassandra.cluster
 import re
 
 SECRET_LOCATION = "/etc/appscale/secret.key"
@@ -53,12 +52,8 @@ TERMINATING_STRING = chr(255) * 500
 # Tombstone value for soft deletes.
 TOMBSTONE = "APPSCALE_SOFT_DELETE"
 
-TRANSIENT_CASSANDRA_ERRORS = (
-  cassandra.Unavailable, cassandra.Timeout, cassandra.CoordinationFailure,
-  cassandra.OperationTimedOut, cassandra.cluster.NoHostAvailable)
-
 # The database backends supported by the AppScale datastore.
-VALID_DATASTORES = ['cassandra', 'fdb']
+VALID_DATASTORES = ['fdb']
 
 # Table names
 USERS_TABLE = "USERS__"
