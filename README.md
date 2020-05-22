@@ -1,4 +1,4 @@
-# AppScale
+# AppScale GTS (Open Source GAE Project)
 
 [![GitHub version](https://badge.fury.io/gh/AppScale%2Fappscale.svg)](http://badge.fury.io/gh/AppScale%2Fappscale)
 [![AppScale license](https://img.shields.io/badge/license-Apache%202-blue.svg)](https://github.com/AppScale/appscale/blob/master/LICENSE)
