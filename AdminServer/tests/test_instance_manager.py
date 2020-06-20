@@ -28,6 +28,7 @@ from appscale.common import (
   service_helper,
   testing
 )
+from appscale.admin.instance_manager.instance import Instance
 from appscale.common.service_helper import ServiceOperator
 
 options.define('login_ip', '127.0.0.1')
@@ -302,6 +303,79 @@ class TestInstanceManager(AsyncTestCase):
     fake_opener.should_receive('open').and_raise(IOError)
     instance_started = yield instance_manager._wait_for_app(port)
     self.assertEqual(False, instance_started)
+
+  @gen_test
+  def test_parallel_appservers(self):
+    testing.disable_logging()
+    version_details = {'runtime': 'python27',
+                       'revision': 1,
+                       'deployment': {
+                         'zip': {'sourceUrl': 'source.tar.gz'}},
+                         'appscaleExtensions': {'httpPort': '8080'}
+                       }
+    version_manager = flexmock(version_details=version_details,
+                               project_id = 'test',
+                               revision_key = 'test_default_v1_1',
+                               version_key = 'test_default_v1')
+    deployment_config = flexmock(
+      get_config = lambda x: {'default_max_appserver_memory': 400})
+
+
+    source_manager = flexmock()
+    response = Future()
+    response.set_result(None)
+    source_manager.should_receive('ensure_source'). \
+      with_args('test_default_v1_1', 'source.tar.gz', 'python27'). \
+      and_return(response)
+
+    instance_manager = InstanceManager(
+           None, None, None, None, deployment_config,
+           source_manager, None, None, None)
+    
+    # Start instance mocks
+    response = Future()
+    response.set_result((19999, []))
+    flexmock(instance_manager).should_receive('_ensure_api_server').\
+      and_return(response)
+
+    # write env 
+    flexmock(file_io).should_receive('write').and_return()
+
+    response = Future()
+    response.set_result(None)
+    flexmock(ServiceOperator).should_receive('start_async').\
+      and_return(response)
+ 
+    instance_manager._zk_client = flexmock()
+    instance_manager._zk_client.should_receive('ensure_path')
+
+    # Within add_routing
+    response = Future()
+    response.set_result(True)
+    flexmock(instance_manager).should_receive('_wait_for_app').\
+      and_return(response)
+    instance_manager._routing_client = flexmock()
+    instance_manager._routing_client.should_receive('register_instance').and_return()
+    
+    flexmock(utils).should_receive("setup_logrotate").and_return()
+
+
+    # Fulfill assignments mocks
+    instance_manager._service_operator = flexmock(
+      start_async=lambda service, wants, properties: response)
+    
+    instance_manager._login_server = '192.168.33.10'
+    instance_manager._running_instances = {Instance('test_default_v1_1', 20000)}
+    instance_manager._assignments = {'test_default_v1': [20000, -1, -1, -1, -1]}
+    instance_manager._projects_manager = flexmock()
+    instance_manager._projects_manager.should_receive('version_from_key')\
+      .and_return(version_manager)
+
+    yield instance_manager._fulfill_assignments()
+    should_be_running = {Instance('test_default_v1_1', x) for x in
+                            range(20000, 20005)}
+    assert instance_manager._running_instances == should_be_running
+
 
 if __name__ == "__main__":
   unittest.main()

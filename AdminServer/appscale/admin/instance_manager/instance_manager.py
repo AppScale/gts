@@ -4,6 +4,7 @@ import logging
 import monotonic
 import json
 import os
+import socket
 import urllib2
 
 from tornado import gen
@@ -442,20 +443,39 @@ class InstanceManager(object):
 
     yield self._clean_old_sources()
 
-  def _get_lowest_port(self):
+  def _get_lowest_port(self, excluded_ports):
     """ Determines the lowest usuable port for a new instance.
-
+    Args:
+      excluded_ports: A set of ports that the caller is planning on using.
+        This is used to make sure AppServers do not pick the same port since
+        it's possible for the port to not be in self._running_instances yet.
     Returns:
       An integer specifying a free port.
     """
     existing_ports = {instance.port for instance in self._running_instances}
     port = STARTING_INSTANCE_PORT
     while True:
-      if port in existing_ports:
+      if port in existing_ports or port in excluded_ports or not self._try_port(port):
         port += 1
         continue
 
       return port
+
+  def _try_port(self, port):
+    """ Helper method to check if the port is actually free or not.
+
+    Returns:
+      True if port is free, False otherwise.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    result = False
+    try:
+      sock.bind(("0.0.0.0", port))
+      result = True
+    except:
+      logger.info("Port {} is in use".format(port))
+    sock.close()
+    return result
 
   @gen.coroutine
   def _restart_unrouted_instances(self):
@@ -535,6 +555,11 @@ class InstanceManager(object):
 
       for instance in to_stop:
         yield self._stop_app_instance(instance)
+      excluded_ports = set()
+      for _, assigned_ports in self._assignments.items():
+        for port in assigned_ports:
+          if port != -1:
+            excluded_ports.add(port)
 
       for version_key, assigned_ports in self._assignments.items():
         try:
@@ -546,7 +571,6 @@ class InstanceManager(object):
 
         # The number of required instances that don't have an assigned port.
         new_assignment_count = sum(port == -1 for port in assigned_ports)
-
         # Stop instances that aren't assigned. If the assignment list includes
         # any -1s, match them to running instances that aren't in the assigned
         # ports list.
@@ -571,7 +595,9 @@ class InstanceManager(object):
                       and instance.port not in assigned_ports]
         to_start = max(new_assignment_count - len(candidates), 0)
         for _ in range(to_start):
-          yield self._start_instance(version, self._get_lowest_port())
+          port = self._get_lowest_port(excluded_ports)
+          excluded_ports.add(port)
+          yield self._start_instance(version, port)
 
   @gen.coroutine
   def _enforce_instance_details(self):
