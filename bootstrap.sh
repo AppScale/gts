@@ -6,10 +6,10 @@
 set -e
 
 # Defaults values for script parameters.
-APPSCALE_REPO="git://github.com/AppScale/appscale.git"
-APPSCALE_TOOLS_REPO="git://github.com/AppScale/appscale-tools.git"
-AGENTS_REPO="git://github.com/AppScale/appscale-agents.git"
-THIRDPARTIES_REPO="git://github.com/AppScale/appscale-thirdparties.git"
+APPSCALE_REPO="https://github.com/AppScale/appscale.git"
+APPSCALE_TOOLS_REPO="https://github.com/AppScale/appscale-tools.git"
+AGENTS_REPO="https://github.com/AppScale/appscale-agents.git"
+THIRDPARTIES_REPO="https://github.com/AppScale/appscale-thirdparties.git"
 APPSCALE_BRANCH="master"
 APPSCALE_TOOLS_BRANCH="master"
 AGENTS_BRANCH="master"
