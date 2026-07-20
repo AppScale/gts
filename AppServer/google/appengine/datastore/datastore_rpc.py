@@ -1915,7 +1915,7 @@ class TransactionOptions(Configuration):
   def propagation(value):
     """How existing transactions should be handled.
 
-    One of NESTED, MANDATORY, ALLOWED, INDEPENDENT. The interpertation of
+    One of NESTED, MANDATORY, ALLOWED, INDEPENDENT. The interpretation of
     these types is up to higher level run-in-transaction implementations.
 
     WARNING: Using anything other than NESTED for the propagation flag
